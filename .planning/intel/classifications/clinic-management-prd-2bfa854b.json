@@ -1,0 +1,27 @@
+{
+  "source_path": "/Users/sid/Code/clinicOS/docs/clinic-management-prd.md",
+  "type": "PRD",
+  "confidence": "high",
+  "manifest_override": false,
+  "title": "Product Requirements Document — Clinic Management Application for Independent & Small Clinics in India",
+  "summary": "Full-scope PRD for a single-plan, mobile-first clinic management platform for solo and small Indian clinics, covering personas, functional/non-functional requirements, and success metrics.",
+  "scope": [
+    "clinic management platform",
+    "multi-tenancy",
+    "appointment booking",
+    "patient records / EMR",
+    "e-prescriptions",
+    "diagnosis & visit management",
+    "lab records",
+    "reminders & notifications",
+    "referrals",
+    "billing & invoicing",
+    "AI assistive features",
+    "API access",
+    "ABDM/ABHA data-layer readiness",
+    "DPDP Act compliance"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": null
+}
