@@ -1,3 +1,7 @@
+---
+last_mapped_commit: f3441361462d6de5a1925d3d174bde9003273c39
+last_mapped_at: 2026-10-06
+---
 # Coding Conventions
 
 **Analysis Date:** 2026-10-06
@@ -110,6 +114,7 @@
 **Barrel Files:** Not specified in any project document; no precedent on disk.
 
 **Feature layout (prescriptive, from `AGENTS.md` §22):**
+
 ```text
 features/
   patients/
@@ -118,6 +123,7 @@ features/
   prescriptions/
   billing/
 ```
+
 Shared components live in a shared layer "only when they are genuinely reusable" — presence in two files is not sufficient justification.
 
 ## Cross-Cutting Rules (binding once code exists)

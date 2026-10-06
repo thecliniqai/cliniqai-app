@@ -1,3 +1,7 @@
+---
+last_mapped_commit: f3441361462d6de5a1925d3d174bde9003273c39
+last_mapped_at: 2026-10-06
+---
 # Testing Patterns
 
 **Analysis Date:** 2026-10-06
@@ -15,12 +19,14 @@
 - *Documented intent:* Not specified. Whatever runner is chosen, its native assertions are implied.
 
 **Run Commands (documented, not yet real):**
+
 ```bash
 npm run test          # AGENTS.md §48 — does NOT exist yet (no package.json)
 npm run typecheck     # AGENTS.md §28 — does NOT exist yet
 npm run lint          # AGENTS.md §28 — does NOT exist yet
 npx playwright test   # AGENTS.md §27/§48 — no playwright.config.* on disk
 ```
+
 `AGENTS.md` §48 explicitly warns: "Do not assume every command exists. Inspect `package.json` … before running or documenting commands." Today, inspection finds no `package.json` at all.
 
 ## Test File Organization
@@ -68,6 +74,7 @@ npx playwright test   # AGENTS.md §27/§48 — no playwright.config.* on disk
 **Requirements:** **None enforced** — no coverage tool, threshold, or target exists on disk or in `AGENTS.md`/`DESIGN.md`. No coverage percentage is documented as a goal.
 
 **View Coverage:**
+
 ```bash
 npm run test          # does not exist yet — no runner configured
 ```
