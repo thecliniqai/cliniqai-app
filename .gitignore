@@ -1,0 +1,55 @@
+# Dependencies
+node_modules
+/.pnp
+.pnp.js
+
+# Testing & Coverage
+/coverage
+/test-results
+playwright-report
+blob-report
+
+# Next.js build output
+/.next/
+/out/
+
+# Production
+/build
+/dist
+
+# Tooling runtime & agents
+.agents/
+.opencode/
+
+# Environment variables & secrets (AGENTS.md §32)
+.env
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Supabase local / secrets
+supabase/.temp
+.supabase
+
+# Debug & logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# OS files
+.DS_Store
+*.pem
+
+# IDE & editors
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

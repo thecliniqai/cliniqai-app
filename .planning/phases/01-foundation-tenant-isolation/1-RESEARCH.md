@@ -51,11 +51,11 @@ Phase 1 establishes the foundational infrastructure for ClinicQ: a fully isolate
 ### Supporting
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| [TanStack Query](https://tanstack.com/query/latest) | latest | Client server state | Interactive client components. AGENTS.md §5. |
-| [React Hook Form](https://react-hook-form.com/) | latest | Form handling | Clinic setup, staff invites. AGENTS.md §5. |
 | [Lucide React](https://lucide.dev/) | latest | Icons | Matches DESIGN.md (outline icons). |
 | [Tailwind CSS](https://tailwindcss.com/) | latest | Styling engine | Use DESIGN.md tokens/components; light-only. |
-| [@radix-ui/react-*](https://www.radix-ui.com/) | latest | Accessible primitives | Dialogs/dropdowns per AGENTS.md §5. |
+| [@radix-ui/react-*](https://www.radix-ui.com/) | latest | Accessible primitives | Accessible dialogs/popovers per AGENTS.md §5 when required. |
+
+*Deferred to later phases when complex client state/forms dictate (01-CONTEXT.md D-01):* TanStack Query, React Hook Form, Zustand.
 
 ### Alternatives Considered
 | Instead of | Could Use | Tradeoff |
@@ -64,8 +64,8 @@ Phase 1 establishes the foundational infrastructure for ClinicQ: a fully isolate
 
 **Installation:**
 ```bash
-npm i @supabase/supabase-js @supabase/ssr zod @tanstack/react-query react-hook-form lucide-react
-npm i -D typescript @types/node @types/react @types/react-dom eslint prettier @typescript-eslint/eslint-plugin @typescript-eslint/parser
+npm i @supabase/supabase-js @supabase/ssr zod lucide-react tailwindcss @tailwindcss/postcss
+npm i -D typescript @types/node @types/react @types/react-dom eslint eslint-config-next prettier @typescript-eslint/eslint-plugin @typescript-eslint/parser vitest @playwright/test
 ```
 
 **Version verification:** Verify packages exist on npm; for greenfield use latest stable compatible with Next.js 15. [ASSUMED: latest stable at implementation time; confirm via npm view before lockfile]
