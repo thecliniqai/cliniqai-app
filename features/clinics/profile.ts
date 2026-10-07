@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
+import { recordAudit } from "@/lib/audit/audit";
 import { Tenant } from "@/lib/db/types";
 
 import { ALLOWED_SPECIALTIES } from "./constants";
@@ -75,6 +76,16 @@ export async function updateClinicProfile(input: UpdateProfileInput): Promise<Up
       console.error("[features/clinics/profile] Failed to update profile:", error);
       return { success: false, error: "Unable to update clinic profile." };
     }
+
+    // Record audit trail for admin configuration change
+    await recordAudit({
+      action: "clinic.profile.update",
+      entityType: "clinic",
+      entityId: session.tenantId,
+      metadata: {
+        fields_changed: ["name", "address", "specialties", "timezone"],
+      },
+    });
 
     return { success: true, tenant: data as Tenant };
   } catch (err: unknown) {

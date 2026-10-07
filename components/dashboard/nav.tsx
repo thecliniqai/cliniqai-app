@@ -28,9 +28,15 @@ export function DashboardNav({ tenantName, role }: DashboardNavProps) {
       active: pathname === "/",
     },
     {
+      label: "Patients",
+      href: "/patients",
+      icon: Users,
+      active: pathname.startsWith("/patients"),
+    },
+    {
       label: "Staff & Team",
       href: "/staff",
-      icon: Users,
+      icon: Building2,
       active: pathname.startsWith("/staff"),
     },
     ...(isOwnerOrAdmin

@@ -53,6 +53,45 @@ export interface PaymentRecord {
   created_at: string;
 }
 
+export interface Patient {
+  id: string;
+  tenant_id: string;
+  full_name: string;
+  phone: string;
+  date_of_birth: string | null;
+  sex: "male" | "female" | "other" | null;
+  address: Record<string, unknown> | null;
+  abha_id: string | null;
+  hfr_facility_id?: string | null;
+  national_health_id?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLog {
+  id: number;
+  tenant_id: string;
+  actor_id: string | null;
+  actor_role: string;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  occurred_at: string;
+  metadata: Record<string, unknown> | null;
+}
+
+export interface ConsentRecord {
+  id: string;
+  tenant_id: string;
+  patient_id: string;
+  consent_type: string;
+  status: "granted" | "withdrawn";
+  recorded_by: string;
+  recorded_at: string;
+  note: string | null;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -169,6 +208,90 @@ export interface Database {
           method?: string;
           reference?: string;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      patients: {
+        Row: Patient;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          full_name: string;
+          phone: string;
+          date_of_birth?: string | null;
+          sex?: "male" | "female" | "other" | null;
+          address?: Record<string, unknown> | null;
+          abha_id?: string | null;
+          hfr_facility_id?: string | null;
+          national_health_id?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          full_name?: string;
+          phone?: string;
+          date_of_birth?: string | null;
+          sex?: "male" | "female" | "other" | null;
+          address?: Record<string, unknown> | null;
+          abha_id?: string | null;
+          hfr_facility_id?: string | null;
+          national_health_id?: string | null;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      audit_logs: {
+        Row: AuditLog;
+        Insert: {
+          id?: number;
+          tenant_id: string;
+          actor_id?: string | null;
+          actor_role: string;
+          action: string;
+          entity_type: string;
+          entity_id?: string | null;
+          occurred_at?: string;
+          metadata?: Record<string, unknown> | null;
+        };
+        Update: {
+          id?: number;
+          tenant_id?: string;
+          actor_id?: string | null;
+          actor_role?: string;
+          action?: string;
+          entity_type?: string;
+          entity_id?: string | null;
+          occurred_at?: string;
+          metadata?: Record<string, unknown> | null;
+        };
+        Relationships: [];
+      };
+      consent_records: {
+        Row: ConsentRecord;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          patient_id: string;
+          consent_type: string;
+          status: "granted" | "withdrawn";
+          recorded_by: string;
+          recorded_at?: string;
+          note?: string | null;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          patient_id?: string;
+          consent_type?: string;
+          status?: "granted" | "withdrawn";
+          recorded_by?: string;
+          recorded_at?: string;
+          note?: string | null;
         };
         Relationships: [];
       };
