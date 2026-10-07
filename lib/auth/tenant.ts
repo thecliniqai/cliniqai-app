@@ -21,11 +21,13 @@ export interface ActiveMembership {
   userId: string;
 }
 
+import { cookies } from "next/headers";
+
 /**
  * Derives the active tenant membership strictly on the server from session and database.
  * Never trust browser-supplied tenant IDs (AGENTS.md §7).
  */
-export async function getActiveMembership(): Promise<ActiveMembership> {
+export async function getActiveMembership(explicitTenantId?: string): Promise<ActiveMembership> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -50,8 +52,7 @@ export async function getActiveMembership(): Promise<ActiveMembership> {
     throw new NoClinicMembershipError();
   }
 
-  if (memberships.length > 1) {
-    // Keep promoted M:N model honest: require explicit tenant selection rather than guessing
+  if (memberships.length === 1) {
     return {
       tenantId: memberships[0].tenant_id,
       role: memberships[0].role,
@@ -59,9 +60,30 @@ export async function getActiveMembership(): Promise<ActiveMembership> {
     };
   }
 
+  // Multiple memberships: require explicit tenant selection rather than guessing (Plan 02 / Plan 05)
+  let targetTenantId = explicitTenantId;
+  if (!targetTenantId) {
+    try {
+      const cookieStore = await cookies();
+      targetTenantId = cookieStore.get("clinic_active_tenant")?.value;
+    } catch {
+      // In tests or outside Next.js request context
+    }
+  }
+
+  if (!targetTenantId) {
+    throw new MultipleClinicsSelectionRequiredError();
+  }
+
+  const match = memberships.find((m) => m.tenant_id === targetTenantId);
+  if (!match) {
+    throw new Error("Unauthorized: user is not a member of the requested tenant");
+  }
+
   return {
-    tenantId: memberships[0].tenant_id,
-    role: memberships[0].role,
+    tenantId: match.tenant_id,
+    role: match.role,
     userId: user.id,
   };
 }
+
