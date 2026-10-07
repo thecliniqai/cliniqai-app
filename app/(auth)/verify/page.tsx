@@ -17,6 +17,9 @@ function VerifyForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -37,9 +40,42 @@ function VerifyForm() {
       }
 
       router.push("/");
+      router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to verify code");
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    setResendMessage(null);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      const redirectUrl =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/auth/callback`
+          : undefined;
+
+      const { error: resendError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: redirectUrl,
+        },
+      });
+
+      if (resendError) {
+        setError(resendError.message);
+      } else {
+        setResendMessage("A new verification code has been sent!");
+      }
+    } catch {
+      setError("Failed to resend code");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -73,10 +109,34 @@ function VerifyForm() {
           />
         </Field>
 
+        {resendMessage && (
+          <p className="text-xs text-[var(--color-success)] text-center font-medium">
+            {resendMessage}
+          </p>
+        )}
+
         <Button type="submit" loading={loading} className="w-full mt-2">
           Verify and Continue
         </Button>
       </form>
+
+      <div className="mt-6 flex flex-col items-center gap-2 text-xs text-[var(--text-secondary)]">
+        <button
+          type="button"
+          onClick={handleResend}
+          disabled={resending}
+          className="text-[var(--color-brand)] font-medium hover:underline disabled:opacity-50 cursor-pointer"
+        >
+          {resending ? "Sending fresh code..." : "Didn't receive code? Resend"}
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          className="hover:underline cursor-pointer"
+        >
+          Use a different email
+        </button>
+      </div>
     </div>
   );
 }
