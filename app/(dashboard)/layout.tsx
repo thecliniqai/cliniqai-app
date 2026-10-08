@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership, NoClinicMembershipError } from "@/lib/auth/tenant";
-import { DashboardNav } from "@/components/dashboard/nav";
+import { AppLayoutShell } from "@/components/layout/app-layout-shell";
 
 export default async function DashboardLayout({
   children,
@@ -38,14 +38,12 @@ export default async function DashboardLayout({
   );
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3] flex flex-col">
-      <DashboardNav
-        tenantName={tenant?.name || "Clinic"}
-        role={membership.role}
-      />
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 md:p-8">
-        {children}
-      </main>
-    </div>
+    <AppLayoutShell
+      tenantName={tenant?.name || "Clinic"}
+      role={membership.role}
+      userEmail={user.email || "staff@clinic.com"}
+    >
+      {children}
+    </AppLayoutShell>
   );
 }
