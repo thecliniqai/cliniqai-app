@@ -22,11 +22,11 @@ export function DuplicateWarningBanner({
   return (
     <div
       role="alert"
-      className="w-full rounded-[var(--radius-lg)] border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] p-4 text-left flex flex-col gap-3 shadow-xs"
+      className="w-full rounded-xl border border-amber-300 bg-amber-50/70 p-4 sm:p-5 text-left flex flex-col gap-3 shadow-theme-xs"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2 text-[var(--status-warning-text)]">
-          <AlertCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
+        <div className="flex items-center gap-2 text-amber-900">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" aria-hidden="true" />
           <h4 className="text-sm font-semibold">
             Potential Duplicate Patient{matches.length > 1 ? "s" : ""} Found
           </h4>
@@ -34,39 +34,39 @@ export function DuplicateWarningBanner({
         <button
           type="button"
           onClick={onDismiss}
-          className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1 rounded-sm transition-colors"
+          className="text-amber-700 hover:text-amber-950 p-1 rounded-lg hover:bg-amber-100/60 transition-colors cursor-pointer"
           aria-label="Dismiss duplicate warning"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
-      <p className="text-xs text-[var(--text-secondary)]">
-        One or more existing patients match the phone number or name and age entered.
+      <p className="text-xs text-amber-800 leading-relaxed">
+        One or more existing records match this phone number or name and age.
         You can reuse the existing record or continue creating this as a new family member.
       </p>
 
-      <div className="flex flex-col gap-2 divide-y divide-[var(--status-warning-border)]/60">
+      <div className="flex flex-col gap-2.5 divide-y divide-amber-200/80 pt-1">
         {matches.map((m) => (
           <div
             key={m.patient.id}
-            className="pt-2 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            className="pt-2.5 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
           >
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-[var(--text-primary)]">
+                <span className="text-sm font-semibold text-gray-900">
                   {m.patient.full_name}
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[var(--surface-subtle)] text-[var(--text-secondary)]">
+                <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-white text-gray-600 border border-amber-200">
                   {m.patient.age != null ? `Age ${m.patient.age}` : "Age N/A"}
                 </span>
                 {m.confidence === "high" && (
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-xs bg-[var(--status-warning-text)] text-white">
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-600 text-white">
                     Exact Match
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+              <p className="text-xs text-gray-600 mt-1 tabular-nums">
                 {m.patient.phone} • {m.matchReason}
               </p>
             </div>
@@ -75,21 +75,23 @@ export function DuplicateWarningBanner({
               {onUseExisting ? (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="sm"
                   onClick={() => onUseExisting(m.patient.id)}
-                  className="bg-white hover:bg-[var(--surface-subtle)] text-xs h-8"
+                  startIcon={<UserCheck className="w-3.5 h-3.5 text-[#1769E0]" />}
                 >
-                  <UserCheck className="w-3.5 h-3.5 mr-1" />
                   Use Patient
                 </Button>
               ) : (
-                <Link
-                  href={`/patients/${m.patient.id}`}
-                  className="inline-flex items-center justify-center text-xs font-medium px-2.5 py-1.5 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-white text-[var(--text-primary)] hover:bg-[var(--surface-subtle)] transition-colors h-8"
-                >
-                  <UserCheck className="w-3.5 h-3.5 mr-1" />
-                  View Patient
+                <Link href={`/patients/${m.patient.id}`}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    startIcon={<UserCheck className="w-3.5 h-3.5 text-[#1769E0]" />}
+                  >
+                    View Record
+                  </Button>
                 </Link>
               )}
             </div>
@@ -97,15 +99,15 @@ export function DuplicateWarningBanner({
         ))}
       </div>
 
-      <div className="flex justify-end pt-1">
+      <div className="flex justify-end pt-2 border-t border-amber-200/60">
         <Button
           type="button"
-          variant="secondary"
+          variant="ghost"
           size="sm"
           onClick={onDismiss}
-          className="text-xs h-8"
+          className="text-xs text-amber-900 hover:bg-amber-100"
         >
-          Continue Creating as New
+          Dismiss & Continue Creating as New
         </Button>
       </div>
     </div>

@@ -51,7 +51,6 @@ export function AgeDobInput({
         onAgeChange?.(derivedAge);
       }
     } else {
-      // If DOB cleared and internalAge was derived, don't clear if user explicitly entered it
       onDobChange?.(null);
     }
   };
@@ -78,7 +77,7 @@ export function AgeDobInput({
     <div className="w-full flex flex-col gap-1.5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
-          <label htmlFor="patient-dob" className="text-sm font-medium text-[var(--text-primary)]">
+          <label htmlFor="patient-dob" className="text-sm font-medium text-gray-700">
             Date of Birth
           </label>
           <Input
@@ -94,7 +93,7 @@ export function AgeDobInput({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="patient-age" className="text-sm font-medium text-[var(--text-primary)]">
+          <label htmlFor="patient-age" className="text-sm font-medium text-gray-700">
             Age (Years)
           </label>
           <Input
@@ -112,7 +111,7 @@ export function AgeDobInput({
         </div>
       </div>
       {error && (
-        <p className="text-xs text-[var(--status-error)] font-medium mt-0.5">
+        <p className="text-xs text-[#B42318] font-medium mt-0.5">
           {error}
         </p>
       )}
