@@ -10,8 +10,12 @@ export type AuditAction =
   | "clinic.profile.update"
   | "visit.create"
   | "visit.status_update"
+  | "visit.cancel"
+  | "visit.auto_promoted_from_waitlist"
   | "queue.check_in"
-  | "queue.transition";
+  | "queue.transition"
+  | "waitlist.add"
+  | "waitlist.promote";
 
 export interface RecordAuditParams {
   action: AuditAction;
@@ -31,6 +35,10 @@ const ALLOWED_METADATA_KEYS = new Set([
   "old_status",
   "new_status",
   "priority",
+  "promoted_from_waitlist_id",
+  "promoted_visit_id",
+  "target_date",
+  "is_overbooked",
 ]);
 
 /**
