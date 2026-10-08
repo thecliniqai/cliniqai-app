@@ -10,8 +10,8 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Foundation & Tenant Isolation** - Clinic signup, staff OTP onboarding, RBAC, audit logging, compliance-ready schemas, database-level tenant isolation
-- [ ] **Phase 2: Patient Records & Scheduling** - Patient registration/search/dedup, visit timeline, per-doctor calendar, walk-in queue, waitlist
+- [x] **Phase 1: Foundation & Tenant Isolation** - Clinic signup, staff OTP onboarding, RBAC, audit logging, compliance-ready schemas, database-level tenant isolation
+- [x] **Phase 2: Patient Records & Scheduling** - Patient registration/search/dedup, visit timeline, per-doctor calendar, walk-in queue, waitlist
 - [ ] **Phase 3: Consultation & Prescribing** - Specialty templates, visit workflow states, ICD-10 diagnosis, e-prescriptions with PDF delivery, provisional per-visit billing
 - [ ] **Phase 4: Labs & Referrals** - Lab orders/results with abnormal flagging, in- and out-of-network referrals with tracking
 - [ ] **Phase 5: Communications & AI Assist** - SMS/WhatsApp reminders and two-way replies, communication audit log, labeled assistive AI features
@@ -28,7 +28,7 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
   2. Each role (Owner/Admin, Doctor, Receptionist, Nurse) gets only its permitted actions, enforced server-side — not just hidden in the UI
   3. No user can see or query another clinic's data under any circumstance (verified by explicit cross-tenant tests)
   4. Patient records created from day one include the optional ABHA field and immutable consent records, and every view/edit of a patient record appears in the audit log
-**Plans**: TBD
+**Plans**: 5 plans completed (01-01 through 01-05)
 **UI hint**: yes
 
 ### Phase 2: Patient Records & Scheduling
@@ -40,7 +40,7 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
   2. Staff find any patient by name, phone, or patient ID and open a chronological, filterable visit-history timeline with attachments
   3. Staff book, confirm, reschedule, and cancel appointments on a per-doctor calendar with the full state set, and unintended double-booking is blocked (overbooking configurable)
   4. Walk-in tokens and scheduled appointments appear in the same queue view, and cancelled slots are released to captured waitlist entries
-**Plans**: TBD
+**Plans**: 4 plans completed (02-01, 02-02, 02-03, 02-04)
 **UI hint**: yes
 
 ### Phase 3: Consultation & Prescribing
