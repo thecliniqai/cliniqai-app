@@ -56,9 +56,16 @@ function filterMetadata(metadata?: Record<string, unknown>): Record<string, unkn
  * Failure to write audit logs throws an error rather than silently proceeding,
  * guaranteeing audit integrity on sensitive paths.
  */
-export async function recordAudit(params: RecordAuditParams): Promise<void> {
-  const membership = await getActiveMembership();
-  const supabase = await createClient();
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/db/types";
+
+export async function recordAudit(
+  params: RecordAuditParams,
+  clientOverride?: SupabaseClient<Database>,
+  membershipOverride?: { userId: string; tenantId: string; role?: string }
+): Promise<void> {
+  const membership = membershipOverride || (await getActiveMembership());
+  const supabase = clientOverride || (await createClient());
 
   const safeMetadata = filterMetadata(params.metadata);
 
@@ -69,7 +76,7 @@ export async function recordAudit(params: RecordAuditParams): Promise<void> {
   ).insert({
     tenant_id: membership.tenantId,
     actor_id: membership.userId,
-    actor_role: membership.role,
+    actor_role: membership.role || "owner",
     action: params.action,
     entity_type: params.entityType,
     entity_id: params.entityId || null,

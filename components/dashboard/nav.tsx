@@ -7,6 +7,8 @@ import {
   CreditCard,
   LayoutDashboard,
   Building2,
+  Clock,
+  Calendar,
 } from "lucide-react";
 import { UserRole } from "@/lib/db/types";
 
@@ -26,6 +28,18 @@ export function DashboardNav({ tenantName, role }: DashboardNavProps) {
       href: "/",
       icon: LayoutDashboard,
       active: pathname === "/",
+    },
+    {
+      label: "Live Queue",
+      href: "/queue",
+      icon: Clock,
+      active: pathname.startsWith("/queue"),
+    },
+    {
+      label: "Calendar",
+      href: "/calendar",
+      icon: Calendar,
+      active: pathname.startsWith("/calendar"),
     },
     {
       label: "Patients",

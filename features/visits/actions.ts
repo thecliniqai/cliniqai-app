@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import { recordAudit } from "@/lib/audit/audit";
-import { Visit, VisitOriginType, VisitStatus } from "@/lib/db/types";
+import { Visit, VisitOriginType, VisitStatus, Database } from "@/lib/db/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 const createVisitSchema = z.object({
@@ -23,7 +24,11 @@ export type CreateVisitResult =
   | { success: true; visitId: string }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
-export async function createVisit(input: CreateVisitInput): Promise<CreateVisitResult> {
+export async function createVisit(
+  input: CreateVisitInput,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<CreateVisitResult> {
   const parseResult = createVisitSchema.safeParse(input);
   if (!parseResult.success) {
     const fieldErrors: Record<string, string[]> = {};
@@ -39,10 +44,10 @@ export async function createVisit(input: CreateVisitInput): Promise<CreateVisitR
     };
   }
 
-  const supabase = await createClient();
+  const supabase = clientOverride || (await createClient());
 
   try {
-    const session = await requirePermission("appointments:edit");
+    const session = sessionOverride || (await requirePermission("appointments:edit"));
     const data = parseResult.data;
 
     // Insert visit under RLS
@@ -76,18 +81,26 @@ export async function createVisit(input: CreateVisitInput): Promise<CreateVisitR
     }
 
     // Audit record creation
-    await recordAudit({
-      action: "visit.create",
-      entityType: "visit",
-      entityId: newVisit.id,
-      metadata: {
-        origin_type: data.origin_type,
-        fields_changed: ["created"],
+    await recordAudit(
+      {
+        action: "visit.create",
+        entityType: "visit",
+        entityId: newVisit.id,
+        metadata: {
+          origin_type: data.origin_type,
+          fields_changed: ["created"],
+        },
       },
-    });
+      clientOverride,
+      session
+    );
 
-    revalidatePath("/calendar");
-    revalidatePath("/queue");
+    try {
+      revalidatePath("/calendar");
+      revalidatePath("/queue");
+    } catch {
+      // Ignore revalidate errors in non-Next.js runtime (e.g. tests)
+    }
     return { success: true, visitId: newVisit.id };
   } catch (err: unknown) {
     return {
@@ -103,30 +116,50 @@ export type GetVisitsResult =
 
 export async function getVisitsForDate(
   dateStr: string,
-  doctorId?: string
+  doctorId?: string,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
 ): Promise<GetVisitsResult> {
-  const supabase = await createClient();
+  const supabase = clientOverride || (await createClient());
 
   try {
-    const session = await requirePermission("appointments:view");
+    const session = sessionOverride || (await requirePermission("appointments:view"));
 
     // Compute start and end of day in UTC for boundary filtering
     const startOfDay = `${dateStr}T00:00:00.000Z`;
     const endOfDay = `${dateStr}T23:59:59.999Z`;
 
     let query = (supabase.from("visits") as unknown as {
-      select: (cols: string) => any;
+      select: (cols: string) => {
+        eq: (col: string, val: string) => {
+          or: (f1: string) => {
+            or: (f2: string) => {
+              order: (c: string, opts: Record<string, unknown>) => Promise<{ data: Visit[] | null; error: { message: string } | null }>;
+              eq: (col: string, val: string) => {
+                order: (c: string, opts: Record<string, unknown>) => Promise<{ data: Visit[] | null; error: { message: string } | null }>;
+              };
+            };
+          };
+        };
+      };
     })
       .select("*, patients(full_name, phone, age, date_of_birth)")
       .eq("tenant_id", session.tenantId)
       .or(`scheduled_at.gte.${startOfDay},created_at.gte.${startOfDay}`)
       .or(`scheduled_at.lte.${endOfDay},created_at.lte.${endOfDay}`);
 
-    if (doctorId) {
-      query = query.eq("doctor_id", doctorId);
-    }
+    let data: Visit[] | null = null;
+    let error: { message: string } | null = null;
 
-    const { data, error } = await query.order("scheduled_at", { ascending: true, nullsFirst: false });
+    if (doctorId) {
+      const res = await query.eq("doctor_id", doctorId).order("scheduled_at", { ascending: true, nullsFirst: false });
+      data = res.data;
+      error = res.error;
+    } else {
+      const res = await query.order("scheduled_at", { ascending: true, nullsFirst: false });
+      data = res.data;
+      error = res.error;
+    }
 
     if (error) {
       console.error("[features/visits/actions] Failed to fetch visits:", error);
@@ -148,12 +181,14 @@ export type UpdateVisitStatusResult =
 
 export async function updateVisitStatus(
   visitId: string,
-  newStatus: VisitStatus
+  newStatus: VisitStatus,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
 ): Promise<UpdateVisitStatusResult> {
-  const supabase = await createClient();
+  const supabase = clientOverride || (await createClient());
 
   try {
-    const session = await requirePermission("appointments:edit");
+    const session = sessionOverride || (await requirePermission("appointments:edit"));
 
     // Fetch existing visit
     const { data: existing, error: readError } = await (
@@ -194,19 +229,27 @@ export async function updateVisitStatus(
     }
 
     // Record audit event
-    await recordAudit({
-      action: "visit.status_update",
-      entityType: "visit",
-      entityId: visitId,
-      metadata: {
-        old_status: oldStatus,
-        new_status: newStatus,
-        fields_changed: ["status"],
+    await recordAudit(
+      {
+        action: "visit.status_update",
+        entityType: "visit",
+        entityId: visitId,
+        metadata: {
+          old_status: oldStatus,
+          new_status: newStatus,
+          fields_changed: ["status"],
+        },
       },
-    });
+      clientOverride,
+      session
+    );
 
-    revalidatePath("/calendar");
-    revalidatePath("/queue");
+    try {
+      revalidatePath("/calendar");
+      revalidatePath("/queue");
+    } catch {
+      // Ignore revalidate errors in non-Next.js runtime (e.g. tests)
+    }
     return { success: true };
   } catch (err: unknown) {
     return {
