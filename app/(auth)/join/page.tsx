@@ -52,7 +52,7 @@ function JoinClinicContent() {
     // 1. Verify OTP with Supabase Auth
     const { error: verifyError } = await supabase.auth.verifyOtp({
       email,
-      token: otp,
+      token: otp.trim(),
       type: "email",
     });
 
@@ -124,7 +124,7 @@ function JoinClinicContent() {
         ) : (
           <form onSubmit={handleVerifyAndJoin} className="space-y-5">
             <Field
-              label="6-Digit Verification Code"
+              label="Verification Code"
               htmlFor="otp"
               required
               help="Check your email for the one-time login code."
@@ -133,12 +133,12 @@ function JoinClinicContent() {
                 id="otp"
                 type="text"
                 pattern="[0-9]*"
-                maxLength={6}
+                maxLength={10}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 className="text-center tracking-widest text-lg font-bold"
                 required
-                placeholder="123456"
+                placeholder="Enter verification code"
                 autoFocus
               />
             </Field>

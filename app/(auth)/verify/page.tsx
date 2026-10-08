@@ -97,7 +97,7 @@ function VerifyForm() {
 
       <form onSubmit={handleVerify} className="space-y-5">
         <Field
-          label="6-Digit Verification Code"
+          label="Verification Code"
           htmlFor="token"
           error={error || undefined}
           required
@@ -108,9 +108,9 @@ function VerifyForm() {
             inputMode="numeric"
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            placeholder="123456"
+            placeholder="Enter verification code"
             className="text-center tracking-widest text-lg font-bold"
-            maxLength={6}
+            maxLength={10}
             required
             autoFocus
           />
