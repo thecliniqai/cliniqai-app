@@ -186,3 +186,38 @@ export async function getPatient(patientId: string): Promise<Patient | null> {
 
   return data as Patient;
 }
+
+export async function searchPatients(query: string): Promise<Patient[]> {
+  const clean = query.trim();
+  if (!clean) return [];
+
+  const supabase = await createClient();
+  const session = await requirePermission("patients:view");
+
+  // Sanitize query to avoid PostgREST filter syntax breaks
+  const sanitized = clean.replace(/[,()]/g, " ").trim();
+  if (!sanitized) return [];
+
+  // Search across full_name, phone, or abha_id
+  const isDigits = /^\d+$/.test(sanitized);
+  let filterString = `full_name.ilike.%${sanitized}%,phone.ilike.%${sanitized}%,abha_id.ilike.%${sanitized}%`;
+
+  if (isDigits && sanitized.length === 10) {
+    filterString += `,phone.ilike.%+91${sanitized}%`;
+  }
+
+  const { data, error } = await (supabase.from("patients") as any)
+    .select("*")
+    .eq("tenant_id", session.tenantId)
+    .or(filterString)
+    .order("created_at", { ascending: false })
+    .limit(25);
+
+  if (error || !data) {
+    console.error("[searchPatients] Query error:", error);
+    return [];
+  }
+
+  return data as Patient[];
+}
+

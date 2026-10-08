@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { addToWaitlist } from "@/features/waitlist/actions";
-import { findPotentialDuplicates } from "@/features/patients/dedup";
-import { createPatient } from "@/features/patients/actions";
+import { createPatient, searchPatients } from "@/features/patients/actions";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
 import { X, Clock, Search, UserPlus, UserCheck } from "lucide-react";
 import { Patient } from "@/lib/db/types";
@@ -64,15 +63,12 @@ export function WaitlistDrawer({
 
     const timer = setTimeout(async () => {
       try {
-        const isNumeric = /^\+?[\d\s-]+$/.test(searchQuery);
-        const matches = await findPotentialDuplicates(
-          isNumeric ? { phone: searchQuery } : { fullName: searchQuery }
-        );
-        setSearchResults(matches.map((m) => m.patient));
-      } catch {
-        // Search error handling
+        const matches = await searchPatients(searchQuery);
+        setSearchResults(matches);
+      } catch (err) {
+        console.error("Patient search failed:", err);
       }
-    }, 250);
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [searchQuery, tab]);

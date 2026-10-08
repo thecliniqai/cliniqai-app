@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
-import { createPatient } from "@/features/patients/actions";
+import { createPatient, searchPatients } from "@/features/patients/actions";
 import { bookAppointment } from "@/features/visits/scheduling";
-import { findPotentialDuplicates } from "@/features/patients/dedup";
 import { OverbookDialog } from "./overbook-dialog";
 import { X, Search, UserPlus, UserCheck, Calendar, Clock } from "lucide-react";
 import { Patient, Visit } from "@/lib/db/types";
@@ -75,15 +74,12 @@ export function BookingDrawer({
 
     const timer = setTimeout(async () => {
       try {
-        const isNumeric = /^\+?[\d\s-]+$/.test(searchQuery);
-        const matches = await findPotentialDuplicates(
-          isNumeric ? { phone: searchQuery } : { fullName: searchQuery }
-        );
-        setSearchResults(matches.map((m) => m.patient));
-      } catch {
-        // Search error handling
+        const matches = await searchPatients(searchQuery);
+        setSearchResults(matches);
+      } catch (err) {
+        console.error("Patient search failed:", err);
       }
-    }, 250);
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [searchQuery, tab]);

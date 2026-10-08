@@ -5,10 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
-import { createPatient } from "@/features/patients/actions";
+import { createPatient, searchPatients } from "@/features/patients/actions";
 import { createVisit } from "@/features/visits/actions";
 import { checkInVisit } from "@/features/queue/actions";
-import { findPotentialDuplicates } from "@/features/patients/dedup";
 import { X, Search, UserPlus, UserCheck } from "lucide-react";
 import { Patient } from "@/lib/db/types";
 
@@ -66,11 +65,8 @@ export function WalkInDrawer({
 
     const timer = setTimeout(async () => {
       try {
-        const matches = await findPotentialDuplicates({
-          phone: searchQuery.trim(),
-          fullName: searchQuery.trim(),
-        });
-        setSearchResults(matches.map((m) => m.patient));
+        const patients = await searchPatients(searchQuery.trim());
+        setSearchResults(patients);
       } catch (err) {
         console.error("Patient search failed:", err);
       }
