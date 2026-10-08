@@ -1,4 +1,5 @@
 import React from "react";
+import { cn } from "@/lib/utils";
 
 export interface FieldProps {
   label: string;
@@ -7,6 +8,7 @@ export interface FieldProps {
   help?: string;
   helpText?: string;
   required?: boolean;
+  className?: string;
   children: React.ReactNode;
 }
 
@@ -17,25 +19,26 @@ export function Field({
   help,
   helpText,
   required = false,
+  className,
   children,
 }: FieldProps) {
   const displayHelp = help || helpText;
 
   return (
-    <div className="flex flex-col gap-1.5 w-full text-left">
+    <div className={cn("flex flex-col gap-1.5 w-full text-left", className)}>
       <label
         htmlFor={htmlFor}
-        className="text-sm font-medium text-[var(--text-primary)]"
+        className="text-sm font-medium text-gray-700 flex items-center gap-1 select-none"
       >
-        {label}
-        {required && <span className="text-[var(--status-error)] ml-1">*</span>}
+        <span>{label}</span>
+        {required && <span className="text-[#B42318] text-xs font-bold">*</span>}
       </label>
       {children}
       {displayHelp && !error && (
-        <p className="text-xs text-[var(--text-secondary)]">{displayHelp}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{displayHelp}</p>
       )}
       {error && (
-        <p id={`${htmlFor}-error`} className="text-xs text-[var(--status-error)] font-medium">
+        <p id={`${htmlFor}-error`} className="text-xs text-[#B42318] font-medium mt-0.5">
           {error}
         </p>
       )}
