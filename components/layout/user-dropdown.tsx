@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
-import { LogOut, User, Building, Shield } from "lucide-react";
+import { LogOut, Building, Shield } from "lucide-react";
 import Link from "next/link";
 
 export interface UserDropdownProps {
