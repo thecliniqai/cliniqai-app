@@ -40,8 +40,12 @@ export async function createPatient(input: PatientInput): Promise<CreatePatientR
         full_name: data.full_name,
         phone: data.phone,
         date_of_birth: data.date_of_birth,
+        age: data.age ?? null,
         sex: data.sex || null,
         address: data.address || null,
+        allergies: data.allergies || [],
+        chronic_conditions: data.chronic_conditions || [],
+        emergency_contact: data.emergency_contact || null,
         abha_id: data.abha_id,
         created_by: session.userId,
       })
@@ -110,6 +114,7 @@ export async function updatePatient(
     if (existing.full_name !== data.full_name) changedFields.push("full_name");
     if (existing.phone !== data.phone) changedFields.push("phone");
     if (existing.date_of_birth !== data.date_of_birth) changedFields.push("date_of_birth");
+    if (existing.age !== data.age) changedFields.push("age");
     if (existing.sex !== data.sex) changedFields.push("sex");
     if (existing.abha_id !== data.abha_id) changedFields.push("abha_id");
 
@@ -119,8 +124,12 @@ export async function updatePatient(
         full_name: data.full_name,
         phone: data.phone,
         date_of_birth: data.date_of_birth,
+        age: data.age ?? null,
         sex: data.sex || null,
         address: data.address || null,
+        allergies: data.allergies || [],
+        chronic_conditions: data.chronic_conditions || [],
+        emergency_contact: data.emergency_contact || null,
         abha_id: data.abha_id,
         updated_at: new Date().toISOString(),
       })
