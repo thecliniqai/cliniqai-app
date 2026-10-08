@@ -1,0 +1,43 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": null,
+  "phases": [
+    {
+      "number": "1",
+      "name": "Foundation & Tenant Isolation",
+      "status": "pending"
+    },
+    {
+      "number": "2",
+      "name": "Patient Records & Scheduling",
+      "status": "pending"
+    },
+    {
+      "number": "3",
+      "name": "Consultation & Prescribing",
+      "status": "pending"
+    },
+    {
+      "number": "4",
+      "name": "Labs & Referrals",
+      "status": "pending"
+    },
+    {
+      "number": "5",
+      "name": "Communications & AI Assist",
+      "status": "pending"
+    },
+    {
+      "number": "6",
+      "name": "API & Launch Readiness",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd-progress",
+    "label": "Show progress",
+    "reason": "Unsure of state — showing progress"
+  },
+  "updated_at": "2026-10-08T09:18:11.631Z"
+}
