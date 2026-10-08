@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
+import { Stethoscope, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,20 +48,24 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-sm bg-white p-6 rounded-[var(--radius-lg)] border border-[var(--border-default)] shadow-sm">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+    <main className="min-h-screen bg-gray-50/70 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white p-8 sm:p-10 rounded-2xl border border-gray-200 shadow-theme-sm">
+        {/* Clinic Logo & Brand */}
+        <div className="mb-8 text-center flex flex-col items-center">
+          <div className="w-12 h-12 rounded-2xl bg-brand-500 text-white flex items-center justify-center shadow-theme-xs mb-4">
+            <Stethoscope className="w-6 h-6" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
             Sign in to ClinicQ
           </h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Enter your email to receive a one-time sign-in code
+          <p className="text-sm text-gray-500 mt-1.5 max-w-xs">
+            Enter your email to receive a secure one-time verification code
           </p>
         </div>
 
-        <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
+        <form onSubmit={handleSendOtp} className="space-y-5">
           <Field
-            label="Email address"
+            label="Email Address"
             htmlFor="email"
             error={error || undefined}
             required
@@ -76,11 +81,24 @@ export default function LoginPage() {
             />
           </Field>
 
-          <Button type="submit" loading={loading} className="w-full mt-2">
-            Send code
+          <Button
+            type="submit"
+            variant="primary"
+            loading={loading}
+            className="w-full h-11 text-sm font-semibold gap-2 shadow-theme-xs"
+          >
+            <span>Send Verification Code</span>
+            <ArrowRight className="w-4 h-4" />
           </Button>
         </form>
+
+        <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+          <p className="text-xs text-gray-400">
+            Secure multi-tenant healthcare operating system
+          </p>
+        </div>
       </div>
     </main>
   );
 }
+

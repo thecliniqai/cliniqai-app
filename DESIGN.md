@@ -2198,3 +2198,61 @@ Never sacrifice the first six for the last two.
 > **The goal is not to build the most visually impressive clinic application.**
 >
 > **The goal is to build the clinic application that feels so clear, calm, and polished that users barely notice the interface — they simply get their work done.**
+
+---
+
+# 46. Phase 2B Harmonization & Component Specifications (TailAdmin Reference)
+
+Phase 2B reconciled the visual language of the application with the component and layout discipline of the **TailAdmin Free Next.js Admin Dashboard**, while strictly adhering to the light-only design foundation, canonical healthcare blue (`#1769E0`), and multi-tenant security architecture.
+
+## 46.1 Token Mappings (Tailwind v4 `@theme`)
+
+Configured in `app/globals.css`:
+
+```css
+@theme {
+  /* Brand Healthcare Blue Scale */
+  --color-brand-50: #EAF2FF;
+  --color-brand-100: #D6E6FF;
+  --color-brand-200: #ADCFFF;
+  --color-brand-300: #85B7FF;
+  --color-brand-400: #4D93FF;
+  --color-brand-500: #1769E0;  /* Canonical Accent */
+  --color-brand-600: #1255B8;
+  --color-brand-700: #0D408A;
+  --color-brand-800: #092C5F;
+  --color-brand-900: #041630;
+
+  /* Restrained Shadows */
+  --shadow-theme-xs: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
+  --shadow-theme-sm: 0px 1px 3px 0px rgba(16, 24, 40, 0.10), 0px 1px 2px 0px rgba(16, 24, 40, 0.06);
+  --shadow-theme-md: 0px 4px 8px -2px rgba(16, 24, 40, 0.10), 0px 2px 4px -2px rgba(16, 24, 40, 0.06);
+  --shadow-theme-lg: 0px 12px 16px -4px rgba(16, 24, 40, 0.08), 0px 4px 6px -2px rgba(16, 24, 40, 0.03);
+}
+```
+
+## 46.2 Component Primitives (`components/ui/`)
+
+| Primitive | Purpose | Key Specifications |
+| :--- | :--- | :--- |
+| `Button` | Interactive actions | Variants: `primary`, `secondary`, `outline`, `ghost`, `danger`. Minimum height: 44px on mobile / 40px desktop. Built-in loading spinner. |
+| `Input` | Textual data entry | `h-11 px-3.5 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-500/20`. |
+| `Field` | Form label + error wrapper | Clear labels, required asterisks, descriptive help text, WCAG-compliant error text. |
+| `Select` | Dropdown selections | Styled native select with chevron icon and consistent height. |
+| `Card` | Information container | `rounded-2xl border border-gray-200 bg-white shadow-theme-xs`. Header, Title, Description, Content, Footer slots. |
+| `Badge` | Status indicator | Variants: `light`, `solid`. Colors: `primary`, `success`, `warning`, `error`, `info`, `gray`. Specialized `StatusBadge` for clinical visit stages. |
+| `Table` | Tabular data presentation | `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`. Clean hairline dividers (`divide-gray-100`). |
+| `Modal` | Centered dialog overlays | Backdrop blur, Escape key and backdrop click dismiss, trap focus, rounded-2xl container. |
+| `Dropdown` | Popover contextual menus | Keyboard navigation, outside click listener, positionable alignment. |
+| `Alert` | Inline feedback callouts | Variants: `info`, `success`, `warning`, `error`. Clean icon and dismiss actions. |
+| `EmptyState` | Zero-data placeholders | Clean illustration/icon container, descriptive heading, contextual primary action button. |
+
+## 46.3 Layout Shell Architecture (`components/layout/`)
+
+- **`SidebarContext`:** React Context tracking `isExpanded`, `isMobileOpen`, `toggleSidebar`, `toggleMobileSidebar`, and `closeMobileSidebar`.
+- **`AppSidebar`:** Responsive sidebar with desktop collapsible state (290px expanded vs 90px collapsed) and mobile off-canvas drawer mode. Groups navigation items into *Clinical Operations* and *Administration*.
+- **`AppHeader`:** Sticky top header with mobile hamburger toggle, global patient search trigger (`⌘K`), active role badge, and user dropdown menu.
+- **`UserDropdown`:** Authenticated user menu displaying identity initials, role badge, clinic tenant identifier, and functional sign-out action via Server Action.
+- **`Backdrop`:** Animated backdrop overlay for mobile off-canvas drawer transitions.
+- **`AppLayoutShell`:** Client shell container coordinating sidebar, header, and main page scroll viewport.
+

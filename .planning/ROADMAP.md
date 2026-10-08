@@ -64,11 +64,11 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
   5. All existing integration tests continue to pass and Next.js production build succeeds with zero compiler errors.
 
 Plans:
-- [ ] 02.1-01: Foundation, Tokens & Core UI Primitives
-- [ ] 02.1-02: TailAdmin Application Shell & Navigation
-- [ ] 02.1-03: Dashboard & Patient Management Redesign
-- [ ] 02.1-04: Doctor Calendar & Live Queue Redesign
-- [ ] 02.1-05: Team, Settings, Auth & Responsive/Visual Verification
+- [x] 02.1-01: Foundation, Tokens & Core UI Primitives
+- [x] 02.1-02: TailAdmin Application Shell & Navigation
+- [x] 02.1-03: Dashboard & Patient Management Redesign
+- [x] 02.1-04: Doctor Calendar & Live Queue Redesign
+- [x] 02.1-05: Team, Settings, Auth & Responsive/Visual Verification
 
 ### Phase 3: Consultation & Prescribing
 
