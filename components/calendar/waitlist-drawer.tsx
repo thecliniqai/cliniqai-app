@@ -141,7 +141,7 @@ export function WaitlistDrawer({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-xs transition-opacity"
         onClick={onClose}
       />
 
@@ -149,33 +149,43 @@ export function WaitlistDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="waitlist-drawer-title"
-        className="fixed inset-y-0 right-0 z-40 w-full max-w-lg bg-[var(--surface-primary)] border-l border-[var(--border-default)] shadow-2xl flex flex-col"
+        className="fixed inset-y-0 right-0 z-40 w-full max-w-lg bg-white border-l border-gray-200 shadow-2xl flex flex-col"
       >
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border-default)] bg-[var(--surface-subtle)]">
-          <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-amber-600" />
-            <h2 id="waitlist-drawer-title" className="text-lg font-bold text-[var(--text-primary)]">
-              Add Patient to Waitlist
-            </h2>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-white">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 border border-amber-200">
+              <Clock className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 id="waitlist-drawer-title" className="text-base font-bold text-gray-900">
+                Add Patient to Waitlist
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Eligible for automatic promotion on slot cancellation
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close drawer"
-            className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-md hover:bg-[var(--surface-primary)]"
+            className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md">
-              {error}
+            <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2">
+              <span className="font-semibold">{error}</span>
             </div>
           )}
 
-          <div className="bg-[var(--surface-subtle)] p-3 rounded-lg border border-[var(--border-default)] space-y-3">
+          <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200 space-y-3.5">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Waitlist Preferences
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Target Date" htmlFor="wl-date" required>
                 <Input
@@ -192,7 +202,7 @@ export function WaitlistDrawer({
                   id="wl-doctor"
                   value={doctorId}
                   onChange={(e) => setDoctorId(e.target.value)}
-                  className="w-full h-11 px-3 text-sm rounded-md border border-[var(--border-default)] bg-[var(--surface-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                 >
                   <option value="any">Any Available Doctor</option>
                   {doctors.map((doc) => (
@@ -210,7 +220,7 @@ export function WaitlistDrawer({
                   id="wl-window"
                   value={timeWindow}
                   onChange={(e) => setTimeWindow(e.target.value)}
-                  className="w-full h-11 px-3 text-sm rounded-md border border-[var(--border-default)] bg-[var(--surface-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                 >
                   <option value="Morning (9 AM - 1 PM)">Morning (9 AM - 1 PM)</option>
                   <option value="Afternoon (1 PM - 5 PM)">Afternoon (1 PM - 5 PM)</option>
@@ -224,7 +234,7 @@ export function WaitlistDrawer({
                   id="wl-priority"
                   value={priority}
                   onChange={(e) => setPriority(Number(e.target.value))}
-                  className="w-full h-11 px-3 text-sm rounded-md border border-[var(--border-default)] bg-[var(--surface-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                 >
                   <option value={0}>Normal (0)</option>
                   <option value={5}>High (5)</option>
@@ -245,17 +255,17 @@ export function WaitlistDrawer({
 
           {/* Patient Selection Tabs */}
           <div>
-            <div className="flex border-b border-[var(--border-default)] mb-4">
+            <div className="flex border-b border-gray-200 mb-4">
               <button
                 type="button"
                 onClick={() => {
                   setTab("search");
                   setNewPatient({ full_name: "", phone: "", age: null, date_of_birth: null });
                 }}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
                   tab === "search"
-                    ? "border-[var(--brand-primary)] text-[var(--brand-primary)]"
-                    : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    ? "border-brand-500 text-brand-500"
+                    : "border-transparent text-gray-500 hover:text-gray-900"
                 }`}
               >
                 <Search className="w-4 h-4" />
@@ -268,10 +278,10 @@ export function WaitlistDrawer({
                   setTab("new");
                   setChosenPatient(null);
                 }}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
                   tab === "new"
-                    ? "border-[var(--brand-primary)] text-[var(--brand-primary)]"
-                    : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    ? "border-brand-500 text-brand-500"
+                    : "border-transparent text-gray-500 hover:text-gray-900"
                 }`}
               >
                 <UserPlus className="w-4 h-4" />
@@ -289,16 +299,22 @@ export function WaitlistDrawer({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                    <Search className="w-4 h-4 text-[var(--text-muted)] absolute right-3 top-3.5 pointer-events-none" />
+                    <Search className="w-4 h-4 text-gray-400 absolute right-3 top-3.5 pointer-events-none" />
                   </div>
                 </Field>
 
                 {chosenPatient ? (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center justify-between">
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-semibold text-amber-800 uppercase">Selected Patient</div>
-                      <div className="text-sm font-bold text-[var(--text-primary)]">{chosenPatient.full_name}</div>
-                      <div className="text-xs text-[var(--text-secondary)]">{chosenPatient.phone}</div>
+                      <div className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">
+                        Selected Patient
+                      </div>
+                      <div className="text-sm font-bold text-gray-900 mt-0.5">
+                        {chosenPatient.full_name}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-0.5">
+                        {chosenPatient.phone}
+                      </div>
                     </div>
                     <Button
                       type="button"
@@ -312,19 +328,23 @@ export function WaitlistDrawer({
                 ) : (
                   <div className="space-y-2">
                     {searchResults.length > 0 && (
-                      <div className="divide-y divide-[var(--border-default)] border border-[var(--border-default)] rounded-md max-h-48 overflow-y-auto">
+                      <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto bg-white shadow-xs">
                         {searchResults.map((p) => (
                           <button
                             key={p.id}
                             type="button"
                             onClick={() => setChosenPatient(p)}
-                            className="w-full text-left p-3 hover:bg-[var(--surface-subtle)] flex items-center justify-between"
+                            className="w-full text-left p-3 hover:bg-gray-50 flex items-center justify-between transition-colors cursor-pointer"
                           >
                             <div>
-                              <div className="text-sm font-medium text-[var(--text-primary)]">{p.full_name}</div>
-                              <div className="text-xs text-[var(--text-secondary)]">{p.phone}</div>
+                              <div className="text-sm font-semibold text-gray-900">
+                                {p.full_name}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {p.phone}
+                              </div>
                             </div>
-                            <UserCheck className="w-4 h-4 text-[var(--brand-primary)]" />
+                            <UserCheck className="w-4 h-4 text-brand-500 shrink-0" />
                           </button>
                         ))}
                       </div>
@@ -368,7 +388,7 @@ export function WaitlistDrawer({
           </div>
         </div>
 
-        <div className="p-4 border-t border-[var(--border-default)] bg-[var(--surface-subtle)] flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
           <Button
             type="button"
             variant="secondary"
@@ -382,6 +402,7 @@ export function WaitlistDrawer({
             variant="primary"
             onClick={handleSubmit}
             loading={loading}
+            className="bg-amber-600 hover:bg-amber-700 text-white border-transparent focus:ring-amber-500"
           >
             Add to Waitlist
           </Button>

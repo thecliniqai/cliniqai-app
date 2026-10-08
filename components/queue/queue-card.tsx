@@ -33,31 +33,31 @@ export function QueueCard({ item, onRefresh }: QueueCardProps) {
       case "booked":
       case "confirmed":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--surface-subtle)] text-[var(--text-secondary)] border border-[var(--border-default)]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
             Booked
           </span>
         );
       case "waiting":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[var(--status-warning-bg)] text-[var(--status-warning-text)] border border-[var(--status-warning-border)]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
             Waiting
           </span>
         );
       case "in_consultation":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200">
             In Consultation
           </span>
         );
       case "completed":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
             Completed
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-500">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-50 text-gray-500">
             {visit.status}
           </span>
         );
@@ -65,38 +65,38 @@ export function QueueCard({ item, onRefresh }: QueueCardProps) {
   };
 
   return (
-    <div className="w-full bg-white border border-[var(--border-default)] rounded-[var(--radius-lg)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[var(--border-focus)] transition-all shadow-xs">
-      <div className="flex items-start sm:items-center gap-3.5">
+    <div className="w-full bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-gray-300 transition-all shadow-xs">
+      <div className="flex items-start sm:items-center gap-4">
         {/* Token Number Box */}
-        <div className="shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-[var(--radius-md)] bg-[var(--surface-subtle)] border border-[var(--border-default)] text-center">
+        <div className="shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-gray-50 border border-gray-200 text-center shadow-2xs">
           {queueToken ? (
             <>
-              <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
                 Token
               </span>
-              <span className="text-base font-bold text-[var(--text-primary)]">
+              <span className="text-base font-bold text-gray-900 leading-tight">
                 #{String(queueToken.token_number).padStart(2, "0")}
               </span>
             </>
           ) : (
-            <Clock className="w-5 h-5 text-[var(--text-muted)]" />
+            <Clock className="w-5 h-5 text-gray-400" />
           )}
         </div>
 
         {/* Patient Details */}
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold text-[var(--text-primary)]">
+            <h3 className="text-base font-bold text-gray-900">
               {patient?.full_name || "Patient"}
             </h3>
             {getStatusBadge()}
             {visit.origin_type === "walk_in" ? (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-xs text-[11px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
                 Walk-In
               </span>
             ) : (
               scheduledTimeStr && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-xs text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                   <Clock className="w-3 h-3 mr-1" />
                   Appt {scheduledTimeStr}
                 </span>
@@ -104,19 +104,30 @@ export function QueueCard({ item, onRefresh }: QueueCardProps) {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--text-secondary)]">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs text-gray-500">
             {patient?.age != null && <span>Age {patient.age}</span>}
-            {patient?.phone && <span>{patient.phone}</span>}
+            {patient?.phone && (
+              <>
+                <span>•</span>
+                <span>{patient.phone}</span>
+              </>
+            )}
             {doctorName && (
-              <span className="flex items-center text-[var(--text-primary)] font-medium">
-                <Stethoscope className="w-3.5 h-3.5 mr-1 text-[var(--text-muted)]" />
-                Dr. {doctorName}
-              </span>
+              <>
+                <span>•</span>
+                <span className="inline-flex items-center text-gray-700 font-medium">
+                  <Stethoscope className="w-3.5 h-3.5 mr-1 text-gray-400" />
+                  Dr. {doctorName}
+                </span>
+              </>
             )}
             {visit.reason_for_visit && (
-              <span className="italic text-[var(--text-muted)]">
-                • {visit.reason_for_visit}
-              </span>
+              <>
+                <span>•</span>
+                <span className="text-gray-600 font-medium">
+                  {visit.reason_for_visit}
+                </span>
+              </>
             )}
           </div>
         </div>

@@ -55,40 +55,52 @@ export function DoctorTimeline({
   };
 
   return (
-    <div className="overflow-x-auto bg-[var(--surface-primary)] border border-[var(--border-default)] rounded-xl shadow-xs">
-      <div className="min-w-[760px]">
+    <div className="overflow-x-auto bg-white border border-gray-200 rounded-2xl shadow-xs">
+      <div className="min-w-[780px]">
         {/* Doctors Header Row */}
-        <div className="grid grid-cols-[100px_repeat(auto-fit,minmax(200px,1fr))] border-b border-[var(--border-default)] bg-[var(--surface-subtle)] sticky top-0 z-10">
-          <div className="p-3 text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center justify-center border-r border-[var(--border-default)]">
-            <Clock className="w-3.5 h-3.5 mr-1" />
+        <div className="grid grid-cols-[110px_repeat(auto-fit,minmax(210px,1fr))] border-b border-gray-200 bg-gray-50/80 sticky top-0 z-10 backdrop-blur-xs">
+          <div className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center justify-center border-r border-gray-200">
+            <Clock className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
             Time
           </div>
           {doctors.map((doc) => (
             <div
               key={doc.id}
-              className="p-3 text-sm font-semibold text-[var(--text-primary)] border-r border-[var(--border-default)] last:border-r-0 text-center truncate"
+              className="p-3 border-r border-gray-200 last:border-r-0 flex items-center justify-center gap-2.5 truncate"
             >
-              {doc.name}
+              <div className="w-8 h-8 rounded-full bg-brand-50 border border-brand-200 text-brand-600 font-bold text-xs flex items-center justify-center shrink-0">
+                {doc.name.replace(/^(Dr\.|Staff)\s*/i, "").charAt(0) || "D"}
+              </div>
+              <div className="text-left truncate">
+                <div className="text-sm font-semibold text-gray-900 truncate">
+                  {doc.name}
+                </div>
+                <div className="text-[11px] text-gray-500 font-medium">
+                  Available Today
+                </div>
+              </div>
             </div>
           ))}
         </div>
 
         {/* Time Slots Grid */}
-        <div className="divide-y divide-[var(--border-default)]">
+        <div className="divide-y divide-gray-100">
           {timeSlots.map((timeStr) => {
             const isHourMark = timeStr.endsWith(":00");
 
             return (
               <div
                 key={timeStr}
-                className={`grid grid-cols-[100px_repeat(auto-fit,minmax(200px,1fr))] min-h-[48px] ${
-                  isHourMark ? "bg-white" : "bg-[var(--surface-primary)]"
+                className={`grid grid-cols-[110px_repeat(auto-fit,minmax(210px,1fr))] min-h-[52px] ${
+                  isHourMark ? "bg-white" : "bg-gray-50/20"
                 }`}
               >
                 {/* Time Label */}
                 <div
-                  className={`px-2 py-2 text-xs text-[var(--text-secondary)] flex items-center justify-center border-r border-[var(--border-default)] ${
-                    isHourMark ? "font-bold text-[var(--text-primary)]" : "font-normal"
+                  className={`px-3 py-2 text-xs flex items-center justify-center border-r border-gray-100 ${
+                    isHourMark
+                      ? "font-bold text-gray-900 bg-gray-50/50"
+                      : "font-normal text-gray-500"
                   }`}
                 >
                   {formatSlotLabel(timeStr)}
@@ -101,26 +113,26 @@ export function DoctorTimeline({
                   return (
                     <div
                       key={doc.id}
-                      className="p-1 border-r border-[var(--border-default)] last:border-r-0 relative min-h-[48px] flex flex-col justify-center"
+                      className="p-1.5 border-r border-gray-100 last:border-r-0 relative min-h-[52px] flex flex-col justify-center"
                     >
                       {slotVisits.length > 0 ? (
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           {slotVisits.map((v) => (
                             <div
                               key={v.id}
-                              className={`p-2 rounded-md border text-xs flex items-center justify-between gap-2 shadow-2xs ${
+                              className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 shadow-2xs transition-all ${
                                 v.is_overbooked
-                                  ? "bg-amber-50 border-amber-300 text-amber-900"
+                                  ? "bg-amber-50 border-amber-300 text-amber-950"
                                   : v.status === "in_consultation"
-                                  ? "bg-emerald-50 border-emerald-300 text-emerald-900"
-                                  : "bg-blue-50 border-blue-200 text-blue-900"
+                                  ? "bg-emerald-50 border-emerald-300 text-emerald-950"
+                                  : "bg-brand-50/80 border-brand-200 text-brand-950"
                               }`}
                             >
                               <div className="truncate flex-1">
-                                <div className="font-semibold truncate">
+                                <div className="font-semibold text-gray-900 truncate">
                                   {v.patients?.full_name || "Patient"}
                                 </div>
-                                <div className="text-[10px] text-[var(--text-secondary)] truncate">
+                                <div className="text-[11px] text-gray-600 truncate mt-0.5">
                                   {v.reason_for_visit || "Consultation"} • {v.estimated_duration_minutes}m
                                 </div>
                               </div>
@@ -129,7 +141,7 @@ export function DoctorTimeline({
                                 {v.is_overbooked && (
                                   <span
                                     title="Overbooked slot"
-                                    className="p-0.5 rounded text-amber-600"
+                                    className="p-1 rounded text-amber-600 bg-amber-100/80"
                                   >
                                     <AlertCircle className="w-3.5 h-3.5" />
                                   </span>
@@ -139,7 +151,7 @@ export function DoctorTimeline({
                                   onClick={() => onCancelVisit(v.id)}
                                   title="Cancel Appointment"
                                   aria-label="Cancel Appointment"
-                                  className="p-1 rounded text-[var(--text-muted)] hover:text-red-600 hover:bg-white/60 transition-colors"
+                                  className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-white/80 transition-colors cursor-pointer"
                                 >
                                   <XCircle className="w-4 h-4" />
                                 </button>
@@ -151,7 +163,7 @@ export function DoctorTimeline({
                         <button
                           type="button"
                           onClick={() => onSlotClick(doc.id, timeStr)}
-                          className="w-full h-full min-h-[40px] rounded hover:bg-[var(--surface-subtle)] group flex items-center justify-center text-transparent hover:text-[var(--brand-primary)] text-xs font-semibold transition-colors"
+                          className="w-full h-full min-h-[44px] rounded-lg hover:border hover:border-dashed hover:border-brand-300 hover:bg-brand-50/30 group flex items-center justify-center text-transparent hover:text-brand-600 text-xs font-semibold transition-all cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5 mr-1" />
                           <span>Book</span>

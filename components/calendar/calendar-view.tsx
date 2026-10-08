@@ -109,15 +109,15 @@ export function CalendarView({
     <div className="space-y-6">
       {/* Promotion Notification Banner */}
       {promotionNotice && (
-        <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-lg flex items-center justify-between text-emerald-800 text-sm animate-in fade-in">
-          <div className="flex items-center gap-2 font-medium">
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-emerald-900 text-sm shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2.5 font-medium">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <span>{promotionNotice}</span>
           </div>
           <button
             type="button"
             onClick={() => setPromotionNotice(null)}
-            className="text-emerald-700 hover:text-emerald-900 font-semibold text-xs ml-4"
+            className="text-emerald-700 hover:text-emerald-900 font-semibold text-xs ml-4 cursor-pointer"
           >
             Dismiss
           </button>
@@ -125,12 +125,12 @@ export function CalendarView({
       )}
 
       {/* Top Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[var(--border-default)]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-gray-200">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
             Doctor Timeline & Calendar
           </h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-0.5">
+          <p className="text-sm text-gray-500 mt-0.5">
             Multi-doctor day schedule with double-booking safeguards and waitlist promotion.
           </p>
         </div>
@@ -154,7 +154,7 @@ export function CalendarView({
               setBookingTime("09:00");
               setIsBookingOpen(true);
             }}
-            className="flex items-center gap-2 shadow-sm font-semibold"
+            className="flex items-center gap-2 font-semibold shadow-theme-xs"
           >
             <UserPlus className="w-4 h-4" />
             <span>+ Book Appointment</span>
@@ -163,14 +163,14 @@ export function CalendarView({
       </div>
 
       {/* Date Switcher & Summary Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-[var(--surface-primary)] p-3 rounded-lg border border-[var(--border-default)]">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-3.5 rounded-2xl border border-gray-200 shadow-xs">
         {/* Date Navigator */}
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => navigateDate(-1)}
             aria-label="Previous Day"
-            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] transition-colors"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -178,9 +178,9 @@ export function CalendarView({
           <button
             type="button"
             onClick={setToday}
-            className="px-3 min-h-[44px] flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)] rounded-md border border-[var(--border-default)] hover:bg-[var(--surface-subtle)] transition-colors"
+            className="px-4 min-h-[44px] flex items-center gap-2 text-sm font-semibold text-gray-900 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
           >
-            <Calendar className="w-4 h-4 text-[var(--brand-primary)]" />
+            <Calendar className="w-4 h-4 text-brand-500" />
             <span>{formatDisplayDate(currentDate)}</span>
           </button>
 
@@ -188,7 +188,7 @@ export function CalendarView({
             type="button"
             onClick={() => navigateDate(1)}
             aria-label="Next Day"
-            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md border border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--surface-subtle)] hover:text-[var(--text-primary)] transition-colors"
+            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors cursor-pointer"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -205,20 +205,20 @@ export function CalendarView({
 
       {/* Waitlist Mini-Strip if entries exist */}
       {waitlistEntries.length > 0 && (
-        <div className="bg-amber-50/60 border border-amber-200/80 rounded-lg p-3 text-xs text-amber-900">
-          <div className="font-bold flex items-center gap-1 mb-1">
-            <UserCheck className="w-3.5 h-3.5" />
+        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 text-xs text-amber-900 shadow-2xs">
+          <div className="font-bold flex items-center gap-1.5 mb-2 text-amber-950">
+            <UserCheck className="w-4 h-4 text-amber-700" />
             <span>Eligible for Auto-Promotion on Cancellation (D-08):</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {waitlistEntries.map((e) => (
               <span
                 key={e.id}
-                className="inline-flex items-center gap-1 bg-white px-2 py-1 rounded border border-amber-200 text-amber-950 font-medium"
+                className="inline-flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-amber-200 text-amber-950 font-medium shadow-2xs"
               >
                 <span>{e.patient?.full_name || "Patient"}</span>
                 {e.priority > 0 && (
-                  <span className="text-[10px] px-1 bg-amber-100 rounded text-amber-800 font-bold">
+                  <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 rounded text-amber-800 font-bold">
                     P{e.priority}
                   </span>
                 )}

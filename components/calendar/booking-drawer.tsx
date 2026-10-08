@@ -171,7 +171,7 @@ export function BookingDrawer({
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 z-40 bg-gray-900/50 backdrop-blur-xs transition-opacity"
         onClick={onClose}
       />
 
@@ -179,36 +179,46 @@ export function BookingDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="booking-drawer-title"
-        className="fixed inset-y-0 right-0 z-40 w-full max-w-lg bg-[var(--surface-primary)] border-l border-[var(--border-default)] shadow-2xl flex flex-col"
+        className="fixed inset-y-0 right-0 z-40 w-full max-w-lg bg-white border-l border-gray-200 shadow-2xl flex flex-col"
       >
         {/* Drawer Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border-default)] bg-[var(--surface-subtle)]">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-[var(--brand-primary)]" />
-            <h2 id="booking-drawer-title" className="text-lg font-bold text-[var(--text-primary)]">
-              Schedule Appointment
-            </h2>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-white">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-500 border border-brand-100">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 id="booking-drawer-title" className="text-base font-bold text-gray-900">
+                Schedule Appointment
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Reserve time slot and assign to doctor schedule
+              </p>
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close drawer"
-            className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-md hover:bg-[var(--surface-primary)]"
+            className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md">
-              {error}
+            <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2">
+              <span className="font-semibold">{error}</span>
             </div>
           )}
 
           {/* Slot Info Card */}
-          <div className="bg-[var(--surface-subtle)] p-3 rounded-lg border border-[var(--border-default)] space-y-3">
+          <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200 space-y-3.5">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              Slot & Assignment
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Appointment Date" htmlFor="appt-date" required>
                 <Input
@@ -229,7 +239,7 @@ export function BookingDrawer({
                     onChange={(e) => setTime(e.target.value)}
                     required
                   />
-                  <Clock className="w-4 h-4 text-[var(--text-muted)] absolute right-3 top-3.5 pointer-events-none" />
+                  <Clock className="w-4 h-4 text-gray-400 absolute right-3 top-3.5 pointer-events-none" />
                 </div>
               </Field>
             </div>
@@ -240,7 +250,7 @@ export function BookingDrawer({
                   id="appt-doctor"
                   value={doctorId}
                   onChange={(e) => setDoctorId(e.target.value)}
-                  className="w-full h-11 px-3 text-sm rounded-md border border-[var(--border-default)] bg-[var(--surface-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                 >
                   {doctors.map((doc) => (
                     <option key={doc.id} value={doc.id}>
@@ -255,7 +265,7 @@ export function BookingDrawer({
                   id="appt-duration"
                   value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
-                  className="w-full h-11 px-3 text-sm rounded-md border border-[var(--border-default)] bg-[var(--surface-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-primary)]"
+                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                 >
                   <option value={15}>15 Minutes</option>
                   <option value={30}>30 Minutes</option>
@@ -277,17 +287,17 @@ export function BookingDrawer({
 
           {/* Patient Tabs */}
           <div>
-            <div className="flex border-b border-[var(--border-default)] mb-4">
+            <div className="flex border-b border-gray-200 mb-4">
               <button
                 type="button"
                 onClick={() => {
                   setTab("search");
                   setNewPatient({ full_name: "", phone: "", age: null, date_of_birth: null });
                 }}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
                   tab === "search"
-                    ? "border-[var(--brand-primary)] text-[var(--brand-primary)]"
-                    : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    ? "border-brand-500 text-brand-500"
+                    : "border-transparent text-gray-500 hover:text-gray-900"
                 }`}
               >
                 <Search className="w-4 h-4" />
@@ -300,10 +310,10 @@ export function BookingDrawer({
                   setTab("new");
                   setChosenPatient(null);
                 }}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
                   tab === "new"
-                    ? "border-[var(--brand-primary)] text-[var(--brand-primary)]"
-                    : "border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                    ? "border-brand-500 text-brand-500"
+                    : "border-transparent text-gray-500 hover:text-gray-900"
                 }`}
               >
                 <UserPlus className="w-4 h-4" />
@@ -322,16 +332,22 @@ export function BookingDrawer({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                    <Search className="w-4 h-4 text-[var(--text-muted)] absolute right-3 top-3.5 pointer-events-none" />
+                    <Search className="w-4 h-4 text-gray-400 absolute right-3 top-3.5 pointer-events-none" />
                   </div>
                 </Field>
 
                 {chosenPatient ? (
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+                  <div className="p-3.5 bg-brand-50 border border-brand-200 rounded-xl flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-semibold text-blue-700 uppercase">Selected Patient</div>
-                      <div className="text-sm font-bold text-[var(--text-primary)]">{chosenPatient.full_name}</div>
-                      <div className="text-xs text-[var(--text-secondary)]">{chosenPatient.phone}</div>
+                      <div className="text-[11px] font-bold text-brand-700 uppercase tracking-wider">
+                        Selected Patient
+                      </div>
+                      <div className="text-sm font-bold text-gray-900 mt-0.5">
+                        {chosenPatient.full_name}
+                      </div>
+                      <div className="text-xs text-gray-600 mt-0.5">
+                        {chosenPatient.phone}
+                      </div>
                     </div>
                     <Button
                       type="button"
@@ -345,19 +361,23 @@ export function BookingDrawer({
                 ) : (
                   <div className="space-y-2">
                     {searchResults.length > 0 && (
-                      <div className="divide-y divide-[var(--border-default)] border border-[var(--border-default)] rounded-md max-h-48 overflow-y-auto">
+                      <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto bg-white shadow-xs">
                         {searchResults.map((p) => (
                           <button
                             key={p.id}
                             type="button"
                             onClick={() => setChosenPatient(p)}
-                            className="w-full text-left p-3 hover:bg-[var(--surface-subtle)] flex items-center justify-between"
+                            className="w-full text-left p-3 hover:bg-gray-50 flex items-center justify-between transition-colors cursor-pointer"
                           >
                             <div>
-                              <div className="text-sm font-medium text-[var(--text-primary)]">{p.full_name}</div>
-                              <div className="text-xs text-[var(--text-secondary)]">{p.phone}</div>
+                              <div className="text-sm font-semibold text-gray-900">
+                                {p.full_name}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {p.phone} • {p.age != null ? `Age ${p.age}` : "Age N/A"}
+                              </div>
                             </div>
-                            <UserCheck className="w-4 h-4 text-[var(--brand-primary)]" />
+                            <UserCheck className="w-4 h-4 text-brand-500 shrink-0" />
                           </button>
                         ))}
                       </div>
@@ -403,7 +423,7 @@ export function BookingDrawer({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 border-t border-[var(--border-default)] bg-[var(--surface-subtle)] flex items-center justify-end gap-3">
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex items-center justify-end gap-3">
           <Button
             type="button"
             variant="secondary"

@@ -51,8 +51,8 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
 
   if (visit.status === "completed") {
     return (
-      <div className="flex items-center text-xs text-[var(--status-success)] font-medium">
-        <CheckCircle2 className="w-4 h-4 mr-1" />
+      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200">
+        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
         Completed
       </div>
     );
@@ -60,7 +60,7 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
 
   if (visit.status === "cancelled" || visit.status === "no_show") {
     return (
-      <span className="text-xs text-[var(--text-muted)] italic capitalize">
+      <span className="text-xs text-gray-400 italic capitalize px-2 py-1">
         {visit.status.replace("_", " ")}
       </span>
     );
@@ -68,7 +68,7 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
 
   return (
     <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
-      {error && <span className="text-xs text-[var(--status-error)]">{error}</span>}
+      {error && <span className="text-xs text-red-600 font-medium">{error}</span>}
 
       {(visit.status === "booked" || visit.status === "confirmed") && (
         <Button
@@ -77,9 +77,9 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
           variant="primary"
           onClick={handleCheckIn}
           disabled={loading}
-          className="h-8 text-xs font-semibold px-3"
+          className="h-9 text-xs font-semibold px-3.5 gap-1.5"
         >
-          <UserCheck className="w-3.5 h-3.5 mr-1" />
+          <UserCheck className="w-3.5 h-3.5" />
           {loading ? "Checking in..." : "Check In"}
         </Button>
       )}
@@ -91,10 +91,10 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
           variant="primary"
           onClick={() => handleTransition("in_consultation")}
           disabled={loading}
-          className="h-8 text-xs font-semibold px-3 bg-[var(--status-warning-text)] hover:bg-[var(--status-warning-text)]/90 text-white"
+          className="h-9 text-xs font-semibold px-3.5 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white border-transparent focus:ring-amber-500"
         >
-          <Stethoscope className="w-3.5 h-3.5 mr-1" />
-          {loading ? "Calling..." : "Send to Doctor"}
+          <Stethoscope className="w-3.5 h-3.5" />
+          {loading ? "Calling..." : "Call In Doctor"}
         </Button>
       )}
 
@@ -105,9 +105,9 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
           variant="primary"
           onClick={() => handleTransition("completed")}
           disabled={loading}
-          className="h-8 text-xs font-semibold px-3 bg-[var(--status-success)] hover:bg-[var(--status-success)]/90 text-white"
+          className="h-9 text-xs font-semibold px-3.5 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-transparent focus:ring-emerald-500"
         >
-          <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+          <CheckCircle2 className="w-3.5 h-3.5" />
           {loading ? "Saving..." : "Mark Completed"}
         </Button>
       )}
