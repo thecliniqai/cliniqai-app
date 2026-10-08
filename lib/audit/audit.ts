@@ -7,11 +7,15 @@ export type AuditAction =
   | "patient.update"
   | "patient.consent.granted"
   | "patient.consent.withdrawn"
-  | "clinic.profile.update";
+  | "clinic.profile.update"
+  | "visit.create"
+  | "visit.status_update"
+  | "queue.check_in"
+  | "queue.transition";
 
 export interface RecordAuditParams {
   action: AuditAction;
-  entityType: "patient" | "clinic" | "membership" | "consent";
+  entityType: "patient" | "clinic" | "membership" | "consent" | "visit" | "queue_token" | "waitlist";
   entityId?: string | null;
   metadata?: Record<string, unknown>;
 }
@@ -22,6 +26,11 @@ const ALLOWED_METADATA_KEYS = new Set([
   "consent_type",
   "view_context",
   "is_initial_grant",
+  "token_number",
+  "origin_type",
+  "old_status",
+  "new_status",
+  "priority",
 ]);
 
 /**

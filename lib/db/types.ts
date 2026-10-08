@@ -59,8 +59,12 @@ export interface Patient {
   full_name: string;
   phone: string;
   date_of_birth: string | null;
+  age?: number | null;
   sex: "male" | "female" | "other" | null;
   address: Record<string, unknown> | null;
+  allergies?: string[];
+  chronic_conditions?: string[];
+  emergency_contact?: Record<string, unknown> | null;
   abha_id: string | null;
   hfr_facility_id?: string | null;
   national_health_id?: string | null;
@@ -90,6 +94,63 @@ export interface ConsentRecord {
   recorded_by: string;
   recorded_at: string;
   note: string | null;
+}
+
+export type VisitOriginType = "scheduled" | "walk_in";
+export type VisitStatus =
+  | "booked"
+  | "confirmed"
+  | "waiting"
+  | "in_consultation"
+  | "completed"
+  | "cancelled"
+  | "no_show";
+
+export interface Visit {
+  id: string;
+  tenant_id: string;
+  patient_id: string;
+  doctor_id: string;
+  origin_type: VisitOriginType;
+  status: VisitStatus;
+  scheduled_at: string | null;
+  estimated_duration_minutes: number;
+  reason_for_visit: string | null;
+  is_overbooked: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type QueuePriority = "normal" | "urgent" | "vip";
+
+export interface QueueToken {
+  id: string;
+  tenant_id: string;
+  visit_id: string;
+  date: string;
+  token_number: number;
+  priority: QueuePriority;
+  called_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export type WaitlistStatus = "waiting" | "promoted" | "expired" | "cancelled";
+
+export interface WaitlistEntry {
+  id: string;
+  tenant_id: string;
+  patient_id: string;
+  doctor_id: string | null;
+  target_date: string;
+  time_window: string | null;
+  status: WaitlistStatus;
+  promoted_visit_id: string | null;
+  priority: number;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
 }
 
 export interface Database {
@@ -219,8 +280,12 @@ export interface Database {
           full_name: string;
           phone: string;
           date_of_birth?: string | null;
+          age?: number | null;
           sex?: "male" | "female" | "other" | null;
           address?: Record<string, unknown> | null;
+          allergies?: string[];
+          chronic_conditions?: string[];
+          emergency_contact?: Record<string, unknown> | null;
           abha_id?: string | null;
           hfr_facility_id?: string | null;
           national_health_id?: string | null;
@@ -234,14 +299,110 @@ export interface Database {
           full_name?: string;
           phone?: string;
           date_of_birth?: string | null;
+          age?: number | null;
           sex?: "male" | "female" | "other" | null;
           address?: Record<string, unknown> | null;
+          allergies?: string[];
+          chronic_conditions?: string[];
+          emergency_contact?: Record<string, unknown> | null;
           abha_id?: string | null;
           hfr_facility_id?: string | null;
           national_health_id?: string | null;
           created_by?: string;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      visits: {
+        Row: Visit;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          patient_id: string;
+          doctor_id: string;
+          origin_type: VisitOriginType;
+          status?: VisitStatus;
+          scheduled_at?: string | null;
+          estimated_duration_minutes?: number;
+          reason_for_visit?: string | null;
+          is_overbooked?: boolean;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          patient_id?: string;
+          doctor_id?: string;
+          origin_type?: VisitOriginType;
+          status?: VisitStatus;
+          scheduled_at?: string | null;
+          estimated_duration_minutes?: number;
+          reason_for_visit?: string | null;
+          is_overbooked?: boolean;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      queue_tokens: {
+        Row: QueueToken;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          visit_id: string;
+          date?: string;
+          token_number: number;
+          priority?: QueuePriority;
+          called_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          visit_id?: string;
+          date?: string;
+          token_number?: number;
+          priority?: QueuePriority;
+          called_at?: string | null;
+          completed_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      waitlist_entries: {
+        Row: WaitlistEntry;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          patient_id: string;
+          doctor_id?: string | null;
+          target_date: string;
+          time_window?: string | null;
+          status?: WaitlistStatus;
+          promoted_visit_id?: string | null;
+          priority?: number;
+          notes?: string | null;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          patient_id?: string;
+          doctor_id?: string | null;
+          target_date?: string;
+          time_window?: string | null;
+          status?: WaitlistStatus;
+          promoted_visit_id?: string | null;
+          priority?: number;
+          notes?: string | null;
+          created_by?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -311,6 +472,13 @@ export interface Database {
           p_token_hash: string;
         };
         Returns: string;
+      };
+      generate_daily_queue_token: {
+        Args: {
+          p_tenant_id: string;
+          p_date: string;
+        };
+        Returns: number;
       };
     };
   };
