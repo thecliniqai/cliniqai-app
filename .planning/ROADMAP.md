@@ -72,18 +72,23 @@ Plans:
 
 ### Phase 3: Consultation & Prescribing
 
-**Goal**: A doctor can complete a full visit — notes, diagnosis, prescription, billing — and the patient leaves with a shareable PDF
+**Goal**: A doctor can complete a full visit — clinical notes, diagnosis, prescription, and billing — and the patient leaves with shareable PDF documents.
+
 **Depends on**: Phase 2
+
 **Requirements**: REQ-specialty-templates, REQ-diagnosis-visit-management, REQ-e-prescriptions, REQ-billing-invoicing (PROVISIONAL)
+
 **Success Criteria** (what must be TRUE):
-  1. Doctor records a visit (chief complaint, exam, diagnosis) using the generic core or the clinic's selected specialty template, and new specialty templates can be added as configuration without a release
-  2. Visits move through Waiting → With Nurse → With Doctor → Billing → Completed and the queue view reflects each state live
-  3. Diagnosis is searchable/auto-suggested with ICD-10 codes, and any AI-drafted note is labeled AI-generated and finalizes only on the doctor's one-tap approval
-  4. Doctor writes a prescription with India drug search (brand/generic/salt), allergy/interaction warnings, and one-tap favorite templates → branded PDF; history is searchable and edits leave an audit trail
-  5. *(Provisional)* Staff record per-visit charges and payment (cash/UPI/card recording only), issue a PDF receipt, and the owner sees daily/monthly collection reports
+
+ 1. Doctor records a visit (chief complaint, history, examination, diagnosis, and treatment plan) using the generic core or the clinic's selected specialty template. New specialty templates can be added as configuration without an application release.
+ 2. Visits move through Waiting → With Nurse → With Doctor → Billing → Completed, and the reception queue reflects each state live. Appointments, queue entries, and clinical visits remain logically distinct while sharing the appropriate underlying records.
+ 3. Diagnosis search supports **ICD-11** for standardized disease classification and **SNOMED CT** for detailed clinical terminology, including searchable clinical concepts, synonyms, and relevant codes. The terminology datasets must be legally usable, versioned, and maintainable. AI-drafted clinical notes are explicitly labelled AI-generated, remain editable, and are finalized only after the doctor's approval.
+ 4. Doctor creates prescriptions using an India-focused medication catalogue with search by brand name, generic name, and active ingredient/salt. The system supports dosage, strength, route, frequency, duration, quantity, and instructions, along with allergy and medication-interaction warnings where reliable data is available. Doctors can reuse favourite prescription templates. Final prescriptions are generated as clinic-branded PDFs. Prescription history is searchable, and amendments retain an audit trail.
+ 5. **(Provisional)** Staff record per-visit charges and payments (cash, UPI, and card recording only), issue downloadable PDF receipts, and provide the clinic owner with daily and monthly collection reports.
 
 **Plans**: TBD
-**UI hint**: yes
+
+**UI hint**: Yes
 
 ### Phase 4: Labs & Referrals
 
