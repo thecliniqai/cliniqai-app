@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
-current_phase: "02.1"
-current_phase_name: UI/UX Re-foundation Using TailAdmin Free
-status: complete
-stopped_at: Phase 3 UI-SPEC approved
-last_updated: "2026-10-11T07:10:12.083Z"
-last_activity: 2026-10-08
-last_activity_desc: Completed Plan 02.1-01 through 02.1-05 — UI/UX refoundation with TailAdmin Free Next.js components
-state_head: 30e7148740f0916f984da3f16c6cb41a1085fc30
+current_phase: "03"
+current_phase_name: Consultation & Prescribing
+status: ready_to_execute
+stopped_at: Phase 3 plans created and verified (ready for execute-phase)
+last_updated: "2026-10-11T13:51:30.000Z"
+last_activity: 2026-10-11
+last_activity_desc: Created and verified 4 execution plans (03-01 through 03-04) for Phase 3 Consultation & Prescribing
+state_head: a18379b23ed27556f35d5cba1b518c024d62ca7d
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 14
+  total_plans: 18
   completed_plans: 14
-  percent: 43
+  percent: 78
 ---
 
 # Project State
@@ -23,21 +23,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-06)
 
 **Core value:** Every core clinic action is obviously, overwhelmingly faster than the paper/WhatsApp status quo — zero-training, under 3 taps, usable entirely from a phone.
-**Current focus:** Phase 02.1 (Phase 2B) — UI/UX Re-foundation Using TailAdmin Free (COMPLETED)
+**Current focus:** Phase 03 — Consultation & Prescribing (PLANNING COMPLETE, READY TO EXECUTE)
 
 ## Current Position
 
-Phase: 02.1 (UI/UX Re-foundation Using TailAdmin Free) — COMPLETED
-Plans: 5 of 5 executed (02.1-01 through 02.1-05 verified)
-Status: All 5 plans implemented, verified with TypeScript strict typecheck, ESLint, Next.js production build, and all 12 Vitest integration test suites (72/72 tests passing).
-Last activity: 2026-10-08 — Phase 2B UI/UX Re-foundation completed on dedicated branch `phase-2b-tailadmin-ui`.
+Phase: 03 (Consultation & Prescribing) — PLANNING COMPLETE
+Plans: 4 plans created (03-01 through 03-04), audited and APPROVED by gsd-plan-checker
+Status: Ready to execute wave 1 (03-01-PLAN.md)
+Last activity: 2026-10-11 — Completed Phase 3 planning (CONTEXT, RESEARCH, UI-SPEC, PATTERNS, and PLAN 01-04)
 
-Progress: [████░░░░░░] 43%
+Progress: [████████░░] 78% (Planning complete for Phase 3)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
+- Total plans completed: 14
 - Average duration: —
 - Total execution time: — hours
 
@@ -45,11 +45,14 @@ Progress: [████░░░░░░] 43%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01 | 4 | 4 | done |
+| 02 | 5 | 5 | done |
+| 02.1 | 5 | 5 | done |
+| 03 | 4 | 0 | ready |
 
 **Recent Trend:**
-- Last 5 plans: —
-- Trend: — (no execution yet)
+- Last 5 plans: Phase 2B (02.1-01 to 02.1-05) verified and passing
+- Trend: Ready for execution
 
 *Updated after each plan completion*
 
@@ -57,29 +60,33 @@ Progress: [████░░░░░░] 43%
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+Decisions are logged in PROJECT.md Key Decisions table and Phase 3 CONTEXT.md:
 
-- [Ingest]: 0 ADR-locked decisions — none from this ingest.
-- [Ingest]: REQ-billing-invoicing scoped as PROVISIONAL (PRD §9.1 open question) — confirm with owner before Phase 3 build.
+- [Phase 3 D-27]: Billing formally deferred to Phase 3A (`REQ-billing-invoicing`). Visit completion moves directly to `completed`.
+- [Phase 3 D-28]: Server-side `@react-pdf/renderer` in Node route handler, archived in private Supabase Storage `prescriptions` bucket with 3600s signed URLs; dual letterhead modes (blank paper vs pre-printed stationery margins).
+- [Phase 3 D-29]: CDCI 7 flat files ingested into PostgreSQL; materialized search view with `pg_trgm` and `tsvector` GIN indexes for sub-100ms fuzzy search; custom medicines auto-saved to `doctor_custom_medicines` with favorites boosted.
+- [Phase 3 D-30]: Curated Indian OPD diagnoses (~1,500 conditions) with ICD-11 and SNOMED CT; optional "Save to Chronic Conditions" checkbox syncs `patients.chronic_conditions`.
+- [Phase 3 D-31]: Post-sign-off editing creates immutable snapshot in `visit_revisions` and generates versioned `v2`/`v3` PDFs with "Amended on [Date]" watermark.
+- [Phase 3 D-32]: Specialty templates for GP, Dental (SVG FDI odontogram 11-48, 51-85), and Pediatrics (WHO LMS growth percentiles, IAP immunization checklist).
 
 ### Pending Todos
 
-None yet.
+None. Phase 3 execution plans are ready.
 
 ### Blockers/Concerns
 
 - Phase 2/4 messaging acceptances (waitlist auto-notify, lab-result delivery) depend on Phase 5 SMS/WhatsApp wiring — earlier phases ship in-app behavior first (noted in REQUIREMENTS.md Traceability notes).
-- External inputs pending (PRD §9): WhatsApp BSP selection (Meta approval 1–2 weeks), India drug database + lab test catalog sourcing, Supabase region confirmation (India preferred), billing module confirmation.
+- CDCI dataset in `supabase/seed-data/cdci/` is available; test fixture provides ~200 top OPD drugs for instant testing.
 
 ## Deferred Items
 
 | Category | Item | Status | Deferred At | Milestone |
 |----------|------|--------|-------------|-----------|
-| *(none)* | | | | |
+| Billing | Dedicated Billing & Invoicing Module | Deferred to Phase 3A | 2026-10-09 (Phase 3 Discuss) | v1.0 |
+| AI | AI Clinical Notes & Transcription | Deferred to Phase 5 | 2026-10-09 (Phase 3 Discuss) | v1.0 |
 
 ## Session Continuity
 
-Last session: 2026-10-11T07:10:12.039Z
-Stopped at: Phase 3 UI-SPEC approved
-Resume file: .planning/phases/03-consultation-prescribing/03-UI-SPEC.md
+Last session: 2026-10-11T13:51:30.000Z
+Stopped at: Phase 3 plans created and verified (ready for execute-phase)
+Resume file: .planning/phases/03-consultation-prescribing/03-01-PLAN.md
