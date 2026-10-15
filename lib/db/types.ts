@@ -7,6 +7,12 @@ export interface Tenant {
   specialties: string[];
   working_hours: Record<string, { open: string; close: string; closed?: boolean }>;
   timezone: string;
+  logo_url?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  registration_number?: string | null;
+  letterhead_top_margin?: number;
+  letterhead_bottom_margin?: number;
   created_at: string;
   updated_at: string;
 }
@@ -16,6 +22,10 @@ export interface Membership {
   user_id: string;
   tenant_id: string;
   role: UserRole;
+  qualifications?: string | null;
+  medical_council_reg_no?: string | null;
+  signature_url?: string | null;
+  default_specialty?: string;
   created_at: string;
 }
 
@@ -106,6 +116,8 @@ export type VisitStatus =
   | "cancelled"
   | "no_show";
 
+export type ClinicalSpecialty = "general_physician" | "dental" | "pediatrics";
+
 export interface Visit {
   id: string;
   tenant_id: string;
@@ -117,9 +129,151 @@ export interface Visit {
   estimated_duration_minutes: number;
   reason_for_visit: string | null;
   is_overbooked: boolean;
+  vitals?: Record<string, unknown> | null;
+  chief_complaints?: Array<Record<string, unknown>> | null;
+  clinical_notes?: string | null;
+  specialty?: ClinicalSpecialty;
+  specialty_data?: Record<string, unknown> | null;
+  investigations_advised?: string[];
+  advice?: string[];
+  current_revision?: number;
+  signed_at?: string | null;
+  signed_by?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ConsultationDiagnosis {
+  id: string;
+  tenant_id: string;
+  visit_id: string;
+  patient_id: string;
+  diagnosis_name: string;
+  snomed_concept_id: string | null;
+  icd11_code: string | null;
+  is_custom: boolean;
+  is_chronic: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
+export type PrescriptionStatus = "active" | "amended" | "cancelled";
+export type LetterheadMode = "blank_paper" | "preprinted_letterhead";
+
+export interface Prescription {
+  id: string;
+  tenant_id: string;
+  visit_id: string;
+  patient_id: string;
+  doctor_id: string;
+  version: number;
+  status: PrescriptionStatus;
+  letterhead_mode: LetterheadMode;
+  pdf_storage_path: string | null;
+  signed_at: string | null;
+  amendment_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PrescriptionItem {
+  id: string;
+  prescription_id: string;
+  medicine_name: string;
+  generic_name: string | null;
+  dose_form: string | null;
+  dosage: string;
+  timing: string | null;
+  duration: string;
+  special_instructions: string | null;
+  cdci_brand_id: string | null;
+  cdci_generic_id: string | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface DoctorCustomMedicine {
+  id: string;
+  tenant_id: string;
+  doctor_id: string;
+  medicine_name: string;
+  generic_name: string | null;
+  dose_form: string | null;
+  default_dosage: string | null;
+  default_timing: string | null;
+  default_duration: string | null;
+  use_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DoctorCustomDiagnosis {
+  id: string;
+  tenant_id: string;
+  doctor_id: string;
+  diagnosis_name: string;
+  specialty: string | null;
+  use_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DoctorPrescriptionTemplate {
+  id: string;
+  tenant_id: string;
+  doctor_id: string;
+  template_name: string;
+  specialty: string | null;
+  items: Record<string, unknown>[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VisitRevision {
+  id: string;
+  tenant_id: string;
+  visit_id: string;
+  revision_number: number;
+  amended_by: string;
+  amended_at: string;
+  amendment_reason: string;
+  snapshot: Record<string, unknown>;
+}
+
+export type FollowUpStatus = "scheduled" | "attended" | "cancelled" | "missed";
+
+export interface FollowUp {
+  id: string;
+  tenant_id: string;
+  patient_id: string;
+  visit_id: string | null;
+  doctor_id: string;
+  follow_up_date: string;
+  notes: string | null;
+  status: FollowUpStatus;
+  created_at: string;
+}
+
+export interface CdciMedicineSearch {
+  id: string;
+  brand_name: string;
+  product_name: string | null;
+  generic_name: string | null;
+  dose_form: string | null;
+  route: string | null;
+  supplier_name: string | null;
+}
+
+export interface OpdDiagnosis {
+  id: string;
+  name: string;
+  icd11_code: string | null;
+  snomed_concept_id: string | null;
+  category: string | null;
+  specialties: string[];
+  is_chronic: boolean;
+  synonyms: string[];
 }
 
 export type QueuePriority = "normal" | "urgent" | "vip";
@@ -327,6 +481,16 @@ export interface Database {
           estimated_duration_minutes?: number;
           reason_for_visit?: string | null;
           is_overbooked?: boolean;
+          vitals?: Record<string, unknown> | null;
+          chief_complaints?: Array<Record<string, unknown>> | null;
+          clinical_notes?: string | null;
+          specialty?: ClinicalSpecialty;
+          specialty_data?: Record<string, unknown> | null;
+          investigations_advised?: string[];
+          advice?: string[];
+          current_revision?: number;
+          signed_at?: string | null;
+          signed_by?: string | null;
           created_by: string;
           created_at?: string;
           updated_at?: string;
@@ -342,9 +506,359 @@ export interface Database {
           estimated_duration_minutes?: number;
           reason_for_visit?: string | null;
           is_overbooked?: boolean;
+          vitals?: Record<string, unknown> | null;
+          chief_complaints?: Array<Record<string, unknown>> | null;
+          clinical_notes?: string | null;
+          specialty?: ClinicalSpecialty;
+          specialty_data?: Record<string, unknown> | null;
+          investigations_advised?: string[];
+          advice?: string[];
+          current_revision?: number;
+          signed_at?: string | null;
+          signed_by?: string | null;
           created_by?: string;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      consultation_diagnoses: {
+        Row: ConsultationDiagnosis;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          visit_id: string;
+          patient_id: string;
+          diagnosis_name: string;
+          snomed_concept_id?: string | null;
+          icd11_code?: string | null;
+          is_custom?: boolean;
+          is_chronic?: boolean;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          visit_id?: string;
+          patient_id?: string;
+          diagnosis_name?: string;
+          snomed_concept_id?: string | null;
+          icd11_code?: string | null;
+          is_custom?: boolean;
+          is_chronic?: boolean;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      prescriptions: {
+        Row: Prescription;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          visit_id: string;
+          patient_id: string;
+          doctor_id: string;
+          version?: number;
+          status?: PrescriptionStatus;
+          letterhead_mode?: LetterheadMode;
+          pdf_storage_path?: string | null;
+          signed_at?: string | null;
+          amendment_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          visit_id?: string;
+          patient_id?: string;
+          doctor_id?: string;
+          version?: number;
+          status?: PrescriptionStatus;
+          letterhead_mode?: LetterheadMode;
+          pdf_storage_path?: string | null;
+          signed_at?: string | null;
+          amendment_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      prescription_items: {
+        Row: PrescriptionItem;
+        Insert: {
+          id?: string;
+          prescription_id: string;
+          medicine_name: string;
+          generic_name?: string | null;
+          dose_form?: string | null;
+          dosage: string;
+          timing?: string | null;
+          duration: string;
+          special_instructions?: string | null;
+          cdci_brand_id?: string | null;
+          cdci_generic_id?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          prescription_id?: string;
+          medicine_name?: string;
+          generic_name?: string | null;
+          dose_form?: string | null;
+          dosage?: string;
+          timing?: string | null;
+          duration?: string;
+          special_instructions?: string | null;
+          cdci_brand_id?: string | null;
+          cdci_generic_id?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      doctor_custom_medicines: {
+        Row: DoctorCustomMedicine;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          doctor_id: string;
+          medicine_name: string;
+          generic_name?: string | null;
+          dose_form?: string | null;
+          default_dosage?: string | null;
+          default_timing?: string | null;
+          default_duration?: string | null;
+          use_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          doctor_id?: string;
+          medicine_name?: string;
+          generic_name?: string | null;
+          dose_form?: string | null;
+          default_dosage?: string | null;
+          default_timing?: string | null;
+          default_duration?: string | null;
+          use_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      doctor_custom_diagnoses: {
+        Row: DoctorCustomDiagnosis;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          doctor_id: string;
+          diagnosis_name: string;
+          specialty?: string | null;
+          use_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          doctor_id?: string;
+          diagnosis_name?: string;
+          specialty?: string | null;
+          use_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      doctor_prescription_templates: {
+        Row: DoctorPrescriptionTemplate;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          doctor_id: string;
+          template_name: string;
+          specialty?: string | null;
+          items?: Record<string, unknown>[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          doctor_id?: string;
+          template_name?: string;
+          specialty?: string | null;
+          items?: Record<string, unknown>[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      visit_revisions: {
+        Row: VisitRevision;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          visit_id: string;
+          revision_number: number;
+          amended_by: string;
+          amended_at?: string;
+          amendment_reason: string;
+          snapshot: Record<string, unknown>;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          visit_id?: string;
+          revision_number?: number;
+          amended_by?: string;
+          amended_at?: string;
+          amendment_reason?: string;
+          snapshot?: Record<string, unknown>;
+        };
+        Relationships: [];
+      };
+      follow_ups: {
+        Row: FollowUp;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          patient_id: string;
+          visit_id?: string | null;
+          doctor_id: string;
+          follow_up_date: string;
+          notes?: string | null;
+          status?: FollowUpStatus;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          patient_id?: string;
+          visit_id?: string | null;
+          doctor_id?: string;
+          follow_up_date?: string;
+          notes?: string | null;
+          status?: FollowUpStatus;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      cdci_substances: {
+        Row: { id: string; substance_name: string };
+        Insert: { id: string; substance_name: string };
+        Update: { id?: string; substance_name?: string };
+        Relationships: [];
+      };
+      cdci_drug_forms: {
+        Row: { id: string; form_name: string };
+        Insert: { id: string; form_name: string };
+        Update: { id?: string; form_name?: string };
+        Relationships: [];
+      };
+      cdci_routes: {
+        Row: { id: string; route_name: string };
+        Insert: { id: string; route_name: string };
+        Update: { id?: string; route_name?: string };
+        Relationships: [];
+      };
+      cdci_suppliers: {
+        Row: { id: string; supplier_name: string };
+        Insert: { id: string; supplier_name: string };
+        Update: { id?: string; supplier_name?: string };
+        Relationships: [];
+      };
+      cdci_products: {
+        Row: { id: string; product_name: string };
+        Insert: { id: string; product_name: string };
+        Update: { id?: string; product_name?: string };
+        Relationships: [];
+      };
+      cdci_generics: {
+        Row: { id: string; generic_name: string };
+        Insert: { id: string; generic_name: string };
+        Update: { id?: string; generic_name?: string };
+        Relationships: [];
+      };
+      cdci_brands: {
+        Row: {
+          id: string;
+          brand_name: string;
+          generic_id?: string | null;
+          product_id?: string | null;
+          supplier_id?: string | null;
+          form_id?: string | null;
+          route_id?: string | null;
+        };
+        Insert: {
+          id: string;
+          brand_name: string;
+          generic_id?: string | null;
+          product_id?: string | null;
+          supplier_id?: string | null;
+          form_id?: string | null;
+          route_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          brand_name?: string;
+          generic_id?: string | null;
+          product_id?: string | null;
+          supplier_id?: string | null;
+          form_id?: string | null;
+          route_id?: string | null;
+        };
+        Relationships: [];
+      };
+      cdci_medicines_search: {
+        Row: CdciMedicineSearch;
+        Insert: {
+          id: string;
+          brand_name: string;
+          product_name?: string | null;
+          generic_name?: string | null;
+          dose_form?: string | null;
+          route?: string | null;
+          supplier_name?: string | null;
+        };
+        Update: {
+          id?: string;
+          brand_name?: string;
+          product_name?: string | null;
+          generic_name?: string | null;
+          dose_form?: string | null;
+          route?: string | null;
+          supplier_name?: string | null;
+        };
+        Relationships: [];
+      };
+      opd_diagnoses: {
+        Row: OpdDiagnosis;
+        Insert: {
+          id?: string;
+          name: string;
+          icd11_code?: string | null;
+          snomed_concept_id?: string | null;
+          category?: string | null;
+          specialties?: string[];
+          is_chronic?: boolean;
+          synonyms?: string[];
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          icd11_code?: string | null;
+          snomed_concept_id?: string | null;
+          category?: string | null;
+          specialties?: string[];
+          is_chronic?: boolean;
+          synonyms?: string[];
         };
         Relationships: [];
       };
@@ -479,6 +993,25 @@ export interface Database {
           p_date: string;
         };
         Returns: number;
+      };
+      search_medicines: {
+        Args: {
+          p_query?: string | null;
+          p_doctor_id: string;
+          p_tenant_id: string;
+          p_limit?: number | null;
+        };
+        Returns: {
+          id: string;
+          medicine_name: string;
+          generic_name: string | null;
+          dose_form: string | null;
+          default_dosage: string | null;
+          default_timing: string | null;
+          default_duration: string | null;
+          is_custom: boolean;
+          is_favorite: boolean;
+        }[];
       };
     };
   };
