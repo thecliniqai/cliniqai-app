@@ -59,7 +59,7 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
         age,
         allergies,
         chronic_conditions,
-        uhid
+        national_health_id
       )
     `)
     .eq("id", id)
@@ -117,7 +117,7 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
     age: patientRaw.age,
     allergies: patientRaw.allergies ?? [],
     chronic_conditions: patientRaw.chronic_conditions ?? [],
-    uhid: patientRaw.uhid,
+    uhid: patientRaw.national_health_id || (patientRaw.id ? patientRaw.id.slice(0, 8).toUpperCase() : null),
   };
 
   const visit = {

@@ -86,7 +86,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
         sex,
         age,
         date_of_birth,
-        uhid,
+        national_health_id,
         allergies,
         chronic_conditions
       ),
@@ -114,7 +114,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
   const { data: rawVisits, error: visitsError } = await visitQuery;
 
   if (visitsError) {
-    console.error("[DoctorCabinPage] Error loading cabin visits:", visitsError);
+    console.error("[DoctorCabinPage] Error loading cabin visits:", visitsError.message, visitsError.details);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -141,7 +141,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
         sex: patientRaw?.sex || null,
         age: patientRaw?.age != null ? patientRaw.age : null,
         date_of_birth: patientRaw?.date_of_birth || null,
-        uhid: patientRaw?.uhid || null,
+        uhid: patientRaw?.national_health_id || (patientRaw?.id ? patientRaw.id.slice(0, 8).toUpperCase() : null),
         allergies: patientRaw?.allergies || [],
         chronic_conditions: patientRaw?.chronic_conditions || [],
       },
