@@ -25,7 +25,11 @@ export type AuditAction =
   | "diagnosis.update_note"
   | "prescription.item_add"
   | "prescription.item_remove"
-  | "prescription.template_save";
+  | "prescription.template_save"
+  | "prescription.generate_pdf"
+  | "visit.complete_and_sign"
+  | "visit.reopen_for_amendment"
+  | "visit.amend_finalized";
 
 export interface RecordAuditParams {
   action: AuditAction;
@@ -69,6 +73,9 @@ const ALLOWED_METADATA_KEYS = new Set([
   "is_chronic",
   "template_name",
   "dose_form",
+  "letterhead_mode",
+  "version",
+  "storage_path",
 ]);
 
 /**

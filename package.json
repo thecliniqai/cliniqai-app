@@ -16,6 +16,7 @@
     "seed:diagnoses": "npx tsx --env-file=.env scripts/seed-opd-diagnoses.ts"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.9.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "clsx": "^2.1.1",
