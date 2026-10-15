@@ -132,6 +132,10 @@ export const pediatricsSpecialtySchema = z.object({
   immunizations_given: z.array(z.string()).default([]),
 });
 
+export type GPSpecialty = z.infer<typeof gpSpecialtySchema>;
+export type DentalSpecialty = z.infer<typeof dentalSpecialtySchema>;
+export type PediatricsSpecialty = z.infer<typeof pediatricsSpecialtySchema>;
+
 export const specialtyDataSchema = z.discriminatedUnion("specialty", [
   gpSpecialtySchema,
   dentalSpecialtySchema,
