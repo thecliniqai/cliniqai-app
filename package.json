@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "seed:cdci": "tsx scripts/seed-cdci.ts",
+    "seed:cdci:test": "tsx scripts/seed-cdci-test-fixture.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
