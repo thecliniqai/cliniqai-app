@@ -12,6 +12,20 @@ export interface SeededTenant {
   client: SupabaseClient<Database>;
 }
 
+async function signInWithRetry(client: SupabaseClient<Database>, email: string, password: string) {
+  let attempts = 0;
+  while (attempts < 5) {
+    attempts++;
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (!error) return data;
+    if (error.message.toLowerCase().includes("rate limit") && attempts < 5) {
+      await new Promise((r) => setTimeout(r, 1000 * attempts));
+      continue;
+    }
+    throw new Error(`Failed to authenticate user client: ${error.message}`);
+  }
+}
+
 /**
  * Seeds a tenant with an owner user using the admin client,
  * then generates a session and returns an authenticated anon client
@@ -22,8 +36,10 @@ export async function seedTenantWithOwner(tenantName: string): Promise<SeededTen
   const email = `test-doctor-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
 
   // 1. Create user via admin auth
+  const password = "TestPassword123!";
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
     email,
+    password,
     email_confirm: true,
   });
 
@@ -57,17 +73,7 @@ export async function seedTenantWithOwner(tenantName: string): Promise<SeededTen
     throw new Error(`Failed to create owner membership: ${memError.message}`);
   }
 
-  // 4. Generate user session token via admin link
-  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-  });
-
-  if (linkError || !linkData.properties?.hashed_token) {
-    throw new Error(`Failed to generate test auth link: ${linkError?.message}`);
-  }
-
-  // 5. Create authenticated anon client with user session
+  // 4. Create authenticated anon client with user session
   const userClient = createClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -79,14 +85,7 @@ export async function seedTenantWithOwner(tenantName: string): Promise<SeededTen
     }
   );
 
-  const { error: verifyError } = await userClient.auth.verifyOtp({
-    token_hash: linkData.properties.hashed_token,
-    type: "email",
-  });
-
-  if (verifyError) {
-    throw new Error(`Failed to authenticate user client: ${verifyError.message}`);
-  }
+  await signInWithRetry(userClient, email, password);
 
   return {
     tenantId,
@@ -109,22 +108,15 @@ export async function createUnlinkedUser(): Promise<{
   const admin = getAdminClient();
   const email = `unlinked-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
 
+  const password = "TestPassword123!";
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
     email,
+    password,
     email_confirm: true,
   });
 
   if (userError || !userData.user) {
     throw new Error(`Failed to create test user: ${userError?.message}`);
-  }
-
-  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-  });
-
-  if (linkError || !linkData.properties?.hashed_token) {
-    throw new Error(`Failed to generate test auth link: ${linkError?.message}`);
   }
 
   const userClient = createClient<Database>(
@@ -138,10 +130,7 @@ export async function createUnlinkedUser(): Promise<{
     }
   );
 
-  await userClient.auth.verifyOtp({
-    token_hash: linkData.properties.hashed_token,
-    type: "email",
-  });
+  await signInWithRetry(userClient, email, password);
 
   return {
     userId: userData.user.id,
@@ -160,8 +149,10 @@ export async function addMemberToTenant(
   const admin = getAdminClient();
   const email = `member-${role}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
 
+  const password = "TestPassword123!";
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
     email,
+    password,
     email_confirm: true,
   });
 
@@ -181,15 +172,6 @@ export async function addMemberToTenant(
     throw new Error(`Failed to insert member: ${memError.message}`);
   }
 
-  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-  });
-
-  if (linkError || !linkData.properties?.hashed_token) {
-    throw new Error(`Failed to generate link: ${linkError?.message}`);
-  }
-
   const userClient = createClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -201,10 +183,7 @@ export async function addMemberToTenant(
     }
   );
 
-  await userClient.auth.verifyOtp({
-    token_hash: linkData.properties.hashed_token,
-    type: "email",
-  });
+  await signInWithRetry(userClient, email, password);
 
   return {
     tenantId,
@@ -266,8 +245,10 @@ export async function createDualMembershipUser(
   const admin = getAdminClient();
   const email = `dual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
 
+  const password = "TestPassword123!";
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
     email,
+    password,
     email_confirm: true,
   });
 
@@ -293,15 +274,6 @@ export async function createDualMembershipUser(
   });
   if (memBError) throw new Error(`Failed to bind dual user to tenant B: ${memBError.message}`);
 
-  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-  });
-
-  if (linkError || !linkData.properties?.hashed_token) {
-    throw new Error(`Failed to generate link for dual user: ${linkError?.message}`);
-  }
-
   const userClient = createClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
@@ -313,10 +285,7 @@ export async function createDualMembershipUser(
     }
   );
 
-  await userClient.auth.verifyOtp({
-    token_hash: linkData.properties.hashed_token,
-    type: "email",
-  });
+  await signInWithRetry(userClient, email, password);
 
   return {
     userId,

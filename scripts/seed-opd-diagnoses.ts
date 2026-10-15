@@ -27,15 +27,28 @@ export async function seedOpdDiagnoses(clientOverride?: SupabaseClient<Database>
   const raw = fs.readFileSync(filePath, "utf8");
   const diagnoses = JSON.parse(raw);
 
+  // Check if records already exist
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { count: existingCount, error: countErr } = await (supabase as any)
+    .from("opd_diagnoses")
+    .select("id", { count: "exact", head: true });
+
+  if (countErr) {
+    throw new Error(`Failed to check opd_diagnoses count: ${countErr.message}`);
+  }
+
+  if (existingCount && existingCount > 0) {
+    console.log(`✓ opd_diagnoses already contains ${existingCount} records. Skipping seed.`);
+    return;
+  }
+
   const BATCH_SIZE = 500;
   let count = 0;
 
   for (let i = 0; i < diagnoses.length; i += BATCH_SIZE) {
     const chunk = diagnoses.slice(i, i + BATCH_SIZE);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error } = await (supabase as any).from("opd_diagnoses").upsert(chunk, {
-      onConflict: "name",
-    });
+    const { error } = await (supabase as any).from("opd_diagnoses").insert(chunk);
 
     if (error) {
       throw new Error(`Failed to seed opd_diagnoses chunk at offset ${i}: ${error.message}`);
