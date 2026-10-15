@@ -4,6 +4,7 @@ import React, { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { QueueCard, QueueItem } from "./queue-card";
 import { WalkInDrawer, DoctorOption } from "./walk-in-drawer";
+import { CheckoutDrawer } from "./checkout-drawer";
 import { Button } from "@/components/ui/button";
 import { UserPlus, Calendar, ChevronLeft, ChevronRight, Users, Clock, Stethoscope, CheckCircle2 } from "lucide-react";
 
@@ -25,6 +26,7 @@ export function QueueView({
   const [, startTransition] = useTransition();
 
   const [isWalkInOpen, setIsWalkInOpen] = useState(false);
+  const [checkoutItem, setCheckoutItem] = useState<QueueItem | null>(null);
   const [doctorFilter, setDoctorFilter] = useState(selectedDoctorId);
 
   // Compute stats
@@ -271,6 +273,7 @@ export function QueueView({
                 key={item.visit.id}
                 item={item}
                 onRefresh={handleRefresh}
+                onCheckout={(it) => setCheckoutItem(it)}
               />
             ))}
           </div>
@@ -286,6 +289,16 @@ export function QueueView({
           handleRefresh();
         }}
         doctors={doctors}
+      />
+
+      {/* Reception Checkout Drawer */}
+      <CheckoutDrawer
+        isOpen={Boolean(checkoutItem)}
+        onClose={() => setCheckoutItem(null)}
+        onSuccess={() => {
+          handleRefresh();
+        }}
+        queueItem={checkoutItem}
       />
     </div>
   );

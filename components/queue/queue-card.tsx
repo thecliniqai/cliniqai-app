@@ -3,7 +3,7 @@
 import React from "react";
 import { Visit, QueueToken, Patient } from "@/lib/db/types";
 import { StatusActions } from "./status-actions";
-import { Clock, Stethoscope } from "lucide-react";
+import { Clock, Stethoscope, CreditCard } from "lucide-react";
 
 export interface QueueItem {
   visit: Visit;
@@ -15,9 +15,10 @@ export interface QueueItem {
 export interface QueueCardProps {
   item: QueueItem;
   onRefresh?: () => void;
+  onCheckout?: (item: QueueItem) => void;
 }
 
-export function QueueCard({ item, onRefresh }: QueueCardProps) {
+export function QueueCard({ item, onRefresh, onCheckout }: QueueCardProps) {
   const { visit, patient, queueToken, doctorName } = item;
 
   const formatScheduledTime = (isoString?: string | null) => {
@@ -134,7 +135,17 @@ export function QueueCard({ item, onRefresh }: QueueCardProps) {
       </div>
 
       {/* Actions */}
-      <div className="shrink-0 flex items-center justify-end">
+      <div className="shrink-0 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => onCheckout?.(item)}
+          className="h-9 px-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+          title="Open Checkout & Fee Collection"
+        >
+          <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="hidden sm:inline">Checkout</span>
+        </button>
+
         <StatusActions visit={visit} onStatusChanged={onRefresh} />
       </div>
     </div>
