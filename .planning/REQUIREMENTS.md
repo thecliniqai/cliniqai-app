@@ -20,13 +20,13 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Patient Records
 
 - [ ] **REQ-patient-records**: Unified patient profile (demographics, allergies, chronic conditions, family history); deduplication on creation (name + phone + DOB fuzzy match); search by name, phone, patient ID, (future) ABHA; chronological filterable visit-history timeline; tagged file attachments; consent capture for data sharing/communication (DPDP). *(PRD §4.3)*
-- [ ] **REQ-specialty-templates**: Generic core visit record (chief complaint, HPI, exam notes, vitals, diagnosis, treatment plan, prescription, follow-up) plus a configuration-driven specialty template layer (field definitions as data, not hardcoded) for General Physician, Dental, Gynaecology/Obstetrics, Pediatrics, Dermatology, Orthopedics; new specialties addable without a full release; a clinic can select multiple specialties. *(PRD §4.4)*
+- [x] **REQ-specialty-templates**: Generic core visit record (chief complaint, HPI, exam notes, vitals, diagnosis, treatment plan, prescription, follow-up) plus a configuration-driven specialty template layer (field definitions as data, not hardcoded) for General Physician, Dental, Gynaecology/Obstetrics, Pediatrics, Dermatology, Orthopedics; new specialties addable without a full release; a clinic can select multiple specialties. *(PRD §4.4, completed in Phase 3)*
 
 ### Consultation & Prescribing
 
-- [ ] **REQ-diagnosis-visit-management**: ICD-10 diagnosis coding (ICD-11 readiness), searchable/auto-suggested from chief complaint; visit types (OPD, follow-up, procedure; teleconsultation future); visit workflow states Waiting → With Nurse (vitals) → With Doctor → Billing → Completed; AI-drafted structured clinical note for doctor review and one-tap approval — never auto-finalized. *(PRD §4.6)*
-- [ ] **REQ-e-prescriptions**: Prescription builder with India-specific drug search (brand + generic + salt); per-doctor favorite/frequent templates; drug interaction and allergy warnings against patient's allergy list; digital signature / clinic letterhead; shareable PDF sent via WhatsApp/SMS on visit completion; searchable, re-printable history, editable only with audit trail. *(PRD §4.5)*
-- [ ] **REQ-billing-invoicing** ⚠️ **PROVISIONAL**: Per-visit billing (consultation fee, procedure charges, itemized); payment recording for cash/UPI/card (recording only, no gateway); PDF receipts shareable via WhatsApp; daily/monthly collection reports for owner. **Source status: unconfirmed assumption — PRD §4.10/§9 open question 1; confirm scope before build.** *(PRD §4.10)*
+- [x] **REQ-diagnosis-visit-management**: ICD-10 diagnosis coding (ICD-11 readiness), searchable/auto-suggested from chief complaint; visit types (OPD, follow-up, procedure; teleconsultation future); visit workflow states Waiting → With Nurse (vitals) → With Doctor → Billing → Completed; AI-drafted structured clinical note for doctor review and one-tap approval — never auto-finalized. *(PRD §4.6, completed in Phase 3)*
+- [x] **REQ-e-prescriptions**: Prescription builder with India-specific drug search (brand + generic + salt); per-doctor favorite/frequent templates; drug interaction and allergy warnings against patient's allergy list; digital signature / clinic letterhead; shareable PDF sent via WhatsApp/SMS on visit completion; searchable, re-printable history, editable only with audit trail. *(PRD §4.5, completed in Phase 3)*
+- [ ] **REQ-billing-invoicing** ⚠️ **PROVISIONAL**: Per-visit billing (consultation fee, procedure charges, itemized); payment recording for cash/UPI/card (recording only, no gateway); PDF receipts shareable via WhatsApp; daily/monthly collection reports for owner. **Source status: unconfirmed assumption — PRD §4.10/§9 open question 1; deferred to Phase 3A per D-27.** *(PRD §4.10)*
 
 ### Diagnostics & Referrals
 
@@ -89,10 +89,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | REQ-nfr-security | Phase 1 | Pending |
 | REQ-patient-records | Phase 2 | Pending |
 | REQ-appointment-booking | Phase 2 | Pending |
-| REQ-specialty-templates | Phase 3 | Pending |
-| REQ-diagnosis-visit-management | Phase 3 | Pending |
-| REQ-e-prescriptions | Phase 3 | Pending |
-| REQ-billing-invoicing (provisional) | Phase 3 | Pending |
+| REQ-specialty-templates | Phase 3 | Complete |
+| REQ-diagnosis-visit-management | Phase 3 | Complete |
+| REQ-e-prescriptions | Phase 3 | Complete |
+| REQ-billing-invoicing (provisional) | Phase 3 | Deferred to Phase 3A |
 | REQ-lab-records | Phase 4 | Pending |
 | REQ-referrals | Phase 4 | Pending |
 | REQ-reminders-notifications | Phase 5 | Pending |

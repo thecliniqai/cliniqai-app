@@ -12,8 +12,8 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
 
 - [x] **Phase 1: Foundation & Tenant Isolation** - Clinic signup, staff OTP onboarding, RBAC, audit logging, compliance-ready schemas, database-level tenant isolation
 - [x] **Phase 2: Patient Records & Scheduling** - Patient registration/search/dedup, visit timeline, per-doctor calendar, walk-in queue, waitlist
-- [ ] **Phase 02.1 (Phase 2B): UI/UX Re-foundation Using TailAdmin Free (INSERTED)** - Design system tokens, TailAdmin sidebar shell, reusable UI primitives, and full redesign of dashboard, patients, calendar, queue, and staff workflows
-- [ ] **Phase 3: Consultation & Prescribing** - Specialty templates, visit workflow states, ICD-10 diagnosis, e-prescriptions with PDF delivery, provisional per-visit billing
+- [x] **Phase 02.1 (Phase 2B): UI/UX Re-foundation Using TailAdmin Free (INSERTED)** - Design system tokens, TailAdmin sidebar shell, reusable UI primitives, and full redesign of dashboard, patients, calendar, queue, and staff workflows (completed 2026-10-08)
+- [x] **Phase 3: Consultation & Prescribing** - Specialty templates, visit workflow states, ICD-10 diagnosis, e-prescriptions with PDF delivery, provisional per-visit billing (completed 2026-10-15)
 - [ ] **Phase 4: Labs & Referrals** - Lab orders/results with abnormal flagging, in- and out-of-network referrals with tracking
 - [ ] **Phase 5: Communications & AI Assist** - SMS/WhatsApp reminders and two-way replies, communication audit log, labeled assistive AI features
 - [ ] **Phase 6: API & Launch Readiness** - REST API, webhooks, rate limiting, performance, reliability, DPDP/regulatory hardening
@@ -87,6 +87,10 @@ Plans:
  5. **(Provisional)** Staff record per-visit charges and payments (cash, UPI, and card recording only), issue downloadable PDF receipts, and provide the clinic owner with daily and monthly collection reports.
 
 **Plans**: TBD
+- [x] 03-01-PLAN.md
+- [x] 03-02-PLAN.md
+- [x] 03-03-PLAN.md
+- [x] 03-04-PLAN.md
 
 **UI hint**: Yes
 
@@ -141,7 +145,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 |-------|----------------|--------|-----------|
 | 1. Foundation & Tenant Isolation | 0/- | Not started | - |
 | 2. Patient Records & Scheduling | 0/- | Not started | - |
-| 3. Consultation & Prescribing | 0/- | Not started | - |
+| 3. Consultation & Prescribing | 4/4 | Complete    | 2026-10-15 |
 | 4. Labs & Referrals | 0/- | Not started | - |
 | 5. Communications & AI Assist | 0/- | Not started | - |
 | 6. API & Launch Readiness | 0/- | Not started | - |
