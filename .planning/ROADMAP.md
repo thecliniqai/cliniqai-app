@@ -14,6 +14,7 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
 - [x] **Phase 2: Patient Records & Scheduling** - Patient registration/search/dedup, visit timeline, per-doctor calendar, walk-in queue, waitlist
 - [x] **Phase 02.1 (Phase 2B): UI/UX Re-foundation Using TailAdmin Free (INSERTED)** - Design system tokens, TailAdmin sidebar shell, reusable UI primitives, and full redesign of dashboard, patients, calendar, queue, and staff workflows (completed 2026-10-08)
 - [x] **Phase 3: Consultation & Prescribing** - Specialty templates, visit workflow states, ICD-10 diagnosis, e-prescriptions with PDF delivery, provisional per-visit billing (completed 2026-10-15)
+- [ ] **Phase 03.1 (Phase 3A): Doctor Cabin, Role-Based Access & Billing Invoicing (INSERTED)** - Dedicated Doctor Cabin workspace, role-scoped UI permissions (owner/admin/doctor/nurse/receptionist), 1-tap queue consultation launch, per-visit billing (Cash/UPI/Card), and collection reports
 - [ ] **Phase 4: Labs & Referrals** - Lab orders/results with abnormal flagging, in- and out-of-network referrals with tracking
 - [ ] **Phase 5: Communications & AI Assist** - SMS/WhatsApp reminders and two-way replies, communication audit log, labeled assistive AI features
 - [ ] **Phase 6: API & Launch Readiness** - REST API, webhooks, rate limiting, performance, reliability, DPDP/regulatory hardening
@@ -91,6 +92,28 @@ Plans:
 - [x] 03-02-PLAN.md
 - [x] 03-03-PLAN.md
 - [x] 03-04-PLAN.md
+
+**UI hint**: Yes
+
+### Phase 03.1: Doctor Cabin, Role-Based Access & Billing Invoicing (INSERTED)
+
+**Goal:** Doctors have a dedicated, distraction-free "Doctor Cabin" workspace to consult waiting patients in 1 click; owners and admins access all screens with configurable staff roles; receptionists and nurses have dedicated triage and queue tools; and clinics can record per-visit billing (cash/UPI/card) with downloadable PDF receipts and daily collection reports.
+
+**Depends on:** Phase 3
+**Requirements**: REQ-billing-invoicing, REQ-multi-tenancy, REQ-diagnosis-visit-management
+
+**Success Criteria** (what must be TRUE):
+ 1. Owners and Admins have full access to all clinic screens (operations, clinical doctor cabin, staff, billing, settings) by default, while Doctor role is focused directly on the clinical workspace (Doctor's Cabin, My Queue, Consultation, Calendar).
+ 2. A dedicated "Doctor's Cabin" route (`/cabin`) displays the doctor's active waiting room, pre-filled vitals, and a 1-tap "Start Consultation" action that immediately opens `/consultation/[id]`.
+ 3. Live Queue (`/queue`), Calendar timeline, and Dashboard active patients table provide direct 1-tap "Start Consultation" / "Resume Consultation" buttons for checked-in patients.
+ 4. Clinic profile settings allow configuring clinic operating modes (e.g., whether the owner is a practicing doctor, default doctor assignment, and specialty configuration).
+ 5. Staff and doctors can record per-visit charges (consultation fee, procedures) and payments (Cash, UPI, Card), issue clinic-branded downloadable PDF receipts, and clinic owners can view daily/monthly collection reports.
+
+**Plans**: TBD
+- [ ] 03.1-01-PLAN.md: Role-based navigation shell, Doctor Cabin workspace, and clinic profile practitioner settings
+- [ ] 03.1-02-PLAN.md: 1-tap consultation integration across Live Queue, Calendar timeline, and Dashboard
+- [ ] 03.1-03-PLAN.md: Per-visit billing data layer, consultation fee checkout, and payment recording (Cash, UPI, Card)
+- [ ] 03.1-04-PLAN.md: Branded PDF payment receipt generation, daily collection register, and owner financial reports
 
 **UI hint**: Yes
 
