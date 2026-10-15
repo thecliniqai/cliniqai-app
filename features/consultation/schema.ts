@@ -170,4 +170,6 @@ export const saveConsultationDraftSchema = z.object({
   follow_up: followUpSchema.nullable().optional(),
 });
 
+export type ClinicalSpecialty = "general_physician" | "dental" | "pediatrics";
+
 export type SaveConsultationDraftInput = z.infer<typeof saveConsultationDraftSchema>;
