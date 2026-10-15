@@ -43,6 +43,8 @@ import {
   ShieldAlert,
   ChevronRight,
   ExternalLink,
+  Printer,
+  Receipt,
 } from "lucide-react";
 
 export interface ConsultationWorkspaceProps {
@@ -424,25 +426,62 @@ export function ConsultationWorkspace({
               )}
             </button>
 
-            {/* Manual Save Draft */}
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={() => handleSaveDraft(false)}
-              className="min-h-[44px] px-3.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors disabled:opacity-50"
-            >
-              <Save className="h-4 w-4 text-gray-500" />
-              <span className="hidden sm:inline">Save Draft</span>
-            </button>
+            {visit.status === "completed" ? (
+              <>
+                <a
+                  href={`/api/visits/${visit.id}/prescription-pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-h-[44px] px-3.5 rounded-xl bg-[#EAF2FF] hover:bg-[#d6e5ff] text-[#1769E0] text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                  title="Print / View PDF Prescription"
+                >
+                  <Printer className="h-4 w-4" />
+                  <span>Print Rx</span>
+                </a>
 
-            {/* Primary Action: Complete & Sign Rx */}
-            <button
-              type="button"
-              onClick={() => setIsSignModalOpen(true)}
-              className="min-h-[44px] px-4 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] text-xs font-semibold flex items-center gap-1.5 shadow-theme-xs transition-colors cursor-pointer"
-            >
-              <span>Complete & Sign ℞</span>
-            </button>
+                <a
+                  href={`/api/invoices/${visit.id}/receipt-pdf`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-h-[44px] px-3.5 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                  title="Print / View Payment Receipt"
+                >
+                  <Receipt className="h-4 w-4 text-emerald-600" />
+                  <span>Receipt</span>
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setIsSignModalOpen(true)}
+                  className="min-h-[44px] px-3.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Update consultation details or billing"
+                >
+                  <span>Re-sign / Bill</span>
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Manual Save Draft */}
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={() => handleSaveDraft(false)}
+                  className="min-h-[44px] px-3.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4 text-gray-500" />
+                  <span className="hidden sm:inline">Save Draft</span>
+                </button>
+
+                {/* Primary Action: Complete & Sign Rx */}
+                <button
+                  type="button"
+                  onClick={() => setIsSignModalOpen(true)}
+                  className="min-h-[44px] px-4 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] text-xs font-semibold flex items-center gap-1.5 shadow-theme-xs transition-colors cursor-pointer"
+                >
+                  <span>Complete & Sign ℞</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>

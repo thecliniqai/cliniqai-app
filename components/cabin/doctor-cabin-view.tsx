@@ -18,6 +18,8 @@ import {
   ExternalLink,
   ChevronDown,
   User,
+  Printer,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -397,18 +399,29 @@ export function DoctorCabinView({
                       <span>Review Visit</span>
                     </Link>
 
-                    {visit.prescription?.pdf_storage_path && (
+                    {visit.prescription && (
                       <a
-                        href={visit.prescription.pdf_storage_path}
+                        href={`/api/visits/${visit.id}/prescription-pdf`}
                         target="_blank"
                         rel="noreferrer"
                         className="h-9 px-3 rounded-xl bg-[#EAF2FF] hover:bg-[#d6e5ff] text-[#1769E0] font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs"
-                        title="View Signed PDF Prescription"
+                        title="Print / View Signed PDF Prescription"
                       >
-                        <FileCheck className="w-3.5 h-3.5" />
-                        <span>PDF Rx</span>
+                        <Printer className="w-3.5 h-3.5" />
+                        <span>Print Rx</span>
                       </a>
                     )}
+
+                    <a
+                      href={`/api/invoices/${visit.id}/receipt-pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-9 px-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs"
+                      title="Print / View Payment Receipt"
+                    >
+                      <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Receipt</span>
+                    </a>
                   </div>
                 </div>
               ))}

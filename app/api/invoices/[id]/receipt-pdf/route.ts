@@ -25,13 +25,15 @@ export async function GET(
     // 2. Validate tenant membership server-side
     const membership = await getActiveMembership();
 
-    // 3. Fetch invoice under strict tenant isolation
+    // 3. Fetch invoice under strict tenant isolation (supports invoice ID or visit ID)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: invoice, error: invoiceErr } = await (supabase.from("invoices") as any)
       .select("*")
-      .eq("id", invoiceId)
       .eq("tenant_id", membership.tenantId)
-      .single();
+      .or(`id.eq.${invoiceId},visit_id.eq.${invoiceId}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (invoiceErr || !invoice) {
       return new NextResponse("Invoice not found or access denied", { status: 404 });
@@ -82,7 +84,7 @@ export async function GET(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: items } = await (supabase.from("invoice_items") as any)
       .select("*")
-      .eq("invoice_id", invoiceId)
+      .eq("invoice_id", invoice.id)
       .eq("tenant_id", membership.tenantId)
       .order("created_at", { ascending: true });
 
@@ -90,7 +92,7 @@ export async function GET(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: payments } = await (supabase.from("payments") as any)
       .select("*")
-      .eq("invoice_id", invoiceId)
+      .eq("invoice_id", invoice.id)
       .eq("tenant_id", membership.tenantId)
       .order("recorded_at", { ascending: true });
 
