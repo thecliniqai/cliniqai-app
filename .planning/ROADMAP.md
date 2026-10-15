@@ -14,7 +14,7 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
 - [x] **Phase 2: Patient Records & Scheduling** - Patient registration/search/dedup, visit timeline, per-doctor calendar, walk-in queue, waitlist
 - [x] **Phase 02.1 (Phase 2B): UI/UX Re-foundation Using TailAdmin Free (INSERTED)** - Design system tokens, TailAdmin sidebar shell, reusable UI primitives, and full redesign of dashboard, patients, calendar, queue, and staff workflows (completed 2026-10-08)
 - [x] **Phase 3: Consultation & Prescribing** - Specialty templates, visit workflow states, ICD-10 diagnosis, e-prescriptions with PDF delivery, provisional per-visit billing (completed 2026-10-15)
-- [ ] **Phase 03.1 (Phase 3A): Doctor Cabin, Role-Based Access & Billing Invoicing (INSERTED)** - Dedicated Doctor Cabin workspace, role-scoped UI permissions (owner/admin/doctor/nurse/receptionist), 1-tap queue consultation launch, per-visit billing (Cash/UPI/Card), and collection reports
+- [x] **Phase 03.1 (Phase 3A): Doctor Cabin, Role-Based Access & Billing Invoicing (INSERTED)** - Dedicated Doctor Cabin workspace, role-scoped UI permissions (owner/admin/doctor/nurse/receptionist), 1-tap queue consultation launch, per-visit billing (Cash/UPI/Card), and collection reports (completed 2026-10-15)
 - [ ] **Phase 4: Labs & Referrals** - Lab orders/results with abnormal flagging, in- and out-of-network referrals with tracking
 - [ ] **Phase 5: Communications & AI Assist** - SMS/WhatsApp reminders and two-way replies, communication audit log, labeled assistive AI features
 - [ ] **Phase 6: API & Launch Readiness** - REST API, webhooks, rate limiting, performance, reliability, DPDP/regulatory hardening
@@ -109,11 +109,11 @@ Plans:
  4. Clinic profile settings allow configuring clinic operating modes (e.g., whether the owner is a practicing doctor, default doctor assignment, and specialty configuration).
  5. Staff and doctors can record per-visit charges (consultation fee, procedures) and payments (Cash, UPI, Card), issue clinic-branded downloadable PDF receipts, and clinic owners can view daily/monthly collection reports.
 
-**Plans**: TBD
-- [ ] 03.1-01-PLAN.md: Role-based navigation shell, Doctor Cabin workspace, and clinic profile practitioner settings
-- [ ] 03.1-02-PLAN.md: 1-tap consultation integration across Live Queue, Calendar timeline, and Dashboard
-- [ ] 03.1-03-PLAN.md: Per-visit billing data layer, consultation fee checkout, and payment recording (Cash, UPI, Card)
-- [ ] 03.1-04-PLAN.md: Branded PDF payment receipt generation, daily collection register, and owner financial reports
+**Plans**: 4 plans completed
+- [x] 03.1-01-PLAN.md: Role-based navigation shell, Doctor Cabin workspace, and clinic profile practitioner settings
+- [x] 03.1-02-PLAN.md: 1-tap consultation integration across Live Queue, Calendar timeline, and Dashboard
+- [x] 03.1-03-PLAN.md: Per-visit billing data layer, consultation fee checkout, and payment recording (Cash, UPI, Card)
+- [x] 03.1-04-PLAN.md: Branded PDF payment receipt generation, daily collection register, and owner financial reports
 
 **UI hint**: Yes
 
@@ -166,9 +166,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Tenant Isolation | 0/- | Not started | - |
-| 2. Patient Records & Scheduling | 0/- | Not started | - |
+| 1. Foundation & Tenant Isolation | 5/5 | Complete | 2026-10-07 |
+| 2. Patient Records & Scheduling | 4/4 | Complete | 2026-10-08 |
+| 02.1. UI/UX Re-foundation (TailAdmin) | 5/5 | Complete | 2026-10-08 |
 | 3. Consultation & Prescribing | 4/4 | Complete    | 2026-10-15 |
+| 03.1. Doctor Cabin, RBAC & Billing | 4/4 | Complete | 2026-10-15 |
 | 4. Labs & Referrals | 0/- | Not started | - |
 | 5. Communications & AI Assist | 0/- | Not started | - |
 | 6. API & Launch Readiness | 0/- | Not started | - |

@@ -26,7 +26,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **REQ-diagnosis-visit-management**: ICD-10 diagnosis coding (ICD-11 readiness), searchable/auto-suggested from chief complaint; visit types (OPD, follow-up, procedure; teleconsultation future); visit workflow states Waiting → With Nurse (vitals) → With Doctor → Billing → Completed; AI-drafted structured clinical note for doctor review and one-tap approval — never auto-finalized. *(PRD §4.6, completed in Phase 3)*
 - [x] **REQ-e-prescriptions**: Prescription builder with India-specific drug search (brand + generic + salt); per-doctor favorite/frequent templates; drug interaction and allergy warnings against patient's allergy list; digital signature / clinic letterhead; shareable PDF sent via WhatsApp/SMS on visit completion; searchable, re-printable history, editable only with audit trail. *(PRD §4.5, completed in Phase 3)*
-- [ ] **REQ-billing-invoicing** ⚠️ **PROVISIONAL**: Per-visit billing (consultation fee, procedure charges, itemized); payment recording for cash/UPI/card (recording only, no gateway); PDF receipts shareable via WhatsApp; daily/monthly collection reports for owner. **Source status: unconfirmed assumption — PRD §4.10/§9 open question 1; deferred to Phase 3A per D-27.** *(PRD §4.10)*
+- [x] **REQ-billing-invoicing**: Per-visit billing (consultation fee, procedure charges, itemized); payment recording for cash/UPI/card (recording only, no gateway); PDF receipts shareable via WhatsApp/browser; daily/monthly collection reports for owner. *(PRD §4.10, completed in Phase 03.1 / Phase 3A)*
 
 ### Diagnostics & Referrals
 
@@ -92,7 +92,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | REQ-specialty-templates | Phase 3 | Complete |
 | REQ-diagnosis-visit-management | Phase 3 | Complete |
 | REQ-e-prescriptions | Phase 3 | Complete |
-| REQ-billing-invoicing (provisional) | Phase 3 | Deferred to Phase 3A |
+| REQ-billing-invoicing | Phase 03.1 (3A) | Complete |
 | REQ-lab-records | Phase 4 | Pending |
 | REQ-referrals | Phase 4 | Pending |
 | REQ-reminders-notifications | Phase 5 | Pending |
