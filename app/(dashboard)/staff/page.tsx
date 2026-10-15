@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { InviteStaffForm } from "@/components/staff/invite-staff-form";
 import { Users, UserPlus, Mail, ShieldCheck } from "lucide-react";
 
 export default async function StaffPage() {
@@ -88,43 +89,7 @@ export default async function StaffPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <form
-              action={async (formData: FormData) => {
-                "use server";
-                await inviteStaff(formData);
-              }}
-              className="space-y-4"
-            >
-              <Field label="Staff Email Address" htmlFor="email" required>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="doctor@example.com"
-                />
-              </Field>
-
-              <Field label="Assigned Role" htmlFor="role" required>
-                <select
-                  id="role"
-                  name="role"
-                  required
-                  defaultValue="doctor"
-                  className="w-full h-11 px-3.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
-                >
-                  <option value="doctor">Doctor (Clinical Consultations & Prescriptions)</option>
-                  <option value="admin">Admin (Operational & Staff Management)</option>
-                  <option value="receptionist">Receptionist (Intake, Front Desk & Scheduling)</option>
-                  <option value="nurse">Nurse (Vitals, Triage & Assistant)</option>
-                </select>
-              </Field>
-
-              <Button type="submit" variant="primary" className="w-full sm:w-auto">
-                <Mail className="w-4 h-4 mr-2" />
-                Send Invitation
-              </Button>
-            </form>
+            <InviteStaffForm />
           </CardContent>
         </Card>
       )}

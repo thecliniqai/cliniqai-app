@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { acceptInvite } from "@/features/staff/actions";
+import { requestOtpAction } from "@/features/auth/dev-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -21,6 +22,7 @@ function JoinClinicContent() {
   const [step, setStep] = useState<"otp_request" | "otp_verify">("otp_request");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -29,17 +31,15 @@ function JoinClinicContent() {
     setLoading(true);
     setError(null);
 
-    const { error: signInError } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        shouldCreateUser: true,
-      },
-    });
-
+    const res = await requestOtpAction(email, "join");
     setLoading(false);
-    if (signInError) {
-      setError(signInError.message);
+
+    if (!res.success) {
+      setError(res.error || "Failed to generate verification code.");
     } else {
+      if (res.devOtp) {
+        setDevOtpHint(res.devOtp);
+      }
       setStep("otp_verify");
     }
   };
@@ -123,6 +123,26 @@ function JoinClinicContent() {
           </form>
         ) : (
           <form onSubmit={handleVerifyAndJoin} className="space-y-5">
+            {devOtpHint && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                    DEV OTP
+                  </span>
+                  <span className="font-mono text-sm font-bold tracking-widest text-emerald-950">
+                    {devOtpHint}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOtp(devOtpHint)}
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                >
+                  Auto-fill
+                </button>
+              </div>
+            )}
+
             <Field
               label="Verification Code"
               htmlFor="otp"

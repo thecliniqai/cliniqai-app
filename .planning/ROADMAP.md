@@ -156,6 +156,7 @@ Plans:
   3. Core actions (open patient record, create appointment, save prescription) respond in under 1–2 seconds on typical Indian 3G/4G networks
   4. If the SMS/WhatsApp provider is down, in-app data entry and clinical workflows continue unaffected; uptime monitoring supports the 99.5%+ target with backups/restore tested
   5. A patient's DPDP requests (access/delete, consent status) can be fulfilled from the app, and clinic registration/license details are stored
+  6. Security hardening & dev cleanup: Audit and permanently disable temporary dev-only auth logger (`lib/auth/dev-logger.ts`, console/file OTP printing, and invite link exposure) before production release.
 
 **Plans**: TBD
 

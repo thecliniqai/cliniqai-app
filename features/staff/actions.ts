@@ -14,7 +14,7 @@ const inviteStaffSchema = z.object({
 });
 
 export type InviteStaffResult =
-  | { success: true; inviteId: string; rawToken: string }
+  | { success: true; inviteId: string; rawToken: string; inviteLink: string }
   | { success: false; error: string };
 
 export async function inviteStaff(formData: FormData): Promise<InviteStaffResult> {
@@ -61,10 +61,22 @@ export async function inviteStaff(formData: FormData): Promise<InviteStaffResult
       };
     }
 
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const inviteLink = `${baseUrl}/join?token=${rawToken}&email=${encodeURIComponent(email.toLowerCase().trim())}`;
+
+    const { logDevAuthEvent } = await import("@/lib/auth/dev-logger");
+    logDevAuthEvent({
+      type: "STAFF_INVITATION",
+      email: email.toLowerCase().trim(),
+      role,
+      link: inviteLink,
+    });
+
     return {
       success: true,
       inviteId: (data as { id: string }).id,
       rawToken,
+      inviteLink,
     };
   } catch (err: unknown) {
     console.error("[features/staff/actions] Unauthorized or error creating invitation:", err);

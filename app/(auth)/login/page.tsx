@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { requestOtpAction } from "@/features/auth/dev-actions";
 import { ClinicShowcasePanel } from "@/components/auth/clinic-showcase-panel";
 import { SocialAuthButtons } from "@/components/auth/social-auth-buttons";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ export default function LoginPage() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
 
   // Resend cooldown timer
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -66,27 +68,17 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
-      const redirectUrl =
-        typeof window !== "undefined"
-          ? `${window.location.origin}/auth/callback`
-          : undefined;
-
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: cleanEmail,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: redirectUrl,
-        },
-      });
-
-      if (otpError) {
-        setError(otpError.message);
+      const res = await requestOtpAction(cleanEmail, "login");
+      if (!res.success) {
+        setError(res.error || "Failed to send verification code.");
         setLoading(false);
         return;
       }
 
       setStep("otp");
+      if (res.devOtp) {
+        setDevOtpHint(res.devOtp);
+      }
       setOtp("");
       setResendCooldown(30);
       setResendSuccess(false);
@@ -139,23 +131,13 @@ export default function LoginPage() {
     setResendSuccess(false);
 
     try {
-      const supabase = createClient();
-      const redirectUrl =
-        typeof window !== "undefined"
-          ? `${window.location.origin}/auth/callback`
-          : undefined;
-
-      const { error: resendErr } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: redirectUrl,
-        },
-      });
-
-      if (resendErr) {
-        setError(resendErr.message);
+      const res = await requestOtpAction(email.trim(), "login");
+      if (!res.success) {
+        setError(res.error || "Failed to resend verification code.");
       } else {
+        if (res.devOtp) {
+          setDevOtpHint(res.devOtp);
+        }
         setResendCooldown(30);
         setResendSuccess(true);
       }
@@ -290,6 +272,30 @@ export default function LoginPage() {
                   <span>Change</span>
                 </button>
               </div>
+
+              {/* UAT Dev Mode Auto-Hint Banner */}
+              {devOtpHint && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between shadow-xs animate-in fade-in duration-150">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                      DEV OTP
+                    </span>
+                    <span className="font-mono text-sm font-bold tracking-widest text-emerald-950">
+                      {devOtpHint}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtp(devOtpHint);
+                      otpInputRef.current?.focus();
+                    }}
+                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
+                  >
+                    Auto-fill
+                  </button>
+                </div>
+              )}
 
               {/* 8-Digit OTP Input */}
               <Field

@@ -69,6 +69,7 @@ Decisions are logged in PROJECT.md Key Decisions table and Phase 3 CONTEXT.md:
 - [Phase 3 D-30]: Curated Indian OPD diagnoses (~1,500 conditions) with ICD-11 and SNOMED CT; optional "Save to Chronic Conditions" checkbox syncs `patients.chronic_conditions`.
 - [Phase 3 D-31]: Post-sign-off editing creates immutable snapshot in `visit_revisions` and generates versioned `v2`/`v3` PDFs with "Amended on [Date]" watermark.
 - [Phase 3 D-32]: Specialty templates for GP, Dental (SVG FDI odontogram 11-48, 51-85), and Pediatrics (WHO LMS growth percentiles, IAP immunization checklist).
+- [Phase 3A D-33]: Dev-only Auth Logger enabled in `lib/auth/dev-logger.ts` printing OTP codes and staff invitation links to server terminal console and `.planning/dev-auth-logs.txt`. Mandatory security rule: must be audited and permanently disabled before Phase 6 production launch.
 
 ### Pending Todos
 
