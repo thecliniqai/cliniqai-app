@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "seed:cdci": "tsx scripts/seed-cdci.ts",
-    "seed:cdci:test": "tsx scripts/seed-cdci-test-fixture.ts"
+    "seed:cdci:test": "tsx scripts/seed-cdci-test-fixture.ts",
+    "seed:diagnoses": "tsx scripts/seed-opd-diagnoses.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
