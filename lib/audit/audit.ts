@@ -29,7 +29,10 @@ export type AuditAction =
   | "prescription.generate_pdf"
   | "visit.complete_and_sign"
   | "visit.reopen_for_amendment"
-  | "visit.amend_finalized";
+  | "visit.amend_finalized"
+  | "clinic.settings.update"
+  | "invoice.create"
+  | "invoice.payment_recorded";
 
 export interface RecordAuditParams {
   action: AuditAction;
@@ -43,6 +46,8 @@ export interface RecordAuditParams {
     | "waitlist"
     | "consultation"
     | "prescription"
+    | "invoice"
+    | "payment"
     | "diagnosis"
     | "follow_up";
   entityId?: string | null;

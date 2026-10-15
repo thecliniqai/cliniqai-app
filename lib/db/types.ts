@@ -13,6 +13,10 @@ export interface Tenant {
   registration_number?: string | null;
   letterhead_top_margin?: number;
   letterhead_bottom_margin?: number;
+  owner_is_practicing_doctor?: boolean;
+  default_consultation_fee?: number;
+  default_followup_fee?: number;
+  accepted_payment_methods?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -274,6 +278,49 @@ export interface OpdDiagnosis {
   specialties: string[];
   is_chronic: boolean;
   synonyms: string[];
+}
+
+export type InvoiceStatus = "draft" | "issued" | "paid" | "cancelled";
+export type InvoiceItemType = "consultation" | "procedure" | "medicine" | "other";
+export type PaymentMethod = "cash" | "upi" | "card";
+
+export interface Invoice {
+  id: string;
+  tenant_id: string;
+  visit_id: string;
+  patient_id: string;
+  invoice_number: string;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total_amount: number;
+  status: InvoiceStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceItem {
+  id: string;
+  tenant_id: string;
+  invoice_id: string;
+  item_type: InvoiceItemType;
+  description: string;
+  unit_price: number;
+  quantity: number;
+  total_price: number;
+  created_at: string;
+}
+
+export interface Payment {
+  id: string;
+  tenant_id: string;
+  invoice_id: string;
+  amount: number;
+  payment_method: PaymentMethod;
+  reference_number: string | null;
+  notes: string | null;
+  recorded_by: string;
+  recorded_at: string;
 }
 
 export type QueuePriority = "normal" | "urgent" | "vip";
