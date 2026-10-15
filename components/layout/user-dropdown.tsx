@@ -56,11 +56,13 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
         </p>
       </div>
 
-      <Link href="/settings/clinic" className="block">
-        <DropdownItem icon={<Building className="w-4 h-4 text-gray-500" />}>
-          Clinic Profile
-        </DropdownItem>
-      </Link>
+      {(role === "owner" || role === "admin") && (
+        <Link href="/settings/clinic" className="block">
+          <DropdownItem icon={<Building className="w-4 h-4 text-gray-500" />}>
+            Clinic Profile
+          </DropdownItem>
+        </Link>
+      )}
 
       <div className="my-1 border-t border-gray-100" />
 

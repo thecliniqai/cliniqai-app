@@ -38,6 +38,10 @@ export default async function DashboardPage() {
     throw error;
   }
 
+  if (membership.role === "doctor") {
+    redirect("/cabin");
+  }
+
   const { data: tenant } = await supabase
     .from("tenants")
     .select("name, id")

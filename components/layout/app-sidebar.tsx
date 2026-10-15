@@ -13,6 +13,7 @@ import {
   UserCheck,
   Building2,
   CreditCard,
+  Stethoscope,
   X,
 } from "lucide-react";
 
@@ -26,33 +27,66 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
   const { isExpanded, isMobileOpen, closeMobileSidebar } = useSidebar();
 
   const isOwnerOrAdmin = role === "owner" || role === "admin";
+  const isDoctor = role === "doctor";
 
-  const operationsNav = [
-    {
-      label: "Dashboard",
-      href: "/",
-      icon: LayoutDashboard,
-      active: pathname === "/",
-    },
-    {
-      label: "Live Queue",
-      href: "/queue",
-      icon: Clock,
-      active: pathname.startsWith("/queue"),
-    },
-    {
-      label: "Calendar",
-      href: "/calendar",
-      icon: Calendar,
-      active: pathname.startsWith("/calendar"),
-    },
-    {
-      label: "Patients",
-      href: "/patients",
-      icon: Users,
-      active: pathname.startsWith("/patients"),
-    },
-  ];
+  // Build role-scoped operations navigation
+  const operationsNav = isDoctor
+    ? [
+        {
+          label: "Doctor's Cabin",
+          href: "/cabin",
+          icon: Stethoscope,
+          active: pathname.startsWith("/cabin"),
+        },
+        {
+          label: "My Calendar",
+          href: "/calendar",
+          icon: Calendar,
+          active: pathname.startsWith("/calendar"),
+        },
+        {
+          label: "Patients",
+          href: "/patients",
+          icon: Users,
+          active: pathname.startsWith("/patients"),
+        },
+      ]
+    : [
+        ...(isOwnerOrAdmin
+          ? [
+              {
+                label: "Doctor's Cabin",
+                href: "/cabin",
+                icon: Stethoscope,
+                active: pathname.startsWith("/cabin"),
+              },
+            ]
+          : []),
+        {
+          label: "Dashboard",
+          href: "/",
+          icon: LayoutDashboard,
+          active: pathname === "/",
+        },
+        {
+          label: "Live Queue",
+          href: "/queue",
+          icon: Clock,
+          active: pathname.startsWith("/queue"),
+        },
+        {
+          label: "Calendar",
+          href: "/calendar",
+          icon: Calendar,
+          active: pathname.startsWith("/calendar"),
+        },
+        {
+          label: "Patients",
+          href: "/patients",
+          icon: Users,
+          active: pathname.startsWith("/patients"),
+        },
+      ];
 
   const managementNav = [
     {
@@ -68,10 +102,10 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
       active: pathname.startsWith("/settings/clinic"),
     },
     {
-      label: "Billing & Plans",
-      href: "/settings/billing",
+      label: "Billing & Reports",
+      href: "/billing/reports",
       icon: CreditCard,
-      active: pathname.startsWith("/settings/billing"),
+      active: pathname.startsWith("/billing") || pathname.startsWith("/settings/billing"),
     },
   ];
 
