@@ -52,8 +52,11 @@ CREATE TABLE IF NOT EXISTS public.consultation_diagnoses (
 CREATE INDEX IF NOT EXISTS idx_consultation_diagnoses_tenant_visit ON public.consultation_diagnoses(tenant_id, visit_id);
 CREATE INDEX IF NOT EXISTS idx_consultation_diagnoses_tenant_patient ON public.consultation_diagnoses(tenant_id, patient_id);
 
--- 4. Create prescriptions table
-CREATE TABLE IF NOT EXISTS public.prescriptions (
+-- 4. Create prescriptions table (drop any legacy pre-Phase-3 empty table)
+DROP TABLE IF EXISTS public.prescription_items CASCADE;
+DROP TABLE IF EXISTS public.prescriptions CASCADE;
+
+CREATE TABLE public.prescriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     visit_id UUID NOT NULL REFERENCES public.visits(id) ON DELETE CASCADE,
