@@ -19,7 +19,13 @@ export type AuditAction =
   | "consultation.draft_save"
   | "consultation.complete_sign"
   | "consultation.amend"
-  | "follow_up.record";
+  | "follow_up.record"
+  | "diagnosis.add"
+  | "diagnosis.remove"
+  | "diagnosis.update_note"
+  | "prescription.item_add"
+  | "prescription.item_remove"
+  | "prescription.template_save";
 
 export interface RecordAuditParams {
   action: AuditAction;
@@ -33,6 +39,7 @@ export interface RecordAuditParams {
     | "waitlist"
     | "consultation"
     | "prescription"
+    | "diagnosis"
     | "follow_up";
   entityId?: string | null;
   metadata?: Record<string, unknown>;
@@ -58,6 +65,10 @@ const ALLOWED_METADATA_KEYS = new Set([
   "amendment_reason",
   "follow_up_date",
   "items_count",
+  "is_custom",
+  "is_chronic",
+  "template_name",
+  "dose_form",
 ]);
 
 /**

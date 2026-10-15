@@ -5,6 +5,7 @@ import {
   getPatientConsultationHistory,
   PastVisitEncounter,
 } from "@/features/consultation/actions";
+import { getVisitDiagnoses } from "@/features/terminology/actions";
 import { ConsultationWorkspace } from "@/components/consultation/consultation-workspace";
 import {
   Vitals,
@@ -89,6 +90,10 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
     .eq("visit_id", id)
     .maybeSingle();
 
+  // 5. Fetch consultation diagnoses for this visit
+  const diagResult = await getVisitDiagnoses(id);
+  const initialDiagnoses = diagResult.success ? diagResult.diagnoses : [];
+
   // Safely cast joined patient object
   const patientRaw = Array.isArray(visitRow.patient) ? visitRow.patient[0] : visitRow.patient;
   if (!patientRaw) {
@@ -129,6 +134,7 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
           notes: followUpRow.notes,
         } as FollowUpInput)
       : null,
+    diagnoses: initialDiagnoses,
   };
 
   return (

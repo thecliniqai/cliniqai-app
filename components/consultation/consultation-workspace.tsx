@@ -17,6 +17,8 @@ import { saveConsultationDraft, type PastVisitEncounter } from "@/features/consu
 import { VitalsBlock } from "./vitals-block";
 import { ChiefComplaintsSection } from "./chief-complaints-section";
 import { PatientHistoryDrawer } from "./patient-history-drawer";
+import { DiagnosisSection } from "./diagnosis-section";
+import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import { GPSystemicReview } from "./specialty/gp-systemic-review";
 import { DentalOdontogram } from "./specialty/dental-odontogram";
 import { PediatricsTools } from "./specialty/pediatrics-tools";
@@ -55,6 +57,7 @@ export interface ConsultationWorkspaceProps {
     investigations_advised?: string[];
     advice?: string[];
     follow_up?: FollowUpInput | null;
+    diagnoses?: ConsultationDiagnosisItem[];
   };
   patient: {
     id: string;
@@ -596,30 +599,14 @@ export function ConsultationWorkspace({
           </div>
         </section>
 
-        {/* SECTION 4: DIAGNOSIS PLACEHOLDER (Plan 03-03 target) */}
+        {/* SECTION 4: DIAGNOSIS & CLINICAL CODING */}
         <section id="diagnosis" className="scroll-mt-32">
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-brand-600" />
-                <h3 className="text-sm font-bold text-gray-900">
-                  Diagnosis & Clinical Coding (ICD-11 / SNOMED CT)
-                </h3>
-              </div>
-              <span className="text-[11px] text-gray-500 font-medium">
-                1,550 Curated OPD Conditions Available
-              </span>
-            </div>
-
-            <div className="p-6 rounded-lg bg-gray-50 border border-dashed border-gray-300 text-center space-y-2">
-              <p className="text-xs text-gray-600 font-medium">
-                Diagnosis selector and zero-latency Indian outpatient terminology search will be rendered here.
-              </p>
-              <p className="text-[11px] text-gray-400">
-                Connected to seed-data `opd_diagnoses` in Wave 3 (03-03).
-              </p>
-            </div>
-          </div>
+          <DiagnosisSection
+            visitId={visit.id}
+            patientId={patient.id}
+            specialty={specialty}
+            initialDiagnoses={visit.diagnoses ?? []}
+          />
         </section>
 
         {/* SECTION 5: ELECTRONIC PRESCRIPTION PLACEHOLDER (Plan 03-03 target) */}
