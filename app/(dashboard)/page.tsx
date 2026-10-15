@@ -16,6 +16,7 @@ import {
   ArrowRight,
   TrendingUp,
   Activity,
+  Stethoscope,
 } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -285,11 +286,41 @@ export default async function DashboardPage() {
                           <StatusBadge status={v.status} />
                         </TableCell>
                         <TableCell className="text-end">
-                          <Link href="/queue">
-                            <Button variant="ghost" size="sm">
-                              Manage
-                            </Button>
-                          </Link>
+                          {v.status === "in_consultation" ? (
+                            <Link href={`/consultation/${v.id}`}>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                className="h-8 text-xs font-semibold px-2.5 bg-[#1769E0] text-white hover:bg-[#155cc0] gap-1 cursor-pointer shadow-2xs"
+                              >
+                                <Stethoscope className="w-3.5 h-3.5" />
+                                Resume
+                              </Button>
+                            </Link>
+                          ) : v.status === "waiting" ? (
+                            <Link href={`/consultation/${v.id}`}>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                className="h-8 text-xs font-semibold px-2.5 bg-[#1769E0] text-white hover:bg-[#155cc0] gap-1 cursor-pointer shadow-2xs"
+                              >
+                                <Stethoscope className="w-3.5 h-3.5" />
+                                Consult
+                              </Button>
+                            </Link>
+                          ) : v.status === "completed" ? (
+                            <Link href={`/consultation/${v.id}`}>
+                              <Button variant="ghost" size="sm" className="h-8 text-xs text-gray-600 hover:text-gray-900 cursor-pointer">
+                                Review
+                              </Button>
+                            </Link>
+                          ) : (
+                            <Link href="/queue">
+                              <Button variant="ghost" size="sm" className="h-8 text-xs text-gray-600 hover:text-gray-900 cursor-pointer">
+                                Manage
+                              </Button>
+                            </Link>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
