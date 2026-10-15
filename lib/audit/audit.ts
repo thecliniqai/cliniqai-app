@@ -32,7 +32,8 @@ export type AuditAction =
   | "visit.amend_finalized"
   | "clinic.settings.update"
   | "invoice.create"
-  | "invoice.payment_recorded";
+  | "invoice.payment_recorded"
+  | "invoice.generate_receipt_pdf";
 
 export interface RecordAuditParams {
   action: AuditAction;
@@ -81,6 +82,10 @@ const ALLOWED_METADATA_KEYS = new Set([
   "letterhead_mode",
   "version",
   "storage_path",
+  "invoice_number",
+  "total_amount",
+  "payment_method",
+  "invoice_id",
 ]);
 
 /**
