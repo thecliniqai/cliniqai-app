@@ -13,6 +13,8 @@ import {
   ProtocolTemplateInput,
   MedicineSearchResult,
 } from "./schema";
+import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
+import { PrescriptionPdfPayload } from "./pdf/prescription-document";
 
 export type SearchMedicinesResult =
   | { success: true; results: MedicineSearchResult[] }
@@ -521,3 +523,167 @@ export async function getVisitPrescription(
     };
   }
 }
+
+export type GetPrescriptionPdfSignedUrlResult =
+  | { success: true; signedUrl: string; version: number }
+  | { success: false; error: string };
+
+/**
+ * Compiles and returns a time-limited signed storage URL (3600s TTL)
+ * for previewing and printing a prescription in the browser.
+ */
+export async function getPrescriptionPdfSignedUrl(
+  prescriptionId: string,
+  letterheadMode: "blank_paper" | "preprinted_letterhead" = "blank_paper",
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  clientOverride?: SupabaseClient<Database, any, any>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<GetPrescriptionPdfSignedUrlResult> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("consultations:view"));
+
+    // 1. Fetch prescription record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rx, error: rxErr } = await (supabase.from("prescriptions") as any)
+      .select("id, visit_id, patient_id, doctor_id, version, status, amendment_reason, signed_at")
+      .eq("id", prescriptionId)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (rxErr || !rx) {
+      return { success: false, error: "Prescription not found or access denied." };
+    }
+
+    // 2. Fetch visit record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
+      .select("id, status, specialty, vitals, chief_complaints, clinical_notes, advice, investigations_advised, created_at, scheduled_at, signed_at")
+      .eq("id", rx.visit_id)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (visitErr || !visit) {
+      return { success: false, error: "Visit encounter record not found." };
+    }
+
+    // 3. Fetch clinic tenant details
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: tenant } = await (supabase.from("tenants") as any)
+      .select("name, address, phone, registration_number, logo_url")
+      .eq("id", session.tenantId)
+      .single();
+
+    // 4. Fetch patient details
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: patient } = await (supabase.from("patients") as any)
+      .select("full_name, age, sex, phone, address, abha_id")
+      .eq("id", rx.patient_id)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    // 5. Fetch doctor membership info
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: doctorMember } = await (supabase.from("memberships") as any)
+      .select("qualifications, medical_council_reg_no")
+      .eq("tenant_id", session.tenantId)
+      .eq("user_id", rx.doctor_id)
+      .maybeSingle();
+
+    // 6. Fetch consultation diagnoses
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: diagnoses } = await (supabase.from("consultation_diagnoses") as any)
+      .select("diagnosis_name, icd11_code, snomed_concept_id")
+      .eq("visit_id", rx.visit_id)
+      .eq("tenant_id", session.tenantId)
+      .order("created_at", { ascending: true });
+
+    // 7. Fetch prescription items
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: items } = await (supabase.from("prescription_items") as any)
+      .select("medicine_name, generic_name, dose_form, dosage, timing, duration, special_instructions, sort_order")
+      .eq("prescription_id", rx.id)
+      .order("sort_order", { ascending: true });
+
+    // 8. Fetch follow-up
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: followUp } = await (supabase.from("follow_ups") as any)
+      .select("follow_up_date")
+      .eq("visit_id", rx.visit_id)
+      .eq("tenant_id", session.tenantId)
+      .maybeSingle();
+
+    // 9. Build payload
+    const payload: PrescriptionPdfPayload = {
+      tenant_id: session.tenantId,
+      visit_id: rx.visit_id,
+      prescription_id: rx.id,
+      version: rx.version,
+      letterhead_mode: letterheadMode,
+      amendment_reason: rx.amendment_reason || null,
+      signed_at: rx.signed_at || visit.signed_at || null,
+      clinic: {
+        name: tenant?.name || "Clinic",
+        address: tenant?.address || null,
+        phone: tenant?.phone || null,
+        registration_number: tenant?.registration_number || null,
+        logo_url: tenant?.logo_url || null,
+      },
+      doctor: {
+        name: "Doctor",
+        qualifications: doctorMember?.qualifications || null,
+        medical_council_reg_no: doctorMember?.medical_council_reg_no || null,
+      },
+      patient: {
+        full_name: patient?.full_name || "Patient",
+        age: patient?.age || null,
+        sex: patient?.sex || null,
+        phone: patient?.phone || null,
+        address: typeof patient?.address === "string" ? patient.address : null,
+        abha_id: patient?.abha_id || null,
+        uhid: rx.patient_id.slice(0, 8).toUpperCase(),
+      },
+      visit: {
+        visit_date: (visit.scheduled_at || visit.created_at || new Date().toISOString()).split("T")[0],
+        vitals: visit.vitals || null,
+        chief_complaints: visit.chief_complaints || [],
+        clinical_notes: visit.clinical_notes || null,
+        specialty: visit.specialty || "general_physician",
+      },
+      diagnoses: (diagnoses || []).map((d: { diagnosis_name: string; icd11_code?: string; snomed_concept_id?: string }) => ({
+        diagnosis_name: d.diagnosis_name,
+        icd11_code: d.icd11_code || null,
+        snomed_concept_id: d.snomed_concept_id || null,
+      })),
+      medications: (items || []).map((item: { medicine_name: string; generic_name?: string | null; dose_form?: string | null; dosage: string; timing?: string | null; duration: string; special_instructions?: string | null }) => ({
+        medicine_name: item.medicine_name,
+        generic_name: item.generic_name,
+        dose_form: item.dose_form,
+        dosage: item.dosage,
+        timing: item.timing,
+        duration: item.duration,
+        special_instructions: item.special_instructions,
+      })),
+      investigations_advised: visit.investigations_advised || [],
+      advice: visit.advice || [],
+      follow_up_date: followUp?.follow_up_date || null,
+    };
+
+    // 10. Generate PDF and get 3600s signed URL
+    const { signedUrl } = await generateAndArchivePrescriptionPdf(payload, clientOverride, session);
+
+    return {
+      success: true,
+      signedUrl,
+      version: rx.version,
+    };
+  } catch (err: unknown) {
+    console.error("[features/prescriptions/actions] getPrescriptionPdfSignedUrl error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to generate prescription preview.",
+    };
+  }
+}
+
