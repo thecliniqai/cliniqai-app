@@ -45,7 +45,7 @@ export function QueueCard({ item, onRefresh }: QueueCardProps) {
         );
       case "in_consultation":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EAF2FF] text-[#1769E0] border border-[#B2CCFF]">
             In Consultation
           </span>
         );

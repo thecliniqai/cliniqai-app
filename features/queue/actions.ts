@@ -243,6 +243,8 @@ export async function transitionQueueState(
     try {
       revalidatePath("/queue");
       revalidatePath("/calendar");
+      revalidatePath("/cabin");
+      revalidatePath("/");
     } catch {
       // Ignore revalidation errors in testing context
     }
