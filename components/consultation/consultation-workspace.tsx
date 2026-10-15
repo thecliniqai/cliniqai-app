@@ -25,6 +25,7 @@ import type { PrescriptionItem } from "@/lib/db/types";
 import { GPSystemicReview } from "./specialty/gp-systemic-review";
 import { DentalOdontogram } from "./specialty/dental-odontogram";
 import { PediatricsTools } from "./specialty/pediatrics-tools";
+import { SignAndBillModal } from "./sign-and-bill-modal";
 import {
   ArrowLeft,
   Clock,
@@ -151,6 +152,7 @@ export function ConsultationWorkspace({
 
   // Auto-save and Drawer State
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -436,8 +438,8 @@ export function ConsultationWorkspace({
             {/* Primary Action: Complete & Sign Rx */}
             <button
               type="button"
-              onClick={() => handleSaveDraft(false)}
-              className="min-h-[44px] px-4 rounded-lg bg-brand-600 text-white hover:bg-brand-700 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors"
+              onClick={() => setIsSignModalOpen(true)}
+              className="min-h-[44px] px-4 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] text-xs font-semibold flex items-center gap-1.5 shadow-theme-xs transition-colors cursor-pointer"
             >
               <span>Complete & Sign ℞</span>
             </button>
@@ -939,6 +941,19 @@ export function ConsultationWorkspace({
         encounters={pastEncounters ?? []}
         onRepeatRx={handleRepeatRx}
         onCopyNotes={handleCopyNotes}
+      />
+
+      {/* Solo Doctor Complete & Sign + Billing Modal */}
+      <SignAndBillModal
+        isOpen={isSignModalOpen}
+        onClose={() => setIsSignModalOpen(false)}
+        visitId={visit.id}
+        patientId={patient.id}
+        patientName={patient.full_name}
+        diagnosesCount={visit.diagnoses?.length || 1}
+        medicinesCount={visit.prescription_items?.length || 0}
+        followUpDate={followUpDate}
+        onSaveDraftBeforeSign={() => handleSaveDraft(false)}
       />
     </div>
   );
