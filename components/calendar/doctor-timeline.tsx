@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { Visit, Patient } from "@/lib/db/types";
-import { Clock, Plus, AlertCircle, XCircle } from "lucide-react";
+import { Clock, Plus, AlertCircle, XCircle, Stethoscope } from "lucide-react";
 
 export interface TimelineVisit extends Visit {
   patients?: Patient | null;
@@ -146,6 +147,18 @@ export function DoctorTimeline({
                                     <AlertCircle className="w-3.5 h-3.5" />
                                   </span>
                                 )}
+                                <Link
+                                  href={`/consultation/${v.id}`}
+                                  className="p-1 rounded-lg text-[#1769E0] hover:text-[#155cc0] hover:bg-white/90 transition-colors cursor-pointer"
+                                  title={
+                                    v.status === "in_consultation"
+                                      ? "Resume Consultation"
+                                      : "Start Consultation"
+                                  }
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Stethoscope className="w-4 h-4" />
+                                </Link>
                                 <button
                                   type="button"
                                   onClick={() => onCancelVisit(v.id)}
