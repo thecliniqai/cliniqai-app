@@ -6,6 +6,7 @@ import {
   PastVisitEncounter,
 } from "@/features/consultation/actions";
 import { getVisitDiagnoses } from "@/features/terminology/actions";
+import { getVisitPrescription } from "@/features/prescriptions/actions";
 import { ConsultationWorkspace } from "@/components/consultation/consultation-workspace";
 import {
   Vitals,
@@ -94,6 +95,11 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
   const diagResult = await getVisitDiagnoses(id);
   const initialDiagnoses = diagResult.success ? diagResult.diagnoses : [];
 
+  // 6. Fetch active prescription items for this visit
+  const rxResult = await getVisitPrescription(id);
+  const initialPrescriptionItems =
+    rxResult.success && rxResult.prescription ? rxResult.prescription.items : [];
+
   // Safely cast joined patient object
   const patientRaw = Array.isArray(visitRow.patient) ? visitRow.patient[0] : visitRow.patient;
   if (!patientRaw) {
@@ -135,6 +141,7 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
         } as FollowUpInput)
       : null,
     diagnoses: initialDiagnoses,
+    prescription_items: initialPrescriptionItems,
   };
 
   return (

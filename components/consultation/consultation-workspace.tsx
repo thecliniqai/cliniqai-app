@@ -19,6 +19,9 @@ import { ChiefComplaintsSection } from "./chief-complaints-section";
 import { PatientHistoryDrawer } from "./patient-history-drawer";
 import { DiagnosisSection } from "./diagnosis-section";
 import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
+import { PrescriptionBuilder } from "./prescription-builder";
+import { addPrescriptionItem } from "@/features/prescriptions/actions";
+import type { PrescriptionItem } from "@/lib/db/types";
 import { GPSystemicReview } from "./specialty/gp-systemic-review";
 import { DentalOdontogram } from "./specialty/dental-odontogram";
 import { PediatricsTools } from "./specialty/pediatrics-tools";
@@ -58,6 +61,7 @@ export interface ConsultationWorkspaceProps {
     advice?: string[];
     follow_up?: FollowUpInput | null;
     diagnoses?: ConsultationDiagnosisItem[];
+    prescription_items?: PrescriptionItem[];
   };
   patient: {
     id: string;
@@ -293,10 +297,24 @@ export function ConsultationWorkspace({
   };
 
   // Handle Repeat Rx callback from history drawer
-  const handleRepeatRx = (medications: { medicine_name: string; dosage: string }[]) => {
+  const handleRepeatRx = async (medications: PastVisitEncounter["prescriptions"][0]["items"]) => {
     setIsHistoryOpen(false);
     scrollToSection("prescription");
-    // Pre-fills prescription builder (Plan 03-03 ready)
+    for (const med of medications) {
+      try {
+        await addPrescriptionItem(visit.id, {
+          medicine_name: med.medicine_name,
+          generic_name: med.generic_name ?? null,
+          dose_form: med.dose_form ?? null,
+          dosage: med.dosage,
+          timing: med.timing ?? null,
+          duration: med.duration,
+          special_instructions: med.special_instructions ?? null,
+        });
+      } catch (err) {
+        console.error("Failed to repeat medication:", err);
+      }
+    }
   };
 
   // Handle Copy Notes callback from history drawer
@@ -609,30 +627,22 @@ export function ConsultationWorkspace({
           />
         </section>
 
-        {/* SECTION 5: ELECTRONIC PRESCRIPTION PLACEHOLDER (Plan 03-03 target) */}
+        {/* SECTION 5: ELECTRONIC PRESCRIPTION */}
         <section id="prescription" className="scroll-mt-32">
-          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-xs">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-base font-serif font-bold text-brand-600">℞</span>
-                <h3 className="text-sm font-bold text-gray-900">
-                  Electronic Prescription (CDCI Drug Master)
-                </h3>
-              </div>
-              <span className="text-[11px] text-gray-500 font-medium">
-                94,000+ Indian Medicines Master
-              </span>
-            </div>
-
-            <div className="p-6 rounded-lg bg-gray-50 border border-dashed border-gray-300 text-center space-y-2">
-              <p className="text-xs text-gray-600 font-medium">
-                Electronic prescription builder with 1-tap dosage chips (1-0-1, After food, 5d) and sub-100ms drug search will be rendered here.
-              </p>
-              <p className="text-[11px] text-gray-400">
-                Connected to `cdci_medicines_search` in Wave 3 (03-03).
-              </p>
-            </div>
-          </div>
+          <PrescriptionBuilder
+            visitId={visit.id}
+            patientAllergies={patient.allergies ?? []}
+            initialItems={visit.prescription_items ?? []}
+            hasPastRx={pastEncounters.some((e) => e.prescriptions && e.prescriptions.length > 0)}
+            onRepeatLastRx={() => {
+              const firstWithRx = pastEncounters.find(
+                (e) => e.prescriptions && e.prescriptions.length > 0
+              );
+              if (firstWithRx && firstWithRx.prescriptions[0]?.items) {
+                handleRepeatRx(firstWithRx.prescriptions[0].items);
+              }
+            }}
+          />
         </section>
 
         {/* SECTION 6: INVESTIGATIONS ADVISED & CLINICAL ADVICE */}

@@ -93,7 +93,7 @@ export const prescriptionItemSchema = z.object({
   sort_order: z.number().int().default(0),
 });
 
-export type PrescriptionItemInput = z.infer<typeof prescriptionItemSchema>;
+export type PrescriptionItemInput = z.input<typeof prescriptionItemSchema>;
 
 /**
  * Schema for saving doctor custom medicine.
