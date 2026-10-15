@@ -15,11 +15,25 @@ export type AuditAction =
   | "queue.check_in"
   | "queue.transition"
   | "waitlist.add"
-  | "waitlist.promote";
+  | "waitlist.promote"
+  | "consultation.draft_save"
+  | "consultation.complete_sign"
+  | "consultation.amend"
+  | "follow_up.record";
 
 export interface RecordAuditParams {
   action: AuditAction;
-  entityType: "patient" | "clinic" | "membership" | "consent" | "visit" | "queue_token" | "waitlist";
+  entityType:
+    | "patient"
+    | "clinic"
+    | "membership"
+    | "consent"
+    | "visit"
+    | "queue_token"
+    | "waitlist"
+    | "consultation"
+    | "prescription"
+    | "follow_up";
   entityId?: string | null;
   metadata?: Record<string, unknown>;
 }
@@ -39,6 +53,11 @@ const ALLOWED_METADATA_KEYS = new Set([
   "promoted_visit_id",
   "target_date",
   "is_overbooked",
+  "specialty",
+  "revision_number",
+  "amendment_reason",
+  "follow_up_date",
+  "items_count",
 ]);
 
 /**
