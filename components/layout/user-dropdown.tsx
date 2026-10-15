@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
-import { LogOut, Building, Shield } from "lucide-react";
+import { LogOut, Building, Shield, User } from "lucide-react";
 import Link from "next/link";
 
 export interface UserDropdownProps {
@@ -55,6 +55,12 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
           <span>{role} · {tenantName}</span>
         </p>
       </div>
+
+      <Link href="/profile" className="block">
+        <DropdownItem icon={<User className="w-4 h-4 text-gray-500" />}>
+          My Profile
+        </DropdownItem>
+      </Link>
 
       {(role === "owner" || role === "admin") && (
         <Link href="/settings/clinic" className="block">

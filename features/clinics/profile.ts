@@ -41,6 +41,32 @@ export async function getClinicProfile(): Promise<Tenant | null> {
   return data as Tenant;
 }
 
+export async function getClinicProfileWithMembership(): Promise<{
+  tenant: Tenant | null;
+  membership: any | null;
+}> {
+  const supabase = await createClient();
+  const session = await requirePermission(supabase, "clinic:view");
+
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("*")
+    .eq("id", session.tenantId)
+    .single();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: member } = await (supabase.from("memberships") as any)
+    .select("*")
+    .eq("tenant_id", session.tenantId)
+    .eq("user_id", session.userId)
+    .maybeSingle();
+
+  return {
+    tenant: (tenant as unknown as Tenant) || null,
+    membership: member || null,
+  };
+}
+
 export type UpdateProfileResult =
   | { success: true; tenant: Tenant }
   | { success: false; error: string };

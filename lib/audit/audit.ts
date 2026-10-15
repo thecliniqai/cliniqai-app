@@ -31,6 +31,8 @@ export type AuditAction =
   | "visit.reopen_for_amendment"
   | "visit.amend_finalized"
   | "clinic.settings.update"
+  | "user.profile.update"
+  | "staff.member.update"
   | "invoice.create"
   | "invoice.payment_recorded"
   | "invoice.generate_receipt_pdf";

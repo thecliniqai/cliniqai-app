@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Tenant } from "@/lib/db/types";
+import { Tenant, Membership } from "@/lib/db/types";
 import { updateClinicSettings } from "@/features/settings/actions";
 import { ALLOWED_SPECIALTIES } from "@/features/clinics/constants";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -19,13 +19,18 @@ import {
   CreditCard,
   QrCode,
   Banknote,
+  GraduationCap,
+  ShieldCheck,
+  User,
+  Phone,
 } from "lucide-react";
 
 interface ClinicProfileFormProps {
   initialTenant: Tenant;
+  initialOwnerMembership?: Membership | null;
 }
 
-export function ClinicProfileForm({ initialTenant }: ClinicProfileFormProps) {
+export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: ClinicProfileFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -37,6 +42,24 @@ export function ClinicProfileForm({ initialTenant }: ClinicProfileFormProps) {
   const [ownerIsPracticing, setOwnerIsPracticing] = useState<boolean>(
     initialTenant.owner_is_practicing_doctor ?? true
   );
+
+  // Owner Doctor Clinical Credentials
+  const [doctorName, setDoctorName] = useState(
+    initialOwnerMembership?.full_name || ""
+  );
+  const [doctorPhone, setDoctorPhone] = useState(
+    initialOwnerMembership?.phone || ""
+  );
+  const [medicalCouncilRegNo, setMedicalCouncilRegNo] = useState(
+    initialOwnerMembership?.medical_council_reg_no || ""
+  );
+  const [qualifications, setQualifications] = useState(
+    initialOwnerMembership?.qualifications || ""
+  );
+  const [defaultSpecialty, setDefaultSpecialty] = useState(
+    initialOwnerMembership?.default_specialty || "general_physician"
+  );
+
   const [consultationFee, setConsultationFee] = useState<number>(
     initialTenant.default_consultation_fee ?? 500
   );
@@ -69,6 +92,12 @@ export function ClinicProfileForm({ initialTenant }: ClinicProfileFormProps) {
     });
   };
 
+  const addDegreeChip = (degree: string) => {
+    if (!qualifications.includes(degree)) {
+      setQualifications((prev) => (prev ? `${prev}, ${degree}` : degree));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMessage(null);
@@ -83,12 +112,17 @@ export function ClinicProfileForm({ initialTenant }: ClinicProfileFormProps) {
         default_consultation_fee: Number(consultationFee),
         default_followup_fee: Number(followupFee),
         accepted_payment_methods: paymentMethods as ("cash" | "upi" | "card")[],
+        doctor_name: ownerIsPracticing ? doctorName : undefined,
+        doctor_phone: ownerIsPracticing ? doctorPhone : undefined,
+        medical_council_reg_no: ownerIsPracticing ? medicalCouncilRegNo : undefined,
+        qualifications: ownerIsPracticing ? qualifications : undefined,
+        default_specialty: defaultSpecialty,
       });
 
       if (res.success) {
         setStatusMessage({
           type: "success",
-          text: "Clinic profile and OPD fee settings saved successfully.",
+          text: "Clinic profile, doctor credentials, and OPD fee settings saved successfully.",
         });
         router.refresh();
       } else {
@@ -235,6 +269,120 @@ export function ClinicProfileForm({ initialTenant }: ClinicProfileFormProps) {
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1769E0]" />
             </label>
           </div>
+
+          {/* Owner Doctor Credentials Card */}
+          {ownerIsPracticing && (
+            <div className="p-4 sm:p-5 rounded-2xl border border-blue-200 bg-[#F4F8FF]/80 space-y-4">
+              <div className="flex items-center gap-2 pb-2 border-b border-blue-100">
+                <GraduationCap className="w-4 h-4 text-[#1769E0]" />
+                <h4 className="text-sm font-bold text-gray-900">
+                  Owner Doctor Credentials (Printed on Prescriptions &amp; Receipts)
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Field label="Doctor Full Name" htmlFor="doctor_name" required>
+                  <div className="relative">
+                    <span className="absolute start-3 top-2.5 text-gray-400">
+                      <User className="w-4 h-4" />
+                    </span>
+                    <Input
+                      id="doctor_name"
+                      type="text"
+                      placeholder="e.g. Dr. Rajesh Sharma"
+                      value={doctorName}
+                      onChange={(e) => setDoctorName(e.target.value)}
+                      className="ps-9 font-semibold"
+                    />
+                  </div>
+                </Field>
+
+                <Field label="Doctor Mobile / Phone" htmlFor="doctor_phone">
+                  <div className="relative">
+                    <span className="absolute start-3 top-2.5 text-gray-400">
+                      <Phone className="w-4 h-4" />
+                    </span>
+                    <Input
+                      id="doctor_phone"
+                      type="tel"
+                      placeholder="e.g. +91 98765 43210"
+                      value={doctorPhone}
+                      onChange={(e) => setDoctorPhone(e.target.value)}
+                      className="ps-9"
+                    />
+                  </div>
+                </Field>
+
+                <Field
+                  label="Medical Council Reg. Number"
+                  htmlFor="medicalCouncilRegNo"
+                  help="e.g. KMC 48291 / MCI-2019-1234 (Mandatory under NMC rules)"
+                  required
+                >
+                  <div className="relative">
+                    <span className="absolute start-3 top-2.5 text-gray-400">
+                      <ShieldCheck className="w-4 h-4" />
+                    </span>
+                    <Input
+                      id="medicalCouncilRegNo"
+                      type="text"
+                      placeholder="e.g. KMC 48291"
+                      value={medicalCouncilRegNo}
+                      onChange={(e) => setMedicalCouncilRegNo(e.target.value)}
+                      className="ps-9 font-semibold uppercase"
+                    />
+                  </div>
+                </Field>
+
+                <Field label="Primary Clinical Specialty" htmlFor="defaultSpecialty">
+                  <select
+                    id="defaultSpecialty"
+                    value={defaultSpecialty}
+                    onChange={(e) => setDefaultSpecialty(e.target.value)}
+                    className="w-full h-10 px-3 rounded-xl border border-gray-300 bg-white text-sm font-medium text-gray-900 focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                  >
+                    <option value="general_physician">General Physician</option>
+                    <option value="dental">Dental</option>
+                    <option value="pediatrics">Pediatrics</option>
+                  </select>
+                </Field>
+              </div>
+
+              {/* Degrees / Qualifications */}
+              <div className="space-y-2">
+                <Field
+                  label="Degrees & Medical Qualifications"
+                  htmlFor="qualifications"
+                  help="Displayed beside doctor name on prescription letterhead."
+                  required
+                >
+                  <Input
+                    id="qualifications"
+                    type="text"
+                    placeholder="e.g. MBBS, MD (General Medicine), DNB"
+                    value={qualifications}
+                    onChange={(e) => setQualifications(e.target.value)}
+                    className="font-medium"
+                  />
+                </Field>
+
+                {/* Quick Add Chips */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[11px] text-gray-500 font-medium me-1">Quick Add:</span>
+                  {["MBBS", "MD", "MS", "DNB", "BDS", "MDS", "DM", "MCh", "DCH", "DGO"].map((deg) => (
+                    <button
+                      key={deg}
+                      type="button"
+                      onClick={() => addDegreeChip(deg)}
+                      className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white border border-blue-200 text-[#1769E0] hover:bg-blue-50 transition-colors cursor-pointer"
+                    >
+                      +{deg}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* OPD Consultation Fees */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

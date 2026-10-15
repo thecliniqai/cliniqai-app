@@ -55,7 +55,7 @@ export async function GET(
     // 6. Fetch doctor membership info
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: doctorMember } = await (supabase.from("memberships") as any)
-      .select("qualifications, medical_council_reg_no")
+      .select("full_name, qualifications, medical_council_reg_no")
       .eq("tenant_id", membership.tenantId)
       .eq("user_id", visit.doctor_id)
       .maybeSingle();
@@ -135,7 +135,7 @@ export async function GET(
         logo_url: tenant?.logo_url || null,
       },
       doctor: {
-        name: user.user_metadata?.full_name || "Doctor",
+        name: doctorMember?.full_name || user.user_metadata?.full_name || "Doctor",
         qualifications: doctorMember?.qualifications || null,
         medical_council_reg_no: doctorMember?.medical_council_reg_no || null,
       },

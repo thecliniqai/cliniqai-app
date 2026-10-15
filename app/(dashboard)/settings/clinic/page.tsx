@@ -1,9 +1,9 @@
-import { getClinicProfile } from "@/features/clinics/profile";
+import { getClinicProfileWithMembership } from "@/features/clinics/profile";
 import { ClinicProfileForm } from "@/components/settings/clinic-profile-form";
 import { Card, CardContent } from "@/components/ui/card";
 
 export default async function ClinicSettingsPage() {
-  const profile = await getClinicProfile();
+  const { tenant: profile, membership } = await getClinicProfileWithMembership();
 
   if (!profile) {
     return (
@@ -23,14 +23,14 @@ export default async function ClinicSettingsPage() {
       {/* Header */}
       <div className="pb-2 border-b border-gray-200">
         <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-          Clinic Profile & Settings
+          Clinic Profile &amp; Settings
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Manage practice configuration, doctor permissions, and default OPD consultation fees.
+          Manage practice configuration, doctor credentials, and default OPD consultation fees.
         </p>
       </div>
 
-      <ClinicProfileForm initialTenant={profile} />
+      <ClinicProfileForm initialTenant={profile} initialOwnerMembership={membership} />
     </div>
   );
 }

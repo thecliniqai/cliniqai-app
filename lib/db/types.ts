@@ -26,6 +26,8 @@ export interface Membership {
   user_id: string;
   tenant_id: string;
   role: UserRole;
+  full_name?: string | null;
+  phone?: string | null;
   qualifications?: string | null;
   medical_council_reg_no?: string | null;
   signature_url?: string | null;

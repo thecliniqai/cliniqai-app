@@ -7,6 +7,8 @@ import { Field } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { InviteStaffForm } from "@/components/staff/invite-staff-form";
+import { StaffList } from "@/components/staff/staff-list";
+import { Membership } from "@/lib/db/types";
 import { Users, UserPlus, Mail, ShieldCheck } from "lucide-react";
 
 export default async function StaffPage() {
@@ -14,13 +16,13 @@ export default async function StaffPage() {
   const membership = await getActiveMembership();
   const isOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
 
-  // Fetch current memberships
+  // Fetch current memberships with full doctor profile credentials
   const { data: members } = await supabase
     .from("memberships")
-    .select("id, user_id, role, created_at")
+    .select("id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, created_at")
     .eq("tenant_id", membership.tenantId)
     .order("created_at", { ascending: true })
-    .returns<Array<{ id: string; user_id: string; role: string; created_at: string }>>();
+    .returns<Membership[]>();
 
   // Fetch pending invitations if owner/admin
   let invitations: Array<{ id: string; invited_address: string; role: string; expires_at: string; consumed_at: string | null }> = [];
@@ -60,14 +62,14 @@ export default async function StaffPage() {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              Staff & Team
+              Staff &amp; Team
             </h1>
             <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200">
               {members?.length || 0} Members
             </span>
           </div>
           <p className="text-sm text-gray-500 mt-0.5">
-            Manage your clinic&apos;s doctors, nurses, and administrative staff permissions.
+            Manage your clinic&apos;s doctors, clinical credentials, and administrative permissions.
           </p>
         </div>
       </div>
@@ -110,26 +112,7 @@ export default async function StaffPage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y divide-gray-100">
-              {members?.map((m) => (
-                <div key={m.id} className="p-4 sm:px-5 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center font-bold text-xs shrink-0">
-                      {m.role.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">
-                        User {m.user_id.slice(0, 8)}...
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        Joined {new Date(m.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                  <div>{getRoleBadge(m.role)}</div>
-                </div>
-              ))}
-            </div>
+            <StaffList members={members || []} isOwnerOrAdmin={isOwnerOrAdmin} />
           </CardContent>
         </Card>
 

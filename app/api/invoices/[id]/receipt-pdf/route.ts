@@ -67,13 +67,13 @@ export async function GET(
       if (visit?.doctor_id) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: doctorMember } = await (supabase.from("memberships") as any)
-          .select("qualifications, medical_council_reg_no")
+          .select("full_name, qualifications, medical_council_reg_no")
           .eq("tenant_id", membership.tenantId)
           .eq("user_id", visit.doctor_id)
           .maybeSingle();
 
         doctorInfo = {
-          name: user.user_metadata?.full_name || "Clinician",
+          name: doctorMember?.full_name || user.user_metadata?.full_name || "Clinician",
           qualifications: doctorMember?.qualifications || null,
           registration_no: doctorMember?.medical_council_reg_no || null,
         };
