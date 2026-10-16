@@ -96,16 +96,6 @@ Plans:
 
 **UI hint**: Yes
 
-### Phase 03.2: Patient Visit History and Clinic Unified Visits Register (INSERTED)
-
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 3
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd-plan-phase 03.2 to break down)
-
 ### Phase 03.1: Doctor Cabin, Role-Based Access & Billing Invoicing (INSERTED)
 
 **Goal:** Doctors have a dedicated, distraction-free "Doctor Cabin" workspace to consult waiting patients in 1 click; owners and admins access all screens with configurable staff roles; receptionists and nurses have dedicated triage and queue tools; and clinics can record per-visit billing (cash/UPI/card) with downloadable PDF receipts and daily collection reports.
@@ -144,9 +134,9 @@ Plans:
  6. Role-scoped encounter access: Clicking [Open Encounter] allows treating doctors to view/edit or add notes to consultations, while front desk (receptionists/nurses/billing) receive a structured, read-only encounter summary view preventing unauthorized clinical edits.
  7. High-performance, paginated server-side queries strictly scoped to the active tenant ID with multi-tenant RLS enforcement.
 
-**Plans**: 2 plans
-- [ ] 03.2-01-PLAN.md: Patient Detail Clinical Visit History Timeline & Encounter Summary (`/patients/[id]`)
-- [ ] 03.2-02-PLAN.md: Unified Clinic Visits Register Page (`/visits`), Filters, and Role-Based Encounter Access
+**Plans**: 2 plans completed
+- [x] 03.2-01-PLAN.md: Patient Detail Clinical Visit History Timeline & Encounter Summary (`/patients/[id]`)
+- [x] 03.2-02-PLAN.md: Unified Clinic Visits Register Page (`/visits`), Filters, and Role-Based Encounter Access
 
 **UI hint**: Yes
 
