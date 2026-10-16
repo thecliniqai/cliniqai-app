@@ -7,6 +7,14 @@ import { recordAudit } from "@/lib/audit/audit";
 import { Visit, VisitOriginType, VisitStatus, Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import {
+  visitsFilterSchema,
+  VisitsFilterInput,
+  computeDateRange,
+  ClinicVisitRegisterItem,
+  ClinicVisitsRegisterResult,
+  ActiveDoctorOption,
+} from "./schema";
 
 const createVisitSchema = z.object({
   patient_id: z.string().uuid("Invalid patient ID"),
@@ -445,6 +453,436 @@ export async function cancelVisit(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to cancel visit.",
+    };
+  }
+}
+
+/**
+ * Retrieves the list of active doctors in the clinic for filter dropdowns.
+ */
+export async function getActiveClinicDoctors(
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<ActiveDoctorOption[]> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("appointments:view"));
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rows, error } = await (supabase.from("memberships") as any)
+      .select("id, user_id, full_name, qualifications, default_specialty, role")
+      .eq("tenant_id", session.tenantId)
+      .in("role", ["doctor", "owner", "admin"])
+      .order("created_at", { ascending: true });
+
+    if (error || !rows) {
+      console.error("[getActiveClinicDoctors] Error querying doctors:", error);
+      return [];
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return rows.map((r: any) => ({
+      id: r.id,
+      user_id: r.user_id,
+      full_name: r.full_name || (r.role === "doctor" ? "Doctor" : "Clinic Doctor"),
+      qualifications: r.qualifications || null,
+      specialty: r.default_specialty || null,
+    }));
+  } catch (err: unknown) {
+    console.error("[getActiveClinicDoctors] Unexpected error:", err);
+    return [];
+  }
+}
+
+/**
+ * Retrieves the unified register of clinic visits with filtering, search, pagination, and metrics.
+ */
+export async function getClinicVisitsRegister(
+  input: Partial<VisitsFilterInput> = {},
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<ClinicVisitsRegisterResult> {
+  const parsed = visitsFilterSchema.parse(input);
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("appointments:view"));
+
+    // 1. Compute date range
+    const { startIso, endIso } = computeDateRange(
+      parsed.datePreset,
+      parsed.startDate,
+      parsed.endDate
+    );
+
+    // 2. Build base query with tenant isolation
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = (supabase.from("visits") as any)
+      .select(
+        "id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, reason_for_visit, vitals, chief_complaints, clinical_notes, specialty, investigations_advised, advice, created_at, updated_at"
+      )
+      .eq("tenant_id", session.tenantId)
+      .gte("created_at", startIso)
+      .lte("created_at", endIso);
+
+    if (parsed.doctorId && parsed.doctorId !== "all") {
+      query = query.eq("doctor_id", parsed.doctorId);
+    }
+
+    if (parsed.status && parsed.status !== "all") {
+      query = query.eq("status", parsed.status);
+    }
+
+    if (parsed.specialty && parsed.specialty !== "all") {
+      query = query.eq("specialty", parsed.specialty);
+    }
+
+    // Handle patient search if provided
+    if (parsed.searchQuery && parsed.searchQuery.trim()) {
+      const clean = parsed.searchQuery.trim().replace(/[,()]/g, " ");
+      if (clean) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: matchedPatients } = await (supabase.from("patients") as any)
+          .select("id")
+          .eq("tenant_id", session.tenantId)
+          .or(`full_name.ilike.%${clean}%,phone.ilike.%${clean}%,abha_id.ilike.%${clean}%`)
+          .limit(100);
+
+        const patientIds = (matchedPatients || []).map((p: { id: string }) => p.id);
+        if (patientIds.length === 0) {
+          // No patients matched query
+          return {
+            visits: [],
+            metrics: {
+              totalVisits: 0,
+              completedVisits: 0,
+              inProgressVisits: 0,
+              waitingVisits: 0,
+              totalBilledRevenue: 0,
+            },
+            totalCount: 0,
+            page: parsed.page,
+            pageSize: parsed.pageSize,
+            totalPages: 0,
+          };
+        }
+        query = query.in("patient_id", patientIds);
+      }
+    }
+
+    // 3. Execute query for matching visits in period
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: allVisits, error: visitsErr } = await query.order("created_at", {
+      ascending: false,
+    });
+
+    if (visitsErr || !allVisits) {
+      console.error("[getClinicVisitsRegister] Error fetching visits:", visitsErr);
+      return {
+        visits: [],
+        metrics: {
+          totalVisits: 0,
+          completedVisits: 0,
+          inProgressVisits: 0,
+          waitingVisits: 0,
+          totalBilledRevenue: 0,
+        },
+        totalCount: 0,
+        page: parsed.page,
+        pageSize: parsed.pageSize,
+        totalPages: 0,
+      };
+    }
+
+    // 4. Calculate summary metrics across all period visits
+    const totalVisits = allVisits.length;
+    let completedVisits = 0;
+    let inProgressVisits = 0;
+    let waitingVisits = 0;
+    for (const v of allVisits) {
+      if (v.status === "completed") completedVisits++;
+      else if (v.status === "in_consultation") inProgressVisits++;
+      else if (v.status === "waiting") waitingVisits++;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allVisitIds = allVisits.map((v: any) => v.id);
+
+    // Query invoices for revenue calculation
+    let totalBilledRevenue = 0;
+    if (allVisitIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: periodInvoices } = await (supabase.from("invoices") as any)
+        .select("total_amount")
+        .eq("tenant_id", session.tenantId)
+        .in("visit_id", allVisitIds);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const inv of periodInvoices || []) {
+        totalBilledRevenue += Number(inv.total_amount) || 0;
+      }
+    }
+
+    // 5. Paginate for current page
+    const totalCount = allVisits.length;
+    const totalPages = Math.ceil(totalCount / parsed.pageSize) || 1;
+    const startIndex = (parsed.page - 1) * parsed.pageSize;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const paginatedRows = allVisits.slice(startIndex, startIndex + parsed.pageSize);
+
+    if (paginatedRows.length === 0) {
+      return {
+        visits: [],
+        metrics: {
+          totalVisits,
+          completedVisits,
+          inProgressVisits,
+          waitingVisits,
+          totalBilledRevenue: Math.round(totalBilledRevenue * 100) / 100,
+        },
+        totalCount,
+        page: parsed.page,
+        pageSize: parsed.pageSize,
+        totalPages,
+      };
+    }
+
+    // 6. Gather patient, doctor, diagnoses, prescription, invoice data for paginated rows
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pageVisitIds = paginatedRows.map((v: any) => v.id);
+    const pagePatientIds = Array.from(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      new Set(paginatedRows.map((v: any) => v.patient_id).filter(Boolean))
+    );
+    const pageDoctorIds = Array.from(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      new Set(paginatedRows.map((v: any) => v.doctor_id).filter(Boolean))
+    );
+
+    const [patientsRes, doctorsRes, tokensRes, diagRes, rxRes, invRes] = await Promise.all([
+      pagePatientIds.length > 0
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase.from("patients") as any)
+            .select("id, full_name, phone, age, sex, abha_id")
+            .eq("tenant_id", session.tenantId)
+            .in("id", pagePatientIds)
+        : Promise.resolve({ data: [] }),
+      pageDoctorIds.length > 0
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase.from("memberships") as any)
+            .select("user_id, full_name, qualifications, default_specialty, role")
+            .eq("tenant_id", session.tenantId)
+            .in("user_id", pageDoctorIds)
+        : Promise.resolve({ data: [] }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from("queue_tokens") as any)
+        .select("visit_id, token_number")
+        .eq("tenant_id", session.tenantId)
+        .in("visit_id", pageVisitIds),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from("consultation_diagnoses") as any)
+        .select("id, visit_id, diagnosis_name, icd11_code, snomed_concept_id, is_chronic")
+        .eq("tenant_id", session.tenantId)
+        .in("visit_id", pageVisitIds),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from("prescriptions") as any)
+        .select("id, visit_id, version, status, signed_at, created_at")
+        .eq("tenant_id", session.tenantId)
+        .in("visit_id", pageVisitIds)
+        .order("version", { ascending: false }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase.from("invoices") as any)
+        .select("id, visit_id, invoice_number, total_amount, status")
+        .eq("tenant_id", session.tenantId)
+        .in("visit_id", pageVisitIds),
+    ]);
+
+    // Map patients
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const patientMap = new Map<string, any>();
+    for (const p of patientsRes.data || []) {
+      patientMap.set(p.id, p);
+    }
+
+    // Map doctors
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const doctorMap = new Map<string, any>();
+    for (const d of doctorsRes.data || []) {
+      doctorMap.set(d.user_id, {
+        full_name: d.full_name || (d.role === "doctor" ? "Doctor" : "Staff"),
+        qualifications: d.qualifications || null,
+        specialty: d.default_specialty || null,
+      });
+    }
+
+    // Map tokens
+    const tokenMap = new Map<string, number>();
+    for (const t of tokensRes.data || []) {
+      if (t.visit_id) tokenMap.set(t.visit_id, t.token_number);
+    }
+
+    // Map diagnoses
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const diagMap = new Map<string, any[]>();
+    for (const d of diagRes.data || []) {
+      const list = diagMap.get(d.visit_id) || [];
+      list.push(d);
+      diagMap.set(d.visit_id, list);
+    }
+
+    // Map prescriptions & items
+    const rxList = rxRes.data || [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const latestRxPerVisit = new Map<string, any>();
+    for (const rx of rxList) {
+      if (!latestRxPerVisit.has(rx.visit_id)) {
+        latestRxPerVisit.set(rx.visit_id, rx);
+      } else if (rx.status === "active" && latestRxPerVisit.get(rx.visit_id).status !== "active") {
+        latestRxPerVisit.set(rx.visit_id, rx);
+      }
+    }
+
+    const rxIds = Array.from(latestRxPerVisit.values()).map((rx: { id: string }) => rx.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const itemsByRx: Record<string, any[]> = {};
+    if (rxIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: itemRows } = await (supabase.from("prescription_items") as any)
+        .select(
+          "id, prescription_id, medicine_name, dose_form, dosage, timing, duration, sort_order"
+        )
+        .in("prescription_id", rxIds)
+        .order("sort_order", { ascending: true });
+      for (const item of itemRows || []) {
+        itemsByRx[item.prescription_id] = itemsByRx[item.prescription_id] || [];
+        itemsByRx[item.prescription_id].push(item);
+      }
+    }
+
+    // Map invoices & payments
+    const invoiceList = invRes.data || [];
+    const invoiceIds = invoiceList.map((inv: { id: string }) => inv.id);
+    const paymentsByInvoice: Record<string, number> = {};
+    if (invoiceIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: paymentRows } = await (supabase.from("payments") as any)
+        .select("invoice_id, amount")
+        .eq("tenant_id", session.tenantId)
+        .in("invoice_id", invoiceIds);
+      for (const p of paymentRows || []) {
+        paymentsByInvoice[p.invoice_id] =
+          (paymentsByInvoice[p.invoice_id] || 0) + Number(p.amount);
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const invoiceByVisit = new Map<string, any>();
+    for (const inv of invoiceList) {
+      const totalPaid = paymentsByInvoice[inv.id] || 0;
+      const totalAmount = Number(inv.total_amount) || 0;
+      invoiceByVisit.set(inv.visit_id, {
+        id: inv.id,
+        invoice_number: inv.invoice_number,
+        total_amount: totalAmount,
+        status: inv.status,
+        total_paid: totalPaid,
+        balance_due: Math.max(0, totalAmount - totalPaid),
+      });
+    }
+
+    // 7. Assemble items
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mappedVisits: ClinicVisitRegisterItem[] = paginatedRows.map((v: any) => {
+      const pat = patientMap.get(v.patient_id) || {
+        id: v.patient_id,
+        full_name: "Patient",
+        phone: "",
+        age: null,
+        sex: null,
+        abha_id: null,
+      };
+
+      const doc = doctorMap.get(v.doctor_id) || {
+        full_name: "Doctor",
+        qualifications: null,
+        specialty: null,
+      };
+
+      const rx = latestRxPerVisit.get(v.id);
+      const rxItems = rx ? itemsByRx[rx.id] || [] : [];
+
+      return {
+        id: v.id,
+        patient: {
+          id: pat.id,
+          full_name: pat.full_name,
+          phone: pat.phone,
+          age: pat.age,
+          sex: pat.sex,
+          abha_id: pat.abha_id,
+        },
+        doctor: {
+          id: v.doctor_id,
+          full_name: doc.full_name,
+          qualifications: doc.qualifications,
+          specialty: doc.specialty,
+        },
+        scheduled_at: v.scheduled_at,
+        created_at: v.created_at,
+        status: v.status,
+        origin_type: v.origin_type,
+        specialty: v.specialty,
+        token_number: tokenMap.get(v.id) || null,
+        reason_for_visit: v.reason_for_visit,
+        clinical_notes: v.clinical_notes,
+        chief_complaints: v.chief_complaints || [],
+        diagnoses: diagMap.get(v.id) || [],
+        prescription: rx
+          ? {
+              id: rx.id,
+              version: rx.version,
+              status: rx.status,
+              signed_at: rx.signed_at,
+              item_count: rxItems.length,
+              items: rxItems,
+            }
+          : null,
+        invoice: invoiceByVisit.get(v.id) || null,
+        vitals: v.vitals,
+        advice: v.advice,
+      };
+    });
+
+    return {
+      visits: mappedVisits,
+      metrics: {
+        totalVisits,
+        completedVisits,
+        inProgressVisits,
+        waitingVisits,
+        totalBilledRevenue: Math.round(totalBilledRevenue * 100) / 100,
+      },
+      totalCount,
+      page: parsed.page,
+      pageSize: parsed.pageSize,
+      totalPages,
+    };
+  } catch (err: unknown) {
+    console.error("[getClinicVisitsRegister] Unexpected error:", err);
+    return {
+      visits: [],
+      metrics: {
+        totalVisits: 0,
+        completedVisits: 0,
+        inProgressVisits: 0,
+        waitingVisits: 0,
+        totalBilledRevenue: 0,
+      },
+      totalCount: 0,
+      page: parsed.page,
+      pageSize: parsed.pageSize,
+      totalPages: 0,
     };
   }
 }

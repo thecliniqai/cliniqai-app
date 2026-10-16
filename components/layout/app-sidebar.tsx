@@ -14,6 +14,7 @@ import {
   Building2,
   CreditCard,
   Stethoscope,
+  ClipboardList,
   X,
 } from "lucide-react";
 
@@ -37,6 +38,12 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
           href: "/cabin",
           icon: Stethoscope,
           active: pathname.startsWith("/cabin"),
+        },
+        {
+          label: "Visits",
+          href: "/visits",
+          icon: ClipboardList,
+          active: pathname.startsWith("/visits"),
         },
         {
           label: "My Calendar",
@@ -73,6 +80,12 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
           href: "/queue",
           icon: Clock,
           active: pathname.startsWith("/queue"),
+        },
+        {
+          label: "Visits",
+          href: "/visits",
+          icon: ClipboardList,
+          active: pathname.startsWith("/visits"),
         },
         {
           label: "Calendar",

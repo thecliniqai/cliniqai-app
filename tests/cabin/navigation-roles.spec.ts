@@ -10,6 +10,7 @@ export function getNavForRole(role: string) {
   const operationsNav = isDoctor
     ? [
         { label: "Doctor's Cabin", href: "/cabin" },
+        { label: "Visits", href: "/visits" },
         { label: "My Calendar", href: "/calendar" },
         { label: "Patients", href: "/patients" },
       ]
@@ -17,6 +18,7 @@ export function getNavForRole(role: string) {
         ...(isOwnerOrAdmin ? [{ label: "Doctor's Cabin", href: "/cabin" }] : []),
         { label: "Dashboard", href: "/" },
         { label: "Live Queue", href: "/queue" },
+        { label: "Visits", href: "/visits" },
         { label: "Calendar", href: "/calendar" },
         { label: "Patients", href: "/patients" },
       ];
