@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { QueueCard, QueueItem } from "./queue-card";
 import { WalkInDrawer, DoctorOption } from "./walk-in-drawer";
 import { CheckoutDrawer } from "./checkout-drawer";
+import { TriageVitalsModal } from "./triage-vitals-modal";
+import { Vitals } from "@/features/consultation/schema";
 import { Button } from "@/components/ui/button";
 import { UserPlus, Calendar, ChevronLeft, ChevronRight, Users, Clock, Stethoscope, CheckCircle2 } from "lucide-react";
 
@@ -27,6 +29,7 @@ export function QueueView({
 
   const [isWalkInOpen, setIsWalkInOpen] = useState(false);
   const [checkoutItem, setCheckoutItem] = useState<QueueItem | null>(null);
+  const [triageItem, setTriageItem] = useState<QueueItem | null>(null);
   const [doctorFilter, setDoctorFilter] = useState(selectedDoctorId);
 
   // Compute stats
@@ -274,11 +277,27 @@ export function QueueView({
                 item={item}
                 onRefresh={handleRefresh}
                 onCheckout={(it) => setCheckoutItem(it)}
+                onRecordVitals={(it) => setTriageItem(it)}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Triage Vitals Modal */}
+      {triageItem && (
+        <TriageVitalsModal
+          isOpen={Boolean(triageItem)}
+          onClose={() => setTriageItem(null)}
+          visitId={triageItem.visit.id}
+          patientName={triageItem.patient?.full_name || "Patient"}
+          tokenNumber={triageItem.queueToken?.token_number}
+          existingVitals={(triageItem.visit.vitals || null) as unknown as Vitals}
+          onSuccess={() => {
+            handleRefresh();
+          }}
+        />
+      )}
 
       {/* Walk-in Drawer */}
       <WalkInDrawer

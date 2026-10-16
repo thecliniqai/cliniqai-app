@@ -14,7 +14,8 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
   let waitlistEntryId: string;
 
   const testDate = "2026-10-15";
-  const testSlotTime = `${testDate}T10:00:00.000Z`;
+  // 11:00 AM IST is 05:30:00 UTC, within the doctor's standard 10:00-13:00 morning shift
+  const testSlotTime = `${testDate}T05:30:00.000Z`;
 
   beforeAll(async () => {
     tenant = await seedTenantWithOwner("Zenith Care Clinic");

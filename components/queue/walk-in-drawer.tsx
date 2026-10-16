@@ -51,6 +51,26 @@ export function WalkInDrawer({
   const [doctorId, setDoctorId] = useState<string>(doctors[0]?.id || "");
   const [reason, setReason] = useState("");
 
+  const resetForm = () => {
+    setTab("search");
+    setSearchQuery("");
+    setSearchResults([]);
+    setNewPatient({
+      full_name: "",
+      phone: "",
+      age: null,
+      date_of_birth: "",
+    });
+    setReason("");
+    setError(null);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      resetForm();
+    }
+  }, [isOpen]);
+
   // Sync default doctor when doctors load
   useEffect(() => {
     if (!doctorId && doctors.length > 0) {
@@ -178,6 +198,7 @@ export function WalkInDrawer({
         return;
       }
 
+      resetForm();
       onSuccess();
       onClose();
     } catch (err: unknown) {

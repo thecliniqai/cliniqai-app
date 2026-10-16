@@ -37,7 +37,8 @@ export type AuditAction =
   | "invoice.payment_recorded"
   | "invoice.generate_receipt_pdf"
   | "schedule_block.create"
-  | "schedule_block.delete";
+  | "schedule_block.delete"
+  | "vitals.record";
 
 export interface RecordAuditParams {
   action: AuditAction;

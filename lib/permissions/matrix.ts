@@ -63,8 +63,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
     "clinic:view",
     "staff:view",
     "patients:view",
+    "patients:edit",
+    "appointments:view",
+    "appointments:edit",
+    "consultations:view",
     "vitals:view",
     "vitals:edit",
     "labs:view",
+    "labs:edit",
   ],
 } as const;

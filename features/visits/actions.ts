@@ -15,6 +15,7 @@ import {
   ClinicVisitsRegisterResult,
   ActiveDoctorOption,
 } from "./schema";
+import { vitalsSchema, Vitals } from "@/features/consultation/schema";
 
 const createVisitSchema = z.object({
   patient_id: z.string().uuid("Invalid patient ID"),
@@ -883,6 +884,91 @@ export async function getClinicVisitsRegister(
       page: parsed.page,
       pageSize: parsed.pageSize,
       totalPages: 0,
+    };
+  }
+}
+
+/**
+ * Records or updates triage vitals on an active or waiting visit record.
+ * Accessible to Nurses, Doctors, Admins, and Owners with "vitals:edit" permission.
+ */
+export async function recordVisitVitals(
+  visitId: string,
+  vitalsInput: Vitals,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{ success: true; vitals: Vitals } | { success: false; error: string }> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("vitals:edit"));
+
+    // Validate vitals schema
+    const parseResult = vitalsSchema.safeParse(vitalsInput);
+    if (!parseResult.success) {
+      return {
+        success: false,
+        error: parseResult.error.errors[0]?.message || "Invalid vitals data.",
+      };
+    }
+
+    const validated = { ...parseResult.data };
+
+    // Auto-calculate BMI if height and weight are provided
+    if (validated.weight && validated.height && validated.height > 0) {
+      const hm = validated.height / 100;
+      validated.bmi = Number((validated.weight / (hm * hm)).toFixed(1));
+    }
+
+    const nowIso = new Date().toISOString();
+    const vitalsToSave: Vitals = {
+      ...validated,
+      recorded_at: validated.recorded_at || nowIso,
+      recorded_by: validated.recorded_by || session.userId,
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: updateError } = await (supabase.from("visits") as any)
+      .update({
+        vitals: vitalsToSave,
+        updated_at: nowIso,
+      })
+      .eq("id", visitId)
+      .eq("tenant_id", session.tenantId);
+
+    if (updateError) {
+      console.error("[recordVisitVitals] Failed to update vitals:", updateError);
+      return { success: false, error: "Failed to record patient vitals." };
+    }
+
+    await recordAudit(
+      {
+        action: "vitals.record",
+        entityType: "visit",
+        entityId: visitId,
+        metadata: {
+          fields_changed: ["vitals"],
+        },
+      },
+      clientOverride,
+      session
+    );
+
+    try {
+      revalidatePath("/queue");
+      revalidatePath("/visits");
+      revalidatePath("/cabin");
+      revalidatePath(`/consultation/${visitId}`);
+    } catch {
+      // Ignore in non-Next.js runtime (e.g. tests)
+    }
+
+    return { success: true, vitals: vitalsToSave };
+  } catch (err: unknown) {
+    console.error("[recordVisitVitals] Unexpected error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to record patient vitals.",
     };
   }
 }

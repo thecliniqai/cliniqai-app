@@ -45,6 +45,7 @@ import {
   ExternalLink,
   Printer,
   Receipt,
+  Check,
 } from "lucide-react";
 
 export interface ConsultationWorkspaceProps {
@@ -138,8 +139,11 @@ export function ConsultationWorkspace({
 
   // Follow-up state
   const [followUpInterval, setFollowUpInterval] = useState<
-    "3_days" | "5_days" | "1_week" | "2_weeks" | "custom"
-  >(visit.follow_up?.interval ?? "5_days");
+    "none" | "3_days" | "5_days" | "1_week" | "2_weeks" | "custom"
+  >(
+    (visit.follow_up?.interval as "none" | "3_days" | "5_days" | "1_week" | "2_weeks" | "custom") ??
+      (visit.follow_up?.follow_up_date ? "custom" : "5_days")
+  );
   const [followUpDate, setFollowUpDate] = useState<string>(
     visit.follow_up?.follow_up_date ??
       (() => {
@@ -198,11 +202,11 @@ export function ConsultationWorkspace({
           specialty_data: specialtyData,
           investigations_advised: investigations,
           advice: adviceList,
-          follow_up: {
+          follow_up: (followUpInterval !== "none" && followUpDate) ? {
             interval: followUpInterval,
             follow_up_date: followUpDate,
-            notes: followUpNotes,
-          },
+            notes: followUpNotes || null,
+          } : null,
         };
 
         const result = await saveConsultationDraft(payload);
@@ -247,11 +251,14 @@ export function ConsultationWorkspace({
 
   // Handle follow up interval changes
   const handleIntervalChange = (
-    interval: "3_days" | "5_days" | "1_week" | "2_weeks" | "custom"
+    interval: "none" | "3_days" | "5_days" | "1_week" | "2_weeks" | "custom"
   ) => {
     markDirty();
     setFollowUpInterval(interval);
-    if (interval !== "custom") {
+    if (interval === "none") {
+      setFollowUpDate("");
+      setFollowUpNotes("");
+    } else if (interval !== "custom") {
       const d = new Date();
       if (interval === "3_days") d.setDate(d.getDate() + 3);
       else if (interval === "5_days") d.setDate(d.getDate() + 5);
@@ -866,6 +873,7 @@ export function ConsultationWorkspace({
               {/* Preset Interval Chips */}
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 {[
+                  { id: "none", label: "No Follow-Up (N/A)" },
                   { id: "3_days", label: "3 Days" },
                   { id: "5_days", label: "5 Days" },
                   { id: "1_week", label: "1 Week" },
@@ -878,7 +886,7 @@ export function ConsultationWorkspace({
                       key={id}
                       type="button"
                       onClick={() => handleIntervalChange(id as typeof followUpInterval)}
-                      className={`min-h-[44px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                      className={`min-h-[44px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                         isSelected
                           ? "bg-brand-50 border-brand-300 text-brand-800 shadow-xs"
                           : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
@@ -890,48 +898,55 @@ export function ConsultationWorkspace({
                 })}
               </div>
 
-              {/* Date Input and Follow-Up Notes */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label
-                    htmlFor="follow-up-date-input"
-                    className="block text-xs font-semibold text-gray-700 mb-1"
-                  >
-                    Recommended Date:
-                  </label>
-                  <input
-                    id="follow-up-date-input"
-                    type="date"
-                    value={followUpDate}
-                    onChange={(e) => {
-                      markDirty();
-                      setFollowUpDate(e.target.value);
-                      setFollowUpInterval("custom");
-                    }}
-                    className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-                  />
+              {/* Date Input and Follow-Up Notes (Hidden when N/A is selected) */}
+              {followUpInterval === "none" ? (
+                <div className="p-3.5 bg-gray-50 border border-dashed border-gray-300 rounded-xl text-xs text-gray-600 flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>No follow-up required. Follow-up recommendation will be omitted from the printed prescription.</span>
                 </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label
+                      htmlFor="follow-up-date-input"
+                      className="block text-xs font-semibold text-gray-700 mb-1"
+                    >
+                      Recommended Date:
+                    </label>
+                    <input
+                      id="follow-up-date-input"
+                      type="date"
+                      value={followUpDate}
+                      onChange={(e) => {
+                        markDirty();
+                        setFollowUpDate(e.target.value);
+                        setFollowUpInterval("custom");
+                      }}
+                      className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                    />
+                  </div>
 
-                <div className="sm:col-span-2">
-                  <label
-                    htmlFor="follow-up-notes-input"
-                    className="block text-xs font-semibold text-gray-700 mb-1"
-                  >
-                    Follow-Up Instructions:
-                  </label>
-                  <input
-                    id="follow-up-notes-input"
-                    type="text"
-                    value={followUpNotes}
-                    onChange={(e) => {
-                      markDirty();
-                      setFollowUpNotes(e.target.value);
-                    }}
-                    placeholder="e.g. Review with repeat fasting blood sugar and lipid profile reports"
-                    className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
-                  />
+                  <div className="sm:col-span-2">
+                    <label
+                      htmlFor="follow-up-notes-input"
+                      className="block text-xs font-semibold text-gray-700 mb-1"
+                    >
+                      Follow-Up Instructions:
+                    </label>
+                    <input
+                      id="follow-up-notes-input"
+                      type="text"
+                      value={followUpNotes}
+                      onChange={(e) => {
+                        markDirty();
+                        setFollowUpNotes(e.target.value);
+                      }}
+                      placeholder="e.g. Review with repeat fasting blood sugar and lipid profile reports"
+                      className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Clinical Documents / Attachments Dropzone */}
@@ -991,7 +1006,7 @@ export function ConsultationWorkspace({
         patientName={patient.full_name}
         diagnosesCount={visit.diagnoses?.length || 1}
         medicinesCount={visit.prescription_items?.length || 0}
-        followUpDate={followUpDate}
+        followUpDate={followUpInterval === "none" ? null : (followUpDate || null)}
         onSaveDraftBeforeSign={() => handleSaveDraft(false)}
       />
     </div>

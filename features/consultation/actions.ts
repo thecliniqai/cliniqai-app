@@ -124,6 +124,12 @@ export async function saveConsultationDraft(
         supabase as any,
         session
       );
+    } else {
+      // If doctor selected None / N/A, delete any existing follow_up for this visit
+      await (supabase.from("follow_ups") as any)
+        .delete()
+        .eq("visit_id", data.visit_id)
+        .eq("tenant_id", session.tenantId);
     }
 
     // 5. Record audit log

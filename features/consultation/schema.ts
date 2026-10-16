@@ -148,8 +148,8 @@ export type SpecialtyData = z.infer<typeof specialtyDataSchema>;
  * Follow-up schedule recommendation schema.
  */
 export const followUpSchema = z.object({
-  interval: z.enum(["3_days", "5_days", "1_week", "2_weeks", "custom"]).optional(),
-  follow_up_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+  interval: z.enum(["none", "3_days", "5_days", "1_week", "2_weeks", "custom"]).optional(),
+  follow_up_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD").nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
 });
 

@@ -73,6 +73,28 @@ export function BookingDrawer({
   const [overbookOpen, setOverbookOpen] = useState(false);
   const [conflictingVisit, setConflictingVisit] = useState<Visit | null>(null);
 
+  const resetPatientState = () => {
+    setTab("search");
+    setSearchQuery("");
+    setSearchResults([]);
+    setChosenPatient(null);
+    setNewPatient({
+      full_name: "",
+      phone: "",
+      age: null,
+      date_of_birth: null,
+    });
+    setError(null);
+    setConflictingVisit(null);
+    setOverbookOpen(false);
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      resetPatientState();
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (defaultDoctorId) setDoctorId(defaultDoctorId);
     if (defaultDate) setDate(defaultDate);
@@ -184,6 +206,7 @@ export function BookingDrawer({
 
       // Success
       setOverbookOpen(false);
+      resetPatientState();
       onSuccess();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to book appointment.");

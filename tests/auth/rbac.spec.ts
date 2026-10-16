@@ -47,6 +47,22 @@ describe("RBAC Matrix & Pure Permission Verification (REQ-nfr-security)", () => 
     expect(hasPerm("receptionist", "vitals:edit")).toBe(false);
   });
 
+  it("verifies Nurse has triage, appointments, and vitals permissions but not prescribing or administrative capabilities", () => {
+    expect(hasPerm("nurse", "appointments:view")).toBe(true);
+    expect(hasPerm("nurse", "appointments:edit")).toBe(true);
+    expect(hasPerm("nurse", "vitals:view")).toBe(true);
+    expect(hasPerm("nurse", "vitals:edit")).toBe(true);
+    expect(hasPerm("nurse", "patients:view")).toBe(true);
+    expect(hasPerm("nurse", "patients:edit")).toBe(true);
+    expect(hasPerm("nurse", "consultations:view")).toBe(true);
+
+    // Strictly forbidden:
+    expect(hasPerm("nurse", "prescriptions:edit")).toBe(false);
+    expect(hasPerm("nurse", "consultations:edit")).toBe(false);
+    expect(hasPerm("nurse", "staff:invite")).toBe(false);
+    expect(hasPerm("nurse", "billing:view")).toBe(false);
+  });
+
   it("verifies no role other than Owner possesses the wildcard", () => {
     const roles: UserRole[] = ["admin", "doctor", "receptionist", "nurse"];
     for (const r of roles) {
