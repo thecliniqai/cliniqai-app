@@ -17,7 +17,9 @@ import {
   Stethoscope,
   AlertCircle,
   Save,
+  Clock,
 } from "lucide-react";
+import { DoctorAvailabilityCard } from "@/components/profile/doctor-availability-card";
 
 interface EditStaffModalProps {
   isOpen: boolean;
@@ -39,6 +41,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
   const [defaultSpecialty, setDefaultSpecialty] = useState(
     member.default_specialty || "general_physician"
   );
+  const [activeTab, setActiveTab] = useState<"general" | "schedule">("general");
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -78,7 +81,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-xs animate-in fade-in duration-150">
       <div
-        className="bg-white w-full max-w-lg rounded-2xl border border-gray-200 shadow-theme-lg overflow-hidden flex flex-col max-h-[92vh]"
+        className="bg-white w-full max-w-xl md:max-w-2xl rounded-2xl border border-gray-200 shadow-theme-lg overflow-hidden flex flex-col max-h-[92vh]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-staff-title"
@@ -110,8 +113,43 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
           </button>
         </div>
 
+        {/* Tabs for Doctors */}
+        {isDoctorOrOwner && (
+          <div className="flex border-b border-gray-100 bg-gray-50/50 px-5 pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("general")}
+              className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+                activeTab === "general"
+                  ? "border-[#1769E0] text-[#1769E0]"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>General & Credentials</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("schedule")}
+              className={`pb-2.5 px-3 text-xs font-semibold border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ${
+                activeTab === "schedule"
+                  ? "border-[#1769E0] text-[#1769E0]"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Working Hours & Schedule</span>
+            </button>
+          </div>
+        )}
+
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
+        {activeTab === "schedule" ? (
+          <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+            <DoctorAvailabilityCard membership={member} />
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
           {error && (
             <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-800">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -288,6 +326,7 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
             </Button>
           </div>
         </form>
+      )}
       </div>
     </div>
   );

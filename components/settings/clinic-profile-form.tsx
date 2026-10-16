@@ -6,6 +6,7 @@ import { Tenant, Membership } from "@/lib/db/types";
 import { updateClinicSettings } from "@/features/settings/actions";
 import { ALLOWED_SPECIALTIES } from "@/features/clinics/constants";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { DoctorAvailabilityCard } from "@/components/profile/doctor-availability-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -135,7 +136,8 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
       {statusMessage && (
         <div
           className={`p-4 rounded-xl flex items-center gap-2.5 text-sm font-medium border ${
@@ -515,5 +517,13 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
         </Button>
       </div>
     </form>
+
+    {/* Practicing Owner Doctor Weekly Availability & Shifts */}
+    {ownerIsPracticing && initialOwnerMembership && (
+      <div className="pt-2">
+        <DoctorAvailabilityCard membership={initialOwnerMembership} />
+      </div>
+    )}
+  </div>
   );
 }

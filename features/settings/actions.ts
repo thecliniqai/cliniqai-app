@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
@@ -396,3 +397,259 @@ export async function getMyProfile() {
     tenant: (tenant || { id: membership.tenantId, name: "Clinic" }) as { id: string; name: string },
   };
 }
+
+const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export const shiftSchema = z
+  .object({
+    start: z.string().regex(timeRegex, "Invalid start time format (HH:mm)"),
+    end: z.string().regex(timeRegex, "Invalid end time format (HH:mm)"),
+  })
+  .refine((shift) => shift.start < shift.end, {
+    message: "Shift end time must be after start time",
+  });
+
+export const dayAvailabilitySchema = z
+  .object({
+    enabled: z.boolean(),
+    shifts: z.array(shiftSchema),
+  })
+  .refine(
+    (day) => {
+      if (!day.enabled || day.shifts.length <= 1) return true;
+      const sorted = [...day.shifts].sort((a, b) => a.start.localeCompare(b.start));
+      for (let i = 0; i < sorted.length - 1; i++) {
+        if (sorted[i].end > sorted[i + 1].start) {
+          return false;
+        }
+      }
+      return true;
+    },
+    { message: "Shifts within the same day cannot overlap" }
+  );
+
+export const doctorWeeklyScheduleSchema = z.object({
+  monday: dayAvailabilitySchema,
+  tuesday: dayAvailabilitySchema,
+  wednesday: dayAvailabilitySchema,
+  thursday: dayAvailabilitySchema,
+  friday: dayAvailabilitySchema,
+  saturday: dayAvailabilitySchema,
+  sunday: dayAvailabilitySchema,
+});
+
+export async function updateDoctorAvailability(
+  input: { membership_id: string; availability_schedule: any },
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{ success: true; availability_schedule: any } | { success: false; error: string }> {
+  const parseResult = doctorWeeklyScheduleSchema.safeParse(input.availability_schedule);
+  if (!parseResult.success) {
+    return {
+      success: false,
+      error: parseResult.error.issues[0]?.message || "Invalid availability schedule data",
+    };
+  }
+
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await getActiveMembership());
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: targetMember, error: fetchErr } = await (supabase.from("memberships") as any)
+      .select("id, user_id, tenant_id, role")
+      .eq("id", input.membership_id)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (fetchErr || !targetMember) {
+      return { success: false, error: "Staff member not found or access denied." };
+    }
+
+    // T-03.3-03: Authorization check
+    if (targetMember.user_id !== session.userId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: callerMember } = await (supabase.from("memberships") as any)
+        .select("role")
+        .eq("tenant_id", session.tenantId)
+        .eq("user_id", session.userId)
+        .single();
+
+      if (!callerMember || (callerMember.role !== "owner" && callerMember.role !== "admin")) {
+        return {
+          success: false,
+          error: "Only clinic admins or owners can update other doctors' schedules.",
+        };
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
+      .update({
+        availability_schedule: parseResult.data,
+      })
+      .eq("id", input.membership_id)
+      .eq("tenant_id", session.tenantId)
+      .select("availability_schedule")
+      .single();
+
+    if (updateErr || !updated) {
+      console.error("[updateDoctorAvailability] Update error:", updateErr);
+      return { success: false, error: "Failed to update doctor availability." };
+    }
+
+    await recordAudit(
+      {
+        action: "staff.member.update",
+        entityType: "membership",
+        entityId: input.membership_id,
+        metadata: {
+          field: "availability_schedule",
+          target_user_id: targetMember.user_id,
+        },
+      },
+      clientOverride,
+      session
+    );
+
+    try {
+      revalidatePath("/profile");
+      revalidatePath("/staff");
+      revalidatePath("/calendar");
+    } catch {
+      // Ignore during test
+    }
+
+    return { success: true, availability_schedule: updated.availability_schedule };
+  } catch (err: unknown) {
+    console.error("[updateDoctorAvailability] Unexpected error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update doctor availability.",
+    };
+  }
+}
+
+export async function updateDoctorSlotDuration(
+  input: { membership_id: string; default_slot_duration_minutes: number },
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{ success: true; default_slot_duration_minutes: number } | { success: false; error: string }> {
+  if (
+    !input.default_slot_duration_minutes ||
+    input.default_slot_duration_minutes < 5 ||
+    input.default_slot_duration_minutes > 180
+  ) {
+    return { success: false, error: "Slot duration must be between 5 and 180 minutes." };
+  }
+
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await getActiveMembership());
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: targetMember, error: fetchErr } = await (supabase.from("memberships") as any)
+      .select("id, user_id, tenant_id, role")
+      .eq("id", input.membership_id)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (fetchErr || !targetMember) {
+      return { success: false, error: "Staff member not found or access denied." };
+    }
+
+    if (targetMember.user_id !== session.userId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: callerMember } = await (supabase.from("memberships") as any)
+        .select("role")
+        .eq("tenant_id", session.tenantId)
+        .eq("user_id", session.userId)
+        .single();
+
+      if (!callerMember || (callerMember.role !== "owner" && callerMember.role !== "admin")) {
+        return {
+          success: false,
+          error: "Only clinic admins or owners can update other doctors' slot duration.",
+        };
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
+      .update({
+        default_slot_duration_minutes: input.default_slot_duration_minutes,
+      })
+      .eq("id", input.membership_id)
+      .eq("tenant_id", session.tenantId)
+      .select("default_slot_duration_minutes")
+      .single();
+
+    if (updateErr || !updated) {
+      console.error("[updateDoctorSlotDuration] Update error:", updateErr);
+      return { success: false, error: "Failed to update slot duration." };
+    }
+
+    try {
+      revalidatePath("/profile");
+      revalidatePath("/staff");
+      revalidatePath("/calendar");
+    } catch {
+      // Ignore during test
+    }
+
+    return {
+      success: true,
+      default_slot_duration_minutes: updated.default_slot_duration_minutes,
+    };
+  } catch (err: unknown) {
+    console.error("[updateDoctorSlotDuration] Unexpected error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update slot duration.",
+    };
+  }
+}
+
+export async function getDoctorScheduleBlocks(
+  doctorId?: string,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<any[]> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await getActiveMembership());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = (supabase.from("schedule_blocks") as any)
+      .select("*")
+      .eq("tenant_id", session.tenantId)
+      .order("start_time", { ascending: true });
+
+    if (doctorId && doctorId !== "all") {
+      query = query.or(`doctor_id.eq.${doctorId},doctor_id.is.null`);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) {
+      console.error("[getDoctorScheduleBlocks] Error:", error);
+      return [];
+    }
+
+    return data;
+  } catch (err) {
+    console.error("[getDoctorScheduleBlocks] Unexpected error:", err);
+    return [];
+  }
+}
+
+export async function deleteDoctorScheduleBlock(
+  blockId: string,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{ success: boolean; error?: string }> {
+  const { deleteScheduleBlock } = await import("@/features/visits/scheduling");
+  return deleteScheduleBlock(blockId, clientOverride, sessionOverride);
+}
+

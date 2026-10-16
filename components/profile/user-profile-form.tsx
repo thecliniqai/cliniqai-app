@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Membership } from "@/lib/db/types";
 import { updateUserProfile } from "@/features/settings/actions";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { DoctorAvailabilityCard } from "@/components/profile/doctor-availability-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -106,7 +107,8 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
       {statusMessage && (
         <div
           className={`p-4 rounded-xl flex items-center gap-2.5 text-sm font-medium border ${
@@ -344,5 +346,12 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
         </Button>
       </div>
     </form>
+
+    {isDoctorOrOwner && (
+      <div className="pt-2">
+        <DoctorAvailabilityCard membership={membership} />
+      </div>
+    )}
+  </div>
   );
 }
