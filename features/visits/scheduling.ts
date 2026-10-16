@@ -125,7 +125,7 @@ export function getTimePartsFromISO(
  */
 export async function createScheduleBlock(
   input: CreateScheduleBlockInput,
-  clientOverride?: SupabaseClient<Database>,
+  clientOverride?: any,
   sessionOverride?: { userId: string; tenantId: string }
 ): Promise<CreateScheduleBlockResult> {
   const parseResult = createScheduleBlockSchema.safeParse(input);
@@ -207,7 +207,7 @@ export async function createScheduleBlock(
  */
 export async function deleteScheduleBlock(
   blockId: string,
-  clientOverride?: SupabaseClient<Database>,
+  clientOverride?: any,
   sessionOverride?: { userId: string; tenantId: string }
 ): Promise<DeleteScheduleBlockResult> {
   if (!blockId) {
@@ -281,7 +281,7 @@ export async function deleteScheduleBlock(
 export async function getScheduleBlocksForDate(
   dateStr: string,
   doctorId?: string,
-  clientOverride?: SupabaseClient<Database>,
+  clientOverride?: any,
   sessionOverride?: { userId: string; tenantId: string }
 ): Promise<ScheduleBlock[]> {
   const supabase = clientOverride || (await createClient());
@@ -325,7 +325,7 @@ export async function checkSlotAvailability(
   doctorId: string,
   scheduledAt: string,
   durationMinutes: number = 15,
-  clientOverride?: SupabaseClient<Database>,
+  clientOverride?: any,
   sessionOverride?: { userId: string; tenantId: string }
 ): Promise<CheckSlotResult> {
   const supabase = clientOverride || (await createClient());
@@ -451,7 +451,7 @@ export type BookAppointmentResult =
  */
 export async function bookAppointment(
   input: BookAppointmentInput,
-  clientOverride?: SupabaseClient<Database>,
+  clientOverride?: any,
   sessionOverride?: { userId: string; tenantId: string }
 ): Promise<BookAppointmentResult> {
   const parseResult = bookAppointmentSchema.safeParse(input);

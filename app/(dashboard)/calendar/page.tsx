@@ -4,6 +4,7 @@ import { getActiveMembership } from "@/lib/auth/tenant";
 import { getVisitsForDate } from "@/features/visits/actions";
 import { getWaitlistForDate } from "@/features/waitlist/actions";
 import { getTenantDoctorDirectory } from "@/features/staff/actions";
+import { getScheduleBlocksForDate } from "@/features/visits/scheduling";
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { TimelineVisit } from "@/components/calendar/doctor-timeline";
 
@@ -50,12 +51,21 @@ export default async function CalendarPage(props: CalendarPageProps) {
   const waitlistRes = await getWaitlistForDate(currentDate);
   const waitlistEntries = waitlistRes.success ? waitlistRes.entries : [];
 
+  // Fetch schedule blocks for date
+  const scheduleBlocks = await getScheduleBlocksForDate(
+    currentDate,
+    undefined,
+    supabase,
+    { userId: membership.userId, tenantId: membership.tenantId }
+  );
+
   return (
     <div className="max-w-7xl mx-auto py-2">
       <CalendarView
         doctors={doctors}
         visits={visits}
         waitlistEntries={waitlistEntries}
+        scheduleBlocks={scheduleBlocks}
         currentDate={currentDate}
       />
     </div>

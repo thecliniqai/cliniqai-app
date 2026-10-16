@@ -11,14 +11,25 @@ import { OverbookDialog } from "./overbook-dialog";
 import { X, Search, UserPlus, UserCheck, Calendar, Clock } from "lucide-react";
 import { Patient, Visit } from "@/lib/db/types";
 
+export interface BookingDrawerDoctor {
+  id: string;
+  name: string;
+  specialty?: string | null;
+  default_slot_duration_minutes?: number | null;
+}
+
 export interface BookingDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  doctors: Array<{ id: string; name: string }>;
+  doctors: BookingDrawerDoctor[];
   defaultDoctorId?: string;
   defaultDate?: string;
   defaultTime?: string;
+  defaultReason?: string;
+  overrideOffDuty?: boolean;
+  overrideBlock?: boolean;
+  isOverbookedDefault?: boolean;
 }
 
 export function BookingDrawer({
@@ -29,6 +40,10 @@ export function BookingDrawer({
   defaultDoctorId,
   defaultDate,
   defaultTime = "09:00",
+  defaultReason = "",
+  overrideOffDuty = false,
+  overrideBlock = false,
+  isOverbookedDefault = false,
 }: BookingDrawerProps) {
   const [tab, setTab] = useState<"search" | "new">("search");
   const [loading, setLoading] = useState(false);
@@ -39,7 +54,7 @@ export function BookingDrawer({
   const [date, setDate] = useState(defaultDate || new Date().toISOString().split("T")[0]);
   const [time, setTime] = useState(defaultTime);
   const [duration, setDuration] = useState(15);
-  const [reason, setReason] = useState("");
+  const [reason, setReason] = useState(defaultReason);
 
   // Patient Search & Selection
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,7 +77,18 @@ export function BookingDrawer({
     if (defaultDoctorId) setDoctorId(defaultDoctorId);
     if (defaultDate) setDate(defaultDate);
     if (defaultTime) setTime(defaultTime);
-  }, [defaultDoctorId, defaultDate, defaultTime, isOpen]);
+    if (defaultReason) setReason(defaultReason);
+  }, [defaultDoctorId, defaultDate, defaultTime, defaultReason, isOpen]);
+
+  // Auto-set duration based on doctor default slot duration
+  useEffect(() => {
+    if (doctorId && doctors.length > 0) {
+      const doc = doctors.find((d) => d.id === doctorId);
+      if (doc?.default_slot_duration_minutes) {
+        setDuration(doc.default_slot_duration_minutes);
+      }
+    }
+  }, [doctorId, doctors]);
 
   // Debounced Patient Search
   useEffect(() => {
@@ -139,7 +165,9 @@ export function BookingDrawer({
         scheduled_at: scheduledIso,
         estimated_duration_minutes: duration,
         reason_for_visit: reason || null,
-        is_overbooked: isOverbooked,
+        is_overbooked: isOverbooked || isOverbookedDefault,
+        override_off_duty: overrideOffDuty,
+        override_block: overrideBlock,
       });
 
       if (!result.success) {
@@ -250,7 +278,8 @@ export function BookingDrawer({
                 >
                   {doctors.map((doc) => (
                     <option key={doc.id} value={doc.id}>
-                      {doc.name}
+                      {doc.name.startsWith("Dr.") ? doc.name : `Dr. ${doc.name}`}
+                      {doc.specialty ? ` (${doc.specialty})` : ""}
                     </option>
                   ))}
                 </select>
@@ -264,9 +293,11 @@ export function BookingDrawer({
                   className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
                 >
                   <option value={15}>15 Minutes</option>
+                  <option value={20}>20 Minutes</option>
                   <option value={30}>30 Minutes</option>
                   <option value={45}>45 Minutes</option>
                   <option value={60}>60 Minutes</option>
+                  <option value={90}>90 Minutes</option>
                 </select>
               </Field>
             </div>

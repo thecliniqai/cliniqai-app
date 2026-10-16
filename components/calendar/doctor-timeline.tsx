@@ -1,37 +1,101 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import Link from "next/link";
-import { Visit, Patient } from "@/lib/db/types";
-import { Clock, Plus, AlertCircle, XCircle, Stethoscope } from "lucide-react";
+import { Visit, Patient, DoctorWeeklySchedule, ScheduleBlock, DayOfWeek } from "@/lib/db/types";
+import { Clock, Plus, AlertCircle, XCircle, Stethoscope, Ban, Coffee } from "lucide-react";
 
 export interface TimelineVisit extends Visit {
   patients?: Patient | null;
 }
 
+export interface TimelineDoctor {
+  id: string;
+  name: string;
+  specialty?: string | null;
+  default_slot_duration_minutes?: number | null;
+  availability_schedule?: DoctorWeeklySchedule | null;
+}
+
+export interface SlotStatus {
+  isOffDuty?: boolean;
+  isBlocked?: boolean;
+  blockReason?: string;
+}
+
 export interface DoctorTimelineProps {
-  doctors: Array<{ id: string; name: string }>;
+  doctors: TimelineDoctor[];
   visits: TimelineVisit[];
+  scheduleBlocks?: ScheduleBlock[];
   currentDate: string;
-  onSlotClick: (doctorId: string, timeStr: string) => void;
+  onSlotClick: (doctorId: string, timeStr: string, slotStatus?: SlotStatus) => void;
   onCancelVisit: (visitId: string) => void;
 }
+
+const DAY_NAMES: DayOfWeek[] = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
 
 export function DoctorTimeline({
   doctors,
   visits,
+  scheduleBlocks = [],
+  currentDate,
   onSlotClick,
   onCancelVisit,
 }: DoctorTimelineProps) {
-  // Generate 15-minute time slots between 09:00 and 18:00 (9 AM to 6 PM)
-  const timeSlots: string[] = [];
-  for (let hour = 9; hour < 18; hour++) {
-    for (let minute = 0; minute < 60; minute += 15) {
-      const hStr = hour.toString().padStart(2, "0");
-      const mStr = minute.toString().padStart(2, "0");
-      timeSlots.push(`${hStr}:${mStr}`);
+  // Day of week for currentDate
+  const dayKey = useMemo<DayOfWeek>(() => {
+    const d = new Date(`${currentDate}T00:00:00`);
+    return DAY_NAMES[d.getDay()] || "monday";
+  }, [currentDate]);
+
+  // Compute dynamic start and end hours based on active doctor shifts
+  const { startHour, endHour } = useMemo(() => {
+    let earliestHour = 8;
+    let latestHour = 20;
+
+    for (const doc of doctors) {
+      const schedule = doc.availability_schedule;
+      if (!schedule) continue;
+
+      const dayConfig = schedule[dayKey];
+      if (!dayConfig || !dayConfig.enabled) continue;
+
+      for (const shift of dayConfig.shifts) {
+        if (!shift.start || !shift.end) continue;
+        const [sH] = shift.start.split(":").map(Number);
+        const [eH, eM] = shift.end.split(":").map(Number);
+
+        if (!isNaN(sH) && sH < earliestHour) earliestHour = Math.max(6, sH);
+        const effectiveEnd = eM > 0 ? eH + 1 : eH;
+        if (!isNaN(effectiveEnd) && effectiveEnd > latestHour) {
+          latestHour = Math.min(23, effectiveEnd);
+        }
+      }
     }
-  }
+
+    return { startHour: earliestHour, endHour: latestHour };
+  }, [doctors, dayKey]);
+
+  // Generate 15-minute time slots between dynamic startHour and endHour
+  const timeSlots = useMemo(() => {
+    const slots: string[] = [];
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let minute = 0; minute < 60; minute += 15) {
+        const hStr = hour.toString().padStart(2, "0");
+        const mStr = minute.toString().padStart(2, "0");
+        slots.push(`${hStr}:${mStr}`);
+      }
+    }
+    return slots;
+  }, [startHour, endHour]);
 
   const formatSlotLabel = (timeStr: string) => {
     const [h, m] = timeStr.split(":").map(Number);
@@ -40,7 +104,7 @@ export function DoctorTimeline({
     return `${hour12}:${m.toString().padStart(2, "0")} ${period}`;
   };
 
-  // Find visits matching doctor and slot interval
+  // Find visits starting exactly at this doctor + slot
   const findVisitsForSlot = (doctorId: string, timeStr: string) => {
     return visits.filter((v) => {
       if (!v.scheduled_at) return false;
@@ -53,6 +117,86 @@ export function DoctorTimeline({
       const vSlot = `${vH}:${vM}`;
       return vSlot === timeStr;
     });
+  };
+
+  // Check if slot is occupied by an ongoing multi-slot visit that started earlier
+  const findOngoingVisitForSlot = (doctorId: string, timeStr: string) => {
+    const [h, m] = timeStr.split(":").map(Number);
+    const slotMins = h * 60 + m;
+
+    return visits.find((v) => {
+      if (!v.scheduled_at || v.doctor_id !== doctorId || v.status === "cancelled") return false;
+      const vDate = new Date(v.scheduled_at);
+      const vH = vDate.getHours();
+      const vM = vDate.getMinutes();
+      const vStartMins = vH * 60 + vM;
+      const vDuration = v.estimated_duration_minutes || 15;
+      const vEndMins = vStartMins + vDuration;
+
+      return slotMins > vStartMins && slotMins < vEndMins;
+    });
+  };
+
+  // Check slot status: off-duty vs blocked
+  const getSlotStatus = (doc: TimelineDoctor, timeStr: string): SlotStatus => {
+    const [h, m] = timeStr.split(":").map(Number);
+    const slotMins = h * 60 + m;
+
+    // 1. Check schedule blocks (doctor specific or clinic-wide)
+    const slotStartTs = new Date(`${currentDate}T${timeStr}:00`).getTime();
+    const slotEndTs = slotStartTs + 15 * 60000;
+
+    for (const block of scheduleBlocks) {
+      if (block.doctor_id && block.doctor_id !== doc.id) continue;
+
+      if (block.all_day) {
+        const sDate = block.start_time.split("T")[0];
+        const eDate = block.end_time.split("T")[0];
+        if (currentDate >= sDate && currentDate <= eDate) {
+          return {
+            isBlocked: true,
+            blockReason: block.reason || (block.doctor_id ? "Doctor on leave" : "Clinic closed"),
+          };
+        }
+      } else {
+        const bStartTs = new Date(block.start_time).getTime();
+        const bEndTs = new Date(block.end_time).getTime();
+        if (bStartTs < slotEndTs && bEndTs > slotStartTs) {
+          return {
+            isBlocked: true,
+            blockReason: block.reason || "Time blocked",
+          };
+        }
+      }
+    }
+
+    // 2. Check doctor's working shifts
+    const schedule = doc.availability_schedule;
+    if (schedule) {
+      const dayConfig = schedule[dayKey];
+      if (!dayConfig || !dayConfig.enabled) {
+        return { isOffDuty: true };
+      }
+
+      let inShift = false;
+      for (const shift of dayConfig.shifts) {
+        const [shH, shM] = shift.start.split(":").map(Number);
+        const [ehH, ehM] = shift.end.split(":").map(Number);
+        const shiftStartMins = shH * 60 + shM;
+        const shiftEndMins = ehH * 60 + ehM;
+
+        if (slotMins >= shiftStartMins && slotMins < shiftEndMins) {
+          inShift = true;
+          break;
+        }
+      }
+
+      if (!inShift) {
+        return { isOffDuty: true };
+      }
+    }
+
+    return {};
   };
 
   return (
@@ -76,8 +220,9 @@ export function DoctorTimeline({
                 <div className="text-sm font-semibold text-gray-900 truncate">
                   {doc.name}
                 </div>
-                <div className="text-[11px] text-gray-500 font-medium">
-                  Available Today
+                <div className="text-[11px] text-gray-500 font-medium truncate">
+                  {doc.specialty ? `${doc.specialty} • ` : ""}
+                  {doc.default_slot_duration_minutes || 15}m slots
                 </div>
               </div>
             </div>
@@ -110,12 +255,21 @@ export function DoctorTimeline({
                 {/* Columns for each doctor */}
                 {doctors.map((doc) => {
                   const slotVisits = findVisitsForSlot(doc.id, timeStr);
+                  const ongoingVisit = slotVisits.length === 0 ? findOngoingVisitForSlot(doc.id, timeStr) : null;
+                  const status = getSlotStatus(doc, timeStr);
 
                   return (
                     <div
                       key={doc.id}
-                      className="p-1.5 border-r border-gray-100 last:border-r-0 relative min-h-[52px] flex flex-col justify-center"
+                      className={`p-1.5 border-r border-gray-100 last:border-r-0 relative min-h-[52px] flex flex-col justify-center ${
+                        status.isBlocked
+                          ? "bg-[repeating-linear-gradient(45deg,#f9fafb,#f9fafb_10px,#f3f4f6_10px,#f3f4f6_20px)]"
+                          : status.isOffDuty
+                          ? "bg-gray-100/40"
+                          : ""
+                      }`}
                     >
+                      {/* Active Appointment Starting at this slot */}
                       {slotVisits.length > 0 ? (
                         <div className="space-y-1.5">
                           {slotVisits.map((v) => (
@@ -133,8 +287,11 @@ export function DoctorTimeline({
                                 <div className="font-semibold text-gray-900 truncate">
                                   {v.patients?.full_name || "Patient"}
                                 </div>
-                                <div className="text-[11px] text-gray-600 truncate mt-0.5">
-                                  {v.reason_for_visit || "Consultation"} • {v.estimated_duration_minutes}m
+                                <div className="text-[11px] text-gray-600 truncate mt-0.5 flex items-center gap-1.5">
+                                  <span className="truncate">{v.reason_for_visit || "Consultation"}</span>
+                                  <span className="shrink-0 px-1 py-0.2 rounded bg-white/70 border border-gray-200 font-medium text-[10px] text-gray-700">
+                                    {v.estimated_duration_minutes || 15}m
+                                  </span>
                                 </div>
                               </div>
 
@@ -172,10 +329,55 @@ export function DoctorTimeline({
                             </div>
                           ))}
                         </div>
-                      ) : (
+                      ) : ongoingVisit ? (
+                        /* Ongoing Consultation Span from Previous Slot */
+                        <div className="px-2.5 py-1.5 rounded-lg bg-brand-50/40 border border-dashed border-brand-200 text-[11px] text-brand-800 flex items-center justify-between">
+                          <span className="truncate font-medium">
+                            ↳ {ongoingVisit.patients?.full_name || "Patient"} (in progress)
+                          </span>
+                          <span className="text-[10px] font-semibold text-brand-600 shrink-0">
+                            {ongoingVisit.estimated_duration_minutes}m
+                          </span>
+                        </div>
+                      ) : status.isBlocked ? (
+                        /* Blocked Time Slot */
                         <button
                           type="button"
-                          onClick={() => onSlotClick(doc.id, timeStr)}
+                          onClick={() => onSlotClick(doc.id, timeStr, status)}
+                          className="w-full h-full min-h-[38px] px-2 py-1 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 hover:bg-amber-100/70 transition-colors flex items-center justify-between text-left cursor-pointer group"
+                          title="Click to override block for emergency"
+                        >
+                          <div className="flex items-center gap-1.5 text-amber-900 truncate">
+                            <Ban className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                            <span className="text-[11px] font-medium truncate">
+                              {status.blockReason || "Blocked"}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold text-amber-700 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            Override
+                          </span>
+                        </button>
+                      ) : status.isOffDuty ? (
+                        /* Off Duty / Shift Break Slot */
+                        <button
+                          type="button"
+                          onClick={() => onSlotClick(doc.id, timeStr, status)}
+                          className="w-full h-full min-h-[38px] px-2 py-1 rounded-lg border border-transparent hover:border-dashed hover:border-gray-300 hover:bg-gray-200/50 transition-colors flex items-center justify-between text-left cursor-pointer group"
+                          title="Click to override off-duty for emergency"
+                        >
+                          <div className="flex items-center gap-1.5 text-gray-400 truncate">
+                            <Coffee className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                            <span className="text-[11px] font-medium truncate">Off Duty</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                            Emergency
+                          </span>
+                        </button>
+                      ) : (
+                        /* Standard Available Slot */
+                        <button
+                          type="button"
+                          onClick={() => onSlotClick(doc.id, timeStr, {})}
                           className="w-full h-full min-h-[44px] rounded-lg hover:border hover:border-dashed hover:border-brand-300 hover:bg-brand-50/30 group flex items-center justify-center text-transparent hover:text-brand-600 text-xs font-semibold transition-all cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5 mr-1" />

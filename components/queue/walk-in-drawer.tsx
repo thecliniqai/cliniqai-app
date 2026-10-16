@@ -14,6 +14,8 @@ import { Patient } from "@/lib/db/types";
 export interface DoctorOption {
   id: string;
   name: string;
+  specialty?: string | null;
+  default_slot_duration_minutes?: number | null;
 }
 
 export interface WalkInDrawerProps {
@@ -87,13 +89,16 @@ export function WalkInDrawer({
     setError(null);
 
     try {
+      const selectedDoc = doctors.find((d) => d.id === doctorId);
+      const durationMins = selectedDoc?.default_slot_duration_minutes || 15;
+
       // 1. Create walk-in visit
       const visitRes = await createVisit({
         patient_id: patient.id,
         doctor_id: doctorId,
         origin_type: "walk_in",
         reason_for_visit: reason || "Walk-In Consultation",
-        estimated_duration_minutes: 15,
+        estimated_duration_minutes: durationMins,
         is_overbooked: false,
       });
 
@@ -131,6 +136,9 @@ export function WalkInDrawer({
     setError(null);
 
     try {
+      const selectedDoc = doctors.find((d) => d.id === doctorId);
+      const durationMins = selectedDoc?.default_slot_duration_minutes || 15;
+
       // 1. Create Patient
       const patientRes = await createPatient({
         full_name: newPatient.full_name,
@@ -152,7 +160,7 @@ export function WalkInDrawer({
         doctor_id: doctorId,
         origin_type: "walk_in",
         reason_for_visit: reason || "Walk-In Consultation",
-        estimated_duration_minutes: 15,
+        estimated_duration_minutes: durationMins,
         is_overbooked: false,
       });
 
@@ -256,7 +264,8 @@ export function WalkInDrawer({
             >
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>
-                  Dr. {d.name}
+                  {d.name.startsWith("Dr.") ? d.name : `Dr. ${d.name}`}
+                  {d.specialty ? ` (${d.specialty})` : ""}
                 </option>
               ))}
             </select>
