@@ -155,7 +155,7 @@ Plans:
  6. Attempting to book an appointment during an off-duty or blocked interval displays a soft-block warning dialog allowing authorized staff to confirm an emergency booking with an override reason.
  7. The calendar header features multi-select doctor filter pills (`[All Doctors]` + individual clinician pills) allowing staff to quickly isolate a single doctor's schedule or compare specific clinicians.
 
-**Plans**: 3/3 plans executed
+**Plans**: 3 plans completed
 - [x] 03.3-01-PLAN.md: Database migration, name resolution, and availability data layer
 - [x] 03.3-02-PLAN.md: Doctor & Clinic profile availability and time-off blocker UI
 - [x] 03.3-03-PLAN.md: Calendar timeline multi-shift grid, doctor filter pills, and soft-block override

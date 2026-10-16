@@ -1,6 +1,6 @@
 {
-  "phase": "02",
-  "session": null,
-  "pid": 58437,
-  "updated_at": 1791440124176
+  "phase": "03.3",
+  "session": "tty-ttys000",
+  "pid": 67814,
+  "updated_at": 1792145296719
 }

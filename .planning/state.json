@@ -29,6 +29,11 @@
       "status": "complete"
     },
     {
+      "number": "03.2",
+      "name": "Patient Visit History & Visits Register",
+      "status": "pending"
+    },
+    {
       "number": "4",
       "name": "Labs & Referrals",
       "status": "pending"
@@ -45,9 +50,9 @@
     }
   ],
   "next": {
-    "command": "/gsd-progress",
-    "label": "Show progress",
-    "reason": "Unsure of state — showing progress"
+    "command": "/gsd-progress --next",
+    "label": "Advance to the next step",
+    "reason": "Phase 03.3 of 10 · 60% · executing"
   },
-  "updated_at": "2026-10-16T06:28:24.553Z"
+  "updated_at": "2026-10-16T09:57:06.450Z"
 }
