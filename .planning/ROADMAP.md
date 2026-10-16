@@ -15,7 +15,8 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
 - [x] **Phase 02.1 (Phase 2B): UI/UX Re-foundation Using TailAdmin Free (INSERTED)** - Design system tokens, TailAdmin sidebar shell, reusable UI primitives, and full redesign of dashboard, patients, calendar, queue, and staff workflows (completed 2026-10-08)
 - [x] **Phase 3: Consultation & Prescribing** - Specialty templates, visit workflow states, ICD-10 diagnosis, e-prescriptions with PDF delivery, provisional per-visit billing (completed 2026-10-15)
 - [x] **Phase 03.1 (Phase 3A): Doctor Cabin, Role-Based Access & Billing Invoicing (INSERTED)** - Dedicated Doctor Cabin workspace, role-scoped UI permissions (owner/admin/doctor/nurse/receptionist), 1-tap queue consultation launch, per-visit billing (Cash/UPI/Card), and collection reports (completed 2026-10-15)
-- [ ] **Phase 03.2 (Phase 3B): Patient Visit History & Unified Clinic Visits Register (INSERTED)** - Chronological visit history timeline in Patient View (`/patients/[id]`), unified clinic visits register (`/visits`) with date range filters, search, doctor filter, direct prescription download/preview, and role-based visit record access
+- [x] **Phase 03.2 (Phase 3B): Patient Visit History & Unified Clinic Visits Register (INSERTED)** - Chronological visit history timeline in Patient View (`/patients/[id]`), unified clinic visits register (`/visits`) with date range filters, search, doctor filter, direct prescription download/preview, and role-based visit record access (completed 2026-10-16)
+- [ ] **Phase 03.3: Doctor Availability, Multi-Shift Scheduling, Time Blocking & Calendar Enhancements (INSERTED)** - Fix doctor UUID display across calendar and drawers, doctor weekly availability with split shifts, time-off/vacation blocking, per-doctor slot duration (15/20/30/45/60m), dynamic calendar timeline hours, and doctor filter pills
 - [ ] **Phase 4: Labs & Referrals** - Lab orders/results with abnormal flagging, in- and out-of-network referrals with tracking
 - [ ] **Phase 5: Communications & AI Assist** - SMS/WhatsApp reminders and two-way replies, communication audit log, labeled assistive AI features
 - [ ] **Phase 6: API & Launch Readiness** - REST API, webhooks, rate limiting, performance, reliability, DPDP/regulatory hardening
@@ -137,6 +138,27 @@ Plans:
 **Plans**: 2 plans completed
 - [x] 03.2-01-PLAN.md: Patient Detail Clinical Visit History Timeline & Encounter Summary (`/patients/[id]`)
 - [x] 03.2-02-PLAN.md: Unified Clinic Visits Register Page (`/visits`), Filters, and Role-Based Encounter Access
+
+### Phase 03.3: Doctor Availability, Multi-Shift Scheduling, Time Blocking & Calendar Enhancements (INSERTED)
+
+**Goal:** Provide full clinical availability management — eliminating raw UUID fragments with complete name resolution across all screens, allowing doctors and clinic admins to configure weekly split shifts (e.g., Morning 10:00–13:00 and Evening 17:00–21:00) and default appointment slot durations (15, 20, 30, 45, 60m), providing single-click time-off and date-range blocking (leaves/vacations), rendering dynamic calendar timeline bounds (spanning active shifts), and adding interactive multi-select doctor filter pills in the calendar header.
+
+**Depends on:** Phase 03.2
+**Requirements**: REQ-appointment-booking, REQ-multi-tenancy
+
+**Success Criteria** (what must be TRUE):
+ 1. Calendar view, Booking Drawer, Walk-in Drawer, Queue, and Cabin properly resolve doctor and staff names from `memberships.full_name` (with clean fallbacks), eliminating raw sliced UUID fragments (`Dr. 780d382b`).
+ 2. Doctors (in `/profile`) and Clinic Admins (in `/staff` edit modal and `/settings`) can configure weekly doctor schedules supporting split shifts per day (e.g., Morning 10:00 AM – 1:00 PM and Evening 5:00 PM – 9:00 PM) with per-day enable/disable toggles.
+ 3. Doctors and admins can set the default appointment slot duration per clinician (e.g., 15m for General Physician, 30–45m for Dentist), which automatically pre-populates in the booking drawer and reserves the full multi-slot span in the timeline.
+ 4. Doctors and clinic admins can create time-off blocks for a specific time window, full day, or date range (leaves/vacations/surgeries) with an explanatory reason.
+ 5. The calendar timeline dynamically computes its displayed hours from active doctor shifts (e.g., 08:00 to 21:00) instead of a hardcoded 9 to 6 window, and renders off-duty intervals and blocked periods with distinct hatched styling and status badges.
+ 6. Attempting to book an appointment during an off-duty or blocked interval displays a soft-block warning dialog allowing authorized staff to confirm an emergency booking with an override reason.
+ 7. The calendar header features multi-select doctor filter pills (`[All Doctors]` + individual clinician pills) allowing staff to quickly isolate a single doctor's schedule or compare specific clinicians.
+
+**Plans**: 1/3 plans executed
+- [x] 03.3-01-PLAN.md: Database migration, name resolution, and availability data layer
+- [ ] 03.3-02-PLAN.md: Doctor & Clinic profile availability and time-off blocker UI
+- [ ] 03.3-03-PLAN.md: Calendar timeline multi-shift grid, doctor filter pills, and soft-block override
 
 **UI hint**: Yes
 

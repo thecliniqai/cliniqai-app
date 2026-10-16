@@ -1,18 +1,19 @@
 ---
 gsd_state_version: "1.0"
-current_phase: "04"
-current_phase_name: Labs & Referrals
-status: ready_to_plan
-stopped_at: Phase 03.2 (Patient Visit History & Unified Clinic Visits Register) complete; ready to plan Phase 04
-last_updated: "2026-10-16T06:45:00.000Z"
+current_phase: "03.3"
+current_phase_name: Doctor Availability, Multi-Shift Scheduling, Time Blocking & Calendar Enhancements (INSERTED)
+status: executing
+stopped_at: Phase 03.3 plans created (03.3-01 to 03.3-03); ready to execute Plan 03.3-01
+last_updated: "2026-10-16T10:08:16.873Z"
 last_activity: 2026-10-16
+last_activity_desc: Phase 03.3 execution started
+state_head: 3e65ceea1335bf82efdc6b2d848145403bb5e244
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 6
-  total_plans: 24
+  total_plans: 27
   completed_plans: 24
-  percent: 67
-last_activity_desc: Completed Phase 03.2 (Patient Visit History & Unified Clinic Visits Register)
+  percent: 60
 ---
 
 # Project State
@@ -22,16 +23,18 @@ last_activity_desc: Completed Phase 03.2 (Patient Visit History & Unified Clinic
 See: .planning/PROJECT.md (updated 2026-10-06)
 
 **Core value:** Every core clinic action is obviously, overwhelmingly faster than the paper/WhatsApp status quo — zero-training, under 3 taps, usable entirely from a phone.
-**Current focus:** Phase 04 — Labs & Referrals
+**Current focus:** Phase 03.3 — Doctor Availability, Multi-Shift Scheduling, Time Blocking & Calendar Enhancements (INSERTED)
 
 ## Current Position
 
-Phase: 04 — Labs & Referrals
-Plans: Ready to plan
-Status: ready_to_plan
-Last activity: 2026-10-16 — Completed Phase 03.2 (Patient Visit History & Unified Clinic Visits Register)
+Phase: 03.3 (Doctor Availability, Multi-Shift Scheduling, Time Blocking & Calendar Enhancements (INSERTED)) — EXECUTING
+Current Plan: 2
+Total Plans in Phase: 3
+Plans: 3 plans generated (03.3-01 completed, ready for 03.3-02)
+Status: Executing Phase 03.3
+Last activity: 2026-10-16 — Plan 03.3-01 complete
 
-Progress: [███████░░░] 67% (Phases 1, 2, 2B, 3, 3A, and 3B complete)
+Progress: [██████░░░░] 60% (Phases 1, 2, 2B, 3, 3A, and 3B complete; Phase 03.3 in progress)
 
 ## Performance Metrics
 
@@ -50,7 +53,8 @@ Progress: [███████░░░] 67% (Phases 1, 2, 2B, 3, 3A, and 3B c
 | 03 | 4 | 4 | done |
 | 03.1 | 4 | 4 | done |
 | 03.2 | 2 | 2 | done |
-| 04 | 0 | 0 | ready to plan |
+| 03.3 | 0 | 3 | ready to execute |
+| 04 | 0 | 0 | pending |
 
 **Recent Trend:**
 - Last 2 plans: Phase 03.2 (03.2-01 to 03.2-02) fully verified and passing (9/9 tests)
