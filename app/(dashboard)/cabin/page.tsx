@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/auth/tenant";
+import { getTenantDoctorDirectory } from "@/features/staff/actions";
 import { DoctorCabinView, DoctorOption } from "@/components/cabin/doctor-cabin-view";
 import { CabinVisitItem } from "@/components/cabin/my-queue-card";
 
@@ -31,30 +32,30 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
   const today = new Date().toISOString().split("T")[0];
   const currentDate = searchParams.date || today;
 
-  // Fetch doctors and staff for the tenant
-  const { data: memberRows } = await supabase
-    .from("memberships")
-    .select("id, user_id, role")
-    .eq("tenant_id", membership.tenantId);
+  // Fetch doctors and practicing owners for the tenant
+  const doctorDirectory = await getTenantDoctorDirectory(supabase, {
+    userId: membership.userId,
+    tenantId: membership.tenantId,
+  });
 
-  interface MemberRow {
-    id: string;
-    user_id: string;
-    role: string;
+  const doctors: DoctorOption[] = doctorDirectory.map((d) => ({
+    id: d.id,
+    name: d.name,
+    role: d.role,
+  }));
+
+  // Ensure current user is in options if they are owner/admin and not yet included
+  if (isOwnerOrAdmin && !doctors.some((d) => d.id === membership.userId)) {
+    const { formatDoctorDisplayName } = await import("@/features/staff/actions");
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    doctors.unshift({
+      id: membership.userId,
+      name: formatDoctorDisplayName(user?.user_metadata?.full_name, 1, user?.email),
+      role: membership.role,
+    });
   }
-
-  const allMembers = (memberRows as MemberRow[] | null) || [];
-  // Doctors list: include doctors, plus owners/admins who can act as practicing doctors
-  const doctors: DoctorOption[] = allMembers
-    .filter((m) => m.role === "doctor" || m.role === "owner" || m.role === "admin")
-    .map((m) => ({
-      id: m.user_id,
-      name:
-        m.role === "doctor"
-          ? `Dr. (${m.user_id.slice(0, 8)})`
-          : `${m.role.toUpperCase()} (${m.user_id.slice(0, 8)})`,
-      role: m.role,
-    }));
 
   // Resolve target doctor
   let currentDoctorId = membership.userId;

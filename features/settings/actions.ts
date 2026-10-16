@@ -167,14 +167,24 @@ export async function updateUserProfile(
     const data = parseResult.data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updatePayload: Record<string, any> = {
+      full_name: data.full_name.trim(),
+      phone: data.phone?.trim() ?? null,
+      qualifications: data.qualifications?.trim() ?? null,
+      medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
+      default_specialty: data.default_specialty ?? "general_physician",
+    };
+
+    if (data.default_slot_duration_minutes !== undefined) {
+      updatePayload.default_slot_duration_minutes = data.default_slot_duration_minutes;
+    }
+    if (data.availability_schedule !== undefined) {
+      updatePayload.availability_schedule = data.availability_schedule;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: updatedMembership, error: updateError } = await (supabase.from("memberships") as any)
-      .update({
-        full_name: data.full_name.trim(),
-        phone: data.phone?.trim() ?? null,
-        qualifications: data.qualifications?.trim() ?? null,
-        medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
-        default_specialty: data.default_specialty ?? "general_physician",
-      })
+      .update(updatePayload)
       .eq("tenant_id", session.tenantId)
       .eq("user_id", session.userId)
       .select("*")
@@ -288,15 +298,25 @@ export async function updateStaffMember(
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updatePayload: Record<string, any> = {
+      full_name: data.full_name.trim(),
+      phone: data.phone?.trim() ?? null,
+      role: data.role,
+      qualifications: data.qualifications?.trim() ?? null,
+      medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
+      default_specialty: data.default_specialty ?? "general_physician",
+    };
+
+    if (data.default_slot_duration_minutes !== undefined) {
+      updatePayload.default_slot_duration_minutes = data.default_slot_duration_minutes;
+    }
+    if (data.availability_schedule !== undefined) {
+      updatePayload.availability_schedule = data.availability_schedule;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
-      .update({
-        full_name: data.full_name.trim(),
-        phone: data.phone?.trim() ?? null,
-        role: data.role,
-        qualifications: data.qualifications?.trim() ?? null,
-        medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
-        default_specialty: data.default_specialty ?? "general_physician",
-      })
+      .update(updatePayload)
       .eq("id", data.membership_id)
       .eq("tenant_id", session.tenantId)
       .select("*")
@@ -348,7 +368,7 @@ export async function getMyProfile() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: member } = await (supabase.from("memberships") as any)
-    .select("id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, created_at")
+    .select("id, user_id, tenant_id, role, full_name, phone, qualifications, medical_council_reg_no, default_specialty, default_slot_duration_minutes, availability_schedule, created_at")
     .eq("tenant_id", membership.tenantId)
     .eq("user_id", membership.userId)
     .single();

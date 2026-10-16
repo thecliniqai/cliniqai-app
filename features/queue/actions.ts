@@ -7,6 +7,7 @@ import { recordAudit } from "@/lib/audit/audit";
 import { QueuePriority, QueueToken, Visit, Database, Patient } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QueueItem } from "@/components/queue/queue-card";
+import { getTenantDoctorMap } from "@/features/staff/actions";
 
 export type CheckInResult =
   | { success: true; tokenNumber: number; queueTokenId: string }
@@ -309,18 +310,21 @@ export async function getQueueForDate(
       return { success: false, error: "Failed to load queue for date." };
     }
 
+    const doctorMap = await getTenantDoctorMap(supabase, session);
+
     const items: QueueItem[] = (data || []).map((row) => {
       const queueToken = Array.isArray(row.queue_tokens)
         ? row.queue_tokens[0] || null
         : row.queue_tokens || null;
 
       const { patients, queue_tokens: _qt, ...visitData } = row;
+      const resolvedDocName = row.doctor_id ? doctorMap[row.doctor_id] : null;
 
       return {
         visit: visitData as Visit,
         patient: patients || null,
         queueToken: queueToken || null,
-        doctorName: `Doctor (${row.doctor_id ? row.doctor_id.slice(0, 8) : "Clinic"})`,
+        doctorName: resolvedDocName || (row.doctor_id ? "Doctor" : "Clinic"),
       };
     });
 

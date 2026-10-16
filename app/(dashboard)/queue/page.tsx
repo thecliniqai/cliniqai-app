@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/auth/tenant";
 import { getQueueForDate } from "@/features/queue/actions";
+import { getTenantDoctorDirectory } from "@/features/staff/actions";
 import { QueueView } from "@/components/queue/queue-view";
 import { DoctorOption } from "@/components/queue/walk-in-drawer";
 
@@ -28,21 +29,15 @@ export default async function QueuePage(props: QueuePageProps) {
   const currentDate = searchParams.date || today;
   const selectedDoctorId = searchParams.doctor || "all";
 
-  // Fetch doctors/staff memberships for tenant
-  const { data: memberRows } = await supabase
-    .from("memberships")
-    .select("id, user_id, role")
-    .eq("tenant_id", membership.tenantId);
+  // Fetch resolved doctors for tenant
+  const doctorDirectory = await getTenantDoctorDirectory(supabase, {
+    userId: membership.userId,
+    tenantId: membership.tenantId,
+  });
 
-  interface MemberRow {
-    id: string;
-    user_id: string;
-    role: string;
-  }
-
-  const doctors: DoctorOption[] = ((memberRows as MemberRow[] | null) || []).map((m) => ({
-    id: m.user_id,
-    name: m.role === "doctor" ? `Dr. (${m.user_id.slice(0, 8)})` : `Staff (${m.user_id.slice(0, 8)})`,
+  const doctors: DoctorOption[] = doctorDirectory.map((d) => ({
+    id: d.id,
+    name: d.name,
   }));
 
   // Fetch live queue items

@@ -137,3 +137,163 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
     };
   }
 }
+
+export function formatDoctorDisplayName(
+  fullName?: string | null,
+  fallbackIndex?: number,
+  email?: string | null
+): string {
+  if (fullName && fullName.trim().length > 0) {
+    const trimmed = fullName.trim();
+    if (trimmed.toLowerCase().startsWith("dr.") || trimmed.toLowerCase().startsWith("dr ")) {
+      return trimmed;
+    }
+    return `Dr. ${trimmed}`;
+  }
+  if (email && email.includes("@")) {
+    const prefix = email.split("@")[0];
+    const capitalized = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+    return `Dr. ${capitalized}`;
+  }
+  return fallbackIndex !== undefined ? `Doctor (${fallbackIndex})` : "Doctor";
+}
+
+export function formatStaffDisplayName(
+  fullName?: string | null,
+  role?: string,
+  fallbackIndex?: number
+): string {
+  if (fullName && fullName.trim().length > 0) {
+    const trimmed = fullName.trim();
+    if (role === "doctor") {
+      return trimmed.toLowerCase().startsWith("dr.") || trimmed.toLowerCase().startsWith("dr ")
+        ? trimmed
+        : `Dr. ${trimmed}`;
+    }
+    return trimmed;
+  }
+  const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1) : "Staff";
+  return fallbackIndex !== undefined ? `${roleLabel} (${fallbackIndex})` : roleLabel;
+}
+
+export interface TenantDoctorInfo {
+  id: string; // user_id
+  membershipId: string;
+  name: string; // e.g. "Dr. Sarah Jenkins"
+  fullName: string | null;
+  role: string;
+  specialty: string;
+  default_slot_duration_minutes: number;
+  availability_schedule: any | null;
+}
+
+export async function getTenantDoctorDirectory(
+  clientOverride?: any,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<TenantDoctorInfo[]> {
+  try {
+    const supabase = clientOverride || (await createClient());
+    let session = sessionOverride;
+    if (!session) {
+      const { getActiveMembership } = await import("@/lib/auth/tenant");
+      const active = await getActiveMembership();
+      session = { userId: active.userId, tenantId: active.tenantId };
+    }
+
+    const { data: tenant } = await (supabase.from("tenants") as any)
+      .select("owner_is_practicing_doctor")
+      .eq("id", session.tenantId)
+      .single();
+
+    const { data: memberRows, error } = await (supabase.from("memberships") as any)
+      .select("id, user_id, tenant_id, role, full_name, default_specialty, default_slot_duration_minutes, availability_schedule, qualifications, medical_council_reg_no")
+      .eq("tenant_id", session.tenantId);
+
+    if (error || !memberRows) {
+      console.error("[getTenantDoctorDirectory] Error fetching members:", error);
+      return [];
+    }
+
+    const ownerPracticing = tenant?.owner_is_practicing_doctor ?? true;
+
+    // Doctors: role == 'doctor' OR (owner when practicing) OR (admin with doctor qualifications/specialty)
+    const doctorMembers = memberRows.filter((m: any) => {
+      if (m.role === "doctor") return true;
+      if (m.role === "owner" && ownerPracticing) return true;
+      if (m.role === "admin" && (m.qualifications || m.medical_council_reg_no)) return true;
+      return false;
+    });
+
+    return doctorMembers.map((m: any, index: number) => ({
+      id: m.user_id,
+      membershipId: m.id,
+      name: formatDoctorDisplayName(m.full_name, index + 1),
+      fullName: m.full_name || null,
+      role: m.role,
+      specialty: m.default_specialty || "general_physician",
+      default_slot_duration_minutes: m.default_slot_duration_minutes || 15,
+      availability_schedule: m.availability_schedule || null,
+    }));
+  } catch (err) {
+    console.error("[getTenantDoctorDirectory] Unexpected error:", err);
+    return [];
+  }
+}
+
+export interface TenantStaffInfo {
+  id: string; // user_id
+  membershipId: string;
+  name: string;
+  fullName: string | null;
+  role: string;
+  specialty?: string;
+}
+
+export async function getTenantStaffDirectory(
+  clientOverride?: any,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<TenantStaffInfo[]> {
+  try {
+    const supabase = clientOverride || (await createClient());
+    let session = sessionOverride;
+    if (!session) {
+      const { getActiveMembership } = await import("@/lib/auth/tenant");
+      const active = await getActiveMembership();
+      session = { userId: active.userId, tenantId: active.tenantId };
+    }
+
+    const { data: memberRows, error } = await (supabase.from("memberships") as any)
+      .select("id, user_id, tenant_id, role, full_name, default_specialty")
+      .eq("tenant_id", session.tenantId);
+
+    if (error || !memberRows) {
+      console.error("[getTenantStaffDirectory] Error fetching members:", error);
+      return [];
+    }
+
+    return memberRows.map((m: any, index: number) => ({
+      id: m.user_id,
+      membershipId: m.id,
+      name: formatStaffDisplayName(m.full_name, m.role, index + 1),
+      fullName: m.full_name || null,
+      role: m.role,
+      specialty: m.default_specialty,
+    }));
+  } catch (err) {
+    console.error("[getTenantStaffDirectory] Unexpected error:", err);
+    return [];
+  }
+}
+
+export async function getTenantDoctorMap(
+  clientOverride?: any,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<Record<string, string>> {
+  const doctors = await getTenantDoctorDirectory(clientOverride, sessionOverride);
+  const map: Record<string, string> = {};
+  for (const doc of doctors) {
+    map[doc.id] = doc.name;
+  }
+  return map;
+}
+

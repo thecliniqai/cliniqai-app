@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/auth/tenant";
 import { getVisitsForDate } from "@/features/visits/actions";
 import { getWaitlistForDate } from "@/features/waitlist/actions";
+import { getTenantDoctorDirectory } from "@/features/staff/actions";
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { TimelineVisit } from "@/components/calendar/doctor-timeline";
 
@@ -27,21 +28,18 @@ export default async function CalendarPage(props: CalendarPageProps) {
   const today = new Date().toISOString().split("T")[0];
   const currentDate = searchParams.date || today;
 
-  // Fetch doctors/staff memberships for tenant
-  interface MemberRow {
-    id: string;
-    user_id: string;
-    role: string;
-  }
+  // Fetch resolved doctor directory for tenant
+  const doctorDirectory = await getTenantDoctorDirectory(supabase, {
+    userId: membership.userId,
+    tenantId: membership.tenantId,
+  });
 
-  const { data: memberRows } = await supabase
-    .from("memberships")
-    .select("id, user_id, role")
-    .eq("tenant_id", membership.tenantId);
-
-  const doctors = ((memberRows as MemberRow[] | null) || []).map((m) => ({
-    id: m.user_id,
-    name: m.role === "doctor" ? `Dr. (${m.user_id.slice(0, 8)})` : `Staff (${m.user_id.slice(0, 8)})`,
+  const doctors = doctorDirectory.map((d) => ({
+    id: d.id,
+    name: d.name,
+    specialty: d.specialty,
+    default_slot_duration_minutes: d.default_slot_duration_minutes,
+    availability_schedule: d.availability_schedule,
   }));
 
   // Fetch visits for date

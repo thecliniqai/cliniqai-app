@@ -26,6 +26,8 @@ export const userProfileSchema = z.object({
   medical_council_reg_no: z.string().optional().nullable(),
   qualifications: z.string().optional().nullable(),
   default_specialty: z.string().default("general_physician"),
+  default_slot_duration_minutes: z.coerce.number().min(5).max(180).optional(),
+  availability_schedule: z.any().optional().nullable(),
 });
 
 export type UserProfileInput = z.infer<typeof userProfileSchema>;
@@ -38,6 +40,8 @@ export const staffEditSchema = z.object({
   medical_council_reg_no: z.string().optional().nullable(),
   qualifications: z.string().optional().nullable(),
   default_specialty: z.string().default("general_physician"),
+  default_slot_duration_minutes: z.coerce.number().min(5).max(180).optional(),
+  availability_schedule: z.any().optional().nullable(),
 });
 
 export type StaffEditInput = z.infer<typeof staffEditSchema>;
