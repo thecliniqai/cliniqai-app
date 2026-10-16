@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getPatient } from "@/features/patients/actions";
+import { getPatient, getPatientVisitHistory } from "@/features/patients/actions";
 import { getCurrentConsent } from "@/features/patients/consent";
+import { getActiveMembership } from "@/lib/auth/tenant";
 import { ConsentSection } from "./consent-section";
+import { PatientVisitHistory } from "@/components/patients/patient-visit-history";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,8 +25,17 @@ export default async function PatientDetailPage(props: {
   const { id } = await props.params;
 
   let patient;
+  let visits = [];
+  let userRole = "doctor";
   try {
-    patient = await getPatient(id);
+    const [patientData, visitData, membership] = await Promise.all([
+      getPatient(id),
+      getPatientVisitHistory(id),
+      getActiveMembership(),
+    ]);
+    patient = patientData;
+    visits = visitData;
+    userRole = membership.role;
   } catch {
     notFound();
   }
@@ -174,16 +185,33 @@ export default async function PatientDetailPage(props: {
             </CardContent>
           </Card>
 
+          {/* Clinical Visit History Timeline */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#1769E0]" />
+                <span>Clinical Visit History</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PatientVisitHistory
+                visits={visits}
+                userRole={userRole}
+                patientId={patient.id}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column: Consent, Security & Metadata */}
+        <div className="space-y-6">
           {/* Consent Section */}
           <ConsentSection
             patientId={patient.id}
             treatmentConsent={treatmentConsent}
             dataSharingConsent={dataSharingConsent}
           />
-        </div>
 
-        {/* Right Column: Security & Metadata */}
-        <div className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
@@ -199,25 +227,6 @@ export default async function PatientDetailPage(props: {
               <div className="p-2.5 rounded-lg bg-gray-50 space-y-1 text-gray-600 font-mono text-[11px]">
                 <div>Created: {new Date(patient.created_at).toLocaleDateString()}</div>
                 <div>Status: Active Record</div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#1769E0]" />
-                <span>Clinical History</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-xs text-gray-500">
-              <p>No previous consultation summaries or prescriptions filed yet.</p>
-              <div className="mt-3">
-                <Link href="/calendar">
-                  <Button variant="outline" size="sm" className="w-full text-xs">
-                    Schedule Next Visit
-                  </Button>
-                </Link>
               </div>
             </CardContent>
           </Card>

@@ -105,3 +105,90 @@ export const patientSchema = z
   });
 
 export type PatientInput = z.infer<typeof patientSchema>;
+
+export interface PatientVisitVitals {
+  bp_sys?: number | null;
+  bp_dia?: number | null;
+  pulse?: number | null;
+  temp?: number | null;
+  spo2?: number | null;
+  weight?: number | null;
+  height?: number | null;
+  bmi?: number | null;
+  respiratory_rate?: number | null;
+  notes?: string | null;
+}
+
+export interface PatientVisitChiefComplaint {
+  complaint: string;
+  duration?: string;
+  duration_unit?: string;
+  notes?: string | null;
+}
+
+export interface PatientVisitDiagnosis {
+  id: string;
+  diagnosis_name: string;
+  icd11_code?: string | null;
+  snomed_concept_id?: string | null;
+  is_chronic: boolean;
+  notes?: string | null;
+}
+
+export interface PatientVisitPrescriptionItem {
+  id: string;
+  medicine_name: string;
+  generic_name?: string | null;
+  dose_form?: string | null;
+  dosage: string;
+  timing?: string | null;
+  duration: string;
+  special_instructions?: string | null;
+}
+
+export interface PatientVisitPrescription {
+  id: string;
+  version: number;
+  status: string;
+  signed_at?: string | null;
+  items: PatientVisitPrescriptionItem[];
+}
+
+export interface PatientVisitInvoice {
+  id: string;
+  invoice_number: string;
+  total_amount: number;
+  status: string;
+  total_paid: number;
+  balance_due: number;
+}
+
+export interface PatientVisitDoctor {
+  id: string;
+  full_name: string;
+  qualifications?: string | null;
+  medical_council_reg_no?: string | null;
+  specialty?: string | null;
+}
+
+export interface PatientVisitHistoryItem {
+  id: string;
+  patient_id: string;
+  scheduled_at: string | null;
+  created_at: string;
+  status: string;
+  origin_type: string;
+  specialty?: string | null;
+  reason_for_visit?: string | null;
+  clinical_notes?: string | null;
+  investigations_advised?: string[];
+  advice?: string[];
+  vitals?: PatientVisitVitals | null;
+  chief_complaints?: PatientVisitChiefComplaint[] | null;
+  doctor: PatientVisitDoctor;
+  token_number?: number | null;
+  diagnoses: PatientVisitDiagnosis[];
+  prescription?: PatientVisitPrescription | null;
+  invoice?: PatientVisitInvoice | null;
+}
+
