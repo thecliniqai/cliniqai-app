@@ -21,6 +21,32 @@ export interface Tenant {
   updated_at: string;
 }
 
+export interface DayShiftSchedule {
+  start: string;
+  end: string;
+}
+
+export interface DayAvailability {
+  enabled: boolean;
+  shifts: DayShiftSchedule[];
+}
+
+export type DayOfWeek = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+
+export type DoctorWeeklySchedule = Record<DayOfWeek, DayAvailability>;
+
+export interface ScheduleBlock {
+  id: string;
+  tenant_id: string;
+  doctor_id: string | null;
+  start_time: string;
+  end_time: string;
+  reason: string | null;
+  all_day: boolean;
+  created_by: string;
+  created_at: string;
+}
+
 export interface Membership {
   id: string;
   user_id: string;
@@ -32,6 +58,8 @@ export interface Membership {
   medical_council_reg_no?: string | null;
   signature_url?: string | null;
   default_specialty?: string;
+  availability_schedule?: DoctorWeeklySchedule | null;
+  default_slot_duration_minutes?: number;
   created_at: string;
 }
 
@@ -390,6 +418,14 @@ export interface Database {
           user_id: string;
           tenant_id: string;
           role: UserRole;
+          full_name?: string | null;
+          phone?: string | null;
+          qualifications?: string | null;
+          medical_council_reg_no?: string | null;
+          signature_url?: string | null;
+          default_specialty?: string;
+          availability_schedule?: DoctorWeeklySchedule | null;
+          default_slot_duration_minutes?: number;
           created_at?: string;
         };
         Update: {
@@ -397,6 +433,40 @@ export interface Database {
           user_id?: string;
           tenant_id?: string;
           role?: UserRole;
+          full_name?: string | null;
+          phone?: string | null;
+          qualifications?: string | null;
+          medical_council_reg_no?: string | null;
+          signature_url?: string | null;
+          default_specialty?: string;
+          availability_schedule?: DoctorWeeklySchedule | null;
+          default_slot_duration_minutes?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      schedule_blocks: {
+        Row: ScheduleBlock;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          doctor_id?: string | null;
+          start_time: string;
+          end_time: string;
+          reason?: string | null;
+          all_day?: boolean;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          doctor_id?: string | null;
+          start_time?: string;
+          end_time?: string;
+          reason?: string | null;
+          all_day?: boolean;
+          created_by?: string;
           created_at?: string;
         };
         Relationships: [];

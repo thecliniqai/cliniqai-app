@@ -35,7 +35,9 @@ export type AuditAction =
   | "staff.member.update"
   | "invoice.create"
   | "invoice.payment_recorded"
-  | "invoice.generate_receipt_pdf";
+  | "invoice.generate_receipt_pdf"
+  | "schedule_block.create"
+  | "schedule_block.delete";
 
 export interface RecordAuditParams {
   action: AuditAction;
@@ -52,7 +54,8 @@ export interface RecordAuditParams {
     | "invoice"
     | "payment"
     | "diagnosis"
-    | "follow_up";
+    | "follow_up"
+    | "schedule_block";
   entityId?: string | null;
   metadata?: Record<string, unknown>;
 }
