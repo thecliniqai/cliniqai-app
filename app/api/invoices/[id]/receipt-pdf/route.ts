@@ -156,6 +156,7 @@ export async function GET(
     };
 
     // 10. Generate PDF buffer
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { buffer } = await generateAndArchiveReceiptPdf(payload, supabase as any, {
       userId: membership.userId,
       tenantId: membership.tenantId,

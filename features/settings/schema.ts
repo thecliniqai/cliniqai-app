@@ -45,3 +45,50 @@ export const staffEditSchema = z.object({
 });
 
 export type StaffEditInput = z.infer<typeof staffEditSchema>;
+
+// Doctor shift and weekly schedule schemas
+export const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export const shiftSchema = z
+  .object({
+    start: z.string().regex(timeRegex, "Invalid start time format (HH:mm)"),
+    end: z.string().regex(timeRegex, "Invalid end time format (HH:mm)"),
+  })
+  .refine((shift) => shift.start < shift.end, {
+    message: "Shift end time must be after start time",
+  });
+
+export type ShiftInput = z.infer<typeof shiftSchema>;
+
+export const dayAvailabilitySchema = z
+  .object({
+    enabled: z.boolean(),
+    shifts: z.array(shiftSchema),
+  })
+  .refine(
+    (day) => {
+      if (!day.enabled || day.shifts.length <= 1) return true;
+      const sorted = [...day.shifts].sort((a, b) => a.start.localeCompare(b.start));
+      for (let i = 0; i < sorted.length - 1; i++) {
+        if (sorted[i].end > sorted[i + 1].start) {
+          return false;
+        }
+      }
+      return true;
+    },
+    { message: "Shifts within the same day cannot overlap" }
+  );
+
+export type DayAvailabilityInput = z.infer<typeof dayAvailabilitySchema>;
+
+export const doctorWeeklyScheduleSchema = z.object({
+  monday: dayAvailabilitySchema,
+  tuesday: dayAvailabilitySchema,
+  wednesday: dayAvailabilitySchema,
+  thursday: dayAvailabilitySchema,
+  friday: dayAvailabilitySchema,
+  saturday: dayAvailabilitySchema,
+  sunday: dayAvailabilitySchema,
+});
+
+export type DoctorWeeklyScheduleInput = z.infer<typeof doctorWeeklyScheduleSchema>;

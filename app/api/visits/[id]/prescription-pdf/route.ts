@@ -167,6 +167,7 @@ export async function GET(
     };
 
     // 12. Compile and archive PDF
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { buffer } = await generateAndArchivePrescriptionPdf(payload, supabase as any, {
       userId: membership.userId,
       tenantId: membership.tenantId,

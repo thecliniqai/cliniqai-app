@@ -12,8 +12,8 @@ import {
 import { ReceiptPdfPayload } from "@/features/billing/pdf/receipt-document";
 import {
   getDailyCollectionReport,
-  formatCollectionReportCsv,
 } from "@/features/billing/reports-actions";
+import { formatCollectionReportCsv } from "@/features/billing/csv-utils";
 
 describe("Payment Receipts & Financial Collection Reports Integration (REQ-billing-invoicing, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;

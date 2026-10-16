@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import { generateInviteToken, hashInviteToken } from "./invite";
+import { formatDoctorDisplayName, formatStaffDisplayName } from "./formatters";
 import { UserRole } from "@/lib/db/types";
 
 const inviteStaffSchema = z.object({
@@ -136,44 +137,6 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
       error: err instanceof Error ? err.message : "Failed to accept invitation.",
     };
   }
-}
-
-export function formatDoctorDisplayName(
-  fullName?: string | null,
-  fallbackIndex?: number,
-  email?: string | null
-): string {
-  if (fullName && fullName.trim().length > 0) {
-    const trimmed = fullName.trim();
-    if (trimmed.toLowerCase().startsWith("dr.") || trimmed.toLowerCase().startsWith("dr ")) {
-      return trimmed;
-    }
-    return `Dr. ${trimmed}`;
-  }
-  if (email && email.includes("@")) {
-    const prefix = email.split("@")[0];
-    const capitalized = prefix.charAt(0).toUpperCase() + prefix.slice(1);
-    return `Dr. ${capitalized}`;
-  }
-  return fallbackIndex !== undefined ? `Doctor (${fallbackIndex})` : "Doctor";
-}
-
-export function formatStaffDisplayName(
-  fullName?: string | null,
-  role?: string,
-  fallbackIndex?: number
-): string {
-  if (fullName && fullName.trim().length > 0) {
-    const trimmed = fullName.trim();
-    if (role === "doctor") {
-      return trimmed.toLowerCase().startsWith("dr.") || trimmed.toLowerCase().startsWith("dr ")
-        ? trimmed
-        : `Dr. ${trimmed}`;
-    }
-    return trimmed;
-  }
-  const roleLabel = role ? role.charAt(0).toUpperCase() + role.slice(1) : "Staff";
-  return fallbackIndex !== undefined ? `${roleLabel} (${fallbackIndex})` : roleLabel;
 }
 
 export interface TenantDoctorInfo {

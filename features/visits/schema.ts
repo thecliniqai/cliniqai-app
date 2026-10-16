@@ -160,3 +160,27 @@ export interface ActiveDoctorOption {
   qualifications?: string | null;
   specialty?: string | null;
 }
+
+export const bookAppointmentSchema = z.object({
+  patient_id: z.string().uuid("Invalid patient ID"),
+  doctor_id: z.string().uuid("Invalid doctor ID"),
+  scheduled_at: z.string().datetime({ offset: true }),
+  estimated_duration_minutes: z.number().int().min(5).max(180).default(15),
+  reason_for_visit: z.string().max(500).nullable().optional(),
+  is_overbooked: z.boolean().default(false),
+  override_off_duty: z.boolean().optional().default(false),
+  override_block: z.boolean().optional().default(false),
+});
+
+export type BookAppointmentInput = z.input<typeof bookAppointmentSchema>;
+
+export const createScheduleBlockSchema = z.object({
+  doctor_id: z.string().uuid("Invalid doctor ID").nullable().optional(),
+  start_time: z.string().datetime({ offset: true }),
+  end_time: z.string().datetime({ offset: true }),
+  reason: z.string().max(500).nullable().optional(),
+  all_day: z.boolean().default(false),
+});
+
+export type CreateScheduleBlockInput = z.input<typeof createScheduleBlockSchema>;
+

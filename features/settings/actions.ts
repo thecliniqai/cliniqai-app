@@ -14,6 +14,7 @@ import {
   UserProfileInput,
   staffEditSchema,
   StaffEditInput,
+  doctorWeeklyScheduleSchema,
 } from "./schema";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -397,46 +398,6 @@ export async function getMyProfile() {
     tenant: (tenant || { id: membership.tenantId, name: "Clinic" }) as { id: string; name: string },
   };
 }
-
-const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-export const shiftSchema = z
-  .object({
-    start: z.string().regex(timeRegex, "Invalid start time format (HH:mm)"),
-    end: z.string().regex(timeRegex, "Invalid end time format (HH:mm)"),
-  })
-  .refine((shift) => shift.start < shift.end, {
-    message: "Shift end time must be after start time",
-  });
-
-export const dayAvailabilitySchema = z
-  .object({
-    enabled: z.boolean(),
-    shifts: z.array(shiftSchema),
-  })
-  .refine(
-    (day) => {
-      if (!day.enabled || day.shifts.length <= 1) return true;
-      const sorted = [...day.shifts].sort((a, b) => a.start.localeCompare(b.start));
-      for (let i = 0; i < sorted.length - 1; i++) {
-        if (sorted[i].end > sorted[i + 1].start) {
-          return false;
-        }
-      }
-      return true;
-    },
-    { message: "Shifts within the same day cannot overlap" }
-  );
-
-export const doctorWeeklyScheduleSchema = z.object({
-  monday: dayAvailabilitySchema,
-  tuesday: dayAvailabilitySchema,
-  wednesday: dayAvailabilitySchema,
-  thursday: dayAvailabilitySchema,
-  friday: dayAvailabilitySchema,
-  saturday: dayAvailabilitySchema,
-  sunday: dayAvailabilitySchema,
-});
 
 export async function updateDoctorAvailability(
   input: { membership_id: string; availability_schedule: any },

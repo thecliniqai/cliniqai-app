@@ -46,7 +46,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
 
   // Ensure current user is in options if they are owner/admin and not yet included
   if (isOwnerOrAdmin && !doctors.some((d) => d.id === membership.userId)) {
-    const { formatDoctorDisplayName } = await import("@/features/staff/actions");
+    const { formatDoctorDisplayName } = await import("@/features/staff/formatters");
     const {
       data: { user },
     } = await supabase.auth.getUser();

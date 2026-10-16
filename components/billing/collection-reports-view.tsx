@@ -17,9 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   CollectionReportData,
-  formatCollectionReportCsv,
   getDailyCollectionReport,
 } from "@/features/billing/reports-actions";
+import { formatCollectionReportCsv } from "@/features/billing/csv-utils";
 import { ReceiptModal } from "./receipt-modal";
 
 export interface CollectionReportsViewProps {
@@ -336,7 +336,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
             {/* Method Filter */}
             <select
               value={methodFilter}
-              onChange={(e) => setMethodFilter(e.target.value as any)}
+              onChange={(e) => setMethodFilter(e.target.value as "all" | "cash" | "upi" | "card")}
               className="px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-slate-50 text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Methods</option>

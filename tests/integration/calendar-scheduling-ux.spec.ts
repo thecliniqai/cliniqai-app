@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { checkSlotAvailability, bookAppointment } from "@/features/visits/scheduling";
-import { formatDoctorDisplayName } from "@/features/staff/actions";
+import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { DoctorWeeklySchedule } from "@/lib/db/types";
 
 const mockSchedule: DoctorWeeklySchedule = {

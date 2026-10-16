@@ -3,6 +3,8 @@ import {
   doctorWeeklyScheduleSchema,
   shiftSchema,
   dayAvailabilitySchema,
+} from "@/features/settings/schema";
+import {
   updateDoctorAvailability,
   updateDoctorSlotDuration,
 } from "@/features/settings/actions";

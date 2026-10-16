@@ -3,12 +3,14 @@ import {
   timeToMinutes,
   isSlotWithinShifts,
   getTimePartsFromISO,
+} from "@/features/visits/scheduling-utils";
+import {
   checkSlotAvailability,
 } from "@/features/visits/scheduling";
 import {
   formatDoctorDisplayName,
   formatStaffDisplayName,
-} from "@/features/staff/actions";
+} from "@/features/staff/formatters";
 import { DoctorWeeklySchedule, DayAvailability, ScheduleBlock } from "@/lib/db/types";
 
 describe("Doctor Availability & Schedule Blocks (REQ-appointment-booking, REQ-multi-tenancy)", () => {
