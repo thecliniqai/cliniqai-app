@@ -173,7 +173,7 @@ export async function getTenantDoctorDirectory(
       .eq("tenant_id", session.tenantId);
 
     if (error || !memberRows) {
-      console.error("[getTenantDoctorDirectory] Error fetching members:", error);
+      console.error("[getTenantDoctorDirectory] Error fetching members:", error ? { message: error.message, code: error.code, details: error.details, hint: error.hint } : "No rows returned");
       return [];
     }
 
@@ -230,7 +230,7 @@ export async function getTenantStaffDirectory(
       .eq("tenant_id", session.tenantId);
 
     if (error || !memberRows) {
-      console.error("[getTenantStaffDirectory] Error fetching members:", error);
+      console.error("[getTenantStaffDirectory] Error fetching members:", error ? { message: error.message, code: error.code, details: error.details, hint: error.hint } : "No rows returned");
       return [];
     }
 
