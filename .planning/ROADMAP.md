@@ -15,6 +15,7 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
 - [x] **Phase 02.1 (Phase 2B): UI/UX Re-foundation Using TailAdmin Free (INSERTED)** - Design system tokens, TailAdmin sidebar shell, reusable UI primitives, and full redesign of dashboard, patients, calendar, queue, and staff workflows (completed 2026-10-08)
 - [x] **Phase 3: Consultation & Prescribing** - Specialty templates, visit workflow states, ICD-10 diagnosis, e-prescriptions with PDF delivery, provisional per-visit billing (completed 2026-10-15)
 - [x] **Phase 03.1 (Phase 3A): Doctor Cabin, Role-Based Access & Billing Invoicing (INSERTED)** - Dedicated Doctor Cabin workspace, role-scoped UI permissions (owner/admin/doctor/nurse/receptionist), 1-tap queue consultation launch, per-visit billing (Cash/UPI/Card), and collection reports (completed 2026-10-15)
+- [ ] **Phase 03.2 (Phase 3B): Patient Visit History & Unified Clinic Visits Register (INSERTED)** - Chronological visit history timeline in Patient View (`/patients/[id]`), unified clinic visits register (`/visits`) with date range filters, search, doctor filter, direct prescription download/preview, and role-based visit record access
 - [ ] **Phase 4: Labs & Referrals** - Lab orders/results with abnormal flagging, in- and out-of-network referrals with tracking
 - [ ] **Phase 5: Communications & AI Assist** - SMS/WhatsApp reminders and two-way replies, communication audit log, labeled assistive AI features
 - [ ] **Phase 6: API & Launch Readiness** - REST API, webhooks, rate limiting, performance, reliability, DPDP/regulatory hardening
@@ -95,6 +96,16 @@ Plans:
 
 **UI hint**: Yes
 
+### Phase 03.2: Patient Visit History and Clinic Unified Visits Register (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 3
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 03.2 to break down)
+
 ### Phase 03.1: Doctor Cabin, Role-Based Access & Billing Invoicing (INSERTED)
 
 **Goal:** Doctors have a dedicated, distraction-free "Doctor Cabin" workspace to consult waiting patients in 1 click; owners and admins access all screens with configurable staff roles; receptionists and nurses have dedicated triage and queue tools; and clinics can record per-visit billing (cash/UPI/card) with downloadable PDF receipts and daily collection reports.
@@ -114,6 +125,28 @@ Plans:
 - [x] 03.1-02-PLAN.md: 1-tap consultation integration across Live Queue, Calendar timeline, and Dashboard
 - [x] 03.1-03-PLAN.md: Per-visit billing data layer, consultation fee checkout, and payment recording (Cash, UPI, Card)
 - [x] 03.1-04-PLAN.md: Branded PDF payment receipt generation, daily collection register, and owner financial reports
+
+**UI hint**: Yes
+
+### Phase 03.2: Patient Visit History & Unified Clinic Visits Register (INSERTED)
+
+**Goal:** Staff and doctors have an instant, comprehensive view of patient clinical history from both the individual patient profile (`/patients/[id]`) and a clinic-wide unified visits register (`/visits`), featuring date-range filtering, instant prescription downloading/printing, and role-based record viewing (interactive consultation editing for doctors, read-only encounter review for front desk/nurses/billing).
+
+**Depends on:** Phase 03.1
+**Requirements**: REQ-patient-records, REQ-diagnosis-visit-management, REQ-e-prescriptions, REQ-multi-tenancy
+
+**Success Criteria** (what must be TRUE):
+ 1. Opening any patient record (`/patients/[id]`) displays a comprehensive, chronological Clinical Visit History timeline showing visit date, doctor, chief complaints, diagnoses (ICD-11/SNOMED), prescribed medications, vitals, billing status, and 1-click [Print Rx] / [Receipt] actions.
+ 2. A new top-level "Visits" page (`/visits`) accessible from the sidebar and mobile navigation provides a clinic-wide master table of all patient visits across the practice.
+ 3. The unified visits register supports intuitive date filtering (Today, Yesterday, Last 7 Days, This Month, or Custom Date Range pickers) and quick search by Patient Name, Phone, or UHID.
+ 4. Filters support filtering by Doctor (treating clinician), Visit Status (waiting, in_consultation, completed, cancelled), and Specialty.
+ 5. Every row in the visits table provides 1-tap direct actions: [Print Rx] PDF, [Receipt] PDF, and [Open Encounter].
+ 6. Role-scoped encounter access: Clicking [Open Encounter] allows treating doctors to view/edit or add notes to consultations, while front desk (receptionists/nurses/billing) receive a structured, read-only encounter summary view preventing unauthorized clinical edits.
+ 7. High-performance, paginated server-side queries strictly scoped to the active tenant ID with multi-tenant RLS enforcement.
+
+**Plans**: 2 plans
+- [ ] 03.2-01-PLAN.md: Patient Detail Clinical Visit History Timeline & Encounter Summary (`/patients/[id]`)
+- [ ] 03.2-02-PLAN.md: Unified Clinic Visits Register Page (`/visits`), Filters, and Role-Based Encounter Access
 
 **UI hint**: Yes
 
@@ -172,6 +205,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 02.1. UI/UX Re-foundation (TailAdmin) | 5/5 | Complete | 2026-10-08 |
 | 3. Consultation & Prescribing | 4/4 | Complete    | 2026-10-15 |
 | 03.1. Doctor Cabin, RBAC & Billing | 4/4 | Complete | 2026-10-15 |
+| 03.2. Patient Visit History & Visits Register | 0/2 | Ready to plan | - |
 | 4. Labs & Referrals | 0/- | Not started | - |
 | 5. Communications & AI Assist | 0/- | Not started | - |
 | 6. API & Launch Readiness | 0/- | Not started | - |

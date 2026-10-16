@@ -1,18 +1,18 @@
 ---
 gsd_state_version: "1.0"
-current_phase: "04"
-current_phase_name: Labs & Referrals
+current_phase: "03.2"
+current_phase_name: Patient Visit History & Unified Clinic Visits Register
 status: ready_to_plan
-stopped_at: Phase 03.1 (Doctor Cabin, Role-Based Access & Billing Invoicing) complete and verified; ready to plan Phase 04 (Labs & Referrals)
-last_updated: "2026-10-15T14:20:00.000Z"
-last_activity: 2026-10-15
+stopped_at: Phase 03.2 (Patient Visit History & Unified Clinic Visits Register) inserted; ready to plan
+last_updated: "2026-10-16T06:30:00.000Z"
+last_activity: 2026-10-16
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 5
-  total_plans: 22
+  total_plans: 24
   completed_plans: 22
-  percent: 63
-last_activity_desc: Completed and verified Phase 03.1 (Doctor Cabin, Role-Based Access & Billing Invoicing) with 25 passing tests
+  percent: 61
+last_activity_desc: Inserted Phase 03.2 (Patient Visit History & Unified Clinic Visits Register)
 ---
 
 # Project State
@@ -22,16 +22,16 @@ last_activity_desc: Completed and verified Phase 03.1 (Doctor Cabin, Role-Based 
 See: .planning/PROJECT.md (updated 2026-10-06)
 
 **Core value:** Every core clinic action is obviously, overwhelmingly faster than the paper/WhatsApp status quo — zero-training, under 3 taps, usable entirely from a phone.
-**Current focus:** Phase 04 — Labs & Referrals
+**Current focus:** Phase 03.2 — Patient Visit History & Unified Clinic Visits Register
 
 ## Current Position
 
-Phase: 04 — Labs & Referrals
+Phase: 03.2 — Patient Visit History & Unified Clinic Visits Register
 Plans: Ready to plan
 Status: ready_to_plan
-Last activity: 2026-10-15 — Completed Phase 03.1 (Doctor Cabin, Role-Based Access & Billing Invoicing)
+Last activity: 2026-10-16 — Inserted Phase 03.2
 
-Progress: [██████░░░░] 63% (Phases 1, 2, 2B, 3, and 3A complete)
+Progress: [██████░░░░] 61% (Phases 1, 2, 2B, 3, and 3A complete)
 
 ## Performance Metrics
 
