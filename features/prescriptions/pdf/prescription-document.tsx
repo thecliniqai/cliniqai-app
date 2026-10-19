@@ -83,7 +83,7 @@ export interface PrescriptionPdfPayload {
 const styles = StyleSheet.create({
   pageBlankPaper: {
     paddingTop: 36,
-    paddingBottom: 36,
+    paddingBottom: 40,
     paddingLeft: 36,
     paddingRight: 36,
     fontFamily: "Helvetica",
@@ -100,6 +100,21 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: "#1E293B",
     backgroundColor: "#FFFFFF",
+  },
+  // Multi-page continuation header
+  continuationHeader: {
+    position: "absolute",
+    top: 14,
+    left: 36,
+    right: 36,
+    borderBottomWidth: 0.5,
+    borderColor: "#CBD5E1",
+    paddingBottom: 4,
+  },
+  continuationText: {
+    fontSize: 7.5,
+    color: "#64748B",
+    fontFamily: "Helvetica",
   },
   // Amendment banner
   amendmentBanner: {
@@ -211,6 +226,23 @@ const styles = StyleSheet.create({
     color: "#334155",
     marginBottom: 2,
   },
+  bulletRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 2.5,
+  },
+  bulletSymbol: {
+    fontSize: 8.5,
+    color: "#334155",
+    marginRight: 4,
+    lineHeight: 1.25,
+  },
+  bulletText: {
+    fontSize: 8.5,
+    color: "#334155",
+    flex: 1,
+    lineHeight: 1.25,
+  },
   // Rx Medications Table
   rxHeader: {
     flexDirection: "row",
@@ -269,12 +301,12 @@ const styles = StyleSheet.create({
   },
   // Sign-off
   signatureBlock: {
-    marginTop: 16,
+    marginTop: 14,
     flexDirection: "row",
     justifyContent: "flex-end",
   },
   signatureBox: {
-    width: 180,
+    width: 190,
     borderTopWidth: 1,
     borderColor: "#94A3B8",
     paddingTop: 6,
@@ -293,7 +325,7 @@ const styles = StyleSheet.create({
   // Footer
   footer: {
     position: "absolute",
-    bottom: 18,
+    bottom: 14,
     left: 36,
     right: 36,
     flexDirection: "row",
@@ -331,6 +363,18 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
   return (
     <Document title={`Prescription-${payload.patient.full_name}-v${payload.version}`}>
       <Page size="A4" style={isPreprinted ? styles.pagePreprinted : styles.pageBlankPaper}>
+        {/* Multi-page Continuation Header (Page 2+) */}
+        <View style={styles.continuationHeader} fixed>
+          <Text
+            style={styles.continuationText}
+            render={({ pageNumber, totalPages }) =>
+              pageNumber > 1
+                ? `${payload.clinic.name}  •  Rx Continuation  •  Patient: ${payload.patient.full_name}${payload.patient.age ? ` (${payload.patient.age}y` : ""}${payload.patient.sex ? ` ${payload.patient.sex.toUpperCase()})` : payload.patient.age ? ")" : ""}  •  Date: ${payload.visit.visit_date}  •  Page ${pageNumber} of ${totalPages}`
+                : ""
+            }
+          />
+        </View>
+
         {/* 1. Version / Amendment Banner */}
         {isAmended && (
           <View style={styles.amendmentBanner}>
@@ -470,7 +514,7 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
 
           {/* Table Rows */}
           {payload.medications.map((item, idx) => (
-            <View key={idx} style={styles.tableRow}>
+            <View key={idx} style={styles.tableRow} wrap={false}>
               <Text style={[styles.cellText, styles.colNum]}>{idx + 1}</Text>
               <View style={styles.colName}>
                 <Text style={styles.medName}>
@@ -495,7 +539,10 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Advised Investigations</Text>
             {payload.investigations_advised.map((test, idx) => (
-              <Text key={idx} style={styles.clinicalItem}>• {test}</Text>
+              <View key={idx} style={styles.bulletRow} wrap={false}>
+                <Text style={styles.bulletSymbol}>•</Text>
+                <Text style={styles.bulletText}>{test}</Text>
+              </View>
             ))}
           </View>
         )}
@@ -505,21 +552,24 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Advice & Lifestyle Instructions</Text>
             {payload.advice.map((adv, idx) => (
-              <Text key={idx} style={styles.clinicalItem}>• {adv}</Text>
+              <View key={idx} style={styles.bulletRow} wrap={false}>
+                <Text style={styles.bulletSymbol}>•</Text>
+                <Text style={styles.bulletText}>{adv}</Text>
+              </View>
             ))}
           </View>
         )}
 
         {/* 9. Follow-Up */}
         {payload.follow_up_date && (
-          <View style={styles.sectionContainer}>
+          <View style={styles.sectionContainer} wrap={false}>
             <Text style={styles.sectionTitle}>Follow-Up</Text>
             <Text style={styles.clinicalItem}>Review on: {payload.follow_up_date}</Text>
           </View>
         )}
 
-        {/* 10. Doctor Signature Block */}
-        <View style={styles.signatureBlock}>
+        {/* 10. Doctor Signature Block (Atomic: never split across pages) */}
+        <View style={styles.signatureBlock} wrap={false}>
           <View style={styles.signatureBox}>
             <Text style={styles.signDocName}>Dr. {payload.doctor.name}</Text>
             {payload.doctor.medical_council_reg_no && (
@@ -533,18 +583,16 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
           </View>
         </View>
 
-        {/* 11. Footer (Blank paper mode only) */}
-        {!isPreprinted && (
-          <View style={styles.footer} fixed>
-            <Text style={styles.footerText}>
-              Generated by ClinicOS • Confidential Medical Record • v{payload.version}
-            </Text>
-            <Text
-              style={styles.footerText}
-              render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
-            />
-          </View>
-        )}
+        {/* 11. Footer (Rendered on all pages with page numbering) */}
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerText}>
+            {!isPreprinted ? "Generated by ClinicOS • Confidential Medical Record • " : ""}Rx v{payload.version}
+          </Text>
+          <Text
+            style={styles.footerText}
+            render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
+          />
+        </View>
       </Page>
     </Document>
   );

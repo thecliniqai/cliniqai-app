@@ -163,6 +163,7 @@ export function ConsultationWorkspace({
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const inFlightSaveRef = useRef<Promise<unknown> | null>(null);
 
   // Active section for jump navigation
   const [activeSection, setActiveSection] = useState<string>("vitals");
@@ -188,28 +189,39 @@ export function ConsultationWorkspace({
   // Perform draft save
   const handleSaveDraft = useCallback(
     async (silent = false) => {
-      if (isSaving) return;
+      // If a save is already executing, wait for it to finish first
+      if (inFlightSaveRef.current) {
+        try {
+          await inFlightSaveRef.current;
+        } catch {
+          // Ignore previous error and proceed with latest state
+        }
+      }
+
       if (!silent) setIsSaving(true);
       setSaveError(null);
 
-      try {
-        const payload = {
-          visit_id: visit.id,
-          vitals,
-          chief_complaints: chiefComplaints,
-          clinical_notes: clinicalNotes,
-          specialty,
-          specialty_data: specialtyData,
-          investigations_advised: investigations,
-          advice: adviceList,
-          follow_up: (followUpInterval !== "none" && followUpDate) ? {
-            interval: followUpInterval,
-            follow_up_date: followUpDate,
-            notes: followUpNotes || null,
-          } : null,
-        };
+      const payload = {
+        visit_id: visit.id,
+        vitals,
+        chief_complaints: chiefComplaints,
+        clinical_notes: clinicalNotes,
+        specialty,
+        specialty_data: specialtyData,
+        investigations_advised: investigations,
+        advice: adviceList,
+        follow_up: (followUpInterval !== "none" && followUpDate) ? {
+          interval: followUpInterval,
+          follow_up_date: followUpDate,
+          notes: followUpNotes || null,
+        } : null,
+      };
 
-        const result = await saveConsultationDraft(payload);
+      const savePromise = saveConsultationDraft(payload);
+      inFlightSaveRef.current = savePromise;
+
+      try {
+        const result = await savePromise;
         if (result.success) {
           setLastSavedAt(new Date());
           setIsDirty(false);
@@ -219,11 +231,11 @@ export function ConsultationWorkspace({
       } catch (err: unknown) {
         setSaveError(err instanceof Error ? err.message : "Auto-save failed.");
       } finally {
+        inFlightSaveRef.current = null;
         if (!silent) setIsSaving(false);
       }
     },
     [
-      isSaving,
       visit.id,
       vitals,
       chiefComplaints,
