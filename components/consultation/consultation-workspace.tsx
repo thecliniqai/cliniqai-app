@@ -46,7 +46,11 @@ import {
   Printer,
   Receipt,
   Check,
+  Share2,
 } from "lucide-react";
+import { CreateReferralModal } from "@/components/referrals/create-referral-modal";
+import { getReferralSignedUrl } from "@/features/referrals/actions";
+import type { Referral } from "@/lib/db/types";
 
 export interface ConsultationWorkspaceProps {
   visit: {
@@ -164,6 +168,25 @@ export function ConsultationWorkspace({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const inFlightSaveRef = useRef<Promise<unknown> | null>(null);
+
+  // Referral State
+  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
+  const [activeReferral, setActiveReferral] = useState<Referral | null>(null);
+  const [isOpeningReferralPdf, setIsOpeningReferralPdf] = useState(false);
+
+  const handleOpenReferralPdf = async (referralId: string) => {
+    setIsOpeningReferralPdf(true);
+    try {
+      const res = await getReferralSignedUrl(referralId);
+      if (res.success && res.signedUrl) {
+        window.open(res.signedUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (err) {
+      console.error("Failed to open referral letter PDF:", err);
+    } finally {
+      setIsOpeningReferralPdf(false);
+    }
+  };
 
   // Active section for jump navigation
   const [activeSection, setActiveSection] = useState<string>("vitals");
@@ -961,6 +984,87 @@ export function ConsultationWorkspace({
               )}
             </div>
 
+            {/* Referral & Specialist Disposition Card */}
+            <div className="pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Share2 className="h-4 w-4 text-[#1769E0]" />
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-700">
+                    Referral & Specialist Disposition
+                  </h4>
+                </div>
+                {!activeReferral && (
+                  <button
+                    type="button"
+                    onClick={() => setIsReferralModalOpen(true)}
+                    className="min-h-[36px] px-3 rounded-lg border border-blue-200 bg-[#EAF2FF] hover:bg-blue-100 text-[#1769E0] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Refer Patient</span>
+                  </button>
+                )}
+              </div>
+
+              {activeReferral ? (
+                <div className="p-4 rounded-xl border border-blue-200 bg-[#EAF2FF]/50 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-bold text-gray-900">
+                        Referred to: Dr. {activeReferral.referred_to_name}
+                      </div>
+                      <div className="text-[11px] text-gray-600 mt-0.5">
+                        {activeReferral.referred_to_specialty ? `${activeReferral.referred_to_specialty} • ` : ""}
+                        {activeReferral.referred_to_facility || "External Specialist"}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FFF5E5] text-[#9A5B00] border border-[#F3D39A]">
+                        {activeReferral.status}
+                      </span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FFEDEC] text-[#BA1A1A]">
+                        {activeReferral.urgency.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-700">
+                    <span className="font-semibold text-gray-900">Reason: </span>
+                    {activeReferral.reason_for_referral}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-blue-200/60">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenReferralPdf(activeReferral.id)}
+                      disabled={isOpeningReferralPdf}
+                      className="min-h-[36px] px-3 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <FileText className="h-3.5 w-3.5 text-[#1769E0]" />
+                      <span>{isOpeningReferralPdf ? "Loading..." : "Print Referral Letter"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsReferralModalOpen(true)}
+                      className="text-xs text-[#1769E0] hover:underline font-semibold cursor-pointer"
+                    >
+                      + New Referral
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-600 flex items-center justify-between">
+                  <span>No specialist referral issued for this encounter.</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsReferralModalOpen(true)}
+                    className="text-xs font-semibold text-[#1769E0] hover:underline cursor-pointer"
+                  >
+                    + Refer to Specialist
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Clinical Documents / Attachments Dropzone */}
             <div className="pt-4 border-t border-gray-100">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">
@@ -1020,6 +1124,21 @@ export function ConsultationWorkspace({
         medicinesCount={visit.prescription_items?.length || 0}
         followUpDate={followUpInterval === "none" ? null : (followUpDate || null)}
         onSaveDraftBeforeSign={() => handleSaveDraft(false)}
+      />
+
+      {/* Create Referral Modal */}
+      <CreateReferralModal
+        isOpen={isReferralModalOpen}
+        onClose={() => setIsReferralModalOpen(false)}
+        patientId={patient.id}
+        patientName={patient.full_name}
+        patientPhone={patient.phone}
+        visitId={visit.id}
+        currentDiagnoses={visit.diagnoses?.map((d: any) => d.diagnosis_name) || []}
+        currentMedications={(visit.prescription_items as any[]) || []}
+        onSuccess={(ref) => {
+          setActiveReferral(ref);
+        }}
       />
     </div>
   );

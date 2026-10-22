@@ -18,6 +18,7 @@ import {
   AlertCircle,
   PlusCircle,
   FlaskConical,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -177,6 +178,17 @@ export function PatientVisitHistory({
                         <FlaskConical className="w-3 h-3" />
                         <span>{visit.investigations_advised.length} Lab(s) Advised</span>
                       </span>
+                    )}
+
+                    {(visit as any).referral && (
+                      <Link
+                        href="/referrals"
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-2 py-0.5 rounded-md bg-[#FFF5E5] text-[#9A5B00] border border-[#F3D39A] text-xs font-semibold flex items-center gap-1 hover:bg-[#ffeacc] transition-colors"
+                      >
+                        <Share2 className="w-3 h-3" />
+                        <span>Referral: Dr. {(visit as any).referral.referred_to_name} ({(visit as any).referral.status})</span>
+                      </Link>
                     )}
                   </div>
 

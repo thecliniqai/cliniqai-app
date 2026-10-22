@@ -16,9 +16,9 @@ import {
   FileText,
   Shield,
   Activity,
-  CreditCard,
   PlusCircle,
   FlaskConical,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,7 @@ import { CurrentConsentState } from "@/features/patients/consent";
 import { PatientVisitHistory } from "./patient-visit-history";
 import { EditPatientModal } from "./edit-patient-modal";
 import { PatientLabDocuments } from "./patient-lab-documents";
+import { CreateReferralModal } from "@/components/referrals/create-referral-modal";
 import { ConsentSection } from "@/app/(dashboard)/patients/[id]/consent-section";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,7 @@ export function PatientDetailView({
 }: PatientDetailViewProps) {
   const [patient, setPatient] = useState<Patient>(initialPatient);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"visits" | "profile" | "consent" | "labs">("visits");
 
   const initials = patient.full_name
@@ -143,6 +145,16 @@ export function PatientDetailView({
                 Book Slot
               </Button>
             </Link>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              startIcon={<Share2 className="w-3.5 h-3.5 text-[#1769E0]" />}
+              onClick={() => setIsReferralModalOpen(true)}
+              className="h-9 font-medium"
+            >
+              Refer Patient
+            </Button>
 
             <Link href="/queue">
               <Button
@@ -528,6 +540,18 @@ export function PatientDetailView({
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
         onSuccess={(updated) => setPatient(updated)}
+      />
+
+      {/* Create Referral Modal */}
+      <CreateReferralModal
+        isOpen={isReferralModalOpen}
+        onClose={() => setIsReferralModalOpen(false)}
+        patientId={patient.id}
+        patientName={patient.full_name}
+        patientPhone={patient.phone}
+        onSuccess={() => {
+          setIsReferralModalOpen(false);
+        }}
       />
     </div>
   );
