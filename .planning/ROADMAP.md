@@ -173,12 +173,12 @@ Plans:
   3. Staff refer a patient in-network (consented history summary) or out-of-network (PDF referral letter with clinical summary)
   4. Referrals show Sent → Acknowledged → Completed status with closing-the-loop notes when the patient returns
 
-**Plans**: 1/3 plans executed
+**Plans**: 2/3 plans executed
 **Wave 1**
 - [x] 04-01-PLAN.md: Wave 1 — Storage Provider Abstraction (`lib/storage/`), Prescriptions/Billing Refactor & Database Migrations (`000013_labs_and_referrals.sql`)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 04-02-PLAN.md: Wave 2 — Lab Document Uploads (`features/labs/`), Patient Profile "Lab Reports & Records" Tab, and Public Tokenized Viewer (`/reports/view`)
+- [x] 04-02-PLAN.md: Wave 2 — Lab Document Uploads (`features/labs/`), Patient Profile "Lab Reports & Records" Tab, and Public Tokenized Viewer (`/reports/view`)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 04-03-PLAN.md: Wave 3 — Referrals Lifecycle (`features/referrals/`), Branded PDF Letter Generator, Consultation Integration, and Centralized Register (`/referrals`) with Loop Closure
@@ -227,6 +227,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Consultation & Prescribing | 4/4 | Complete    | 2026-10-15 |
 | 03.1. Doctor Cabin, RBAC & Billing | 4/4 | Complete | 2026-10-15 |
 | 03.2. Patient Visit History & Visits Register | 0/2 | Ready to plan | - |
-| 4. Labs & Referrals | 1/3 | In Progress | - |
+| 4. Labs & Referrals | 2/3 | In Progress | - |
 | 5. Communications & AI Assist | 0/- | Not started | - |
 | 6. API & Launch Readiness | 0/- | Not started | - |
