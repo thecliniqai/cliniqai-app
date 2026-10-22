@@ -18,6 +18,7 @@ import {
   Activity,
   CreditCard,
   PlusCircle,
+  FlaskConical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ import { PatientVisitHistoryItem } from "@/features/patients/schema";
 import { CurrentConsentState } from "@/features/patients/consent";
 import { PatientVisitHistory } from "./patient-visit-history";
 import { EditPatientModal } from "./edit-patient-modal";
+import { PatientLabDocuments } from "./patient-lab-documents";
 import { ConsentSection } from "@/app/(dashboard)/patients/[id]/consent-section";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +49,7 @@ export function PatientDetailView({
 }: PatientDetailViewProps) {
   const [patient, setPatient] = useState<Patient>(initialPatient);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"visits" | "profile" | "consent">("visits");
+  const [activeTab, setActiveTab] = useState<"visits" | "profile" | "consent" | "labs">("visits");
 
   const initials = patient.full_name
     .split(" ")
@@ -263,6 +265,20 @@ export function PatientDetailView({
           >
             <Shield className="w-4 h-4" />
             <span>Consent & Privacy</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("labs")}
+            className={cn(
+              "py-3 px-1 border-b-2 text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer",
+              activeTab === "labs"
+                ? "border-[#1769E0] text-[#1769E0]"
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+            )}
+          >
+            <FlaskConical className="w-4 h-4" />
+            <span>Lab Reports & Records</span>
           </button>
         </nav>
       </div>
@@ -499,6 +515,11 @@ export function PatientDetailView({
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Tab 4: Lab Reports & Diagnostic Documents */}
+      {activeTab === "labs" && (
+        <PatientLabDocuments patientId={patient.id} userRole={userRole} />
       )}
 
       {/* Edit Patient Demographics Modal */}

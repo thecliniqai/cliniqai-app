@@ -17,6 +17,7 @@ import {
   User,
   AlertCircle,
   PlusCircle,
+  FlaskConical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, StatusBadge } from "@/components/ui/badge";
@@ -168,6 +169,13 @@ export function PatientVisitHistory({
                     {visit.specialty && (
                       <span className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-700 text-xs capitalize">
                         {visit.specialty.replace(/_/g, " ")}
+                      </span>
+                    )}
+
+                    {visit.investigations_advised && visit.investigations_advised.length > 0 && (
+                      <span className="px-2 py-0.5 rounded-md bg-blue-50/80 text-[#1769E0] text-xs font-medium flex items-center gap-1">
+                        <FlaskConical className="w-3 h-3" />
+                        <span>{visit.investigations_advised.length} Lab(s) Advised</span>
                       </span>
                     )}
                   </div>
@@ -371,6 +379,26 @@ export function PatientVisitHistory({
                               ))}
                             </ul>
                           )}
+                        </div>
+                      )}
+
+                      {/* Investigations Advised */}
+                      {visit.investigations_advised && visit.investigations_advised.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1.5">
+                            <FlaskConical className="w-3.5 h-3.5 text-[#1769E0]" />
+                            <span>Investigations Advised</span>
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {visit.investigations_advised.map((test, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50/70 border border-blue-100 text-[#1769E0]"
+                              >
+                                {test}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       )}
 
