@@ -38,7 +38,13 @@ export type AuditAction =
   | "invoice.generate_receipt_pdf"
   | "schedule_block.create"
   | "schedule_block.delete"
-  | "vitals.record";
+  | "vitals.record"
+  | "patient_document.upload"
+  | "patient_document.generate_share_token"
+  | "patient_document.delete"
+  | "referral.create"
+  | "referral.acknowledge"
+  | "referral.close_loop";
 
 export interface RecordAuditParams {
   action: AuditAction;
@@ -56,7 +62,9 @@ export interface RecordAuditParams {
     | "payment"
     | "diagnosis"
     | "follow_up"
-    | "schedule_block";
+    | "schedule_block"
+    | "patient_document"
+    | "referral";
   entityId?: string | null;
   metadata?: Record<string, unknown>;
 }
