@@ -384,6 +384,77 @@ export interface WaitlistEntry {
   created_at: string;
 }
 
+export type DocumentType = "lab_report" | "imaging" | "prescription_scan" | "other";
+
+export interface PatientDocument {
+  id: string;
+  tenant_id: string;
+  patient_id: string;
+  visit_id: string | null;
+  title: string;
+  document_type: DocumentType;
+  original_filename: string;
+  storage_path: string;
+  file_size_bytes: number;
+  mime_type: string;
+  report_date: string;
+  notes: string | null;
+  is_abnormal: boolean;
+  uploaded_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DocumentShareToken {
+  id: string;
+  tenant_id: string;
+  document_id: string;
+  token: string;
+  expires_at: string;
+  access_count: number;
+  last_accessed_at: string | null;
+  revoked_at: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export type ReferralType = "out_of_network" | "in_network";
+export type ReferralUrgency = "routine" | "priority" | "urgent";
+export type ReferralStatus = "sent" | "acknowledged" | "completed" | "cancelled";
+
+export interface Referral {
+  id: string;
+  tenant_id: string;
+  patient_id: string;
+  visit_id: string | null;
+  referral_type: ReferralType;
+  referring_doctor_id: string;
+  referred_to_name: string;
+  referred_to_facility: string | null;
+  referred_to_specialty: string | null;
+  referred_to_contact: string | null;
+  target_tenant_id: string | null;
+  target_doctor_id: string | null;
+  reason_for_referral: string;
+  provisional_diagnosis: string | null;
+  urgency: ReferralUrgency;
+  clinical_summary: string | null;
+  active_medications_snapshot: Record<string, unknown>[] | null;
+  investigations_advised: string[];
+  patient_consents_history_sharing: boolean;
+  consented_history_snapshot: Record<string, unknown> | null;
+  status: ReferralStatus;
+  sent_at: string;
+  acknowledged_at: string | null;
+  completed_at: string | null;
+  closure_notes: string | null;
+  closed_by: string | null;
+  pdf_storage_path: string | null;
+  letterhead_mode: LetterheadMode;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -978,6 +1049,142 @@ export interface Database {
           specialties?: string[];
           is_chronic?: boolean;
           synonyms?: string[];
+        };
+        Relationships: [];
+      };
+      patient_documents: {
+        Row: PatientDocument;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          patient_id: string;
+          visit_id?: string | null;
+          title: string;
+          document_type?: DocumentType;
+          original_filename: string;
+          storage_path: string;
+          file_size_bytes: number;
+          mime_type: string;
+          report_date?: string;
+          notes?: string | null;
+          is_abnormal?: boolean;
+          uploaded_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          patient_id?: string;
+          visit_id?: string | null;
+          title?: string;
+          document_type?: DocumentType;
+          original_filename?: string;
+          storage_path?: string;
+          file_size_bytes?: number;
+          mime_type?: string;
+          report_date?: string;
+          notes?: string | null;
+          is_abnormal?: boolean;
+          uploaded_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      document_share_tokens: {
+        Row: DocumentShareToken;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          document_id: string;
+          token: string;
+          expires_at?: string;
+          access_count?: number;
+          last_accessed_at?: string | null;
+          revoked_at?: string | null;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          document_id?: string;
+          token?: string;
+          expires_at?: string;
+          access_count?: number;
+          last_accessed_at?: string | null;
+          revoked_at?: string | null;
+          created_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      referrals: {
+        Row: Referral;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          patient_id: string;
+          visit_id?: string | null;
+          referral_type: ReferralType;
+          referring_doctor_id: string;
+          referred_to_name: string;
+          referred_to_facility?: string | null;
+          referred_to_specialty?: string | null;
+          referred_to_contact?: string | null;
+          target_tenant_id?: string | null;
+          target_doctor_id?: string | null;
+          reason_for_referral: string;
+          provisional_diagnosis?: string | null;
+          urgency?: ReferralUrgency;
+          clinical_summary?: string | null;
+          active_medications_snapshot?: Record<string, unknown>[] | null;
+          investigations_advised?: string[];
+          patient_consents_history_sharing?: boolean;
+          consented_history_snapshot?: Record<string, unknown> | null;
+          status?: ReferralStatus;
+          sent_at?: string;
+          acknowledged_at?: string | null;
+          completed_at?: string | null;
+          closure_notes?: string | null;
+          closed_by?: string | null;
+          pdf_storage_path?: string | null;
+          letterhead_mode?: LetterheadMode;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          patient_id?: string;
+          visit_id?: string | null;
+          referral_type?: ReferralType;
+          referring_doctor_id?: string;
+          referred_to_name?: string;
+          referred_to_facility?: string | null;
+          referred_to_specialty?: string | null;
+          referred_to_contact?: string | null;
+          target_tenant_id?: string | null;
+          target_doctor_id?: string | null;
+          reason_for_referral?: string;
+          provisional_diagnosis?: string | null;
+          urgency?: ReferralUrgency;
+          clinical_summary?: string | null;
+          active_medications_snapshot?: Record<string, unknown>[] | null;
+          investigations_advised?: string[];
+          patient_consents_history_sharing?: boolean;
+          consented_history_snapshot?: Record<string, unknown> | null;
+          status?: ReferralStatus;
+          sent_at?: string;
+          acknowledged_at?: string | null;
+          completed_at?: string | null;
+          closure_notes?: string | null;
+          closed_by?: string | null;
+          pdf_storage_path?: string | null;
+          letterhead_mode?: LetterheadMode;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
