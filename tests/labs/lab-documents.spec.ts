@@ -167,4 +167,106 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
       expect(doc?.id).toBe(documentAId);
     });
   });
+
+  describe("4. Consultation Cabin Lab Recommendations & Requisition PDF", () => {
+    let visitId: string;
+
+    it("persists advised investigations to visit via consultation draft", async () => {
+      // 1. Create a visit for Aarav Sharma
+      const { data: visit, error } = await (tenantA.client.from("visits") as any)
+        .insert({
+          tenant_id: tenantA.tenantId,
+          patient_id: patientAId,
+          doctor_id: tenantA.userId,
+          origin_type: "walk_in",
+          status: "in_consultation",
+          estimated_duration_minutes: 15,
+          created_by: tenantA.userId,
+        })
+        .select("id")
+        .single();
+
+      expect(error).toBeNull();
+      expect(visit?.id).toBeDefined();
+      visitId = visit.id;
+
+      // 2. Doctor saves consultation draft with recommended lab tests
+      const advisedTests = ["CBC", "HbA1c", "Lipid Profile", "Thyroid Profile (TSH, T3, T4)"];
+      const { saveConsultationDraft } = await import("@/features/consultation/actions");
+
+      const draftRes = await saveConsultationDraft(
+        {
+          visit_id: visitId,
+          investigations_advised: advisedTests,
+          clinical_notes: "Routine diabetic workup and lipid screening advised.",
+        },
+        tenantA.client,
+        sessionA
+      );
+
+      expect(draftRes.success).toBe(true);
+
+      // 3. Verify database row has investigations_advised array
+      const { data: updatedVisit } = await (tenantA.client.from("visits") as any)
+        .select("investigations_advised")
+        .eq("id", visitId)
+        .single();
+
+      expect(updatedVisit?.investigations_advised).toEqual(advisedTests);
+    });
+
+    it("renders advised investigations in prescription requisition PDF", async () => {
+      const { generateAndArchivePrescriptionPdf } = await import("@/features/prescriptions/pdf/generator");
+
+      const payload = {
+        tenant_id: tenantA.tenantId,
+        prescription_id: "00000000-0000-0000-0000-000000000001",
+        visit_id: visitId,
+        version: 1,
+        status: "active" as const,
+        letterhead_mode: "blank_paper" as const,
+        clinic: {
+          name: "Apex Diagnostics & Clinic",
+          address: "100 Medical Enclave, New Delhi",
+          phone: "+919876543111",
+          registration_number: "DL-MED-2026-001",
+        },
+        doctor: {
+          name: "Consulting Physician",
+          qualifications: "MBBS, MD (Medicine)",
+          medical_council_reg_no: "MCI-998822",
+        },
+        patient: {
+          full_name: "Aarav Sharma",
+          age: 32,
+          sex: "male" as const,
+          phone: "+919876543111",
+          uhid: "UHID-2026-0001",
+        },
+        visit: {
+          visit_date: "2026-10-22",
+          chief_complaints: [{ symptom: "Fatigue and mild thirst", duration_val: 3, duration_unit: "days" }],
+        },
+        diagnoses: [
+          { diagnosis_name: "Type 2 Diabetes Mellitus" },
+        ],
+        medications: [
+          {
+            medicine_name: "Metformin 500mg",
+            dosage: "1 tab",
+            duration: "30 days",
+            timing: "After breakfast",
+          },
+        ],
+        investigations_advised: ["CBC", "HbA1c", "Lipid Profile"],
+        advice: ["30 minutes brisk walking daily", "Reduce refined sugars"],
+      };
+
+      const result = await generateAndArchivePrescriptionPdf(payload, tenantA.client, sessionA);
+      expect(result.buffer).toBeInstanceOf(Buffer);
+      expect(result.buffer.length).toBeGreaterThan(1000);
+      expect(result.storagePath).toBe(`${tenantA.tenantId}/${visitId}/rx_v1.pdf`);
+    });
+  });
 });
+
