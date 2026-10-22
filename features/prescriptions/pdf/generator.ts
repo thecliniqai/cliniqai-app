@@ -5,6 +5,11 @@ import { recordAudit } from "@/lib/audit/audit";
 import { Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  uploadFile,
+  getSignedUrl,
+  SupabaseStorageProvider,
+} from "@/lib/storage";
+import {
   PrescriptionDocument,
   PrescriptionPdfPayload,
 } from "./prescription-document";
@@ -36,7 +41,7 @@ async function streamToBuffer(stream: unknown): Promise<Buffer> {
 
 /**
  * Compiles an electronic prescription into an A4 PDF document on the server,
- * uploads it to the private Supabase Storage bucket 'prescriptions',
+ * uploads it via the unified storage abstraction (lib/storage/),
  * generates a 3600-second signed URL, and records a compliance audit log entry.
  */
 export async function generateAndArchivePrescriptionPdf(
@@ -61,17 +66,28 @@ export async function generateAndArchivePrescriptionPdf(
   // 2. Define deterministic storage path: ${tenant_id}/${visit_id}/rx_v${version}.pdf
   const storagePath = `${payload.tenant_id}/${payload.visit_id}/rx_v${payload.version}.pdf`;
 
-  // 3. Upload to private 'prescriptions' bucket
-  const { error: uploadErr } = await supabase.storage
-    .from("prescriptions")
-    .upload(storagePath, buffer, {
-      contentType: "application/pdf",
-      upsert: true,
-    });
+  // 3. Resolve storage provider (respecting clientOverride if provided)
+  const storageProvider = clientOverride
+    ? new SupabaseStorageProvider({ defaultBucket: "prescriptions", client: clientOverride })
+    : undefined;
 
-  if (uploadErr) {
+  // Upload using unified storage abstraction
+  try {
+    await uploadFile(
+      {
+        path: storagePath,
+        buffer,
+        contentType: "application/pdf",
+        bucket: "prescriptions",
+        upsert: true,
+      },
+      storageProvider
+    );
+  } catch (uploadErr) {
     console.error("[features/prescriptions/pdf/generator] Upload failed:", uploadErr);
-    throw new Error(`Failed to upload prescription PDF to storage: ${uploadErr.message}`);
+    throw new Error(
+      `Failed to upload prescription PDF to storage: ${uploadErr instanceof Error ? uploadErr.message : "Unknown error"}`
+    );
   }
 
   // 4. Update prescription row with pdf_storage_path and letterhead_mode if prescription_id is valid
@@ -88,14 +104,14 @@ export async function generateAndArchivePrescriptionPdf(
   }
 
   // 5. Generate secure, time-limited signed URL (3600s TTL)
-  const { data: signedData, error: signErr } = await supabase.storage
-    .from("prescriptions")
-    .createSignedUrl(storagePath, 3600);
-
-  if (signErr || !signedData?.signedUrl) {
-    console.error("[features/prescriptions/pdf/generator] Signed URL generation failed:", signErr);
-    throw new Error("Failed to generate signed download URL for prescription PDF.");
-  }
+  const { signedUrl } = await getSignedUrl(
+    {
+      path: storagePath,
+      expiresInSeconds: 3600,
+      bucket: "prescriptions",
+    },
+    storageProvider
+  );
 
   // 6. Record compliance audit trail (AGENTS.md §9, §10)
   try {
@@ -118,7 +134,7 @@ export async function generateAndArchivePrescriptionPdf(
   }
 
   return {
-    signedUrl: signedData.signedUrl,
+    signedUrl,
     storagePath,
     buffer,
   };

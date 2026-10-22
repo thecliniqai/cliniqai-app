@@ -4,6 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/audit";
 import { Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  uploadFile,
+  getSignedUrl,
+  SupabaseStorageProvider,
+} from "@/lib/storage";
 import { ReceiptDocument, ReceiptPdfPayload } from "./receipt-document";
 
 export interface GenerateReceiptPdfResult {
@@ -33,7 +38,7 @@ async function streamToBuffer(stream: unknown): Promise<Buffer> {
 
 /**
  * Compiles a clinic payment receipt into an A4 PDF document on the server,
- * uploads it to the private Supabase Storage bucket,
+ * uploads it via the unified storage abstraction (lib/storage/),
  * generates a 3600-second signed URL, and records an audit log entry.
  */
 export async function generateAndArchiveReceiptPdf(
@@ -49,7 +54,6 @@ export async function generateAndArchiveReceiptPdf(
   const stream = await instance.toBuffer();
   const buffer = await streamToBuffer(stream);
 
-  const supabase = clientOverride || (await createClient());
   const session = sessionOverride || {
     userId: payload.doctor?.name || "system",
     tenantId: payload.tenant_id,
@@ -58,34 +62,47 @@ export async function generateAndArchiveReceiptPdf(
   // 2. Define deterministic storage path: ${tenant_id}/receipts/inv_${invoice_id}.pdf
   const storagePath = `${payload.tenant_id}/receipts/inv_${payload.invoice_id}.pdf`;
 
-  // 3. Upload to private 'prescriptions' storage bucket (tenant RLS enabled)
-  const { error: uploadErr } = await supabase.storage
-    .from("prescriptions")
-    .upload(storagePath, buffer, {
-      contentType: "application/pdf",
-      upsert: true,
-    });
+  // 3. Resolve storage provider (respecting clientOverride if provided)
+  const storageProvider = clientOverride
+    ? new SupabaseStorageProvider({ defaultBucket: "prescriptions", client: clientOverride })
+    : undefined;
 
-  if (uploadErr) {
+  // 4. Upload using unified storage abstraction
+  try {
+    await uploadFile(
+      {
+        path: storagePath,
+        buffer,
+        contentType: "application/pdf",
+        bucket: "prescriptions",
+        upsert: true,
+      },
+      storageProvider
+    );
+  } catch (uploadErr) {
     console.error("[features/billing/pdf/generator] Upload failed:", uploadErr);
     // Don't throw fatal error if storage upload fails in test environments lacking storage bucket;
     // can continue to return signed URL / buffer if bucket error
   }
 
-  // 4. Generate secure, time-limited signed URL (3600s TTL)
+  // 5. Generate secure, time-limited signed URL (3600s TTL)
   let signedUrl = "";
-  const { data: signedData, error: signErr } = await supabase.storage
-    .from("prescriptions")
-    .createSignedUrl(storagePath, 3600);
-
-  if (!signErr && signedData?.signedUrl) {
-    signedUrl = signedData.signedUrl;
-  } else {
+  try {
+    const signedResult = await getSignedUrl(
+      {
+        path: storagePath,
+        expiresInSeconds: 3600,
+        bucket: "prescriptions",
+      },
+      storageProvider
+    );
+    signedUrl = signedResult.signedUrl;
+  } catch {
     // Fallback direct route url
     signedUrl = `/api/invoices/${payload.invoice_id}/receipt-pdf`;
   }
 
-  // 5. Record compliance audit trail (AGENTS.md §9, §10)
+  // 6. Record compliance audit trail (AGENTS.md §9, §10)
   try {
     await recordAudit(
       {
