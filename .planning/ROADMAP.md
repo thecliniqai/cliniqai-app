@@ -173,7 +173,11 @@ Plans:
   3. Staff refer a patient in-network (consented history summary) or out-of-network (PDF referral letter with clinical summary)
   4. Referrals show Sent → Acknowledged → Completed status with closing-the-loop notes when the patient returns
 
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 04-01-PLAN.md: Wave 1 — Storage Provider Abstraction (`lib/storage/`), Prescriptions/Billing Refactor & Database Migrations (`000013_labs_and_referrals.sql`)
+- [ ] 04-02-PLAN.md: Wave 2 — Lab Document Uploads (`features/labs/`), Patient Profile "Lab Reports & Records" Tab, and Public Tokenized Viewer (`/reports/view`)
+- [ ] 04-03-PLAN.md: Wave 3 — Referrals Lifecycle (`features/referrals/`), Branded PDF Letter Generator, Consultation Integration, and Centralized Register (`/referrals`) with Loop Closure
+
 **UI hint**: yes
 
 ### Phase 5: Communications & AI Assist
