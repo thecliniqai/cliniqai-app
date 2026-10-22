@@ -15,6 +15,7 @@ import {
   CreditCard,
   Stethoscope,
   ClipboardList,
+  Share2,
   X,
 } from "lucide-react";
 
@@ -57,6 +58,12 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
           icon: Users,
           active: pathname.startsWith("/patients"),
         },
+        {
+          label: "Referrals",
+          href: "/referrals",
+          icon: Share2,
+          active: pathname.startsWith("/referrals"),
+        },
       ]
     : [
         ...(isOwnerOrAdmin
@@ -98,6 +105,12 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
           href: "/patients",
           icon: Users,
           active: pathname.startsWith("/patients"),
+        },
+        {
+          label: "Referrals",
+          href: "/referrals",
+          icon: Share2,
+          active: pathname.startsWith("/referrals"),
         },
       ];
 
