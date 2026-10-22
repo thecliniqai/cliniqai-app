@@ -43,7 +43,7 @@ covered_files:
   - tests/labs/tokenized-sharing.spec.ts
   - tests/referrals/referrals-flow.spec.ts
   - tests/storage/storage-provider.spec.ts
-covered_digest: "v3:sha256:5b36b84be9c3fdd0506a07cbdd0bd0bb9a9e8ac8bd60d4f6b6ffccdeabef514c"
+covered_digest: "v3:sha256:bb906a21ce8c36c9a9e3415404195cf556a7e33817cbc04f3e7e629835127c94"
 behavior_unverified: 0
 overrides_applied: 0
 ---
