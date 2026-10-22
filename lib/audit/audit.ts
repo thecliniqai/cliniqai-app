@@ -100,6 +100,10 @@ const ALLOWED_METADATA_KEYS = new Set([
   "total_amount",
   "payment_method",
   "invoice_id",
+  "referral_type",
+  "urgency",
+  "target_tenant_id",
+  "patient_consents_history_sharing",
 ]);
 
 /**
