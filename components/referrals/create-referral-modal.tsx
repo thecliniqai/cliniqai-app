@@ -9,8 +9,10 @@ import {
   FileText,
   Building2,
   User,
+  Printer,
+  CheckCircle2,
 } from "lucide-react";
-import { createReferral } from "@/features/referrals/actions";
+import { createReferral, getReferralSignedUrl } from "@/features/referrals/actions";
 import { Referral, ReferralType, ReferralUrgency, LetterheadMode } from "@/lib/db/types";
 
 export interface CreateReferralModalProps {
@@ -27,7 +29,7 @@ export interface CreateReferralModalProps {
   }[];
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (referral: Referral) => void;
+  onSuccess: (referral: Referral, signedUrl?: string) => void;
 }
 
 const COMMON_SPECIALTIES = [
@@ -62,7 +64,7 @@ export function CreateReferralModal({
   onSuccess,
 }: CreateReferralModalProps) {
   const [referralType, setReferralType] = useState<ReferralType>("out_of_network");
-  const [referredToName, setReferredToName] = useState<string>("");
+  const [referredToName, setReferredToName] = useState<string>("Dr. ");
   const [referredToFacility, setReferredToFacility] = useState<string>("");
   const [referredToSpecialty, setReferredToSpecialty] = useState<string>("Cardiology");
   const [referredToContact, setReferredToContact] = useState<string>("");
@@ -77,14 +79,53 @@ export function CreateReferralModal({
   const [letterheadMode, setLetterheadMode] = useState<LetterheadMode>("blank_paper");
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isOpeningPdf, setIsOpeningPdf] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdResult, setCreatedResult] = useState<{
+    referral: Referral;
+    signedUrl?: string;
+  } | null>(null);
 
   if (!isOpen) return null;
+
+  const handleClose = () => {
+    setCreatedResult(null);
+    setError(null);
+    onClose();
+  };
+
+  const handlePrintLetter = async () => {
+    if (!createdResult) return;
+    let url = createdResult.signedUrl;
+    if (!url) {
+      setIsOpeningPdf(true);
+      try {
+        const res = await getReferralSignedUrl(createdResult.referral.id);
+        if (res.success && res.signedUrl) {
+          url = res.signedUrl;
+          setCreatedResult((prev) => (prev ? { ...prev, signedUrl: res.signedUrl } : null));
+        } else {
+          setError(res.error || "Failed to retrieve referral letter PDF.");
+          setIsOpeningPdf(false);
+          return;
+        }
+      } catch {
+        setError("Failed to generate referral letter download link.");
+        setIsOpeningPdf(false);
+        return;
+      }
+      setIsOpeningPdf(false);
+    }
+
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!referredToName.trim()) {
+    if (!referredToName.trim() || referredToName.trim() === "Dr.") {
       setError("Please provide the specialist or recipient doctor name.");
       return;
     }
@@ -127,13 +168,158 @@ export function CreateReferralModal({
         return;
       }
 
-      onSuccess(res.referral);
-      onClose();
+      // Automatically open the referral note in a new tab immediately
+      if (res.signedUrl) {
+        try {
+          window.open(res.signedUrl, "_blank", "noopener,noreferrer");
+        } catch (e) {
+          console.warn("Popup blocked by browser:", e);
+        }
+      }
+
+      onSuccess(res.referral, res.signedUrl);
+      setCreatedResult({
+        referral: res.referral,
+        signedUrl: res.signedUrl,
+      });
+      setIsSubmitting(false);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to create referral.");
       setIsSubmitting(false);
     }
   };
+
+  // 1. Success confirmation screen with direct PDF print action on same screen
+  if (createdResult) {
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="referral-success-title"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto"
+      >
+        <div className="bg-white rounded-2xl shadow-theme-lg border border-gray-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-6">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-[#EAF2FF]/60">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-[#1769E0] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h2
+                  id="referral-success-title"
+                  className="text-base font-bold text-gray-900"
+                >
+                  Referral Issued Successfully
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Patient: <span className="font-semibold text-gray-800">{patientName}</span>
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleClose}
+              aria-label="Close dialog"
+              className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-6 space-y-4">
+            <div className="p-4 rounded-xl border border-gray-200 bg-[#F8FAFC] space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Referred To
+                  </div>
+                  <div className="text-sm font-bold text-gray-900">
+                    {createdResult.referral.referred_to_name.startsWith("Dr.")
+                      ? createdResult.referral.referred_to_name
+                      : `Dr. ${createdResult.referral.referred_to_name}`}
+                  </div>
+                  <div className="text-xs text-gray-600 mt-0.5">
+                    {createdResult.referral.referred_to_specialty
+                      ? `${createdResult.referral.referred_to_specialty} • `
+                      : ""}
+                    {createdResult.referral.referred_to_facility ||
+                      (createdResult.referral.referral_type === "in_network"
+                        ? "Partner Clinic"
+                        : "External Specialist")}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FFF5E5] text-[#9A5B00] border border-[#F3D39A]">
+                    {createdResult.referral.status}
+                  </span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FFEDEC] text-[#BA1A1A]">
+                    {createdResult.referral.urgency.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-700 pt-2 border-t border-gray-200/60">
+                <span className="font-semibold text-gray-900">Reason: </span>
+                {createdResult.referral.reason_for_referral}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-blue-200 bg-[#EAF2FF] p-3.5 text-xs text-blue-900 flex items-start gap-2.5">
+              <Printer className="h-4 w-4 text-[#1769E0] flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-blue-950">
+                  Referral Note & Letter Ready for Printing
+                </p>
+                <p className="text-blue-800 leading-relaxed text-[11px]">
+                  A new window was opened automatically with the printable referral note. You can also print or re-open it at any time using the button below.
+                </p>
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-800 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-rose-600 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 px-6 py-4 border-t border-gray-100 bg-[#F8FAFC]">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-full sm:w-auto min-h-[44px] px-5 rounded-xl border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer"
+            >
+              Done / Close
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePrintLetter}
+              disabled={isOpeningPdf}
+              className="w-full sm:w-auto min-h-[44px] px-5 rounded-xl bg-[#1769E0] hover:bg-[#155cc0] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+            >
+              {isOpeningPdf ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Printer className="h-4 w-4" />
+                  <span>Print Referral Note (PDF)</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -164,7 +350,7 @@ export function CreateReferralModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Close dialog"
             className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
           >
@@ -445,7 +631,7 @@ export function CreateReferralModal({
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={onClose}
+              onClick={handleClose}
               className="min-h-[44px] px-4 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-xs font-semibold transition-colors disabled:opacity-50"
             >
               Cancel

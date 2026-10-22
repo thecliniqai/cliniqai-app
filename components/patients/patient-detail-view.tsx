@@ -19,6 +19,8 @@ import {
   PlusCircle,
   FlaskConical,
   Share2,
+  Printer,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +32,7 @@ import { PatientVisitHistory } from "./patient-visit-history";
 import { EditPatientModal } from "./edit-patient-modal";
 import { PatientLabDocuments } from "./patient-lab-documents";
 import { CreateReferralModal } from "@/components/referrals/create-referral-modal";
+import { getReferralSignedUrl } from "@/features/referrals/actions";
 import { ConsentSection } from "@/app/(dashboard)/patients/[id]/consent-section";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +55,12 @@ export function PatientDetailView({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"visits" | "profile" | "consent" | "labs">("visits");
+  const [recentReferralNotice, setRecentReferralNotice] = useState<{
+    id: string;
+    doctorName: string;
+    signedUrl?: string;
+  } | null>(null);
+  const [isOpeningNoticePdf, setIsOpeningNoticePdf] = useState(false);
 
   const initials = patient.full_name
     .split(" ")
@@ -223,6 +232,63 @@ export function PatientDetailView({
           </div>
         </div>
       </div>
+
+      {/* Referral Note Print Banner */}
+      {recentReferralNotice && (
+        <div className="rounded-2xl border border-blue-200 bg-[#EAF2FF] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#1769E0] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+              <Share2 className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-900">
+                Referral Note Issued for Dr. {recentReferralNotice.doctorName}
+              </p>
+              <p className="text-[11px] text-gray-600 mt-0.5">
+                Branded referral letter has been generated and is ready for printing or download.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            <button
+              type="button"
+              disabled={isOpeningNoticePdf}
+              onClick={async () => {
+                let url = recentReferralNotice.signedUrl;
+                if (!url) {
+                  setIsOpeningNoticePdf(true);
+                  try {
+                    const res = await getReferralSignedUrl(recentReferralNotice.id);
+                    if (res.success && res.signedUrl) {
+                      url = res.signedUrl;
+                      setRecentReferralNotice((prev) =>
+                        prev ? { ...prev, signedUrl: res.signedUrl } : null
+                      );
+                    }
+                  } catch {
+                    // Ignore
+                  } finally {
+                    setIsOpeningNoticePdf(false);
+                  }
+                }
+                if (url) window.open(url, "_blank", "noopener,noreferrer");
+              }}
+              className="min-h-[36px] px-3.5 rounded-lg bg-[#1769E0] hover:bg-[#155cc0] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>{isOpeningNoticePdf ? "Loading..." : "Print Referral Note"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRecentReferralNotice(null)}
+              className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-white/60 rounded-lg transition-colors cursor-pointer"
+              aria-label="Dismiss banner"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Tabbed Navigation Bar */}
       <div className="border-b border-gray-200">
@@ -549,8 +615,12 @@ export function PatientDetailView({
         patientId={patient.id}
         patientName={patient.full_name}
         patientPhone={patient.phone}
-        onSuccess={() => {
-          setIsReferralModalOpen(false);
+        onSuccess={(ref, signedUrl) => {
+          setRecentReferralNotice({
+            id: ref.id,
+            doctorName: ref.referred_to_name,
+            signedUrl,
+          });
         }}
       />
     </div>

@@ -1034,7 +1034,7 @@ export function ConsultationWorkspace({
                       disabled={isOpeningReferralPdf}
                       className="min-h-[36px] px-3 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <FileText className="h-3.5 w-3.5 text-[#1769E0]" />
+                      <Printer className="h-3.5 w-3.5 text-[#1769E0]" />
                       <span>{isOpeningReferralPdf ? "Loading..." : "Print Referral Letter"}</span>
                     </button>
                     <button
