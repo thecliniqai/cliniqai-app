@@ -1,0 +1,104 @@
+{
+  "phase": "5",
+  "phase_name": "Communications & AI Assist",
+  "timestamp": "2026-10-22T15:11:00.000Z",
+  "areas_completed": [
+    "Messaging Architecture & Outbox Queue"
+  ],
+  "areas_remaining": [
+    "Message Triggers & Patient Notification Workflows",
+    "Two-Way WhatsApp Bot & Front-Desk Handover",
+    "AI Assist Clinical UX & Prescription Suggestions"
+  ],
+  "decisions": {
+    "Messaging Architecture & Outbox Queue": [
+      {
+        "question": "How should the SMS/WhatsApp provider abstraction be structured for development and production?",
+        "answer": "Multi-provider adapter in lib/messaging/ with a DevLogger provider (prints SMS/WhatsApp to console & log file in dev, exactly like our auth dev-logger) and pluggable Twilio / Gupshup / MSG91 drivers activated via env vars.",
+        "options_presented": [
+          "Multi-provider adapter in lib/messaging/ with DevLogger and pluggable Twilio / Gupshup / MSG91 drivers",
+          "Single-provider driver with bypass flag",
+          "External Edge Function worker",
+          "You decide"
+        ]
+      },
+      {
+        "question": "How should message dispatch and provider outage resilience be architected?",
+        "answer": "Database outbox table (`communication_queue`) with retry tracking, error status, and background dispatch — clinical actions insert a queue record transactionally so provider outages never fail or slow down front-desk/doctor actions.",
+        "options_presented": [
+          "Database outbox table (`communication_queue`) with retry tracking, error status, and background dispatch",
+          "Fire-and-forget background Promise in Server Actions",
+          "External Redis/BullMQ worker queue",
+          "You decide"
+        ]
+      },
+      {
+        "question": "How should patient communications be logged and surfaced in the UI for clinic staff?",
+        "answer": "Generic `audit_logs` table reuse — record communication events in the existing audit log table and filter by patient on demand.",
+        "options_presented": [
+          "Dedicated `patient_communications` table",
+          "Generic `audit_logs` table reuse",
+          "Append to JSONB array column on patients table",
+          "You decide"
+        ]
+      },
+      {
+        "question": "How should queued outbox messages be dispatched and retried?",
+        "answer": "Dual trigger: Immediate async dispatch (sub-second delivery in normal conditions) backed by a scheduled cron endpoint (`/api/cron/dispatch-communications`) to handle retries and outage backlog recovery.",
+        "options_presented": [
+          "Dual trigger: Immediate async dispatch backed by scheduled cron endpoint",
+          "Scheduled cron only",
+          "Inline synchronous dispatch with fallback",
+          "You decide"
+        ]
+      },
+      {
+        "question": "How should delivery channel preference and fallback (WhatsApp vs SMS) be handled?",
+        "answer": "Platform-controlled preference with DB master switches: company has full control via DB across all clinics with abstracted access to clinics, because messaging consumption directly drives company costs.",
+        "options_presented": [
+          "WhatsApp-first with automatic SMS fallback",
+          "Configurable preference in Clinic Settings per message category",
+          "WhatsApp only with manual SMS toggle",
+          "You decide"
+        ]
+      },
+      {
+        "question": "How should platform-level cost controls, message quotas, and channel gating be enforced?",
+        "answer": "Platform Master Config in DB: `tenant_messaging_config` table (or platform admin flags) controlling global switches (`whatsapp_enabled`, `sms_enabled`, monthly message limits, provider routes). Clinic settings UI only lets clinics adjust preferences within what the platform permits, protecting company costs.",
+        "options_presented": [
+          "Platform Master Config in DB (`tenant_messaging_config` table or admin flags)",
+          "Usage threshold with soft alerts",
+          "Environment variable limits",
+          "You decide"
+        ]
+      },
+      {
+        "question": "How should message templates be structured to satisfy WhatsApp Business API requirements and SMS delivery?",
+        "answer": "Standardized Meta-compliant template catalog with parameterized slots (`patient_name`, `doctor_name`, `datetime`, `link`). Ensures WhatsApp HSM pre-approval compliance and clean SMS translation, while letting clinics customize branding parameters within approved templates.",
+        "options_presented": [
+          "Standardized Meta-compliant template catalog with parameterized slots",
+          "Freeform text editor for SMS with fixed templates for WhatsApp only",
+          "Hardcoded system strings",
+          "You decide"
+        ]
+      },
+      {
+        "question": "How should Indian TRAI DLT registration and SMS sender headers be managed?",
+        "answer": "Platform-provided DLT: Platform gets DLT ID, Headers, and templates pre-approved for all clinics. One kind of template for all clinics; clinics just use it with zero registration/paperwork overhead.",
+        "options_presented": [
+          "Platform-managed shared DLT / Sender ID",
+          "Strict clinic-provided DLT",
+          "Platform shared sender ID only",
+          "You decide"
+        ]
+      }
+    ]
+  },
+  "deferred_ideas": [],
+  "canonical_refs": [
+    "docs/clinic-management-prd.md",
+    ".planning/REQUIREMENTS.md",
+    "AGENTS.md",
+    "DESIGN.md"
+  ]
+}
