@@ -3,7 +3,7 @@ phase: "4"
 slug: "labs-referrals"
 status: approved
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: "2026-10-22"
 ---
 
@@ -38,12 +38,12 @@ created: "2026-10-22"
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 04-01-01 | 01 | 1 | REQ-lab-records | T-04-01 | Relative paths only; R2/S3 secret validation | unit | `npx vitest run tests/storage/` | ❌ W0 | ⬜ pending |
-| 04-01-02 | 01 | 1 | REQ-lab-records | T-04-02 | Multi-tenant RLS isolation on documents | integration | `npx vitest run tests/labs/lab-documents.spec.ts` | ❌ W0 | ⬜ pending |
-| 04-02-01 | 02 | 2 | REQ-lab-records | T-04-03 | Token expiry & access control | integration | `npx vitest run tests/labs/tokenized-sharing.spec.ts` | ❌ W0 | ⬜ pending |
-| 04-02-02 | 02 | 2 | REQ-lab-records | T-04-04 | Sanitized file naming; MIME verification | integration | `npx vitest run tests/labs/lab-documents.spec.ts` | ❌ W0 | ⬜ pending |
-| 04-03-01 | 03 | 3 | REQ-referrals | T-04-05 | Consent record immutability | integration | `npx vitest run tests/referrals/referrals-flow.spec.ts` | ❌ W0 | ⬜ pending |
-| 04-03-02 | 03 | 3 | REQ-referrals | T-04-06 | Multi-tenant receiving access policy | integration | `npx vitest run tests/referrals/referrals-flow.spec.ts` | ❌ W0 | ⬜ pending |
+| 04-01-01 | 01 | 1 | REQ-lab-records | T-04-01 | Relative paths only; R2/S3 secret validation | unit | `npx vitest run tests/storage/` | ✅ yes | ✅ green |
+| 04-01-02 | 01 | 1 | REQ-lab-records | T-04-02 | Multi-tenant RLS isolation on documents | integration | `npx vitest run tests/labs/lab-documents.spec.ts` | ✅ yes | ✅ green |
+| 04-02-01 | 02 | 2 | REQ-lab-records | T-04-03 | Token expiry & access control | integration | `npx vitest run tests/labs/tokenized-sharing.spec.ts` | ✅ yes | ✅ green |
+| 04-02-02 | 02 | 2 | REQ-lab-records | T-04-04 | Sanitized file naming; MIME verification | integration | `npx vitest run tests/labs/lab-documents.spec.ts` | ✅ yes | ✅ green |
+| 04-03-01 | 03 | 3 | REQ-referrals | T-04-05 | Consent record immutability | integration | `npx vitest run tests/referrals/referrals-flow.spec.ts` | ✅ yes | ✅ green |
+| 04-03-02 | 03 | 3 | REQ-referrals | T-04-06 | Multi-tenant receiving access policy | integration | `npx vitest run tests/referrals/referrals-flow.spec.ts` | ✅ yes | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -51,10 +51,10 @@ created: "2026-10-22"
 
 ## Wave 0 Requirements
 
-- [ ] `tests/storage/storage-provider.spec.ts` — stubs for REQ-lab-records (storage adapter & S3/R2 parity)
-- [ ] `tests/labs/lab-documents.spec.ts` — stubs for document upload and multi-tenant isolation
-- [ ] `tests/labs/tokenized-sharing.spec.ts` — stubs for patient share token verification
-- [ ] `tests/referrals/referrals-flow.spec.ts` — stubs for in-network and out-of-network referral lifecycle
+- [x] `tests/storage/storage-provider.spec.ts` — stubs for REQ-lab-records (storage adapter & S3/R2 parity)
+- [x] `tests/labs/lab-documents.spec.ts` — stubs for document upload and multi-tenant isolation
+- [x] `tests/labs/tokenized-sharing.spec.ts` — stubs for patient share token verification
+- [x] `tests/referrals/referrals-flow.spec.ts` — stubs for in-network and out-of-network referral lifecycle
 
 ---
 

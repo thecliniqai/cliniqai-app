@@ -226,7 +226,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 02.1. UI/UX Re-foundation (TailAdmin) | 5/5 | Complete | 2026-10-08 |
 | 3. Consultation & Prescribing | 4/4 | Complete    | 2026-10-15 |
 | 03.1. Doctor Cabin, RBAC & Billing | 4/4 | Complete | 2026-10-15 |
-| 03.2. Patient Visit History & Visits Register | 0/2 | Ready to plan | - |
-| 4. Labs & Referrals | 3/3 | In Progress | - |
-| 5. Communications & AI Assist | 0/- | Not started | - |
+| 03.2. Patient Visit History & Visits Register | 2/2 | Complete | 2026-10-16 |
+| 03.3. Doctor Availability & Multi-Shift Scheduling | 3/3 | Complete | 2026-10-16 |
+| 4. Labs & Referrals | 3/3 | Complete | 2026-10-22 |
+| 5. Communications & AI Assist | 0/- | Ready to plan | - |
 | 6. API & Launch Readiness | 0/- | Not started | - |
