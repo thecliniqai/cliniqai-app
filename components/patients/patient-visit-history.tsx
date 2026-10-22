@@ -14,8 +14,6 @@ import {
   Pill,
   Activity,
   ArrowUpRight,
-  User,
-  AlertCircle,
   PlusCircle,
   FlaskConical,
   Share2,
@@ -180,14 +178,14 @@ export function PatientVisitHistory({
                       </span>
                     )}
 
-                    {(visit as any).referral && (
+                    {visit.referral && (
                       <Link
                         href="/referrals"
                         onClick={(e) => e.stopPropagation()}
                         className="px-2 py-0.5 rounded-md bg-[#FFF5E5] text-[#9A5B00] border border-[#F3D39A] text-xs font-semibold flex items-center gap-1 hover:bg-[#ffeacc] transition-colors"
                       >
                         <Share2 className="w-3 h-3" />
-                        <span>Referral: Dr. {(visit as any).referral.referred_to_name} ({(visit as any).referral.status})</span>
+                        <span>Referral: Dr. {visit.referral.referred_to_name} ({visit.referral.status})</span>
                       </Link>
                     )}
                   </div>

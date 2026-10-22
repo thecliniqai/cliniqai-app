@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Vitals,
   ChiefComplaintItem,
@@ -41,8 +40,6 @@ import {
   X,
   Plus,
   ShieldAlert,
-  ChevronRight,
-  ExternalLink,
   Printer,
   Receipt,
   Check,
@@ -120,8 +117,6 @@ export function ConsultationWorkspace({
   patient,
   pastEncounters = [],
 }: ConsultationWorkspaceProps) {
-  const router = useRouter();
-
   // Core Form State
   const [specialty, setSpecialty] = useState<ClinicalSpecialty>(
     visit.specialty ?? "general_physician"
@@ -1134,8 +1129,15 @@ export function ConsultationWorkspace({
         patientName={patient.full_name}
         patientPhone={patient.phone}
         visitId={visit.id}
-        currentDiagnoses={visit.diagnoses?.map((d: any) => d.diagnosis_name) || []}
-        currentMedications={(visit.prescription_items as any[]) || []}
+        currentDiagnoses={visit.diagnoses?.map((d) => d.diagnosis_name) || []}
+        currentMedications={
+          visit.prescription_items?.map((item) => ({
+            medicine_name: item.medicine_name,
+            dosage: item.dosage,
+            timing: item.timing,
+            duration: item.duration,
+          })) || []
+        }
         onSuccess={(ref) => {
           setActiveReferral(ref);
         }}

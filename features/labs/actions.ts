@@ -14,6 +14,7 @@ import {
   ShareTokenResult,
   DeleteLabDocumentResult,
 } from "./types";
+import { formatAmendedFilename } from "./utils";
 
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
@@ -26,25 +27,6 @@ const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
 export type UploadLabDocumentResult =
   | { success: true; document: PatientDocument }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
-
-/**
- * Computes deterministic auto-amended filename adhering to:
- * [Patient_Name]_[Original]_[Date].[ext] (Phase 4 Decision D-03)
- */
-export function formatAmendedFilename(
-  patientName: string,
-  originalFilename: string,
-  reportDate: string
-): string {
-  const cleanPatient = patientName.trim().replace(/[^a-zA-Z0-9]/g, "_");
-  const ext = originalFilename.includes(".")
-    ? originalFilename.split(".").pop() || "pdf"
-    : "pdf";
-  const baseName = originalFilename.replace(/\.[^/.]+$/, "");
-  const cleanOriginal = baseName.replace(/[^a-zA-Z0-9_-]/g, "_");
-
-  return `${cleanPatient}_${cleanOriginal}_${reportDate}.${ext}`;
-}
 
 /**
  * Uploads a patient diagnostic lab report or document, enforces auto-amended naming,

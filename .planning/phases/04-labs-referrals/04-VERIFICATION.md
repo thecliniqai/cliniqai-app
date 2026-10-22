@@ -25,6 +25,7 @@ covered_files:
   - features/labs/actions.ts
   - features/labs/schema.ts
   - features/labs/types.ts
+  - features/labs/utils.ts
   - features/prescriptions/pdf/generator.ts
   - features/referrals/actions.ts
   - features/referrals/pdf/generator.ts
@@ -42,7 +43,7 @@ covered_files:
   - tests/labs/tokenized-sharing.spec.ts
   - tests/referrals/referrals-flow.spec.ts
   - tests/storage/storage-provider.spec.ts
-covered_digest: "v3:sha256:d3288f813a435505c848638488a578ac5a823a6153dc925b5b1605a74231a211"
+covered_digest: "v3:sha256:5b36b84be9c3fdd0506a07cbdd0bd0bb9a9e8ac8bd60d4f6b6ffccdeabef514c"
 behavior_unverified: 0
 overrides_applied: 0
 ---

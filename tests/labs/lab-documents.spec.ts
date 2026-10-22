@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { formatAmendedFilename, uploadLabDocument, getPatientDocuments, deleteLabDocument } from "@/features/labs/actions";
+import { uploadLabDocument, getPatientDocuments, deleteLabDocument } from "@/features/labs/actions";
+import { formatAmendedFilename } from "@/features/labs/utils";
 import { uploadLabDocumentSchema } from "@/features/labs/schema";
 import { seedTenantWithOwner } from "../helpers/tenants";
 

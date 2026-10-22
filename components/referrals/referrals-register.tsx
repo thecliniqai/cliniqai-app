@@ -7,17 +7,14 @@ import {
   Search,
   FileText,
   CheckCircle2,
-  ExternalLink,
-  Clock,
   AlertCircle,
   ShieldCheck,
-  ChevronRight,
   X,
   Loader2,
   ArrowUpRight,
   ArrowDownLeft,
 } from "lucide-react";
-import { ReferralItem } from "@/features/referrals/types";
+import { ReferralItem, ConsentedHistorySnapshot } from "@/features/referrals/types";
 import {
   acknowledgeReferral,
   getReferralSignedUrl,
@@ -642,12 +639,26 @@ export function ReferralsRegister({
             </div>
 
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              {selectedForHistory.consented_history_snapshot &&
-              (selectedForHistory.consented_history_snapshot as any).encounters ? (
-                (selectedForHistory.consented_history_snapshot as any).encounters.map(
-                  (enc: any, i: number) => (
+              {(() => {
+                const snapshot = selectedForHistory.consented_history_snapshot as unknown as ConsentedHistorySnapshot | null;
+                const encounters = snapshot?.encounters;
+                if (!encounters || encounters.length === 0) {
+                  return (
+                    <p className="text-xs text-gray-500">
+                      No previous encounter snapshots were bundled with this referral.
+                    </p>
+                  );
+                }
+                return encounters.map((enc, i: number) => {
+                  const vitals = enc.vitals as {
+                    systolic?: number | string;
+                    diastolic?: number | string;
+                    pulse?: number | string;
+                    temperature?: number | string;
+                  } | null;
+                  return (
                     <div
-                      key={i}
+                      key={enc.visit_id || i}
                       className="p-3.5 rounded-xl border border-gray-200 bg-[#F8FAFC] space-y-2"
                     >
                       <div className="flex items-center justify-between">
@@ -668,14 +679,14 @@ export function ReferralsRegister({
                         </div>
                       )}
 
-                      {enc.vitals && (
+                      {vitals && (
                         <div className="text-xs text-gray-600 flex flex-wrap gap-2">
-                          {enc.vitals.systolic && (
-                            <span>BP: {enc.vitals.systolic}/{enc.vitals.diastolic}</span>
+                          {vitals.systolic && (
+                            <span>BP: {vitals.systolic}/{vitals.diastolic}</span>
                           )}
-                          {enc.vitals.pulse && <span>Pulse: {enc.vitals.pulse} bpm</span>}
-                          {enc.vitals.temperature && (
-                            <span>Temp: {enc.vitals.temperature}°F</span>
+                          {vitals.pulse && <span>Pulse: {vitals.pulse} bpm</span>}
+                          {vitals.temperature && (
+                            <span>Temp: {vitals.temperature}°F</span>
                           )}
                         </div>
                       )}
@@ -685,19 +696,15 @@ export function ReferralsRegister({
                           <span className="font-semibold text-gray-700">Medications: </span>
                           <span className="text-gray-900">
                             {enc.medications
-                              .map((m: any) => `${m.medicine_name} (${m.dosage})`)
+                              .map((m) => `${m.medicine_name} (${m.dosage})`)
                               .join(", ")}
                           </span>
                         </div>
                       )}
                     </div>
-                  )
-                )
-              ) : (
-                <p className="text-xs text-gray-500">
-                  No previous encounter snapshots were bundled with this referral.
-                </p>
-              )}
+                  );
+                });
+              })()}
             </div>
 
             <div className="flex justify-end p-4 border-t border-gray-100 bg-gray-50">

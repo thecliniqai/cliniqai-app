@@ -7,7 +7,6 @@ import {
   AlertCircle,
   Loader2,
   FileText,
-  ShieldCheck,
   Building2,
   User,
 } from "lucide-react";

@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   FlaskConical,
   UploadCloud,
   FileText,
   Calendar,
   AlertTriangle,
-  Download,
   Share2,
   Trash2,
   Check,
@@ -15,7 +14,6 @@ import {
   ExternalLink,
   Loader2,
   X,
-  FileCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -84,7 +82,7 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
 
   const canEdit = ["owner", "admin", "doctor", "nurse"].includes(userRole);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -99,11 +97,11 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [patientId]);
 
   useEffect(() => {
     loadDocuments();
-  }, [patientId]);
+  }, [loadDocuments]);
 
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -512,7 +510,7 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Document Type</label>
                   <select
                     value={documentType}
-                    onChange={(e) => setDocumentType(e.target.value as any)}
+                    onChange={(e) => setDocumentType(e.target.value as "lab_report" | "imaging" | "prescription_scan" | "other")}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-[#1769E0]/20 focus:border-[#1769E0]"
                   >
                     <option value="lab_report">Lab Report</option>

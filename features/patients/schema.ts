@@ -190,5 +190,10 @@ export interface PatientVisitHistoryItem {
   diagnoses: PatientVisitDiagnosis[];
   prescription?: PatientVisitPrescription | null;
   invoice?: PatientVisitInvoice | null;
+  referral?: {
+    id: string;
+    status: string;
+    referred_to_name: string;
+  } | null;
 }
 
