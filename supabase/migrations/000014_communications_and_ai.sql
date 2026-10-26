@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.communication_queue (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
     patient_id UUID REFERENCES public.patients(id) ON DELETE CASCADE,
-    appointment_id UUID REFERENCES public.appointments(id) ON DELETE SET NULL,
+    appointment_id UUID REFERENCES public.visits(id) ON DELETE SET NULL,
     channel TEXT NOT NULL CHECK (channel IN ('whatsapp', 'sms', 'in_app')),
     message_type TEXT NOT NULL,
     template_id TEXT NOT NULL,
