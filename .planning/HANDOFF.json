@@ -1,0 +1,58 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-10-26T16:04:58.423Z",
+  "phase": "05",
+  "phase_name": "communications-ai-assist",
+  "phase_dir": ".planning/phases/05-communications-ai-assist",
+  "plan": 2,
+  "task": 2,
+  "total_tasks": 3,
+  "status": "paused",
+  "completed_tasks": [
+    {
+      "id": 1,
+      "name": "Task 1: Inbound Webhook & Interactive WhatsApp Bot Handlers",
+      "status": "done",
+      "commit": "75a9191"
+    }
+  ],
+  "remaining_tasks": [
+    {
+      "id": 2,
+      "name": "Task 2: Public Mobile Reschedule & Document Viewer Routes",
+      "status": "not_started"
+    },
+    {
+      "id": 3,
+      "name": "Task 3: Wire 23-Event Triggers across Clinical & Operational Actions",
+      "status": "not_started"
+    }
+  ],
+  "blockers": [],
+  "async_jobs": [],
+  "human_actions_pending": [],
+  "decisions": [
+    {
+      "decision": "Use public.visits with origin_type = 'scheduled' for all appointment relations",
+      "rationale": "ClinicOS unifies OPD walk-ins and booked visits in public.visits. Foreign key communication_queue.appointment_id references public.visits(id).",
+      "phase": "05"
+    },
+    {
+      "decision": "Explicit epoch UTC+5:30 calculation for IST quiet hours in messaging governance",
+      "rationale": "Prevents server host timezone leakage by computing IST hour directly via UTC timestamp + 5.5h offset.",
+      "phase": "05"
+    },
+    {
+      "decision": "Polymorphic resource resolution for document_share_tokens",
+      "rationale": "Allows /r/[token] to serve patient_document, prescription, invoice, and referral records securely with 7-day expiration.",
+      "phase": "05"
+    }
+  ],
+  "uncommitted_files": [
+    " M .planning/milestone.lock",
+    " M .planning/state.json",
+    "?? .planning/dev-messages.txt"
+  ],
+  "next_action": "Resume Plan 05-02 Task 2: Implement public mobile document viewer (app/r/[token]/page.tsx + app/api/r/[token]/route.ts), public mobile reschedule (app/reschedule/[token]/page.tsx + app/api/reschedule/[token]/route.ts), and test suite (tests/messaging/tokenized-sharing.spec.ts)",
+  "context_notes": "Phase 05 Plan 01 is 100% completed and committed. Plan 05-02 Task 1 (inbound webhook + WhatsApp bot) is completed and committed (75a9191). We are paused right before starting Plan 05-02 Task 2."
+}
