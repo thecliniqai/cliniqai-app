@@ -196,9 +196,9 @@ Plans:
   3. Waitlist openings and released lab results/PDFs deliver automatically, closing the messaging gaps from earlier phases
   4. Visit summaries, history catch-up summaries, scheduling assist, and prescription suggestions (from the doctor's own history only) appear labeled AI-generated in the UI until a clinician accepts — nothing auto-finalizes
 
-**Plans**: 4 plans planned
+**Plans**: 1/4 plans executed planned
 **Wave 1**
-- [ ] 05-01-PLAN.md: Wave 1 — Messaging Provider Abstraction (`lib/messaging/`), Outbox Queue (`communication_queue`), Governance Engine, and Cron Recovery
+- [x] 05-01-PLAN.md: Wave 1 — Messaging Provider Abstraction (`lib/messaging/`), Outbox Queue (`communication_queue`), Governance Engine, and Cron Recovery
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 05-02-PLAN.md: Wave 2 — Two-Way WhatsApp Bot (`app/api/webhooks/messaging/[provider]`), Reschedule (`/reschedule/[token]`), Public Document Viewer (`/r/[token]`), and 23-Event Triggers
@@ -206,6 +206,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 1 completion)*
 - [ ] 05-04-PLAN.md: Wave 3 — Universal AI Gateway (`lib/ai/`), Consultation AI Scribe (Web Speech API + SOAP Generator), Returning Patient Catch-Up, and Deterministic Prescription Chips
+
 **UI hint**: yes
 
 ### Phase 6: API & Launch Readiness
@@ -238,5 +239,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 03.2. Patient Visit History & Visits Register | 2/2 | Complete | 2026-10-16 |
 | 03.3. Doctor Availability & Multi-Shift Scheduling | 3/3 | Complete | 2026-10-16 |
 | 4. Labs & Referrals | 3/3 | Complete | 2026-10-22 |
-| 5. Communications & AI Assist | 0/- | Ready to plan | - |
+| 5. Communications & AI Assist | 1/4 | Ready to plan | - |
 | 6. API & Launch Readiness | 0/- | Not started | - |
