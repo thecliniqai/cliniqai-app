@@ -196,7 +196,16 @@ Plans:
   3. Waitlist openings and released lab results/PDFs deliver automatically, closing the messaging gaps from earlier phases
   4. Visit summaries, history catch-up summaries, scheduling assist, and prescription suggestions (from the doctor's own history only) appear labeled AI-generated in the UI until a clinician accepts — nothing auto-finalizes
 
-**Plans**: TBD
+**Plans**: 4 plans planned
+**Wave 1**
+- [ ] 05-01-PLAN.md: Wave 1 — Messaging Provider Abstraction (`lib/messaging/`), Outbox Queue (`communication_queue`), Governance Engine, and Cron Recovery
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 05-02-PLAN.md: Wave 2 — Two-Way WhatsApp Bot (`app/api/webhooks/messaging/[provider]`), Reschedule (`/reschedule/[token]`), Public Document Viewer (`/r/[token]`), and 23-Event Triggers
+- [ ] 05-03-PLAN.md: Wave 2 — In-App Notification Center UI (`components/notifications/`), Top-Nav Bell, Slide-Over Drawer, and Real-Time Alerts
+
+**Wave 3** *(blocked on Wave 1 completion)*
+- [ ] 05-04-PLAN.md: Wave 3 — Universal AI Gateway (`lib/ai/`), Consultation AI Scribe (Web Speech API + SOAP Generator), Returning Patient Catch-Up, and Deterministic Prescription Chips
 **UI hint**: yes
 
 ### Phase 6: API & Launch Readiness
