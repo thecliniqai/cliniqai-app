@@ -112,6 +112,11 @@ export interface Patient {
   abha_id: string | null;
   hfr_facility_id?: string | null;
   national_health_id?: string | null;
+  preferred_language?: "en" | "mr";
+  whatsapp_opt_out?: boolean;
+  guardian_name?: string | null;
+  guardian_phone?: string | null;
+  guardian_relationship?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -405,10 +410,14 @@ export interface PatientDocument {
   updated_at: string;
 }
 
+export type DocumentShareResourceType = "patient_document" | "prescription" | "invoice" | "referral";
+
 export interface DocumentShareToken {
   id: string;
   tenant_id: string;
-  document_id: string;
+  document_id: string | null;
+  resource_type?: DocumentShareResourceType;
+  resource_id?: string | null;
   token: string;
   expires_at: string;
   access_count: number;
@@ -1234,3 +1243,81 @@ export interface Database {
     };
   };
 }
+
+// ============================================================================
+// Phase 5: Communications & AI Assist Database Interfaces
+// ============================================================================
+
+export type CommunicationChannel = "whatsapp" | "sms" | "in_app";
+export type CommunicationStatus = "pending" | "processing" | "sent" | "failed" | "cancelled" | "dead_letter";
+
+export interface CommunicationQueueItem {
+  id: string;
+  tenant_id: string;
+  patient_id: string | null;
+  appointment_id: string | null;
+  channel: CommunicationChannel;
+  message_type: string;
+  template_id: string;
+  template_params: Record<string, unknown>;
+  recipient_phone: string | null;
+  recipient_user_id: string | null;
+  status: CommunicationStatus;
+  retry_count: number;
+  max_retries: number;
+  next_retry_at: string;
+  error_message: string | null;
+  external_message_id: string | null;
+  sent_at: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TenantMessagingConfig {
+  id: string;
+  tenant_id: string;
+  whatsapp_enabled: boolean;
+  sms_enabled: boolean;
+  monthly_quota: number;
+  messages_sent_this_month: number;
+  quota_warning_threshold: number;
+  quota_warning_sent_at: string | null;
+  quiet_hours_enabled: boolean;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+  auto_prescription_share: boolean;
+  auto_lab_share: boolean;
+  auto_receipt_share: boolean;
+  auto_reminder_hours: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type NotificationCategory = "clinical" | "queue" | "billing" | "system";
+export type NotificationRecipientRole = "doctor" | "receptionist" | "admin" | "owner" | "nurse";
+
+export interface InAppNotificationItem {
+  id: string;
+  tenant_id: string;
+  recipient_user_id: string | null;
+  recipient_role: NotificationRecipientRole | null;
+  category: NotificationCategory;
+  event_type: string;
+  title: string;
+  message: string;
+  link_url: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface PatientCommunicationPreferences {
+  preferred_language: "en" | "mr";
+  whatsapp_opt_out: boolean;
+  guardian_name?: string | null;
+  guardian_phone?: string | null;
+  guardian_relationship?: string | null;
+}
+
