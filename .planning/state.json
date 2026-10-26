@@ -31,12 +31,17 @@
     {
       "number": "03.2",
       "name": "Patient Visit History & Visits Register",
-      "status": "pending"
+      "status": "complete"
+    },
+    {
+      "number": "03.3",
+      "name": "Doctor Availability & Multi-Shift Scheduling",
+      "status": "complete"
     },
     {
       "number": "4",
       "name": "Labs & Referrals",
-      "status": "in_progress"
+      "status": "complete"
     },
     {
       "number": "5",
@@ -51,8 +56,8 @@
   ],
   "next": {
     "command": "/gsd-progress --next",
-    "label": "Advance to the next step (verify)",
-    "reason": "Phase 04 of 10 · 60% · ready to verify"
+    "label": "Advance to the next step",
+    "reason": "Phase 05 of 10 · 79% · executing"
   },
-  "updated_at": "2026-10-22T13:05:06.186Z"
+  "updated_at": "2026-10-26T15:57:47.683Z"
 }
