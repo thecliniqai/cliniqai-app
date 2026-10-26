@@ -41,11 +41,11 @@ created: "2026-10-26"
 | 05-01-01 | 01 | 1 | REQ-reminders-notifications | T-05-01 | Secure credentials, zero-leak dev logger | unit | `npx vitest run tests/messaging/messaging-provider.spec.ts` | ⬜ no | ⬜ pending |
 | 05-01-02 | 01 | 1 | REQ-reminders-notifications | T-05-02 | Multi-tenant RLS isolation on queue & config | integration | `npx vitest run tests/messaging/outbox-queue.spec.ts` | ⬜ no | ⬜ pending |
 | 05-01-03 | 01 | 1 | REQ-reminders-notifications | T-05-03 | Idempotent dispatch & quiet hours suppression | integration | `npx vitest run tests/messaging/outbox-queue.spec.ts` | ⬜ no | ⬜ pending |
-| 05-02-01 | 02 | 2 | REQ-reminders-notifications | T-05-04 | Webhook signature check & slot release audit | integration | `npx vitest run tests/messaging/two-way-bot.spec.ts` | ⬜ no | ⬜ pending |
-| 05-02-02 | 02 | 2 | REQ-reminders-notifications | T-05-05 | Expiring tokenized link access & revocation | integration | `npx vitest run tests/messaging/tokenized-sharing.spec.ts` | ⬜ no | ⬜ pending |
-| 05-03-01 | 03 | 2 | REQ-reminders-notifications | T-05-06 | Multi-tenant RLS on in-app notifications | integration | `npx vitest run tests/notifications/in-app-notifications.spec.ts` | ⬜ no | ⬜ pending |
-| 05-04-01 | 04 | 3 | REQ-ai-features | T-05-07 | Zero patient PII sent in AI prompts | unit | `npx vitest run tests/ai/ai-gateway.spec.ts` | ⬜ no | ⬜ pending |
-| 05-04-02 | 04 | 3 | REQ-ai-features | T-05-08 | Zero-hallucination deterministic SQL for Rx | integration | `npx vitest run tests/ai/prescription-suggestions.spec.ts` | ⬜ no | ⬜ pending |
+| 05-02-01 | 02 | 2 | REQ-reminders-notifications | T-05-05 | Webhook signature check & slot release audit | integration | `npx vitest run tests/messaging/two-way-bot.spec.ts` | ⬜ no | ⬜ pending |
+| 05-02-02 | 02 | 2 | REQ-reminders-notifications | T-05-06 | Expiring tokenized link access & revocation | integration | `npx vitest run tests/messaging/tokenized-sharing.spec.ts` | ⬜ no | ⬜ pending |
+| 05-03-01 | 03 | 2 | REQ-reminders-notifications | T-05-08 | Multi-tenant RLS on in-app notifications | integration | `npx vitest run tests/notifications/in-app-notifications.spec.ts` | ⬜ no | ⬜ pending |
+| 05-04-01 | 04 | 3 | REQ-ai-features | T-05-10 | Zero patient PII sent in AI prompts | unit | `npx vitest run tests/ai/ai-gateway.spec.ts` | ⬜ no | ⬜ pending |
+| 05-04-02 | 04 | 3 | REQ-ai-features | T-05-11 | Zero-hallucination deterministic SQL for Rx | integration | `npx vitest run tests/ai/prescription-suggestions.spec.ts` | ⬜ no | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
