@@ -1,5 +1,16 @@
 {
   "workflow": {
     "_auto_chain_active": false
+  },
+  "review": {
+    "models": {
+      "opencode": "opencode/deepseek-v4.1-flash-free"
+    },
+    "default_reviewers": [
+      "opencode"
+    ],
+    "effort": {
+      "opencode": "inherit"
+    }
   }
 }
