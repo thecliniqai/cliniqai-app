@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useTransition, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DoctorTimeline, TimelineVisit, TimelineDoctor, SlotStatus } from "./doctor-timeline";
 import { BookingDrawer } from "./booking-drawer";
@@ -201,18 +201,40 @@ export function CalendarView({
     }
   };
 
+  const [localVisits, setLocalVisits] = useState<TimelineVisit[]>(visits);
+
+  useEffect(() => {
+    setLocalVisits(visits);
+  }, [visits]);
+
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const handleConfirmVisit = async (visitId: string) => {
     try {
       setConfirmingId(visitId);
+      // Optimistically mark confirmed in local state
+      setLocalVisits((prev) =>
+        prev.map((v) =>
+          v.id === visitId
+            ? {
+                ...v,
+                status: "confirmed" as const,
+                metadata: { ...(v.metadata || {}), clinic_confirmed: true },
+              }
+            : v
+        )
+      );
+
       const res = await confirmAppointment(visitId);
       if (res.success) {
         handleRefresh();
       } else {
+        // Revert on error
+        setLocalVisits(visits);
         alert(res.error || "Failed to confirm appointment");
       }
     } catch {
+      setLocalVisits(visits);
       alert("Failed to confirm appointment");
     } finally {
       setConfirmingId(null);
@@ -432,7 +454,7 @@ export function CalendarView({
       {/* Main Multi-Doctor Schedule Timeline */}
       <DoctorTimeline
         doctors={visibleDoctors}
-        visits={visits}
+        visits={localVisits}
         scheduleBlocks={scheduleBlocks}
         currentDate={currentDate}
         onSlotClick={handleSlotClick}

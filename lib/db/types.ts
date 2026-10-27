@@ -181,6 +181,7 @@ export interface Visit {
   created_by: string;
   created_at: string;
   updated_at: string;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface ConsultationDiagnosis {
@@ -693,6 +694,7 @@ export interface Database {
           created_by: string;
           created_at?: string;
           updated_at?: string;
+          metadata?: Record<string, unknown> | null;
         };
         Update: {
           id?: string;
@@ -718,6 +720,7 @@ export interface Database {
           created_by?: string;
           created_at?: string;
           updated_at?: string;
+          metadata?: Record<string, unknown> | null;
         };
         Relationships: [];
       };

@@ -290,8 +290,16 @@ export function DoctorTimeline({
                       {slotVisits.length > 0 ? (
                         <div className="space-y-1.5">
                           {slotVisits.map((v) => {
-                            const isSoftBook = v.status === "booked";
-                            const isConfirmed = v.status === "confirmed";
+                            const isAlreadyConfirmed =
+                              v.status === "confirmed" ||
+                              v.status === "waiting" ||
+                              v.status === "in_consultation" ||
+                              v.status === "completed" ||
+                              Boolean(v.metadata?.patient_confirmed) ||
+                              Boolean(v.metadata?.clinic_confirmed);
+
+                            const isConfirmed = isAlreadyConfirmed && v.status !== "in_consultation" && v.status !== "waiting" && v.status !== "completed";
+                            const isSoftBook = v.status === "booked" && !isAlreadyConfirmed;
                             const isInConsultation = v.status === "in_consultation";
                             const isConfirming = confirmingId === v.id;
 

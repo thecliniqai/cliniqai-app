@@ -275,11 +275,16 @@ export async function confirmAppointment(
       .single();
 
     if (readError || !existing) {
+      console.error("[confirmAppointment] Failed to fetch visit:", { visitId, readError });
       return { success: false, error: "Appointment not found or inaccessible." };
     }
 
     if (existing.status === "cancelled") {
       return { success: false, error: "Cannot confirm a cancelled appointment." };
+    }
+
+    if (existing.status === "confirmed") {
+      return { success: true };
     }
 
     const { error: updateError } = await (supabase.from("visits") as any)
