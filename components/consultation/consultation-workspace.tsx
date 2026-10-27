@@ -19,6 +19,9 @@ import { PatientHistoryDrawer } from "./patient-history-drawer";
 import { DiagnosisSection } from "./diagnosis-section";
 import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import { PrescriptionBuilder } from "./prescription-builder";
+import { AiScribeModal } from "./ai-scribe-modal";
+import { ReturningPatientCatchup } from "./returning-patient-catchup";
+import { SoapDraft } from "@/lib/ai/types";
 import { addPrescriptionItem } from "@/features/prescriptions/actions";
 import type { PrescriptionItem } from "@/lib/db/types";
 import { GPSystemicReview } from "./specialty/gp-systemic-review";
@@ -44,6 +47,7 @@ import {
   Receipt,
   Check,
   Share2,
+  Sparkles,
 } from "lucide-react";
 import { CreateReferralModal } from "@/components/referrals/create-referral-modal";
 import { getReferralSignedUrl } from "@/features/referrals/actions";
@@ -158,6 +162,8 @@ export function ConsultationWorkspace({
   // Auto-save and Drawer State
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
+  const [isAiScribeOpen, setIsAiScribeOpen] = useState(false);
+  const [diagnoses, setDiagnoses] = useState<ConsultationDiagnosisItem[]>(visit.diagnoses ?? []);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -168,6 +174,49 @@ export function ConsultationWorkspace({
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [activeReferral, setActiveReferral] = useState<Referral | null>(null);
   const [isOpeningReferralPdf, setIsOpeningReferralPdf] = useState(false);
+
+  const handleAcceptSoapDraft = (draft: SoapDraft) => {
+    markDirty();
+    if (draft.chief_complaints && draft.chief_complaints.length > 0) {
+      const newComplaints: ChiefComplaintItem[] = draft.chief_complaints.map((c) => {
+        // Parse duration string into val + unit
+        let val = 3;
+        let unit: "days" | "weeks" | "months" | "years" = "days";
+        if (c.duration) {
+          const match = c.duration.toLowerCase().match(/^(\d+)\s*(d|day|days|w|wk|wks|week|weeks|m|mo|mos|month|months|y|yr|yrs|year|years)?/);
+          if (match) {
+            val = parseInt(match[1], 10) || 3;
+            const unitCode = match[2] || "d";
+            if (unitCode.startsWith("w")) unit = "weeks";
+            else if (unitCode.startsWith("m")) unit = "months";
+            else if (unitCode.startsWith("y")) unit = "years";
+            else unit = "days";
+          }
+        }
+        return {
+          id: Math.random().toString(36).substring(2, 9),
+          symptom: c.complaint,
+          duration_val: val,
+          duration_unit: unit,
+        };
+      });
+      setChiefComplaints((prev) => [...prev, ...newComplaints]);
+    }
+    if (draft.examination) {
+      setClinicalNotes((prev) =>
+        prev ? `${prev}\n\n[O/E]: ${draft.examination}` : `[O/E]: ${draft.examination}`
+      );
+    }
+    if (draft.advice) {
+      const adviceItems = draft.advice
+        .split(/\n|\./)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 2);
+      if (adviceItems.length > 0) {
+        setAdviceList((prev) => [...prev, ...adviceItems]);
+      }
+    }
+  };
 
   const handleOpenReferralPdf = async (referralId: string) => {
     setIsOpeningReferralPdf(true);
@@ -447,6 +496,18 @@ export function ConsultationWorkspace({
               )}
             </div>
 
+            {/* AI Quick Scribe Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsAiScribeOpen(true)}
+              aria-label="Open AI Clinical Scribe"
+              className="min-h-[44px] px-3 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/80 text-indigo-700 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              title="Open AI Clinical Scribe & Dictation"
+            >
+              <Sparkles className="h-4 w-4 text-indigo-600" />
+              <span className="hidden sm:inline">AI Quick Scribe</span>
+            </button>
+
             {/* Patient History Trigger */}
             <button
               type="button"
@@ -577,6 +638,16 @@ export function ConsultationWorkspace({
 
       {/* 3. MAIN WORKSPACE CONTAINER */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+        {/* Returning Patient Catch-Up Summary */}
+        <ReturningPatientCatchup
+          patientId={patient.id}
+          pastEncounters={pastEncounters}
+          onAppendNotes={(notes) => {
+            markDirty();
+            setClinicalNotes((prev) => (prev ? `${prev}\n\n${notes}` : notes));
+          }}
+        />
+
         {/* Error notification if save failed */}
         {saveError && (
           <div className="rounded-xl border border-rose-300 bg-rose-50 p-4 text-xs text-rose-800 flex items-center justify-between">
@@ -702,6 +773,7 @@ export function ConsultationWorkspace({
             patientId={patient.id}
             specialty={specialty}
             initialDiagnoses={visit.diagnoses ?? []}
+            onDiagnosesChange={setDiagnoses}
           />
         </section>
 
@@ -712,6 +784,8 @@ export function ConsultationWorkspace({
             patientAllergies={patient.allergies ?? []}
             initialItems={visit.prescription_items ?? []}
             hasPastRx={pastEncounters.some((e) => e.prescriptions && e.prescriptions.length > 0)}
+            activeDiagnosis={diagnoses[0]?.diagnosis_name || null}
+            doctorId={visit.doctor_id}
             onRepeatLastRx={() => {
               const firstWithRx = pastEncounters.find(
                 (e) => e.prescriptions && e.prescriptions.length > 0
@@ -1140,6 +1214,18 @@ export function ConsultationWorkspace({
         }
         onSuccess={(ref) => {
           setActiveReferral(ref);
+        }}
+      />
+
+      {/* AI Clinical Scribe Modal */}
+      <AiScribeModal
+        isOpen={isAiScribeOpen}
+        onClose={() => setIsAiScribeOpen(false)}
+        onAccept={handleAcceptSoapDraft}
+        patientContext={{
+          age: patient.age,
+          sex: patient.gender,
+          existing_conditions: patient.chronic_conditions,
         }}
       />
     </div>

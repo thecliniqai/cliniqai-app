@@ -18,6 +18,8 @@ import {
   normalizeDuration,
 } from "@/features/prescriptions/schema";
 import { PrescriptionItem } from "@/lib/db/types";
+import { FrequentRxChips } from "./frequent-rx-chips";
+import { PrescriptionSuggestion } from "@/lib/ai/types";
 import {
   Search,
   Plus,
@@ -42,6 +44,8 @@ interface PrescriptionBuilderProps {
   onRepeatLastRx?: () => void;
   hasPastRx?: boolean;
   disabled?: boolean;
+  activeDiagnosis?: string | null;
+  doctorId?: string;
 }
 
 export function PrescriptionBuilder({
@@ -52,6 +56,8 @@ export function PrescriptionBuilder({
   onRepeatLastRx,
   hasPastRx = false,
   disabled = false,
+  activeDiagnosis,
+  doctorId,
 }: PrescriptionBuilderProps) {
   const [items, setItems] = useState<PrescriptionItem[]>(initialItems);
   const [query, setQuery] = useState("");
@@ -249,6 +255,67 @@ export function PrescriptionBuilder({
     }
   };
 
+  // Add 1-click historical suggestion directly to prescription
+  const handleAddSuggestion = async (suggestion: PrescriptionSuggestion) => {
+    if (disabled) return;
+    setErrorMsg(null);
+
+    const newItemPayload: PrescriptionItemInput = {
+      medicine_name: suggestion.drug_name,
+      generic_name: null,
+      dose_form: null,
+      dosage: suggestion.dosage || "1 tab",
+      timing: suggestion.frequency || "1-0-1",
+      duration: normalizeDuration(suggestion.duration || "5d"),
+      special_instructions: suggestion.instructions || null,
+      cdci_brand_id: null,
+      cdci_generic_id: null,
+      sort_order: items.length,
+    };
+
+    const tempId = `temp-${Date.now()}`;
+    const optimisticItem: PrescriptionItem = {
+      id: tempId,
+      prescription_id: "pending",
+      medicine_name: newItemPayload.medicine_name,
+      generic_name: null,
+      dose_form: null,
+      dosage: newItemPayload.dosage,
+      timing: newItemPayload.timing ?? null,
+      duration: newItemPayload.duration,
+      special_instructions: newItemPayload.special_instructions ?? null,
+      cdci_brand_id: null,
+      cdci_generic_id: null,
+      sort_order: items.length,
+      created_at: new Date().toISOString(),
+    };
+
+    const nextList = [...items, optimisticItem];
+    setItems(nextList);
+    onItemsChange?.(nextList);
+
+    try {
+      const res = await addPrescriptionItem(visitId, newItemPayload);
+      if (res.success) {
+        const resolvedList = nextList.map((i) =>
+          i.id === tempId ? { ...i, id: res.itemId, prescription_id: res.prescriptionId } : i
+        );
+        setItems(resolvedList);
+        onItemsChange?.(resolvedList);
+      } else {
+        const reverted = items.filter((i) => i.id !== tempId);
+        setItems(reverted);
+        onItemsChange?.(reverted);
+        setErrorMsg(res.error || "Failed to add prescription item");
+      }
+    } catch (err: unknown) {
+      const reverted = items.filter((i) => i.id !== tempId);
+      setItems(reverted);
+      onItemsChange?.(reverted);
+      setErrorMsg(err instanceof Error ? err.message : "Failed to add prescription item");
+    }
+  };
+
   // Remove medication
   const handleConfirmRemove = async (itemId: string) => {
     if (disabled) return;
@@ -401,6 +468,14 @@ export function PrescriptionBuilder({
           </button>
         </div>
       )}
+
+      {/* 2.5 DETERMINISTIC HISTORICAL PRESCRIPTION SUGGESTIONS (Zero-Hallucination SQL Chips) */}
+      <FrequentRxChips
+        diagnosis={activeDiagnosis}
+        doctorId={doctorId}
+        onSelectSuggestion={handleAddSuggestion}
+        disabled={disabled}
+      />
 
       {/* 3. CDCI DRUG SEARCH AUTOCOMPLETE */}
       <div className="relative">

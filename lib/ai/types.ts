@@ -23,6 +23,7 @@ export interface AiChatMessage {
 }
 
 export interface AnonymizedPatientContext {
+  [key: string]: unknown;
   age?: number | string | null;
   sex?: string | null;
   existing_conditions?: string[];
