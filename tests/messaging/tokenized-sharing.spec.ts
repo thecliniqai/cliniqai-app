@@ -11,7 +11,7 @@ import { NextRequest } from "next/server";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
 import { shareLabReportViaWhatsApp } from "@/features/labs/actions";
 import { shareReferralLetterViaWhatsApp } from "@/features/referrals/actions";
-import { shareReceiptViaWhatsApp } from "@/features/billing/actions";
+import { shareReceiptViaWhatsApp, sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
 import * as dispatcher from "@/lib/messaging/dispatcher";
 
 describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications, T-05-06)", () => {
@@ -680,6 +680,170 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
           messageType: "receipt_issued",
           templateId: "receipt_issued",
           recipientPhone: "+919876543213",
+        }),
+        expect.anything()
+      );
+    });
+
+    it("sendConsolidatedConsultationWhatsApp creates two tokens (prescription & invoice) and enqueues exactly 1 consultation_documents message with interactive buttons", async () => {
+      const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({
+        id: "msg-cons-1",
+        status: "pending",
+      } as any);
+
+      const insertedTokens: any[] = [];
+      const mockSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "visits") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    single: vi.fn().mockResolvedValue({
+                      data: {
+                        id: "visit-123",
+                        doctor_id: "user-doc-1",
+                        patient_id: "patient-1",
+                      },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "patients") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    maybeSingle: vi.fn().mockResolvedValue({
+                      data: {
+                        id: "patient-1",
+                        full_name: "John Doe",
+                        phone: "+919876543210",
+                      },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "tenants") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: { name: "Apex Health", phone: "+9111223344" },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "memberships") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    maybeSingle: vi.fn().mockResolvedValue({
+                      data: { full_name: "Dr. Nupur Goel" },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "prescriptions") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    order: vi.fn().mockReturnValue({
+                      limit: vi.fn().mockReturnValue({
+                        maybeSingle: vi.fn().mockResolvedValue({
+                          data: { id: "rx-100" },
+                          error: null,
+                        }),
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "invoices") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    maybeSingle: vi.fn().mockResolvedValue({
+                      data: {
+                        id: "inv-200",
+                        invoice_number: "INV-2026-0099",
+                        total_amount: 1200,
+                      },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "document_share_tokens") {
+            return {
+              insert: vi.fn().mockImplementation((payload) => {
+                insertedTokens.push(payload);
+                return Promise.resolve({ error: null });
+              }),
+            };
+          }
+          if (table === "audit_logs") {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          return {};
+        }),
+      };
+
+      const res = await sendConsolidatedConsultationWhatsApp(
+        { visitId: "visit-123", invoiceId: "inv-200" },
+        mockSupabase,
+        session
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.rxShareUrl).toContain("/r/");
+      expect(res.invoiceShareUrl).toContain("/r/");
+      expect(insertedTokens).toHaveLength(2);
+      expect(insertedTokens[0].resource_type).toBe("prescription");
+      expect(insertedTokens[0].resource_id).toBe("rx-100");
+      expect(insertedTokens[1].resource_type).toBe("invoice");
+      expect(insertedTokens[1].resource_id).toBe("inv-200");
+
+      expect(enqueueSpy).toHaveBeenCalledTimes(1);
+      expect(enqueueSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: "whatsapp",
+          messageType: "consultation_documents",
+          templateId: "consultation_documents",
+          recipientPhone: "+919876543210",
+          templateParams: expect.objectContaining({
+            patient_name: "John Doe",
+            doctor_name: "Dr. Nupur Goel",
+            clinic_name: "Apex Health",
+            amount: "1200",
+            invoice_number: "INV-2026-0099",
+          }),
+          metadata: expect.objectContaining({
+            buttons: [
+              expect.objectContaining({ id: "btn_view_rx", text: "View Prescription 📄" }),
+              expect.objectContaining({ id: "btn_view_receipt", text: "View Receipt 🧾" }),
+            ],
+          }),
         }),
         expect.anything()
       );

@@ -7,12 +7,10 @@ import {
   Calendar,
   Clock,
   Search,
-  Filter,
   Printer,
   Receipt,
   ArrowUpRight,
   Stethoscope,
-  Activity,
   CreditCard,
   Pill,
   Users,
@@ -34,7 +32,7 @@ import {
 import { ReadOnlyEncounterModal } from "./read-only-encounter-modal";
 import { cn } from "@/lib/utils";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
-import { shareReceiptViaWhatsApp } from "@/features/billing/actions";
+import { shareReceiptViaWhatsApp, sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
 
 interface VisitsRegisterViewProps {
   initialVisits: ClinicVisitRegisterItem[];
@@ -113,6 +111,24 @@ export function VisitsRegisterView({
       } else {
         setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
         alert(res.error || "Failed to send receipt via WhatsApp");
+      }
+    } catch (err: unknown) {
+      setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
+      alert(err instanceof Error ? err.message : "Error sending WhatsApp");
+    }
+  };
+
+  const handleShareConsolidatedWhatsApp = async (visitId: string, invoiceId?: string) => {
+    const key = `both-${visitId}`;
+    if (waSendingState[key] === "sending" || waSendingState[key] === "sent") return;
+    setWaSendingState((prev) => ({ ...prev, [key]: "sending" }));
+    try {
+      const res = await sendConsolidatedConsultationWhatsApp({ visitId, invoiceId });
+      if (res.success) {
+        setWaSendingState((prev) => ({ ...prev, [key]: "sent" }));
+      } else {
+        setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
+        alert(res.error || "Failed to send consultation documents via WhatsApp");
       }
     } catch (err: unknown) {
       setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
@@ -568,68 +584,75 @@ export function VisitsRegisterView({
                       {/* Action buttons */}
                       <td className="px-4 py-3.5 whitespace-nowrap text-right">
                         <div className="inline-flex items-center gap-1.5 justify-end">
-                          {/* WhatsApp Rx button */}
-                          {(hasRx || visit.status === "completed") && (
+                          {/* If BOTH Rx and Invoice exist: 1 single consolidated WhatsApp button */}
+                          {(hasRx || visit.status === "completed") && hasInvoice ? (
                             <Button
                               variant="ghost"
                               size="sm"
-                              disabled={waSendingState[`rx-${visit.id}`] === "sending" || waSendingState[`rx-${visit.id}`] === "sent"}
-                              onClick={() => handleShareRxWhatsApp(visit.id)}
+                              disabled={waSendingState[`both-${visit.id}`] === "sending" || waSendingState[`both-${visit.id}`] === "sent"}
+                              onClick={() => handleShareConsolidatedWhatsApp(visit.id, visit.invoice?.id)}
                               className={cn(
                                 "h-8 px-2 text-emerald-600 hover:bg-emerald-50 cursor-pointer",
-                                waSendingState[`rx-${visit.id}`] === "sent" && "text-emerald-700 bg-emerald-50 font-semibold"
+                                waSendingState[`both-${visit.id}`] === "sent" && "text-emerald-700 bg-emerald-50 font-semibold"
                               )}
-                              title={waSendingState[`rx-${visit.id}`] === "sent" ? "Rx Sent on WhatsApp" : "Send Prescription via WhatsApp"}
+                              title={waSendingState[`both-${visit.id}`] === "sent" ? "Rx & Receipt Sent on WhatsApp" : "Send Rx & Receipt on WhatsApp (1 message)"}
                             >
-                              {waSendingState[`rx-${visit.id}`] === "sending" ? (
+                              {waSendingState[`both-${visit.id}`] === "sending" ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                              ) : waSendingState[`rx-${visit.id}`] === "sent" ? (
+                              ) : waSendingState[`both-${visit.id}`] === "sent" ? (
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                               ) : (
                                 <MessageSquare className="w-3.5 h-3.5" />
                               )}
                             </Button>
-                          )}
-
-                          {/* Print Rx button */}
-                          {(hasRx || visit.status === "completed") && (
-                            <a
-                              href={`/api/visits/${visit.id}/prescription-pdf`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Print Prescription (PDF)"
-                            >
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 px-2 text-[#1769E0] hover:bg-blue-50 cursor-pointer"
-                              >
-                                <Printer className="w-3.5 h-3.5" />
-                              </Button>
-                            </a>
-                          )}
-
-                          {/* WhatsApp Receipt button */}
-                          {hasInvoice && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sending" || waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent"}
-                              onClick={() => handleShareReceiptWhatsApp(visit.invoice?.id || visit.id)}
-                              className={cn(
-                                "h-8 px-2 text-emerald-600 hover:bg-emerald-50 cursor-pointer",
-                                waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent" && "text-emerald-700 bg-emerald-50 font-semibold"
+                          ) : (
+                            <>
+                              {/* Individual WhatsApp Rx button if only Rx */}
+                              {(hasRx || visit.status === "completed") && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={waSendingState[`rx-${visit.id}`] === "sending" || waSendingState[`rx-${visit.id}`] === "sent"}
+                                  onClick={() => handleShareRxWhatsApp(visit.id)}
+                                  className={cn(
+                                    "h-8 px-2 text-emerald-600 hover:bg-emerald-50 cursor-pointer",
+                                    waSendingState[`rx-${visit.id}`] === "sent" && "text-emerald-700 bg-emerald-50 font-semibold"
+                                  )}
+                                  title={waSendingState[`rx-${visit.id}`] === "sent" ? "Rx Sent on WhatsApp" : "Send Prescription via WhatsApp"}
+                                >
+                                  {waSendingState[`rx-${visit.id}`] === "sending" ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                                  ) : waSendingState[`rx-${visit.id}`] === "sent" ? (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  ) : (
+                                    <MessageSquare className="w-3.5 h-3.5" />
+                                  )}
+                                </Button>
                               )}
-                              title={waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent" ? "Receipt Sent on WhatsApp" : "Send Receipt via WhatsApp"}
-                            >
-                              {waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sending" ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                              ) : waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent" ? (
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              ) : (
-                                <MessageSquare className="w-3.5 h-3.5" />
+
+                              {/* Individual WhatsApp Receipt button if only Invoice */}
+                              {hasInvoice && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  disabled={waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sending" || waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent"}
+                                  onClick={() => handleShareReceiptWhatsApp(visit.invoice?.id || visit.id)}
+                                  className={cn(
+                                    "h-8 px-2 text-emerald-600 hover:bg-emerald-50 cursor-pointer",
+                                    waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent" && "text-emerald-700 bg-emerald-50 font-semibold"
+                                  )}
+                                  title={waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent" ? "Receipt Sent on WhatsApp" : "Send Receipt via WhatsApp"}
+                                >
+                                  {waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sending" ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                                  ) : waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent" ? (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  ) : (
+                                    <MessageSquare className="w-3.5 h-3.5" />
+                                  )}
+                                </Button>
                               )}
-                            </Button>
+                            </>
                           )}
 
                           {/* Print Receipt button */}

@@ -49,7 +49,8 @@ export type AuditAction =
   | "prescription.share_whatsapp"
   | "patient_document.share_whatsapp"
   | "referral.share_whatsapp"
-  | "invoice.share_whatsapp";
+  | "invoice.share_whatsapp"
+  | "consultation.share_consolidated_whatsapp";
 
 export interface RecordAuditParams {
   action: AuditAction;

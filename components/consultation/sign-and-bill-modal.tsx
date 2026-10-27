@@ -11,13 +11,9 @@ import {
   Stethoscope,
   CheckCircle2,
   AlertCircle,
-  FileText,
-  Pill,
-  IndianRupee,
   Banknote,
   QrCode,
   CreditCard,
-  Clock,
   X,
   ArrowRight,
   ShieldCheck,
@@ -66,6 +62,8 @@ export function SignAndBillModal({
     visitId: string;
     invoiceId: string;
     paymentRecorded: boolean;
+    whatsAppSent?: boolean;
+    whatsAppError?: string | null;
   } | null>(null);
 
   const [isSendingRxWa, setIsSendingRxWa] = useState(false);
@@ -161,7 +159,17 @@ export function SignAndBillModal({
           visitId: res.visitId,
           invoiceId: res.invoiceId,
           paymentRecorded: res.paymentRecorded,
+          whatsAppSent: res.whatsAppSent,
+          whatsAppError: res.whatsAppError,
         });
+
+        if (res.whatsAppSent) {
+          setRxWaStatus("success");
+          setInvWaStatus("success");
+        } else if (res.whatsAppError) {
+          setRxWaError(res.whatsAppError);
+          setInvWaError(res.whatsAppError);
+        }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "An unexpected error occurred.");
       }
@@ -226,6 +234,36 @@ export function SignAndBillModal({
                   </p>
                 </div>
               </div>
+
+              {/* WhatsApp Delivery Status Banner */}
+              {completedResult.whatsAppSent ? (
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-300">
+                    <MessageSquare className="w-4 h-4 text-emerald-700" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-bold text-emerald-950">
+                        Prescription &amp; Receipt sent to patient on WhatsApp
+                      </p>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-200/70 text-emerald-900 uppercase tracking-wider">
+                        1 Message
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800 mt-0.5">
+                      Both digital Rx and invoice receipt delivered together in a single consolidated message.
+                    </p>
+                  </div>
+                </div>
+              ) : completedResult.whatsAppError ? (
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-3 text-xs text-amber-900">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <p>
+                    <span className="font-semibold">WhatsApp Delivery Notice: </span>
+                    {completedResult.whatsAppError}
+                  </p>
+                </div>
+              ) : null}
 
               {/* Action Cards */}
               <div className="space-y-3 pt-1">

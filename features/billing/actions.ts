@@ -17,6 +17,7 @@ import { completeAndSignConsultation } from "@/features/consultation/actions";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import type { InteractiveButton } from "@/lib/messaging/types";
 
 export type CreateInvoiceResult =
   | { success: true; invoice: Invoice; items: InvoiceItem[] }
@@ -387,6 +388,10 @@ export type CompleteAndBillResult =
       invoiceId: string;
       pdfStoragePath: string | null;
       paymentRecorded: boolean;
+      whatsAppSent?: boolean;
+      whatsAppError?: string | null;
+      rxShareUrl?: string;
+      invoiceShareUrl?: string;
     }
   | { success: false; error: string };
 
@@ -470,12 +475,42 @@ export async function completeAndBillConsultation(
       .eq("tenant_id", session.tenantId)
       .maybeSingle();
 
+    // 5. Automated Single Consolidated WhatsApp Dispatch:
+    // Sends both prescription and invoice links together in a single WhatsApp message to avoid double message costs.
+    let whatsAppSent = false;
+    let whatsAppError: string | null = null;
+    let rxShareUrl: string | undefined;
+    let invoiceShareUrl: string | undefined;
+
+    try {
+      const waRes = await sendConsolidatedConsultationWhatsApp(
+        {
+          visitId: data.visit_id,
+          invoiceId: invoiceResult.invoice.id,
+          patientId: data.patient_id,
+        },
+        supabase as any,
+        session
+      );
+      whatsAppSent = waRes.success;
+      whatsAppError = waRes.error || null;
+      rxShareUrl = waRes.rxShareUrl;
+      invoiceShareUrl = waRes.invoiceShareUrl;
+    } catch (waErr) {
+      console.warn("[completeAndBillConsultation] Automated WhatsApp notification warning:", waErr);
+      whatsAppError = waErr instanceof Error ? waErr.message : "Failed to dispatch automated WhatsApp";
+    }
+
     return {
       success: true,
       visitId: data.visit_id,
       invoiceId: invoiceResult.invoice.id,
       pdfStoragePath: rxRow?.pdf_storage_path || null,
       paymentRecorded,
+      whatsAppSent,
+      whatsAppError,
+      rxShareUrl,
+      invoiceShareUrl,
     };
   } catch (err: unknown) {
     return {
@@ -768,4 +803,240 @@ export async function shareReceiptViaWhatsApp(
     };
   }
 }
+
+export interface SendConsolidatedConsultationWhatsAppInput {
+  visitId: string;
+  invoiceId?: string;
+  patientId?: string;
+}
+
+/**
+ * Dispatches a single consolidated WhatsApp message containing BOTH prescription and invoice links,
+ * avoiding double Meta template message charges for the clinic.
+ */
+export async function sendConsolidatedConsultationWhatsApp(
+  input: SendConsolidatedConsultationWhatsAppInput,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  clientOverride?: any,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{
+  success: boolean;
+  rxShareUrl?: string;
+  invoiceShareUrl?: string;
+  messageId?: string;
+  error?: string;
+}> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("consultations:view"));
+
+    // 1. Fetch visit and verify tenant access
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
+      .select("id, doctor_id, patient_id")
+      .eq("id", input.visitId)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (visitErr || !visit) {
+      return { success: false, error: "Visit not found." };
+    }
+
+    const patientId = input.patientId || visit.patient_id;
+    let patientPhone = "";
+    let patientName = "Patient";
+
+    if (patientId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: pt } = await (supabase.from("patients") as any)
+        .select("id, full_name, phone")
+        .eq("id", patientId)
+        .eq("tenant_id", session.tenantId)
+        .maybeSingle();
+
+      if (pt) {
+        patientPhone = pt.phone || "";
+        patientName = pt.full_name || "Patient";
+      }
+    }
+
+    if (!patientPhone) {
+      return { success: false, error: "Patient does not have a phone number registered." };
+    }
+
+    // 2. Fetch clinic tenant details
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: tenant } = await (supabase.from("tenants") as any)
+      .select("name, phone")
+      .eq("id", session.tenantId)
+      .single();
+    const clinicName = tenant?.name || "Clinic";
+
+    // 3. Fetch doctor details
+    let doctorName = "Dr.";
+    if (visit.doctor_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: docMem } = await (supabase.from("memberships") as any)
+        .select("full_name")
+        .eq("user_id", visit.doctor_id)
+        .eq("tenant_id", session.tenantId)
+        .maybeSingle();
+
+      if (docMem?.full_name) {
+        doctorName = docMem.full_name.startsWith("Dr.") ? docMem.full_name : `Dr. ${docMem.full_name}`;
+      }
+    }
+
+    // 4. Fetch prescription record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rx } = await (supabase.from("prescriptions") as any)
+      .select("id")
+      .eq("visit_id", input.visitId)
+      .eq("tenant_id", session.tenantId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    // 5. Fetch invoice record
+    let invoiceId = input.invoiceId;
+    let invoiceNumber = "";
+    let totalAmount = "0";
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let invQuery = (supabase.from("invoices") as any)
+      .select("id, invoice_number, total_amount")
+      .eq("tenant_id", session.tenantId);
+
+    if (invoiceId) {
+      invQuery = invQuery.eq("id", invoiceId);
+    } else {
+      invQuery = invQuery.eq("visit_id", input.visitId).order("created_at", { ascending: false }).limit(1);
+    }
+
+    const { data: inv } = await invQuery.maybeSingle();
+    if (inv) {
+      invoiceId = inv.id;
+      invoiceNumber = inv.invoice_number || "";
+      totalAmount = String(inv.total_amount || 0);
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // 6. Generate 64-char crypto token for Prescription
+    let rxShareUrl: string | undefined;
+    let rxToken: string | undefined;
+    if (rx?.id) {
+      rxToken = randomBytes(32).toString("hex");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("document_share_tokens") as any).insert({
+        tenant_id: session.tenantId,
+        document_id: null,
+        resource_type: "prescription",
+        resource_id: rx.id,
+        token: rxToken,
+        expires_at: expiresAt,
+        created_by: session.userId,
+      });
+      rxShareUrl = `${baseUrl}/r/${rxToken}`;
+    }
+
+    // 7. Generate 64-char crypto token for Invoice Receipt
+    let invoiceShareUrl: string | undefined;
+    let invToken: string | undefined;
+    if (invoiceId) {
+      invToken = randomBytes(32).toString("hex");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("document_share_tokens") as any).insert({
+        tenant_id: session.tenantId,
+        document_id: null,
+        resource_type: "invoice",
+        resource_id: invoiceId,
+        token: invToken,
+        expires_at: expiresAt,
+        created_by: session.userId,
+      });
+      invoiceShareUrl = `${baseUrl}/r/${invToken}`;
+    }
+
+    // 8. Build interactive buttons
+    const buttons: InteractiveButton[] = [];
+    if (rxShareUrl) {
+      buttons.push({
+        id: "btn_view_rx",
+        text: "View Prescription 📄",
+        url: rxShareUrl,
+      });
+    }
+    if (invoiceShareUrl) {
+      buttons.push({
+        id: "btn_view_receipt",
+        text: "View Receipt 🧾",
+        url: invoiceShareUrl,
+      });
+    }
+
+    // 9. Enqueue single consolidated WhatsApp message
+    const queueItem = await enqueueMessage(
+      {
+        tenantId: session.tenantId,
+        patientId: patientId || null,
+        channel: "whatsapp",
+        messageType: "consultation_documents",
+        templateId: "consultation_documents",
+        templateParams: {
+          patient_name: patientName,
+          doctor_name: doctorName,
+          clinic_name: clinicName,
+          amount: totalAmount,
+          invoice_number: invoiceNumber,
+          prescription_url: rxShareUrl || "",
+          receipt_url: invoiceShareUrl || "",
+        },
+        recipientPhone: patientPhone,
+        metadata: {
+          visit_id: input.visitId,
+          prescription_id: rx?.id,
+          invoice_id: invoiceId,
+          prescription_token: rxToken,
+          invoice_token: invToken,
+          buttons,
+        },
+      },
+      supabase
+    );
+
+    // 10. Record consolidated audit log
+    await recordAudit(
+      {
+        action: "consultation.share_consolidated_whatsapp",
+        entityType: "visit",
+        entityId: input.visitId,
+        metadata: {
+          recipient_phone: patientPhone,
+          prescription_id: rx?.id,
+          invoice_id: invoiceId,
+          queue_id: queueItem?.id,
+        },
+      },
+      clientOverride,
+      session
+    );
+
+    return {
+      success: true,
+      rxShareUrl,
+      invoiceShareUrl,
+      messageId: queueItem?.id,
+    };
+  } catch (err: unknown) {
+    console.error("[features/billing/actions] sendConsolidatedConsultationWhatsApp error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to dispatch consolidated consultation WhatsApp.",
+    };
+  }
+}
+
 
