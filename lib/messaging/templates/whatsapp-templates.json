@@ -208,9 +208,9 @@
           {
             "type": "URL",
             "text": "View Prescription",
-            "url": "https://clinicq.health/r/{{1}}",
+            "url": "https://app.thecliniqai.com/r/{{1}}",
             "example": [
-              "https://clinicq.health/r/rx-token-example"
+              "https://app.thecliniqai.com/r/rx-token-example"
             ]
           }
         ]
@@ -252,9 +252,9 @@
           {
             "type": "URL",
             "text": "View Report",
-            "url": "https://clinicq.health/r/{{1}}",
+            "url": "https://app.thecliniqai.com/r/{{1}}",
             "example": [
-              "https://clinicq.health/r/lab-token-example"
+              "https://app.thecliniqai.com/r/lab-token-example"
             ]
           }
         ]
@@ -297,9 +297,9 @@
           {
             "type": "URL",
             "text": "View Referral",
-            "url": "https://clinicq.health/r/{{1}}",
+            "url": "https://app.thecliniqai.com/r/{{1}}",
             "example": [
-              "https://clinicq.health/r/ref-token-example"
+              "https://app.thecliniqai.com/r/ref-token-example"
             ]
           }
         ]
@@ -342,9 +342,9 @@
           {
             "type": "URL",
             "text": "View Receipt",
-            "url": "https://clinicq.health/r/{{1}}",
+            "url": "https://app.thecliniqai.com/r/{{1}}",
             "example": [
-              "https://clinicq.health/r/inv-token-example"
+              "https://app.thecliniqai.com/r/inv-token-example"
             ]
           }
         ]
@@ -388,9 +388,9 @@
           {
             "type": "URL",
             "text": "View Documents",
-            "url": "https://clinicq.health/r/{{1}}",
+            "url": "https://app.thecliniqai.com/r/{{1}}",
             "example": [
-              "https://clinicq.health/r/visit-token-example"
+              "https://app.thecliniqai.com/r/visit-token-example"
             ]
           }
         ]
