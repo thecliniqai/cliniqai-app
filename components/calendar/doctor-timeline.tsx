@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { Visit, Patient, DoctorWeeklySchedule, ScheduleBlock, DayOfWeek } from "@/lib/db/types";
-import { Clock, Plus, AlertCircle, XCircle, Stethoscope, Ban, Coffee } from "lucide-react";
+import { Clock, Plus, AlertCircle, XCircle, Stethoscope, Ban, Coffee, Check, CheckCircle2, Loader2 } from "lucide-react";
 
 export interface TimelineVisit extends Visit {
   patients?: Patient | null;
@@ -30,6 +30,8 @@ export interface DoctorTimelineProps {
   currentDate: string;
   onSlotClick: (doctorId: string, timeStr: string, slotStatus?: SlotStatus) => void;
   onCancelVisit: (visitId: string) => void;
+  onConfirmVisit?: (visitId: string) => void;
+  confirmingId?: string | null;
 }
 
 const DAY_NAMES: DayOfWeek[] = [
@@ -49,6 +51,8 @@ export function DoctorTimeline({
   currentDate,
   onSlotClick,
   onCancelVisit,
+  onConfirmVisit,
+  confirmingId,
 }: DoctorTimelineProps) {
   // Day of week for currentDate
   const dayKey = useMemo<DayOfWeek>(() => {
@@ -81,8 +85,21 @@ export function DoctorTimeline({
       }
     }
 
+    // Also expand hours if any visits are scheduled outside shift hours (e.g. emergency override)
+    for (const v of visits) {
+      if (!v.scheduled_at || v.status === "cancelled") continue;
+      const vDate = new Date(v.scheduled_at);
+      const vH = vDate.getHours();
+      if (!isNaN(vH)) {
+        if (vH < earliestHour) earliestHour = Math.max(0, vH);
+        const dur = v.estimated_duration_minutes || 15;
+        const endH = Math.ceil((vH * 60 + vDate.getMinutes() + dur) / 60);
+        if (endH > latestHour) latestHour = Math.min(24, endH);
+      }
+    }
+
     return { startHour: earliestHour, endHour: latestHour };
-  }, [doctors, dayKey]);
+  }, [doctors, dayKey, visits]);
 
   // Generate 15-minute time slots between dynamic startHour and endHour
   const timeSlots = useMemo(() => {
@@ -272,62 +289,132 @@ export function DoctorTimeline({
                       {/* Active Appointment Starting at this slot */}
                       {slotVisits.length > 0 ? (
                         <div className="space-y-1.5">
-                          {slotVisits.map((v) => (
-                            <div
-                              key={v.id}
-                              className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 shadow-2xs transition-all ${
-                                v.is_overbooked
-                                  ? "bg-amber-50 border-amber-300 text-amber-950"
-                                  : v.status === "in_consultation"
-                                  ? "bg-emerald-50 border-emerald-300 text-emerald-950"
-                                  : "bg-brand-50/80 border-brand-200 text-brand-950"
-                              }`}
-                            >
-                              <div className="truncate flex-1">
-                                <div className="font-semibold text-gray-900 truncate">
-                                  {v.patients?.full_name || "Patient"}
-                                </div>
-                                <div className="text-[11px] text-gray-600 truncate mt-0.5 flex items-center gap-1.5">
-                                  <span className="truncate">{v.reason_for_visit || "Consultation"}</span>
-                                  <span className="shrink-0 px-1 py-0.2 rounded bg-white/70 border border-gray-200 font-medium text-[10px] text-gray-700">
-                                    {v.estimated_duration_minutes || 15}m
-                                  </span>
-                                </div>
-                              </div>
+                          {slotVisits.map((v) => {
+                            const isSoftBook = v.status === "booked";
+                            const isConfirmed = v.status === "confirmed";
+                            const isInConsultation = v.status === "in_consultation";
+                            const isConfirming = confirmingId === v.id;
 
-                              <div className="flex items-center gap-1 shrink-0">
-                                {v.is_overbooked && (
-                                  <span
-                                    title="Overbooked slot"
-                                    className="p-1 rounded text-amber-600 bg-amber-100/80"
-                                  >
-                                    <AlertCircle className="w-3.5 h-3.5" />
-                                  </span>
-                                )}
-                                <Link
-                                  href={`/consultation/${v.id}`}
-                                  className="p-1 rounded-lg text-[#1769E0] hover:text-[#155cc0] hover:bg-white/90 transition-colors cursor-pointer"
-                                  title={
-                                    v.status === "in_consultation"
-                                      ? "Resume Consultation"
-                                      : "Start Consultation"
-                                  }
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Stethoscope className="w-4 h-4" />
-                                </Link>
-                                <button
-                                  type="button"
-                                  onClick={() => onCancelVisit(v.id)}
-                                  title="Cancel Appointment"
-                                  aria-label="Cancel Appointment"
-                                  className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-white/80 transition-colors cursor-pointer"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                </button>
+                            return (
+                              <div
+                                key={v.id}
+                                className={`p-2.5 rounded-xl border text-xs flex flex-col gap-2 shadow-2xs transition-all ${
+                                  v.is_overbooked
+                                    ? isSoftBook
+                                      ? "bg-amber-50/70 border-dashed border-amber-400 text-amber-950"
+                                      : "bg-amber-50 border-solid border-amber-300 text-amber-950"
+                                    : isSoftBook
+                                    ? "bg-sky-50/60 border-dashed border-sky-300 text-sky-950"
+                                    : isInConsultation
+                                    ? "bg-emerald-50 border-solid border-emerald-300 text-emerald-950"
+                                    : "bg-brand-50/80 border-solid border-brand-200 text-brand-950"
+                                }`}
+                              >
+                                {/* Top Row: Patient Name & Overbooked icon */}
+                                <div className="flex items-start justify-between gap-1.5">
+                                  <div className="truncate flex-1">
+                                    <div className="font-semibold text-gray-900 truncate flex items-center gap-1.5">
+                                      <span className="truncate">{v.patients?.full_name || "Patient"}</span>
+                                      {v.is_overbooked && (
+                                        <span
+                                          title="Overbooked / Off-duty emergency slot"
+                                          className="shrink-0 p-0.5 rounded text-amber-700 bg-amber-100"
+                                        >
+                                          <AlertCircle className="w-3 h-3" />
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-gray-600 truncate mt-0.5 flex items-center gap-1.5">
+                                      <span className="truncate">{v.reason_for_visit || "Consultation"}</span>
+                                      <span className="shrink-0 px-1 py-0.2 rounded bg-white/70 border border-gray-200 font-medium text-[10px] text-gray-700">
+                                        {v.estimated_duration_minutes || 15}m
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Bottom Row: Status Badge & Actions */}
+                                <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-gray-200/50">
+                                  {/* Status Badge */}
+                                  <div className="flex items-center gap-1">
+                                    {isSoftBook ? (
+                                      <span
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100/90 border border-amber-300 text-amber-900 text-[10px] font-semibold"
+                                        title="Soft-booked appointment (unconfirmed)"
+                                      >
+                                        <Clock className="w-2.5 h-2.5 text-amber-700" />
+                                        <span>Soft Book</span>
+                                      </span>
+                                    ) : isConfirmed ? (
+                                      <span
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100/90 border border-emerald-300 text-emerald-900 text-[10px] font-semibold"
+                                        title="Confirmed appointment"
+                                      >
+                                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
+                                        <span>Confirmed</span>
+                                      </span>
+                                    ) : isInConsultation ? (
+                                      <span
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-100 border border-emerald-300 text-emerald-900 text-[10px] font-semibold"
+                                        title="Currently in consultation"
+                                      >
+                                        <Stethoscope className="w-2.5 h-2.5 text-emerald-700" />
+                                        <span>In Progress</span>
+                                      </span>
+                                    ) : null}
+                                  </div>
+
+                                  {/* Action Buttons */}
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {isSoftBook && onConfirmVisit && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onConfirmVisit(v.id);
+                                        }}
+                                        disabled={isConfirming}
+                                        title="Confirm appointment manually"
+                                        className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-[10px] flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                                      >
+                                        {isConfirming ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Check className="w-3 h-3" />
+                                        )}
+                                        <span>Confirm</span>
+                                      </button>
+                                    )}
+
+                                    <Link
+                                      href={`/consultation/${v.id}`}
+                                      className="p-1 rounded-lg text-[#1769E0] hover:text-[#155cc0] hover:bg-white/90 transition-colors cursor-pointer"
+                                      title={
+                                        v.status === "in_consultation"
+                                          ? "Resume Consultation"
+                                          : "Start Consultation"
+                                      }
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <Stethoscope className="w-3.5 h-3.5" />
+                                    </Link>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onCancelVisit(v.id);
+                                      }}
+                                      title="Cancel Appointment"
+                                      aria-label="Cancel Appointment"
+                                      className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-white/80 transition-colors cursor-pointer"
+                                    >
+                                      <XCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : ongoingVisit ? (
                         /* Ongoing Consultation Span from Previous Slot */

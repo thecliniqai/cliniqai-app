@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { checkSlotAvailability, bookAppointment } from "@/features/visits/scheduling";
+import { confirmAppointment } from "@/features/visits/actions";
 import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { DoctorWeeklySchedule } from "@/lib/db/types";
 
@@ -66,7 +67,11 @@ function createMockSupabase(overrides?: {
       if (table === "visits") {
         return {
           select: () => ({
-            eq: () => ({
+            eq: (col: string, val: string) => ({
+              single: async () => ({
+                data: existingVisits.find((v) => v.id === val) || null,
+                error: null,
+              }),
               eq: () => ({
                 gte: () => ({
                   lte: () => ({
@@ -75,6 +80,13 @@ function createMockSupabase(overrides?: {
                 }),
               }),
             }),
+          }),
+          update: (payload: any) => ({
+            eq: async (col: string, val: string) => {
+              const target = existingVisits.find((v) => v.id === val);
+              if (target) Object.assign(target, payload);
+              return { error: null };
+            },
           }),
           insert: (payload: any) => {
             const newV = { id: `visit-${Date.now()}`, ...payload };
@@ -333,6 +345,65 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
 
       expect(overrideRes.success).toBe(true);
       expect(insertedVisits.length).toBe(1);
+    });
+  });
+
+  describe("5. Soft-Book & Manual Appointment Confirmation (Soft-Book / Confirmed State Transition)", () => {
+    it("transitions booked visit to confirmed with staff metadata and audit trail", async () => {
+      const existingVisits = [
+        {
+          id: "v-soft-book-1",
+          tenant_id: "tenant-100",
+          patient_id: "11111111-1111-4111-8111-111111111111",
+          doctor_id: "22222222-2222-4222-8222-222222222222",
+          status: "booked",
+          scheduled_at: "2026-10-19T04:30:00.000Z",
+          metadata: {},
+        },
+      ];
+
+      const mockClient = createMockSupabase({ existingVisits });
+
+      const confirmRes = await confirmAppointment(
+        "v-soft-book-1",
+        mockClient,
+        mockSession
+      );
+
+      expect(confirmRes.success).toBe(true);
+      expect(existingVisits[0].status).toBe("confirmed");
+      expect(existingVisits[0].metadata?.clinic_confirmed).toBe(true);
+      expect(existingVisits[0].metadata?.confirmed_via).toBe("staff_calendar");
+    });
+
+    it("rejects confirmation if visit is already cancelled", async () => {
+      const existingVisits = [
+        {
+          id: "v-cancelled-1",
+          tenant_id: "tenant-100",
+          status: "cancelled",
+        },
+      ];
+
+      const mockClient = createMockSupabase({ existingVisits });
+
+      const confirmRes = await confirmAppointment(
+        "v-cancelled-1",
+        mockClient,
+        mockSession
+      );
+
+      expect(confirmRes.success).toBe(false);
+      if (!confirmRes.success) {
+        expect(confirmRes.error).toContain("Cannot confirm a cancelled appointment");
+      }
+    });
+
+    it("properly normalizes doctor titles without double 'Dr. Dr.' prefixing", () => {
+      expect(formatDoctorDisplayName("Dr. Nupur Goel")).toBe("Dr. Nupur Goel");
+      expect(formatDoctorDisplayName("Dr Nupur Goel")).toBe("Dr Nupur Goel");
+      expect(formatDoctorDisplayName("Nupur Goel")).toBe("Dr. Nupur Goel");
+      expect(formatDoctorDisplayName(null)).toBe("Doctor");
     });
   });
 });

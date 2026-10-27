@@ -32,6 +32,7 @@ export interface DispatchSummary {
 
 export async function getDbClient(clientOverride?: unknown) {
   if (clientOverride) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return clientOverride as any;
   }
   if (env.SUPABASE_SERVICE_ROLE_KEY) {

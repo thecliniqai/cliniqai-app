@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
-  verifyWebhookSignature,
-  parseInboundAction,
   GET,
   POST,
 } from "@/app/api/webhooks/messaging/[provider]/route";
+import {
+  verifyWebhookSignature,
+  parseInboundAction,
+} from "@/lib/messaging/webhook-helpers";
 import * as appointmentsActions from "@/features/appointments/actions";
 import { NextRequest } from "next/server";
 

@@ -138,24 +138,10 @@ export async function getVisitsForDate(
     const startOfDay = `${dateStr}T00:00:00.000Z`;
     const endOfDay = `${dateStr}T23:59:59.999Z`;
 
-    let query = (supabase.from("visits") as unknown as {
-      select: (cols: string) => {
-        eq: (col: string, val: string) => {
-          or: (f1: string) => {
-            or: (f2: string) => {
-              order: (c: string, opts: Record<string, unknown>) => Promise<{ data: Visit[] | null; error: { message: string } | null }>;
-              eq: (col: string, val: string) => {
-                order: (c: string, opts: Record<string, unknown>) => Promise<{ data: Visit[] | null; error: { message: string } | null }>;
-              };
-            };
-          };
-        };
-      };
-    })
+    let query = (supabase.from("visits") as any)
       .select("*, patients(full_name, phone, age, date_of_birth)")
       .eq("tenant_id", session.tenantId)
-      .or(`scheduled_at.gte.${startOfDay},created_at.gte.${startOfDay}`)
-      .or(`scheduled_at.lte.${endOfDay},created_at.lte.${endOfDay}`);
+      .or(`and(scheduled_at.gte.${startOfDay},scheduled_at.lte.${endOfDay}),and(scheduled_at.is.null,created_at.gte.${startOfDay},created_at.lte.${endOfDay})`);
 
     let data: Visit[] | null = null;
     let error: { message: string } | null = null;
@@ -264,6 +250,85 @@ export async function updateVisitStatus(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to update visit status.",
+    };
+  }
+}
+
+export type ConfirmAppointmentResult =
+  | { success: true }
+  | { success: false; error: string };
+
+export async function confirmAppointment(
+  visitId: string,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<ConfirmAppointmentResult> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("appointments:edit"));
+
+    // Fetch existing visit
+    const { data: existing, error: readError } = await (supabase.from("visits") as any)
+      .select("id, status, metadata")
+      .eq("id", visitId)
+      .single();
+
+    if (readError || !existing) {
+      return { success: false, error: "Appointment not found or inaccessible." };
+    }
+
+    if (existing.status === "cancelled") {
+      return { success: false, error: "Cannot confirm a cancelled appointment." };
+    }
+
+    const { error: updateError } = await (supabase.from("visits") as any)
+      .update({
+        status: "confirmed",
+        metadata: {
+          ...(existing.metadata || {}),
+          clinic_confirmed: true,
+          confirmed_at: new Date().toISOString(),
+          confirmed_by: session.userId,
+          confirmed_via: "staff_calendar",
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", visitId);
+
+    if (updateError) {
+      console.error("[confirmAppointment] Failed to update visit status:", updateError);
+      return { success: false, error: "Failed to confirm appointment." };
+    }
+
+    // Record audit event
+    await recordAudit(
+      {
+        action: "visit.confirm",
+        entityType: "visit",
+        entityId: visitId,
+        metadata: {
+          old_status: existing.status,
+          new_status: "confirmed",
+          confirmed_via: "staff_calendar",
+        },
+      },
+      clientOverride,
+      session
+    );
+
+    try {
+      revalidatePath("/calendar");
+      revalidatePath("/queue");
+    } catch {
+      // Ignore
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to confirm appointment.",
     };
   }
 }

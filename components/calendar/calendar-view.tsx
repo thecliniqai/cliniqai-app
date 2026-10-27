@@ -8,7 +8,7 @@ import { WaitlistDrawer } from "./waitlist-drawer";
 import { BlockTimeModal } from "./block-time-modal";
 import { SoftBlockOverrideDialog } from "./soft-block-override-dialog";
 import { Button } from "@/components/ui/button";
-import { cancelVisit } from "@/features/visits/actions";
+import { cancelVisit, confirmAppointment } from "@/features/visits/actions";
 import { WaitlistEntryWithPatient } from "@/features/waitlist/actions";
 import { ScheduleBlock } from "@/lib/db/types";
 import {
@@ -198,6 +198,24 @@ export function CalendarView({
       }
     } catch {
       alert("Failed to cancel appointment.");
+    }
+  };
+
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  const handleConfirmVisit = async (visitId: string) => {
+    try {
+      setConfirmingId(visitId);
+      const res = await confirmAppointment(visitId);
+      if (res.success) {
+        handleRefresh();
+      } else {
+        alert(res.error || "Failed to confirm appointment");
+      }
+    } catch {
+      alert("Failed to confirm appointment");
+    } finally {
+      setConfirmingId(null);
     }
   };
 
@@ -419,6 +437,8 @@ export function CalendarView({
         currentDate={currentDate}
         onSlotClick={handleSlotClick}
         onCancelVisit={handleCancelVisit}
+        onConfirmVisit={handleConfirmVisit}
+        confirmingId={confirmingId}
       />
 
       {/* Booking Drawer */}

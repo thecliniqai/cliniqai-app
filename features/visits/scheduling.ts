@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import { recordAudit } from "@/lib/audit/audit";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { createVisit } from "./actions";
 import {
   Database,
@@ -477,7 +478,7 @@ export async function bookAppointment(
         .eq("tenant_id", session.tenantId)
         .maybeSingle();
 
-      const doctorName = doctorMember?.full_name ? `Dr. ${doctorMember.full_name}` : "Doctor";
+      const doctorName = formatDoctorDisplayName(doctorMember?.full_name);
 
       await enqueueMessage(
         {

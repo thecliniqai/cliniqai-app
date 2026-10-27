@@ -2,6 +2,7 @@ import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { env } from "@/lib/env";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { recordAudit } from "@/lib/audit/audit";
 import { randomBytes } from "crypto";
 
@@ -83,7 +84,7 @@ export async function createAppointment(
 
   const { data: doctor } = await supabase
     .from("memberships")
-    .select("user_id, role")
+    .select("user_id, role, full_name")
     .eq("user_id", input.doctorId)
     .eq("tenant_id", input.tenantId)
     .maybeSingle();
@@ -96,6 +97,8 @@ export async function createAppointment(
       timeZone: "Asia/Kolkata",
     });
 
+    const doctorName = formatDoctorDisplayName(doctor?.full_name);
+
     await enqueueMessage(
       {
         tenantId: input.tenantId,
@@ -106,7 +109,7 @@ export async function createAppointment(
         templateId: "appointment_booked",
         templateParams: {
           patient_name: patient.full_name || "Patient",
-          doctor_name: "Doctor",
+          doctor_name: doctorName,
           date_time: formattedDateTime,
         },
         recipientPhone: patient.phone,
@@ -317,7 +320,7 @@ export async function findActiveAppointmentByPhone(
     .select("*")
     .in("patient_id", patientIds)
     .eq("origin_type", "scheduled")
-    .in("status", ["booked"])
+    .in("status", ["booked", "confirmed"])
     .order("scheduled_at", { ascending: true })
     .limit(1);
 

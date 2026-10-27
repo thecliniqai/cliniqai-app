@@ -8,6 +8,8 @@ import { getScheduleBlocksForDate } from "@/features/visits/scheduling";
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { TimelineVisit } from "@/components/calendar/doctor-timeline";
 
+export const dynamic = "force-dynamic";
+
 interface CalendarPageProps {
   searchParams: Promise<{
     date?: string;

@@ -10,6 +10,7 @@ export type AuditAction =
   | "clinic.profile.update"
   | "visit.create"
   | "visit.status_update"
+  | "visit.confirm"
   | "visit.cancel"
   | "visit.auto_promoted_from_waitlist"
   | "queue.check_in"

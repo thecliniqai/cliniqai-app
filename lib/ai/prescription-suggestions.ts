@@ -35,8 +35,8 @@ export async function getDoctorFrequentPrescriptions(
 
   try {
     // 1. Find visits for this doctor & tenant that had a matching diagnosis
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: matchingDiagnoses, error: diagErr } = await (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       supabase.from("consultation_diagnoses") as any
     )
       .select("visit_id")
@@ -70,8 +70,8 @@ export async function getDoctorFrequentPrescriptions(
     const prescriptionIds = prescriptions.map((r: { id: string }) => r.id);
 
     // 3. Fetch prescription items and aggregate frequencies
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: items, error: itemsErr } = await (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       supabase.from("prescription_items") as any
     )
       .select("medicine_name, dosage, timing, duration, special_instructions")
