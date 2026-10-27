@@ -35,7 +35,17 @@ export const completeAndBillSchema = z.object({
   reference_number: z.string().max(100).nullable().optional(),
 });
 
+export const addInvoiceItemSchema = z.object({
+  invoice_id: z.string().uuid("Invalid invoice ID"),
+  item_type: z.enum(["consultation", "procedure", "medicine", "other"]).default("procedure"),
+  description: z.string().min(1, "Description is required"),
+  unit_price: z.coerce.number().min(0, "Price must be >= 0"),
+  quantity: z.coerce.number().int().min(1, "Quantity must be >= 1").default(1),
+});
+
 export type InvoiceItemInput = z.infer<typeof invoiceItemSchema>;
 export type CreateInvoiceInput = z.infer<typeof createInvoiceSchema>;
 export type RecordPaymentInput = z.infer<typeof recordPaymentSchema>;
 export type CompleteAndBillInput = z.infer<typeof completeAndBillSchema>;
+export type AddInvoiceItemInput = z.infer<typeof addInvoiceItemSchema>;
+

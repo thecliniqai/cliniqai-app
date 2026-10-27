@@ -12,6 +12,8 @@ import {
   RecordPaymentInput,
   completeAndBillSchema,
   CompleteAndBillInput,
+  addInvoiceItemSchema,
+  AddInvoiceItemInput,
 } from "./schema";
 import { completeAndSignConsultation } from "@/features/consultation/actions";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -318,18 +320,21 @@ export async function getVisitBillingDetails(
   try {
     const session = sessionOverride || (await requirePermission("appointments:view"));
 
-    // Fetch invoice for visit
+    // Fetch invoice for visit (ordered by created_at DESC with limit 1 so multiple invoices never cause PGRST116)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invoice, error: invErr } = await (supabase.from("invoices") as any)
+    const { data: invoices, error: invErr } = await (supabase.from("invoices") as any)
       .select("*, invoice_items(*), payments(*)")
       .eq("visit_id", visitId)
       .eq("tenant_id", session.tenantId)
-      .maybeSingle();
+      .order("created_at", { ascending: false })
+      .limit(1);
 
     if (invErr) {
       console.error("[getVisitBillingDetails] Error loading invoice:", invErr);
       return { success: false, error: "Failed to load billing details." };
     }
+
+    const invoice = invoices && invoices.length > 0 ? invoices[0] : null;
 
     if (!invoice) {
       return {
@@ -378,6 +383,249 @@ export async function getVisitBillingDetails(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to load billing.",
+    };
+  }
+}
+
+export async function addInvoiceItem(
+  input: AddInvoiceItemInput,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{ success: boolean; item?: InvoiceItem; error?: string }> {
+  const parseResult = addInvoiceItemSchema.safeParse(input);
+  if (!parseResult.success) {
+    return {
+      success: false,
+      error: parseResult.error.issues[0]?.message || "Invalid item details.",
+    };
+  }
+
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("appointments:edit"));
+    const data = parseResult.data;
+
+    // 1. Fetch invoice to ensure tenant ownership
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: invoice, error: invErr } = await (supabase.from("invoices") as any)
+      .select("id, tenant_id, discount, tax, subtotal, total_amount, status")
+      .eq("id", data.invoice_id)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (invErr || !invoice) {
+      return { success: false, error: "Invoice not found or access denied." };
+    }
+
+    const qty = data.quantity > 0 ? data.quantity : 1;
+    const unitPrice = Math.max(0, Number(data.unit_price) || 0);
+    const totalPrice = Math.round((unitPrice * qty + Number.EPSILON) * 100) / 100;
+
+    // 2. Insert into invoice_items
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: newItem, error: itemErr } = await (supabase.from("invoice_items") as any)
+      .insert({
+        tenant_id: session.tenantId,
+        invoice_id: data.invoice_id,
+        item_type: data.item_type,
+        description: data.description.trim(),
+        unit_price: unitPrice,
+        quantity: qty,
+        total_price: totalPrice,
+      })
+      .select("*")
+      .single();
+
+    if (itemErr || !newItem) {
+      console.error("[addInvoiceItem] Insert error:", itemErr);
+      return { success: false, error: "Failed to add charge to invoice." };
+    }
+
+    // 3. Recalculate invoice totals
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: allItems } = await (supabase.from("invoice_items") as any)
+      .select("total_price")
+      .eq("invoice_id", data.invoice_id)
+      .eq("tenant_id", session.tenantId);
+
+    const newSubtotal = Math.round(
+      ((allItems || []).reduce(
+        (acc: number, curr: { total_price: number }) => acc + Number(curr.total_price),
+        0
+      ) +
+        Number.EPSILON) *
+        100
+    ) / 100;
+
+    const discount = Number(invoice.discount) || 0;
+    const tax = Number(invoice.tax) || 0;
+    const newTotal = Math.max(0, Math.round((newSubtotal - discount + tax + Number.EPSILON) * 100) / 100);
+
+    // 4. Update payments / status
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: payments } = await (supabase.from("payments") as any)
+      .select("amount")
+      .eq("invoice_id", data.invoice_id)
+      .eq("tenant_id", session.tenantId);
+
+    const totalPaid = Math.round(
+      ((payments || []).reduce(
+        (acc: number, curr: { amount: number }) => acc + Number(curr.amount),
+        0
+      ) +
+        Number.EPSILON) *
+        100
+    ) / 100;
+
+    const isFullyPaid = totalPaid >= newTotal && newTotal > 0;
+    const newStatus = isFullyPaid ? "paid" : "issued";
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("invoices") as any)
+      .update({
+        subtotal: newSubtotal,
+        total_amount: newTotal,
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.invoice_id)
+      .eq("tenant_id", session.tenantId);
+
+    await recordAudit(
+      {
+        action: "invoice.item_add",
+        entityType: "invoice",
+        entityId: data.invoice_id,
+        metadata: {
+          item_id: newItem.id,
+          description: data.description,
+          amount: totalPrice,
+        },
+      },
+      clientOverride,
+      session
+    );
+
+    return { success: true, item: newItem };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to add invoice item.",
+    };
+  }
+}
+
+export async function deleteInvoiceItem(
+  itemId: string,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("appointments:edit"));
+
+    // 1. Fetch item to find invoice_id and verify tenant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: item, error: itemErr } = await (supabase.from("invoice_items") as any)
+      .select("id, invoice_id, tenant_id, total_price")
+      .eq("id", itemId)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (itemErr || !item) {
+      return { success: false, error: "Invoice item not found." };
+    }
+
+    // 2. Delete item
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: delErr } = await (supabase.from("invoice_items") as any)
+      .delete()
+      .eq("id", itemId)
+      .eq("tenant_id", session.tenantId);
+
+    if (delErr) {
+      return { success: false, error: "Failed to delete item." };
+    }
+
+    // 3. Recalculate invoice totals
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: invoice } = await (supabase.from("invoices") as any)
+      .select("id, discount, tax")
+      .eq("id", item.invoice_id)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (invoice) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: allItems } = await (supabase.from("invoice_items") as any)
+        .select("total_price")
+        .eq("invoice_id", item.invoice_id)
+        .eq("tenant_id", session.tenantId);
+
+      const newSubtotal = Math.round(
+        ((allItems || []).reduce(
+          (acc: number, curr: { total_price: number }) => acc + Number(curr.total_price),
+          0
+        ) +
+          Number.EPSILON) *
+          100
+      ) / 100;
+
+      const discount = Number(invoice.discount) || 0;
+      const tax = Number(invoice.tax) || 0;
+      const newTotal = Math.max(0, Math.round((newSubtotal - discount + tax + Number.EPSILON) * 100) / 100);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: payments } = await (supabase.from("payments") as any)
+        .select("amount")
+        .eq("invoice_id", item.invoice_id)
+        .eq("tenant_id", session.tenantId);
+
+      const totalPaid = Math.round(
+        ((payments || []).reduce(
+          (acc: number, curr: { amount: number }) => acc + Number(curr.amount),
+          0
+        ) +
+          Number.EPSILON) *
+          100
+      ) / 100;
+
+      const isFullyPaid = totalPaid >= newTotal && newTotal > 0;
+      const newStatus = isFullyPaid ? "paid" : "issued";
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("invoices") as any)
+        .update({
+          subtotal: newSubtotal,
+          total_amount: newTotal,
+          status: newStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", item.invoice_id)
+        .eq("tenant_id", session.tenantId);
+    }
+
+    await recordAudit(
+      {
+        action: "invoice.item_remove",
+        entityType: "invoice",
+        entityId: item.invoice_id,
+        metadata: {
+          item_id: itemId,
+          amount: item.total_price,
+        },
+      },
+      clientOverride,
+      session
+    );
+
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to remove invoice item.",
     };
   }
 }
@@ -482,11 +730,13 @@ export async function completeAndBillConsultation(
 
     // 4. Retrieve signed PDF path if generated
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rxRow } = await (supabase.from("prescriptions") as any)
+    const { data: rxRows } = await (supabase.from("prescriptions") as any)
       .select("pdf_storage_path")
       .eq("visit_id", data.visit_id)
       .eq("tenant_id", session.tenantId)
-      .maybeSingle();
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const rxRow = rxRows && rxRows.length > 0 ? rxRows[0] : null;
 
     // 5. Automated Single Consolidated WhatsApp Dispatch:
     // Sends both prescription and invoice links together in a single WhatsApp message to avoid double message costs.
@@ -715,17 +965,16 @@ export async function shareReceiptViaWhatsApp(
       // Fallback: Check if invoiceId is actually visitId
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: invByVisit } = await (supabase.from("invoices") as any)
+        const { data: invByVisits } = await (supabase.from("invoices") as any)
           .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
           .eq("visit_id", invoiceId)
           .eq("tenant_id", session.tenantId)
           .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
+          .limit(1);
 
-        if (invByVisit) {
-          inv = invByVisit;
-          invoiceId = invByVisit.id;
+        if (invByVisits && invByVisits.length > 0) {
+          inv = invByVisits[0];
+          invoiceId = invByVisits[0].id;
           invErr = null;
         }
       } catch {

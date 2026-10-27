@@ -35,6 +35,8 @@ export type AuditAction =
   | "user.profile.update"
   | "staff.member.update"
   | "invoice.create"
+  | "invoice.item_add"
+  | "invoice.item_remove"
   | "invoice.payment_recorded"
   | "invoice.generate_receipt_pdf"
   | "schedule_block.create"
