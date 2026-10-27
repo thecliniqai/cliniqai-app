@@ -239,5 +239,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 03.2. Patient Visit History & Visits Register | 2/2 | Complete | 2026-10-16 |
 | 03.3. Doctor Availability & Multi-Shift Scheduling | 3/3 | Complete | 2026-10-16 |
 | 4. Labs & Referrals | 3/3 | Complete | 2026-10-22 |
-| 5. Communications & AI Assist | 4/4 | Ready to plan | - |
+| 5. Communications & AI Assist | 4/4 | Complete | 2026-10-27 |
 | 6. API & Launch Readiness | 0/- | Not started | - |
