@@ -706,11 +706,33 @@ export async function sharePrescriptionViaWhatsApp(
 
     // 1. Fetch prescription record joined with patient and tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rx, error: rxErr } = await (supabase.from("prescriptions") as any)
+    let { data: rx, error: rxErr } = await (supabase.from("prescriptions") as any)
       .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
       .eq("id", prescriptionId)
       .eq("tenant_id", session.tenantId)
       .single();
+
+    if (rxErr || !rx) {
+      // Fallback: Check if prescriptionId is actually visitId
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: rxByVisit } = await (supabase.from("prescriptions") as any)
+          .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+          .eq("visit_id", prescriptionId)
+          .eq("tenant_id", session.tenantId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (rxByVisit) {
+          rx = rxByVisit;
+          prescriptionId = rxByVisit.id;
+          rxErr = null;
+        }
+      } catch {
+        // Ignore fallback lookup error
+      }
+    }
 
     if (rxErr || !rx) {
       return { success: false, error: "Prescription not found." };
@@ -761,6 +783,13 @@ export async function sharePrescriptionViaWhatsApp(
           prescription_id: prescriptionId,
           share_token: token,
           share_url: shareUrl,
+          buttons: [
+            {
+              id: "btn_view_rx",
+              text: "View Prescription",
+              url: shareUrl,
+            },
+          ],
         },
       },
       supabase

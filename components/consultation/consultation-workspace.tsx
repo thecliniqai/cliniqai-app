@@ -22,7 +22,8 @@ import { PrescriptionBuilder } from "./prescription-builder";
 import { AiScribeModal } from "./ai-scribe-modal";
 import { ReturningPatientCatchup } from "./returning-patient-catchup";
 import { SoapDraft } from "@/lib/ai/types";
-import { addPrescriptionItem } from "@/features/prescriptions/actions";
+import { addPrescriptionItem, sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
+import { shareReceiptViaWhatsApp } from "@/features/billing/actions";
 import type { PrescriptionItem } from "@/lib/db/types";
 import { GPSystemicReview } from "./specialty/gp-systemic-review";
 import { DentalOdontogram } from "./specialty/dental-odontogram";
@@ -48,10 +49,13 @@ import {
   Check,
   Share2,
   Sparkles,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { CreateReferralModal } from "@/components/referrals/create-referral-modal";
 import { getReferralSignedUrl } from "@/features/referrals/actions";
 import type { Referral } from "@/lib/db/types";
+import { cn } from "@/lib/utils";
 
 export interface ConsultationWorkspaceProps {
   visit: {
@@ -174,6 +178,46 @@ export function ConsultationWorkspace({
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [activeReferral, setActiveReferral] = useState<Referral | null>(null);
   const [isOpeningReferralPdf, setIsOpeningReferralPdf] = useState(false);
+
+  // WhatsApp Share States
+  const [isSendingRxWa, setIsSendingRxWa] = useState(false);
+  const [isRxWaSent, setIsRxWaSent] = useState(false);
+  const [isSendingInvWa, setIsSendingInvWa] = useState(false);
+  const [isInvWaSent, setIsInvWaSent] = useState(false);
+
+  const handleShareRxWhatsApp = async () => {
+    if (isSendingRxWa || isRxWaSent) return;
+    setIsSendingRxWa(true);
+    try {
+      const res = await sharePrescriptionViaWhatsApp(visit.id);
+      if (res.success) {
+        setIsRxWaSent(true);
+      } else {
+        alert(res.error || "Failed to send prescription via WhatsApp");
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error sending WhatsApp");
+    } finally {
+      setIsSendingRxWa(false);
+    }
+  };
+
+  const handleShareReceiptWhatsApp = async () => {
+    if (isSendingInvWa || isInvWaSent) return;
+    setIsSendingInvWa(true);
+    try {
+      const res = await shareReceiptViaWhatsApp(visit.id);
+      if (res.success) {
+        setIsInvWaSent(true);
+      } else {
+        alert(res.error || "Failed to send receipt via WhatsApp");
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error sending WhatsApp");
+    } finally {
+      setIsSendingInvWa(false);
+    }
+  };
 
   const handleAcceptSoapDraft = (draft: SoapDraft) => {
     markDirty();
@@ -526,6 +570,30 @@ export function ConsultationWorkspace({
 
             {visit.status === "completed" ? (
               <>
+                <button
+                  type="button"
+                  disabled={isSendingRxWa || isRxWaSent}
+                  onClick={handleShareRxWhatsApp}
+                  className={cn(
+                    "min-h-[44px] px-3.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs border cursor-pointer",
+                    isRxWaSent
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent disabled:opacity-50"
+                  )}
+                  title="Send Prescription via WhatsApp"
+                >
+                  {isSendingRxWa ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isRxWaSent ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <MessageSquare className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isRxWaSent ? "Rx Sent ✓" : "WhatsApp Rx"}
+                  </span>
+                </button>
+
                 <a
                   href={`/api/visits/${visit.id}/prescription-pdf`}
                   target="_blank"
@@ -536,6 +604,30 @@ export function ConsultationWorkspace({
                   <Printer className="h-4 w-4" />
                   <span>Print Rx</span>
                 </a>
+
+                <button
+                  type="button"
+                  disabled={isSendingInvWa || isInvWaSent}
+                  onClick={handleShareReceiptWhatsApp}
+                  className={cn(
+                    "min-h-[44px] px-3.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs border cursor-pointer",
+                    isInvWaSent
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default"
+                      : "border-gray-300 bg-white hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 disabled:opacity-50"
+                  )}
+                  title="Send Receipt via WhatsApp"
+                >
+                  {isSendingInvWa ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isInvWaSent ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  ) : (
+                    <MessageSquare className="h-4 w-4 text-emerald-600" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isInvWaSent ? "Receipt Sent ✓" : "WhatsApp Receipt"}
+                  </span>
+                </button>
 
                 <a
                   href={`/api/invoices/${visit.id}/receipt-pdf`}

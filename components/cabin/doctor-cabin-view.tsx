@@ -20,8 +20,12 @@ import {
   User,
   Printer,
   Receipt,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
+import { shareReceiptViaWhatsApp } from "@/features/billing/actions";
 
 export interface DoctorOption {
   id: string;
@@ -54,6 +58,44 @@ export function DoctorCabinView({
   const [isPending, startTransition] = useTransition();
   const [selectedDoctor, setSelectedDoctor] = useState(currentDoctorId);
   const [activeTab, setActiveTab] = useState<"waiting" | "completed">("waiting");
+
+  const [waSendingState, setWaSendingState] = useState<Record<string, "sending" | "sent" | "error">>({});
+
+  const handleShareRxWhatsApp = async (visitId: string) => {
+    const key = `rx-${visitId}`;
+    if (waSendingState[key] === "sending" || waSendingState[key] === "sent") return;
+    setWaSendingState((prev) => ({ ...prev, [key]: "sending" }));
+    try {
+      const res = await sharePrescriptionViaWhatsApp(visitId);
+      if (res.success) {
+        setWaSendingState((prev) => ({ ...prev, [key]: "sent" }));
+      } else {
+        setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
+        alert(res.error || "Failed to send prescription via WhatsApp");
+      }
+    } catch (err: unknown) {
+      setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
+      alert(err instanceof Error ? err.message : "Error sending WhatsApp");
+    }
+  };
+
+  const handleShareReceiptWhatsApp = async (invoiceOrVisitId: string) => {
+    const key = `inv-${invoiceOrVisitId}`;
+    if (waSendingState[key] === "sending" || waSendingState[key] === "sent") return;
+    setWaSendingState((prev) => ({ ...prev, [key]: "sending" }));
+    try {
+      const res = await shareReceiptViaWhatsApp(invoiceOrVisitId);
+      if (res.success) {
+        setWaSendingState((prev) => ({ ...prev, [key]: "sent" }));
+      } else {
+        setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
+        alert(res.error || "Failed to send receipt via WhatsApp");
+      }
+    } catch (err: unknown) {
+      setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
+      alert(err instanceof Error ? err.message : "Error sending WhatsApp");
+    }
+  };
 
   const totalPatientsSeen = completedVisits.length;
   const waitingCount = waitingVisits.length;
@@ -390,7 +432,7 @@ export function DoctorCabinView({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href={`/consultation/${visit.id}`}
                       className="h-9 px-3.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs"
@@ -398,6 +440,32 @@ export function DoctorCabinView({
                       <Stethoscope className="w-3.5 h-3.5 text-[#1769E0]" />
                       <span>Review Visit</span>
                     </Link>
+
+                    {visit.prescription && (
+                      <button
+                        type="button"
+                        disabled={waSendingState[`rx-${visit.id}`] === "sending" || waSendingState[`rx-${visit.id}`] === "sent"}
+                        onClick={() => handleShareRxWhatsApp(visit.id)}
+                        className={cn(
+                          "h-9 px-3 rounded-xl font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs border cursor-pointer",
+                          waSendingState[`rx-${visit.id}`] === "sent"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default"
+                            : "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent disabled:opacity-50"
+                        )}
+                        title="Send Prescription via WhatsApp"
+                      >
+                        {waSendingState[`rx-${visit.id}`] === "sending" ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : waSendingState[`rx-${visit.id}`] === "sent" ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        )}
+                        <span>
+                          {waSendingState[`rx-${visit.id}`] === "sent" ? "Sent ✓" : "WhatsApp Rx"}
+                        </span>
+                      </button>
+                    )}
 
                     {visit.prescription && (
                       <a
@@ -411,6 +479,30 @@ export function DoctorCabinView({
                         <span>Print Rx</span>
                       </a>
                     )}
+
+                    <button
+                      type="button"
+                      disabled={waSendingState[`inv-${visit.id}`] === "sending" || waSendingState[`inv-${visit.id}`] === "sent"}
+                      onClick={() => handleShareReceiptWhatsApp(visit.id)}
+                      className={cn(
+                        "h-9 px-3 rounded-xl font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs border cursor-pointer",
+                        waSendingState[`inv-${visit.id}`] === "sent"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default"
+                          : "border-gray-200 bg-white hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 disabled:opacity-50"
+                      )}
+                      title="Send Receipt via WhatsApp"
+                    >
+                      {waSendingState[`inv-${visit.id}`] === "sending" ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : waSendingState[`inv-${visit.id}`] === "sent" ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                      )}
+                      <span>
+                        {waSendingState[`inv-${visit.id}`] === "sent" ? "Sent ✓" : "WhatsApp Receipt"}
+                      </span>
+                    </button>
 
                     <a
                       href={`/api/invoices/${visit.id}/receipt-pdf`}

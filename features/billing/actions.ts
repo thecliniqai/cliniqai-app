@@ -657,11 +657,33 @@ export async function shareReceiptViaWhatsApp(
 
     // 1. Fetch invoice record joined with patient and tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: inv, error: invErr } = await (supabase.from("invoices") as any)
+    let { data: inv, error: invErr } = await (supabase.from("invoices") as any)
       .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
       .eq("id", invoiceId)
       .eq("tenant_id", session.tenantId)
       .single();
+
+    if (invErr || !inv) {
+      // Fallback: Check if invoiceId is actually visitId
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: invByVisit } = await (supabase.from("invoices") as any)
+          .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+          .eq("visit_id", invoiceId)
+          .eq("tenant_id", session.tenantId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (invByVisit) {
+          inv = invByVisit;
+          invoiceId = invByVisit.id;
+          invErr = null;
+        }
+      } catch {
+        // Ignore fallback lookup error
+      }
+    }
 
     if (invErr || !inv) {
       return { success: false, error: "Invoice not found." };
@@ -713,6 +735,13 @@ export async function shareReceiptViaWhatsApp(
           invoice_id: invoiceId,
           share_token: token,
           share_url: shareUrl,
+          buttons: [
+            {
+              id: "btn_view_receipt",
+              text: "View Receipt",
+              url: shareUrl,
+            },
+          ],
         },
       },
       supabase

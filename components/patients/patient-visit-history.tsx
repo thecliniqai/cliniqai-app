@@ -17,11 +17,16 @@ import {
   PlusCircle,
   FlaskConical,
   Share2,
+  CheckCircle2,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { PatientVisitHistoryItem, PatientVisitVitals } from "@/features/patients/schema";
 import { cn } from "@/lib/utils";
+import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
+import { shareReceiptViaWhatsApp } from "@/features/billing/actions";
 
 interface PatientVisitHistoryProps {
   visits: PatientVisitHistoryItem[];
@@ -47,6 +52,44 @@ export function PatientVisitHistory({
   };
 
   const isDoctorOrOwner = ["owner", "admin", "doctor"].includes(userRole);
+
+  const [waSendingState, setWaSendingState] = useState<Record<string, "sending" | "sent" | "error">>({});
+
+  const handleShareRxWhatsApp = async (visitId: string) => {
+    const key = `rx-${visitId}`;
+    if (waSendingState[key] === "sending" || waSendingState[key] === "sent") return;
+    setWaSendingState((prev) => ({ ...prev, [key]: "sending" }));
+    try {
+      const res = await sharePrescriptionViaWhatsApp(visitId);
+      if (res.success) {
+        setWaSendingState((prev) => ({ ...prev, [key]: "sent" }));
+      } else {
+        setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
+        alert(res.error || "Failed to send prescription via WhatsApp");
+      }
+    } catch (err: unknown) {
+      setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
+      alert(err instanceof Error ? err.message : "Error sending WhatsApp");
+    }
+  };
+
+  const handleShareReceiptWhatsApp = async (invoiceOrVisitId: string) => {
+    const key = `inv-${invoiceOrVisitId}`;
+    if (waSendingState[key] === "sending" || waSendingState[key] === "sent") return;
+    setWaSendingState((prev) => ({ ...prev, [key]: "sending" }));
+    try {
+      const res = await shareReceiptViaWhatsApp(invoiceOrVisitId);
+      if (res.success) {
+        setWaSendingState((prev) => ({ ...prev, [key]: "sent" }));
+      } else {
+        setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
+        alert(res.error || "Failed to send receipt via WhatsApp");
+      }
+    } catch (err: unknown) {
+      setWaSendingState((prev) => ({ ...prev, [key]: "error" }));
+      alert(err instanceof Error ? err.message : "Error sending WhatsApp");
+    }
+  };
 
   if (!visits || visits.length === 0) {
     return (
@@ -440,6 +483,35 @@ export function PatientVisitHistory({
                   {/* Actions Strip */}
                   <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
+                      {/* WhatsApp Rx */}
+                      {(hasRx || visit.status === "completed") && (
+                        <Button
+                          variant={waSendingState[`rx-${visit.id}`] === "sent" ? "outline" : "secondary"}
+                          size="sm"
+                          disabled={waSendingState[`rx-${visit.id}`] === "sending" || waSendingState[`rx-${visit.id}`] === "sent"}
+                          onClick={() => handleShareRxWhatsApp(visit.id)}
+                          startIcon={
+                            waSendingState[`rx-${visit.id}`] === "sending" ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : waSendingState[`rx-${visit.id}`] === "sent" ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                            )
+                          }
+                          className={cn(
+                            waSendingState[`rx-${visit.id}`] === "sent" && "bg-emerald-50 text-emerald-800 border-emerald-200"
+                          )}
+                          title="Send prescription to patient via WhatsApp"
+                        >
+                          {waSendingState[`rx-${visit.id}`] === "sent"
+                            ? "Rx Sent ✓"
+                            : waSendingState[`rx-${visit.id}`] === "sending"
+                            ? "Sending..."
+                            : "WhatsApp Rx"}
+                        </Button>
+                      )}
+
                       {/* Print Rx PDF */}
                       {hasRx || visit.status === "completed" ? (
                         <a
@@ -456,6 +528,35 @@ export function PatientVisitHistory({
                           </Button>
                         </a>
                       ) : null}
+
+                      {/* WhatsApp Receipt */}
+                      {hasInvoice && (
+                        <Button
+                          variant={waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent" ? "outline" : "secondary"}
+                          size="sm"
+                          disabled={waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sending" || waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent"}
+                          onClick={() => handleShareReceiptWhatsApp(visit.invoice?.id || visit.id)}
+                          startIcon={
+                            waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sending" ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent" ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                            )
+                          }
+                          className={cn(
+                            waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent" && "bg-emerald-50 text-emerald-800 border-emerald-200"
+                          )}
+                          title="Send receipt to patient via WhatsApp"
+                        >
+                          {waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sent"
+                            ? "Receipt Sent ✓"
+                            : waSendingState[`inv-${visit.invoice?.id || visit.id}`] === "sending"
+                            ? "Sending..."
+                            : "WhatsApp Receipt"}
+                        </Button>
+                      )}
 
                       {/* Print Receipt PDF */}
                       {hasInvoice && (

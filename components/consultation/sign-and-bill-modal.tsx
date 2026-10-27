@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { completeAndBillConsultation } from "@/features/billing/actions";
+import { completeAndBillConsultation, shareReceiptViaWhatsApp } from "@/features/billing/actions";
+import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -22,6 +23,8 @@ import {
   ShieldCheck,
   Printer,
   Receipt,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -65,12 +68,64 @@ export function SignAndBillModal({
     paymentRecorded: boolean;
   } | null>(null);
 
+  const [isSendingRxWa, setIsSendingRxWa] = useState(false);
+  const [rxWaStatus, setRxWaStatus] = useState<"idle" | "success" | "error">("idle");
+  const [rxWaError, setRxWaError] = useState<string | null>(null);
+
+  const [isSendingInvWa, setIsSendingInvWa] = useState(false);
+  const [invWaStatus, setInvWaStatus] = useState<"idle" | "success" | "error">("idle");
+  const [invWaError, setInvWaError] = useState<string | null>(null);
+
   useEffect(() => {
     if (isOpen) {
       setCompletedResult(null);
       setError(null);
+      setRxWaStatus("idle");
+      setRxWaError(null);
+      setInvWaStatus("idle");
+      setInvWaError(null);
     }
   }, [isOpen]);
+
+  const handleSendPrescriptionWhatsApp = async () => {
+    if (!completedResult?.visitId || isSendingRxWa) return;
+    setIsSendingRxWa(true);
+    setRxWaError(null);
+    try {
+      const res = await sharePrescriptionViaWhatsApp(completedResult.visitId);
+      if (res.success) {
+        setRxWaStatus("success");
+      } else {
+        setRxWaStatus("error");
+        setRxWaError(res.error || "Failed to send prescription via WhatsApp.");
+      }
+    } catch (err: unknown) {
+      setRxWaStatus("error");
+      setRxWaError(err instanceof Error ? err.message : "Error sending WhatsApp message.");
+    } finally {
+      setIsSendingRxWa(false);
+    }
+  };
+
+  const handleSendReceiptWhatsApp = async () => {
+    if (!completedResult?.invoiceId || isSendingInvWa) return;
+    setIsSendingInvWa(true);
+    setInvWaError(null);
+    try {
+      const res = await shareReceiptViaWhatsApp(completedResult.invoiceId);
+      if (res.success) {
+        setInvWaStatus("success");
+      } else {
+        setInvWaStatus("error");
+        setInvWaError(res.error || "Failed to send receipt via WhatsApp.");
+      }
+    } catch (err: unknown) {
+      setInvWaStatus("error");
+      setInvWaError(err instanceof Error ? err.message : "Error sending WhatsApp message.");
+    } finally {
+      setIsSendingInvWa(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -174,7 +229,7 @@ export function SignAndBillModal({
 
               {/* Action Cards */}
               <div className="space-y-3 pt-1">
-                {/* 1. Prescription Print */}
+                {/* 1. Prescription Print & WhatsApp */}
                 <div className="p-4 rounded-xl border border-gray-200 bg-white hover:border-[#1769E0]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-xl bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center shrink-0 border border-[#B2CCFF]">
@@ -192,21 +247,54 @@ export function SignAndBillModal({
                       <p className="text-xs text-gray-500 mt-0.5">
                         Formatted OPD Rx with vitals, diagnoses, and medication instructions.
                       </p>
+                      {rxWaError && (
+                        <p className="text-[11px] text-red-600 mt-1">{rxWaError}</p>
+                      )}
                     </div>
                   </div>
 
-                  <a
-                    href={`/api/visits/${completedResult.visitId}/prescription-pdf`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="h-10 px-4 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] text-xs font-semibold flex items-center justify-center gap-2 shadow-theme-xs transition-colors shrink-0"
-                  >
-                    <Printer className="w-4 h-4" />
-                    <span>Print Rx</span>
-                  </a>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isSendingRxWa || rxWaStatus === "success"}
+                      onClick={handleSendPrescriptionWhatsApp}
+                      className={cn(
+                        "h-10 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shrink-0 border cursor-pointer",
+                        rxWaStatus === "success"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default"
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent shadow-theme-xs disabled:opacity-50"
+                      )}
+                      title="Send digital prescription directly to patient's WhatsApp"
+                    >
+                      {isSendingRxWa ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : rxWaStatus === "success" ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <MessageSquare className="w-4 h-4 text-white" />
+                      )}
+                      <span>
+                        {rxWaStatus === "success"
+                          ? "Sent on WhatsApp ✓"
+                          : isSendingRxWa
+                          ? "Sending..."
+                          : "Send WhatsApp"}
+                      </span>
+                    </button>
+
+                    <a
+                      href={`/api/visits/${completedResult.visitId}/prescription-pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-10 px-4 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] text-xs font-semibold flex items-center justify-center gap-2 shadow-theme-xs transition-colors shrink-0"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print Rx</span>
+                    </a>
+                  </div>
                 </div>
 
-                {/* 2. Invoice / Payment Receipt Print */}
+                {/* 2. Invoice / Payment Receipt Print & WhatsApp */}
                 <div className="p-4 rounded-xl border border-gray-200 bg-white hover:border-emerald-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
@@ -233,18 +321,51 @@ export function SignAndBillModal({
                           ? `Official clinic receipt for ₹${totalPayable} (${paymentMethod.toUpperCase()}).`
                           : "Receipt bill routed to reception for payment collection."}
                       </p>
+                      {invWaError && (
+                        <p className="text-[11px] text-red-600 mt-1">{invWaError}</p>
+                      )}
                     </div>
                   </div>
 
-                  <a
-                    href={`/api/invoices/${completedResult.invoiceId}/receipt-pdf`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="h-10 px-4 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 text-xs font-semibold flex items-center justify-center gap-2 shadow-2xs transition-colors shrink-0"
-                  >
-                    <Receipt className="w-4 h-4 text-emerald-600" />
-                    <span>Print Receipt</span>
-                  </a>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={isSendingInvWa || invWaStatus === "success"}
+                      onClick={handleSendReceiptWhatsApp}
+                      className={cn(
+                        "h-10 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shrink-0 border cursor-pointer",
+                        invWaStatus === "success"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 cursor-default"
+                          : "bg-emerald-600 hover:bg-emerald-700 text-white border-transparent shadow-theme-xs disabled:opacity-50"
+                      )}
+                      title="Send official payment receipt directly to patient's WhatsApp"
+                    >
+                      {isSendingInvWa ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : invWaStatus === "success" ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <MessageSquare className="w-4 h-4 text-white" />
+                      )}
+                      <span>
+                        {invWaStatus === "success"
+                          ? "Sent on WhatsApp ✓"
+                          : isSendingInvWa
+                          ? "Sending..."
+                          : "Send WhatsApp"}
+                      </span>
+                    </button>
+
+                    <a
+                      href={`/api/invoices/${completedResult.invoiceId}/receipt-pdf`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-10 px-4 rounded-xl border border-gray-300 bg-white hover:bg-gray-50 text-gray-800 text-xs font-semibold flex items-center justify-center gap-2 shadow-2xs transition-colors shrink-0"
+                    >
+                      <Receipt className="w-4 h-4 text-emerald-600" />
+                      <span>Print Receipt</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
