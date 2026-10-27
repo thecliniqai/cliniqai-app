@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useSidebar } from "./sidebar-context";
 import { UserDropdown } from "./user-dropdown";
 import { GlobalSearchModal } from "./global-search-modal";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Menu, PanelLeftClose, PanelLeft, Search } from "lucide-react";
 
 export interface AppHeaderProps {
@@ -95,6 +96,8 @@ export function AppHeader({ tenantName, role, userEmail }: AppHeaderProps) {
           >
             <Search className="w-5 h-5" />
           </button>
+
+          <NotificationBell />
 
           <UserDropdown
             userEmail={userEmail}
