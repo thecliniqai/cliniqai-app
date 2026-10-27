@@ -1,0 +1,529 @@
+[
+  {
+    "template_name": "appointment_booked",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": false,
+    "description": "Triggered when an appointment is booked for a patient (Event #1). Includes interactive quick reply buttons for Confirm, Cancel, and Reschedule.",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Appointment Confirmation"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, your appointment with Dr. {{2}} at {{3}} is confirmed for {{4}}. Please arrive 10 minutes prior to your scheduled time.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "Aditi Rao",
+              "Pune Care Clinic",
+              "Wednesday, Oct 28 at 10:30 AM"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "QUICK_REPLY",
+            "text": "Confirm"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "Cancel"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "Reschedule"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "template_name": "appointment_rescheduled",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": false,
+    "description": "Triggered when an appointment is rescheduled to a new date/time (Event #2). Includes Confirm and Cancel quick reply buttons.",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Appointment Rescheduled"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, your appointment with Dr. {{2}} at {{3}} has been rescheduled to {{4}}. Please let us know if this time suits you.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "Aditi Rao",
+              "Pune Care Clinic",
+              "Thursday, Oct 29 at 02:00 PM"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "QUICK_REPLY",
+            "text": "Confirm"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "Cancel"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "template_name": "appointment_cancelled",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": false,
+    "description": "Triggered when an appointment is cancelled by clinic staff (Event #3).",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Appointment Cancellation"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, your appointment at {{2}} has been cancelled. Reason: {{3}}. If you wish to re-book, please contact the clinic or visit our reception.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "Pune Care Clinic",
+              "Doctor emergency leave"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      }
+    ]
+  },
+  {
+    "template_name": "appointment_reminder",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": false,
+    "description": "Automated reminder dispatched 24 hours before the appointment (Event #4). Held during quiet hours.",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Upcoming Appointment Reminder"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, this is a friendly reminder for your upcoming appointment with Dr. {{2}} at {{3}} tomorrow at {{4}}. Please confirm if you will be attending.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "Aditi Rao",
+              "Pune Care Clinic",
+              "10:30 AM"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "QUICK_REPLY",
+            "text": "Confirm"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "Cancel"
+          },
+          {
+            "type": "QUICK_REPLY",
+            "text": "Reschedule"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "template_name": "prescription_ready",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": true,
+    "description": "Staff-driven 1-click sharing of finalized e-prescription (Event #6). Contains secure tokenized viewer link.",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Prescription Available"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, your digital prescription from Dr. {{2}} at {{3}} is now ready. Tap below to securely view and download your medication schedule.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "Aditi Rao",
+              "Pune Care Clinic"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "View Prescription",
+            "url": "https://clinicq.health/r/{{1}}",
+            "example": [
+              "https://clinicq.health/r/rx-token-example"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "template_name": "lab_report_uploaded",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": true,
+    "description": "Staff-driven 1-click sharing of uploaded lab report or diagnostic scan (Event #7).",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Diagnostic Report Ready"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, your diagnostic report for {{2}} from {{3}} is now available. Tap below to securely view and download your report.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "Complete Blood Count (CBC)",
+              "Pune Care Clinic"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "View Report",
+            "url": "https://clinicq.health/r/{{1}}",
+            "example": [
+              "https://clinicq.health/r/lab-token-example"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "template_name": "referral_letter_issued",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": true,
+    "description": "Staff-driven sharing of clinical referral letter to specialist (Event #8).",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Referral Letter Issued"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, Dr. {{2}} has referred you to {{3}} for specialized consultation. Your referral summary from {{4}} is available below.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "Aditi Rao",
+              "Dr. Suresh Patil (Cardiology)",
+              "Pune Care Clinic"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "View Referral",
+            "url": "https://clinicq.health/r/{{1}}",
+            "example": [
+              "https://clinicq.health/r/ref-token-example"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "template_name": "receipt_issued",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": true,
+    "description": "Staff-driven sharing of payment receipt and invoice (Event #11).",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Payment Receipt"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, payment receipt #{{2}} for INR {{3}} at {{4}} has been issued. Tap below to securely view and download your PDF receipt.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "INV-2026-0042",
+              "500",
+              "Pune Care Clinic"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "View Receipt",
+            "url": "https://clinicq.health/r/{{1}}",
+            "example": [
+              "https://clinicq.health/r/inv-token-example"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "template_name": "consultation_documents",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": true,
+    "description": "Consolidated visit completion message delivering both Prescription and Receipt in a single WhatsApp dispatch (cost and quota optimization).",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Visit Summary & Documents"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, thank you for consulting Dr. {{2}} at {{3}}. Your visit total is INR {{4}} (Invoice #{{5}}). Tap below to view your prescription and receipt.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "Aditi Rao",
+              "Pune Care Clinic",
+              "850",
+              "INV-2026-0043"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "View Documents",
+            "url": "https://clinicq.health/r/{{1}}",
+            "example": [
+              "https://clinicq.health/r/visit-token-example"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "template_name": "follow_up_due",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": false,
+    "description": "Dispatched to patient when a scheduled follow-up checkup is due (Event #9).",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Follow-up Consultation Due"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, you are due for your recommended follow-up visit with Dr. {{2}} at {{3}}. Regular follow-ups ensure optimal care and recovery. Please contact the clinic to book your slot.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "Aditi Rao",
+              "Pune Care Clinic"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      }
+    ]
+  },
+  {
+    "template_name": "pediatric_vaccine_due",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": false,
+    "description": "Dispatched to parent/guardian for upcoming child immunization (Event #10).",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Child Immunization Reminder"
+      },
+      {
+        "type": "BODY",
+        "text": "Dear Parent/Guardian, {{1}} is due for their {{2}} vaccination on {{3}} at {{4}}. Timely immunization is vital for protection. Please visit or contact us to schedule the dose.",
+        "example": {
+          "body_text": [
+            [
+              "Aarav Sharma",
+              "MMR Booster",
+              "Nov 05, 2026",
+              "Pune Care Clinic"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Pediatrics"
+      }
+    ]
+  },
+  {
+    "template_name": "balance_due_reminder",
+    "language": "en",
+    "category": "UTILITY",
+    "button_url": false,
+    "description": "Polite manual reminder from billing register for outstanding clinic balance (Event #12).",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Pending Balance Reminder"
+      },
+      {
+        "type": "BODY",
+        "text": "Hello {{1}}, this is a reminder regarding a pending balance of INR {{2}} for Invoice #{{3}} at {{4}}. For inquiries or payment details, please contact our billing counter.",
+        "example": {
+          "body_text": [
+            [
+              "Rahul Sharma",
+              "450",
+              "INV-2026-0038",
+              "Pune Care Clinic"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Health Services"
+      }
+    ]
+  },
+  {
+    "template_name": "staff_onboarding_otp",
+    "language": "en",
+    "category": "AUTHENTICATION",
+    "button_url": false,
+    "description": "Instant OTP delivery for clinic staff authentication and invite verification (Phase 1 onboarding).",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "{{1}} is your ClinicQ verification code for clinic staff login. Valid for 10 minutes. For security, never share this code with anyone.",
+        "example": {
+          "body_text": [
+            [
+              "481920"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "ClinicQ Security"
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "OTP",
+            "otp_type": "COPY_CODE",
+            "text": "Copy Code"
+          }
+        ]
+      }
+    ]
+  }
+]

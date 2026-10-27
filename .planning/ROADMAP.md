@@ -16,9 +16,10 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
 - [x] **Phase 3: Consultation & Prescribing** - Specialty templates, visit workflow states, ICD-10 diagnosis, e-prescriptions with PDF delivery, provisional per-visit billing (completed 2026-10-15)
 - [x] **Phase 03.1 (Phase 3A): Doctor Cabin, Role-Based Access & Billing Invoicing (INSERTED)** - Dedicated Doctor Cabin workspace, role-scoped UI permissions (owner/admin/doctor/nurse/receptionist), 1-tap queue consultation launch, per-visit billing (Cash/UPI/Card), and collection reports (completed 2026-10-15)
 - [x] **Phase 03.2 (Phase 3B): Patient Visit History & Unified Clinic Visits Register (INSERTED)** - Chronological visit history timeline in Patient View (`/patients/[id]`), unified clinic visits register (`/visits`) with date range filters, search, doctor filter, direct prescription download/preview, and role-based visit record access (completed 2026-10-16)
-- [ ] **Phase 03.3: Doctor Availability, Multi-Shift Scheduling, Time Blocking & Calendar Enhancements (INSERTED)** - Fix doctor UUID display across calendar and drawers, doctor weekly availability with split shifts, time-off/vacation blocking, per-doctor slot duration (15/20/30/45/60m), dynamic calendar timeline hours, and doctor filter pills
-- [ ] **Phase 4: Labs & Referrals** - Lab orders/results with abnormal flagging, in- and out-of-network referrals with tracking
-- [ ] **Phase 5: Communications & AI Assist** - SMS/WhatsApp reminders and two-way replies, communication audit log, labeled assistive AI features
+- [x] **Phase 03.3: Doctor Availability, Multi-Shift Scheduling, Time Blocking & Calendar Enhancements (INSERTED)** - Fix doctor UUID display across calendar and drawers, doctor weekly availability with split shifts, time-off/vacation blocking, per-doctor slot duration (15/20/30/45/60m), dynamic calendar timeline hours, and doctor filter pills (completed 2026-10-16)
+- [x] **Phase 4: Labs & Referrals** - Lab orders/results with abnormal flagging, in- and out-of-network referrals with tracking (completed 2026-10-22)
+- [x] **Phase 5: Communications & AI Assist** - SMS/WhatsApp reminders and two-way replies, communication audit log, labeled assistive AI features (completed 2026-10-27)
+- [ ] **Phase 05.1 (Phase 5A): Full MSG91 Integration (INSERTED)** - Production MSG91 integration across WhatsApp (templates & 2-way session), SMS Flow API, SendOTP/VerifyOTP auth, delivery report webhooks, and automated template sync
 - [ ] **Phase 6: API & Launch Readiness** - REST API, webhooks, rate limiting, performance, reliability, DPDP/regulatory hardening
 
 ## Phase Details
@@ -209,10 +210,27 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 05.1: Full MSG91 Integration (INSERTED)
+
+**Goal:** Integrate MSG91 as the primary production communications gateway for ClinicOS across WhatsApp (outbound templates + two-way bot session), SMS Flow API (DLT fallback), SendOTP/VerifyOTP for staff authentication, and automated template synchronization.
+
+**Depends on:** Phase 5
+**Requirements:** REQ-reminders-notifications, REQ-compliance-data-layer
+**Success Criteria** (what must be TRUE):
+  1. Complete WhatsApp message template catalog in `lib/messaging/templates/` covers all clinical and operational events with 1-click sync via `npm run msg91:sync-templates`.
+  2. MSG91 WhatsApp Provider (`lib/messaging/providers/msg91.ts`) sends outbound template messages with positional variable mapping (`{{1}}`, `{{2}}`), URL action buttons, and quick-reply buttons conforming to MSG91 `template-bulk` API specifications.
+  3. Inbound WhatsApp webhook (`/api/webhooks/messaging/msg91`) processes patient quick-reply button clicks (Confirm, Cancel, Reschedule) and conversational text replies via MSG91 webhook signature validation.
+  4. MSG91 SMS Provider integrates Flow API for Indian DLT transactional messaging when SMS fallback is triggered.
+  5. MSG91 SendOTP and VerifyOTP service modules provide reliable Indian mobile OTP authentication for staff onboarding and login.
+  6. Automated CLI (`npx docstar-cli msg91`) and MCP server (`https://mcp.msg91.com/mcp`) integration enables automated verification and inspection of message logs, templates, and delivery analytics.
+
+**Plans**: TBD
+**UI hint**: no
+
 ### Phase 6: API & Launch Readiness
 
 **Goal**: The platform is consumable by external clients and meets launch-grade performance, reliability, and regulatory standards
-**Depends on**: Phase 5
+**Depends on**: Phase 05.1
 **Requirements**: REQ-api-access, REQ-nfr-performance, REQ-nfr-reliability, REQ-nfr-regulatory-compliance
 **Success Criteria** (what must be TRUE):
   1. External clients authenticate with tenant-scoped API keys and perform CRUD over patients, appointments, visits, prescriptions, lab orders, and referrals, with role scope matching in-app roles
@@ -240,4 +258,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 03.3. Doctor Availability & Multi-Shift Scheduling | 3/3 | Complete | 2026-10-16 |
 | 4. Labs & Referrals | 3/3 | Complete | 2026-10-22 |
 | 5. Communications & AI Assist | 4/4 | Complete | 2026-10-27 |
+| 05.1. Full MSG91 Integration | 0/- | In progress | - |
 | 6. API & Launch Readiness | 0/- | Not started | - |

@@ -13,7 +13,8 @@
     "test:e2e": "playwright test",
     "seed:cdci": "npx tsx --env-file=.env scripts/seed-cdci.ts",
     "seed:cdci:test": "npx tsx --env-file=.env scripts/seed-cdci-test-fixture.ts",
-    "seed:diagnoses": "npx tsx --env-file=.env scripts/seed-opd-diagnoses.ts"
+    "seed:diagnoses": "npx tsx --env-file=.env scripts/seed-opd-diagnoses.ts",
+    "msg91:sync-templates": "npx tsx --env-file=.env scripts/msg91-sync-templates.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1155.0",
