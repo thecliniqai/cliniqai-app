@@ -24,8 +24,16 @@ export function QueueCard({ item, onRefresh, onCheckout, onRecordVitals }: Queue
 
   const formatScheduledTime = (isoString?: string | null) => {
     if (!isoString) return null;
-    const d = new Date(isoString);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleTimeString("en-IN", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+    } catch {
+      return null;
+    }
   };
 
   const scheduledTimeStr = formatScheduledTime(visit.scheduled_at);
@@ -128,7 +136,10 @@ export function QueueCard({ item, onRefresh, onCheckout, onRecordVitals }: Queue
               </span>
             ) : (
               scheduledTimeStr && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                <span
+                  suppressHydrationWarning
+                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200"
+                >
                   <Clock className="w-3 h-3 mr-1" />
                   Appt {scheduledTimeStr}
                 </span>

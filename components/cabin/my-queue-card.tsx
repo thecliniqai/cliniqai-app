@@ -151,10 +151,11 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
         {visit.scheduled_at && (
           <div className="flex items-center gap-1 text-xs text-gray-400">
             <Clock className="w-3.5 h-3.5" />
-            <span>
-              {new Date(visit.scheduled_at).toLocaleTimeString([], {
-                hour: "2-digit",
+            <span suppressHydrationWarning>
+              {new Date(visit.scheduled_at).toLocaleTimeString("en-IN", {
+                hour: "numeric",
                 minute: "2-digit",
+                hour12: true,
               })}
             </span>
           </div>
