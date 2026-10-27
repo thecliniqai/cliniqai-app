@@ -224,7 +224,16 @@ Plans:
   5. MSG91 SendOTP and VerifyOTP service modules provide reliable Indian mobile OTP authentication for staff onboarding and login.
   6. Automated CLI (`npx docstar-cli msg91`) and MCP server (`https://mcp.msg91.com/mcp`) integration enables automated verification and inspection of message logs, templates, and delivery analytics.
 
-**Plans**: TBD
+**Plans**: 3 plans
+**Wave 1**
+- [ ] 05.1-01-PLAN.md: Wave 1 — Migration, Positional Mapper & Outbound Msg91Provider
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 05.1-02-PLAN.md: Wave 2 — Inbound Webhook Parser, Two-Way Bot Actions & DLR Status Engine
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 05.1-03-PLAN.md: Wave 3 — Template Sync Status Tooling & End-to-End Verification
+
 **UI hint**: no
 
 ### Phase 6: API & Launch Readiness
