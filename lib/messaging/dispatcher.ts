@@ -98,6 +98,15 @@ export async function enqueueMessage(
     throw new Error(`Failed to enqueue communication: ${error?.message || "Unknown error"}`);
   }
 
+  // Opportunistic immediate dispatch: process queue immediately so dev/production messages fire without waiting for background cron
+  if (!input.delayUntil) {
+    try {
+      await dispatchPendingQueue({ clientOverride });
+    } catch {
+      // Opportunistic dispatch is best-effort; background cron recovers queued items
+    }
+  }
+
   return data as CommunicationQueueItem;
 }
 

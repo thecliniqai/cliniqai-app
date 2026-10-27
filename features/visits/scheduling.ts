@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import { recordAudit } from "@/lib/audit/audit";
+import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import { createVisit } from "./actions";
 import {
   Database,
@@ -450,6 +451,62 @@ export async function bookAppointment(
       success: false,
       error: visitRes.error,
     };
+  }
+
+  // 3. Queue Event #1 (appointment_booked) outbox notification
+  try {
+    const supabase = clientOverride || (await createClient());
+    const session = sessionOverride || (await requirePermission("appointments:edit"));
+
+    const { data: patient } = await (supabase.from("patients") as any)
+      .select("full_name, phone")
+      .eq("id", data.patient_id)
+      .single();
+
+    if (patient?.phone) {
+      const formattedDateTime = new Date(data.scheduled_at).toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "Asia/Kolkata",
+      });
+
+      // Find doctor name if available
+      const { data: doctorMember } = await (supabase.from("memberships") as any)
+        .select("full_name")
+        .eq("user_id", data.doctor_id)
+        .eq("tenant_id", session.tenantId)
+        .maybeSingle();
+
+      const doctorName = doctorMember?.full_name ? `Dr. ${doctorMember.full_name}` : "Doctor";
+
+      await enqueueMessage(
+        {
+          tenantId: session.tenantId,
+          patientId: data.patient_id,
+          appointmentId: visitRes.visitId,
+          channel: "whatsapp",
+          messageType: "appointment_booked",
+          templateId: "appointment_booked",
+          templateParams: {
+            patient_name: patient.full_name || "Patient",
+            doctor_name: doctorName,
+            date_time: formattedDateTime,
+          },
+          recipientPhone: patient.phone,
+          metadata: {
+            buttons: [
+              { id: "btn_confirm", text: "Confirm" },
+              { id: "btn_cancel", text: "Cancel" },
+              { id: "btn_reschedule", text: "Reschedule" },
+            ],
+          },
+        },
+        clientOverride
+      );
+    }
+  } catch (commErr) {
+    console.error("[bookAppointment] Failed to queue/dispatch appointment notification:", commErr);
+    // Booking itself still succeeded
   }
 
   return {
