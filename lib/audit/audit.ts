@@ -44,7 +44,11 @@ export type AuditAction =
   | "patient_document.delete"
   | "referral.create"
   | "referral.acknowledge"
-  | "referral.close_loop";
+  | "referral.close_loop"
+  | "prescription.share_whatsapp"
+  | "patient_document.share_whatsapp"
+  | "referral.share_whatsapp"
+  | "invoice.share_whatsapp";
 
 export interface RecordAuditParams {
   action: AuditAction;

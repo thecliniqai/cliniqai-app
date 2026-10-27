@@ -8,6 +8,11 @@ import * as adminSupabase from "@/lib/supabase/admin";
 import * as appointmentsActions from "@/features/appointments/actions";
 import * as storageModule from "@/lib/storage";
 import { NextRequest } from "next/server";
+import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
+import { shareLabReportViaWhatsApp } from "@/features/labs/actions";
+import { shareReferralLetterViaWhatsApp } from "@/features/referrals/actions";
+import { shareReceiptViaWhatsApp } from "@/features/billing/actions";
+import * as dispatcher from "@/lib/messaging/dispatcher";
 
 describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications, T-05-06)", () => {
   const originalEnv = { ...process.env };
@@ -452,4 +457,233 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
       );
     });
   });
+
+  describe("3. Clinical 1-Click WhatsApp Sharing Triggers (Events #6, #7, #8, #11)", () => {
+    const session = { userId: "user-1", tenantId: "tenant-1" };
+
+    it("sharePrescriptionViaWhatsApp generates token and enqueues Event #6 (prescription_ready)", async () => {
+      const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({
+        id: "msg-rx-1",
+        status: "pending",
+      } as any);
+
+      const mockSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "prescriptions") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    single: vi.fn().mockResolvedValue({
+                      data: {
+                        id: "rx-100",
+                        patient_id: "patient-1",
+                        patient: { id: "patient-1", full_name: "Ramesh Sharma", phone: "+919876543210" },
+                        tenant: { name: "Care Clinic", phone: "+919876543210" },
+                      },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "document_share_tokens") {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          if (table === "audit_logs") {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          return {};
+        }),
+      };
+
+      const res = await sharePrescriptionViaWhatsApp("rx-100", mockSupabase, session);
+      expect(res.success).toBe(true);
+      expect(res.shareUrl).toContain("/r/");
+      expect(enqueueSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: "whatsapp",
+          messageType: "prescription_ready",
+          templateId: "prescription_ready",
+          recipientPhone: "+919876543210",
+        }),
+        expect.anything()
+      );
+    });
+
+    it("shareLabReportViaWhatsApp generates token and enqueues Event #7 (lab_report_uploaded)", async () => {
+      const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({
+        id: "msg-lab-1",
+        status: "pending",
+      } as any);
+
+      const mockSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "patient_documents") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    single: vi.fn().mockResolvedValue({
+                      data: {
+                        id: "doc-200",
+                        title: "Thyroid Profile",
+                        patient_id: "patient-2",
+                        patient: { id: "patient-2", full_name: "Pooja Hegde", phone: "+919876543211" },
+                        tenant: { name: "Care Clinic", phone: "+919876543210" },
+                      },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "document_share_tokens") {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          if (table === "audit_logs") {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          return {};
+        }),
+      };
+
+      const res = await shareLabReportViaWhatsApp("doc-200", mockSupabase, session);
+      expect(res.success).toBe(true);
+      expect(res.shareUrl).toContain("/r/");
+      expect(enqueueSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: "whatsapp",
+          messageType: "lab_report_uploaded",
+          templateId: "lab_report_uploaded",
+          recipientPhone: "+919876543211",
+        }),
+        expect.anything()
+      );
+    });
+
+    it("shareReferralLetterViaWhatsApp generates token and enqueues Event #8 (referral_letter_issued)", async () => {
+      const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({
+        id: "msg-ref-1",
+        status: "pending",
+      } as any);
+
+      const mockSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "referrals") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    single: vi.fn().mockResolvedValue({
+                      data: {
+                        id: "ref-300",
+                        referred_to_name: "Dr. K. S. Reddy (Neurologist)",
+                        patient_id: "patient-3",
+                        patient: { id: "patient-3", full_name: "Deepak Chopra", phone: "+919876543212" },
+                        tenant: { name: "Care Clinic", phone: "+919876543210" },
+                      },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "document_share_tokens") {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          if (table === "audit_logs") {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          return {};
+        }),
+      };
+
+      const res = await shareReferralLetterViaWhatsApp("ref-300", mockSupabase, session);
+      expect(res.success).toBe(true);
+      expect(res.shareUrl).toContain("/r/");
+      expect(enqueueSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: "whatsapp",
+          messageType: "referral_letter_issued",
+          templateId: "referral_letter_issued",
+          recipientPhone: "+919876543212",
+        }),
+        expect.anything()
+      );
+    });
+
+    it("shareReceiptViaWhatsApp generates token and enqueues Event #11 (receipt_issued)", async () => {
+      const enqueueSpy = vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({
+        id: "msg-inv-1",
+        status: "pending",
+      } as any);
+
+      const mockSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "invoices") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    single: vi.fn().mockResolvedValue({
+                      data: {
+                        id: "inv-400",
+                        invoice_number: "INV-2026-0042",
+                        total_amount: 1500,
+                        patient_id: "patient-4",
+                        patient: { id: "patient-4", full_name: "Simran Kaur", phone: "+919876543213" },
+                        tenant: { name: "Care Clinic", phone: "+919876543210" },
+                      },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "document_share_tokens") {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          if (table === "audit_logs") {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          return {};
+        }),
+      };
+
+      const res = await shareReceiptViaWhatsApp("inv-400", mockSupabase, session);
+      expect(res.success).toBe(true);
+      expect(res.shareUrl).toContain("/r/");
+      expect(enqueueSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: "whatsapp",
+          messageType: "receipt_issued",
+          templateId: "receipt_issued",
+          recipientPhone: "+919876543213",
+        }),
+        expect.anything()
+      );
+    });
+  });
 });
+

@@ -15,6 +15,7 @@ import {
   DeleteLabDocumentResult,
 } from "./types";
 import { formatAmendedFilename } from "./utils";
+import { enqueueMessage } from "@/lib/messaging/dispatcher";
 
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
@@ -448,6 +449,106 @@ export async function deleteLabDocument(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to delete document.",
+    };
+  }
+}
+
+/**
+ * Shares an uploaded diagnostic lab report or document via WhatsApp with a 7-day secure tokenized link (/r/[token]).
+ * Enqueues Event #7 (lab_report_uploaded) outbox notification.
+ */
+export async function shareLabReportViaWhatsApp(
+  documentId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  clientOverride?: any,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{ success: boolean; shareUrl?: string; token?: string; error?: string }> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("patients:view"));
+
+    // 1. Fetch document record joined with patient and tenant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: doc, error: docErr } = await (supabase.from("patient_documents") as any)
+      .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+      .eq("id", documentId)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (docErr || !doc) {
+      return { success: false, error: "Patient document not found." };
+    }
+
+    if (!doc.patient?.phone) {
+      return { success: false, error: "Patient does not have a phone number registered." };
+    }
+
+    // 2. Generate secure 64-character token in document_share_tokens
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: tokenErr } = await (supabase.from("document_share_tokens") as any).insert({
+      tenant_id: session.tenantId,
+      document_id: documentId,
+      resource_type: "patient_document",
+      resource_id: documentId,
+      token,
+      expires_at: expiresAt,
+      created_by: session.userId,
+    });
+
+    if (tokenErr) {
+      console.error("[shareLabReportViaWhatsApp] Token creation error:", tokenErr);
+      return { success: false, error: "Failed to generate secure share link." };
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const shareUrl = `${baseUrl}/r/${token}`;
+
+    // 3. Enqueue Event #7 (lab_report_uploaded)
+    await enqueueMessage(
+      {
+        tenantId: session.tenantId,
+        patientId: doc.patient_id,
+        channel: "whatsapp",
+        messageType: "lab_report_uploaded",
+        templateId: "lab_report_uploaded",
+        templateParams: {
+          patient_name: doc.patient.full_name || "Patient",
+          clinic_name: doc.tenant?.name || "Clinic",
+          document_url: shareUrl,
+          document_title: doc.title,
+        },
+        recipientPhone: doc.patient.phone,
+        metadata: {
+          document_id: documentId,
+          share_token: token,
+          share_url: shareUrl,
+        },
+      },
+      supabase
+    );
+
+    // 4. Record audit log
+    await recordAudit(
+      {
+        action: "patient_document.share_whatsapp",
+        entityType: "patient_document",
+        entityId: documentId,
+        metadata: { share_token: token, recipient_phone: doc.patient.phone },
+      },
+      clientOverride,
+      session
+    );
+
+    return { success: true, shareUrl, token };
+  } catch (err: unknown) {
+    console.error("[features/labs/actions] shareLabReportViaWhatsApp error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to share lab report.",
     };
   }
 }

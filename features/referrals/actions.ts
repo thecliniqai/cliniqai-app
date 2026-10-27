@@ -19,6 +19,8 @@ import {
   ConsentedHistorySnapshot,
 } from "./types";
 import { generateAndArchiveReferralPdf } from "./pdf/generator";
+import { randomBytes } from "crypto";
+import { enqueueMessage } from "@/lib/messaging/dispatcher";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<Database, any, any>;
@@ -596,6 +598,106 @@ export async function getPatientReferrals(
       success: false,
       referrals: [],
       error: err instanceof Error ? err.message : "Failed to fetch patient referrals.",
+    };
+  }
+}
+
+/**
+ * Shares an issued referral letter via WhatsApp with a 7-day secure tokenized link (/r/[token]).
+ * Enqueues Event #8 (referral_letter_issued) outbox notification.
+ */
+export async function shareReferralLetterViaWhatsApp(
+  referralId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  clientOverride?: any,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{ success: boolean; shareUrl?: string; token?: string; error?: string }> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("patients:view"));
+
+    // 1. Fetch referral record joined with patient and tenant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: ref, error: refErr } = await (supabase.from("referrals") as any)
+      .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+      .eq("id", referralId)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (refErr || !ref) {
+      return { success: false, error: "Referral record not found." };
+    }
+
+    if (!ref.patient?.phone) {
+      return { success: false, error: "Patient does not have a phone number registered." };
+    }
+
+    // 2. Generate secure 64-character token in document_share_tokens
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: tokenErr } = await (supabase.from("document_share_tokens") as any).insert({
+      tenant_id: session.tenantId,
+      document_id: null,
+      resource_type: "referral",
+      resource_id: referralId,
+      token,
+      expires_at: expiresAt,
+      created_by: session.userId,
+    });
+
+    if (tokenErr) {
+      console.error("[shareReferralLetterViaWhatsApp] Token creation error:", tokenErr);
+      return { success: false, error: "Failed to generate secure share link." };
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const shareUrl = `${baseUrl}/r/${token}`;
+
+    // 3. Enqueue Event #8 (referral_letter_issued)
+    await enqueueMessage(
+      {
+        tenantId: session.tenantId,
+        patientId: ref.patient_id,
+        channel: "whatsapp",
+        messageType: "referral_letter_issued",
+        templateId: "referral_letter_issued",
+        templateParams: {
+          patient_name: ref.patient.full_name || "Patient",
+          specialist_name: ref.referred_to_name || "Specialist",
+          clinic_name: ref.tenant?.name || "Clinic",
+          document_url: shareUrl,
+        },
+        recipientPhone: ref.patient.phone,
+        metadata: {
+          referral_id: referralId,
+          share_token: token,
+          share_url: shareUrl,
+        },
+      },
+      supabase
+    );
+
+    // 4. Record audit log
+    await recordAudit(
+      {
+        action: "referral.share_whatsapp",
+        entityType: "referral",
+        entityId: referralId,
+        metadata: { share_token: token, recipient_phone: ref.patient.phone },
+      },
+      clientOverride,
+      session
+    );
+
+    return { success: true, shareUrl, token };
+  } catch (err: unknown) {
+    console.error("[features/referrals/actions] shareReferralLetterViaWhatsApp error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to share referral letter.",
     };
   }
 }

@@ -15,6 +15,8 @@ import {
 } from "./schema";
 import { completeAndSignConsultation } from "@/features/consultation/actions";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { randomBytes } from "crypto";
+import { enqueueMessage } from "@/lib/messaging/dispatcher";
 
 export type CreateInvoiceResult =
   | { success: true; invoice: Invoice; items: InvoiceItem[] }
@@ -634,6 +636,106 @@ export async function getInvoiceReceiptPdfSignedUrl(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to load receipt PDF.",
+    };
+  }
+}
+
+/**
+ * Shares an invoice/payment receipt via WhatsApp with a 7-day secure tokenized link (/r/[token]).
+ * Enqueues Event #11 (receipt_issued) outbox notification.
+ */
+export async function shareReceiptViaWhatsApp(
+  invoiceId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  clientOverride?: any,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{ success: boolean; shareUrl?: string; token?: string; error?: string }> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("billing:view"));
+
+    // 1. Fetch invoice record joined with patient and tenant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: inv, error: invErr } = await (supabase.from("invoices") as any)
+      .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+      .eq("id", invoiceId)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (invErr || !inv) {
+      return { success: false, error: "Invoice not found." };
+    }
+
+    if (!inv.patient?.phone) {
+      return { success: false, error: "Patient does not have a phone number registered." };
+    }
+
+    // 2. Generate secure 64-character token in document_share_tokens
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: tokenErr } = await (supabase.from("document_share_tokens") as any).insert({
+      tenant_id: session.tenantId,
+      document_id: null,
+      resource_type: "invoice",
+      resource_id: invoiceId,
+      token,
+      expires_at: expiresAt,
+      created_by: session.userId,
+    });
+
+    if (tokenErr) {
+      console.error("[shareReceiptViaWhatsApp] Token creation error:", tokenErr);
+      return { success: false, error: "Failed to generate secure share link." };
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const shareUrl = `${baseUrl}/r/${token}`;
+
+    // 3. Enqueue Event #11 (receipt_issued)
+    await enqueueMessage(
+      {
+        tenantId: session.tenantId,
+        patientId: inv.patient_id,
+        channel: "whatsapp",
+        messageType: "receipt_issued",
+        templateId: "receipt_issued",
+        templateParams: {
+          patient_name: inv.patient.full_name || "Patient",
+          invoice_number: inv.invoice_number,
+          amount: String(inv.total_amount),
+          document_url: shareUrl,
+        },
+        recipientPhone: inv.patient.phone,
+        metadata: {
+          invoice_id: invoiceId,
+          share_token: token,
+          share_url: shareUrl,
+        },
+      },
+      supabase
+    );
+
+    // 4. Record audit log
+    await recordAudit(
+      {
+        action: "invoice.share_whatsapp",
+        entityType: "invoice",
+        entityId: invoiceId,
+        metadata: { share_token: token, recipient_phone: inv.patient.phone },
+      },
+      clientOverride,
+      session
+    );
+
+    return { success: true, shareUrl, token };
+  } catch (err: unknown) {
+    console.error("[features/billing/actions] shareReceiptViaWhatsApp error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to share receipt.",
     };
   }
 }

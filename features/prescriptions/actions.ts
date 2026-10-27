@@ -15,6 +15,8 @@ import {
 } from "./schema";
 import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
 import { PrescriptionPdfPayload } from "./pdf/prescription-document";
+import { randomBytes } from "crypto";
+import { enqueueMessage } from "@/lib/messaging/dispatcher";
 
 export type SearchMedicinesResult =
   | { success: true; results: MedicineSearchResult[] }
@@ -683,6 +685,105 @@ export async function getPrescriptionPdfSignedUrl(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to generate prescription preview.",
+    };
+  }
+}
+
+/**
+ * Shares an official prescription via WhatsApp with a 7-day secure tokenized link (/r/[token]).
+ * Enqueues Event #6 (prescription_ready) outbox notification.
+ */
+export async function sharePrescriptionViaWhatsApp(
+  prescriptionId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  clientOverride?: any,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<{ success: boolean; shareUrl?: string; token?: string; error?: string }> {
+  const supabase = clientOverride || (await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission("consultations:view"));
+
+    // 1. Fetch prescription record joined with patient and tenant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rx, error: rxErr } = await (supabase.from("prescriptions") as any)
+      .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+      .eq("id", prescriptionId)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (rxErr || !rx) {
+      return { success: false, error: "Prescription not found." };
+    }
+
+    if (!rx.patient?.phone) {
+      return { success: false, error: "Patient does not have a phone number registered." };
+    }
+
+    // 2. Generate secure 64-character token in document_share_tokens
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: tokenErr } = await (supabase.from("document_share_tokens") as any).insert({
+      tenant_id: session.tenantId,
+      document_id: null,
+      resource_type: "prescription",
+      resource_id: prescriptionId,
+      token,
+      expires_at: expiresAt,
+      created_by: session.userId,
+    });
+
+    if (tokenErr) {
+      console.error("[sharePrescriptionViaWhatsApp] Token creation error:", tokenErr);
+      return { success: false, error: "Failed to generate secure share link." };
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const shareUrl = `${baseUrl}/r/${token}`;
+
+    // 3. Enqueue Event #6 (prescription_ready)
+    await enqueueMessage(
+      {
+        tenantId: session.tenantId,
+        patientId: rx.patient_id,
+        channel: "whatsapp",
+        messageType: "prescription_ready",
+        templateId: "prescription_ready",
+        templateParams: {
+          patient_name: rx.patient.full_name || "Patient",
+          clinic_name: rx.tenant?.name || "Clinic",
+          document_url: shareUrl,
+        },
+        recipientPhone: rx.patient.phone,
+        metadata: {
+          prescription_id: prescriptionId,
+          share_token: token,
+          share_url: shareUrl,
+        },
+      },
+      supabase
+    );
+
+    // 4. Record audit log
+    await recordAudit(
+      {
+        action: "prescription.share_whatsapp",
+        entityType: "prescription",
+        entityId: prescriptionId,
+        metadata: { share_token: token, recipient_phone: rx.patient.phone },
+      },
+      clientOverride,
+      session
+    );
+
+    return { success: true, shareUrl, token };
+  } catch (err: unknown) {
+    console.error("[features/prescriptions/actions] sharePrescriptionViaWhatsApp error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to share prescription.",
     };
   }
 }
