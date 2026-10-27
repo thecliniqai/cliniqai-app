@@ -316,11 +316,15 @@ export function ConsultationWorkspace({
         if (result.success) {
           setLastSavedAt(new Date());
           setIsDirty(false);
+          return { success: true };
         } else {
           setSaveError(result.error);
+          return { success: false, error: result.error };
         }
       } catch (err: unknown) {
-        setSaveError(err instanceof Error ? err.message : "Auto-save failed.");
+        const msg = err instanceof Error ? err.message : "Auto-save failed.";
+        setSaveError(msg);
+        return { success: false, error: msg };
       } finally {
         inFlightSaveRef.current = null;
         if (!silent) setIsSaving(false);

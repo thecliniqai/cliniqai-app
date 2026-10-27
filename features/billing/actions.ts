@@ -18,6 +18,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import type { InteractiveButton } from "@/lib/messaging/types";
+import { compileAndGenerateReceiptPdf } from "./pdf/generator";
 
 export type CreateInvoiceResult =
   | { success: true; invoice: Invoice; items: InvoiceItem[] }
@@ -465,6 +466,18 @@ export async function completeAndBillConsultation(
         session
       );
       paymentRecorded = payResult.success;
+    }
+
+    // 3b. Generate and archive Receipt PDF to storage immediately
+    try {
+      await compileAndGenerateReceiptPdf(
+        invoiceResult.invoice.id,
+        supabase,
+        session.tenantId,
+        session.userId
+      );
+    } catch (pdfErr) {
+      console.warn("[completeAndBillConsultation] Receipt PDF generation warning:", pdfErr);
     }
 
     // 4. Retrieve signed PDF path if generated

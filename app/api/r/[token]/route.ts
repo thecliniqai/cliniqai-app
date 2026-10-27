@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { getSignedUrl, SupabaseStorageProvider } from "@/lib/storage";
+import { compileAndGenerateReceiptPdf } from "@/features/billing/pdf/generator";
 
 export async function GET(
   request: NextRequest,
@@ -187,8 +188,25 @@ export async function GET(
       signedUrl = `/api/r/${token}?download=true&direct=true`;
     }
 
-    if (download && signedUrl && !signedUrl.includes("direct=true")) {
-      return NextResponse.redirect(signedUrl, { status: 302 });
+    if (download) {
+      if (signedUrl && !signedUrl.includes("direct=true")) {
+        return NextResponse.redirect(signedUrl, { status: 302 });
+      }
+
+      // If storage redirect is not available, stream PDF directly on-demand
+      if (resourceType === "invoice") {
+        const receiptGen = await compileAndGenerateReceiptPdf(resourceId, admin, shareToken.tenant_id);
+        if (receiptGen?.buffer) {
+          return new Response(new Uint8Array(receiptGen.buffer), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/pdf",
+              "Content-Disposition": `inline; filename="${originalFilename}"`,
+              "Cache-Control": "private, no-cache, no-store, must-revalidate",
+            },
+          });
+        }
+      }
     }
 
     const clinic = shareToken.tenants || {

@@ -164,7 +164,10 @@ export const saveConsultationDraftSchema = z.object({
   chief_complaints: z.array(chiefComplaintItemSchema).default([]),
   clinical_notes: z.string().nullable().optional(),
   specialty: z.enum(["general_physician", "dental", "pediatrics"]).default("general_physician"),
-  specialty_data: specialtyDataSchema.nullable().optional(),
+  specialty_data: z
+    .union([specialtyDataSchema, z.record(z.string(), z.unknown())])
+    .nullable()
+    .optional(),
   investigations_advised: z.array(z.string()).default([]),
   advice: z.array(z.string()).default([]),
   follow_up: followUpSchema.nullable().optional(),

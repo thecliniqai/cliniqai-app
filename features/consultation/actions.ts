@@ -36,9 +36,12 @@ export async function saveConsultationDraft(
       fieldErrors[field] = fieldErrors[field] || [];
       fieldErrors[field].push(issue.message);
     }
+    const issueSummary = parseResult.error.issues
+      .map((i) => `${i.path.join(".") || "field"}: ${i.message}`)
+      .join("; ");
     return {
       success: false,
-      error: "Validation failed. Please correct the highlighted errors.",
+      error: `Validation error: ${issueSummary}`,
       fieldErrors,
     };
   }

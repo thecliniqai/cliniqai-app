@@ -128,3 +128,156 @@ export async function generateAndArchiveReceiptPdf(
     buffer,
   };
 }
+
+/**
+ * Compiles ReceiptPdfPayload by reading the invoice, patient, tenant, items, and payments from DB,
+ * and generates/archives the PDF.
+ */
+export async function compileAndGenerateReceiptPdf(
+  invoiceIdOrVisitId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  tenantId: string,
+  userId?: string
+): Promise<{ payload: ReceiptPdfPayload; buffer: Buffer; storagePath: string; signedUrl: string } | null> {
+  // 1. Fetch invoice
+  const { data: invoice } = await supabase
+    .from("invoices")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .or(`id.eq.${invoiceIdOrVisitId},visit_id.eq.${invoiceIdOrVisitId}`)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!invoice) return null;
+
+  // 2. Fetch tenant
+  const { data: tenant } = await supabase
+    .from("tenants")
+    .select("id, name, address, phone, registration_number, logo_url")
+    .eq("id", tenantId)
+    .single();
+
+  // 3. Fetch patient
+  const { data: patient } = await supabase
+    .from("patients")
+    .select("id, full_name, age, sex, phone, address")
+    .eq("id", invoice.patient_id)
+    .eq("tenant_id", tenantId)
+    .single();
+
+  // 4. Fetch doctor
+  let doctorInfo: { name: string; qualifications?: string | null; registration_no?: string | null } | null = null;
+  if (invoice.visit_id) {
+    const { data: visit } = await supabase
+      .from("visits")
+      .select("doctor_id")
+      .eq("id", invoice.visit_id)
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (visit?.doctor_id) {
+      const { data: doctorMember } = await supabase
+        .from("memberships")
+        .select("full_name, qualifications, medical_council_reg_no")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", visit.doctor_id)
+        .maybeSingle();
+
+      if (doctorMember) {
+        doctorInfo = {
+          name: doctorMember.full_name || "Clinician",
+          qualifications: doctorMember.qualifications || null,
+          registration_no: doctorMember.medical_council_reg_no || null,
+        };
+      }
+    }
+  }
+
+  // 5. Fetch items
+  const { data: items } = await supabase
+    .from("invoice_items")
+    .select("*")
+    .eq("invoice_id", invoice.id)
+    .eq("tenant_id", tenantId)
+    .order("created_at", { ascending: true });
+
+  // 6. Fetch payments
+  const { data: payments } = await supabase
+    .from("payments")
+    .select("*")
+    .eq("invoice_id", invoice.id)
+    .eq("tenant_id", tenantId)
+    .order("recorded_at", { ascending: true });
+
+  const totalPaid = Math.round(
+    (((payments || []).reduce((acc: number, curr: { amount: number }) => acc + Number(curr.amount), 0) +
+      Number.EPSILON) *
+      100)
+  ) / 100;
+
+  const totalAmount = Number(invoice.total_amount);
+  const balanceDue = Math.max(0, Math.round((totalAmount - totalPaid + Number.EPSILON) * 100) / 100);
+
+  const payload: ReceiptPdfPayload = {
+    tenant_id: tenantId,
+    invoice_id: invoice.id,
+    invoice_number: invoice.invoice_number,
+    receipt_number: `REC-${invoice.invoice_number}`,
+    date: invoice.created_at,
+    clinic: {
+      name: tenant?.name || "Clinic",
+      address: tenant?.address || null,
+      phone: tenant?.phone || null,
+      registration_number: tenant?.registration_number || null,
+      logo_url: tenant?.logo_url || null,
+    },
+    patient: {
+      full_name: patient?.full_name || "Patient",
+      age: patient?.age || null,
+      sex: patient?.sex || null,
+      phone: patient?.phone || null,
+      uhid: patient?.id ? patient.id.slice(0, 8).toUpperCase() : null,
+      address: typeof patient?.address === "string" ? patient.address : null,
+    },
+    doctor: doctorInfo,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    items: (items || []).map((it: any) => ({
+      id: it.id,
+      description: it.description,
+      item_type: it.item_type,
+      unit_price: Number(it.unit_price),
+      quantity: Number(it.quantity),
+      total_price: Number(it.total_price),
+    })),
+    subtotal: Number(invoice.subtotal),
+    discount: Number(invoice.discount),
+    tax: Number(invoice.tax),
+    total_amount: totalAmount,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    payments: (payments || []).map((p: any) => ({
+      id: p.id,
+      amount: Number(p.amount),
+      payment_method: p.payment_method,
+      reference_number: p.reference_number || null,
+      recorded_at: p.recorded_at,
+    })),
+    total_paid: totalPaid,
+    balance_due: balanceDue,
+    status: invoice.status,
+  };
+
+  const res = await generateAndArchiveReceiptPdf(payload, supabase, {
+    userId: userId || "system",
+    tenantId,
+  });
+
+  return {
+    payload,
+    buffer: res.buffer,
+    storagePath: res.storagePath,
+    signedUrl: res.signedUrl,
+  };
+}
+
