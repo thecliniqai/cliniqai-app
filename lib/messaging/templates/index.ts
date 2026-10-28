@@ -51,3 +51,5 @@ export function buildMsg91CreateTemplatePayload(
     components: template.components,
   };
 }
+
+export * from "./mapping";
