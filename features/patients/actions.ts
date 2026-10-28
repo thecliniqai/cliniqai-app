@@ -188,24 +188,57 @@ export async function getPatient(patientId: string): Promise<Patient | null> {
   return data as Patient;
 }
 
-export async function searchPatients(query: string): Promise<Patient[]> {
+/**
+ * Builds the PostgREST OR filter clause for searching patients across
+ * full_name, phone, and abha_id.
+ * Normalizes numeric inputs so that searches for bare digits (e.g. "9876543210")
+ * or partial numbers (>= 3 digits e.g. "98765") match both bare digits and
+ * international +91 prefixed E.164 phone numbers.
+ */
+export async function buildPatientSearchFilter(query: string): Promise<string> {
   const clean = query.trim();
-  if (!clean) return [];
-
-  const supabase = await createClient();
-  const session = await requirePermission("patients:view");
+  if (!clean) return "";
 
   // Sanitize query to avoid PostgREST filter syntax breaks
   const sanitized = clean.replace(/[,()]/g, " ").trim();
-  if (!sanitized) return [];
+  if (!sanitized) return "";
 
   // Search across full_name, phone, or abha_id
-  const isDigits = /^\d+$/.test(sanitized);
+  const digitsOnly = sanitized.replace(/\D/g, "");
   let filterString = `full_name.ilike.%${sanitized}%,phone.ilike.%${sanitized}%,abha_id.ilike.%${sanitized}%`;
 
-  if (isDigits && sanitized.length === 10) {
-    filterString += `,phone.ilike.%+91${sanitized}%`;
+  if (digitsOnly.length >= 3) {
+    if (!filterString.includes(`phone.ilike.%${digitsOnly}%`)) {
+      filterString += `,phone.ilike.%${digitsOnly}%`;
+    }
+    if (!filterString.includes(`phone.ilike.%+91${digitsOnly}%`)) {
+      filterString += `,phone.ilike.%+91${digitsOnly}%`;
+    }
+
+    if (digitsOnly.startsWith("91") && digitsOnly.length >= 5) {
+      const subscriber = digitsOnly.slice(2);
+      if (!filterString.includes(`phone.ilike.%${subscriber}%`)) {
+        filterString += `,phone.ilike.%${subscriber}%`;
+      }
+      if (!filterString.includes(`phone.ilike.%+91${subscriber}%`)) {
+        filterString += `,phone.ilike.%+91${subscriber}%`;
+      }
+    }
   }
+
+  return filterString;
+}
+
+export async function searchPatients(
+  query: string,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<Patient[]> {
+  const filterString = await buildPatientSearchFilter(query);
+  if (!filterString) return [];
+
+  const supabase = clientOverride || (await createClient());
+  const session = sessionOverride || (await requirePermission("patients:view"));
 
   const { data, error } = await (supabase.from("patients") as any)
     .select("*")

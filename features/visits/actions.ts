@@ -613,11 +613,31 @@ export async function getClinicVisitsRegister(
     if (parsed.searchQuery && parsed.searchQuery.trim()) {
       const clean = parsed.searchQuery.trim().replace(/[,()]/g, " ");
       if (clean) {
+        const digitsOnly = clean.replace(/\D/g, "");
+        let orClause = `full_name.ilike.%${clean}%,phone.ilike.%${clean}%,abha_id.ilike.%${clean}%`;
+        if (digitsOnly.length >= 3) {
+          if (!orClause.includes(`phone.ilike.%${digitsOnly}%`)) {
+            orClause += `,phone.ilike.%${digitsOnly}%`;
+          }
+          if (!orClause.includes(`phone.ilike.%+91${digitsOnly}%`)) {
+            orClause += `,phone.ilike.%+91${digitsOnly}%`;
+          }
+          if (digitsOnly.startsWith("91") && digitsOnly.length >= 5) {
+            const subscriber = digitsOnly.slice(2);
+            if (!orClause.includes(`phone.ilike.%${subscriber}%`)) {
+              orClause += `,phone.ilike.%${subscriber}%`;
+            }
+            if (!orClause.includes(`phone.ilike.%+91${subscriber}%`)) {
+              orClause += `,phone.ilike.%+91${subscriber}%`;
+            }
+          }
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data: matchedPatients } = await (supabase.from("patients") as any)
           .select("id")
           .eq("tenant_id", session.tenantId)
-          .or(`full_name.ilike.%${clean}%,phone.ilike.%${clean}%,abha_id.ilike.%${clean}%`)
+          .or(orClause)
           .limit(100);
 
         const patientIds = (matchedPatients || []).map((p: { id: string }) => p.id);
