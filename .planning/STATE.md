@@ -24,7 +24,7 @@ current_plan: 1
 See: .planning/PROJECT.md (updated 2026-10-06)
 
 **Core value:** Every core clinic action is obviously, overwhelmingly faster than the paper/WhatsApp status quo — zero-training, under 3 taps, usable entirely from a phone.
-**Current focus:** Phase 05.1 — Full MSG91 Integration (INSERTED)
+**Current focus:** Phase 6 — API & Launch Readiness
 
 ## Current Position
 
@@ -33,12 +33,12 @@ Next Phase: 06 (API & Launch Readiness)
 Status: Ready to plan
 Last activity: 2026-10-28 — Phase 05.2 complete, transitioned to Phase 6
 
-Progress: [█████████░] 92% (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 4, and 5 complete)
+Progress: [██████████] 100% of inserted phases complete (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 4, 5, 05.1, 05.2 complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 31
+- Total plans completed: 37
 - Average duration: —
 - Total execution time: — hours
 
@@ -55,25 +55,31 @@ Progress: [█████████░] 92% (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3
 | 03.3 | 3 | 3 | done |
 | 04 | 3 | 3 | done |
 | 05 | 4 | 4 | done |
-| 05.1 | 0 | 3 | ready |
+| 05.1 | 3 | 3 | done |
+| 05.2 | 3 | 3 | done |
+| 06 | 0 | TBD | pending |
 
 **Recent Trend:**
-- Phase 05.1: 3 plans produced, cross-AI peer reviewed via OpenCode, verified with zero blockers
+- Phase 05.2: 3 plans executed, 58/58 tests passing, 440/440 overall tests passing. Standardized Indian mobile format across all 8 UI form entry points, E.164 database persistence, and flexible search.
+- Phase 05.1: 3 plans executed, 105 messaging tests passed, full MSG91 WhatsApp integration complete with outbound template-bulk API, two-way interactive bot, and DLR lifecycle tracking.
 
 *Updated after each plan completion*
 **Per-Plan Metrics:**
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
-| Phase 04 P01 | 10m | 4 tasks | 13 files |
-| Phase 05 P01 | 10 min | 4 tasks | 17 files |
+| Phase 05.2 P01 | 10m | 3 tasks | 7 files |
+| Phase 05.2 P02 | 11m | 4 tasks | 10 files |
+| Phase 05.2 P03 | 10m | 3 tasks | 6 files |
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table and Phase 3/05.1 CONTEXT.md:
+Decisions are logged in PROJECT.md Key Decisions table and Phase 3/05.1/05.2 CONTEXT.md:
 
+- [Phase 05.2 D-01..D-07]: E.164 persistence (+91XXXXXXXXXX), strict 10-digit Indian mobile validation (/^[6-9]\d{9}$/), reusable PhoneInput component with inset Indian flag (🇮🇳) and +91 badge, all 8 form entry points upgraded, flexible 10-digit phone search, and idempotent database migration 000017.
+- [Phase 05.1 D-01..D-08]: Production MSG91 WhatsApp integration, template-bulk endpoint, two-way bot session release, conversational triage fallback, DLR status tracking (delivered/read/dead_letter).
 - [Phase 3 D-27]: Billing formally deferred to Phase 3A (`REQ-billing-invoicing`). Visit completion moves directly to `completed`.
 - [Phase 3 D-28]: Server-side `@react-pdf/renderer` in Node route handler, archived in private Supabase Storage `prescriptions` bucket with 3600s signed URLs; dual letterhead modes (blank paper vs pre-printed stationery margins).
 - [Phase 3 D-29]: CDCI 7 flat files ingested into PostgreSQL; materialized search view with `pg_trgm` and `tsvector` GIN indexes for sub-100ms fuzzy search; custom medicines auto-saved to `doctor_custom_medicines` with favorites boosted.
