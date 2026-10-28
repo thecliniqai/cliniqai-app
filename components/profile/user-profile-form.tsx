@@ -8,6 +8,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { DoctorAvailabilityCard } from "@/components/profile/doctor-availability-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -166,19 +167,12 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
 
             {/* Mobile / Contact Number */}
             <Field label="Mobile / Contact Number" htmlFor="profile_phone">
-              <div className="relative">
-                <span className="absolute start-3 top-2.5 text-gray-400">
-                  <Phone className="w-4 h-4" />
-                </span>
-                <Input
-                  id="profile_phone"
-                  type="tel"
-                  placeholder="e.g. +91 98765 43210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="ps-9"
-                />
-              </div>
+              <PhoneInput
+                id="profile_phone"
+                value={phone}
+                onChange={(digits) => setPhone(digits)}
+                disabled={isPending}
+              />
             </Field>
 
             {/* Email Address (Read-only) */}

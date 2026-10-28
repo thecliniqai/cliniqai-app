@@ -6,6 +6,7 @@ import { updateStaffMember } from "@/features/settings/actions";
 import { Membership, UserRole } from "@/lib/db/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import {
   X,
@@ -178,19 +179,12 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
 
             {/* Phone */}
             <Field label="Mobile / Contact" htmlFor="staff_phone">
-              <div className="relative">
-                <span className="absolute start-3 top-2.5 text-gray-400">
-                  <Phone className="w-4 h-4" />
-                </span>
-                <Input
-                  id="staff_phone"
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="ps-9 text-xs"
-                />
-              </div>
+              <PhoneInput
+                id="staff_phone"
+                value={phone}
+                onChange={(digits) => setPhone(digits)}
+                disabled={isPending}
+              />
             </Field>
 
             {/* Role */}
