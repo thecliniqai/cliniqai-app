@@ -56,7 +56,7 @@
     {
       "number": "05.2",
       "name": "Indian Mobile Number Standardization",
-      "status": "pending"
+      "status": "complete"
     },
     {
       "number": "6",
@@ -66,8 +66,8 @@
   ],
   "next": {
     "command": "/gsd-progress --next",
-    "label": "Advance to the next step",
-    "reason": "Phase 05.2 of 12 · 80% · executing"
+    "label": "Advance to the next step (plan phase 6)",
+    "reason": "Phase 6 of 12 — needs a plan"
   },
-  "updated_at": "2026-10-28T10:10:49.167Z"
+  "updated_at": "2026-10-28T11:14:46.338Z"
 }
