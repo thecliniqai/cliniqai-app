@@ -31,6 +31,7 @@ import {
 } from "@/features/visits/schema";
 import { ReadOnlyEncounterModal } from "./read-only-encounter-modal";
 import { cn } from "@/lib/utils";
+import { formatTenDigitsDisplay } from "@/lib/utils/phone";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
 import { shareReceiptViaWhatsApp, sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
 
@@ -493,7 +494,7 @@ export function VisitsRegisterView({
                           </p>
                           {visit.patient.phone && (
                             <p className="text-[11px] text-gray-600 font-mono">
-                              {visit.patient.phone}
+                              {formatTenDigitsDisplay(visit.patient.phone)}
                             </p>
                           )}
                         </div>

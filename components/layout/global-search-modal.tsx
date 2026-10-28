@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { searchPatients } from "@/features/patients/actions";
+import { formatTenDigitsDisplay } from "@/lib/utils/phone";
 import { Patient } from "@/lib/db/types";
 import {
   Search,
@@ -253,7 +254,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                         </div>
                         <div className="flex items-center gap-2.5 text-xs text-gray-500 mt-0.5">
                           <span className="font-mono tabular-nums">
-                            {patient.phone}
+                            {formatTenDigitsDisplay(patient.phone) || patient.phone}
                           </span>
                           {(patient.age !== null || patient.sex) && (
                             <>

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { searchPatients } from "@/features/patients/actions";
+import { formatTenDigitsDisplay } from "@/lib/utils/phone";
 import {
   Users,
   Search,
@@ -88,9 +89,13 @@ export function PatientDirectoryTable({
     }
 
     // Fast local filter
+    const queryDigits = query.replace(/\D/g, "");
     const localFiltered = initialPatients.filter((p) => {
       const nameMatch = p.full_name.toLowerCase().includes(query);
-      const phoneMatch = p.phone.toLowerCase().includes(query);
+      const pDigits = p.phone ? p.phone.replace(/\D/g, "") : "";
+      const phoneMatch =
+        p.phone.toLowerCase().includes(query) ||
+        (queryDigits.length >= 3 && pDigits.includes(queryDigits));
       const abhaMatch = p.abha_id ? p.abha_id.toLowerCase().includes(query) : false;
       const idMatch = p.id.toLowerCase().includes(query);
       return nameMatch || phoneMatch || abhaMatch || idMatch;
@@ -238,8 +243,8 @@ export function PatientDirectoryTable({
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm font-medium text-gray-700 tabular-nums">
-                        {p.phone}
+                      <span className="text-sm font-medium text-gray-700 tabular-nums font-mono">
+                        {formatTenDigitsDisplay(p.phone) || p.phone}
                       </span>
                     </TableCell>
                     <TableCell>
