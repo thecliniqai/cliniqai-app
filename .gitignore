@@ -43,6 +43,8 @@ pnpm-debug.log*
 *.log
 .planning/dev-auth-logs.txt
 .planning/dev-messages.txt
+**/.review-diagnostics
+
 
 # OS files
 .DS_Store

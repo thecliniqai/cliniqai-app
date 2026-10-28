@@ -2,16 +2,16 @@
 gsd_state_version: "1.0"
 current_phase: "05.1"
 current_phase_name: Full MSG91 Integration (INSERTED)
-status: executing
-stopped_at: Phase 05.1 context gathered
-last_updated: "2026-10-27T15:03:05.378Z"
-last_activity: 2026-10-27
-last_activity_desc: Phase 05 verified and completed
-state_head: aa3d7f2c5249e82652a5efc51a93ec256d2f9c58
+status: ready_to_execute
+stopped_at: Phase 05.1 plans revised with cross-AI review findings and verified (ready to execute)
+last_updated: "2026-10-28T06:51:18.111Z"
+last_activity: 2026-10-28
+last_activity_desc: Phase 05.1 planning and peer review completed
+state_head: e1678e4b9237f3a2265ffeb9f6f827d8cf68e261
 progress:
   total_phases: 11
   completed_phases: 9
-  total_plans: 37
+  total_plans: 40
   completed_plans: 31
   percent: 78
 current_plan: 1
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-10-06)
 Phase: 05.1 (Full MSG91 Integration (INSERTED)) — READY TO EXECUTE
 Next Phase: 06 (API & Launch Readiness)
 Status: Ready to execute
-Last activity: 2026-10-27 — Phase 05 verified and completed
+Last activity: 2026-10-28 — Phase 05.1 planning and peer review completed
 
 Progress: [████████░░] 78% (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 4, and 5 complete)
 
@@ -55,11 +55,10 @@ Progress: [████████░░] 78% (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3
 | 03.3 | 3 | 3 | done |
 | 04 | 3 | 3 | done |
 | 05 | 4 | 4 | done |
+| 05.1 | 0 | 3 | ready |
 
 **Recent Trend:**
-- Last 2 plans: Phase 03.2 (03.2-01 to 03.2-02) fully verified and passing (9/9 tests)
-- Trend: Ready for execution of Phase 04
-- Trend: Ready for execution of Phase 04
+- Phase 05.1: 3 plans produced, cross-AI peer reviewed via OpenCode, verified with zero blockers
 
 *Updated after each plan completion*
 **Per-Plan Metrics:**
@@ -73,7 +72,7 @@ Progress: [████████░░] 78% (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table and Phase 3 CONTEXT.md:
+Decisions are logged in PROJECT.md Key Decisions table and Phase 3/05.1 CONTEXT.md:
 
 - [Phase 3 D-27]: Billing formally deferred to Phase 3A (`REQ-billing-invoicing`). Visit completion moves directly to `completed`.
 - [Phase 3 D-28]: Server-side `@react-pdf/renderer` in Node route handler, archived in private Supabase Storage `prescriptions` bucket with 3600s signed URLs; dual letterhead modes (blank paper vs pre-printed stationery margins).
@@ -86,10 +85,11 @@ Decisions are logged in PROJECT.md Key Decisions table and Phase 3 CONTEXT.md:
 - [Phase 05]: Built zero-cost DevLogger provider writing formatted ANSI terminal banners and appending to .planning/dev-messages.txt
 - [Phase 05]: Implemented dual-trigger outbox queue architecture with transactional enqueueing and background cron recovery
 - [Phase 05]: Enforced quiet hours from 21:00 to 08:00 IST for non-urgent notifications with nextRetryAt scheduled for 08:01 IST
+- [Phase 05.1 D-01..D-08]: Full MSG91 WhatsApp integration (templates + 2-way bot + DLR), TRAI SMS deferred, tokenized document links, interactive button actions, auto-triage to front desk.
 
 ### Pending Todos
 
-None. Phase 3 execution plans are ready.
+None. Phase 05.1 execution plans are ready.
 
 ### Blockers/Concerns
 
@@ -99,6 +99,7 @@ None. Phase 3 execution plans are ready.
 ### Roadmap Evolution
 
 - Phase 03.1 inserted after Phase 3: Doctor Cabin, Role-Based Access & Billing Invoicing (URGENT)
+- Phase 05.1 inserted after Phase 5: Full MSG91 Integration (INSERTED)
 
 ## Deferred Items
 
@@ -106,9 +107,10 @@ None. Phase 3 execution plans are ready.
 |----------|------|--------|-------------|-----------|
 | Billing | Dedicated Billing & Invoicing Module | Deferred to Phase 3A | 2026-10-09 (Phase 3 Discuss) | v1.0 |
 | AI | AI Clinical Notes & Transcription | Deferred to Phase 5 | 2026-10-09 (Phase 3 Discuss) | v1.0 |
+| SMS / OTP | TRAI DLT SMS Flow API & Staff Mobile OTP | Deferred until TRAI entity & header registration clears | 2026-10-27 (Phase 05.1 Discuss) | v1.0+ |
 
 ## Session Continuity
 
-Last session: 2026-10-27T13:20:28.782Z
-Stopped at: Phase 05.1 context gathered
-Resume file: .planning/phases/05.1-full-msg91-integration-inserted/05.1-CONTEXT.md
+Last session: 2026-10-28T06:51:18.111Z
+Stopped at: Phase 05.1 plans ready for execution
+Resume file: .planning/phases/05.1-full-msg91-integration-inserted/05.1-01-PLAN.md
