@@ -1,17 +1,11 @@
 import { z } from "zod";
+import { INDIAN_MOBILE_REGEX, toE164, extractTenDigits } from "@/lib/utils/phone";
 
 /**
  * Normalizes Indian and standard mobile numbers.
  */
 export function normalizePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 10) {
-    return `+91${digits}`;
-  }
-  if (digits.length === 12 && digits.startsWith("91")) {
-    return `+${digits}`;
-  }
-  return phone.trim();
+  return toE164(phone);
 }
 
 /**
@@ -49,9 +43,11 @@ export const patientSchema = z
     phone: z
       .string()
       .trim()
-      .min(8, "Phone number must be at least 8 digits.")
-      .max(15, "Phone number is too long.")
-      .transform(normalizePhone),
+      .transform((val) => extractTenDigits(val))
+      .refine((val) => INDIAN_MOBILE_REGEX.test(val), {
+        message: "Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.",
+      })
+      .transform((val) => toE164(val)),
     date_of_birth: z
       .string()
       .optional()

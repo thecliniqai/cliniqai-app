@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { normalizePhone } from "./schema";
+import { toE164 } from "@/lib/utils/phone";
 import { Database, Patient } from "@/lib/db/types";
 
 export interface DuplicateMatch {
@@ -45,7 +45,7 @@ export async function findPotentialDuplicates(
 
   // 1. High confidence: Normalized phone match
   if (params.phone && params.phone.trim().length >= 8) {
-    const normalized = normalizePhone(params.phone);
+    const normalized = toE164(params.phone);
     const { data: phoneMatches, error: phoneErr } = await (
       supabase.from("patients") as unknown as {
         select: (cols: string) => {

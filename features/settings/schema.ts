@@ -1,4 +1,26 @@
 import { z } from "zod";
+import { INDIAN_MOBILE_REGEX, toE164, extractTenDigits } from "@/lib/utils/phone";
+
+export const optionalIndianPhone = z
+  .string()
+  .optional()
+  .nullable()
+  .transform((val) => {
+    if (val === undefined) return undefined;
+    if (val === null || val.trim() === "") return null;
+    return extractTenDigits(val);
+  })
+  .refine(
+    (val) => val === undefined || val === null || INDIAN_MOBILE_REGEX.test(val),
+    {
+      message: "Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.",
+    }
+  )
+  .transform((val) => {
+    if (val === undefined) return undefined;
+    if (val === null) return null;
+    return toE164(val);
+  });
 
 export const clinicSettingsSchema = z.object({
   name: z.string().min(2, "Clinic name must be at least 2 characters."),
@@ -12,7 +34,7 @@ export const clinicSettingsSchema = z.object({
   
   // Owner doctor clinical profile (configured when owner is practicing doctor)
   doctor_name: z.string().optional().nullable(),
-  doctor_phone: z.string().optional().nullable(),
+  doctor_phone: optionalIndianPhone,
   medical_council_reg_no: z.string().optional().nullable(),
   qualifications: z.string().optional().nullable(),
   default_specialty: z.string().default("general_physician"),
@@ -22,7 +44,7 @@ export type ClinicSettingsInput = z.infer<typeof clinicSettingsSchema>;
 
 export const userProfileSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters."),
-  phone: z.string().optional().nullable(),
+  phone: optionalIndianPhone,
   medical_council_reg_no: z.string().optional().nullable(),
   qualifications: z.string().optional().nullable(),
   default_specialty: z.string().default("general_physician"),
@@ -35,7 +57,7 @@ export type UserProfileInput = z.infer<typeof userProfileSchema>;
 export const staffEditSchema = z.object({
   membership_id: z.string().uuid("Invalid membership ID"),
   full_name: z.string().min(2, "Full name must be at least 2 characters."),
-  phone: z.string().optional().nullable(),
+  phone: optionalIndianPhone,
   role: z.enum(["owner", "admin", "doctor", "receptionist", "nurse"]),
   medical_council_reg_no: z.string().optional().nullable(),
   qualifications: z.string().optional().nullable(),
