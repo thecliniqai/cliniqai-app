@@ -236,10 +236,21 @@ Plans:
 
 **UI hint**: no
 
+### Phase 05.2: Indian Mobile Number Standardization & Country Prefix UI (INSERTED)
+
+**Goal:** Reinforce and standardize Indian phone number input across all application screens with a dedicated Indian Flag & +91 prefix component, strict 10-digit validation, and standardized E.164 database persistence and sanitization for WhatsApp/SMS gateway compatibility.
+
+**Depends on:** Phase 05.1
+**Requirements:** REQ-patient-records, REQ-reminders-notifications
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 05.2 to break down)
+
 ### Phase 6: API & Launch Readiness
 
 **Goal**: The platform is consumable by external clients and meets launch-grade performance, reliability, and regulatory standards
-**Depends on**: Phase 05.1
+**Depends on**: Phase 05.2
 **Requirements**: REQ-api-access, REQ-nfr-performance, REQ-nfr-reliability, REQ-nfr-regulatory-compliance
 **Success Criteria** (what must be TRUE):
   1. External clients authenticate with tenant-scoped API keys and perform CRUD over patients, appointments, visits, prescriptions, lab orders, and referrals, with role scope matching in-app roles
@@ -268,4 +279,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Labs & Referrals | 3/3 | Complete | 2026-10-22 |
 | 5. Communications & AI Assist | 4/4 | Complete | 2026-10-27 |
 | 05.1. Full MSG91 Integration | 3/3 | Complete    | 2026-10-28 |
+| 05.2. Indian Mobile Number Standardization | 0/- | Not started | - |
 | 6. API & Launch Readiness | 0/- | Not started | - |
