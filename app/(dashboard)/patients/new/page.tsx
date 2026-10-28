@@ -6,6 +6,7 @@ import { createPatient } from "@/features/patients/actions";
 import { findPotentialDuplicates, DuplicateMatch } from "@/features/patients/dedup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Select } from "@/components/ui/select";
 import { Field } from "@/components/ui/field";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
@@ -180,16 +181,16 @@ export default function NewPatientPage() {
               helpText="10-digit primary contact number."
               error={fieldErrors.phone?.[0]}
             >
-              <Input
+              <PhoneInput
                 id="phone"
-                type="tel"
                 required
                 value={formData.phone}
-                onChange={(e) => {
+                invalid={!!fieldErrors.phone?.[0]}
+                onChange={(digits) => {
                   setDismissedDuplicates(false);
-                  setFormData({ ...formData, phone: e.target.value });
+                  setFormData((prev) => ({ ...prev, phone: digits }));
                 }}
-                placeholder="9876543210"
+                disabled={loading}
               />
             </Field>
 

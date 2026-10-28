@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Select } from "@/components/ui/select";
 import { Field } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
@@ -173,13 +174,13 @@ export function EditPatientModal({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Phone Number" htmlFor="edit-phone" required>
-              <Input
+              <PhoneInput
                 id="edit-phone"
-                type="tel"
                 required
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="10-digit mobile number"
+                invalid={!!error && error.toLowerCase().includes("phone")}
+                onChange={(digits) => setPhone(digits)}
+                disabled={loading}
               />
             </Field>
 
