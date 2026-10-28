@@ -53,3 +53,4 @@ export function buildMsg91CreateTemplatePayload(
 }
 
 export * from "./mapping";
+export * from "./sync";
