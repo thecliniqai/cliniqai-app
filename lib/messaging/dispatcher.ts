@@ -155,6 +155,9 @@ export async function dispatchPendingQueue(options?: {
           stringParams[k] = String(v);
         }
       }
+      if (!stringParams.clinic_name) {
+        stringParams.clinic_name = "Clinic";
+      }
 
       let sendResult: { success: boolean; externalMessageId?: string; error?: string } = {
         success: false,

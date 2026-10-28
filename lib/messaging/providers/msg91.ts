@@ -3,6 +3,8 @@ import {
   MessagingProvider,
   MessagingSendResult,
 } from "../types";
+import { WHATSAPP_TEMPLATES } from "../templates";
+import { buildPositionalComponents } from "../templates/mapping";
 
 export class Msg91Provider implements MessagingProvider {
   readonly name = "msg91" as const;
@@ -10,9 +12,19 @@ export class Msg91Provider implements MessagingProvider {
   private senderId: string;
   private dltTeId?: string;
 
-  constructor(options?: { authKey?: string; senderId?: string; dltTeId?: string }) {
+  constructor(options?: {
+    authKey?: string;
+    senderId?: string;
+    integratedNumber?: string;
+    dltTeId?: string;
+  }) {
     this.authKey = options?.authKey || process.env.MSG91_AUTH_KEY || "";
-    this.senderId = options?.senderId || process.env.MSG91_SENDER_ID || "";
+    this.senderId =
+      options?.integratedNumber ||
+      options?.senderId ||
+      process.env.MSG91_INTEGRATED_NUMBER ||
+      process.env.MSG91_SENDER_ID ||
+      "";
     this.dltTeId = options?.dltTeId || process.env.MSG91_DLT_TE_ID || "";
   }
 
@@ -81,7 +93,7 @@ export class Msg91Provider implements MessagingProvider {
     to: string,
     templateId: string,
     params: Record<string, string>,
-    buttons?: InteractiveButton[]
+    _buttons?: InteractiveButton[]
   ): Promise<MessagingSendResult> {
     if (!this.authKey) {
       return {
@@ -93,67 +105,132 @@ export class Msg91Provider implements MessagingProvider {
 
     try {
       const normalizedPhone = to.replace(/[^0-9]/g, "");
-      const res = await fetch(
-        "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            authkey: this.authKey,
-          },
-          body: JSON.stringify({
-            integrated_number: this.senderId,
-            content_type: "template",
-            payload: {
-              to: normalizedPhone,
-              type: "template",
-              template: {
-                name: templateId,
-                language: { code: "en" },
-                components: [
-                  {
-                    type: "body",
-                    parameters: Object.entries(params).map(([, val]) => ({
-                      type: "text",
-                      text: String(val),
-                    })),
-                  },
-                  ...(buttons && buttons.length > 0
-                    ? buttons.map((b, idx) => ({
-                        type: "button",
-                        sub_type: "quick_reply",
-                        index: String(idx),
-                        parameters: [{ type: "payload", payload: b.id }],
-                      }))
-                    : []),
-                ],
-              },
-            },
-          }),
-        }
+      const isCatalogueTemplate = WHATSAPP_TEMPLATES.some(
+        (t) => t.template_name === templateId
       );
 
-      const data = (await res.json().catch(() => ({}))) as {
-        status?: string;
-        message?: string;
-        request_id?: string;
-      };
+      if (isCatalogueTemplate) {
+        const mappedComponents = buildPositionalComponents(templateId, params);
 
-      if (!res.ok || data.status === "error") {
+        const res = await fetch(
+          "https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              authkey: this.authKey,
+            },
+            body: JSON.stringify({
+              integrated_number: this.senderId,
+              content_type: "template",
+              payload: {
+                type: "template",
+                template: {
+                  name: templateId,
+                  language: {
+                    code: "en",
+                    policy: "deterministic",
+                  },
+                  to_and_components: [
+                    {
+                      to: [normalizedPhone],
+                      components: mappedComponents,
+                    },
+                  ],
+                },
+                messaging_product: "whatsapp",
+              },
+            }),
+          }
+        );
+
+        const data = (await res.json().catch(() => ({}))) as {
+          status?: string;
+          hasError?: boolean;
+          message?: string;
+          errors?: unknown;
+          request_id?: string;
+          requestId?: string;
+        };
+
+        if (!res.ok || data.status === "error" || data.hasError === true) {
+          const errMsg =
+            data.message ||
+            (typeof data.errors === "string" ? data.errors : JSON.stringify(data.errors)) ||
+            `MSG91 WhatsApp failed with HTTP ${res.status}`;
+
+          return {
+            success: false,
+            channelUsed: "whatsapp",
+            error: errMsg,
+            statusCode: res.status,
+          };
+        }
+
         return {
-          success: false,
+          success: true,
           channelUsed: "whatsapp",
-          error: data.message || `MSG91 WhatsApp failed with HTTP ${res.status}`,
+          externalMessageId:
+            data.request_id || data.requestId || `msg91-wa-${Date.now()}`,
+          statusCode: res.status,
+        };
+      } else {
+        // Active session text endpoint fallback for non-catalogue conversational messages
+        const textContent =
+          params.message || params.text || Object.values(params).join(" ");
+
+        const res = await fetch(
+          "https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              authkey: this.authKey,
+            },
+            body: JSON.stringify({
+              integrated_number: this.senderId,
+              recipient_number: normalizedPhone,
+              content_type: "text",
+              text: textContent,
+            }),
+          }
+        );
+
+        const data = (await res.json().catch(() => ({}))) as {
+          status?: string;
+          hasError?: boolean;
+          message?: string;
+          errors?: unknown;
+          request_id?: string;
+          requestId?: string;
+          message_uuid?: string;
+        };
+
+        if (!res.ok || data.status === "error" || data.hasError === true) {
+          const errMsg =
+            data.message ||
+            (typeof data.errors === "string" ? data.errors : JSON.stringify(data.errors)) ||
+            `MSG91 session text failed with HTTP ${res.status}`;
+
+          return {
+            success: false,
+            channelUsed: "whatsapp",
+            error: errMsg,
+            statusCode: res.status,
+          };
+        }
+
+        return {
+          success: true,
+          channelUsed: "whatsapp",
+          externalMessageId:
+            data.request_id ||
+            data.requestId ||
+            data.message_uuid ||
+            `msg91-wa-text-${Date.now()}`,
           statusCode: res.status,
         };
       }
-
-      return {
-        success: true,
-        channelUsed: "whatsapp",
-        externalMessageId: data.request_id || `msg91-wa-${Date.now()}`,
-        statusCode: res.status,
-      };
     } catch (err: unknown) {
       return {
         success: false,

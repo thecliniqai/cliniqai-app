@@ -18,11 +18,17 @@ let cachedProvider: MessagingProvider | null = null;
 let cachedProviderName: string | null = null;
 
 export function getMessagingProvider(overrideName?: string): MessagingProvider {
-  const providerName = (
+  let providerName = (
     overrideName ||
     process.env.MESSAGING_PROVIDER ||
     "dev"
   ).toLowerCase();
+
+  // Decision D-08: If MSG91_AUTH_KEY is not configured and not explicitly overridden,
+  // seamlessly fall back to DevLoggerProvider in local/test environments
+  if (providerName === "msg91" && !overrideName && !process.env.MSG91_AUTH_KEY) {
+    providerName = "dev";
+  }
 
   if (cachedProvider && cachedProviderName === providerName) {
     return cachedProvider;
@@ -32,7 +38,10 @@ export function getMessagingProvider(overrideName?: string): MessagingProvider {
 
   switch (providerName) {
     case "msg91":
-      provider = new Msg91Provider();
+      provider = new Msg91Provider({
+        integratedNumber: process.env.MSG91_INTEGRATED_NUMBER,
+        senderId: process.env.MSG91_SENDER_ID,
+      });
       break;
     case "twilio":
       provider = new TwilioProvider();
