@@ -20,6 +20,8 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
 - [x] **Phase 4: Labs & Referrals** - Lab orders/results with abnormal flagging, in- and out-of-network referrals with tracking (completed 2026-10-22)
 - [x] **Phase 5: Communications & AI Assist** - SMS/WhatsApp reminders and two-way replies, communication audit log, labeled assistive AI features (completed 2026-10-27)
 - [x] **Phase 05.1 (Phase 5A): Full MSG91 Integration (INSERTED)** - Production MSG91 integration across WhatsApp (templates & 2-way session), SMS Flow API, SendOTP/VerifyOTP auth, delivery report webhooks, and automated template sync (completed 2026-10-28)
+- [x] **Phase 05.2: Indian Mobile Number Standardization & Country Prefix UI (INSERTED)** - Reusable PhoneInput (+91, Indian flag), E.164 database persistence, application-wide form upgrades, flexible search, and data migration (completed 2026-10-28)
+- [ ] **Phase 05.3: CliniQ AI Copilot Suite — Operations & Clinical Copilot (INSERTED)** - Global Operations Copilot (tool-executed actions, appointment booking, product Q&A) and Consultation Clinical Copilot (ICD coding, note structuring, treatment outlines, medication safety) (ready to discuss)
 - [ ] **Phase 6: API & Launch Readiness** - REST API, webhooks, rate limiting, performance, reliability, DPDP/regulatory hardening
 
 ## Phase Details
@@ -252,10 +254,27 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 - [x] 05.2-03-PLAN.md: Wave 3 — Flexible Search Optimization & End-to-End Regression
 
+### Phase 05.3: CliniQ AI Copilot Suite — Operations & Clinical Copilot (INSERTED)
+
+**Goal:** Implement the full CliniQ AI vision (`docs/ai-vision.md`) consisting of two complementary AI capabilities sharing an intelligent platform: (1) an Operations Copilot across the application that answers product questions and executes controlled clinic actions (appointment booking/rescheduling, operational lookups, and preferences) with explicit human confirmation preview cards, and (2) a Clinical Copilot in the consultation cabin assisting doctors with text-based note structuring, ICD coding, treatment plan drafts, and bounded medication decision support (interactions/allergies) while maintaining strict clinician review and zero autonomous prescribing.
+
+**Depends on:** Phase 05.2
+**Requirements:** REQ-ai-features, REQ-compliance-data-layer
+**Success Criteria** (what must be TRUE):
+  1. Global Operations Copilot interface (top header / command copilot) answers natural language questions grounded in verified CliniQ AI product workflows and clinic data within user role permissions.
+  2. Operations Copilot executes supported actions (book appointment with patient resolution and conflict check, reschedule, cancel with slot release, fetch today's unconfirmed/queue status) through controlled tool functions with human-in-the-loop preview/confirmation cards.
+  3. Clinical Copilot in the consultation cabin assists doctors with note structuring (chief complaints, exam, advice), ICD-10/11 coding assistance with descriptions/ambiguity handling, and management plan drafts without fabricating unprovided patient facts.
+  4. Bounded medication decision support alerts doctors to allergies, contraindications, and potential interactions during prescription drafting, while strictly enforcing zero autonomous prescribing and preserving doctor sign-off.
+  5. Shared AI foundation provides conversation state management, intent routing (operations vs clinical vs clarification), role-scoped permissions, audit logging, and PII sanitization.
+  6. Ambient voice recording is explicitly deferred to post-launch; all interactions operate via text, explicit prompts, and structured application data.
+
+**Plans**: TBD
+**UI hint**: yes
+
 ### Phase 6: API & Launch Readiness
 
 **Goal**: The platform is consumable by external clients and meets launch-grade performance, reliability, and regulatory standards
-**Depends on**: Phase 05.2
+**Depends on**: Phase 05.3
 **Requirements**: REQ-api-access, REQ-nfr-performance, REQ-nfr-reliability, REQ-nfr-regulatory-compliance
 **Success Criteria** (what must be TRUE):
   1. External clients authenticate with tenant-scoped API keys and perform CRUD over patients, appointments, visits, prescriptions, lab orders, and referrals, with role scope matching in-app roles
@@ -285,4 +304,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 5. Communications & AI Assist | 4/4 | Complete | 2026-10-27 |
 | 05.1. Full MSG91 Integration | 3/3 | Complete    | 2026-10-28 |
 | 05.2. Indian Mobile Number Standardization | 3/3 | Complete    | 2026-10-28 |
+| 05.3. CliniQ AI Copilot Suite | 0/- | Ready to discuss | - |
 | 6. API & Launch Readiness | 0/- | Not started | - |
