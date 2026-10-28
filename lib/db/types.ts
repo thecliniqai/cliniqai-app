@@ -1252,7 +1252,15 @@ export interface Database {
 // ============================================================================
 
 export type CommunicationChannel = "whatsapp" | "sms" | "in_app";
-export type CommunicationStatus = "pending" | "processing" | "sent" | "failed" | "cancelled" | "dead_letter";
+export type CommunicationStatus =
+  | "pending"
+  | "processing"
+  | "sent"
+  | "delivered"
+  | "read"
+  | "failed"
+  | "cancelled"
+  | "dead_letter";
 
 export interface CommunicationQueueItem {
   id: string;
