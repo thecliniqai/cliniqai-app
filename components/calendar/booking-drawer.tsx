@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
 import { createPatient, searchPatients } from "@/features/patients/actions";
@@ -451,13 +452,12 @@ export function BookingDrawer({
                 </Field>
 
                 <Field label="Mobile Phone" htmlFor="new-phone" required>
-                  <Input
+                  <PhoneInput
                     id="new-phone"
-                    type="tel"
-                    placeholder="+919876543210"
-                    value={newPatient.phone}
-                    onChange={(e) => setNewPatient((prev) => ({ ...prev, phone: e.target.value }))}
                     required
+                    value={newPatient.phone}
+                    onChange={(digits) => setNewPatient((prev) => ({ ...prev, phone: digits }))}
+                    disabled={loading}
                   />
                 </Field>
 

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
 import { createPatient, searchPatients } from "@/features/patients/actions";
@@ -395,15 +396,14 @@ export function WalkInDrawer({
               </Field>
 
               <Field label="Phone Number" htmlFor="walkin-phone" required>
-                <Input
+                <PhoneInput
                   id="walkin-phone"
-                  type="tel"
                   required
                   value={newPatient.phone}
-                  onChange={(e) =>
-                    setNewPatient({ ...newPatient, phone: e.target.value })
+                  onChange={(digits) =>
+                    setNewPatient((prev) => ({ ...prev, phone: digits }))
                   }
-                  placeholder="9876543210"
+                  disabled={loading}
                 />
               </Field>
 

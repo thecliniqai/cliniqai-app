@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Field } from "@/components/ui/field";
 import { addToWaitlist } from "@/features/waitlist/actions";
 import { createPatient, searchPatients } from "@/features/patients/actions";
@@ -363,13 +364,12 @@ export function WaitlistDrawer({
                 </Field>
 
                 <Field label="Mobile Phone" htmlFor="wl-new-phone" required>
-                  <Input
+                  <PhoneInput
                     id="wl-new-phone"
-                    type="tel"
-                    placeholder="+919876543210"
-                    value={newPatient.phone}
-                    onChange={(e) => setNewPatient((prev) => ({ ...prev, phone: e.target.value }))}
                     required
+                    value={newPatient.phone}
+                    onChange={(digits) => setNewPatient((prev) => ({ ...prev, phone: digits }))}
+                    disabled={loading}
                   />
                 </Field>
 
