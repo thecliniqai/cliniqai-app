@@ -8,8 +8,22 @@
  *   MSG91_AUTH_KEY and MSG91_INTEGRATED_NUMBER (or MSG91_SENDER_ID) set in environment or passed as flags.
  */
 
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+
+// Auto-load environment variables from .env.local or .env for standalone script execution
+try {
+  if (fs.existsSync(".env.local")) {
+    process.loadEnvFile(".env.local");
+  }
+} catch {}
+try {
+  if (fs.existsSync(".env")) {
+    process.loadEnvFile(".env");
+  }
+} catch {}
+
 import {
   WHATSAPP_TEMPLATES,
   buildAllPayloads,
@@ -90,8 +104,18 @@ export async function main() {
   const dryRun = args.includes("--dry-run");
   const isStatus = args.includes("--status");
 
-  const authKeyArg = args.find((a) => a.startsWith("--authkey="))?.split("=")[1];
-  const numberArg = args.find((a) => a.startsWith("--number="))?.split("=")[1];
+  const getArg = (flag: string): string | undefined => {
+    const eq = args.find((a) => a.startsWith(`${flag}=`));
+    if (eq) return eq.slice(flag.length + 1);
+    const idx = args.indexOf(flag);
+    if (idx !== -1 && idx + 1 < args.length && !args[idx + 1].startsWith("--")) {
+      return args[idx + 1];
+    }
+    return undefined;
+  };
+
+  const authKeyArg = getArg("--authkey");
+  const numberArg = getArg("--number");
 
   const authKey = authKeyArg || process.env.MSG91_AUTH_KEY || "";
   const integratedNumber =
