@@ -243,9 +243,14 @@ Plans:
 **Depends on:** Phase 05.1
 **Requirements:** REQ-patient-records, REQ-reminders-notifications
 **Plans:** 3/3 plans complete
+**Wave 1**
+- [x] 05.2-01-PLAN.md: Wave 1 — Data Normalization, Shared Phone Utility & Zod Schemas
 
-Plans:
-- [ ] TBD (run /gsd-plan-phase 05.2 to break down)
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 05.2-02-PLAN.md: Wave 2 — Reusable PhoneInput Component & Application Form Upgrades
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 05.2-03-PLAN.md: Wave 3 — Flexible Search Optimization & End-to-End Regression
 
 ### Phase 6: API & Launch Readiness
 
