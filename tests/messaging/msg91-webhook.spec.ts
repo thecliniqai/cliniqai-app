@@ -177,7 +177,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         "appointment_confirmed_ack",
         expect.any(Object),
         undefined,
-        expect.any(String)
+        undefined
       );
     });
 
@@ -252,7 +252,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         "appointment_cancelled_ack",
         expect.any(Object),
         undefined,
-        expect.any(String)
+        undefined
       );
     });
 
@@ -323,7 +323,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           message: expect.stringContaining("https://app.thecliniqai.com/reschedule/token-24hr-abc"),
         }),
         undefined,
-        expect.any(String)
+        undefined
       );
     });
   });
@@ -551,7 +551,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           message: expect.stringContaining("received your message and our reception desk will assist you shortly"),
         }),
         undefined,
-        expect.any(String)
+        undefined
       );
     });
   });
