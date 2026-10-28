@@ -19,7 +19,7 @@ ClinicQ is built as six vertical slices: first the isolated multi-tenant foundat
 - [x] **Phase 03.3: Doctor Availability, Multi-Shift Scheduling, Time Blocking & Calendar Enhancements (INSERTED)** - Fix doctor UUID display across calendar and drawers, doctor weekly availability with split shifts, time-off/vacation blocking, per-doctor slot duration (15/20/30/45/60m), dynamic calendar timeline hours, and doctor filter pills (completed 2026-10-16)
 - [x] **Phase 4: Labs & Referrals** - Lab orders/results with abnormal flagging, in- and out-of-network referrals with tracking (completed 2026-10-22)
 - [x] **Phase 5: Communications & AI Assist** - SMS/WhatsApp reminders and two-way replies, communication audit log, labeled assistive AI features (completed 2026-10-27)
-- [ ] **Phase 05.1 (Phase 5A): Full MSG91 Integration (INSERTED)** - Production MSG91 integration across WhatsApp (templates & 2-way session), SMS Flow API, SendOTP/VerifyOTP auth, delivery report webhooks, and automated template sync
+- [x] **Phase 05.1 (Phase 5A): Full MSG91 Integration (INSERTED)** - Production MSG91 integration across WhatsApp (templates & 2-way session), SMS Flow API, SendOTP/VerifyOTP auth, delivery report webhooks, and automated template sync (completed 2026-10-28)
 - [ ] **Phase 6: API & Launch Readiness** - REST API, webhooks, rate limiting, performance, reliability, DPDP/regulatory hardening
 
 ## Phase Details
@@ -224,15 +224,15 @@ Plans:
   5. MSG91 SendOTP and VerifyOTP service modules provide reliable Indian mobile OTP authentication for staff onboarding and login.
   6. Automated CLI (`npx docstar-cli msg91`) and MCP server (`https://mcp.msg91.com/mcp`) integration enables automated verification and inspection of message logs, templates, and delivery analytics.
 
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 **Wave 1**
-- [ ] 05.1-01-PLAN.md: Wave 1 — Migration, Positional Mapper & Outbound Msg91Provider
+- [x] 05.1-01-PLAN.md: Wave 1 — Migration, Positional Mapper & Outbound Msg91Provider
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 05.1-02-PLAN.md: Wave 2 — Inbound Webhook Parser, Two-Way Bot Actions & DLR Status Engine
+- [x] 05.1-02-PLAN.md: Wave 2 — Inbound Webhook Parser, Two-Way Bot Actions & DLR Status Engine
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 05.1-03-PLAN.md: Wave 3 — Template Sync Status Tooling & End-to-End Verification
+- [x] 05.1-03-PLAN.md: Wave 3 — Template Sync Status Tooling & End-to-End Verification
 
 **UI hint**: no
 
@@ -267,5 +267,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 03.3. Doctor Availability & Multi-Shift Scheduling | 3/3 | Complete | 2026-10-16 |
 | 4. Labs & Referrals | 3/3 | Complete | 2026-10-22 |
 | 5. Communications & AI Assist | 4/4 | Complete | 2026-10-27 |
-| 05.1. Full MSG91 Integration | 0/- | In progress | - |
+| 05.1. Full MSG91 Integration | 3/3 | Complete    | 2026-10-28 |
 | 6. API & Launch Readiness | 0/- | Not started | - |

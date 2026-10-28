@@ -51,7 +51,7 @@
     {
       "number": "05.1",
       "name": "Full MSG91 Integration",
-      "status": "in_progress"
+      "status": "complete"
     },
     {
       "number": "6",
@@ -61,8 +61,8 @@
   ],
   "next": {
     "command": "/gsd-progress --next",
-    "label": "Advance to the next step",
-    "reason": "Phase 05.1 of 11 · 78% · executing"
+    "label": "Advance to the next step (plan phase 6)",
+    "reason": "Phase 6 of 11 — needs a plan"
   },
-  "updated_at": "2026-10-28T06:51:18.136Z"
+  "updated_at": "2026-10-28T07:31:11.689Z"
 }
