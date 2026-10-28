@@ -57,9 +57,9 @@ describe("Two-Way WhatsApp Bot & Webhook Ingestion (REQ-reminders-notifications,
 
     it("parses cancellation aliases", () => {
       expect(parseInboundAction("btn_cancel")).toBe("cancel");
-      expect(parseInboundAction("Cancel")).toBe("cancel");
-      expect(parseInboundAction("no")).toBe("cancel");
-      expect(parseInboundAction("2")).toBe("cancel");
+      expect(parseInboundAction("Cancel", true)).toBe("cancel");
+      expect(parseInboundAction("no")).toBe("unhandled");
+      expect(parseInboundAction("2")).toBe("unhandled");
     });
 
     it("parses reschedule aliases", () => {
