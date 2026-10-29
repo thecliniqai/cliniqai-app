@@ -1,5 +1,6 @@
 "use server";
 
+import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import {
   generateSoapFromShorthand,
@@ -92,3 +93,39 @@ export async function getFrequentPrescriptionsAction(input: {
     };
   }
 }
+
+export interface SuggestIcd10ActionResult {
+  success: boolean;
+  candidates: Array<{ code: string; description: string; differential_criteria: string }>;
+  error?: string;
+}
+
+export async function suggestIcd10Action(input: {
+  query: string;
+  specialty?: string;
+}): Promise<SuggestIcd10ActionResult> {
+  try {
+    const session = await requirePermission("consultations:view");
+    const supabase = await createClient();
+    const { getClinicalTools } = await import("@/lib/ai/tools/clinical-tools");
+    const clinicalTools = getClinicalTools({
+      tenantId: session.tenantId,
+      userId: session.userId,
+      role: session.role,
+      supabase,
+    });
+    const result = await clinicalTools.suggest_icd10.execute(
+      { query: input.query, specialty: input.specialty },
+      { toolCallId: `call_${Date.now()}`, messages: [] }
+    );
+    return { success: true, candidates: result.candidates };
+  } catch (err: unknown) {
+    console.error("[suggestIcd10Action] Error:", err);
+    return {
+      success: false,
+      candidates: [],
+      error: err instanceof Error ? err.message : "Failed to suggest ICD-10 codes.",
+    };
+  }
+}
+
