@@ -268,7 +268,17 @@ Plans:
   5. Shared AI foundation provides conversation state management, intent routing (operations vs clinical vs clarification), role-scoped permissions, audit logging, and PII sanitization.
   6. Ambient voice recording is explicitly deferred to post-launch; all interactions operate via text, explicit prompts, and structured application data.
 
-**Plans**: TBD
+**Plans**: 4/4 plans complete
+**Wave 1**
+- [x] 05.3-01-PLAN.md: Wave 1 — AI Gateway Provider, DPDP Sanitizer, Grounded Manifest, RBAC Tools & Streaming Routes
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [x] 05.3-02-PLAN.md: Wave 2 — Global Operations Copilot Drawer, Action Preview Cards & Shell Integration
+- [x] 05.3-03-PLAN.md: Wave 2 — Consultation Clinical Copilot Dockable Panel, Granular Section Insertion & Provenance Tracking
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [x] 05.3-04-PLAN.md: Wave 3 — Comprehensive Copilot Evals, Guardrails & Security Test Suites
+
 **UI hint**: yes
 
 ### Phase 6: API & Launch Readiness
@@ -304,5 +314,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 5. Communications & AI Assist | 4/4 | Complete | 2026-10-27 |
 | 05.1. Full MSG91 Integration | 3/3 | Complete    | 2026-10-28 |
 | 05.2. Indian Mobile Number Standardization | 3/3 | Complete    | 2026-10-28 |
-| 05.3. CliniQ AI Copilot Suite | 0/- | Ready to discuss | - |
+| 05.3. CliniQ AI Copilot Suite | 4/4 | Complete | 2026-10-29 |
 | 6. API & Launch Readiness | 0/- | Not started | - |
