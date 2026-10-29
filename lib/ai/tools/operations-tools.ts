@@ -23,7 +23,7 @@ export function assertRoleAllowed(userRole: string, allowedRoles: string[]): voi
 
   if (!allowed.includes(normalized)) {
     const error = new Error(
-      `Role '${userRole}' is not authorized to execute this operation.`
+      `UNAUTHORIZED_ROLE: Role '${userRole}' is not authorized to execute this operation.`
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (error as any).code = "UNAUTHORIZED_ROLE";

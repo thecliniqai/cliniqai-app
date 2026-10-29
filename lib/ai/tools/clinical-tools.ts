@@ -82,6 +82,20 @@ const CURATED_ICD10_LIST = [
       "When dysuria, urinary frequency, and pyuria occur without loin pain or high-grade systemic sepsis.",
     keywords: ["uti", "urinary infection", "dysuria", "burning urination"],
   },
+  {
+    code: "J02.9",
+    description: "Acute pharyngitis, unspecified",
+    differential_criteria:
+      "When acute throat soreness and tonsillar erythema occur without lower respiratory adventitious sounds.",
+    keywords: ["pharyngitis", "sore throat", "throat pain", "throat infection"],
+  },
+  {
+    code: "H66.9",
+    description: "Otitis media, unspecified",
+    differential_criteria:
+      "When otalgia, ear discharge, or erythematous tympanic membrane indicate middle ear inflammation.",
+    keywords: ["otitis", "otitis media", "ear pain", "ear discharge", "middle ear"],
+  },
 ];
 
 export function getClinicalTools(context: ClinicalToolsContext) {
