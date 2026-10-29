@@ -197,7 +197,7 @@ export function ChiefComplaintsSection({
                     value={item.notes || ""}
                     disabled={disabled}
                     onChange={(e) => handleUpdateNotes(index, e.target.value)}
-                    className="text-xs h-8 px-2.5 rounded-md border border-gray-200 bg-white placeholder-gray-400 focus:outline-hidden focus:border-[#1769E0] w-full sm:w-48"
+                    className="text-xs h-8 px-2.5 rounded-md border border-gray-200 bg-white placeholder-gray-400 focus:outline-hidden focus:border-[#1769E0] w-full sm:w-72 md:w-96"
                   />
                   {!disabled && (
                     <button

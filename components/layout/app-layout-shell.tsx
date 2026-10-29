@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
 import { AppSidebar } from "./app-sidebar";
 import { AppHeader } from "./app-header";
@@ -21,6 +22,8 @@ function LayoutContent({
   children,
 }: AppLayoutShellProps) {
   const { isExpanded } = useSidebar();
+  const pathname = usePathname();
+  const isConsultation = pathname?.startsWith("/consultation");
 
   return (
     <div className="min-h-screen bg-[#F7F6F3] flex flex-col">
@@ -42,8 +45,15 @@ function LayoutContent({
           userEmail={userEmail}
         />
 
-        {/* Page Content Container */}
-        <main className="flex-1 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        {/* Page Content Container - Full width without boxing on consultation workspace */}
+        <main
+          className={cn(
+            "flex-1 w-full",
+            isConsultation
+              ? "p-0 flex flex-col"
+              : "max-w-7xl mx-auto p-4 sm:p-6 lg:p-8"
+          )}
+        >
           {children}
         </main>
       </div>

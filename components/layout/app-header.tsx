@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useSidebar } from "./sidebar-context";
 import { UserDropdown } from "./user-dropdown";
 import { GlobalSearchModal } from "./global-search-modal";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { OperationsCopilotDrawer } from "@/components/ai/operations-copilot-drawer";
 import { Menu, PanelLeftClose, PanelLeft, Search, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface AppHeaderProps {
   tenantName: string;
@@ -15,6 +17,8 @@ export interface AppHeaderProps {
 }
 
 export function AppHeader({ tenantName, role, userEmail }: AppHeaderProps) {
+  const pathname = usePathname();
+  const isConsultation = pathname?.startsWith("/consultation");
   const { isExpanded, toggleSidebar, toggleMobileSidebar } = useSidebar();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
@@ -49,7 +53,12 @@ export function AppHeader({ tenantName, role, userEmail }: AppHeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 shadow-theme-xs">
+      <header
+        className={cn(
+          "flex h-16 w-full items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 shadow-theme-xs",
+          isConsultation ? "relative z-20" : "sticky top-0 z-30"
+        )}
+      >
         {/* Left section: Hamburger / Toggle & Context */}
         <div className="flex items-center gap-3">
           {/* Mobile Hamburger Button */}
