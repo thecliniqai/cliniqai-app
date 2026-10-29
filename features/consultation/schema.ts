@@ -171,6 +171,7 @@ export const saveConsultationDraftSchema = z.object({
   investigations_advised: z.array(z.string()).default([]),
   advice: z.array(z.string()).default([]),
   follow_up: followUpSchema.nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export type ClinicalSpecialty = "general_physician" | "dental" | "pediatrics";

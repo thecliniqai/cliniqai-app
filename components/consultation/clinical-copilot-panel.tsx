@@ -33,16 +33,20 @@ export interface ClinicalCopilotPanelProps {
   onInsertAllSoap: (draft: SoapDraft) => void;
   onApplyDiagnosis: (code: string, description: string) => void;
   appliedDiagnosisCodes?: string[];
+  initialTab?: "soap" | "icd" | "qa";
+  initialDraft?: SoapDraft | null;
   className?: string;
 }
 
-const STATUTORY_DISCLAIMER =
+export const STATUTORY_DISCLAIMER =
   "⚠️ Clinical Advisory: CliniQ AI is an informational assistant, not a licensed healthcare professional. All information must be evaluated and verified under independent clinical judgment.";
 
 export function ClinicalCopilotPanel({
   isOpen,
   onClose,
   patientContext,
+  initialTab = "soap",
+  initialDraft = null,
   onInsertChiefComplaints,
   onInsertExamination,
   onInsertAdvice,
@@ -51,12 +55,12 @@ export function ClinicalCopilotPanel({
   appliedDiagnosisCodes = [],
   className,
 }: ClinicalCopilotPanelProps) {
-  const [activeTab, setActiveTab] = useState<"soap" | "icd" | "qa">("soap");
+  const [activeTab, setActiveTab] = useState<"soap" | "icd" | "qa">(initialTab);
 
   // SOAP State
   const [shorthandText, setShorthandText] = useState("");
   const [isGeneratingSoap, setIsGeneratingSoap] = useState(false);
-  const [soapDraft, setSoapDraft] = useState<SoapDraft | null>(null);
+  const [soapDraft, setSoapDraft] = useState<SoapDraft | null>(initialDraft);
   const [soapError, setSoapError] = useState<string | null>(null);
 
   // ICD-10 State
@@ -280,6 +284,14 @@ export function ClinicalCopilotPanel({
             </div>
           </div>
 
+          {/* Zero Autonomous Prescribing Banner (NMC 2023) */}
+          <div className="flex items-start gap-1.5 p-2 rounded bg-amber-50/80 border border-amber-200/70 text-[10px] text-amber-900">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+            <span>
+              Zero Autonomous Prescribing: Medications cannot be drafted autonomously. Enter complaints and examination here; add medicines directly in the Prescription Builder.
+            </span>
+          </div>
+
           {soapError && (
             <div className="p-2.5 rounded-lg border border-[#F2B8B5] bg-[#FDECEA] text-xs text-[#B42318]">
               {soapError}
@@ -437,6 +449,12 @@ export function ClinicalCopilotPanel({
       {/* Tab 3: Clinical Reference Q&A Tab */}
       {activeTab === "qa" && (
         <div className="flex-1 flex flex-col justify-between overflow-hidden">
+          {/* Persistent Statutory Clinical Advisory Banner */}
+          <div className="p-2.5 bg-amber-50/80 border-b border-amber-200/60 text-[10px] text-amber-900 leading-normal flex items-start gap-1.5 shrink-0">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+            <span>{STATUTORY_DISCLAIMER}</span>
+          </div>
+
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {qaHistory.length === 0 ? (
               <div className="text-center py-8 px-4 text-xs text-gray-500">

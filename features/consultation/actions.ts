@@ -94,6 +94,10 @@ export async function saveConsultationDraft(
       updated_at: new Date().toISOString(),
     };
 
+    if (data.metadata) {
+      updatePayload.metadata = data.metadata;
+    }
+
     if (updatedStatus) {
       updatePayload.status = updatedStatus;
     }

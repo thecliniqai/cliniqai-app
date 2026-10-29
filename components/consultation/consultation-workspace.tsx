@@ -21,7 +21,10 @@ import type { ConsultationDiagnosisItem } from "@/features/terminology/schema";
 import { PrescriptionBuilder } from "./prescription-builder";
 import { AiScribeModal } from "./ai-scribe-modal";
 import { ReturningPatientCatchup } from "./returning-patient-catchup";
-import { SoapDraft } from "@/lib/ai/types";
+import { SoapDraft, ChiefComplaintItem as AiChiefComplaintItem } from "@/lib/ai/types";
+import { ClinicalCopilotPanel } from "./clinical-copilot-panel";
+import { AppendReplaceModal } from "./append-replace-modal";
+import { addConsultationDiagnosis } from "@/features/terminology/actions";
 import { addPrescriptionItem } from "@/features/prescriptions/actions";
 import { sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
 import type { PrescriptionItem } from "@/lib/db/types";
@@ -74,6 +77,7 @@ export interface ConsultationWorkspaceProps {
     follow_up?: FollowUpInput | null;
     diagnoses?: ConsultationDiagnosisItem[];
     prescription_items?: PrescriptionItem[];
+    metadata?: Record<string, unknown> | null;
   };
   patient: {
     id: string;
@@ -166,12 +170,271 @@ export function ConsultationWorkspace({
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSignModalOpen, setIsSignModalOpen] = useState(false);
   const [isAiScribeOpen, setIsAiScribeOpen] = useState(false);
+  const [isClinicalCopilotOpen, setIsClinicalCopilotOpen] = useState(false);
+  const [aiSectionsUsed, setAiSectionsUsed] = useState<string[]>(
+    () => (visit.metadata?.ai_sections_used as string[]) ?? []
+  );
+
+  // Collision Modal State for AI Granular Insertion
+  const [collisionModal, setCollisionModal] = useState<{
+    isOpen: boolean;
+    sectionName: string;
+    existingContent: string;
+    newContent: string;
+    onAppend: () => void;
+    onReplace: () => void;
+  }>({
+    isOpen: false,
+    sectionName: "",
+    existingContent: "",
+    newContent: "",
+    onAppend: () => {},
+    onReplace: () => {},
+  });
+
   const [diagnoses, setDiagnoses] = useState<ConsultationDiagnosisItem[]>(visit.diagnoses ?? []);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const inFlightSaveRef = useRef<Promise<unknown> | null>(null);
+
+  // Helper to convert AI complaints into Consultation schema format
+  const convertAiComplaintsToWorkspaceComplaints = (
+    items: AiChiefComplaintItem[]
+  ): ChiefComplaintItem[] => {
+    return items.map((c) => {
+      let val = 3;
+      let unit: "days" | "weeks" | "months" | "years" = "days";
+      if (c.duration) {
+        const match = c.duration
+          .toLowerCase()
+          .match(/^(\d+)\s*(d|day|days|w|wk|wks|week|weeks|m|mo|mos|month|months|y|yr|yrs|year|years)?/);
+        if (match) {
+          val = parseInt(match[1], 10) || 3;
+          const unitCode = match[2] || "d";
+          if (unitCode.startsWith("w")) unit = "weeks";
+          else if (unitCode.startsWith("m")) unit = "months";
+          else if (unitCode.startsWith("y")) unit = "years";
+          else unit = "days";
+        }
+      }
+      return {
+        id: Math.random().toString(36).substring(2, 9),
+        symptom: c.complaint,
+        duration_val: val,
+        duration_unit: unit,
+      };
+    });
+  };
+
+  const handleInsertChiefComplaints = (items: AiChiefComplaintItem[]) => {
+    const mapped = convertAiComplaintsToWorkspaceComplaints(items);
+    if (chiefComplaints.length > 0) {
+      setCollisionModal({
+        isOpen: true,
+        sectionName: "Chief Complaints",
+        existingContent: chiefComplaints
+          .map((c) => `${c.symptom} (${c.duration_val ?? ""} ${c.duration_unit ?? ""})`)
+          .join(", "),
+        newContent: mapped
+          .map((c) => `${c.symptom} (${c.duration_val ?? ""} ${c.duration_unit ?? ""})`)
+          .join(", "),
+        onAppend: () => {
+          markDirty();
+          setChiefComplaints((prev) => [...prev, ...mapped]);
+          setAiSectionsUsed((prev) => Array.from(new Set([...prev, "chief_complaints"])));
+          setCollisionModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onReplace: () => {
+          markDirty();
+          setChiefComplaints(mapped);
+          setAiSectionsUsed((prev) => Array.from(new Set([...prev, "chief_complaints"])));
+          setCollisionModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+    } else {
+      markDirty();
+      setChiefComplaints(mapped);
+      setAiSectionsUsed((prev) => Array.from(new Set([...prev, "chief_complaints"])));
+    }
+  };
+
+  const handleInsertExamination = (findings: string) => {
+    const formatted = `[O/E]: ${findings.trim()}`;
+    if (clinicalNotes && clinicalNotes.trim().length > 0) {
+      setCollisionModal({
+        isOpen: true,
+        sectionName: "Examination Notes",
+        existingContent: clinicalNotes,
+        newContent: formatted,
+        onAppend: () => {
+          markDirty();
+          setClinicalNotes((prev) => (prev ? `${prev}\n\n${formatted}` : formatted));
+          setAiSectionsUsed((prev) => Array.from(new Set([...prev, "examination"])));
+          setCollisionModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onReplace: () => {
+          markDirty();
+          setClinicalNotes(formatted);
+          setAiSectionsUsed((prev) => Array.from(new Set([...prev, "examination"])));
+          setCollisionModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+    } else {
+      markDirty();
+      setClinicalNotes(formatted);
+      setAiSectionsUsed((prev) => Array.from(new Set([...prev, "examination"])));
+    }
+  };
+
+  const handleInsertAdvice = (adviceText: string) => {
+    const newItems = adviceText
+      .split(/\n|\./)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 2);
+    if (newItems.length === 0) return;
+
+    if (adviceList.length > 0) {
+      setCollisionModal({
+        isOpen: true,
+        sectionName: "Clinical Advice",
+        existingContent: adviceList.join("\n"),
+        newContent: newItems.join("\n"),
+        onAppend: () => {
+          markDirty();
+          setAdviceList((prev) => [...prev, ...newItems]);
+          setAiSectionsUsed((prev) => Array.from(new Set([...prev, "advice"])));
+          setCollisionModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onReplace: () => {
+          markDirty();
+          setAdviceList(newItems);
+          setAiSectionsUsed((prev) => Array.from(new Set([...prev, "advice"])));
+          setCollisionModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+    } else {
+      markDirty();
+      setAdviceList(newItems);
+      setAiSectionsUsed((prev) => Array.from(new Set([...prev, "advice"])));
+    }
+  };
+
+  const handleInsertAllSoap = (draft: SoapDraft) => {
+    const mappedComplaints = draft.chief_complaints
+      ? convertAiComplaintsToWorkspaceComplaints(draft.chief_complaints)
+      : [];
+    const examText = draft.examination ? `[O/E]: ${draft.examination.trim()}` : "";
+    const adviceItems = draft.advice
+      ? draft.advice
+          .split(/\n|\./)
+          .map((s) => s.trim())
+          .filter((s) => s.length > 2)
+      : [];
+
+    const hasCollision =
+      (mappedComplaints.length > 0 && chiefComplaints.length > 0) ||
+      (examText.length > 0 && clinicalNotes.trim().length > 0) ||
+      (adviceItems.length > 0 && adviceList.length > 0);
+
+    if (hasCollision) {
+      const existingSummary = [
+        chiefComplaints.length > 0 && "Chief Complaints",
+        clinicalNotes.trim().length > 0 && "Examination Notes",
+        adviceList.length > 0 && "Clinical Advice",
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      setCollisionModal({
+        isOpen: true,
+        sectionName: "All SOAP Sections",
+        existingContent: `${existingSummary} already contain clinical entries.`,
+        newContent: "AI Draft ready for all sections.",
+        onAppend: () => {
+          markDirty();
+          if (mappedComplaints.length > 0) {
+            setChiefComplaints((prev) => [...prev, ...mappedComplaints]);
+          }
+          if (examText) {
+            setClinicalNotes((prev) => (prev ? `${prev}\n\n${examText}` : examText));
+          }
+          if (adviceItems.length > 0) {
+            setAdviceList((prev) => [...prev, ...adviceItems]);
+          }
+          setAiSectionsUsed((prev) =>
+            Array.from(new Set([...prev, "chief_complaints", "examination", "advice"]))
+          );
+          setCollisionModal((prev) => ({ ...prev, isOpen: false }));
+        },
+        onReplace: () => {
+          markDirty();
+          if (mappedComplaints.length > 0) {
+            setChiefComplaints(mappedComplaints);
+          }
+          if (examText) {
+            setClinicalNotes(examText);
+          }
+          if (adviceItems.length > 0) {
+            setAdviceList(adviceItems);
+          }
+          setAiSectionsUsed((prev) =>
+            Array.from(new Set([...prev, "chief_complaints", "examination", "advice"]))
+          );
+          setCollisionModal((prev) => ({ ...prev, isOpen: false }));
+        },
+      });
+    } else {
+      markDirty();
+      if (mappedComplaints.length > 0) {
+        setChiefComplaints((prev) => [...prev, ...mappedComplaints]);
+      }
+      if (examText) {
+        setClinicalNotes((prev) => (prev ? `${prev}\n\n${examText}` : examText));
+      }
+      if (adviceItems.length > 0) {
+        setAdviceList((prev) => [...prev, ...adviceItems]);
+      }
+      setAiSectionsUsed((prev) =>
+        Array.from(new Set([...prev, "chief_complaints", "examination", "advice"]))
+      );
+    }
+  };
+
+  const handleApplyDiagnosis = async (code: string, description: string) => {
+    markDirty();
+    try {
+      const res = await addConsultationDiagnosis({
+        visit_id: visit.id,
+        patient_id: patient.id,
+        diagnosis_name: description,
+        icd11_code: code,
+        is_custom: false,
+        is_chronic: false,
+      });
+      if (res.success) {
+        setDiagnoses((prev) => [
+          ...prev,
+          {
+            id: res.diagnosisId,
+            visit_id: visit.id,
+            patient_id: patient.id,
+            diagnosis_name: description,
+            snomed_concept_id: null,
+            icd11_code: code,
+            is_custom: false,
+            is_chronic: false,
+            notes: null,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+        setAiSectionsUsed((prev) => Array.from(new Set([...prev, "diagnosis"])));
+      }
+    } catch (err) {
+      console.error("Failed to apply diagnosis:", err);
+    }
+  };
 
   // Referral State
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
@@ -306,6 +569,12 @@ export function ConsultationWorkspace({
           follow_up_date: followUpDate,
           notes: followUpNotes || null,
         } : null,
+        metadata: {
+          ...(visit.metadata || {}),
+          ...(aiSectionsUsed.length > 0
+            ? { ai_assisted: true, ai_sections_used: aiSectionsUsed }
+            : {}),
+        },
       };
 
       const savePromise = saveConsultationDraft(payload);
@@ -332,6 +601,7 @@ export function ConsultationWorkspace({
     },
     [
       visit.id,
+      visit.metadata,
       vitals,
       chiefComplaints,
       clinicalNotes,
@@ -342,6 +612,7 @@ export function ConsultationWorkspace({
       followUpInterval,
       followUpDate,
       followUpNotes,
+      aiSectionsUsed,
     ]
   );
 
@@ -524,16 +795,22 @@ export function ConsultationWorkspace({
               )}
             </div>
 
-            {/* AI Quick Scribe Trigger */}
+            {/* AI Assistant Trigger */}
             <button
               type="button"
-              onClick={() => setIsAiScribeOpen(true)}
-              aria-label="Open AI Clinical Scribe"
-              className="min-h-[44px] px-3 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/80 text-indigo-700 text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-              title="Open AI Clinical Scribe & Dictation"
+              onClick={() => setIsClinicalCopilotOpen((prev) => !prev)}
+              aria-label="Toggle CliniQ AI Clinical Copilot"
+              aria-expanded={isClinicalCopilotOpen}
+              className={cn(
+                "min-h-[44px] px-3 rounded-lg border text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer",
+                isClinicalCopilotOpen
+                  ? "bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700"
+                  : "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100"
+              )}
+              title="Open AI Clinical Copilot"
             >
-              <Sparkles className="h-4 w-4 text-indigo-600" />
-              <span className="hidden sm:inline">AI Quick Scribe</span>
+              <Sparkles className={cn("h-4 w-4", isClinicalCopilotOpen ? "text-white" : "text-indigo-600")} />
+              <span className="hidden sm:inline">✦ AI Assistant</span>
             </button>
 
             {/* Patient History Trigger */}
@@ -689,9 +966,16 @@ export function ConsultationWorkspace({
       </nav>
 
       {/* 3. MAIN WORKSPACE CONTAINER */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
-        {/* Returning Patient Catch-Up Summary */}
-        <ReturningPatientCatchup
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+          <main
+            className={cn(
+              "space-y-6 w-full transition-all duration-200",
+              isClinicalCopilotOpen ? "lg:flex-1 lg:max-w-[760px]" : "max-w-6xl mx-auto"
+            )}
+          >
+            {/* Returning Patient Catch-Up Summary */}
+            <ReturningPatientCatchup
           patientId={patient.id}
           pastEncounters={pastEncounters}
           onAppendNotes={(notes) => {
@@ -824,7 +1108,7 @@ export function ConsultationWorkspace({
             visitId={visit.id}
             patientId={patient.id}
             specialty={specialty}
-            initialDiagnoses={visit.diagnoses ?? []}
+            initialDiagnoses={diagnoses}
             onDiagnosesChange={setDiagnoses}
           />
         </section>
@@ -1223,6 +1507,71 @@ export function ConsultationWorkspace({
           </div>
         </section>
       </main>
+
+      {/* Docked Clinical Copilot Panel (Desktop) */}
+      {isClinicalCopilotOpen && (
+        <aside className="hidden lg:block w-[380px] shrink-0 sticky top-20 border border-gray-200 rounded-2xl bg-white shadow-xs overflow-hidden max-h-[calc(100vh-6rem)]">
+          <ClinicalCopilotPanel
+            isOpen={isClinicalCopilotOpen}
+            onClose={() => setIsClinicalCopilotOpen(false)}
+            patientContext={{
+              age: patient.age,
+              sex: patient.gender,
+              vitals: vitals as Record<string, unknown>,
+              chronic_conditions: patient.chronic_conditions,
+            }}
+            onInsertChiefComplaints={handleInsertChiefComplaints}
+            onInsertExamination={handleInsertExamination}
+            onInsertAdvice={handleInsertAdvice}
+            onInsertAllSoap={handleInsertAllSoap}
+            onApplyDiagnosis={handleApplyDiagnosis}
+            appliedDiagnosisCodes={diagnoses
+              .map((d) => d.icd11_code)
+              .filter((c): c is string => Boolean(c))}
+            className="h-full border-none shadow-none"
+          />
+        </aside>
+      )}
+    </div>
+  </div>
+
+  {/* Mobile Slide-Over Clinical Copilot Overlay */}
+  {isClinicalCopilotOpen && (
+    <div className="lg:hidden fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex justify-end">
+      <div className="w-full sm:max-w-md h-full bg-white shadow-2xl flex flex-col">
+        <ClinicalCopilotPanel
+          isOpen={isClinicalCopilotOpen}
+          onClose={() => setIsClinicalCopilotOpen(false)}
+          patientContext={{
+            age: patient.age,
+            sex: patient.gender,
+            vitals: vitals as Record<string, unknown>,
+            chronic_conditions: patient.chronic_conditions,
+          }}
+          onInsertChiefComplaints={handleInsertChiefComplaints}
+          onInsertExamination={handleInsertExamination}
+          onInsertAdvice={handleInsertAdvice}
+          onInsertAllSoap={handleInsertAllSoap}
+          onApplyDiagnosis={handleApplyDiagnosis}
+          appliedDiagnosisCodes={diagnoses
+            .map((d) => d.icd11_code)
+            .filter((c): c is string => Boolean(c))}
+          className="h-full border-none shadow-none"
+        />
+      </div>
+    </div>
+  )}
+
+  {/* Collision Confirmation Modal (Append / Replace) */}
+  <AppendReplaceModal
+    isOpen={collisionModal.isOpen}
+    sectionName={collisionModal.sectionName}
+    existingContent={collisionModal.existingContent}
+    newContent={collisionModal.newContent}
+    onAppend={collisionModal.onAppend}
+    onReplace={collisionModal.onReplace}
+    onCancel={() => setCollisionModal((prev) => ({ ...prev, isOpen: false }))}
+  />
 
       {/* Patient History Slide-Over Drawer */}
       <PatientHistoryDrawer
