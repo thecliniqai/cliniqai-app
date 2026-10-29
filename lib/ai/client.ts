@@ -1,11 +1,33 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { AiChatMessage, AiClientConfig, SoapDraft } from "./types";
 
 export function getAiGatewayModel() {
-  const baseURL = process.env.AI_BASE_URL || "https://api.openai.com/v1";
-  const apiKey = process.env.AI_API_KEY || "test-api-key";
-  const modelName = process.env.AI_MODEL_NAME || "gpt-4o-mini";
+  const provider = (process.env.AI_PROVIDER || "openai").toLowerCase();
+  const apiKey =
+    process.env.AI_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+    "test-api-key";
+  const modelName =
+    process.env.AI_MODEL_NAME ||
+    (provider === "gemini" || provider === "google"
+      ? "gemini-2.0-flash"
+      : "gpt-4o-mini");
 
+  if (
+    provider === "gemini" ||
+    provider === "google" ||
+    modelName.toLowerCase().startsWith("gemini")
+  ) {
+    const google = createGoogleGenerativeAI({
+      apiKey,
+      baseURL: process.env.AI_BASE_URL,
+    });
+    return google(modelName);
+  }
+
+  const baseURL = process.env.AI_BASE_URL || "https://api.openai.com/v1";
   const openai = createOpenAI({
     baseURL,
     apiKey,
@@ -117,14 +139,32 @@ export class OpenAiGatewayClient {
   private mockProvider: MockAiProvider;
 
   constructor(config?: Partial<AiClientConfig>) {
-    this.baseUrl =
-      config?.baseUrl || process.env.AI_BASE_URL || "https://api.openai.com/v1";
-    this.apiKey = config?.apiKey || process.env.AI_API_KEY || "";
-    this.model = config?.model || process.env.AI_MODEL_NAME || "gpt-4o-mini";
-    this.provider =
+    const rawProvider =
       config?.provider ||
       process.env.AI_PROVIDER ||
-      (this.apiKey ? "openai" : "mock");
+      (config?.apiKey || process.env.AI_API_KEY || process.env.GEMINI_API_KEY ? "openai" : "mock");
+    const isGemini =
+      rawProvider.toLowerCase() === "gemini" ||
+      rawProvider.toLowerCase() === "google" ||
+      (config?.model || process.env.AI_MODEL_NAME || "").toLowerCase().startsWith("gemini");
+
+    this.provider = rawProvider;
+    this.baseUrl =
+      config?.baseUrl ||
+      process.env.AI_BASE_URL ||
+      (isGemini
+        ? "https://generativelanguage.googleapis.com/v1beta/openai"
+        : "https://api.openai.com/v1");
+    this.apiKey =
+      config?.apiKey ||
+      process.env.AI_API_KEY ||
+      process.env.GEMINI_API_KEY ||
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+      "";
+    this.model =
+      config?.model ||
+      process.env.AI_MODEL_NAME ||
+      (isGemini ? "gemini-2.0-flash" : "gpt-4o-mini");
     this.mockProvider = new MockAiProvider();
   }
 
@@ -157,12 +197,23 @@ export class OpenAiGatewayClient {
       payload.response_format = options.responseFormat;
     }
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${this.apiKey}`,
+    };
+
+    // Google Generative AI OpenAI-compatible endpoint accepts both Bearer and x-goog-api-key
+    if (
+      this.provider.toLowerCase() === "gemini" ||
+      this.provider.toLowerCase() === "google" ||
+      this.baseUrl.includes("generativelanguage.googleapis.com")
+    ) {
+      headers["x-goog-api-key"] = this.apiKey;
+    }
+
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 

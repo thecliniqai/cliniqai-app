@@ -10,7 +10,11 @@ import {
   getOperationsTools,
 } from "@/lib/ai/tools/operations-tools";
 import { getClinicalTools } from "@/lib/ai/tools/clinical-tools";
-import { getAiGatewayModel, MockAiProvider } from "@/lib/ai/client";
+import {
+  getAiGatewayModel,
+  MockAiProvider,
+  OpenAiGatewayClient,
+} from "@/lib/ai/client";
 
 describe("Phase 05.3 Gateway & Tools Foundation (REQ-ai-features, REQ-compliance-data-layer)", () => {
   describe("1. DPDP Act PII Sanitizer (T-05.3-01)", () => {
@@ -275,6 +279,28 @@ describe("Phase 05.3 Gateway & Tools Foundation (REQ-ai-features, REQ-compliance
         { role: "user", content: "book appointment for patient" },
       ]);
       expect(JSON.parse(bookingResp).status).toBe("preview_ready");
+    });
+
+    it("getAiGatewayModel resolves to Google Generative AI when AI_PROVIDER=gemini", () => {
+      const origProvider = process.env.AI_PROVIDER;
+      const origModel = process.env.AI_MODEL_NAME;
+      try {
+        process.env.AI_PROVIDER = "gemini";
+        delete process.env.AI_MODEL_NAME;
+        const model = getAiGatewayModel();
+        expect(model).toBeDefined();
+        expect(model.provider).toBe("google.generative-ai");
+        expect(model.modelId).toBe("gemini-2.0-flash");
+      } finally {
+        process.env.AI_PROVIDER = origProvider;
+        if (origModel) process.env.AI_MODEL_NAME = origModel;
+      }
+    });
+
+    it("OpenAiGatewayClient resolves Gemini defaults properly", () => {
+      const client = new OpenAiGatewayClient({ provider: "gemini" });
+      expect(client.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta/openai");
+      expect(client.model).toBe("gemini-2.0-flash");
     });
   });
 });
