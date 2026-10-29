@@ -299,7 +299,9 @@ export async function extractStructuredSoap(
     };
   }
 
+  const allowLiveEval = process.env.AI_EVAL_LIVE === "true";
   if (
+    (!process.env.VITEST || allowLiveEval) &&
     process.env.AI_API_KEY &&
     !process.env.AI_API_KEY.startsWith("mock-") &&
     process.env.AI_API_KEY !== "test-api-key"

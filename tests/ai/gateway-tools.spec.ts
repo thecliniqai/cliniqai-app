@@ -14,6 +14,8 @@ import {
   getAiGatewayModel,
   MockAiProvider,
   OpenAiGatewayClient,
+  geminiFetchInterceptor,
+  SKIP_THOUGHT_SIGNATURE_VALIDATOR,
 } from "@/lib/ai/client";
 
 describe("Phase 05.3 Gateway & Tools Foundation (REQ-ai-features, REQ-compliance-data-layer)", () => {
@@ -256,10 +258,20 @@ describe("Phase 05.3 Gateway & Tools Foundation (REQ-ai-features, REQ-compliance
 
   describe("5. Universal AI Gateway & Model Resolver (D-02)", () => {
     it("getAiGatewayModel returns a valid LanguageModel instance", () => {
-      const model = getAiGatewayModel();
-      expect(model).toBeDefined();
-      expect(model.modelId).toBeDefined();
-      expect(model.provider).toBe("openai.chat");
+      const origProvider = process.env.AI_PROVIDER;
+      const origModel = process.env.AI_MODEL_NAME;
+      try {
+        process.env.AI_PROVIDER = "openai";
+        process.env.AI_MODEL_NAME = "gpt-4o-mini";
+        const model = getAiGatewayModel();
+        expect(model).toBeDefined();
+        expect(model.modelId).toBeDefined();
+        expect(model.provider).toBe("openai.chat");
+      } finally {
+        process.env.AI_PROVIDER = origProvider;
+        if (origModel) process.env.AI_MODEL_NAME = origModel;
+        else delete process.env.AI_MODEL_NAME;
+      }
     });
 
     it("MockAiProvider provides simulated operations responses", async () => {
@@ -290,7 +302,7 @@ describe("Phase 05.3 Gateway & Tools Foundation (REQ-ai-features, REQ-compliance
         const model = getAiGatewayModel();
         expect(model).toBeDefined();
         expect(model.provider).toBe("google.generative-ai");
-        expect(model.modelId).toBe("gemini-2.0-flash");
+        expect(model.modelId).toBe("gemini-3.1-flash-lite");
       } finally {
         process.env.AI_PROVIDER = origProvider;
         if (origModel) process.env.AI_MODEL_NAME = origModel;
@@ -300,7 +312,49 @@ describe("Phase 05.3 Gateway & Tools Foundation (REQ-ai-features, REQ-compliance
     it("OpenAiGatewayClient resolves Gemini defaults properly", () => {
       const client = new OpenAiGatewayClient({ provider: "gemini" });
       expect(client.baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta/openai");
-      expect(client.model).toBe("gemini-2.0-flash");
+      expect(client.model).toBe("gemini-3.1-flash-lite");
+    });
+
+    it("geminiFetchInterceptor injects sentinel thoughtSignature when missing from functionCall parts", async () => {
+      let interceptedBody: string | undefined;
+      const mockFetch = vi.fn().mockImplementation((url, init) => {
+        interceptedBody = init?.body;
+        return Promise.resolve(new Response(JSON.stringify({ ok: true })));
+      });
+
+      const origFetch = global.fetch;
+      global.fetch = mockFetch;
+
+      try {
+        const payload = {
+          contents: [
+            {
+              role: "model",
+              parts: [
+                {
+                  functionCall: {
+                    name: "get_product_help",
+                    args: { topic: "booking" },
+                  },
+                },
+              ],
+            },
+          ],
+        };
+
+        await geminiFetchInterceptor("https://generativelanguage.googleapis.com", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+
+        expect(interceptedBody).toBeDefined();
+        const parsed = JSON.parse(interceptedBody!);
+        expect(parsed.contents[0].parts[0].thoughtSignature).toBe(
+          SKIP_THOUGHT_SIGNATURE_VALIDATOR
+        );
+      } finally {
+        global.fetch = origFetch;
+      }
     });
   });
 });

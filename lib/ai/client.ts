@@ -2,6 +2,44 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { AiChatMessage, AiClientConfig, SoapDraft } from "./types";
 
+/**
+ * Sentinel value Google documents for replaying functionCall parts whose
+ * original thoughtSignature is not available to the client.
+ * See: https://ai.google.dev/gemini-api/docs/thought-signatures
+ */
+export const SKIP_THOUGHT_SIGNATURE_VALIDATOR =
+  "skip_thought_signature_validator";
+
+export const geminiFetchInterceptor = async (
+  url: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> => {
+  if (init?.body && typeof init.body === "string") {
+    try {
+      const parsed = JSON.parse(init.body);
+      if (Array.isArray(parsed.contents)) {
+        let modified = false;
+        for (const content of parsed.contents) {
+          if (Array.isArray(content.parts)) {
+            for (const part of content.parts) {
+              if (part.functionCall && !part.thoughtSignature) {
+                part.thoughtSignature = SKIP_THOUGHT_SIGNATURE_VALIDATOR;
+                modified = true;
+              }
+            }
+          }
+        }
+        if (modified) {
+          init.body = JSON.stringify(parsed);
+        }
+      }
+    } catch {
+      // Ignore JSON parse errors and pass request through
+    }
+  }
+  return fetch(url, init);
+};
+
 export function getAiGatewayModel() {
   const provider = (process.env.AI_PROVIDER || "openai").toLowerCase();
   const apiKey =
@@ -12,7 +50,7 @@ export function getAiGatewayModel() {
   const modelName =
     process.env.AI_MODEL_NAME ||
     (provider === "gemini" || provider === "google"
-      ? "gemini-2.0-flash"
+      ? "gemini-3.1-flash-lite"
       : "gpt-4o-mini");
 
   if (
@@ -23,6 +61,8 @@ export function getAiGatewayModel() {
     const google = createGoogleGenerativeAI({
       apiKey,
       baseURL: process.env.AI_BASE_URL,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      fetch: geminiFetchInterceptor as any,
     });
     return google(modelName);
   }
@@ -164,7 +204,7 @@ export class OpenAiGatewayClient {
     this.model =
       config?.model ||
       process.env.AI_MODEL_NAME ||
-      (isGemini ? "gemini-2.0-flash" : "gpt-4o-mini");
+      (isGemini ? "gemini-3.1-flash-lite" : "gpt-4o-mini");
     this.mockProvider = new MockAiProvider();
   }
 
