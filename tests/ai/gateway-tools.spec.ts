@@ -254,6 +254,24 @@ describe("Phase 05.3 Gateway & Tools Foundation (REQ-ai-features, REQ-compliance
       expect(queueResult.waiting_count).toBeGreaterThanOrEqual(0);
       expect(queueResult.completed_count).toBeGreaterThanOrEqual(0);
     });
+
+    it("lists active practicing doctors via list_doctors", async () => {
+      const opsTools = getOperationsTools({
+        tenantId: "00000000-0000-0000-0000-000000000001",
+        userId: "00000000-0000-0000-0000-000000000002",
+        role: "receptionist",
+      });
+
+      const result = await opsTools.list_doctors.execute(
+        {},
+        { toolCallId: "call_list_docs", messages: [] }
+      );
+
+      expect(result.doctors).toBeInstanceOf(Array);
+      expect(result.doctors.length).toBeGreaterThan(0);
+      expect(result.doctors[0].doctor_id).toBeDefined();
+      expect(result.doctors[0].name).toBeDefined();
+    });
   });
 
   describe("5. Universal AI Gateway & Model Resolver (D-02)", () => {

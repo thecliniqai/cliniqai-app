@@ -109,6 +109,52 @@ export function getOperationsTools(context: OperationsToolsContext) {
       },
     }),
 
+    list_doctors: tool({
+      description:
+        "List all active practicing doctors in the clinic with their doctor_id, name, and role",
+      parameters: z.object({}),
+      execute: async () => {
+        assertRoleAllowed(role, [
+          "doctor",
+          "receptionist",
+          "nurse",
+          "admin",
+          "owner",
+        ]);
+
+        if (!supabase) {
+          return {
+            doctors: [
+              {
+                doctor_id: "22222222-2222-2222-2222-222222222222",
+                name: "Dr. A. Verma",
+                role: "doctor",
+              },
+            ],
+          };
+        }
+
+        const { data: rows, error } = await supabase
+          .from("memberships")
+          .select("user_id, full_name, role")
+          .eq("tenant_id", tenantId)
+          .in("role", ["doctor", "owner", "admin"])
+          .order("created_at", { ascending: true });
+
+        if (error || !rows) {
+          return { doctors: [] };
+        }
+
+        const doctors = rows.map((r: any) => ({
+          doctor_id: r.user_id,
+          name: r.full_name || (r.role === "doctor" ? "Doctor" : "Clinic Doctor"),
+          role: r.role,
+        }));
+
+        return { doctors };
+      },
+    }),
+
     check_availability: tool({
       description:
         "Check available consultation slots for a doctor on a specific date",
@@ -139,19 +185,23 @@ export function getOperationsTools(context: OperationsToolsContext) {
           };
         }
 
-        // Fetch doctor profile / shift settings
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id, full_name, availability")
-          .eq("id", doctor_id)
-          .single();
+        // Fetch doctor membership / availability schedule from memberships table
+        const memberQuery = supabase
+          .from("memberships")
+          .select("id, user_id, full_name, availability_schedule")
+          .eq("tenant_id", tenantId)
+          .eq("user_id", doctor_id);
 
-        const doctorName = profile?.full_name || "Doctor";
+        const { data: member } = typeof (memberQuery as any).maybeSingle === "function"
+          ? await (memberQuery as any).maybeSingle()
+          : await (memberQuery as any).single();
+
+        const doctorName = (member as any)?.full_name || "Doctor";
         const dayOfWeek = new Date(date)
           .toLocaleDateString("en-US", { weekday: "long" })
           .toLowerCase() as DayOfWeek;
 
-        const dayAvailability = profile?.availability?.[dayOfWeek] as DayAvailability | undefined;
+        const dayAvailability = ((member as any)?.availability_schedule || (member as any)?.availability)?.[dayOfWeek] as DayAvailability | undefined;
 
         // Fetch booked visits for date
         const startOfDay = `${date}T00:00:00.000Z`;
@@ -205,18 +255,22 @@ export function getOperationsTools(context: OperationsToolsContext) {
         let outsideShift = false;
 
         if (supabase) {
-          // Check doctor's shift for that weekday
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("availability")
-            .eq("id", bookingDetails.doctor_id)
-            .single();
+          // Check doctor's shift for that weekday from memberships table
+          const memberQuery = supabase
+            .from("memberships")
+            .select("full_name, availability_schedule")
+            .eq("tenant_id", tenantId)
+            .eq("user_id", bookingDetails.doctor_id);
+
+          const { data: member } = typeof (memberQuery as any).maybeSingle === "function"
+            ? await (memberQuery as any).maybeSingle()
+            : await (memberQuery as any).single();
 
           const dayOfWeek = new Date(bookingDetails.date)
             .toLocaleDateString("en-US", { weekday: "long" })
             .toLowerCase() as DayOfWeek;
 
-          const dayAvailability = profile?.availability?.[dayOfWeek] as DayAvailability | undefined;
+          const dayAvailability = ((member as any)?.availability_schedule || (member as any)?.availability)?.[dayOfWeek] as DayAvailability | undefined;
 
           if (dayAvailability) {
             const inShift = isSlotWithinShifts(

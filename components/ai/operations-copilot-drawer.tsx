@@ -122,7 +122,23 @@ export function OperationsCopilotDrawer({
 
   const handleConfirmBooking = async (toolCallId: string, details: any) => {
     try {
-      const scheduledAt = `${details.date}T${details.start_time}:00`;
+      // Normalize time string: could be "10:00", "10:00 AM", or "10:00:00"
+      let timeStr = (details.start_time || "09:00").trim();
+      const ampmMatch = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+      if (ampmMatch) {
+        let hours = parseInt(ampmMatch[1], 10);
+        const minutes = ampmMatch[2];
+        const ampm = ampmMatch[3]?.toUpperCase();
+        if (ampm === "PM" && hours < 12) hours += 12;
+        if (ampm === "AM" && hours === 12) hours = 0;
+        timeStr = `${String(hours).padStart(2, "0")}:${minutes}:00`;
+      } else if (/^\d{2}:\d{2}$/.test(timeStr)) {
+        timeStr = `${timeStr}:00`;
+      }
+
+      // Format ISO string with offset for India timezone (+05:30)
+      const scheduledAt = new Date(`${details.date}T${timeStr}+05:30`).toISOString();
+
       const res = await bookAppointment({
         patient_id: details.patient_id,
         doctor_id: details.doctor_id,
