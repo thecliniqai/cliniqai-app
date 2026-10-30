@@ -173,6 +173,52 @@ describe("MSG91 Template Synchronizer & Status Inspection (D-07, Finding 7, T-05
       expect(statusMap.get("pediatric_vaccine_due")?.status).toBe("NOT SUBMITTED");
     });
 
+    it("parses live MSG91 response where status and template ID are nested in languages array", () => {
+      const liveMsg91Response = {
+        status: "success",
+        hasError: false,
+        data: [
+          {
+            category: "UTILITY",
+            name: "appointment_booked",
+            languages: [
+              {
+                id: "2280949169413708",
+                msg91_template_id: 587658,
+                status: "approved",
+                rejection_reason: "NONE",
+              },
+            ],
+          },
+          {
+            category: "UTILITY",
+            name: "appointment_cancelled",
+            languages: [
+              {
+                id: "1744242589979546",
+                msg91_template_id: 587660,
+                status: "rejected",
+                rejection_reason: "Header format mismatch",
+              },
+            ],
+          },
+        ],
+      };
+
+      const statusMap = mapRemoteStatuses(liveMsg91Response);
+
+      expect(statusMap.get("appointment_booked")).toEqual({
+        status: "APPROVED",
+        id: "2280949169413708",
+      });
+      expect(statusMap.get("appointment_cancelled")).toEqual({
+        status: "REJECTED",
+        id: "1744242589979546",
+        reason: "Header format mismatch",
+      });
+      expect(statusMap.get("follow_up_due")?.status).toBe("NOT SUBMITTED");
+    });
+
     it("parses direct array responses and normalizes case-insensitive statuses", () => {
       const directArray = [
         { template_name: "CONSULTATION_DOCUMENTS", status: "approved" },

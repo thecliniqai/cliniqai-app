@@ -146,19 +146,30 @@ export function mapRemoteStatuses(
     ).trim();
     if (!rawName) continue;
 
-    const rawStatus = rec.status ?? rec.approval_status ?? rec.state;
+    const langObj =
+      Array.isArray(rec.languages) && rec.languages[0] && typeof rec.languages[0] === "object"
+        ? (rec.languages[0] as Record<string, unknown>)
+        : undefined;
+
+    const rawStatus = rec.status ?? rec.approval_status ?? rec.state ?? langObj?.status;
     const normalized = normalizeStatus(rawStatus);
     const id = rec.id
       ? String(rec.id)
       : rec.template_id
       ? String(rec.template_id)
+      : langObj?.id
+      ? String(langObj.id)
+      : langObj?.msg91_template_id
+      ? String(langObj.msg91_template_id)
       : undefined;
     const reason = rec.reason
       ? String(rec.reason)
-      : rec.rejection_reason
+      : rec.rejection_reason && rec.rejection_reason !== "NONE"
       ? String(rec.rejection_reason)
       : rec.error
       ? String(rec.error)
+      : langObj?.rejection_reason && langObj.rejection_reason !== "NONE"
+      ? String(langObj.rejection_reason)
       : undefined;
 
     const entry: RemoteTemplateStatus = {

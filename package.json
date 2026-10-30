@@ -15,7 +15,8 @@
     "seed:cdci": "npx tsx --env-file=.env scripts/seed-cdci.ts",
     "seed:cdci:test": "npx tsx --env-file=.env scripts/seed-cdci-test-fixture.ts",
     "seed:diagnoses": "npx tsx --env-file=.env scripts/seed-opd-diagnoses.ts",
-    "msg91:sync-templates": "npx tsx --env-file=.env scripts/msg91-sync-templates.ts"
+    "msg91:sync-templates": "npx tsx --env-file=.env scripts/msg91-sync-templates.ts",
+    "msg91:test-send": "npx tsx --env-file=.env scripts/msg91-test-send.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^1.2.22",
