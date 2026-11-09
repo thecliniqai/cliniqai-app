@@ -2,6 +2,15 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  if (
+    pathname.startsWith("/api/v1") ||
+    pathname === "/api/health" ||
+    pathname === "/api/ready"
+  ) {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
