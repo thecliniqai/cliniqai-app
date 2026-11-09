@@ -274,4 +274,258 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       expect(result.length).toBe(0);
     });
   });
+
+  describe("Webhook Dispatcher & Exponential Backoff (Task 2)", () => {
+    let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
+    let sub: { id: string; secret: string; endpoint: string };
+    const originalFetch = global.fetch;
+
+    beforeAll(async () => {
+      const admin = getAdminClient();
+      tenant = await seedTenantWithOwner("Dispatcher Test Clinic");
+
+      const secret = "whsec_" + crypto.randomBytes(24).toString("hex");
+      const { data: created } = await (admin.from("webhook_subscriptions") as any)
+        .insert({
+          tenant_id: tenant.tenantId,
+          endpoint_url: "https://mock-partner.example.com/receiver",
+          event_types: ["appointment.booked"],
+          signing_secret: secret,
+          is_active: true,
+          created_by: tenant.userId,
+        })
+        .select("id")
+        .single();
+      sub = { id: created.id, secret, endpoint: "https://mock-partner.example.com/receiver" };
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it("verifies exponential backoff delay calculation per D-10", async () => {
+      const { calculateWebhookBackoff } = await import("@/lib/webhooks/dispatcher");
+      expect(calculateWebhookBackoff(1)).toBe(60 * 1000); // 1 minute
+      expect(calculateWebhookBackoff(2)).toBe(5 * 60 * 1000); // 5 minutes
+      expect(calculateWebhookBackoff(3)).toBe(15 * 60 * 1000); // 15 minutes
+      expect(calculateWebhookBackoff(4)).toBe(60 * 60 * 1000); // 1 hour
+      expect(calculateWebhookBackoff(5)).toBe(6 * 60 * 60 * 1000); // 6 hours
+    });
+
+    it("marks queue item 'delivered' on HTTP 200 with response_status and latency", async () => {
+      const admin = getAdminClient();
+      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
+
+      const [enqueued] = await enqueueWebhookEvent(
+        tenant.tenantId,
+        "appointment.booked",
+        { test: "delivery-success" },
+        admin
+      );
+      expect(enqueued).toBeDefined();
+
+      // Mock fetch ONLY for external webhook endpoint
+      global.fetch = async (url, init) => {
+        if (typeof url === "string" && url.includes("mock-partner.example.com")) {
+          expect(init?.headers).toHaveProperty("X-ClinicQ-Signature");
+          expect(init?.headers).toHaveProperty("Content-Type", "application/json");
+          return new Response(JSON.stringify({ received: true }), { status: 200, statusText: "OK" });
+        }
+        return originalFetch(url, init);
+      };
+
+      const result = await dispatchWebhookQueueItem(enqueued.id, admin);
+      expect(result.success).toBe(true);
+      expect(result.status).toBe("delivered");
+      expect(result.responseStatus).toBe(200);
+      expect(typeof result.durationMs).toBe("number");
+
+      // Verify DB record
+      const { data: updated } = await (admin.from("webhook_delivery_queue") as any)
+        .select("*")
+        .eq("id", enqueued.id)
+        .single();
+      expect(updated.status).toBe("delivered");
+      expect(updated.response_status).toBe(200);
+      expect(updated.delivered_at).toBeDefined();
+    });
+
+    it("increments retry_count and sets next_retry_at on HTTP 500 error", async () => {
+      const admin = getAdminClient();
+      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
+
+      const [enqueued] = await enqueueWebhookEvent(
+        tenant.tenantId,
+        "appointment.booked",
+        { test: "delivery-retry" },
+        admin
+      );
+      expect(enqueued).toBeDefined();
+
+      // Mock fetch returning HTTP 500 for webhook endpoint only
+      global.fetch = async (url, init) => {
+        if (typeof url === "string" && url.includes("mock-partner.example.com")) {
+          return new Response("Server error", { status: 500 });
+        }
+        return originalFetch(url, init);
+      };
+
+      const beforeDispatch = Date.now();
+      const result = await dispatchWebhookQueueItem(enqueued.id, admin);
+
+      expect(result.success).toBe(false);
+      expect(result.status).toBe("pending");
+      expect(result.retryCount).toBe(1);
+      expect(result.responseStatus).toBe(500);
+
+      const { data: updated } = await (admin.from("webhook_delivery_queue") as any)
+        .select("*")
+        .eq("id", enqueued.id)
+        .single();
+      expect(updated.status).toBe("pending");
+      expect(updated.retry_count).toBe(1);
+      // next_retry_at should be ~1m in the future (backoff for retry 1)
+      const nextRetryEpoch = new Date(updated.next_retry_at).getTime();
+      expect(nextRetryEpoch).toBeGreaterThanOrEqual(beforeDispatch + 55000);
+    });
+
+    it("marks status as 'failed' after 5 unsuccessful retry attempts", async () => {
+      const admin = getAdminClient();
+      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
+
+      const [enqueued] = await enqueueWebhookEvent(
+        tenant.tenantId,
+        "appointment.booked",
+        { test: "exhaust-retries" },
+        admin
+      );
+      expect(enqueued).toBeDefined();
+
+      // Pre-set retry_count to 4 (so next failure is retry #5)
+      await (admin.from("webhook_delivery_queue") as any)
+        .update({ retry_count: 4 })
+        .eq("id", enqueued.id);
+
+      global.fetch = async (url, init) => {
+        if (typeof url === "string" && url.includes("mock-partner.example.com")) {
+          throw new Error("Network connection refused");
+        }
+        return originalFetch(url, init);
+      };
+
+      const result = await dispatchWebhookQueueItem(enqueued.id, admin);
+      expect(result.success).toBe(false);
+      expect(result.status).toBe("failed");
+      expect(result.retryCount).toBe(5);
+
+      const { data: updated } = await (admin.from("webhook_delivery_queue") as any)
+        .select("*")
+        .eq("id", enqueued.id)
+        .single();
+      expect(updated.status).toBe("failed");
+      expect(updated.retry_count).toBe(5);
+    });
+
+    it("immediately fails items with SSRF violations without retrying", async () => {
+      const admin = getAdminClient();
+      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
+
+      // Create SSRF subscription targeting private subnet
+      const { data: ssrfSub, error: ssrfErr } = await (admin.from("webhook_subscriptions") as any)
+        .insert({
+          tenant_id: tenant.tenantId,
+          endpoint_url: "https://10.0.0.1/evil",
+          event_types: ["appointment.booked"],
+          signing_secret: "whsec_ssrf",
+          is_active: true,
+          created_by: tenant.userId,
+        })
+        .select("id")
+        .single();
+      expect(ssrfErr).toBeNull();
+      expect(ssrfSub).toBeDefined();
+
+      const [enqueued] = await enqueueWebhookEvent(
+        tenant.tenantId,
+        "appointment.booked",
+        { test: "ssrf-blocked" },
+        admin
+      );
+      expect(enqueued).toBeDefined();
+
+      // Point the queue item to the ssrf subscription
+      await (admin.from("webhook_delivery_queue") as any)
+        .update({ subscription_id: ssrfSub.id })
+        .eq("id", enqueued.id);
+
+      const result = await dispatchWebhookQueueItem(enqueued.id, admin);
+      expect(result.success).toBe(false);
+      expect(result.status).toBe("failed");
+      expect(result.responseStatus).toBe(400);
+
+      const { data: updated } = await (admin.from("webhook_delivery_queue") as any)
+        .select("*")
+        .eq("id", enqueued.id)
+        .single();
+      expect(updated.status).toBe("failed");
+      expect(updated.response_status).toBe(400);
+    });
+  });
+
+  describe("Webhook Cron Recovery Endpoint (Task 2)", () => {
+    const originalCronSecret = process.env.CRON_SECRET;
+
+    beforeAll(() => {
+      process.env.CRON_SECRET = "test_cron_secret_777888";
+    });
+
+    afterAll(() => {
+      process.env.CRON_SECRET = originalCronSecret;
+    });
+
+    it("rejects unauthorized calls missing CRON_SECRET with HTTP 401", async () => {
+      const { GET: cronGet } = await import("@/app/api/cron/webhooks/route");
+      const { NextRequest } = await import("next/server");
+
+      const req = new NextRequest("http://localhost:3000/api/cron/webhooks");
+      const res = await cronGet(req);
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.error).toContain("CRON_SECRET");
+    });
+
+    it("rejects unauthorized calls with invalid Bearer token with HTTP 401", async () => {
+      const { POST: cronPost } = await import("@/app/api/cron/webhooks/route");
+      const { NextRequest } = await import("next/server");
+
+      const req = new NextRequest("http://localhost:3000/api/cron/webhooks", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer wrong_secret",
+        },
+      });
+      const res = await cronPost(req);
+      expect(res.status).toBe(401);
+    });
+
+    it("succeeds with valid CRON_SECRET Bearer token and returns summary with HTTP 200", async () => {
+      const { GET: cronGet } = await import("@/app/api/cron/webhooks/route");
+      const { NextRequest } = await import("next/server");
+
+      const req = new NextRequest("http://localhost:3000/api/cron/webhooks", {
+        headers: {
+          authorization: `Bearer ${process.env.CRON_SECRET}`,
+        },
+      });
+      const res = await cronGet(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.timestamp).toBeDefined();
+      expect(typeof json.processed).toBe("number");
+      expect(typeof json.delivered).toBe("number");
+      expect(typeof json.retried).toBe("number");
+      expect(typeof json.failed).toBe("number");
+    });
+  });
 });

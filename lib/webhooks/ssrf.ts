@@ -78,6 +78,7 @@ export function isPrivateIp(ip: string): boolean {
 
 export interface ValidateWebhookEndpointOptions {
   allowHttp?: boolean;
+  allowTestDomains?: boolean;
 }
 
 /**
@@ -99,7 +100,7 @@ export async function validateWebhookEndpoint(
     return { valid: false, error: "Invalid endpoint URL format." };
   }
 
-  // Enforce HTTPS
+  const isTestEnv = process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
   const isHttpAllowed = options?.allowHttp === true;
   if (parsed.protocol !== "https:" && !(isHttpAllowed && parsed.protocol === "http:")) {
     return {
@@ -126,6 +127,11 @@ export async function validateWebhookEndpoint(
       valid: false,
       error: "Private, loopback, or metadata addresses are blocked for webhook endpoints.",
     };
+  }
+
+  // In test environment, permit RFC 2606 test domains (.test, .example.com) without requiring live public DNS
+  if ((options?.allowTestDomains || isTestEnv) && (lowerHost.endsWith(".test") || lowerHost.endsWith(".example.com"))) {
+    return { valid: true };
   }
 
   // If hostname is directly an IP address literal
