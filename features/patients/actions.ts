@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/permissions/guards";
 import { recordAudit } from "@/lib/audit/audit";
 import { patientSchema, PatientInput, PatientVisitHistoryItem } from "./schema";
@@ -164,26 +165,40 @@ export async function updatePatient(
   }
 }
 
-export async function getPatient(patientId: string): Promise<Patient | null> {
-  const supabase = await createClient();
-  const session = await requirePermission("patients:view");
+export async function getPatient(
+  patientId: string,
+  includeErased = false,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<Patient | null> {
+  const supabase = clientOverride || (sessionOverride ? getAdminClient() : await createClient());
+  const session = sessionOverride || (await requirePermission("patients:view"));
 
-  const { data, error } = await (supabase.from("patients") as any)
+  let query = (supabase.from("patients") as any)
     .select("*")
     .eq("id", patientId)
-    .eq("tenant_id", session.tenantId)
-    .single();
+    .eq("tenant_id", session.tenantId);
+
+  if (!includeErased) {
+    query = query.eq("is_deleted", false);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error || !data) {
     return null;
   }
 
   // Record view access in audit log
-  await recordAudit({
-    action: "patient.view",
-    entityType: "patient",
-    entityId: patientId,
-  });
+  await recordAudit(
+    {
+      action: "patient.view",
+      entityType: "patient",
+      entityId: patientId,
+    },
+    supabase as any,
+    session
+  );
 
   return data as Patient;
 }
@@ -237,18 +252,40 @@ export async function searchPatients(
   const filterString = await buildPatientSearchFilter(query);
   if (!filterString) return [];
 
-  const supabase = clientOverride || (await createClient());
+  const supabase = clientOverride || (sessionOverride ? getAdminClient() : await createClient());
   const session = sessionOverride || (await requirePermission("patients:view"));
 
   const { data, error } = await (supabase.from("patients") as any)
     .select("*")
     .eq("tenant_id", session.tenantId)
+    .eq("is_deleted", false)
     .or(filterString)
     .order("created_at", { ascending: false })
     .limit(25);
 
   if (error || !data) {
     console.error("[searchPatients] Query error:", error);
+    return [];
+  }
+
+  return data as Patient[];
+}
+
+export async function getPatients(
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<Patient[]> {
+  const supabase = clientOverride || (sessionOverride ? getAdminClient() : await createClient());
+  const session = sessionOverride || (await requirePermission("patients:view"));
+
+  const { data, error } = await (supabase.from("patients") as any)
+    .select("*")
+    .eq("tenant_id", session.tenantId)
+    .eq("is_deleted", false)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    console.error("[getPatients] Query error:", error);
     return [];
   }
 

@@ -2,7 +2,10 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { NextRequest } from "next/server";
 import { exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
+import { erasePatientRecord } from "@/features/dpdp/erasure";
+import { getPatient, searchPatients, getPatients } from "@/features/patients/actions";
 import { GET as exportRoute } from "@/app/api/v1/patients/[id]/export/route";
+import { DELETE as deletePatientRoute } from "@/app/api/v1/patients/[id]/route";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -326,6 +329,148 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
       const req = new NextRequest(`http://localhost:3000/api/v1/patients/${patientId}/export?format=json`);
       const res = await exportRoute(req, { params: Promise.resolve({ id: patientId }) });
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe("Task 2: DPDP Soft-Delete Erasure Workflow & Search Suppression", () => {
+    let secondPatientId: string;
+
+    beforeAll(async () => {
+      const admin = getAdminClient();
+      // Seed a second patient in tenant A specifically to test erasure via DELETE route
+      const { data: p2 } = await admin
+        .from("patients")
+        .insert({
+          tenant_id: tenantA.tenantId,
+          full_name: "Rohan Varma",
+          phone: "+919123456789",
+          age: 42,
+          sex: "male",
+          created_by: tenantA.userId,
+        })
+        .select("id")
+        .single();
+      secondPatientId = p2!.id;
+    });
+
+    it("erasePatientRecord marks is_deleted = true, status = 'erased', and populates erased_at", async () => {
+      const reason = "Patient submitted DPDP formal erasure notice";
+      const result = await erasePatientRecord(
+        patientId,
+        reason,
+        {
+          tenantId: tenantA.tenantId,
+          userId: tenantA.userId,
+          role: "owner",
+          actorType: "user",
+        }
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.retentionPolicy).toBe("NMC_REGULATION_1.3.1_3_YEAR_MANDATE");
+      expect(result.erasedAt).toBeDefined();
+
+      const admin = getAdminClient();
+      const { data: p } = await admin
+        .from("patients")
+        .select("*")
+        .eq("id", patientId)
+        .single();
+
+      expect(p.is_deleted).toBe(true);
+      expect(p.status).toBe("erased");
+      expect(p.erased_at).toBeDefined();
+      expect(p.erasure_reason).toBe(reason);
+    });
+
+    it("underlying clinical records (visits, prescriptions, invoices) are preserved (NO HARD DELETE)", async () => {
+      const admin = getAdminClient();
+
+      const { data: visits } = await admin
+        .from("visits")
+        .select("id")
+        .eq("patient_id", patientId);
+      expect(visits!.length).toBeGreaterThanOrEqual(1);
+
+      const { data: prescriptions } = await admin
+        .from("prescriptions")
+        .select("id")
+        .eq("patient_id", patientId);
+      expect(prescriptions!.length).toBeGreaterThanOrEqual(1);
+
+      const { data: invoices } = await admin
+        .from("invoices")
+        .select("id")
+        .eq("patient_id", patientId);
+      expect(invoices!.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("searchPatients, getPatient, and getPatients suppress erased patients from active queries", async () => {
+      const session = { userId: tenantA.userId, tenantId: tenantA.tenantId };
+
+      // 1. searchPatients by name: should NOT return erased Aarav Sharma
+      const searchResults = await searchPatients("Aarav", undefined, session);
+      expect(searchResults.some((p) => p.id === patientId)).toBe(false);
+
+      // 2. getPatient: returns null for erased patient
+      const patient = await getPatient(patientId, false, undefined, session);
+      expect(patient).toBeNull();
+
+      // 3. getPatient with includeErased=true returns the record for compliance audit
+      const complianceRecord = await getPatient(patientId, true, undefined, session);
+      expect(complianceRecord).not.toBeNull();
+      expect(complianceRecord?.id).toBe(patientId);
+      expect(complianceRecord?.is_deleted).toBe(true);
+
+      // 4. getPatients list helper excludes erased patients
+      const list = await getPatients(undefined, session);
+      expect(list.some((p) => p.id === patientId)).toBe(false);
+    });
+
+    it("audit log records compliance entry with retention policy NMC_REGULATION_1.3.1_3_YEAR_MANDATE", async () => {
+      const admin = getAdminClient();
+      const { data: logs } = await admin
+        .from("audit_logs")
+        .select("*")
+        .eq("entity_id", patientId)
+        .eq("action", "dpdp.patient_erasure")
+        .order("occurred_at", { ascending: false });
+
+      expect(logs).toBeDefined();
+      expect(logs!.length).toBeGreaterThanOrEqual(1);
+      const log = logs![0];
+      expect(log.metadata?.retention_policy).toBe("NMC_REGULATION_1.3.1_3_YEAR_MANDATE");
+      expect(log.metadata?.status).toBe("erased");
+    });
+
+    it("DELETE /api/v1/patients/[id] delegates to erasePatientRecord and returns success envelope", async () => {
+      const req = new NextRequest(`http://localhost:3000/api/v1/patients/${secondPatientId}`, {
+        method: "DELETE",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ reason: "Patient DPDP erasure request via external portal" }),
+      });
+
+      const res = await deletePatientRoute(req, { params: Promise.resolve({ id: secondPatientId }) });
+      expect(res.status).toBe(200);
+
+      const json = await res.json();
+      expect(json.data.success).toBe(true);
+      expect(json.data.message).toContain("NMC statutory retention policy");
+      expect(json.data.retention_policy).toBe("NMC_REGULATION_1.3.1_3_YEAR_MANDATE");
+
+      // Verify patient is erased in database
+      const admin = getAdminClient();
+      const { data: p } = await admin
+        .from("patients")
+        .select("is_deleted, status, erasure_reason")
+        .eq("id", secondPatientId)
+        .single();
+      expect(p.is_deleted).toBe(true);
+      expect(p.status).toBe("erased");
+      expect(p.erasure_reason).toBe("Patient DPDP erasure request via external portal");
     });
   });
 });

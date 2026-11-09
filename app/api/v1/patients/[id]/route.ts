@@ -6,6 +6,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { INDIAN_MOBILE_REGEX, toE164, extractTenDigits } from "@/lib/utils/phone";
 import { recordAudit } from "@/lib/audit/audit";
+import { erasePatientRecord } from "@/features/dpdp/erasure";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -196,3 +197,76 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
   }
 }
+
+/**
+ * DELETE /api/v1/patients/[id]
+ * DPDP Right to Erasure statutory soft-deletion endpoint.
+ * Sets is_deleted = true, status = 'erased', erased_at = now().
+ * Retains underlying clinical records for NMC mandatory 3-year medical record retention.
+ */
+export async function DELETE(req: NextRequest, { params }: RouteContext) {
+  const auth = await authenticateApiKey(req);
+  if (!auth.success) {
+    return auth.response;
+  }
+
+  const { session } = auth;
+  const rateLimit = checkRateLimit(session.apiKeyId);
+  const rateHeaders = getRateLimitHeaders(rateLimit);
+
+  if (!rateLimit.allowed) {
+    return apiError(
+      "RATE_LIMIT_EXCEEDED",
+      "Rate limit of 120 requests per minute exceeded.",
+      429,
+      undefined,
+      rateHeaders
+    );
+  }
+
+  const { id } = await params;
+  let reason = "DPDP Section 12 Right to Erasure request";
+  try {
+    const body = await req.json();
+    if (body?.reason && typeof body.reason === "string") {
+      reason = body.reason.trim();
+    }
+  } catch {
+    // Body is optional on DELETE
+  }
+
+  try {
+    const admin = getAdminClient();
+    const result = await erasePatientRecord(
+      id,
+      reason,
+      {
+        tenantId: session.tenantId,
+        userId: session.userId,
+        role: session.role,
+        actorType: "api_key",
+        apiKeyId: session.apiKeyId,
+      },
+      admin
+    );
+
+    return apiSuccess(
+      {
+        success: true,
+        message: "Patient record erased and archived under NMC statutory retention policy.",
+        erased_at: result.erasedAt,
+        retention_policy: result.retentionPolicy,
+      },
+      undefined,
+      200,
+      rateHeaders
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    if (message.includes("not found")) {
+      return apiError("NOT_FOUND", "Patient not found or unauthorized.", 404, undefined, rateHeaders);
+    }
+    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+  }
+}
+

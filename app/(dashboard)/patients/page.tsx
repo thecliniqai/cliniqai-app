@@ -13,22 +13,25 @@ export default async function PatientsPage() {
   const { data: patients } = await (supabase.from("patients") as unknown as {
     select: (cols: string) => {
       eq: (col: string, val: string) => {
-        order: (col: string, opts: { ascending: boolean }) => Promise<{
-          data: Array<{
-            id: string;
-            full_name: string;
-            phone: string;
-            abha_id: string | null;
-            age: number | null;
-            sex: string | null;
-            created_at: string;
-          }> | null;
-        }>;
+        eq: (col2: string, val2: boolean) => {
+          order: (col: string, opts: { ascending: boolean }) => Promise<{
+            data: Array<{
+              id: string;
+              full_name: string;
+              phone: string;
+              abha_id: string | null;
+              age: number | null;
+              sex: string | null;
+              created_at: string;
+            }> | null;
+          }>;
+        };
       };
     };
   })
     .select("id, full_name, phone, abha_id, age, sex, created_at")
     .eq("tenant_id", membership.tenantId)
+    .eq("is_deleted", false)
     .order("created_at", { ascending: false });
 
   const patientList = patients || [];
