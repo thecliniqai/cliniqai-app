@@ -39,15 +39,20 @@ created: "2026-11-09"
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
 | 06-01-01 | 01 | 1 | REQ-api-access | T-06-01 | Bearer token hashing, prefix indexing, and timingSafeEqual validation | integration | `npx vitest run tests/api/v1-auth.spec.ts` | ❌ W0 | ⬜ pending |
-| 06-01-02 | 01 | 1 | REQ-api-access | T-06-03 | Strict RLS-bound tenant isolation across all entity CRUD operations | integration | `npx vitest run tests/api/v1-crud.spec.ts` | ❌ W0 | ⬜ pending |
-| 06-01-03 | 01 | 1 | REQ-api-access | T-06-03 | Enforce doctor staff role validation on visit and prescription mutations | integration | `npx vitest run tests/api/v1-doctor-guard.spec.ts` | ❌ W0 | ⬜ pending |
-| 06-02-01 | 02 | 2 | REQ-api-access | T-06-02 | HMAC-SHA256 signature with signed timestamp header preventing replay attacks | integration | `npx vitest run tests/api/webhooks-outbox.spec.ts` | ❌ W0 | ⬜ pending |
-| 06-02-02 | 02 | 2 | REQ-nfr-reliability | T-06-05 | Transactional outbox non-blocking delivery and exponential backoff retry | integration | `npx vitest run tests/api/webhooks-outbox.spec.ts` | ❌ W0 | ⬜ pending |
-| 06-02-03 | 02 | 2 | REQ-api-access | T-06-06 | 120 req/min sliding window rate limit with 429 response and headers | integration | `npx vitest run tests/api/rate-limiting.spec.ts` | ❌ W0 | ⬜ pending |
-| 06-03-01 | 03 | 3 | REQ-nfr-regulatory-compliance | T-06-04 | Dual-format DPDP export (machine-readable JSON + medical summary PDF) | integration | `npx vitest run tests/compliance/dpdp-rights.spec.ts` | ❌ W0 | ⬜ pending |
-| 06-03-02 | 03 | 3 | REQ-nfr-regulatory-compliance | T-06-04 | Soft delete erasure (`status = 'erased'`) reconciling NMC 3-year retention | integration | `npx vitest run tests/compliance/dpdp-rights.spec.ts` | ❌ W0 | ⬜ pending |
-| 06-04-01 | 04 | 4 | REQ-nfr-regulatory-compliance | T-06-04 | Permanent neutralization of dev auth logger in production mode | unit | `npx vitest run tests/security/dev-logger-lockout.spec.ts` | ❌ W0 | ⬜ pending |
-| 06-04-02 | 04 | 4 | REQ-nfr-reliability | — | Health probes `/api/health` and `/api/ready` verify DB and queue status | integration | `npx vitest run tests/api/health-probes.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-01-02 | 01 | 1 | REQ-api-access | T-06-03 | 120 req/min sliding window rate limit with 429 response and headers | integration | `npx vitest run tests/api/rate-limiting.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-01-03 | 01 | 1 | REQ-api-access | T-06-01 | Patient and Appointment CRUD REST endpoints with tenant isolation | integration | `npx vitest run tests/api/v1-auth.spec.ts tests/api/rate-limiting.spec.ts tests/api/v1-crud.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-02-01 | 02 | 2 | REQ-api-access | T-06-04 | Doctor Guard validation on Visits REST API | integration | `npx vitest run tests/api/v1-doctor-guard.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-02-02 | 02 | 2 | REQ-api-access | T-06-04 | Prescriptions REST API with Doctor Guard and item validation | integration | `npx vitest run tests/api/v1-doctor-guard.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-02-03 | 02 | 2 | REQ-api-access | T-06-04 | Lab Orders & Referrals endpoints and full clinical guard suite | integration | `npx vitest run tests/api/v1-doctor-guard.spec.ts tests/api/v1-crud.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-03-01 | 03 | 3 | REQ-api-access | T-06-06 | Webhook outbox enqueueing and HMAC-SHA256 signature calculation | integration | `npx vitest run tests/api/webhooks-outbox.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-03-02 | 03 | 3 | REQ-nfr-reliability | T-06-08 | Webhook dispatcher with 5s timeout and exponential backoff cron recovery | integration | `npx vitest run tests/api/webhooks-outbox.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-03-03 | 03 | 3 | REQ-api-access | T-06-08 | Developer API Keys and Webhooks Settings Tab management UI | integration | `npm run typecheck && npx vitest run tests/api/webhooks-outbox.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-04-01 | 04 | 4 | REQ-nfr-regulatory-compliance | T-06-09 | Dual-format DPDP export (machine-readable JSON + medical summary PDF) | integration | `npm run typecheck && npx vitest run tests/compliance/dpdp-rights.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-04-02 | 04 | 4 | REQ-nfr-regulatory-compliance | T-06-10 | Soft delete erasure (`status = 'erased'`) reconciling NMC 3-year retention | integration | `npx vitest run tests/compliance/dpdp-rights.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-04-03 | 04 | 4 | REQ-nfr-regulatory-compliance | T-06-10 | Single global consent toggle and statutory clinic registration fields | integration | `npm run typecheck && npx vitest run tests/compliance/dpdp-rights.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-05-01 | 05 | 5 | REQ-nfr-regulatory-compliance | T-06-11 | Permanent neutralization of dev auth logger in production mode | unit | `npx vitest run tests/security/dev-logger-lockout.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-05-02 | 05 | 5 | REQ-nfr-reliability | T-06-12 | Health probes `/api/health` and `/api/ready` verify DB, storage, and queue status | integration | `npx vitest run tests/api/health-probes.spec.ts` | ❌ W0 | ⬜ pending |
+| 06-05-03 | 05 | 5 | REQ-api-access | T-06-13 | Programmatic OpenAPI 3.0 spec and interactive documentation viewer | integration | `npm run typecheck && npm test` | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -56,10 +61,13 @@ created: "2026-11-09"
 ## Wave 0 Requirements
 
 - [ ] `tests/api/v1-auth.spec.ts` — stubs for API key authentication, prefix lookup, and hashing
+- [ ] `tests/api/rate-limiting.spec.ts` — stubs for sliding window rate limiter
 - [ ] `tests/api/v1-crud.spec.ts` — stubs for entity REST endpoints
+- [ ] `tests/api/v1-doctor-guard.spec.ts` — stubs for doctor role guard and clinical mutations
 - [ ] `tests/api/webhooks-outbox.spec.ts` — stubs for webhook outbox and HMAC signing
 - [ ] `tests/compliance/dpdp-rights.spec.ts` — stubs for DPDP export and erasure
 - [ ] `tests/security/dev-logger-lockout.spec.ts` — stubs for dev logger production lockout
+- [ ] `tests/api/health-probes.spec.ts` — stubs for health and readiness probes
 
 ---
 
