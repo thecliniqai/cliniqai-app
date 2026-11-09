@@ -17,6 +17,10 @@ export interface Tenant {
   default_consultation_fee?: number;
   default_followup_fee?: number;
   accepted_payment_methods?: string[];
+  clinical_establishment_reg_no?: string | null;
+  state_medical_council_reg_no?: string | null;
+  gstin?: string | null;
+  drug_license_no?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -117,6 +121,10 @@ export interface Patient {
   guardian_name?: string | null;
   guardian_phone?: string | null;
   guardian_relationship?: string | null;
+  is_deleted?: boolean;
+  status?: string | null;
+  erased_at?: string | null;
+  erasure_reason?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -127,6 +135,8 @@ export interface AuditLog {
   tenant_id: string;
   actor_id: string | null;
   actor_role: string;
+  actor_type?: "user" | "api_key";
+  api_key_id?: string | null;
   action: string;
   entity_type: string;
   entity_id: string | null;
@@ -461,6 +471,57 @@ export interface Referral {
   closed_by: string | null;
   pdf_storage_path: string | null;
   letterhead_mode: LetterheadMode;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiKey {
+  id: string;
+  tenant_id: string;
+  name: string;
+  key_prefix: string;
+  key_hash: string;
+  created_by: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiKeyUsageDaily {
+  tenant_id: string;
+  api_key_id: string;
+  date: string;
+  request_count: number;
+  error_count: number;
+  last_request_at: string | null;
+}
+
+export interface WebhookSubscription {
+  id: string;
+  tenant_id: string;
+  endpoint_url: string;
+  event_types: string[];
+  signing_secret: string;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebhookDeliveryItem {
+  id: string;
+  tenant_id: string;
+  subscription_id: string;
+  event_type: string;
+  payload: string;
+  status: "pending" | "delivered" | "failed" | "dead_letter";
+  retry_count: number;
+  max_retries: number;
+  next_retry_at: string;
+  response_status: number | null;
+  duration_ms: number | null;
+  delivered_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1195,6 +1256,146 @@ export interface Database {
           closed_by?: string | null;
           pdf_storage_path?: string | null;
           letterhead_mode?: LetterheadMode;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      audit_logs: {
+        Row: AuditLog;
+        Insert: {
+          id?: number;
+          tenant_id: string;
+          actor_id?: string | null;
+          actor_role: string;
+          actor_type?: "user" | "api_key";
+          api_key_id?: string | null;
+          action: string;
+          entity_type: string;
+          entity_id?: string | null;
+          occurred_at?: string;
+          metadata?: Record<string, unknown> | null;
+        };
+        Update: {
+          id?: number;
+          tenant_id?: string;
+          actor_id?: string | null;
+          actor_role?: string;
+          actor_type?: "user" | "api_key";
+          api_key_id?: string | null;
+          action?: string;
+          entity_type?: string;
+          entity_id?: string | null;
+          occurred_at?: string;
+          metadata?: Record<string, unknown> | null;
+        };
+        Relationships: [];
+      };
+      api_keys: {
+        Row: ApiKey;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          name: string;
+          key_prefix: string;
+          key_hash: string;
+          created_by: string;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          name?: string;
+          key_prefix?: string;
+          key_hash?: string;
+          created_by?: string;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      api_key_usage_daily: {
+        Row: ApiKeyUsageDaily;
+        Insert: {
+          tenant_id: string;
+          api_key_id: string;
+          date: string;
+          request_count?: number;
+          error_count?: number;
+          last_request_at?: string | null;
+        };
+        Update: {
+          tenant_id?: string;
+          api_key_id?: string;
+          date?: string;
+          request_count?: number;
+          error_count?: number;
+          last_request_at?: string | null;
+        };
+        Relationships: [];
+      };
+      webhook_subscriptions: {
+        Row: WebhookSubscription;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          endpoint_url: string;
+          event_types: string[];
+          signing_secret: string;
+          is_active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          endpoint_url?: string;
+          event_types?: string[];
+          signing_secret?: string;
+          is_active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      webhook_delivery_queue: {
+        Row: WebhookDeliveryItem;
+        Insert: {
+          id?: string;
+          tenant_id: string;
+          subscription_id: string;
+          event_type: string;
+          payload: string;
+          status?: "pending" | "delivered" | "failed" | "dead_letter";
+          retry_count?: number;
+          max_retries?: number;
+          next_retry_at?: string;
+          response_status?: number | null;
+          duration_ms?: number | null;
+          delivered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          tenant_id?: string;
+          subscription_id?: string;
+          event_type?: string;
+          payload?: string;
+          status?: "pending" | "delivered" | "failed" | "dead_letter";
+          retry_count?: number;
+          max_retries?: number;
+          next_retry_at?: string;
+          response_status?: number | null;
+          duration_ms?: number | null;
+          delivered_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

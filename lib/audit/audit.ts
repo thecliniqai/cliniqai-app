@@ -52,7 +52,18 @@ export type AuditAction =
   | "patient_document.share_whatsapp"
   | "referral.share_whatsapp"
   | "invoice.share_whatsapp"
-  | "consultation.share_consolidated_whatsapp";
+  | "consultation.share_consolidated_whatsapp"
+  | "dpdp.patient_erasure"
+  | "dpdp.data_export"
+  | "api_key.create"
+  | "api_key.revoke"
+  | "webhook.create"
+  | "webhook.delete"
+  | "appointment.create"
+  | "appointment.reschedule"
+  | "appointment.cancel"
+  | "lab_order.create"
+  | "prescription.create";
 
 export interface RecordAuditParams {
   action: AuditAction;
@@ -72,9 +83,16 @@ export interface RecordAuditParams {
     | "follow_up"
     | "schedule_block"
     | "patient_document"
-    | "referral";
+    | "referral"
+    | "api_key"
+    | "webhook"
+    | "appointment"
+    | "lab_order"
+    | "dpdp";
   entityId?: string | null;
   metadata?: Record<string, unknown>;
+  actorType?: "user" | "api_key";
+  apiKeyId?: string | null;
 }
 
 const ALLOWED_METADATA_KEYS = new Set([
@@ -112,6 +130,13 @@ const ALLOWED_METADATA_KEYS = new Set([
   "urgency",
   "target_tenant_id",
   "patient_consents_history_sharing",
+  "retention_policy",
+  "erased_at",
+  "status",
+  "format",
+  "actor_type",
+  "api_key_id",
+  "correlation_id",
 ]);
 
 /**
@@ -158,6 +183,8 @@ export async function recordAudit(
     tenant_id: membership.tenantId,
     actor_id: membership.userId,
     actor_role: membership.role || "owner",
+    actor_type: params.actorType || "user",
+    api_key_id: params.apiKeyId || null,
     action: params.action,
     entity_type: params.entityType,
     entity_id: params.entityId || null,
