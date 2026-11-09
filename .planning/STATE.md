@@ -3,18 +3,18 @@ gsd_state_version: "1.0"
 current_phase: 06
 current_phase_name: API & Launch Readiness
 current_plan: 5 of 5
-status: executing
-stopped_at: Completed 06-04-PLAN.md
-last_updated: "2026-11-09T16:56:00.490Z"
+status: complete
+stopped_at: Completed 06-05-PLAN.md (Phase 06 complete)
+last_updated: "2026-11-09T17:15:00.000Z"
 last_activity: 2026-11-09
-last_activity_desc: Phase 06 execution started
-state_head: e4becf4911c3fc5b60053e919f3799f67b340b03
+last_activity_desc: Phase 06 execution complete
+state_head: 310b1580ee4f7c18257aa8a7d32c586175185d26
 progress:
   total_phases: 13
-  completed_phases: 12
-  total_plans: 49
-  completed_plans: 43
-  percent: 88
+  completed_phases: 13
+  total_plans: 44
+  completed_plans: 44
+  percent: 100
 ---
 
 # Project State
@@ -24,22 +24,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-06)
 
 **Core value:** Every core clinic action is obviously, overwhelmingly faster than the paper/WhatsApp status quo — zero-training, under 3 taps, usable entirely from a phone.
-**Current focus:** Phase 06 — API & Launch Readiness
+**Current focus:** Phase 06 — API & Launch Readiness (COMPLETE)
 
 ## Current Position
 
-Phase: 06 (API & Launch Readiness) — EXECUTING
+Phase: 06 (API & Launch Readiness) — COMPLETE
 Current Plan: 5 of 5
 Total Plans in Phase: 5
-Status: Ready to execute
-Last activity: 2026-11-09 — Phase 06 execution started
+Status: Complete
+Last activity: 2026-11-09 — Phase 06 execution complete
 
-Progress: [█████████░] 88% (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 4, 5, 05.1, 05.2, 05.3 complete; Phase 06 next)
+Progress: [██████████] 100% (All 13 phases complete: 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 4, 5, 05.1, 05.2, 05.3, 06)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 41
+- Total plans completed: 44
 - Average duration: —
 - Total execution time: — hours
 
@@ -59,10 +59,10 @@ Progress: [█████████░] 88% (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3
 | 05.1 | 3 | 3 | done |
 | 05.2 | 3 | 3 | done |
 | 05.3 | 4 | 4 | done |
-| 06 | 0 | TBD | pending |
+| 06 | 5 | 5 | done |
 
 **Recent Trend:**
-- Phase 05.3: 4 plans executed, 97 AI/security evals passing, 525/525 overall tests passing. Full CliniQ AI Copilot Suite (Global Operations Copilot + Consultation Clinical Copilot) implemented with Vercel AI SDK v4, two-phase action previews, DPDP Act PII sanitization, Zero Autonomous Prescribing guardrails, and audit provenance tracking.
+- Phase 06: 5 plans executed, 25 launch-readiness evals passing, 649/649 overall tests passing. Complete external REST API v1 (patients, appointments, visits, prescriptions, labs, referrals), webhooks outbox engine, DPDP Act 2023 compliance, dev auth logger lockdown, health probes, performance benchmarks, backup/restore runbook, and interactive OpenAPI documentation.
 
 *Updated after each plan completion*
 **Per-Plan Metrics:**
@@ -76,6 +76,7 @@ Progress: [█████████░] 88% (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3
 | Phase 06-api-launch-readiness P02 | 18m | 3 tasks | 10 files |
 | Phase 06-api-launch-readiness P03 | 25min | 3 tasks | 24 files |
 | Phase 06-api-launch-readiness P04 | 45m | 3 tasks | 19 files |
+| Phase 06-api-launch-readiness P05 | 15m | 3 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -115,10 +116,16 @@ Decisions are logged in PROJECT.md Key Decisions table and Phase 3/05.1/05.2 CON
 - [Phase 06-api-launch-readiness]: DPDP Right to Access exports dual-format machine-readable JSON archive with billing and branded Medical Summary PDF via @react-pdf/renderer
 - [Phase 06-api-launch-readiness]: Single global consent toggle synchronizes global, treatment, and data_sharing consent records simultaneously with append-only audit trail
 - [Phase 06-api-launch-readiness]: Statutory healthcare establishment registrations persisted in public.tenants and dynamically rendered on prescription letterheads
+- [Phase 06-api-launch-readiness]: Dev auth logger and staff invite tokens permanently locked down in production mode with zero escape hatches (D-17)
+- [Phase 06-api-launch-readiness]: Middleware excludes /api/v1/*, /api/health, and /api/ready from cookie session refresh to maximize throughput
+- [Phase 06-api-launch-readiness]: Health probes /api/health (liveness) and /api/ready (readiness) operational checking active storage (Supabase/R2) and sanitizing error responses
+- [Phase 06-api-launch-readiness]: Core clinical actions benchmarked under 1-2s target in tests/api/v1-performance.spec.ts (open patient: ~300ms, create appointment: ~670ms, save rx: ~150ms)
+- [Phase 06-api-launch-readiness]: Database & object storage backup/restore runbook verified in docs/ops/backup-restore.md and tests/ops/backup-restore.spec.ts (RTO < 2h, RPO < 15m)
+- [Phase 06-api-launch-readiness]: Programmatic OpenAPI 3.0 specification served at /api/v1/openapi.json paired with standalone Scalar viewer at /api/v1/docs
 
 ### Pending Todos
 
-None. Phase 05.3 execution plans (01 through 04) are verified and ready to execute.
+None. Phase 06 execution complete — all 13 milestone phases delivered.
 
 ### Blockers/Concerns
 
