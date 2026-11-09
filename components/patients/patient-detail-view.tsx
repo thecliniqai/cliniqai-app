@@ -34,6 +34,7 @@ import { PatientLabDocuments } from "./patient-lab-documents";
 import { CreateReferralModal } from "@/components/referrals/create-referral-modal";
 import { getReferralSignedUrl } from "@/features/referrals/actions";
 import { ConsentSection } from "@/app/(dashboard)/patients/[id]/consent-section";
+import { DpdpExportActions } from "./dpdp-export-actions";
 import { cn } from "@/lib/utils";
 
 interface PatientDetailViewProps {
@@ -134,6 +135,8 @@ export function PatientDetailView({
 
           {/* Action Buttons: Edit Details, Book Slot, Add to Queue */}
           <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
+            <DpdpExportActions patientId={patient.id} />
+
             <Button
               variant="secondary"
               size="sm"
