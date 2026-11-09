@@ -12,5 +12,8 @@
     "effort": {
       "opencode": "inherit"
     }
+  },
+  "git": {
+    "allow_default_branch_commits": true
   }
 }

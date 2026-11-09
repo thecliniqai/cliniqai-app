@@ -1,20 +1,20 @@
 ---
 gsd_state_version: "1.0"
 current_phase: 06
-current_phase_name: api-launch-readiness
-status: completed
-stopped_at: Phase 06 planned with review dispositions
-last_updated: "2026-11-09T14:46:26.192Z"
-last_activity: 2026-10-29
-last_activity_desc: Phase 05.3 execution complete
-state_head: 47d3fb1f6b7894c92f35eb120d4d5a5d3d4c43f2
+current_phase_name: API & Launch Readiness
+current_plan: 4
+status: executing
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-11-09T15:36:43.183Z"
+last_activity: 2026-11-09
+last_activity_desc: Phase 06 execution started
+state_head: 50ae448735f4e4be69d3b5943b60a8b89e5b743c
 progress:
   total_phases: 13
   completed_phases: 12
   total_plans: 49
   completed_plans: 41
   percent: 84
-current_plan: 4
 ---
 
 # Project State
@@ -24,14 +24,15 @@ current_plan: 4
 See: .planning/PROJECT.md (updated 2026-10-06)
 
 **Core value:** Every core clinic action is obviously, overwhelmingly faster than the paper/WhatsApp status quo — zero-training, under 3 taps, usable entirely from a phone.
-**Current focus:** Phase 05.3 — CliniQ AI Copilot Suite — Operations & Clinical Copilot (Completed)
+**Current focus:** Phase 06 — API & Launch Readiness
 
 ## Current Position
 
-Phase: 06 (api-launch-readiness) — READY TO EXECUTE
-Next Phase: 06 (API & Launch Readiness)
-Status: Completed Phase 05.3
-Last activity: 2026-10-29 — Phase 05.3 execution complete
+Phase: 06 (API & Launch Readiness) — EXECUTING
+Current Plan: 2 of 5
+Total Plans in Phase: 5
+Status: Executing Phase 06
+Last activity: 2026-11-09 — Phase 06 execution started
 
 Progress: [████████░░] 84% (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 4, 5, 05.1, 05.2, 05.3 complete; Phase 06 next)
 
@@ -71,6 +72,7 @@ Progress: [████████░░] 84% (Phases 1, 2, 2.1, 3, 3.1, 3.2, 3
 | Phase 05.2 P01 | 10m | 3 tasks | 7 files |
 | Phase 05.2 P02 | 11m | 4 tasks | 10 files |
 | Phase 05.2 P03 | 10m | 3 tasks | 6 files |
+| Phase 06 P01 | 22m | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -93,6 +95,11 @@ Decisions are logged in PROJECT.md Key Decisions table and Phase 3/05.1/05.2 CON
 - [Phase 05]: Implemented dual-trigger outbox queue architecture with transactional enqueueing and background cron recovery
 - [Phase 05]: Enforced quiet hours from 21:00 to 08:00 IST for non-urgent notifications with nextRetryAt scheduled for 08:01 IST
 - [Phase 05.1 D-01..D-08]: Full MSG91 WhatsApp integration (templates + 2-way bot + DLR), TRAI SMS deferred, tokenized document links, interactive button actions, auto-triage to front desk.
+- [Phase 06]: D-01: API key authentication via SHA-256 hash lookup in api_keys table with prefix clk_live_ and Bearer header
+- [Phase 06]: D-02: Standard JSON envelopes with success boolean, data or error object, and correlation ID
+- [Phase 06]: D-03: In-memory sliding window rate limiter (60 rpm default) with X-RateLimit headers and 429 Retry-After responses
+- [Phase 06]: D-08: REST appointments backed by public.visits with origin_type = 'scheduled' and transactional slot conflict detection
+- [Phase 06]: D-19: Audit logging with actor_type: 'api_key' and api_key_id for all mutating external API calls
 
 ### Pending Todos
 
@@ -121,6 +128,6 @@ None. Phase 05.3 execution plans (01 through 04) are verified and ready to execu
 
 ## Session Continuity
 
-Last session: 2026-11-09T14:46:25.964Z
-Stopped at: Phase 06 planned with review dispositions
-Resume file: .planning/phases/06-api-launch-readiness/06-01-PLAN.md
+Last session: 2026-11-09T15:36:43.150Z
+Stopped at: Completed 06-01-PLAN.md
+Resume file: None

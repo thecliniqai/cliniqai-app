@@ -43,13 +43,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Platform & Compliance
 
-- [ ] **REQ-api-access**: API-first REST API covering patients, appointments, visits, prescriptions, lab orders, referrals; tenant-scoped API keys / OAuth2 with role-scoped permissions matching in-app roles; webhooks for key events (appointment booked/cancelled, visit completed, lab result ready); per-tenant/per-key rate limiting and usage logging. *(PRD §4.12)*
+- [x] **REQ-api-access**: API-first REST API covering patients, appointments, visits, prescriptions, lab orders, referrals; tenant-scoped API keys / OAuth2 with role-scoped permissions matching in-app roles; webhooks for key events (appointment booked/cancelled, visit completed, lab result ready); per-tenant/per-key rate limiting and usage logging. *(PRD §4.12)*
 - [ ] **REQ-compliance-data-layer**: ABDM/ABHA/FHIR data-layer readiness with no future migration — optional nullable ABHA number/address on patient from day one; ICD-coded diagnosis fields; structured drug-database references; clinical documents in structured internal format transformable to HL7 FHIR R4 without re-authoring; consent events as first-class immutable records; facility/practitioner records ready for future HFR/HPR IDs. Live integration out of scope. *(PRD §4.13)*
 
 ### Non-Functional
 
 - [ ] **REQ-nfr-multi-tenancy-scalability**: Strict database-level tenant isolation (RLS, not just app checks); scales from pilot clinics to thousands of tenants without redesign; Vercel + Supabase start with clear migration path to dedicated cloud (India regions); stateless application layer. *(PRD §5.1)*
-- [ ] **REQ-nfr-performance**: Core actions (open patient record, create appointment, save prescription) under 1–2 seconds on typical Indian 3G/4G; offline-tolerant UX evaluated for spotty-connectivity clinics (queue view, draft prescriptions cached/synced). *(PRD §5.2)*
+- [x] **REQ-nfr-performance**: Core actions (open patient record, create appointment, save prescription) under 1–2 seconds on typical Indian 3G/4G; offline-tolerant UX evaluated for spotty-connectivity clinics (queue view, draft prescriptions cached/synced). *(PRD §5.2)*
 - [ ] **REQ-nfr-security**: Encryption at rest and in transit; RBAC enforced at API and UI layers; audit logging of all patient-record access/modification (who/what/when); OTP-based staff auth, no shared logins; regular automated backups with tested restore. *(PRD §5.3)*
 - [ ] **REQ-nfr-regulatory-compliance**: DPDP Act 2023 — explicit consent capture, right to access/delete, purpose limitation, breach notification readiness; store clinic registration/license details (no state-specific enforcement); teleconsultation and live ABDM deferred. *(PRD §5.4)*
 - [ ] **REQ-nfr-reliability**: Target uptime 99.5%+; if SMS/WhatsApp provider is down, in-app data entry and clinical workflows continue unaffected. *(PRD §5.5)*
@@ -97,8 +97,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | REQ-referrals | Phase 4 | Pending |
 | REQ-reminders-notifications | Phase 5 | Pending |
 | REQ-ai-features | Phase 5 | Pending |
-| REQ-api-access | Phase 6 | Pending |
-| REQ-nfr-performance | Phase 6 | Pending |
+| REQ-api-access | Phase 6 | Complete |
+| REQ-nfr-performance | Phase 6 | Complete |
 | REQ-nfr-reliability | Phase 6 | Pending |
 | REQ-nfr-regulatory-compliance | Phase 6 | Pending |
 
