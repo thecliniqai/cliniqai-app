@@ -814,17 +814,19 @@ export function logDevAuthEvent(event: DevAuthEvent): void {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should API keys support IP allowlisting in v1?**
+1. **Should API keys support IP allowlisting in v1? (RESOLVED)**
    - *What we know:* Voice bots and third-party EHRs often run on dynamic cloud IPs (AWS/Vercel/GCP).
    - *What's unclear:* Whether any initial pilot clinics require static IP restrictions.
    - *Recommendation:* Keep IP allowlisting optional/nullable in the database schema; default to bearer token authentication.
+   - *Resolution:* RESOLVED per D-01: Bearer token authentication with nullable IP allowlist column in database schema.
 
-2. **Should DPDP PDF export be stored in Supabase Storage or streamed directly?**
+2. **Should DPDP PDF export be stored in Supabase Storage or streamed directly? (RESOLVED)**
    - *What we know:* `@react-pdf/renderer` can compile directly to a Node Buffer/Stream.
    - *What's unclear:* Whether clinics need historical archives of previous DPDP export PDFs.
    - *Recommendation:* Stream the PDF directly to the browser for instant download, while recording an immutable audit log entry in `audit_logs` tracking the export event.
+   - *Resolution:* RESOLVED per D-13: Stream the medical summary PDF directly to the browser for instant download while logging immutable audit entry in `audit_logs`.
 
 ---
 
