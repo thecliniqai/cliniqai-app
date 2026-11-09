@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
   try {
     const { data: visit, error } = await (admin.from("visits") as any)
-      .select("id, tenant_id, patient_id, doctor_id, scheduled_at, estimated_duration_minutes, reason_for_visit, status, created_by, created_at, updated_at")
+      .select("id, tenant_id, patient_id, doctor_id, origin_type, scheduled_at, estimated_duration_minutes, reason_for_visit, status, created_by, created_at, updated_at")
       .eq("id", id)
       .eq("tenant_id", session.tenantId)
       .eq("origin_type", "scheduled")

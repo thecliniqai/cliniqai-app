@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
 
   try {
     let query = (admin.from("visits") as any)
-      .select("id, tenant_id, patient_id, doctor_id, scheduled_at, estimated_duration_minutes, reason_for_visit, status, created_by, created_at, updated_at", {
+      .select("id, tenant_id, patient_id, doctor_id, origin_type, scheduled_at, estimated_duration_minutes, reason_for_visit, status, created_by, created_at, updated_at", {
         count: "exact",
       })
       .eq("tenant_id", session.tenantId)
@@ -184,17 +184,37 @@ export async function POST(req: NextRequest) {
       { userId: session.userId, tenantId: session.tenantId }
     );
 
-    if (!slotCheck.available && slotCheck.conflictingVisit) {
-      return apiError(
-        "SLOT_CONFLICT",
-        "The requested appointment slot conflicts with an existing booking for this doctor.",
-        409,
-        {
-          conflicting_visit_id: slotCheck.conflictingVisit.id,
-          scheduled_at: slotCheck.conflictingVisit.scheduled_at,
-        },
-        rateHeaders
-      );
+    if (!slotCheck.available) {
+      if (slotCheck.conflictingVisit) {
+        return apiError(
+          "SLOT_CONFLICT",
+          "The requested appointment slot conflicts with an existing booking for this doctor.",
+          409,
+          {
+            conflicting_visit_id: slotCheck.conflictingVisit.id,
+            scheduled_at: slotCheck.conflictingVisit.scheduled_at,
+          },
+          rateHeaders
+        );
+      }
+      if (slotCheck.isBlocked) {
+        return apiError(
+          "SLOT_CONFLICT",
+          `Doctor is unavailable or blocked: ${slotCheck.blockReason || "Time blocked"}`,
+          409,
+          undefined,
+          rateHeaders
+        );
+      }
+      if (slotCheck.isOffDuty) {
+        return apiError(
+          "SLOT_CONFLICT",
+          "Selected time is outside doctor working hours.",
+          409,
+          undefined,
+          rateHeaders
+        );
+      }
     }
 
     // 4. Insert into public.visits with origin_type = 'scheduled'
