@@ -17,6 +17,10 @@ export interface PrescriptionPdfPayload {
     phone?: string | null;
     registration_number?: string | null;
     logo_url?: string | null;
+    clinical_establishment_reg_no?: string | null;
+    state_medical_council_reg_no?: string | null;
+    gstin?: string | null;
+    drug_license_no?: string | null;
   };
 
   doctor: {
@@ -399,6 +403,29 @@ export function PrescriptionDocument({ payload }: { payload: PrescriptionPdfPayl
                 ? ` • Reg No: ${payload.clinic.registration_number}`
                 : ""}
             </Text>
+            {Boolean(
+              payload.clinic.clinical_establishment_reg_no ||
+              payload.clinic.state_medical_council_reg_no ||
+              payload.clinic.gstin ||
+              payload.clinic.drug_license_no
+            ) ? (
+              <Text style={styles.clinicMeta}>
+                {[
+                  payload.clinic.clinical_establishment_reg_no
+                    ? `CEA: ${payload.clinic.clinical_establishment_reg_no}`
+                    : null,
+                  payload.clinic.state_medical_council_reg_no
+                    ? `SMC: ${payload.clinic.state_medical_council_reg_no}`
+                    : null,
+                  payload.clinic.gstin ? `GSTIN: ${payload.clinic.gstin}` : null,
+                  payload.clinic.drug_license_no
+                    ? `DL: ${payload.clinic.drug_license_no}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" | ")}
+              </Text>
+            ) : null}
 
             <View style={styles.doctorContainer}>
               <View>

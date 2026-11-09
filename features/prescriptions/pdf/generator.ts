@@ -1,6 +1,7 @@
 import React from "react";
 import { pdf } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { recordAudit } from "@/lib/audit/audit";
 import { Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -50,18 +51,41 @@ export async function generateAndArchivePrescriptionPdf(
   clientOverride?: SupabaseClient<Database, any, any>,
   sessionOverride?: { userId: string; tenantId: string }
 ): Promise<GeneratePrescriptionPdfResult> {
+  const supabase = clientOverride || (sessionOverride ? getAdminClient() : await createClient());
+  const session = sessionOverride || {
+    userId: payload.doctor.name, // fallback for testing
+    tenantId: payload.tenant_id,
+  };
+
+  // Enrich clinic statutory details if not already provided
+  if (
+    payload.clinic.clinical_establishment_reg_no === undefined &&
+    payload.clinic.state_medical_council_reg_no === undefined &&
+    payload.tenant_id
+  ) {
+    try {
+      const { data: tenantRow } = await (supabase.from("tenants") as any)
+        .select("clinical_establishment_reg_no, state_medical_council_reg_no, gstin, drug_license_no")
+        .eq("id", payload.tenant_id)
+        .maybeSingle();
+
+      if (tenantRow) {
+        payload.clinic.clinical_establishment_reg_no = tenantRow.clinical_establishment_reg_no;
+        payload.clinic.state_medical_council_reg_no = tenantRow.state_medical_council_reg_no;
+        payload.clinic.gstin = tenantRow.gstin;
+        payload.clinic.drug_license_no = tenantRow.drug_license_no;
+      }
+    } catch {
+      // Continue with provided payload if tenant query fails
+    }
+  }
+
   // 1. Render React-PDF document to binary buffer server-side
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(PrescriptionDocument, { payload }) as any;
   const instance = pdf(doc);
   const stream = await instance.toBuffer();
   const buffer = await streamToBuffer(stream);
-
-  const supabase = clientOverride || (await createClient());
-  const session = sessionOverride || {
-    userId: payload.doctor.name, // fallback for testing
-    tenantId: payload.tenant_id,
-  };
 
   // 2. Define deterministic storage path: ${tenant_id}/${visit_id}/rx_v${version}.pdf
   const storagePath = `${payload.tenant_id}/${payload.visit_id}/rx_v${payload.version}.pdf`;
@@ -126,7 +150,7 @@ export async function generateAndArchivePrescriptionPdf(
           storage_path: storagePath,
         },
       },
-      clientOverride as any,
+      supabase as any,
       session
     );
   } catch (auditErr) {

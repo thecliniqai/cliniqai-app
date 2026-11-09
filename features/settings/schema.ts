@@ -22,6 +22,31 @@ export const optionalIndianPhone = z
     return toE164(val);
   });
 
+export const optionalGstin = z
+  .string()
+  .optional()
+  .nullable()
+  .transform((val) => {
+    if (val === undefined) return undefined;
+    if (val === null || val.trim() === "") return null;
+    return val.trim().toUpperCase();
+  })
+  .refine(
+    (val) => val === undefined || val === null || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(val),
+    {
+      message: "Please enter a valid 15-character Indian GSTIN (e.g. 27AAPCU5050M1ZV).",
+    }
+  );
+
+export const statutorySettingsSchema = z.object({
+  clinical_establishment_reg_no: z.string().trim().optional().nullable(),
+  state_medical_council_reg_no: z.string().trim().optional().nullable(),
+  gstin: optionalGstin,
+  drug_license_no: z.string().trim().optional().nullable(),
+});
+
+export type StatutorySettingsInput = z.infer<typeof statutorySettingsSchema>;
+
 export const clinicSettingsSchema = z.object({
   name: z.string().min(2, "Clinic name must be at least 2 characters."),
   address: z.string().optional().nullable(),
@@ -32,6 +57,12 @@ export const clinicSettingsSchema = z.object({
   default_followup_fee: z.coerce.number().min(0, "Fee cannot be negative").default(300),
   accepted_payment_methods: z.array(z.enum(["cash", "upi", "card"])).min(1, "Select at least one payment method").default(["cash", "upi", "card"]),
   
+  // Statutory Healthcare Establishment & Regulatory Registrations (DPDP & NMC D-16)
+  clinical_establishment_reg_no: z.string().trim().optional().nullable(),
+  state_medical_council_reg_no: z.string().trim().optional().nullable(),
+  gstin: optionalGstin,
+  drug_license_no: z.string().trim().optional().nullable(),
+
   // Owner doctor clinical profile (configured when owner is practicing doctor)
   doctor_name: z.string().optional().nullable(),
   doctor_phone: optionalIndianPhone,

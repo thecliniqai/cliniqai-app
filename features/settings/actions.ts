@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/permissions/guards";
 import { getActiveMembership } from "@/lib/auth/tenant";
 import { recordAudit } from "@/lib/audit/audit";
@@ -10,6 +11,8 @@ import { Tenant, Membership, Database } from "@/lib/db/types";
 import {
   clinicSettingsSchema,
   ClinicSettingsInput,
+  statutorySettingsSchema,
+  StatutorySettingsInput,
   userProfileSchema,
   UserProfileInput,
   staffEditSchema,
@@ -42,7 +45,7 @@ export async function updateClinicSettings(
     };
   }
 
-  const supabase = clientOverride || (await createClient());
+  const supabase = clientOverride || (sessionOverride ? getAdminClient() : await createClient());
 
   try {
     const session = sessionOverride || (await requirePermission(supabase, "clinic:manage"));
@@ -59,6 +62,10 @@ export async function updateClinicSettings(
         default_consultation_fee: data.default_consultation_fee,
         default_followup_fee: data.default_followup_fee,
         accepted_payment_methods: data.accepted_payment_methods,
+        clinical_establishment_reg_no: data.clinical_establishment_reg_no?.trim() || null,
+        state_medical_council_reg_no: data.state_medical_council_reg_no?.trim() || null,
+        gstin: data.gstin?.trim() || null,
+        drug_license_no: data.drug_license_no?.trim() || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", session.tenantId)
@@ -111,11 +118,14 @@ export async function updateClinicSettings(
             "default_consultation_fee",
             "default_followup_fee",
             "accepted_payment_methods",
+            ...(data.clinical_establishment_reg_no || data.state_medical_council_reg_no || data.gstin || data.drug_license_no
+              ? ["statutory_registrations"]
+              : []),
             ...(data.doctor_name ? ["owner_doctor_credentials"] : []),
           ],
         },
       },
-      clientOverride,
+      supabase as any,
       session
     );
 
@@ -134,6 +144,86 @@ export async function updateClinicSettings(
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to update settings.",
+    };
+  }
+}
+
+export type UpdateStatutorySettingsResult =
+  | { success: true; tenant: Tenant }
+  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/**
+ * Persists official statutory registration numbers (CEA, SMC, GSTIN, Drug License)
+ * to public.tenants with full compliance audit logging under DPDP/NMC regulations (D-16).
+ */
+export async function updateStatutorySettings(
+  input: StatutorySettingsInput,
+  clientOverride?: SupabaseClient<Database>,
+  sessionOverride?: { userId: string; tenantId: string }
+): Promise<UpdateStatutorySettingsResult> {
+  const parseResult = statutorySettingsSchema.safeParse(input);
+  if (!parseResult.success) {
+    const fieldErrors: Record<string, string[]> = {};
+    for (const issue of parseResult.error.issues) {
+      const field = issue.path[0]?.toString() || "form";
+      fieldErrors[field] = fieldErrors[field] || [];
+      fieldErrors[field].push(issue.message);
+    }
+    return {
+      success: false,
+      error: parseResult.error.issues[0]?.message ?? "Invalid statutory registrations input.",
+      fieldErrors,
+    };
+  }
+
+  const supabase = clientOverride || (sessionOverride ? getAdminClient() : await createClient());
+
+  try {
+    const session = sessionOverride || (await requirePermission(supabase, "clinic:manage"));
+    const data = parseResult.data;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updatedTenant, error: updateError } = await (supabase.from("tenants") as any)
+      .update({
+        clinical_establishment_reg_no: data.clinical_establishment_reg_no?.trim() || null,
+        state_medical_council_reg_no: data.state_medical_council_reg_no?.trim() || null,
+        gstin: data.gstin?.trim() || null,
+        drug_license_no: data.drug_license_no?.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", session.tenantId)
+      .select("*")
+      .single();
+
+    if (updateError || !updatedTenant) {
+      console.error("[features/settings/actions] Failed to update statutory settings:", updateError);
+      return { success: false, error: "Failed to persist statutory registrations in database." };
+    }
+
+    await recordAudit(
+      {
+        action: "clinic.settings.update",
+        entityType: "clinic",
+        entityId: session.tenantId,
+        metadata: {
+          fields_changed: ["statutory_registrations"],
+        },
+      },
+      supabase as any,
+      session
+    );
+
+    try {
+      revalidatePath("/settings/clinic");
+    } catch {
+      // Ignore in testing environments
+    }
+
+    return { success: true, tenant: updatedTenant as Tenant };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update statutory settings.",
     };
   }
 }

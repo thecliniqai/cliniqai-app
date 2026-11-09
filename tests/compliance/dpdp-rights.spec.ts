@@ -4,6 +4,9 @@ import { exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { erasePatientRecord } from "@/features/dpdp/erasure";
 import { getPatient, searchPatients, getPatients } from "@/features/patients/actions";
+import { toggleGlobalConsent } from "@/features/patients/consent";
+import { updateStatutorySettings } from "@/features/settings/actions";
+import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { GET as exportRoute } from "@/app/api/v1/patients/[id]/export/route";
 import { DELETE as deletePatientRoute } from "@/app/api/v1/patients/[id]/route";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
@@ -471,6 +474,203 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
       expect(p.is_deleted).toBe(true);
       expect(p.status).toBe("erased");
       expect(p.erasure_reason).toBe("Patient DPDP erasure request via external portal");
+    });
+  });
+
+  describe("Task 3: Single Global Consent Toggle & Statutory Registrations Persistence", () => {
+    let consentPatientId: string;
+
+    beforeAll(async () => {
+      const admin = getAdminClient();
+      const { data: cp } = await admin
+        .from("patients")
+        .insert({
+          tenant_id: tenantA.tenantId,
+          full_name: "Meera Nair",
+          phone: "+919445566778",
+          age: 29,
+          sex: "female",
+          created_by: tenantA.userId,
+        })
+        .select("id")
+        .single();
+      consentPatientId = cp!.id;
+    });
+
+    it("toggleGlobalConsent records global, treatment, and data_sharing consent entries", async () => {
+      const session = {
+        userId: tenantA.userId,
+        tenantId: tenantA.tenantId,
+        role: "owner",
+      };
+
+      // 1. Withdraw consent globally
+      const withdrawRes = await toggleGlobalConsent(
+        consentPatientId,
+        "withdrawn",
+        "Patient withdrew all processing consent",
+        undefined,
+        session
+      );
+      expect(withdrawRes.success).toBe(true);
+
+      const admin = getAdminClient();
+      const { data: withdrawnRecords } = await admin
+        .from("consent_records")
+        .select("*")
+        .eq("patient_id", consentPatientId)
+        .order("recorded_at", { ascending: false })
+        .limit(3);
+
+      expect(withdrawnRecords).toBeDefined();
+      expect(withdrawnRecords!.length).toBe(3);
+      expect(withdrawnRecords!.every((r) => r.status === "withdrawn")).toBe(true);
+      const typesWithdrawn = withdrawnRecords!.map((r) => r.consent_type);
+      expect(typesWithdrawn).toContain("global");
+      expect(typesWithdrawn).toContain("treatment");
+      expect(typesWithdrawn).toContain("data_sharing");
+
+      // Verify audit log
+      const { data: withdrawLogs } = await admin
+        .from("audit_logs")
+        .select("*")
+        .eq("entity_id", withdrawnRecords![0].id)
+        .eq("action", "patient.consent.withdrawn");
+      expect(withdrawLogs!.length).toBeGreaterThanOrEqual(1);
+
+      // 2. Grant consent globally
+      const grantRes = await toggleGlobalConsent(
+        consentPatientId,
+        "granted",
+        "Patient re-consented to clinical treatment & records",
+        undefined,
+        session
+      );
+      expect(grantRes.success).toBe(true);
+
+      const { data: grantedRecords } = await admin
+        .from("consent_records")
+        .select("*")
+        .eq("patient_id", consentPatientId)
+        .order("recorded_at", { ascending: false })
+        .limit(3);
+
+      expect(grantedRecords!.every((r) => r.status === "granted")).toBe(true);
+      const typesGranted = grantedRecords!.map((r) => r.consent_type);
+      expect(typesGranted).toContain("global");
+      expect(typesGranted).toContain("treatment");
+      expect(typesGranted).toContain("data_sharing");
+    });
+
+    it("updateStatutorySettings persists registration numbers and audits changes", async () => {
+      const session = {
+        userId: tenantB.userId,
+        tenantId: tenantB.tenantId,
+      };
+
+      const result = await updateStatutorySettings(
+        {
+          clinical_establishment_reg_no: "CEA-KA-2023-1122",
+          state_medical_council_reg_no: "KMC/REG/44910",
+          gstin: "29AAAAA0000A1Z5",
+          drug_license_no: "KA-DL-20B-9988",
+        },
+        undefined,
+        session
+      );
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.tenant.clinical_establishment_reg_no).toBe("CEA-KA-2023-1122");
+        expect(result.tenant.state_medical_council_reg_no).toBe("KMC/REG/44910");
+        expect(result.tenant.gstin).toBe("29AAAAA0000A1Z5");
+        expect(result.tenant.drug_license_no).toBe("KA-DL-20B-9988");
+      }
+
+      // Verify audit log
+      const admin = getAdminClient();
+      const { data: logs } = await admin
+        .from("audit_logs")
+        .select("*")
+        .eq("entity_id", tenantB.tenantId)
+        .eq("action", "clinic.settings.update")
+        .order("occurred_at", { ascending: false });
+
+      expect(logs).toBeDefined();
+      expect(logs!.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it("updateStatutorySettings validates GSTIN format and rejects invalid GSTIN", async () => {
+      const session = {
+        userId: tenantB.userId,
+        tenantId: tenantB.tenantId,
+      };
+
+      const result = await updateStatutorySettings(
+        {
+          gstin: "INVALID_GSTIN_123",
+        },
+        undefined,
+        session
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain("15-character Indian GSTIN");
+      }
+    });
+
+    it("generateAndArchivePrescriptionPdf enriches statutory registration fields in payload and PDF", async () => {
+      const session = {
+        userId: tenantA.userId,
+        tenantId: tenantA.tenantId,
+      };
+
+      const pdfResult = await generateAndArchivePrescriptionPdf(
+        {
+          tenant_id: tenantA.tenantId,
+          visit_id: visitId,
+          prescription_id: prescriptionId,
+          version: 1,
+          letterhead_mode: "blank_paper",
+          clinic: {
+            name: "DPDP Test Clinic Alpha",
+            address: "42 Healthcare Road",
+            phone: "+919876543210",
+            // Notice: statutory fields omitted here — generator should enrich from public.tenants
+          },
+          doctor: {
+            name: "Dr. Vikram Joshi",
+            qualifications: "MBBS, MD",
+            medical_council_reg_no: "MMC-2015-8899",
+          },
+          patient: {
+            full_name: "Aarav Sharma",
+            age: 36,
+            sex: "male",
+            phone: "+919876543210",
+          },
+          visit: {
+            visit_date: "09/11/2026",
+          },
+          diagnoses: [{ diagnosis_name: "Type 2 Diabetes" }],
+          medications: [
+            {
+              medicine_name: "Metformin",
+              dosage: "500 mg",
+              timing: "Twice daily",
+              duration: "30 days",
+            },
+          ],
+        },
+        undefined,
+        session
+      );
+
+      expect(pdfResult).toBeDefined();
+      expect(pdfResult.buffer).toBeDefined();
+      expect(Buffer.isBuffer(pdfResult.buffer)).toBe(true);
+      expect(pdfResult.buffer.subarray(0, 5).toString("utf-8")).toBe("%PDF-");
     });
   });
 });

@@ -7,6 +7,7 @@ import { updateClinicSettings } from "@/features/settings/actions";
 import { ALLOWED_SPECIALTIES } from "@/features/clinics/constants";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { DoctorAvailabilityCard } from "@/components/profile/doctor-availability-card";
+import { StatutoryFieldsCard } from "@/components/settings/statutory-fields-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -511,6 +512,11 @@ export function ClinicProfileForm({ initialTenant, initialOwnerMembership }: Cli
         </Button>
       </div>
     </form>
+
+    {/* Statutory Clinic Registrations & Government Licenses (DPDP / NMC D-16) */}
+    <div className="pt-2">
+      <StatutoryFieldsCard initialTenant={initialTenant} />
+    </div>
 
     {/* Practicing Owner Doctor Weekly Availability & Shifts */}
     {ownerIsPracticing && initialOwnerMembership && (
