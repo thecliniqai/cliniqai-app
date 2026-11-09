@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { GET as getVisits, POST as createVisit } from "@/app/api/v1/visits/route";
 import { GET as getVisitById, PATCH as patchVisitById } from "@/app/api/v1/visits/[id]/route";
+import { GET as getPrescriptions, POST as createPrescription } from "@/app/api/v1/prescriptions/route";
+import { GET as getPrescriptionById } from "@/app/api/v1/prescriptions/[id]/route";
 import { seedTenantWithOwner, addMemberToTenant, createUnlinkedUser } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -338,6 +340,187 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
 
       const patchRes = await patchVisitById(patchReq, { params: Promise.resolve({ id: activeVisitId }) });
       expect(patchRes.status).toBe(404);
+    });
+  });
+
+  describe("5. Prescriptions REST API Grounded in Schema & Versioning (D-05, T-06-05, uq_prescriptions_visit_version)", () => {
+    let visitForPrescription: string;
+
+    beforeAll(async () => {
+      const admin = getAdminClient();
+      const { data: v } = await admin
+        .from("visits")
+        .insert({
+          tenant_id: clinicA.tenantId,
+          patient_id: patientA.id,
+          doctor_id: doctorA.userId,
+          origin_type: "walk_in",
+          status: "in_consultation",
+          created_by: clinicA.userId,
+        })
+        .select("id")
+        .single();
+      visitForPrescription = v!.id;
+    });
+
+    it("rejects prescription creation when doctor_id is missing or holds non-doctor role (403)", async () => {
+      const req = new NextRequest("http://localhost/api/v1/prescriptions", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: patientA.id,
+          doctor_id: receptionistA.userId,
+          visit_id: visitForPrescription,
+          items: [
+            {
+              medicine_name: "Amoxicillin 500mg",
+              dosage: "1 tablet",
+              duration: "5 days",
+              timing: "after_meals",
+              special_instructions: "Take with full glass of water",
+            },
+          ],
+        }),
+      });
+
+      const res = await createPrescription(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(json.error.code).toBe("FORBIDDEN_CLINICIAN");
+    });
+
+    it("creates prescription v1 with nested items using timing and special_instructions", async () => {
+      const req = new NextRequest("http://localhost/api/v1/prescriptions", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: patientA.id,
+          doctor_id: doctorA.userId,
+          visit_id: visitForPrescription,
+          items: [
+            {
+              medicine_name: "Paracetamol 650mg",
+              generic_name: "Acetaminophen",
+              dose_form: "tablet",
+              dosage: "1 tablet",
+              timing: "sos",
+              duration: "3 days",
+              special_instructions: "Take only if fever exceeds 100 F",
+            },
+            {
+              medicine_name: "Cetirizine 10mg",
+              dosage: "1 tablet",
+              timing: "at_bedtime",
+              duration: "5 days",
+            },
+          ],
+        }),
+      });
+
+      const res = await createPrescription(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(json.data.id).toBeDefined();
+      expect(json.data.version).toBe(1);
+      expect(json.data.status).toBe("active");
+      expect(json.data.visit_id).toBe(visitForPrescription);
+      expect(json.data.prescription_items).toHaveLength(2);
+      expect(json.data.prescription_items[0].timing).toBe("sos");
+      expect(json.data.prescription_items[0].special_instructions).toBe("Take only if fever exceeds 100 F");
+    });
+
+    it("consecutive prescription creation for same visit increments version to 2", async () => {
+      const req = new NextRequest("http://localhost/api/v1/prescriptions", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: patientA.id,
+          doctor_id: doctorA.userId,
+          visit_id: visitForPrescription,
+          items: [
+            {
+              medicine_name: "Azithromycin 500mg",
+              dosage: "1 tablet",
+              timing: "before_breakfast",
+              duration: "3 days",
+            },
+          ],
+        }),
+      });
+
+      const res = await createPrescription(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(json.data.version).toBe(2);
+      expect(json.data.prescription_items).toHaveLength(1);
+    });
+
+    it("GET /api/v1/prescriptions returns paginated list with nested items", async () => {
+      const req = new NextRequest(
+        `http://localhost/api/v1/prescriptions?visit_id=${visitForPrescription}&page=1&limit=10`,
+        {
+          headers: {
+            authorization: `Bearer ${keyA.rawToken}`,
+          },
+        }
+      );
+
+      const res = await getPrescriptions(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.data).toHaveLength(2);
+      expect(json.meta.total).toBe(2);
+      expect(json.data[0].prescription_items).toBeDefined();
+    });
+
+    it("GET /api/v1/prescriptions/[id] returns detail and verifies tenant isolation", async () => {
+      // First get prescription id
+      const listReq = new NextRequest(
+        `http://localhost/api/v1/prescriptions?visit_id=${visitForPrescription}`,
+        {
+          headers: {
+            authorization: `Bearer ${keyA.rawToken}`,
+          },
+        }
+      );
+      const listRes = await getPrescriptions(listReq);
+      const listJson = await listRes.json();
+      const prescriptionId = listJson.data[0].id;
+
+      // Key A can read
+      const getReqA = new NextRequest(`http://localhost/api/v1/prescriptions/${prescriptionId}`, {
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+        },
+      });
+      const getResA = await getPrescriptionById(getReqA, { params: Promise.resolve({ id: prescriptionId }) });
+      const getJsonA = await getResA.json();
+
+      expect(getResA.status).toBe(200);
+      expect(getJsonA.data.id).toBe(prescriptionId);
+      expect(Array.isArray(getJsonA.data.prescription_items)).toBe(true);
+
+      // Key B cannot read (returns 404)
+      const getReqB = new NextRequest(`http://localhost/api/v1/prescriptions/${prescriptionId}`, {
+        headers: {
+          authorization: `Bearer ${keyB.rawToken}`,
+        },
+      });
+      const getResB = await getPrescriptionById(getReqB, { params: Promise.resolve({ id: prescriptionId }) });
+      expect(getResB.status).toBe(404);
     });
   });
 });
