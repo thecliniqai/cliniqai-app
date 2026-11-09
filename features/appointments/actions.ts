@@ -5,6 +5,7 @@ import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { recordAudit } from "@/lib/audit/audit";
 import { randomBytes } from "crypto";
+import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 
 export async function getAppointmentsDbClient(clientOverride?: unknown) {
   if (clientOverride) {
@@ -125,6 +126,22 @@ export async function createAppointment(
     );
   }
 
+  // Enqueue webhook event: appointment.booked
+  try {
+    await enqueueWebhookEvent(
+      input.tenantId,
+      "appointment.booked",
+      {
+        appointment_id: visit.id,
+        patient_id: input.patientId,
+        scheduled_at: input.scheduledAt,
+      },
+      supabase
+    );
+  } catch (webhookErr) {
+    console.warn("[createAppointment] Failed to enqueue webhook event:", webhookErr);
+  }
+
   return { success: true, appointment: visit };
 }
 
@@ -201,6 +218,21 @@ export async function rescheduleAppointment(
     );
   }
 
+  // Enqueue webhook event: appointment.rescheduled
+  try {
+    await enqueueWebhookEvent(
+      visit.tenant_id,
+      "appointment.rescheduled",
+      {
+        appointment_id: input.appointmentId,
+        scheduled_at: input.newScheduledAt,
+      },
+      supabase
+    );
+  } catch (webhookErr) {
+    console.warn("[rescheduleAppointment] Failed to enqueue webhook event:", webhookErr);
+  }
+
   return { success: true, appointment: updated };
 }
 
@@ -241,6 +273,21 @@ export async function cancelAppointment(
 
   if (updateError || !updated) {
     throw new Error(`Failed to cancel appointment: ${updateError?.message || "Unknown error"}`);
+  }
+
+  // Enqueue webhook event: appointment.cancelled
+  try {
+    await enqueueWebhookEvent(
+      visit.tenant_id,
+      "appointment.cancelled",
+      {
+        appointment_id: input.appointmentId,
+        reason: input.reason || "clinic_cancelled",
+      },
+      supabase
+    );
+  } catch (webhookErr) {
+    console.warn("[cancelAppointment] Failed to enqueue webhook event:", webhookErr);
   }
 
   // Check waitlist for opening and alert front desk (Event #17: waitlist_slot_freed)

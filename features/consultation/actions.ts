@@ -14,6 +14,7 @@ import {
 } from "./schema";
 import { generateAndArchivePrescriptionPdf } from "../prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "../prescriptions/pdf/prescription-document";
+import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 
 export type SaveConsultationDraftResult =
   | { success: true; visitId: string }
@@ -688,6 +689,44 @@ export async function completeAndSignConsultation(
       clientOverride as any,
       session
     );
+
+    // 8. Enqueue webhook events
+    try {
+      await enqueueWebhookEvent(
+        session.tenantId,
+        "visit.completed",
+        {
+          visit_id: visitId,
+          patient_id: visit.patient_id,
+          doctor_id: visit.doctor_id || session.userId,
+          completed_at: nowIso,
+        },
+        supabase
+      );
+
+      // Check if an active prescription was signed during this consultation
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: signedRx } = await (supabase.from("prescriptions") as any)
+        .select("id, patient_id, visit_id")
+        .eq("visit_id", visitId)
+        .eq("tenant_id", session.tenantId)
+        .maybeSingle();
+
+      if (signedRx) {
+        await enqueueWebhookEvent(
+          session.tenantId,
+          "prescription.issued",
+          {
+            prescription_id: signedRx.id,
+            patient_id: signedRx.patient_id,
+            visit_id: signedRx.visit_id,
+          },
+          supabase
+        );
+      }
+    } catch (webhookErr) {
+      console.warn("[completeAndSignConsultation] Webhook dispatch warning:", webhookErr);
+    }
 
     try {
       revalidatePath(`/consultation/${visitId}`);

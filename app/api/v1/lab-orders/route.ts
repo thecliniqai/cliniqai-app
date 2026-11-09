@@ -4,6 +4,7 @@ import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { recordAudit } from "@/lib/audit/audit";
+import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 
 /**
  * GET /api/v1/lab-orders
@@ -216,6 +217,22 @@ export async function POST(req: NextRequest) {
       );
     } catch (auditErr) {
       console.error("[api/v1/lab-orders] Audit logging failed:", auditErr);
+    }
+
+    // 5. Enqueue webhook event: lab_result.ready
+    try {
+      await enqueueWebhookEvent(
+        session.tenantId,
+        "lab_result.ready",
+        {
+          document_id: doc.id,
+          patient_id: doc.patient_id,
+          title: doc.title,
+        },
+        admin
+      );
+    } catch (webhookErr) {
+      console.warn("[api/v1/lab-orders] Webhook enqueue error:", webhookErr);
     }
 
     return apiSuccess(doc, undefined, 201, rateHeaders);

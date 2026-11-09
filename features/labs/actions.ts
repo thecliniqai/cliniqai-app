@@ -16,6 +16,7 @@ import {
 } from "./types";
 import { formatAmendedFilename } from "./utils";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
@@ -172,6 +173,22 @@ export async function uploadLabDocument(
       clientOverride as any,
       session
     );
+
+    // 8. Enqueue webhook event: lab_result.ready
+    try {
+      await enqueueWebhookEvent(
+        session.tenantId,
+        "lab_result.ready",
+        {
+          document_id: newDoc.id,
+          patient_id: newDoc.patient_id,
+          title: newDoc.title,
+        },
+        clientOverride || supabase
+      );
+    } catch (webhookErr) {
+      console.warn("[uploadLabDocument] Failed to enqueue webhook event:", webhookErr);
+    }
 
     try {
       revalidatePath(`/patients/${patient_id}`);

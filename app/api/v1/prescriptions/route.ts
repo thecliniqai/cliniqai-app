@@ -5,6 +5,7 @@ import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
+import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 
 /**
  * GET /api/v1/prescriptions
@@ -271,6 +272,22 @@ export async function POST(req: NextRequest) {
       );
     } catch (auditErr) {
       console.error("[api/v1/prescriptions] Audit logging failed:", auditErr);
+    }
+
+    // 8. Enqueue webhook event: prescription.issued
+    try {
+      await enqueueWebhookEvent(
+        session.tenantId,
+        "prescription.issued",
+        {
+          prescription_id: newPrescription.id,
+          patient_id: newPrescription.patient_id,
+          visit_id: newPrescription.visit_id,
+        },
+        admin
+      );
+    } catch (webhookErr) {
+      console.warn("[api/v1/prescriptions] Webhook enqueue error:", webhookErr);
     }
 
     return apiSuccess(

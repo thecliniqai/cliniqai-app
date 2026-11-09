@@ -17,6 +17,7 @@ import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
 import { PrescriptionPdfPayload } from "./pdf/prescription-document";
 import { randomBytes } from "crypto";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 
 export type SearchMedicinesResult =
   | { success: true; results: MedicineSearchResult[] }
@@ -134,12 +135,50 @@ export async function getOrCreateDraftPrescription(
       return { success: false, error: "Failed to create prescription draft." };
     }
 
+    try {
+      await enqueueWebhookEvent(
+        session.tenantId,
+        "prescription.issued",
+        {
+          prescription_id: created.id,
+          patient_id: visit.patient_id,
+          visit_id: visitId,
+        },
+        supabase
+      );
+    } catch (webhookErr) {
+      console.warn("[getOrCreateDraftPrescription] Webhook enqueue error:", webhookErr);
+    }
+
     return { success: true, prescriptionId: created.id };
   } catch (err: unknown) {
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to initialize prescription.",
     };
+  }
+}
+
+/**
+ * Triggers the prescription.issued webhook notification for an issued prescription.
+ */
+export async function notifyPrescriptionIssued(
+  prescription: { id: string; patient_id: string; visit_id: string; tenant_id: string },
+  clientOverride?: unknown
+) {
+  try {
+    await enqueueWebhookEvent(
+      prescription.tenant_id,
+      "prescription.issued",
+      {
+        prescription_id: prescription.id,
+        patient_id: prescription.patient_id,
+        visit_id: prescription.visit_id,
+      },
+      clientOverride
+    );
+  } catch (err) {
+    console.warn("[notifyPrescriptionIssued] Webhook dispatch error:", err);
   }
 }
 
