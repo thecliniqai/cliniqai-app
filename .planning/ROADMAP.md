@@ -294,12 +294,12 @@ Plans:
   5. A patient's DPDP requests (access/delete, consent status) can be fulfilled from the app, and clinic registration/license details are stored
   6. Security hardening & dev cleanup: Audit and permanently disable temporary dev-only auth logger (`lib/auth/dev-logger.ts`, console/file OTP printing, and invite link exposure) before production release.
 
-**Plans**: 1/5 plans executed
+**Plans**: 2/5 plans executed
 **Wave 1**
 - [x] 06-01-PLAN.md — Foundation, API Key Authentication, Envelopes & Patients/Appointments REST API
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 06-02-PLAN.md — Clinical Resource REST APIs & Doctor Guard
+- [x] 06-02-PLAN.md — Clinical Resource REST APIs & Doctor Guard
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 06-03-PLAN.md — Webhook Event Engine, Outbox Delivery & Management UI
@@ -329,4 +329,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 05.1. Full MSG91 Integration | 3/3 | Complete    | 2026-10-28 |
 | 05.2. Indian Mobile Number Standardization | 3/3 | Complete    | 2026-10-28 |
 | 05.3. CliniQ AI Copilot Suite | 4/4 | Complete | 2026-10-29 |
-| 6. API & Launch Readiness | 1/5 | In Progress | - |
+| 6. API & Launch Readiness | 2/5 | In Progress | - |

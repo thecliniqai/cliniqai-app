@@ -51,7 +51,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **REQ-nfr-multi-tenancy-scalability**: Strict database-level tenant isolation (RLS, not just app checks); scales from pilot clinics to thousands of tenants without redesign; Vercel + Supabase start with clear migration path to dedicated cloud (India regions); stateless application layer. *(PRD §5.1)*
 - [x] **REQ-nfr-performance**: Core actions (open patient record, create appointment, save prescription) under 1–2 seconds on typical Indian 3G/4G; offline-tolerant UX evaluated for spotty-connectivity clinics (queue view, draft prescriptions cached/synced). *(PRD §5.2)*
 - [ ] **REQ-nfr-security**: Encryption at rest and in transit; RBAC enforced at API and UI layers; audit logging of all patient-record access/modification (who/what/when); OTP-based staff auth, no shared logins; regular automated backups with tested restore. *(PRD §5.3)*
-- [ ] **REQ-nfr-regulatory-compliance**: DPDP Act 2023 — explicit consent capture, right to access/delete, purpose limitation, breach notification readiness; store clinic registration/license details (no state-specific enforcement); teleconsultation and live ABDM deferred. *(PRD §5.4)*
+- [x] **REQ-nfr-regulatory-compliance**: DPDP Act 2023 — explicit consent capture, right to access/delete, purpose limitation, breach notification readiness; store clinic registration/license details (no state-specific enforcement); teleconsultation and live ABDM deferred. *(PRD §5.4)*
 - [ ] **REQ-nfr-reliability**: Target uptime 99.5%+; if SMS/WhatsApp provider is down, in-app data entry and clinical workflows continue unaffected. *(PRD §5.5)*
 
 ## v2 Requirements
@@ -100,7 +100,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | REQ-api-access | Phase 6 | Complete |
 | REQ-nfr-performance | Phase 6 | Complete |
 | REQ-nfr-reliability | Phase 6 | Pending |
-| REQ-nfr-regulatory-compliance | Phase 6 | Pending |
+| REQ-nfr-regulatory-compliance | Phase 6 | Complete |
 
 **Coverage:**
 - v1 requirements: 18 total
