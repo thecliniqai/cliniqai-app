@@ -66,13 +66,13 @@
     {
       "number": "6",
       "name": "API & Launch Readiness",
-      "status": "pending"
+      "status": "in_progress"
     }
   ],
   "next": {
-    "command": "/gsd-progress --next",
-    "label": "Advance to the next step (plan phase 6)",
-    "reason": "Phase 6 of 13 — needs a plan"
+    "command": "/gsd-progress",
+    "label": "Show progress",
+    "reason": "Unsure of state — showing progress"
   },
-  "updated_at": "2026-10-29T08:31:00.000Z"
+  "updated_at": "2026-11-09T13:50:51.223Z"
 }
