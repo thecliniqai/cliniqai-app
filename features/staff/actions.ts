@@ -15,13 +15,18 @@ const inviteStaffSchema = z.object({
 });
 
 export type InviteStaffResult =
-  | { success: true; inviteId: string; rawToken: string; inviteLink: string }
+  | { success: true; inviteId: string; rawToken?: string; inviteLink?: string }
   | { success: false; error: string };
 
-export async function inviteStaff(formData: FormData): Promise<InviteStaffResult> {
+export async function inviteStaff(
+  input: FormData | { email: string; role: string }
+): Promise<InviteStaffResult> {
+  const rawEmail = input instanceof FormData ? input.get("email") : input.email;
+  const rawRole = input instanceof FormData ? input.get("role") : input.role;
+
   const parseResult = inviteStaffSchema.safeParse({
-    email: formData.get("email"),
-    role: formData.get("role"),
+    email: rawEmail,
+    role: rawRole,
   });
 
   if (!parseResult.success) {
@@ -62,16 +67,28 @@ export async function inviteStaff(formData: FormData): Promise<InviteStaffResult
       };
     }
 
+    const isProd = process.env.NODE_ENV === "production";
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const inviteLink = `${baseUrl}/join?token=${rawToken}&email=${encodeURIComponent(email.toLowerCase().trim())}`;
 
-    const { logDevAuthEvent } = await import("@/lib/auth/dev-logger");
-    logDevAuthEvent({
-      type: "STAFF_INVITATION",
-      email: email.toLowerCase().trim(),
-      role,
-      link: inviteLink,
-    });
+    // Suppress dev logger in production mode (D-17)
+    if (!isProd) {
+      const { logDevAuthEvent } = await import("@/lib/auth/dev-logger");
+      logDevAuthEvent({
+        type: "STAFF_INVITATION",
+        email: email.toLowerCase().trim(),
+        role,
+        link: inviteLink,
+      });
+    }
+
+    // In production, rawToken and inviteLink must never be returned in client response
+    if (isProd) {
+      return {
+        success: true,
+        inviteId: (data as { id: string }).id,
+      };
+    }
 
     return {
       success: true,
@@ -87,6 +104,11 @@ export async function inviteStaff(formData: FormData): Promise<InviteStaffResult
     };
   }
 }
+
+/**
+ * Production-hardened action alias for staff invitations.
+ */
+export const inviteStaffMemberAction = inviteStaff;
 
 export type AcceptInviteResult =
   | { success: true; tenantId: string }

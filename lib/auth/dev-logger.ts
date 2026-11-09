@@ -17,10 +17,8 @@ export interface DevAuthEvent {
  * Tracked in Phase 6 Launch Readiness for removal before production release.
  */
 export function logDevAuthEvent(event: DevAuthEvent): void {
-  const isProd = process.env.NODE_ENV === "production";
-  const explicitEnable = process.env.ENABLE_DEV_AUTH_LOGS === "true";
-
-  if (isProd && !explicitEnable) {
+  // Strict, unbypassable security gate: never log or write credentials in production mode (D-17)
+  if (process.env.NODE_ENV === "production") {
     return;
   }
 

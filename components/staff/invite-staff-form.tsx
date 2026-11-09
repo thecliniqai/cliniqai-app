@@ -29,8 +29,8 @@ export function InviteStaffForm() {
     startTransition(async () => {
       const res = await inviteStaff(formData);
       if (res.success) {
-        setLastInviteLink(res.inviteLink);
-        setLastInvitedEmail(email);
+        setLastInviteLink(res.inviteLink ?? null);
+        setLastInvitedEmail(res.inviteLink ? email : null);
         setEmail("");
         router.refresh();
       } else {

@@ -27,9 +27,9 @@ export async function requestOtpAction(
   }
 
   try {
+    const isProd = process.env.NODE_ENV === "production";
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const isDevOrTest =
-      process.env.NODE_ENV !== "production" || process.env.ENABLE_DEV_AUTH_LOGS === "true";
+    const isDevOrTest = !isProd;
 
     let devOtp: string | null = null;
     let magicLink: string | null = null;
@@ -66,8 +66,8 @@ export async function requestOtpAction(
       }
     }
 
-    // 3. Log to terminal console & .planning/dev-auth-logs.txt
-    if (devOtp || magicLink) {
+    // 3. Log to terminal console & .planning/dev-auth-logs.txt (strictly suppressed in production)
+    if (!isProd && (devOtp || magicLink)) {
       logDevAuthEvent({
         type: context === "login" ? "LOGIN_OTP" : "JOIN_OTP",
         email: cleanEmail,
@@ -78,8 +78,8 @@ export async function requestOtpAction(
 
     return {
       success: true,
-      devOtp: isDevOrTest ? devOtp : null,
-      magicLink: isDevOrTest ? magicLink : null,
+      devOtp: isProd ? null : devOtp,
+      magicLink: isProd ? null : magicLink,
     };
   } catch (err: unknown) {
     console.error("[features/auth/dev-actions] Error generating OTP:", err);
@@ -88,4 +88,11 @@ export async function requestOtpAction(
       error: err instanceof Error ? err.message : "Failed to generate verification code.",
     };
   }
+}
+
+/**
+ * DEV/UAT ONLY: Convenience alias for requesting OTP in invite/join context.
+ */
+export async function requestJoinOtpAction(email: string): Promise<RequestOtpResult> {
+  return requestOtpAction(email, "join");
 }
