@@ -5,6 +5,10 @@ import { GET as getVisits, POST as createVisit } from "@/app/api/v1/visits/route
 import { GET as getVisitById, PATCH as patchVisitById } from "@/app/api/v1/visits/[id]/route";
 import { GET as getPrescriptions, POST as createPrescription } from "@/app/api/v1/prescriptions/route";
 import { GET as getPrescriptionById } from "@/app/api/v1/prescriptions/[id]/route";
+import { GET as getLabOrders, POST as createLabOrder } from "@/app/api/v1/lab-orders/route";
+import { GET as getLabOrderById } from "@/app/api/v1/lab-orders/[id]/route";
+import { GET as getReferrals, POST as createReferral } from "@/app/api/v1/referrals/route";
+import { GET as getReferralById, PATCH as patchReferralById } from "@/app/api/v1/referrals/[id]/route";
 import { seedTenantWithOwner, addMemberToTenant, createUnlinkedUser } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -520,6 +524,242 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
         },
       });
       const getResB = await getPrescriptionById(getReqB, { params: Promise.resolve({ id: prescriptionId }) });
+      expect(getResB.status).toBe(404);
+    });
+  });
+
+  describe("6. Lab Orders REST API Grounded in patient_documents (D-02, D-08, 000013)", () => {
+    let createdLabDocId: string;
+
+    it("creates lab order document using patient_documents schema", async () => {
+      const req = new NextRequest("http://localhost/api/v1/lab-orders", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: patientA.id,
+          title: "Complete Blood Count (CBC)",
+          original_filename: "cbc_report_2026.pdf",
+          storage_path: `tenants/${clinicA.tenantId}/patients/${patientA.id}/labs/cbc_report.pdf`,
+          file_size_bytes: 245760,
+          mime_type: "application/pdf",
+          report_date: "2026-11-09",
+          notes: "Hemoglobin slightly low, all other parameters within normal limits.",
+          is_abnormal: true,
+        }),
+      });
+
+      const res = await createLabOrder(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(json.data.id).toBeDefined();
+      expect(json.data.document_type).toBe("lab_report");
+      expect(json.data.title).toBe("Complete Blood Count (CBC)");
+      expect(json.data.storage_path).toContain("cbc_report.pdf");
+      expect(json.data.file_size_bytes).toBe(245760);
+      expect(json.data.is_abnormal).toBe(true);
+      expect(json.data.uploaded_by).toBe(clinicA.userId);
+      createdLabDocId = json.data.id;
+    });
+
+    it("GET /api/v1/lab-orders returns paginated list of lab documents", async () => {
+      const req = new NextRequest(
+        `http://localhost/api/v1/lab-orders?patient_id=${patientA.id}&page=1&limit=10`,
+        {
+          headers: {
+            authorization: `Bearer ${keyA.rawToken}`,
+          },
+        }
+      );
+
+      const res = await getLabOrders(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(json.data)).toBe(true);
+      expect(json.data.length).toBeGreaterThan(0);
+      expect(json.data[0].document_type).toBe("lab_report");
+      expect(json.meta.total).toBeGreaterThanOrEqual(1);
+    });
+
+    it("GET /api/v1/lab-orders/[id] returns detail and enforces tenant isolation", async () => {
+      // Key A can read
+      const getReqA = new NextRequest(`http://localhost/api/v1/lab-orders/${createdLabDocId}`, {
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+        },
+      });
+      const getResA = await getLabOrderById(getReqA, { params: Promise.resolve({ id: createdLabDocId }) });
+      const getJsonA = await getResA.json();
+
+      expect(getResA.status).toBe(200);
+      expect(getJsonA.data.id).toBe(createdLabDocId);
+
+      // Key B cannot read (returns 404)
+      const getReqB = new NextRequest(`http://localhost/api/v1/lab-orders/${createdLabDocId}`, {
+        headers: {
+          authorization: `Bearer ${keyB.rawToken}`,
+        },
+      });
+      const getResB = await getLabOrderById(getReqB, { params: Promise.resolve({ id: createdLabDocId }) });
+      expect(getResB.status).toBe(404);
+    });
+  });
+
+  describe("7. Referrals REST API Grounded in referrals Schema & Consent (D-05, T-06-05, T-06-08)", () => {
+    let createdReferralId: string;
+
+    it("rejects referral creation if referring_doctor_id is not a doctor (403)", async () => {
+      const req = new NextRequest("http://localhost/api/v1/referrals", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: patientA.id,
+          referring_doctor_id: receptionistA.userId,
+          referred_to_name: "Dr. Suresh Mehta",
+          reason_for_referral: "Cardiology Evaluation",
+        }),
+      });
+
+      const res = await createReferral(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(403);
+      expect(json.error.code).toBe("FORBIDDEN_CLINICIAN");
+    });
+
+    it("rejects in-network referral without explicit patient consent (T-06-08)", async () => {
+      const req = new NextRequest("http://localhost/api/v1/referrals", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: patientA.id,
+          referring_doctor_id: doctorA.userId,
+          referral_type: "in_network",
+          target_tenant_id: clinicB.tenantId,
+          referred_to_name: "Dr. Arvind Gupta",
+          reason_for_referral: "Specialized Orthopedic Consultation",
+          patient_consents_history_sharing: false,
+        }),
+      });
+
+      const res = await createReferral(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(422);
+      expect(json.error.code).toBe("CONSENT_REQUIRED");
+      expect(json.error.message).toContain("patient consent");
+    });
+
+    it("creates in-network referral when patient consent is granted", async () => {
+      const req = new NextRequest("http://localhost/api/v1/referrals", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: patientA.id,
+          referring_doctor_id: doctorA.userId,
+          referral_type: "in_network",
+          target_tenant_id: clinicB.tenantId,
+          referred_to_name: "Dr. Arvind Gupta",
+          referred_to_specialty: "Orthopedics",
+          reason_for_referral: "Persistent knee pain post trauma",
+          urgency: "priority",
+          patient_consents_history_sharing: true,
+          clinical_summary: "Patient had right knee swelling for 3 weeks.",
+        }),
+      });
+
+      const res = await createReferral(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(json.data.id).toBeDefined();
+      expect(json.data.referral_type).toBe("in_network");
+      expect(json.data.referred_to_name).toBe("Dr. Arvind Gupta");
+      expect(json.data.referred_to_specialty).toBe("Orthopedics");
+      expect(json.data.reason_for_referral).toBe("Persistent knee pain post trauma");
+      expect(json.data.patient_consents_history_sharing).toBe(true);
+      expect(json.data.status).toBe("sent");
+      createdReferralId = json.data.id;
+    });
+
+    it("PATCH /api/v1/referrals/[id] updates status to acknowledged and completed", async () => {
+      // 1. Acknowledge
+      const ackReq = new NextRequest(`http://localhost/api/v1/referrals/${createdReferralId}`, {
+        method: "PATCH",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "acknowledged",
+        }),
+      });
+
+      const ackRes = await patchReferralById(ackReq, { params: Promise.resolve({ id: createdReferralId }) });
+      const ackJson = await ackRes.json();
+
+      expect(ackRes.status).toBe(200);
+      expect(ackJson.data.status).toBe("acknowledged");
+      expect(ackJson.data.acknowledged_at).toBeDefined();
+
+      // 2. Complete with closure notes
+      const compReq = new NextRequest(`http://localhost/api/v1/referrals/${createdReferralId}`, {
+        method: "PATCH",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "completed",
+          closure_notes: "Patient attended consultation and MRI was ordered.",
+        }),
+      });
+
+      const compRes = await patchReferralById(compReq, { params: Promise.resolve({ id: createdReferralId }) });
+      const compJson = await compRes.json();
+
+      expect(compRes.status).toBe(200);
+      expect(compJson.data.status).toBe("completed");
+      expect(compJson.data.completed_at).toBeDefined();
+      expect(compJson.data.closed_by).toBe(clinicA.userId);
+      expect(compJson.data.closure_notes).toBe("Patient attended consultation and MRI was ordered.");
+    });
+
+    it("GET /api/v1/referrals returns paginated list and enforces tenant isolation", async () => {
+      const listReqA = new NextRequest(
+        `http://localhost/api/v1/referrals?patient_id=${patientA.id}&page=1&limit=10`,
+        {
+          headers: {
+            authorization: `Bearer ${keyA.rawToken}`,
+          },
+        }
+      );
+      const listResA = await getReferrals(listReqA);
+      const listJsonA = await listResA.json();
+
+      expect(listResA.status).toBe(200);
+      expect(listJsonA.data.length).toBeGreaterThan(0);
+
+      // Key B cannot read Clinic A referral directly (returns 404)
+      const getReqB = new NextRequest(`http://localhost/api/v1/referrals/${createdReferralId}`, {
+        headers: {
+          authorization: `Bearer ${keyB.rawToken}`,
+        },
+      });
+      const getResB = await getReferralById(getReqB, { params: Promise.resolve({ id: createdReferralId }) });
       expect(getResB.status).toBe(404);
     });
   });
