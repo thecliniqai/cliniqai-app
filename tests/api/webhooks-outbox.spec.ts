@@ -393,18 +393,21 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       const admin = getAdminClient();
       const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
 
-      const [enqueued] = await enqueueWebhookEvent(
-        tenant.tenantId,
-        "appointment.booked",
-        { test: "exhaust-retries" },
-        admin
-      );
-      expect(enqueued).toBeDefined();
-
-      // Pre-set retry_count to 4 (so next failure is retry #5)
-      await (admin.from("webhook_delivery_queue") as any)
-        .update({ retry_count: 4 })
-        .eq("id", enqueued.id);
+      // Insert directly with retry_count: 4
+      const { data: queueItem, error: insertErr } = await (admin.from("webhook_delivery_queue") as any)
+        .insert({
+          tenant_id: tenant.tenantId,
+          subscription_id: sub.id,
+          event_type: "appointment.booked",
+          payload: JSON.stringify({ test: "exhaust-retries" }),
+          status: "pending",
+          retry_count: 4,
+          max_retries: 5,
+        })
+        .select()
+        .single();
+      expect(insertErr).toBeNull();
+      expect(queueItem).toBeDefined();
 
       global.fetch = async (url, init) => {
         if (typeof url === "string" && url.includes("mock-partner.example.com")) {
@@ -413,14 +416,14 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
         return originalFetch(url, init);
       };
 
-      const result = await dispatchWebhookQueueItem(enqueued.id, admin);
+      const result = await dispatchWebhookQueueItem(queueItem.id, admin);
       expect(result.success).toBe(false);
       expect(result.status).toBe("failed");
       expect(result.retryCount).toBe(5);
 
       const { data: updated } = await (admin.from("webhook_delivery_queue") as any)
         .select("*")
-        .eq("id", enqueued.id)
+        .eq("id", queueItem.id)
         .single();
       expect(updated.status).toBe("failed");
       expect(updated.retry_count).toBe(5);

@@ -16,6 +16,7 @@ import {
   Stethoscope,
   ClipboardList,
   Share2,
+  Key,
   X,
 } from "lucide-react";
 
@@ -132,6 +133,12 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
       href: "/billing/reports",
       icon: CreditCard,
       active: pathname.startsWith("/billing") || pathname.startsWith("/settings/billing"),
+    },
+    {
+      label: "Developer Settings",
+      href: "/settings/developer",
+      icon: Key,
+      active: pathname.startsWith("/settings/developer"),
     },
   ];
 
