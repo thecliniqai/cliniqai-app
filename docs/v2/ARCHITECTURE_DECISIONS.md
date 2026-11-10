@@ -7,15 +7,15 @@
 |---|---|---|
 | 001 | Modular monolith on Next.js + Supabase (retain platform) | P1 |
 | 002 | Per-domain module contract and enforced boundaries | P1 |
-| 003 | Kysely over pooled Postgres with RLS context for data access | P1 |
+| 003 | ~~Kysely over pooled Postgres with RLS context for data access~~ **Superseded** by RPC-per-flow (erratum 2026-11-10, C18) | P1 |
 | 004 | Database-enforced invariants and one-transaction-per-command | P1 |
 | 005 | Confine the service-role client; no overrides in server actions | **P0** |
-| 006 | Role-aware RLS from a single permission source; composite tenant FKs | P1 |
+| 006 | Role-aware RLS from a single permission source; composite tenant FKs (**amended**: `has_permission()` with a hard-coded `CASE`; erratum 2026-11-10, C19) | P1 |
 | 007 | Standard `Result`/`AppError` and error envelopes | P2 |
 | 008 | Zod v4 contracts at every boundary; OpenAPI generated | P1 |
 | 009 | Transactional outbox plus Postgres job queue driven by a scheduler | P1 |
 | 010 | Postgres-backed rate limiting and idempotency | P1 |
-| 011 | API keys as scoped principals under RLS | P1 |
+| 011 | API keys as scoped principals under RLS (**amended**: no `withTenantTx`; erratum 2026-11-10, C18) | P1 |
 | 012 | Structured logging, request IDs and error tracking | P1 |
 | 013 | Immutable migrations, generated types, CI on an ephemeral DB | P1 |
 | 014 | A single object-storage provider | P2 |
@@ -50,22 +50,28 @@
   - (−) A large incremental refactor, done one domain at a time.
 - **Evidence:** `features/billing/actions.ts` (1,304 lines); `app/api/v1/visits/[id]/route.ts:103-165` vs `features/consultation/actions.ts:597-743`.
 
-## ADR-003: Kysely over pooled Postgres with RLS context for data access
+## ADR-003: Kysely over pooled Postgres with RLS context for data access (**Superseded**, erratum 2026-11-10, C18)
+- **Status:** **Superseded.** The decision below is replaced by **RPC-per-flow** (former alternative (a)). The original text is kept under "Original proposal" for the record. The RPC-per-flow pattern is Proposed, pending the D1 confirmation spike (V2-03 plan 03-07), and is recorded at G2 (R6). (erratum 2026-11-10, C18)
 - **Context:** PostgREST cannot run multi-statement transactions from the app. The types are hand-written, and there are 387 `as any` casts.
-- **Decision:**
+- **Decision (current):** (erratum 2026-11-10, C18)
+  - Each atomic multi-step write (the 8 atomic commands) is a **plpgsql function, `SECURITY INVOKER` under RLS**, called through supabase-js, with audit and outbox rows written inside the same function/transaction.
+  - Generated Supabase types (roadmap P1-34) remove most `as any` casts without a second data layer.
+  - No `DATABASE_URL`, no Kysely, no `withTenantTx`: no new privileged secret, no pooler constraints.
+  - A short **D1 confirmation spike** in V2-03 (before V2-05) proves one flow end to end: RLS, `auth.uid()` as actor, audit and outbox in one transaction, and error mapping to `AppError`.
+  - Kysely is revisited only if RPCs prove unmaintainable, through a new ADR.
+- **Original proposal (superseded):**
   - Use Kysely plus `pg` through Supavisor transaction mode for application data access.
   - `withTenantTx(ctx, fn)` sets `ROLE authenticated` and `request.jwt.claims` with `SET LOCAL`/`set_config(...,true)` so RLS applies.
   - Generate types with `kysely-codegen` from a locally migrated DB.
   - Keep supabase-js for Auth and Storage.
   - plpgsql RPCs only for security primitives.
 - **Alternatives:**
-  - (a) supabase-js plus RPC for every multi-step write. This is the fallback if direct DB connections are disallowed.
+  - (a) supabase-js plus RPC for every multi-step write. **This is now the decision** (erratum 2026-11-10, C18).
   - (b) Drizzle: conflicts with SQL-first migrations.
   - (c) Prisma: rejected.
 - **Consequences:**
-  - (+) Real transactions, typed SQL, fewer round trips.
-  - (−) A new privileged secret (`DATABASE_URL`). Pooler constraints apply (no session state).
-  - A spike is needed to validate RLS-context performance and the `auth.uid()` behaviour under `SET LOCAL`.
+  - Of the superseded Kysely proposal: (+) real transactions, typed SQL, fewer round trips; (−) a new privileged secret (`DATABASE_URL`) and pooler constraints (no session state). These costs are why it was superseded.
+  - Of RPC-per-flow: (+) transactions and RLS stay inside Postgres with the caller's `auth.uid()`; (−) business logic for the atomic commands lives in plpgsql and needs pgTAP coverage. The D1 spike confirms the pattern (no longer a Kysely-vs-RPC decision). (erratum 2026-11-10, C18)
 - **Evidence:** ARC-09, ARC-12; `lib/db/types.ts:530-1430`.
 
 ## ADR-004: Database-enforced invariants and one-transaction-per-command
@@ -88,7 +94,7 @@
 
 - **Context:**
   - `"use server"` exports accept `sessionOverride`, which skips authentication and selects the service-role client. These functions are reachable from the browser.
-  - There are four separate service-role factories.
+  - There are five separate service-role factories (`lib/supabase/admin.ts`, `features/appointments/actions.ts`, `features/auth/dev-actions.ts`, `lib/messaging/dispatcher.ts`, `lib/storage/supabase-provider.ts`) (erratum 2026-11-10, C3).
 - **Decision:**
   1. Immediately remove all `clientOverride`/`sessionOverride` parameters from exported server actions. Tests target services with an explicit context.
   2. Provide one `getSystemDb(reason)` factory, importable only from `lib/jobs/**`, `features/*/system.ts` and `app/api/{jobs,webhooks}/**` (lint rule), and log every use.
@@ -104,8 +110,8 @@
   - RBAC exists only in `lib/permissions/matrix.ts`. RLS is tenant-only, so the browser JWT bypasses role restrictions.
   - Memberships can be self-escalated.
 - **Decision:**
-  - A `role_permissions` table seeded from the matrix, with a STABLE `has_permission(tenant_id, perm)` function used by clinical-table policies.
-  - TypeScript policy constants generated from the same source.
+  - A STABLE SQL function `has_permission(tenant_id, perm)` with a **hard-coded `CASE` over the 5 fixed roles**, used by clinical-table policies. **No `role_permissions` table, join or codegen**; a table is introduced only if per-tenant custom roles are ever approved. (erratum 2026-11-10, C19)
+  - A unit test asserts parity between the SQL `CASE` and `lib/permissions/matrix.ts`; pgTAP covers the policies. (erratum 2026-11-10, C19)
   - Column-level revoke on `memberships.role/tenant_id/user_id`, with role changes going through an RPC (owner-only for owner and admin grants; last-owner protection).
   - Composite `(tenant_id, id)` FKs throughout.
 - **Alternatives:** Custom JWT claims carrying the role (stale on switch, larger tokens); keeping app-only RBAC. Rejected.
@@ -178,8 +184,8 @@
   - Four DB round trips per request.
 - **Decision:**
   - Keys gain `scopes[]`, `expires_at` and a service-principal identity per tenant.
-  - Requests run in `withTenantTx` with claims `{sub: principal, tenant_id, scopes, actor_type:'api_key'}`.
-  - `api_authenticate()` RPC validates the key, rate-limits and counts in one round trip.
+  - An `api_authenticate(key)` SECURITY DEFINER RPC verifies the hashed key, rate-limits and counts in one round trip, and returns the principal (tenant, scopes, owning membership).
+  - Data access then uses either **explicit per-endpoint RPCs** that take the principal and enforce tenant and scope in SQL, or RLS through a **short-lived JWT** minted for the key principal. The JWT option needs the project's JWT signing secret, so it is chosen at G2 only if it is simpler than RPCs. **No `withTenantTx`** (ADR-003 is superseded). If PO-16 finds no API consumers, this ADR is P2 and `/api/v1` stays disabled. (erratum 2026-11-10, C18)
   - Keys are invalidated when the creator's membership is removed (or ownership is transferred explicitly).
 - **Alternatives:** OAuth2 client credentials. Premature for current integrators.
 - **Consequences:**
@@ -235,7 +241,7 @@
 - **Evidence:** DB-13, API-04; `app/api/v1/visits/[id]/route.ts:150-165`.
 
 ## ADR-016: Tenant-local time computed in one place
-- **Context:** 13 sites compute "today" with `toISOString().split("T")[0]` (UTC), while `tenants.timezone` defaults to Asia/Kolkata. Queue tokens and day views are wrong between 00:00 and 05:30 IST.
+- **Context:** 29 sites (erratum 2026-11-10, C4) compute "today" with `toISOString().split("T")[0]` (UTC), while `tenants.timezone` defaults to Asia/Kolkata. Queue tokens and day views are wrong between 00:00 and 05:30 IST.
 - **Decision:**
   - `RequestContext.tenantTimeZone`, plus a `lib/core/time` module that is the only date-boundary helper.
   - Date-bucketing in SQL uses `(now() AT TIME ZONE tenant_tz)::date`.

@@ -24,7 +24,7 @@
 | **A: Containment (P0 hotfix)** | Close the tenant-isolation and escalation holes on v1 | A1–A7 | M (total) | Security re-test (Workstream D) passes; diagnostics (§3) reviewed |
 | **B: Foundations** | Reproducible schema, CI, generated types, core primitives | B1–B8 | L | CI green on ephemeral DB; drift = 0 |
 | **C: Data-integrity schema** | Database-enforced invariants (additive) | C1–C9 | L | All constraints VALIDATED in staging and production |
-| **D: Data-access and transaction layer** | Kysely and `withTenantTx`; critical flows transactional | D1–D4 | L | Critical flows pass concurrency tests |
+| **D: Data-access and transaction layer** | Atomic commands as `SECURITY INVOKER` plpgsql RPCs called through supabase-js (erratum 2026-11-10, C18); critical flows transactional | D1–D4 | L | Critical flows pass concurrency tests |
 | **E: Domain refactor** | Contract per domain; REST on services | E1–E3 (per domain) | XL | Each domain: no direct DB access outside its repo |
 | **F: Jobs and integrations** | Outbox, claim, scheduler, governance, retention | F1–F7 | L | Queue lag and duplicate-send tests pass |
 | **G: API v1 hardening** | Scopes, RLS principal, rate limit, idempotency, generated OpenAPI | G1–G6 | M | Contract tests; backwards-compatible for existing keys |
@@ -138,7 +138,7 @@ Coordinate with Workstream D, which may already list these. Avoid duplicate tick
 | **B5** | **Core primitives** in `lib/core`: `Result`/`AppError`, Postgres error mapper, `RequestContext` with `React.cache`, `time` (tenant TZ), complete zod `env` (all about 30 vars, no silent fallbacks), and the `server-only` guard. | Yes | Unit tests | M |
 | **B6** | **Boundary lint rules.** `no-restricted-imports` for `lib/supabase/admin` (allow-list), `"use server"` exports with one parameter, a ban on `toISOString().split("T")`. Fix the ESLint ignores for `.agents/`, `.opencode/` and `.next/` (coordinator fact). Start in warn mode, then switch to error per domain. | Yes | Lint is clean in migrated domains | S |
 | **B7** | **Dependency upgrades:** next (latest 15.x patch), zod 4 (with codemods), `@supabase/ssr` latest, Renovate config. | Yes (lockfile) | Full test suite and smoke test | M |
-| **B8** | **Single service-role factory** `getSystemDb(reason)`; delete the three duplicate factories (`lib/messaging/dispatcher.ts:33`, `features/appointments/actions.ts:10`, `features/auth/dev-actions.ts:38`). | Yes | grep shows one factory | S |
+| **B8** | **Single service-role factory** `getSystemDb(reason)`; delete the four duplicate factories (`lib/messaging/dispatcher.ts:33`, `features/appointments/actions.ts:10`, `features/auth/dev-actions.ts:38`, `lib/storage/supabase-provider.ts`), so all **5** current factories (including `lib/supabase/admin.ts`) collapse into one (erratum 2026-11-10, C3). | Yes | grep shows one factory | S |
 
 ---
 
@@ -166,10 +166,10 @@ Each step is a separate migration. "NV" means the constraint is added `NOT VALID
 
 | Step | Change | Reversible? | Verification | Size |
 |---|---|---|---|---|
-| **D1** | **Spike (time-boxed).** Kysely + `pg` through Supavisor transaction mode; `withTenantTx` applying `SET LOCAL ROLE authenticated` and `request.jwt.claims`. Measure latency against supabase-js and confirm that `auth.uid()` and RLS behave identically. Decide between ADR-003 and its fallback (RPC-per-flow) | n/a | Written spike report; RLS pgTAP suite passes through the Kysely path | S |
-| **D2** | `lib/db`: pool, `withTenantTx`, `withSystemTx(reason)`, error mapper, `kysely-codegen` in CI | Yes | Unit and integration tests | M |
-| **D3** | **Transactional critical flows** (behind the existing action signatures): invoice create, payment, sign-off (+audit+outbox), amendment, check-in, waitlist promote, booking (catch 23P01 → `SLOT_TAKEN`) | Yes, with a feature flag per flow (`TX_<FLOW>=on`) and the old path kept for one release | Concurrency tests (parallel payments, double-booking, check-in storms); fault injection (fail the 2nd statement → nothing persisted) | L |
-| **D4** | Audit inside the transaction: `audit.record(tx, ctx, …)`; DB trigger forces `actor_id`; revoke direct INSERT from `authenticated` once all writers are migrated | Re-grant | Audit row exists for each committed command and none for rolled-back ones | S |
+| **D1** | **Confirmation spike (time-boxed), roadmap V2-03 plan 03-07, before V2-05.** Implement one atomic command end to end as a `SECURITY INVOKER` plpgsql function called through the user-scoped supabase-js client (`.rpc()`): RLS and `has_permission()` apply, `auth.uid()` is the actor, audit and outbox rows are written in the same transaction, and raised errors map to `AppError`. This confirms the RPC-per-flow pattern (ADR-003 is superseded); it no longer decides between Kysely and RPCs (erratum 2026-11-10, C18) | n/a | Written spike report; pgTAP covers the function (happy path, cross-tenant/role denial, rollback when a later statement fails, audit actor = caller) | S |
+| **D2** | `lib/db`: `getUserDb()` (user-scoped supabase-js client from the session, memoised per request), the confined `getSystemDb(reason)` (ADR-005, from B8), the Postgres/RPC error mapper (SQLSTATE and raised `reason` → `AppError`), and RPC conventions (`SECURITY INVOKER`, `SET search_path = ''`, `commandId` idempotency argument). DB types come from `supabase gen types` (B4) with a CI diff check; no `pg` pool, `DATABASE_URL`, Kysely or `withTenantTx` (erratum 2026-11-10, C18) | Yes | Unit and integration tests | M |
+| **D3** | **Transactional critical flows**, one plpgsql RPC per flow (roadmap P1-05, V2-07) (erratum 2026-11-10, C18), behind the existing action signatures: invoice create, payment, sign-off (+audit+outbox), amendment, check-in, walk-in, register+book (catch 23P01 → `SLOT_TAKEN`), collect; the P1-05 list is authoritative (waitlist promotion is a later candidate) | Yes, with a feature flag per flow (`TX_<FLOW>=on`) and the old path kept for one release | Concurrency tests (parallel payments, double-booking, check-in storms); fault injection (fail the 2nd statement → nothing persisted) | L |
+| **D4** | Audit inside the transaction: the command's RPC inserts the audit row (erratum 2026-11-10, C18); DB trigger forces `actor_id` from `auth.uid()`; revoke direct INSERT from `authenticated` once all writers are migrated | Re-grant | Audit row exists for each committed command and none for rolled-back ones | S |
 
 ---
 
@@ -177,11 +177,11 @@ Each step is a separate migration. "NV" means the constraint is added `NOT VALID
 
 | Step | Per-domain checklist | Verification |
 |---|---|---|
-| **E1: Contract** | Create `schema.ts` (zod v4 DTOs), `policy.ts`, `repo.ts` (Kysely), `service.ts` (Result, one tx per command), `queries.ts`, `jobs.ts`; `actions.ts` becomes a thin adapter with exactly one validated param; move any remaining logic out of `app/**` | Lint boundary rule at error level for the domain; service unit tests ≥ agreed coverage (Workstream E) |
+| **E1: Contract** | Create `schema.ts` (zod v4 DTOs), `policy.ts`, `repo.ts` (supabase-js user-scoped client and `.rpc()` calls, typed by generated DB types; erratum 2026-11-10, C18), `service.ts` (Result, one tx per command: a single-statement write or one atomic-command RPC), `queries.ts`, `jobs.ts`; `actions.ts` becomes a thin adapter with exactly one validated param; move any remaining logic out of `app/**` | Lint boundary rule at error level for the domain; service unit tests ≥ agreed coverage (Workstream E) |
 | **E2: Domain-specific** | **billing:** FY numbering, overpayment rules, receipt PDF as a job. **consultation:** amendment RPC + **immutability triggers (ADR-015)**, archival PDF job. **visits/queue/waitlist:** merge `features/appointments` into the visits service (system context for webhook-driven reschedules), tenant TZ. **patients:** search with trigram, DTO without internal fields, erasure state machine. **labs/documents/referrals:** typed share-token FKs (DB-05) via a new table and dual-write for one release, then switch the reader, then drop the polymorphic columns; referral target RPCs (RLS-06). **settings/staff:** role-change RPC. **notifications/AI:** server-side context assembly, quotas | Domain integration tests on the ephemeral DB; parity tests comparing old and new outputs for read paths |
 | **E3: REST adapters** | `app/api/v1/<resource>` handlers call the domain `api.ts` through `withApi`; delete the duplicated logic | v1 contract tests unchanged (backward compatible), except documented security fixes |
 
-**Role-aware RLS (ADR-006):** add the `role_permissions` table and `has_permission()` early in Phase E. Switch each domain's policies when that domain is refactored (its pgTAP matrix is updated at the same time).
+**Role-aware RLS (ADR-006, amended):** add `has_permission()` (STABLE SQL function with a hard-coded `CASE` over the 5 roles, no `role_permissions` table; parity unit test against `lib/permissions/matrix.ts`) (erratum 2026-11-10, C19) early in Phase E. Switch each domain's policies when that domain is refactored (its pgTAP matrix is updated at the same time).
 
 ---
 
@@ -206,7 +206,7 @@ Each step is a separate migration. "NV" means the constraint is added `NOT VALID
 | **G1** | `withApi` pipeline (auth, rate limit, zod, idempotency, error mapping, logging) | Same envelope | Contract tests | S |
 | **G2** | `api_authenticate()` RPC: key lookup + minute-bucket rate limit + daily usage in one round trip (replaces the in-memory limiter and the racy counter) | Same headers | Load test: global limit enforced across 2+ instances | S |
 | **G3** | API keys: `scopes[]`, `expires_at`, service principal; existing keys get **full scopes** (no breakage); new keys default to read-only; keys auto-revoked or flagged when the creator's membership ends | Backward compatible | Scope matrix tests | M |
-| **G4** | Run v1 requests through `withTenantTx` under the key principal (RLS backstop) | Transparent | pgTAP plus API tests with RLS denial | M |
+| **G4** | RLS backstop for v1 requests under the key principal (ADR-011, amended): either explicit per-endpoint RPCs that take the principal from `api_authenticate()` and enforce tenant and scope in SQL, or a short-lived JWT minted for the key principal so the normal user-scoped client and RLS apply (chosen at G2 only if simpler than RPCs; it needs the JWT signing secret). No `withTenantTx` (erratum 2026-11-10, C18) | Transparent | pgTAP plus API tests with RLS denial | M |
 | **G5** | `Idempotency-Key` support (optional in v1; required in v2) | Additive | Retry test returns the identical response and no duplicate row | S |
 | **G6** | DTO allow-lists (remove internal fields from responses); OpenAPI 3.1 generated from zod, including webhook events; fix the `x-api-key` and `gender` drift | **Field removals are breaking:** announce, keep removed fields in v1 for 90 days if any integrator depends on them (**Assumption (validate):** number of active integrators) | Generated spec matches routes; drift test | M |
 
@@ -237,7 +237,7 @@ Each step is a separate migration. "NV" means the constraint is added `NOT VALID
 | Queue tokens historically bucketed in UTC | C6, ADR-016 | Certain | Low | Document; do not rewrite history |
 | Webhook secret re-encryption loses secrets | F5 | Low | Medium (integrations break) | Keep plaintext until encrypted values are verified; rollback by reading plaintext |
 | Retention or erasure deletes data too early | F6–F7 | Low | **Critical, irreversible** | Legal sign-off, dry runs, PITR confirmation, two-person approval |
-| Kysely/RLS-context performance or pooler limits | D1–D3 | Low–Medium | Medium | Spike first; fallback to the RPC-per-flow approach (ADR-003 alternative a) |
+| Atomic-command RPCs become hard to maintain (logic in plpgsql, weak payload typing) or behave differently under RLS than expected (erratum 2026-11-10, C18) | D1–D3 | Low–Medium | Medium | D1 confirmation spike in V2-03 first; pgTAP per function; zod-parse RPC results at the service boundary; keep the RPC surface to the atomic commands (P1-05). Kysely is revisited only through a new ADR if RPCs prove unmaintainable |
 | Removing override params breaks tests | A1 | Certain | Low | Tests move to the service layer (Workstream E) |
 
 ---

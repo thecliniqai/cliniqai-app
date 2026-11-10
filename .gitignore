@@ -20,16 +20,20 @@ tsconfig.tsbuildinfo
 /dist
 
 # Tooling runtime & agents
+# Legacy (retired 2026-11-10, moved out of repo)
 .agents/
 .opencode/
+.gsd/
+# Claude Code: share only project settings; installer-managed GSD files and local settings stay untracked
+.claude/*
+!.claude/settings.json
 
-# Environment variables & secrets (AGENTS.md §32)
+# Environment variables & secrets: ignore every .env variant except the template and the
+# local-stack test defaults (TEST_STRATEGY T-01)
 .env
-.env*.local
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+!.env.test
 
 # Supabase local / secrets
 supabase/.temp

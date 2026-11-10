@@ -25,13 +25,13 @@
 | Tool | Config | Gate |
 |---|---|---|
 | **Semgrep** (OSS) | Rulesets `p/typescript`, `p/react`, `p/nextjs`, `p/secrets`, `p/owasp-top-ten`, plus **custom rules** below | Block on ERROR |
-| ESLint | Fix the config to ignore `.agents/`, `.opencode/`, `.next/`; add `eslint-plugin-security`, `no-restricted-imports` | Block on error |
+| ESLint | Fix the config to ignore `.agents/`, `.opencode/`, `.next/`; add `eslint-plugin-security`, `no-restricted-imports` (the single enforcement point for the ADR-005 service-role allow-list; erratum 2026-11-10, C20) | Block on error |
 | TypeScript | `tsc --noEmit` (passes today) | Block |
 | Supabase DB lint | `supabase db lint` (splinter) on local DB | Block on `security` lints |
 
 **Custom Semgrep rules (to write):**
 1. `server-action-override-param`: in files with `"use server"`, an exported function parameter named `/.*Override$|actorSession/` or typed `SupabaseClient`. (SEC-01/02)
-2. `admin-client-outside-allowlist`: `getAdminClient()` or `createClient(…SERVICE_ROLE…)` outside `app/api/v1/**`, `app/api/r/**`, `app/api/reschedule/**`, `app/api/reports/**`, `app/api/webhooks/**`, `app/api/cron/**`, `lib/webhooks/**`, `lib/messaging/dispatcher.ts`. (SEC-01)
+2. ~~`admin-client-outside-allowlist`~~ **Dropped.** The service-role allow-list is ADR-005's list (`lib/jobs/**`, `features/*/system.ts`, `app/api/{jobs,webhooks}/**`, behind one `getSystemDb(reason)` factory), and it is enforced by **one** mechanism only: ESLint `no-restricted-imports` (roadmap P1-34). `/api/v1` moves under RLS (ADR-011, amended), so it is no longer an allowed service-role path. (erratum 2026-11-10, C20)
 3. `admin-query-without-tenant`: `$ADMIN.from($T).select(...)` chains with no `.eq("tenant_id", …)` in service-role modules. (SEC-05)
 4. `postgrest-or-interpolation`: `.or(\`…${$X}…\`)` where `$X` comes from request params or body. (SEC-20)
 5. `webhook-auth-return-true`: unconditional `return true` in `verify*Signature` functions. (SEC-04)

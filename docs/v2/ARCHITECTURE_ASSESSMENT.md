@@ -11,7 +11,7 @@
 
 ## 1. Executive summary
 
-The v1 backend is a **Next.js 15 App Router application that talks directly to Supabase (PostgREST) from about 25 `"use server"` action files and 13 REST route handlers**. The product logic works and much of it is careful: the audit metadata allow-list, HMAC-signed webhooks with SSRF checks, E.164 phone normalisation, append-only consent records, and versioned prescriptions. The *engineering structure* around that logic, however, is not production-grade:
+The v1 backend is a **Next.js 15 App Router application that talks directly to Supabase (PostgREST) from about 25 `"use server"` action files and 15 REST route files under `app/api/v1` (13 data routes)** (erratum 2026-11-10, C6). The product logic works and much of it is careful: the audit metadata allow-list, HMAC-signed webhooks with SSRF checks, E.164 phone normalisation, append-only consent records, and versioned prescriptions. The *engineering structure* around that logic, however, is not production-grade:
 
 1. **P0: tenant isolation can be bypassed through server-action parameters.** Several `"use server"` exports take a client-supplied `sessionOverride`. When it is present they skip authentication and switch to the **service-role client**. Because those actions are imported by client components, they are reachable over HTTP by anyone holding the action ID (§4.1).
 2. **P0: privilege escalation through RLS.** The `memberships` UPDATE policy lets any user update their *own* membership row, including `role` (`supabase/migrations/000011_fix_memberships_rls_recursion.sql:26-39`). Session JWTs are readable in the browser, so any receptionist can promote themselves to `owner` with a direct PostgREST call (§4.2).
@@ -21,7 +21,7 @@ The v1 backend is a **Next.js 15 App Router application that talks directly to S
 6. **Background jobs are opportunistic.** Two outbox tables exist, but dispatch is triggered inline inside user requests and by cron routes that no scheduler config in the repo invokes. Rows are not claimed atomically, and the messaging governance logic (quiet hours, quota, opt-out) is dead code (§9).
 7. **Observability is close to zero.** There are 191 `console.*` calls, no structured logger, no error tracker and no request or correlation IDs outside API 5xx responses (§10).
 
-**Target recommendation (details in `TARGET_ARCHITECTURE.md`):** keep a **modular monolith on Next.js + Supabase Postgres + Supabase Auth**. Introduce a strict per-domain contract `schema → policy → service → repo` with thin `actions`/`api` adapters. Make real Postgres transactions the default by adding a typed query builder (Kysely) that runs under the caller's RLS context. Confine the service-role client to an explicit "system" context. Move invariants into the database (composite tenant FKs, CHECK and exclusion constraints, immutability triggers). Run jobs through a transactional outbox with `SKIP LOCKED` claiming on a scheduler. No microservices and no separate worker fleet are needed at the current scale.
+**Target recommendation (details in `TARGET_ARCHITECTURE.md`):** keep a **modular monolith on Next.js + Supabase Postgres + Supabase Auth**. Introduce a strict per-domain contract `schema → policy → service → repo` with thin `actions`/`api` adapters. Make real Postgres transactions the default by implementing each atomic multi-step write as one `SECURITY INVOKER` plpgsql function, called through the user-scoped supabase-js client so it runs under the caller's RLS, with generated Supabase DB types replacing the hand-written ones (erratum 2026-11-10, C18). Confine the service-role client to an explicit "system" context. Move invariants into the database (composite tenant FKs, CHECK and exclusion constraints, immutability triggers). Run jobs through a transactional outbox with `SKIP LOCKED` claiming on a scheduler. No microservices and no separate worker fleet are needed at the current scale.
 
 ---
 
@@ -51,21 +51,21 @@ Browser (React 19 client components)
 │ features/<domain>/actions.ts ("use server") ── business logic + data access     │
 │      │  (also imported by app/api/v1, cron, webhooks, AI tools)                  │
 │      ▼                                                                           │
-│ lib/: supabase clients (anon/RLS + service-role ×4 factories), permissions,     │
+│ lib/: supabase clients (anon/RLS + service-role ×5 factories), permissions,     │
 │       audit, messaging (outbox + providers), webhooks (outbox + dispatcher),    │
 │       storage (Supabase | R2 via S3 SDK), ai (Vercel AI SDK), api (auth, rate   │
 │       limit, envelope, OpenAPI)                                                  │
 └───────────────────────────────┬─────────────────────────────────────────────────┘
                                 ▼
-          Supabase: Postgres (RLS, 6 SECURITY DEFINER fns) · Auth · Storage
+          Supabase: Postgres (RLS, 8 SECURITY DEFINER fns) · Auth · Storage
           External: MSG91 / Twilio / Gupshup · Gemini / OpenAI · Cloudflare R2
 ```
 
 **Facts**
 - There is one deployable (Next.js) and no worker process. No `vercel.json` or other scheduler definition exists in the repo (repo root listing).
 - `middleware.ts:4-53` only refreshes the session. It skips `/api/v1`, `/api/health` and `/api/ready` (`middleware.ts:6-12`). Authorisation is done per page or action (`app/(dashboard)/layout.tsx` redirects unauthenticated users).
-- There are 20 feature domains, about 25 `"use server"` modules and about 230 exported functions (count of `^export async function` across `features/`).
-- Supabase is accessed through three kinds of clients: the cookie/RLS client (`lib/supabase/server.ts`), the browser client (`lib/supabase/client.ts`, used for auth pages and `components/layout/user-dropdown.tsx`), and **four separate service-role factories**: `lib/supabase/admin.ts:13`, `lib/messaging/dispatcher.ts:33-46`, `features/appointments/actions.ts:10-22` and `features/auth/dev-actions.ts:38`.
+- There are 20 feature domains, about 25 `"use server"` modules and 137 `export async function` in `features/` (198 including `app/`) (erratum 2026-11-10, C8). The architecture diagram above is also corrected to 5 service-role factories and 8 SECURITY DEFINER functions (erratum 2026-11-10, C3, C5).
+- Supabase is accessed through three kinds of clients: the cookie/RLS client (`lib/supabase/server.ts`), the browser client (`lib/supabase/client.ts`, used for auth pages and `components/layout/user-dropdown.tsx`), and **five separate service-role factories**: `lib/supabase/admin.ts:13`, `lib/messaging/dispatcher.ts:33-46`, `features/appointments/actions.ts:10-22`, `features/auth/dev-actions.ts:38` and `lib/storage/supabase-provider.ts` (erratum 2026-11-10, C3).
 
 ---
 
@@ -92,7 +92,7 @@ These defects are listed here because they are architectural in origin. Workstre
 ### 4.3 P0/P1: the RLS model is tenant-only, while RBAC exists only in the application
 - **Fact:** Every clinical table policy is `tenant_id IN (SELECT current_user_tenant_ids())` for SELECT, INSERT and UPDATE (for example `000007_consultation_prescriptions_cdci.sql:367-524`). The role matrix (`lib/permissions/matrix.ts:25-75`) exists only in TypeScript.
 - **Problem:** A receptionist, who has no `consultations:view`, can read `visits.clinical_notes`, `consultation_diagnoses` and `prescriptions` directly through PostgREST with their own JWT, bypassing the UI permission model. RBAC is not enforced in depth.
-- **Recommendation (P1, M):** Move the permission matrix into the database (`role_permissions` table plus a `has_permission(tenant_id, perm)` STABLE function), and make clinical-table policies role-aware. This is ADR-006.
+- **Recommendation (P1, M):** Move the permission matrix into the database (a STABLE `has_permission(tenant_id, perm)` SQL function with a hard-coded `CASE` over the 5 fixed roles and a parity unit test against `lib/permissions/matrix.ts`; no `role_permissions` table unless custom roles are approved (erratum 2026-11-10, C19)), and make clinical-table policies role-aware. This is ADR-006.
 
 ### 4.4 P1: SECURITY DEFINER functions trust caller-supplied `tenant_id`
 - **Fact:** `generate_daily_queue_token(p_tenant_id, p_date)` (`000006:76-96`), `search_medicines(p_query, p_doctor_id, p_tenant_id, …)` (`000007:251-344`) and `generate_tenant_invoice_number(p_tenant_id)` (`000009:63-84`) are SECURITY DEFINER and do not check membership. The last one also has **no REVOKE from PUBLIC/anon**.
@@ -171,7 +171,7 @@ Enforce it with ESLint `no-restricted-imports` and boundary rules (P1, L, done i
 | Queue check-in | `features/queue/actions.ts:68-110` | `MAX+1` token RPC, then insert. Concurrent check-ins hit `uq_tenant_date_token` and the user sees an error. The date is computed in **UTC** (`:26`), so check-ins between 00:00 and 05:30 IST are filed on the previous day. |
 | Audit and outbox | `lib/audit/audit.ts:168-198`, `lib/webhooks/outbox.ts:33-138` | Written after the commit. Events can be lost (outbox insert fails and is swallowed) or audits can be missing. |
 
-**Recommendation (P1, L):** Make every multi-statement write a single database transaction that also writes the audit row and outbox row (ADR-003/004). Rely on database constraints for invariants (DB-assessment §5).
+**Recommendation (P1, L):** Make every multi-statement write a single database transaction that also writes the audit row and outbox row: one `SECURITY INVOKER` plpgsql RPC per atomic command (ADR-003 as superseded, ADR-004; erratum 2026-11-10, C18). Rely on database constraints for invariants (DB-assessment §5).
 
 ---
 
@@ -190,7 +190,7 @@ Enforce it with ESLint `no-restricted-imports` and boundary rules (P1, L, done i
 - `env.ts` validates only three variables (`lib/env.ts:3-11`). About 30 others (`CRON_SECRET`, `R2_*`, `MSG91_*`, `AI_*`, `TWILIO_*`, `GUPSHUP_*`, `NEXT_PUBLIC_APP_URL`) are read ad hoc. `AI_API_KEY` silently falls back to `"test-api-key"` (`lib/ai/client.ts:44-48`).
 
 **Recommendations**
-- **P1, S:** Generate DB types (`supabase gen types` now; `kysely-codegen` in the target state) and check them in CI.
+- **P1, S:** Generate DB types with `supabase gen types` (also the target state; RPC argument and return types included) and check them in CI (ADR-013, roadmap P1-34). There is no Kysely layer and no `kysely-codegen` (erratum 2026-11-10, C18).
 - **P1, M:** Zod v4 schemas at every boundary (action input, route body and query, webhook payload, job payload, env).
 - **P1, S:** Use one `Result<T, AppError>` type and one error taxonomy (`TARGET_ARCHITECTURE.md §6`). Never return database messages to clients.
 
@@ -200,7 +200,7 @@ Enforce it with ESLint `no-restricted-imports` and boundary rules (P1, L, done i
 
 | Location | Why bypass | Assessment |
 |---|---|---|
-| `app/api/v1/**` (13 handlers), `lib/api/auth.ts`, `lib/api/doctor-guard.ts` | API keys have no Postgres identity | **Problem P1:** All API traffic runs as superuser-equivalent, so every query must remember `.eq("tenant_id")`. Mitigation: run API requests under a per-key RLS context (ADR-005/011). |
+| `app/api/v1/**` (15 route files, 13 data routes (erratum 2026-11-10, C6)), `lib/api/auth.ts`, `lib/api/doctor-guard.ts` | API keys have no Postgres identity | **Problem P1:** All API traffic runs as superuser-equivalent, so every query must remember `.eq("tenant_id")`. Mitigation: run API requests under a per-key RLS context (ADR-005/011). |
 | `app/api/r/[token]`, `app/r/[token]/page.tsx`, `app/api/reports/view`, `app/reports/view/page.tsx`, `app/api/reschedule/[token]` | Unauthenticated patient links | Legitimate need, but the logic is duplicated across page and route, and the tenant check is missing (§4.5). Replace with narrow SECURITY DEFINER RPCs. |
 | `lib/messaging/dispatcher.ts`, `lib/webhooks/*`, cron | System jobs | Legitimate. Should use a single `systemContext()` factory. |
 | `features/patients/actions.ts`, `features/patients/consent.ts`, `features/settings/actions.ts`, `features/prescriptions/pdf/generator.ts` (`sessionOverride ? getAdminClient()`) | Test seam | **P0 defect** (§4.1). |
@@ -316,9 +316,9 @@ See ADR-009.
 | ARC-08 | No service/repo layer; REST duplicates and diverges from action logic | P1 | L | §5 |
 | ARC-09 | No transactions; ignored errors; audit and outbox written after commit | P1 | L | §6 |
 | ARC-10 | Sign-off bugs: webhook payload missing IDs; update to a non-existent column | P1 | S | §6 |
-| ARC-11 | UTC date bugs in tenant-local operations (13 sites) | P1 | M | §6 |
+| ARC-11 | UTC date bugs in tenant-local operations (29 sites (erratum 2026-11-10, C4)) | P1 | M | §6 |
 | ARC-12 | Hand-written DB types, 387 `as any`; sparse zod; filter-string interpolation | P1 | M | §7 |
-| ARC-13 | Four service-role client factories; bypass not confined | P1 | S | §8 |
+| ARC-13 | Five service-role client factories (erratum 2026-11-10, C3); bypass not confined | P1 | S | §8 |
 | ARC-14 | Jobs: no scheduler in repo, inline cross-tenant dispatch, no claim or lease, duplicate sends | P1 | M | §9 |
 | ARC-15 | Messaging governance (quiet hours, quota, opt-out) not enforced | P1 | S | §9 |
 | ARC-16 | No structured logging, tracing or error tracking; possible PHI in logs | P1 | M | §10 |

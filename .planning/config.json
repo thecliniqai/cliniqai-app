@@ -1,19 +1,30 @@
 {
+  "mode": "interactive",
+  "commit_docs": true,
+  "claude_md_path": "./CLAUDE.md",
+  "git": {
+    "branching_strategy": "phase",
+    "base_branch": "feature/v2",
+    "protected_branches": ["main"],
+    "allow_default_branch_commits": false,
+    "create_tag": false,
+    "phase_branch_template": "v2/phase-{phase}-{slug}",
+    "milestone_branch_template": "v2/{milestone}-{slug}"
+  },
+  "gates": {
+    "execute_next_plan": true,
+    "confirm_transition": true,
+    "confirm_milestone_scope": true
+  },
   "workflow": {
-    "_auto_chain_active": false
+    "_auto_chain_active": false,
+    "plan_check": true,
+    "verifier": true,
+    "auto_advance": false,
+    "test_command": "npm run typecheck",
+    "use_worktrees": false
   },
   "review": {
-    "models": {
-      "opencode": "opencode/deepseek-v4.1-flash-free"
-    },
-    "default_reviewers": [
-      "opencode"
-    ],
-    "effort": {
-      "opencode": "inherit"
-    }
-  },
-  "git": {
-    "allow_default_branch_commits": true
+    "default_reviewers": ["claude"]
   }
 }

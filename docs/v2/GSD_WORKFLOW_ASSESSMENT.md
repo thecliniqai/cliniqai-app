@@ -153,6 +153,8 @@
 }
 ```
 
+> **Erratum (2026-11-10, V2-00):** the heading's claim that these keys were "verified" is wrong. Checked against the GSD 1.16.0 `config-schema.manifest.json`, 8 keys do not exist: `workflow.research`, `workflow.code_review`, `workflow.code_review_depth`, `workflow.security_enforcement`, `workflow.security_asvs_level`, `workflow.security_block_on`, `workflow.ui_phase`, `workflow.ui_safety_gate`. The committed `.planning/config.json` uses only schema-valid keys (validated by script). Code review and security review run through the GSD commands and the isolated Claude reviewer instead (CLAUDE.md, Definition of done). Other changes from this draft: `review.default_reviewers` is `["claude"]` (PO-10); `git.create_tag` is `false`, because the v1 baseline tag `v1.0-mvp-baseline` was created by hand on `main`'s HEAD; and `workflow.test_command` is `npm run typecheck`, so that no GSD gate runs the DB-backed suite against the hosted project before V2-01a.
+
 **Assumption (validate):**
 - Codex CLI (`~/.codex` exists) or Gemini is available for the independent reviewer lane. If neither is, use a separate Claude Code reviewer subagent with no access to the implementer's context, and require human review on P0 areas.
 - `security_asvs_level: 2` is the right level for health data. Confirm this with the security workstream.

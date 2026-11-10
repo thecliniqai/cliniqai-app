@@ -315,7 +315,7 @@ Strategies inside the SW:
 - **Risk P1:** iOS Home Screen apps have a **separate cookie jar** (E10). An emailed **magic link** opens in Safari, not in the installed app, so the session lands in the wrong place.
 - **Recommendation:** signup email verification and forgot-password must use **6-digit codes typed in the app**, not links (consistent with `AUTH_REDESIGN.md` §0, §3.1).
   - Remove `emailRedirectTo` from OTP sends (§1.11).
-  - **Invites use the app-token link per `AUTH_REDESIGN.md` §3.2** (`/join?token`). The link holds no session and the `GET` only renders (scanner-safe), so opening it in Safari or a WhatsApp/Gmail webview is harmless. After setting a password there, the user signs in once inside the installed app.
+  - **Invites use the app-token link per `AUTH_REDESIGN.md` §3.2** (`/join?token`; AUTH-D1 supersedes the earlier "invite lands on a page that asks for the code") (erratum 2026-11-10, AUTH §10). The link holds no session and the `GET` only renders (scanner-safe), so opening it in Safari or a WhatsApp/Gmail webview is harmless. After setting a password there, the user signs in once inside the installed app.
 - Password login (requirement #3) also removes the per-login email OTP. That makes the in-app first sign-in cheap, and makes switching users quick on shared tablets.
 - **Idle sign-out (AUTH §3.6, AUTH §13 #4):** there is no lock overlay and no password unlock. After 10 min without input on clinical screens, the client runs an **idle local sign-out via `hardSignOut()`** (which calls `POST /auth/signout`), then `/login` with the email prefilled. Before sign-out, and on `visibilitychange` → hidden, PHI is covered so the iOS and Android app-switcher snapshot shows no patient data (R14).
 - **Risk P2: password managers on shared devices** (see §11). "Switch user" never auto-submits a saved credential.
@@ -430,7 +430,7 @@ See **Decision D4**.
 
 | # | Check |
 |---|---|
-| R1 | Install from Chrome Android via the in-app prompt; the icon is not cropped (maskable); the splash colour is paper; it launches standalone into the right role home. |
+| R1 | Install from Chrome Android via the in-app prompt; the icon is not cropped (maskable); the splash colour is paper; it launches standalone into the right role home. Sign in inside the installed app, close it fully and reopen it: still signed in (`AUTH_REDESIGN.md` §7 real-device row) (erratum 2026-11-10, AUTH §10). |
 | R2 | Install on iPhone and iPad via the instructions sheet; "Open as Web App" is on; you must sign in inside the app once. The session survives app restarts within the `AUTH_REDESIGN.md` §3.6 limits: re-login is required after more than 12 h idle and after the 14 d time-box. Idle local sign-out happens after 10 min on clinical screens. |
 | R3 | Status bar and home indicator don't overlap the top bar, bottom bar, sheet actions or toasts, in portrait and landscape. |
 | R4 | The keyboard doesn't cover the focused field or the primary action in registration, vitals, OTP, password and money fields. The right keypad appears per §3.5. No zoom-on-focus. |
@@ -440,7 +440,7 @@ See **Decision D4**.
 | R8 | Open a lab PDF and an Rx PDF; print or share via WhatsApp; take a photo for a lab document upload. |
 | R9 | Sign out (and Switch user) → reopen the app → Back shows no patient data; (Android) DevTools remote → Application → Cache Storage holds only the allowlist. |
 | R10 | Update: deploy a new build while the app is open → the toast appears → reload at a safe point; no "Failed to find Server Action" visible to the user. |
-| R11 | Signup email code and forgot-password code complete **inside** the installed iOS app; an invite link opened from Gmail/WhatsApp leads to set-password, then sign-in inside the app works (§6.4). |
+| R11 | Signup email code and forgot-password code complete **inside** the installed iOS app; an invite link (`/join`) opened from the Gmail and WhatsApp in-app browsers, on Android and iOS, completes set-password, then sign-in inside the app works (§6.4) (erratum 2026-11-10, AUTH §10). |
 | R12 | Subscription AutoPay mandate setup and return completes from the installed iOS and Android apps (§6.6). Includes the UPI Intent round trip: if iOS reloads the app on return, the billing page shows "Confirming your AutoPay…" and never the "Start trial" step again. |
 | R13 | TalkBack (Android) and VoiceOver (iOS) smoke test of the shell and Today (`FRONTEND_MIGRATION_PLAN.md:155`, extended to VoiceOver). |
 | R14 | Idle local sign-out (10 min on clinical screens) works inside the installed iOS and Android apps and lands on `/login` with the email prefilled; the app-switcher snapshot shows no PHI before or after sign-out. |

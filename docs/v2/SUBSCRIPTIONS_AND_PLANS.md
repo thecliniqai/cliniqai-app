@@ -190,6 +190,8 @@ Route names follow `AUTH_REDESIGN.md` §3.1 (`/onboarding/clinic`, `/onboarding/
 
 If the owner closes checkout without authorising, the tenant stays `incomplete` and the app shows only `/onboarding/billing`. A `subscriptions.expire_unauthenticated` job cancels any provider subscription left in `created` for more than 60 minutes. A fresh one is created on the next attempt, so `start_at` is always computed from the real authorisation time.
 
+**Edge case: iOS standalone resume (PWA §6.6, P1).** UPI Intent switches to the UPI app; on return iOS may reload the backgrounded Home Screen app, so the Checkout success handler never runs. On resume and on every load of `/onboarding/billing`, the page asks the server for the subscription status (`fetchSubscription` when a `provider_subscription_id` is stored, §5.4) and shows **"Confirming your AutoPay…"** until the webhook or the poll resolves. It **never shows the "Start trial" step again while a provider subscription in `created` exists** for the tenant; "Try again" appears only after the 60-minute `subscriptions.expire_unauthenticated` job has cancelled it. Covered by the PWA real-device check R12. (erratum 2026-11-10, PWA §12)
+
 ### 5.2 Why the mandate is required (rationale for the settled R4)
 
 The PO settled this (R4). The comparison is kept only as rationale:
@@ -402,7 +404,7 @@ All of these are new tables in the `public` schema (the internal functions are i
 | `saas_invoice_sequences` | `fy` (PK), `next_seq` | Gapless allocation under a row lock, in the same transaction as the invoice insert. Same FY logic as PO-4 (shared `lib/fy`). |
 | `billing_profiles` | `tenant_id`, `legal_name`, `gstin`, `state_code`, `address`, `billing_email`, `whatsapp_billing_opt_in` | |
 | `provider_webhook_events` | `event_id` (PK = `x-razorpay-event-id`), `event_type`, `received_at`, `signature_valid`, `payload` (PII-minimised; nulled after 90 days), `processed_at`, `attempts`, `last_error` | Dedupe + audit |
-| `platform_settings` | Single row: `lock_window_days` (30), `purge_after_days` (180), `pending_charge_buffer_hours` (24), `gst_retention_months` (72), `log_retention_days` (365), `supplier_gstin`, `supplier_state`, `sac` | Configurable via SQL |
+| `platform_settings` | Single row: `lock_window_days` (30), `purge_after_days` (180), `pending_charge_buffer_hours` (24), `gst_retention_months` (72), `log_retention_days` (365), `supplier_gstin`, `supplier_state`, `sac`, **`ai_features` jsonb** (platform AI kill switch, one flag per AI feature key; read with env `AI_ENABLED` by the AI gateway, `AI_STRATEGY.md` §4/AI-03) (erratum 2026-11-10, AI §11.2) | Configurable via SQL (admin portal later) |
 | `platform_admins`, `platform_audit_log` | §9 | |
 
 That is 14 tables plus 2 platform tables, down from 16; v2.0 creates 13 of them (`tenant_addons` waits for the first purchasable add-on).
@@ -431,10 +433,12 @@ That is 14 tables plus 2 platform tables, down from 16; v2.0 creates 13 of them 
    - `/api/v1` key authentication (`lib/api/auth`) returns `402 Payment Required` with an error code for locked tenants.
    - Job handlers (reminders, webhooks, PDFs) check `tenant_access_level` before acting, so **no patient reminders are sent from a locked clinic**.
 3. **Layout redirect (UX):**
+   - The redirects never apply to the public PWA assets (`/manifest.webmanifest`, `/sw.js`, `/offline` and the app icons, `PWA_STRATEGY.md` §3.1): they return 200 with no redirect, with no cookies and for a user of a locked tenant (PWA §9.1 spec 1). (erratum 2026-11-10, PWA §12)
    - `app/(dashboard)/layout.tsx:22-29` already resolves membership. Add: if the access level is `locked`, redirect owner/admin to `/billing/locked` (renew, export, invoices) and other roles to `/billing/locked/staff` ("Your clinic's subscription is inactive; contact the owner").
    - If `onboarding` (status `incomplete`), redirect to `/onboarding/billing` (the AUTH track's resume rule).
-4. **Middleware: UX only.** `middleware.ts` runs on every request, and a database call there adds latency to every route. **Recommendation:** do **not** query the database in middleware. Optionally read a short-lived signed `access_hint` cookie, set by the layout, to avoid one redirect hop. It is never treated as authorisation.
-5. **Public patient links:**
+4. **Client lock handling (installed PWA, `PWA_STRATEGY.md` §6.6 and D-8).** An always-open tablet may never navigate, so the client reacts to the database's hard stop: a typed **`SUBSCRIPTION_LOCKED`** error from any server action or RPC triggers D-8; the `/api/session-status` resume/poll returns the **access level** (`tenant_access_level()`), checked on every resume and every 5 minutes while visible; **Realtime channels are unsubscribed** on a lock; then a **D-8 hard navigation** (`location.replace`) sends owner/admin to `/billing/locked` and other roles to `/billing/locked/staff`, **keeping the session** so the owner can pay or export. The SW and the offline page never cache entitlement state. Verified by PWA §9.1 spec 9. (erratum 2026-11-10, PWA §12)
+5. **Middleware: UX only.** `middleware.ts` runs on every request, and a database call there adds latency to every route. **Recommendation:** do **not** query the database in middleware. Optionally read a short-lived signed `access_hint` cookie, set by the layout, to avoid one redirect hop. It is never treated as authorisation.
+6. **Public patient links:**
    - Reschedule and booking links for a locked tenant show a neutral "This clinic's online services are unavailable" page.
    - Prescription verification links (`app/r`): **SUB-D6**. Default: while `expired`, the page shows **verification metadata only** (clinic name, doctor name and registration number, issue date, "valid prescription"), with **no PDF and no signed URL**; disabled at `archived`.
 

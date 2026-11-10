@@ -727,7 +727,7 @@ Prescribing 3 drugs takes about 12 actions plus 3 server round-trips.
 - **Left pane (context, read-only):** identity header, allergy banner, today's vitals (editable inline), problem list, last visit summary and last Rx with "Repeat", and the docs list.
 - **Right pane (document):** a single note with structured blocks in clinical order: Complaints → Exam (specialty template) → Diagnosis → Rx → Investigations → Advice → Follow-up.
 - Each block is collapsible and has a keyboard shortcut (`Alt+1…7`).
-- **Save model:** local draft on every change (IndexedDB, per visit), a server save on blur and every 5 s idle, a header status of "Saved · 10:42" / "Saving…" / "Offline — saved on this device", and a navigation guard if a server save is pending.
+- **Save model:** **server autosave** on blur and after 5 s idle, with an **in-memory** unsent buffer (no IndexedDB or other on-device storage, `PWA_STRATEGY.md` §3.8 and §4), a header status of "Saved · 10:42" / "Saving…" / "Offline · not saved. Reconnect to save", and a `beforeunload`/`pagehide` navigation guard while a server save is pending. Worst-case loss is the last ≤ 5 s of typing (erratum 2026-11-10, PWA §12).
 - **Rx entry:** type → ↓/⏎ select → frequency preset by number keys (1 = 1-0-1, 2 = 1-0-0 …) → duration (`5d`, `1w`) → ⏎ adds. A per-drug **allergy check chip** warns inline if the drug's salt matches a recorded allergy (backend dependency).
 - **Finish visit** (one primary button) opens a review sheet: summary, print or WhatsApp toggle, and billing hand-off (front desk) or collect-now (solo mode, a clinic setting).
 - AI Scribe and Copilot sit in a right-edge **Assist** panel, collapsed by default. AI output is inserted as "AI-suggested" blocks that need accept (PRD §3.5).

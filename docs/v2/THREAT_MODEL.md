@@ -148,7 +148,7 @@ Legend: ✅ adequate control exists · ⚠️ partial · ❌ missing/broken. "Re
 | S | Stolen key used indefinitely; key of departed creator still valid | ⚠️ | SEC-07, SEC-12 |
 | T | Over-privileged keys (admin scope) | ⚠️ | SEC-12 |
 | R | API actions audited with `actor_type=api_key` | ✅ partial | SEC-29 |
-| I | Tenant scoping in handlers | ✅ | Reviewed all 14 handlers |
+| I | Tenant scoping in handlers | ⚠️ | Reviewed the 15 route files (13 data routes); one gap: `POST /api/v1/lab-orders` accepts an arbitrary `storage_path` (ARC-06, P0-05) (erratum 2026-11-10, C1, C6) |
 | I | Filter-string manipulation in visits query | ⚠️ (tenant-bounded) | SEC-20 |
 | D | Rate limit per instance only | ⚠️ | SEC-11 |
 | E | Key creation limited to `clinic:manage` (+ RLS owner/admin) | ✅ | — |
@@ -185,6 +185,8 @@ Legend: ✅ adequate control exists · ⚠️ partial · ❌ missing/broken. "Re
 | D | Cron endpoints protected by CRON_SECRET | ✅ (non-constant compare) | SEC-27 |
 
 ### 3.8 AI copilots (`/api/ai/*`, `features/ai/actions.ts`)
+
+*v1 state. The copilots are removed in v2.0 (AI-01); the remaining AI surface (scribe) is covered by AI-04/AI-05 (erratum 2026-11-10, AI §11.2).*
 | STRIDE | Threat | Status | Ref |
 |---|---|---|---|
 | S | Tenant/role fallback to `app_metadata` | ⚠️ | SEC-16 |
@@ -233,7 +235,7 @@ Legend: ✅ adequate control exists · ⚠️ partial · ❌ missing/broken. "Re
 | SR-5 | MFA for owner/admin; session idle timeout and time-box. | SEC-26 |
 | SR-6 | Security headers and CSP on all responses. | SEC-13 |
 | SR-7 | PHI never in logs; dev providers fail closed in production. | SEC-15, 14 |
-| SR-8 | AI: minimised and pseudonymised prompts, server-owned conversation state, per-tenant opt-in and budget, processor contracts. | SEC-16 |
+| SR-8 | AI: minimised and pseudonymised prompts, server-owned conversation state, per-tenant opt-in and budget, processor contracts. Delivered by `AI_STRATEGY.md` **AI-04** (AI gateway, Vertex `asia-south1`, pseudonymisation, `ai_calls`, rate limits) and **AI-05** (AI Scribe v2); the copilots in §3.8 are removed by AI-01 (erratum 2026-11-10, AI §11.2). | SEC-16, AI-04, AI-05 |
 | SR-9 | Audit: reads and writes of clinical data, actor stamped by DB, retention ≥ 1 year (DPDP Rules) / 180 days (CERT-In), tamper evidence. | SEC-29 |
 | SR-10 | Local / ephemeral DB for all tests; no production credentials outside the deployment platform. | SEC-25 |
 

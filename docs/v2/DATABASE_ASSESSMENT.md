@@ -26,7 +26,7 @@ The weaknesses are what you would expect from schema-by-feature-phase without a 
 
 ## 2. Schema inventory
 
-44 tables are created by migrations. `prescriptions` was created twice; `000007` drops and re-creates it.
+43 distinct tables are created by migrations (44 `CREATE TABLE` statements, because `prescriptions` was created twice; `000007` drops and re-creates it) (erratum 2026-11-10, C7).
 
 | Domain | Table | Tenant col | Key relationships | Introduced |
 |---|---|---|---|---|
@@ -181,7 +181,7 @@ visits.doctor_id / prescriptions.doctor_id / … ──► auth.users   (NOT mem
 | ID | Policy issue | Evidence | Priority | Recommendation |
 |---|---|---|---|---|
 | RLS-01 | User can UPDATE their own `memberships` row, including `role` and `tenant_id` | `000011:26-39` | **P0** | Column-level `REVOKE UPDATE` plus a SECURITY DEFINER `change_member_role()` RPC; self-update limited to profile columns. |
-| RLS-02 | All clinical policies are tenant-only; role matrix not enforced in DB | `000006:104-188`, `000007:367-524`, `000009:94-128`, `000013:110-119` | P1 | `has_permission(tenant_id, 'consultations:view')` based on `role_permissions` table; role-aware SELECT and UPDATE on clinical tables. |
+| RLS-02 | All clinical policies are tenant-only; role matrix not enforced in DB | `000006:104-188`, `000007:367-524`, `000009:94-128`, `000013:110-119` | P1 | `has_permission(tenant_id, 'consultations:view')` as a STABLE function with a hard-coded `CASE` over the 5 roles (no `role_permissions` table) (erratum 2026-11-10, C19); role-aware SELECT and UPDATE on clinical tables. |
 | RLS-03 | `FOR ALL` policies allow DELETE for every member on `patient_documents`, `document_share_tokens`, `communication_queue`, `in_app_notifications`, `tenant_messaging_config`, `doctor_custom_*`, `doctor_prescription_templates`, `referrals` | `000013:110-119,145-154,207-216`, `000014:45-54,80-89,117-126` | P1 | Split into per-command policies. DELETE only where business-justified, and soft-delete clinical documents. |
 | RLS-04 | `in_app_notifications` visible to all tenant members regardless of `recipient_user_id/role` | `000014:117-126` | P2 | `USING (tenant ok AND (recipient_user_id = (select auth.uid()) OR recipient_role = my_role(tenant_id)))`. |
 | RLS-05 | `audit_logs` INSERT accepts any `actor_id` | `000003:91-97` | P2 | Trigger forces `actor_id := auth.uid()` for `authenticated`; or revoke INSERT and write from SECURITY DEFINER `record_audit()`. |
@@ -190,7 +190,7 @@ visits.doctor_id / prescriptions.doctor_id / … ──► auth.users   (NOT mem
 | RLS-08 | Policy performance: `auth.uid()` not wrapped in `(select …)`; `EXISTS (SELECT … memberships …)` repeated per row in owner/admin policies | `000002:66-117`, `000018:29-166` | P2 | Use `(select auth.uid())` and the existing STABLE helpers (`current_user_is_admin_or_owner`) consistently, as Supabase's RLS performance guidance recommends. |
 | RLS-09 | Tenant scoping is "any tenant I belong to", not "active tenant" | `current_user_tenant_ids()` | P3 | Acceptable. App queries add `.eq("tenant_id", active)`. Document it. Optionally set `app.active_tenant` in the transaction context in the target design. |
 | RLS-10 | Storage policies: `split_part(name,'/',1)::uuid` inside `OR` may raise an error for `tenants/…` paths; no DELETE policy on `prescriptions` bucket; R2 path bypasses storage RLS entirely | `000013:31-79`, `000008:28-54`, `lib/storage/index.ts:64-75` | P2 | Rewrite with a safe `CASE` or a regex guard before the cast. Single provider (ADR-014). |
-| RLS-11 | RLS self-test RPC covers only 8 of 44 tables | `000005:31-40` | P2 | Replace with pgTAP tests run in CI against a local Supabase (`TARGET_ARCHITECTURE.md §11`). |
+| RLS-11 | RLS self-test RPC covers only 8 of 43 tables (erratum 2026-11-10, C7) | `000005:31-40` | P2 | Replace with pgTAP tests run in CI against a local Supabase (`TARGET_ARCHITECTURE.md §11`). |
 
 > Verification (2026-11-10): PARTIALLY_CONFIRMED — RLS-01: self-promotion confirmed (Cr/P0); `tenant_id` can move only to a tenant the user already belongs to (WITH CHECK in `000011`). See VERIFICATION_LOG.md
 
@@ -219,7 +219,7 @@ visits.doctor_id / prescriptions.doctor_id / … ──► auth.users   (NOT mem
 
 **Problems and recommendations**
 - **P1 (DB-21):** Define a **data retention schedule**:
-  - clinical records: at least 3 years under NMC, longer by state or clinic policy (**Assumption (validate)** with Workstream D and a legal reviewer)
+  - clinical records (indoor-patient records): at least 3 years under the IMC (Professional Conduct, Etiquette and Ethics) Regulations 2002 reg. 1.3.1 (the NMC 2023 regulations are held in abeyance), plus the Clinical Establishments Act / state rules, which may require longer; defaults per state set with counsel ⚖ (see `DATA_HANDLING.md` §5 and `SECURITY_ASSESSMENT.md` R8) (erratum 2026-11-10, C29)
   - messaging queue: 90 days, then null out `recipient_phone`/`template_params`
   - webhook payloads: 30 days
   - usage counters: 13 months
@@ -286,7 +286,7 @@ Each change requires a read-only diagnostic first. The queries are in `BACKEND_M
 
 ## 10. Types generation
 
-**Fact:** The types are hand-written. **Recommendation (P1, S):** Generate them (`supabase gen types typescript --local` today; `kysely-codegen` once Kysely is adopted, ADR-003). Commit the output to `lib/db/generated/`. Fail CI on diff. Domain DTO types should be derived from zod schemas, not from table types.
+**Fact:** The types are hand-written. **Recommendation (P1, S):** Generate them with `supabase gen types typescript --local`, now and in the target state; this also types the atomic-command RPCs' arguments and results. `kysely-codegen` is not used, because Kysely is not adopted (ADR-003 superseded by RPC-per-flow; erratum 2026-11-10, C18). Commit the output to `lib/db/generated/`. Fail CI on diff. Domain DTO types should be derived from zod schemas, not from table types.
 
 ---
 

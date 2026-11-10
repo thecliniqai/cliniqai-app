@@ -36,27 +36,34 @@
                          │                                            ▼            │
                          │  APPLICATION / DOMAIN  (features/<d>/)                  │
                          │   policy.ts  → can(ctx, action, resource)               │
-                         │   service.ts → use-cases; one DB tx per command;        │
-                         │                writes audit + outbox in same tx         │
+                         │   service.ts → use-cases; one DB tx per command         │
+                         │                (one RPC call): audit + outbox in it     │
                          │   schema.ts  → zod contracts (input/output/events)      │
                          │                                            │            │
                          │  INFRASTRUCTURE                            ▼            │
-                         │   repo.ts (Kysely, typed)   lib/db: withTenantTx/       │
+                         │   repo.ts (supabase-js + generated DB types; one        │
+                         │            plpgsql RPC per atomic command)              │
+                         │   lib/db: user-scoped client · getSystemDb() (ADR-005)  │
                          │   lib/core: Result, AppError, RequestContext, logger    │
-                         │   lib/integrations: messaging, ai, pdf, storage, payments│
+                         │   lib/integrations: messaging, ai, pdf, storage,        │
+                         │                     payments                            │
                          │   lib/jobs: claim/dispatch handlers registry            │
                          └───────────────┬───────────────────────────┬─────────────┘
-                                         │ pg (Supavisor tx-pool),   │ supabase-js
-                                         │ RLS via SET LOCAL role +  │ (Auth, Storage only)
-                                         │ request.jwt.claims        │
+                                         │ supabase-js (user JWT):   │ supabase-js
+                                         │ PostgREST reads + .rpc()  │ (Auth, Storage)
+                                         │ → RLS applies             │
                                          ▼                           ▼
                          ┌─────────────────────────────────────────────────────────┐
-                         │ Supabase: Postgres 15+ (RLS role-aware, composite tenant │
-                         │ FKs, CHECK/EXCLUDE constraints, immutability triggers,   │
-                         │ outbox/jobs tables, pg_cron) · Auth · Storage            │
+                         │ Supabase: Postgres 15+ (RLS role-aware, composite       │
+                         │ tenant FKs, CHECK/EXCLUDE constraints, immutability     │
+                         │ triggers, outbox/jobs tables, pg_cron) · Auth · Storage │
+                         │ SECURITY INVOKER plpgsql RPC per atomic command;        │
+                         │ has_permission() in RLS                                 │
                          └─────────────────────────────────────────────────────────┘
    Observability: pino → platform logs/drain · Sentry (errors, traces) · /api/ready + queue-lag metrics
 ```
+
+Data path (erratum 2026-11-10, C18): request-path code reaches Postgres only through the **user-scoped supabase-js client** (the caller's JWT, so RLS and `has_permission()` apply). Each multi-step write is **one `SECURITY INVOKER` plpgsql function per command**, called with `.rpc()`, that writes its audit and outbox rows in the same transaction. There is no `pg` pool, no `DATABASE_URL`, no Kysely and no `withTenantTx` (ADR-003 superseded). Jobs and webhooks use the confined `getSystemDb(reason)` (ADR-005). DB types are generated with `supabase gen types` (ADR-013, P1-34).
 
 ### Module dependency rules (enforced by ESLint `no-restricted-imports` or `eslint-plugin-boundaries`)
 
@@ -92,25 +99,25 @@ flowchart LR
 | **Advantages** | One codebase and one deploy. Services are reusable by UI, REST, webhooks and jobs. Unit-testable domain logic. |
 | **Disadvantages** | Needs discipline (lint rules) to keep boundaries. Serverless time limits constrain heavy jobs. |
 | **Migration complexity** | L. Incremental, domain by domain (strangler pattern inside the repo). |
-| **Operational implications** | Unchanged deployment model. Add a scheduler (§3.6) and a database URL secret. |
+| **Operational implications** | Unchanged deployment model. Add a scheduler (§3.6). No new database URL secret: data access stays on supabase-js and RPCs (erratum 2026-11-10, C18). |
 
 ### 3.2 Database and data-access approach (§10.5)
 | | |
 |---|---|
 | **Current** | supabase-js (PostgREST) everywhere, hand-written types, 387 `as any`, no transactions, invariants in TypeScript. |
-| **Recommended** | **Postgres stays the system of record. Supabase SQL migrations stay the single source of schema truth.** For application data access, use **Kysely** (typed SQL query builder) over `pg` through Supabase's **Supavisor transaction pooler**. Run every request inside `withTenantTx(ctx, fn)`, which starts a transaction and applies `SET LOCAL ROLE authenticated` plus `set_config('request.jwt.claims', <ctx claims>, true)`, so **RLS still applies**. Types are generated with `kysely-codegen` from the migrated local DB. Keep supabase-js only for **Auth and Storage**. Use plpgsql RPCs only for security primitives (role change, share-token resolution, counters, amendment unlock). Invariants move into constraints and triggers (DATABASE_ASSESSMENT §5). |
-| **Reason** | Multi-step clinical and financial writes need real transactions. PostgREST cannot span statements except inside RPCs, and writing all business logic in plpgsql would be harder to test and review for this team. |
-| **Alternatives considered** | **(a) supabase-js + plpgsql RPC for every multi-step write.** Lowest change and keeps the PostgREST model, but moves significant logic into SQL, gives weak typing of RPC payloads and makes unit testing harder. *Acceptable fallback if direct DB connections are ruled out.* **(b) Drizzle ORM.** Excellent typing and documented Supabase RLS patterns, but it wants to own the schema and migrations (drizzle-kit), which conflicts with the SQL-first RLS-heavy migrations; introspection-only use is possible but awkward. **(c) Prisma.** Heavier runtime and poor fit with RLS session variables. Rejected. |
-| **Advantages** | Real transactions. Compile-time types generated from the real schema. SQL-transparent (easy to review, `EXPLAIN`). RLS retained as defence in depth. Fewer HTTP hops (one TCP connection instead of an HTTP request per statement). |
-| **Disadvantages** | Adds a high-privilege `DATABASE_URL` secret, managed like the service-role key. Connection pooling on serverless must use transaction mode (no session-level state, no named prepared statements; Kysely with `pg` is compatible). The team must learn Kysely, which is small. Realtime and Storage still use supabase-js. |
-| **Migration complexity** | L, done per domain. Phase 1 can deliver quick wins (generated types and RPCs for the 3 worst flows) before Kysely lands. |
-| **Operational implications** | Monitor pooler connections. Set `statement_timeout`/`idle_in_transaction_session_timeout` per role. **Assumption (validate):** the Supabase plan includes Supavisor (all current plans do), and the region is ap-south-1 for latency and residency. |
+| **Recommended** | **Postgres stays the system of record. Supabase SQL migrations stay the single source of schema truth.** Application data access stays on **supabase-js with the user-scoped client** (the caller's session JWT), so **RLS and `has_permission()` (ADR-006) apply to every request-path query**. Each **atomic multi-step write is one plpgsql function per command, `SECURITY INVOKER`** (it runs under the caller's RLS, with `auth.uid()` as the actor), called through `.rpc()`; it does the reads, locks, writes, audit row and outbox/job rows in one transaction. Single-statement writes and reads stay on PostgREST. **DB types are generated with `supabase gen types`** (ADR-013, roadmap P1-34), which removes most `as any` casts without a second data layer. SECURITY DEFINER functions stay limited to security primitives (role change, share-token resolution, `api_authenticate()`, counters, amendment unlock). The service role is used only through the confined `getSystemDb(reason)` in jobs and webhooks (ADR-005). Invariants move into constraints and triggers (DATABASE_ASSESSMENT §5). A **D1 confirmation spike** (roadmap V2-03 plan 03-07, before V2-05) proves one flow end to end: RLS, `auth.uid()` as actor, audit and outbox in one transaction, and error mapping to `AppError`. (erratum 2026-11-10, C18) |
+| **Reason** | Multi-step clinical and financial writes need real transactions. PostgREST cannot span statements except inside a function, and a plpgsql function per atomic command gives that without a new privileged secret, pooler constraints or a second data layer. Only about 8 commands need it (roadmap P1-05), so the plpgsql surface stays small. (erratum 2026-11-10, C18) |
+| **Alternatives considered** | **(a) Kysely + `pg` through the Supavisor transaction pooler, with `withTenantTx` setting `ROLE authenticated` and `request.jwt.claims` per transaction** (the original ADR-003 proposal). Typed SQL and app-side transactions, but adds a high-privilege `DATABASE_URL`, pooler constraints and a second data layer. **Superseded**; revisited only through a new ADR if RPCs prove unmaintainable. **(b) Drizzle ORM.** Wants to own the schema and migrations (drizzle-kit), which conflicts with the SQL-first RLS-heavy migrations. **(c) Prisma.** Heavier runtime and poor fit with RLS session variables. Rejected. (erratum 2026-11-10, C18) |
+| **Advantages** | Real transactions inside Postgres with the caller's identity. RLS retained everywhere, no new secret, no connection pool to run on serverless. One data client (supabase-js) for data, Auth, Storage and Realtime. Compile-time types generated from the real schema. (erratum 2026-11-10, C18) |
+| **Disadvantages** | Business logic for the atomic commands lives in plpgsql: it needs pgTAP coverage (happy path, RLS denial, constraint violations, rollback on failure) and careful review. RPC argument and return payloads are typed only as far as `supabase gen types` allows; zod parses the result at the service boundary. Errors raised in plpgsql need a stable mapping to `AppError` (§6). (erratum 2026-11-10, C18) |
+| **Migration complexity** | M–L, done per flow. Generated types (V2-03) and the D1 confirmation spike land first; the atomic-command RPCs follow in V2-07 (P1-05). (erratum 2026-11-10, C18) |
+| **Operational implications** | Set `statement_timeout` for the `authenticated` role and per function where needed. Functions use `SET search_path = ''` and schema-qualified names. **Assumption (validate):** the region is ap-south-1 for latency and residency. (erratum 2026-11-10, C18) |
 
 ### 3.3 Authentication and authorisation (§10.6)
 | | |
 |---|---|
 | **Current** | Supabase Auth with email OTP (dev magic-link helper). Cookie session through `@supabase/ssr` 0.5.2. Membership and role resolved per call. RBAC matrix in TypeScript only. RLS is tenant-only. Memberships can self-escalate (P0). |
-| **Recommended** | **Retain Supabase Auth.** Upgrade `@supabase/ssr`. Add phone OTP through an MSG91 SMS hook if product needs it (Workstream A/D). Authorisation in **two layers from one source of truth**: a `role_permissions` table (seeded from today's matrix), a STABLE `has_permission(tenant, perm)` used by RLS, and the TypeScript `policy.ts` reading the same generated constant. Resolve `RequestContext {userId, tenantId, role, permissions, actorType, requestId}` once per request, memoised with `React.cache`. Lock down `memberships` columns, and make role changes go through an RPC. |
+| **Recommended** | **Retain Supabase Auth.** Upgrade `@supabase/ssr`. Add phone OTP through an MSG91 SMS hook if product needs it (Workstream A/D). Authorisation in **two layers from one source of truth**: a STABLE `has_permission(tenant, perm)` SQL function with a hard-coded `CASE` over the 5 fixed roles, used by RLS, and the TypeScript `policy.ts` / `lib/permissions/matrix.ts`, kept in parity by a unit test (no `role_permissions` table unless custom roles are approved) (erratum 2026-11-10, C19). Resolve `RequestContext {userId, tenantId, role, permissions, actorType, requestId}` once per request, memoised with `React.cache`. Lock down `memberships` columns, and make role changes go through an RPC. |
 | **Reason** | Auth itself is not the problem. The gaps are authorisation enforcement and duplication. Replacing the IdP would add migration risk (existing users) for no benefit. |
 | **Advantages** | No user migration. RLS enforces RBAC even if a code path forgets to. A single matrix. |
 | **Disadvantages** | Role-aware RLS policies are more complex; this needs pgTAP tests and the performance pattern `(select auth.uid())`. |
@@ -121,7 +128,7 @@ flowchart LR
 | | |
 |---|---|
 | **Current** | Shared schema, `tenant_id` columns, tenant-only RLS. Service role in about 35 files. Cross-tenant FKs possible. Server-action overrides bypass everything (P0). |
-| **Recommended** | **Shared-schema multi-tenancy (retain)** with layered defence: (1) RLS on every table, role-aware for clinical data; (2) composite `(tenant_id, id)` foreign keys so references cannot cross tenants; (3) all request-path DB access through `withTenantTx` under the user's or API key's claims; the service role only in a `system` context (jobs, public-token RPCs) with a reason code and a log line; (4) public patient links resolved by SECURITY DEFINER RPCs that return only the needed fields after token-hash lookup; (5) CI pgTAP suite asserting cross-tenant denial for every table and RPC; (6) an ESLint rule banning `getSystemDb` outside allowed paths. |
+| **Recommended** | **Shared-schema multi-tenancy (retain)** with layered defence: (1) RLS on every table, role-aware for clinical data; (2) composite `(tenant_id, id)` foreign keys so references cannot cross tenants; (3) all request-path DB access through the user-scoped supabase-js client under the user's JWT (atomic writes as `SECURITY INVOKER` RPCs), and API-key traffic through explicit RPCs or a short-lived principal JWT (ADR-011) (erratum 2026-11-10, C18); the service role only in a `system` context (jobs, public-token RPCs) with a reason code and a log line; (4) public patient links resolved by SECURITY DEFINER RPCs that return only the needed fields after token-hash lookup; (5) CI pgTAP suite asserting cross-tenant denial for every table and RPC; (6) an ESLint rule banning `getSystemDb` outside allowed paths. |
 | **Reason** | Schema-per-tenant or DB-per-tenant is unjustified at this scale and would break cross-clinic referrals and operations. |
 | **Advantages** | Isolation no longer depends on every developer remembering `.eq("tenant_id")`. |
 | **Disadvantages** | More SQL to maintain. Composite FKs need `UNIQUE (tenant_id, id)` on parents (cheap). |
@@ -143,12 +150,12 @@ flowchart LR
 | | |
 |---|---|
 | **Current** | Two outbox tables. Dispatch is inline in requests (cross-tenant), fire-and-forget, or via cron routes with no scheduler in the repo. No claiming. Governance unused. PDFs synchronous. Dual storage providers. AI with no quota. |
-| **Recommended** | **Transactional outbox plus a Postgres job queue, driven by a scheduler; no new broker.** Add a generic `jobs` table (`id, tenant_id, kind, payload jsonb, run_at, attempts, max_attempts, status, locked_until, last_error, dedupe_key UNIQUE NULLS NOT DISTINCT`). Keep the existing `communication_queue` and `webhook_delivery_queue` as domain "delivery" tables, now **inserted inside the business transaction**. Claim with an RPC `claim_jobs(kinds, batch, lease_seconds)` using `FOR UPDATE SKIP LOCKED` and setting `locked_until`; expired leases become claimable again. **Trigger:** a Supabase `pg_cron` job every minute calls `/api/jobs/run` through `pg_net`, authenticated by a rotating secret; Vercel Cron is an alternative depending on the plan (**Assumption (validate)** with Workstream F). Handlers are idempotent (dedupe keys, provider message IDs). Governance (quiet hours, quota, opt-out, consent) is applied at enqueue and re-checked at send. Archival PDFs, AI summaries, retention purges and webhook deliveries become job kinds. Consider **pgmq** (Supabase Queues) as a drop-in for the claim mechanics if preferred. |
+| **Recommended** | **Transactional outbox plus a Postgres job queue, driven by a scheduler; no new broker.** Add a generic `jobs` table (`id, tenant_id, kind, payload jsonb, run_at, attempts, max_attempts, status, locked_until, last_error, dedupe_key UNIQUE NULLS NOT DISTINCT`). Keep the existing `communication_queue` and `webhook_delivery_queue` as domain "delivery" tables, now **inserted inside the business transaction**. Claim with an RPC `claim_jobs(kinds, batch, lease_seconds)` using `FOR UPDATE SKIP LOCKED` and setting `locked_until`; expired leases become claimable again. **Trigger:** a Supabase `pg_cron` job every minute calls `/api/jobs/run` through `pg_net`, authenticated by a rotating secret; Vercel Cron is an alternative depending on the plan (**Assumption (validate)** with Workstream F). Handlers are idempotent (dedupe keys, provider message IDs). Governance (quiet hours, quota, opt-out, consent) is applied at enqueue and re-checked at send. Archival PDFs, retention purges, AI quota-reservation clean-up and webhook deliveries become job kinds (there is no AI summary job: the LLM catch-up is replaced by the deterministic patient snapshot, SA-04) (erratum 2026-11-10, AI §11.2). Consider **pgmq** (Supabase Queues) as a drop-in for the claim mechanics if preferred. |
 | **Reason** | Correct delivery semantics (at-least-once with dedupe), no lost events, no request-path latency, and no new infrastructure. |
 | **Advantages** | One mechanism for every async concern. Queue state is queryable. Transactional with business writes. |
 | **Disadvantages** | Polling latency of up to about 60 s for non-urgent messages (urgent sends can still be kicked opportunistically **after commit**, through `after()` in Next 15). Serverless duration limits cap batch size. |
 | **Migration complexity** | M. |
-| **Operational implications** | Alert on queue lag, dead letters and lease expiries. A runbook for replaying dead letters. **Single storage provider:** choose Supabase Storage (RLS-integrated, same region and vendor, simplest) unless egress cost analysis favours R2. Remove the other path (ADR-014). **AI:** keep the Vercel AI SDK behind `lib/integrations/ai` with per-tenant quotas, server-side context assembly and usage audit. **Messaging:** keep the MSG91 adapter; delete Twilio and Gupshup if unused. |
+| **Operational implications** | Alert on queue lag, dead letters and lease expiries. A runbook for replaying dead letters. **Single storage provider:** choose Supabase Storage (RLS-integrated, same region and vendor, simplest) unless egress cost analysis favours R2. Remove the other path (ADR-014). **AI:** one AI gateway module at `lib/integrations/ai` (`AI_STRATEGY.md` AI-04): an `AiProvider` interface with a single Google Vertex AI adapter pinned to `asia-south1`, structured output, pseudonymisation and post-checks, `ai_calls` metadata, per-tenant entitlement, quota and rate limits, server-side context assembly and usage audit (erratum 2026-11-10, AI §11.2). **Messaging:** keep the MSG91 adapter; delete Twilio and Gupshup if unused. |
 
 ### 3.7 CI/CD and deployment (§10.12, backend aspects; Workstream F owns the pipeline)
 | | |
@@ -169,6 +176,50 @@ flowchart LR
 | **Migration complexity** | S–M. |
 | **Operational implications** | Log retention and access controls per the compliance policy. |
 
+### 3.9 Frontend framework (§10.1) (erratum 2026-11-10, P2-DOC)
+| | |
+|---|---|
+| **Current** | Next.js App Router (`next@15.5.27`), React 19, TypeScript, Tailwind CSS v4 (`FRONTEND_TECHNOLOGY_ASSESSMENT.md` §1). |
+| **Recommended** | **Keep the Next.js App Router.** Patch to the latest 15.5.x now (roadmap P0-06, C24); evaluate Next 16 (`middleware` → `proxy`) as a separate P2 PR in V2-03. RSC reads, server actions as the mutation layer (one atomic server command per business action, C18), GET route handlers for typeahead search, Supabase Realtime for Today with a polling fallback; TanStack Query deferred (roadmap FE-1, FE-5, FE-7). Installable PWA per `PWA_STRATEGY.md` (FE-11). |
+| **Reason** | Scored 44 against React Router 7 framework mode 39, Vite SPA 33 and TanStack Start 32. The problems are in UI architecture, not the framework; about 110 exported functions in 24 `"use server"` modules already form the mutation layer (`FRONTEND_TECHNOLOGY_ASSESSMENT.md` §3; C8 counts 137 `export async function` in `features/`). |
+| **Advantages** | In-place migration; RSC and streaming; small client JS on low-end devices if disciplined; mature ecosystem. |
+| **Disadvantages** | Server actions are sequential per client and POST-only (poor for typeahead); every action is a public endpoint and must authorise. |
+| **Migration complexity** | M for the Next upgrade (separate PR); the UI rebuild is phased M0–M5 (`FRONTEND_MIGRATION_PLAN.md`). |
+| **Operational implications** | Unchanged Vercel deployment; route and Lighthouse budgets per `PWA_STRATEGY.md` §3.9 (report-only nightly, blocking at V2-15). |
+
+### 3.10 Component library, styling and design system (§10.2, §10.3) (erratum 2026-11-10, P2-DOC)
+| | |
+|---|---|
+| **Current** | 12 hand-rolled primitives in `components/ui` derived from the TailAdmin free template, no headless library, 937 arbitrary hex values, 0 focus-management code (`FRONTEND_TECHNOLOGY_ASSESSMENT.md` §1, §1.1). |
+| **Recommended** | **shadcn/ui open-code components on Radix**, styled with v2 Tailwind tokens; `cmdk`, `react-day-picker`, `sonner`, TanStack Table; react-hook-form + zod 4 shared schemas. Fallback per component: Base UI or React Aria behind the same API. Design system **"Clinic Paper"** (`DESIGN_SYSTEM.md`): teal accent, warm neutrals, IBM Plex, tabular numerals, en-IN and IST conventions, healthcare patterns, enforced by CI grep guards and a palette reset. `/dev/ui` gallery with Playwright screenshots and axe instead of Storybook (roadmap FE-2, FE-3, FE-4, FE-8). |
+| **Reason** | Accessibility (focus trapping, comboboxes, dismissable layers) cannot be reached by patching; there is no component contract and core primitives are missing (`FRONTEND_TECHNOLOGY_ASSESSMENT.md` §1.1). |
+| **Advantages** | Mature accessibility; open code (no lock-in); one token source. |
+| **Disadvantages** | Risk that Radix maintenance slows (mitigated by per-component swap); visual regressions while old and new coexist (`FRONTEND_TECHNOLOGY_ASSESSMENT.md` §8). |
+| **Migration complexity** | L for primitives and clinical components (M2); XL in total for workflow rebuilds (M4). Design sub-gate G2-D approves rendered tokens and mock-ups before primitives are built (phase V2-DX). |
+| **Operational implications** | Dependencies installed only after approval; bundle budgets in CI. |
+
+### 3.11 Testing infrastructure (§10.10) (erratum 2026-11-10, P2-DOC)
+| | |
+|---|---|
+| **Current** | 69 spec files, 649 cases; 206 skipped; 27 files fail without the hosted DB; no e2e, a11y, visual or coverage tooling; tests not type-checked (roadmap §8, `TEST_STRATEGY.md` §2–§4). |
+| **Recommended** | Vitest (unit); Vitest + **local ephemeral Supabase** for DB integration (guard refuses non-local URLs); **pgTAP** RLS matrix over all tenant tables × CRUD × roles; an auth/permission guard test over every server action and route handler; MSW contracts for MSG91 and AI; **Playwright + @axe-core/playwright** on the `PWA_STRATEGY.md` §9.1 device matrix; concurrency tests; AI eval lanes L1 and L2 on every PR and L3 manually on each model or prompt change (nightly once pre-prod exists; `AI_STRATEGY.md` §7); nightly full e2e and ZAP baseline; pre-release k6 and a restore drill (`TEST_STRATEGY.md` §6, roadmap §8; backend-facing detail in §11 below). |
+| **Reason** | Tests today depend on a hosted project with the service-role key (SEC-25) and cannot gate releases. |
+| **Advantages** | Evidence-based gates (CI run links only); 0 skipped in the DB lane. |
+| **Disadvantages** | CI time and maintenance of the generated pgTAP matrix. |
+| **Migration complexity** | M–L, spread over V2-02 onward (`TEST_STRATEGY.md` §10). |
+| **Operational implications** | Coverage ≥ 80 % lines / ≥ 70 % branches and p95 < 1.5 s are proposals to confirm at G2. |
+
+### 3.12 Security tooling (§10.11) (erratum 2026-11-10, P2-DOC)
+| | |
+|---|---|
+| **Current** | No CI, no SAST, no secret scanning in the pipeline, no security headers; `npm audit` reports high and critical issues (`SECURITY_ASSESSMENT.md` SEC-13, SEC-24, SEC-28). |
+| **Recommended** | Per `SECURITY_VERIFICATION_PLAN.md`: Semgrep (OSS rulesets + custom rules), ESLint with `eslint-plugin-security` and `no-restricted-imports` (the **single** enforcement point for the ADR-005 service-role allow-list, C20), `tsc --noEmit`, `supabase db lint`; `npm audit --omit=dev --audit-level=high` + OSV-Scanner, Renovate/Dependabot, SBOM; gitleaks (history + pre-commit); pgTAP RLS matrix and role × operation tests; OWASP ZAP baseline/authenticated scans on local or staging only; an adversarial Claude security review in V2-14; no external penetration test in v2.0 (PO-17 round 2), recommended before scaling beyond the pilot (roadmap V2-14). Reports stored as CI artefacts (SARIF/JUnit/ZAP JSON). |
+| **Reason** | Containment fixes need regression guards; DPDP/CERT-In evidence requires recorded results. |
+| **Advantages** | Free/OSS tools; no repository content uploaded to third parties without approval. |
+| **Disadvantages** | Custom Semgrep rules need upkeep; DAST is staging/local only. |
+| **Migration complexity** | S–M, landing with CI in V2-02 and the security verification in V2-14. |
+| **Operational implications** | Never run DAST against production, Supabase-hosted endpoints, MSG91 or AI providers. |
+
 ---
 
 ## 4. Domain module contract
@@ -178,37 +229,55 @@ features/<domain>/
   index.ts        // public surface for OTHER domains: re-exports service fns + types only
   schema.ts       // zod: Inputs, Outputs (DTOs), Events; inferred TS types
   policy.ts       // can(ctx, 'visit.sign', visit) → boolean | AppError; pure, unit-tested
-  repo.ts         // Kysely queries; takes `tx: TenantTx`; no business rules; returns rows
+  repo.ts         // supabase-js (user-scoped client) queries and .rpc() calls, typed by
+                  //   generated DB types; no business rules; returns rows (erratum 2026-11-10, C18)
   service.ts      // use-cases: (ctx, input) => Promise<Result<Output, AppError>>
-                  //   - validates invariants, calls policy, runs ONE transaction,
-                  //     writes audit + outbox/jobs rows in the same tx
+                  //   - calls policy, then ONE transaction: a single-statement write or one
+                  //     SECURITY INVOKER plpgsql RPC that also writes audit + outbox/jobs rows
   queries.ts      // read models for RSC pages (may be cached per request)
   actions.ts      // "use server": parse → getContext() → service → toActionResult; revalidate
   api.ts          // REST adapters used by app/api/v1/** via withApi()
   jobs.ts         // job handlers registered by kind (idempotent)
   system.ts       // (optional) system-context entry points, e.g. webhook-driven flows
   __tests__/      // service tests with fake repo; repo tests against local Supabase
+supabase/migrations/…   // the atomic-command plpgsql functions live here, covered by pgTAP
 ```
 
-**Example shape (illustrative, not implementation):**
+**Example shape (illustrative, not implementation) (erratum 2026-11-10, C18):**
 ```ts
 // features/billing/service.ts
 export async function recordPayment(ctx: RequestContext, input: RecordPaymentInput)
   : Promise<Result<PaymentRecorded, AppError>> {
   const denied = policy.canRecordPayment(ctx); if (denied) return err(denied);
-  return withTenantTx(ctx, async (tx) => {
-    const inv = await repo.lockInvoice(tx, input.invoiceId);          // SELECT … FOR UPDATE
-    if (!inv) return err(notFound('invoice'));
-    if (inv.status === 'cancelled') return err(conflict('INVOICE_CANCELLED'));
-    const paid = await repo.sumPayments(tx, inv.id);
-    if (paid + input.amount > inv.totalAmount) return err(conflict('OVERPAYMENT'));
-    const p = await repo.insertPayment(tx, { ...input, recordedBy: ctx.userId });
-    await repo.setInvoiceStatus(tx, inv.id, paid + input.amount === inv.totalAmount ? 'paid' : 'issued');
-    await audit.record(tx, ctx, 'invoice.payment_recorded', { invoice_id: inv.id });
-    await outbox.emit(tx, ctx, 'payment.recorded', { payment_id: p.id, invoice_id: inv.id });
-    return ok({ paymentId: p.id });
-  });
+  // One RPC = one transaction, under the caller's RLS (SECURITY INVOKER).
+  const res = await repo.recordPayment(ctx, input);
+  if (!res.ok) return err(mapDbError(res.error));   // e.g. reason 'OVERPAYMENT' → CONFLICT, 42501 → FORBIDDEN
+  return ok({ paymentId: res.value.payment_id });
 }
+
+// features/billing/repo.ts
+export async function recordPayment(ctx: RequestContext, input: RecordPaymentInput) {
+  const db = await getUserDb();                      // lib/db: user-scoped client (session JWT), React.cache
+  const { data, error } = await db.rpc('record_payment', {
+    p_invoice_id: input.invoiceId, p_amount: input.amount,
+    p_method: input.method, p_command_id: input.commandId,
+  });                                                // args and result typed by `supabase gen types`
+  return error ? { ok: false as const, error } : { ok: true as const, value: data };
+}
+```
+```sql
+-- supabase/migrations/<ts>_record_payment.sql
+create function public.record_payment(p_invoice_id uuid, p_amount numeric, p_method text, p_command_id uuid)
+returns jsonb language plpgsql security invoker set search_path = '' as $$
+declare v_inv public.invoices; v_paid numeric; v_payment_id uuid;
+begin
+  select * into v_inv from public.invoices where id = p_invoice_id for update;   -- RLS filters other tenants
+  if not found then raise exception using errcode = 'P0002', message = 'NOT_FOUND'; end if;
+  if v_inv.status = 'cancelled' then raise exception using errcode = 'P0001', message = 'INVOICE_CANCELLED'; end if;
+  -- sum payments, reject overpayment ('OVERPAYMENT'), insert payment (recorded_by = auth.uid()),
+  -- update invoice status, insert audit row and outbox row: all in this one transaction
+  return jsonb_build_object('payment_id', v_payment_id);
+end $$;
 ```
 
 ---
@@ -259,6 +328,7 @@ interface AppError {
   - `23503` → `PRECONDITION_FAILED`
   - `23514`/`23P01` (check or exclusion violation) → `CONFLICT` with a reason derived from the constraint name
   - `42501` (RLS) → `FORBIDDEN`
+  - `P0001`/`P0002` raised by an atomic-command RPC → `CONFLICT`/`NOT_FOUND`, with `reason` taken from the exception message (erratum 2026-11-10, C18)
   - others → `INTERNAL`
 - **Adapters:**
   - Actions return `ActionResult<T> = { ok: true, data } | { ok: false, error: { code, message, fieldErrors? } }`.
@@ -268,22 +338,24 @@ interface AppError {
 
 ## 7. Transaction strategy
 
-1. **One command, one transaction.** Every service command that writes runs in exactly one `withTenantTx`. Audit rows and outbox or job rows are written in that transaction. External calls (HTTP, AI, provider sends, PDF rendering) are **never** made inside a transaction. They are enqueued as jobs, or done before the transaction with the results validated inside it.
+1. **One command, one transaction.** Every service command that writes runs in exactly one transaction: a single-statement write through supabase-js, or, for a multi-step write, **one `SECURITY INVOKER` plpgsql function called through `.rpc()`** under the caller's RLS. Audit rows (actor = `auth.uid()`) and outbox or job rows are written inside that function. Jobs and webhooks run the same functions through `getSystemDb(reason)` only where ADR-005 allows it, with an explicit system-actor argument (under the service role `auth.uid()` is null, so the audit actor and any `has_permission()` check need it); the system path is confirmed in the D1 spike (erratum 2026-11-10, C18). External calls (HTTP, AI, provider sends, PDF rendering) are **never** made inside a transaction. They are enqueued as jobs, or done before the transaction with the results validated inside it.
 2. **The database guards invariants.** Uniqueness, exclusion (double-booking), CHECKs (money), composite FKs (tenancy) and immutability triggers (signed records). Services rely on these constraints and map violations to `CONFLICT`. Application pre-checks exist only for user-friendly messages.
-3. **Concurrency.** `SELECT … FOR UPDATE` on aggregate roots (invoice, visit) for read-modify-write flows. Counters (queue tokens, invoice numbers) use `INSERT … ON CONFLICT DO UPDATE … RETURNING`. Use optimistic `version` columns only where long-lived edits occur (consultation draft autosave).
+3. **Concurrency.** `SELECT … FOR UPDATE` on aggregate roots (invoice, visit) inside the command's RPC for read-modify-write flows (erratum 2026-11-10, C18). Counters (queue tokens, invoice numbers) use `INSERT … ON CONFLICT DO UPDATE … RETURNING`. Use optimistic `version` columns only where long-lived edits occur (consultation draft autosave).
 4. **Isolation level.** READ COMMITTED (the default) plus row locks. Use SERIALIZABLE only if a specific anomaly is found.
-5. **Timeouts.** `SET LOCAL statement_timeout = '5s'` for request transactions and `'60s'` for jobs.
+5. **Timeouts.** `statement_timeout` of about `'5s'` for the `authenticated` role (request path), set per function (`ALTER FUNCTION … SET statement_timeout`) where a command needs a different limit, and `'60s'` for job handlers (erratum 2026-11-10, C18).
 6. **Idempotency.** API `Idempotency-Key`, server-action client-generated `commandId` on non-idempotent forms (payments, check-in), and job `dedupe_key`.
 
-**Critical flows to migrate first:**
+**Critical flows to migrate first** (each becomes one plpgsql RPC; roadmap P1-05 holds the authoritative list of the 8 atomic commands for V2-07, and the D1 confirmation spike in V2-03 plan 03-07 proves the pattern on one of them first) (erratum 2026-11-10, C18):
 - create invoice (header, items, number)
 - record payment
 - complete and sign consultation (visit, prescription, audit, outbox, archival-PDF job)
 - reopen and finalise amendment (snapshot, unlock, re-sign)
 - check-in (token, visit status)
-- waitlist promotion (visit, waitlist status)
-- book or reschedule appointment (exclusion constraint)
-- patient erasure (restriction, revoke tokens, cancel queued messages)
+- walk-in (patient lookup or create, visit, token)
+- register and book (patient, appointment; exclusion constraint)
+- collect (payment against an existing invoice at the desk)
+
+Later candidates, not in P1-05 (illustrative): waitlist promotion, staff reschedule, patient erasure (restriction, revoke tokens, cancel queued messages).
 
 ---
 
@@ -302,7 +374,7 @@ interface AppError {
                      ▼
      metrics: lag (now - min(run_at) where pending), dead count, last run → /api/ready + alerts
 ```
-- **Job kinds:** `message.send`, `webhook.deliver`, `pdf.archive_prescription`, `pdf.receipt`, `ai.summary`, `retention.purge_*`, `erasure.anonymise`, `subscription.renewal_reminder`.
+- **Job kinds:** `message.send`, `webhook.deliver`, `pdf.archive_prescription`, `pdf.receipt`, `ai.reservations_cleanup` (erratum 2026-11-10, AI §11.2), `retention.purge_*`, `erasure.anonymise`, `subscription.renewal_reminder`.
 - **Backoff:** exponential with jitter. `max_attempts` per kind. Dead-letter rows stay for 30 days and can be replayed from an admin UI or script.
 - **Tenant fairness:** the claim orders by `run_at` with a per-tenant cap per batch (window function), so no tenant can starve others.
 
@@ -329,7 +401,7 @@ interface AppError {
 
 - **Unit:** policies, money and time utilities, services with a fake repo.
 - **Integration:** repos and services against an **ephemeral local Supabase**. No hosted project.
-- **Database:** pgTAP for RLS (per role × per table × per command), constraints, triggers and SECURITY DEFINER functions.
+- **Database:** pgTAP for RLS (per role × per table × per command), constraints, triggers, SECURITY DEFINER functions and the atomic-command `SECURITY INVOKER` RPCs (happy path, RLS denial, rollback on failure) (erratum 2026-11-10, C18).
 - **Contract:** OpenAPI generated from zod plus route-coverage tests. Webhook signature vectors.
 
 ---

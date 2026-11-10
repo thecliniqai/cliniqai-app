@@ -50,7 +50,7 @@ M0 Baseline & safety nets ─► M1 Tokens & foundations ─► M2 Primitives & 
 | Work | Detail |
 |---|---|
 | Characterisation e2e (v1) | Playwright specs against the local stack (PR-1) for the 6 critical flows. These assert **outcomes** (DB state, visible results), not v1 selectors, so they survive the redesign. Flows: register patient · walk-in to token · book appointment (incl. overbook path) · cancel · consult → Rx → finish · checkout/collect. |
-| Baseline metrics | axe report per route (Desktop + Pixel 5). Route JS from `next build`. Screenshots at 360/768/1280. Click/keystroke counts for the 6 flows (record in a table in this doc's appendix when run). |
+| Baseline metrics | axe report per route on the `PWA_STRATEGY.md` §9.1 PR-lane projects (Desktop Chrome 1280, Pixel 7, iPhone 15) (erratum 2026-11-10, PWA §12). Route JS from `next build`. Screenshots at 360/768/1280. Click/keystroke counts for the 6 flows (record in a table in this doc's appendix when run). |
 | `/dev/ui` gallery route scaffold | Dev or preview only (`notFound()` in production). |
 | CI checks (report-only mode) | grep guards from `DESIGN_SYSTEM.md` §10. `eslint-plugin-jsx-a11y`. Bundle budget report. |
 
@@ -68,7 +68,7 @@ M0 Baseline & safety nets ─► M1 Tokens & foundations ─► M2 Primitives & 
 |---|---|
 | Tokens | Replace `app/globals.css` with the `DESIGN_SYSTEM.md` §2.4 `@theme` (palette reset **commented out**). Delete the dead `:root` block. |
 | Codemod v1 colours to tokens | Mechanical replace of the most common arbitrary values: `[#1769E0]` → `accent`, `[#EAF2FF]` → `accent-subtle`, `[#B42318]` → `danger-600`, `[#F7F6F3]` → `canvas`, `text-gray-400` → `text-fg-subtle`, and so on (mapping table in the PR). Old screens immediately adopt the new teal, contrast-safe text and canvas. |
-| Fonts | `next/font` IBM Plex Sans (+ Devanagari, Mono) in `app/layout.tsx`. `lang="en-IN"`. `color-scheme: light`. |
+| Fonts | `next/font` IBM Plex Sans (+ Mono) in `app/layout.tsx`; **IBM Plex Sans Devanagari is loaded only where Hindi content renders (public patient pages / print), not in the root layout** (erratum 2026-11-10, PWA §12). `lang="en-IN"`. `color-scheme: light`. |
 | Libraries | `lib/datetime.ts` (clinic TZ, `todayInClinicTz`, `formatDate`, `formatTime`, `formatAge`, relative), `lib/money.ts` (`formatINR`, `parseINR`, paise), `lib/visit-status.ts` (single status map). Unit tests for each. |
 | Replace UTC "today" | 29 sites → `todayInClinicTz()` (UX_AUDIT §2). |
 
@@ -116,6 +116,7 @@ Build in `components/ui` (primitives) and `components/clinical` (patterns), each
 | Route skeletons and errors | `loading.tsx`, `error.tsx`, `not-found.tsx` for every route group |
 | Redirect map | v1 → v2 URLs (`INFORMATION_ARCHITECTURE.md` §3.4) as permanent `redirects()`. New routes initially render the **existing** v1 page components inside the new shell. |
 | Feature flag | `ui_v2` per tenant (DB or env allow-list) plus a per-user cookie override for internal testing |
+| PWA shell items | Manifest, icons, viewport and appleWebApp metadata, SW registration, offline page, online banner, update toast, install entry (`PWA_STRATEGY.md` §8); M3 grows from M to M+ (about 1 extra S) (erratum 2026-11-10, PWA §12) |
 
 **Acceptance criteria**
 
@@ -153,7 +154,7 @@ Order reflects daily frequency × severity (UX_AUDIT §4, §6). Each workflow is
    - add Rx line by keyboard only;
    - collect: ≤ 3.
 3. **Accessibility:** axe 0 serious or critical. Keyboard-only e2e of the golden path. Focus is visible and never obscured. TalkBack smoke test on Pixel viewport (manual, per release).
-4. **Responsive:** golden path passes on the Pixel 5 project (already in `playwright.config.ts`) and Desktop Chrome. Screenshots at 360/768/1280 approved.
+4. **Responsive:** golden path passes on the `PWA_STRATEGY.md` §9.1 device matrix (Desktop Chrome 1280, Pixel 7, iPhone 15 in the PR lane; tablets nightly), replacing the Pixel 5 lane (erratum 2026-11-10, PWA §12). Screenshots at 360/768/1280 approved.
 5. **Resilience:** network-failure test (Playwright route abort) shows a recoverable error, not a lost form. Double-submit produces one record (idempotency).
 6. **Performance:** route first-load JS within budget (≤ 200 kB gz for Today and consult; validate the budget in M0). Today realtime update visible ≤ 2 s after a change made in another browser context (two-context Playwright test).
 7. **Data integrity:** no client-side multi-action chains remain for the workflow (grep check). Composite writes go through one action or RPC.
@@ -166,7 +167,7 @@ Order reflects daily frequency × severity (UX_AUDIT §4, §6). Each workflow is
 | M4.1 | Two-tenant realtime isolation test (events from tenant B never reach A). Role matrix e2e: receptionist cannot start a consult. Doctor sees only their queue by default. Live-region announcements throttled. |
 | M4.2 | Dedup banner shown in all entry points. Shared family phone: results show age and sex. Search returns the minimal projection only (assert no address or allergy fields in the response). |
 | M4.3 | Overbook path creates exactly one patient (regression for F-04). Slot times correct with the device TZ set to UTC (Playwright `timezoneId`). Waitlist promotion notice preserved. |
-| M4.4 | Draft persistence: kill the tab mid-note, reopen, and the content is restored. Concurrent edit in two tabs shows a conflict prompt, not a silent overwrite. Amendment flow parity. AI suggestions marked until accepted. Allergy banner always visible. |
+| M4.4 | Draft persistence: kill the tab mid-note, reopen, and the content is restored **up to the last server autosave (≤ 5 s)** (erratum 2026-11-10, PWA §12). Concurrent edit in two tabs shows a conflict prompt, not a silent overwrite. Amendment flow parity. AI suggestions marked until accepted. Allergy banner always visible. |
 | M4.5 | Amounts formatted en-IN. Paise round-trip exact. Collect is atomic (inject failure after invoice creation: no partial state). Receipt share parity. |
 | M4.6 | Tab sub-routes deep-linkable. Timeline filters in the URL. DPDP export/consent parity (Workstream D). |
 | M4.7 | Every register paginated server-side. Filters in the URL. Public patient pages pass axe and work at 320 px. |
@@ -218,8 +219,8 @@ Order reflects daily frequency × severity (UX_AUDIT §4, §6). Each workflow is
 | Component behaviour | Vitest + jsdom + Testing Library (**Assumption**: approve adding; today there are 0 render tests) or Playwright component tests | Combobox keyboard, MoneyInput parsing, SlotPicker selection, Sheet dirty guard | Blocking from M2 |
 | Visual regression | Playwright `toHaveScreenshot` on `/dev/ui` and key routes at 360/768/1280 with deterministic synthetic data and a frozen clock (`page.clock`) | All primitives and workflows | Blocking from M2. Approved baselines in the repo. |
 | Accessibility | `@axe-core/playwright` on every route and gallery page. Keyboard-only golden paths. | WCAG 2.2 AA (tags `wcag2a`, `wcag2aa`, `wcag21aa`, `wcag22aa`) | Blocking from M2 (gallery), M3 (routes) |
-| E2E | Playwright (Desktop Chrome + Pixel 5 projects already configured) against the local Supabase | 6 golden paths + role matrix + realtime two-context | Blocking from M3 |
-| Performance | `next build` route sizes + Lighthouse CI (mobile, throttled) on Today, Patients, Consult | Budgets | Report in M2, blocking in M5 |
+| E2E | Playwright on the `PWA_STRATEGY.md` §9.1 device matrix (replaces Desktop Chrome + Pixel 5) (erratum 2026-11-10, PWA §12) against the local Supabase | 6 golden paths + role matrix + realtime two-context | Blocking from M3 |
+| Performance | `next build` route sizes + Lighthouse CI (mobile, throttled) on Today, Patients, Consult | Budgets | Report-only from M2 (nightly), blocking at V2-15 (roadmap P1-41) (erratum 2026-11-10, PWA §12) |
 | Manual | TalkBack (Android Chrome), NVDA (Windows Chrome), 200% zoom, real low-end Android device | Per release | Checklist |
 
 **Hard rule.** No frontend test may use `.env` or the hosted Supabase. All runs use PR-1's local stack (shared brief).

@@ -169,7 +169,7 @@ An SPA would need all of that rebuilt as a client-callable API and would ship mo
 | Typeahead (patients, drugs, ICD) | `GET` route handlers + a small `useSearch` hook (debounce 200 ms, `AbortController`, stale-result guard) | Avoids server-action serialisation |
 | **Live Today board** | **Supabase Realtime** (`postgres_changes` on `visits` and `queue_tokens`, tenant + date filter). On event, patch local state from the payload, or refetch the board slice from a route handler. Fallback: poll every 15 s. Show the connection state. | Requirement F-02. **Risk:** Realtime + RLS behaviour must be validated by Workstreams C and D (tenant isolation of change events). |
 | Client cache library (TanStack Query) | **Not adopted initially. Decision gate at M4** | RSC + actions cover most reads. Adopt TanStack Query only if, after the Today and Search spikes, 3 or more surfaces need client-side caching, background refetch or offline persistence (e.g. PRD §5.2 offline-tolerant queue). |
-| Offline drafts (consult) | IndexedDB via a tiny wrapper (`idb-keyval`) storing *draft content only*, encrypted at rest is not possible in the browser, so keep it minimal and clear it on sign-out | **Risk:** clinical data on shared devices. Workstream D to approve (P3). |
+| Offline drafts (consult) | ~~IndexedDB via `idb-keyval`~~ **Rejected for v2.0** (`PWA_STRATEGY.md` §4: no PHI on the device). Consult drafts use server autosave (≤ 5 s) plus an in-memory buffer (erratum 2026-11-10, PWA §12) | Clinical data on shared devices is the reason for rejection. |
 
 ---
 

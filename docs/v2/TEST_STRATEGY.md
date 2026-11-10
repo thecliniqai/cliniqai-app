@@ -130,6 +130,8 @@ Status comes from the isolated run (`p` = passed, `s` = skipped, `f` = failed).
 | `tests/ai/operations-copilot-ui.spec.ts` | C | Asserts **CSS classes and hex colours** (for example `#F1F2F4`, `:44`) in SSR strings. Brittle, and tied to a v1 design that v2 will replace. | 10p |
 | `tests/ai/evals/*.spec.ts` (5 files) | U | Run `parseShorthandLocally`, because `lib/ai/soap-generator.ts:302-318` skips the LLM whenever `VITEST` is set (unless `AI_EVAL_LIVE=true`). They test a regex fallback, **not model behaviour**. The "prescribing guardrail" is never exercised against a real model. | 34p |
 
+**v2 disposition (erratum 2026-11-10, AI §11.2):** the copilot specs (`clinical-copilot.spec.ts`, `operations-copilot-ui.spec.ts` and the copilot parts of `gateway-tools.spec.ts`) are **retired** with the copilots themselves (AI-01 removes both), and the regex "evals" (`tests/ai/evals/*`) are **retired** rather than fixed. They are replaced by the `AI_STRATEGY.md` §7 lanes: L1 unit (every PR), L2 contract with a fake adapter or MSW (every PR) and L3 live eval on synthetic cases (on every model or prompt change). The rows above describe v1 as found.
+
 ### 2.7 Summary by type
 
 | Type | Files (approx.) | Comment |
@@ -198,7 +200,7 @@ Status comes from the isolated run (`p` = passed, `s` = skipped, `f` = failed).
 | **Prescriptions** | prescription-versioning, consultation-flow (DB), dosage (U) | Dosage only | Sign-off immutability (a DB trigger rejects updates to a sealed prescription). Amendment creates a revision. PDF content contains the right patient, drugs and registration number. Only clinicians can sign. |
 | **Billing** | schemas (U), per-visit-billing (DB) | Schemas only | Decimal arithmetic. Partial payments. Overpayment is rejected. Concurrent payments. Invoice numbering is unique per tenant. Receipt PDF. Role restriction (no billing for doctor role, `tests/auth/rbac.spec.ts`). |
 | **MSG91** | provider, webhook, outbox (M) | Good unit coverage | Contract tests at the HTTP boundary with **MSW** (not `vi.stubGlobal`). Outbox **double-dispatch** when two cron invocations overlap (`lib/messaging/dispatcher.ts:129-150` selects and then updates without an atomic claim). Stuck `processing` rows. Webhook signature in production mode (no dev bypass). DLT template IDs. |
-| **AI** | Gateway (U/M), evals (local parser) | Local parser only | PII scrubbing before every provider call (MSW asserts the outbound body has no phone or name). Role gating. Guardrail evals against a **real model** in a separate nightly lane (`AI_EVAL_LIVE=true`) with a pass-rate threshold. Provider-outage fallback. |
+| **AI** | Gateway (U/M), evals (local parser) | Local parser only | Per `AI_STRATEGY.md` §7 (erratum 2026-11-10, AI §11.2): L1 unit (pseudonymisation corpus, post-checks), L2 contract (MSW/fake adapter asserts the outbound body has no phone or name; malformed output gives "could not draft", never regex output; quota released on failure), L3 live eval against a **real model** on synthetic cases with a pass-rate threshold. Entitlement and opt-in gating. Provider-outage fallback. Copilot specs and regex "evals" retired (§2.6). |
 | **Storage / documents** | Provider and path tests (M) | Path guards | Upload, signed URL, expiry and tenant-prefix enforcement against local Supabase Storage. |
 | **DPDP / compliance** | consent, dpdp-rights (DB) | None | Export completeness, erasure/anonymisation, retention rules, consent gating of communications. |
 
@@ -216,7 +218,7 @@ Status comes from the isolated run (`p` = passed, `s` = skipped, `f` = failed).
 | RLS / DB contract | **pgTAP** (`supabase test db`) | Policy matrix, constraints, triggers (immutability, unique tokens), functions such as `create_clinic_with_owner` | PR |
 | HTTP integrations | **MSW** (`msw/node`) | MSG91, AI provider HTTP, S3/R2. Assert the outbound request (no PII to AI, correct DLT IDs) and simulate 4xx, 5xx and timeouts. | PR |
 | Component | **Vitest browser mode** or **Testing Library + jsdom/happy-dom**, for v2 design-system primitives only | Interaction, focus and keyboard behaviour of form controls (phone input, date and time pickers, dialogs). Not CSS classes. | PR |
-| E2E | **Playwright** (already in devDeps), against `next start` built with local-Supabase env | ~10 critical journeys (§7) on a Desktop Chrome and a Pixel 5 profile (`playwright.config.ts` already has both) | PR (smoke subset), nightly (full) |
+| E2E | **Playwright** (already in devDeps), against `next start` built with local-Supabase env | ~10 critical journeys (§7) on the PWA device matrix (`PWA_STRATEGY.md` §9.1): Desktop Chrome 1280, Pixel 7 and iPhone 15 in the PR lane, the phone/tablet matrix nightly; plus PWA specs 1–11 (`tests/e2e/pwa/*.spec.ts`) (erratum 2026-11-10, PWA §12) | PR (smoke subset), nightly (full) |
 | Accessibility | **@axe-core/playwright** | Every page visited in E2E. Zero serious or critical violations. | PR |
 | Visual regression | Playwright `toHaveScreenshot` on a small set of design-system pages | Only once the v2 design system stabilises. Not a primary safety net. | Nightly, P3 |
 | Performance | **k6** (or Artillery) against staging; Lighthouse CI on 3 key pages with mobile throttling | Booking, queue and patient-open p95 under the PRD target of 1–2 s on 3G/4G (`docs/clinic-management-prd.md:170`) | Pre-release |
@@ -244,9 +246,9 @@ Status comes from the isolated run (`p` = passed, `s` = skipped, `f` = failed).
 
 ## 7. Critical journeys for E2E (Playwright)
 
-All journeys run at a **phone viewport (Pixel 5)** and at desktop, with an axe scan on each page.
+All journeys run on the **PWA device matrix** (`PWA_STRATEGY.md` §9.1: Desktop Chrome 1280, Pixel 7 and iPhone 15 in the PR lane (iPhone 15: golden path only); the full phone and tablet matrix nightly), replacing the Pixel 5-only lane, with an axe scan on each page. The PWA-specific specs 1–11 (`tests/e2e/pwa/*.spec.ts`) run alongside (erratum 2026-11-10, PWA §12).
 
-1. **Staff login with OTP** (local Supabase Inbucket/Mailpit, or an SMS hook stub) → lands on the role-appropriate home.
+1. **Staff login with password** (`AUTH_REDESIGN.md` J-A3; Mailpit is used only for the signup, forgot-password and invite journeys) → lands on the role-appropriate home (erratum 2026-11-10, PWA §12 / AUTH).
 
    > Update (2026-11-10, PO decisions): Journey 1 becomes **password login** (AUTH_REDESIGN J-A3). Mailpit is used only for the signup, forgot-password and invite journeys. Journeys run on the PWA device matrix (PWA_STRATEGY §9.1). New suites cover the subscription lifecycle (time-travel pgTAP, Razorpay test-mode webhooks) and AI gating (AI_STRATEGY §7). The pre-release reviewer is an isolated Claude reviewer agent (PO-10).
 2. **Clinic onboarding:** create clinic → the owner membership exists → invite a receptionist → the receptionist joins.
@@ -268,8 +270,8 @@ All journeys run at a **phone viewport (Pixel 5)** and at desktop, with an axe s
 | **Local (pre-push)** | Developer | typecheck, lint, unit, the affected DB tests via `supabase start` | < 3 min | Advisory |
 | **PR** | Every PR to `feature/v2` / `main` | Static checks + unit + DB integration (local Supabase in the GitHub Actions service) + pgTAP + MSW contracts + `next build` (dummy env) + Playwright smoke (journeys 1, 4, 6, 8, 9) + axe + gitleaks + dependency audit | < 15 min | **Blocking.** 0 failures, **0 skipped in the DB lane** |
 | **Preview** | Vercel preview deploy | Playwright smoke against the preview URL, backed by the **staging** Supabase project with synthetic data | < 10 min | Blocking for merge to main |
-| **Nightly** | Cron on `main` | Full Playwright (all journeys × 2 viewports), live AI evals (sandbox key), visual regression, ZAP baseline on staging, `npm audit` | < 60 min | Opens an issue on failure |
-| **Pre-release** | Release candidate tag | All of the above, plus k6 load against staging, Lighthouse mobile, a **restore drill** of the staging backup with the cross-tenant pgTAP suite run against the restored DB, and a manual exploratory pass on a real low-end Android device on a 4G network | Hours | **Release checklist sign-off by a reviewer other than the implementer** |
+| **Nightly** | Cron on `main` | Full Playwright (all journeys on the full `PWA_STRATEGY.md` §9.1 device matrix, plus PWA specs 1–11) (erratum 2026-11-10, PWA §12), live AI evals (sandbox key), visual regression, ZAP baseline on staging, `npm audit` | < 60 min | Opens an issue on failure |
+| **Pre-release** | Release candidate tag | All of the above, plus k6 load against staging, Lighthouse mobile, a **restore drill** of the staging backup with the cross-tenant pgTAP suite run against the restored DB, and a manual exploratory pass on a real low-end Android device on a 4G network | Hours | **Release checklist sign-off by a reviewer other than the implementer:** an isolated Claude reviewer agent that did not implement the change, plus the PO's real-device run (`PWA_STRATEGY.md` §9.2) (erratum 2026-11-10, PWA §12) |
 
 Flaky-test policy: quarantine within 24 h behind a tracked issue. Never use `retries` to hide failures (keep `retries: 2` only in CI for E2E, as configured, and report the retries).
 
@@ -311,7 +313,7 @@ A v2.0 release candidate is acceptable only if **all** of the following hold:
 | T-11 | Include `tests/` in type checking (a `tsconfig.test.json`, or remove the exclude) | P1 | S | — |
 | T-12 | Delete or rewrite the tautological and doc-grep tests (`navigation-roles`, `queue/status-actions`, `ops/backup-restore` §1). Rewrite the mock-based "isolation" tests as DB tests. | P1 | S | T-01 |
 | T-13 | Remove `VITEST`/`NODE_ENV` branches from production code and use explicit injection | P1 | S–M | — |
-| T-14 | Remaining E2E journeys (2, 3, 5, 7, 10) at both viewports | P2 | L | T-10 |
+| T-14 | Remaining E2E journeys (2, 3, 5, 7, 10) on the device matrix; each journey lands with its workflow phase (V2-08 to V2-11; roadmap P1-42) | **P1** (erratum 2026-11-10, C32) | L | T-10 |
 | T-15 | Coverage reporting (`@vitest/coverage-v8`) with thresholds on domain modules | P2 | S | T-03 |
 | T-16 | Live AI eval lane (nightly, sandbox key, pass-rate thresholds, synthetic cases) | P2 | M | — |
 | T-17 | k6 load scripts for booking, queue and patient open; Lighthouse CI mobile | P2 | M | Staging env |

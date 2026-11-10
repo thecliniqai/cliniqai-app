@@ -509,3 +509,139 @@ An isolated reviewer returned "mostly correct and consistent, not ready to sign 
 | Opt. | AI quota during UAT; `?code=` stripping; §11 diagram; TEST_STRATEGY pointer and §9 item 12; THREAT_MODEL AC-7; AUTH AR-5 and §5 item 3; Supabase DPA assumption; this disposition | **All applied.** UAT AI grant = 1,500 drafts per IST calendar month until `free_until` (cost ceiling about ₹225 per clinic per month, Assumption); the 14-day trial keeps 1,500 for the whole trial (PO-21). |
 
 This disposition closes the independence note above for the round-3 edits. The coupon sources [S29]–[S37] were spot-checked by the reviewer (Offers page; "How Subscriptions Work") and match the documents.
+
+---
+
+## P2-DOC errata applied (V2-00, 2026-11-10)
+
+Backlog item P2-DOC (roadmap §10.1). Each correction is made in the body text of the target document and carries a trailing marker "(erratum 2026-11-10, <ruling>)". Line numbers quoted in the P2-DOC row were checked first; shifts are noted.
+
+| # | Target file and section | Ruling | Status |
+|---|---|---|---|
+| 1 | `SECURITY_ASSESSMENT.md` §3 (public API fact): "no tenant-scoping gap" replaced by the lab-orders `storage_path` gap (ARC-06 / API-05, H/P0, P0-05) | C1 | Applied |
+| 2 | `SECURITY_ASSESSMENT.md` §5 (positive controls, `/api/v1` scoping bullet) | C1 | Applied |
+| 3 | `THREAT_MODEL.md` §3.4 row "Tenant scoping in handlers": ✅ → ⚠️ with the ARC-06 gap; 14 handlers → 15 route files (13 data routes) | C1, C6 | Applied |
+| 4 | `API_ASSESSMENT.md` §4 (inbound messaging webhooks row): `dev`/unknown providers have no environment gate; priority P1 → Critical/P0 (P0-03) | C2 | Applied |
+| 5 | `API_ASSESSMENT.md` §7 (findings register): SEC-04 P0 row added | C2 | Applied |
+| 6 | `SECURITY_ASSESSMENT.md` §3 (DB access modes): 5 service-role factories, adds `features/auth/dev-actions.ts` | C3 | Applied |
+| 7 | `ARCHITECTURE_ASSESSMENT.md` §3 (diagram ×4 → ×5; facts list "four" → five, adds `lib/storage/supabase-provider.ts`), register ARC-13 | C3 | Applied |
+| 8 | `ARCHITECTURE_DECISIONS.md` ADR-005 context ("four" → five, listed) | C3 | Applied |
+| 9 | `BACKEND_MIGRATION_PLAN.md` B8 ("three duplicate factories" → four duplicates, 5 in total) | C3 | Applied |
+| 10 | `ARCHITECTURE_ASSESSMENT.md` register ARC-11 (13 → 29 sites); `ARCHITECTURE_DECISIONS.md` ADR-016 context (13 → 29) | C4 | Applied |
+| 11 | `ARCHITECTURE_ASSESSMENT.md` §3 diagram (6 → 8 SECURITY DEFINER functions) | C5 | Applied |
+| 12 | `SECURITY_ASSESSMENT.md` §3; `API_ASSESSMENT.md` intro and §1 table (13 → 15 route files, 13 data routes); `ARCHITECTURE_ASSESSMENT.md` §1 summary and §8 inventory | C6 | Applied |
+| 13 | `DATABASE_ASSESSMENT.md` §2 (44 → 43 distinct tables) and RLS-11 (8 of 44 → 8 of 43) | C7 | Applied |
+| 14 | `ARCHITECTURE_ASSESSMENT.md` §3 facts; `API_ASSESSMENT.md` §1 table and §2.3 ("about 230" → 137 in `features/`, 198 incl. `app/`) | C8 | Applied |
+| 15 | `DATABASE_ASSESSMENT.md` §7 DB-21 retention bullet (NMC 3 years → IMC 2002 reg. 1.3.1 + state rules, ⚖) | C29 | Applied |
+| 16 | `SECURITY_ASSESSMENT.md` §1 executive summary item 1 and SEC-01 heading (4 confirmed browser-reachable; `getPatient`/`getPatients` pending OI-6) | C31 | Applied |
+| 17 | `TEST_STRATEGY.md` §10 T-14 (P2 → P1, per-journey with V2-08 to V2-11, P1-42) | C32 | Applied |
+| 18 | `ARCHITECTURE_DECISIONS.md` index row 003 and ADR-003 body (status Superseded; RPC-per-flow decision; original proposal kept for the record; consequences rewritten) | C18 | Applied |
+| 19 | `ARCHITECTURE_DECISIONS.md` index row 011 and ADR-011 decision (`api_authenticate()` + explicit RPCs or short-lived principal JWT; no `withTenantTx`) | C18 (R7) | Applied |
+| 20 | `ARCHITECTURE_DECISIONS.md` index row 006 and ADR-006 decision (hard-coded `CASE` `has_permission()`, parity unit test, no `role_permissions` table) | C19 | Applied |
+| 21 | C19 knock-ons: `BACKEND_MIGRATION_PLAN.md` §8 role-aware RLS note; `ARCHITECTURE_ASSESSMENT.md` §4.3; `DATABASE_ASSESSMENT.md` RLS-02; `SECURITY_REMEDIATION_PLAN.md` P1-1; `SECURITY_ASSESSMENT.md` SEC-06 remediation; `TARGET_ARCHITECTURE.md` §3.3 | C19 | Applied |
+| 22 | `SECURITY_VERIFICATION_PLAN.md` §2 custom Semgrep rule 2 (dropped; ADR-005 list via ESLint `no-restricted-imports`, P1-34) and the ESLint tool row | C20 | Applied |
+| 23 | `SECURITY_ASSESSMENT.md` SEC-08 … SEC-33: **Component** added to all 25 findings; **Impact** added to SEC-12, 17, 19, 21, 22, 23, 24, 27, 28, 29, 30, 32; **Verification** added to SEC-22, 23, 28, 30, 33 (from `SECURITY_VERIFICATION_PLAN.md` TC-IDs / §4 / §6.1) | P2-DOC template | Applied (content taken from each finding's own evidence and from VERIFICATION_LOG §1.1 / SECURITY_VERIFICATION_PLAN) |
+| 24 | `SECURITY_ASSESSMENT.md` SEC-21, SEC-27, SEC-32 Verification field | P2-DOC template | **Partially applied:** field added but reads "Not specified in the source documents; to be defined in V2-14", because no test case exists in any docs/v2 file |
+| 25 | `TARGET_ARCHITECTURE.md` §3: new §3.9 Frontend framework (§10.1), §3.10 Component library, styling and design system (§10.2/§10.3), §3.11 Testing infrastructure (§10.10), §3.12 Security tooling (§10.11), sourced from FRONTEND_TECHNOLOGY_ASSESSMENT, DESIGN_SYSTEM, TEST_STRATEGY, SECURITY_VERIFICATION_PLAN and roadmap §5/§8 | Consistency review (§4 note) | Applied |
+| 26 | `TEST_STRATEGY.md` §6.1 E2E row and §7 intro (`:247`): Pixel 5 lane → PWA §9.1 device matrix + PWA specs 1–11 | PWA §12 | Applied |
+| 27 | `TEST_STRATEGY.md` §7 journey 1 (`:249`): OTP → password login (J-A3) | PWA §12 / AUTH | Applied |
+| 28 | `TEST_STRATEGY.md` §8 nightly row (`:269`, device matrix) and pre-release sign-off (`:270`, isolated Claude reviewer + PO device run) | PWA §12 | Applied |
+| 29 | `DESIGN_SYSTEM.md` §6.9 save-status text (row cited `:527`, now `:537`) and §6.11 Offline row (cited `:549`, now `:559`): no local drafts | PWA §12 | Applied (line numbers shifted by the earlier PO-decision banner) |
+| 30 | `UX_AUDIT.md` §5.7 save model (`:730`): server autosave + in-memory buffer | PWA §12 | Applied |
+| 31 | `FRONTEND_TECHNOLOGY_ASSESSMENT.md` §6 offline-drafts row (`:172`): `idb-keyval` rejected for v2.0 | PWA §12 | Applied |
+| 32 | `FRONTEND_MIGRATION_PLAN.md` `:71` (Devanagari not in root layout), `:169` M4.4 (restored to last autosave ≤ 5 s), `:222` performance row (report-only from M2, blocking at V2-15); also the Pixel 5 lane (`:156`, `:221`) and the M3 PWA scope row (PWA §12 item 4) | PWA §12 | Applied |
+| 33 | `SECURITY_REMEDIATION_PLAN.md` P1-7: `worker-src 'self'`, `manifest-src 'self'`, `/sw.js` headers | PWA §12 | Applied |
+| 34 | `SECURITY_REMEDIATION_PLAN.md` P1-9 → AI-04/AI-05 | AI §11.2 | Applied |
+| 35 | `THREAT_MODEL.md` SR-8 → AI-04/AI-05, plus a v1-state note under §3.8 | AI §11.2 | Applied |
+| 36 | `DATA_HANDLING.md` §1 sub-processor list and staff-accounts row; §4 processor table: Gemini/OpenAI row → Vertex `asia-south1`; R2 row struck (C23); rows added for AWS S3 backups, SES, Razorpay, Turnstile, HIBP and the India error sink (C39) | AI §11.2, AUTH §10, SUB §13.2, C39, C23, FT-02 | Applied |
+| 37 | `DATA_HANDLING.md` §5 retention schedule: AI-metadata row | AI §11.2 | Applied |
+| 38 | `TARGET_ARCHITECTURE.md` §3.6 (`:146`, `:151`): AI gateway at `lib/integrations/ai`, no AI-summary job; §8 job kinds (`:305`, now `:349`): `ai.summary` → `ai.reservations_cleanup` | AI §11.2 | Applied |
+
+**Second pass (V2-00, 2026-11-10): items deferred by the first pass, now applied.** Same marker convention.
+
+| # | Target file and section | Ruling | Status |
+|---|---|---|---|
+| 39 | `TARGET_ARCHITECTURE.md` §2 diagram (repo.ts = supabase-js + generated types + one plpgsql RPC per atomic command; `lib/db` = user-scoped client + `getSystemDb()`; data path = user JWT → PostgREST/`.rpc()` → RLS; Postgres box adds SECURITY INVOKER RPCs and `has_permission()`) plus a "Data path" note under the diagram | C18 | Applied |
+| 40 | `TARGET_ARCHITECTURE.md` §3.1 operational note (no database URL secret) and §3.2 rewritten in full (RPC-per-flow recommended; Kysely/`withTenantTx` moved to alternative (a), superseded; generated Supabase types; D1 confirmation spike V2-03 plan 03-07); §3.4 layer (3) (user-scoped client; API keys per ADR-011) | C18 | Applied |
+| 41 | `TARGET_ARCHITECTURE.md` §4 module contract (`repo.ts`/`service.ts` comments) and code sample (service → repo `.rpc('record_payment')` → `SECURITY INVOKER` plpgsql sketch); §6 error mapping (`P0001`/`P0002` raised by RPCs); §7 items 1, 3, 5 and the critical-flows intro (→ P1-05); §11 pgTAP bullet | C18 | Applied (§6 and §11 touched for consistency with §4/§7) |
+| 42 | `BACKEND_MIGRATION_PLAN.md` §2 Phase D row; §7 D1 (confirmation spike, V2-03 plan 03-07), D2 (`getUserDb()`, `getSystemDb()`, error mapper, RPC conventions, `supabase gen types`), D3/D4 (one RPC per flow; audit written by the RPC); §8 E1 (`repo.ts`); §10 G4 (ADR-011 explicit RPCs or short-lived principal JWT); §12 risk row (RPC maintainability replaces Kysely/pooler risk) | C18 | Applied |
+| 43 | `ARCHITECTURE_ASSESSMENT.md` §7 type-generation bullet (`supabase gen types`, no `kysely-codegen`); also §1 target recommendation and §6 recommendation (Kysely → RPC-per-flow) | C18 | Applied (§1/§6 added for consistency) |
+| 44 | `DATABASE_ASSESSMENT.md` §10 (`supabase gen types` now and in the target state; `kysely-codegen` dropped) | C18 | Applied |
+| 45 | `TEST_STRATEGY.md` §2.6 v2-disposition note (copilot specs and regex "evals" retired, replaced by AI §7 L1–L3) and the §5 coverage-gap AI row | AI §11.2 (deferred item 4) | Applied |
+| 46 | `PWA_STRATEGY.md` §6.4 invite bullet (AUTH-D1 marker; the body already used the app-token link) and R-checklist: R1 adds Android install → sign in → close → reopen (iOS was already in R2); R11 extended to `/join` from WhatsApp and Gmail in-app browsers on Android and iOS | AUTH §10 (deferred item 6) | Applied |
+| 47 | `AUTH_REDESIGN.md` §3.6: idle local sign-out via `hardSignOut('idle')` with the app-switcher snapshot cover (R14); staff-removal row; new "One exit helper" paragraph routing every sign-out path through `hardSignOut()`; §7 J-A9 cross-referenced to PWA §9.1 specs 1–5. Code-only OTP (no magic links) was already in §2 principle 3 and §3.1/§3.4, so no edit | PWA §12 item 8 (deferred item 7) | Applied |
+| 48 | `SUBSCRIPTIONS_AND_PLANS.md` §5.1 iOS standalone resume edge case ("Confirming your AutoPay…", never re-show "Start trial" while a `created` provider subscription exists); §7.2 layout redirects exclude the PWA §3.1 public assets; new §7.2 item 4 client lock handling (`SUBSCRIPTION_LOCKED`, access level in the resume poll, Realtime unsubscribe, D-8 navigation keeping the session; later items renumbered 5–6, no external references to them) | PWA §12 item 9 (deferred item 7) | Applied |
+| 49 | `SUBSCRIPTIONS_AND_PLANS.md` §7.1 `platform_settings` gains `ai_features jsonb` (AI kill switch). §7.3 key list already matched AI §6.2 (retired names listed), so no edit | AI §11.2 (deferred item 7) | Applied |
+| 50 | `AUTH_REDESIGN.md` §3.1 "Ordering with billing" bullet: marker that the former "Open question SUB" is answered by SUB ruling R4 (mandate required; `incomplete` shows only "Start trial"). The body and the §9 update banner already said so | SUB §13.2 (deferred item 8) | Applied (marker only; substance was already present) |
+| 51 | `GSD_WORKFLOW_ASSESSMENT.md` §5.3: erratum blockquote (8 keys not in the GSD 1.16.0 `config-schema.manifest.json`; `default_reviewers` → `["claude"]` (PO-10); `create_tag` false; `test_command` = `npm run typecheck`) | P1-36 (V2-00) | Applied (handled with the `.planning/config.json` work; leading blockquote banner instead of the trailing "(erratum 2026-11-10, <ruling>)" marker, an accepted exception) |
+| 52 | `API_ASSESSMENT.md` §6 item 3: API-key principal via `api_authenticate()` + per-endpoint RPCs or a short-lived principal JWT; no `withTenantTx` / `SET LOCAL` (found by the G0 docs review) | C18 (ADR-011 amended) | Applied |
+
+**Still not applied:**
+
+| Target | Ruling | Reason |
+|---|---|---|
+| `DESIGN_SYSTEM.md` §4.2 (md/lg Today layouts, QA widths 744/820/1180, safe-area utilities) | PWA §12 item 1 (deferred item 5) | Design work, not an erratum: new layouts belong to the V2-DX design track. Skipped by instruction; still open for V2-DX. |
+
+After the second pass, no file under `docs/v2/` other than `ARCHITECTURE_DECISIONS.md` (ADR-003 "Original proposal", kept for the record), `V2_MASTER_ROADMAP.md` and this log describes Kysely, `DATABASE_URL`, `withTenantTx` or its `SET LOCAL`/`request.jwt.claims` mechanism as the target (re-checked after row 52); every remaining mention is marked superseded (C18).
+
+## G0 review disposition (2026-11-10)
+
+Two independent isolated Claude reviews of V2-00 (config/safety and docs). Every claim was checked against the repo before any change. `.claude/settings.json` is applied by the coordinator, not by the agent that applied this pass.
+
+**Config/safety review (required R1–R9)**
+
+| # | Finding | Disposition |
+|---|---|---|
+| R1 | `Bash(npx eslint*)` has no word boundary (auto-approves `npx eslint-<pkg>`) | Applied by the coordinator in `.claude/settings.json`: `Bash(npx eslint)` + `Bash(npx eslint *)` |
+| R2 | Deny `Read(./supabase/.temp/**)` (folder holds `pooler-url`, `project-ref`, `linked-project.json`; confirmed) | Applied by the coordinator in `.claude/settings.json` |
+| R3 | Missing env-variant deny rules (`.env.test.local`, `.env.staging.local` reads; `.env.development[.local]`, `.env.staging` edits) | Applied by the coordinator in `.claude/settings.json`; `.env.example` and `.env.test` stay readable |
+| R4 | `ask` list for test and env-file commands (`vitest.config.ts:5-20` loads `.env`; scripts use `--env-file=.env`; confirmed) | Applied by the coordinator in `.claude/settings.json` (also `npm run msg91:*`, which uses `--env-file=.env`) |
+| R5 | `.gitignore` did not ignore `.env.production`, `.env.development`, `.env.staging` | Applied: `.env`, `.env.*`, `!.env.example`, `!.env.test` |
+| R6 | `.planning/REQUIREMENTS.md` `[x]` / "completed in Phase 3" contradict the corrected Traceability table; stale "Last updated" | Applied: all checkboxes cleared, each item points to Traceability, footer dated 2026-11-10 (V2-00) |
+| R7 | ADR-0005 says four service-role factories; C3 says five | Applied: five, listed by path |
+| R8 | Rotation record misses `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`; P0-16a counts unsourced | Applied: both names added (read in `lib/storage`); counts dropped, PO-14 deletion cited as not re-verified |
+| R9 | CLAUDE.md test instruction not actionable | Applied: states that `vitest.config.ts` loads `.env`; no vitest/playwright/scripts before V2-01a without PO approval; exact override command (adds `MESSAGING_PROVIDER=dev`); notes that empty overrides are refilled by the loader and that R2 cannot be disabled by override (PO confirms `R2_*` unset) |
+
+**Config/safety review (optional O1–O9)**
+
+| # | Finding | Disposition |
+|---|---|---|
+| O1 | `./.env` rules are cwd-relative; add `**/.env`, `**/.env.local` forms | Applied by the coordinator in `.claude/settings.json` |
+| O2 | Bash deny rules are prefix patterns (bypassable via `awk`, `sed`, `python`, `node -e`, `source`, `cp`); the broader GSD `gsd-secret-read-guard.js` hook lives only in the untracked `settings.local.json` under a hard-coded nvm node path; neither stops a test process from loading `.env` | Applied as recorded limits (this row). Compensations: R4 `ask` rules, CLAUDE.md rule, V2-01a local harness with a non-local-URL guard |
+| O3 | Server-side branch protection on `main` and `feature/v2` | Deferred to the PO (GitHub repository settings; outside the agent's remit). G0 evidence item |
+| O4 | Local pre-commit hook rejecting commits on `main` / `feature/v2` (GSD only warns) | Deferred: `.git/hooks` is untracked and outside the allowed edit set; A2 is satisfied by phase branching + the `git checkout/switch main` deny. Revisit with gitleaks pre-commit (V2-02) |
+| O5 | Record the GSD pin in the repo | Applied: `npx -y @opengsd/gsd-core@1.16.0 --claude --local` in CLAUDE.md. The installer's unpinned `Bash(npx gsd-core *)` allow in `settings.local.json` is noted; the PO removes or pins it locally |
+| O6 | `Bash(git diff*)` → `Bash(git diff *)` | Applied by the coordinator in `.claude/settings.json` (plus bare `Bash(git diff)`) |
+| O7 | Fuller ADR-0005 evidence list | Applied: `features/patients/actions.ts:174,255,278`, `consent.ts:163`, `settings/actions.ts:48,179` (verified) |
+| O8 | `tests/helpers/tenants.ts`: `"node:crypto"` | Applied; isolated suite re-run: 442 passed / 206 skipped / 27 files failing on the dead endpoint (unchanged) |
+| O9 | `workflow.use_worktrees: false` | Applied (key present in the GSD 1.16.0 schema manifest) |
+
+**Docs review (required 1–5)**
+
+| # | Finding | Disposition |
+|---|---|---|
+| 1 | `API_ASSESSMENT.md` §6 item 3 still describes the `withTenantTx` mechanism | Applied (errata row 52, C18) |
+| 2 | `SECURITY_ASSESSMENT.md` SEC-06 remediation still ends with `current_user_role()` | Applied (C19) |
+| 3 | `TARGET_ARCHITECTURE.md` §3.12 "external penetration test after P1" contradicts PO-17 / V2-14 | Applied |
+| 4 | GSD §5.3 row in "Still not applied" is wrong; marker convention | Applied: row removed; errata row 51 added, banner form recorded as an exception |
+| 5 | Closing sentence true only after fix 1 | Applied: reworded to include `SET LOCAL`/`request.jwt.claims`; re-grep after fix 1 finds only superseded mentions (ADR-003 original proposal, `TARGET_ARCHITECTURE.md` §3.2 alternative (a)) |
+
+**Docs review (optional a–m)**
+
+| # | Finding | Disposition |
+|---|---|---|
+| a | ADR-003 status: RPC pattern Proposed pending D1 (R6) | Applied |
+| b | §7 item 1 `getSystemDb` sentence: `auth.uid()` is null under service role | Applied: explicit system-actor argument; system path confirmed in the D1 spike |
+| c | §3.11 "nightly … L1–L3" | Applied: L1/L2 every PR, L3 manual per model/prompt change (AI §7) |
+| d | §3.9 "about 110 server-action functions" | Applied with the C8 count |
+| e | §7 critical-flows list and BACKEND D3 differ from P1-05 | Applied: both aligned to P1-05 (walk-in, register+book, collect); waitlist promotion, reschedule, erasure labelled later candidates |
+| f | DATA_HANDLING §4 markers; log row 36 rulings | Applied: S3 row → FT-02; R2 row → C23; row 36 adds C23, FT-02 |
+| g | Turnstile listed as a patient-data sub-processor | Applied: removed from the patient row. SES kept: "app email content" is not confirmed staff-only; re-check at G2 |
+| h | FRONTEND_MIGRATION_PLAN M0 "Desktop + Pixel 5" | Applied: PWA §9.1 PR-lane projects |
+| i | TEST_STRATEGY §7 intro: iPhone 15 golden path only | Applied |
+| j | SECURITY_REMEDIATION_PLAN principle 3 lists API-key routes in the service-role allow-list | Applied (C20, ADR-011) |
+| k | DB-21: reg. 1.3.1 covers indoor-patient records | Applied |
+| l | SEC-19 severity line vs merge into SEC-04 (H/P0) | Applied: pointer to SEC-04 / P0-03 |
+| m | §2 diagram border overshoot (lines 48, 56–60) and unpadded line 40 | Applied: all box lines 84 columns, padded |
+
+No finding was rejected. Open for G0 sign-off (PO): A1 denied-read log, A2/A3 install and `/gsd-help` evidence, A5 rotation dates, acceptance of P0-16a "not required", O3 branch protection.

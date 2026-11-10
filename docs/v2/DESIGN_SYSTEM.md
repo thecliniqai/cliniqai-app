@@ -534,7 +534,7 @@ Each component lists anatomy, variants, sizes, states, behaviour and a11y. Size 
 - Skeleton blocks use static `sunken`, radius matched to the final element, and real header text where it is known (the page title is shown immediately).
 - Buttons show inline spinners. **Never** a full-screen spinner after first paint.
 - Optimistic UI for queue transitions, chips and Rx line add, with rollback plus an error toast.
-- Save status indicator: "Saving…" / "Saved · 10:42" / "Offline · saved on this device" / "Couldn't save · Retry".
+- Save status indicator: "Saving…" / "Saved · 10:42" / "Offline · not saved. Reconnect to save" / "Couldn't save · Retry". No patient data is stored on the device (`PWA_STRATEGY.md` §4) (erratum 2026-11-10, PWA §12).
 
 ### 6.10 Empty states
 
@@ -556,7 +556,7 @@ Anatomy: 24 px lucide icon in `ink-500` (no illustration), title (`title-3`), on
 | Permission | "You don't have access to register patients. Ask your clinic admin to update your role." Never a raw thrown string. |
 | Route | `error.tsx`: title, short text, **Try again**, **Go to Today**, support reference (request id) |
 | Not found | `not-found.tsx`: "This patient record isn't available" (wrong clinic or deleted, without revealing which) |
-| Offline | Banner + disabled write actions with tooltip reason. Consult drafts saved locally. |
+| Offline | Banner + disabled write actions with tooltip reason. Consult drafts are held **in memory only**, with server autosave ≤ 5 s; nothing is saved on the device (erratum 2026-11-10, PWA §12). |
 
 ---
 

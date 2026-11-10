@@ -2,7 +2,7 @@
 
 **Workstream:** C3 (API and Integration Standards) · **Date:** 2026-11-10 · **Status:** Discovery only.
 **Scope:**
-- The public REST API (`app/api/v1/**`, 13 route files, 25 handlers)
+- The public REST API (`app/api/v1/**`, 15 route files, 13 of them data routes; 25 handlers) (erratum 2026-11-10, C6)
 - Internal HTTP routes (`app/api/{ai,cron,health,ready,invoices,visits,r,reports,reschedule,webhooks}`)
 - The server-action surface, which is an implicit RPC API
 - Outbound webhooks and third-party integrations
@@ -16,8 +16,8 @@ Workstream D covers authentication cryptography, SSRF and inbound webhook verifi
 
 | Surface | Auth | DB client | Count | Notes |
 |---|---|---|---|---|
-| `/api/v1/*` public REST | Bearer API key (`clq_live_…`, SHA-256-hashed) | service-role | 25 handlers in 13 files | Patients, appointments, visits, prescriptions, lab-orders, referrals, patient export, OpenAPI JSON, docs page |
-| Server actions (`"use server"` in `features/*`, `app/(dashboard)/settings/clinic/actions.ts`) | Supabase cookie session (but see API-01) | RLS, sometimes service-role | about 230 exported functions | The **main** API of the product: an RPC over POST with action IDs |
+| `/api/v1/*` public REST | Bearer API key (`clq_live_…`, SHA-256-hashed) | service-role | 25 handlers in 15 route files (13 data routes) (erratum 2026-11-10, C6) | Patients, appointments, visits, prescriptions, lab-orders, referrals, patient export, OpenAPI JSON, docs page |
+| Server actions (`"use server"` in `features/*`, `app/(dashboard)/settings/clinic/actions.ts`) | Supabase cookie session (but see API-01) | RLS, sometimes service-role | 137 `export async function` in `features/` (198 including `app/`) (erratum 2026-11-10, C8) | The **main** API of the product: an RPC over POST with action IDs |
 | `/api/ai/{clinical,operations}-copilot` | Cookie session | RLS | 2 | Streaming. No rate limit or quota |
 | `/api/invoices/[id]/receipt-pdf`, `/api/visits/[id]/prescription-pdf` | Cookie session | RLS | 2 | Binary PDF responses |
 | `/api/r/[token]`, `/api/reports/view`, `/api/reschedule/[token]` (+ page twins `app/r/[token]`, `app/reports/view`) | Bearer token in URL (patient-facing) | service-role | 3 (+2 pages) | Logic duplicated between page and route |
@@ -68,7 +68,7 @@ Workstream D covers authentication cryptography, SSRF and inbound webhook verifi
 
 ### 2.3 Server actions as an API surface
 - **API-01 (P0).** Exported actions accept `clientOverride`/`sessionOverride`. Some switch to service-role when an override is present (`features/patients/actions.ts:174,255,278`; `features/patients/consent.ts:163`; `features/settings/actions.ts:48,179`), and they are reachable from the client bundle. See `ARCHITECTURE_ASSESSMENT.md §4.1`.
-- **Problem (P1):** About 230 exported functions form an undocumented RPC surface. Most have no zod validation of their arguments, and some return raw database error messages.
+- **Problem (P1):** 137 exported async functions in `features/` (198 including `app/`) (erratum 2026-11-10, C8) form an undocumented RPC surface. Most have no zod validation of their arguments, and some return raw database error messages.
 - **Recommendation:** Treat every `"use server"` export as a public endpoint:
   - one input object validated by zod
   - authorisation from the session only
@@ -119,7 +119,7 @@ Workstream D covers authentication cryptography, SSRF and inbound webhook verifi
 | Integration | Current | Findings | Recommendation |
 |---|---|---|---|
 | **MSG91** (WhatsApp, SMS, OTP) plus Twilio and Gupshup adapters | `lib/messaging/providers/*`, template mapping and sync scripts, `communication_queue` outbox | Governance (quiet hours, quota, opt-out) never applied (`lib/messaging/governance.ts` used only by tests). `whatsapp_opt_out` ignored (`features/appointments/actions.ts:82-103`). Inline dispatch processes all tenants' queues in a user request (`lib/messaging/dispatcher.ts:104-110`). Phone written to audit metadata (`:219`). No claim or lease, so duplicate sends are possible | P1: enforce governance at enqueue; claim/lease; scheduler; remove PII from audit. P2: prune unused providers (**Assumption (validate):** MSG91 only in production). |
-| **Inbound messaging webhooks** | `app/api/webhooks/messaging/[provider]/route.ts` (524 lines) handles DLR and button replies that confirm or cancel appointments | Shared secret accepted in the **query string** (`lib/messaging/webhook-helpers.ts:62`). Dev bypass when secrets are unset and not production (`:67-75`). Business actions (cancel or reschedule an appointment) run with service-role through `features/appointments/actions.ts` without idempotency on provider message ID | P1 (Workstream D): header-only secret or HMAC; constant-time compare; store processed provider event IDs (unique) for idempotency. |
+| **Inbound messaging webhooks** | `app/api/webhooks/messaging/[provider]/route.ts` (524 lines) handles DLR and button replies that confirm or cancel appointments | Shared secret accepted in the **query string** (`lib/messaging/webhook-helpers.ts:62`). The `dev` provider and unknown providers are accepted **with no environment gate**, so the route is unauthenticated in production (SEC-04, verified; `lib/messaging/webhook-helpers.ts:30-86`) (erratum 2026-11-10, C2). Business actions (cancel or reschedule an appointment) run with service-role through `features/appointments/actions.ts` without idempotency on provider message ID | **Critical / P0** (SEC-04, roadmap containment item P0-03; erratum 2026-11-10, C2): reject `dev` and unknown providers in production; header-only secret or HMAC; constant-time compare; store processed provider event IDs (unique) for idempotency. |
 | **AI** (Vercel AI SDK v4, Gemini or OpenAI) | `lib/ai/*`, `/api/ai/*`, actions for SOAP, catch-up and Rx suggestions | No per-tenant or per-user rate limit or cost cap. Client-supplied `patientContext` (`app/api/ai/clinical-copilot/route.ts:51-55`). Role list hard-coded (`:37`). Default key fallback `"test-api-key"` (`lib/ai/client.ts:44-48`). No audit of AI usage on PHI | P1: server-side context assembly by `visitId` with authorisation; quota table; usage audit (counts, not content). P2: AI SDK v5 upgrade when convenient. |
 | **PDF** (@react-pdf) | Synchronous render in actions and routes | Archival PDF on sign-off fails silently (`features/consultation/actions.ts:671-678`) | P2: generate archival PDFs in jobs, with retry. |
 | **Storage** (Supabase Storage or R2) | Provider chosen by env (`lib/storage/index.ts:64-82`) | Two code paths, two security models (RLS vs none) | P2: choose one (ADR-014). |
@@ -144,7 +144,7 @@ Workstream D covers authentication cryptography, SSRF and inbound webhook verifi
 
 1. **One handler pipeline** `withApi({ auth: 'apiKey'|'session', scope, input: zodSchema, rateLimit, idempotent }, handler)`. It removes about 600 lines of duplicated boilerplate and makes every cross-cutting fix a single change.
 2. **Handlers call domain services** (`features/<d>/service.ts`) with a `RequestContext` (`TARGET_ARCHITECTURE.md §4`). No handler touches the database directly.
-3. **API-key principal under RLS:** use a per-request transaction with `set_config('request.jwt.claims', '{"sub": <service_principal_user>, "tenant_id": …, "scopes": […]}', true)` and `SET LOCAL ROLE authenticated`. Alternatively, give each key a dedicated "integration" membership. RLS then backstops API traffic as it does UI traffic (ADR-011).
+3. **API-key principal under RLS (ADR-011, amended):** a single `api_authenticate(key_hash)` SECURITY DEFINER RPC verifies the key and returns the principal (tenant, scopes, owning membership). Data access then uses either explicit per-endpoint RPCs that take the principal and enforce tenant and scope in SQL, or RLS through a short-lived JWT minted for the key principal (chosen at G2 only if simpler; it needs the JWT signing secret). No `withTenantTx` / `SET LOCAL` session context (erratum 2026-11-10, C18).
 4. **Scopes:** `patients:read`, `patients:write`, `appointments:*`, `clinical:read`, `clinical:write`, `documents:*`, `exports:create`. Default new keys to read-only.
 5. **Idempotency-Key** header (required on POST), stored in `idempotency_keys(tenant_id, key, request_hash, response, created_at)` for 24 hours.
 6. **Distributed rate limiting** in Postgres. A single `api_authenticate(key_hash)` RPC verifies the key, increments the minute bucket and daily usage atomically, and returns the limit state. No new infrastructure. Upstash Redis is an option if throughput grows.
@@ -172,6 +172,7 @@ Workstream D covers authentication cryptography, SSRF and inbound webhook verifi
 | API-11 | No scopes; key outlives creator; inconsistent actor role | P1 | M |
 | API-15 | Export permission too broad | P1 | S |
 | WH-01/02/03/06 | Webhook payload bug, duplicate delivery, lost events, redirect SSRF | P1 | M |
+| SEC-04 | Inbound messaging webhook: `dev`/unknown providers unauthenticated in production, no environment gate | **P0** (roadmap P0-03; erratum 2026-11-10, C2) | S |
 | MSG | Messaging governance not enforced; inbound webhook idempotency | P1 | M |
 | AI | No AI quotas or audit; client-supplied context | P1 | M |
 | API-09/12/13/14/16, WH-04/05/07 | Usage race, OpenAPI drift, HTTP semantics, pagination, boilerplate, secret display, webhook DX | P2 | M |
