@@ -66,13 +66,13 @@
     {
       "number": "6",
       "name": "API & Launch Readiness",
-      "status": "in_progress"
+      "status": "complete"
     }
   ],
   "next": {
-    "command": "/gsd-progress --next",
-    "label": "Advance to the next step",
-    "reason": "Phase 06 of 13 · 88% · executing"
+    "command": "/gsd-new-milestone",
+    "label": "Start a new milestone",
+    "reason": "All phases complete — start a new milestone"
   },
-  "updated_at": "2026-11-09T16:55:40.523Z"
+  "updated_at": "2026-11-10T03:56:24.453Z"
 }
