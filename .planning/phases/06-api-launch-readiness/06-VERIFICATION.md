@@ -93,7 +93,7 @@ covered_files:
   - tests/compliance/dpdp-rights.spec.ts
   - tests/ops/backup-restore.spec.ts
   - tests/security/dev-logger-lockout.spec.ts
-covered_digest: "v3:sha256:fca1ced0a0a00e1b511b116bd5a6f89f92a23f6781869ca5d5064813fd11dc74"
+covered_digest: "v3:sha256:7fdca6681e57a116ef4c98a86e73d9651e21893d9b446833fda8b6ecc8704f08"
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
