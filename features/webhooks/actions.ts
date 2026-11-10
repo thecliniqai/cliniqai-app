@@ -9,37 +9,13 @@ import { validateWebhookEndpoint } from "@/lib/webhooks/ssrf";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { dispatchWebhookQueueItem } from "@/lib/webhooks/dispatcher";
 
-export interface WebhookSubscriptionItem {
-  id: string;
-  endpointUrl: string;
-  eventTypes: string[];
-  signingSecret: string;
-  isActive: boolean;
-  createdAt: string;
-}
+import type {
+  WebhookSubscriptionItem,
+  WebhookDeliveryLogItem,
+  AllowedWebhookEvent,
+} from "./constants";
 
-export interface WebhookDeliveryLogItem {
-  id: string;
-  subscriptionId: string;
-  eventType: string;
-  payload: string;
-  status: "pending" | "delivered" | "failed" | "dead_letter";
-  retryCount: number;
-  maxRetries: number;
-  responseStatus: number | null;
-  durationMs: number | null;
-  deliveredAt: string | null;
-  createdAt: string;
-}
-
-export const ALLOWED_WEBHOOK_EVENTS = [
-  "appointment.booked",
-  "appointment.cancelled",
-  "appointment.rescheduled",
-  "visit.completed",
-  "lab_result.ready",
-  "prescription.issued",
-] as const;
+export type { WebhookSubscriptionItem, WebhookDeliveryLogItem, AllowedWebhookEvent };
 
 /**
  * Lists all active and inactive webhook subscriptions for the clinic tenant.

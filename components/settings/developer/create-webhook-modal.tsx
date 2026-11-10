@@ -5,7 +5,7 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { ALLOWED_WEBHOOK_EVENTS } from "@/features/webhooks/actions";
+import { ALLOWED_WEBHOOK_EVENTS } from "@/features/webhooks/constants";
 
 export interface CreateWebhookModalProps {
   isOpen: boolean;
