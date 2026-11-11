@@ -1,78 +1,12 @@
 {
   "contract": "1.0.0",
   "flavor": "core",
-  "milestone": null,
-  "phases": [
-    {
-      "number": "1",
-      "name": "Foundation & Tenant Isolation",
-      "status": "complete"
-    },
-    {
-      "number": "2",
-      "name": "Patient Records & Scheduling",
-      "status": "complete"
-    },
-    {
-      "number": "02.1",
-      "name": "UI/UX Re-foundation (TailAdmin)",
-      "status": "complete"
-    },
-    {
-      "number": "3",
-      "name": "Consultation & Prescribing",
-      "status": "complete"
-    },
-    {
-      "number": "03.1",
-      "name": "Doctor Cabin, RBAC & Billing",
-      "status": "complete"
-    },
-    {
-      "number": "03.2",
-      "name": "Patient Visit History & Visits Register",
-      "status": "complete"
-    },
-    {
-      "number": "03.3",
-      "name": "Doctor Availability & Multi-Shift Scheduling",
-      "status": "complete"
-    },
-    {
-      "number": "4",
-      "name": "Labs & Referrals",
-      "status": "complete"
-    },
-    {
-      "number": "5",
-      "name": "Communications & AI Assist",
-      "status": "complete"
-    },
-    {
-      "number": "05.1",
-      "name": "Full MSG91 Integration",
-      "status": "complete"
-    },
-    {
-      "number": "05.2",
-      "name": "Indian Mobile Number Standardization",
-      "status": "complete"
-    },
-    {
-      "number": "05.3",
-      "name": "CliniQ AI Copilot Suite",
-      "status": "complete"
-    },
-    {
-      "number": "6",
-      "name": "API & Launch Readiness",
-      "status": "complete"
-    }
-  ],
+  "milestone": "v2.0 — to be created by `/gsd-new-milestone` from `docs/v2/V2_MASTER_ROADMAP.md` §12",
+  "phases": [],
   "next": {
-    "command": "/gsd:progress",
-    "label": "Show progress",
-    "reason": "Unsure of state — showing progress"
+    "command": "/gsd:discuss-phase",
+    "label": "Discuss the first phase",
+    "reason": "Project initialized — plan your first phase"
   },
-  "updated_at": "2026-11-11T12:27:03.440Z"
+  "updated_at": "2026-11-11T12:29:44.879Z"
 }

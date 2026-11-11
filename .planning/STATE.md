@@ -1,18 +1,16 @@
 ---
 gsd_state_version: "1.0"
-status: Awaiting next milestone
-stopped_at: Phase 06 complete — all phases complete
-last_updated: "2026-11-11T12:27:03.429Z"
+milestone: v2.0
+milestone_name: V2 Master Roadmap
+status: planning
+last_updated: "2026-11-11T12:29:44.878Z"
 last_activity: 2026-11-11
-last_activity_desc: Milestone v1.0 completed and archived
-state_head: 4cae58b1c224b44682ffcc9d753b6487009d05e7
 progress:
-  total_phases: 13
-  completed_phases: 13
-  total_plans: 49
-  completed_plans: 49
-  percent: 100
-current_phase: 06
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,15 +19,15 @@ current_phase: 06
 
 See: .planning/PROJECT.md (updated 2026-11-11)
 
-**Core value:** Every core clinic action is obviously, overwhelmingly faster than the paper/WhatsApp status quo — zero-training, under 3 taps, usable entirely from a phone.
-**Current focus:** Planning milestone v2.0 (v1.0 archived 2026-11-11, override closeout)
+**Core value:** Every core clinic action is obviously faster than the paper/WhatsApp status quo, and no clinic can ever see or change another clinic's data.
+**Current focus:** Milestone v2.0 — next phase 01A (V2-01a Local DB harness); V2-00 complete (G0 2026-11-11)
 
 ## Current Position
 
-Phase: Milestone v1.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-11-11 — Milestone v1.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-11-11 — Milestone v2.0 started
 
 ## Performance Metrics
 
