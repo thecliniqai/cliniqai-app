@@ -1,3 +1,5 @@
+import { createHash, timingSafeEqual } from "node:crypto";
+
 export type Msg91WebhookEvent =
   | {
       type: "dlr";
@@ -20,69 +22,27 @@ export type Msg91WebhookEvent =
     };
 
 /**
- * Validates inbound webhook signatures across supported providers.
- * For MSG91:
- * - Checks 'authkey' header against process.env.MSG91_AUTH_KEY
- * - Checks query param 'secret' or header 'x-webhook-secret' against process.env.MSG91_WEBHOOK_SECRET
- * - Permits dev/test environment bypass when secrets are unset and NODE_ENV !== "production"
+ * Header that carries the MSG91 webhook secret (P0-03, SEC-19). The secret is never accepted from the query string
+ * and the MSG91 API auth key is never accepted as a webhook credential.
  */
-export function verifyWebhookSignature(
-  provider: string,
-  headers: Headers,
-  _rawBody: string,
-  searchParams?: URLSearchParams
-): boolean {
-  if (provider === "dev") {
-    return true;
-  }
+export const MSG91_WEBHOOK_SECRET_HEADER = "x-webhook-secret";
 
-  if (provider === "twilio") {
-    const signature = headers.get("x-twilio-signature");
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    if (!authToken) {
-      return process.env.NODE_ENV !== "production";
-    }
-    if (!signature) return false;
-    // Basic HMAC check
-    return true;
-  }
+function sha256(value: string): Buffer {
+  return createHash("sha256").update(value, "utf8").digest();
+}
 
-  if (provider === "gupshup") {
-    const token = headers.get("token") || headers.get("apikey");
-    const expected = process.env.GUPSHUP_API_KEY;
-    if (!expected) {
-      return process.env.NODE_ENV !== "production";
-    }
-    return token === expected;
-  }
-
-  if (provider === "msg91") {
-    const authKey = headers.get("authkey");
-    const webhookSecret =
-      headers.get("x-webhook-secret") || searchParams?.get("secret");
-
-    const expectedAuthKey = process.env.MSG91_AUTH_KEY;
-    const expectedSecret = process.env.MSG91_WEBHOOK_SECRET;
-
-    // If both secrets are unset in environment
-    if (!expectedAuthKey && !expectedSecret) {
-      return process.env.NODE_ENV !== "production";
-    }
-
-    // Check authkey header
-    if (expectedAuthKey && authKey && authKey === expectedAuthKey) {
-      return true;
-    }
-
-    // Check webhook secret token (header or query param)
-    if (expectedSecret && webhookSecret && webhookSecret === expectedSecret) {
-      return true;
-    }
-
-    return false;
-  }
-
-  return true;
+/**
+ * Verifies an inbound MSG91 webhook (P0-03, D6). Reads the secret only from the `x-webhook-secret` header and
+ * compares it with `MSG91_WEBHOOK_SECRET` in constant time over SHA-256 digests (equal length, so
+ * `timingSafeEqual` never throws and the secret length does not leak). Fails closed: an unset secret rejects every
+ * request in every NODE_ENV.
+ */
+export function verifyMsg91WebhookSecret(headers: Headers): boolean {
+  const expected = process.env.MSG91_WEBHOOK_SECRET;
+  if (!expected) return false;
+  const given = headers.get(MSG91_WEBHOOK_SECRET_HEADER);
+  if (!given) return false;
+  return timingSafeEqual(sha256(given), sha256(expected));
 }
 
 /**
@@ -134,10 +94,7 @@ export function parseInboundAction(
  * Parses unified MSG91 webhook payloads, distinguishing between
  * Outbound Delivery Reports (DLR) and Inbound customer interactions.
  */
-export function parseMsg91Payload(
-  rawBody: string,
-  searchParams?: URLSearchParams
-): Msg91WebhookEvent {
+export function parseMsg91Payload(rawBody: string): Msg91WebhookEvent {
   let parsed: any = {};
 
   if (rawBody) {
@@ -153,9 +110,8 @@ export function parseMsg91Payload(
     }
   }
 
-  // Fallback to searchParams if body is empty or non-object
-  if ((!parsed || Object.keys(parsed).length === 0) && searchParams) {
-    parsed = Object.fromEntries(searchParams.entries());
+  if (!parsed || typeof parsed !== "object") {
+    parsed = {};
   }
 
   // Normalize fields
@@ -221,7 +177,6 @@ export function parseMsg91Payload(
     parsed.from ||
     parsed.mobile ||
     parsed.sender ||
-    searchParams?.get("from") ||
     ""
   ).toString();
   const from = rawFrom.replace(/[^\d+]/g, "");
@@ -264,11 +219,8 @@ export function parseMsg91Payload(
 
   // 3. Check action parameter
   if (!body) {
-    const rawAction =
-      parsed.action ||
-      searchParams?.get("action") ||
-      "";
-    if (rawAction && rawAction.startsWith("btn_")) {
+    const rawAction = typeof parsed.action === "string" ? parsed.action : "";
+    if (rawAction.startsWith("btn_")) {
       buttonId = rawAction;
       body = rawAction;
       isButtonClicked = true;
@@ -280,8 +232,6 @@ export function parseMsg91Payload(
     body = (
       parsed.text ||
       parsed.body ||
-      searchParams?.get("text") ||
-      searchParams?.get("body") ||
       ""
     ).toString();
   }
@@ -291,7 +241,6 @@ export function parseMsg91Payload(
     parsed.reply_msg_id ||
     parsed.context?.id ||
     parsed.context?.message_id ||
-    searchParams?.get("replyMsgId") ||
     undefined;
 
   const action = parseInboundAction(body, isButtonClicked);

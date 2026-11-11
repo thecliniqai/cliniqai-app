@@ -338,53 +338,6 @@ export async function cancelAppointment(
 }
 
 /**
- * Finds active upcoming appointment matching patient phone number.
- */
-export async function findActiveAppointmentByPhone(
-  phone: string,
-  clientOverride?: unknown
-) {
-  const supabase = await getAppointmentsDbClient(clientOverride);
-  const normalizedPhone = phone.replace(/[^0-9]/g, "");
-
-  // Match patients with phone ending with the last 10 digits
-  const last10 = normalizedPhone.slice(-10);
-
-  const { data: patients } = await supabase
-    .from("patients")
-    .select("id, full_name, phone, tenant_id")
-    .ilike("phone", `%${last10}%`);
-
-  if (!patients || patients.length === 0) {
-    return null;
-  }
-
-  const patientIds = (patients as Array<{ id: string }>).map((p) => p.id);
-
-  // Look for scheduled visit that is booked/waiting
-  const { data: visits } = await supabase
-    .from("visits")
-    .select("*")
-    .in("patient_id", patientIds)
-    .eq("origin_type", "scheduled")
-    .in("status", ["booked", "confirmed"])
-    .order("scheduled_at", { ascending: true })
-    .limit(1);
-
-  if (!visits || visits.length === 0) {
-    return null;
-  }
-
-  const visit = visits[0];
-  const patient = (patients as Array<{ id: string; full_name?: string; phone?: string; tenant_id?: string }>).find((p) => p.id === visit.patient_id);
-
-  return {
-    ...visit,
-    patient,
-  };
-}
-
-/**
  * Generates a 24-hour tokenized self-service appointment reschedule link.
  */
 export async function generateRescheduleToken(
