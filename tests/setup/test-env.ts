@@ -37,7 +37,10 @@ const PINNED_IF_SET: Record<string, string[]> = {
  * provider). They may be unset or hold an obvious placeholder, never a real value.
  */
 const PLACEHOLDER_ONLY = ["MSG91_AUTH_KEY", "AI_API_KEY"];
-const PLACEHOLDER_PATTERN = /^(x|test|mock|dummy|fake)([-_].*)?$|not-real/i;
+const PLACEHOLDER_PATTERN = /^x$|-not-real$/;
+
+/** Proxy settings could route even loopback-looking traffic elsewhere; the lane runs without them. */
+const PROXY_VARS = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy", "NODE_USE_ENV_PROXY"];
 
 /**
  * Real-credential or hosted-only variables that must not be present at all in a test run. Their presence means
@@ -203,8 +206,12 @@ export function findTestEnvProblems(env: NodeJS.ProcessEnv): string[] {
   for (const key of PLACEHOLDER_ONLY) {
     const value = env[key];
     if (value && !PLACEHOLDER_PATTERN.test(value)) {
-      problems.push(`${key} must be unset or a placeholder (e.g. "test-…-not-real") in the test lane`);
+      problems.push(`${key} must be unset, "x" or end in "-not-real" in the test lane`);
     }
+  }
+
+  for (const key of PROXY_VARS) {
+    if (env[key]) problems.push(`${key} must not be set in the test lane (unset proxies before running tests)`);
   }
 
   for (const key of FORBIDDEN_VARS) {

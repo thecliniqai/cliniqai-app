@@ -7,7 +7,7 @@
  */
 import path from "node:path";
 import { assertLocalTestEnv } from "./test-env";
-import { startRun, teardownRun } from "./teardown";
+import { releaseRunLock, startRun, teardownRun } from "./teardown";
 
 const ROOT = path.resolve(__dirname, "../..");
 
@@ -16,14 +16,18 @@ export default async function setup(): Promise<() => Promise<void>> {
   const marker = await startRun(ROOT);
 
   return async () => {
-    if (process.env.TEST_KEEP_DATA === "1") {
-      console.warn(`[teardown] TEST_KEEP_DATA=1: keeping data created since ${marker.startedAt}`);
-      return;
+    try {
+      if (process.env.TEST_KEEP_DATA === "1") {
+        console.warn(`[teardown] TEST_KEEP_DATA=1: keeping data created since ${marker.startedAt}`);
+        return;
+      }
+      const report = await teardownRun(ROOT, marker);
+      console.log(
+        `[teardown] removed run data: ${report.tenants} tenant(s), ${report.users} auth user(s), ` +
+          `${report.storageObjects} storage object(s); verified none remain`,
+      );
+    } finally {
+      releaseRunLock(marker.lockFile);
     }
-    const report = await teardownRun(ROOT, marker);
-    console.log(
-      `[teardown] removed run data: ${report.tenants} tenant(s), ${report.users} auth user(s), ` +
-        `${report.storageObjects} storage object(s); verified none remain`,
-    );
   };
 }

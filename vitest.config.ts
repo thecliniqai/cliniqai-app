@@ -11,6 +11,8 @@ loadLocalStackKeys(__dirname);
 assertLocalTestEnv();
 
 export default defineConfig({
+  // Vite would otherwise read .env / .env.local from disk (VITE_* keys only, but the lane reads no .env at all).
+  envDir: false,
   test: {
     globals: true,
     environment: "node",

@@ -110,11 +110,19 @@ describe("test-env guard rules", () => {
   });
 
   it.each(["MSG91_AUTH_KEY", "AI_API_KEY"])("allows only placeholders for %s", (key) => {
-    for (const ok of ["x", "test-msg91-auth-key-not-real", "mock-key", "test_api_key"]) {
+    for (const ok of ["x", "test-msg91-auth-key-not-real"]) {
       expect(findTestEnvProblems(safeEnv({ [key]: ok }))).toEqual([]);
     }
-    expect(findTestEnvProblems(safeEnv({ [key]: "a1b2c3d4e5f6realLookingKey" }))).toContain(
-      `${key} must be unset or a placeholder (e.g. "test-…-not-real") in the test lane`,
+    for (const bad of ["a1b2c3d4e5f6realLookingKey", "test_a1b2c3d4realKey", "not-real-prefix-then-real"]) {
+      expect(findTestEnvProblems(safeEnv({ [key]: bad }))).toContain(
+        `${key} must be unset, "x" or end in "-not-real" in the test lane`,
+      );
+    }
+  });
+
+  it.each(["HTTPS_PROXY", "http_proxy", "NODE_USE_ENV_PROXY"])("refuses proxy variable %s", (key) => {
+    expect(findTestEnvProblems(safeEnv({ [key]: "1" }))).toContain(
+      `${key} must not be set in the test lane (unset proxies before running tests)`,
     );
   });
 
@@ -162,6 +170,31 @@ describe("worker network block", () => {
       'Test lane blocked a network request to non-local host "abcdefghijklmnop.supabase.co"',
     );
     await expect(fetch(new URL("https://example.com/hook"))).rejects.toThrow(/non-local host "example.com"/);
+  });
+
+  it("refuses raw sockets to non-loopback hosts (node:https, AWS SDK, etc.)", async () => {
+    const https = await import("node:https");
+    const err = await new Promise<Error>((resolve) => {
+      const req = https.request("https://example.com/", () => resolve(new Error("connected")));
+      req.on("error", resolve);
+      req.end();
+    });
+    expect(err.message).toMatch(/non-local host "example.com"|non-local host "93.184.216.34"/);
+  });
+
+  it("answers DNS for non-loopback names offline with a fixed public address", async () => {
+    const dns = await import("node:dns");
+    const { TEST_PUBLIC_ADDRESS } = await import("./worker-guard");
+    await expect(dns.promises.lookup("partner-a.example.com", { all: true })).resolves.toEqual([
+      { address: TEST_PUBLIC_ADDRESS, family: 4 },
+    ]);
+    const local = await dns.promises.lookup("localhost");
+    expect(["127.0.0.1", "::1"]).toContain(local.address);
+  });
+
+  it("refuses to load .env files in workers", () => {
+    expect(() => process.loadEnvFile(".env")).toThrow("Test lane refused to load .env");
+    expect(() => process.loadEnvFile(".env.local")).toThrow("Test lane refused to load .env.local");
   });
 
   it("still allows the local stack", async () => {

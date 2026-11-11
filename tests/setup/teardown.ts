@@ -3,23 +3,31 @@
  *
  * A "run" is everything created on the local stack after the run started, measured on the server's clock. That
  * catches rows created by helpers, by specs directly, and by RPCs (e.g. `create_clinic_with_owner`), without
- * relying on names or email patterns. Deletion order follows the migration FK graph (000001–000018):
- *   1. storage objects under each run tenant's prefixes (no FK ties them to rows, so the cascade misses them);
- *   2. `DELETE FROM tenants` — every tenant-scoped table cascades from `tenants`;
- *   3. leak check — 23 columns reference `auth.users` with NO ACTION; any remaining reference to a run user means
- *      a run user wrote into a tenant outside the run, which is an isolation bug, so teardown fails loudly;
+ * relying on names or email patterns. One run per local stack: `startRun` takes a lock and fails fast if
+ * another run holds it, so one run's teardown can never delete another run's data. Order (migration FK graph):
+ *   1. leak check, BEFORE anything is deleted — 23 columns reference `auth.users` with NO ACTION; a run user
+ *      referenced from a tenant outside the run means a cross-tenant write (isolation bug): fail loudly, delete
+ *      nothing, keep everything for inspection;
+ *   2. storage objects under each run tenant's prefixes (no FK ties them to rows, so the cascade misses them);
+ *   3. `DELETE FROM tenants` — every tenant-scoped table cascades from `tenants`;
  *   4. delete run auth users (memberships, sessions and identities cascade);
  *   5. verify nothing created during the run remains.
  * `session_replication_role = replica` is never used: it disables the FK triggers that implement the cascade.
  *
+ * Not covered (accepted, synthetic and idempotent): fixture rows a spec upserts into global reference tables
+ * (e.g. `test-cdci-*` in `cdci_medicines_search`). A run that is killed before teardown leaves its data;
+ * `npx supabase db reset --local` clears it.
+ *
  * Only ever runs after `assertLocalTestEnv()` has passed, with the local service-role key.
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertLocalTestEnv } from "./test-env";
 
-/** Columns referencing auth.users without ON DELETE (migration FK graph, 000002–000013). */
+/** Columns referencing auth.users with NO ACTION (migrations 000002–000013); checked against the live catalog by
+ * tests/setup/teardown.spec.ts so the list cannot drift. Every one of these tables has `tenant_id`. */
 export const NO_ACTION_USER_REFS: ReadonlyArray<readonly [table: string, column: string]> = [
   ["invitations", "created_by"],
   ["invitations", "consumed_by"],
@@ -43,6 +51,7 @@ export const NO_ACTION_USER_REFS: ReadonlyArray<readonly [table: string, column:
   ["document_share_tokens", "created_by"],
   ["referrals", "referring_doctor_id"],
   ["referrals", "closed_by"],
+  ["schedule_blocks", "created_by"],
 ];
 
 /** Storage prefixes a tenant's objects live under (000008, 000013; pdf/labs/referral generators). */
@@ -62,6 +71,8 @@ export interface RunMarker {
   startedAt: string;
   /** Side-effect files that already existed before the run (left alone). */
   preexistingFiles: string[];
+  /** Lock file held for the duration of the run. */
+  lockFile: string;
 }
 
 export interface TeardownReport {
@@ -92,15 +103,63 @@ export async function serverNow(env: NodeJS.ProcessEnv = process.env, marginMs =
   });
   if (!res.ok) throw new Error(`Local stack health check failed (HTTP ${res.status}); is \`npx supabase start\` running?`);
   const date = res.headers.get("date");
-  const ms = date ? Date.parse(date) : Date.now();
+  const ms = date ? Date.parse(date) : NaN;
+  if (Number.isNaN(ms)) throw new Error("Local stack did not return a usable Date header; cannot mark the run start");
   return new Date(ms - marginMs).toISOString();
 }
 
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/** One test run per local stack. A lock left by a dead process is taken over. */
+export function acquireRunLock(env: NodeJS.ProcessEnv = process.env): string {
+  const url = new URL(env.NEXT_PUBLIC_SUPABASE_URL!);
+  const lockFile = path.join(os.tmpdir(), `clinicos-test-lane-${url.hostname.replace(/[^a-z0-9]/gi, "_")}-${url.port}.lock`);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      fs.writeFileSync(lockFile, String(process.pid), { flag: "wx" });
+      return lockFile;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      const holder = Number(fs.readFileSync(lockFile, "utf8"));
+      if (Number.isInteger(holder) && holder > 0 && pidAlive(holder)) {
+        throw new Error(
+          `Another test run (pid ${holder}) is using the local stack at ${url.host}. Run one at a time: ` +
+            "teardown deletes everything created during a run.",
+        );
+      }
+      fs.rmSync(lockFile, { force: true });
+    }
+  }
+  throw new Error(`Could not acquire the test-run lock ${lockFile}`);
+}
+
+export function releaseRunLock(lockFile: string): void {
+  try {
+    if (Number(fs.readFileSync(lockFile, "utf8")) === process.pid) fs.rmSync(lockFile, { force: true });
+  } catch {
+    // already gone
+  }
+}
+
 export async function startRun(rootDir: string, env: NodeJS.ProcessEnv = process.env): Promise<RunMarker> {
-  return {
-    startedAt: await serverNow(env),
-    preexistingFiles: SIDE_EFFECT_FILES.filter((f) => fs.existsSync(path.join(rootDir, f))),
-  };
+  const lockFile = acquireRunLock(env);
+  try {
+    return {
+      startedAt: await serverNow(env),
+      preexistingFiles: SIDE_EFFECT_FILES.filter((f) => fs.existsSync(path.join(rootDir, f))),
+      lockFile,
+    };
+  } catch (e) {
+    releaseRunLock(lockFile);
+    throw e;
+  }
 }
 
 async function runTenantIds(admin: SupabaseClient, since: string, userIds: string[]): Promise<string[]> {
@@ -174,24 +233,29 @@ async function removeTenantObjects(admin: SupabaseClient, tenantIds: string[]): 
   return removed;
 }
 
-async function assertNoLeakedReferences(admin: SupabaseClient, userIds: string[]): Promise<void> {
+/**
+ * Rows in tenants OUTSIDE the run that reference a run user through a NO ACTION column. Any hit means a run user
+ * wrote into a tenant the run did not create.
+ */
+export async function findLeakedReferences(
+  admin: SupabaseClient,
+  userIds: string[],
+  runTenantIds: string[],
+): Promise<string[]> {
   const leaks: string[] = [];
+  if (!userIds.length) return leaks;
   for (const [table, column] of NO_ACTION_USER_REFS) {
     let total = 0;
     for (const part of chunks(userIds)) {
-      const { count, error } = await admin.from(table).select("*", { count: "exact", head: true }).in(column, part);
+      let q = admin.from(table).select("*", { count: "exact", head: true }).in(column, part);
+      if (runTenantIds.length) q = q.not("tenant_id", "in", `(${runTenantIds.join(",")})`);
+      const { count, error } = await q;
       if (error) throw new Error(`teardown: leak check on ${table}.${column} failed: ${error.message}`);
       total += count ?? 0;
     }
     if (total) leaks.push(`${table}.${column}: ${total} row(s)`);
   }
-  if (leaks.length) {
-    throw new Error(
-      "teardown: run users are still referenced by rows outside the run's tenants (possible cross-tenant write). " +
-        "Nothing further was deleted.\n  " +
-        leaks.join("\n  "),
-    );
-  }
+  return leaks;
 }
 
 export async function teardownRun(
@@ -203,14 +267,21 @@ export async function teardownRun(
   const userIds = await runUserIds(admin, marker.startedAt);
   const tenantIds = await runTenantIds(admin, marker.startedAt, userIds);
 
+  const leaks = await findLeakedReferences(admin, userIds, tenantIds);
+  if (leaks.length) {
+    throw new Error(
+      "teardown: run users are referenced by rows in tenants outside the run (possible cross-tenant write). " +
+        "Nothing was deleted; inspect, then `npx supabase db reset --local`.\n  " +
+        leaks.join("\n  "),
+    );
+  }
+
   const storageObjects = await removeTenantObjects(admin, tenantIds);
 
   for (const part of chunks(tenantIds)) {
     const { error } = await admin.from("tenants").delete().in("id", part);
     if (error) throw new Error(`teardown: deleting run tenants failed: ${error.message}`);
   }
-
-  await assertNoLeakedReferences(admin, userIds);
 
   for (const id of userIds) {
     const { error } = await admin.auth.admin.deleteUser(id);
