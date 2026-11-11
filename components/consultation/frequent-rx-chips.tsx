@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Pill, Plus, Check, Sparkles } from "lucide-react";
+import { Pill, Plus, Check, History } from "lucide-react";
 import { getFrequentPrescriptionsAction } from "@/features/ai/actions";
 import { PrescriptionSuggestion } from "@/lib/ai/types";
 
@@ -73,7 +73,7 @@ export function FrequentRxChips({
   return (
     <div className="py-2 space-y-1.5 transition-all">
       <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500">
-        <Sparkles className="h-3 w-3 text-brand-600" />
+        <History className="h-3 w-3 text-gray-400" aria-hidden="true" />
         <span>Frequently Prescribed by You for &ldquo;{diagnosis}&rdquo;:</span>
       </div>
 

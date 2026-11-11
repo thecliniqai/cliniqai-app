@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { getDoctorFrequentPrescriptions } from "@/lib/ai/prescription-suggestions";
 import { generatePatientCatchUpSummary } from "@/lib/ai/catch-up-summary";
-import { OpenAiGatewayClient } from "@/lib/ai/client";
+import type { AiChatClient } from "@/lib/ai/client";
+
+// AI-01: tests inject a fake adapter; there is no mock provider.
+function fakeAiClient(output: string) {
+  const chatCompletion = vi.fn<AiChatClient["chatCompletion"]>().mockResolvedValue(output);
+  return { client: { chatCompletion } satisfies AiChatClient, chatCompletion };
+}
 
 describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up Summary (REQ-ai-features, T-05-11, T-05-10)", () => {
   describe("Zero-Hallucination SQL Suggestions (T-05-11)", () => {
@@ -156,11 +162,15 @@ describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up S
         })),
       };
 
+      const fake = fakeAiClient("{}");
       const summary = await generatePatientCatchUpSummary({
         tenantId: "tenant-123",
         patientId: "patient-new",
         clientOverride: mockSupabase,
+        aiClientOverride: fake.client,
       });
+
+      expect(fake.chatCompletion).not.toHaveBeenCalled();
 
       expect(summary.last_visit_date).toBeNull();
       expect(summary.last_diagnosis).toBeNull();
@@ -218,8 +228,7 @@ describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up S
         }),
       };
 
-      const mockAiClient = new OpenAiGatewayClient({ provider: "mock" });
-      const mockChatCompletion = vi.spyOn(mockAiClient, "chatCompletion").mockResolvedValue(
+      const { client: mockAiClient, chatCompletion: mockChatCompletion } = fakeAiClient(
         JSON.stringify({
           bullets: [
             "Last seen 12 days ago for Essential Hypertension.",

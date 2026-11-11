@@ -1,8 +1,9 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import {
+  AiUnavailableError,
+  AiUnavailableReason,
   generateSoapFromShorthand,
   generatePatientCatchUpSummary,
   getDoctorFrequentPrescriptions,
@@ -12,11 +13,28 @@ import {
   AnonymizedPatientContext,
 } from "@/lib/ai";
 
-export interface GenerateSoapActionResult {
-  success: boolean;
-  draft?: SoapDraft;
-  error?: string;
+/** Typed "AI unavailable" result (AI-01): no draft, no reason detail beyond the code. */
+export interface AiUnavailableResult {
+  success: false;
+  code: "AI_UNAVAILABLE";
+  reason: AiUnavailableReason;
+  error: "AI unavailable";
 }
+
+export interface AiActionErrorResult {
+  success: false;
+  code: "ERROR";
+  error: string;
+}
+
+function aiUnavailable(reason: AiUnavailableReason): AiUnavailableResult {
+  return { success: false, code: "AI_UNAVAILABLE", reason, error: "AI unavailable" };
+}
+
+export type GenerateSoapActionResult =
+  | { success: true; draft: SoapDraft }
+  | AiUnavailableResult
+  | AiActionErrorResult;
 
 export async function generateSoapAction(input: {
   shorthand: string;
@@ -30,19 +48,17 @@ export async function generateSoapAction(input: {
     });
     return { success: true, draft };
   } catch (err: unknown) {
-    console.error("[generateSoapAction] Error generating SOAP draft:", err);
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to generate clinical notes from shorthand.",
-    };
+    if (err instanceof AiUnavailableError) return aiUnavailable(err.reason);
+    // Never log the error object: it may carry clinical text.
+    console.error("[generateSoapAction] failed");
+    return { success: false, code: "ERROR", error: "Failed to generate clinical notes." };
   }
 }
 
-export interface GetPatientCatchUpActionResult {
-  success: boolean;
-  summary?: CatchUpSummary;
-  error?: string;
-}
+export type GetPatientCatchUpActionResult =
+  | { success: true; summary: CatchUpSummary }
+  | AiUnavailableResult
+  | AiActionErrorResult;
 
 export async function getPatientCatchUpSummaryAction(input: {
   patientId: string;
@@ -55,11 +71,9 @@ export async function getPatientCatchUpSummaryAction(input: {
     });
     return { success: true, summary };
   } catch (err: unknown) {
-    console.error("[getPatientCatchUpSummaryAction] Error:", err);
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to generate patient catch-up summary.",
-    };
+    if (err instanceof AiUnavailableError) return aiUnavailable(err.reason);
+    console.error("[getPatientCatchUpSummaryAction] failed");
+    return { success: false, code: "ERROR", error: "Failed to generate patient catch-up summary." };
   }
 }
 
@@ -93,39 +107,3 @@ export async function getFrequentPrescriptionsAction(input: {
     };
   }
 }
-
-export interface SuggestIcd10ActionResult {
-  success: boolean;
-  candidates: Array<{ code: string; description: string; differential_criteria: string }>;
-  error?: string;
-}
-
-export async function suggestIcd10Action(input: {
-  query: string;
-  specialty?: string;
-}): Promise<SuggestIcd10ActionResult> {
-  try {
-    const session = await requirePermission("consultations:view");
-    const supabase = await createClient();
-    const { getClinicalTools } = await import("@/lib/ai/tools/clinical-tools");
-    const clinicalTools = getClinicalTools({
-      tenantId: session.tenantId,
-      userId: session.userId,
-      role: session.role,
-      supabase,
-    });
-    const result = await clinicalTools.suggest_icd10.execute(
-      { query: input.query, specialty: input.specialty },
-      { toolCallId: `call_${Date.now()}`, messages: [] }
-    );
-    return { success: true, candidates: result.candidates };
-  } catch (err: unknown) {
-    console.error("[suggestIcd10Action] Error:", err);
-    return {
-      success: false,
-      candidates: [],
-      error: err instanceof Error ? err.message : "Failed to suggest ICD-10 codes.",
-    };
-  }
-}
-

@@ -6,8 +6,7 @@ import { useSidebar } from "./sidebar-context";
 import { UserDropdown } from "./user-dropdown";
 import { GlobalSearchModal } from "./global-search-modal";
 import { NotificationBell } from "@/components/notifications/notification-bell";
-import { OperationsCopilotDrawer } from "@/components/ai/operations-copilot-drawer";
-import { Menu, PanelLeftClose, PanelLeft, Search, Sparkles } from "lucide-react";
+import { Menu, PanelLeftClose, PanelLeft, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface AppHeaderProps {
@@ -21,10 +20,8 @@ export function AppHeader({ tenantName, role, userEmail }: AppHeaderProps) {
   const isConsultation = pathname?.startsWith("/consultation");
   const { isExpanded, toggleSidebar, toggleMobileSidebar } = useSidebar();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
-  // Global Cmd+K / Ctrl+K keyboard shortcut for CliniQ Copilot
-  // Cmd+/ for Global Search
+  // "/" (outside inputs) or Cmd/Ctrl+/ opens Global Search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if inside input / textarea
@@ -35,10 +32,7 @@ export function AppHeader({ tenantName, role, userEmail }: AppHeaderProps) {
           target.tagName === "TEXTAREA" ||
           target.isContentEditable);
 
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setIsCopilotOpen((prev) => !prev);
-      } else if (
+      if (
         ((e.metaKey || e.ctrlKey) && e.key === "/") ||
         (!isInput && e.key === "/" && !e.metaKey && !e.ctrlKey)
       ) {
@@ -111,7 +105,7 @@ export function AppHeader({ tenantName, role, userEmail }: AppHeaderProps) {
           </button>
         </div>
 
-        {/* Right section: Mobile search, Copilot trigger, Notifications, User profile */}
+        {/* Right section: Mobile search, Notifications, User profile */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Mobile search trigger */}
           <button
@@ -121,17 +115,6 @@ export function AppHeader({ tenantName, role, userEmail }: AppHeaderProps) {
             aria-label="Search patients"
           >
             <Search className="w-5 h-5" />
-          </button>
-
-          {/* CliniQ Operations Copilot Trigger Button */}
-          <button
-            type="button"
-            onClick={() => setIsCopilotOpen((prev) => !prev)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer"
-            title="CliniQ Copilot (⌘K)"
-            aria-label="Toggle CliniQ Operations Copilot"
-          >
-            <Sparkles className="w-4.5 h-4.5 text-[#1769E0]" />
           </button>
 
           <NotificationBell />
@@ -148,12 +131,6 @@ export function AppHeader({ tenantName, role, userEmail }: AppHeaderProps) {
       <GlobalSearchModal
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
-      />
-
-      {/* CliniQ Global Operations Copilot Drawer */}
-      <OperationsCopilotDrawer
-        open={isCopilotOpen}
-        onClose={() => setIsCopilotOpen(false)}
       />
     </>
   );

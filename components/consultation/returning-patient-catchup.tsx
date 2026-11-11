@@ -55,14 +55,18 @@ export function ReturningPatientCatchup({
 
     try {
       const res = await getPatientCatchUpSummaryAction({ patientId });
-      if (res.success && res.summary) {
+      if (res.success) {
         setSummary(res.summary);
         setIsExpanded(true);
       } else {
-        setError(res.error || "Failed to generate summary.");
+        setError(
+          res.code === "AI_UNAVAILABLE"
+            ? "AI catch-up is unavailable. Past visits are in the history tab."
+            : "Failed to generate summary."
+        );
       }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load summary.");
+    } catch {
+      setError("Failed to load summary.");
     } finally {
       setIsLoading(false);
     }
