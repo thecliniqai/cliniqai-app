@@ -19,7 +19,9 @@ Every core clinic action (book, prescribe, record a visit) is obviously, overwhe
 
 ### Validated
 
-(None yet — ship to validate)
+None. v1.0 built all 18 requirements below but closed without verification (override closeout,
+see `MILESTONES.md`); the v2 assessment found P0 defects. They are re-specified for v2.0 in
+`docs/v2/V2_MASTER_ROADMAP.md` §10.
 
 ### Active
 
@@ -57,6 +59,9 @@ Full definitions with acceptance criteria: `.planning/REQUIREMENTS.md`
 
 ## Context
 
+- **v1.0 (2026-11-11):** 13 phases / 49 plans shipped to `main` (tag `v1.0-mvp-baseline`), closed as an
+  override closeout. Superseded by milestone v2.0, whose sources of truth are the approved `docs/v2/`
+  documents and `CLAUDE.md`; where this file disagrees with them (pricing, design authority, auth), they win.
 - **Repo state**: Documentation-only brownfield — no application source tree yet (`.planning/codebase/` map, docs-only repo, 0 commits). First scaffold starts clean per AGENTS.md §6.2/§22 structure.
 - **Source of truth**: `docs/clinic-management-prd.md` (PRD v1.0, confidence: high); ingest summary at `.planning/intel/SYNTHESIS.md`, conflict report at `.planning/INGEST-CONFLICTS.md` (0 blockers).
 - **UI authority**: `DESIGN.md` — light theme only, canonical design system.
@@ -82,4 +87,4 @@ No ADR-locked decisions from this ingest (0 ADR classifications; see `.planning/
 | Billing module included as PROVISIONAL scope | Source flagged §4.10/§9.1 as unconfirmed assumption — kept in roadmap, explicitly marked | ⚠️ Revisit — confirm with owner before Phase 3 build |
 
 ---
-*Last updated: 2026-10-06 after initial doc ingest (gsd-roadmapper)*
+*Last updated: 2026-11-11 after v1.0 milestone (override closeout)*
