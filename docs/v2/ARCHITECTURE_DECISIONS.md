@@ -104,6 +104,7 @@
   - (+) Closes an unauthenticated cross-tenant hole.
   - (−) Tests must be restructured (Workstream E).
 - **Evidence:** `features/patients/actions.ts:174,255,278`; `features/patients/consent.ts:163`; `features/settings/actions.ts:48,179`; client imports listed in ARCHITECTURE_ASSESSMENT §4.1.
+- **Canonical text:** `docs/adr/0005-confine-service-role-client.md`, amended at G0 (scope, factory home `lib/supabase/system.ts`, ESLint rule set, exception register, SEC-02 verification) (erratum 2026-11-10, C50).
 
 ## ADR-006: Role-aware RLS from a single permission source; composite tenant FKs
 - **Context:**

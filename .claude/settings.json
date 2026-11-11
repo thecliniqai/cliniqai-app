@@ -49,7 +49,21 @@
       "Read(**/.env.production)",
       "Edit(**/.env)",
       "Edit(**/.env.local)",
-      "Write(**/.env)"
+      "Write(**/.env)",
+      "Write(./.env.local)",
+      "Write(./.env.development)",
+      "Write(./.env.development.local)",
+      "Write(./.env.production.local)",
+      "Write(./.env.staging)",
+      "Write(./.env.staging.local)",
+      "Write(./.env.test.local)",
+      "Write(**/.env.local)",
+      "Write(**/.env.*.local)",
+      "Write(**/.env.production)",
+      "Edit(**/.env.*.local)",
+      "Edit(**/.env.production)",
+      "Edit(./.env.staging.local)",
+      "Edit(./.env.test.local)"
     ],
     "allow": [
       "Bash(npm run typecheck)",

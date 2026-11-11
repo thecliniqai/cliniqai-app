@@ -43,7 +43,7 @@
                          │  INFRASTRUCTURE                            ▼            │
                          │   repo.ts (supabase-js + generated DB types; one        │
                          │            plpgsql RPC per atomic command)              │
-                         │   lib/db: user-scoped client · getSystemDb() (ADR-005)  │
+                         │   lib/db: user client · getSystemDb: lib/supabase       │
                          │   lib/core: Result, AppError, RequestContext, logger    │
                          │   lib/integrations: messaging, ai, pdf, storage,        │
                          │                     payments                            │
@@ -82,7 +82,7 @@ flowchart LR
 ```
 
 - `app/**` may import only `features/*/actions.ts`, `features/*/queries.ts` (read models) and `lib/core`.
-- `repo.ts` is the only code allowed to import `lib/db`. `getSystemDb()` is importable only from `lib/jobs/**`, `features/*/system.ts` and `app/api/{jobs,webhooks}/**`.
+- `repo.ts` is the only code allowed to import `lib/db`. `getSystemDb()` lives in its own module, `lib/supabase/system.ts`, and is importable only from `lib/jobs/**`, `features/*/system.ts` and `app/api/{jobs,webhooks}/**`; sites not yet moved sit on the time-boxed exception register of `docs/adr/0005-confine-service-role-client.md` (erratum 2026-11-10, C50) Services import only the `lib/jobs` **enqueue surface** (user client or the SECURITY DEFINER enqueue RPC, never `getSystemDb`); the internal part (claim, handlers, runner) may call `getSystemDb` and is importable only from `app/api/jobs/**` (erratum 2026-11-11, C50).
 - Cross-domain calls go through the other domain's `index.ts`, which exposes service functions, never its repo.
 - `"use server"` files export only action functions with **exactly one** zod-validated input parameter.
 
@@ -213,7 +213,7 @@ flowchart LR
 | | |
 |---|---|
 | **Current** | No CI, no SAST, no secret scanning in the pipeline, no security headers; `npm audit` reports high and critical issues (`SECURITY_ASSESSMENT.md` SEC-13, SEC-24, SEC-28). |
-| **Recommended** | Per `SECURITY_VERIFICATION_PLAN.md`: Semgrep (OSS rulesets + custom rules), ESLint with `eslint-plugin-security` and `no-restricted-imports` (the **single** enforcement point for the ADR-005 service-role allow-list, C20), `tsc --noEmit`, `supabase db lint`; `npm audit --omit=dev --audit-level=high` + OSV-Scanner, Renovate/Dependabot, SBOM; gitleaks (history + pre-commit); pgTAP RLS matrix and role × operation tests; OWASP ZAP baseline/authenticated scans on local or staging only; an adversarial Claude security review in V2-14; no external penetration test in v2.0 (PO-17 round 2), recommended before scaling beyond the pilot (roadmap V2-14). Reports stored as CI artefacts (SARIF/JUnit/ZAP JSON). |
+| **Recommended** | Per `SECURITY_VERIFICATION_PLAN.md`: Semgrep (OSS rulesets + custom rules), ESLint with `eslint-plugin-security` and `no-restricted-imports` + `no-restricted-syntax` (ESLint is the **single** enforcement mechanism for the ADR-005 service-role allow-list and its exception register, C20/C50), `tsc --noEmit`, `supabase db lint`; `npm audit --omit=dev --audit-level=high` + OSV-Scanner, Renovate/Dependabot, SBOM; gitleaks (history + pre-commit); pgTAP RLS matrix and role × operation tests; OWASP ZAP baseline/authenticated scans on local or staging only; an adversarial Claude security review in V2-14; no external penetration test in v2.0 (PO-17 round 2), recommended before scaling beyond the pilot (roadmap V2-14). Reports stored as CI artefacts (SARIF/JUnit/ZAP JSON). |
 | **Reason** | Containment fixes need regression guards; DPDP/CERT-In evidence requires recorded results. |
 | **Advantages** | Free/OSS tools; no repository content uploaded to third parties without approval. |
 | **Disadvantages** | Custom Semgrep rules need upkeep; DAST is staging/local only. |
