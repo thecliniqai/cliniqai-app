@@ -2,6 +2,10 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database, UserRole } from "@/lib/db/types";
 import { env } from "@/lib/env";
 import { getAdminClient } from "./supabase-admin";
+import { randomBytes } from "node:crypto";
+
+// Per-run random password: seeded users never share a known credential (V2-00 / P2-04).
+const TEST_PASSWORD = `T-${randomBytes(18).toString("base64url")}!9a`;
 
 export interface SeededTenant {
   tenantId: string;
@@ -36,7 +40,7 @@ export async function seedTenantWithOwner(tenantName: string): Promise<SeededTen
   const email = `test-doctor-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
 
   // 1. Create user via admin auth
-  const password = "TestPassword123!";
+  const password = TEST_PASSWORD;
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
     email,
     password,
@@ -108,7 +112,7 @@ export async function createUnlinkedUser(): Promise<{
   const admin = getAdminClient();
   const email = `unlinked-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
 
-  const password = "TestPassword123!";
+  const password = TEST_PASSWORD;
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
     email,
     password,
@@ -149,7 +153,7 @@ export async function addMemberToTenant(
   const admin = getAdminClient();
   const email = `member-${role}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
 
-  const password = "TestPassword123!";
+  const password = TEST_PASSWORD;
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
     email,
     password,
@@ -245,7 +249,7 @@ export async function createDualMembershipUser(
   const admin = getAdminClient();
   const email = `dual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
 
-  const password = "TestPassword123!";
+  const password = TEST_PASSWORD;
   const { data: userData, error: userError } = await admin.auth.admin.createUser({
     email,
     password,
