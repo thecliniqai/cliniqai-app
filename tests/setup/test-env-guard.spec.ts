@@ -100,6 +100,33 @@ describe("test-env guard rules", () => {
     expect(findTestEnvProblems(safeEnv({ [key]: "anything" }))).toContain(`${key} must not be set in the test lane`);
   });
 
+  it("rejects a key with the wrong role claim (anon key in the service-role slot)", () => {
+    expect(findTestEnvProblems(safeEnv({ SUPABASE_SERVICE_ROLE_KEY: LOCAL_ANON }))).toContain(
+      'SUPABASE_SERVICE_ROLE_KEY has the wrong role claim (must be "service_role")',
+    );
+    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_SUPABASE_ANON_KEY: LOCAL_SERVICE }))).toContain(
+      'NEXT_PUBLIC_SUPABASE_ANON_KEY has the wrong role claim (must be "anon")',
+    );
+  });
+
+  it.each(["MSG91_AUTH_KEY", "AI_API_KEY"])("allows only placeholders for %s", (key) => {
+    for (const ok of ["x", "test-msg91-auth-key-not-real", "mock-key", "test_api_key"]) {
+      expect(findTestEnvProblems(safeEnv({ [key]: ok }))).toEqual([]);
+    }
+    expect(findTestEnvProblems(safeEnv({ [key]: "a1b2c3d4e5f6realLookingKey" }))).toContain(
+      `${key} must be unset or a placeholder (e.g. "test-…-not-real") in the test lane`,
+    );
+  });
+
+  it("refuses dev auth logging and a hosted Playwright base URL", () => {
+    expect(findTestEnvProblems(safeEnv({ ENABLE_DEV_AUTH_LOGS: "true" }))).toContain(
+      'ENABLE_DEV_AUTH_LOGS must be unset or false or 0 (got "true")',
+    );
+    expect(findTestEnvProblems(safeEnv({ PLAYWRIGHT_TEST_BASE_URL: "https://app.example.com" }))).toContain(
+      'PLAYWRIGHT_TEST_BASE_URL points at non-local host "app.example.com"',
+    );
+  });
+
   it("never echoes secret values in its messages", () => {
     const secret = "sk-live-THIS-MUST-NOT-APPEAR";
     const problems = findTestEnvProblems(safeEnv({ OPENAI_API_KEY: secret, SUPABASE_ACCESS_TOKEN: secret }));
@@ -126,6 +153,22 @@ describe("local stack key loading", () => {
 
   it("parses dotenv content without interpolation", () => {
     expect(parseEnvFile('A=1\n# c\nexport B="two"\nC=\'3\'\nBAD\n')).toEqual({ A: "1", B: "two", C: "3" });
+  });
+});
+
+describe("worker network block", () => {
+  it("rejects fetch to a non-loopback host before any request is made", async () => {
+    await expect(fetch("https://abcdefghijklmnop.supabase.co/rest/v1/")).rejects.toThrow(
+      'Test lane blocked a network request to non-local host "abcdefghijklmnop.supabase.co"',
+    );
+    await expect(fetch(new URL("https://example.com/hook"))).rejects.toThrow(/non-local host "example.com"/);
+  });
+
+  it("still allows the local stack", async () => {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/health`, {
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "" },
+    });
+    expect(res.status).toBe(200);
   });
 });
 

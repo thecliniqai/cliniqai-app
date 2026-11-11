@@ -9,6 +9,7 @@
  *
  * Plain Node only (no Vite/Vitest imports) so `vitest.config.ts` can import it.
  */
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -28,7 +29,15 @@ const PINNED_IF_SET: Record<string, string[]> = {
   STORAGE_PROVIDER: ["supabase"],
   AI_EVAL_LIVE: ["false", "0"],
   NODE_ENV: ["test"],
+  ENABLE_DEV_AUTH_LOGS: ["false", "0"],
 };
+
+/**
+ * Credentials that code under test reads directly (e.g. a provider constructed by name, bypassing the pinned
+ * provider). They may be unset or hold an obvious placeholder, never a real value.
+ */
+const PLACEHOLDER_ONLY = ["MSG91_AUTH_KEY", "AI_API_KEY"];
+const PLACEHOLDER_PATTERN = /^(x|test|mock|dummy|fake)([-_].*)?$|not-real/i;
 
 /**
  * Real-credential or hosted-only variables that must not be present at all in a test run. Their presence means
@@ -59,7 +68,7 @@ export const FORBIDDEN_VARS = [
 ] as const;
 
 /** Variables whose value is a URL that must be loopback. */
-const URL_VARS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_APP_URL"];
+const URL_VARS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_APP_URL", "PLAYWRIGHT_TEST_BASE_URL"];
 
 /** Fragments that identify hosted services anywhere in any variable's value. */
 const HOSTED_MARKERS = [".supabase.co", ".supabase.in", ".supabase.net", "r2.cloudflarestorage.com", "pooler.supabase"];
@@ -149,9 +158,6 @@ export function loadLocalStackKeys(
 }
 
 function defaultReadStatus(cwd: string): string {
-  // Lazy require keeps this module importable in environments without child_process mocking concerns.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { execFileSync } = require("node:child_process") as typeof import("node:child_process");
   return execFileSync("npx", ["supabase", "status", "-o", "env"], {
     cwd,
     encoding: "utf8",
@@ -194,11 +200,21 @@ export function findTestEnvProblems(env: NodeJS.ProcessEnv): string[] {
     }
   }
 
+  for (const key of PLACEHOLDER_ONLY) {
+    const value = env[key];
+    if (value && !PLACEHOLDER_PATTERN.test(value)) {
+      problems.push(`${key} must be unset or a placeholder (e.g. "test-…-not-real") in the test lane`);
+    }
+  }
+
   for (const key of FORBIDDEN_VARS) {
     if (env[key] !== undefined && env[key] !== "") problems.push(`${key} must not be set in the test lane`);
   }
 
-  for (const key of ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"]) {
+  for (const [key, role] of [
+    ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon"],
+    ["SUPABASE_SERVICE_ROLE_KEY", "service_role"],
+  ] as const) {
     const value = env[key];
     if (!value) {
       problems.push(`${key} is not set`);
@@ -209,6 +225,8 @@ export function findTestEnvProblems(env: NodeJS.ProcessEnv): string[] {
     const payload = decodeJwtPayload(value);
     if (!payload || payload.iss !== LOCAL_KEY_ISSUER) {
       problems.push(`${key} is not a local-stack key (issuer must be "${LOCAL_KEY_ISSUER}")`);
+    } else if (payload.role !== role) {
+      problems.push(`${key} has the wrong role claim (must be "${role}")`);
     }
   }
 

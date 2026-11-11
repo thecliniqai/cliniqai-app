@@ -9,6 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:db": "supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor && vitest run",
     "test:watch": "vitest",
     "test:ai": "vitest run tests/ai tests/security/ai-rbac.spec.ts tests/security/pii-scrubber.spec.ts",
     "test:e2e": "playwright test",

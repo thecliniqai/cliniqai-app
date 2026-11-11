@@ -15,6 +15,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["tests/**/*.spec.ts"],
+    exclude: ["tests/e2e/**", "**/node_modules/**"],
     testTimeout: 20000,
     hookTimeout: 30000,
     fileParallelism: false,
