@@ -1,7 +1,7 @@
 # 0005: Confine the service-role client; no overrides in server actions
 
-- **Status:** Proposed. Amended after the G0 isolated review (VERIFICATION_LOG, "ADR-005 ratification
-  review"); ratified at gate G0 (end of V2-00) on the PO's G0 sign-off. Source:
+- **Status:** Accepted (G0, PO sign-off via PR #1, 2026-11-11). Amended after the G0 isolated review
+  (VERIFICATION_LOG, "ADR-005 ratification review" and "G0 re-review of the amendments"). Source:
   `docs/v2/ARCHITECTURE_DECISIONS.md` ADR-005; findings SEC-01, SEC-02, ARC-01; rulings C3, C20, C31, C50 (amended 2026-11-11 after the G0 re-review).
 - **Context:** Exported `"use server"` functions accept `sessionOverride`/`clientOverride` (and variants
   such as `tenantIdOverride`). With `sessionOverride` they skip `requirePermission()` and switch to the

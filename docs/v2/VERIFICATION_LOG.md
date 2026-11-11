@@ -697,3 +697,9 @@ Two further isolated reviewers (consistency; adversarial) checked the uncommitte
 | RR11 | SECURITY_VERIFICATION_PLAN, TARGET_ARCHITECTURE §3, BACKEND B6/B8 still described `no-restricted-imports` only / `lib/supabase/admin` / "grep shows one factory" | Applied (C50 errata) |
 
 **Ratification:** ADR-0005 as amended is ready for the PO's G0 sign-off; on sign-off its status becomes Accepted.
+
+### G0 signed off (2026-11-11)
+
+The PO signed off G0 by merging PR #1 (`v2/phase-00-preflight` → `feature/v2`, merge commit `4c28661`).
+ADR-0005 is **Accepted**. Note: the fixes applied after the G0 re-review (RR1–RR11) were not given a further
+isolated re-review; the PO accepted them at merge. V2-01a may start.
