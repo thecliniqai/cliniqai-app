@@ -1,85 +1,95 @@
-# ClinicQ
+# clinicOS (working name "ClinicQ")
+
+> **Authority.** This file is a GSD summary. The approved sources of truth are listed in `CLAUDE.md`
+> (`docs/v2/V2_MASTER_ROADMAP.md`, `docs/v2/VERIFICATION_LOG.md`, the architecture and design docs,
+> `docs/adr/`). Where this file disagrees with them, they win; fix this file.
 
 ## What This Is
 
-A single-plan, cloud-based clinic management platform for solo and small outpatient clinics in India, covering the full patient journey — booking, records, prescriptions, diagnosis, labs, referrals, reminders — in one modern, mobile-first product. Priced at a flat ₹1,000/month per clinic with all features included, API access, and AI assistance built in from the start.
+A clinic management SaaS for independent doctors and small outpatient clinics in India, covering the clinic
+day from booking through queue, consult and prescription to billing, plus patient messaging. Roles: owner/admin,
+doctor, receptionist, nurse, and platform admins. It handles patient health data, so every record is sensitive.
 
 ## Core Value
 
-Every core clinic action (book, prescribe, record a visit) is obviously, overwhelmingly faster than the paper/WhatsApp status quo — zero-training, under 3 taps, usable entirely from a phone.
+Every core clinic action is obviously faster than the paper/WhatsApp status quo — zero-training, few taps,
+usable from a phone — **and no clinic can ever see or change another clinic's data.**
 
 ## Business Context
 
-- **Customer**: Solo/small clinic owner (doctor) in India — primary buyer; receptionist/nurse/patient are daily users
-- **Revenue model**: Flat ₹1,000/month per clinic, one plan, no feature gating
-- **Success metric**: Median time to complete a visit record under 3 minutes (PRD §8); supporting: 50 paying clinics within 3 months of go-live, <5% monthly churn, >95% WhatsApp/SMS delivery success
-- **Strategy notes**: `docs/clinic-management-prd.md` (source PRD)
+- **Customer**: independent doctor / small clinic owner in India; receptionist, nurse and doctor are daily users
+- **Revenue model**: Standard plan ₹1,499/month + 18% GST per clinic on Razorpay Subscriptions, 14-day
+  trial; coupons and SaaS refunds; no AI sold in v2.0 (PO-20, PO-21; roadmap §1.1)
+- **Success metric**: see roadmap §15 (milestone acceptance) and gates G6 (UAT start) / G7 (paid launch)
+- **Strategy notes**: `docs/v2/SUBSCRIPTIONS_AND_PLANS.md`, `docs/v2/AI_STRATEGY.md`
+
+## Current Milestone: v2.0
+
+**Goal:** make clinicOS safe to run with real patient data, rebuild its foundations and workflows, add the
+SaaS business layer, and take it through real-world UAT to a paid launch (roadmap §1.1, §12).
+
+**Target features:**
+- Security containment of the v1 P0 defects, on a local DB regression harness (V2-01a, V2-01)
+- Foundations: CI, platform hygiene, reliable jobs, role-aware RLS with entitlements, design system + PWA shell
+- Rebuilt workflows: front desk, consult, Rx, billing, profile/registers/settings, integrations/AI/API, DPDP lifecycle
+- SaaS subscriptions, coupons and refunds; platform admin portal and tenant data lifecycle
+- Password auth (OTP only for signup/recovery), installable PWA, gated AI (Smart Assist + trial-only Scribe preview)
+- Security verification, production readiness, real-world UAT (G6) and paid launch (G7)
 
 ## Requirements
 
 ### Validated
 
-(None yet — ship to validate)
+None. v1.0 built the clinic workflows but closed without verification (override closeout, `MILESTONES.md`);
+the v2 assessment found P0 defects. v1 requirements are re-specified in the v2.0 backlog.
 
 ### Active
 
-Full definitions with acceptance criteria: `.planning/REQUIREMENTS.md`
-
-- [ ] **REQ-multi-tenancy**: Isolated clinic tenants, staff roles (Owner/Admin, Doctor, Receptionist, Nurse), OTP staff invites, subscription visibility
-- [ ] **REQ-appointment-booking**: Per-doctor calendar, configurable slots/hours/breaks, walk-in queue, full appointment states, waitlist, double-booking prevention
-- [ ] **REQ-patient-records**: Unified patient profile, deduplication, search, visit-history timeline, attachments, consent capture
-- [ ] **REQ-specialty-templates**: Generic core visit record + configuration-driven specialty templates (GP, Dental, Gynae, Peds, Derm, Ortho)
-- [ ] **REQ-diagnosis-visit-management**: ICD-10 diagnosis coding, visit types, queue-aligned workflow states, AI-assisted note requiring doctor confirmation
-- [ ] **REQ-e-prescriptions**: India drug search, per-doctor templates, safety warnings, branded PDF, auditable history
-- [ ] **REQ-lab-records**: Lab orders from visits, in-house/external routing, structured results with abnormal flagging, patient-facing secure link
-- [ ] **REQ-reminders-notifications**: SMS/WhatsApp reminders across lifecycles, two-way WhatsApp reply handling, full communication audit log
-- [ ] **REQ-referrals**: In-network (consented history share) and out-of-network (PDF letter) referrals with tracking and closing-the-loop notes
-- [ ] **REQ-billing-invoicing** ⚠️ **PROVISIONAL**: Per-visit billing, payment recording (no gateway), PDF receipts, collection reports — source-flagged open question (PRD §9.1), confirm scope before build
-- [ ] **REQ-ai-features**: Assistive visit/history summarization, scheduling assist, prescription suggestion from doctor's own history — all AI-labeled until clinician acceptance
-- [ ] **REQ-api-access**: API-first REST API over core entities, tenant-scoped keys, webhooks, per-tenant rate limiting/usage logs
-- [ ] **REQ-compliance-data-layer**: ABDM/ABHA/FHIR-ready data structures designed now (nullable ABHA, ICD coding, structured clinical docs, immutable consent records) — no live integration
-- [ ] **REQ-nfr-multi-tenancy-scalability**: DB-level tenant isolation (RLS), scales to thousands of tenants, stateless app layer
-- [ ] **REQ-nfr-performance**: Core actions in 1–2s on Indian mobile networks; offline-tolerant UX where feasible
-- [ ] **REQ-nfr-security**: Encryption in rest/transit, RBAC at API + UI, patient-record audit logging, OTP auth, tested backups
-- [ ] **REQ-nfr-regulatory-compliance**: DPDP Act consent/access/delete, clinic license storage, teleconsultation + live ABDM deferred
-- [ ] **REQ-nfr-reliability**: 99.5%+ uptime target; messaging-provider outage must not affect in-app clinical workflows
+The full v2.0 requirement set is the approved backlog in roadmap §10, indexed in `.planning/REQUIREMENTS.md`
+with its phase traceability. Tracks: P0–P2 technical debt (§10.1), SUB / SUB-COUPON, AI, AUTH, PWA and FT (§10.2).
 
 ### Out of Scope
 
-- AI Voice Agent / receptionist product — separate PRD; consumes this platform's API
-- In-patient / hospital ward management — outpatient clinic product
-- Insurance/TPA claims + NHCX integration — future integration point
-- Live ABDM/ABHA/UHI integration — data-layer readiness only (REQ-compliance-data-layer)
-- Native mobile apps — responsive web first
-- Multi-language / regional UI — English-only unless specified
-- Teleconsultation (Telemedicine Practice Guidelines) — future consideration
-- Payment gateway for per-visit billing — recording only (cash/UPI/card) initially
+Items placed in v2.1, "after v2.0" or "post-v2.0" in roadmap §10 (listed in `.planning/REQUIREMENTS.md`,
+Future Requirements), plus: native apps (PWA only), structured lab orders/results (PO-5: v2.1), non-appointment
+reminders (PO-8: v2.1), selling any AI product in v2.0 (PO-21), live ABDM integration.
 
 ## Context
 
-- **Repo state**: Documentation-only brownfield — no application source tree yet (`.planning/codebase/` map, docs-only repo, 0 commits). First scaffold starts clean per AGENTS.md §6.2/§22 structure.
-- **Source of truth**: `docs/clinic-management-prd.md` (PRD v1.0, confidence: high); ingest summary at `.planning/intel/SYNTHESIS.md`, conflict report at `.planning/INGEST-CONFLICTS.md` (0 blockers).
-- **UI authority**: `DESIGN.md` — light theme only, canonical design system.
-- **Engineering authority**: `AGENTS.md` — architecture, security, testing, delivery rules.
-- **Key product principles**: zero-training UI, mobile-first (Tier 2/3 city clinics on phones), one record everywhere, compliance-ready by construction, AI as assistant never record of truth, no feature gating.
+- **v1.0** (archived 2026-11-11, tag `v1.0-mvp-baseline` on `main`) proves the product but is not safe for
+  real patient data; it is not live (PO-1). The hosted `.env` Supabase project is a test DB; production is a new
+  project built once in V2-15 (PO-15, big-bang go-live).
+- **V2-00** (pre-flight) is done; G0 signed off 2026-11-11 (PR #1), ADR-0005 Accepted.
+- Team is the PO + Claude only; every gate gets an isolated Claude reviewer, the PO approves (PO-10, PO-18).
 
 ## Constraints
 
-- **Tech stack**: Next.js App Router + Supabase (Postgres/Auth/RLS/Storage) + Vercel — PRD §6 and AGENTS.md §5; avoid deep Supabase coupling where standard Postgres + REST would work; abstract file storage behind an interface — why: future migration path to dedicated cloud.
-- **Design**: Light theme only, `DESIGN.md` is the single UI authority — no dark mode, no second design system.
-- **Timeline**: Solo founder targeting ~3 months to go-live (PRD §6) — favors boring architecture and vertical slices.
-- **Communications**: WhatsApp/SMS providers must be pluggable (BSP/gateway choice open; Meta approval takes 1–2 weeks — PRD §9.4).
-- **Compliance**: Sensitive patient data — DPDP-conscious by construction; ABDM/FHIR-shaped data structures from day one; no compliance claims without review.
-- **Pricing**: Single plan, no feature gating — differentiation is quality, not access.
+- **Working agreement**: `CLAUDE.md` (stack, commands, non-negotiables, definition of done) — binding.
+- **Branching**: `v2/phase-<n>-<slug>` off `feature/v2`, PR into `feature/v2`; never touch `main`.
+- **Data**: no PHI or secrets in logs, fixtures, prompts, commits or docs; India-only storage (PO-12).
+- **Tests**: never against hosted Supabase; until V2-01a lands, only the approved override command, with PO approval.
 
 ## Key Decisions
 
-No ADR-locked decisions from this ingest (0 ADR classifications; see `.planning/intel/decisions.md`).
+PO decisions PO-1…PO-26 are in roadmap §1.2; prioritisation rulings C1…C50 in §10.3; architecture decisions
+in `docs/v2/ARCHITECTURE_DECISIONS.md` and `docs/adr/` (ADR-0005 Accepted at G0). Not duplicated here.
 
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| Stack: Next.js + Supabase + Vercel (PRD §6 starting point) | Solo-founder speed, low infra cost, RLS gives DB-level tenancy | — Pending (not ADR-locked; revisit if scale/compliance demands dedicated cloud) |
-| Billing module included as PROVISIONAL scope | Source flagged §4.10/§9.1 as unconfirmed assumption — kept in roadmap, explicitly marked | ⚠️ Revisit — confirm with owner before Phase 3 build |
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd-complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
 
 ---
-*Last updated: 2026-10-06 after initial doc ingest (gsd-roadmapper)*
+*Last updated: 2026-11-11 at the start of milestone v2.0*

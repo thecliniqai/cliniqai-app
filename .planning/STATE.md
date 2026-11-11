@@ -1,154 +1,69 @@
 ---
 gsd_state_version: "1.0"
-current_phase: 06
-current_plan: Not started
-status: completed
-stopped_at: Phase 06 complete — all phases complete
-last_updated: "2026-11-10T03:56:24.439Z"
-last_activity: 2026-11-10
-last_activity_desc: Phase 06 complete
-state_head: 338772def759df0e1d9953c17dae713ee2296bdb
+milestone: v2.0
+milestone_name: V2 Master Roadmap
+status: planning
+last_updated: "2026-11-11T12:29:44.878Z"
+last_activity: 2026-11-11
 progress:
-  total_phases: 13
-  completed_phases: 13
-  total_plans: 49
-  completed_plans: 49
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-10-06)
+See: .planning/PROJECT.md (updated 2026-11-11)
 
-**Core value:** Every core clinic action is obviously, overwhelmingly faster than the paper/WhatsApp status quo — zero-training, under 3 taps, usable entirely from a phone.
-**Current focus:** Phase 06 — API & Launch Readiness (COMPLETE)
+**Core value:** Every core clinic action is obviously faster than the paper/WhatsApp status quo, and no clinic can ever see or change another clinic's data.
+**Current focus:** Milestone v2.0 — next phase 01A (V2-01a Local DB harness); V2-00 complete (G0 2026-11-11)
 
 ## Current Position
 
-Phase: 06
-Current Plan: Not started
-Total Plans in Phase: 5
-Status: All phases complete
-Last activity: 2026-11-10 — Phase 06 complete
-
-Progress: [██████████] 100% (All 13 phases complete: 1, 2, 2.1, 3, 3.1, 3.2, 3.3, 4, 5, 05.1, 05.2, 05.3, 06)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-11-11 — Milestone v2.0 started
 
 ## Performance Metrics
 
-**Velocity:**
-- Total plans completed: 44
-- Average duration: —
-- Total execution time: — hours
-
-**By Phase:**
-
-| Phase | Plans | Total | Status |
-|-------|-------|-------|--------|
-| 01 | 5 | 5 | done |
-| 02 | 4 | 4 | done |
-| 02.1 | 5 | 5 | done |
-| 03 | 4 | 4 | done |
-| 03.1 | 4 | 4 | done |
-| 03.2 | 2 | 2 | done |
-| 03.3 | 3 | 3 | done |
-| 04 | 3 | 3 | done |
-| 05 | 4 | 4 | done |
-| 05.1 | 3 | 3 | done |
-| 05.2 | 3 | 3 | done |
-| 05.3 | 4 | 4 | done |
-| 06 | 5 | 5 | done |
-
-**Recent Trend:**
-- Phase 06: 5 plans executed, 25 launch-readiness evals passing, 649/649 overall tests passing. Complete external REST API v1 (patients, appointments, visits, prescriptions, labs, referrals), webhooks outbox engine, DPDP Act 2023 compliance, dev auth logger lockdown, health probes, performance benchmarks, backup/restore runbook, and interactive OpenAPI documentation.
-
-*Updated after each plan completion*
-**Per-Plan Metrics:**
-
-| Plan | Duration | Tasks | Files |
-|------|----------|-------|-------|
-| Phase 05.2 P01 | 10m | 3 tasks | 7 files |
-| Phase 05.2 P02 | 11m | 4 tasks | 10 files |
-| Phase 05.2 P03 | 10m | 3 tasks | 6 files |
-| Phase 06 P01 | 22m | 3 tasks | 13 files |
-| Phase 06-api-launch-readiness P02 | 18m | 3 tasks | 10 files |
-| Phase 06-api-launch-readiness P03 | 25min | 3 tasks | 24 files |
-| Phase 06-api-launch-readiness P04 | 45m | 3 tasks | 19 files |
-| Phase 06-api-launch-readiness P05 | 15m | 3 tasks | 16 files |
+No v2.0 plans executed yet. (v1.0 metrics and decisions: `milestones/v1.0-STATE-CONTEXT.md`.)
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table and Phase 3/05.1/05.2 CONTEXT.md:
+Binding decisions live in the approved docs, not here: roadmap §1.2 (PO-1…PO-26), §10.3 (rulings C1…C50),
+`docs/v2/ARCHITECTURE_DECISIONS.md`, `docs/adr/` (ADR-0005 Accepted at G0, 2026-11-11).
 
-- [Phase 05.3 D-01..D-22]: Full CliniQ AI vision implemented using Vercel AI SDK v4 + Next.js 15 App Router streaming. Universal AI gateway resolver in lib/ai/client.ts. 420px slide-over Operations Copilot drawer with Cmd+K and two-phase preview confirmation cards (locks to badge upon confirm). Hidden-by-default 380px Consultation Clinical Copilot panel in doctor cabin with shorthand-to-SOAP generation, granular section [Insert] buttons, Append vs Replace modal, context-aware ICD-10 ranking with differential criteria bullets ("When to choose"), and free-text clinical Q&A with mandatory statutory disclaimer. DPDP Act de-identification interceptor scrubs direct PII before external LLM dispatch. Zero autonomous prescribing strictly maintained per NMC RMP Regulations 2023. Clean prescription PDFs with zero AI watermarks.
-- [Phase 05.2 D-01..D-07]: E.164 persistence (+91XXXXXXXXXX), strict 10-digit Indian mobile validation (/^[6-9]\d{9}$/), reusable PhoneInput component with inset Indian flag (🇮🇳) and +91 badge, all 8 form entry points upgraded, flexible 10-digit phone search, and idempotent database migration 000017.
-- [Phase 05.1 D-01..D-08]: Production MSG91 WhatsApp integration, template-bulk endpoint, two-way bot session release, conversational triage fallback, DLR status tracking (delivered/read/dead_letter).
-- [Phase 3 D-27]: Billing formally deferred to Phase 3A (`REQ-billing-invoicing`). Visit completion moves directly to `completed`.
-- [Phase 3 D-28]: Server-side `@react-pdf/renderer` in Node route handler, archived in private Supabase Storage `prescriptions` bucket with 3600s signed URLs; dual letterhead modes (blank paper vs pre-printed stationery margins).
-- [Phase 3 D-29]: CDCI 7 flat files ingested into PostgreSQL; materialized search view with `pg_trgm` and `tsvector` GIN indexes for sub-100ms fuzzy search; custom medicines auto-saved to `doctor_custom_medicines` with favorites boosted.
-- [Phase 3 D-30]: Curated Indian OPD diagnoses (~1,500 conditions) with ICD-11 and SNOMED CT; optional "Save to Chronic Conditions" checkbox syncs `patients.chronic_conditions`.
-- [Phase 3 D-31]: Post-sign-off editing creates immutable snapshot in `visit_revisions` and generates versioned `v2`/`v3` PDFs with "Amended on [Date]" watermark.
-- [Phase 3 D-32]: Specialty templates for GP, Dental (SVG FDI odontogram 11-48, 51-85), and Pediatrics (WHO LMS growth percentiles, IAP immunization checklist).
-- [Phase 3A D-33]: Dev-only Auth Logger enabled in `lib/auth/dev-logger.ts` printing OTP codes and staff invitation links to server terminal console and `.planning/dev-auth-logs.txt`. Mandatory security rule: must be audited and permanently disabled before Phase 6 production launch.
-- [Phase 04]: Unified Storage Provider abstraction in lib/storage/ with SupabaseStorageProvider and Cloudflare R2StorageProvider
-- [Phase 05]: Built zero-cost DevLogger provider writing formatted ANSI terminal banners and appending to .planning/dev-messages.txt
-- [Phase 05]: Implemented dual-trigger outbox queue architecture with transactional enqueueing and background cron recovery
-- [Phase 05]: Enforced quiet hours from 21:00 to 08:00 IST for non-urgent notifications with nextRetryAt scheduled for 08:01 IST
-- [Phase 05.1 D-01..D-08]: Full MSG91 WhatsApp integration (templates + 2-way bot + DLR), TRAI SMS deferred, tokenized document links, interactive button actions, auto-triage to front desk.
-- [Phase 06]: D-01: API key authentication via SHA-256 hash lookup in api_keys table with prefix clk_live_ and Bearer header
-- [Phase 06]: D-02: Standard JSON envelopes with success boolean, data or error object, and correlation ID
-- [Phase 06]: D-03: In-memory sliding window rate limiter (60 rpm default) with X-RateLimit headers and 429 Retry-After responses
-- [Phase 06]: D-08: REST appointments backed by public.visits with origin_type = 'scheduled' and transactional slot conflict detection
-- [Phase 06]: D-19: Audit logging with actor_type: 'api_key' and api_key_id for all mutating external API calls
-- [Phase 06]: D-05: Enforced explicit doctor_id on visits, prescriptions, and referrals validated via validateDoctorAssignment to require doctor or owner role in active tenant
-- [Phase 06]: Grounded Visits Schema: Mapped encounters to public.visits and created_by = session.userId with clinical completion safety
-- [Phase 06]: Prescription Versioning: Calculated max(version) + 1 per (tenant_id, visit_id) and persisted timing and special_instructions without tenant_id on items
-- [Phase 06]: Lab Orders & Referrals Grounding: Mapped lab orders to public.patient_documents and referrals to public.referrals with in-network consent checking
-- [Phase 06-api-launch-readiness]: D-09: Built SSRF validator resolving DNS and blocking loopback, RFC1918 subnets, and cloud metadata 169.254.169.254
-- [Phase 06-api-launch-readiness]: D-10: Implemented transactional outbox in webhook_delivery_queue with exponential backoff and cron recovery
-- [Phase 06-api-launch-readiness]: D-11: Outgoing webhook payloads signed with HMAC-SHA256 over exact raw TEXT using X-ClinicQ-Signature: t=...,v1=...
-- [Phase 06-api-launch-readiness]: D-12: Developer Settings UI mounted on /settings/developer with primary visual anchor on API Keys and 32px vertical rhythm
-- [Phase 06-api-launch-readiness]: DPDP §12(3) Right to Erasure implemented as statutory soft-deletion preserving clinical history to reconcile with NMC Regulation 1.3.1 mandatory 3-year medical record retention
-- [Phase 06-api-launch-readiness]: DPDP Right to Access exports dual-format machine-readable JSON archive with billing and branded Medical Summary PDF via @react-pdf/renderer
-- [Phase 06-api-launch-readiness]: Single global consent toggle synchronizes global, treatment, and data_sharing consent records simultaneously with append-only audit trail
-- [Phase 06-api-launch-readiness]: Statutory healthcare establishment registrations persisted in public.tenants and dynamically rendered on prescription letterheads
-- [Phase 06-api-launch-readiness]: Dev auth logger and staff invite tokens permanently locked down in production mode with zero escape hatches (D-17)
-- [Phase 06-api-launch-readiness]: Middleware excludes /api/v1/*, /api/health, and /api/ready from cookie session refresh to maximize throughput
-- [Phase 06-api-launch-readiness]: Health probes /api/health (liveness) and /api/ready (readiness) operational checking active storage (Supabase/R2) and sanitizing error responses
-- [Phase 06-api-launch-readiness]: Core clinical actions benchmarked under 1-2s target in tests/api/v1-performance.spec.ts (open patient: ~300ms, create appointment: ~670ms, save rx: ~150ms)
-- [Phase 06-api-launch-readiness]: Database & object storage backup/restore runbook verified in docs/ops/backup-restore.md and tests/ops/backup-restore.spec.ts (RTO < 2h, RPO < 15m)
-- [Phase 06-api-launch-readiness]: Programmatic OpenAPI 3.0 specification served at /api/v1/openapi.json paired with standalone Scalar viewer at /api/v1/docs
+- [v2.0 start]: GSD phase numbers = roadmap IDs without `V2-` (01A, 09A…). GSD sorts 01 before 01A but V2-01a runs
+  first — always name phases explicitly. v2 phase directories are pre-created so they shadow v1 archives 01–06.
 
 ### Pending Todos
 
-None. Phase 06 execution complete — all 13 milestone phases delivered.
+None.
 
 ### Blockers/Concerns
 
-- Phase 2/4 messaging acceptances (waitlist auto-notify, lab-result delivery) depend on Phase 5 SMS/WhatsApp wiring — earlier phases ship in-app behavior first (noted in REQUIREMENTS.md Traceability notes).
-- CDCI dataset in `supabase/seed-data/cdci/` is available; test fixture provides ~200 top OPD drugs for instant testing.
-
-### Roadmap Evolution
-
-- Phase 03.1 inserted after Phase 3: Doctor Cabin, Role-Based Access & Billing Invoicing (URGENT)
-- Phase 05.1 inserted after Phase 5: Full MSG91 Integration (INSERTED)
-- Phase 05.3 inserted after Phase 05.2: CliniQ AI Copilot Suite — Operations & Clinical Copilot (INSERTED)
+- Until V2-01a lands, no vitest/playwright/script runs without PO approval, and then only the CLAUDE.md override form.
+- Approved prerequisite §12.1 step 5: run `/gsd-map-codebase` after this milestone is created (existing
+  `.planning/codebase/` map is from v1, 2026-10).
 
 ## Deferred Items
 
 | Category | Item | Status | Deferred At | Milestone |
 |----------|------|--------|-------------|-----------|
-| Billing | Dedicated Billing & Invoicing Module | Deferred to Phase 3A | 2026-10-09 (Phase 3 Discuss) | v1.0 |
-| AI | AI Clinical Notes & Transcription | Deferred to Phase 5 | 2026-10-09 (Phase 3 Discuss) | v1.0 |
-| SMS / OTP | TRAI DLT SMS Flow API & Staff Mobile OTP | Deferred until TRAI entity & header registration clears | 2026-10-27 (Phase 05.1 Discuss) | v1.0+ |
-| AI | Ambient Voice Consultation Recording & Diarization | Deferred to post-launch | 2026-10-28 (Phase 05.3 Discuss) | v1.1+ |
-| AI | Automated Drug-Drug Interaction Warnings | Deferred per Clinician Control Rule (D-20) | 2026-10-28 (Phase 05.3 Discuss) | v1.1+ |
 
 ## Session Continuity
 
-Last session: 2026-11-09T16:55:53.820Z
-Stopped at: Phase 06 complete — all phases complete
+Last session: 2026-11-11
+Stopped at: Milestone v2.0 created; next is phase 01A (V2-01a Local DB harness)
 Resume file: None
+
+## Operator Next Steps
+
+- `/gsd-map-codebase` (roadmap §12.1 step 5), then `/gsd-discuss-phase 01A` or `/gsd-plan-phase 01A`

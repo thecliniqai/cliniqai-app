@@ -697,3 +697,29 @@ Two further isolated reviewers (consistency; adversarial) checked the uncommitte
 | RR11 | SECURITY_VERIFICATION_PLAN, TARGET_ARCHITECTURE §3, BACKEND B6/B8 still described `no-restricted-imports` only / `lib/supabase/admin` / "grep shows one factory" | Applied (C50 errata) |
 
 **Ratification:** ADR-0005 as amended is ready for the PO's G0 sign-off; on sign-off its status becomes Accepted.
+
+### G0 signed off (2026-11-11)
+
+The PO signed off G0 by merging PR #1 (`v2/phase-00-preflight` → `feature/v2`, merge commit `4c28661`).
+ADR-0005 is **Accepted**. Note: the fixes applied after the G0 re-review (RR1–RR11) were not given a further
+isolated re-review; the PO accepted them at merge. V2-01a may start.
+
+### AUTH-00 spike results (V2-01a, 2026-11-11)
+
+Measured on an isolated local stack (CLI 2.120.0, GoTrue v2.197.0); full note:
+`.planning/phases/01A-local-db-harness/01A-04-AUTH00-SPIKE.md`. Hosted-only items (CAPTCHA token-accepted
+path and single-use, hosted session-delete privileges, require-current-password, log retention) are re-checked
+in V2-03. AUTH_REDESIGN is **not** edited; these items need a PO ruling before V2-01 (AUTH-01/04a) and V2-03.
+
+| # | AUTH_REDESIGN assumption | Measured | Needs |
+|---|---|---|---|
+| A00-1 | §4.1 hook caveat: tell `/otp`-signup from `/signup` by whether the user has a password | New-address `/otp` arrives at the Send Email hook as `signup`, identical to `/signup`; the payload has no password field and `/otp` users get a password hash anyway | PO ruling on the `/otp` mitigation (e.g. CAPTCHA-only, or block `/otp` at the gateway) |
+| A00-2 | §4.1 mitigation 2: Before User Created identifies the originating endpoint | Payload is identical across `/signup`, `/otp`, invite and `generateLink`; `admin.createUser` does not fire the hook | Same ruling as A00-1 |
+| A00-3 | §4.4: identical signup response for an existing email | Not identical: CLI defaults → 422 `user_already_exists`; with SMS confirmations on → 200 but `identities: []`, `role: ""` | PO ruling on account-enumeration stance |
+| A00-4 | §7 rate-limit test: "(limit+1)th attempt → 429" | Password grant is governed by `token_refresh`; `/signup`, `/recover`, `/otp` by `sign_in_sign_ups`. The CLI stack enforces no per-IP limit (no `GOTRUE_RATE_LIMIT_HEADER`); when enabled the burst is ~30 regardless of the value | Redesign of the rate-limit test (note lists three options) |
+| A00-5 | Require current password blocks or bounds password change in fresh-OTP sessions | No CLI config key; [side-run] OTP and recovery sessions are exempt at any age tested (≤772 s); a wrong `current_password` is ignored when the setting is off | Hosted check in V2-03; consider a server-side age bound |
+
+Confirmed as designed: verifyOtp `type:'email'` for signup codes and `'recovery'` for recovery codes (6-digit,
+single-use); CAPTCHA endpoint list matches C43; `/otp` creates users by default; the pre-account hijack is real
+and the post-verify `updateUser` + `signOut({scope:'others'})` fix works; a `postgres`-owned SECURITY DEFINER
+function can delete `auth.sessions` and that revokes refresh; `amr` carries per-method timestamps.

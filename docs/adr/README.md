@@ -11,6 +11,6 @@ atomic flow replaces ADR-003's Kysely approach).
 
 | ADR | Title | Status |
 |---|---|---|
-| [0005](0005-confine-service-role-client.md) | Confine the service-role client; no overrides in server actions | Proposed — ratified at gate G0 |
+| [0005](0005-confine-service-role-client.md) | Confine the service-role client; no overrides in server actions | Accepted (G0, 2026-11-11) |
 
 Template: [`0000-template.md`](0000-template.md).

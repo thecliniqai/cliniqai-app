@@ -12,17 +12,17 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-// Auto-load environment variables from .env.local or .env for standalone script execution
-try {
-  if (fs.existsSync(".env.local")) {
-    process.loadEnvFile(".env.local");
+/**
+ * Load .env.local / .env for standalone CLI execution only. Never called on import: tests import this module,
+ * and an import-time load would pull hosted credentials into the test lane (V2-01a).
+ */
+function loadCliEnvFiles(): void {
+  for (const file of [".env.local", ".env"]) {
+    try {
+      if (fs.existsSync(file)) process.loadEnvFile(file);
+    } catch {}
   }
-} catch {}
-try {
-  if (fs.existsSync(".env")) {
-    process.loadEnvFile(".env");
-  }
-} catch {}
+}
 
 import {
   WHATSAPP_TEMPLATES,
@@ -244,6 +244,7 @@ export async function main() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  loadCliEnvFiles();
   main().catch((err) => {
     console.error("Error executing template sync:", err);
     process.exit(1);

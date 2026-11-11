@@ -1,0 +1,513 @@
+{
+ "commit": "40b4d48730d7b60599275dc67dc5b9760eb5b0b0",
+ "run": 1,
+ "success": true,
+ "files": 71,
+ "files_failed": 0,
+ "tests_total": 700,
+ "tests_passed": 700,
+ "tests_failed": 0,
+ "tests_skipped": 0,
+ "teardown": [
+  "[teardown] removed run data: 50 tenant(s), 70 auth user(s), 8 storage object(s); verified none remain"
+ ],
+ "per_file": [
+  {
+   "file": "tests/ai/ai-gateway.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/ai/clinical-copilot.spec.ts",
+   "status": "passed",
+   "passed": 11,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/ai/gateway-tools.spec.ts",
+   "status": "passed",
+   "passed": 17,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/ai/operations-copilot-ui.spec.ts",
+   "status": "passed",
+   "passed": 10,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/ai/prescription-suggestions.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/api/health-probes.spec.ts",
+   "status": "passed",
+   "passed": 8,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/api/openapi.spec.ts",
+   "status": "passed",
+   "passed": 3,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/api/rate-limiting.spec.ts",
+   "status": "passed",
+   "passed": 5,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/api/v1-auth.spec.ts",
+   "status": "passed",
+   "passed": 7,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/api/v1-crud.spec.ts",
+   "status": "passed",
+   "passed": 17,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/api/v1-doctor-guard.spec.ts",
+   "status": "passed",
+   "passed": 27,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/api/v1-performance.spec.ts",
+   "status": "passed",
+   "passed": 5,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/api/webhooks-outbox.spec.ts",
+   "status": "passed",
+   "passed": 23,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/cabin/navigation-roles.spec.ts",
+   "status": "passed",
+   "passed": 5,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/auth/invite.spec.ts",
+   "status": "passed",
+   "passed": 5,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/auth/rbac.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/billing/schemas.spec.ts",
+   "status": "passed",
+   "passed": 4,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/audit/audit-logging.spec.ts",
+   "status": "passed",
+   "passed": 4,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/compliance/consent.spec.ts",
+   "status": "passed",
+   "passed": 3,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/compliance/dpdp-rights.spec.ts",
+   "status": "passed",
+   "passed": 15,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/consultation/schemas.spec.ts",
+   "status": "passed",
+   "passed": 11,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/components/doctor-availability.spec.ts",
+   "status": "passed",
+   "passed": 11,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/components/phone-input.spec.ts",
+   "status": "passed",
+   "passed": 16,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/dental/odontogram.spec.ts",
+   "status": "passed",
+   "passed": 7,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/cabin-consultation-launch.spec.ts",
+   "status": "passed",
+   "passed": 2,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/calendar-scheduling-ux.spec.ts",
+   "status": "passed",
+   "passed": 12,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/cdci-search.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/consultation-flow.spec.ts",
+   "status": "passed",
+   "passed": 10,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/multi-tenancy.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/per-visit-billing.spec.ts",
+   "status": "passed",
+   "passed": 5,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/prescription-versioning.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/queue-flow.spec.ts",
+   "status": "passed",
+   "passed": 4,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/receipt-reports.spec.ts",
+   "status": "passed",
+   "passed": 4,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/subscription.spec.ts",
+   "status": "passed",
+   "passed": 3,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/integration/visits.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/labs/lab-documents.spec.ts",
+   "status": "passed",
+   "passed": 12,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/labs/tokenized-sharing.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/notifications/in-app-notifications.spec.ts",
+   "status": "passed",
+   "passed": 12,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/messaging/messaging-provider.spec.ts",
+   "status": "passed",
+   "passed": 10,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/messaging/msg91-provider.spec.ts",
+   "status": "passed",
+   "passed": 26,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/messaging/msg91-sync-templates.spec.ts",
+   "status": "passed",
+   "passed": 14,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/messaging/msg91-webhook.spec.ts",
+   "status": "passed",
+   "passed": 19,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/messaging/outbox-queue.spec.ts",
+   "status": "passed",
+   "passed": 13,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/messaging/tokenized-sharing.spec.ts",
+   "status": "passed",
+   "passed": 14,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/messaging/two-way-bot.spec.ts",
+   "status": "passed",
+   "passed": 10,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/ops/backup-restore.spec.ts",
+   "status": "passed",
+   "passed": 3,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/patients/dedup.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/patients/phone-search.spec.ts",
+   "status": "passed",
+   "passed": 11,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/patients/schema.spec.ts",
+   "status": "passed",
+   "passed": 7,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/patients/visit-history.spec.ts",
+   "status": "passed",
+   "passed": 2,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/pediatrics/who-growth.spec.ts",
+   "status": "passed",
+   "passed": 7,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/prescriptions/dosage.spec.ts",
+   "status": "passed",
+   "passed": 13,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/queue/status-actions.spec.ts",
+   "status": "passed",
+   "passed": 5,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/referrals/referrals-flow.spec.ts",
+   "status": "passed",
+   "passed": 13,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/scheduling/availability-blocks.spec.ts",
+   "status": "passed",
+   "passed": 17,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/scheduling/calendar-waitlist.spec.ts",
+   "status": "passed",
+   "passed": 5,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/security/ai-rbac.spec.ts",
+   "status": "passed",
+   "passed": 9,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/security/cross-tenant.spec.ts",
+   "status": "passed",
+   "passed": 20,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/security/dev-logger-lockout.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/security/pii-scrubber.spec.ts",
+   "status": "passed",
+   "passed": 8,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/storage/storage-provider.spec.ts",
+   "status": "passed",
+   "passed": 13,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/settings/profile-and-credentials.spec.ts",
+   "status": "passed",
+   "passed": 7,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/utils/phone.spec.ts",
+   "status": "passed",
+   "passed": 24,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/setup/teardown.spec.ts",
+   "status": "passed",
+   "passed": 3,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/setup/test-env-guard.spec.ts",
+   "status": "passed",
+   "passed": 48,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/ai/evals/icd10-ranking.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/ai/evals/negative-syllogism.spec.ts",
+   "status": "passed",
+   "passed": 6,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/ai/evals/operations-eval.spec.ts",
+   "status": "passed",
+   "passed": 7,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/ai/evals/prescribing-guardrail.spec.ts",
+   "status": "passed",
+   "passed": 3,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/ai/evals/shorthand-soap.spec.ts",
+   "status": "passed",
+   "passed": 12,
+   "failed": 0,
+   "skipped": 0
+  },
+  {
+   "file": "tests/visits/clinic-visits-register.spec.ts",
+   "status": "passed",
+   "passed": 7,
+   "failed": 0,
+   "skipped": 0
+  }
+ ]
+}

@@ -1,0 +1,52 @@
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > accepts the local stack configuration 1ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects a non-local Supabase URL: https://abcdefghijklmnop.supabase.co 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects a non-local Supabase URL: https://abcdefghijklmnop.supabase.in 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects a non-local Supabase URL: https://db.example.com 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects a non-local Supabase URL: http://10.0.0.5:54321 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects a non-local Supabase URL: http://127.0.0.1.nip.io:54321 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects a missing or malformed Supabase URL 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects a hosted URL hidden in any other variable 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects keys that were not issued by the local stack 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > requires offline providers 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable SUPABASE_ACCESS_TOKEN 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable SUPABASE_DB_PASSWORD 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable DATABASE_URL 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable R2_ACCOUNT_ID 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable R2_ACCESS_KEY_ID 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable R2_SECRET_ACCESS_KEY 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable R2_BUCKET_NAME 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable AI_BASE_URL 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable GEMINI_API_KEY 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable GOOGLE_GENERATIVE_AI_API_KEY 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable OPENAI_API_KEY 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable ANTHROPIC_API_KEY 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable GUPSHUP_API_KEY 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable GUPSHUP_APP_NAME 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable GUPSHUP_SRC_PHONE 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable TWILIO_ACCOUNT_SID 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable TWILIO_AUTH_TOKEN 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable TWILIO_FROM_PHONE 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable TWILIO_WHATSAPP_FROM 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable MSG91_DLT_TE_ID 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects real-credential variable MSG91_SENDER_ID 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > rejects a key with the wrong role claim (anon key in the service-role slot) 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > allows only placeholders for MSG91_AUTH_KEY 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > allows only placeholders for AI_API_KEY 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > refuses proxy variable HTTPS_PROXY 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > refuses proxy variable http_proxy 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > refuses proxy variable NODE_USE_ENV_PROXY 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > refuses dev auth logging and a hosted Playwright base URL 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > test-env guard rules > never echoes secret values in its messages 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > local stack key loading > fills keys from `supabase status` output and nothing else 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > local stack key loading > fails closed when the local stack is not running 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > local stack key loading > parses dotenv content without interpolation 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > worker network block > rejects fetch to a non-loopback host before any request is made 3ms
+ ✓ tests/setup/test-env-guard.spec.ts > worker network block > refuses raw sockets to non-loopback hosts (node:https, AWS SDK, etc.) 7ms
+ ✓ tests/setup/test-env-guard.spec.ts > worker network block > answers DNS for non-loopback names offline with a fixed public address 1ms
+ ✓ tests/setup/test-env-guard.spec.ts > worker network block > refuses to load .env files in workers 0ms
+ ✓ tests/setup/test-env-guard.spec.ts > worker network block > still allows the local stack 6ms
+ ✓ tests/setup/test-env-guard.spec.ts > end to end: a vitest run pointed at a hosted URL > aborts at config load with a non-zero exit and collects no tests 132ms
+ Test Files  1 passed (1)
+      Tests  48 passed (48)
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain
+commit 40b4d48730d7b60599275dc67dc5b9760eb5b0b0
