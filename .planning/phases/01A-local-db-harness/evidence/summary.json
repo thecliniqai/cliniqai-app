@@ -1,0 +1,31 @@
+{
+ "commit": "40b4d48730d7b60599275dc67dc5b9760eb5b0b0",
+ "runs": [
+  {
+   "run": 1,
+   "success": true,
+   "files": 71,
+   "files_failed": 0,
+   "tests_total": 700,
+   "tests_passed": 700,
+   "tests_failed": 0,
+   "tests_skipped": 0,
+   "teardown": [
+    "[teardown] removed run data: 50 tenant(s), 70 auth user(s), 8 storage object(s); verified none remain"
+   ]
+  },
+  {
+   "run": 2,
+   "success": true,
+   "files": 71,
+   "files_failed": 0,
+   "tests_total": 700,
+   "tests_passed": 700,
+   "tests_failed": 0,
+   "tests_skipped": 0,
+   "teardown": [
+    "[teardown] removed run data: 50 tenant(s), 70 auth user(s), 8 storage object(s); verified none remain"
+   ]
+  }
+ ]
+}

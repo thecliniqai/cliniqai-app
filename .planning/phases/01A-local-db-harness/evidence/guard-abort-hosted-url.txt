@@ -1,0 +1,12 @@
+failed to load config from /Users/sid/Code/clinicOS/vitest.config.ts
+
+⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯
+TestEnvGuardError: Refusing to run tests: the environment is not the local test stack.
+  - NEXT_PUBLIC_SUPABASE_URL points at non-local host "abcdefghijklmnop.supabase.co"
+  - NEXT_PUBLIC_SUPABASE_URL references a hosted service (".supabase.co")
+The test lane runs only against `npx supabase start` with `.env.test` (see docs/v2/TEST_STRATEGY.md §6.2).
+  problems: [
+    'NEXT_PUBLIC_SUPABASE_URL points at non-local host "abcdefghijklmnop.supabase.co"',
+    'NEXT_PUBLIC_SUPABASE_URL references a hosted service (".supabase.co")'
+  ]
+}
