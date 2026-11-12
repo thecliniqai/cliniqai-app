@@ -169,10 +169,9 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-placeholder-not-a-key
           MESSAGING_PROVIDER: dev
 
-  # Playwright PR lane (02-03a). Until 02-03a adds the `e2e:pr` npm script and its specs, the job passes with a notice
-  # so the required check exists and is green. 02-03a turns it on by adding `e2e:build` + `e2e:pr` to package.json and
-  # DELETING the "Lane enabled?" step and every `if: steps.lane.outputs.enabled == 'true'` below, so the lane can
-  # never silently go vacuous again.
+  # Playwright PR lane (02-03a; RL-16, RL-20): desktop-chrome (all specs), pixel-7 (all but the viewport-owning a11y
+  # specs), iphone-15 (@golden). The checkout has no .env by construction; the app server is built and served only
+  # through the guarded `e2e:build` / `serve.ts` path on 127.0.0.1:3100.
   e2e:
     name: e2e
     runs-on: ubuntu-24.04
@@ -181,45 +180,44 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Lane enabled?
-        id: lane
-        run: |
-          if node -e 'process.exit(require("./package.json").scripts?.["e2e:pr"] ? 0 : 1)'; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=e2e lane not enabled yet::No e2e:pr script; plan 02-03a enables the Playwright PR lane."
-          fi
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: steps.lane.outputs.enabled == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
-      - if: steps.lane.outputs.enabled == 'true'
-        run: npm ci
+      - run: npm ci
       - name: Playwright version
         id: pw
-        if: steps.lane.outputs.enabled == 'true'
         run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: steps.lane.outputs.enabled == 'true'
+        id: pw-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium-webkit
+      # Only the engines the PR lane uses (Chromium for desktop-chrome/pixel-7, WebKit for iphone-15). OS packages are
+      # not cached, so `install-deps` always runs; the browser download is skipped on a cache hit.
       - name: Install browsers
-        if: steps.lane.outputs.enabled == 'true'
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium webkit
-      - name: Start the local Supabase stack
-        if: steps.lane.outputs.enabled == 'true'
+      - name: Install browser OS dependencies (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium webkit
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .next/cache
+          key: nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'middleware.ts', 'next.config.ts', 'postcss.config.mjs') }}
+          restore-keys: |
+            nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+      - name: Start the local Supabase stack (same services as npm run test:db)
         run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
-      - name: e2e build (guarded env, marker scan, build stamp)
-        if: steps.lane.outputs.enabled == 'true'
+      - name: e2e build (guarded env, output marker scan, build stamp)
         run: npm run e2e:build
       - name: Playwright PR lane
-        if: steps.lane.outputs.enabled == 'true'
         run: npm run e2e:pr
+      - name: Run summary (retried and failed tests; report only)
+        if: ${{ !cancelled() }}
+        run: node scripts/ci/playwright-summary.mjs playwright-report/results.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() && steps.lane.outputs.enabled == 'true' }}
+        if: ${{ !cancelled() }}
         with:
           name: playwright-pr
           path: |
@@ -228,5 +226,5 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
       - name: Stop the local stack
-        if: ${{ always() && steps.lane.outputs.enabled == 'true' }}
+        if: ${{ always() }}
         run: npx supabase stop --no-backup

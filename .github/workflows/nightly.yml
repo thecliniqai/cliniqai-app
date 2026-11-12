@@ -26,8 +26,9 @@ env:
   CI: "true"
 
 jobs:
-  # Full device matrix (02-03a) or the M0 baseline capture (02-03b). Passes with a notice until the matching npm
-  # script exists; 02-03a/02-03b remove the "Lane enabled?" gate when they add e2e:nightly / e2e:baseline.
+  # Full device matrix (02-03a, `e2e:nightly`: smoke + @golden on the PWA_STRATEGY §9.1 nightly projects) or the M0
+  # baseline capture (02-03b, `e2e:baseline`). The "Lane enabled?" gate now only matters for m0-baseline, which
+  # passes with a notice until 02-03b adds `e2e:baseline`; 02-03b deletes the gate and its `if:` conditions.
   e2e-nightly:
     name: e2e-nightly
     runs-on: ubuntu-24.04
@@ -83,6 +84,9 @@ jobs:
         run: npm run "$SCRIPT"
         env:
           SCRIPT: ${{ steps.lane.outputs.script }}
+      - name: Run summary (retried and failed tests; report only)
+        if: ${{ !cancelled() && steps.lane.outputs.enabled == 'true' }}
+        run: node scripts/ci/playwright-summary.mjs playwright-report/results.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() && steps.lane.outputs.enabled == 'true' }}
         with:

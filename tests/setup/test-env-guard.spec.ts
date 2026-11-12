@@ -136,6 +136,23 @@ describe("test-env guard rules", () => {
     );
   });
 
+  it("pins the AI kill switch off (V2-02 02-03a)", () => {
+    for (const ok of ["false", "0"]) expect(findTestEnvProblems(safeEnv({ AI_ENABLED: ok }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ AI_ENABLED: "true" }))).toContain(
+      'AI_ENABLED must be unset or false or 0 (got "true")',
+    );
+  });
+
+  it("allows NODE_ENV=production only when the caller opts in (the e2e app server)", () => {
+    expect(findTestEnvProblems(safeEnv({ NODE_ENV: "production" }))).toContain(
+      'NODE_ENV must be unset or test (got "production")',
+    );
+    expect(findTestEnvProblems(safeEnv({ NODE_ENV: "production" }), { allowNodeEnv: ["production"] })).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ NODE_ENV: "development" }), { allowNodeEnv: ["production"] })).toContain(
+      'NODE_ENV must be unset or test or production (got "development")',
+    );
+  });
+
   it("never echoes secret values in its messages", () => {
     const secret = "sk-live-THIS-MUST-NOT-APPEAR";
     const problems = findTestEnvProblems(safeEnv({ OPENAI_API_KEY: secret, SUPABASE_ACCESS_TOKEN: secret }));

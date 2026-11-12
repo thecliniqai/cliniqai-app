@@ -19,7 +19,11 @@
     "test:db": "supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor && vitest run",
     "test:watch": "vitest",
     "test:ai": "vitest run tests/ai tests/security/ai-rbac.spec.ts tests/security/pii-scrubber.spec.ts",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run e2e:pr",
+    "e2e:build": "tsx tests/e2e/support/build.ts",
+    "e2e:pr": "playwright test --project=desktop-chrome --project=pixel-7 --project=iphone-15",
+    "e2e:nightly": "playwright test --project=iphone-se-3 --project=galaxy-tab-s4 --project=galaxy-tab-s4-landscape --project=android-tablet-800 --project=ipad-gen7 --project=ipad-gen7-landscape --project=ipad-mini-744",
+    "seed:local": "tsx scripts/seed-local-dev.ts",
     "seed:cdci": "npx tsx --env-file=.env scripts/seed-cdci.ts",
     "seed:cdci:test": "npx tsx --env-file=.env scripts/seed-cdci-test-fixture.ts",
     "seed:diagnoses": "npx tsx --env-file=.env scripts/seed-opd-diagnoses.ts",
@@ -45,6 +49,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "^1.51.0",
     "@tailwindcss/postcss": "^4.0.12",
     "@types/node": "^22.13.10",

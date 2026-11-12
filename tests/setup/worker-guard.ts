@@ -15,7 +15,7 @@
 import dns from "node:dns";
 import net from "node:net";
 import path from "node:path";
-import { syncBuiltinESMExports } from "node:module";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { beforeAll } from "vitest";
 import { assertLocalTestEnv } from "./test-env";
 
@@ -25,7 +25,9 @@ beforeAll(() => {
   assertLocalTestEnv();
 });
 
-const LOOPBACK_NAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+// Shared with the e2e server guard (tests/e2e/support/server-net-guard.cjs), loaded with Node's own require.
+const loopback = createRequire(__filename)("./loopback.cjs") as { isLoopbackHost: (host: unknown) => boolean };
+
 /** Fixed public address (documentation-adjacent, never contacted: sockets to it are refused). */
 export const TEST_PUBLIC_ADDRESS = "93.184.216.34";
 
@@ -37,12 +39,7 @@ export class NonLocalNetworkError extends Error {
 }
 
 export function isLoopbackHost(host: string | undefined | null): boolean {
-  if (!host) return false;
-  const h = host.replace(/^\[|\]$/g, "").toLowerCase();
-  if (LOOPBACK_NAMES.has(h) || h === "localhost.") return true;
-  if (net.isIPv4(h)) return h.startsWith("127.");
-  if (net.isIPv6(h)) return h === "::1" || /^::ffff:127\./.test(h);
-  return false;
+  return loopback.isLoopbackHost(host);
 }
 
 // --- 2. env files ---------------------------------------------------------------------------------------------
