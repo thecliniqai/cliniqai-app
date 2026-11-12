@@ -1,0 +1,11 @@
+[
+  {
+    "id": "GHSA-aaaa-bbbb-cccc",
+    "package": "fixture-transitive",
+    "severity": "high",
+    "reason": "Fixture waiver that expired the day before the fixed test date",
+    "owner": "fixture",
+    "ruling": "fixture",
+    "expires": "2026-11-11"
+  }
+]

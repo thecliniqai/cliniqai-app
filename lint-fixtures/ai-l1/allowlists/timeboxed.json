@@ -1,0 +1,9 @@
+[
+  {
+    "file": "components/settings/integrations.tsx",
+    "rule": "L1-R5",
+    "reason": "Fixture: third-party integration name",
+    "owner": "fixture",
+    "expires": "2027-01-31"
+  }
+]

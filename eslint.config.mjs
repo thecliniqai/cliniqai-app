@@ -104,6 +104,17 @@ const eslintConfig = [
       "next-env.d.ts",
       // Lint-gate fixtures violate the rules on purpose; tests/security/*-lint-gates.spec.ts lint them explicitly.
       "lint-fixtures/**",
+      // V2-02 02-01: tooling and report output, and docs (no app code; docs/temp is a vendored third-party template).
+      "docs/**",
+      "coverage/**",
+      "playwright-report/**",
+      "test-results/**",
+      "blob-report/**",
+      "playwright/.auth/**",
+      ".agents/**",
+      ".opencode/**",
+      ".gsd/**",
+      "supabase/.temp/**",
     ],
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),

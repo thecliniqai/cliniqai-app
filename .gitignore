@@ -5,6 +5,11 @@ node_modules
 
 # Testing & Coverage
 /coverage
+# CI report outputs (V2-02 02-01), uploaded as artifacts, never committed
+/inventory.json
+/vitest-report.json
+/gitleaks.sarif
+/npm-audit-full.json
 /test-results
 playwright-report
 blob-report

@@ -7,7 +7,6 @@ import {
   Clock,
   Users,
   CheckCircle2,
-  Sparkles,
 } from "lucide-react";
 
 export function ClinicShowcasePanel() {
@@ -54,7 +53,6 @@ export function ClinicShowcasePanel() {
       <div className="relative z-10 my-8 space-y-6 max-w-xl">
         <div>
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-50 text-[#1769E0] border border-blue-100 mb-3">
-            <Sparkles className="w-3 h-3 text-[#1769E0]" />
             <span>High-Throughput Outpatient Operations</span>
           </div>
           <p className="text-2xl xl:text-3xl font-extrabold tracking-tight text-gray-900 leading-snug">

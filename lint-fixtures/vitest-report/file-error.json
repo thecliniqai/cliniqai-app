@@ -1,0 +1,30 @@
+{
+  "numTotalTestSuites": 2,
+  "numPassedTestSuites": 1,
+  "numFailedTestSuites": 1,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 3,
+  "numPassedTests": 3,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "success": false,
+  "testResults": [
+    {
+      "name": "/repo/tests/fixture/a.spec.ts",
+      "status": "passed",
+      "message": "",
+      "assertionResults": [
+        { "fullName": "fixture a one", "title": "one", "status": "passed", "failureMessages": [] },
+        { "fullName": "fixture a two", "title": "two", "status": "passed", "failureMessages": [] },
+        { "fullName": "fixture a three", "title": "three", "status": "passed", "failureMessages": [] }
+      ]
+    },
+    {
+      "name": "/repo/tests/fixture/broken-import.spec.ts",
+      "status": "failed",
+      "message": "Failed to load url ./missing-module",
+      "assertionResults": []
+    }
+  ]
+}

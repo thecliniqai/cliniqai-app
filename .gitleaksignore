@@ -1,0 +1,8 @@
+# Exact-fingerprint suppressions for historic synthetic test values flagged by gitleaks' default generic-api-key rule
+# (V2-02 02-01). Each line is commit:file:rule:line; nothing broader. Reviewed values (all synthetic, never real):
+# - "whsec_p1_23_synthetic" fixture signing secret (tests/integration/consultation-service-guards.spec.ts)
+# - "whsec_test_secret_key_1234567890abcdef" HMAC unit-test secret (tests/api/webhooks-outbox.spec.ts)
+# - a made-up sample key string in a v1 UI spec (.planning/phases/06-api-launch-readiness/06-UI-SPEC.md)
+3ea90f1ce6da58b8f413dc0a460e3bcc4e3d3971:tests/integration/consultation-service-guards.spec.ts:generic-api-key:191
+4cbb151d86e4a18de20043c4af7b44677046c516:tests/api/webhooks-outbox.spec.ts:generic-api-key:78
+3d424ca020863b7e4d640d1835064ebf67731f3b:.planning/phases/06-api-launch-readiness/06-UI-SPEC.md:generic-api-key:245

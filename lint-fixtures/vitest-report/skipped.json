@@ -1,0 +1,31 @@
+{
+  "numTotalTestSuites": 2,
+  "numPassedTestSuites": 2,
+  "numFailedTestSuites": 0,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 3,
+  "numPassedTests": 2,
+  "numFailedTests": 0,
+  "numPendingTests": 1,
+  "numTodoTests": 0,
+  "success": true,
+  "testResults": [
+    {
+      "name": "/repo/tests/fixture/a.spec.ts",
+      "status": "passed",
+      "message": "",
+      "assertionResults": [
+        { "fullName": "fixture a one", "title": "one", "status": "passed", "failureMessages": [] },
+        { "fullName": "fixture a needs the database", "title": "needs the database", "status": "skipped", "failureMessages": [] }
+      ]
+    },
+    {
+      "name": "/repo/tests/fixture/b.spec.ts",
+      "status": "passed",
+      "message": "",
+      "assertionResults": [
+        { "fullName": "fixture b one", "title": "one", "status": "passed", "failureMessages": [] }
+      ]
+    }
+  ]
+}

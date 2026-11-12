@@ -1,0 +1,9 @@
+[
+  {
+    "file": "features/ai/upsell.tsx",
+    "rule": "L1-R6",
+    "reason": "Fixture: an attempt to waive AI-next-to-price, which has no exceptions",
+    "owner": "fixture",
+    "expires": "2027-01-31"
+  }
+]

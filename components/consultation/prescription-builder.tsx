@@ -25,7 +25,6 @@ import {
   Plus,
   Trash2,
   Bookmark,
-  Sparkles,
   ShieldAlert,
   Clock,
   Check,
@@ -419,7 +418,6 @@ export function PrescriptionBuilder({
               onClick={onRepeatLastRx}
               className="min-h-[36px] px-3 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors flex items-center gap-1.5 shadow-2xs"
             >
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
               <span>Repeat Last Rx</span>
             </button>
           )}

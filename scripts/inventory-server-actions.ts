@@ -11,8 +11,10 @@
  * and flags every banned acting-principal name (ADR-0005 V3).
  *
  * Usage (reads source only; no network, no env):
- *   npx tsx scripts/inventory-server-actions.ts [--out <file.json>]
- * Exit code 1 when anything is flagged, so it can gate CI.
+ *   npm run inventory -- [--out <file.json>] [--scan-dir <dir>]... [--extra-dir <dir>]...
+ *   --scan-dir replaces the default scan dirs; --extra-dir adds to them (both repo-relative, repeatable).
+ * Exit code 1 when anything is flagged, so it gates CI (F14: the `static` job runs it on every PR; the gate itself is
+ * proven by tests/ci/inventory-gate.spec.ts on lint-fixtures/inventory/).
  */
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -261,10 +263,17 @@ function schemaKeys(sf: ts.SourceFile): Array<{ key: string; line: number; schem
   return out;
 }
 
+export interface InventoryOptions {
+  /** Repo-relative directories to scan instead of app/, features/, lib/, components/ (fixtures, tests/ci/). */
+  scanDirs?: string[];
+  /** Repo-relative directories to scan in addition to the scan dirs (e.g. a P0-13 canary fixture). */
+  extraDirs?: string[];
+}
+
 /** Builds the inventory from source. Also used by tests/security/p0-01-action-sweep.spec.ts to generate its cases. */
-export function buildInventory() {
+export function buildInventory(options: InventoryOptions = {}) {
   const files: string[] = [];
-  for (const dir of SCAN_DIRS) walk(path.join(ROOT, dir), files);
+  for (const dir of [...(options.scanDirs ?? SCAN_DIRS), ...(options.extraDirs ?? [])]) walk(path.join(ROOT, dir), files);
 
   const configPath = path.join(ROOT, "tsconfig.json");
   const config = ts.readConfigFile(configPath, ts.sys.readFile);
@@ -362,10 +371,21 @@ export function buildInventory() {
   return report;
 }
 
+/** Every value of a repeatable `--flag <value>` argument. */
+function argValues(flag: string): string[] {
+  const out: string[] = [];
+  process.argv.forEach((a, i) => {
+    if (a === flag && process.argv[i + 1] !== undefined) out.push(process.argv[i + 1]);
+  });
+  return out;
+}
+
 function main() {
   const outArg = process.argv.indexOf("--out");
   const outFile = outArg > -1 ? path.resolve(process.argv[outArg + 1]) : undefined;
-  const report = buildInventory();
+  const scanDirs = argValues("--scan-dir");
+  const extraDirs = argValues("--extra-dir");
+  const report = buildInventory({ scanDirs: scanDirs.length ? scanDirs : undefined, extraDirs });
   const { flagged: flags, noted } = report;
   const exportCount = report.counts.useServerExports;
 

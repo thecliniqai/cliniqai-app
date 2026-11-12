@@ -1,0 +1,11 @@
+[
+  {
+    "id": "GHSA-aaaa-bbbb-cccc",
+    "package": "fixture-transitive",
+    "severity": "high",
+    "reason": "Fixture waiver",
+    "owner": "fixture",
+    "ruling": "fixture",
+    "expires": "2027-01-31"
+  }
+]
