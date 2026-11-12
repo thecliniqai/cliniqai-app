@@ -1375,35 +1375,41 @@ export type Database = {
       payments: {
         Row: {
           amount: number;
+          command_id: string | null;
           id: string;
           invoice_id: string;
           notes: string | null;
           payment_method: string;
           recorded_at: string;
-          recorded_by: string;
+          recorded_by: string | null;
+          recorded_by_system: string | null;
           reference_number: string | null;
           tenant_id: string;
         };
         ComputedFields: never;
         Insert: {
           amount: number;
+          command_id?: string | null;
           id?: string;
           invoice_id: string;
           notes?: string | null;
           payment_method: string;
           recorded_at?: string;
-          recorded_by: string;
+          recorded_by?: string | null;
+          recorded_by_system?: string | null;
           reference_number?: string | null;
           tenant_id: string;
         };
         Update: {
           amount?: number;
+          command_id?: string | null;
           id?: string;
           invoice_id?: string;
           notes?: string | null;
           payment_method?: string;
           recorded_at?: string;
-          recorded_by?: string;
+          recorded_by?: string | null;
+          recorded_by_system?: string | null;
           reference_number?: string | null;
           tenant_id?: string;
         };
@@ -2429,6 +2435,19 @@ export type Database = {
         Returns: string;
       };
       readiness_probe: { Args: Record<PropertyKey, never>; Returns: Json };
+      record_payment: {
+        Args: {
+          p_amount: number;
+          p_command_id: string;
+          p_invoice_id: string;
+          p_method: string;
+          p_notes?: string;
+          p_reference: string;
+          p_system_actor?: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
       referral_source_clinics: {
         Args: { p_ids: string[] };
         Returns: {
