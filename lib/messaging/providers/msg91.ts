@@ -1,3 +1,4 @@
+import { serverEnv } from "@/lib/env-server";
 import {
   InteractiveButton,
   MessagingProvider,
@@ -18,14 +19,15 @@ export class Msg91Provider implements MessagingProvider {
     integratedNumber?: string;
     dltTeId?: string;
   }) {
-    this.authKey = options?.authKey || process.env.MSG91_AUTH_KEY || "";
+    const env = serverEnv();
+    this.authKey = options?.authKey || env.MSG91_AUTH_KEY || "";
     this.senderId =
       options?.integratedNumber ||
       options?.senderId ||
-      process.env.MSG91_INTEGRATED_NUMBER ||
-      process.env.MSG91_SENDER_ID ||
+      env.MSG91_INTEGRATED_NUMBER ||
+      env.MSG91_SENDER_ID ||
       "";
-    this.dltTeId = options?.dltTeId || process.env.MSG91_DLT_TE_ID || "";
+    this.dltTeId = options?.dltTeId || env.MSG91_DLT_TE_ID || "";
   }
 
   async sendSms(

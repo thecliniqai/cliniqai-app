@@ -1,4 +1,5 @@
 import "server-only";
+import { serverEnv } from "@/lib/env-server";
 
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
@@ -1171,7 +1172,7 @@ export async function shareReceiptViaWhatsApp(
     }
     const { token } = created;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = serverEnv().NEXT_PUBLIC_APP_URL;
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #11 (receipt_issued)
@@ -1348,7 +1349,7 @@ export async function sendConsolidatedConsultationWhatsApp(
       totalAmount = String(inv.total_amount || 0);
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = serverEnv().NEXT_PUBLIC_APP_URL;
 
     // 6./7. Share tokens for the prescription and the receipt via create_share_token (P0-04). A refused token is
     // reported, not silently linked: the message must never carry a link that does not resolve.

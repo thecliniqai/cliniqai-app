@@ -1,3 +1,4 @@
+import { serverEnv } from "@/lib/env-server";
 import {
   InteractiveButton,
   MessagingProvider,
@@ -17,10 +18,12 @@ export class TwilioProvider implements MessagingProvider {
     fromPhone?: string;
     whatsappFrom?: string;
   }) {
-    this.accountSid = options?.accountSid || process.env.TWILIO_ACCOUNT_SID || "";
-    this.authToken = options?.authToken || process.env.TWILIO_AUTH_TOKEN || "";
-    this.fromPhone = options?.fromPhone || process.env.TWILIO_FROM_PHONE || "";
-    this.whatsappFrom = options?.whatsappFrom || process.env.TWILIO_WHATSAPP_FROM || "+14155238886";
+    const env = serverEnv();
+    this.accountSid = options?.accountSid || env.TWILIO_ACCOUNT_SID || "";
+    this.authToken = options?.authToken || env.TWILIO_AUTH_TOKEN || "";
+    this.fromPhone = options?.fromPhone || env.TWILIO_FROM_PHONE || "";
+    // Twilio sandbox sender for local use only: the env schema requires TWILIO_WHATSAPP_FROM in staging/production.
+    this.whatsappFrom = options?.whatsappFrom || env.TWILIO_WHATSAPP_FROM || "+14155238886";
   }
 
   async sendSms(

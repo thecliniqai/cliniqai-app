@@ -1,12 +1,20 @@
+import { isDeployTier } from "@/lib/env";
+import { serverEnv } from "@/lib/env-server";
+
 /**
  * PO-16 / V2-01 D8: the public REST API (`/api/v1/**`) is off unless `API_V1_ENABLED` is exactly `"true"`, and it is
- * never on in production until P1-37 (the env schema in `lib/env.ts` refuses that combination at boot). Enforced in
- * two layers (AR2-H2): the middleware (`apiRequestBlocked`, on the normalised path) and every v1 handler
- * (`authenticateApiKey`, the docs and openapi.json routes, the export route), so a middleware bypass alone does not
- * reach the API. Edge-safe: no imports.
+ * never on in a production build or a deployed tier until P1-37 (the env schema in `lib/env.ts` refuses both at
+ * boot). Enforced in two layers (AR2-H2): the proxy (`apiRequestBlocked`, on the normalised path) and every v1 handler
+ * (`authenticateApiKey`, the docs and openapi.json routes, the export route), so a proxy bypass alone does not reach
+ * the API. Reads the typed accessor (03-01); an environment the schema refuses keeps the API off (fail closed).
  */
 export function apiV1Enabled(): boolean {
-  return process.env.API_V1_ENABLED === "true" && process.env.NODE_ENV !== "production";
+  try {
+    const env = serverEnv();
+    return env.API_V1_ENABLED && env.NODE_ENV !== "production" && !isDeployTier(env.APP_ENV);
+  } catch {
+    return false;
+  }
 }
 
 /** True for `/api/v1` and every path below it (exact, already-normalised pathname). */

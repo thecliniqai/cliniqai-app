@@ -1,4 +1,5 @@
 import "server-only";
+import { serverEnv } from "@/lib/env-server";
 
 import { createShareToken } from "@/features/sharing/tokens";
 import { assertPerm } from "@/lib/permissions";
@@ -740,7 +741,7 @@ export async function sharePrescriptionViaWhatsApp(
     }
     const { token } = created;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = serverEnv().NEXT_PUBLIC_APP_URL;
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #6 (prescription_ready)

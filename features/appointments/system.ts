@@ -1,4 +1,5 @@
 import "server-only";
+import { serverEnv } from "@/lib/env-server";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
@@ -211,6 +212,6 @@ export async function generateRescheduleToken(sys: AppointmentSystemContext, app
     throw new Error("Could not create a reschedule link for this appointment");
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = serverEnv().NEXT_PUBLIC_APP_URL;
   return `${baseUrl}/reschedule/${token}`;
 }

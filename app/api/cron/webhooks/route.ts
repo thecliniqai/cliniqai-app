@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverEnv } from "@/lib/env-server";
 import { dispatchPendingWebhookQueue } from "@/lib/webhooks/dispatcher";
 import { getAdminClient } from "@/lib/supabase/admin";
 
 async function handleCronDispatch(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = serverEnv().CRON_SECRET;
   const authHeader = req.headers.get("authorization");
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {

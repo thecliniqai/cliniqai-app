@@ -116,7 +116,7 @@ export async function enqueueMessage(
 }
 
 type ClaimedItem = CommunicationQueueItem;
-type SendResult = { success: boolean; externalMessageId?: string; error?: string };
+type SendResult = { success: boolean; externalMessageId?: string; error?: string; retryable?: boolean };
 
 function firstRow<T>(data: unknown): T | null {
   if (Array.isArray(data)) return (data[0] as T) ?? null;
@@ -238,7 +238,8 @@ export async function dispatchQueuedMessage(
     (item.message_type === "appointment_booked" || item.message_type === "appointment_rescheduled") &&
     item.recipient_phone;
 
-  if (isEligibleForSmsFallback && !item.metadata?.is_sms_fallback) {
+  // A non-retryable refusal (the `disabled` provider, R-16) would refuse the SMS too: no fallback row is queued.
+  if (isEligibleForSmsFallback && !item.metadata?.is_sms_fallback && sendResult.retryable !== false) {
     await enqueueMessage(db, {
       tenantId: item.tenant_id,
       patientId: item.patient_id,

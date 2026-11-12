@@ -1,3 +1,4 @@
+import { serverEnv } from "@/lib/env-server";
 import {
   InteractiveButton,
   MessagingProvider,
@@ -15,9 +16,10 @@ export class GupshupProvider implements MessagingProvider {
     appName?: string;
     srcPhone?: string;
   }) {
-    this.apiKey = options?.apiKey || process.env.GUPSHUP_API_KEY || "";
-    this.appName = options?.appName || process.env.GUPSHUP_APP_NAME || "";
-    this.srcPhone = options?.srcPhone || process.env.GUPSHUP_SRC_PHONE || "";
+    const env = serverEnv();
+    this.apiKey = options?.apiKey || env.GUPSHUP_API_KEY || "";
+    this.appName = options?.appName || env.GUPSHUP_APP_NAME || "";
+    this.srcPhone = options?.srcPhone || env.GUPSHUP_SRC_PHONE || "";
   }
 
   async sendSms(
