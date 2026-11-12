@@ -31,13 +31,9 @@ export async function createClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(
-          cookiesToSet: Array<{
-            name: string;
-            value: string;
-            options?: Record<string, unknown>;
-          }>
-        ) {
+        // @supabase/ssr 0.12 also passes no-store cache headers; a Server Component or action cannot set response
+        // headers, and the proxy (the only refresh point) already sets them on every response that carries cookies.
+        setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);

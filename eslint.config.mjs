@@ -1,13 +1,6 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+// eslint-config-next 16 ships native flat configs (V2-03 03-06); the FlatCompat / @eslint/eslintrc bridge is gone.
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
 /**
  * AUTH-01 gates (AUTH_REDESIGN §11, 01-06): no code path may create users through OTP or sign in by a mailbox
@@ -137,11 +130,25 @@ const eslintConfig = [
       "supabase/.temp/**",
     ],
   },
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...nextCoreWebVitals,
+  ...nextTypescript,
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
       "no-restricted-syntax": ["error", ...BASE_RESTRICTED_SYNTAX],
+    },
+  },
+  {
+    // Same file set as eslint-config-next's `next` object, which is where the react-hooks plugin is registered.
+    files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
+    rules: {
+      // eslint-plugin-react-hooks 7 (pulled in by eslint-config-next 16, V2-03 03-06) adds React Compiler rules whose
+      // recommended level is "error". They flag 35 pre-existing v1 sites (set-state-in-effect 30, purity 4,
+      // immutability 1); the client components are rebuilt on the V2-06 frontend foundation (P1-28), which owns
+      // raising these back to "error". Recorded in .planning/phases/03-platform-hygiene/03-06-NEXT16.md.
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/purity": "warn",
+      "react-hooks/immutability": "warn",
     },
   },
   {
