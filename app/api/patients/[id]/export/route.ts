@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
-import { exportPatientDpdpArchive } from "@/features/dpdp/export";
+import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { recordAudit } from "@/lib/audit/audit";
 
@@ -14,14 +14,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * GET /api/patients/[id]/export?format=json|pdf: the in-app DPDP Right to Access export for clinic staff
  * (components/patients/dpdp-export-actions.tsx). Ruling 01-09: this legal-rights feature must not depend on the
  * public `/api/v1` switch (default off), so it lives here and authenticates from the session cookie only.
- * - Session → `resolveServiceContext("patients:view")` (the permission `exportPatientDpdpArchive` asserts); the tenant
- *   comes from the session, reads run on the user's own JWT client (RLS applies). No service-role client.
+ * - Session → `resolveServiceContext("exports:create")` (DPDP_EXPORT_PERMISSION, the permission
+ *   `exportPatientDpdpArchive` asserts for staff; owner only today, ruling 01-09); the tenant comes from the session,
+ *   reads run on the user's own JWT client (RLS applies). No service-role client.
  * - 401 unauthenticated, 403 without the permission, 404 for a patient outside the caller's tenant (or a non-UUID
  *   id). Error bodies are fixed strings; nothing from the database reaches the caller.
  * Same formats and headers as the `/api/v1` export (which stays on the API-key path, behind the switch).
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const resolved = await resolveServiceContext("patients:view");
+  const resolved = await resolveServiceContext(DPDP_EXPORT_PERMISSION);
   if (!resolved.ok) {
     if (resolved.reason === "unauthenticated") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

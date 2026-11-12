@@ -93,7 +93,7 @@ export interface RescheduleContext {
 export type RescheduleContextResult =
   | { status: "ok"; context: RescheduleContext }
   | { status: "closed"; visitStatus: string }
-  | { status: "revoked" | "expired" | "not_found" };
+  | { status: "revoked" | "expired" | "not_found" | "unavailable" };
 
 export async function getRescheduleContext(token: string, fromIso: string, toIso: string): Promise<RescheduleContextResult> {
   if (!isPlausibleToken(token)) return { status: "not_found" };
@@ -124,6 +124,7 @@ export async function getRescheduleContext(token: string, fromIso: string, toIso
       return { status: "closed", visitStatus: String(res.visit_status ?? "closed") };
     case "revoked":
     case "expired":
+    case "unavailable":
       return { status: res.status };
     default:
       return { status: "not_found" };
@@ -133,7 +134,7 @@ export async function getRescheduleContext(token: string, fromIso: string, toIso
 export type ConsumeRescheduleResult =
   | { status: "ok"; newScheduledAt: string }
   | { status: "closed"; visitStatus: string }
-  | { status: "revoked" | "expired" | "not_found" | "invalid_time" | "too_far" | "slot_taken" };
+  | { status: "revoked" | "expired" | "not_found" | "invalid_time" | "too_far" | "slot_taken" | "unavailable" };
 
 /**
  * Single use: the token is revoked in the same transaction as the visit update (000020). The new time must be within
@@ -162,6 +163,7 @@ export async function consumeRescheduleToken(token: string, newScheduledAt: stri
     case "invalid_time":
     case "too_far":
     case "slot_taken":
+    case "unavailable":
       return { status: res.status };
     default:
       return { status: "not_found" };

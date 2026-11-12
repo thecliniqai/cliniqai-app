@@ -234,7 +234,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       .select();
 
     if (updateErr) {
-      return apiError("DATABASE_ERROR", updateErr.message || "Failed to update visit.", 500, undefined, rateHeaders);
+      // AR2-Info (I2): a fixed message; the database text is neither returned nor logged (only its code).
+      console.error("[api/v1/visits/[id]] update failed:", updateErr.code ?? "unknown");
+      return apiError("DATABASE_ERROR", "Failed to update visit.", 500, undefined, rateHeaders);
     }
 
     const updatedVisit = Array.isArray(updatedRows) ? updatedRows[0] : null;

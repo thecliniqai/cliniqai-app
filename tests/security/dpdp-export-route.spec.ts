@@ -1,7 +1,8 @@
 /**
  * Ruling 01-09: the in-app DPDP export (components/patients/dpdp-export-actions.tsx) uses the session-authenticated
  * app route `GET /api/patients/[id]/export`, not `/api/v1` (off by default, AR2-H2). The route takes the tenant from
- * the session and requires `patients:view` (the permission `exportPatientDpdpArchive` asserts).
+ * the session and requires `exports:create` (owner only today), the permission `exportPatientDpdpArchive` asserts for
+ * staff, so both entry points agree.
  *
  * Local stack: `createClient()` from `@/lib/supabase/server` is replaced by a seeded user's own JWT client (same
  * pattern as tests/security/pdf-route-guards.spec.ts), so membership and RLS resolve for real.
@@ -11,9 +12,11 @@ import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
 import { env } from "@/lib/env";
-import { ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
+import { hasPerm, PermissionDeniedError } from "@/lib/permissions";
+import { dpdpExportPermission, exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { ctxFor } from "../helpers/context";
 
 const mockState = vi.hoisted(() => ({ client: null as unknown }));
 
@@ -50,6 +53,9 @@ describe("DPDP export app route (session cookie, independent of /api/v1)", () =>
   let A: SeededTenant;
   let B: SeededTenant;
   let receptionist: SeededTenant;
+  let doctor: SeededTenant;
+  let nurse: SeededTenant;
+  let clinicAdmin: SeededTenant;
   let patientA: string;
   let patientB: string;
 
@@ -57,6 +63,9 @@ describe("DPDP export app route (session cookie, independent of /api/v1)", () =>
     A = await seedTenantWithOwner(`Export A ${randomUUID().slice(0, 8)}`);
     B = await seedTenantWithOwner(`Export B ${randomUUID().slice(0, 8)}`);
     receptionist = await addMemberToTenant(A.tenantId, "receptionist");
+    doctor = await addMemberToTenant(A.tenantId, "doctor");
+    nurse = await addMemberToTenant(A.tenantId, "nurse");
+    clinicAdmin = await addMemberToTenant(A.tenantId, "admin");
     patientA = await seedPatient(A, "A");
     patientB = await seedPatient(B, "B");
   }, 60_000);
@@ -103,21 +112,27 @@ describe("DPDP export app route (session cookie, independent of /api/v1)", () =>
     }
   });
 
-  it("a role without patients:view gets 403 and no archive", async () => {
-    // Every clinic role holds patients:view today; the permission is withdrawn from the receptionist for this case so
-    // the route's own check is exercised (restored afterwards).
-    const perms = ROLE_PERMISSIONS as Record<string, readonly Permission[]>;
-    const original = perms.receptionist;
-    perms.receptionist = original.filter((p) => p !== "patients:view");
-    try {
-      mockState.client = receptionist.client;
+  it("roles without exports:create (every role but owner today) get 403 and no archive", async () => {
+    for (const member of [receptionist, doctor, nurse, clinicAdmin]) {
+      mockState.client = member.client;
       const res = await call(patientA);
-      expect(res.status).toBe(403);
+      expect(res.status, member.role).toBe(403);
       expect(await res.text()).not.toContain(patientA);
-    } finally {
-      perms.receptionist = original;
     }
-    mockState.client = receptionist.client;
+    mockState.client = A.client;
     expect((await call(patientA)).status).toBe(200);
+  });
+
+  it("the service applies the same rule: a doctor's context is refused, an owner's is served", async () => {
+    await expect(exportPatientDpdpArchive(ctxFor(doctor), patientA, { skipAudit: true })).rejects.toBeInstanceOf(
+      PermissionDeniedError
+    );
+    const bundle = await exportPatientDpdpArchive(ctxFor(A), patientA, { skipAudit: true });
+    expect(bundle.patient.id).toBe(patientA);
+    expect(dpdpExportPermission({ actorType: "user" })).toBe("exports:create");
+    expect(hasPerm("owner", "exports:create")).toBe(true);
+    for (const role of ["admin", "doctor", "receptionist", "nurse"] as const) {
+      expect(hasPerm(role, "exports:create"), role).toBe(false);
+    }
   });
 });

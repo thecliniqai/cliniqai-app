@@ -349,19 +349,28 @@ export async function deleteLabDocument(ctx: ServiceContext, documentId: string)
       return { success: false, error: "Document not found or access denied." };
     }
 
-    // 2. Delete storage object
-    const storageProvider = getStorageProviderForDb(ctx.db, "clinic-records");
-
-    try {
-      await deleteFile(
-        {
-          path: doc.storage_path,
-          bucket: "clinic-records",
-        },
-        storageProvider
-      );
-    } catch (storageErr) {
-      console.warn("[features/labs/actions] Storage file deletion warning:", storageErr);
+    // 2. Delete the storage object, only when the stored key is this patient's own (AR2-L5: same rule as
+    // getDocumentSignedUrl). A key outside tenants/<tenant>/patients/<patient>/ is never acted on (with R2's bucket-wide
+    // credentials it could name any object); the row is still removed.
+    const ownKey = isPatientStoragePath(session.tenantId, doc.patient_id, doc.storage_path);
+    if (ownKey) {
+      const storageProvider = getStorageProviderForDb(ctx.db, "clinic-records");
+      try {
+        await deleteFile(
+          {
+            path: doc.storage_path,
+            bucket: "clinic-records",
+          },
+          storageProvider
+        );
+      } catch (storageErr) {
+        console.warn(
+          "[features/labs/actions] Storage file deletion warning:",
+          storageErr instanceof Error ? storageErr.name : "error"
+        );
+      }
+    } else {
+      console.warn("[features/labs/actions] Stored key outside the patient prefix; storage object not deleted.");
     }
 
     // 3. Delete database record
@@ -384,7 +393,7 @@ export async function deleteLabDocument(ctx: ServiceContext, documentId: string)
       metadata: {
         patient_id: doc.patient_id,
         title: doc.title,
-        storage_path: doc.storage_path,
+        // No storage_path: the key embeds the patient's name (AR2-L5, as AR-L5 for the v1 lab-order audit).
       },
     });
 

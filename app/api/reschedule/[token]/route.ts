@@ -15,6 +15,15 @@ import type { DayAvailability, DoctorWeeklySchedule } from "@/lib/db/types";
 
 const NOT_FOUND_MESSAGE = "Reschedule link is invalid or does not exist.";
 const GONE_MESSAGE = "This reschedule link has already been used, revoked or has expired. Please contact the clinic directly.";
+const UNAVAILABLE_MESSAGE = "This appointment cannot be rescheduled online. Please contact the clinic directly.";
+
+/** AR2-L4 (000023): only a booked or confirmed visit can be rescheduled online. */
+function closedMessage(visitStatus: string): string {
+  if (visitStatus === "completed" || visitStatus === "cancelled") {
+    return `This appointment is already ${visitStatus} and cannot be rescheduled.`;
+  }
+  return "Your visit has already started at the clinic, so it can no longer be rescheduled online. Please contact the clinic.";
+}
 
 // Same bounds as consume_reschedule_token and the memberships CHECKs (000021).
 const RESCHEDULE_HORIZON_DAYS = 90;
@@ -65,10 +74,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
       return NextResponse.json({ error: GONE_MESSAGE }, { status: 410 });
     }
     if (res.status === "closed") {
-      return NextResponse.json(
-        { error: `This appointment is already ${res.visitStatus} and cannot be rescheduled.` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: closedMessage(res.visitStatus) }, { status: 400 });
+    }
+    if (res.status === "unavailable") {
+      return NextResponse.json({ error: UNAVAILABLE_MESSAGE }, { status: 409 });
     }
     if (res.status !== "ok") {
       return NextResponse.json({ error: NOT_FOUND_MESSAGE }, { status: 404 });
@@ -164,10 +173,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
           { status: 409 }
         );
       case "closed":
-        return NextResponse.json(
-          { error: `This appointment is already ${res.visitStatus} and cannot be rescheduled.` },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: closedMessage(res.visitStatus) }, { status: 400 });
+      case "unavailable":
+        return NextResponse.json({ error: UNAVAILABLE_MESSAGE }, { status: 409 });
       case "revoked":
       case "expired":
         return NextResponse.json({ error: GONE_MESSAGE }, { status: 410 });

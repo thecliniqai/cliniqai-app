@@ -5,7 +5,7 @@ import { apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { requireServiceContext, type ServiceContext } from "@/lib/auth/context";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { exportPatientDpdpArchive } from "@/features/dpdp/export";
+import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { recordAudit } from "@/lib/audit/audit";
 
@@ -18,8 +18,8 @@ interface RouteContext {
  * Generates DPDP Right to Access dual-format data export:
  * - format=json: Structured machine-readable JSON archive including billing records
  * - format=pdf: Publication-grade clinical Medical Summary PDF
- * Supports either API key Bearer auth (register path, ADR-0005) or an authenticated staff cookie session with
- * patients:view. A staff session reads with its own user-JWT client (RLS applies); only the API key path uses the
+ * Supports either API key Bearer auth (register path, ADR-0005; the key principal keeps patients:view, see
+ * `dpdpExportPermission`) or an authenticated staff cookie session with exports:create (ruling 01-09). A staff session reads with its own user-JWT client (RLS applies); only the API key path uses the
  * service-role client, and in both cases the tenant and actor come from the verified credential.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
@@ -55,13 +55,13 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
     ctx = apiKeyServiceContext(auth.session, admin);
   } else {
-    // 1b. Cookie session authentication with patients:view guard
+    // 1b. Cookie session authentication: same staff permission as the in-app export route (ruling 01-09)
     try {
-      ctx = await requireServiceContext("patients:view");
+      ctx = await requireServiceContext(DPDP_EXPORT_PERMISSION);
     } catch {
       return apiError(
         "UNAUTHORIZED",
-        "Authentication required via Bearer API key or staff session with patients:view permission.",
+        "Authentication required via Bearer API key or staff session with exports:create permission.",
         401
       );
     }

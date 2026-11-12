@@ -6,7 +6,7 @@ import {
 } from "@/features/appointments/system";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendDirectWhatsApp } from "@/lib/messaging";
-import { extractTenDigits } from "@/lib/utils/phone";
+import { toIndianMobileE164Strict } from "@/lib/utils/phone";
 import {
   verifyMsg91WebhookSecret,
   parseMsg91Payload,
@@ -220,10 +220,20 @@ async function resolveAppointmentByReply(supabase: any, replyMsgId: string | und
   return { visit, recipientPhone: queueItem.recipient_phone as string };
 }
 
-/** True when both numbers reduce to the same 10-digit Indian mobile number. */
+/**
+ * True when both numbers are the same Indian mobile in full E.164 (+91 and [6-9] + 9 digits). AR2-L3: country code
+ * included, so a foreign number ending in the same 10 digits (`+1 917 123 4567` vs `9171234567`) never matches.
+ */
 function isSameMobile(a: string | null | undefined, b: string | null | undefined): boolean {
-  const x = extractTenDigits(a);
-  return x.length === 10 && x === extractTenDigits(b);
+  const x = toIndianMobileE164Strict(a);
+  return x !== null && x === toIndianMobileE164Strict(b);
+}
+
+/** AR2-L4: a patient reply may only confirm, cancel or reschedule a visit that has not started. */
+const PATIENT_ACTIONABLE_STATUSES = ["booked", "confirmed"] as const;
+
+function isPatientActionable(status: string | null | undefined): boolean {
+  return (PATIENT_ACTIONABLE_STATUSES as readonly string[]).includes(status ?? "");
 }
 
 /**
@@ -275,7 +285,7 @@ async function handleInboundAction({
   // 3. Action: [Confirm] Flow (D-04). Only a 'booked' visit becomes 'confirmed' (AR-L1): a late "yes" must not pull a
   // waiting or in-consultation patient out of the queue. An already confirmed visit just gets the acknowledgement.
   if (action === "confirm") {
-    if (appointment.status !== "booked" && appointment.status !== "confirmed") {
+    if (!isPatientActionable(appointment.status)) {
       return OK();
     }
 
@@ -325,12 +335,23 @@ async function handleInboundAction({
 
   // 4. Action: [Cancel] Flow with Immediate Calendar Slot Release (D-04, Finding 5)
   // Strictly restricted to action === "cancel" (which requires explicit button click btn_cancel)
+  // AR2-L4: only a booked or confirmed visit (checked again in the UPDATE filter); a late "cancel" for a patient who is
+  // already waiting or with the doctor changes nothing.
   if (action === "cancel") {
-    await cancelAppointment(sys, {
-      appointmentId: appointment.id,
-      reason: "patient_whatsapp_bot",
-      isClinicInitiated: false,
-    });
+    if (!isPatientActionable(appointment.status)) {
+      return OK();
+    }
+    try {
+      await cancelAppointment(sys, {
+        appointmentId: appointment.id,
+        reason: "patient_whatsapp_bot",
+        isClinicInitiated: false,
+        onlyFromStatuses: PATIENT_ACTIONABLE_STATUSES,
+      });
+    } catch (err) {
+      console.warn("[Webhook] cancel refused:", err instanceof Error ? err.name : "error");
+      return OK();
+    }
 
     await supabase.from("audit_logs").insert({
       tenant_id: appointment.tenant_id,
@@ -362,12 +383,15 @@ async function handleInboundAction({
 
   // 5. Action: [Reschedule] Flow (D-04)
   if (action === "reschedule") {
-    // A closed or missing appointment gets no link (create_reschedule_token refuses it); the front desk is still alerted.
+    // Only a booked or confirmed visit gets a link (AR2-L4; create_reschedule_token and consume_reschedule_token refuse
+    // the others too, 000023); the front desk is still alerted.
     let rescheduleUrl: string | null = null;
-    try {
-      rescheduleUrl = await generateRescheduleToken(sys, appointment.id);
-    } catch {
-      rescheduleUrl = null;
+    if (isPatientActionable(appointment.status)) {
+      try {
+        rescheduleUrl = await generateRescheduleToken(sys, appointment.id);
+      } catch {
+        rescheduleUrl = null;
+      }
     }
 
     // Front-desk alert

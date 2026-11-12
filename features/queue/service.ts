@@ -149,6 +149,18 @@ export type TransitionStateResult =
   | { success: true }
   | { success: false; error: string };
 
+/** Visit statuses the queue may move forward (AR2-L2). */
+const QUEUE_OPEN_STATUSES = ["booked", "confirmed", "waiting", "in_consultation"];
+
+export const QUEUE_TRANSITION_REFUSED_MESSAGE =
+  "This visit can no longer be moved in the queue. Signed or closed consultations change only through an amendment.";
+
+type QueueTokenUpdate = {
+  update: (vals: Record<string, unknown>) => {
+    eq: (col: string, val: string) => Promise<{ error: unknown }>;
+  };
+};
+
 export async function transitionQueueState(
   ctx: ServiceContext,
   visitId: string,
@@ -160,51 +172,59 @@ export async function transitionQueueState(
     assertPerm(ctx.role, "appointments:edit");
     const nowIso = new Date().toISOString();
 
-    type UpdateTable = {
-      update: (vals: Record<string, unknown>) => {
-        eq: (col: string, val: string) => Promise<{ error: unknown }>;
-      };
-    };
-
-    if (targetState === "in_consultation") {
-      // Update queue token called_at
-      await (supabase.from("queue_tokens") as unknown as UpdateTable)
-        .update({ called_at: nowIso })
-        .eq("visit_id", visitId);
-
-      // Update visit status
-      await (supabase.from("visits") as unknown as UpdateTable)
-        .update({ status: "in_consultation", updated_at: nowIso })
-        .eq("id", visitId);
-
-      await recordAudit(ctx, {
-        action: "queue.transition",
-        entityType: "visit",
-        entityId: visitId,
-        metadata: {
-          new_status: "in_consultation",
-        },
-      });
-    } else if (targetState === "completed") {
-      // Update queue token completed_at
-      await (supabase.from("queue_tokens") as unknown as UpdateTable)
-        .update({ completed_at: nowIso })
-        .eq("visit_id", visitId);
-
-      // Update visit status
-      await (supabase.from("visits") as unknown as UpdateTable)
-        .update({ status: "completed", updated_at: nowIso })
-        .eq("id", visitId);
-
-      await recordAudit(ctx, {
-        action: "queue.transition",
-        entityType: "visit",
-        entityId: visitId,
-        metadata: {
-          new_status: "completed",
-        },
-      });
+    if (targetState !== "in_consultation" && targetState !== "completed") {
+      return { success: false, error: QUEUE_TRANSITION_REFUSED_MESSAGE };
     }
+
+    // AR2-L2: the queue moves only open, unsigned visits forward. A completed or cancelled visit never goes back to
+    // in_consultation, and a signed visit (including one reopened for amendment) is never moved by the queue: only
+    // the amendment flow (reopenVisitForAmendment / finalizeVisitAmendment) changes those. The precondition sits in
+    // the UPDATE filter, so a concurrent sign-off cannot slip between a read and the write.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: moved, error: moveErr } = await (supabase.from("visits") as any)
+      .update({ status: targetState, updated_at: nowIso })
+      .eq("id", visitId)
+      .eq("tenant_id", ctx.tenantId)
+      .in("status", QUEUE_OPEN_STATUSES)
+      .is("signed_at", null)
+      .select("id");
+
+    if (moveErr) {
+      console.error("[features/queue/service] transition failed:", moveErr.code ?? "unknown");
+      return { success: false, error: "Failed to transition queue state." };
+    }
+
+    if (!moved || moved.length === 0) {
+      // Completing an already-completed visit (checkout after sign-off) is a no-op, not an error.
+      if (targetState === "completed") {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: current } = await (supabase.from("visits") as any)
+          .select("status")
+          .eq("id", visitId)
+          .eq("tenant_id", ctx.tenantId)
+          .maybeSingle();
+        if (current?.status === "completed") {
+          await (supabase.from("queue_tokens") as unknown as QueueTokenUpdate)
+            .update({ completed_at: nowIso })
+            .eq("visit_id", visitId);
+          return { success: true };
+        }
+      }
+      return { success: false, error: QUEUE_TRANSITION_REFUSED_MESSAGE };
+    }
+
+    await (supabase.from("queue_tokens") as unknown as QueueTokenUpdate)
+      .update(targetState === "in_consultation" ? { called_at: nowIso } : { completed_at: nowIso })
+      .eq("visit_id", visitId);
+
+    await recordAudit(ctx, {
+      action: "queue.transition",
+      entityType: "visit",
+      entityId: visitId,
+      metadata: {
+        new_status: targetState,
+      },
+    });
 
     return { success: true };
   } catch (err: unknown) {

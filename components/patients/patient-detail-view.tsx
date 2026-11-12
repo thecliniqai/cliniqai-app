@@ -25,7 +25,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Patient } from "@/lib/db/types";
+import { Patient, type UserRole } from "@/lib/db/types";
+import { hasPerm } from "@/lib/permissions";
 import { PatientVisitHistoryItem } from "@/features/patients/schema";
 import { CurrentConsentState } from "@/features/patients/consent";
 import { PatientVisitHistory } from "./patient-visit-history";
@@ -135,7 +136,8 @@ export function PatientDetailView({
 
           {/* Action Buttons: Edit Details, Book Slot, Add to Queue */}
           <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
-            <DpdpExportActions patientId={patient.id} />
+            {/* DPDP full-record export: exports:create only (owner today; ruling 01-09). No dead button for others. */}
+            {hasPerm(userRole as UserRole, "exports:create") && <DpdpExportActions patientId={patient.id} />}
 
             <Button
               variant="secondary"

@@ -65,8 +65,9 @@ export function EditStaffModal({ isOpen, onClose, member }: EditStaffModalProps)
         full_name: fullName,
         phone: phone || null,
         role,
-        medical_council_reg_no: isDoctorOrOwner ? medicalCouncilRegNo || null : null,
-        qualifications: isDoctorOrOwner ? qualifications || null : null,
+        // Credentials are sent only when the form shows them; otherwise they are left as stored (IR2-L4).
+        medical_council_reg_no: isDoctorOrOwner ? medicalCouncilRegNo || null : undefined,
+        qualifications: isDoctorOrOwner ? qualifications || null : undefined,
         default_specialty: defaultSpecialty,
       });
 

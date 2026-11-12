@@ -24,6 +24,12 @@ export interface CancelAppointmentInput {
   appointmentId: string;
   reason?: string;
   isClinicInitiated?: boolean;
+  /**
+   * When set, the visit is cancelled only while its status is one of these (checked in the UPDATE filter as well), so
+   * a late patient reply cannot cancel a visit that has since moved on (AR2-L4). Otherwise throws "Appointment not
+   * cancellable".
+   */
+  onlyFromStatuses?: readonly string[];
 }
 
 /**
@@ -108,7 +114,11 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
     throw new Error("Appointment not found");
   }
 
-  const { data: updated, error: updateError } = await supabase
+  if (input.onlyFromStatuses && !input.onlyFromStatuses.includes(visit.status)) {
+    throw new Error("Appointment not cancellable");
+  }
+
+  let cancelQuery = supabase
     .from("visits")
     .update({
       status: "cancelled",
@@ -121,10 +131,15 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.appointmentId)
-    .eq("tenant_id", visit.tenant_id)
-    .select()
-    .single();
+    .eq("tenant_id", visit.tenant_id);
+  if (input.onlyFromStatuses) {
+    cancelQuery = cancelQuery.in("status", [...input.onlyFromStatuses]);
+  }
+  const { data: updated, error: updateError } = await cancelQuery.select().single();
 
+  if (input.onlyFromStatuses && (updateError || !updated)) {
+    throw new Error("Appointment not cancellable");
+  }
   if (updateError || !updated) {
     throw new Error(`Failed to cancel appointment: ${updateError?.message || "Unknown error"}`);
   }

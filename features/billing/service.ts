@@ -678,6 +678,38 @@ export type CompleteAndBillResult =
     }
   | { success: false; error: string };
 
+export const SIGN_AND_BILL_ALREADY_DONE_MESSAGE =
+  "This consultation is already signed and billed. Open the visit at checkout to view the invoice.";
+
+/**
+ * IR2-L1: where a "Sign & Bill" for `visitId` stands for the acting user.
+ * - "resume": completed and signed by `ctx.userId` (an earlier Sign & Bill whose billing step failed) with no invoice;
+ * - "already_billed": completed and signed by `ctx.userId` and an invoice exists;
+ * - "sign": anything else (not signed yet, or signed by someone else / reopened: completeAndSignConsultation decides).
+ */
+async function signedVisitAwaitingInvoice(
+  ctx: ServiceContext,
+  visitId: string
+): Promise<"resume" | "already_billed" | "sign"> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: visit } = await (ctx.db.from("visits") as any)
+    .select("id, status, signed_at, signed_by")
+    .eq("id", visitId)
+    .eq("tenant_id", ctx.tenantId)
+    .maybeSingle();
+  if (!visit || visit.status !== "completed" || !visit.signed_at || visit.signed_by !== ctx.userId) {
+    return "sign";
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: invoices, error } = await (ctx.db.from("invoices") as any)
+    .select("id")
+    .eq("visit_id", visitId)
+    .eq("tenant_id", ctx.tenantId)
+    .limit(1);
+  if (error) return "sign";
+  return Array.isArray(invoices) && invoices.length > 0 ? "already_billed" : "resume";
+}
+
 /**
  * Solo Doctor Workflow: Seals consultation prescription and records visit billing in one atomic step.
  */
@@ -700,10 +732,18 @@ export async function completeAndBillConsultation(
     const session = ctx;
     const data = parseResult.data;
 
-    // 1. Sign off and finalize consultation & prescription
-    const signResult = await completeAndSignConsultation(ctx, data.visit_id);
-    if (!signResult.success) {
-      return { success: false, error: signResult.error };
+    // 1. Sign off and finalize consultation & prescription. IR2-L1: a retry after the sign-off committed but billing
+    // failed resumes at billing: a visit already completed and signed by this same user, with no invoice yet, is not
+    // re-signed (P1-23) and goes straight to step 2. Anything else that is already signed is refused as before.
+    const resume = await signedVisitAwaitingInvoice(ctx, data.visit_id);
+    if (resume === "already_billed") {
+      return { success: false, error: SIGN_AND_BILL_ALREADY_DONE_MESSAGE };
+    }
+    if (resume !== "resume") {
+      const signResult = await completeAndSignConsultation(ctx, data.visit_id);
+      if (!signResult.success) {
+        return { success: false, error: signResult.error };
+      }
     }
 
     // 2. Create Invoice

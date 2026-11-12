@@ -40,15 +40,25 @@ export interface ExportPatientDpdpArchiveOptions {
  * Compiles a full, multi-domain patient clinical & billing dossier
  * under DPDP Act 2023 Right to Access (Section 11/12).
  * Strictly scoped to the acting tenant (`ctx.tenantId`, ADR-0005 D1) and `patientId`; runs on `ctx.db`, so a staff
- * session reads under RLS and only the `/api/v1` register path reads with its own client. Requires patients:view,
- * the permission the export route checked before.
+ * session reads under RLS and only the `/api/v1` register path reads with its own client.
+ *
+ * Permission (ruling 01-09): a staff session needs `exports:create` (owner only today; a full-record export by any role
+ * is an exfiltration path; V2-05 P1-01 may widen it to admin). The `/api/v1` API-key principal (actorType
+ * "api_key", role "admin" by D-02) keeps `patients:view`, its behaviour before the ruling; that route is off by
+ * default (PO-16) and its scope is revisited in P1-37.
  */
+export const DPDP_EXPORT_PERMISSION = "exports:create" as const;
+
+export function dpdpExportPermission(ctx: Pick<ServiceContext, "actorType">): "exports:create" | "patients:view" {
+  return ctx.actorType === "api_key" ? "patients:view" : DPDP_EXPORT_PERMISSION;
+}
+
 export async function exportPatientDpdpArchive(
   ctx: ServiceContext,
   patientId: string,
   options?: ExportPatientDpdpArchiveOptions
 ): Promise<DpdpExportBundle> {
-  assertPerm(ctx.role, "patients:view");
+  assertPerm(ctx.role, dpdpExportPermission(ctx));
   const supabase = ctx.db;
   const tenantId = ctx.tenantId;
 

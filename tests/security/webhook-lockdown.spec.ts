@@ -408,6 +408,70 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
     });
   });
 
+  describe("01-09 review round 2 (AR2-L3, AR2-L4)", () => {
+    const reply = (side: SeededSide, action: string, customerNumber = side.patientPhone.replace("+", "")) =>
+      routeModule.POST(
+        webhook("msg91", { customerNumber, replyMsgId: side.replyMsgId, interactive: button(action) }),
+        ctx("msg91")
+      );
+
+    it("AR2-L3: a foreign number ending in the recipient's 10 digits is not the recipient", async () => {
+      const send = vi.mocked(messagingModule.sendDirectWhatsApp);
+      send.mockClear();
+      const tenDigits = A.patientPhone.replace("+91", "");
+      for (const foreign of [`1${tenDigits}`, `44${tenDigits}`, `0001${tenDigits}`, `92${tenDigits}`]) {
+        for (const action of ["btn_confirm", "btn_cancel", "btn_reschedule"]) {
+          const res = await reply(A, action, foreign);
+          expect(res.status).toBe(200);
+        }
+      }
+      expect(await visitStatus(A.visitId)).toBe("booked");
+      for (const [, template] of send.mock.calls) expect(template).toBe("bot_not_found");
+
+      // The recipient's own number in its usual spellings still matches.
+      for (const own of [`91${tenDigits}`, `+91 ${tenDigits.slice(0, 5)} ${tenDigits.slice(5)}`, `0${tenDigits}`]) {
+        await resetVisit(A.visitId);
+        await reply(A, "btn_confirm", own);
+        expect(await visitStatus(A.visitId), own).toBe("confirmed");
+      }
+    });
+
+    it.each(["waiting", "in_consultation"])(
+      "AR2-L4: a late cancel or reschedule reply does nothing to a %s visit (no link, no cancellation)",
+      async (status) => {
+        const send = vi.mocked(messagingModule.sendDirectWhatsApp);
+        await admin.from("visits").update({ status }).eq("id", B.visitId);
+        try {
+          send.mockClear();
+          const tokenSpy = vi.spyOn(appointmentsActions, "generateRescheduleToken");
+          expect((await reply(B, "btn_cancel")).status).toBe(200);
+          expect(await visitStatus(B.visitId)).toBe(status);
+          expect((await reply(B, "btn_reschedule")).status).toBe(200);
+          expect(await visitStatus(B.visitId)).toBe(status);
+          expect(tokenSpy).not.toHaveBeenCalled();
+          for (const [, template, params] of send.mock.calls) {
+            expect(template).not.toBe("appointment_cancelled_ack");
+            expect(JSON.stringify(params)).not.toContain("/reschedule/");
+          }
+        } finally {
+          await admin.from("visits").update({ status: "booked" }).eq("id", B.visitId);
+        }
+      }
+    );
+
+    it("AR2-L4: a booked visit can still be cancelled and a confirmed one gets a reschedule link", async () => {
+      const send = vi.mocked(messagingModule.sendDirectWhatsApp);
+      send.mockClear();
+      await admin.from("visits").update({ status: "confirmed" }).eq("id", B.visitId);
+      await reply(B, "btn_reschedule");
+      expect(send.mock.calls.some(([, t, p]) => t === "appointment_reschedule_link" && JSON.stringify(p).includes("/reschedule/"))).toBe(true);
+
+      await resetVisit(B.visitId);
+      await reply(B, "btn_cancel");
+      expect(await visitStatus(B.visitId)).toBe("cancelled");
+    });
+  });
+
   describe("TC-WH-06: responses carry no ids, tokens or URLs", () => {
     function assertBare(text: string) {
       expect(JSON.parse(text)).toEqual({ ok: true });

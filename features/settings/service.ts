@@ -55,6 +55,9 @@ function roleChangeErrorMessage(err: { message?: string; code?: string }): strin
 const OWNER_ADMIN = new Set(["owner", "admin"]);
 
 /** Equal after trimming, with null/undefined/"" treated as the same empty value. */
+export const CREDENTIALS_SELF_OR_OWNER_MESSAGE =
+  "Only the clinic owner or the staff member can change medical credentials.";
+
 function sameText(a: unknown, b: unknown): boolean {
   const norm = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   return norm(a) === norm(b);
@@ -364,24 +367,28 @@ export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInp
     const updatePayload: Record<string, any> = {
       full_name: data.full_name.trim(),
       phone: data.phone?.trim() ?? null,
-      qualifications: data.qualifications?.trim() ?? null,
-      medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
       default_specialty: data.default_specialty ?? "general_physician",
     };
+    // Credentials are written only when submitted (undefined = the form did not show them, so they stay as stored);
+    // a submitted empty value clears the field.
+    if (data.qualifications !== undefined) {
+      updatePayload.qualifications = data.qualifications?.trim() || null;
+    }
+    if (data.medical_council_reg_no !== undefined) {
+      updatePayload.medical_council_reg_no = data.medical_council_reg_no?.trim() || null;
+    }
 
     // AR-L4 (enforced in the database by memberships_profile_update_guard, 000021): medical credentials are changed
     // only by the member or an owner; an owner's or admin's name and phone likewise. Unchanged values are left out of
-    // the payload; a submitted change is refused with a clear message.
+    // the payload; any submitted change is refused with a clear message, including clearing a stored value (IR2-L4:
+    // before, an admin's clear was dropped silently and reported as saved).
     if (!isSelf && !isOwner) {
-      const newQual = updatePayload.qualifications as string | null;
-      const newReg = updatePayload.medical_council_reg_no as string | null;
-      if (
-        (newQual && !sameText(newQual, existing.qualifications)) ||
-        (newReg && !sameText(newReg, existing.medical_council_reg_no))
-      ) {
+      const credentialChanged = (field: "qualifications" | "medical_council_reg_no") =>
+        field in updatePayload && !sameText(updatePayload[field], existing[field]);
+      if (credentialChanged("qualifications") || credentialChanged("medical_council_reg_no")) {
         return {
           success: false,
-          error: "Only the clinic owner or the staff member can change medical credentials.",
+          error: CREDENTIALS_SELF_OR_OWNER_MESSAGE,
         };
       }
       delete updatePayload.qualifications;

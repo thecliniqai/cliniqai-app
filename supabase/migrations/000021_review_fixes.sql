@@ -604,6 +604,19 @@ BEGIN
 END;
 $$;
 
+-- IR2-L3 (plan 01-09; this file was edited after review under a recorded exception: never pushed, applied only to the
+-- local stack). Migrate before the contract: rows written before these bounds existed (the service accepted slot lengths
+-- up to 180, and any availability_schedule shape) are brought into range, so VALIDATE cannot fail on old data. A slot
+-- length is clamped to 5..120; a schedule that is not a valid weekly schedule is reset to the column default.
+UPDATE public.memberships
+SET default_slot_duration_minutes = LEAST(GREATEST(default_slot_duration_minutes, 5), 120)
+WHERE default_slot_duration_minutes IS NOT NULL
+  AND default_slot_duration_minutes NOT BETWEEN 5 AND 120;
+
+UPDATE public.memberships
+SET availability_schedule = DEFAULT
+WHERE NOT public.is_valid_weekly_schedule(availability_schedule);
+
 ALTER TABLE public.memberships DROP CONSTRAINT IF EXISTS memberships_slot_duration_bounds;
 ALTER TABLE public.memberships ADD CONSTRAINT memberships_slot_duration_bounds
     CHECK (default_slot_duration_minutes IS NULL OR default_slot_duration_minutes BETWEEN 5 AND 120) NOT VALID;
