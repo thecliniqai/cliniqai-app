@@ -1,0 +1,19 @@
+$ node scripts/ci/workflow-policy.mjs <copy>/a/staging.yml
+workflow-policy: FAIL ../../../..<copy>/a/staging.yml:19 [staging-no-pr-trigger] staging workflow triggers on `pull_request`; staging runs only from feature/v2 (push, schedule, dispatch)
+workflow-policy: 1 problem(s) in 1 workflow(s)
+exit=1
+
+$ node scripts/ci/workflow-policy.mjs <copy>/b/staging.yml
+workflow-policy: FAIL ../../../..<copy>/b/staging.yml:61 [staging-secret-needs-environment] job `migrate` uses secrets.STAGING_DB_URL without declaring `environment:`
+workflow-policy: FAIL ../../../..<copy>/b/staging.yml:66 [staging-secret-needs-environment] job `migrate` uses secrets.STAGING_DB_URL without declaring `environment:`
+workflow-policy: FAIL ../../../..<copy>/b/staging.yml:70 [staging-secret-needs-environment] job `migrate` uses secrets.STAGING_DB_URL without declaring `environment:`
+workflow-policy: 3 problem(s) in 1 workflow(s)
+exit=1
+
+$ node scripts/ci/workflow-policy.mjs <copy>/c/drift.yml
+workflow-policy: FAIL ../../../..<copy>/c/drift.yml:38 [uses-pinned] `uses: actions/checkout@v7` is not pinned to a full commit SHA (or a sha256 image digest)
+workflow-policy: FAIL ../../../..<copy>/c/drift.yml:68 [uses-pinned] `uses: actions/checkout@v7` is not pinned to a full commit SHA (or a sha256 image digest)
+workflow-policy: FAIL ../../../..<copy>/c/drift.yml:102 [uses-pinned] `uses: actions/checkout@v7` is not pinned to a full commit SHA (or a sha256 image digest)
+workflow-policy: 3 problem(s) in 1 workflow(s)
+exit=1
+

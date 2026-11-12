@@ -1,0 +1,12 @@
+npm ci exit=0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
+2.120.0
+A new version of Supabase CLI is available: v3.1.0 (currently installed v2.120.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+supabase exit=0
+tsx v4.23.15
+node v24.22.3
+tsx exit=0
+esbuild ok

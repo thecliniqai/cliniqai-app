@@ -1,0 +1,37 @@
+$ node scripts/ci/workflow-policy.mjs
+workflow-policy: PASS (4 workflow(s))
+exit=0
+
+$ node scripts/ci/workflow-policy.mjs lint-fixtures/workflows/clean.yml
+workflow-policy: PASS (1 workflow(s))
+exit=0
+
+$ node scripts/ci/workflow-policy.mjs lint-fixtures/workflows/no-permissions.yml
+workflow-policy: FAIL lint-fixtures/workflows/no-permissions.yml:1 [top-level-permissions] no top-level `permissions:` block (declare the least privilege the token needs)
+workflow-policy: 1 problem(s) in 1 workflow(s)
+exit=1
+
+$ node scripts/ci/workflow-policy.mjs lint-fixtures/workflows/pull-request-target.yml
+workflow-policy: FAIL lint-fixtures/workflows/pull-request-target.yml:3 [no-pull-request-target] `pull_request_target` runs PR code with the base repository's secrets
+workflow-policy: 1 problem(s) in 1 workflow(s)
+exit=1
+
+$ node scripts/ci/workflow-policy.mjs lint-fixtures/workflows/secrets-dump.yml
+workflow-policy: FAIL lint-fixtures/workflows/secrets-dump.yml:12 [no-secrets-dump] `toJSON(secrets)` exposes every secret
+workflow-policy: 1 problem(s) in 1 workflow(s)
+exit=1
+
+$ node scripts/ci/workflow-policy.mjs lint-fixtures/workflows/staging-pull-request.yml
+workflow-policy: FAIL lint-fixtures/workflows/staging-pull-request.yml:4 [staging-no-pr-trigger] staging workflow triggers on `pull_request`; staging runs only from feature/v2 (push, schedule, dispatch)
+workflow-policy: 1 problem(s) in 1 workflow(s)
+exit=1
+
+$ node scripts/ci/workflow-policy.mjs lint-fixtures/workflows/staging-secret-without-environment.yml
+workflow-policy: FAIL lint-fixtures/workflows/staging-secret-without-environment.yml:14 [staging-secret-needs-environment] job `migrate` uses secrets.STAGING_DB_URL without declaring `environment:`
+workflow-policy: 1 problem(s) in 1 workflow(s)
+exit=1
+
+$ node scripts/ci/workflow-policy.mjs lint-fixtures/workflows/unpinned-uses.yml
+workflow-policy: FAIL lint-fixtures/workflows/unpinned-uses.yml:10 [uses-pinned] `uses: actions/checkout@v4` is not pinned to a full commit SHA (or a sha256 image digest)
+workflow-policy: 1 problem(s) in 1 workflow(s)
+exit=1

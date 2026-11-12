@@ -1,0 +1,6 @@
+$ npm run typecheck
+
+> clinicos@0.1.0 typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+exit=0
