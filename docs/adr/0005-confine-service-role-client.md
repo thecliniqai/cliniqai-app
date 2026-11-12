@@ -84,3 +84,20 @@
   4. From V2-03: ESLint finds one service-role factory and zero service-role imports outside the allow-list
      and the exception register; the bypass fixtures fail lint; a unit test shows `getSystemDb(reason)`
      emits one PHI-free log line with the reason. From V2-04 the register holds only the `/api/v1` entry.
+
+## Amendment A1 (V2-01, 2026-11-12) — public share-link importers
+
+- **Status:** Proposed at the V2-01 gate (agent acting as CTO under PO delegation; PO accepts at G3-partial).
+- **Context:** Decision 3 resolves public links through token-scoped SECURITY DEFINER RPCs. Two steps still need
+  a privileged client after the RPC has resolved the token: signing a storage object for the shared document and
+  rendering the receipt-PDF fallback. Decision 2 lists `features/*/system.ts` as an allowed location, but its
+  importer list (`lib/jobs/**`, `features/*/system.ts`, `app/api/{jobs,webhooks}/**`) does not include the public
+  share pages.
+- **Decision:** `features/sharing/system.ts` (`import "server-only"`) may be imported by exactly these public token
+  routes: `app/api/r/[token]/route.ts`, `app/r/[token]/page.tsx`, `app/api/reports/view/route.ts`,
+  `app/reports/view/page.tsx`, `app/api/reschedule/[token]/route.ts`. It may only act on the object or record the
+  anon RPC returned for the token, after checking the storage path lies under the token's tenant (and, from 01-08,
+  matches the resource's own ids). Token lookup itself never uses the service role.
+- **Verification:** `tests/security/share-tokens.spec.ts` (cross-tenant, wrong-type, expired, revoked, single-use,
+  path checks). From V2-03 the `no-restricted-imports` rule encodes this importer list and a fixture proves an
+  import from any other route fails lint.
