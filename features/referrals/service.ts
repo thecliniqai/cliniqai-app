@@ -324,38 +324,21 @@ export async function getInboundReferrals(
       return { success: false, referrals: [], error: "Failed to fetch inbound referrals." };
     }
 
-    // Hydrate originating clinic names using admin client to bypass tenant RLS.
-    // ADR-0005 register (R15): stays until V2-03 (P1-34) replaces it with a SECURITY DEFINER lookup. The ids come
-    // from rows RLS already returned to the acting tenant, never from caller input.
-    const originatingIds = Array.from(new Set((data || []).map((r: any) => r.tenant_id)));
+    // Originating clinic names (ADR-0005 R15, V2-03 03-02): the receiving clinic cannot read the sender's tenant row
+    // under RLS, so `referral_source_clinics` (000026, SECURITY DEFINER) returns id, name and phone only for tenants
+    // that sent an RLS-visible referral to the caller's tenant. Called with the caller's own client; no service role.
+    const originatingIds = Array.from(new Set((data || []).map((r: any) => r.tenant_id as string)));
     const clinicMap: Record<string, { id: string; name: string; phone: string | null }> = {};
 
     if (originatingIds.length > 0) {
-      try {
-        const { getAdminClient } = await import("@/lib/supabase/admin");
-        const adminSupabase = getAdminClient();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: clinics } = await (adminSupabase.from("tenants") as any)
-          .select("id, name, phone")
-          .in("id", originatingIds);
-
-        if (clinics) {
-          for (const c of clinics) {
-            clinicMap[c.id] = c;
-          }
-        }
-      } catch {
-        // Fallback to client if admin client cannot be created
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: clinics } = await (supabase.from("tenants") as any)
-          .select("id, name, phone")
-          .in("id", originatingIds);
-
-        if (clinics) {
-          for (const c of clinics) {
-            clinicMap[c.id] = c;
-          }
-        }
+      const { data: clinics, error: clinicsError } = await supabase.rpc("referral_source_clinics", {
+        p_ids: originatingIds,
+      });
+      if (clinicsError) {
+        console.error("[features/referrals/service] referral_source_clinics failed:", errorTag(clinicsError));
+      }
+      for (const c of clinics || []) {
+        clinicMap[c.id] = c;
       }
     }
 
