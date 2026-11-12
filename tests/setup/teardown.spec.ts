@@ -50,6 +50,11 @@ describe("teardown leak check", () => {
 
     expect(await findLeakedReferences(admin, [userId], [inside])).toEqual(["schedule_blocks.created_by: 1 row(s)"]);
     expect(await findLeakedReferences(admin, [userId], [inside, outside])).toEqual([]);
+
+    // A full run creates hundreds of tenants: the check must still work (one unbounded `not in` list was HTTP 414).
+    const many = Array.from({ length: 400 }, () => randomUUID());
+    expect(await findLeakedReferences(admin, [userId], [...many, inside])).toEqual(["schedule_blocks.created_by: 1 row(s)"]);
+    expect(await findLeakedReferences(admin, [userId], [...many, inside, outside])).toEqual([]);
   });
 });
 

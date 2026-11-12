@@ -82,6 +82,8 @@ export interface TeardownReport {
 }
 
 const CHUNK = 100;
+/** Run tenants per leak-check request, next to a {@link CHUNK} of user ids: keeps the URL well under the 8 KB limit. */
+const TENANT_CHUNK = 50;
 function chunks<T>(items: T[], size = CHUNK): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
@@ -244,14 +246,23 @@ export async function findLeakedReferences(
 ): Promise<string[]> {
   const leaks: string[] = [];
   if (!userIds.length) return leaks;
+  // Rows outside the run = rows of run users (tenant set) minus rows in run tenants. Counted per bounded chunk: one
+  // `not tenant_id in (<every run tenant>)` filter outgrows the gateway's URL limit (HTTP 414 with an empty body)
+  // once a run creates about 200 tenants (V2-03 03-07).
+  const count = async (table: string, column: string, users: string[], tenants?: string[]): Promise<number> => {
+    let q = admin.from(table).select("*", { count: "exact", head: true }).in(column, users);
+    q = tenants ? q.in("tenant_id", tenants) : runTenantIds.length ? q.not("tenant_id", "is", null) : q;
+    const { count: n, error } = await q;
+    if (error) {
+      throw new Error(`teardown: leak check on ${table}.${column} failed: ${error.message || `HTTP ${error.code || "error"}`}`);
+    }
+    return n ?? 0;
+  };
   for (const [table, column] of NO_ACTION_USER_REFS) {
     let total = 0;
     for (const part of chunks(userIds)) {
-      let q = admin.from(table).select("*", { count: "exact", head: true }).in(column, part);
-      if (runTenantIds.length) q = q.not("tenant_id", "in", `(${runTenantIds.join(",")})`);
-      const { count, error } = await q;
-      if (error) throw new Error(`teardown: leak check on ${table}.${column} failed: ${error.message}`);
-      total += count ?? 0;
+      total += await count(table, column, part);
+      for (const tenants of chunks(runTenantIds, TENANT_CHUNK)) total -= await count(table, column, part, tenants);
     }
     if (total) leaks.push(`${table}.${column}: ${total} row(s)`);
   }
