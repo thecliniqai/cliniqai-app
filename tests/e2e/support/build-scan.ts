@@ -2,7 +2,7 @@
  * Build-output scan for the e2e lane (V2-02 plan 02-03a, ruling RL-16). `next build` inlines `NEXT_PUBLIC_*` values
  * into the bundles, so an output built with a developer's `.env` carries the hosted project URL and key into the
  * e2e browser. After the guarded build, every file under `.next/static/` and `.next/server/` is scanned and the
- * build is refused on:
+ * build is refused on (the layout the scan relies on is checked too, see REQUIRED_CHUNK_DIRS):
  *   - a concrete hosted-service host (`<ref>.supabase.co|in|net`, `<pooler>.pooler.supabase.com`,
  *     `<account>.r2.cloudflarestorage.com`) — templates such as `https://${id}.r2.cloudflarestorage.com` in app code
  *     do not match, because no literal label precedes the domain;
@@ -67,7 +67,27 @@ function* walk(dir: string): Generator<string> {
   }
 }
 
-/** Scan `.next/static/**` and `.next/server/**` under `root`. Throws if either directory is missing. */
+/**
+ * Where the bundles live (V2-03 03-06, Next 16 Turbopack layout): browser chunks in `.next/static/chunks/`, server
+ * chunks (app code, route handlers, the proxy) in `.next/server/chunks/` (with `ssr/` for pages), and per-route entry
+ * files under `.next/server/app/`. The scan walks the whole of `.next/static/` and `.next/server/`; these are the
+ * directories that must hold JavaScript, so a future layout change that moves the chunks elsewhere fails here instead
+ * of leaving the scan clean over an empty tree. `.next/build/` holds only build-time tool chunks (PostCSS) and
+ * `.next/node_modules/` only symlinks to external packages; neither is app output.
+ */
+export const REQUIRED_CHUNK_DIRS = [
+  { dir: "static/chunks", browser: true },
+  { dir: "server/chunks", browser: false },
+  { dir: "server/app", browser: false },
+] as const;
+
+function countJs(dir: string): number {
+  let n = 0;
+  for (const file of walk(dir)) if (file.endsWith(".js")) n++;
+  return n;
+}
+
+/** Scan `.next/static/**` and `.next/server/**` under `root`. Throws if either directory, or a chunk dir, is missing. */
 export function scanBuildOutput(root: string): { files: number; findings: ScanFinding[] } {
   const findings: ScanFinding[] = [];
   let files = 0;
@@ -79,6 +99,12 @@ export function scanBuildOutput(root: string): { files: number; findings: ScanFi
       // latin1 keeps every byte (binary files cannot hide an ASCII marker from the scan).
       const text = fs.readFileSync(file, "latin1");
       findings.push(...scanText(text, path.relative(root, file), browser));
+    }
+  }
+  for (const { dir } of REQUIRED_CHUNK_DIRS) {
+    const full = path.join(root, ".next", dir);
+    if (!fs.existsSync(full) || countJs(full) === 0) {
+      throw new Error(`build scan: no JavaScript under .next/${dir}; the Next build layout changed, update build-scan.ts`);
     }
   }
   return { files, findings };
