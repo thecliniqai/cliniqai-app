@@ -11,24 +11,78 @@ max_rows = 1000
 port = 54322
 
 [auth]
+# V2-03 03-11a (AUTH-02): every [auth] key below is governed by supabase/auth-policy.json and checked in CI by
+# scripts/ci/check-auth-config.mjs. Change the policy row (with its source) and this file together.
 enabled = true
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://localhost:3000"]
-jwt_expiry = 3600
-# Signups are off until owner signup returns in V2-13b (AUTH-07); seeds use admin.createUser (01-06 ruling R1).
+# Access tokens live 15 minutes (AUTH-D2); supabase-js refreshes them.
+jwt_expiry = 900
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# Signups are off on every environment until owner signup returns in V2-13b (AUTH-07, ruling A00-1); seeds use
+# admin.createUser (01-06 ruling R1).
 enable_signup = false
-# Server-side password minimum, matching the client schema (AR-L6; pulled forward from AUTH-02).
+enable_anonymous_sign_ins = false
+# Server-side password minimum, matching the client schema (AR-L6); no composition rules (NIST SP 800-63B-4).
 minimum_password_length = 10
+password_requirements = ""
+
+# Encoded for the drift check (ruling A00-4). The CLI stack enforces no per-IP limit (AUTH-00 E9), and it applies
+# email_sent only with custom SMTP, so local GoTrue (Mailpit) keeps its own high email cap.
+[auth.rate_limit]
+email_sent = 60
+sign_in_sign_ups = 30
+token_refresh = 150
+token_verifications = 30
+
+# Off locally: local GoTrue would call Cloudflare siteverify (R-22). Staging/production use Turnstile.
+[auth.captcha]
+enabled = false
+provider = "turnstile"
 
 [auth.email]
-# Keeps the email provider (password sign-in) on; user creation is governed by [auth] enable_signup above.
+# The email provider switch (password sign-in needs it); user creation is governed by [auth] enable_signup above.
 enable_signup = true
 double_confirm_changes = true
-enable_confirmations = false
-# The 6-digit recovery code is valid for 10 minutes, not the default hour (AR-L6).
+enable_confirmations = true
+# Supabase "Require current password" has no config.toml key (R-34); it is a hosted-only policy row (A00-5).
+secure_password_change = false
+# One code email per address per minute (AUTH §4.1).
+max_frequency = "60s"
+otp_length = 6
+# The 6-digit codes are valid for 10 minutes, not the default hour (AR-L6).
 otp_expiry = 600
 
-# Recovery is code-only: the email carries the 6-digit {{ .Token }} and no link (AUTH-04a, 01-06 ruling R2).
+# Templates are code-only: the email carries the 6-digit {{ .Token }} and no link (AUTH-04a, 01-06 ruling R2).
 [auth.email.template.recovery]
 subject = "Your ClinicOS password reset code"
 content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.confirmation]
+subject = "Your ClinicOS confirmation code"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.email_change]
+subject = "Your ClinicOS email change code"
+content_path = "./supabase/templates/email_change.html"
+
+[auth.email.notification.password_changed]
+enabled = true
+subject = "Your ClinicOS password was changed"
+content_path = "./supabase/templates/password_changed.html"
+
+[auth.sms]
+enable_signup = false
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.mfa.phone]
+enroll_enabled = false
+verify_enabled = false
+
+# Off locally: auth email goes to Mailpit over SMTP. Staging/production call app/api/auth/send-email (03-11b).
+[auth.hook.send_email]
+enabled = false
