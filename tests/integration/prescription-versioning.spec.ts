@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
-import { transitionQueueState } from "@/features/queue/actions";
+import { transitionQueueState } from "@/features/queue/service";
 import {
   saveConsultationDraft,
   completeAndSignConsultation,
@@ -73,7 +73,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     visitAId = visitRes.visitId;
 
     // 2. Transition status to in_consultation
-    const queueRes = await transitionQueueState(visitAId, "in_consultation", tenantA.client, sessionA);
+    const queueRes = await transitionQueueState(ctxFor(tenantA), visitAId, "in_consultation");
     expect(queueRes.success).toBe(true);
 
     // 3. Save consultation SOAP clinical documentation

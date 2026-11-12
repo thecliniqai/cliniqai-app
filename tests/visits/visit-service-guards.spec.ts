@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { recordVisitVitals, getVisitsForDate } from "@/features/visits/service";
 import { getScheduleBlocksForDate } from "@/features/visits/scheduling-service";
+import { getQueueForDate } from "@/features/queue/service";
 import { mockCtx } from "../helpers/context";
 
 const NURSE_ID = "5b0c1d2e-3f40-4a51-8b62-7c83d94ea0b1";
@@ -85,6 +86,13 @@ describe("date and doctor values never reach PostgREST filter syntax unvalidated
     expect(res.success).toBe(true);
     expect(db.orFilters).toHaveLength(1);
     expect(db.orFilters[0]).toContain("scheduled_at.gte.2026-10-15T00:00:00.000Z");
+  });
+
+  it("getQueueForDate rejects a date that is not YYYY-MM-DD", async () => {
+    const db = recordingClient();
+    const res = await getQueueForDate(mockCtx(db.client), "2026-10-15T00:00:00Z,tenant_id.neq.x");
+    expect(res.success).toBe(false);
+    expect(db.orFilters).toEqual([]);
   });
 
   it("getScheduleBlocksForDate returns nothing for a doctor id that is not a uuid", async () => {

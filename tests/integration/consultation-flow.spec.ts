@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
-import { checkInVisit, transitionQueueState } from "@/features/queue/actions";
+import { checkInVisit, transitionQueueState } from "@/features/queue/service";
 import { saveConsultationDraft, recordFollowUp, getPatientConsultationHistory } from "@/features/consultation/actions";
 import { searchDiagnoses, addConsultationDiagnosis, getVisitDiagnoses } from "@/features/terminology/service";
 import {
@@ -78,7 +78,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("2. Check-in visit: transitions status from 'booked' -> 'waiting' and generates token", async () => {
-    const checkInRes = await checkInVisit(visitAId, "normal", tenantA.client, sessionA);
+    const checkInRes = await checkInVisit(ctxFor(tenantA), visitAId, "normal");
 
     expect(checkInRes.success).toBe(true);
     if (!checkInRes.success) return;
@@ -122,12 +122,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("4. Doctor calls patient into consultation room: transitions status to 'in_consultation'", async () => {
-    const transitionRes = await transitionQueueState(
-      visitAId,
-      "in_consultation",
-      tenantA.client,
-      sessionA
-    );
+    const transitionRes = await transitionQueueState(ctxFor(tenantA), visitAId, "in_consultation");
 
     expect(transitionRes.success).toBe(true);
 
@@ -354,12 +349,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("9. Complete consultation: transitions status directly to 'completed' and verifies history retrieval", async () => {
-    const compRes = await transitionQueueState(
-      visitAId,
-      "completed",
-      tenantA.client,
-      sessionA
-    );
+    const compRes = await transitionQueueState(ctxFor(tenantA), visitAId, "completed");
     expect(compRes.success).toBe(true);
 
     const { data: visitRow } = await tenantA.client
