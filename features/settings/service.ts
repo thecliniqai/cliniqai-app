@@ -4,6 +4,7 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { isUuid } from "@/lib/utils/filter-values";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 import { Tenant, Membership, ScheduleBlock } from "@/lib/db/types";
 import {
   clinicSettingsSchema,
@@ -165,7 +166,7 @@ export async function updateClinicSettings(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update settings.",
+      error: clientErrorMessage(err, "Failed to update settings.", "features/settings/service updateClinicSettings"),
     };
   }
 }
@@ -229,7 +230,7 @@ export async function updateStatutorySettings(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update statutory settings.",
+      error: clientErrorMessage(err, "Failed to update statutory settings.", "features/settings/service updateStatutorySettings"),
     };
   }
 }
@@ -310,7 +311,7 @@ export async function updateUserProfile(ctx: ServiceContext, input: UserProfileI
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update profile.",
+      error: clientErrorMessage(err, "Failed to update profile.", "features/settings/service updateUserProfile"),
     };
   }
 }
@@ -455,7 +456,7 @@ export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInp
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update staff member.",
+      error: clientErrorMessage(err, "Failed to update staff member.", "features/settings/service updateStaffMember"),
     };
   }
 }
@@ -533,10 +534,9 @@ export async function updateDoctorAvailability(
 
     return { success: true, availability_schedule: updated.availability_schedule };
   } catch (err: unknown) {
-    console.error("[updateDoctorAvailability] Unexpected error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update doctor availability.",
+      error: clientErrorMessage(err, "Failed to update doctor availability.", "features/settings/service updateDoctorAvailability"),
     };
   }
 }
@@ -606,10 +606,9 @@ export async function updateDoctorSlotDuration(
       default_slot_duration_minutes: updated.default_slot_duration_minutes,
     };
   } catch (err: unknown) {
-    console.error("[updateDoctorSlotDuration] Unexpected error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update slot duration.",
+      error: clientErrorMessage(err, "Failed to update slot duration.", "features/settings/service updateDoctorSlotDuration"),
     };
   }
 }

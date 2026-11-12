@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveServiceContext } from "@/lib/auth/context";
+import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
 import { isUuid } from "@/lib/utils/filter-values";
 import { generateAndArchiveReceiptPdf } from "@/features/billing/pdf/generator";
 import { ReceiptPdfPayload } from "@/features/billing/pdf/receipt-document";
@@ -21,7 +21,7 @@ export async function GET(
       if (resolved.reason === "forbidden") {
         return new NextResponse("Forbidden", { status: 403 });
       }
-      return new NextResponse(resolved.error, { status: 500 });
+      return new NextResponse(CONTEXT_FAILURE_MESSAGE, { status: 500 });
     }
 
     // The id (an invoice id or a visit id) goes into a PostgREST filter string, so it must be a UUID (V2-01 F1)
@@ -182,10 +182,8 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
-    console.error("[app/api/invoices/[id]/receipt-pdf] Error:", err);
-    return new NextResponse(
-      err instanceof Error ? err.message : "Internal Server Error",
-      { status: 500 }
-    );
+    // Fixed body; only the error name is logged (IR-L2).
+    console.error("[app/api/invoices/[id]/receipt-pdf] Error:", err instanceof Error ? err.name : "error");
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

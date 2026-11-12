@@ -20,6 +20,8 @@ import { NextRequest } from "next/server";
 const TEST_SECRET = "msg91-unit-test-secret";
 const SECRET_HEADERS = { "content-type": "application/json", "x-webhook-secret": TEST_SECRET };
 const MSG91_PARAMS = { params: Promise.resolve({ provider: "msg91" }) };
+/** The synthetic recipient every correlated queue row was sent to (replies come from 919876543210). */
+const PATIENT_E164 = "+919876543210";
 
 function msg91Request(payload: unknown, headers: Record<string, string> = SECRET_HEADERS) {
   return new NextRequest("http://localhost:3000/api/webhooks/messaging/msg91", {
@@ -111,6 +113,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
       id: "queue-msg-123",
       tenant_id: "tenant-cardio-1",
       appointment_id: "visit-confirm-123",
+      recipient_phone: PATIENT_E164,
       metadata: {},
     };
     const mockAppointment = {
@@ -136,7 +139,8 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
 
     it("processes [Confirm] interactive button reply correlated by replyMsgId and sends acknowledgement", async () => {
       const t = correlationTables(queueItem, mockAppointment);
-      const updateEq = vi.fn().mockResolvedValue({ data: null, error: null });
+      const updateStatusEq = vi.fn().mockResolvedValue({ data: null, error: null });
+      const updateEq = vi.fn().mockReturnValue({ eq: updateStatusEq });
       const updateVisitSpy = vi.fn().mockReturnValue({ eq: updateEq });
       const insertAuditSpy = vi.fn().mockResolvedValue({ data: null, error: null });
       const mockSupabase = {
@@ -166,6 +170,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         })
       );
       expect(updateEq).toHaveBeenCalledWith("id", "visit-confirm-123");
+      expect(updateStatusEq).toHaveBeenCalledWith("status", "booked");
       expect(insertAuditSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           action: "appointment_confirmed_whatsapp",
@@ -173,8 +178,10 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           entity_id: "visit-confirm-123",
         })
       );
+      // AR-L1: acks go to the stored recipient number; the audit row carries no phone number.
+      expect(JSON.stringify(insertAuditSpy.mock.calls)).not.toContain("9876543210");
       expect(sendWaDirectSpy).toHaveBeenCalledWith(
-        "919876543210",
+        PATIENT_E164,
         "appointment_confirmed_ack",
         expect.any(Object)
       );
@@ -215,7 +222,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         })
       );
       expect(sendWaDirectSpy).toHaveBeenCalledWith(
-        "919876543210",
+        PATIENT_E164,
         "appointment_cancelled_ack",
         expect.any(Object)
       );
@@ -256,7 +263,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         })
       );
       expect(sendWaDirectSpy).toHaveBeenCalledWith(
-        "919876543210",
+        PATIENT_E164,
         "appointment_reschedule_link",
         expect.objectContaining({
           message: expect.stringContaining("https://app.thecliniqai.com/reschedule/token-24hr-abc"),
@@ -275,7 +282,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         patient: { full_name: "Anita Desai", phone: "+919876543210" },
       };
       const t = correlationTables(
-        { id: "q-1", tenant_id: "tenant-1", appointment_id: "visit-protected-456", metadata: {} },
+        { id: "q-1", tenant_id: "tenant-1", appointment_id: "visit-protected-456", recipient_phone: PATIENT_E164, metadata: {} },
         mockAppointment
       );
       const cancelSpy = vi.spyOn(appointmentsActions, "cancelAppointment");
@@ -319,7 +326,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         patient: { full_name: "Vikram", phone: "+919876543210" },
       };
       const t = correlationTables(
-        { id: "queue-msg-a", tenant_id: "tenant-clinic-a", appointment_id: "visit-clinic-a", metadata: {} },
+        { id: "queue-msg-a", tenant_id: "tenant-clinic-a", appointment_id: "visit-clinic-a", recipient_phone: PATIENT_E164, metadata: {} },
         visitClinicA
       );
       // Exact-match semantics, like PostgREST `eq`: only the stored id resolves.
@@ -327,7 +334,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         maybeSingle: vi.fn().mockResolvedValue({
           data:
             value === "wamid.msg-outbound-clinic-a"
-              ? { id: "queue-msg-a", tenant_id: "tenant-clinic-a", appointment_id: "visit-clinic-a", metadata: {} }
+              ? { id: "queue-msg-a", tenant_id: "tenant-clinic-a", appointment_id: "visit-clinic-a", recipient_phone: PATIENT_E164, metadata: {} }
               : null,
           error: null,
         }),
@@ -425,7 +432,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         patient: { full_name: "Priya Nair", phone: "+919876543210" },
       };
       const t = correlationTables(
-        { id: "q-789", tenant_id: "tenant-skin-clinic", appointment_id: "visit-triage-789", metadata: {} },
+        { id: "q-789", tenant_id: "tenant-skin-clinic", appointment_id: "visit-triage-789", recipient_phone: PATIENT_E164, metadata: {} },
         mockAppointment
       );
       const insertNotifSpy = vi.fn().mockResolvedValue({ data: null, error: null });
@@ -464,7 +471,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         })
       );
       expect(sendWaDirectSpy).toHaveBeenCalledWith(
-        "919876543210",
+        PATIENT_E164,
         "conversational_triage",
         expect.objectContaining({
           message: expect.stringContaining("received your message and our reception desk will assist you shortly"),

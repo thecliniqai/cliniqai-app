@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { ServiceContext } from "@/lib/auth/context";
+import { clientErrorMessage, errorTag } from "@/lib/errors/client-message";
 import { InAppNotificationItem, NotificationCategory } from "@/lib/db/types";
 
 export interface GetNotificationsOptions {
@@ -65,17 +66,16 @@ export async function getInAppNotifications(
     const { data, error } = await query;
 
     if (error) {
-      console.error("[features/notifications/actions] getInAppNotifications error:", error);
-      return { success: false, notifications: [], error: error.message };
+      console.error("[features/notifications/service] getInAppNotifications error:", errorTag(error));
+      return { success: false, notifications: [], error: "Failed to load notifications." };
     }
 
     return { success: true, notifications: (data || []) as InAppNotificationItem[] };
   } catch (err: unknown) {
-    console.error("[features/notifications/actions] Exception in getInAppNotifications:", err);
     return {
       success: false,
       notifications: [],
-      error: err instanceof Error ? err.message : "Failed to load notifications.",
+      error: clientErrorMessage(err, "Failed to load notifications.", "features/notifications/service getInAppNotifications"),
     };
   }
 }
@@ -112,17 +112,16 @@ export async function getUnreadNotificationCount(ctx: ServiceContext): Promise<U
     const { count, error } = await query;
 
     if (error) {
-      console.error("[features/notifications/actions] getUnreadNotificationCount error:", error);
-      return { success: false, count: 0, error: error.message };
+      console.error("[features/notifications/service] getUnreadNotificationCount error:", errorTag(error));
+      return { success: false, count: 0, error: "Failed to get unread count." };
     }
 
     return { success: true, count: count || 0 };
   } catch (err: unknown) {
-    console.error("[features/notifications/actions] Exception in getUnreadNotificationCount:", err);
     return {
       success: false,
       count: 0,
-      error: err instanceof Error ? err.message : "Failed to get unread count.",
+      error: clientErrorMessage(err, "Failed to get unread count.", "features/notifications/service getUnreadNotificationCount"),
     };
   }
 }
@@ -149,16 +148,15 @@ export async function markNotificationRead(
       .eq("tenant_id", session.tenantId);
 
     if (error) {
-      console.error("[features/notifications/actions] markNotificationRead error:", error);
-      return { success: false, error: error.message };
+      console.error("[features/notifications/service] markNotificationRead error:", errorTag(error));
+      return { success: false, error: "Failed to mark notification read." };
     }
 
     return { success: true };
   } catch (err: unknown) {
-    console.error("[features/notifications/actions] Exception in markNotificationRead:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to mark notification read.",
+      error: clientErrorMessage(err, "Failed to mark notification read.", "features/notifications/service markNotificationRead"),
     };
   }
 }
@@ -205,16 +203,15 @@ export async function markAllNotificationsRead(
     const { error, count } = await query;
 
     if (error) {
-      console.error("[features/notifications/actions] markAllNotificationsRead error:", error);
-      return { success: false, error: error.message };
+      console.error("[features/notifications/service] markAllNotificationsRead error:", errorTag(error));
+      return { success: false, error: "Failed to mark all read." };
     }
 
     return { success: true, updatedCount: count || 0 };
   } catch (err: unknown) {
-    console.error("[features/notifications/actions] Exception in markAllNotificationsRead:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to mark all read.",
+      error: clientErrorMessage(err, "Failed to mark all read.", "features/notifications/service markAllNotificationsRead"),
     };
   }
 }

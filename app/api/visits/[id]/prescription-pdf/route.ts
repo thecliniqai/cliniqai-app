@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { resolveServiceContext } from "@/lib/auth/context";
+import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
 import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
 
@@ -20,7 +20,7 @@ export async function GET(
       if (resolved.reason === "forbidden") {
         return new NextResponse("Forbidden", { status: 403 });
       }
-      return new NextResponse(resolved.error, { status: 500 });
+      return new NextResponse(CONTEXT_FAILURE_MESSAGE, { status: 500 });
     }
     const ctx = resolved.ctx;
     const supabase = ctx.db;
@@ -188,10 +188,8 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
-    console.error("[app/api/visits/[id]/prescription-pdf] Error:", err);
-    return new NextResponse(
-      err instanceof Error ? err.message : "Internal Server Error",
-      { status: 500 }
-    );
+    // Fixed body; only the error name is logged (IR-L2).
+    console.error("[app/api/visits/[id]/prescription-pdf] Error:", err instanceof Error ? err.name : "error");
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

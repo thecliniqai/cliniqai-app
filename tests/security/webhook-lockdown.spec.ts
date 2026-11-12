@@ -263,10 +263,33 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
   });
 
   describe("TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof", () => {
-    it("a tenant-B replyMsgId acts only on tenant B; tenant A is untouched", async () => {
+    it("AR-L1: a reply from a number other than the message's recipient changes nothing and gets no link", async () => {
+      const send = vi.mocked(messagingModule.sendDirectWhatsApp);
+      send.mockClear();
+      for (const action of ["btn_confirm", "btn_cancel", "btn_reschedule"]) {
+        const res = await routeModule.POST(
+          webhook("msg91", {
+            customerNumber: A.patientPhone.replace("+", ""), // tenant A's patient replying to tenant B's message
+            replyMsgId: B.replyMsgId,
+            interactive: button(action),
+          }),
+          ctx("msg91")
+        );
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ ok: true });
+      }
+      expect(await visitStatus(B.visitId)).toBe("booked");
+      expect(await visitStatus(A.visitId)).toBe("booked");
+      for (const [, template, params] of send.mock.calls) {
+        expect(template).toBe("bot_not_found");
+        expect(JSON.stringify(params)).not.toContain("/reschedule/");
+      }
+    });
+
+    it("a tenant-B replyMsgId from tenant B's recipient acts only on tenant B; tenant A is untouched", async () => {
       const res = await routeModule.POST(
         webhook("msg91", {
-          customerNumber: A.patientPhone.replace("+", ""), // even when sent from tenant A's patient phone
+          customerNumber: B.patientPhone.replace("+", ""),
           replyMsgId: B.replyMsgId,
           interactive: button("btn_confirm"),
         }),
@@ -276,6 +299,24 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
       expect(await res.json()).toEqual({ ok: true });
       expect(await visitStatus(B.visitId)).toBe("confirmed");
       expect(await visitStatus(A.visitId)).toBe("booked");
+    });
+
+    it("AR-L1: a late confirm does not move a waiting visit back to confirmed", async () => {
+      await admin.from("visits").update({ status: "waiting" }).eq("id", B.visitId);
+      try {
+        const res = await routeModule.POST(
+          webhook("msg91", {
+            customerNumber: B.patientPhone.replace("+", ""),
+            replyMsgId: B.replyMsgId,
+            interactive: button("btn_confirm"),
+          }),
+          ctx("msg91")
+        );
+        expect(res.status).toBe(200);
+        expect(await visitStatus(B.visitId)).toBe("waiting");
+      } finally {
+        await admin.from("visits").update({ status: "booked" }).eq("id", B.visitId);
+      }
     });
 
     it("a queue row whose appointment points at another tenant's visit resolves nothing", async () => {

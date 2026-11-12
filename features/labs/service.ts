@@ -467,7 +467,7 @@ export async function shareLabReportViaWhatsApp(
       action: "patient_document.share_whatsapp",
       entityType: "patient_document",
       entityId: documentId,
-      metadata: { share_token: token, recipient_phone: doc.patient.phone },
+      // No token or phone in the audit trail (AR-L5); the link itself is audited by create_share_token (000021).
     });
 
     return { success: true, shareUrl, token };

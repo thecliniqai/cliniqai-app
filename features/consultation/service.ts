@@ -17,6 +17,15 @@ import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 // its server action checked before the move, and service->service calls (saveConsultationDraft -> recordFollowUp)
 // pass the same context so the callee's own check applies.
 
+const SIGNED_CONSULTATION_MESSAGE =
+  "This consultation is already signed. Reopen it for amendment to make changes.";
+
+/** Completed, cancelled, or signed and not reopened for amendment (reopened = signed_at set, status in_consultation). */
+function isDraftLocked(visit: { status?: string | null; signed_at?: string | null }): boolean {
+  if (visit.status === "completed" || visit.status === "cancelled") return true;
+  return Boolean(visit.signed_at) && visit.status !== "in_consultation";
+}
+
 // The measured vitals fields; `recorded_by` / `recorded_at` are attribution, not measurements.
 const VITALS_MEASUREMENTS = [
   "systolic",
@@ -105,7 +114,7 @@ export async function saveConsultationDraft(
     // 1. Verify visit exists and belongs to this tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: visit, error: visitFetchErr } = await (supabase.from("visits") as any)
-      .select("id, patient_id, status, vitals")
+      .select("id, patient_id, status, vitals, signed_at")
       .eq("id", data.visit_id)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -115,6 +124,13 @@ export async function saveConsultationDraft(
         success: false,
         error: "Visit record not found or access denied.",
       };
+    }
+
+    // A signed consultation is read-only (review finding AR-Info I3; same lock as sign-off and the /api/v1 PATCH
+    // guard). The one exception is a visit reopened for amendment (reopenVisitForAmendment): it keeps signed_at but is
+    // back in 'in_consultation' until finalizeVisitAmendment re-signs it. The lock is repeated in the UPDATE filter.
+    if (isDraftLocked(visit)) {
+      return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     }
 
     // 2. Determine new status: if waiting, transition to in_consultation
@@ -141,13 +157,21 @@ export async function saveConsultationDraft(
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateErr } = await (supabase.from("visits") as any)
+    const { data: updatedRows, error: updateErr } = await (supabase.from("visits") as any)
       .update(updatePayload)
       .eq("id", data.visit_id)
-      .eq("tenant_id", ctx.tenantId);
+      .eq("tenant_id", ctx.tenantId)
+      .not("status", "in", "(completed,cancelled)")
+      .or("signed_at.is.null,status.eq.in_consultation")
+      .select("id");
 
     if (updateErr) {
-      return { success: false, error: `Failed to save draft: ${updateErr.message}` };
+      console.error("[saveConsultationDraft] update failed:", updateErr.code ?? "unknown");
+      return { success: false, error: "Failed to save draft. Please try again." };
+    }
+    if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
+      // Signed (or closed) between the read above and this write.
+      return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     }
 
     // 4. Handle follow-up record if provided

@@ -3,8 +3,15 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, UserRole } from "@/lib/db/types";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership } from "@/lib/auth/tenant";
+import {
+  getActiveMembership,
+  MultipleClinicsSelectionRequiredError,
+  NoClinicMembershipError,
+} from "@/lib/auth/tenant";
 import { assertPerm, PermissionDeniedError, type Permission } from "@/lib/permissions";
+
+/** Fixed answer for a context failure that is not one of the known, safe-to-show cases (IR-L1). */
+export const CONTEXT_FAILURE_MESSAGE = "We could not verify your clinic access. Please try again.";
 
 /**
  * The explicit context every domain service receives (ADR-0005 Decision 1, R12).
@@ -62,10 +69,12 @@ export async function resolveServiceContext(permission?: Permission): Promise<Se
     if (message === "Unauthenticated") {
       return { ok: false, error: "Unauthenticated", reason: "unauthenticated" };
     }
-    return {
-      ok: false,
-      error: message || "Your account is not linked to a clinic yet",
-      reason: "no_membership",
-    };
+    // Only the fixed messages of the known membership errors reach the caller (IR-L1); anything else (a database or
+    // network failure) is logged by name and answered with a fixed string.
+    if (err instanceof NoClinicMembershipError || err instanceof MultipleClinicsSelectionRequiredError) {
+      return { ok: false, error: err.message, reason: "no_membership" };
+    }
+    console.error("[lib/auth/context] resolveServiceContext failed:", err instanceof Error ? err.name : "error");
+    return { ok: false, error: CONTEXT_FAILURE_MESSAGE, reason: "no_membership" };
   }
 }

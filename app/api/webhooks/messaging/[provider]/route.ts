@@ -6,6 +6,7 @@ import {
 } from "@/features/appointments/system";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendDirectWhatsApp } from "@/lib/messaging";
+import { extractTenDigits } from "@/lib/utils/phone";
 import {
   verifyMsg91WebhookSecret,
   parseMsg91Payload,
@@ -189,16 +190,19 @@ async function handleMsg91Webhook(req: NextRequest) {
  * `communication_queue.external_message_id` is matched with `.eq` (a bound value, never a PostgREST filter string),
  * and the visit is then read inside the queue row's tenant. There is no phone-number fallback.
  */
-async function resolveAppointmentByReply(supabase: any, replyMsgId: string | undefined) {
+async function resolveAppointmentByReply(supabase: any, replyMsgId: string | undefined, from: string) {
   if (!replyMsgId) return null;
 
   const { data: queueItem } = await supabase
     .from("communication_queue")
-    .select("id, tenant_id, appointment_id, metadata")
+    .select("id, tenant_id, appointment_id, recipient_phone, metadata")
     .eq("external_message_id", replyMsgId)
     .maybeSingle();
 
   if (!queueItem?.tenant_id) return null;
+
+  // AR-L1: the reply must come from the number the message was sent to; otherwise it is treated as unmatched.
+  if (!isSameMobile(from, queueItem.recipient_phone)) return null;
 
   // The dispatcher stores the visit in the `appointment_id` column; older rows may carry it in metadata.
   const appointmentId =
@@ -213,7 +217,13 @@ async function resolveAppointmentByReply(supabase: any, replyMsgId: string | und
     .maybeSingle();
 
   if (!visit || ["cancelled", "completed"].includes(visit.status)) return null;
-  return visit;
+  return { visit, recipientPhone: queueItem.recipient_phone as string };
+}
+
+/** True when both numbers reduce to the same 10-digit Indian mobile number. */
+function isSameMobile(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = extractTenDigits(a);
+  return x.length === 10 && x === extractTenDigits(b);
 }
 
 /**
@@ -241,11 +251,11 @@ async function handleInboundAction({
   }
   const sys: AppointmentSystemContext = { db: supabase, reason: "messaging_webhook" };
 
-  // 1. Resolve the appointment strictly via replyMsgId message correlation
-  const appointment: any = await resolveAppointmentByReply(supabase, replyMsgId);
+  // 1. Resolve the appointment strictly via replyMsgId message correlation, from the number it was sent to (AR-L1)
+  const resolved = await resolveAppointmentByReply(supabase, replyMsgId, from);
 
   // 2. Unmatched appointment handling
-  if (!appointment) {
+  if (!resolved) {
     try {
       await sendDirectWhatsApp(from, "bot_not_found", {
         message:
@@ -258,36 +268,48 @@ async function handleInboundAction({
     return OK();
   }
 
-  // 3. Action: [Confirm] Flow (D-04)
-  if (action === "confirm") {
-    await supabase
-      .from("visits")
-      .update({
-        status: "confirmed",
-        metadata: {
-          ...(appointment.metadata || {}),
-          patient_confirmed: true,
-          confirmed_at: nowIso,
-          confirmed_via: "whatsapp_bot",
-        },
-        updated_at: nowIso,
-      })
-      .eq("id", appointment.id);
+  const appointment: any = resolved.visit;
+  // Replies (including the reschedule link) go only to the stored number the message was sent to (AR-L1).
+  const replyTo = resolved.recipientPhone;
 
-    await supabase.from("audit_logs").insert({
-      tenant_id: appointment.tenant_id,
-      actor_id: null,
-      actor_role: "patient",
-      action: "appointment_confirmed_whatsapp",
-      entity_type: "visits",
-      entity_id: appointment.id,
-      occurred_at: nowIso,
-      metadata: { from, appointment_id: appointment.id },
-    });
+  // 3. Action: [Confirm] Flow (D-04). Only a 'booked' visit becomes 'confirmed' (AR-L1): a late "yes" must not pull a
+  // waiting or in-consultation patient out of the queue. An already confirmed visit just gets the acknowledgement.
+  if (action === "confirm") {
+    if (appointment.status !== "booked" && appointment.status !== "confirmed") {
+      return OK();
+    }
+
+    if (appointment.status === "booked") {
+      await supabase
+        .from("visits")
+        .update({
+          status: "confirmed",
+          metadata: {
+            ...(appointment.metadata || {}),
+            patient_confirmed: true,
+            confirmed_at: nowIso,
+            confirmed_via: "whatsapp_bot",
+          },
+          updated_at: nowIso,
+        })
+        .eq("id", appointment.id)
+        .eq("status", "booked");
+
+      await supabase.from("audit_logs").insert({
+        tenant_id: appointment.tenant_id,
+        actor_id: null,
+        actor_role: "patient",
+        action: "appointment_confirmed_whatsapp",
+        entity_type: "visits",
+        entity_id: appointment.id,
+        occurred_at: nowIso,
+        metadata: { appointment_id: appointment.id },
+      });
+    }
 
     try {
       await sendDirectWhatsApp(
-        from,
+        replyTo,
         "appointment_confirmed_ack",
         {
           patient_name: appointment.patient?.full_name || "Patient",
@@ -318,12 +340,12 @@ async function handleInboundAction({
       entity_type: "visits",
       entity_id: appointment.id,
       occurred_at: nowIso,
-      metadata: { from, appointment_id: appointment.id },
+      metadata: { appointment_id: appointment.id },
     });
 
     try {
       await sendDirectWhatsApp(
-        from,
+        replyTo,
         "appointment_cancelled_ack",
         {
           patient_name: appointment.patient?.full_name || "Patient",
@@ -362,7 +384,7 @@ async function handleInboundAction({
     try {
       if (rescheduleUrl) {
         await sendDirectWhatsApp(
-          from,
+          replyTo,
           "appointment_reschedule_link",
           {
             patient_name: appointment.patient?.full_name || "Patient",
@@ -390,7 +412,7 @@ async function handleInboundAction({
 
   try {
     await sendDirectWhatsApp(
-      from,
+      replyTo,
       "conversational_triage",
       {
         message:

@@ -10,6 +10,7 @@ import { ReferralItem, CreateReferralInput, CloseReferralLoopInput, ConsentedHis
 import { generateAndArchiveReferralPdf } from "./pdf/generator";
 import { createShareToken } from "@/features/sharing/tokens";
 import { referralLetterPath } from "@/lib/storage/tenant-path";
+import { clientErrorMessage, errorTag } from "@/lib/errors/client-message";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 
 /**
@@ -169,8 +170,8 @@ export async function createReferral(
       .single();
 
     if (insertErr || !referral) {
-      console.error("[features/referrals/actions] Insert referral error:", insertErr);
-      return { success: false, error: insertErr?.message || "Failed to create referral." };
+      console.error("[features/referrals/service] insert referral failed:", errorTag(insertErr));
+      return { success: false, error: "Failed to create referral." };
     }
 
     // 6. Generate and archive branded PDF referral letter
@@ -241,10 +242,9 @@ export async function createReferral(
       signedUrl,
     };
   } catch (err: unknown) {
-    console.error("[features/referrals/actions] createReferral error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to create referral.",
+      error: clientErrorMessage(err, "Failed to create referral.", "features/referrals/service createReferral"),
     };
   }
 }
@@ -272,7 +272,8 @@ export async function getOutboundReferrals(
       .order("sent_at", { ascending: false });
 
     if (error) {
-      return { success: false, referrals: [], error: error.message };
+      console.error("[features/referrals/service] getOutboundReferrals failed:", errorTag(error));
+      return { success: false, referrals: [], error: "Failed to fetch outbound referrals." };
     }
 
     return { success: true, referrals: data || [] };
@@ -280,7 +281,7 @@ export async function getOutboundReferrals(
     return {
       success: false,
       referrals: [],
-      error: err instanceof Error ? err.message : "Failed to fetch outbound referrals.",
+      error: clientErrorMessage(err, "Failed to fetch outbound referrals.", "features/referrals/service getOutboundReferrals"),
     };
   }
 }
@@ -308,7 +309,8 @@ export async function getInboundReferrals(
       .order("sent_at", { ascending: false });
 
     if (error) {
-      return { success: false, referrals: [], error: error.message };
+      console.error("[features/referrals/service] getInboundReferrals failed:", errorTag(error));
+      return { success: false, referrals: [], error: "Failed to fetch inbound referrals." };
     }
 
     // Hydrate originating clinic names using admin client to bypass tenant RLS.
@@ -356,7 +358,7 @@ export async function getInboundReferrals(
     return {
       success: false,
       referrals: [],
-      error: err instanceof Error ? err.message : "Failed to fetch inbound referrals.",
+      error: clientErrorMessage(err, "Failed to fetch inbound referrals.", "features/referrals/service getInboundReferrals"),
     };
   }
 }
@@ -390,7 +392,8 @@ export async function acknowledgeReferral(
       .single();
 
     if (error || !updated) {
-      return { success: false, error: error?.message || "Referral not found or update failed." };
+      if (error) console.error("[features/referrals/service] acknowledgeReferral failed:", errorTag(error));
+      return { success: false, error: "Referral not found or update failed." };
     }
 
     await recordAudit(ctx, {
@@ -403,7 +406,7 @@ export async function acknowledgeReferral(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to acknowledge referral.",
+      error: clientErrorMessage(err, "Failed to acknowledge referral.", "features/referrals/service acknowledgeReferral"),
     };
   }
 }
@@ -462,7 +465,7 @@ export async function closeReferralLoop(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to close referral loop.",
+      error: clientErrorMessage(err, "Failed to close referral loop.", "features/referrals/service closeReferralLoop"),
     };
   }
 }
@@ -510,7 +513,7 @@ export async function getReferralSignedUrl(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to generate signed URL.",
+      error: clientErrorMessage(err, "Failed to generate signed URL.", "features/referrals/service getReferralSignedUrl"),
     };
   }
 }
@@ -535,7 +538,8 @@ export async function getPatientReferrals(
       .order("sent_at", { ascending: false });
 
     if (error) {
-      return { success: false, referrals: [], error: error.message };
+      console.error("[features/referrals/service] getPatientReferrals failed:", errorTag(error));
+      return { success: false, referrals: [], error: "Failed to fetch patient referrals." };
     }
 
     return { success: true, referrals: data || [] };
@@ -543,7 +547,7 @@ export async function getPatientReferrals(
     return {
       success: false,
       referrals: [],
-      error: err instanceof Error ? err.message : "Failed to fetch patient referrals.",
+      error: clientErrorMessage(err, "Failed to fetch patient referrals.", "features/referrals/service getPatientReferrals"),
     };
   }
 }
@@ -565,7 +569,9 @@ export async function shareReferralLetterViaWhatsApp(
     // 1. Fetch referral record joined with patient and tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: ref, error: refErr } = await (supabase.from("referrals") as any)
-      .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+      // referrals has two FKs to tenants (tenant_id, target_tenant_id): name the originating one, or PostgREST
+      // refuses the ambiguous embed (PGRST201) and the share always failed.
+      .select("*, patient:patients(id, full_name, phone), tenant:tenants!referrals_tenant_id_fkey(name, phone)")
       .eq("id", referralId)
       .eq("tenant_id", session.tenantId)
       .single();
@@ -617,15 +623,14 @@ export async function shareReferralLetterViaWhatsApp(
       action: "referral.share_whatsapp",
       entityType: "referral",
       entityId: referralId,
-      metadata: { share_token: token, recipient_phone: ref.patient.phone },
+      // No token or phone in the audit trail (AR-L5); the link itself is audited by create_share_token (000021).
     });
 
     return { success: true, shareUrl, token };
   } catch (err: unknown) {
-    console.error("[features/referrals/actions] shareReferralLetterViaWhatsApp error:", err);
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to share referral letter.",
+      error: clientErrorMessage(err, "Failed to share referral letter.", "features/referrals/service shareReferralLetterViaWhatsApp"),
     };
   }
 }

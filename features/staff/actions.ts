@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import { generateInviteToken, hashInviteToken } from "./invite";
 import { resolveServiceContext } from "@/lib/auth/context";
+import { MultipleClinicsSelectionRequiredError, NoClinicMembershipError } from "@/lib/auth/tenant";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 import * as staffService from "./service";
 import type { TenantDoctorInfo, TenantStaffInfo } from "./service";
 import { UserRole } from "@/lib/db/types";
@@ -67,7 +69,7 @@ export async function inviteStaff(
       .single();
 
     if (error || !data) {
-      console.error("[features/staff/actions] Failed to create invitation:", error);
+      console.error("[features/staff/actions] Failed to create invitation:", error?.code ?? "no_row");
       return {
         success: false,
         error: "Unable to create staff invitation. Please try again.",
@@ -80,10 +82,16 @@ export async function inviteStaff(
       inviteId: (data as { id: string }).id,
     };
   } catch (err: unknown) {
-    console.error("[features/staff/actions] Unauthorized or error creating invitation:", err);
+    // Session and permission refusals keep their fixed text; anything else gets a fixed message (IR-L2).
+    const known =
+      err instanceof NoClinicMembershipError ||
+      err instanceof MultipleClinicsSelectionRequiredError ||
+      (err instanceof Error && err.message === "Unauthenticated");
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to invite staff.",
+      error: known
+        ? (err as Error).message
+        : clientErrorMessage(err, "Failed to invite staff.", "features/staff/actions inviteStaff"),
     };
   }
 }
