@@ -28,8 +28,40 @@ import {
 // WhatsApp services with the same context so each callee's own permission check applies.
 
 export type CreateInvoiceResult =
-  | { success: true; invoice: Invoice; items: InvoiceItem[] }
+  | {
+      success: true;
+      invoice: Invoice;
+      items: InvoiceItem[];
+      /** True when the visit already had a live invoice (AR3-N2): that invoice is returned and nothing was created. */
+      existing?: boolean;
+    }
   | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/** The unique violation raised by invoices_one_live_per_visit (000024). */
+function isLiveInvoiceConflict(err: { code?: string; message?: string } | null | undefined): boolean {
+  return err?.code === "23505" && (err.message ?? "").includes("invoices_one_live_per_visit");
+}
+
+/** The visit's live (not cancelled) invoice and its items, read in the caller's tenant. */
+async function liveInvoiceForVisit(
+  ctx: ServiceContext,
+  visitId: string
+): Promise<{ invoice: Invoice; items: InvoiceItem[] } | null> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: invoice } = await (ctx.db.from("invoices") as any)
+    .select("*")
+    .eq("visit_id", visitId)
+    .eq("tenant_id", ctx.tenantId)
+    .neq("status", "cancelled")
+    .maybeSingle();
+  if (!invoice) return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: items } = await (ctx.db.from("invoice_items") as any)
+    .select("*")
+    .eq("invoice_id", invoice.id)
+    .eq("tenant_id", ctx.tenantId);
+  return { invoice: invoice as Invoice, items: (items || []) as InvoiceItem[] };
+}
 
 export async function createVisitInvoice(
   ctx: ServiceContext,
@@ -123,10 +155,19 @@ export async function createVisitInvoice(
       .select("*")
       .single();
 
+    if (invoiceErr && isLiveInvoiceConflict(invoiceErr)) {
+      // AR3-N2: one live invoice per visit (000024). A retry or a concurrent request gets the existing invoice back.
+      const existing = await liveInvoiceForVisit(ctx, data.visit_id);
+      if (existing) {
+        return { success: true, invoice: existing.invoice, items: existing.items, existing: true };
+      }
+      return { success: false, error: "Failed to create invoice." };
+    }
+
     if (invoiceErr || !newInvoice) {
       console.error(
         "[features/billing/service] Failed to insert invoice:",
-        invoiceErr
+        invoiceErr?.code
       );
       return { success: false, error: "Failed to create invoice." };
     }
@@ -675,6 +716,8 @@ export type CompleteAndBillResult =
       whatsAppError?: string | null;
       rxShareUrl?: string;
       invoiceShareUrl?: string;
+      /** AR3-N2: another request had already billed this visit; `invoiceId` is that invoice and nothing else ran. */
+      alreadyBilled?: boolean;
     }
   | { success: false; error: string };
 
@@ -705,6 +748,7 @@ async function signedVisitAwaitingInvoice(
     .select("id")
     .eq("visit_id", visitId)
     .eq("tenant_id", ctx.tenantId)
+    .neq("status", "cancelled")
     .limit(1);
   if (error) return "sign";
   return Array.isArray(invoices) && invoices.length > 0 ? "already_billed" : "resume";
@@ -767,6 +811,19 @@ export async function completeAndBillConsultation(
 
     if (!invoiceResult.success) {
       return { success: false, error: invoiceResult.error };
+    }
+
+    // AR3-N2: a concurrent or repeated Sign & Bill for this visit already created the live invoice. Return it and stop:
+    // no second payment, receipt or WhatsApp message. The request that created the invoice does those.
+    if (invoiceResult.existing) {
+      return {
+        success: true,
+        visitId: data.visit_id,
+        invoiceId: invoiceResult.invoice.id,
+        pdfStoragePath: null,
+        paymentRecorded: false,
+        alreadyBilled: true,
+      };
     }
 
     // 3. Record payment if collected
@@ -1118,10 +1175,9 @@ export async function shareReceiptViaWhatsApp(
         document_url: shareUrl,
       },
       recipientPhone: inv.patient.phone,
+      // No token in metadata (AR3-N1); the link in template_params and buttons is redacted after sending.
       metadata: {
         invoice_id: invoiceId,
-        share_token: token,
-        share_url: shareUrl,
         buttons: [
           {
             id: "btn_view_receipt",
@@ -1343,8 +1399,7 @@ export async function sendConsolidatedConsultationWhatsApp(
         visit_id: input.visitId,
         prescription_id: rx?.id,
         invoice_id: invoiceId,
-        prescription_token: rxToken,
-        invoice_token: invToken,
+        // No tokens in metadata (AR3-N1); the links in template_params and buttons are redacted after sending.
         buttons,
       },
     });

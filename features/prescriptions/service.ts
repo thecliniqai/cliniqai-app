@@ -756,10 +756,9 @@ export async function sharePrescriptionViaWhatsApp(
         document_url: shareUrl,
       },
       recipientPhone: rx.patient.phone,
+      // No token in metadata (AR3-N1); the link in template_params and buttons is redacted after sending.
       metadata: {
         prescription_id: prescriptionId,
-        share_token: token,
-        share_url: shareUrl,
         buttons: [
           {
             id: "btn_view_rx",

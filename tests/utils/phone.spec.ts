@@ -5,6 +5,8 @@ import {
   isValidIndianMobile,
   formatTenDigitsDisplay,
   INDIAN_MOBILE_REGEX,
+  toIndianMobileE164Strict,
+  toIndianMobileE164FromInternational,
 } from "@/lib/utils/phone";
 
 describe("Indian Mobile Phone Utility Suite (Phase 05.2 / ITU-T E.164)", () => {
@@ -156,6 +158,34 @@ describe("Indian Mobile Phone Utility Suite (Phase 05.2 / ITU-T E.164)", () => {
     it("handles null and undefined gracefully", () => {
       expect(formatTenDigitsDisplay(null)).toBe("");
       expect(formatTenDigitsDisplay(undefined)).toBe("");
+    });
+  });
+
+  describe("toIndianMobileE164FromInternational (AR3-N3: inbound sender must carry the country code)", () => {
+    it("accepts an Indian mobile written with its country code", () => {
+      for (const v of ["919876543210", "+919876543210", "+91 98765 43210", "+91-98765-43210", "00919876543210"]) {
+        expect(toIndianMobileE164FromInternational(v), v).toBe("+919876543210");
+      }
+    });
+
+    it("refuses a bare 10-digit or trunk-prefixed number (no country code)", () => {
+      for (const v of ["9876543210", "09876543210", "98765 43210"]) {
+        expect(toIndianMobileE164FromInternational(v), v).toBeNull();
+      }
+    });
+
+    it("a foreign number whose international digits are ten never reads as an Indian mobile", () => {
+      // Singapore +65 9123 4567 -> 6591234567, which toIndianMobileE164Strict reads as +916591234567.
+      expect(toIndianMobileE164Strict("6591234567")).toBe("+916591234567");
+      for (const v of ["+65 9123 4567", "+6591234567", "6591234567", "+60 6123 45678", "+1 917 123 4567", "+009198765432"]) {
+        expect(toIndianMobileE164FromInternational(v), v).toBeNull();
+      }
+    });
+
+    it("refuses Indian non-mobile numbers, letters and empty input", () => {
+      for (const v of ["911234567890", "+91 98765 4321a", "", null, undefined]) {
+        expect(toIndianMobileE164FromInternational(v as string | null | undefined)).toBeNull();
+      }
     });
   });
 });

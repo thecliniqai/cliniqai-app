@@ -428,12 +428,28 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
       expect(await visitStatus(A.visitId)).toBe("booked");
       for (const [, template] of send.mock.calls) expect(template).toBe("bot_not_found");
 
-      // The recipient's own number in its usual spellings still matches.
-      for (const own of [`91${tenDigits}`, `+91 ${tenDigits.slice(0, 5)} ${tenDigits.slice(5)}`, `0${tenDigits}`]) {
+      // The recipient's own number in its international spellings still matches (AR3-N3: country code required).
+      for (const own of [`91${tenDigits}`, `+91 ${tenDigits.slice(0, 5)} ${tenDigits.slice(5)}`, `0091${tenDigits}`]) {
         await resetVisit(A.visitId);
         await reply(A, "btn_confirm", own);
         expect(await visitStatus(A.visitId), own).toBe("confirmed");
       }
+    });
+
+    it("AR3-N3: a sender without a country code never matches (a 10-digit foreign number is not an Indian mobile)", async () => {
+      const send = vi.mocked(messagingModule.sendDirectWhatsApp);
+      send.mockClear();
+      const tenDigits = A.patientPhone.replace("+91", "");
+      // `+65 9123 4567` arrives as 6591234567: ten digits, no 91. Each spelling below has the recipient's ten digits
+      // with no Indian country code.
+      for (const sender of [tenDigits, `+${tenDigits}`, `0${tenDigits}`, `${tenDigits.slice(0, 5)} ${tenDigits.slice(5)}`]) {
+        for (const action of ["btn_confirm", "btn_cancel", "btn_reschedule"]) {
+          const res = await reply(A, action, sender);
+          expect(res.status).toBe(200);
+        }
+      }
+      expect(await visitStatus(A.visitId)).toBe("booked");
+      for (const [, template] of send.mock.calls) expect(template).toBe("bot_not_found");
     });
 
     it.each(["waiting", "in_consultation"])(

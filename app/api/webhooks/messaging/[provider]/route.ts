@@ -6,7 +6,7 @@ import {
 } from "@/features/appointments/system";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { sendDirectWhatsApp } from "@/lib/messaging";
-import { toIndianMobileE164Strict } from "@/lib/utils/phone";
+import { toIndianMobileE164FromInternational, toIndianMobileE164Strict } from "@/lib/utils/phone";
 import {
   verifyMsg91WebhookSecret,
   parseMsg91Payload,
@@ -221,12 +221,14 @@ async function resolveAppointmentByReply(supabase: any, replyMsgId: string | und
 }
 
 /**
- * True when both numbers are the same Indian mobile in full E.164 (+91 and [6-9] + 9 digits). AR2-L3: country code
- * included, so a foreign number ending in the same 10 digits (`+1 917 123 4567` vs `9171234567`) never matches.
+ * True when the inbound sender and the stored recipient are the same Indian mobile in full E.164 (+91 and [6-9] + 9
+ * digits). AR2-L3: country code included, so a foreign number ending in the same 10 digits (`+1 917 123 4567` vs
+ * `9171234567`) never matches. AR3-N3: the sender must carry the country code itself; a bare 10-digit sender is
+ * refused, so `+65 9123 4567` (international digits `6591234567`) never reads as `+916591234567`.
  */
-function isSameMobile(a: string | null | undefined, b: string | null | undefined): boolean {
-  const x = toIndianMobileE164Strict(a);
-  return x !== null && x === toIndianMobileE164Strict(b);
+function isSameMobile(from: string | null | undefined, recipient: string | null | undefined): boolean {
+  const x = toIndianMobileE164FromInternational(from);
+  return x !== null && x === toIndianMobileE164Strict(recipient);
 }
 
 /** AR2-L4: a patient reply may only confirm, cancel or reschedule a visit that has not started. */

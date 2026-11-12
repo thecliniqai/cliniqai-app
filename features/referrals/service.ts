@@ -610,10 +610,9 @@ export async function shareReferralLetterViaWhatsApp(
           document_url: shareUrl,
         },
         recipientPhone: ref.patient.phone,
+        // No token or link in metadata (AR3-N1); the link travels only in template_params, redacted after sending.
         metadata: {
           referral_id: referralId,
-          share_token: token,
-          share_url: shareUrl,
         },
       }
     );

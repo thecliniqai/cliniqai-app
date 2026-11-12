@@ -463,10 +463,9 @@ export async function shareLabReportViaWhatsApp(
           document_title: doc.title,
         },
         recipientPhone: doc.patient.phone,
+        // No token or link in metadata (AR3-N1); the link travels only in template_params, redacted after sending.
         metadata: {
           document_id: documentId,
-          share_token: token,
-          share_url: shareUrl,
         },
       }
     );
