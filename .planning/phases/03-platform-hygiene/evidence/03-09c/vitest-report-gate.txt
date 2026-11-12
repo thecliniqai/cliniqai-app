@@ -1,0 +1,4 @@
+# full Vitest lane from a clean worktree of f140a1d
+vitest-report-gate: files=124 tests=2186 passed=2186 failed=0 skipped/todo=0 floor=1805 required=9
+vitest-report-gate: PASS
+exit=0

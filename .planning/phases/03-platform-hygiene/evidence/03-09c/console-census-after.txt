@@ -1,0 +1,12 @@
+# after 03-09c at 6b8fad5
+$ git grep -nE "console\.(log|info|warn|error|debug)" -- app components features lib | wc -l
+       2
+$ ... | files
+       1
+app 0
+components 0
+features 0
+lib 2
+
+lib/log/client.ts:5: * Development: one `console.warn` with the event and the error's log-safe tag (code or class name, never its message).
+lib/log/client.ts:12:  console.warn(`[${event}]`, errorTag(err));
