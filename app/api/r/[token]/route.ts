@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DOCUMENT_LINK_KINDS, isPlausibleToken, resolveShareToken } from "@/features/sharing/public-links";
 import { renderSharedReceiptPdf, signSharedObject } from "@/features/sharing/system";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 // Public document link (P0-04, ADR-0005 D3). The token is resolved by `resolve_share_token`, bound to the token's
 // tenant and to the kinds this route serves; every "no such link" answer is the same 404 (no oracle between a missing
@@ -89,7 +91,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (err: unknown) {
-    console.error("[app/api/r/[token]/route] Error resolving document share token:", err instanceof Error ? err.name : "error");
+    log.error({ event: "sharing.document_token_route.failed", code: errorTag(err), requestId: await getRequestId() });
     return NextResponse.json(
       { error: "An unexpected error occurred while loading this document." },
       { status: 500 }

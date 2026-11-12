@@ -5,6 +5,8 @@ import { requireServiceContext } from "@/lib/auth/context";
 import { hasPerm } from "@/lib/permissions";
 import { DoctorCabinView, DoctorOption } from "@/components/cabin/doctor-cabin-view";
 import { CabinVisitItem } from "@/components/cabin/my-queue-card";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 interface CabinPageProps {
   searchParams: Promise<{
@@ -113,7 +115,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
   const { data: rawVisits, error: visitsError } = await visitQuery;
 
   if (visitsError) {
-    console.error("[DoctorCabinPage] Error loading cabin visits:", visitsError.message, visitsError.details);
+    log.error({ event: "visits.cabin_list.failed", code: errorTag(visitsError), requestId: await getRequestId() });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

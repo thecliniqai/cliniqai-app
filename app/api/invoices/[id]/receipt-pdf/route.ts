@@ -3,6 +3,8 @@ import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/conte
 import { isUuid } from "@/lib/utils/filter-values";
 import { generateAndArchiveReceiptPdf } from "@/features/billing/pdf/generator";
 import { ReceiptPdfPayload } from "@/features/billing/pdf/receipt-document";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export async function GET(
   request: Request,
@@ -183,7 +185,7 @@ export async function GET(
     });
   } catch (err: unknown) {
     // Fixed body; only the error name is logged (IR-L2).
-    console.error("[app/api/invoices/[id]/receipt-pdf] Error:", err instanceof Error ? err.name : "error");
+    log.error({ event: "billing.receipt_pdf_route.failed", code: errorTag(err), requestId: await getRequestId() });
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

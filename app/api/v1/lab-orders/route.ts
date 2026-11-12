@@ -8,6 +8,8 @@ import { recordAudit } from "@/lib/audit/audit";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { isDateOnly } from "@/lib/utils/filter-values";
 import { isPatientStoragePath } from "@/lib/storage/tenant-path";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 const LAB_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
 
@@ -233,7 +235,7 @@ export async function POST(req: NextRequest) {
           },
       });
     } catch (auditErr) {
-      console.error("[api/v1/lab-orders] Audit logging failed:", auditErr);
+      log.error({ event: "api.lab_orders_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
 
     // 5. Enqueue webhook event: lab_result.ready
@@ -249,7 +251,7 @@ export async function POST(req: NextRequest) {
         }
       );
     } catch (webhookErr) {
-      console.warn("[api/v1/lab-orders] Webhook enqueue error:", webhookErr);
+      log.warn({ event: "api.lab_orders_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
     }
 
     return apiSuccess(doc, undefined, 201, rateHeaders);

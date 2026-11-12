@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isPlausibleToken, REPORT_LINK_KINDS, resolveShareToken } from "@/features/sharing/public-links";
 import { signSharedObject } from "@/features/sharing/system";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 // Public lab-report link (P0-04, ADR-0005 D3): patient_document tokens only, resolved by `resolve_share_token`
 // (bound to the token's tenant). Every "no such link" answer is the same 404; the response carries no ids.
@@ -72,7 +74,7 @@ export async function GET(request: NextRequest) {
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (err: unknown) {
-    console.error("[app/api/reports/view/route] Error resolving token:", err instanceof Error ? err.name : "error");
+    log.error({ event: "sharing.report_view_route.failed", code: errorTag(err), requestId: await getRequestId() });
     return NextResponse.json(
       { error: "An unexpected error occurred while loading this document." },
       { status: 500 }

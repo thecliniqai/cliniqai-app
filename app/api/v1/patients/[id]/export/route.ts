@@ -8,6 +8,8 @@ import { getSystemDb } from "@/lib/supabase/system";
 import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { recordAudit } from "@/lib/audit/audit";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -89,7 +91,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
           },
         });
       } catch (auditErr) {
-        console.warn("[app/api/v1/patients/[id]/export] PDF audit warning:", auditErr);
+        log.warn({ event: "api.patient_export_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
       }
 
       const uint8 = new Uint8Array(pdfBuffer);

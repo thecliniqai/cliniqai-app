@@ -3,6 +3,8 @@ import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/conte
 import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { recordAudit } from "@/lib/audit/audit";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -49,7 +51,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     if (message.startsWith("Patient not found")) {
       return NextResponse.json({ error: "Patient not found." }, { status: 404 });
     }
-    console.error("[app/api/patients/[id]/export] export failed:", err instanceof Error ? err.name : "error");
+    log.error({ event: "dpdp.export_route.failed", code: errorTag(err), requestId: await getRequestId() });
     return NextResponse.json({ error: "Export failed. Please try again." }, { status: 500 });
   }
 
@@ -58,7 +60,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
     try {
       pdfBuffer = await generateDpdpMedicalSummaryPdf(bundle);
     } catch (err) {
-      console.error("[app/api/patients/[id]/export] PDF render failed:", err instanceof Error ? err.name : "error");
+      log.error({ event: "dpdp.export_pdf_render.failed", code: errorTag(err), requestId: await getRequestId() });
       return NextResponse.json({ error: "Export failed. Please try again." }, { status: 500 });
     }
     try {
@@ -69,7 +71,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         metadata: { format: "pdf", status: "completed" },
       });
     } catch (auditErr) {
-      console.warn("[app/api/patients/[id]/export] PDF audit warning:", auditErr instanceof Error ? auditErr.name : "error");
+      log.warn({ event: "dpdp.export_pdf_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
     return new Response(new Uint8Array(pdfBuffer), {
       status: 200,

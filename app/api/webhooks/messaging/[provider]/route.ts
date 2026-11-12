@@ -11,6 +11,8 @@ import {
   verifyMsg91WebhookSecret,
   parseMsg91Payload,
 } from "@/lib/messaging/webhook-helpers";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * Inbound messaging webhook (P0-03). Only `msg91` exists: every other provider value (dev, twilio, gupshup, unknown)
@@ -280,7 +282,7 @@ async function handleInboundAction({
           "We could not find an upcoming scheduled appointment for this phone number. For assistance, please call the clinic directly.",
       });
     } catch (err) {
-      console.error("[Webhook] Failed to dispatch bot_not_found message:", err);
+      log.error({ event: "messaging.inbound_bot_not_found.failed", code: errorTag(err), requestId: await getRequestId() });
     }
 
     return OK();
@@ -335,7 +337,7 @@ async function handleInboundAction({
         }
       );
     } catch (err) {
-      console.error("[Webhook] Failed to dispatch appointment_confirmed_ack:", err);
+      log.error({ event: "messaging.inbound_confirm_ack.failed", code: errorTag(err), requestId: await getRequestId() });
     }
 
     return OK();
@@ -357,7 +359,7 @@ async function handleInboundAction({
         onlyFromStatuses: PATIENT_ACTIONABLE_STATUSES,
       });
     } catch (err) {
-      console.warn("[Webhook] cancel refused:", err instanceof Error ? err.name : "error");
+      log.warn({ event: "messaging.inbound_cancel.failed", code: errorTag(err), requestId: await getRequestId() });
       return OK();
     }
 
@@ -383,7 +385,7 @@ async function handleInboundAction({
         }
       );
     } catch (err) {
-      console.error("[Webhook] Failed to dispatch appointment_cancelled_ack:", err);
+      log.error({ event: "messaging.inbound_cancel_ack.failed", code: errorTag(err), requestId: await getRequestId() });
     }
 
     return OK();
@@ -425,7 +427,7 @@ async function handleInboundAction({
         );
       }
     } catch (err) {
-      console.error("[Webhook] Failed to dispatch appointment_reschedule_link:", err);
+      log.error({ event: "messaging.inbound_reschedule_link.failed", code: errorTag(err), requestId: await getRequestId() });
     }
 
     return OK();
@@ -452,7 +454,7 @@ async function handleInboundAction({
       }
     );
   } catch (err) {
-    console.error("[Webhook] Failed to dispatch conversational_triage:", err);
+    log.error({ event: "messaging.inbound_triage.failed", code: errorTag(err), requestId: await getRequestId() });
   }
 
   return OK();

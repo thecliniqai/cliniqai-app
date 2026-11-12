@@ -4,6 +4,8 @@ import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -170,7 +172,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           },
       });
     } catch (auditErr) {
-      console.error("[api/v1/referrals/[id]] Audit logging failed:", auditErr);
+      log.error({ event: "api.referral_update_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
 
     return apiSuccess(updatedReferral, undefined, 200, rateHeaders);

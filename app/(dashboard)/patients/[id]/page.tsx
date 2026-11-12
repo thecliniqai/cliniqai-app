@@ -3,6 +3,8 @@ import { getPatient, getPatientVisitHistory } from "@/features/patients/actions"
 import { getCurrentConsent } from "@/features/patients/consent";
 import { getActiveMembership } from "@/lib/auth/tenant";
 import { PatientDetailView } from "@/components/patients/patient-detail-view";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export default async function PatientDetailPage(props: {
   params: Promise<{ id: string }>;
@@ -31,7 +33,7 @@ export default async function PatientDetailPage(props: {
     treatmentConsent = tConsent;
     dataSharingConsent = dConsent;
   } catch (err) {
-    console.error("[PatientDetailPage] Error loading patient:", err);
+    log.error({ event: "patients.detail_load.failed", code: errorTag(err), requestId: await getRequestId() });
     notFound();
   }
 

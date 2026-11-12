@@ -6,6 +6,8 @@ import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * GET /api/v1/prescriptions
@@ -259,7 +261,7 @@ export async function POST(req: NextRequest) {
           },
       });
     } catch (auditErr) {
-      console.error("[api/v1/prescriptions] Audit logging failed:", auditErr);
+      log.error({ event: "api.prescriptions_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
 
     // 8. Enqueue webhook event: prescription.issued
@@ -275,7 +277,7 @@ export async function POST(req: NextRequest) {
         }
       );
     } catch (webhookErr) {
-      console.warn("[api/v1/prescriptions] Webhook enqueue error:", webhookErr);
+      log.warn({ event: "api.prescriptions_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
     }
 
     return apiSuccess(

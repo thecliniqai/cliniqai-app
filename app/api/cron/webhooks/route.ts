@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { serverEnv } from "@/lib/env-server";
 import { dispatchPendingWebhookQueue } from "@/lib/webhooks/dispatcher";
 import { getSystemDb } from "@/lib/supabase/system";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 async function handleCronDispatch(req: NextRequest) {
   const cronSecret = serverEnv().CRON_SECRET;
@@ -26,9 +28,10 @@ async function handleCronDispatch(req: NextRequest) {
       { status: 200 }
     );
   } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : "Internal Cron Error";
+    // The error text can carry row values: the body is fixed and the log gets the error's code or class name only.
+    log.error({ event: "jobs.cron_webhooks.failed", code: errorTag(err), requestId: await getRequestId() });
     return NextResponse.json(
-      { success: false, error: errorMsg },
+      { success: false, error: "Internal Cron Error" },
       { status: 500 }
     );
   }

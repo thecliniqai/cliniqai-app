@@ -5,6 +5,8 @@ import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * GET /api/v1/visits
@@ -229,7 +231,7 @@ export async function POST(req: NextRequest) {
           },
       });
     } catch (auditErr) {
-      console.error("[api/v1/visits] Audit logging failed:", auditErr);
+      log.error({ event: "api.visits_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
 
     return apiSuccess(newVisit, undefined, 201, rateHeaders);

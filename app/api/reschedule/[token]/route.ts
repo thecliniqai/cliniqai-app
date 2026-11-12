@@ -7,6 +7,8 @@ import {
 import { notifySelfServiceReschedule } from "@/features/sharing/system";
 import { timeToMinutes, DAY_OF_WEEK_NAMES } from "@/features/visits/scheduling-utils";
 import type { DayAvailability, DoctorWeeklySchedule } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 // Public self-service reschedule link (P0-04, ADR-0005 D3). Only `appointment` tokens resolve here, bound to the
 // token's tenant (`get_reschedule_context`); a POST is single-use (`consume_reschedule_token` revokes the token in
@@ -127,7 +129,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (err: unknown) {
-    console.error("[app/api/reschedule/[token]/route] GET error:", err instanceof Error ? err.name : "error");
+    log.error({ event: "sharing.reschedule_route_get.failed", code: errorTag(err), requestId: await getRequestId() });
     return NextResponse.json(
       { error: "An unexpected error occurred while loading reschedule options." },
       { status: 500 }
@@ -192,7 +194,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
       new_scheduled_at: res.newScheduledAt,
     });
   } catch (err: unknown) {
-    console.error("[app/api/reschedule/[token]/route] POST error:", err instanceof Error ? err.name : "error");
+    log.error({ event: "sharing.reschedule_route_post.failed", code: errorTag(err), requestId: await getRequestId() });
     return NextResponse.json({ error: "Failed to reschedule appointment." }, { status: 500 });
   }
 }

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
 import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export async function GET(
   request: Request,
@@ -189,7 +191,7 @@ export async function GET(
     });
   } catch (err: unknown) {
     // Fixed body; only the error name is logged (IR-L2).
-    console.error("[app/api/visits/[id]/prescription-pdf] Error:", err instanceof Error ? err.name : "error");
+    log.error({ event: "prescriptions.pdf_route.failed", code: errorTag(err), requestId: await getRequestId() });
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
