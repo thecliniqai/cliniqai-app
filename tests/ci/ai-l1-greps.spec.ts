@@ -35,6 +35,15 @@ describe("AI-06 L1 checks", () => {
     expect(r.stderr).toContain(`FAIL ${expected}`);
   });
 
+  it("L1-R3 covers all app code, not only lib/ai and features/ai (V2-03 03-10; before: these files were out of scope)", () => {
+    const r = check("r3-test-branch-wide");
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("FAIL L1-R3 lib/webhooks/ssrf.ts:2 VITEST");
+    expect(r.stderr).toContain("FAIL L1-R3 proxy.ts:2 VITEST");
+    expect(r.stderr).toContain("FAIL L1-R3 app/api/hooks/route.ts:2 AI_EVAL_LIVE");
+    expect(r.stderr.match(/^FAIL /gm)).toHaveLength(3);
+  });
+
   it("only the intended rule fires on the features/ai price fixture (AI alone is allowed there)", () => {
     const r = check("r6-ai-price");
     expect(r.stderr).not.toContain("L1-R5");
@@ -54,6 +63,7 @@ describe("AI-06 L1 checks", () => {
     expect(r.stderr).not.toContain("ai-scribe-modal");
     expect(r.stderr).not.toContain("notes.tsx");
     expect(r.stderr).not.toContain("features/ai/assist.tsx");
+    expect(r.stderr).not.toContain("tests/setup/runner.ts"); // L1-R3 is app code only
   });
 
   it("fails on an expired exception", () => {
