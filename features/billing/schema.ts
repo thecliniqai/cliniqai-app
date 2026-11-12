@@ -22,6 +22,8 @@ export const recordPaymentSchema = z.object({
   payment_method: z.enum(["cash", "upi", "card"]),
   reference_number: z.string().max(100).nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
+  /** Client-generated idempotency key of one payment (V2-03 03-07): a resubmitted payment replays, never pays twice. */
+  commandId: z.string().uuid("Invalid command ID").optional(),
 });
 
 export const completeAndBillSchema = z.object({

@@ -27,6 +27,7 @@ export const REASON_OWNER = {
   "share.sign": "features/sharing/system",
   "share.receipt_pdf": "features/sharing/system",
   "share.reschedule_notify": "features/sharing/system",
+  "billing.record_payment_system": "features/billing/system",
 } as const satisfies Record<string, string>;
 
 export type SystemDbReason = keyof typeof REASON_OWNER;

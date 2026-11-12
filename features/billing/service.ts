@@ -1,7 +1,9 @@
 import "server-only";
 import { serverEnv } from "@/lib/env-server";
 
-import { assertPerm } from "@/lib/permissions";
+import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { assertPerm, hasPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { visitInTenant } from "@/lib/auth/tenant-refs";
@@ -26,6 +28,8 @@ import {
 } from "./pdf/generator";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { mapDbError, type DbErrorMessages } from "@/lib/db/errors";
+import { appError, type Result } from "@/lib/errors/app-error";
 
 // Billing use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
 // server action checked before the move, and completeAndBillConsultation calls the consultation, invoice, payment and
@@ -233,9 +237,99 @@ export type RecordPaymentResult =
       status: "paid" | "issued";
       totalPaid: number;
       balanceDue: number;
+      /** True when this command id was already recorded: nothing new was written (V2-03 03-07). */
+      replayed?: boolean;
     }
   | { success: false; error: string };
 
+/** The `record_payment` RPC result (000027), parsed at the service boundary (TARGET §3.2). */
+export const recordPaymentRpcResultSchema = z.object({
+  payment_id: z.string().uuid(),
+  invoice_status: z.enum(["draft", "issued", "paid", "cancelled"]),
+  paid_total: z.number(),
+  total_amount: z.number(),
+  balance_due: z.number(),
+  replayed: z.boolean(),
+});
+export type RecordPaymentRpcResult = z.infer<typeof recordPaymentRpcResultSchema>;
+
+/** Fixed, data-free texts by reason or code. The driver message never reaches the caller (AD-7). */
+export const RECORD_PAYMENT_MESSAGES = {
+  NOT_FOUND: "Invoice not found or unauthorized.",
+  FORBIDDEN: "You do not have permission to perform this action.",
+  OVERPAYMENT: "The amount is more than the balance due on this invoice.",
+  INVOICE_NOT_PAYABLE: "This invoice is already settled or cancelled.",
+  LOCK_TIMEOUT: "This invoice is being updated. Try again.",
+  IDEMPOTENCY_MISMATCH: "This payment was already submitted with different details. Refresh and try again.",
+  VALIDATION_FAILED: "Invalid payment details.",
+  CONFLICT: "The invoice changed while saving. Refresh and try again.",
+  INTERNAL: "Failed to record payment.",
+} as const satisfies DbErrorMessages;
+
+/** The closed system actors `record_payment` accepts on the system path (000027, `payments_recorded_by_system_known`). */
+export const PAYMENT_SYSTEM_ACTORS = ["system:payment_webhook"] as const;
+export type PaymentSystemActor = (typeof PAYMENT_SYSTEM_ACTORS)[number];
+
+export interface RecordPaymentRpcArgs {
+  /** The active tenant from the server-side context (ServiceContext.tenantId), never request input. */
+  tenantId: string;
+  invoiceId: string;
+  amount: number;
+  method: "cash" | "upi" | "card";
+  reference?: string | null;
+  notes?: string | null;
+  commandId: string;
+}
+
+/**
+ * Calls `public.record_payment` on `db` and maps the outcome: the parsed result, or an {@link AppError} with a fixed
+ * message. On the user path `db` is the caller's JWT client (RLS, `auth.uid()` actor); the system path
+ * (`features/billing/system.ts`) passes the service-role client and a closed `systemActor`. An unexpected failure or
+ * an unparseable result is logged with its tag only and becomes `INTERNAL`.
+ */
+export async function callRecordPayment(
+  db: ServiceContext["db"],
+  args: RecordPaymentRpcArgs,
+  failure: { event: "billing.payment_record.failed" | "billing.payment_record_system.failed" },
+  systemActor?: PaymentSystemActor
+): Promise<Result<RecordPaymentRpcResult>> {
+  const { data, error } = await db.rpc("record_payment", {
+    p_tenant_id: args.tenantId,
+    p_invoice_id: args.invoiceId,
+    p_amount: args.amount,
+    p_method: args.method,
+    p_reference: args.reference ?? "",
+    p_notes: args.notes ?? undefined,
+    p_command_id: args.commandId,
+    p_system_actor: systemActor,
+  });
+
+  if (error) {
+    const mapped = mapDbError(error, RECORD_PAYMENT_MESSAGES);
+    if (mapped.code === "INTERNAL") {
+      log.error({ event: failure.event, code: errorTag(error), requestId: await getRequestId(), tenantId: args.tenantId });
+    }
+    return { ok: false, error: mapped };
+  }
+
+  const parsed = recordPaymentRpcResultSchema.safeParse(data);
+  if (!parsed.success) {
+    log.error({ event: failure.event, code: "result_shape", requestId: await getRequestId(), tenantId: args.tenantId });
+    return { ok: false, error: appError("INTERNAL", { message: RECORD_PAYMENT_MESSAGES.INTERNAL }) };
+  }
+  return { ok: true, value: parsed.data };
+}
+
+/** Rounds to paise without float drift (the RPC refuses more than 2 decimals). */
+function toPaise(amount: number): number {
+  return Math.round((Number(amount) + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Records a payment as one atomic command (V2-03 03-07, D1): `public.record_payment` locks the invoice, enforces the
+ * invariants (no overpayment, payable status), inserts the payment, moves the invoice to `paid` when settled and
+ * writes the audit row and the `payment.recorded` outbox rows in the same transaction, under the caller's RLS.
+ */
 export async function recordPayment(
   ctx: ServiceContext,
   input: RecordPaymentInput
@@ -248,110 +342,43 @@ export async function recordPayment(
     };
   }
 
-  const supabase = ctx.db;
-
-  try {
-    assertPerm(ctx.role, "appointments:edit");
-    const session = ctx;
-    const data = parseResult.data;
-
-    // 1. Fetch invoice and verify tenant
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invoice, error: invoiceErr } = await (
-      supabase.from("invoices") as any
-    )
-      .select("id, tenant_id, total_amount, status")
-      .eq("id", data.invoice_id)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (invoiceErr || !invoice) {
-      return { success: false, error: "Invoice not found or unauthorized." };
-    }
-
-    // 2. Insert Payment record
-    const paymentAmount =
-      Math.round((Number(data.amount) + Number.EPSILON) * 100) / 100;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: newPayment, error: paymentErr } = await (
-      supabase.from("payments") as any
-    )
-      .insert({
-        tenant_id: session.tenantId,
-        invoice_id: data.invoice_id,
-        amount: paymentAmount,
-        payment_method: data.payment_method,
-        reference_number: data.reference_number || null,
-        notes: data.notes || null,
-        recorded_by: session.userId,
-      })
-      .select("id")
-      .single();
-
-    if (paymentErr || !newPayment) {
-      log.error({ event: "billing.payment_record.failed", code: errorTag(paymentErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to record payment in database." };
-    }
-
-    // 3. Query all payments for this invoice to check paid status
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: paymentsList } = await (supabase.from("payments") as any)
-      .select("amount")
-      .eq("invoice_id", data.invoice_id)
-      .eq("tenant_id", session.tenantId);
-
-    const totalPaid =
-      Math.round(
-        ((paymentsList || []).reduce(
-          (acc: number, curr: { amount: number }) => acc + Number(curr.amount),
-          0
-        ) +
-          Number.EPSILON) *
-          100
-      ) / 100;
-
-    const totalAmount = Number(invoice.total_amount);
-    const balanceDue = Math.max(
-      0,
-      Math.round((totalAmount - totalPaid + Number.EPSILON) * 100) / 100
-    );
-    const isFullyPaid = totalPaid >= totalAmount;
-
-    // Update invoice status if fully paid
-    if (isFullyPaid && invoice.status !== "paid") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("invoices") as any)
-        .update({ status: "paid", updated_at: new Date().toISOString() })
-        .eq("id", data.invoice_id)
-        .eq("tenant_id", session.tenantId);
-    }
-
-    // 4. Record Audit Log
-    await recordAudit(ctx, {
-      action: "invoice.payment_recorded",
-      entityType: "payment",
-      entityId: newPayment.id,
-      metadata: {
-        invoice_id: data.invoice_id,
-        amount: paymentAmount,
-        method: data.payment_method,
-        is_fully_paid: isFullyPaid,
-      },
-    });
-
-    return {
-      success: true,
-      paymentId: newPayment.id,
-      status: isFullyPaid ? "paid" : "issued",
-      totalPaid,
-      balanceDue,
-    };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to record payment.",
-    };
+  if (!hasPerm(ctx.role, "appointments:edit")) {
+    return { success: false, error: RECORD_PAYMENT_MESSAGES.FORBIDDEN };
   }
+
+  const data = parseResult.data;
+  let outcome: Result<RecordPaymentRpcResult>;
+  try {
+    outcome = await callRecordPayment(
+      ctx.db,
+      {
+        tenantId: ctx.tenantId,
+        invoiceId: data.invoice_id,
+        amount: toPaise(data.amount),
+        method: data.payment_method,
+        reference: data.reference_number,
+        notes: data.notes,
+        // A caller without a per-attempt id still gets a unique command; only the id the client resends replays.
+        commandId: data.commandId ?? randomUUID(),
+      },
+      { event: "billing.payment_record.failed" }
+    );
+  } catch (err: unknown) {
+    log.error({ event: "billing.payment_record.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    return { success: false, error: RECORD_PAYMENT_MESSAGES.INTERNAL };
+  }
+
+  if (!outcome.ok) return { success: false, error: outcome.error.message };
+
+  const result = outcome.value;
+  return {
+    success: true,
+    paymentId: result.payment_id,
+    status: result.invoice_status === "paid" ? "paid" : "issued",
+    totalPaid: result.paid_total,
+    balanceDue: result.balance_due,
+    replayed: result.replayed,
+  };
 }
 
 export type GetVisitBillingResult =
