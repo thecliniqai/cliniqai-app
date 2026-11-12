@@ -41,6 +41,9 @@ for (const role of ["owner", "doctor", "receptionist"] as const satisfies readon
     test.use({ storageState: storageStatePath(role) });
 
     test(`${role}: clinic B's patient and visit URLs are refused with no B data in DOM or network`, async ({ page }) => {
+      // Two page loads with network capture plus three API probes: allow 3x the default budget so slow CI devices
+      // don't time out mid-probe; each probe keeps its own 10 s limit so a hanging route fails by name.
+      test.slow();
       const { tenantB } = readRunData();
       const markers = await tenantBMarkers();
       const pages = [`/patients/${tenantB.patientId}`, `/consultation/${tenantB.visitId}`];
@@ -75,10 +78,12 @@ for (const role of ["owner", "doctor", "receptionist"] as const satisfies readon
         `/api/invoices/${tenantB.invoiceId}/receipt-pdf`,
         `/api/patients/${tenantB.patientId}/export`,
       ]) {
-        const response = await page.request.get(path, { maxRedirects: 0 });
-        expect([401, 403, 404], `${path} status`).toContain(response.status());
-        const body = (await response.body()).toString("utf8");
-        for (const marker of markers) expect(body, `body of ${path}`).not.toContain(marker);
+        await test.step(`probe ${path.replace(/[0-9a-f-]{36}/g, ":id")}`, async () => {
+          const response = await page.request.get(path, { maxRedirects: 0, timeout: 10_000 });
+          expect([401, 403, 404], `${path} status`).toContain(response.status());
+          const body = (await response.body()).toString("utf8");
+          for (const marker of markers) expect(body, `body of ${path}`).not.toContain(marker);
+        });
       }
     });
   });
