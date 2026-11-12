@@ -37,6 +37,14 @@ Legend: `[ ]` open · `[~]` PO says done, Claude verifying · `[x]` verified (ev
   - *Unblocks:* inbound WhatsApp replies on any deployed environment.
   - *Verify:* send a test reply from a synthetic number to staging; `ops`/webhook log row with status 200, no secret in URL.
 
+- [ ] **C-4 · Rename the two Supabase keys in your local `.env.local`** — phase V2-03 (03-01, R-K)
+  - *Do:* in your own `.env.local` (Claude never opens it): rename `NEXT_PUBLIC_SUPABASE_ANON_KEY` →
+    `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` → `SUPABASE_SECRET_KEY` (values unchanged),
+    and add `APP_ENV=development`.
+  - *Why:* the env schema rejects the legacy names; `npm run dev` stops at boot and names the rename.
+  - *Unblocks:* local `npm run dev` on the V2-03 branch.
+  - *Verify:* you run `npm run dev` and see the app start; Claude checks nothing in that file.
+
 ---
 
 ## V2-06 Design system & PWA shell (flagged early)
