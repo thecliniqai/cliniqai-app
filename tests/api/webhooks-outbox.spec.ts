@@ -1,10 +1,18 @@
-import { describe, it, expect, beforeAll } from "vitest";
-import { validateWebhookEndpoint, isPrivateIp } from "@/lib/webhooks/ssrf";
+import { describe, it, expect, beforeAll, vi } from "vitest";
+import { validateWebhookEndpoint, isPrivateIp, type HostResolver } from "@/lib/webhooks/ssrf";
 import { generateWebhookSignature, verifyWebhookSignature } from "@/lib/webhooks/signer";
 import { enqueueWebhookEvent, type WebhookDb } from "@/lib/webhooks/outbox";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import crypto from "crypto";
+
+// V2-03 03-10: the SSRF check and the dispatcher have no test-environment branch; tests inject the resolver and the
+// HTTP client explicitly (production callers pass nothing: https only, system DNS, global fetch).
+const publicDns: HostResolver = async () => ["93.184.216.34"];
+const privateDns: HostResolver = async () => ["10.0.0.5"];
+type FetchArgs = Parameters<typeof fetch>;
+const fakeFetch = (respond: (url: FetchArgs[0], init?: FetchArgs[1]) => Response | Promise<Response>) =>
+  vi.fn(async (url: FetchArgs[0], init?: FetchArgs[1]) => respond(url, init));
 
 describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
   describe("SSRF Validator (lib/webhooks/ssrf.ts)", () => {
@@ -68,7 +76,7 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
     });
 
     it("permits valid public HTTPS destinations", async () => {
-      const validResult = await validateWebhookEndpoint("https://example.com/webhook/endpoint");
+      const validResult = await validateWebhookEndpoint("https://example.com/webhook/endpoint", { resolve: publicDns });
       expect(validResult.valid).toBe(true);
       expect(validResult.error).toBeUndefined();
     });
@@ -279,7 +287,6 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
   describe("Webhook Dispatcher & Exponential Backoff (Task 2)", () => {
     let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
     let sub: { id: string; secret: string; endpoint: string };
-    const originalFetch = global.fetch;
 
     beforeAll(async () => {
       const admin = getAdminClient();
@@ -300,9 +307,28 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       sub = { id: created.id, secret, endpoint: "https://mock-partner.example.com/receiver" };
     });
 
-    afterEach(() => {
-      global.fetch = originalFetch;
-    });
+    /**
+     * A pending queue item inserted directly. `enqueueWebhookEvent` also starts a background dispatch of the same row
+     * with the production transport (no injected fetch), which races the dispatch under test on the same row (two
+     * writers, no claim; atomic claiming is V2-04). The dispatcher tests therefore insert the row themselves.
+     */
+    async function insertQueueItem(test: string, subscriptionId = sub.id) {
+      const { data, error } = await getAdminClient()
+        .from("webhook_delivery_queue")
+        .insert({
+          tenant_id: tenant.tenantId,
+          subscription_id: subscriptionId,
+          event_type: "appointment.booked",
+          payload: JSON.stringify({ test }),
+          status: "pending",
+          retry_count: 0,
+          max_retries: 5,
+        })
+        .select("id")
+        .single();
+      expect(error).toBeNull();
+      return data as { id: string };
+    }
 
     it("verifies exponential backoff delay calculation per D-10", async () => {
       const { calculateWebhookBackoff } = await import("@/lib/webhooks/dispatcher");
@@ -317,25 +343,16 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       const admin = getAdminClient();
       const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
 
-      const [enqueued] = await enqueueWebhookEvent(
-        admin,
-        tenant.tenantId,
-        "appointment.booked",
-        { test: "delivery-success" }
-      );
-      expect(enqueued).toBeDefined();
+      const enqueued = await insertQueueItem("delivery-success");
 
-      // Mock fetch ONLY for external webhook endpoint
-      global.fetch = async (url, init) => {
-        if (typeof url === "string" && url.includes("mock-partner.example.com")) {
-          expect(init?.headers).toHaveProperty("X-ClinicQ-Signature");
-          expect(init?.headers).toHaveProperty("Content-Type", "application/json");
-          return new Response(JSON.stringify({ received: true }), { status: 200, statusText: "OK" });
-        }
-        return originalFetch(url, init);
-      };
-
-      const result = await dispatchWebhookQueueItem(admin, enqueued.id);
+      const send = fakeFetch(() => new Response(JSON.stringify({ received: true }), { status: 200, statusText: "OK" }));
+      const result = await dispatchWebhookQueueItem(admin, enqueued.id, { resolve: publicDns, fetch: send });
+      expect(send).toHaveBeenCalledTimes(1);
+      const [url, init] = send.mock.calls[0];
+      expect(url).toBe(sub.endpoint);
+      expect(init?.headers).toHaveProperty("X-ClinicQ-Signature");
+      expect(init?.headers).toHaveProperty("Content-Type", "application/json");
+      expect(init?.redirect).toBe("manual");
       expect(result.success).toBe(true);
       expect(result.status).toBe("delivered");
       expect(result.responseStatus).toBe(200);
@@ -355,24 +372,12 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       const admin = getAdminClient();
       const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
 
-      const [enqueued] = await enqueueWebhookEvent(
-        admin,
-        tenant.tenantId,
-        "appointment.booked",
-        { test: "delivery-retry" }
-      );
-      expect(enqueued).toBeDefined();
+      const enqueued = await insertQueueItem("delivery-retry");
 
-      // Mock fetch returning HTTP 500 for webhook endpoint only
-      global.fetch = async (url, init) => {
-        if (typeof url === "string" && url.includes("mock-partner.example.com")) {
-          return new Response("Server error", { status: 500 });
-        }
-        return originalFetch(url, init);
-      };
-
+      const send = fakeFetch(() => new Response("Server error", { status: 500 }));
       const beforeDispatch = Date.now();
-      const result = await dispatchWebhookQueueItem(admin, enqueued.id);
+      const result = await dispatchWebhookQueueItem(admin, enqueued.id, { resolve: publicDns, fetch: send });
+      expect(send).toHaveBeenCalledTimes(1);
 
       expect(result.success).toBe(false);
       expect(result.status).toBe("pending");
@@ -410,14 +415,11 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       expect(insertErr).toBeNull();
       expect(queueItem).toBeDefined();
 
-      global.fetch = async (url, init) => {
-        if (typeof url === "string" && url.includes("mock-partner.example.com")) {
-          throw new Error("Network connection refused");
-        }
-        return originalFetch(url, init);
-      };
-
-      const result = await dispatchWebhookQueueItem(admin, queueItem.id);
+      const send = fakeFetch(() => {
+        throw new Error("Network connection refused");
+      });
+      const result = await dispatchWebhookQueueItem(admin, queueItem.id, { resolve: publicDns, fetch: send });
+      expect(send).toHaveBeenCalledTimes(1);
       expect(result.success).toBe(false);
       expect(result.status).toBe("failed");
       expect(result.retryCount).toBe(5);
@@ -449,20 +451,11 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       expect(ssrfErr).toBeNull();
       expect(ssrfSub).toBeDefined();
 
-      const [enqueued] = await enqueueWebhookEvent(
-        admin,
-        tenant.tenantId,
-        "appointment.booked",
-        { test: "ssrf-blocked" }
-      );
-      expect(enqueued).toBeDefined();
+      const enqueued = await insertQueueItem("ssrf-blocked", ssrfSub.id);
 
-      // Point the queue item to the ssrf subscription
-      await (admin.from("webhook_delivery_queue") as any)
-        .update({ subscription_id: ssrfSub.id })
-        .eq("id", enqueued.id);
-
-      const result = await dispatchWebhookQueueItem(admin, enqueued.id);
+      const send = fakeFetch(() => new Response("ok", { status: 200 }));
+      const result = await dispatchWebhookQueueItem(admin, enqueued.id, { resolve: publicDns, fetch: send });
+      expect(send).not.toHaveBeenCalled();
       expect(result.success).toBe(false);
       expect(result.status).toBe("failed");
       expect(result.responseStatus).toBe(400);
@@ -473,6 +466,111 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
         .single();
       expect(updated.status).toBe("failed");
       expect(updated.response_status).toBe(400);
+    });
+  });
+
+  describe("Dispatcher transport options (V2-03 03-10: no test-environment branch)", () => {
+    let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
+
+    beforeAll(async () => {
+      tenant = await seedTenantWithOwner("Dispatcher Options Clinic");
+    });
+
+    /** A pending queue item for its own subscription (inserted directly, so no other subscription is involved). */
+    async function queueItemFor(endpoint: string): Promise<string> {
+      const admin = getAdminClient();
+      const { data: s, error: sErr } = await admin
+        .from("webhook_subscriptions")
+        .insert({
+          tenant_id: tenant.tenantId,
+          endpoint_url: endpoint,
+          event_types: ["appointment.booked"],
+          signing_secret: "whsec_" + crypto.randomBytes(16).toString("hex"),
+          is_active: true,
+          created_by: tenant.userId,
+        })
+        .select("id")
+        .single();
+      expect(sErr).toBeNull();
+      const { data: q, error: qErr } = await admin
+        .from("webhook_delivery_queue")
+        .insert({
+          tenant_id: tenant.tenantId,
+          subscription_id: s!.id,
+          event_type: "appointment.booked",
+          payload: JSON.stringify({ test: "transport-options" }),
+          status: "pending",
+          retry_count: 0,
+          max_retries: 5,
+        })
+        .select("id")
+        .single();
+      expect(qErr).toBeNull();
+      return q!.id;
+    }
+
+    async function rowOf(id: string) {
+      const { data } = await getAdminClient()
+        .from("webhook_delivery_queue")
+        .select("status, response_status, retry_count")
+        .eq("id", id)
+        .single();
+      return data as { status: string; response_status: number | null; retry_count: number };
+    }
+
+    it("fails an http:// endpoint without allowHttp inside Vitest and never sends (before: allowed by the VITEST branch)", async () => {
+      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
+      const id = await queueItemFor("http://plain-partner.example.test/hook");
+      const send = fakeFetch(() => new Response("ok", { status: 200 }));
+
+      const result = await dispatchWebhookQueueItem(getAdminClient(), id, { resolve: publicDns, fetch: send });
+
+      expect(send).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ success: false, status: "failed", responseStatus: 400 });
+      expect(result.error).toContain("HTTPS");
+      expect(await rowOf(id)).toMatchObject({ status: "failed", response_status: 400 });
+    });
+
+    it("delivers to http:// only when the caller passes allowHttp", async () => {
+      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
+      const id = await queueItemFor("http://plain-partner.example.test/hook");
+      const send = fakeFetch(() => new Response("ok", { status: 200 }));
+
+      const result = await dispatchWebhookQueueItem(getAdminClient(), id, {
+        allowHttp: true,
+        resolve: publicDns,
+        fetch: send,
+      });
+
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({ success: true, status: "delivered", responseStatus: 200 });
+    });
+
+    it("fails a hostname that resolves to a private address and never sends (before: .test hosts skipped DNS)", async () => {
+      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
+      const id = await queueItemFor("https://rebind.example.test/hook");
+      const send = fakeFetch(() => new Response("ok", { status: 200 }));
+
+      const result = await dispatchWebhookQueueItem(getAdminClient(), id, { resolve: privateDns, fetch: send });
+
+      expect(send).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ success: false, status: "failed", responseStatus: 400 });
+      expect(await rowOf(id)).toMatchObject({ status: "failed", response_status: 400 });
+    });
+
+    it("does not follow a redirect: a 302 to the metadata address is a failed attempt, not a delivery", async () => {
+      const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
+      const id = await queueItemFor("https://redirecting.example.test/hook");
+      const send = fakeFetch(
+        () => new Response(null, { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data" } }),
+      );
+
+      const result = await dispatchWebhookQueueItem(getAdminClient(), id, { resolve: publicDns, fetch: send });
+
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send.mock.calls[0][1]?.redirect).toBe("manual");
+      expect(result).toMatchObject({ success: false, status: "pending", responseStatus: 302, retryCount: 1 });
+      expect(await rowOf(id)).toMatchObject({ status: "pending", response_status: 302, retry_count: 1 });
     });
   });
 

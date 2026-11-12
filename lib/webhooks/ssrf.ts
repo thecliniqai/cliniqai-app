@@ -76,14 +76,32 @@ export function isPrivateIp(ip: string): boolean {
   return true;
 }
 
+/** Resolves a hostname to every address it answers with. Injected by tests; production uses {@link resolveHost}. */
+export type HostResolver = (host: string) => Promise<string[]>;
+
+/** The production resolver: the system resolver (`getaddrinfo`), every A/AAAA answer. */
+export const resolveHost: HostResolver = async (host) => {
+  const answers = await dns.promises.lookup(host, { all: true, verbatim: true });
+  return answers.map((a) => a.address);
+};
+
 export interface ValidateWebhookEndpointOptions {
+  /** Permit `http:` in addition to `https:`. Production callers never pass it (V2-03 03-10, T-03-11). */
   allowHttp?: boolean;
-  allowTestDomains?: boolean;
+  /** Resolver used for non-literal hostnames; defaults to {@link resolveHost}. Resolution always runs. */
+  resolve?: HostResolver;
 }
 
+const BLOCKED = "Private, loopback, or metadata addresses are blocked for webhook endpoints.";
+
 /**
- * Validates that an outgoing webhook endpoint URL uses HTTPS and does not
- * resolve to private, loopback, or cloud metadata IP addresses (SSRF protection).
+ * Validates that an outgoing webhook endpoint URL uses HTTPS and does not resolve to private, loopback, or cloud
+ * metadata IP addresses (SSRF protection, T-03-11).
+ *
+ * There is no test-environment branch (V2-03 03-10, P2-03, E-6): every hostname is resolved, every answer must be
+ * public, and a resolver error or an empty answer fails closed. Tests inject `resolve` (and `allowHttp`) explicitly.
+ * Residual (recorded for review): the dispatcher's `fetch` resolves the name again, so a DNS-rebinding answer that
+ * changes between this check and the connect is not covered here.
  */
 export async function validateWebhookEndpoint(
   urlString: string,
@@ -100,7 +118,6 @@ export async function validateWebhookEndpoint(
     return { valid: false, error: "Invalid endpoint URL format." };
   }
 
-  const isTestEnv = process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
   const isHttpAllowed = options?.allowHttp === true;
   if (parsed.protocol !== "https:" && !(isHttpAllowed && parsed.protocol === "http:")) {
     return {
@@ -109,7 +126,8 @@ export async function validateWebhookEndpoint(
     };
   }
 
-  const hostname = parsed.hostname;
+  // `URL.hostname` keeps the brackets of an IPv6 literal ("[::1]"); strip them so the literal is range-checked.
+  const hostname = parsed.hostname.replace(/^\[(.*)\]$/, "$1");
   if (!hostname) {
     return { valid: false, error: "Invalid endpoint URL: missing hostname." };
   }
@@ -123,51 +141,36 @@ export async function validateWebhookEndpoint(
     lowerHost === "::1" ||
     lowerHost === "169.254.169.254"
   ) {
-    return {
-      valid: false,
-      error: "Private, loopback, or metadata addresses are blocked for webhook endpoints.",
-    };
-  }
-
-  // In test environment, permit RFC 2606 test domains (.test, .example.com) without requiring live public DNS
-  if ((options?.allowTestDomains || isTestEnv) && (lowerHost.endsWith(".test") || lowerHost.endsWith(".example.com"))) {
-    return { valid: true };
+    return { valid: false, error: BLOCKED };
   }
 
   // If hostname is directly an IP address literal
   if (net.isIP(hostname)) {
-    if (isPrivateIp(hostname)) {
-      return {
-        valid: false,
-        error: "Private, loopback, or metadata addresses are blocked for webhook endpoints.",
-      };
-    }
-    return { valid: true };
+    return isPrivateIp(hostname) ? { valid: false, error: BLOCKED } : { valid: true };
   }
 
-  // Resolve hostname via DNS
+  // Resolve the hostname (always; no domain is exempt) and require every answer to be public.
+  const resolve = options?.resolve ?? resolveHost;
+  let addresses: string[];
   try {
-    const addresses = await dns.promises.lookup(hostname, { all: true });
-    if (!addresses || addresses.length === 0) {
-      return {
-        valid: false,
-        error: `Could not resolve hostname "${hostname}".`,
-      };
-    }
-
-    for (const record of addresses) {
-      if (isPrivateIp(record.address)) {
-        return {
-          valid: false,
-          error: "Private, loopback, or metadata addresses are blocked for webhook endpoints.",
-        };
-      }
-    }
-  } catch (dnsErr) {
+    addresses = await resolve(hostname);
+  } catch {
     return {
       valid: false,
       error: `DNS resolution failed for hostname "${hostname}".`,
     };
+  }
+
+  if (!Array.isArray(addresses) || addresses.length === 0) {
+    return {
+      valid: false,
+      error: `Could not resolve hostname "${hostname}".`,
+    };
+  }
+
+  // `isPrivateIp` blocks anything that is not a valid IP literal, so a malformed answer also fails closed.
+  if (addresses.some((address) => typeof address !== "string" || isPrivateIp(address))) {
+    return { valid: false, error: BLOCKED };
   }
 
   return { valid: true };

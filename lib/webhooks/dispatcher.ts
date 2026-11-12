@@ -1,5 +1,5 @@
 import type { WebhookDb } from "./outbox";
-import { validateWebhookEndpoint } from "./ssrf";
+import { validateWebhookEndpoint, type HostResolver } from "./ssrf";
 import { generateWebhookSignature } from "./signer";
 
 export interface WebhookDispatchResult {
@@ -17,6 +17,20 @@ export interface DispatchQueueSummary {
   delivered: number;
   retried: number;
   failed: number;
+}
+
+/**
+ * Explicit transport options (V2-03 03-10, P2-03): there is no test-environment branch. Production callers (the cron
+ * route, the test-ping action, the outbox's immediate dispatch) pass nothing: https only, real DNS, real `fetch`.
+ * Tests inject what they need.
+ */
+export interface WebhookDispatchOptions {
+  /** Permit `http:` endpoints. */
+  allowHttp?: boolean;
+  /** Hostname resolver for the SSRF check (default: the system resolver). */
+  resolve?: HostResolver;
+  /** HTTP client (default: global `fetch`). */
+  fetch?: typeof fetch;
 }
 
 /**
@@ -46,7 +60,8 @@ export function calculateWebhookBackoff(retryCount: number): number {
  */
 export async function dispatchWebhookQueueItem(
   db: WebhookDb,
-  queueItemId: string
+  queueItemId: string,
+  options?: WebhookDispatchOptions
 ): Promise<WebhookDispatchResult> {
   const supabase = db;
 
@@ -91,9 +106,9 @@ export async function dispatchWebhookQueueItem(
   }
 
   // 1. SSRF Safety Check
-  const isTest = process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
   const ssrfCheck = await validateWebhookEndpoint(subscription.endpoint_url, {
-    allowHttp: isTest,
+    allowHttp: options?.allowHttp === true,
+    resolve: options?.resolve,
   });
 
   if (!ssrfCheck.valid) {
@@ -130,7 +145,8 @@ export async function dispatchWebhookQueueItem(
   let durationMs = 0;
 
   try {
-    const res = await fetch(subscription.endpoint_url, {
+    const send = options?.fetch ?? fetch;
+    const res = await send(subscription.endpoint_url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -138,6 +154,9 @@ export async function dispatchWebhookQueueItem(
         "User-Agent": "ClinicQ-Webhook/1.0",
       },
       body: item.payload,
+      // Never follow a redirect: the SSRF check above covers only the configured URL, so a 3xx to a private or
+      // metadata address would bypass it (T-03-11). A redirect counts as a failed delivery and is retried.
+      redirect: "manual",
       signal: AbortSignal.timeout(5000),
     });
 
@@ -234,7 +253,7 @@ export async function dispatchPendingWebhookQueue(
   db: WebhookDb,
   options?: {
     limit?: number;
-  }
+  } & WebhookDispatchOptions
 ): Promise<DispatchQueueSummary> {
   const limit = options?.limit ?? 50;
   const supabase = db;
@@ -260,7 +279,11 @@ export async function dispatchPendingWebhookQueue(
 
   for (const item of dueItems) {
     try {
-      const result = await dispatchWebhookQueueItem(db, item.id);
+      const result = await dispatchWebhookQueueItem(db, item.id, {
+        allowHttp: options?.allowHttp,
+        resolve: options?.resolve,
+        fetch: options?.fetch,
+      });
       if (result.success) {
         delivered++;
       } else if (result.status === "failed") {
