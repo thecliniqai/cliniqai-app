@@ -33,6 +33,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { reportClientError } from "@/lib/log/client";
 
 interface CheckoutDrawerProps {
   isOpen: boolean;
@@ -113,7 +114,7 @@ export function CheckoutDrawer({
           }
         })
         .catch((err) => {
-          console.error("Failed to load visit billing:", err);
+          reportClientError("billing.visit_billing_load.failed", err);
           setError("Failed to load visit billing details.");
         })
         .finally(() => {
@@ -283,7 +284,7 @@ export function CheckoutDrawer({
         // 3. Complete queue encounter
         const queueRes = await transitionQueueState(visit.id, "completed");
         if (!queueRes.success) {
-          console.warn("[CheckoutDrawer] Queue transition warning:", queueRes.error);
+          reportClientError("queue.checkout_transition.failed", null);
         }
 
         // 4. Reload updated billing details

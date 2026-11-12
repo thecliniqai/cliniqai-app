@@ -11,6 +11,7 @@ import { bookAppointment } from "@/features/visits/scheduling";
 import { OverbookDialog } from "./overbook-dialog";
 import { X, Search, UserPlus, UserCheck, Calendar, Clock } from "lucide-react";
 import { Patient, Visit } from "@/lib/db/types";
+import { reportClientError } from "@/lib/log/client";
 
 export interface BookingDrawerDoctor {
   id: string;
@@ -126,7 +127,7 @@ export function BookingDrawer({
         const matches = await searchPatients(searchQuery);
         setSearchResults(matches);
       } catch (err) {
-        console.error("Patient search failed:", err);
+        reportClientError("patients.search.failed", err);
       }
     }, 200);
 

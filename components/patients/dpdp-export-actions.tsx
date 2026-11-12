@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Download, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { reportClientError } from "@/lib/log/client";
 
 interface DpdpExportActionsProps {
   patientId: string;
@@ -38,7 +39,7 @@ export function DpdpExportActions({ patientId }: DpdpExportActionsProps) {
       document.body.removeChild(link);
       URL.revokeObjectURL(downloadUrl);
     } catch (err) {
-      console.error("[components/patients/dpdp-export-actions] Export failed:", err);
+      reportClientError("dpdp.export.failed", err);
       alert("Failed to export patient records. Please try again.");
     } finally {
       setIsExportingJson(false);

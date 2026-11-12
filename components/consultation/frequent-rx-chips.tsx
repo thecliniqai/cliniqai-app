@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Pill, Plus, Check, History } from "lucide-react";
 import { getFrequentPrescriptionsAction } from "@/features/ai/actions";
 import { PrescriptionSuggestion } from "@/lib/ai/types";
+import { reportClientError } from "@/lib/log/client";
 
 export interface FrequentRxChipsProps {
   diagnosis?: string | null;
@@ -45,7 +46,7 @@ export function FrequentRxChips({
         }
       })
       .catch((err) => {
-        console.error("Failed to fetch frequent prescriptions:", err);
+        reportClientError("ai.frequent_prescriptions.failed", err);
         if (!isCancelled) setSuggestions([]);
       })
       .finally(() => {

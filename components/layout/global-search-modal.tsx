@@ -15,6 +15,7 @@ import {
   X,
   Loader2,
 } from "lucide-react";
+import { reportClientError } from "@/lib/log/client";
 
 export interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -77,7 +78,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
         setResults(patients);
         setSelectedIndex(0);
       } catch (err) {
-        console.error("Global search failed:", err);
+        reportClientError("search.global.failed", err);
       } finally {
         setLoading(false);
       }

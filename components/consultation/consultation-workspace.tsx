@@ -54,6 +54,7 @@ import { CreateReferralModal } from "@/components/referrals/create-referral-moda
 import { getReferralSignedUrl } from "@/features/referrals/actions";
 import type { Referral } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
+import { reportClientError } from "@/lib/log/client";
 
 export interface ConsultationWorkspaceProps {
   visit: {
@@ -254,7 +255,7 @@ export function ConsultationWorkspace({
         window.open(res.signedUrl, "_blank", "noopener,noreferrer");
       }
     } catch (err) {
-      console.error("Failed to open referral letter PDF:", err);
+      reportClientError("referrals.letter_open.failed", err);
     } finally {
       setIsOpeningReferralPdf(false);
     }
@@ -442,7 +443,7 @@ export function ConsultationWorkspace({
           special_instructions: med.special_instructions ?? null,
         });
       } catch (err) {
-        console.error("Failed to repeat medication:", err);
+        reportClientError("prescriptions.repeat_medication.failed", err);
       }
     }
   };

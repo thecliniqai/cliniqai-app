@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
 import { LogOut, Building, Shield, User } from "lucide-react";
 import Link from "next/link";
+import { reportClientError } from "@/lib/log/client";
 
 export interface UserDropdownProps {
   userEmail: string;
@@ -25,7 +26,7 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
       router.push("/login");
       router.refresh();
     } catch (err) {
-      console.error("Sign out error:", err);
+      reportClientError("auth.sign_out.failed", err);
       setSigningOut(false);
     }
   };

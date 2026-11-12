@@ -10,6 +10,7 @@ import { createPatient, searchPatients } from "@/features/patients/actions";
 import { AgeDobInput } from "@/components/patients/age-dob-input";
 import { X, Clock, Search, UserPlus, UserCheck } from "lucide-react";
 import { Patient } from "@/lib/db/types";
+import { reportClientError } from "@/lib/log/client";
 
 export interface WaitlistDrawerProps {
   isOpen: boolean;
@@ -67,7 +68,7 @@ export function WaitlistDrawer({
         const matches = await searchPatients(searchQuery);
         setSearchResults(matches);
       } catch (err) {
-        console.error("Patient search failed:", err);
+        reportClientError("patients.search.failed", err);
       }
     }, 200);
 

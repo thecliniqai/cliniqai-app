@@ -17,6 +17,7 @@ import { RevokeKeyModal } from "./revoke-key-modal";
 import { WebhookSubscriptionList } from "./webhook-subscription-list";
 import { CreateWebhookModal } from "./create-webhook-modal";
 import { WebhookDeliveryLogsDrawer } from "./webhook-delivery-logs-drawer";
+import { reportClientError } from "@/lib/log/client";
 
 export interface DeveloperSettingsViewProps {
   initialKeys: ApiKeyItem[];
@@ -130,7 +131,7 @@ export function DeveloperSettingsView({
         setSubscriptions((prev) => prev.filter((s) => s.id !== sub.id));
       }
     } catch (err) {
-      console.error("Delete webhook failed:", err);
+      reportClientError("webhooks.subscription_delete.failed", err);
     }
   };
 
