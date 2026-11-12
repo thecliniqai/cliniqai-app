@@ -38,8 +38,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0 # the migration gate needs the base branch and the merge base
       - name: No env files besides the template and the local-stack test defaults
         run: node scripts/ci/assert-no-env-files.mjs
+      # V2-03 03-03 (B2, R-4): applied migrations are immutable; new ones continue the zero-padded sequence.
+      - name: Migration immutability (vs the PR base, or feature/v2 on push)
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'feature/v2' }}
+        run: node scripts/ci/migration-immutability.mjs --base "$BASE_REF"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
@@ -113,6 +119,13 @@ jobs:
         run: >-
           node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
           -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+      # V2-03 03-03 (B4): types/database.ts is what `npm run db:types` generates from the freshly migrated stack.
+      - name: Generated types are fresh (npm run db:types, then no diff)
+        run: npm run db:types && git diff --exit-code -- types/database.ts
+      # V2-03 03-03 (B1 local half): the migrated stack matches a shadow built from supabase/migrations
+      # (only the documented pg_net CLI false positive is allowed).
+      - name: Local schema drift (supabase db diff --local)
+        run: node scripts/ci/local-drift.mjs
       # One run produces both the JSON report and v8 coverage (02-05); coverage is report-only until V2-14.
       - name: Vitest (full unit + DB lane, with coverage)
         run: npx vitest run --reporter=dot --reporter=json --outputFile.json=vitest-report.json --coverage.enabled
