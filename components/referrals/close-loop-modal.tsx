@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { closeReferralLoop } from "@/features/referrals/actions";
 import { ReferralItem } from "@/features/referrals/types";
+import { useClinicToday } from "@/lib/datetime/client";
 
 export interface CloseLoopModalProps {
   referral: ReferralItem;
@@ -18,9 +19,9 @@ export function CloseLoopModal({
   onClose,
   onSuccess,
 }: CloseLoopModalProps) {
-  const [returnDate, setReturnDate] = useState<string>(
-    new Date().toISOString().split("T")[0]
-  );
+  // Defaults to the clinic's date in its zone (V2-03 03-05)
+  const clinicToday = useClinicToday();
+  const [returnDate, setReturnDate] = useState<string>(clinicToday);
   const [closureNotes, setClosureNotes] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);

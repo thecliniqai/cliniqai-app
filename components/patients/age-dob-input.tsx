@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { calculateAgeFromDob, calculateDobFromAge } from "@/features/patients/schema";
+import { useClinicToday } from "@/lib/datetime/client";
 
 export interface AgeDobInputProps {
   dobValue?: string | null;
@@ -21,6 +22,8 @@ export function AgeDobInput({
   error,
   disabled = false,
 }: AgeDobInputProps) {
+  // Age and the latest selectable date of birth follow the clinic's date in its zone (V2-03 03-05)
+  const clinicToday = useClinicToday();
   const [internalDob, setInternalDob] = useState<string>(dobValue || "");
   const [internalAge, setInternalAge] = useState<string>(
     ageValue !== null && ageValue !== undefined ? String(ageValue) : ""
@@ -45,7 +48,7 @@ export function AgeDobInput({
     onDobChange?.(newDob ? newDob : null);
 
     if (newDob) {
-      const derivedAge = calculateAgeFromDob(newDob);
+      const derivedAge = calculateAgeFromDob(newDob, clinicToday);
       if (derivedAge !== null) {
         setInternalAge(String(derivedAge));
         onAgeChange?.(derivedAge);
@@ -67,7 +70,7 @@ export function AgeDobInput({
     const num = parseInt(rawVal, 10);
     if (!isNaN(num) && num >= 0 && num <= 130) {
       onAgeChange?.(num);
-      const derivedDob = calculateDobFromAge(num);
+      const derivedDob = calculateDobFromAge(num, clinicToday);
       setInternalDob(derivedDob);
       onDobChange?.(derivedDob);
     }
@@ -88,7 +91,7 @@ export function AgeDobInput({
             onChange={handleDobChange}
             disabled={disabled}
             invalid={!!error}
-            max={new Date().toISOString().split("T")[0]}
+            max={clinicToday}
           />
         </div>
 

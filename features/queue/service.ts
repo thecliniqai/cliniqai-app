@@ -4,6 +4,8 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { isDateOnly } from "@/lib/utils/filter-values";
+import { dayWindowUtc } from "@/lib/datetime";
+import { getTenantTimeZone, getTenantToday } from "@/lib/datetime/server";
 import { QueuePriority, QueueToken, Visit, Patient } from "@/lib/db/types";
 import type { QueueItem } from "@/components/queue/queue-card";
 import { getTenantDoctorMap } from "@/features/staff/service";
@@ -27,7 +29,9 @@ export async function checkInVisit(
   try {
     assertPerm(ctx.role, "appointments:edit");
     const session = ctx;
-    const today = new Date().toISOString().split("T")[0];
+    // The token's day is the clinic date in the tenant's zone (V2-03 03-05); the SQL `DEFAULT CURRENT_DATE` is
+    // never relied on (R-33; V2-05 05-08 owns the counter rework).
+    const { today } = await getTenantToday(supabase, session.tenantId);
 
     // 1. Verify visit belongs to tenant and get current state
     // By id AND the active clinic: RLS admits every clinic the user belongs to, so a member of two clinics acting in
@@ -254,8 +258,11 @@ export async function getQueueForDate(
       return { success: false, error: "Failed to load queue for date." };
     }
 
-    const startOfDay = `${dateStr}T00:00:00.000Z`;
-    const endOfDay = `${dateStr}T23:59:59.999Z`;
+    // The clinic day in the tenant's zone, half-open (V2-03 03-05).
+    const { startIso: startOfDay, endIsoExclusive: endOfDay } = dayWindowUtc(
+      dateStr,
+      await getTenantTimeZone(supabase, session.tenantId)
+    );
 
     const query = (supabase.from("visits") as unknown as {
       select: (cols: string) => {
@@ -271,7 +278,7 @@ export async function getQueueForDate(
       .select("*, patients(*), queue_tokens(*)")
       .eq("tenant_id", session.tenantId)
       .or(`scheduled_at.gte.${startOfDay},created_at.gte.${startOfDay}`)
-      .or(`scheduled_at.lte.${endOfDay},created_at.lte.${endOfDay}`);
+      .or(`scheduled_at.lt.${endOfDay},created_at.lt.${endOfDay}`);
 
     let data: QueueRow[] | null = null;
     let error: { message: string } | null = null;

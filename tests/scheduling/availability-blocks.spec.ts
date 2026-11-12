@@ -266,7 +266,7 @@ describe("Doctor Availability & Schedule Blocks (REQ-appointment-booking, REQ-mu
               eq: () => ({
                 eq: () => ({
                   gte: () => ({
-                    lte: () => ({
+                    lt: () => ({
                       not: async () => ({ data: [] }),
                     }),
                   }),
@@ -325,7 +325,7 @@ describe("Doctor Availability & Schedule Blocks (REQ-appointment-booking, REQ-mu
               eq: () => ({
                 eq: () => ({
                   gte: () => ({
-                    lte: () => ({
+                    lt: () => ({
                       not: async () => ({ data: [] }),
                     }),
                   }),
@@ -397,7 +397,7 @@ describe("Doctor Availability & Schedule Blocks (REQ-appointment-booking, REQ-mu
           if (failOn === "throw") throw new Error("synthetic network failure");
           const chain: Record<string, unknown> = {};
           const result = (fails: boolean) => (fails ? { data: null, error: dbError } : { data: [], error: null });
-          for (const m of ["select", "eq", "or", "lte", "gte"]) chain[m] = () => chain;
+          for (const m of ["select", "eq", "or", "lte", "lt", "gte"]) chain[m] = () => chain;
           chain.maybeSingle = async () =>
             failOn === "memberships" && table === "memberships" ? { data: null, error: dbError } : { data: null, error: null };
           chain.then = (resolve: (v: unknown) => unknown) => resolve(result(failOn === table));

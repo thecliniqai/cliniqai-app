@@ -5,6 +5,8 @@ import { getTenantDoctorDirectory } from "@/features/staff/service";
 import { requireServiceContext } from "@/lib/auth/context";
 import { QueueView } from "@/components/queue/queue-view";
 import { DoctorOption } from "@/components/queue/walk-in-drawer";
+import { isYmd } from "@/lib/datetime";
+import { getTenantToday } from "@/lib/datetime/server";
 
 interface QueuePageProps {
   searchParams: Promise<{
@@ -24,9 +26,9 @@ export default async function QueuePage(props: QueuePageProps) {
     redirect("/login");
   }
 
-  // Today's date YYYY-MM-DD default
-  const today = new Date().toISOString().split("T")[0];
-  const currentDate = searchParams.date || today;
+  // The clinic's day in its own zone (V2-03 03-05); an unusable ?date= falls back to it.
+  const { today } = await getTenantToday(supabase, membership.tenantId);
+  const currentDate = isYmd(searchParams.date) ? searchParams.date : today;
   const selectedDoctorId = searchParams.doctor || "all";
 
   // Fetch resolved doctors for tenant

@@ -19,6 +19,7 @@ import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
 import { PrescriptionPdfPayload } from "./pdf/prescription-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 
 // Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01): the only
@@ -567,7 +568,7 @@ export async function getPrescriptionPdfSignedUrl(
     // 3. Fetch clinic tenant details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tenant } = await (supabase.from("tenants") as any)
-      .select("name, address, phone, registration_number, logo_url")
+      .select("name, address, phone, registration_number, logo_url, timezone")
       .eq("id", ctx.tenantId)
       .single();
 
@@ -641,7 +642,7 @@ export async function getPrescriptionPdfSignedUrl(
         uhid: rx.patient_id.slice(0, 8).toUpperCase(),
       },
       visit: {
-        visit_date: (visit.scheduled_at || visit.created_at || new Date().toISOString()).split("T")[0],
+        visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
         vitals: visit.vitals || null,
         chief_complaints: visit.chief_complaints || [],
         clinical_notes: visit.clinical_notes || null,

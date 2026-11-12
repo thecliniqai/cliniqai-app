@@ -156,7 +156,7 @@ async function compileReceiptPayload(
   // 2. Fetch tenant
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name, address, phone, registration_number, logo_url")
+    .select("id, name, address, phone, registration_number, logo_url, timezone")
     .eq("id", tenantId)
     .single();
 
@@ -233,6 +233,7 @@ async function compileReceiptPayload(
       phone: tenant?.phone || null,
       registration_number: tenant?.registration_number || null,
       logo_url: tenant?.logo_url || null,
+      timezone: tenant?.timezone || null,
     },
     patient: {
       full_name: patient?.full_name || "Patient",

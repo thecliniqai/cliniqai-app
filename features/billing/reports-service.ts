@@ -4,6 +4,8 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { isYmd, rangeWindowUtc } from "@/lib/datetime";
+import { getTenantTimeZone } from "@/lib/datetime/server";
 
 // Collection report use-case. Tenant comes only from `ctx` (ADR-0005 D1); requires billing:view as before.
 
@@ -55,9 +57,15 @@ export async function getDailyCollectionReport(
     assertPerm(ctx.role, "billing:view");
     const session = ctx;
 
-    // Ensure start/end dates are well-bounded timestamps
-    const startIso = new Date(`${startDateStr}T00:00:00.000Z`).toISOString();
-    const endIso = new Date(`${endDateStr}T23:59:59.999Z`).toISOString();
+    // Whole clinic days in the tenant's zone, half-open (V2-03 03-05): a payment at 00:30 IST counts on its IST date.
+    if (!isYmd(startDateStr) || !isYmd(endDateStr)) {
+      return { success: false, error: "Please choose a valid date range." };
+    }
+    const { startIso, endIsoExclusive: endIso } = rangeWindowUtc(
+      startDateStr,
+      endDateStr,
+      await getTenantTimeZone(supabase, session.tenantId)
+    );
 
     // 1. Fetch payments within date range for this tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,7 +96,7 @@ export async function getDailyCollectionReport(
       `)
       .eq("tenant_id", session.tenantId)
       .gte("recorded_at", startIso)
-      .lte("recorded_at", endIso)
+      .lt("recorded_at", endIso)
       .order("recorded_at", { ascending: false });
 
     if (payErr) {
@@ -140,7 +148,7 @@ export async function getDailyCollectionReport(
       .select("id, total_amount, status")
       .eq("tenant_id", session.tenantId)
       .gte("created_at", startIso)
-      .lte("created_at", endIso);
+      .lt("created_at", endIso);
 
     let periodInvoiceTotal = 0;
     let outstandingReceivables = 0;

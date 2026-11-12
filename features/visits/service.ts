@@ -6,6 +6,8 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { memberOfTenant, patientInTenant } from "@/lib/auth/tenant-refs";
 import { isDateOnly } from "@/lib/utils/filter-values";
+import { dayWindowUtc, ymdOf } from "@/lib/datetime";
+import { getTenantTimeZone } from "@/lib/datetime/server";
 import { Visit, VisitStatus } from "@/lib/db/types";
 import {
   visitsFilterSchema,
@@ -138,15 +140,17 @@ export async function getVisitsForDate(
       return { success: false, error: "Failed to load visits for the selected date." };
     }
 
-    // Compute start and end of day in UTC for boundary filtering
-    const startOfDay = `${dateStr}T00:00:00.000Z`;
-    const endOfDay = `${dateStr}T23:59:59.999Z`;
+    // The clinic day in the tenant's zone, half-open (V2-03 03-05): a 02:00 IST visit belongs to its IST date.
+    const { startIso: startOfDay, endIsoExclusive: endOfDay } = dayWindowUtc(
+      dateStr,
+      await getTenantTimeZone(supabase, session.tenantId)
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const query = (supabase.from("visits") as any)
       .select("*, patients(full_name, phone, age, date_of_birth)")
       .eq("tenant_id", session.tenantId)
-      .or(`and(scheduled_at.gte.${startOfDay},scheduled_at.lte.${endOfDay}),and(scheduled_at.is.null,created_at.gte.${startOfDay},created_at.lte.${endOfDay})`);
+      .or(`and(scheduled_at.gte.${startOfDay},scheduled_at.lt.${endOfDay}),and(scheduled_at.is.null,created_at.gte.${startOfDay},created_at.lt.${endOfDay})`);
 
     let data: Visit[] | null = null;
     let error: { message: string } | null = null;
@@ -370,7 +374,7 @@ export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise
     let promotedPatientId: string | undefined;
 
     if (existing.scheduled_at) {
-      const targetDate = existing.scheduled_at.split("T")[0];
+      const targetDate = ymdOf(existing.scheduled_at, await getTenantTimeZone(supabase, session.tenantId));
 
       // Query eligible waitlist entries for this tenant, target_date, status='waiting', and matching doctor
       interface WaitlistRow {
@@ -540,10 +544,11 @@ export async function getClinicVisitsRegister(
     const session = ctx;
 
     // 1. Compute date range
-    const { startIso, endIso } = computeDateRange(
+    const { startIso, endIsoExclusive } = computeDateRange(
       parsed.datePreset,
       parsed.startDate,
-      parsed.endDate
+      parsed.endDate,
+      await getTenantTimeZone(supabase, session.tenantId)
     );
 
     // 2. Build base query with tenant isolation
@@ -554,7 +559,7 @@ export async function getClinicVisitsRegister(
       )
       .eq("tenant_id", session.tenantId)
       .gte("created_at", startIso)
-      .lte("created_at", endIso);
+      .lt("created_at", endIsoExclusive);
 
     if (parsed.doctorId && parsed.doctorId !== "all") {
       query = query.eq("doctor_id", parsed.doctorId);

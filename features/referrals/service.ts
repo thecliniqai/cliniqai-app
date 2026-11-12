@@ -16,6 +16,7 @@ import { clientErrorMessage } from "@/lib/errors/client-message";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 
 /**
  * Creates a clinical referral (either out-of-network specialist or in-network partner clinic).
@@ -63,7 +64,7 @@ export async function createReferral(
     // 2. Fetch clinic info
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: clinic } = await (supabase.from("tenants") as any)
-      .select("name, address, phone, email, registration_number")
+      .select("name, address, phone, email, registration_number, timezone")
       .eq("id", session.tenantId)
       .maybeSingle();
 
@@ -118,7 +119,7 @@ export async function createReferral(
 
           encounterList.push({
             visit_id: v.id,
-            visit_date: v.created_at ? v.created_at.split("T")[0] : "",
+            visit_date: v.created_at ? ymdOf(v.created_at, resolveTimeZone(clinic?.timezone)) : "",
             chief_complaints: v.chief_complaints || [],
             diagnoses: (diagList || []).map((d: any) => d.diagnosis_name),
             vitals: v.vitals || null,

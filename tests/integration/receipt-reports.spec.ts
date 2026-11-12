@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
 import {
@@ -248,7 +249,8 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
 
   it("3. Aggregates daily collection metrics with Cash, UPI, and Card breakdowns", async () => {
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
-    const todayStr = new Date().toISOString().split("T")[0];
+    // The clinic date in the tenant zone (default Asia/Kolkata), as the service computes it (V2-03 03-05).
+    const todayStr = todayInTz(DEFAULT_CLINIC_TZ);
 
     const reportRes = await getDailyCollectionReport(ctxFor(tenantA), todayStr, todayStr);
 
@@ -282,7 +284,8 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
     expect(crossRes).toMatchObject({ success: false, error: expect.stringContaining("access denied") });
 
     // Tenant B queries daily collection report
-    const todayStr = new Date().toISOString().split("T")[0];
+    // The clinic date in the tenant zone (default Asia/Kolkata), as the service computes it (V2-03 03-05).
+    const todayStr = todayInTz(DEFAULT_CLINIC_TZ);
     const bReportRes = await getDailyCollectionReport(ctxFor(tenantB), todayStr, todayStr);
 
     expect(bReportRes.success).toBe(true);

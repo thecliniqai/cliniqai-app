@@ -31,65 +31,52 @@ function minutesAgo(minutes: number): string {
 }
 
 describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-management)", () => {
-  describe("computeDateRange (Date Math & Boundaries)", () => {
+  describe("computeDateRange (clinic days in the tenant zone, half-open; V2-03 03-05)", () => {
+    // 20:00 IST on 16 Oct 2026.
     const fixedNow = new Date("2026-10-16T14:30:00.000Z");
+    const IST = "Asia/Kolkata";
 
-    it("calculates today boundary from 00:00:00 to 23:59:59.999", () => {
-      const { startIso, endIso } = computeDateRange("today", null, null, fixedNow);
-      const start = new Date(startIso);
-      const end = new Date(endIso);
-
-      expect(start.getUTCDate()).toBe(fixedNow.getUTCDate());
-      expect(start.getUTCHours()).toBe(0);
-      expect(start.getUTCMinutes()).toBe(0);
-      expect(end.getUTCDate()).toBe(fixedNow.getUTCDate());
-      expect(end.getUTCHours()).toBe(23);
-      expect(end.getUTCMinutes()).toBe(59);
+    it("today is the IST day [15 Oct 18:30Z, 16 Oct 18:30Z)", () => {
+      expect(computeDateRange("today", null, null, IST, fixedNow)).toEqual({
+        startIso: "2026-10-15T18:30:00.000Z",
+        endIsoExclusive: "2026-10-16T18:30:00.000Z",
+      });
     });
 
-    it("calculates yesterday boundary correctly", () => {
-      const { startIso, endIso } = computeDateRange("yesterday", null, null, fixedNow);
-      const start = new Date(startIso);
-      const end = new Date(endIso);
-
-      expect(start.getUTCDate()).toBe(fixedNow.getUTCDate() - 1);
-      expect(end.getUTCDate()).toBe(fixedNow.getUTCDate() - 1);
+    it("yesterday is the previous IST day", () => {
+      expect(computeDateRange("yesterday", null, null, IST, fixedNow)).toEqual({
+        startIso: "2026-10-14T18:30:00.000Z",
+        endIsoExclusive: "2026-10-15T18:30:00.000Z",
+      });
     });
 
-    it("calculates last_7_days boundary covering 7 calendar days", () => {
-      const { startIso, endIso } = computeDateRange("last_7_days", null, null, fixedNow);
-      const start = new Date(startIso);
-      const end = new Date(endIso);
-
-      const diffDays = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-      expect(diffDays).toBe(7);
+    it("last_7_days covers exactly 7 IST calendar days ending today", () => {
+      const { startIso, endIsoExclusive } = computeDateRange("last_7_days", null, null, IST, fixedNow);
+      expect(startIso).toBe("2026-10-09T18:30:00.000Z");
+      expect(endIsoExclusive).toBe("2026-10-16T18:30:00.000Z");
+      expect((Date.parse(endIsoExclusive) - Date.parse(startIso)) / 86_400_000).toBe(7);
     });
 
-    it("calculates this_month starting on day 1", () => {
-      const { startIso, endIso } = computeDateRange("this_month", null, null, fixedNow);
-      const start = new Date(startIso);
-      const end = new Date(endIso);
-
-      expect(start.getUTCDate()).toBe(1);
-      expect(start.getUTCMonth()).toBe(fixedNow.getUTCMonth());
-      expect(end.getUTCMonth()).toBe(fixedNow.getUTCMonth());
+    it("this_month runs from 1 Oct to 1 Nov (IST midnights)", () => {
+      expect(computeDateRange("this_month", null, null, IST, fixedNow)).toEqual({
+        startIso: "2026-09-30T18:30:00.000Z",
+        endIsoExclusive: "2026-10-31T18:30:00.000Z",
+      });
     });
 
-    it("accepts custom date range boundaries", () => {
-      const { startIso, endIso } = computeDateRange(
-        "custom",
-        "2026-10-01",
-        "2026-10-10",
-        fixedNow
+    it("accepts custom date range boundaries as whole IST days; an invalid date falls back to today", () => {
+      expect(computeDateRange("custom", "2026-10-01", "2026-10-10", IST, fixedNow)).toEqual({
+        startIso: "2026-09-30T18:30:00.000Z",
+        endIsoExclusive: "2026-10-10T18:30:00.000Z",
+      });
+      expect(computeDateRange("custom", "not-a-date", null, IST, fixedNow)).toEqual(
+        computeDateRange("today", null, null, IST, fixedNow)
       );
-
-      expect(startIso.startsWith("2026-10-01")).toBe(true);
-      expect(endIso.startsWith("2026-10-10")).toBe(true);
     });
   });
 
   describe("getClinicVisitsRegister and getActiveClinicDoctors (local stack, two tenants)", () => {
-    // "last_7_days" rather than "today" so a run that crosses UTC midnight after seeding still sees every visit.
+    // "last_7_days" rather than "today" so a run that crosses the clinic's midnight after seeding still sees every visit.
     const filter = { datePreset: "last_7_days" as const };
 
     let ownerA: SeededTenant;

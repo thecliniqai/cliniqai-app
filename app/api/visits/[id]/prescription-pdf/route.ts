@@ -4,6 +4,7 @@ import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 
 export async function GET(
   request: Request,
@@ -46,7 +47,7 @@ export async function GET(
     // 4. Fetch clinic tenant details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tenant } = await (supabase.from("tenants") as any)
-      .select("id, name, address, phone, registration_number, logo_url")
+      .select("id, name, address, phone, registration_number, logo_url, timezone")
       .eq("id", membership.tenantId)
       .single();
 
@@ -155,7 +156,7 @@ export async function GET(
         uhid: patient?.id ? patient.id.slice(0, 8).toUpperCase() : null,
       },
       visit: {
-        visit_date: (visit.scheduled_at || visit.created_at || new Date().toISOString()).split("T")[0],
+        visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
         vitals: visit.vitals || null,
         chief_complaints: visit.chief_complaints || [],
         clinical_notes: visit.clinical_notes || null,

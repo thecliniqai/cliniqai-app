@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { addDaysYmd, dayWindowUtc, isYmd, rangeWindowUtc, startOfMonthYmd, todayInTz } from "@/lib/datetime";
 
 export const datePresetEnum = z.enum([
   "today",
@@ -25,52 +26,40 @@ export const visitsFilterSchema = z.object({
 export type VisitsFilterInput = z.infer<typeof visitsFilterSchema>;
 
 /**
- * Computes ISO boundary strings for date presets or custom range.
+ * Computes the half-open UTC window `[startIso, endIsoExclusive)` of a date preset or custom range, in clinic days of
+ * zone `timeZone` (V2-03 03-05). An invalid custom date falls back to today.
  */
 export function computeDateRange(
   preset: DatePreset,
-  customStart?: string | null,
-  customEnd?: string | null,
+  customStart: string | null | undefined,
+  customEnd: string | null | undefined,
+  timeZone: string,
   referenceDate: Date = new Date()
-): { startIso: string; endIso: string } {
-  const ref = new Date(referenceDate);
+): { startIso: string; endIsoExclusive: string } {
+  const today = todayInTz(timeZone, referenceDate);
 
   if (preset === "today") {
-    const start = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate(), 0, 0, 0, 0));
-    const end = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate(), 23, 59, 59, 999));
-    return { startIso: start.toISOString(), endIso: end.toISOString() };
+    return dayWindowUtc(today, timeZone);
   }
 
   if (preset === "yesterday") {
-    const yest = new Date(ref.getTime() - 24 * 60 * 60 * 1000);
-    const start = new Date(Date.UTC(yest.getUTCFullYear(), yest.getUTCMonth(), yest.getUTCDate(), 0, 0, 0, 0));
-    const end = new Date(Date.UTC(yest.getUTCFullYear(), yest.getUTCMonth(), yest.getUTCDate(), 23, 59, 59, 999));
-    return { startIso: start.toISOString(), endIso: end.toISOString() };
+    return dayWindowUtc(addDaysYmd(today, -1), timeZone);
   }
 
   if (preset === "last_7_days") {
-    const past = new Date(ref.getTime() - 6 * 24 * 60 * 60 * 1000);
-    const start = new Date(Date.UTC(past.getUTCFullYear(), past.getUTCMonth(), past.getUTCDate(), 0, 0, 0, 0));
-    const end = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate(), 23, 59, 59, 999));
-    return { startIso: start.toISOString(), endIso: end.toISOString() };
+    return rangeWindowUtc(addDaysYmd(today, -6), today, timeZone);
   }
 
   if (preset === "this_month") {
-    const start = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), 1, 0, 0, 0, 0));
-    const end = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-    return { startIso: start.toISOString(), endIso: end.toISOString() };
+    const first = startOfMonthYmd(today);
+    const lastOfMonth = addDaysYmd(startOfMonthYmd(addDaysYmd(first, 31)), -1);
+    return rangeWindowUtc(first, lastOfMonth, timeZone);
   }
 
   // Custom preset
-  const start = customStart
-    ? new Date(`${customStart}T00:00:00.000Z`)
-    : new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate(), 0, 0, 0, 0));
-
-  const end = customEnd
-    ? new Date(`${customEnd}T23:59:59.999Z`)
-    : new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate(), 23, 59, 59, 999));
-
-  return { startIso: start.toISOString(), endIso: end.toISOString() };
+  const start = isYmd(customStart) ? customStart : today;
+  const end = isYmd(customEnd) ? customEnd : today;
+  return rangeWindowUtc(start, end, timeZone);
 }
 
 export interface ClinicVisitRegisterItem {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { INDIAN_MOBILE_REGEX, toE164, extractTenDigits } from "@/lib/utils/phone";
+import { DEFAULT_CLINIC_TZ, ageInYears, todayInTz } from "@/lib/datetime";
 
 /**
  * Normalizes Indian and standard mobile numbers.
@@ -9,26 +10,19 @@ export function normalizePhone(phone: string): string {
 }
 
 /**
- * Calculates age in whole years from an ISO date string (YYYY-MM-DD).
+ * Calculates age in whole years from a date of birth (YYYY-MM-DD) on the clinic date `todayYmd` (V2-03 03-05).
+ * Without `todayYmd` it uses today in the default clinic zone, never the server's UTC date.
  */
-export function calculateAgeFromDob(dobStr: string): number | null {
+export function calculateAgeFromDob(dobStr: string, todayYmd: string = todayInTz(DEFAULT_CLINIC_TZ)): number | null {
   if (!dobStr) return null;
-  const birthDate = new Date(dobStr);
-  if (isNaN(birthDate.getTime())) return null;
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const m = today.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age >= 0 ? age : 0;
+  return ageInYears(dobStr, todayYmd);
 }
 
 /**
- * Derives a synthetic Jan 01 birth date from an age in years.
+ * Derives a synthetic Jan 01 birth date from an age in years, counted from the clinic date `todayYmd`.
  */
-export function calculateDobFromAge(age: number): string {
-  const currentYear = new Date().getFullYear();
+export function calculateDobFromAge(age: number, todayYmd: string = todayInTz(DEFAULT_CLINIC_TZ)): string {
+  const currentYear = Number(todayYmd.slice(0, 4));
   const birthYear = currentYear - age;
   return `${birthYear}-01-01`;
 }

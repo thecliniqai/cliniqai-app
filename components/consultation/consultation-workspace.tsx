@@ -55,6 +55,8 @@ import { getReferralSignedUrl } from "@/features/referrals/actions";
 import type { Referral } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
 import { reportClientError } from "@/lib/log/client";
+import { addDaysYmd, todayInTz } from "@/lib/datetime";
+import { useClinicTimeZone } from "@/lib/datetime/client";
 
 export interface ConsultationWorkspaceProps {
   visit: {
@@ -125,6 +127,9 @@ export function ConsultationWorkspace({
   patient,
   pastEncounters = [],
 }: ConsultationWorkspaceProps) {
+  const timeZone = useClinicTimeZone();
+  const clinicToday = todayInTz(timeZone);
+
   // Core Form State
   const [specialty, setSpecialty] = useState<ClinicalSpecialty>(
     visit.specialty ?? "general_physician"
@@ -152,12 +157,7 @@ export function ConsultationWorkspace({
       (visit.follow_up?.follow_up_date ? "custom" : "5_days")
   );
   const [followUpDate, setFollowUpDate] = useState<string>(
-    visit.follow_up?.follow_up_date ??
-      (() => {
-        const d = new Date();
-        d.setDate(d.getDate() + 5);
-        return d.toISOString().split("T")[0];
-      })()
+    visit.follow_up?.follow_up_date ?? addDaysYmd(clinicToday, 5)
   );
   const [followUpNotes, setFollowUpNotes] = useState<string>(
     visit.follow_up?.notes ?? ""
@@ -379,12 +379,9 @@ export function ConsultationWorkspace({
       setFollowUpDate("");
       setFollowUpNotes("");
     } else if (interval !== "custom") {
-      const d = new Date();
-      if (interval === "3_days") d.setDate(d.getDate() + 3);
-      else if (interval === "5_days") d.setDate(d.getDate() + 5);
-      else if (interval === "1_week") d.setDate(d.getDate() + 7);
-      else if (interval === "2_weeks") d.setDate(d.getDate() + 14);
-      setFollowUpDate(d.toISOString().split("T")[0]);
+      // Counted from the clinic's date in its zone (V2-03 03-05)
+      const days = { "3_days": 3, "5_days": 5, "1_week": 7, "2_weeks": 14 }[interval] ?? 0;
+      setFollowUpDate(addDaysYmd(todayInTz(timeZone), days));
     }
   };
 

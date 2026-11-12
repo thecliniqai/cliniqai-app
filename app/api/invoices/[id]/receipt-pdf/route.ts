@@ -54,7 +54,7 @@ export async function GET(
     // 4. Fetch clinic tenant details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tenant } = await (supabase.from("tenants") as any)
-      .select("id, name, address, phone, registration_number, logo_url")
+      .select("id, name, address, phone, registration_number, logo_url, timezone")
       .eq("id", membership.tenantId)
       .single();
 
@@ -133,6 +133,7 @@ export async function GET(
         phone: tenant?.phone || null,
         registration_number: tenant?.registration_number || null,
         logo_url: tenant?.logo_url || null,
+        timezone: tenant?.timezone || null,
       },
       patient: {
         full_name: patient?.full_name || "Patient",

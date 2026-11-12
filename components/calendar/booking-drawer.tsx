@@ -12,6 +12,7 @@ import { OverbookDialog } from "./overbook-dialog";
 import { X, Search, UserPlus, UserCheck, Calendar, Clock } from "lucide-react";
 import { Patient, Visit } from "@/lib/db/types";
 import { reportClientError } from "@/lib/log/client";
+import { useClinicToday } from "@/lib/datetime/client";
 
 export interface BookingDrawerDoctor {
   id: string;
@@ -53,7 +54,8 @@ export function BookingDrawer({
 
   // Form Fields
   const [doctorId, setDoctorId] = useState(defaultDoctorId || doctors[0]?.id || "");
-  const [date, setDate] = useState(defaultDate || new Date().toISOString().split("T")[0]);
+  const clinicToday = useClinicToday();
+  const [date, setDate] = useState(defaultDate || clinicToday);
   const [time, setTime] = useState(defaultTime);
   const [duration, setDuration] = useState(15);
   const [reason, setReason] = useState(defaultReason);

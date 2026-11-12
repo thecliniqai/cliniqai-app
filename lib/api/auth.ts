@@ -7,6 +7,7 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { apiV1Enabled } from "@/lib/api/enabled";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { getTenantToday } from "@/lib/datetime/server";
 
 /**
  * The plain 404 the `/api/v1` switch answers with (same as the middleware: empty body, nothing that reveals the API).
@@ -121,10 +122,10 @@ export async function authenticateApiKey(
   }
 
   const now = new Date().toISOString();
-  const today = now.split("T")[0];
 
-  // Update last_used_at and daily usage counter
+  // Update last_used_at and daily usage counter, bucketed by the clinic date in the tenant's zone (V2-03 03-05)
   try {
+    const { today } = await getTenantToday(supabase, keyRecord.tenant_id, Date.parse(now));
     await (supabase.from("api_keys") as any)
       .update({ last_used_at: now, updated_at: now })
       .eq("id", keyRecord.id);

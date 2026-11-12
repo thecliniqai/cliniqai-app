@@ -16,6 +16,7 @@ import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { getTenantToday } from "@/lib/datetime/server";
 
 const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
@@ -61,7 +62,8 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
       visit_id: formData.get("visit_id") || undefined,
       title: formData.get("title"),
       document_type: formData.get("document_type") || "lab_report",
-      report_date: formData.get("report_date") || new Date().toISOString().split("T")[0],
+      // The clinic date in the tenant's zone, passed explicitly (V2-03 03-05; R-33: never the SQL CURRENT_DATE).
+      report_date: formData.get("report_date") || (await getTenantToday(supabase, session.tenantId)).today,
       notes: formData.get("notes") || undefined,
       is_abnormal: formData.get("is_abnormal"),
     };

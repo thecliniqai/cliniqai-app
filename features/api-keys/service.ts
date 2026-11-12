@@ -6,6 +6,7 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { getTenantToday } from "@/lib/datetime/server";
 
 // API key management use-cases (clinic:manage, as before). Tenant and creator come only from `ctx` (ADR-0005 D1).
 
@@ -41,7 +42,8 @@ export async function listApiKeys(ctx: ServiceContext): Promise<ListApiKeysResul
     assertPerm(ctx.role, "clinic:manage");
     const supabase = ctx.db;
 
-    const todayDate = new Date().toISOString().slice(0, 10);
+    // Usage is bucketed by the clinic date in the tenant's zone (same rule as `authenticateApiKey`, V2-03 03-05).
+    const { today: todayDate } = await getTenantToday(supabase, ctx.tenantId);
 
     // 1. Fetch keys
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

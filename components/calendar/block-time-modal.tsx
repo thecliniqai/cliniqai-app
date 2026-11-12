@@ -8,6 +8,8 @@ import { Field } from "@/components/ui/field";
 import { Clock, Calendar, AlertCircle, Ban } from "lucide-react";
 import { createScheduleBlock } from "@/features/visits/scheduling";
 import { ScheduleBlock } from "@/lib/db/types";
+import { zonedDateTimeToUtcIso } from "@/lib/datetime";
+import { useClinicTimeZone, useClinicToday } from "@/lib/datetime/client";
 
 export interface BlockTimeModalProps {
   isOpen: boolean;
@@ -30,7 +32,9 @@ export function BlockTimeModal({
 }: BlockTimeModalProps) {
   const [isPending, startTransition] = useTransition();
 
-  const todayStr = initialDate || new Date().toISOString().split("T")[0];
+  const timeZone = useClinicTimeZone();
+  const clinicToday = useClinicToday();
+  const todayStr = initialDate || clinicToday;
 
   const [mode, setMode] = useState<"time" | "day" | "range">("time");
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>(doctorId || (doctors[0]?.id || ""));
@@ -63,13 +67,13 @@ export function BlockTimeModal({
         setError("End time must be after start time.");
         return;
       }
-      // Combine date and time into ISO strings in local clinic timezone (+05:30)
-      startIso = `${date}T${startTime}:00+05:30`;
-      endIso = `${date}T${endTime}:00+05:30`;
+      // Clinic wall-clock time in the clinic's zone (V2-03 03-05), as UTC instants
+      startIso = zonedDateTimeToUtcIso(date, startTime, timeZone);
+      endIso = zonedDateTimeToUtcIso(date, endTime, timeZone);
     } else if (mode === "day") {
       isAllDay = true;
-      startIso = `${date}T00:00:00+05:30`;
-      endIso = `${date}T23:59:59+05:30`;
+      startIso = zonedDateTimeToUtcIso(date, "00:00", timeZone);
+      endIso = zonedDateTimeToUtcIso(date, "23:59:59", timeZone);
     } else {
       // range
       if (startDate > endDate) {
@@ -77,8 +81,8 @@ export function BlockTimeModal({
         return;
       }
       isAllDay = true;
-      startIso = `${startDate}T00:00:00+05:30`;
-      endIso = `${endDate}T23:59:59+05:30`;
+      startIso = zonedDateTimeToUtcIso(startDate, "00:00", timeZone);
+      endIso = zonedDateTimeToUtcIso(endDate, "23:59:59", timeZone);
     }
 
     startTransition(async () => {

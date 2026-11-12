@@ -15,6 +15,7 @@ import { PrescriptionPdfPayload } from "../prescriptions/pdf/prescription-docume
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 
 // Consultation use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move, and service->service calls (saveConsultationDraft -> recordFollowUp)
@@ -493,7 +494,7 @@ async function buildVisitPdfPayload(
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("name, address, phone, registration_number, logo_url")
+    .select("name, address, phone, registration_number, logo_url, timezone")
     .eq("id", tenantId)
     .single();
 
@@ -578,7 +579,7 @@ async function buildVisitPdfPayload(
       uhid: visit.patient_id.slice(0, 8).toUpperCase(),
     },
     visit: {
-      visit_date: (visit.scheduled_at || visit.created_at || new Date().toISOString()).split("T")[0],
+      visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
       vitals: visit.vitals || null,
       chief_complaints: visit.chief_complaints || [],
       clinical_notes: visit.clinical_notes || null,

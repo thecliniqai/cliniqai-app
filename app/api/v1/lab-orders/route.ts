@@ -7,6 +7,7 @@ import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { isDateOnly } from "@/lib/utils/filter-values";
+import { getTenantToday } from "@/lib/datetime/server";
 import { isPatientStoragePath } from "@/lib/storage/tenant-path";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -211,7 +212,8 @@ export async function POST(req: NextRequest) {
         storage_path,
         file_size_bytes: file_size_bytes ?? 0,
         mime_type: mime_type ?? "application/pdf",
-        report_date: report_date ?? new Date().toISOString().slice(0, 10),
+        // The clinic date in the tenant's zone when the caller sends none (V2-03 03-05; R-33).
+        report_date: report_date ?? (await getTenantToday(admin, session.tenantId)).today,
         notes: notes || null,
         is_abnormal: Boolean(is_abnormal),
         uploaded_by: session.userId,

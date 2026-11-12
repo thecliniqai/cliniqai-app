@@ -1,5 +1,6 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 
 export interface ReceiptPdfPayload {
   tenant_id: string;
@@ -15,6 +16,8 @@ export interface ReceiptPdfPayload {
     registration_number?: string | null;
     gstin?: string | null;
     logo_url?: string | null;
+    /** The tenant's IANA zone (`tenants.timezone`); the printed date is the clinic date in it (V2-03 03-05). */
+    timezone?: string | null;
   };
 
   patient: {
@@ -343,7 +346,7 @@ export const ReceiptDocument: React.FC<{ payload: ReceiptPdfPayload }> = ({ payl
                 Receipt: {payload.receipt_number || payload.invoice_number}
               </Text>
               <Text style={{ fontSize: 8, color: "#64748B" }}>
-                Date: {payload.date.split("T")[0]}
+                Date: {ymdOf(payload.date, resolveTimeZone(payload.clinic.timezone))}
               </Text>
             </View>
           </View>
