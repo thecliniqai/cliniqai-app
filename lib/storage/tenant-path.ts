@@ -25,6 +25,14 @@ export function isTenantScopedStoragePath(tenantId: string, path: string): boole
   return path.startsWith(prefix) && path.length > prefix.length;
 }
 
+/**
+ * The referral letter's key, derived from the referral's own tenant and id, never from a stored column (AR-M1; the
+ * database derives the same key for share links in `share_token_resource`, 000021).
+ */
+export function referralLetterPath(tenantId: string, referralId: string): string {
+  return `tenants/${tenantId}/referrals/${referralId}/referral_letter.pdf`;
+}
+
 /** True only for a well-formed key under `tenants/<tenantId>/patients/<patientId>/`. */
 export function isPatientStoragePath(tenantId: string, patientId: string, path: string): boolean {
   if (!patientId || !isTenantScopedStoragePath(tenantId, path)) return false;

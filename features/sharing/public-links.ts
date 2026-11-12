@@ -133,9 +133,12 @@ export async function getRescheduleContext(token: string, fromIso: string, toIso
 export type ConsumeRescheduleResult =
   | { status: "ok"; newScheduledAt: string }
   | { status: "closed"; visitStatus: string }
-  | { status: "revoked" | "expired" | "not_found" | "invalid_time" };
+  | { status: "revoked" | "expired" | "not_found" | "invalid_time" | "too_far" | "slot_taken" };
 
-/** Single use: the token is revoked in the same transaction as the visit update (000020). */
+/**
+ * Single use: the token is revoked in the same transaction as the visit update (000020). The new time must be within
+ * 90 days and must not overlap another active visit of the doctor (000021).
+ */
 export async function consumeRescheduleToken(token: string, newScheduledAt: string): Promise<ConsumeRescheduleResult> {
   if (!isPlausibleToken(token)) return { status: "not_found" };
 
@@ -157,6 +160,8 @@ export async function consumeRescheduleToken(token: string, newScheduledAt: stri
     case "revoked":
     case "expired":
     case "invalid_time":
+    case "too_far":
+    case "slot_taken":
       return { status: res.status };
     default:
       return { status: "not_found" };

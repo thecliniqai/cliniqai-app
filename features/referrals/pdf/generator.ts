@@ -4,6 +4,7 @@ import React from "react";
 import { pdf } from "@react-pdf/renderer";
 import type { ServiceContext } from "@/lib/auth/context";
 import { uploadFile, getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
+import { referralLetterPath } from "@/lib/storage/tenant-path";
 import {
   ReferralLetterDocument,
   ReferralPdfPayload,
@@ -58,7 +59,7 @@ export async function generateAndArchiveReferralPdf(
   const supabase = ctx.db;
 
   // 2. Define deterministic storage path: tenants/${tenant_id}/referrals/${referral_id}/referral_letter.pdf
-  const storagePath = `tenants/${payload.tenant_id}/referrals/${payload.referral_id}/referral_letter.pdf`;
+  const storagePath = referralLetterPath(payload.tenant_id, payload.referral_id);
 
   // 3. Resolve storage provider bound to the acting user's client
   const storageProvider = getStorageProviderForDb(ctx.db, "clinic-records");

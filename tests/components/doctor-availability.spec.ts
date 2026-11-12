@@ -210,7 +210,13 @@ describe("Doctor Availability & Shifts Management UI (REQ-appointment-booking, R
   });
 
   describe("3. Slot Duration Configuration", () => {
-    it("validates slot duration boundaries (5 to 180 mins)", async () => {
+    it("validates slot duration boundaries (5 to 120 mins; AR-L3)", async () => {
+      const resJustAbove = await updateDoctorSlotDuration(
+        mockCtx({}, { userId: "u1", tenantId: "t1", role: "doctor" }),
+        { membership_id: "mem-1", default_slot_duration_minutes: 121 }
+      );
+      expect(resJustAbove.success).toBe(false);
+
       const resTooLow = await updateDoctorSlotDuration(
         mockCtx({}, { userId: "u1", tenantId: "t1", role: "doctor" }),
         { membership_id: "mem-1", default_slot_duration_minutes: 2 }

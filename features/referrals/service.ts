@@ -9,6 +9,7 @@ import { createReferralSchema, closeReferralLoopSchema, acknowledgeReferralSchem
 import { ReferralItem, CreateReferralInput, CloseReferralLoopInput, ConsentedHistorySnapshot } from "./types";
 import { generateAndArchiveReferralPdf } from "./pdf/generator";
 import { createShareToken } from "@/features/sharing/tokens";
+import { referralLetterPath } from "@/lib/storage/tenant-path";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 
 /**
@@ -480,7 +481,7 @@ export async function getReferralSignedUrl(
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: referral, error } = await (supabase.from("referrals") as any)
-      .select("pdf_storage_path, tenant_id, target_tenant_id")
+      .select("id, pdf_storage_path, tenant_id, target_tenant_id")
       .eq("id", referralId)
       .single();
 
@@ -495,9 +496,11 @@ export async function getReferralSignedUrl(
 
     const storageProvider = getStorageProviderForDb(ctx.db, "clinic-records");
 
+    // The letter's key is derived from the referral's own tenant and id (AR-M1, same rule as share_token_resource in
+    // 000021); the stored pdf_storage_path is only a "has been generated" marker and is never signed as given.
     const { signedUrl } = await getSignedUrl(
       {
-        path: referral.pdf_storage_path,
+        path: referralLetterPath(referral.tenant_id, referral.id),
         expiresInSeconds: 3600,
         bucket: "clinic-records",
       },

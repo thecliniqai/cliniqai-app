@@ -15,6 +15,9 @@ import {
   staffEditSchema,
   StaffEditInput,
   doctorWeeklyScheduleSchema,
+  slotDurationSchema,
+  MIN_SLOT_DURATION_MINUTES,
+  MAX_SLOT_DURATION_MINUTES,
 } from "./schema";
 
 // Clinic, profile and staff settings use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case
@@ -46,6 +49,14 @@ function roleChangeErrorMessage(err: { message?: string; code?: string }): strin
     return "You do not have permission to change staff roles.";
   }
   return "Failed to update staff member role.";
+}
+
+const OWNER_ADMIN = new Set(["owner", "admin"]);
+
+/** Equal after trimming, with null/undefined/"" treated as the same empty value. */
+function sameText(a: unknown, b: unknown): boolean {
+  const norm = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  return norm(a) === norm(b);
 }
 
 function canManageOthers(ctx: ServiceContext): boolean {
@@ -337,20 +348,14 @@ export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInp
       return { success: false, error: "Staff member not found or access denied." };
     }
 
-    // Role changes go only through the change_member_role RPC (P0-02): it re-derives the tenant from the target row,
-    // allows owner/admin grants to owners only, enforces the last-owner guard under a lock and audits the change.
-    // It runs before the profile update so a refused role change leaves the row untouched.
-    if (data.role !== existing.role) {
-      const { error: roleErr } = await (
-        supabase.rpc as unknown as (
-          name: "change_member_role",
-          args: { p_membership_id: string; p_role: string }
-        ) => Promise<{ error: { message?: string; code?: string } | null }>
-      )("change_member_role", { p_membership_id: data.membership_id, p_role: data.role });
+    const roleChanging = data.role !== existing.role;
+    const isSelf = existing.user_id === session.userId;
+    const isOwner = ctx.role === "owner";
 
-      if (roleErr) {
-        return { success: false, error: roleChangeErrorMessage(roleErr) };
-      }
+    // Owner/admin grants and changes to an owner/admin row are owner-only (change_member_role enforces it too); refuse
+    // before any write so a refused role change never leaves a half-applied edit (IR-L3).
+    if (roleChanging && !isOwner && (OWNER_ADMIN.has(data.role) || OWNER_ADMIN.has(existing.role))) {
+      return { success: false, error: roleChangeErrorMessage({ message: "owner_required" }) };
     }
 
     // Profile columns only: `role`, `tenant_id` and `user_id` are not writable by `authenticated` (000019).
@@ -363,6 +368,36 @@ export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInp
       default_specialty: data.default_specialty ?? "general_physician",
     };
 
+    // AR-L4 (enforced in the database by memberships_profile_update_guard, 000021): medical credentials are changed
+    // only by the member or an owner; an owner's or admin's name and phone likewise. Unchanged values are left out of
+    // the payload; a submitted change is refused with a clear message.
+    if (!isSelf && !isOwner) {
+      const newQual = updatePayload.qualifications as string | null;
+      const newReg = updatePayload.medical_council_reg_no as string | null;
+      if (
+        (newQual && !sameText(newQual, existing.qualifications)) ||
+        (newReg && !sameText(newReg, existing.medical_council_reg_no))
+      ) {
+        return {
+          success: false,
+          error: "Only the clinic owner or the staff member can change medical credentials.",
+        };
+      }
+      delete updatePayload.qualifications;
+      delete updatePayload.medical_council_reg_no;
+
+      if (OWNER_ADMIN.has(existing.role)) {
+        if (
+          !sameText(updatePayload.full_name, existing.full_name) ||
+          !sameText(updatePayload.phone, existing.phone)
+        ) {
+          return { success: false, error: "Only a clinic owner can edit an owner's or admin's profile." };
+        }
+        delete updatePayload.full_name;
+        delete updatePayload.phone;
+      }
+    }
+
     if (data.default_slot_duration_minutes !== undefined) {
       updatePayload.default_slot_duration_minutes = data.default_slot_duration_minutes;
     }
@@ -370,6 +405,8 @@ export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInp
       updatePayload.availability_schedule = data.availability_schedule;
     }
 
+    // The profile update runs first: it is reversible and the more likely to fail (validation, RLS), so a failure
+    // here leaves the role unchanged (IR-L3).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
       .update(updatePayload)
@@ -379,8 +416,28 @@ export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInp
       .single();
 
     if (updateErr || !updated) {
-      console.error("[updateStaffMember] Error updating staff member:", updateErr);
+      console.error("[updateStaffMember] Error updating staff member:", updateErr?.code ?? "no_row");
       return { success: false, error: "Failed to update staff member in database." };
+    }
+
+    // Role changes go only through the change_member_role RPC (P0-02): it re-derives the tenant from the target row,
+    // allows owner/admin grants to owners only, enforces the last-owner guard under a lock and audits the change.
+    let membership = updated as Membership;
+    if (roleChanging) {
+      const { data: roleRow, error: roleErr } = await (
+        supabase.rpc as unknown as (
+          name: "change_member_role",
+          args: { p_membership_id: string; p_role: string }
+        ) => Promise<{ data: Membership | null; error: { message?: string; code?: string } | null }>
+      )("change_member_role", { p_membership_id: data.membership_id, p_role: data.role });
+
+      if (roleErr) {
+        return {
+          success: false,
+          error: `Profile details were saved, but the role was not changed: ${roleChangeErrorMessage(roleErr)}`,
+        };
+      }
+      if (roleRow) membership = roleRow;
     }
 
     await recordAudit(ctx, {
@@ -394,7 +451,7 @@ export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInp
       },
     });
 
-    return { success: true, membership: updated as Membership };
+    return { success: true, membership };
   } catch (err: unknown) {
     return {
       success: false,
@@ -490,7 +547,7 @@ export type UpdateDoctorSlotDurationResult =
   | { success: false; error: string };
 
 /**
- * Updates a doctor's default slot duration (5–180 minutes). Any member may update their own; updating another
+ * Updates a doctor's default slot duration (5–120 minutes, slotDurationSchema). Any member may update their own; updating another
  * member's requires the owner or admin role.
  */
 export async function updateDoctorSlotDuration(
@@ -502,13 +559,14 @@ export async function updateDoctorSlotDuration(
   try {
     const session = ctx;
 
-    if (
-      !input?.default_slot_duration_minutes ||
-      input.default_slot_duration_minutes < 5 ||
-      input.default_slot_duration_minutes > 180
-    ) {
-      return { success: false, error: "Slot duration must be between 5 and 180 minutes." };
+    const durationParse = slotDurationSchema.safeParse(input?.default_slot_duration_minutes);
+    if (!durationParse.success) {
+      return {
+        success: false,
+        error: `Slot duration must be between ${MIN_SLOT_DURATION_MINUTES} and ${MAX_SLOT_DURATION_MINUTES} minutes.`,
+      };
     }
+    const duration = durationParse.data;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: targetMember, error: fetchErr } = await (supabase.from("memberships") as any)
@@ -531,7 +589,7 @@ export async function updateDoctorSlotDuration(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
       .update({
-        default_slot_duration_minutes: input.default_slot_duration_minutes,
+        default_slot_duration_minutes: duration,
       })
       .eq("id", input.membership_id)
       .eq("tenant_id", session.tenantId)

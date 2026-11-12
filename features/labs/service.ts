@@ -6,6 +6,7 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { PatientDocument } from "@/lib/db/types";
 import { uploadFile, getSignedUrl, deleteFile, getStorageProviderForDb } from "@/lib/storage";
+import { isPatientStoragePath } from "@/lib/storage/tenant-path";
 import { uploadLabDocumentSchema, generateShareTokenSchema } from "./schema";
 import { LabDocumentItem, ShareTokenResult, DeleteLabDocumentResult } from "./types";
 import { formatAmendedFilename } from "./utils";
@@ -230,12 +231,17 @@ export async function getDocumentSignedUrl(
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: doc, error } = await (supabase.from("patient_documents") as any)
-      .select("storage_path, original_filename")
+      .select("storage_path, original_filename, patient_id")
       .eq("id", documentId)
       .eq("tenant_id", session.tenantId)
       .single();
 
     if (error || !doc) {
+      return { success: false, error: "Document not found or access denied." };
+    }
+
+    // Only a key under this document's own tenant and patient is signed (AR-M1; same rule as 000021).
+    if (!isPatientStoragePath(session.tenantId, doc.patient_id, doc.storage_path)) {
       return { success: false, error: "Document not found or access denied." };
     }
 

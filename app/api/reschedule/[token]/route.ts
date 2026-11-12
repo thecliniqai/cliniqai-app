@@ -16,6 +16,17 @@ import type { DayAvailability, DoctorWeeklySchedule } from "@/lib/db/types";
 const NOT_FOUND_MESSAGE = "Reschedule link is invalid or does not exist.";
 const GONE_MESSAGE = "This reschedule link has already been used, revoked or has expired. Please contact the clinic directly.";
 
+// Same bounds as consume_reschedule_token and the memberships CHECKs (000021).
+const RESCHEDULE_HORIZON_DAYS = 90;
+const MIN_SLOT_MINUTES = 5;
+const MAX_SLOT_MINUTES = 120;
+const MAX_SHIFTS_PER_DAY = 8;
+const MINUTES_PER_DAY = 24 * 60;
+
+function isHHMM(value: unknown): value is string {
+  return typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+}
+
 const DEFAULT_SCHEDULE: DoctorWeeklySchedule = {
   monday: { enabled: true, shifts: [{ start: "10:00", end: "13:00" }, { start: "17:00", end: "20:00" }] },
   tuesday: { enabled: true, shifts: [{ start: "10:00", end: "13:00" }, { start: "17:00", end: "20:00" }] },
@@ -64,16 +75,19 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
     }
 
     const { clinic, doctor, current_scheduled_at, booked } = res.context;
-    const slotDuration = doctor.default_slot_duration_minutes || 15;
+    // Bounded even if the stored values were not (AR-L3; the database also CHECKs both since 000021).
+    const rawDuration = Number(doctor.default_slot_duration_minutes) || 15;
+    const slotDuration = Math.min(Math.max(Math.trunc(rawDuration), MIN_SLOT_MINUTES), MAX_SLOT_MINUTES);
     const schedule = (doctor.availability_schedule as DoctorWeeklySchedule | null) || DEFAULT_SCHEDULE;
     const dayName = DAY_OF_WEEK_NAMES[new Date(targetDate).getDay()];
     const dayAvailability = schedule[dayName] as DayAvailability | undefined;
 
     const generatedSlots: string[] = [];
     if (dayAvailability?.enabled && Array.isArray(dayAvailability.shifts)) {
-      for (const shift of dayAvailability.shifts) {
+      for (const shift of dayAvailability.shifts.slice(0, MAX_SHIFTS_PER_DAY)) {
+        if (!isHHMM(shift?.start) || !isHHMM(shift?.end)) continue;
         const startMins = timeToMinutes(shift.start);
-        const endMins = timeToMinutes(shift.end);
+        const endMins = Math.min(timeToMinutes(shift.end), MINUTES_PER_DAY);
         for (let m = startMins; m + slotDuration <= endMins; m += slotDuration) {
           const hh = String(Math.floor(m / 60)).padStart(2, "0");
           const mm = String(m % 60).padStart(2, "0");
@@ -139,6 +153,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
         break;
       case "invalid_time":
         return NextResponse.json({ error: "Please select a future appointment date and time." }, { status: 400 });
+      case "too_far":
+        return NextResponse.json(
+          { error: `Please select a time within the next ${RESCHEDULE_HORIZON_DAYS} days.` },
+          { status: 400 }
+        );
+      case "slot_taken":
+        return NextResponse.json(
+          { error: "That time is no longer available. Please choose another slot." },
+          { status: 409 }
+        );
       case "closed":
         return NextResponse.json(
           { error: `This appointment is already ${res.visitStatus} and cannot be rescheduled.` },

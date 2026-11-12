@@ -1454,6 +1454,12 @@ export interface Database {
         };
         Returns: { token: string; expires_at: string }[];
       };
+      revoke_share_token: {
+        Args: {
+          p_token_id: string;
+        };
+        Returns: string;
+      };
       create_reschedule_token: {
         Args: {
           p_visit_id: string;
