@@ -19,7 +19,10 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { ROOT } from "./support/app-env";
 import { AUTH_DIR, RUN_FILE, RUN_PASSWORD_VAR, type RunData, type RunTenant } from "./support/run-data";
 
-/** Reserved synthetic range (+91 90000 0xxxx). */
+/**
+ * A random +91 90000 0xxxx number: valid-looking, NOT a reserved range (India has none), so it may be a real
+ * subscriber's. Safe only because the e2e lane's messaging is pinned offline (MESSAGING_PROVIDER=dev).
+ */
 function syntheticPhone(): string {
   return `+9190000${String(randomInt(0, 100_000)).padStart(5, "0")}`;
 }
@@ -67,6 +70,21 @@ async function seed(runTag: string): Promise<RunData> {
 
   const ownerB = await seedTenantWithOwner(`E2E Synthetic Clinic B ${runTag}`);
   const tenantB = await seedPatientAndVisit(ownerB, ownerB.userId, `E2E Synthetic Patient B ${runTag}`);
+  // A real B invoice, so the receipt-PDF isolation probe asks for an invoice that exists (IR-F9).
+  const { data: invoiceB, error: invErr } = await getAdminClient()
+    .from("invoices")
+    .insert({
+      tenant_id: ownerB.tenantId,
+      visit_id: tenantB.visitId,
+      patient_id: tenantB.patientId,
+      invoice_number: `INV-E2E-${runTag}`,
+      subtotal: 500,
+      total_amount: 500,
+      status: "issued",
+    })
+    .select("id")
+    .single();
+  if (invErr || !invoiceB) throw new Error(`e2e seed: invoice insert failed: ${invErr?.message}`);
 
   const user = (s: SeededTenant) => ({ id: s.userId, email: s.userEmail });
   return {
@@ -75,7 +93,7 @@ async function seed(runTag: string): Promise<RunData> {
       ...tenantA,
       users: { owner: user(ownerA), admin: user(admin), doctor: user(doctor), nurse: user(nurse), receptionist: user(receptionist) },
     },
-    tenantB: { ...tenantB, owner: user(ownerB) },
+    tenantB: { ...tenantB, owner: user(ownerB), invoiceId: (invoiceB as { id: string }).id },
   };
 }
 

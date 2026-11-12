@@ -27,6 +27,7 @@ import {
   visitById,
 } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
+import { knownBug, knownBugMessage } from "../support/known-bug";
 
 test.use({ storageState: storageStatePath("doctor") });
 
@@ -118,32 +119,39 @@ test("doctor consults a waiting patient, prescribes two medicines and signs → 
 });
 
 test("a signed prescription is read-only in the workspace (known v1 gap P1-03)", async ({ page }) => {
-  test.fail(true, "P1-03: v1 keeps the prescription builder editable after sign-off; clinical immutability lands in V2-09a");
-  const { tenantA } = run();
-  const doctorId = tenantA.users.doctor.id;
-  const tag = testTag();
-  const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Signed ${tag}`);
-  const signedAt = new Date().toISOString();
-  const visitId = await seedVisit({
-    tenantId: tenantA.id,
-    patientId: patient.id,
-    doctorId,
-    createdBy: tenantA.users.receptionist.id,
-    status: "completed",
-    signedAt,
-  });
-  await seedSignedPrescription({
-    tenantId: tenantA.id,
-    visitId,
-    patientId: patient.id,
-    doctorId,
-    signedAt,
-    medicineName: `E2E Synthetic Sealed Med ${tag}`,
-  });
+  await knownBug("P1-03", "v1 keeps the prescription builder editable after sign-off; clinical immutability lands in V2-09a", async () => {
+    const { tenantA } = run();
+    const doctorId = tenantA.users.doctor.id;
+    const tag = testTag();
+    const patient = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Signed ${tag}`);
+    const signedAt = new Date().toISOString();
+    const visitId = await seedVisit({
+      tenantId: tenantA.id,
+      patientId: patient.id,
+      doctorId,
+      createdBy: tenantA.users.receptionist.id,
+      status: "completed",
+      signedAt,
+    });
+    await seedSignedPrescription({
+      tenantId: tenantA.id,
+      visitId,
+      patientId: patient.id,
+      doctorId,
+      signedAt,
+      medicineName: `E2E Synthetic Sealed Med ${tag}`,
+    });
 
-  await page.goto(`/consultation/${visitId}`);
-  await expect(page.getByRole("link", { name: /Print Rx/ })).toBeVisible();
-  // Correct outcome: nothing on the sealed prescription can be changed from the workspace.
-  await expect(page.getByLabel(MEDICINE_SEARCH_LABEL)).toBeDisabled({ timeout: 5_000 });
-  await expect(page.getByRole("button", { name: "Remove medication" })).toBeDisabled({ timeout: 5_000 });
+    await page.goto(`/consultation/${visitId}`);
+    await expect(page.getByRole("link", { name: /Print Rx/ })).toBeVisible();
+    // Correct outcome: nothing on the sealed prescription can be changed from the workspace. Only these marked
+    // assertions may carry the expected failure (IR-F4).
+    await expect(page.getByLabel(MEDICINE_SEARCH_LABEL), knownBugMessage("P1-03", "medicine search is disabled")).toBeDisabled({
+      timeout: 5_000,
+    });
+    await expect(
+      page.getByRole("button", { name: "Remove medication" }),
+      knownBugMessage("P1-03", "removing a sealed medication is disabled"),
+    ).toBeDisabled({ timeout: 5_000 });
+  });
 });

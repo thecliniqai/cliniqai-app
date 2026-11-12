@@ -40,7 +40,8 @@ export interface RunTenant {
 export interface RunData {
   runTag: string;
   tenantA: RunTenant & { users: Record<E2eRole, RunUser> };
-  tenantB: RunTenant & { owner: RunUser };
+  /** `invoiceId`: an invoice of tenant B's visit, for the receipt-PDF isolation probe (02-06, IR-F9). */
+  tenantB: RunTenant & { owner: RunUser; invoiceId: string };
 }
 
 export function storageStatePath(role: E2eRole): string {

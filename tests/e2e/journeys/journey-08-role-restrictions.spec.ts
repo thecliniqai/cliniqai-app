@@ -13,6 +13,7 @@ import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { prescriptionItemNames, run, seedPatient, seedVisit, tenantName, testTag, visitById } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
+import { knownBug, knownBugMessage } from "../support/known-bug";
 
 const DENIED = "You do not have permission to perform this action.";
 const NOTES_LABEL = "History of Present Illness & Clinical Notes";
@@ -38,13 +39,20 @@ test.describe("receptionist", () => {
   test.use({ storageState: storageStatePath("receptionist") });
 
   test("direct URL to a consultation is not served (known v1 gap P1-07)", async ({ page }) => {
-    test.fail(true, "P1-07: v1 renders /consultation/[id] for roles without consultations:view; the gate lands in V2-08");
-    const visitId = await inConsultationVisit(testTag());
+    await knownBug("P1-07", "v1 renders /consultation/[id] for roles without consultations:view; the gate lands in V2-08", async () => {
+      const visitId = await inConsultationVisit(testTag());
 
-    const response = await page.goto(`/consultation/${visitId}`);
-    // Correct outcome: refused (redirect away, 403 or 404) — the clinical workspace never renders.
-    expect(response?.status() === 200 && new URL(page.url()).pathname === `/consultation/${visitId}`).toBe(false);
-    await expect(page.getByLabel(NOTES_LABEL)).toHaveCount(0, { timeout: 5_000 });
+      const response = await page.goto(`/consultation/${visitId}`);
+      // Correct outcome: refused (redirect away, 403 or 404) — the clinical workspace never renders. Only these
+      // marked assertions may carry the expected failure (IR-F4).
+      expect(
+        response?.status() === 200 && new URL(page.url()).pathname === `/consultation/${visitId}`,
+        knownBugMessage("P1-07", "the consultation URL is refused for a receptionist"),
+      ).toBe(false);
+      await expect(page.getByLabel(NOTES_LABEL), knownBugMessage("P1-07", "the clinical notes never render")).toHaveCount(0, {
+        timeout: 5_000,
+      });
+    });
   });
 
   test("signing a consultation from the direct URL is refused by the server", async ({ page }, testInfo) => {

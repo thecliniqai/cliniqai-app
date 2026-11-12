@@ -24,6 +24,7 @@ import {
   visitsOf,
 } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
+import { knownBug, knownBugMessage } from "../support/known-bug";
 import { appointmentCard, chooseExistingPatient, openBookingDrawer, setSlot } from "./support/calendar";
 
 test.use({ storageState: storageStatePath("receptionist"), timezoneId: "Asia/Kolkata" });
@@ -98,43 +99,47 @@ test.describe("owner", () => {
   test.use({ storageState: storageStatePath("owner") });
 
   test("overbook path with a new patient creates exactly one patient (known v1 bug F-04)", async ({ page, ux }) => {
-    test.fail(true, "F-04: the overbook confirm re-runs createPatient, duplicating the new patient (P1, owner V2-08)");
-    const { tenantA } = run();
-    const doctorId = tenantA.users.doctor.id;
-    const tag = testTag();
-    const date = await freeBookingDate(tenantA.id, doctorId);
+    await knownBug("F-04", "the overbook confirm re-runs createPatient, duplicating the new patient (P1, owner V2-08)", async () => {
+      const { tenantA } = run();
+      const doctorId = tenantA.users.doctor.id;
+      const tag = testTag();
+      const date = await freeBookingDate(tenantA.id, doctorId);
 
-    const other = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Slot Holder ${tag}`);
-    await seedVisit({
-      tenantId: tenantA.id,
-      patientId: other.id,
-      doctorId,
-      createdBy: tenantA.users.owner.id,
-      status: "booked",
-      originType: "scheduled",
-      scheduledAt: istInstant(date, "12:00"),
+      const other = await seedPatient(tenantA.id, tenantA.users.owner.id, `E2E Synthetic Slot Holder ${tag}`);
+      await seedVisit({
+        tenantId: tenantA.id,
+        patientId: other.id,
+        doctorId,
+        createdBy: tenantA.users.owner.id,
+        status: "booked",
+        originType: "scheduled",
+        scheduledAt: istInstant(date, "12:00"),
+      });
+      const newName = `E2E Synthetic New Overbook ${tag}`;
+      const phoneDigits = syntheticPhoneDigits();
+
+      const drawer = await openBookingDrawer(page, ux, date);
+      await setSlot(drawer, ux, "12:00", doctorId);
+      await ux.click(drawer.getByRole("button", { name: "New Patient" }), "New Patient tab");
+      await ux.fill(drawer.getByLabel(/^Full Name/), newName, "Full Name");
+      await ux.fill(drawer.getByLabel(/^Mobile Phone/), phoneDigits, "Mobile Phone");
+      await ux.click(drawer.getByRole("button", { name: "Confirm Booking" }), "Confirm Booking");
+
+      const confirm = page.getByRole("dialog", { name: "Slot Already Booked" });
+      await expect(confirm).toBeVisible();
+      await ux.click(confirm.getByRole("button", { name: "Confirm Overbooking" }), "Confirm Overbooking");
+      await expect(confirm).toHaveCount(0);
+      await expect(appointmentCard(page, newName)).toBeVisible();
+
+      // Correct outcome: one patient row for this person, booked once, flagged overbooked. Only these marked
+      // assertions may carry the expected failure (IR-F4).
+      const patients = await patientsByName(tenantA.id, newName);
+      expect(patients.map((p) => p.phone), knownBugMessage("F-04", "exactly one patient row for the new patient")).toEqual([
+        `+91${phoneDigits}`,
+      ]);
+      const visits = await visitsOf(tenantA.id, patients[0].id);
+      expect(visits, knownBugMessage("F-04", "the patient is booked once")).toHaveLength(1);
+      expect(visits[0].is_overbooked, knownBugMessage("F-04", "the booking is flagged overbooked")).toBe(true);
     });
-    const newName = `E2E Synthetic New Overbook ${tag}`;
-    const phoneDigits = syntheticPhoneDigits();
-
-    const drawer = await openBookingDrawer(page, ux, date);
-    await setSlot(drawer, ux, "12:00", doctorId);
-    await ux.click(drawer.getByRole("button", { name: "New Patient" }), "New Patient tab");
-    await ux.fill(drawer.getByLabel(/^Full Name/), newName, "Full Name");
-    await ux.fill(drawer.getByLabel(/^Mobile Phone/), phoneDigits, "Mobile Phone");
-    await ux.click(drawer.getByRole("button", { name: "Confirm Booking" }), "Confirm Booking");
-
-    const confirm = page.getByRole("dialog", { name: "Slot Already Booked" });
-    await expect(confirm).toBeVisible();
-    await ux.click(confirm.getByRole("button", { name: "Confirm Overbooking" }), "Confirm Overbooking");
-    await expect(confirm).toHaveCount(0);
-    await expect(appointmentCard(page, newName)).toBeVisible();
-
-    // Correct outcome: one patient row for this person, booked once, flagged overbooked.
-    const patients = await patientsByName(tenantA.id, newName);
-    expect(patients.map((p) => p.phone)).toEqual([`+91${phoneDigits}`]);
-    const visits = await visitsOf(tenantA.id, patients[0].id);
-    expect(visits).toHaveLength(1);
-    expect(visits[0].is_overbooked).toBe(true);
   });
 });

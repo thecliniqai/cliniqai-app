@@ -7,22 +7,42 @@
  *   - any test failed;
  *   - any test is skipped, pending or todo (`it.skip`, `describe.skip`, `it.todo`, `skipIf` that fired, a filtered
  *     `.only` run) — the DB lane must run everything;
- *   - the total test count is below the floor (a silently shrinking suite, e.g. a glob or config change).
+ *   - the total test count is below the floor (a silently shrinking suite, e.g. a glob or config change);
+ *   - (V2-02 02-06, IR-F5) a required security spec file is missing or has no passed test: the floor alone would let
+ *     a whole spec vanish.
  *
+ * FLOOR rule (IR-F5): at least 95% of the measured suite, so a drop of more than ~5% fails.
  * FLOOR history (update in the same commit that legitimately removes tests, with the arithmetic):
  *   1100 — V2-02 02-01 (full suite at 60d8db0 had 1128 tests).
  *   1100 — V2-02 02-04, unchanged: −13 deleted (T-12: cabin/navigation-roles 5, queue/status-actions 5,
  *          ops/backup-restore 3), +1 (the one real case from navigation-roles moved to settings/profile-and-credentials),
  *          +1 visit-history and +1 clinic-visits-register (mock "isolation" cases rewritten as DB cases, dual-tenant
  *          user added), +7 tests/ci/doc-grep-gate, +3 tests/ci/tests-typecheck = net 0.
+ *   1805 — V2-02 02-06 (IR-F5): the full suite at 21eff42 had 1885 tests, +14 in the 02-06 CI-hardening commit
+ *          (known-bug-match 3, ci-scripts 6, vitest-report-gate 2, playwright-summary 1, audit-gate 1,
+ *          test-env-guard 1) = 1899; 1899 × 0.95 = 1804.05 → 1805.
  *
- * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>]
+ * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
+ *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
  * Exit 0 = pass, 1 = gate failure, 2 = usage or unreadable report.
  */
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 1100;
+const FLOOR = 1805;
+
+/** Security specs that must be present with at least one passed test (IR-F5). */
+const REQUIRED_FILES = [
+  "tests/security/guard-actions.spec.ts",
+  "tests/security/guard-routes.spec.ts",
+  "tests/security/guard-canary.spec.ts",
+  "tests/security/p0-01-action-sweep.spec.ts",
+  "tests/security/p0-01-forged-overrides.spec.ts",
+  "tests/security/cross-tenant-refs.spec.ts",
+  "tests/security/multi-clinic-tenant-filters.spec.ts",
+  "tests/security/share-tokens.spec.ts",
+  "tests/security/membership-guard.spec.ts",
+];
 
 const file = process.argv[2];
 if (!file || file.startsWith("--")) {
@@ -35,6 +55,13 @@ if (!Number.isInteger(floor) || floor < 0) {
   console.error("vitest-report-gate: --min-total must be a non-negative integer");
   process.exit(2);
 }
+const reqIdx = process.argv.indexOf("--require-files");
+const reqArg = reqIdx > -1 ? process.argv[reqIdx + 1] : undefined;
+if (reqIdx > -1 && (reqArg === undefined || reqArg === "")) {
+  console.error("vitest-report-gate: --require-files needs a comma-separated list or `none`");
+  process.exit(2);
+}
+const required = reqArg === undefined ? REQUIRED_FILES : reqArg === "none" ? [] : reqArg.split(",").map((s) => s.trim());
 
 let report;
 try {
@@ -78,10 +105,16 @@ if ((report.numFailedTestSuites ?? 0) > 0 && !problems.some((p) => p.startsWith(
 }
 if (report.success !== true) problems.push(`success=${report.success}`);
 if (counts.total < floor) problems.push(`total ${counts.total} is below the floor ${floor} (suite shrank?)`);
+for (const req of required) {
+  const file = report.testResults.find((f) => f.name === req || (typeof f.name === "string" && f.name.endsWith(`/${req}`)));
+  const passed = (file?.assertionResults ?? []).filter((t) => t.status === "passed").length;
+  if (!file) problems.push(`required spec file missing: ${req}`);
+  else if (passed === 0) problems.push(`required spec file has no passed test: ${req}`);
+}
 
 console.log(
   `vitest-report-gate: files=${counts.files} tests=${counts.total} passed=${counts.passed} failed=${counts.failed} ` +
-    `skipped/todo=${counts.skipped} floor=${floor}`,
+    `skipped/todo=${counts.skipped} floor=${floor} required=${required.length}`,
 );
 if (problems.length) {
   const shown = problems.slice(0, 200);

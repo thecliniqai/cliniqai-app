@@ -3,8 +3,10 @@
  *
  * Runs in the Playwright runner process against the LOCAL stack only (the config's `assertLocalTestEnv` guard), with
  * the service-role admin client from tests/helpers. Every row lives in the run's tenants, which the global teardown
- * deletes. Names carry the run tag and a per-call suffix, phones are drawn from the reserved synthetic range
- * +91 90000 0xxxx, so no two tests (or device projects) share a row.
+ * deletes. Names carry the run tag and a per-call suffix, and phones are random numbers in +91 90000 0xxxx, so no two
+ * tests (or device projects) share a row. India has no reserved fictional mobile range: these numbers are only
+ * valid-looking and may be real subscribers' numbers. They never reach anyone because the e2e lane pins
+ * MESSAGING_PROVIDER=dev and the app server cannot leave 127.0.0.1 (tests/setup/test-env.ts, server-net-guard.cjs).
  *
  * The flows assert OUTCOMES here (rows, statuses, numbers), not v1 selectors, so they survive the v2 redesign.
  */
@@ -23,7 +25,7 @@ export function run(): RunData {
   return readRunData();
 }
 
-/** Ten subscriber digits in the reserved synthetic range (90000 0xxxx). */
+/** Ten random subscriber digits (90000 0xxxx): valid-looking, not reserved (see the file comment); offline lane only. */
 export function syntheticPhoneDigits(): string {
   return `90000${String(randomInt(0, 100_000)).padStart(5, "0")}`;
 }

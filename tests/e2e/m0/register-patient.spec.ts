@@ -13,6 +13,7 @@ import { expect, test } from "../fixtures";
 import type { UxCounter } from "../support/ux-counter";
 import { patientsByName, run, syntheticPhoneDigits, testTag } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
+import { knownBug, knownBugMessage } from "../support/known-bug";
 
 async function registerPatient(page: Page, ux: UxCounter, fullName: string, phoneDigits: string): Promise<void> {
   await page.goto("/patients");
@@ -60,18 +61,22 @@ test.describe("M0 flow: register patient", () => {
     test.use({ storageState: storageStatePath("receptionist") });
 
     test("receptionist registers a patient (known v1 bug F-01)", async ({ page, ux }) => {
-      test.fail(true, "F-01: receptionists cannot register patients in v1 (no patients:edit); fixed by PO-3 in V2-05/V2-08");
-      const { tenantA } = run();
-      const fullName = `E2E Synthetic Front Desk ${testTag()}`;
-      const phoneDigits = syntheticPhoneDigits();
+      await knownBug("F-01", "receptionists cannot register patients in v1 (no patients:edit); fixed by PO-3 in V2-05/V2-08", async () => {
+        const { tenantA } = run();
+        const fullName = `E2E Synthetic Front Desk ${testTag()}`;
+        const phoneDigits = syntheticPhoneDigits();
 
-      await registerPatient(page, ux, fullName, phoneDigits);
+        await registerPatient(page, ux, fullName, phoneDigits);
 
-      // Correct outcome: the record is created and opens.
-      await expect(page).toHaveURL(/\/patients\/[0-9a-f-]{36}$/, { timeout: 15_000 });
-      const rows = await patientsByName(tenantA.id, fullName);
-      expect(rows).toHaveLength(1);
-      expect(rows[0].phone).toBe(`+91${phoneDigits}`);
+        // Correct outcome: the record is created and opens. Only these marked assertions may carry the expected
+        // failure (IR-F4); anything failing earlier turns the test red.
+        await expect(page, knownBugMessage("F-01", "the new patient's record opens")).toHaveURL(/\/patients\/[0-9a-f-]{36}$/, {
+          timeout: 15_000,
+        });
+        const rows = await patientsByName(tenantA.id, fullName);
+        expect(rows, knownBugMessage("F-01", "exactly one patient row")).toHaveLength(1);
+        expect(rows[0].phone, knownBugMessage("F-01", "the phone is stored in E.164")).toBe(`+91${phoneDigits}`);
+      });
     });
   });
 });

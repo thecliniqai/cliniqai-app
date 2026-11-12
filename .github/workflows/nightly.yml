@@ -64,7 +64,10 @@ jobs:
       - name: Install browsers
         run: npx playwright install --with-deps chromium webkit
       - name: Start the local Supabase stack
-        run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+        # IR-F8: image pulls hit registry rate limits; retry with cleanup and backoff (bounded: 3 attempts).
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
+          -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
       - name: e2e build
         run: npm run e2e:build
       - name: Run the lane
@@ -122,7 +125,7 @@ jobs:
           path: npm-audit-full.json
           retention-days: 30
 
-  # One open "Nightly failing" issue: created on the first failure, commented on every later one.
+  # One open "Nightly failing" issue opened by this bot: created on the first failure, commented on every later one.
   report-failure:
     name: report-failure
     needs: [e2e-nightly, audit-full]
@@ -137,11 +140,18 @@ jobs:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       HEAD_SHA: ${{ github.sha }}
     steps:
+      # Only the issue picker (AR-L1); the job runs on schedule/dispatch from the repository's own branch, never on PR code.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci/pick-nightly-issue.mjs
+          sparse-checkout-cone-mode: false
       - name: Open or update the Nightly failing issue
         run: |
           body="Nightly run failed: $RUN_URL (commit $HEAD_SHA)."
-          number="$(gh issue list --state open --search 'in:title "Nightly failing"' --json number,title \
-            --jq '[.[] | select(.title == "Nightly failing")][0].number // empty')"
+          # AR-L1: only the bot's own issue (anyone can open one with this title); checked by the query and the script.
+          number="$(gh issue list --state open --author app/github-actions --search 'in:title "Nightly failing"' \
+            --json number,title,author | node scripts/ci/pick-nightly-issue.mjs)"
           if [ -n "$number" ]; then
             gh issue comment "$number" --body "$body"
           else

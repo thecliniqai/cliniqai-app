@@ -6,8 +6,10 @@
  *   npm run seed:local -- --reset delete that clinic and those five users (nothing else)
  *
  * Safety: reads `.env.test` + `npx supabase status` only (never `.env`), then refuses to run unless every URL is
- * loopback and every key is a local-stack key (`assertLocalTestEnv`). All data is synthetic; phone numbers are in the
- * reserved +91 90000 0xxxx range.
+ * loopback and every key is a local-stack key (`assertLocalTestEnv`), which also pins MESSAGING_PROVIDER=dev. All data
+ * is synthetic. Phone numbers: India has no reserved fictional mobile range, so the +91 90000 0000x numbers below are
+ * merely valid-looking and may belong to real subscribers. They are safe only while messaging stays offline: never run
+ * the app against this seed with a real messaging provider (e.g. MSG91 keys), or reminders could reach real people.
  *
  * Password: `LOCAL_DEV_SEED_PASSWORD` from the shell if set (at least 10 characters); otherwise a random one is
  * generated and printed ONCE to this terminal. It is never written to disk or committed. Every run sets the password

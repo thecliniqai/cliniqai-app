@@ -3,7 +3,9 @@
  * npm audit gate (V2-02 plan 02-01 step 4, ruling RL-7). No dependency beyond Node.
  *
  * Runs `npm audit --omit=dev --json` and fails when
- *   1. any high or critical advisory is not waived in .github/audit-allowlist.json (matched by GHSA id + package);
+ *   1. any high or critical advisory is not waived in .github/audit-allowlist.json (matched by GHSA id + package +
+ *      the severity the waiver recorded: an advisory re-rated since, e.g. high → critical, is no longer covered and
+ *      needs a fresh review, V2-02 02-06 AR-L3);
  *   2. a waiver is malformed, has expired, or expires more than MAX_WAIVER_DAYS after today (renewal = a reviewed
  *      PR with a fresh reason and a new date);
  *   3. a waiver no longer matches any high/critical advisory (stale waivers must be removed);
@@ -69,6 +71,8 @@ function advisories(audit) {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** A waiver covers an advisory only at the severity it was reviewed at (AR-L3). */
+const covers = (entry, a) => entry?.id === a.id && entry?.package === a.package && entry?.severity === a.severity;
 const isDate = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
 
 function evaluate(audit, allowlist, today) {
@@ -91,13 +95,17 @@ function evaluate(audit, allowlist, today) {
         problems.push(`${label}: expires ${entry.expires} is more than ${MAX_WAIVER_DAYS} days ahead`);
       }
     }
-    if (!gated.some((a) => a.id === entry?.id && a.package === entry?.package)) {
+    const sameAdvisory = gated.filter((a) => a.id === entry?.id && a.package === entry?.package);
+    const rerated = sameAdvisory.find((a) => a.severity !== entry?.severity);
+    if (rerated) {
+      problems.push(`${label}: advisory RE-RATED from ${entry?.severity} to ${rerated.severity}; the waiver no longer applies (re-review)`);
+    } else if (sameAdvisory.length === 0) {
       problems.push(`${label}: STALE waiver, matches no high/critical advisory any more (remove it)`);
     }
   });
 
   for (const a of gated) {
-    if (!allowlist.some((e) => e?.id === a.id && e?.package === a.package)) {
+    if (!allowlist.some((e) => covers(e, a))) {
       problems.push(`NOT ALLOWLISTED: ${a.severity} ${a.id} in ${a.package}${a.title ? ` (${a.title})` : ""}`);
     }
   }

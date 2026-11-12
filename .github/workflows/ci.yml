@@ -109,7 +109,10 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Start the local Supabase stack (same services as npm run test:db)
-        run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+        # IR-F8: image pulls hit registry rate limits; retry with cleanup and backoff (bounded: 3 attempts).
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
+          -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
       # One run produces both the JSON report and v8 coverage (02-05); coverage is report-only until V2-14.
       - name: Vitest (full unit + DB lane, with coverage)
         run: npx vitest run --reporter=dot --reporter=json --outputFile.json=vitest-report.json --coverage.enabled
@@ -208,7 +211,10 @@ jobs:
           restore-keys: |
             nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - name: Start the local Supabase stack (same services as npm run test:db)
-        run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+        # IR-F8: image pulls hit registry rate limits; retry with cleanup and backoff (bounded: 3 attempts).
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
+          -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
       - name: e2e build (guarded env, output marker scan, build stamp)
         run: npm run e2e:build
       - name: Playwright PR lane

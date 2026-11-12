@@ -61,9 +61,18 @@ for (const role of ["owner", "doctor", "receptionist"] as const satisfies readon
         }
       }
 
+      // Each PDF probe names a row that exists in clinic B (IR-F9: the receipt probe once sent a visit id, which can
+      // never match an invoice, so its 404 proved nothing about isolation).
+      const { data: bInvoice } = await getAdminClient()
+        .from("invoices")
+        .select("tenant_id")
+        .eq("id", tenantB.invoiceId)
+        .maybeSingle();
+      expect((bInvoice as { tenant_id: string } | null)?.tenant_id, "the probed invoice is clinic B's").toBe(tenantB.id);
+
       for (const path of [
         `/api/visits/${tenantB.visitId}/prescription-pdf`,
-        `/api/invoices/${tenantB.visitId}/receipt-pdf`,
+        `/api/invoices/${tenantB.invoiceId}/receipt-pdf`,
         `/api/patients/${tenantB.patientId}/export`,
       ]) {
         const response = await page.request.get(path, { maxRedirects: 0 });

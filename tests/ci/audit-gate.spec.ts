@@ -34,6 +34,13 @@ describe("audit gate", () => {
     expect(r.stderr).not.toContain("GHSA-aaaa-bbbb-cccc");
   });
 
+  it("fails when a waived advisory is re-rated above the waiver's recorded severity (AR-L3)", () => {
+    const r = gate("report-rerated", "allowlist-valid");
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("NOT ALLOWLISTED: critical GHSA-aaaa-bbbb-cccc in fixture-transitive");
+    expect(r.stderr).toContain("advisory RE-RATED from high to critical; the waiver no longer applies");
+  });
+
   it("fails on an expired waiver", () => {
     const r = gate("report-waived", "allowlist-expired");
     expect(r.status).toBe(1);

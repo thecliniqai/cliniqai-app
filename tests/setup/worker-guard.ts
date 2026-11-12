@@ -10,6 +10,8 @@
  *    - DNS lookups of non-loopback names never reach a resolver: they return a fixed public test address
  *      (TEST_PUBLIC_ADDRESS), so code that validates hostnames (e.g. the webhook SSRF check) behaves
  *      deterministically offline, and any attempt to then connect is refused by the socket block.
+ *    - (02-06, AR-L5) the c-ares resolver (`dns.resolve*`, `dns.Resolver`, `dns.promises`) and `dgram` refuse
+ *      non-loopback names and addresses without sending a query (tests/setup/dns-udp-guard.cjs).
  *    Specs that stub `fetch` or `dns` themselves replace these wrappers and are unaffected.
  */
 import dns from "node:dns";
@@ -101,6 +103,11 @@ dns.lookup = ((hostname: string, options: unknown, callback?: unknown) => {
   );
 }) as typeof dns.lookup;
 syncBuiltinESMExports();
+
+// --- 3b'. resolver and UDP (shared with the e2e server guard) ------------------------------------------------------
+(createRequire(__filename)("./dns-udp-guard.cjs") as { installDnsUdpGuard: (label: string) => void }).installDnsUdpGuard(
+  "Test lane",
+);
 
 // --- 3c. fetch (readable error before any socket work) --------------------------------------------------------
 function requestHost(input: Parameters<typeof fetch>[0]): string | null {

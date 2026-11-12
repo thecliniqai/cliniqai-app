@@ -2,8 +2,10 @@
 /**
  * Playwright run summary (V2-02 plan 02-03a; TEST_STRATEGY §8 "report the retries").
  *
- * Reads Playwright's JSON report and prints a markdown summary: totals by outcome per project, and every test that
- * needed a retry to pass (flaky) or failed. Printed, and also appended to `$GITHUB_STEP_SUMMARY` when set.
+ * Reads Playwright's JSON report and prints a markdown summary: totals by outcome per project, every test that
+ * needed a retry to pass (flaky) or failed, and (V2-02 02-06, IR-F4) every expected failure (`test.fail()`, a known
+ * bug asserted as its correct outcome) with its annotation and the first line of the error it failed with, so a
+ * reviewer sees it still fails for the known reason. Printed, and also appended to `$GITHUB_STEP_SUMMARY` when set.
  *
  * REPORT ONLY: Playwright's own exit code is the gate. This script exits 0 even when the report is missing or
  * unreadable (with a warning), so it can never mask or replace the real result.
@@ -35,9 +37,18 @@ try {
   process.exit(0);
 }
 
+const ANSI = /\u001b\[[0-9;]*m/g;
+/** First non-empty line of the last attempt's first error. */
+function firstErrorLine(test) {
+  const last = (test.results ?? []).at(-1) ?? {};
+  const message = last.errors?.[0]?.message ?? last.error?.message ?? "";
+  return (message.replace(ANSI, "").split("\n").find((l) => l.trim() !== "") ?? "(no error recorded)").trim();
+}
+
 const byProject = new Map();
 const retried = [];
 const failed = [];
+const expectedFailures = [];
 for (const suite of report.suites ?? []) {
   for (const { title, test } of collectTests(suite)) {
     const project = test.projectName || "(default)";
@@ -47,6 +58,10 @@ for (const suite of report.suites ?? []) {
     const attempts = (test.results ?? []).length;
     if (test.status === "flaky") retried.push(`- [${project}] ${title} (passed on attempt ${attempts})`);
     if (test.status === "unexpected") failed.push(`- [${project}] ${title}`);
+    if (test.expectedStatus === "failed" && test.status === "expected") {
+      const why = (test.annotations ?? []).find((a) => a.type === "fail")?.description ?? "";
+      expectedFailures.push(`- [${project}] ${title}${why ? ` — ${why}` : ""}\n  - failed with: \`${firstErrorLine(test)}\``);
+    }
   }
 }
 
@@ -63,4 +78,7 @@ const lines = [
   ...retried,
 ];
 if (failed.length) lines.push("", `**Failed: ${failed.length}**`, ...failed);
+if (expectedFailures.length) {
+  lines.push("", `**Expected failures (known bugs): ${expectedFailures.length}** — each must fail with its KNOWN-BUG assertion.`, ...expectedFailures);
+}
 emit(lines.join("\n"));

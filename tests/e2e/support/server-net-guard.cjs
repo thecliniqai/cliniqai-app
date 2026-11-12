@@ -5,7 +5,9 @@
  *   - every TCP/TLS socket (fetch/undici, node:http/https, AWS SDK, websockets) may connect only to loopback;
  *   - `fetch` to a non-loopback host is rejected up front with a readable error;
  *   - DNS lookups of non-loopback names never reach a resolver: they return a fixed public test address, which the
- *     socket block then refuses.
+ *     socket block then refuses;
+ *   - (02-06, AR-L5) `dns.resolve*` / `dns.Resolver` / `dns.promises` resolver calls and `dgram` sends to non-loopback
+ *     names fail without sending a query (tests/setup/dns-udp-guard.cjs).
  * Every block is also written to stderr (`[e2e-net-guard] blocked …`) so the run log names the host.
  */
 "use strict";
@@ -15,6 +17,7 @@ const dns = require("node:dns");
 const net = require("node:net");
 const { syncBuiltinESMExports } = require("node:module");
 const { isLoopbackHost } = require("../../setup/loopback.cjs");
+const { installDnsUdpGuard } = require("../../setup/dns-udp-guard.cjs");
 
 /** Fixed public address (never contacted: sockets to it are refused). */
 const TEST_PUBLIC_ADDRESS = "93.184.216.34";
@@ -71,6 +74,7 @@ dns.lookup = (hostname, options, callback) => {
   process.nextTick(() => (all ? cb(null, fakeAnswer(true)) : cb(null, TEST_PUBLIC_ADDRESS, 4)));
 };
 syncBuiltinESMExports();
+installDnsUdpGuard("e2e server", report);
 
 // --- fetch (readable error before any socket work) ----------------------------------------------------------------
 function requestHost(input) {
