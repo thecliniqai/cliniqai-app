@@ -146,6 +146,11 @@ jobs:
       - name: Coverage summary (report only, never fails)
         if: ${{ !cancelled() }}
         run: node scripts/ci/coverage-summary.mjs coverage/coverage-summary.json
+      # V2-03 03-05 (P1-21): the clinic-date helpers must not depend on the process zone. The runner is UTC, so the
+      # main run cannot catch a local-zone use; this re-runs the spec in a zone that is neither UTC nor IST.
+      - name: Clinic-date spec under TZ=America/New_York
+        if: ${{ !cancelled() }}
+        run: TZ=America/New_York npx vitest run tests/utils/datetime.spec.ts
       # P0-13 (02-02 step 5): copies lint-fixtures/p0-13/unguarded-action.ts into features/, requires
       # tests/security/guard-actions.spec.ts to FAIL naming it, and always deletes the copy.
       - name: P0-13 canary (an unguarded server action must fail the guard spec)
