@@ -8,3 +8,5 @@
 4cbb151d86e4a18de20043c4af7b44677046c516:tests/api/webhooks-outbox.spec.ts:generic-api-key:78
 3d424ca020863b7e4d640d1835064ebf67731f3b:.planning/phases/06-api-launch-readiness/06-UI-SPEC.md:generic-api-key:245
 018fa53a52d3470bcbc0eeb39890d37028232bf7:tests/setup/next-env-flag.spec.ts:generic-api-key:19
+# V2-03 03-01: false positive, `API_V1_ENABLED: s.API_V1_ENABLED === "true"` is a boolean flag parse, not a key
+c97476c9fa749890575a29198dd90f5934cff079:lib/env.ts:generic-api-key:351
