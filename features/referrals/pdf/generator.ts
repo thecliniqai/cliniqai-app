@@ -9,6 +9,8 @@ import {
   ReferralLetterDocument,
   ReferralPdfPayload,
 } from "./referral-letter-document";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export interface GenerateReferralPdfResult {
   signedUrl: string;
@@ -77,7 +79,7 @@ export async function generateAndArchiveReferralPdf(
       storageProvider
     );
   } catch (uploadErr) {
-    console.error("[features/referrals/pdf/generator] Upload failed:", uploadErr);
+    log.error({ event: "referrals.pdf_upload.failed", code: errorTag(uploadErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     throw new Error(
       `Failed to upload referral letter PDF to storage: ${uploadErr instanceof Error ? uploadErr.message : "Unknown error"}`
     );

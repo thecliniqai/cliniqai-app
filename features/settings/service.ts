@@ -20,6 +20,8 @@ import {
   MIN_SLOT_DURATION_MINUTES,
   MAX_SLOT_DURATION_MINUTES,
 } from "./schema";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 // Clinic, profile and staff settings use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case
 // checks the permission its server action checked before the move (some only require a clinic membership).
@@ -113,7 +115,7 @@ export async function updateClinicSettings(
       .single();
 
     if (updateError || !updatedTenant) {
-      console.error("[features/settings/service] Failed to update clinic settings:", updateError);
+      log.error({ event: "settings.clinic_update_query.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to update clinic profile in database." };
     }
 
@@ -139,7 +141,7 @@ export async function updateClinicSettings(
           },
         });
       } catch (authSyncErr) {
-        console.warn("[updateClinicSettings] Could not sync user metadata:", authSyncErr);
+        log.warn({ event: "settings.clinic_metadata_sync.failed", code: errorTag(authSyncErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       }
     }
 
@@ -169,7 +171,7 @@ export async function updateClinicSettings(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to update settings.", "features/settings/service updateClinicSettings"),
+      error: clientErrorMessage(err, "Failed to update settings.", "settings.clinic_update.failed"),
     };
   }
 }
@@ -216,7 +218,7 @@ export async function updateStatutorySettings(
       .single();
 
     if (updateError || !updatedTenant) {
-      console.error("[features/settings/service] Failed to update statutory settings:", updateError);
+      log.error({ event: "settings.statutory_update_query.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to persist statutory registrations in database." };
     }
 
@@ -233,7 +235,7 @@ export async function updateStatutorySettings(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to update statutory settings.", "features/settings/service updateStatutorySettings"),
+      error: clientErrorMessage(err, "Failed to update statutory settings.", "settings.statutory_update.failed"),
     };
   }
 }
@@ -284,7 +286,7 @@ export async function updateUserProfile(ctx: ServiceContext, input: UserProfileI
       .single();
 
     if (updateError || !updatedMembership) {
-      console.error("[updateUserProfile] Error updating membership:", updateError);
+      log.error({ event: "settings.profile_membership_update.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to update profile in database." };
     }
 
@@ -296,7 +298,7 @@ export async function updateUserProfile(ctx: ServiceContext, input: UserProfileI
         },
       });
     } catch (authErr) {
-      console.warn("[updateUserProfile] Could not sync auth user metadata:", authErr);
+      log.warn({ event: "settings.profile_metadata_sync.failed", code: errorTag(authErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     await recordAudit(ctx, {
@@ -314,7 +316,7 @@ export async function updateUserProfile(ctx: ServiceContext, input: UserProfileI
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to update profile.", "features/settings/service updateUserProfile"),
+      error: clientErrorMessage(err, "Failed to update profile.", "settings.profile_update.failed"),
     };
   }
 }
@@ -424,7 +426,7 @@ export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInp
       .single();
 
     if (updateErr || !updated) {
-      console.error("[updateStaffMember] Error updating staff member:", updateErr?.code ?? "no_row");
+      log.error({ event: "settings.staff_update_query.failed", code: errorTag(updateErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to update staff member in database." };
     }
 
@@ -463,7 +465,7 @@ export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInp
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to update staff member.", "features/settings/service updateStaffMember"),
+      error: clientErrorMessage(err, "Failed to update staff member.", "settings.staff_update.failed"),
     };
   }
 }
@@ -525,7 +527,7 @@ export async function updateDoctorAvailability(
       .single();
 
     if (updateErr || !updated) {
-      console.error("[updateDoctorAvailability] Update error:", updateErr);
+      log.error({ event: "settings.availability_update_query.failed", code: errorTag(updateErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to update doctor availability." };
     }
 
@@ -543,7 +545,7 @@ export async function updateDoctorAvailability(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to update doctor availability.", "features/settings/service updateDoctorAvailability"),
+      error: clientErrorMessage(err, "Failed to update doctor availability.", "settings.availability_update.failed"),
     };
   }
 }
@@ -604,7 +606,7 @@ export async function updateDoctorSlotDuration(
       .single();
 
     if (updateErr || !updated) {
-      console.error("[updateDoctorSlotDuration] Update error:", updateErr);
+      log.error({ event: "settings.slot_duration_update_query.failed", code: errorTag(updateErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to update slot duration." };
     }
 
@@ -615,7 +617,7 @@ export async function updateDoctorSlotDuration(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to update slot duration.", "features/settings/service updateDoctorSlotDuration"),
+      error: clientErrorMessage(err, "Failed to update slot duration.", "settings.slot_duration_update.failed"),
     };
   }
 }
@@ -646,13 +648,13 @@ export async function getDoctorScheduleBlocks(ctx: ServiceContext, doctorId?: st
 
     const { data, error } = await query;
     if (error || !data) {
-      console.error("[getDoctorScheduleBlocks] Error:", error);
+      log.error({ event: "settings.schedule_blocks_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
 
     return data as ScheduleBlock[];
   } catch (err) {
-    console.error("[getDoctorScheduleBlocks] Unexpected error:", err);
+    log.error({ event: "settings.schedule_blocks.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 }

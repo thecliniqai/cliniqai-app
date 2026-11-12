@@ -9,6 +9,8 @@ import {
   PrescriptionDocument,
   PrescriptionPdfPayload,
 } from "./prescription-document";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export interface GeneratePrescriptionPdfResult {
   signedUrl: string;
@@ -99,7 +101,7 @@ export async function generateAndArchivePrescriptionPdf(
       storageProvider
     );
   } catch (uploadErr) {
-    console.error("[features/prescriptions/pdf/generator] Upload failed:", uploadErr);
+    log.error({ event: "prescriptions.pdf_upload.failed", code: errorTag(uploadErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     throw new Error(
       `Failed to upload prescription PDF to storage: ${uploadErr instanceof Error ? uploadErr.message : "Unknown error"}`
     );
@@ -141,7 +143,7 @@ export async function generateAndArchivePrescriptionPdf(
         },
       });
   } catch (auditErr) {
-    console.warn("[features/prescriptions/pdf/generator] Audit log warning:", auditErr);
+    log.warn({ event: "prescriptions.pdf_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
   }
 
   return {

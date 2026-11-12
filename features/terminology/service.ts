@@ -12,6 +12,8 @@ import {
   updateDiagnosisNoteSchema,
   ConsultationDiagnosisItem,
 } from "./schema";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export type SearchDiagnosesResult =
   { success: true; results: DiagnosisSearchResult[] } | { success: false; error: string };
@@ -60,7 +62,7 @@ export async function searchDiagnoses(
 
     const { data: centralMatches, error: centralErr } = await centralQuery;
     if (centralErr) {
-      console.error("[features/terminology/actions] Central diagnosis search error:", centralErr);
+      log.error({ event: "terminology.diagnosis_search.failed", code: errorTag(centralErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     // 3. Merge & deduplicate, boosting custom/favorites to top
@@ -181,7 +183,7 @@ export async function addConsultationDiagnosis(
       .single();
 
     if (insertErr || !inserted) {
-      console.error("[features/terminology/actions] Insert error:", insertErr);
+      log.error({ event: "terminology.diagnosis_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record consultation diagnosis." };
     }
 

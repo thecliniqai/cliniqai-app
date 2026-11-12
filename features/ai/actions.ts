@@ -14,6 +14,8 @@ import {
   PrescriptionSuggestion,
   AnonymizedPatientContext,
 } from "@/lib/ai";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /** Typed "AI unavailable" result (AI-01): no draft, no reason detail beyond the code. */
 export interface AiUnavailableResult {
@@ -52,7 +54,7 @@ export async function generateSoapAction(input: {
   } catch (err: unknown) {
     if (err instanceof AiUnavailableError) return aiUnavailable(err.reason);
     // Never log the error object: it may carry clinical text.
-    console.error("[generateSoapAction] failed");
+    log.error({ event: "ai.soap_generate.failed", code: errorTag(err), requestId: await getRequestId() });
     return { success: false, code: "ERROR", error: "Failed to generate clinical notes." };
   }
 }
@@ -75,7 +77,7 @@ export async function getPatientCatchUpSummaryAction(input: {
     return { success: true, summary };
   } catch (err: unknown) {
     if (err instanceof AiUnavailableError) return aiUnavailable(err.reason);
-    console.error("[getPatientCatchUpSummaryAction] failed");
+    log.error({ event: "ai.catch_up_summary.failed", code: errorTag(err), requestId: await getRequestId() });
     return { success: false, code: "ERROR", error: "Failed to generate patient catch-up summary." };
   }
 }
@@ -101,7 +103,7 @@ export async function getFrequentPrescriptionsAction(input: {
     });
     return { success: true, suggestions };
   } catch (err: unknown) {
-    console.error("[getFrequentPrescriptionsAction] Error:", err);
+    log.error({ event: "ai.frequent_prescriptions.failed", code: errorTag(err), requestId: await getRequestId() });
     return {
       success: false,
       suggestions: [],

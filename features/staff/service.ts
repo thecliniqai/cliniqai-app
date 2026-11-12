@@ -2,6 +2,8 @@ import "server-only";
 
 import type { ServiceContext } from "@/lib/auth/context";
 import { formatDoctorDisplayName, formatStaffDisplayName } from "./formatters";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -33,12 +35,7 @@ export async function getTenantDoctorDirectory(ctx: ServiceContext): Promise<Ten
       .eq("tenant_id", session.tenantId);
 
     if (error || !memberRows) {
-      console.error(
-        "[getTenantDoctorDirectory] Error fetching members:",
-        error
-          ? { message: error.message, code: error.code, details: error.details, hint: error.hint }
-          : "No rows returned"
-      );
+      log.error({ event: "staff.doctor_directory_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
 
@@ -63,7 +60,7 @@ export async function getTenantDoctorDirectory(ctx: ServiceContext): Promise<Ten
       availability_schedule: m.availability_schedule || null,
     }));
   } catch (err) {
-    console.error("[getTenantDoctorDirectory] Unexpected error:", err);
+    log.error({ event: "staff.doctor_directory.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 }
@@ -87,12 +84,7 @@ export async function getTenantStaffDirectory(ctx: ServiceContext): Promise<Tena
       .eq("tenant_id", session.tenantId);
 
     if (error || !memberRows) {
-      console.error(
-        "[getTenantStaffDirectory] Error fetching members:",
-        error
-          ? { message: error.message, code: error.code, details: error.details, hint: error.hint }
-          : "No rows returned"
-      );
+      log.error({ event: "staff.directory_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
 
@@ -105,7 +97,7 @@ export async function getTenantStaffDirectory(ctx: ServiceContext): Promise<Tena
       specialty: m.default_specialty,
     }));
   } catch (err) {
-    console.error("[getTenantStaffDirectory] Unexpected error:", err);
+    log.error({ event: "staff.directory.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 }

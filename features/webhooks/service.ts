@@ -13,6 +13,8 @@ import type {
   WebhookDeliveryLogItem,
   AllowedWebhookEvent,
 } from "./constants";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export type {
   WebhookSubscriptionItem,
@@ -46,7 +48,7 @@ export async function listWebhookSubscriptions(ctx: ServiceContext): Promise<{
       .order("created_at", { ascending: false });
 
     if (fetchErr) {
-      console.error("[listWebhookSubscriptions] Query error:", fetchErr);
+      log.error({ event: "webhooks.subscriptions_list_query.failed", code: errorTag(fetchErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return {
         success: false,
         subscriptions: [],
@@ -65,7 +67,7 @@ export async function listWebhookSubscriptions(ctx: ServiceContext): Promise<{
 
     return { success: true, subscriptions: items };
   } catch (err: unknown) {
-    console.error("[listWebhookSubscriptions] Exception:", err);
+    log.error({ event: "webhooks.subscriptions_list.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       subscriptions: [],
@@ -135,7 +137,7 @@ export async function createWebhookSubscription(
       .single();
 
     if (insertErr || !created) {
-      console.error("[createWebhookSubscription] Insert error:", insertErr);
+      log.error({ event: "webhooks.subscription_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to save webhook subscription." };
     }
 
@@ -150,7 +152,7 @@ export async function createWebhookSubscription(
         },
       });
     } catch (auditErr) {
-      console.warn("[createWebhookSubscription] Audit warning:", auditErr);
+      log.warn({ event: "webhooks.subscription_create_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     return {
@@ -165,7 +167,7 @@ export async function createWebhookSubscription(
       },
     };
   } catch (err: unknown) {
-    console.error("[createWebhookSubscription] Exception:", err);
+    log.error({ event: "webhooks.subscription_create.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       error:
@@ -196,7 +198,7 @@ export async function deleteWebhookSubscription(
       .eq("tenant_id", session.tenantId);
 
     if (deleteErr) {
-      console.error("[deleteWebhookSubscription] Delete error:", deleteErr);
+      log.error({ event: "webhooks.subscription_delete_query.failed", code: errorTag(deleteErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return {
         success: false,
         error: "Failed to delete webhook subscription.",
@@ -213,12 +215,12 @@ export async function deleteWebhookSubscription(
         },
       });
     } catch (auditErr) {
-      console.warn("[deleteWebhookSubscription] Audit warning:", auditErr);
+      log.warn({ event: "webhooks.subscription_delete_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     return { success: true };
   } catch (err: unknown) {
-    console.error("[deleteWebhookSubscription] Exception:", err);
+    log.error({ event: "webhooks.subscription_delete.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       error:
@@ -286,7 +288,7 @@ export async function testPingWebhook(
       error: result.error,
     };
   } catch (err: unknown) {
-    console.error("[testPingWebhook] Exception:", err);
+    log.error({ event: "webhooks.test_ping.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       error: err instanceof Error ? err.message : "Test ping failed.",
@@ -320,7 +322,7 @@ export async function listDeliveryLogs(
       .limit(50);
 
     if (fetchErr) {
-      console.error("[listDeliveryLogs] Query error:", fetchErr);
+      log.error({ event: "webhooks.delivery_logs_query.failed", code: errorTag(fetchErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return {
         success: false,
         logs: [],
@@ -344,7 +346,7 @@ export async function listDeliveryLogs(
 
     return { success: true, logs: items };
   } catch (err: unknown) {
-    console.error("[listDeliveryLogs] Exception:", err);
+    log.error({ event: "webhooks.delivery_logs.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       logs: [],

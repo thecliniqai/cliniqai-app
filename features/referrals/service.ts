@@ -12,8 +12,10 @@ import { ReferralItem, CreateReferralInput, CloseReferralLoopInput, ConsentedHis
 import { generateAndArchiveReferralPdf } from "./pdf/generator";
 import { createShareToken } from "@/features/sharing/tokens";
 import { referralLetterPath } from "@/lib/storage/tenant-path";
-import { clientErrorMessage, errorTag } from "@/lib/errors/client-message";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * Creates a clinical referral (either out-of-network specialist or in-network partner clinic).
@@ -181,7 +183,7 @@ export async function createReferral(
       .single();
 
     if (insertErr || !referral) {
-      console.error("[features/referrals/service] insert referral failed:", errorTag(insertErr));
+      log.error({ event: "referrals.create_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to create referral." };
     }
 
@@ -231,7 +233,7 @@ export async function createReferral(
       signedUrl = pdfRes.signedUrl;
       referral.pdf_storage_path = pdfRes.storagePath;
     } catch (pdfErr) {
-      console.error("[features/referrals/actions] PDF compilation error:", pdfErr);
+      log.error({ event: "referrals.pdf_compile.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     // 7. Audit log
@@ -255,7 +257,7 @@ export async function createReferral(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to create referral.", "features/referrals/service createReferral"),
+      error: clientErrorMessage(err, "Failed to create referral.", "referrals.create.failed"),
     };
   }
 }
@@ -283,7 +285,7 @@ export async function getOutboundReferrals(
       .order("sent_at", { ascending: false });
 
     if (error) {
-      console.error("[features/referrals/service] getOutboundReferrals failed:", errorTag(error));
+      log.error({ event: "referrals.outbound_list_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, referrals: [], error: "Failed to fetch outbound referrals." };
     }
 
@@ -292,7 +294,7 @@ export async function getOutboundReferrals(
     return {
       success: false,
       referrals: [],
-      error: clientErrorMessage(err, "Failed to fetch outbound referrals.", "features/referrals/service getOutboundReferrals"),
+      error: clientErrorMessage(err, "Failed to fetch outbound referrals.", "referrals.outbound_list.failed"),
     };
   }
 }
@@ -320,7 +322,7 @@ export async function getInboundReferrals(
       .order("sent_at", { ascending: false });
 
     if (error) {
-      console.error("[features/referrals/service] getInboundReferrals failed:", errorTag(error));
+      log.error({ event: "referrals.inbound_list_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, referrals: [], error: "Failed to fetch inbound referrals." };
     }
 
@@ -335,7 +337,7 @@ export async function getInboundReferrals(
         p_ids: originatingIds,
       });
       if (clinicsError) {
-        console.error("[features/referrals/service] referral_source_clinics failed:", errorTag(clinicsError));
+        log.error({ event: "referrals.source_clinics.failed", code: errorTag(clinicsError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       }
       for (const c of clinics || []) {
         clinicMap[c.id] = c;
@@ -352,7 +354,7 @@ export async function getInboundReferrals(
     return {
       success: false,
       referrals: [],
-      error: clientErrorMessage(err, "Failed to fetch inbound referrals.", "features/referrals/service getInboundReferrals"),
+      error: clientErrorMessage(err, "Failed to fetch inbound referrals.", "referrals.inbound_list.failed"),
     };
   }
 }
@@ -388,7 +390,7 @@ export async function acknowledgeReferral(
       .single();
 
     if (error || !updated) {
-      if (error) console.error("[features/referrals/service] acknowledgeReferral failed:", errorTag(error));
+      if (error) log.error({ event: "referrals.acknowledge_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Referral not found or update failed." };
     }
 
@@ -402,7 +404,7 @@ export async function acknowledgeReferral(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to acknowledge referral.", "features/referrals/service acknowledgeReferral"),
+      error: clientErrorMessage(err, "Failed to acknowledge referral.", "referrals.acknowledge.failed"),
     };
   }
 }
@@ -461,7 +463,7 @@ export async function closeReferralLoop(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to close referral loop.", "features/referrals/service closeReferralLoop"),
+      error: clientErrorMessage(err, "Failed to close referral loop.", "referrals.close_loop.failed"),
     };
   }
 }
@@ -509,7 +511,7 @@ export async function getReferralSignedUrl(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to generate signed URL.", "features/referrals/service getReferralSignedUrl"),
+      error: clientErrorMessage(err, "Failed to generate signed URL.", "referrals.signed_url.failed"),
     };
   }
 }
@@ -534,7 +536,7 @@ export async function getPatientReferrals(
       .order("sent_at", { ascending: false });
 
     if (error) {
-      console.error("[features/referrals/service] getPatientReferrals failed:", errorTag(error));
+      log.error({ event: "referrals.patient_list_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, referrals: [], error: "Failed to fetch patient referrals." };
     }
 
@@ -543,7 +545,7 @@ export async function getPatientReferrals(
     return {
       success: false,
       referrals: [],
-      error: clientErrorMessage(err, "Failed to fetch patient referrals.", "features/referrals/service getPatientReferrals"),
+      error: clientErrorMessage(err, "Failed to fetch patient referrals.", "referrals.patient_list.failed"),
     };
   }
 }
@@ -625,7 +627,7 @@ export async function shareReferralLetterViaWhatsApp(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to share referral letter.", "features/referrals/service shareReferralLetterViaWhatsApp"),
+      error: clientErrorMessage(err, "Failed to share referral letter.", "referrals.whatsapp_share.failed"),
     };
   }
 }

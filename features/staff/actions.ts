@@ -10,6 +10,8 @@ import { clientErrorMessage } from "@/lib/errors/client-message";
 import * as staffService from "./service";
 import type { TenantDoctorInfo, TenantStaffInfo } from "./service";
 import { UserRole } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 const inviteStaffSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
@@ -69,7 +71,7 @@ export async function inviteStaff(
       .single();
 
     if (error || !data) {
-      console.error("[features/staff/actions] Failed to create invitation:", error?.code ?? "no_row");
+      log.error({ event: "staff.invite_insert.failed", code: errorTag(error), requestId: await getRequestId() });
       return {
         success: false,
         error: "Unable to create staff invitation. Please try again.",
@@ -91,7 +93,7 @@ export async function inviteStaff(
       success: false,
       error: known
         ? (err as Error).message
-        : clientErrorMessage(err, "Failed to invite staff.", "features/staff/actions inviteStaff"),
+        : clientErrorMessage(err, "Failed to invite staff.", "staff.invite.failed"),
     };
   }
 }

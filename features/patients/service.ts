@@ -5,6 +5,8 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { patientSchema, PatientInput, PatientVisitHistoryItem } from "./schema";
 import { Patient } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -54,7 +56,7 @@ export async function createPatient(ctx: ServiceContext, input: PatientInput): P
       .single();
 
     if (insertError || !newPatient) {
-      console.error("[features/patients/actions] Failed to insert patient:", insertError);
+      log.error({ event: "patients.create_insert.failed", code: errorTag(insertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to register patient in clinic database." };
     }
 
@@ -251,7 +253,7 @@ export async function searchPatients(ctx: ServiceContext, query: string): Promis
     .limit(25);
 
   if (error || !data) {
-    console.error("[searchPatients] Query error:", error);
+    log.error({ event: "patients.search.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 
@@ -270,7 +272,7 @@ export async function getPatients(ctx: ServiceContext): Promise<Patient[]> {
     .order("created_at", { ascending: false });
 
   if (error || !data) {
-    console.error("[getPatients] Query error:", error);
+    log.error({ event: "patients.list.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 
@@ -302,7 +304,7 @@ export async function getPatientVisitHistory(
       .order("created_at", { ascending: false });
 
     if (visitsErr) {
-      console.error("[getPatientVisitHistory] Failed to fetch visits:", visitsErr);
+      log.error({ event: "patients.visit_history_query.failed", code: errorTag(visitsErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
 
@@ -487,7 +489,7 @@ export async function getPatientVisitHistory(
       };
     });
   } catch (err: unknown) {
-    console.error("[getPatientVisitHistory] Unexpected error:", err);
+    log.error({ event: "patients.visit_history.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 }

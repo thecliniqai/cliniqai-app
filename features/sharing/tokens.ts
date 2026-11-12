@@ -3,6 +3,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, DocumentShareResourceType, ShareTokenResourceType, UserRole } from "@/lib/db/types";
 import { hasPerm, type Permission } from "@/lib/permissions";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * App permissions that allow minting (or revoking) a public link of each type: any one of the listed permissions.
@@ -39,7 +41,7 @@ export async function revokeShareToken(
 ): Promise<boolean> {
   const { error } = await db.rpc("revoke_share_token", { p_token_id: tokenId });
   if (error) {
-    console.error("[features/sharing/tokens] revoke_share_token refused:", error.code ?? "unknown");
+    log.error({ event: "sharing.token_revoke.failed", code: errorTag(error), requestId: await getRequestId() });
     return false;
   }
   return true;
@@ -67,7 +69,7 @@ export async function createShareToken(
   const row = Array.isArray(data) ? data[0] : null;
   if (error || !row?.token) {
     if (error) {
-      console.error("[features/sharing/tokens] create_share_token refused:", error.code ?? "unknown");
+      log.error({ event: "sharing.token_create.failed", code: errorTag(error), requestId: await getRequestId() });
     }
     return null;
   }

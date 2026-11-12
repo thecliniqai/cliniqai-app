@@ -7,6 +7,8 @@ import { recordAudit } from "@/lib/audit/audit";
 import { memberOfTenant, patientInTenant } from "@/lib/auth/tenant-refs";
 import { Patient, WaitlistEntry } from "@/lib/db/types";
 import { createVisit } from "@/features/visits/service";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 // Waitlist use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
 // server action checked before the move. Promotion creates the visit through the visits service with the same ctx.
@@ -77,7 +79,7 @@ export async function addToWaitlist(ctx: ServiceContext, input: AddToWaitlistInp
       .single();
 
     if (error || !newEntry) {
-      console.error("[features/waitlist/service] Failed to insert waitlist entry:", error);
+      log.error({ event: "waitlist.insert.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to add patient to waitlist." };
     }
 
@@ -160,7 +162,7 @@ export async function getWaitlistForDate(
     }
 
     if (entriesError) {
-      console.error("[features/waitlist/service] Failed to fetch waitlist:", entriesError);
+      log.error({ event: "waitlist.list_query.failed", code: errorTag(entriesError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to load waitlist entries." };
     }
 

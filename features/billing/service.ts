@@ -24,6 +24,8 @@ import {
   compileAndArchiveReceiptPdf,
   generateAndArchiveReceiptPdf,
 } from "./pdf/generator";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 // Billing use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
 // server action checked before the move, and completeAndBillConsultation calls the consultation, invoice, payment and
@@ -172,10 +174,7 @@ export async function createVisitInvoice(
     }
 
     if (invoiceErr || !newInvoice) {
-      console.error(
-        "[features/billing/service] Failed to insert invoice:",
-        invoiceErr?.code
-      );
+      log.error({ event: "billing.invoice_insert.failed", code: errorTag(invoiceErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to create invoice." };
     }
 
@@ -198,10 +197,7 @@ export async function createVisitInvoice(
       .select("*");
 
     if (itemsErr) {
-      console.error(
-        "[features/billing/service] Failed to insert invoice items:",
-        itemsErr
-      );
+      log.error({ event: "billing.invoice_items_insert.failed", code: errorTag(itemsErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record invoice items." };
     }
 
@@ -293,10 +289,7 @@ export async function recordPayment(
       .single();
 
     if (paymentErr || !newPayment) {
-      console.error(
-        "[features/billing/service] Failed to record payment:",
-        paymentErr
-      );
+      log.error({ event: "billing.payment_record.failed", code: errorTag(paymentErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record payment in database." };
     }
 
@@ -394,7 +387,7 @@ export async function getVisitBillingDetails(
       .limit(1);
 
     if (invErr) {
-      console.error("[getVisitBillingDetails] Error loading invoice:", invErr);
+      log.error({ event: "billing.visit_billing_load.failed", code: errorTag(invErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to load billing details." };
     }
 
@@ -512,7 +505,7 @@ export async function addInvoiceItem(
       .single();
 
     if (itemErr || !newItem) {
-      console.error("[addInvoiceItem] Insert error:", itemErr);
+      log.error({ event: "billing.invoice_item_add.failed", code: errorTag(itemErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to add charge to invoice." };
     }
 
@@ -855,10 +848,7 @@ export async function completeAndBillConsultation(
     try {
       await compileAndArchiveReceiptPdf(ctx, invoiceResult.invoice.id);
     } catch (pdfErr) {
-      console.warn(
-        "[completeAndBillConsultation] Receipt PDF generation warning:",
-        pdfErr
-      );
+      log.warn({ event: "billing.receipt_pdf_generate.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     // 4. Retrieve signed PDF path if generated
@@ -889,10 +879,7 @@ export async function completeAndBillConsultation(
       rxShareUrl = waRes.rxShareUrl;
       invoiceShareUrl = waRes.invoiceShareUrl;
     } catch (waErr) {
-      console.warn(
-        "[completeAndBillConsultation] Automated WhatsApp notification warning:",
-        waErr
-      );
+      log.warn({ event: "billing.checkout_whatsapp.failed", code: errorTag(waErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       whatsAppError =
         waErr instanceof Error
           ? waErr.message
@@ -1212,10 +1199,7 @@ export async function shareReceiptViaWhatsApp(
 
     return { success: true, shareUrl, token };
   } catch (err: unknown) {
-    console.error(
-      "[features/billing/service] shareReceiptViaWhatsApp error:",
-      err
-    );
+    log.error({ event: "billing.receipt_share.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to share receipt.",
@@ -1437,10 +1421,7 @@ export async function sendConsolidatedConsultationWhatsApp(
       messageId: queueItem?.id,
     };
   } catch (err: unknown) {
-    console.error(
-      "[features/billing/service] sendConsolidatedConsultationWhatsApp error:",
-      err
-    );
+    log.error({ event: "billing.consolidated_whatsapp.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       error:

@@ -2,6 +2,8 @@ import "server-only";
 
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 // Collection report use-case. Tenant comes only from `ctx` (ADR-0005 D1); requires billing:view as before.
 
@@ -90,7 +92,7 @@ export async function getDailyCollectionReport(
       .order("recorded_at", { ascending: false });
 
     if (payErr) {
-      console.error("[features/billing/reports-actions] Payments query error:", payErr);
+      log.error({ event: "billing.daily_collection_query.failed", code: errorTag(payErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to fetch collection payments." };
     }
 

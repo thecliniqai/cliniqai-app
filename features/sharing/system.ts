@@ -6,6 +6,8 @@ import { isTenantScopedStoragePath, isWellFormedStorageKey } from "@/lib/storage
 import { compileAndGenerateReceiptPdf } from "@/features/billing/pdf/generator";
 import { notifyAppointmentRescheduled } from "@/features/appointments/system";
 import type { DocumentShareResourceType } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * Privileged steps of the public share links (P0-04; ADR-0005 D2/D3, plan 01-04 ruling C1). This is the only module
@@ -122,6 +124,6 @@ export async function notifySelfServiceReschedule(token: string): Promise<void> 
   try {
     await notifyAppointmentRescheduled({ db: admin, reason: "patient_self_service_reschedule" }, visitId);
   } catch (err) {
-    console.warn("[features/sharing/system] reschedule follow-up failed:", err instanceof Error ? err.name : "error");
+    log.warn({ event: "sharing.reschedule_notify.failed", code: errorTag(err), requestId: await getRequestId() });
   }
 }

@@ -7,6 +7,8 @@ import { isDateOnly } from "@/lib/utils/filter-values";
 import { QueuePriority, QueueToken, Visit, Patient } from "@/lib/db/types";
 import type { QueueItem } from "@/components/queue/queue-card";
 import { getTenantDoctorMap } from "@/features/staff/service";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 // Queue use-cases (check-in, state transitions, day board). Tenant and actor come only from `ctx` (ADR-0005 D1);
 // each use-case checks the permission its server action checked before the move.
@@ -72,7 +74,7 @@ export async function checkInVisit(
     });
 
     if (rpcError || tokenNumber == null) {
-      console.error("[features/queue/service] Token generation RPC failed:", rpcError);
+      log.error({ event: "queue.token_generate.failed", code: errorTag(rpcError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to generate queue token." };
     }
 
@@ -97,7 +99,7 @@ export async function checkInVisit(
       .single();
 
     if (tokenInsertError || !newToken) {
-      console.error("[features/queue/service] Failed to insert queue token:", tokenInsertError);
+      log.error({ event: "queue.token_insert.failed", code: errorTag(tokenInsertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to register queue entry." };
     }
 
@@ -182,7 +184,7 @@ export async function transitionQueueState(
       .select("id");
 
     if (moveErr) {
-      console.error("[features/queue/service] transition failed:", moveErr.code ?? "unknown");
+      log.error({ event: "queue.transition.failed", code: errorTag(moveErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to transition queue state." };
     }
 
@@ -285,7 +287,7 @@ export async function getQueueForDate(
     }
 
     if (error) {
-      console.error("[features/queue/service] Failed to fetch queue visits:", error);
+      log.error({ event: "queue.list.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to load queue for date." };
     }
 

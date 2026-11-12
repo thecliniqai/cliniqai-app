@@ -4,6 +4,8 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { patientInTenant } from "@/lib/auth/tenant-refs";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -85,7 +87,7 @@ export async function grantConsent(
       .single();
 
     if (error || !data) {
-      console.error("[features/patients/consent] Failed to record consent grant:", error);
+      log.error({ event: "patients.consent_grant.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record consent." };
     }
 
@@ -138,7 +140,7 @@ export async function withdrawConsent(
       .single();
 
     if (error || !data) {
-      console.error("[features/patients/consent] Failed to record consent withdrawal:", error);
+      log.error({ event: "patients.consent_withdraw.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record consent withdrawal." };
     }
 
@@ -205,7 +207,7 @@ export async function toggleGlobalConsent(
     const { data, error } = await (supabase.from("consent_records") as any).insert(rows).select("id, consent_type");
 
     if (error || !data) {
-      console.error("[features/patients/consent] Failed to record global consent toggle:", error);
+      log.error({ event: "patients.consent_toggle.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record global consent update." };
     }
 

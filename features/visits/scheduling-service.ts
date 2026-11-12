@@ -16,6 +16,8 @@ import {
 } from "./schema";
 import { isSlotWithinShifts, getTimePartsFromISO } from "./scheduling-utils";
 import { createVisit } from "./service";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 // Scheduling use-cases (blocks, slot checks, booking). Tenant and actor come only from `ctx` (ADR-0005 D1); each
 // use-case checks the permission its server action checked before the move.
@@ -91,7 +93,7 @@ export async function createScheduleBlock(
       .single();
 
     if (insertError || !newBlock) {
-      console.error("[createScheduleBlock] Insert error:", insertError);
+      log.error({ event: "visits.schedule_block_insert.failed", code: errorTag(insertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to create schedule block." };
     }
 
@@ -110,7 +112,7 @@ export async function createScheduleBlock(
 
     return { success: true, block: newBlock as ScheduleBlock };
   } catch (err: unknown) {
-    console.error("[createScheduleBlock] Unexpected error:", err);
+    log.error({ event: "visits.schedule_block_create.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to create schedule block.",
@@ -160,7 +162,7 @@ export async function deleteScheduleBlock(ctx: ServiceContext, blockId: string):
       .eq("tenant_id", session.tenantId);
 
     if (delError) {
-      console.error("[deleteScheduleBlock] Delete error:", delError);
+      log.error({ event: "visits.schedule_block_delete_query.failed", code: errorTag(delError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to delete schedule block." };
     }
 
@@ -176,7 +178,7 @@ export async function deleteScheduleBlock(ctx: ServiceContext, blockId: string):
 
     return { success: true };
   } catch (err: unknown) {
-    console.error("[deleteScheduleBlock] Unexpected error:", err);
+    log.error({ event: "visits.schedule_block_delete.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       error: err instanceof Error ? err.message : "Failed to delete schedule block.",
@@ -221,13 +223,13 @@ export async function getScheduleBlocksForDate(
 
     const { data, error } = await query;
     if (error || !data) {
-      console.error("[getScheduleBlocksForDate] Error fetching blocks:", error ? { message: error.message, code: error.code } : "No data returned");
+      log.error({ event: "visits.schedule_blocks_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
 
     return data as ScheduleBlock[];
   } catch (err) {
-    console.error("[getScheduleBlocksForDate] Unexpected error:", err);
+    log.error({ event: "visits.schedule_blocks.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 }
@@ -280,7 +282,7 @@ export async function checkSlotAvailability(
       .maybeSingle();
 
     if (memberErr) {
-      console.error("[features/visits/scheduling-service] Availability check failed (shifts):", memberErr.message);
+      log.error({ event: "visits.availability_shifts.failed", code: errorTag(memberErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return failed;
     }
 
@@ -308,7 +310,7 @@ export async function checkSlotAvailability(
       .gte("end_time", targetStartISO);
 
     if (blocksErr) {
-      console.error("[features/visits/scheduling-service] Availability check failed (blocks):", blocksErr.message);
+      log.error({ event: "visits.availability_blocks.failed", code: errorTag(blocksErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return failed;
     }
 
@@ -351,7 +353,7 @@ export async function checkSlotAvailability(
       .not("status", "in", '("cancelled")');
 
     if (error || !visits) {
-      console.error("[features/visits/scheduling-service] Availability check failed (visits):", error?.message);
+      log.error({ event: "visits.availability_visits.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return failed;
     }
 
@@ -371,7 +373,7 @@ export async function checkSlotAvailability(
 
     return { available: true };
   } catch (err: unknown) {
-    console.error("[features/visits/scheduling-service] Slot availability error:", err instanceof Error ? err.message : err);
+    log.error({ event: "visits.availability.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return failed;
   }
 }
@@ -523,7 +525,7 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
       );
     }
   } catch (commErr) {
-    console.error("[bookAppointment] Failed to queue/dispatch appointment notification:", commErr);
+    log.error({ event: "visits.booking_notification.failed", code: errorTag(commErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     // Booking itself still succeeded
   }
 

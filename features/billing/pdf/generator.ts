@@ -8,6 +8,8 @@ import { Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uploadFile, getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
 import { ReceiptDocument, ReceiptPdfPayload } from "./receipt-document";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export interface GenerateReceiptPdfResult {
   signedUrl: string;
@@ -63,7 +65,7 @@ export async function generateAndArchiveReceiptPdf(
       },
     });
   } catch (auditErr) {
-    console.warn("[features/billing/pdf/generator] Audit log warning:", auditErr);
+    log.warn({ event: "billing.receipt_pdf_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
   }
 
   return result;
@@ -101,7 +103,7 @@ async function renderAndArchiveReceipt(
       storageProvider
     );
   } catch (uploadErr) {
-    console.error("[features/billing/pdf/generator] Upload failed:", uploadErr);
+    log.error({ event: "billing.receipt_pdf_upload.failed", code: errorTag(uploadErr), requestId: await getRequestId() });
     // Don't throw fatal error if storage upload fails in test environments lacking storage bucket;
     // can continue to return signed URL / buffer if bucket error
   }
