@@ -140,7 +140,13 @@ describe("server error branches log the event and code, never the raw error (03-
       table === "patients" && op === "insert" ? { data: null, error: phiError() } : { data: null, error: null }
     );
 
-    const result = await createPatient(ctxWith(db), { full_name: "Synthetic Patient", phone: "9000000001" });
+    const result = await createPatient(ctxWith(db), {
+      full_name: "Synthetic Patient",
+      phone: "9000000001",
+      age: null,
+      date_of_birth: null,
+      abha_id: null,
+    });
 
     expect(result).toMatchObject({ success: false, error: "Failed to register patient in clinic database." });
     // The PHI check first: before the sweep it fails on the raw text, not only on the missing event.

@@ -129,7 +129,7 @@ export async function getDoctorFrequentPrescriptions(
 
     return sortedSuggestions;
   } catch (err) {
-    log.error({ event: "ai.frequent_prescriptions.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
+    log.error({ event: "ai.frequent_prescriptions_query.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 }
