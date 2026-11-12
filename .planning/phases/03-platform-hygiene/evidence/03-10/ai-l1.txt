@@ -1,0 +1,7 @@
+ai-l1: 1344 files, 4 finding(s), 4 waived (time-boxed)
+  waived L1-R5 components/settings/developer/api-key-table.tsx:90
+  waived L1-R5 components/settings/developer/create-api-key-modal.tsx:66
+  waived L1-R5 components/settings/developer/create-api-key-modal.tsx:75
+  waived L1-R5 components/settings/developer/revoke-key-modal.tsx:47
+ai-l1: PASS
+exit=0

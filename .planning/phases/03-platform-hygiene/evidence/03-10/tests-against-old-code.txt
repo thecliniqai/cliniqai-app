@@ -1,0 +1,79 @@
+# 03-10 tests from 34d52b2 run against the pre-03-10 code (b120a2f) in a throwaway worktree
+# command: npx vitest run tests/api/webhook-ssrf.spec.ts tests/api/webhooks-outbox.spec.ts tests/ci/ai-l1-greps.spec.ts tests/storage/storage-provider.spec.ts
+   ✓ AI-06 L1 checks > fails on r1-ai-route 157ms
+   ✓ AI-06 L1 checks > fails on r1-copilot-page 149ms
+   ✓ AI-06 L1 checks > fails on r2-removed-surface 151ms
+   ✓ AI-06 L1 checks > fails on r3-test-branch 149ms
+   ✓ AI-06 L1 checks > fails on r4-sparkle-icon 144ms
+   ✓ AI-06 L1 checks > fails on r4-sparkle-alias 144ms
+   ✓ AI-06 L1 checks > fails on r4-glyph 142ms
+   ✓ AI-06 L1 checks > fails on r5-ai-copy 142ms
+   ✓ AI-06 L1 checks > fails on r6-ai-price 142ms
+   × AI-06 L1 checks > L1-R3 covers all app code, not only lib/ai and features/ai (V2-03 03-10; before: these files were out of scope) 149ms
+   ✓ AI-06 L1 checks > only the intended rule fires on the features/ai price fixture (AI alone is allowed there) 145ms
+   ✓ AI-06 L1 checks > passes LLM-feature files, comments, identifiers and price copy without AI, given a valid time-boxed exception 147ms
+   ✓ AI-06 L1 checks > the time-boxed exception is what makes that tree pass 145ms
+   ✓ AI-06 L1 checks > fails on an expired exception 154ms
+   ✓ AI-06 L1 checks > fails on a stale exception that matches nothing 144ms
+   ✓ AI-06 L1 checks > refuses to waive L1-R6 (AI next to a price or purchase action) 150ms
+[enqueueWebhookEvent] Error querying subscriptions: Error: Simulated DB Offline
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > SSRF Validator (lib/webhooks/ssrf.ts) > identifies private and loopback IPv4 addresses correctly 1ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > SSRF Validator (lib/webhooks/ssrf.ts) > identifies private and loopback IPv6 addresses correctly 2ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > SSRF Validator (lib/webhooks/ssrf.ts) > allows valid public IP addresses 0ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > SSRF Validator (lib/webhooks/ssrf.ts) > blocks endpoints attempting SSRF targeting loopback, private subnets, or metadata 0ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > SSRF Validator (lib/webhooks/ssrf.ts) > enforces HTTPS protocol by default and rejects plain HTTP 0ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > SSRF Validator (lib/webhooks/ssrf.ts) > permits valid public HTTPS destinations 0ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > HMAC Signer & Verifier (lib/webhooks/signer.ts) > generates correct Stripe-compatible header format t={timestamp},v1={hex_signature} 0ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > HMAC Signer & Verifier (lib/webhooks/signer.ts) > verifies authentic signatures within tolerance window 0ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > HMAC Signer & Verifier (lib/webhooks/signer.ts) > rejects tampered payloads 0ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > HMAC Signer & Verifier (lib/webhooks/signer.ts) > rejects wrong signing secrets 0ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > HMAC Signer & Verifier (lib/webhooks/signer.ts) > rejects expired timestamps (> 300s window) 0ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > Transactional Outbox Enqueueing (lib/webhooks/outbox.ts) > enqueues queue items with exact raw TEXT payload for matching active subscriptions 14ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > Transactional Outbox Enqueueing (lib/webhooks/outbox.ts) > does not enqueue events to unsubscribed or inactive subscriptions 11ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > Transactional Outbox Enqueueing (lib/webhooks/outbox.ts) > enqueues to multiple subscriptions when more than one is subscribed to the same event 6ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > Transactional Outbox Enqueueing (lib/webhooks/outbox.ts) > does not throw or fail calling context even if database error occurs 2ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > Webhook Dispatcher & Exponential Backoff (Task 2) > verifies exponential backoff delay calculation per D-10 1ms
+   × Webhook SSRF Protection & Signature Engine (Task 1) > Webhook Dispatcher & Exponential Backoff (Task 2) > marks queue item 'delivered' on HTTP 200 with response_status and latency 10ms
+   × Webhook SSRF Protection & Signature Engine (Task 1) > Webhook Dispatcher & Exponential Backoff (Task 2) > increments retry_count and sets next_retry_at on HTTP 500 error 6ms
+   × Webhook SSRF Protection & Signature Engine (Task 1) > Webhook Dispatcher & Exponential Backoff (Task 2) > marks status as 'failed' after 5 unsuccessful retry attempts 5ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > Webhook Dispatcher & Exponential Backoff (Task 2) > immediately fails items with SSRF violations without retrying 9ms
+   × Webhook SSRF Protection & Signature Engine (Task 1) > Dispatcher transport options (V2-03 03-10: no test-environment branch) > fails an http:// endpoint without allowHttp inside Vitest and never sends (before: allowed by the VITEST branch) 13ms
+   × Webhook SSRF Protection & Signature Engine (Task 1) > Dispatcher transport options (V2-03 03-10: no test-environment branch) > delivers to http:// only when the caller passes allowHttp 8ms
+   × Webhook SSRF Protection & Signature Engine (Task 1) > Dispatcher transport options (V2-03 03-10: no test-environment branch) > fails a hostname that resolves to a private address and never sends (before: .test hosts skipped DNS) 7ms
+   × Webhook SSRF Protection & Signature Engine (Task 1) > Dispatcher transport options (V2-03 03-10: no test-environment branch) > does not follow a redirect: a 302 to the metadata address is a failed attempt, not a delivery 6ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > Webhook Cron Recovery Endpoint (Task 2) > rejects unauthorized calls missing CRON_SECRET with HTTP 401 35ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > Webhook Cron Recovery Endpoint (Task 2) > rejects unauthorized calls with invalid Bearer token with HTTP 401 0ms
+   ✓ Webhook SSRF Protection & Signature Engine (Task 1) > Webhook Cron Recovery Endpoint (Task 2) > succeeds with valid CRON_SECRET Bearer token and returns summary with HTTP 200 3ms
+   × validateWebhookEndpoint: DNS always resolved (no test bypass) > rejects a .test host whose resolver answers a private address (before: accepted, DNS skipped under Vitest) 3ms
+   × validateWebhookEndpoint: DNS always resolved (no test bypass) > rejects an .example.com host whose resolver answers the metadata address (before: accepted) 0ms
+   × validateWebhookEndpoint: DNS always resolved (no test bypass) > accepts a host whose resolver answers only public addresses 0ms
+   × validateWebhookEndpoint: DNS always resolved (no test bypass) > rejects mixed public and private answers 0ms
+   × validateWebhookEndpoint: DNS always resolved (no test bypass) > fails closed when the resolver throws 0ms
+   × validateWebhookEndpoint: DNS always resolved (no test bypass) > fails closed on an empty or malformed answer 0ms
+   × validateWebhookEndpoint: DNS always resolved (no test bypass) > uses the system resolver when none is injected (before: skipped for .test hosts under Vitest) 1ms
+   ✓ validateWebhookEndpoint: scheme and literals > rejects http:// without allowHttp, even inside Vitest 0ms
+   × validateWebhookEndpoint: scheme and literals > accepts http:// only when the caller passes allowHttp, and still resolves the host 0ms
+   × validateWebhookEndpoint: scheme and literals > range-checks IP literals (incl. bracketed IPv6) without calling the resolver 5ms
+ FAIL  tests/storage/storage-provider.spec.ts [ tests/storage/storage-provider.spec.ts ]
+Error: Cannot find package '@aws-sdk/client-s3' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before/lib/storage/r2-provider.ts'
+Caused by: Error: Failed to load url @aws-sdk/client-s3 (resolved id: @aws-sdk/client-s3) in /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before/lib/storage/r2-provider.ts. Does the file exist?
+⎯⎯⎯⎯⎯⎯ Failed Tests 17 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected { valid: true } to deeply equal { valid: false, …(1) }
+AssertionError: expected true to be false // Object.is equality
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+AssertionError: 192.168.1.7: expected true to be false // Object.is equality
+AssertionError: expected true to be false // Object.is equality
+AssertionError: expected true to be false // Object.is equality
+AssertionError: expected "spy" to be called with arguments: [ 'hooks.example.test', …(1) ]
+AssertionError: expected "spy" to be called with arguments: [ 'hooks.example.test' ]
+AssertionError: https://[fd12::1]/x: expected true to be false // Object.is equality
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+AssertionError: expected { success: false, …(5) } to match object { success: false, …(2) }
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+AssertionError: expected { success: false, …(5) } to match object { success: false, …(2) }
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+AssertionError: expected +0 to be 1 // Object.is equality
+ Test Files  4 failed (4)
+      Tests  17 failed | 36 passed (53)
