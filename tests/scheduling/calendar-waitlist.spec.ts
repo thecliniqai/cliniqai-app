@@ -182,6 +182,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
     // Cancel original appointment
     const cancelRes = await cancelVisit(ctxFor(tenant), originalVisitId);
     expect(cancelRes.success).toBe(true);
+    if (!cancelRes.success) throw new Error(`cancelVisit failed: ${cancelRes.error}`);
     expect(cancelRes.autoPromoted).toBe(true);
     expect(cancelRes.promotedPatientId).toBe(patient3Id);
     expect(cancelRes.replacementVisitId).toBeDefined();

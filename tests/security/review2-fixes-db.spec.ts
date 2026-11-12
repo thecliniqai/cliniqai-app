@@ -11,6 +11,7 @@ import { POST as postRescheduleRoute } from "@/app/api/reschedule/[token]/route"
 import { generateRescheduleToken } from "@/features/appointments/system";
 import * as dispatcher from "@/lib/messaging/dispatcher";
 import { ctxFor } from "../helpers/context";
+import { consultationDraftInput } from "../helpers/fixtures";
 import { transitionQueueState } from "@/features/queue/service";
 import { deleteLabDocument } from "@/features/labs/service";
 import { saveConsultationDraft, completeAndSignConsultation } from "@/features/consultation/service";
@@ -468,7 +469,10 @@ describe("01-09 review round 2 fixes (000022)", () => {
   describe("IR2-L1: Sign & Bill resumes at billing after a partial failure", () => {
     async function draftedVisit(): Promise<string> {
       const visitId = await freshVisit(A, "in_consultation");
-      const saved = await saveConsultationDraft(ctxFor(A.doctor), { visit_id: visitId, clinical_notes: "Synthetic note." });
+      const saved = await saveConsultationDraft(
+        ctxFor(A.doctor),
+        consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." })
+      );
       if (!saved.success) throw new Error("draft seed failed");
       return visitId;
     }

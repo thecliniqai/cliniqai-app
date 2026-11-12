@@ -51,6 +51,35 @@ describe("Doctor & Staff Profile Schemas (NMC Regulations & Multi-Doctor Practic
         expect(result.data.owner_is_practicing_doctor).toBe(false);
       }
     });
+
+    // Moved from the deleted tests/cabin/navigation-roles.spec.ts (V2-02 02-04): the only case there that exercised
+    // app code.
+    it("validates clinic profile settings with practicing owner and OPD fees", () => {
+      const validData = {
+        name: "Sunrise Family Clinic",
+        address: "123 Main Road, Pune",
+        specialties: ["General Physician"],
+        timezone: "Asia/Kolkata",
+        owner_is_practicing_doctor: true,
+        default_consultation_fee: 600,
+        default_followup_fee: 350,
+        accepted_payment_methods: ["cash", "upi"],
+      };
+
+      const parsed = clinicSettingsSchema.safeParse(validData);
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data.owner_is_practicing_doctor).toBe(true);
+        expect(parsed.data.default_consultation_fee).toBe(600);
+        expect(parsed.data.accepted_payment_methods).toEqual(["cash", "upi"]);
+      }
+
+      // Negative fee rejection
+      expect(clinicSettingsSchema.safeParse({ ...validData, default_consultation_fee: -100 }).success).toBe(false);
+
+      // Empty payment methods rejection
+      expect(clinicSettingsSchema.safeParse({ ...validData, accepted_payment_methods: [] }).success).toBe(false);
+    });
   });
 
   describe("userProfileSchema (My Profile)", () => {

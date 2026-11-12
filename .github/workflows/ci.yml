@@ -45,8 +45,10 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: Typecheck
+      - name: Typecheck (app tsconfig.json + tests tsconfig.tests.json)
         run: npm run typecheck
+      - name: No doc-grep tests (TEST_STRATEGY §9.6)
+        run: node scripts/ci/assert-no-doc-grep-tests.mjs
       - name: Lint (errors fail; warnings reported)
         run: npm run lint
       - name: Server-action inventory (F14; exits 1 on any flag)

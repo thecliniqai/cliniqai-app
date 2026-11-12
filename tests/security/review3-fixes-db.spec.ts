@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
+import { consultationDraftInput } from "../helpers/fixtures";
 import { enqueueMessage, dispatchQueuedMessage, dispatchPendingQueue } from "@/lib/messaging/dispatcher";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/service";
 import { shareLabReportViaWhatsApp } from "@/features/labs/service";
@@ -364,10 +365,10 @@ describe("01-10 review round 3 fixes (000024)", () => {
         scheduled_at: new Date(Date.now() + 5 * 86_400_000).toISOString(),
         created_by: A.owner.userId,
       });
-      const saved = await saveConsultationDraft(ctxFor(A.members.doctor), {
-        visit_id: visitId,
-        clinical_notes: "Synthetic note.",
-      });
+      const saved = await saveConsultationDraft(
+        ctxFor(A.members.doctor),
+        consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." })
+      );
       if (!saved.success) throw new Error("draft seed failed");
       return visitId;
     }

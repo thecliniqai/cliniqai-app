@@ -4,6 +4,7 @@ import { formatAmendedFilename } from "@/features/labs/utils";
 import { uploadLabDocumentSchema } from "@/features/labs/schema";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
+import { consultationDraftInput } from "../helpers/fixtures";
 
 describe("Lab Reports & Records Management (REQ-lab-records)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -135,8 +136,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
       formData.set("report_date", "2026-10-22");
 
       const uploadRes = await uploadLabDocument(ctxFor(tenantA), formData);
-      expect(uploadRes.success).toBe(false);
-      expect(uploadRes.error).toContain("25MB");
+      expect(uploadRes).toMatchObject({ success: false, error: expect.stringContaining("25MB") });
     });
   });
 
@@ -198,11 +198,11 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
 
       const draftRes = await saveConsultationDraft(
         ctxFor(tenantA),
-        {
+        consultationDraftInput({
           visit_id: visitId,
           investigations_advised: advisedTests,
           clinical_notes: "Routine diabetic workup and lipid screening advised.",
-        }
+        })
       );
 
       expect(draftRes.success).toBe(true);

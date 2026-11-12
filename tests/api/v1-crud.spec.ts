@@ -10,7 +10,7 @@ import {
 } from "@/app/api/v1/appointments/[id]/route";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getAdminClient } from "../helpers/supabase-admin";
 import { enableApiV1ForFile } from "../helpers/api-v1";
 
 enableApiV1ForFile();

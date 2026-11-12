@@ -350,7 +350,7 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
           doctor_id: "22222222-2222-4222-8222-222222222222",
           status: "booked",
           scheduled_at: "2026-10-19T04:30:00.000Z",
-          metadata: {},
+          metadata: {} as Record<string, unknown>,
         },
       ];
 

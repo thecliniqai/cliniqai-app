@@ -76,6 +76,12 @@ const URL_VARS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_APP_U
 /** Fragments that identify hosted services anywhere in any variable's value. */
 const HOSTED_MARKERS = [".supabase.co", ".supabase.in", ".supabase.net", "r2.cloudflarestorage.com", "pooler.supabase"];
 
+/**
+ * The environment the guard reads and fills: `process.env` or a plain map in the guard's own tests. Wider than
+ * `NodeJS.ProcessEnv`, whose Next.js augmentation makes `NODE_ENV` required.
+ */
+export type EnvMap = Record<string, string | undefined>;
+
 export class TestEnvGuardError extends Error {
   constructor(public readonly problems: string[]) {
     super(
@@ -106,7 +112,7 @@ export function parseEnvFile(content: string): Record<string, string> {
  * Fill unset variables from `.env.test`. Never touches `.env`. Returns the parsed file so callers can compare.
  * Throws if `.env.test` is missing: the lane must not silently fall back to anything else.
  */
-export function loadTestEnv(rootDir: string, env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+export function loadTestEnv(rootDir: string, env: EnvMap = process.env): Record<string, string> {
   const file = path.join(rootDir, TEST_ENV_FILE);
   if (!fs.existsSync(file)) {
     throw new TestEnvGuardError([`${TEST_ENV_FILE} not found at ${file}`]);
@@ -138,7 +144,7 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | null 
  */
 export function loadLocalStackKeys(
   rootDir: string,
-  env: NodeJS.ProcessEnv = process.env,
+  env: EnvMap = process.env,
   readStatus: (cwd: string) => string = defaultReadStatus,
 ): void {
   if (env.NEXT_PUBLIC_SUPABASE_ANON_KEY && env.SUPABASE_SERVICE_ROLE_KEY) return;
@@ -178,7 +184,7 @@ function hostOf(value: string): string | null {
 }
 
 /** Collect every reason the environment is not the local test stack. Empty array = safe. */
-export function findTestEnvProblems(env: NodeJS.ProcessEnv): string[] {
+export function findTestEnvProblems(env: EnvMap): string[] {
   const problems: string[] = [];
 
   if (!env.NEXT_PUBLIC_SUPABASE_URL) problems.push("NEXT_PUBLIC_SUPABASE_URL is not set");
@@ -248,7 +254,7 @@ export function findTestEnvProblems(env: NodeJS.ProcessEnv): string[] {
 }
 
 /** Throw unless the environment is the local test stack. Never prints values of secrets. */
-export function assertLocalTestEnv(env: NodeJS.ProcessEnv = process.env): void {
+export function assertLocalTestEnv(env: EnvMap = process.env): void {
   const problems = findTestEnvProblems(env);
   if (problems.length) throw new TestEnvGuardError(problems);
 }

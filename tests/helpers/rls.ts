@@ -36,9 +36,9 @@ export async function assertRlsCatalog(): Promise<{
 }> {
   const admin = getAdminClient();
 
-  const { data, error } = await admin
-    .rpc("get_tenant_table_rls_policies")
-    .returns<PolicyCatalogRow[]>();
+  const { data: rawData, error } = await admin.rpc("get_tenant_table_rls_policies");
+  // The RPC returns SETOF rows; the TestDb seam (./db.ts) leaves its result untyped, so name the row shape here.
+  const data = rawData as PolicyCatalogRow[] | null;
 
   if (error) {
     throw new Error(

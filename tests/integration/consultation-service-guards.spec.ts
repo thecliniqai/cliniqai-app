@@ -15,7 +15,8 @@ import {
   finalizeVisitAmendment,
 } from "@/features/consultation/service";
 import { completeAndBillConsultation } from "@/features/billing/service";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getAdminClient } from "../helpers/supabase-admin";
+import { consultationDraftInput, vitalsWithForgedRecorder } from "../helpers/fixtures";
 
 describe("consultation service guards (01-01c)", () => {
   let owner: SeededTenant;
@@ -67,11 +68,14 @@ describe("consultation service guards (01-01c)", () => {
   describe("F6: vitals attribution in saveConsultationDraft", () => {
     it("ignores a caller-sent recorded_by and attributes new measurements to the acting doctor", async () => {
       const visitId = await newVisit();
-      const res = await saveConsultationDraft(ctxFor(doctor), {
-        visit_id: visitId,
-        vitals: { systolic: 128, diastolic: 84, pulse: 72, recorded_by: nurse.userId },
-        clinical_notes: "Synthetic note.",
-      });
+      const res = await saveConsultationDraft(
+        ctxFor(doctor),
+        consultationDraftInput({
+          visit_id: visitId,
+          vitals: vitalsWithForgedRecorder({ systolic: 128, diastolic: 84, pulse: 72 }, nurse.userId),
+          clinical_notes: "Synthetic note.",
+        })
+      );
       expect(res.success).toBe(true);
 
       const vitals = await storedVitals(visitId);
@@ -85,11 +89,14 @@ describe("consultation service guards (01-01c)", () => {
       expect(recorded.success).toBe(true);
       expect((await storedVitals(visitId)).recorded_by).toBe(nurse.userId);
 
-      const res = await saveConsultationDraft(ctxFor(doctor), {
-        visit_id: visitId,
-        vitals: { systolic: 118, diastolic: 76, pulse: 70, recorded_by: owner.userId },
-        clinical_notes: "Synthetic note.",
-      });
+      const res = await saveConsultationDraft(
+        ctxFor(doctor),
+        consultationDraftInput({
+          visit_id: visitId,
+          vitals: vitalsWithForgedRecorder({ systolic: 118, diastolic: 76, pulse: 70 }, owner.userId),
+          clinical_notes: "Synthetic note.",
+        })
+      );
       expect(res.success).toBe(true);
       expect((await storedVitals(visitId)).recorded_by).toBe(nurse.userId);
     });
@@ -98,11 +105,14 @@ describe("consultation service guards (01-01c)", () => {
       const visitId = await newVisit();
       await recordVisitVitals(ctxFor(nurse), visitId, { systolic: 118, diastolic: 76, pulse: 70 });
 
-      const res = await saveConsultationDraft(ctxFor(doctor), {
-        visit_id: visitId,
-        vitals: { systolic: 124, diastolic: 76, pulse: 70, recorded_by: nurse.userId },
-        clinical_notes: "Synthetic note.",
-      });
+      const res = await saveConsultationDraft(
+        ctxFor(doctor),
+        consultationDraftInput({
+          visit_id: visitId,
+          vitals: vitalsWithForgedRecorder({ systolic: 124, diastolic: 76, pulse: 70 }, nurse.userId),
+          clinical_notes: "Synthetic note.",
+        })
+      );
       expect(res.success).toBe(true);
       const vitals = await storedVitals(visitId);
       expect(vitals.systolic).toBe(124);
@@ -113,7 +123,7 @@ describe("consultation service guards (01-01c)", () => {
   describe("permission checks inside the services", () => {
     it("denies receptionist and nurse sign-off, reopen and finalize; the visit is unchanged", async () => {
       const visitId = await newVisit();
-      await saveConsultationDraft(ctxFor(doctor), { visit_id: visitId, clinical_notes: "Synthetic note." });
+      await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
 
       for (const actor of [receptionist, nurse]) {
         expect((await completeAndSignConsultation(ctxFor(actor), visitId)).success).toBe(false);
@@ -130,7 +140,7 @@ describe("consultation service guards (01-01c)", () => {
 
     it("denies completeAndBillConsultation to a nurse before any invoice is written", async () => {
       const visitId = await newVisit();
-      await saveConsultationDraft(ctxFor(doctor), { visit_id: visitId, clinical_notes: "Synthetic note." });
+      await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
 
       const res = await completeAndBillConsultation(ctxFor(nurse), {
         visit_id: visitId,
@@ -149,7 +159,7 @@ describe("consultation service guards (01-01c)", () => {
 
     it("lets the doctor sign and bill; signer and audit actor are the session doctor", async () => {
       const visitId = await newVisit();
-      await saveConsultationDraft(ctxFor(doctor), { visit_id: visitId, clinical_notes: "Synthetic note." });
+      await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
 
       const res = await completeAndBillConsultation(ctxFor(doctor), {
         visit_id: visitId,
@@ -211,7 +221,7 @@ describe("consultation service guards (01-01c)", () => {
 
     it("emits visit.completed with the visit's patient_id and the visit doctor (not the signer)", async () => {
       const visitId = await newVisit();
-      await saveConsultationDraft(ctxFor(owner), { visit_id: visitId, clinical_notes: "Synthetic note." });
+      await saveConsultationDraft(ctxFor(owner), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
 
       // The owner signs a visit assigned to `doctor`.
       const res = await completeAndSignConsultation(ctxFor(owner), visitId);
@@ -233,7 +243,7 @@ describe("consultation service guards (01-01c)", () => {
 
     it("refuses a second sign-off: signer, signed_at and the outbox are unchanged", async () => {
       const visitId = await newVisit();
-      await saveConsultationDraft(ctxFor(doctor), { visit_id: visitId, clinical_notes: "Synthetic note." });
+      await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
       expect((await completeAndSignConsultation(ctxFor(doctor), visitId)).success).toBe(true);
 
       const { data: before } = await owner.client
@@ -263,7 +273,7 @@ describe("consultation service guards (01-01c)", () => {
 
     it("refuses to sign a visit reopened for amendment (signed_at still set)", async () => {
       const visitId = await newVisit();
-      await saveConsultationDraft(ctxFor(doctor), { visit_id: visitId, clinical_notes: "Synthetic note." });
+      await saveConsultationDraft(ctxFor(doctor), consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." }));
       expect((await completeAndSignConsultation(ctxFor(doctor), visitId)).success).toBe(true);
       expect(
         (await reopenVisitForAmendment(ctxFor(doctor), visitId, "Synthetic amendment reason text")).success

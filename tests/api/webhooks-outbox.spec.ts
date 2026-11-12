@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { validateWebhookEndpoint, isPrivateIp } from "@/lib/webhooks/ssrf";
 import { generateWebhookSignature, verifyWebhookSignature } from "@/lib/webhooks/signer";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { enqueueWebhookEvent, type WebhookDb } from "@/lib/webhooks/outbox";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getAdminClient } from "../helpers/supabase-admin";
 import crypto from "crypto";
 
 describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
@@ -264,7 +264,8 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       };
 
       const result = await enqueueWebhookEvent(
-        brokenClient,
+        // Partial test double: only the query chain enqueueWebhookEvent walks before it sees the error.
+        brokenClient as unknown as WebhookDb,
         "invalid-tenant-id",
         "appointment.booked",
         { dummy: "payload" }

@@ -11,6 +11,10 @@
  *
  * FLOOR history (update in the same commit that legitimately removes tests, with the arithmetic):
  *   1100 — V2-02 02-01 (full suite at 60d8db0 had 1128 tests).
+ *   1100 — V2-02 02-04, unchanged: −13 deleted (T-12: cabin/navigation-roles 5, queue/status-actions 5,
+ *          ops/backup-restore 3), +1 (the one real case from navigation-roles moved to settings/profile-and-credentials),
+ *          +1 visit-history and +1 clinic-visits-register (mock "isolation" cases rewritten as DB cases, dual-tenant
+ *          user added), +7 tests/ci/doc-grep-gate, +3 tests/ci/tests-typecheck = net 0.
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>]
  * Exit 0 = pass, 1 = gate failure, 2 = usage or unreadable report.

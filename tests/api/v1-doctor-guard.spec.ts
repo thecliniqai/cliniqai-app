@@ -11,7 +11,7 @@ import { GET as getReferrals, POST as createReferral } from "@/app/api/v1/referr
 import { GET as getReferralById, PATCH as patchReferralById } from "@/app/api/v1/referrals/[id]/route";
 import { seedTenantWithOwner, addMemberToTenant, createUnlinkedUser } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getAdminClient } from "../helpers/supabase-admin";
 import { enableApiV1ForFile } from "../helpers/api-v1";
 
 enableApiV1ForFile();

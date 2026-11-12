@@ -12,6 +12,7 @@ import {
   loadLocalStackKeys,
   parseEnvFile,
   TestEnvGuardError,
+  type EnvMap,
 } from "./test-env";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -25,8 +26,8 @@ function fakeJwt(payload: Record<string, unknown>): string {
 const LOCAL_ANON = fakeJwt({ iss: "supabase-demo", role: "anon" });
 const LOCAL_SERVICE = fakeJwt({ iss: "supabase-demo", role: "service_role" });
 
-function safeEnv(overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
+function safeEnv(overrides: Record<string, string | undefined> = {}): EnvMap {
+  const env: EnvMap = {
     NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: LOCAL_ANON,
     SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE,
@@ -144,7 +145,7 @@ describe("test-env guard rules", () => {
 
 describe("local stack key loading", () => {
   it("fills keys from `supabase status` output and nothing else", () => {
-    const env: NodeJS.ProcessEnv = {};
+    const env: EnvMap = {};
     loadLocalStackKeys(ROOT, env, () => `ANON_KEY="${LOCAL_ANON}"\nSERVICE_ROLE_KEY="${LOCAL_SERVICE}"\nAPI_URL="x"\n`);
     expect(env.NEXT_PUBLIC_SUPABASE_ANON_KEY).toBe(LOCAL_ANON);
     expect(env.SUPABASE_SERVICE_ROLE_KEY).toBe(LOCAL_SERVICE);
