@@ -67,6 +67,7 @@ describe("the disabled provider (R-16)", () => {
     fs.rmSync(DEV_MESSAGES, { force: true });
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const logSpy = vi.spyOn(console, "log");
+    const stdoutSpy = vi.spyOn(process.stdout, "write");
     const provider: MessagingProvider = new DisabledMessagingProvider();
 
     const sms = await provider.sendSms("+919800000001", "appointment_booked", { patient_name: "Synthetic" });
@@ -76,6 +77,8 @@ describe("the disabled provider (R-16)", () => {
     expect(wa).toEqual({ success: false, channelUsed: "whatsapp", error: PROVIDER_DISABLED, retryable: false });
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(logSpy).not.toHaveBeenCalled();
+    // The dev provider logs through lib/log (03-09c): the disabled one must not write its line either.
+    expect(stdoutSpy.mock.calls.map((call) => String(call[0])).join("")).not.toContain("messaging.dev.recorded");
     expect(fs.existsSync(DEV_MESSAGES)).toBe(false);
   });
 });

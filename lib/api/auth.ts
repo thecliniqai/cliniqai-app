@@ -5,6 +5,8 @@ import { Database } from "@/lib/db/types";
 import { apiError, ApiErrorResponse } from "@/lib/api/envelope";
 import type { ServiceContext } from "@/lib/auth/context";
 import { apiV1Enabled } from "@/lib/api/enabled";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * The plain 404 the `/api/v1` switch answers with (same as the middleware: empty body, nothing that reveals the API).
@@ -153,7 +155,7 @@ export async function authenticateApiKey(
         });
     }
   } catch (usageErr) {
-    console.error("[lib/api/auth] Failed to record usage counter:", usageErr);
+    log.error({ event: "api.usage_counter.failed", code: errorTag(usageErr), requestId: await getRequestId(), tenantId: keyRecord.tenant_id });
   }
 
   return {

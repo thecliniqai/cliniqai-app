@@ -6,6 +6,7 @@ import {
 } from "@/lib/db/types";
 import { getMessagingProvider } from "./index";
 import { InteractiveButton, MessagingProvider } from "./types";
+import { errorTag, log } from "@/lib/log";
 
 export interface EnqueueMessageInput {
   tenantId: string;
@@ -207,7 +208,7 @@ export async function dispatchQueuedMessage(
         },
       });
     } catch (auditErr) {
-      console.warn("[dispatchQueuedMessage] Failed to record audit log:", auditErr);
+      log.warn({ event: "messaging.dispatch_audit.failed", code: errorTag(auditErr), tenantId: item.tenant_id });
     }
     return outcome;
   }

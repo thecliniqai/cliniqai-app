@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { WebhookDeliveryItem } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
 
 export interface EnqueueWebhookOptions {
   subscriptionId?: string;
@@ -53,7 +54,7 @@ export async function enqueueWebhookEvent(
     const { data: subscriptions, error: subError } = await (query as any);
 
     if (subError) {
-      console.error("[enqueueWebhookEvent] Error querying subscriptions:", subError);
+      log.error({ event: "webhooks.enqueue_subscriptions.failed", code: errorTag(subError), tenantId });
       return [];
     }
 
@@ -89,7 +90,7 @@ export async function enqueueWebhookEvent(
       .select();
 
     if (insertError || !inserted) {
-      console.error("[enqueueWebhookEvent] Error inserting into webhook_delivery_queue:", insertError);
+      log.error({ event: "webhooks.enqueue_insert.failed", code: errorTag(insertError), tenantId });
       return [];
     }
 
@@ -101,7 +102,7 @@ export async function enqueueWebhookEvent(
         .then(({ dispatchWebhookQueueItem }) => {
           for (const item of createdItems) {
             dispatchWebhookQueueItem(db, item.id).catch((err) => {
-              console.warn(`[enqueueWebhookEvent] Background dispatch error for ${item.id}:`, err);
+              log.warn({ event: "webhooks.background_dispatch.failed", code: errorTag(err), tenantId });
             });
           }
         })
@@ -114,7 +115,7 @@ export async function enqueueWebhookEvent(
 
     return createdItems;
   } catch (err) {
-    console.error("[enqueueWebhookEvent] Unexpected exception:", err);
+    log.error({ event: "webhooks.enqueue.failed", code: errorTag(err), tenantId });
     return [];
   }
 }

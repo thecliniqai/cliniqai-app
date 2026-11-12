@@ -9,7 +9,7 @@
  */
 import { sanitiseFields, type LogFields, type LogLevel } from "./fields";
 
-export { errorTag } from "@/lib/errors/client-message";
+export { errorTag } from "@/lib/errors/error-tag";
 export type { LogFields, LogLevel } from "./fields";
 
 function write(level: LogLevel, fields: LogFields): void {

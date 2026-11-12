@@ -137,7 +137,7 @@ describe("getRequestId and the v1 envelope", () => {
   });
 
   it("the 5xx envelope's correlation_id is the request id", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true); // the 5xx log line (lib/log, 03-09c)
     requestHeaders.current = new Headers({ [REQUEST_ID_HEADER]: ID });
     const res = await apiError("DATABASE_ERROR", "Key (phone)=(+919000000001) already exists", 500);
     const body = await res.json();
@@ -146,7 +146,7 @@ describe("getRequestId and the v1 envelope", () => {
   });
 
   it("outside a request scope the envelope still gets a fresh UUID", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true); // the 5xx log line (lib/log, 03-09c)
     const res = await apiError("INTERNAL_ERROR", "boom", 500);
     expect((await res.json()).error.correlation_id).toMatch(UUID);
   });

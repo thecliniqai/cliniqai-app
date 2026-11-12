@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { errorTag, log } from "@/lib/log";
 import {
   InteractiveButton,
   MessagingProvider,
@@ -28,7 +29,8 @@ export class DevLoggerProvider implements MessagingProvider {
       `${bannerBorder}\n`,
     ].join("\n");
 
-    console.log(lines);
+    // Recipient, template and parameters go only to the dev-only file below; the log line carries no message data.
+    log.info({ event: "messaging.dev.recorded", action: "sms", count: 1 });
     this.appendToFile(lines);
 
     return {
@@ -65,7 +67,7 @@ export class DevLoggerProvider implements MessagingProvider {
       .filter(Boolean)
       .join("\n");
 
-    console.log(lines);
+    log.info({ event: "messaging.dev.recorded", action: "whatsapp", count: 1 });
     this.appendToFile(lines);
 
     return {
@@ -84,7 +86,7 @@ export class DevLoggerProvider implements MessagingProvider {
       const logFilePath = path.join(logDir, "dev-messages.txt");
       fs.appendFileSync(logFilePath, content + "\n", "utf8");
     } catch (err) {
-      console.warn("[DevLoggerProvider] Failed to write to .planning/dev-messages.txt:", err);
+      log.warn({ event: "messaging.dev.write_failed", code: errorTag(err) });
     }
   }
 }

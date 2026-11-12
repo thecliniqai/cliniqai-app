@@ -5,7 +5,7 @@
  * Development: one `console.warn` with the event and the error's log-safe tag (code or class name, never its message).
  * Production build: a no-op. `NODE_ENV` is inlined by the bundler at build time; it is the only environment value read.
  */
-import { errorTag } from "@/lib/errors/client-message";
+import { errorTag } from "@/lib/errors/error-tag";
 
 export function reportClientError(event: `${string}.${string}`, err: unknown): void {
   if (process.env.NODE_ENV !== "development") return;

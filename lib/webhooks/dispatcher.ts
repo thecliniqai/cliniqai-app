@@ -1,6 +1,7 @@
 import type { WebhookDb } from "./outbox";
 import { validateWebhookEndpoint, type HostResolver } from "./ssrf";
 import { generateWebhookSignature } from "./signer";
+import { errorTag, log } from "@/lib/log";
 
 export interface WebhookDispatchResult {
   success: boolean;
@@ -269,7 +270,7 @@ export async function dispatchPendingWebhookQueue(
     .limit(limit);
 
   if (error || !dueItems) {
-    console.error("[dispatchPendingWebhookQueue] Query error:", error);
+    log.error({ event: "webhooks.queue_query.failed", code: errorTag(error) });
     return { processed: 0, delivered: 0, retried: 0, failed: 0 };
   }
 
@@ -292,7 +293,7 @@ export async function dispatchPendingWebhookQueue(
         retried++;
       }
     } catch (itemErr) {
-      console.error(`[dispatchPendingWebhookQueue] Error processing item ${item.id}:`, itemErr);
+      log.error({ event: "webhooks.queue_item.failed", code: errorTag(itemErr) });
       failed++;
     }
   }

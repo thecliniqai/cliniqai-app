@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { log } from "@/lib/log";
 import { getRequestId, newRequestId } from "@/lib/log/request-id";
 
 export interface ApiSuccessResponse<T> {
@@ -53,7 +54,8 @@ export async function apiError(
 
   // Sanitize 5xx and internal database errors to prevent leaking schema or SQL errors
   if (status >= 500 || code === "DATABASE_ERROR" || code === "INTERNAL_ERROR") {
-    console.error(`[api-v1] Error ${correlationId} [${code}]:`, message, details);
+    // The message and details can carry row values (e.g. "Key (phone)=(...)"): the log gets the envelope code only.
+    log.error({ event: "api.v1.failed", requestId: correlationId, reason: code, status });
     sanitizedMessage = "An internal database error occurred.";
     sanitizedDetails = undefined;
   }

@@ -9,6 +9,8 @@ import {
   NoClinicMembershipError,
 } from "@/lib/auth/tenant";
 import { assertPerm, PermissionDeniedError, type Permission } from "@/lib/permissions";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /** Fixed answer for a context failure that is not one of the known, safe-to-show cases (IR-L1). */
 export const CONTEXT_FAILURE_MESSAGE = "We could not verify your clinic access. Please try again.";
@@ -74,7 +76,7 @@ export async function resolveServiceContext(permission?: Permission): Promise<Se
     if (err instanceof NoClinicMembershipError || err instanceof MultipleClinicsSelectionRequiredError) {
       return { ok: false, error: err.message, reason: "no_membership" };
     }
-    console.error("[lib/auth/context] resolveServiceContext failed:", err instanceof Error ? err.name : "error");
+    log.error({ event: "auth.context_resolve.failed", code: errorTag(err), requestId: await getRequestId() });
     return { ok: false, error: CONTEXT_FAILURE_MESSAGE, reason: "no_membership" };
   }
 }
