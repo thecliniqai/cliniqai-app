@@ -73,6 +73,15 @@ test.describe("R8 blocking: V2-01 auth pages", () => {
         await page.setViewportSize(size);
         await page.goto(authPage.path);
         await authPage.ready(page);
+        // Credential forms keep submit disabled until hydration, then fade it in (150 ms opacity transition).
+        // Scan the settled page the user sees, not a frame mid-transition (02-06 hydration guard).
+        const submits = page.locator('button[type="submit"]');
+        if (await submits.count()) {
+          await expect(submits.first()).toBeEnabled();
+          await expect
+            .poll(() => submits.first().evaluate((el) => getComputedStyle(el).opacity))
+            .toBe("1");
+        }
 
         const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
         await attach(testInfo, `${authPage.name}-${size.width}`, results);

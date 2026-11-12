@@ -11,6 +11,7 @@ import { AuthMobileBrand, FormMessage, PasswordInput } from "@/components/auth/a
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hydrated = useHydrated();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +58,7 @@ export default function LoginPage() {
 
           <FormMessage id="login-error" tone="error" message={error} />
 
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate aria-describedby="login-error">
+          <form method="post" onSubmit={handleSubmit} className="space-y-4" noValidate aria-describedby="login-error">
             <Field label="Email" htmlFor="email" required>
               <Input
                 id="email"
@@ -97,7 +99,7 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <Button type="submit" variant="primary" loading={loading} className="w-full h-11 text-sm font-semibold">
+            <Button type="submit" variant="primary" loading={loading} disabled={!hydrated} className="w-full h-11 text-sm font-semibold">
               Sign in
             </Button>
           </form>
