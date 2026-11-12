@@ -469,6 +469,7 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
       const doctorName = formatDoctorDisplayName(doctorMember?.full_name);
 
       await enqueueMessage(
+        supabase,
         {
           tenantId: session.tenantId,
           patientId: data.patient_id,
@@ -489,8 +490,7 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
               { id: "btn_reschedule", text: "Reschedule" },
             ],
           },
-        },
-        supabase
+        }
       );
     }
   } catch (commErr) {

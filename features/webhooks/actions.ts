@@ -241,6 +241,7 @@ export async function testPingWebhook(
 
     // Enqueue ping item targeting this subscription
     const enqueued = await enqueueWebhookEvent(
+      supabase,
       session.tenantId,
       "ping",
       {
@@ -248,10 +249,7 @@ export async function testPingWebhook(
         message: "Webhook verification ping from ClinicQ Developer Settings",
         timestamp: new Date().toISOString(),
       },
-      {
-        subscriptionId,
-        clientOverride: supabase,
-      }
+      { subscriptionId }
     );
 
     if (!enqueued || enqueued.length === 0) {
@@ -259,7 +257,7 @@ export async function testPingWebhook(
     }
 
     // Immediately dispatch
-    const result = await dispatchWebhookQueueItem(enqueued[0].id, supabase);
+    const result = await dispatchWebhookQueueItem(supabase, enqueued[0].id);
 
     return {
       success: result.success,

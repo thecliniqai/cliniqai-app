@@ -88,41 +88,41 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
 
   describe("1. validateDoctorAssignment Validator Function", () => {
     it("returns false if doctorId is empty or whitespace", async () => {
-      const res1 = await validateDoctorAssignment(clinicA.tenantId, "");
+      const res1 = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, "");
       expect(res1.valid).toBe(false);
       expect(res1.error).toContain("required");
 
-      const res2 = await validateDoctorAssignment(clinicA.tenantId, "   ");
+      const res2 = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, "   ");
       expect(res2.valid).toBe(false);
     });
 
     it("returns false if user is not a member of the clinic", async () => {
-      const res = await validateDoctorAssignment(clinicA.tenantId, unlinkedUser.userId);
+      const res = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, unlinkedUser.userId);
       expect(res.valid).toBe(false);
       expect(res.error).toContain("not found");
     });
 
     it("returns false if user belongs to another clinic (tenant isolation)", async () => {
-      const res = await validateDoctorAssignment(clinicA.tenantId, doctorB.userId);
+      const res = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, doctorB.userId);
       expect(res.valid).toBe(false);
       expect(res.error).toContain("not found");
     });
 
     it("returns false if user has receptionist or nurse role (T-06-05)", async () => {
-      const resRecep = await validateDoctorAssignment(clinicA.tenantId, receptionistA.userId);
+      const resRecep = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, receptionistA.userId);
       expect(resRecep.valid).toBe(false);
       expect(resRecep.error).toContain("receptionist");
 
-      const resNurse = await validateDoctorAssignment(clinicA.tenantId, nurseA.userId);
+      const resNurse = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, nurseA.userId);
       expect(resNurse.valid).toBe(false);
       expect(resNurse.error).toContain("nurse");
     });
 
     it("returns true if user has doctor or owner role", async () => {
-      const resDoc = await validateDoctorAssignment(clinicA.tenantId, doctorA.userId);
+      const resDoc = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, doctorA.userId);
       expect(resDoc.valid).toBe(true);
 
-      const resOwner = await validateDoctorAssignment(clinicA.tenantId, clinicA.userId);
+      const resOwner = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, clinicA.userId);
       expect(resOwner.valid).toBe(true);
     });
   });

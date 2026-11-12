@@ -12,7 +12,7 @@ import { recordAuditLegacy } from "@/lib/audit/audit";
  * Filters: patient_id, status, referral_type. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
  * Enforces patient_consents_history_sharing for in-network referrals (T-06-08).
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Enforce Doctor Guard on referring clinician (D-05, T-06-05)
-    const doctorCheck = await validateDoctorAssignment(session.tenantId, referring_doctor_id, admin);
+    const doctorCheck = await validateDoctorAssignment(admin, session.tenantId, referring_doctor_id);
     if (!doctorCheck.valid) {
       return apiError(
         "FORBIDDEN_CLINICIAN",

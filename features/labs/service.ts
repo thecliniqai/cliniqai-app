@@ -150,14 +150,14 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
     // 8. Enqueue webhook event: lab_result.ready
     try {
       await enqueueWebhookEvent(
+        supabase,
         session.tenantId,
         "lab_result.ready",
         {
           document_id: newDoc.id,
           patient_id: newDoc.patient_id,
           title: newDoc.title,
-        },
-        supabase
+        }
       );
     } catch (webhookErr) {
       console.warn("[uploadLabDocument] Failed to enqueue webhook event:", webhookErr);
@@ -462,6 +462,7 @@ export async function shareLabReportViaWhatsApp(
 
     // 3. Enqueue Event #7 (lab_report_uploaded)
     await enqueueMessage(
+      supabase,
       {
         tenantId: session.tenantId,
         patientId: doc.patient_id,
@@ -480,8 +481,7 @@ export async function shareLabReportViaWhatsApp(
           share_token: token,
           share_url: shareUrl,
         },
-      },
-      supabase
+      }
     );
 
     // 4. Record audit log

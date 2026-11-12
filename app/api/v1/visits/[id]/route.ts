@@ -14,7 +14,7 @@ interface RouteParams {
  * Retrieve detailed clinical visit record scoped strictly to active tenant.
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  * is requested, at least one diagnosis or clinical note must exist.
  */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }

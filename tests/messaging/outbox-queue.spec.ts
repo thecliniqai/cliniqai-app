@@ -134,6 +134,7 @@ describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02
       };
 
       const item = await enqueueMessage(
+        mockClient,
         {
           tenantId: "tenant-1",
           patientId: "patient-1",
@@ -141,8 +142,7 @@ describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02
           messageType: "appointment_booked",
           templateId: "appointment_booked_en",
           recipientPhone: "+919876543210",
-        },
-        mockClient
+        }
       );
 
       expect(item.id).toBe("queue-123");
@@ -196,8 +196,7 @@ describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02
         }),
       };
 
-      const summary = await dispatchPendingQueue({
-        clientOverride: mockClient,
+      const summary = await dispatchPendingQueue(mockClient, {
         providerName: "dev",
       });
 

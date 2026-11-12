@@ -189,10 +189,10 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       const payloadData = { appointment_id: "apt-test-999", patient_id: "pat-888" };
 
       const enqueued = await enqueueWebhookEvent(
+        admin,
         tenant.tenantId,
         "appointment.booked",
-        payloadData,
-        admin
+        payloadData
       );
 
       expect(enqueued.length).toBe(1);
@@ -213,10 +213,10 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
     it("does not enqueue events to unsubscribed or inactive subscriptions", async () => {
       const admin = getAdminClient();
       const enqueued = await enqueueWebhookEvent(
+        admin,
         tenant.tenantId,
         "lab_result.ready", // Neither subA nor subB is subscribed to lab_result.ready
-        { test: "no-subscribers" },
-        admin
+        { test: "no-subscribers" }
       );
 
       expect(enqueued.length).toBe(0);
@@ -237,10 +237,10 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
         .eq("id", subA.id);
 
       const enqueued = await enqueueWebhookEvent(
+        admin,
         tenant.tenantId,
         "prescription.issued",
-        { prescription_id: "rx-multi-test" },
-        admin
+        { prescription_id: "rx-multi-test" }
       );
 
       expect(enqueued.length).toBe(2);
@@ -264,10 +264,10 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       };
 
       const result = await enqueueWebhookEvent(
+        brokenClient,
         "invalid-tenant-id",
         "appointment.booked",
-        { dummy: "payload" },
-        brokenClient
+        { dummy: "payload" }
       );
 
       expect(Array.isArray(result)).toBe(true);
@@ -317,10 +317,10 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
 
       const [enqueued] = await enqueueWebhookEvent(
+        admin,
         tenant.tenantId,
         "appointment.booked",
-        { test: "delivery-success" },
-        admin
+        { test: "delivery-success" }
       );
       expect(enqueued).toBeDefined();
 
@@ -334,7 +334,7 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
         return originalFetch(url, init);
       };
 
-      const result = await dispatchWebhookQueueItem(enqueued.id, admin);
+      const result = await dispatchWebhookQueueItem(admin, enqueued.id);
       expect(result.success).toBe(true);
       expect(result.status).toBe("delivered");
       expect(result.responseStatus).toBe(200);
@@ -355,10 +355,10 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       const { dispatchWebhookQueueItem } = await import("@/lib/webhooks/dispatcher");
 
       const [enqueued] = await enqueueWebhookEvent(
+        admin,
         tenant.tenantId,
         "appointment.booked",
-        { test: "delivery-retry" },
-        admin
+        { test: "delivery-retry" }
       );
       expect(enqueued).toBeDefined();
 
@@ -371,7 +371,7 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       };
 
       const beforeDispatch = Date.now();
-      const result = await dispatchWebhookQueueItem(enqueued.id, admin);
+      const result = await dispatchWebhookQueueItem(admin, enqueued.id);
 
       expect(result.success).toBe(false);
       expect(result.status).toBe("pending");
@@ -416,7 +416,7 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
         return originalFetch(url, init);
       };
 
-      const result = await dispatchWebhookQueueItem(queueItem.id, admin);
+      const result = await dispatchWebhookQueueItem(admin, queueItem.id);
       expect(result.success).toBe(false);
       expect(result.status).toBe("failed");
       expect(result.retryCount).toBe(5);
@@ -449,10 +449,10 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       expect(ssrfSub).toBeDefined();
 
       const [enqueued] = await enqueueWebhookEvent(
+        admin,
         tenant.tenantId,
         "appointment.booked",
-        { test: "ssrf-blocked" },
-        admin
+        { test: "ssrf-blocked" }
       );
       expect(enqueued).toBeDefined();
 
@@ -461,7 +461,7 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
         .update({ subscription_id: ssrfSub.id })
         .eq("id", enqueued.id);
 
-      const result = await dispatchWebhookQueueItem(enqueued.id, admin);
+      const result = await dispatchWebhookQueueItem(admin, enqueued.id);
       expect(result.success).toBe(false);
       expect(result.status).toBe("failed");
       expect(result.responseStatus).toBe(400);

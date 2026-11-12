@@ -1,7 +1,6 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { getAdminClient } from "@/lib/supabase/admin";
 import { Database } from "@/lib/db/types";
 import { apiError, ApiErrorResponse } from "@/lib/api/envelope";
 import type { ServiceContext } from "@/lib/auth/context";
@@ -43,8 +42,10 @@ export function createApiKeySecret(): {
  * 5. Returns AuthenticatedApiKeySession with tenant context and creator userId
  */
 export async function authenticateApiKey(
-  req: NextRequest,
-  clientOverride?: SupabaseClient<Database>
+  // Required, never defaulted (V2-01 R13): the `/api/v1` register route builds the client and passes it in.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: SupabaseClient<Database, any, any>,
+  req: NextRequest
 ): Promise<ApiKeyAuthResult> {
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
 
@@ -73,7 +74,7 @@ export async function authenticateApiKey(
   }
 
   const computedHash = crypto.createHash("sha256").update(rawToken).digest("hex");
-  const supabase = clientOverride || getAdminClient();
+  const supabase = db;
 
   const { data: keyRecord, error } = await (supabase.from("api_keys") as any)
     .select("id, tenant_id, name, key_hash, created_by, revoked_at")

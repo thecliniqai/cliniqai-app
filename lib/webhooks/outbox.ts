@@ -1,24 +1,18 @@
 import crypto from "crypto";
-import { getAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { WebhookDeliveryItem } from "@/lib/db/types";
 
 export interface EnqueueWebhookOptions {
   subscriptionId?: string;
-  clientOverride?: unknown;
 }
 
-export async function getWebhookDbClient(clientOverride?: unknown) {
-  if (clientOverride) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return clientOverride as any;
-  }
-  try {
-    return getAdminClient();
-  } catch {
-    return await createClient();
-  }
-}
+/**
+ * The database client every webhook outbox function runs on. Required, never defaulted (ADR-0005 register, V2-01
+ * R13): request-path callers pass `ctx.db` (RLS applies), register entry points (`app/api/cron/**`, `/api/v1/**`)
+ * pass the service-role client they build themselves.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type WebhookDb = SupabaseClient<any, any, any>;
 
 /**
  * Inserts an event payload into the public.webhook_delivery_queue outbox
@@ -31,27 +25,15 @@ export async function getWebhookDbClient(clientOverride?: unknown) {
  * ever blocking or throwing to the caller.
  */
 export async function enqueueWebhookEvent(
+  db: WebhookDb,
   tenantId: string,
   eventType: string,
   payload: Record<string, unknown>,
-  clientOrOptions?: unknown
+  options?: EnqueueWebhookOptions
 ): Promise<WebhookDeliveryItem[]> {
   try {
-    let clientOverride: unknown;
-    let targetSubscriptionId: string | undefined;
-
-    if (clientOrOptions && typeof clientOrOptions === "object") {
-      if ("from" in clientOrOptions) {
-        // Supabase client instance passed directly
-        clientOverride = clientOrOptions;
-      } else {
-        const opts = clientOrOptions as EnqueueWebhookOptions;
-        clientOverride = opts.clientOverride;
-        targetSubscriptionId = opts.subscriptionId;
-      }
-    }
-
-    const supabase = await getWebhookDbClient(clientOverride);
+    const targetSubscriptionId = options?.subscriptionId;
+    const supabase = db;
 
     // 1. Query active subscriptions
     let query = supabase
@@ -118,7 +100,7 @@ export async function enqueueWebhookEvent(
       import("./dispatcher")
         .then(({ dispatchWebhookQueueItem }) => {
           for (const item of createdItems) {
-            dispatchWebhookQueueItem(item.id, clientOverride).catch((err) => {
+            dispatchWebhookQueueItem(db, item.id).catch((err) => {
               console.warn(`[enqueueWebhookEvent] Background dispatch error for ${item.id}:`, err);
             });
           }

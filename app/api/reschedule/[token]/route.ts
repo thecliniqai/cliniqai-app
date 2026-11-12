@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { rescheduleAppointment } from "@/features/appointments/actions";
+// Public link: may import the appointments system module only until 01-04 (P0-04) replaces it with token RPCs.
+import { rescheduleAppointment } from "@/features/appointments/system";
 import { getTimePartsFromISO, timeToMinutes, DAY_OF_WEEK_NAMES } from "@/features/visits/scheduling-utils";
 import type { DayAvailability, DoctorWeeklySchedule } from "@/lib/db/types";
 
@@ -231,13 +232,12 @@ export async function POST(
 
     // 2. Execute reschedule mutation via Server Action
     const result = await rescheduleAppointment(
+      { db: admin, reason: "patient_self_service_reschedule" },
       {
         appointmentId: shareToken.resource_id,
         newScheduledAt,
         reason: reason || "patient_self_service_reschedule",
-        updatedBy: "patient_self_service",
-      },
-      admin
+      }
     );
 
     // 3. Mark reschedule token as completed (revoked to prevent double booking)

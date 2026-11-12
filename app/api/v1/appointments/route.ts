@@ -12,7 +12,7 @@ import { recordAuditLegacy } from "@/lib/audit/audit";
  * Filters: doctor_id, status, start_date, end_date. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
  * Validates doctor belongs to tenant, runs slot-conflict checks, and audits creation.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }

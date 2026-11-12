@@ -12,7 +12,7 @@ import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
  * Filters: patient_id, visit_id. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
  * Requires title, storage_path, patient_id; sets uploaded_by = session.userId.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -222,14 +222,14 @@ export async function POST(req: NextRequest) {
     // 5. Enqueue webhook event: lab_result.ready
     try {
       await enqueueWebhookEvent(
+        admin,
         session.tenantId,
         "lab_result.ready",
         {
           document_id: doc.id,
           patient_id: doc.patient_id,
           title: doc.title,
-        },
-        admin
+        }
       );
     } catch (webhookErr) {
       console.warn("[api/v1/lab-orders] Webhook enqueue error:", webhookErr);

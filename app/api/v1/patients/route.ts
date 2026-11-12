@@ -13,7 +13,7 @@ import { recordAuditLegacy } from "@/lib/audit/audit";
  * Filters out soft-deleted / erased patients (is_deleted = false).
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
  * Uses creator's auth.users UUID for created_by FK compliance.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }

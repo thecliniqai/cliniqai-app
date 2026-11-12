@@ -44,7 +44,7 @@ const patientUpdateSchema = z.object({
  * Returns 404 if patient does not exist or has been soft-deleted / erased.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
  * Records audit trail with actor_type: 'api_key'.
  */
 export async function PUT(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -205,7 +205,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
  * Retains underlying clinical records for NMC mandatory 3-year medical record retention.
  */
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }

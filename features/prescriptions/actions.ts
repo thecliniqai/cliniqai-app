@@ -138,14 +138,14 @@ export async function getOrCreateDraftPrescription(
 
     try {
       await enqueueWebhookEvent(
+        supabase,
         session.tenantId,
         "prescription.issued",
         {
           prescription_id: created.id,
           patient_id: visit.patient_id,
           visit_id: visitId,
-        },
-        supabase
+        }
       );
     } catch (webhookErr) {
       console.warn("[getOrCreateDraftPrescription] Webhook enqueue error:", webhookErr);
@@ -157,29 +157,6 @@ export async function getOrCreateDraftPrescription(
       success: false,
       error: err instanceof Error ? err.message : "Failed to initialize prescription.",
     };
-  }
-}
-
-/**
- * Triggers the prescription.issued webhook notification for an issued prescription.
- */
-export async function notifyPrescriptionIssued(
-  prescription: { id: string; patient_id: string; visit_id: string; tenant_id: string },
-  clientOverride?: unknown
-) {
-  try {
-    await enqueueWebhookEvent(
-      prescription.tenant_id,
-      "prescription.issued",
-      {
-        prescription_id: prescription.id,
-        patient_id: prescription.patient_id,
-        visit_id: prescription.visit_id,
-      },
-      clientOverride
-    );
-  } catch (err) {
-    console.warn("[notifyPrescriptionIssued] Webhook dispatch error:", err);
   }
 }
 
@@ -807,6 +784,7 @@ export async function sharePrescriptionViaWhatsApp(
 
     // 3. Enqueue Event #6 (prescription_ready)
     await enqueueMessage(
+      supabase,
       {
         tenantId: session.tenantId,
         patientId: rx.patient_id,
@@ -831,8 +809,7 @@ export async function sharePrescriptionViaWhatsApp(
             },
           ],
         },
-      },
-      supabase
+      }
     );
 
     // 4. Record audit log

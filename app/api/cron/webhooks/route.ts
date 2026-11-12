@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dispatchPendingWebhookQueue } from "@/lib/webhooks/dispatcher";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 async function handleCronDispatch(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -13,7 +14,8 @@ async function handleCronDispatch(req: NextRequest) {
   }
 
   try {
-    const summary = await dispatchPendingWebhookQueue({ limit: 50 });
+    // Register entry point (ADR-0005, until V2-04): the cron route owns the service-role client it dispatches with.
+    const summary = await dispatchPendingWebhookQueue(getAdminClient(), { limit: 50 });
     return NextResponse.json(
       {
         success: true,

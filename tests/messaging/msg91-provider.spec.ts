@@ -138,7 +138,7 @@ describe("MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1
   // ==========================================================================
   describe("2. Real Caller Parameter Aliases", () => {
     it("maps appointment_rescheduled caller passing new_date_time to body_4", () => {
-      // From features/appointments/actions.ts:187-191
+      // From features/appointments/system.ts
       const components = mapTemplateParameters("appointment_rescheduled", {
         patient_name: "Rahul Sharma",
         doctor_name: "Doctor",
@@ -195,7 +195,7 @@ describe("MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1
     });
 
     it("maps appointment_cancelled caller passing reason to body_3 (cancellation_reason)", () => {
-      // From features/appointments/actions.ts:280-283
+      // From features/appointments/system.ts
       const components = mapTemplateParameters("appointment_cancelled", {
         patient_name: "Rahul Sharma",
         reason: "Patient unwell",
@@ -238,7 +238,7 @@ describe("MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1
     });
 
     it("maps appointment_booked caller passing date_time to body_4 (appointment_time)", () => {
-      // From features/appointments/actions.ts:110-114
+      // From features/appointments/system.ts
       const components = mapTemplateParameters("appointment_booked", {
         patient_name: "Rahul Sharma",
         doctor_name: "Dr. Aditi Rao",

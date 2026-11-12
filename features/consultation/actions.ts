@@ -694,6 +694,7 @@ export async function completeAndSignConsultation(
     // 8. Enqueue webhook events
     try {
       await enqueueWebhookEvent(
+        supabase,
         session.tenantId,
         "visit.completed",
         {
@@ -701,8 +702,7 @@ export async function completeAndSignConsultation(
           patient_id: visit.patient_id,
           doctor_id: visit.doctor_id || session.userId,
           completed_at: nowIso,
-        },
-        supabase
+        }
       );
 
       // Check if an active prescription was signed during this consultation
@@ -715,14 +715,14 @@ export async function completeAndSignConsultation(
 
       if (signedRx) {
         await enqueueWebhookEvent(
+          supabase,
           session.tenantId,
           "prescription.issued",
           {
             prescription_id: signedRx.id,
             patient_id: signedRx.patient_id,
             visit_id: signedRx.visit_id,
-          },
-          supabase
+          }
         );
       }
     } catch (webhookErr) {

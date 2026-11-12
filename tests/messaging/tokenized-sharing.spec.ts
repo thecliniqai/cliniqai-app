@@ -5,7 +5,7 @@ import {
   POST as postRescheduleRoute,
 } from "@/app/api/reschedule/[token]/route";
 import * as adminSupabase from "@/lib/supabase/admin";
-import * as appointmentsActions from "@/features/appointments/actions";
+import * as appointmentsActions from "@/features/appointments/system";
 import * as storageModule from "@/lib/storage";
 import { NextRequest } from "next/server";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
@@ -441,11 +441,11 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
       const json = await res.json();
       expect(json.success).toBe(true);
       expect(rescheduleSpy).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           appointmentId: "visit-789",
           newScheduledAt: futureDate,
-        }),
-        expect.anything()
+        })
       );
       expect(tokenUpdateSpy).toHaveBeenCalledWith(
         expect.objectContaining({ revoked_at: expect.any(String) })
@@ -507,13 +507,13 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
       expect(res.success).toBe(true);
       expect(res.shareUrl).toContain("/r/");
       expect(enqueueSpy).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           channel: "whatsapp",
           messageType: "prescription_ready",
           templateId: "prescription_ready",
           recipientPhone: "+919876543210",
-        }),
-        expect.anything()
+        })
       );
     });
 
@@ -563,13 +563,13 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
       expect(res.success).toBe(true);
       expect(res.shareUrl).toContain("/r/");
       expect(enqueueSpy).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           channel: "whatsapp",
           messageType: "lab_report_uploaded",
           templateId: "lab_report_uploaded",
           recipientPhone: "+919876543211",
-        }),
-        expect.anything()
+        })
       );
     });
 
@@ -619,13 +619,13 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
       expect(res.success).toBe(true);
       expect(res.shareUrl).toContain("/r/");
       expect(enqueueSpy).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           channel: "whatsapp",
           messageType: "referral_letter_issued",
           templateId: "referral_letter_issued",
           recipientPhone: "+919876543212",
-        }),
-        expect.anything()
+        })
       );
     });
 
@@ -676,13 +676,13 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
       expect(res.success).toBe(true);
       expect(res.shareUrl).toContain("/r/");
       expect(enqueueSpy).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           channel: "whatsapp",
           messageType: "receipt_issued",
           templateId: "receipt_issued",
           recipientPhone: "+919876543213",
-        }),
-        expect.anything()
+        })
       );
     });
 
@@ -827,6 +827,7 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
 
       expect(enqueueSpy).toHaveBeenCalledTimes(1);
       expect(enqueueSpy).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           channel: "whatsapp",
           messageType: "consultation_documents",
@@ -845,8 +846,7 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
               expect.objectContaining({ id: "btn_view_receipt", text: "View Receipt 🧾" }),
             ],
           }),
-        }),
-        expect.anything()
+        })
       );
     });
   });

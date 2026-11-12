@@ -35,7 +35,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
   if (authHeader && authHeader.startsWith("Bearer ")) {
     // 1a. Bearer token authentication
-    const auth = await authenticateApiKey(req);
+    const auth = await authenticateApiKey(getAdminClient(), req);
     if (!auth.success) {
       return auth.response;
     }

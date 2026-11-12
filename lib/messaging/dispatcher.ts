@@ -1,6 +1,4 @@
-import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
-import { env } from "@/lib/env";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   CommunicationChannel,
   CommunicationQueueItem,
@@ -30,20 +28,14 @@ export interface DispatchSummary {
   failed: number;
 }
 
-export async function getDbClient(clientOverride?: unknown) {
-  if (clientOverride) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return clientOverride as any;
-  }
-  if (env.SUPABASE_SERVICE_ROLE_KEY) {
-    return createAdminClient(
-      env.NEXT_PUBLIC_SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { persistSession: false } }
-    );
-  }
-  return await createClient();
-}
+/**
+ * The database client every outbox function runs on. It is a required argument (ADR-0005 register, V2-01 R13):
+ * request-path callers pass their own user-JWT client (`ctx.db`), so RLS applies; only the register entry points
+ * (`app/api/cron/**`, `/api/v1/**`, `app/api/webhooks/**`) build a service-role client and pass it in. There is no
+ * default and no fallback.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type MessagingDb = SupabaseClient<any, any, any>;
 
 /**
  * Calculates exponential retry backoff in milliseconds:
@@ -61,10 +53,10 @@ export function calculateBackoffDelay(retryCount: number): number {
  * Inserts a transactional message into the communication_queue outbox.
  */
 export async function enqueueMessage(
-  input: EnqueueMessageInput,
-  clientOverride?: unknown
+  db: MessagingDb,
+  input: EnqueueMessageInput
 ): Promise<CommunicationQueueItem> {
-  const supabase = await getDbClient(clientOverride);
+  const supabase = db;
 
   const nextRetryAt = input.delayUntil
     ? typeof input.delayUntil === "string"
@@ -102,7 +94,7 @@ export async function enqueueMessage(
   // Opportunistic immediate dispatch: process queue immediately so dev/production messages fire without waiting for background cron
   if (!input.delayUntil) {
     try {
-      await dispatchPendingQueue({ clientOverride });
+      await dispatchPendingQueue(db);
     } catch {
       // Opportunistic dispatch is best-effort; background cron recovers queued items
     }
@@ -115,14 +107,16 @@ export async function enqueueMessage(
  * Scans the outbox queue for pending/failed due items, attempts delivery via active provider,
  * and updates retry counts, backoff times, and audit logs.
  */
-export async function dispatchPendingQueue(options?: {
-  limit?: number;
-  providerName?: string;
-  clientOverride?: unknown;
-}): Promise<DispatchSummary> {
+export async function dispatchPendingQueue(
+  db: MessagingDb,
+  options?: {
+    limit?: number;
+    providerName?: string;
+  }
+): Promise<DispatchSummary> {
   const limit = options?.limit ?? 20;
   const provider = getMessagingProvider(options?.providerName);
-  const supabase = await getDbClient(options?.clientOverride);
+  const supabase = db;
   const nowIso = new Date().toISOString();
 
   // 1. Fetch pending rows or failed rows due for retry
@@ -280,6 +274,7 @@ export async function dispatchPendingQueue(options?: {
 
           if (isEligibleForSmsFallback && !item.metadata?.is_sms_fallback) {
             await enqueueMessage(
+              supabase,
               {
                 tenantId: item.tenant_id,
                 patientId: item.patient_id,
@@ -290,8 +285,7 @@ export async function dispatchPendingQueue(options?: {
                 templateParams: item.template_params,
                 recipientPhone: item.recipient_phone,
                 metadata: { ...item.metadata, is_sms_fallback: true },
-              },
-              supabase
+              }
             );
           }
         }

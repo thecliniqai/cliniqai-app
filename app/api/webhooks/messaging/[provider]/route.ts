@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   cancelAppointment,
   generateRescheduleToken,
-  getAppointmentsDbClient,
-} from "@/features/appointments/actions";
+  type AppointmentSystemContext,
+} from "@/features/appointments/system";
+import { getAdminClient } from "@/lib/supabase/admin";
 import { sendDirectWhatsApp } from "@/lib/messaging";
 import {
   verifyMsg91WebhookSecret,
@@ -27,7 +28,8 @@ async function handleMsg91Webhook(req: NextRequest) {
 
   const rawBody = await req.text();
   const event = parseMsg91Payload(rawBody);
-  const supabase = await getAppointmentsDbClient();
+  // Allow-listed system path (ADR-0005 D2): opened only after the secret check above.
+  const supabase: AppointmentSystemContext["db"] = getAdminClient();
   const nowIso = new Date().toISOString();
 
   // Branch A: Delivery Reports (DLR) (Decision D-06, Peer Review Findings 3, 4, 6)
@@ -237,6 +239,7 @@ async function handleInboundAction({
   if (!from) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
+  const sys: AppointmentSystemContext = { db: supabase, reason: "messaging_webhook" };
 
   // 1. Resolve the appointment strictly via replyMsgId message correlation
   const appointment: any = await resolveAppointmentByReply(supabase, replyMsgId);
@@ -301,10 +304,9 @@ async function handleInboundAction({
   // 4. Action: [Cancel] Flow with Immediate Calendar Slot Release (D-04, Finding 5)
   // Strictly restricted to action === "cancel" (which requires explicit button click btn_cancel)
   if (action === "cancel") {
-    await cancelAppointment({
+    await cancelAppointment(sys, {
       appointmentId: appointment.id,
       reason: "patient_whatsapp_bot",
-      cancelledBy: from,
       isClinicInitiated: false,
     });
 
@@ -338,10 +340,7 @@ async function handleInboundAction({
 
   // 5. Action: [Reschedule] Flow (D-04)
   if (action === "reschedule") {
-    const rescheduleUrl = await generateRescheduleToken(
-      appointment.id,
-      appointment.tenant_id
-    );
+    const rescheduleUrl = await generateRescheduleToken(sys, appointment.id);
 
     // Front-desk alert
     await supabase.from("in_app_notifications").insert({

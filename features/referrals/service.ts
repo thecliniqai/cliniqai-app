@@ -600,6 +600,7 @@ export async function shareReferralLetterViaWhatsApp(
 
     // 3. Enqueue Event #8 (referral_letter_issued)
     await enqueueMessage(
+      supabase,
       {
         tenantId: session.tenantId,
         patientId: ref.patient_id,
@@ -618,8 +619,7 @@ export async function shareReferralLetterViaWhatsApp(
           share_token: token,
           share_url: shareUrl,
         },
-      },
-      supabase
+      }
     );
 
     // 4. Record audit log

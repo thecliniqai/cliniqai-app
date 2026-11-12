@@ -1012,6 +1012,7 @@ export async function shareReceiptViaWhatsApp(
 
     // 3. Enqueue Event #11 (receipt_issued)
     await enqueueMessage(
+      supabase,
       {
         tenantId: session.tenantId,
         patientId: inv.patient_id,
@@ -1037,8 +1038,7 @@ export async function shareReceiptViaWhatsApp(
             },
           ],
         },
-      },
-      supabase
+      }
     );
 
     // 4. Record audit log
@@ -1238,6 +1238,7 @@ export async function sendConsolidatedConsultationWhatsApp(
 
     // 9. Enqueue single consolidated WhatsApp message
     const queueItem = await enqueueMessage(
+      supabase,
       {
         tenantId: session.tenantId,
         patientId: patientId || null,
@@ -1262,8 +1263,7 @@ export async function sendConsolidatedConsultationWhatsApp(
           invoice_token: invToken,
           buttons,
         },
-      },
-      supabase
+      }
     );
 
     // 10. Record consolidated audit log

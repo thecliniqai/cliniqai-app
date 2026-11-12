@@ -16,7 +16,7 @@ interface RouteContext {
  * origin_type = 'scheduled' and tenant_id = session.tenantId.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
  * Enforces slot-conflict checking for the new time slot.
  */
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -210,7 +210,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
  * Cancels a scheduled appointment: updates status to 'cancelled'.
  */
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }

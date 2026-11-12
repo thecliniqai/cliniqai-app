@@ -14,7 +14,7 @@ interface RouteParams {
  * Retrieve detailed referral record scoped strictly to active clinic tenant.
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  * Update referral status (acknowledged, completed, cancelled) and closure notes.
  */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }

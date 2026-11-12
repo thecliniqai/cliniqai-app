@@ -1,4 +1,4 @@
-import { getWebhookDbClient } from "./outbox";
+import type { WebhookDb } from "./outbox";
 import { validateWebhookEndpoint } from "./ssrf";
 import { generateWebhookSignature } from "./signer";
 
@@ -45,10 +45,10 @@ export function calculateWebhookBackoff(retryCount: number): number {
  * 5. On failure, calculates exponential backoff or marks status = 'failed' if retries exhausted.
  */
 export async function dispatchWebhookQueueItem(
-  queueItemId: string,
-  clientOverride?: unknown
+  db: WebhookDb,
+  queueItemId: string
 ): Promise<WebhookDispatchResult> {
-  const supabase = await getWebhookDbClient(clientOverride);
+  const supabase = db;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: item, error: fetchErr } = await (supabase
@@ -230,12 +230,14 @@ export async function dispatchWebhookQueueItem(
  * Scans the webhook outbox queue for pending items due for delivery or retry,
  * and processes them sequentially with concurrency safety.
  */
-export async function dispatchPendingWebhookQueue(options?: {
-  limit?: number;
-  clientOverride?: unknown;
-}): Promise<DispatchQueueSummary> {
+export async function dispatchPendingWebhookQueue(
+  db: WebhookDb,
+  options?: {
+    limit?: number;
+  }
+): Promise<DispatchQueueSummary> {
   const limit = options?.limit ?? 50;
-  const supabase = await getWebhookDbClient(options?.clientOverride);
+  const supabase = db;
   const nowIso = new Date().toISOString();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -258,7 +260,7 @@ export async function dispatchPendingWebhookQueue(options?: {
 
   for (const item of dueItems) {
     try {
-      const result = await dispatchWebhookQueueItem(item.id, options?.clientOverride);
+      const result = await dispatchWebhookQueueItem(db, item.id);
       if (result.success) {
         delivered++;
       } else if (result.status === "failed") {

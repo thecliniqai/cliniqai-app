@@ -13,7 +13,7 @@ import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
  * Filters: patient_id, doctor_id, visit_id. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
  * Accurately inserts timing and special_instructions (no nonexistent frequency/instructions or tenant_id on items).
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Enforce Doctor Guard (D-05, T-06-05)
-    const doctorCheck = await validateDoctorAssignment(session.tenantId, doctor_id, admin);
+    const doctorCheck = await validateDoctorAssignment(admin, session.tenantId, doctor_id);
     if (!doctorCheck.valid) {
       return apiError(
         "FORBIDDEN_CLINICIAN",
@@ -277,14 +277,14 @@ export async function POST(req: NextRequest) {
     // 8. Enqueue webhook event: prescription.issued
     try {
       await enqueueWebhookEvent(
+        admin,
         session.tenantId,
         "prescription.issued",
         {
           prescription_id: newPrescription.id,
           patient_id: newPrescription.patient_id,
           visit_id: newPrescription.visit_id,
-        },
-        admin
+        }
       );
     } catch (webhookErr) {
       console.warn("[api/v1/prescriptions] Webhook enqueue error:", webhookErr);
