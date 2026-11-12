@@ -218,9 +218,9 @@ export async function recordAudit(
 }
 
 /**
- * TEMP 01-01b/c: old override signature for the domains not yet moved to services (visits, scheduling, waitlist,
- * queue, settings, prescriptions, consultation, billing, api-keys, webhooks, dpdp, `/api/v1`). Delete with the
- * last caller; new code must call `recordAudit(ctx, params)`.
+ * TEMP 01-01c: old override signature for the domains not yet moved to services (prescriptions, consultation,
+ * billing, api-keys, webhooks, dpdp, `/api/v1`). Delete with the last caller; new code must call
+ * `recordAudit(ctx, params)`.
  */
 export async function recordAuditLegacy(
   params: LegacyRecordAuditParams,

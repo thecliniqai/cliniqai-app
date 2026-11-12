@@ -1,0 +1,576 @@
+import "server-only";
+
+import { assertPerm } from "@/lib/permissions";
+import type { ServiceContext } from "@/lib/auth/context";
+import { recordAudit } from "@/lib/audit/audit";
+import { isUuid } from "@/lib/utils/filter-values";
+import { Tenant, Membership, ScheduleBlock } from "@/lib/db/types";
+import {
+  clinicSettingsSchema,
+  ClinicSettingsInput,
+  statutorySettingsSchema,
+  StatutorySettingsInput,
+  userProfileSchema,
+  UserProfileInput,
+  staffEditSchema,
+  StaffEditInput,
+  doctorWeeklyScheduleSchema,
+} from "./schema";
+
+// Clinic, profile and staff settings use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case
+// checks the permission its server action checked before the move (some only require a clinic membership).
+
+function toFieldErrors(issues: { path: (string | number)[]; message: string }[]): Record<string, string[]> {
+  const fieldErrors: Record<string, string[]> = {};
+  for (const issue of issues) {
+    const field = issue.path[0]?.toString() || "form";
+    fieldErrors[field] = fieldErrors[field] || [];
+    fieldErrors[field].push(issue.message);
+  }
+  return fieldErrors;
+}
+
+function canManageOthers(ctx: ServiceContext): boolean {
+  return ctx.role === "owner" || ctx.role === "admin";
+}
+
+export type UpdateClinicSettingsResult =
+  | { success: true; tenant: Tenant }
+  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+export async function updateClinicSettings(
+  ctx: ServiceContext,
+  input: ClinicSettingsInput
+): Promise<UpdateClinicSettingsResult> {
+  const supabase = ctx.db;
+
+  try {
+    assertPerm(ctx.role, "clinic:manage");
+    const session = ctx;
+
+    const parseResult = clinicSettingsSchema.safeParse(input);
+    if (!parseResult.success) {
+      return {
+        success: false,
+        error: parseResult.error.issues[0]?.message ?? "Invalid settings input.",
+        fieldErrors: toFieldErrors(parseResult.error.issues),
+      };
+    }
+    const data = parseResult.data;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updatedTenant, error: updateError } = await (supabase.from("tenants") as any)
+      .update({
+        name: data.name.trim(),
+        address: data.address?.trim() ?? null,
+        specialties: data.specialties,
+        timezone: data.timezone,
+        owner_is_practicing_doctor: data.owner_is_practicing_doctor,
+        default_consultation_fee: data.default_consultation_fee,
+        default_followup_fee: data.default_followup_fee,
+        accepted_payment_methods: data.accepted_payment_methods,
+        clinical_establishment_reg_no: data.clinical_establishment_reg_no?.trim() || null,
+        state_medical_council_reg_no: data.state_medical_council_reg_no?.trim() || null,
+        gstin: data.gstin?.trim() || null,
+        drug_license_no: data.drug_license_no?.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", session.tenantId)
+      .select("*")
+      .single();
+
+    if (updateError || !updatedTenant) {
+      console.error("[features/settings/service] Failed to update clinic settings:", updateError);
+      return { success: false, error: "Failed to update clinic profile in database." };
+    }
+
+    // If owner is a practicing doctor, also update owner's membership credentials
+    if (data.owner_is_practicing_doctor && data.doctor_name) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("memberships") as any)
+        .update({
+          full_name: data.doctor_name.trim(),
+          phone: data.doctor_phone?.trim() ?? null,
+          qualifications: data.qualifications?.trim() ?? null,
+          medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
+          default_specialty: data.default_specialty ?? "general_physician",
+        })
+        .eq("tenant_id", session.tenantId)
+        .eq("user_id", session.userId);
+
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: data.doctor_name.trim(),
+            phone: data.doctor_phone?.trim(),
+          },
+        });
+      } catch (authSyncErr) {
+        console.warn("[updateClinicSettings] Could not sync user metadata:", authSyncErr);
+      }
+    }
+
+    await recordAudit(ctx, {
+      action: "clinic.settings.update",
+      entityType: "clinic",
+      entityId: session.tenantId,
+      metadata: {
+        fields_changed: [
+          "name",
+          "address",
+          "specialties",
+          "timezone",
+          "owner_is_practicing_doctor",
+          "default_consultation_fee",
+          "default_followup_fee",
+          "accepted_payment_methods",
+          ...(data.clinical_establishment_reg_no || data.state_medical_council_reg_no || data.gstin || data.drug_license_no
+            ? ["statutory_registrations"]
+            : []),
+          ...(data.doctor_name ? ["owner_doctor_credentials"] : []),
+        ],
+      },
+    });
+
+    return { success: true, tenant: updatedTenant as Tenant };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update settings.",
+    };
+  }
+}
+
+export type UpdateStatutorySettingsResult =
+  | { success: true; tenant: Tenant }
+  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/**
+ * Persists official statutory registration numbers (CEA, SMC, GSTIN, Drug License)
+ * to public.tenants with full compliance audit logging under DPDP/NMC regulations (D-16).
+ */
+export async function updateStatutorySettings(
+  ctx: ServiceContext,
+  input: StatutorySettingsInput
+): Promise<UpdateStatutorySettingsResult> {
+  const supabase = ctx.db;
+
+  try {
+    assertPerm(ctx.role, "clinic:manage");
+    const session = ctx;
+
+    const parseResult = statutorySettingsSchema.safeParse(input);
+    if (!parseResult.success) {
+      return {
+        success: false,
+        error: parseResult.error.issues[0]?.message ?? "Invalid statutory registrations input.",
+        fieldErrors: toFieldErrors(parseResult.error.issues),
+      };
+    }
+    const data = parseResult.data;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updatedTenant, error: updateError } = await (supabase.from("tenants") as any)
+      .update({
+        clinical_establishment_reg_no: data.clinical_establishment_reg_no?.trim() || null,
+        state_medical_council_reg_no: data.state_medical_council_reg_no?.trim() || null,
+        gstin: data.gstin?.trim() || null,
+        drug_license_no: data.drug_license_no?.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", session.tenantId)
+      .select("*")
+      .single();
+
+    if (updateError || !updatedTenant) {
+      console.error("[features/settings/service] Failed to update statutory settings:", updateError);
+      return { success: false, error: "Failed to persist statutory registrations in database." };
+    }
+
+    await recordAudit(ctx, {
+      action: "clinic.settings.update",
+      entityType: "clinic",
+      entityId: session.tenantId,
+      metadata: {
+        fields_changed: ["statutory_registrations"],
+      },
+    });
+
+    return { success: true, tenant: updatedTenant as Tenant };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update statutory settings.",
+    };
+  }
+}
+
+export type UpdateUserProfileResult =
+  | { success: true; membership: Membership }
+  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/** Updates the signed-in user's own membership profile (any clinic member). */
+export async function updateUserProfile(ctx: ServiceContext, input: UserProfileInput): Promise<UpdateUserProfileResult> {
+  const supabase = ctx.db;
+
+  try {
+    const session = ctx;
+
+    const parseResult = userProfileSchema.safeParse(input);
+    if (!parseResult.success) {
+      return {
+        success: false,
+        error: parseResult.error.issues[0]?.message ?? "Invalid profile input.",
+        fieldErrors: toFieldErrors(parseResult.error.issues),
+      };
+    }
+    const data = parseResult.data;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updatePayload: Record<string, any> = {
+      full_name: data.full_name.trim(),
+      phone: data.phone?.trim() ?? null,
+      qualifications: data.qualifications?.trim() ?? null,
+      medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
+      default_specialty: data.default_specialty ?? "general_physician",
+    };
+
+    if (data.default_slot_duration_minutes !== undefined) {
+      updatePayload.default_slot_duration_minutes = data.default_slot_duration_minutes;
+    }
+    if (data.availability_schedule !== undefined) {
+      updatePayload.availability_schedule = data.availability_schedule;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updatedMembership, error: updateError } = await (supabase.from("memberships") as any)
+      .update(updatePayload)
+      .eq("tenant_id", session.tenantId)
+      .eq("user_id", session.userId)
+      .select("*")
+      .single();
+
+    if (updateError || !updatedMembership) {
+      console.error("[updateUserProfile] Error updating membership:", updateError);
+      return { success: false, error: "Failed to update profile in database." };
+    }
+
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          full_name: data.full_name.trim(),
+          phone: data.phone?.trim(),
+        },
+      });
+    } catch (authErr) {
+      console.warn("[updateUserProfile] Could not sync auth user metadata:", authErr);
+    }
+
+    await recordAudit(ctx, {
+      action: "user.profile.update",
+      entityType: "membership",
+      entityId: updatedMembership.id,
+      metadata: {
+        full_name: data.full_name,
+        has_qualifications: Boolean(data.qualifications),
+        has_reg_no: Boolean(data.medical_council_reg_no),
+      },
+    });
+
+    return { success: true, membership: updatedMembership as Membership };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update profile.",
+    };
+  }
+}
+
+export type UpdateStaffMemberResult =
+  | { success: true; membership: Membership }
+  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInput): Promise<UpdateStaffMemberResult> {
+  const supabase = ctx.db;
+
+  try {
+    assertPerm(ctx.role, "clinic:manage");
+    const session = ctx;
+
+    const parseResult = staffEditSchema.safeParse(input);
+    if (!parseResult.success) {
+      return {
+        success: false,
+        error: parseResult.error.issues[0]?.message ?? "Invalid staff input.",
+        fieldErrors: toFieldErrors(parseResult.error.issues),
+      };
+    }
+    const data = parseResult.data;
+
+    // Check membership exists and belongs to tenant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existing, error: fetchErr } = await (supabase.from("memberships") as any)
+      .select("*")
+      .eq("id", data.membership_id)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (fetchErr || !existing) {
+      return { success: false, error: "Staff member not found or access denied." };
+    }
+
+    // Guard: Do not allow demoting the last owner
+    if (existing.role === "owner" && data.role !== "owner") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count } = await (supabase.from("memberships") as any)
+        .select("*", { count: "exact", head: true })
+        .eq("tenant_id", session.tenantId)
+        .eq("role", "owner");
+
+      if ((count ?? 0) <= 1) {
+        return {
+          success: false,
+          error: "Cannot change role of the sole clinic owner. Assign another owner first.",
+        };
+      }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updatePayload: Record<string, any> = {
+      full_name: data.full_name.trim(),
+      phone: data.phone?.trim() ?? null,
+      role: data.role,
+      qualifications: data.qualifications?.trim() ?? null,
+      medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
+      default_specialty: data.default_specialty ?? "general_physician",
+    };
+
+    if (data.default_slot_duration_minutes !== undefined) {
+      updatePayload.default_slot_duration_minutes = data.default_slot_duration_minutes;
+    }
+    if (data.availability_schedule !== undefined) {
+      updatePayload.availability_schedule = data.availability_schedule;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
+      .update(updatePayload)
+      .eq("id", data.membership_id)
+      .eq("tenant_id", session.tenantId)
+      .select("*")
+      .single();
+
+    if (updateErr || !updated) {
+      console.error("[updateStaffMember] Error updating staff member:", updateErr);
+      return { success: false, error: "Failed to update staff member in database." };
+    }
+
+    await recordAudit(ctx, {
+      action: "staff.member.update",
+      entityType: "membership",
+      entityId: data.membership_id,
+      metadata: {
+        target_user_id: existing.user_id,
+        role: data.role,
+        full_name: data.full_name,
+      },
+    });
+
+    return { success: true, membership: updated as Membership };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update staff member.",
+    };
+  }
+}
+
+export type UpdateDoctorAvailabilityInput = { membership_id: string; availability_schedule: unknown };
+export type UpdateDoctorAvailabilityResult =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  | { success: true; availability_schedule: any }
+  | { success: false; error: string };
+
+/**
+ * Updates a doctor's weekly availability. Any member may update their own; updating another member's schedule
+ * requires the owner or admin role (T-03.3-03).
+ */
+export async function updateDoctorAvailability(
+  ctx: ServiceContext,
+  input: UpdateDoctorAvailabilityInput
+): Promise<UpdateDoctorAvailabilityResult> {
+  const supabase = ctx.db;
+
+  try {
+    const session = ctx;
+
+    const parseResult = doctorWeeklyScheduleSchema.safeParse(input?.availability_schedule);
+    if (!parseResult.success) {
+      return {
+        success: false,
+        error: parseResult.error.issues[0]?.message || "Invalid availability schedule data",
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: targetMember, error: fetchErr } = await (supabase.from("memberships") as any)
+      .select("id, user_id, tenant_id, role")
+      .eq("id", input.membership_id)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (fetchErr || !targetMember) {
+      return { success: false, error: "Staff member not found or access denied." };
+    }
+
+    // T-03.3-03: Authorization check (the caller's role comes from the session membership)
+    if (targetMember.user_id !== session.userId && !canManageOthers(ctx)) {
+      return {
+        success: false,
+        error: "Only clinic admins or owners can update other doctors' schedules.",
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
+      .update({
+        availability_schedule: parseResult.data,
+      })
+      .eq("id", input.membership_id)
+      .eq("tenant_id", session.tenantId)
+      .select("availability_schedule")
+      .single();
+
+    if (updateErr || !updated) {
+      console.error("[updateDoctorAvailability] Update error:", updateErr);
+      return { success: false, error: "Failed to update doctor availability." };
+    }
+
+    await recordAudit(ctx, {
+      action: "staff.member.update",
+      entityType: "membership",
+      entityId: input.membership_id,
+      metadata: {
+        field: "availability_schedule",
+        target_user_id: targetMember.user_id,
+      },
+    });
+
+    return { success: true, availability_schedule: updated.availability_schedule };
+  } catch (err: unknown) {
+    console.error("[updateDoctorAvailability] Unexpected error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update doctor availability.",
+    };
+  }
+}
+
+export type UpdateDoctorSlotDurationInput = { membership_id: string; default_slot_duration_minutes: number };
+export type UpdateDoctorSlotDurationResult =
+  | { success: true; default_slot_duration_minutes: number }
+  | { success: false; error: string };
+
+/**
+ * Updates a doctor's default slot duration (5–180 minutes). Any member may update their own; updating another
+ * member's requires the owner or admin role.
+ */
+export async function updateDoctorSlotDuration(
+  ctx: ServiceContext,
+  input: UpdateDoctorSlotDurationInput
+): Promise<UpdateDoctorSlotDurationResult> {
+  const supabase = ctx.db;
+
+  try {
+    const session = ctx;
+
+    if (
+      !input?.default_slot_duration_minutes ||
+      input.default_slot_duration_minutes < 5 ||
+      input.default_slot_duration_minutes > 180
+    ) {
+      return { success: false, error: "Slot duration must be between 5 and 180 minutes." };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: targetMember, error: fetchErr } = await (supabase.from("memberships") as any)
+      .select("id, user_id, tenant_id, role")
+      .eq("id", input.membership_id)
+      .eq("tenant_id", session.tenantId)
+      .single();
+
+    if (fetchErr || !targetMember) {
+      return { success: false, error: "Staff member not found or access denied." };
+    }
+
+    if (targetMember.user_id !== session.userId && !canManageOthers(ctx)) {
+      return {
+        success: false,
+        error: "Only clinic admins or owners can update other doctors' slot duration.",
+      };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
+      .update({
+        default_slot_duration_minutes: input.default_slot_duration_minutes,
+      })
+      .eq("id", input.membership_id)
+      .eq("tenant_id", session.tenantId)
+      .select("default_slot_duration_minutes")
+      .single();
+
+    if (updateErr || !updated) {
+      console.error("[updateDoctorSlotDuration] Update error:", updateErr);
+      return { success: false, error: "Failed to update slot duration." };
+    }
+
+    return {
+      success: true,
+      default_slot_duration_minutes: updated.default_slot_duration_minutes,
+    };
+  } catch (err: unknown) {
+    console.error("[updateDoctorSlotDuration] Unexpected error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to update slot duration.",
+    };
+  }
+}
+
+/**
+ * Lists the clinic's schedule blocks, optionally only one doctor's plus clinic-wide ones (any clinic member).
+ * A doctor id that is not a uuid yields an empty list: it never reaches the PostgREST filter string (R7).
+ */
+export async function getDoctorScheduleBlocks(ctx: ServiceContext, doctorId?: string): Promise<ScheduleBlock[]> {
+  const supabase = ctx.db;
+
+  try {
+    const session = ctx;
+    const filterByDoctor = Boolean(doctorId && doctorId !== "all");
+    if (filterByDoctor && !isUuid(doctorId)) {
+      return [];
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = (supabase.from("schedule_blocks") as any)
+      .select("*")
+      .eq("tenant_id", session.tenantId)
+      .order("start_time", { ascending: true });
+
+    if (filterByDoctor) {
+      query = query.or(`doctor_id.eq.${doctorId},doctor_id.is.null`);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) {
+      console.error("[getDoctorScheduleBlocks] Error:", error);
+      return [];
+    }
+
+    return data as ScheduleBlock[];
+  } catch (err) {
+    console.error("[getDoctorScheduleBlocks] Unexpected error:", err);
+    return [];
+  }
+}

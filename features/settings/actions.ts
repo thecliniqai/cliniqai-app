@@ -1,454 +1,80 @@
 "use server";
 
-import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getAdminClient } from "@/lib/supabase/admin";
-import { requirePermission } from "@/lib/permissions/guards";
 import { getActiveMembership } from "@/lib/auth/tenant";
-import { recordAuditLegacy } from "@/lib/audit/audit";
-import { Tenant, Membership, Database } from "@/lib/db/types";
-import {
-  clinicSettingsSchema,
-  ClinicSettingsInput,
-  statutorySettingsSchema,
-  StatutorySettingsInput,
-  userProfileSchema,
-  UserProfileInput,
-  staffEditSchema,
-  StaffEditInput,
-  doctorWeeklyScheduleSchema,
-} from "./schema";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveServiceContext } from "@/lib/auth/context";
+import { Membership, ScheduleBlock } from "@/lib/db/types";
+import { ClinicSettingsInput, StatutorySettingsInput, UserProfileInput, StaffEditInput } from "./schema";
+import * as settingsService from "./service";
+import * as schedulingService from "@/features/visits/scheduling-service";
+import type {
+  UpdateClinicSettingsResult,
+  UpdateStatutorySettingsResult,
+  UpdateUserProfileResult,
+  UpdateStaffMemberResult,
+  UpdateDoctorAvailabilityInput,
+  UpdateDoctorAvailabilityResult,
+  UpdateDoctorSlotDurationInput,
+  UpdateDoctorSlotDurationResult,
+} from "./service";
 
-export type UpdateClinicSettingsResult =
-  | { success: true; tenant: Tenant }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+export type {
+  UpdateClinicSettingsResult,
+  UpdateStatutorySettingsResult,
+  UpdateUserProfileResult,
+  UpdateStaffMemberResult,
+  UpdateDoctorAvailabilityInput,
+  UpdateDoctorAvailabilityResult,
+  UpdateDoctorSlotDurationInput,
+  UpdateDoctorSlotDurationResult,
+} from "./service";
 
-export async function updateClinicSettings(
-  input: ClinicSettingsInput,
-  clientOverride?: SupabaseClient<Database>,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<UpdateClinicSettingsResult> {
-  const parseResult = clinicSettingsSchema.safeParse(input);
-  if (!parseResult.success) {
-    const fieldErrors: Record<string, string[]> = {};
-    for (const issue of parseResult.error.issues) {
-      const field = issue.path[0]?.toString() || "form";
-      fieldErrors[field] = fieldErrors[field] || [];
-      fieldErrors[field].push(issue.message);
-    }
-    return {
-      success: false,
-      error: parseResult.error.issues[0]?.message ?? "Invalid settings input.",
-      fieldErrors,
-    };
-  }
+// Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
+// the session (ADR-0005 D1), then delegates to the server-only service. Failure shapes are unchanged.
 
-  const supabase = clientOverride || (sessionOverride ? getAdminClient() : await createClient());
-
+function revalidate(...paths: string[]) {
   try {
-    const session = sessionOverride || (await requirePermission(supabase, "clinic:manage"));
-    const data = parseResult.data;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updatedTenant, error: updateError } = await (supabase.from("tenants") as any)
-      .update({
-        name: data.name.trim(),
-        address: data.address?.trim() ?? null,
-        specialties: data.specialties,
-        timezone: data.timezone,
-        owner_is_practicing_doctor: data.owner_is_practicing_doctor,
-        default_consultation_fee: data.default_consultation_fee,
-        default_followup_fee: data.default_followup_fee,
-        accepted_payment_methods: data.accepted_payment_methods,
-        clinical_establishment_reg_no: data.clinical_establishment_reg_no?.trim() || null,
-        state_medical_council_reg_no: data.state_medical_council_reg_no?.trim() || null,
-        gstin: data.gstin?.trim() || null,
-        drug_license_no: data.drug_license_no?.trim() || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", session.tenantId)
-      .select("*")
-      .single();
-
-    if (updateError || !updatedTenant) {
-      console.error("[features/settings/actions] Failed to update clinic settings:", updateError);
-      return { success: false, error: "Failed to update clinic profile in database." };
-    }
-
-    // If owner is a practicing doctor, also update owner's membership credentials
-    if (data.owner_is_practicing_doctor && data.doctor_name) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("memberships") as any)
-        .update({
-          full_name: data.doctor_name.trim(),
-          phone: data.doctor_phone?.trim() ?? null,
-          qualifications: data.qualifications?.trim() ?? null,
-          medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
-          default_specialty: data.default_specialty ?? "general_physician",
-        })
-        .eq("tenant_id", session.tenantId)
-        .eq("user_id", session.userId);
-
-      try {
-        await supabase.auth.updateUser({
-          data: {
-            full_name: data.doctor_name.trim(),
-            phone: data.doctor_phone?.trim(),
-          },
-        });
-      } catch (authSyncErr) {
-        console.warn("[updateClinicSettings] Could not sync user metadata:", authSyncErr);
-      }
-    }
-
-    await recordAuditLegacy(
-      {
-        action: "clinic.settings.update",
-        entityType: "clinic",
-        entityId: session.tenantId,
-        metadata: {
-          fields_changed: [
-            "name",
-            "address",
-            "specialties",
-            "timezone",
-            "owner_is_practicing_doctor",
-            "default_consultation_fee",
-            "default_followup_fee",
-            "accepted_payment_methods",
-            ...(data.clinical_establishment_reg_no || data.state_medical_council_reg_no || data.gstin || data.drug_license_no
-              ? ["statutory_registrations"]
-              : []),
-            ...(data.doctor_name ? ["owner_doctor_credentials"] : []),
-          ],
-        },
-      },
-      supabase as any,
-      session
-    );
-
-    try {
-      revalidatePath("/settings/clinic");
-      revalidatePath("/profile");
-      revalidatePath("/staff");
-      revalidatePath("/cabin");
-      revalidatePath("/");
-    } catch {
-      // Ignore in testing environments
-    }
-
-    return { success: true, tenant: updatedTenant as Tenant };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to update settings.",
-    };
+    for (const path of paths) revalidatePath(path);
+  } catch {
+    // Outside a Next.js request (tests) revalidation is a no-op
   }
 }
 
-export type UpdateStatutorySettingsResult =
-  | { success: true; tenant: Tenant }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+export async function updateClinicSettings(input: ClinicSettingsInput): Promise<UpdateClinicSettingsResult> {
+  const resolved = await resolveServiceContext("clinic:manage");
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const result = await settingsService.updateClinicSettings(resolved.ctx, input);
+  if (result.success) revalidate("/settings/clinic", "/profile", "/staff", "/cabin", "/");
+  return result;
+}
 
 /**
  * Persists official statutory registration numbers (CEA, SMC, GSTIN, Drug License)
  * to public.tenants with full compliance audit logging under DPDP/NMC regulations (D-16).
  */
-export async function updateStatutorySettings(
-  input: StatutorySettingsInput,
-  clientOverride?: SupabaseClient<Database>,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<UpdateStatutorySettingsResult> {
-  const parseResult = statutorySettingsSchema.safeParse(input);
-  if (!parseResult.success) {
-    const fieldErrors: Record<string, string[]> = {};
-    for (const issue of parseResult.error.issues) {
-      const field = issue.path[0]?.toString() || "form";
-      fieldErrors[field] = fieldErrors[field] || [];
-      fieldErrors[field].push(issue.message);
-    }
-    return {
-      success: false,
-      error: parseResult.error.issues[0]?.message ?? "Invalid statutory registrations input.",
-      fieldErrors,
-    };
-  }
-
-  const supabase = clientOverride || (sessionOverride ? getAdminClient() : await createClient());
-
-  try {
-    const session = sessionOverride || (await requirePermission(supabase, "clinic:manage"));
-    const data = parseResult.data;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updatedTenant, error: updateError } = await (supabase.from("tenants") as any)
-      .update({
-        clinical_establishment_reg_no: data.clinical_establishment_reg_no?.trim() || null,
-        state_medical_council_reg_no: data.state_medical_council_reg_no?.trim() || null,
-        gstin: data.gstin?.trim() || null,
-        drug_license_no: data.drug_license_no?.trim() || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", session.tenantId)
-      .select("*")
-      .single();
-
-    if (updateError || !updatedTenant) {
-      console.error("[features/settings/actions] Failed to update statutory settings:", updateError);
-      return { success: false, error: "Failed to persist statutory registrations in database." };
-    }
-
-    await recordAuditLegacy(
-      {
-        action: "clinic.settings.update",
-        entityType: "clinic",
-        entityId: session.tenantId,
-        metadata: {
-          fields_changed: ["statutory_registrations"],
-        },
-      },
-      supabase as any,
-      session
-    );
-
-    try {
-      revalidatePath("/settings/clinic");
-    } catch {
-      // Ignore in testing environments
-    }
-
-    return { success: true, tenant: updatedTenant as Tenant };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to update statutory settings.",
-    };
-  }
+export async function updateStatutorySettings(input: StatutorySettingsInput): Promise<UpdateStatutorySettingsResult> {
+  const resolved = await resolveServiceContext("clinic:manage");
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const result = await settingsService.updateStatutorySettings(resolved.ctx, input);
+  if (result.success) revalidate("/settings/clinic");
+  return result;
 }
 
-export type UpdateUserProfileResult =
-  | { success: true; membership: Membership }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
-
-export async function updateUserProfile(
-  input: UserProfileInput,
-  clientOverride?: SupabaseClient<Database>,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<UpdateUserProfileResult> {
-  const parseResult = userProfileSchema.safeParse(input);
-  if (!parseResult.success) {
-    const fieldErrors: Record<string, string[]> = {};
-    for (const issue of parseResult.error.issues) {
-      const field = issue.path[0]?.toString() || "form";
-      fieldErrors[field] = fieldErrors[field] || [];
-      fieldErrors[field].push(issue.message);
-    }
-    return {
-      success: false,
-      error: parseResult.error.issues[0]?.message ?? "Invalid profile input.",
-      fieldErrors,
-    };
-  }
-
-  const supabase = clientOverride || (await createClient());
-
-  try {
-    const session = sessionOverride || (await getActiveMembership());
-    const data = parseResult.data;
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updatePayload: Record<string, any> = {
-      full_name: data.full_name.trim(),
-      phone: data.phone?.trim() ?? null,
-      qualifications: data.qualifications?.trim() ?? null,
-      medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
-      default_specialty: data.default_specialty ?? "general_physician",
-    };
-
-    if (data.default_slot_duration_minutes !== undefined) {
-      updatePayload.default_slot_duration_minutes = data.default_slot_duration_minutes;
-    }
-    if (data.availability_schedule !== undefined) {
-      updatePayload.availability_schedule = data.availability_schedule;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updatedMembership, error: updateError } = await (supabase.from("memberships") as any)
-      .update(updatePayload)
-      .eq("tenant_id", session.tenantId)
-      .eq("user_id", session.userId)
-      .select("*")
-      .single();
-
-    if (updateError || !updatedMembership) {
-      console.error("[updateUserProfile] Error updating membership:", updateError);
-      return { success: false, error: "Failed to update profile in database." };
-    }
-
-    try {
-      await supabase.auth.updateUser({
-        data: {
-          full_name: data.full_name.trim(),
-          phone: data.phone?.trim(),
-        },
-      });
-    } catch (authErr) {
-      console.warn("[updateUserProfile] Could not sync auth user metadata:", authErr);
-    }
-
-    await recordAuditLegacy(
-      {
-        action: "user.profile.update",
-        entityType: "membership",
-        entityId: updatedMembership.id,
-        metadata: {
-          full_name: data.full_name,
-          has_qualifications: Boolean(data.qualifications),
-          has_reg_no: Boolean(data.medical_council_reg_no),
-        },
-      },
-      clientOverride,
-      session
-    );
-
-    try {
-      revalidatePath("/profile");
-      revalidatePath("/settings/clinic");
-      revalidatePath("/staff");
-      revalidatePath("/cabin");
-    } catch {
-      // Ignore during testing
-    }
-
-    return { success: true, membership: updatedMembership as Membership };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to update profile.",
-    };
-  }
+export async function updateUserProfile(input: UserProfileInput): Promise<UpdateUserProfileResult> {
+  const resolved = await resolveServiceContext();
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const result = await settingsService.updateUserProfile(resolved.ctx, input);
+  if (result.success) revalidate("/profile", "/settings/clinic", "/staff", "/cabin");
+  return result;
 }
 
-export type UpdateStaffMemberResult =
-  | { success: true; membership: Membership }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
-
-export async function updateStaffMember(
-  input: StaffEditInput,
-  clientOverride?: SupabaseClient<Database>,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<UpdateStaffMemberResult> {
-  const parseResult = staffEditSchema.safeParse(input);
-  if (!parseResult.success) {
-    const fieldErrors: Record<string, string[]> = {};
-    for (const issue of parseResult.error.issues) {
-      const field = issue.path[0]?.toString() || "form";
-      fieldErrors[field] = fieldErrors[field] || [];
-      fieldErrors[field].push(issue.message);
-    }
-    return {
-      success: false,
-      error: parseResult.error.issues[0]?.message ?? "Invalid staff input.",
-      fieldErrors,
-    };
-  }
-
-  const supabase = clientOverride || (await createClient());
-
-  try {
-    const session = sessionOverride || (await requirePermission(supabase, "clinic:manage"));
-    const data = parseResult.data;
-
-    // Check membership exists and belongs to tenant
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: existing, error: fetchErr } = await (supabase.from("memberships") as any)
-      .select("*")
-      .eq("id", data.membership_id)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (fetchErr || !existing) {
-      return { success: false, error: "Staff member not found or access denied." };
-    }
-
-    // Guard: Do not allow demoting the last owner
-    if (existing.role === "owner" && data.role !== "owner") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count } = await (supabase.from("memberships") as any)
-        .select("*", { count: "exact", head: true })
-        .eq("tenant_id", session.tenantId)
-        .eq("role", "owner");
-
-      if ((count ?? 0) <= 1) {
-        return {
-          success: false,
-          error: "Cannot change role of the sole clinic owner. Assign another owner first.",
-        };
-      }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updatePayload: Record<string, any> = {
-      full_name: data.full_name.trim(),
-      phone: data.phone?.trim() ?? null,
-      role: data.role,
-      qualifications: data.qualifications?.trim() ?? null,
-      medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
-      default_specialty: data.default_specialty ?? "general_physician",
-    };
-
-    if (data.default_slot_duration_minutes !== undefined) {
-      updatePayload.default_slot_duration_minutes = data.default_slot_duration_minutes;
-    }
-    if (data.availability_schedule !== undefined) {
-      updatePayload.availability_schedule = data.availability_schedule;
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
-      .update(updatePayload)
-      .eq("id", data.membership_id)
-      .eq("tenant_id", session.tenantId)
-      .select("*")
-      .single();
-
-    if (updateErr || !updated) {
-      console.error("[updateStaffMember] Error updating staff member:", updateErr);
-      return { success: false, error: "Failed to update staff member in database." };
-    }
-
-    await recordAuditLegacy(
-      {
-        action: "staff.member.update",
-        entityType: "membership",
-        entityId: data.membership_id,
-        metadata: {
-          target_user_id: existing.user_id,
-          role: data.role,
-          full_name: data.full_name,
-        },
-      },
-      clientOverride,
-      session
-    );
-
-    try {
-      revalidatePath("/staff");
-      revalidatePath("/settings/clinic");
-      revalidatePath("/cabin");
-    } catch {
-      // Ignore during testing
-    }
-
-    return { success: true, membership: updated as Membership };
-  } catch (err: unknown) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to update staff member.",
-    };
-  }
+export async function updateStaffMember(input: StaffEditInput): Promise<UpdateStaffMemberResult> {
+  const resolved = await resolveServiceContext("clinic:manage");
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const result = await settingsService.updateStaffMember(resolved.ctx, input);
+  if (result.success) revalidate("/staff", "/settings/clinic", "/cabin");
+  return result;
 }
 
 export async function getMyProfile() {
@@ -490,219 +116,37 @@ export async function getMyProfile() {
 }
 
 export async function updateDoctorAvailability(
-  input: { membership_id: string; availability_schedule: any },
-  clientOverride?: SupabaseClient<Database>,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<{ success: true; availability_schedule: any } | { success: false; error: string }> {
-  const parseResult = doctorWeeklyScheduleSchema.safeParse(input.availability_schedule);
-  if (!parseResult.success) {
-    return {
-      success: false,
-      error: parseResult.error.issues[0]?.message || "Invalid availability schedule data",
-    };
-  }
-
-  const supabase = clientOverride || (await createClient());
-
-  try {
-    const session = sessionOverride || (await getActiveMembership());
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: targetMember, error: fetchErr } = await (supabase.from("memberships") as any)
-      .select("id, user_id, tenant_id, role")
-      .eq("id", input.membership_id)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (fetchErr || !targetMember) {
-      return { success: false, error: "Staff member not found or access denied." };
-    }
-
-    // T-03.3-03: Authorization check
-    if (targetMember.user_id !== session.userId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: callerMember } = await (supabase.from("memberships") as any)
-        .select("role")
-        .eq("tenant_id", session.tenantId)
-        .eq("user_id", session.userId)
-        .single();
-
-      if (!callerMember || (callerMember.role !== "owner" && callerMember.role !== "admin")) {
-        return {
-          success: false,
-          error: "Only clinic admins or owners can update other doctors' schedules.",
-        };
-      }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
-      .update({
-        availability_schedule: parseResult.data,
-      })
-      .eq("id", input.membership_id)
-      .eq("tenant_id", session.tenantId)
-      .select("availability_schedule")
-      .single();
-
-    if (updateErr || !updated) {
-      console.error("[updateDoctorAvailability] Update error:", updateErr);
-      return { success: false, error: "Failed to update doctor availability." };
-    }
-
-    await recordAuditLegacy(
-      {
-        action: "staff.member.update",
-        entityType: "membership",
-        entityId: input.membership_id,
-        metadata: {
-          field: "availability_schedule",
-          target_user_id: targetMember.user_id,
-        },
-      },
-      clientOverride,
-      session
-    );
-
-    try {
-      revalidatePath("/profile");
-      revalidatePath("/staff");
-      revalidatePath("/calendar");
-    } catch {
-      // Ignore during test
-    }
-
-    return { success: true, availability_schedule: updated.availability_schedule };
-  } catch (err: unknown) {
-    console.error("[updateDoctorAvailability] Unexpected error:", err);
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to update doctor availability.",
-    };
-  }
+  input: UpdateDoctorAvailabilityInput
+): Promise<UpdateDoctorAvailabilityResult> {
+  const resolved = await resolveServiceContext();
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const result = await settingsService.updateDoctorAvailability(resolved.ctx, input);
+  if (result.success) revalidate("/profile", "/staff", "/calendar");
+  return result;
 }
 
 export async function updateDoctorSlotDuration(
-  input: { membership_id: string; default_slot_duration_minutes: number },
-  clientOverride?: SupabaseClient<Database>,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<{ success: true; default_slot_duration_minutes: number } | { success: false; error: string }> {
-  if (
-    !input.default_slot_duration_minutes ||
-    input.default_slot_duration_minutes < 5 ||
-    input.default_slot_duration_minutes > 180
-  ) {
-    return { success: false, error: "Slot duration must be between 5 and 180 minutes." };
-  }
-
-  const supabase = clientOverride || (await createClient());
-
-  try {
-    const session = sessionOverride || (await getActiveMembership());
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: targetMember, error: fetchErr } = await (supabase.from("memberships") as any)
-      .select("id, user_id, tenant_id, role")
-      .eq("id", input.membership_id)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (fetchErr || !targetMember) {
-      return { success: false, error: "Staff member not found or access denied." };
-    }
-
-    if (targetMember.user_id !== session.userId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: callerMember } = await (supabase.from("memberships") as any)
-        .select("role")
-        .eq("tenant_id", session.tenantId)
-        .eq("user_id", session.userId)
-        .single();
-
-      if (!callerMember || (callerMember.role !== "owner" && callerMember.role !== "admin")) {
-        return {
-          success: false,
-          error: "Only clinic admins or owners can update other doctors' slot duration.",
-        };
-      }
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: updated, error: updateErr } = await (supabase.from("memberships") as any)
-      .update({
-        default_slot_duration_minutes: input.default_slot_duration_minutes,
-      })
-      .eq("id", input.membership_id)
-      .eq("tenant_id", session.tenantId)
-      .select("default_slot_duration_minutes")
-      .single();
-
-    if (updateErr || !updated) {
-      console.error("[updateDoctorSlotDuration] Update error:", updateErr);
-      return { success: false, error: "Failed to update slot duration." };
-    }
-
-    try {
-      revalidatePath("/profile");
-      revalidatePath("/staff");
-      revalidatePath("/calendar");
-    } catch {
-      // Ignore during test
-    }
-
-    return {
-      success: true,
-      default_slot_duration_minutes: updated.default_slot_duration_minutes,
-    };
-  } catch (err: unknown) {
-    console.error("[updateDoctorSlotDuration] Unexpected error:", err);
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Failed to update slot duration.",
-    };
-  }
+  input: UpdateDoctorSlotDurationInput
+): Promise<UpdateDoctorSlotDurationResult> {
+  const resolved = await resolveServiceContext();
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const result = await settingsService.updateDoctorSlotDuration(resolved.ctx, input);
+  if (result.success) revalidate("/profile", "/staff", "/calendar");
+  return result;
 }
 
-export async function getDoctorScheduleBlocks(
-  doctorId?: string,
-  clientOverride?: SupabaseClient<Database>,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<any[]> {
-  const supabase = clientOverride || (await createClient());
-
-  try {
-    const session = sessionOverride || (await getActiveMembership());
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query = (supabase.from("schedule_blocks") as any)
-      .select("*")
-      .eq("tenant_id", session.tenantId)
-      .order("start_time", { ascending: true });
-
-    if (doctorId && doctorId !== "all") {
-      query = query.or(`doctor_id.eq.${doctorId},doctor_id.is.null`);
-    }
-
-    const { data, error } = await query;
-    if (error || !data) {
-      console.error("[getDoctorScheduleBlocks] Error:", error);
-      return [];
-    }
-
-    return data;
-  } catch (err) {
-    console.error("[getDoctorScheduleBlocks] Unexpected error:", err);
-    return [];
-  }
+/** An unauthenticated caller gets an empty list, as before. */
+export async function getDoctorScheduleBlocks(doctorId?: string): Promise<ScheduleBlock[]> {
+  const resolved = await resolveServiceContext();
+  if (!resolved.ok) return [];
+  return settingsService.getDoctorScheduleBlocks(resolved.ctx, doctorId);
 }
 
-export async function deleteDoctorScheduleBlock(
-  blockId: string,
-  clientOverride?: SupabaseClient<Database>,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<{ success: boolean; error?: string }> {
-  void clientOverride;
-  void sessionOverride;
-  const { deleteScheduleBlock } = await import("@/features/visits/scheduling");
-  return deleteScheduleBlock(blockId);
+/** Deletes a schedule block from the profile screen (same rules as the calendar's delete). */
+export async function deleteDoctorScheduleBlock(blockId: string): Promise<{ success: boolean; error?: string }> {
+  const resolved = await resolveServiceContext("appointments:edit");
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const result = await schedulingService.deleteScheduleBlock(resolved.ctx, blockId);
+  if (result.success) revalidate("/calendar");
+  return result;
 }
-

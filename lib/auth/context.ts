@@ -71,7 +71,7 @@ export async function resolveServiceContext(permission?: Permission): Promise<Se
 }
 
 /**
- * TEMP 01-01b/c: bridges the domains that still carry override parameters (consultation, prescriptions, billing)
+ * TEMP 01-01c: bridges the domains that still carry override parameters (consultation, prescriptions, billing)
  * to the ctx-taking PDF generators. The role, when the legacy session lacks it, is read from the caller's own
  * membership row through `db` (fail closed when absent). Delete with the last caller.
  */

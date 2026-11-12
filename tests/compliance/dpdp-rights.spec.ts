@@ -5,7 +5,7 @@ import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { erasePatientRecord } from "@/features/dpdp/erasure";
 import { getPatient, searchPatients, getPatients } from "@/features/patients/service";
 import { toggleGlobalConsent } from "@/features/patients/consent-service";
-import { updateStatutorySettings } from "@/features/settings/actions";
+import { updateStatutorySettings } from "@/features/settings/service";
 import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { GET as exportRoute } from "@/app/api/v1/patients/[id]/export/route";
 import { DELETE as deletePatientRoute } from "@/app/api/v1/patients/[id]/route";
@@ -558,21 +558,12 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
     });
 
     it("updateStatutorySettings persists registration numbers and audits changes", async () => {
-      const session = {
-        userId: tenantB.userId,
-        tenantId: tenantB.tenantId,
-      };
-
-      const result = await updateStatutorySettings(
-        {
-          clinical_establishment_reg_no: "CEA-KA-2023-1122",
-          state_medical_council_reg_no: "KMC/REG/44910",
-          gstin: "29AAAAA0000A1Z5",
-          drug_license_no: "KA-DL-20B-9988",
-        },
-        undefined,
-        session
-      );
+      const result = await updateStatutorySettings(ctxFor(tenantB), {
+        clinical_establishment_reg_no: "CEA-KA-2023-1122",
+        state_medical_council_reg_no: "KMC/REG/44910",
+        gstin: "29AAAAA0000A1Z5",
+        drug_license_no: "KA-DL-20B-9988",
+      });
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -596,18 +587,9 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
     });
 
     it("updateStatutorySettings validates GSTIN format and rejects invalid GSTIN", async () => {
-      const session = {
-        userId: tenantB.userId,
-        tenantId: tenantB.tenantId,
-      };
-
-      const result = await updateStatutorySettings(
-        {
-          gstin: "INVALID_GSTIN_123",
-        },
-        undefined,
-        session
-      );
+      const result = await updateStatutorySettings(ctxFor(tenantB), {
+        gstin: "INVALID_GSTIN_123",
+      });
 
       expect(result.success).toBe(false);
       if (!result.success) {
