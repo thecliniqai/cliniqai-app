@@ -4,7 +4,8 @@ import {
   getUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
-} from "@/features/notifications/actions";
+} from "@/features/notifications/service";
+import { mockCtx } from "../helpers/context";
 import {
   notifyDoctorPatientArrived,
   notifyDoctorVitalsRecorded,
@@ -101,7 +102,7 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         }),
       };
 
-      const res = await getInAppNotifications({}, mockSupabase, doctorSession);
+      const res = await getInAppNotifications(mockCtx(mockSupabase, doctorSession), {});
       expect(res.success).toBe(true);
       expect(res.notifications).toHaveLength(1);
       expect(res.notifications[0].category).toBe("clinical");
@@ -126,7 +127,7 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         }),
       };
 
-      const res = await getInAppNotifications({}, mockSupabase, receptionistSession);
+      const res = await getInAppNotifications(mockCtx(mockSupabase, receptionistSession), {});
       expect(res.success).toBe(true);
       expect(res.notifications).toHaveLength(1);
       expect(res.notifications[0].recipient_role).toBe("receptionist");
@@ -150,7 +151,7 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         }),
       };
 
-      const res = await getInAppNotifications({}, mockSupabase, ownerSession);
+      const res = await getInAppNotifications(mockCtx(mockSupabase, ownerSession), {});
       expect(res.success).toBe(true);
       expect(res.notifications).toHaveLength(1);
       expect(res.notifications[0].category).toBe("system");
@@ -175,7 +176,7 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         }),
       };
 
-      await getInAppNotifications({}, mockSupabase, tenantBSession);
+      await getInAppNotifications(mockCtx(mockSupabase, tenantBSession), {});
       expect(eqSpy).toHaveBeenCalledWith("tenant_id", "tenant-B");
       expect(eqSpy).not.toHaveBeenCalledWith("tenant_id", "tenant-A");
     });
@@ -192,7 +193,7 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         }),
       };
 
-      const res = await markNotificationRead("notif-1", mockSupabase, doctorSession);
+      const res = await markNotificationRead(mockCtx(mockSupabase, doctorSession), "notif-1");
       expect(res.success).toBe(true);
       expect(firstEqSpy).toHaveBeenCalledWith("id", "notif-1");
       expect(secondEqSpy).toHaveBeenCalledWith("tenant_id", "tenant-A");
@@ -213,7 +214,7 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         }),
       };
 
-      const res = await markNotificationRead("notif-1", mockSupabase, doctorSession);
+      const res = await markNotificationRead(mockCtx(mockSupabase, doctorSession), "notif-1");
       expect(res.success).toBe(true);
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -238,7 +239,7 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         }),
       };
 
-      const res = await markAllNotificationsRead(undefined, mockSupabase, doctorSession);
+      const res = await markAllNotificationsRead(mockCtx(mockSupabase, doctorSession), undefined);
       expect(res.success).toBe(true);
       expect(updateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -261,7 +262,7 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         }),
       };
 
-      const res = await getUnreadNotificationCount(mockSupabase, doctorSession);
+      const res = await getUnreadNotificationCount(mockCtx(mockSupabase, doctorSession));
       expect(res.success).toBe(true);
       expect(res.count).toBe(5);
     });
@@ -279,14 +280,15 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         from: vi.fn().mockReturnValue({ insert: insertSpy }),
       };
 
-      await notifyDoctorPatientArrived({
-        tenantId: "tenant-A",
-        doctorId: "doc-1",
-        patientName: "Vikram Malhotra",
-        tokenNumber: 4,
-        visitId: "visit-123",
-        clientOverride: mockSupabase,
-      });
+      await notifyDoctorPatientArrived(
+        { tenantId: "tenant-A", db: mockSupabase as any },
+        {
+          doctorId: "doc-1",
+          patientName: "Vikram Malhotra",
+          tokenNumber: 4,
+          visitId: "visit-123",
+        }
+      );
 
       expect(insertSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -310,13 +312,14 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         from: vi.fn().mockReturnValue({ insert: insertSpy }),
       };
 
-      await notifyWaitlistSlotFreed({
-        tenantId: "tenant-A",
-        doctorName: "Amitabh",
-        slotTime: "11:00 AM",
-        freedCount: 2,
-        clientOverride: mockSupabase,
-      });
+      await notifyWaitlistSlotFreed(
+        { tenantId: "tenant-A", db: mockSupabase as any },
+        {
+          doctorName: "Amitabh",
+          slotTime: "11:00 AM",
+          freedCount: 2,
+        }
+      );
 
       expect(insertSpy).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -338,12 +341,13 @@ describe("In-App Notification Center & Real-Time Alerts (REQ-reminders-notificat
         from: vi.fn().mockReturnValue({ insert: insertSpy }),
       };
 
-      await notifyQuotaWarning({
-        tenantId: "tenant-A",
-        sentCount: 850,
-        quotaLimit: 1000,
-        clientOverride: mockSupabase,
-      });
+      await notifyQuotaWarning(
+        { tenantId: "tenant-A", db: mockSupabase as any },
+        {
+          sentCount: 850,
+          quotaLimit: 1000,
+        }
+      );
 
       expect(insertSpy).toHaveBeenCalledWith(
         expect.objectContaining({
