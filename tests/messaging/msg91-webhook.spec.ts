@@ -539,8 +539,12 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           tenant_id: "tenant-100",
           entity_type: "communication_queue",
           entity_id: "queue-row-101",
+          metadata: expect.objectContaining({ queue_id: "queue-row-101", status: "delivered" }),
         })
       );
+      // No recipient phone in the audit trail (01-10).
+      expect(m.insertAuditSpy.mock.calls[0][0].metadata).not.toHaveProperty("recipient_phone");
+      expect(JSON.stringify(m.insertAuditSpy.mock.calls[0][0])).not.toContain("9876543210");
     });
 
     it("processes Read DLR event, updates queue status to read, and logs audit event", async () => {
@@ -568,8 +572,10 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           action: "communication_dlr_read",
           tenant_id: "tenant-100",
           entity_type: "communication_queue",
+          metadata: expect.objectContaining({ queue_id: "queue-row-102", status: "read" }),
         })
       );
+      expect(JSON.stringify(m.insertAuditSpy.mock.calls[0][0])).not.toContain("9876543210");
     });
 
     it("preserves monotonic progression: does NOT regress status from 'read' to 'delivered' on late delivery event", async () => {
@@ -595,7 +601,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
       expect(m.updateQueueSpy).toHaveBeenCalledWith(expect.objectContaining({ status: "read" }));
     });
 
-    it("processes Failed DLR event: transitions to dead_letter, clears next_retry_at, and creates system category alert", async () => {
+    it("processes Failed DLR event: transitions to dead_letter, keeps next_retry_at (NOT NULL), and creates system category alert", async () => {
       const insertNotifSpy = vi.fn().mockResolvedValue({ data: null, error: null });
       const m = dlrSupabase(
         {
@@ -617,14 +623,27 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ ok: true });
 
-      // Critical: status = 'dead_letter' and next_retry_at = null prevents infinite retry loops
+      // Critical: status = 'dead_letter' is terminal (never claimed again). next_retry_at is NOT NULL in the schema, so
+      // the update must not try to null it (that made the whole UPDATE fail before 01-10).
       expect(m.updateQueueSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "dead_letter", next_retry_at: null, error_message: "Invalid Number" })
+        expect.objectContaining({ status: "dead_letter", error_message: "Invalid Number" })
       );
+      expect(m.updateQueueSpy.mock.calls[0][0]).not.toHaveProperty("next_retry_at");
       expect(m.insertAuditSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ action: "communication_dlr_failed", tenant_id: "tenant-cardio-2" })
+        expect.objectContaining({
+          action: "communication_dlr_failed",
+          tenant_id: "tenant-cardio-2",
+          metadata: expect.objectContaining({
+            queue_id: "queue-row-104",
+            status: "dead_letter",
+            message_type: "appointment_reminder",
+          }),
+        })
       );
+      // No recipient phone in the audit trail (01-10) ...
+      expect(JSON.stringify(m.insertAuditSpy.mock.calls[0][0])).not.toContain("9876543210");
       // Critical: Valid notification category 'system' adheres to DB CHECK constraint 000014:97
+      // ... but the in-app alert to reception keeps it: staff need the number to call the patient (PO ruling, 01-10).
       expect(insertNotifSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           tenant_id: "tenant-cardio-2",
@@ -634,6 +653,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           message: expect.stringContaining("Invalid Number"),
         })
       );
+      expect(insertNotifSpy.mock.calls[0][0].message).toContain("+919876543210");
     });
 
     it("handles DLR with missing request_id without a DB lookup or echo", async () => {

@@ -78,7 +78,9 @@ async function handleMsg91Webhook(req: NextRequest) {
           requestId,
           status: targetStatus,
           delivered_at: event.deliveredAt || nowIso,
-          recipient_phone: queueItem.recipient_phone,
+          // No recipient phone (personal data) in the audit trail (01-10).
+          queue_id: queueItem.id,
+          message_type: queueItem.message_type,
         },
       });
 
@@ -111,7 +113,8 @@ async function handleMsg91Webhook(req: NextRequest) {
           requestId,
           status: "read",
           read_at: event.readAt || nowIso,
-          recipient_phone: queueItem.recipient_phone,
+          queue_id: queueItem.id,
+          message_type: queueItem.message_type,
         },
       });
 
@@ -123,8 +126,9 @@ async function handleMsg91Webhook(req: NextRequest) {
       await supabase
         .from("communication_queue")
         .update({
+          // next_retry_at is NOT NULL and is left as is: dead_letter is terminal and never claimed again
+          // (communication_queue_claim takes only pending/failed rows), the same as the dispatcher's dead_letter.
           status: "dead_letter",
-          next_retry_at: null,
           error_message: event.reason || "Delivery failed",
           metadata: {
             ...(queueItem.metadata || {}),
@@ -146,7 +150,9 @@ async function handleMsg91Webhook(req: NextRequest) {
         metadata: {
           requestId,
           reason: event.reason || "Delivery failed",
-          recipient_phone: queueItem.recipient_phone,
+          status: "dead_letter",
+          queue_id: queueItem.id,
+          message_type: queueItem.message_type,
         },
       });
 

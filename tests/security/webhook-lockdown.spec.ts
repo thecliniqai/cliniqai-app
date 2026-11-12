@@ -452,6 +452,62 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
       for (const [, template] of send.mock.calls) expect(template).toBe("bot_not_found");
     });
 
+    it("01-10: delivery reports persist — Delivered, then Failed moves the row to dead_letter", async () => {
+      const requestId = `req-dlr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const { data: seeded, error: seedErr } = await (admin.from("communication_queue") as any)
+        .insert({
+          tenant_id: A.tenantId,
+          patient_id: A.patientId,
+          appointment_id: A.visitId,
+          channel: "whatsapp",
+          message_type: "appointment_reminder",
+          template_id: "appointment_reminder",
+          recipient_phone: A.patientPhone,
+          status: "sent",
+          external_message_id: requestId,
+        })
+        .select("id, next_retry_at")
+        .single();
+      if (seedErr || !seeded) throw new Error(`seed queue: ${seedErr?.message}`);
+      const row = async () => {
+        const { data } = await (admin.from("communication_queue") as any)
+          .select("status, error_message, next_retry_at, metadata")
+          .eq("id", seeded.id)
+          .single();
+        return data as { status: string; error_message: string | null; next_retry_at: string; metadata: Record<string, unknown> };
+      };
+      const dlr = (status: string) =>
+        routeModule.POST(
+          webhook("msg91", { direction: "outbound", status, request_id: requestId, reason: "Synthetic failure" }),
+          ctx("msg91")
+        );
+
+      expect((await dlr("Delivered")).status).toBe(200);
+      expect((await row()).status).toBe("delivered");
+
+      expect((await dlr("Failed")).status).toBe(200);
+      const failed = await row();
+      expect(failed.status).toBe("dead_letter");
+      expect(failed.error_message).toBe("Synthetic failure");
+      expect(failed.metadata).toHaveProperty("failed_at");
+      expect(failed.next_retry_at).toBe(seeded.next_retry_at);
+
+      // The delivery-report audit rows carry the queue id, status and message type, never the phone number.
+      const { data: audits } = await (admin.from("audit_logs") as any)
+        .select("action, metadata")
+        .eq("entity_id", seeded.id)
+        .in("action", ["communication_dlr_delivered", "communication_dlr_failed"]);
+      expect((audits ?? []).map((a: { action: string }) => a.action).sort()).toEqual([
+        "communication_dlr_delivered",
+        "communication_dlr_failed",
+      ]);
+      for (const a of audits as Array<{ metadata: Record<string, unknown> }>) {
+        expect(a.metadata).toMatchObject({ queue_id: seeded.id, message_type: "appointment_reminder" });
+        expect(a.metadata).not.toHaveProperty("recipient_phone");
+        expect(JSON.stringify(a.metadata)).not.toContain(A.patientPhone.replace("+91", ""));
+      }
+    });
+
     it.each(["waiting", "in_consultation"])(
       "AR2-L4: a late cancel or reschedule reply does nothing to a %s visit (no link, no cancellation)",
       async (status) => {

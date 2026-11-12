@@ -716,7 +716,12 @@ export type CompleteAndBillResult =
       whatsAppError?: string | null;
       rxShareUrl?: string;
       invoiceShareUrl?: string;
-      /** AR3-N2: another request had already billed this visit; `invoiceId` is that invoice and nothing else ran. */
+      /** The invoice's number (the existing invoice's number when `alreadyBilled`). */
+      invoiceNumber?: string | null;
+      /**
+       * AR3-N2: another request had already billed this visit; `invoiceId` / `invoiceNumber` are that invoice and
+       * nothing else ran (no payment, receipt or message). The modal shows "already billed", never "payment pending".
+       */
       alreadyBilled?: boolean;
     }
   | { success: false; error: string };
@@ -820,6 +825,7 @@ export async function completeAndBillConsultation(
         success: true,
         visitId: data.visit_id,
         invoiceId: invoiceResult.invoice.id,
+        invoiceNumber: invoiceResult.invoice.invoice_number ?? null,
         pdfStoragePath: null,
         paymentRecorded: false,
         alreadyBilled: true,
@@ -890,6 +896,7 @@ export async function completeAndBillConsultation(
       success: true,
       visitId: data.visit_id,
       invoiceId: invoiceResult.invoice.id,
+      invoiceNumber: invoiceResult.invoice.invoice_number ?? null,
       pdfStoragePath: rxRow?.pdf_storage_path || null,
       paymentRecorded,
       whatsAppSent,

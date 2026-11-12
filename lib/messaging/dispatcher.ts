@@ -197,10 +197,12 @@ export async function dispatchQueuedMessage(
         entity_type: "communication_queue",
         entity_id: item.id,
         occurred_at: new Date().toISOString(),
+        // No recipient phone (personal data) in the audit trail; the queue row id is entity_id.
         metadata: {
+          queue_id: item.id,
           channel: item.channel,
+          message_type: item.message_type,
           template_id: item.template_id,
-          recipient_phone: item.recipient_phone,
           external_message_id: sendResult.externalMessageId,
         },
       });
@@ -219,9 +221,10 @@ export async function dispatchQueuedMessage(
         category: "system",
         event_type: "delivery_failure_alert",
         title: "Message Delivery Failed",
-        message: `Outbox message to ${item.recipient_phone || "recipient"} failed permanently: ${sendResult.error || "Unknown error"}`,
+        // No recipient phone (personal data) in the alert; the queue row id and message type identify the message.
+        message: `A ${item.channel} message (${item.message_type}) failed permanently: ${sendResult.error || "Unknown error"}`,
         is_read: false,
-        metadata: { queue_id: item.id, channel: item.channel },
+        metadata: { queue_id: item.id, channel: item.channel, message_type: item.message_type },
       });
     } catch {
       // Ignore in-app notification insert errors

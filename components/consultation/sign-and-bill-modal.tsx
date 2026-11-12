@@ -4,6 +4,7 @@ import React, { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { completeAndBillConsultation, shareReceiptViaWhatsApp } from "@/features/billing/actions";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
+import { signAndBillReceiptState } from "@/features/billing/sign-and-bill-outcome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
@@ -61,10 +62,13 @@ export function SignAndBillModal({
   const [completedResult, setCompletedResult] = useState<{
     visitId: string;
     invoiceId: string;
+    invoiceNumber?: string | null;
     paymentRecorded: boolean;
+    alreadyBilled?: boolean;
     whatsAppSent?: boolean;
     whatsAppError?: string | null;
   } | null>(null);
+  const receiptState = completedResult ? signAndBillReceiptState(completedResult) : null;
 
   const [isSendingRxWa, setIsSendingRxWa] = useState(false);
   const [rxWaStatus, setRxWaStatus] = useState<"idle" | "success" | "error">("idle");
@@ -162,7 +166,9 @@ export function SignAndBillModal({
         setCompletedResult({
           visitId: res.visitId,
           invoiceId: res.invoiceId,
+          invoiceNumber: res.invoiceNumber,
           paymentRecorded: res.paymentRecorded,
+          alreadyBilled: res.alreadyBilled,
           whatsAppSent: res.whatsAppSent,
           whatsAppError: res.whatsAppError,
         });
@@ -238,6 +244,16 @@ export function SignAndBillModal({
                   </p>
                 </div>
               </div>
+
+              {receiptState?.kind === "already_billed" ? (
+                <div
+                  role="status"
+                  className="p-3.5 rounded-xl bg-[#EAF2FF] border border-[#B2CCFF] flex items-center gap-3 text-xs text-gray-900"
+                >
+                  <Receipt className="w-4 h-4 text-[#1769E0] shrink-0" />
+                  <p>{receiptState.message}</p>
+                </div>
+              ) : null}
 
               {completedResult.whatsAppError ? (
                 <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-3 text-xs text-amber-900">
@@ -324,18 +340,22 @@ export function SignAndBillModal({
                         <span
                           className={cn(
                             "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border shrink-0",
-                            completedResult.paymentRecorded
+                            receiptState?.kind === "paid"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
+                              : receiptState?.kind === "already_billed"
+                                ? "bg-[#EAF2FF] text-[#1769E0] border-[#B2CCFF]"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
                           )}
                         >
-                          {completedResult.paymentRecorded ? "Paid" : "Pending at Desk"}
+                          {receiptState?.badge}
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {completedResult.paymentRecorded
-                          ? `Official clinic receipt for ₹${totalPayable} (${paymentMethod.toUpperCase()}).`
-                          : "Receipt bill routed to reception for payment collection."}
+                        {receiptState?.kind === "already_billed"
+                          ? receiptState.message
+                          : receiptState?.kind === "paid"
+                            ? `Official clinic receipt for ₹${totalPayable} (${paymentMethod.toUpperCase()}).`
+                            : "Receipt bill routed to reception for payment collection."}
                       </p>
                       {invWaError && (
                         <p className="text-[11px] text-red-600 mt-1">{invWaError}</p>

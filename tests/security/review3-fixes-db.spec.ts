@@ -9,6 +9,7 @@ import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/service";
 import { shareLabReportViaWhatsApp } from "@/features/labs/service";
 import { saveConsultationDraft, completeAndSignConsultation } from "@/features/consultation/service";
 import { completeAndBillConsultation, createVisitInvoice } from "@/features/billing/service";
+import { signAndBillReceiptState } from "@/features/billing/sign-and-bill-outcome";
 
 // V2-01 plan 01-10 (review round 3; reviews/review3-adversarial.md = AR3), migration 000024. Local stack, real
 // clients; the admin (service-role) client only seeds rows, reads results and stands in for the cron dispatcher.
@@ -284,7 +285,8 @@ describe("01-10 review round 3 fixes (000024)", () => {
       expect(JSON.stringify([row.template_params, row.metadata])).not.toContain("https://");
     });
 
-    it("the cron dispatcher (service role) still sends due rows", async () => {
+    it("a permanent failure alerts admins without the recipient's phone number", async () => {
+      const phone = syntheticPhone();
       const queued = await enqueueMessage(A.members.receptionist.client, {
         tenantId: A.owner.tenantId,
         patientId: A.patientId,
@@ -292,7 +294,39 @@ describe("01-10 review round 3 fixes (000024)", () => {
         messageType: "lab_report_uploaded",
         templateId: "lab_report_uploaded",
         templateParams: { document_url: LINK },
-        recipientPhone: syntheticPhone(),
+        recipientPhone: phone,
+        maxRetries: 1,
+        delayUntil: new Date(Date.now() - 1000).toISOString(),
+      });
+      const refusing = {
+        sendSms: async () => ({ success: false, error: "Synthetic provider refusal" }),
+        sendWhatsApp: async () => ({ success: false, error: "Synthetic provider refusal" }),
+      } as never;
+      expect(await dispatchQueuedMessage(A.members.receptionist.client, queued.id, { provider: refusing })).toBe(
+        "dead_letter"
+      );
+      const { data: alerts } = await admin
+        .from("in_app_notifications")
+        .select("message, metadata")
+        .eq("tenant_id", A.owner.tenantId)
+        .contains("metadata", { queue_id: queued.id });
+      expect(alerts).toHaveLength(1);
+      const alert = alerts![0] as { message: string; metadata: Record<string, unknown> };
+      expect(alert.metadata).toMatchObject({ queue_id: queued.id, message_type: "lab_report_uploaded" });
+      const digits = phone.replace("+91", "");
+      expect(JSON.stringify(alert)).not.toContain(digits);
+    });
+
+    it("the cron dispatcher (service role) still sends due rows, and the audit row carries no phone number", async () => {
+      const phone = syntheticPhone();
+      const queued = await enqueueMessage(A.members.receptionist.client, {
+        tenantId: A.owner.tenantId,
+        patientId: A.patientId,
+        channel: "whatsapp",
+        messageType: "lab_report_uploaded",
+        templateId: "lab_report_uploaded",
+        templateParams: { document_url: LINK },
+        recipientPhone: phone,
         delayUntil: new Date(Date.now() - 1000).toISOString(),
       });
       // Make it the oldest due row so the batch picks it up whatever else is queued locally.
@@ -305,6 +339,17 @@ describe("01-10 review round 3 fixes (000024)", () => {
       const row = await queueRow(queued.id);
       expect(row.status).toBe("sent");
       expect(row.template_params.document_url).toBe("[redacted]");
+
+      const { data: audits } = await admin
+        .from("audit_logs")
+        .select("metadata")
+        .eq("action", "communication_sent")
+        .eq("entity_id", queued.id);
+      expect(audits).toHaveLength(1);
+      const metadata = (audits![0] as { metadata: Record<string, unknown> }).metadata;
+      expect(metadata).toMatchObject({ queue_id: queued.id, message_type: "lab_report_uploaded" });
+      expect(metadata).not.toHaveProperty("recipient_phone");
+      expect(JSON.stringify(metadata)).not.toContain(phone.replace("+91", ""));
     });
   });
 
@@ -408,6 +453,68 @@ describe("01-10 review round 3 fixes (000024)", () => {
       for (const r of results) {
         if (r.success) expect(r.invoiceId).toBe(all[0].id);
       }
+    });
+
+    it("the losing request gets the existing invoice as 'already billed' (the shape the modal shows), and no payment", async () => {
+      const visitId = await draftedVisit();
+      expect((await completeAndSignConsultation(ctxFor(A.members.doctor), visitId)).success).toBe(true);
+      const first = await bill(visitId);
+      expect(first.success).toBe(true);
+      const [invoice] = await invoices(visitId);
+      const { data: inv } = await admin.from("invoices").select("invoice_number").eq("id", invoice.id).single();
+      const invoiceNumber = (inv as unknown as { invoice_number: string }).invoice_number;
+      expect(invoiceNumber).toBeTruthy();
+
+      // The race window: this request read "no invoice yet" just before the other request's insert committed.
+      // Its first invoices read is answered as of that moment; everything after runs on the real database.
+      let stale = true;
+      const real = A.members.doctor.client;
+      const raced = new Proxy(real, {
+        get(target, prop) {
+          if (prop === "from") {
+            return (table: string) => {
+              if (table === "invoices" && stale) {
+                stale = false;
+                const chain: Record<string, unknown> = {};
+                for (const m of ["select", "eq", "neq", "limit"]) chain[m] = () => chain;
+                chain.then = (resolve: (v: unknown) => unknown) => resolve({ data: [], error: null });
+                return chain;
+              }
+              return target.from(table as never);
+            };
+          }
+          const value = Reflect.get(target, prop, target);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+
+      const res = await completeAndBillConsultation({ ...ctxFor(A.members.doctor), db: raced as never }, {
+        visit_id: visitId,
+        patient_id: A.patientId,
+        consultation_fee: 500,
+        discount: 0,
+        additional_items: [],
+        payment_collected: true,
+        payment_method: "cash",
+      });
+      expect(stale).toBe(false);
+      expect(res).toMatchObject({
+        success: true,
+        alreadyBilled: true,
+        invoiceId: invoice.id,
+        invoiceNumber,
+        paymentRecorded: false,
+      });
+      if (res.success) {
+        const state = signAndBillReceiptState(res);
+        expect(state.kind).toBe("already_billed");
+        expect(state.badge).not.toBe("Pending at Desk");
+        if (state.kind === "already_billed") {
+          expect(state.message).toContain(invoiceNumber);
+        }
+      }
+      expect(await invoices(visitId)).toHaveLength(1);
+      expect(await paymentCount([invoice.id])).toBe(1);
     });
 
     it("a voided (cancelled) invoice can be re-issued, by createVisitInvoice and by a Sign & Bill retry", async () => {

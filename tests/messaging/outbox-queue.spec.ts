@@ -224,8 +224,13 @@ describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02
         expect.objectContaining({
           action: "communication_sent",
           tenant_id: "tenant-1",
+          entity_id: "msg-1",
+          metadata: expect.objectContaining({ queue_id: "msg-1", message_type: "appointment_reminder" }),
         })
       );
+      // No recipient phone in the audit trail (01-10).
+      expect(mockAuditInsert.mock.calls[0][0].metadata).not.toHaveProperty("recipient_phone");
+      expect(JSON.stringify(mockAuditInsert.mock.calls[0][0])).not.toContain("9876543210");
     });
 
     it("enqueueMessage dispatches only the row it inserted, and reads back no payload columns", async () => {
