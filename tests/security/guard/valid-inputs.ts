@@ -28,9 +28,16 @@ export interface ValidInput {
 }
 
 const day = 86_400_000;
-/** A future instant at a random minute, so two bookings never collide. */
+/**
+ * A future instant in its own one-hour slot. The legs book the same doctor in the same tenant several times per run,
+ * and the scheduler reports a conflict for any two visits within `estimated_duration_minutes` (15) of each other, so
+ * a random minute alone collided in about 5% of pairs (a baseline run on 2026-11-13 failed leg 3b this way). Each call
+ * takes the next hour after a random base, so no two instants from this module are closer than 60 minutes.
+ */
+const SLOT_BASE_MINUTE = Math.floor(Math.random() * 600);
+let slotCounter = 0;
 const futureIso = (days: number) =>
-  new Date(Date.now() + days * day + Math.floor(Math.random() * 600) * 60_000).toISOString();
+  new Date(Date.now() + days * day + (SLOT_BASE_MINUTE + 60 * slotCounter++) * 60_000).toISOString();
 /** 90+ days out, 10:00-17:00 IST (04:30-11:30 UTC), at a random day and minute. */
 const inShiftIso = (minDays: number) => {
   const now = new Date();
