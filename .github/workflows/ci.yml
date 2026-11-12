@@ -110,16 +110,27 @@ jobs:
       - run: npm ci
       - name: Start the local Supabase stack (same services as npm run test:db)
         run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
-      - name: Vitest (full unit + DB lane)
-        run: npx vitest run --reporter=dot --reporter=json --outputFile.json=vitest-report.json
+      # One run produces both the JSON report and v8 coverage (02-05); coverage is report-only until V2-14.
+      - name: Vitest (full unit + DB lane, with coverage)
+        run: npx vitest run --reporter=dot --reporter=json --outputFile.json=vitest-report.json --coverage.enabled
       - name: Report gate (0 failed, 0 skipped/todo, total >= floor)
         if: ${{ !cancelled() }}
         run: node scripts/ci/assert-vitest-report.mjs vitest-report.json
+      - name: Coverage summary (report only, never fails)
+        if: ${{ !cancelled() }}
+        run: node scripts/ci/coverage-summary.mjs coverage/coverage-summary.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: vitest-report
           path: vitest-report.json
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: coverage
+          path: coverage/
           if-no-files-found: warn
           retention-days: 14
       - name: Stop the local stack
