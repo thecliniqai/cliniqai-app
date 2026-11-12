@@ -10,11 +10,15 @@ export async function GET(
   try {
     const { id: visitId } = await params;
 
-    // 1-2. Authenticate and resolve the tenant membership server-side (session only, never caller input)
-    const resolved = await resolveServiceContext();
+    // 1-2. Authenticate, check the same permission as the in-app prescription preview (getPrescriptionPdfSignedUrl)
+    // and resolve the tenant membership server-side (session only, never caller input) — V2-01 F3
+    const resolved = await resolveServiceContext("consultations:view");
     if (!resolved.ok) {
       if (resolved.reason === "unauthenticated") {
         return new NextResponse("Unauthorized", { status: 401 });
+      }
+      if (resolved.reason === "forbidden") {
+        return new NextResponse("Forbidden", { status: 403 });
       }
       return new NextResponse(resolved.error, { status: 500 });
     }

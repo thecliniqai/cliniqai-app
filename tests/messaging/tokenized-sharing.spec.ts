@@ -8,7 +8,7 @@ import * as adminSupabase from "@/lib/supabase/admin";
 import * as appointmentsActions from "@/features/appointments/system";
 import * as storageModule from "@/lib/storage";
 import { NextRequest } from "next/server";
-import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
+import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/service";
 import { shareLabReportViaWhatsApp } from "@/features/labs/service";
 import { mockCtx } from "../helpers/context";
 import { shareReferralLetterViaWhatsApp } from "@/features/referrals/service";
@@ -503,7 +503,7 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
         }),
       };
 
-      const res = await sharePrescriptionViaWhatsApp("rx-100", mockSupabase, session);
+      const res = await sharePrescriptionViaWhatsApp(mockCtx(mockSupabase, session), "rx-100");
       expect(res.success).toBe(true);
       expect(res.shareUrl).toContain("/r/");
       expect(enqueueSpy).toHaveBeenCalledWith(

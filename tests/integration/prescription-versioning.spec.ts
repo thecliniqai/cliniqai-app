@@ -13,7 +13,7 @@ import {
   addPrescriptionItem,
   removePrescriptionItem,
   getPrescriptionPdfSignedUrl,
-} from "@/features/prescriptions/actions";
+} from "@/features/prescriptions/service";
 import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
 import { ctxFor } from "../helpers/context";
@@ -118,6 +118,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     // 5. Prescribe 2 medications (Paracetamol 650mg & Cetirizine 10mg)
     const med1Res = await addPrescriptionItem(
+      ctxFor(tenantA),
       visitAId,
       {
         medicine_name: "Paracetamol 650mg",
@@ -127,9 +128,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         timing: "After food",
         duration: "3 days",
         special_instructions: "Take SOS if temp > 100°F",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(med1Res.success).toBe(true);
     if (!med1Res.success) return;
@@ -137,6 +136,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     med1ItemId = med1Res.itemId;
 
     const med2Res = await addPrescriptionItem(
+      ctxFor(tenantA),
       visitAId,
       {
         medicine_name: "Cetirizine 10mg",
@@ -146,9 +146,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         timing: "After food",
         duration: "5 days",
         special_instructions: "Take at bedtime",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(med2Res.success).toBe(true);
   });
@@ -235,10 +233,9 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
   it("4. getPrescriptionPdfSignedUrl generates valid 3600s signed URLs for both Blank Paper and Pre-Printed modes", async () => {
     // 1. Blank paper mode
     const blankRes = await getPrescriptionPdfSignedUrl(
+      ctxFor(tenantA),
       prescriptionAId,
-      "blank_paper",
-      tenantA.client,
-      sessionA
+      "blank_paper"
     );
 
     expect(blankRes.success).toBe(true);
@@ -249,10 +246,9 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     // 2. Pre-printed letterhead mode
     const preprintedRes = await getPrescriptionPdfSignedUrl(
+      ctxFor(tenantA),
       prescriptionAId,
-      "preprinted_letterhead",
-      tenantA.client,
-      sessionA
+      "preprinted_letterhead"
     );
 
     expect(preprintedRes.success).toBe(true);
@@ -315,10 +311,11 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     expect(reopenedVisit?.status).toBe("in_consultation");
 
     // 5. Doctor edits medication: Remove 650mg and add 500mg
-    const removeRes = await removePrescriptionItem(med1ItemId, visitAId, tenantA.client, sessionA);
+    const removeRes = await removePrescriptionItem(ctxFor(tenantA), med1ItemId);
     expect(removeRes.success).toBe(true);
 
     const addRes = await addPrescriptionItem(
+      ctxFor(tenantA),
       visitAId,
       {
         medicine_name: "Paracetamol 500mg",
@@ -328,9 +325,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         timing: "After food",
         duration: "3 days",
         special_instructions: "Reduced dose to 500mg",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(addRes.success).toBe(true);
 
@@ -362,10 +357,9 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     // 9. Verify amended PDF signed URL returns v2
     const v2PdfRes = await getPrescriptionPdfSignedUrl(
+      ctxFor(tenantA),
       prescriptionAId,
-      "blank_paper",
-      tenantA.client,
-      sessionA
+      "blank_paper"
     );
     expect(v2PdfRes.success).toBe(true);
     if (v2PdfRes.success) {
@@ -394,10 +388,9 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     // 3. Tenant B cannot generate or access Tenant A's signed prescription PDF URL
     const maliciousPdf = await getPrescriptionPdfSignedUrl(
+      ctxFor(tenantB),
       prescriptionAId,
-      "blank_paper",
-      tenantB.client,
-      sessionB
+      "blank_paper"
     );
     expect(maliciousPdf.success).toBe(false);
   });

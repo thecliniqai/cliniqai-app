@@ -1,0 +1,801 @@
+import "server-only";
+
+import { randomBytes } from "crypto";
+import { assertPerm } from "@/lib/permissions";
+import type { ServiceContext } from "@/lib/auth/context";
+import { recordAudit } from "@/lib/audit/audit";
+import { PrescriptionItem } from "@/lib/db/types";
+import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import {
+  prescriptionItemSchema,
+  PrescriptionItemInput,
+  protocolTemplateSchema,
+  ProtocolTemplateInput,
+  MedicineSearchResult,
+} from "./schema";
+import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
+import { PrescriptionPdfPayload } from "./pdf/prescription-document";
+
+// Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
+// its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01): the only
+// `prescription.issued` webhook is enqueued by `getOrCreateDraftPrescription` under the acting tenant.
+
+// Specialty slugs are interpolated into a PostgREST `.or()` filter, so only plain slug characters are accepted.
+const SPECIALTY_SLUG = /^[a-z0-9_]{1,50}$/;
+
+export type SearchMedicinesResult =
+  | { success: true; results: MedicineSearchResult[] }
+  | { success: false; error: string };
+
+/**
+ * Searches the 94,000+ CDCI drug catalog merged with doctor's favorite/custom drugs
+ * using the optimized Postgres search_medicines RPC function (<100ms response).
+ */
+export async function searchMedicines(ctx: ServiceContext, query: string, limit = 20): Promise<SearchMedicinesResult> {
+  const supabase = ctx.db;
+
+  try {
+    assertPerm(ctx.role, "consultations:view");
+    const cleanQuery = query.trim();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rows, error } = await (supabase.rpc as any)("search_medicines", {
+      p_query: cleanQuery,
+      p_doctor_id: ctx.userId,
+      p_tenant_id: ctx.tenantId,
+      p_limit: limit,
+    });
+
+    if (error) {
+      console.error("[features/prescriptions/service] search_medicines RPC error:", error);
+      return { success: false, error: "Failed to search medicines." };
+    }
+
+    const results: MedicineSearchResult[] = (rows || []).map((r: MedicineSearchResult) => ({
+      id: r.id,
+      medicine_name: r.medicine_name,
+      generic_name: r.generic_name,
+      dose_form: r.dose_form,
+      default_dosage: r.default_dosage,
+      default_timing: r.default_timing,
+      default_duration: r.default_duration,
+      is_custom: r.is_custom,
+      is_favorite: r.is_favorite,
+    }));
+
+    return { success: true, results };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to search medicines.",
+    };
+  }
+}
+
+export type GetOrCreateDraftPrescriptionResult =
+  | { success: true; prescriptionId: string }
+  | { success: false; error: string };
+
+/**
+ * Resolves or initializes an active draft prescription for the visit.
+ */
+export async function getOrCreateDraftPrescription(
+  ctx: ServiceContext,
+  visitId: string
+): Promise<GetOrCreateDraftPrescriptionResult> {
+  const supabase = ctx.db;
+
+  try {
+    assertPerm(ctx.role, "consultations:edit");
+
+    // 1. Check if active prescription already exists
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existing } = await (supabase.from("prescriptions") as any)
+      .select("id")
+      .eq("visit_id", visitId)
+      .eq("tenant_id", ctx.tenantId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (existing) {
+      return { success: true, prescriptionId: existing.id };
+    }
+
+    // 2. Fetch visit to resolve patient_id & doctor_id
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
+      .select("id, patient_id, doctor_id")
+      .eq("id", visitId)
+      .eq("tenant_id", ctx.tenantId)
+      .single();
+
+    if (visitErr || !visit) {
+      return { success: false, error: "Visit not found or access denied." };
+    }
+
+    // 3. Create initial active draft prescription
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: created, error: createErr } = await (supabase.from("prescriptions") as any)
+      .insert({
+        tenant_id: ctx.tenantId,
+        visit_id: visitId,
+        patient_id: visit.patient_id,
+        doctor_id: ctx.userId,
+        version: 1,
+        status: "active",
+        letterhead_mode: "blank_paper",
+      })
+      .select("id")
+      .single();
+
+    if (createErr || !created) {
+      return { success: false, error: "Failed to create prescription draft." };
+    }
+
+    try {
+      await enqueueWebhookEvent(supabase, ctx.tenantId, "prescription.issued", {
+        prescription_id: created.id,
+        patient_id: visit.patient_id,
+        visit_id: visitId,
+      });
+    } catch (webhookErr) {
+      console.warn("[getOrCreateDraftPrescription] Webhook enqueue error:", webhookErr);
+    }
+
+    return { success: true, prescriptionId: created.id };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to initialize prescription.",
+    };
+  }
+}
+
+export type AddPrescriptionItemResult =
+  | { success: true; itemId: string; prescriptionId: string }
+  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+
+/**
+ * Appends a prescribed medication row to the active prescription.
+ * If custom medicine, upserts to doctor_custom_medicines for future fast access.
+ */
+export async function addPrescriptionItem(
+  ctx: ServiceContext,
+  visitId: string,
+  input: PrescriptionItemInput
+): Promise<AddPrescriptionItemResult> {
+  try {
+    assertPerm(ctx.role, "consultations:edit");
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to record medication." };
+  }
+
+  const parseResult = prescriptionItemSchema.safeParse(input);
+  if (!parseResult.success) {
+    const fieldErrors: Record<string, string[]> = {};
+    for (const issue of parseResult.error.issues) {
+      const field = issue.path[0]?.toString() || "form";
+      fieldErrors[field] = fieldErrors[field] || [];
+      fieldErrors[field].push(issue.message);
+    }
+    return {
+      success: false,
+      error: "Validation failed. Please correct medication details.",
+      fieldErrors,
+    };
+  }
+
+  const supabase = ctx.db;
+
+  try {
+    const data = parseResult.data;
+
+    // 1. Resolve active prescription (same context, so the callee's own permission check applies)
+    const draftRes = await getOrCreateDraftPrescription(ctx, visitId);
+    if (!draftRes.success) {
+      return { success: false, error: draftRes.error };
+    }
+    const prescriptionId = draftRes.prescriptionId;
+
+    // 2. Determine sort order
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existingItems } = await (supabase.from("prescription_items") as any)
+      .select("sort_order")
+      .eq("prescription_id", prescriptionId)
+      .order("sort_order", { ascending: false })
+      .limit(1);
+
+    const nextOrder =
+      existingItems && existingItems.length > 0 ? (existingItems[0].sort_order ?? 0) + 1 : 0;
+
+    // 3. Insert into prescription_items
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: inserted, error: insertErr } = await (supabase.from("prescription_items") as any)
+      .insert({
+        prescription_id: prescriptionId,
+        medicine_name: data.medicine_name,
+        generic_name: data.generic_name || null,
+        dose_form: data.dose_form || null,
+        dosage: data.dosage,
+        timing: data.timing || null,
+        duration: data.duration,
+        special_instructions: data.special_instructions || null,
+        cdci_brand_id: data.cdci_brand_id || null,
+        cdci_generic_id: data.cdci_generic_id || null,
+        sort_order: nextOrder,
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !inserted) {
+      console.error("[features/prescriptions/service] Insert item error:", insertErr);
+      return { success: false, error: "Failed to add prescription item." };
+    }
+
+    // 4. If custom medicine, upsert to doctor_custom_medicines
+    if (!data.cdci_brand_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("doctor_custom_medicines") as any).upsert(
+        {
+          tenant_id: ctx.tenantId,
+          doctor_id: ctx.userId,
+          medicine_name: data.medicine_name,
+          generic_name: data.generic_name || null,
+          dose_form: data.dose_form || null,
+          default_dosage: data.dosage,
+          default_timing: data.timing || null,
+          default_duration: data.duration,
+          use_count: 1,
+        },
+        { onConflict: "tenant_id,doctor_id,medicine_name" }
+      );
+    }
+
+    // 5. Record audit trail
+    await recordAudit(ctx, {
+      action: "prescription.item_add",
+      entityType: "prescription",
+      entityId: prescriptionId,
+      metadata: {
+        dose_form: data.dose_form,
+      },
+    });
+
+    return { success: true, itemId: inserted.id, prescriptionId };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to record medication.",
+    };
+  }
+}
+
+export type RemovePrescriptionItemResult =
+  | { success: true }
+  | { success: false; error: string };
+
+/**
+ * Removes an item from the active prescription.
+ */
+export async function removePrescriptionItem(
+  ctx: ServiceContext,
+  itemId: string
+): Promise<RemovePrescriptionItemResult> {
+  const supabase = ctx.db;
+
+  try {
+    assertPerm(ctx.role, "consultations:edit");
+
+    // Verify item belongs to a prescription owned by the acting tenant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: itemRow, error: fetchErr } = await (supabase.from("prescription_items") as any)
+      .select("id, prescription_id, prescription:prescriptions!inner(tenant_id)")
+      .eq("id", itemId)
+      .eq("prescription.tenant_id", ctx.tenantId)
+      .single();
+
+    if (fetchErr || !itemRow) {
+      return { success: false, error: "Prescription item not found." };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: deleteErr } = await (supabase.from("prescription_items") as any)
+      .delete()
+      .eq("id", itemId);
+
+    if (deleteErr) {
+      return { success: false, error: "Failed to delete prescription item." };
+    }
+
+    await recordAudit(ctx, {
+      action: "prescription.item_remove",
+      entityType: "prescription",
+      entityId: itemRow.prescription_id,
+    });
+
+    return { success: true };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to remove medication.",
+    };
+  }
+}
+
+export type SaveDoctorProtocolTemplateResult =
+  | { success: true; templateId: string }
+  | { success: false; error: string };
+
+/**
+ * Saves a named medication protocol template for the acting doctor.
+ */
+export async function saveDoctorProtocolTemplate(
+  ctx: ServiceContext,
+  input: ProtocolTemplateInput
+): Promise<SaveDoctorProtocolTemplateResult> {
+  try {
+    assertPerm(ctx.role, "consultations:edit");
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Failed to save protocol template." };
+  }
+
+  const parseResult = protocolTemplateSchema.safeParse(input);
+  if (!parseResult.success) {
+    return { success: false, error: "Invalid protocol template details." };
+  }
+
+  const supabase = ctx.db;
+
+  try {
+    const data = parseResult.data;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: inserted, error } = await (supabase.from("doctor_prescription_templates") as any)
+      .insert({
+        tenant_id: ctx.tenantId,
+        doctor_id: ctx.userId,
+        template_name: data.template_name,
+        specialty: data.specialty || null,
+        items: data.items,
+      })
+      .select("id")
+      .single();
+
+    if (error || !inserted) {
+      console.error("[features/prescriptions/service] Save template error:", error);
+      return { success: false, error: "Failed to save protocol template." };
+    }
+
+    await recordAudit(ctx, {
+      action: "prescription.template_save",
+      entityType: "prescription",
+      entityId: inserted.id,
+      metadata: {
+        template_name: data.template_name,
+        items_count: data.items.length,
+      },
+    });
+
+    return { success: true, templateId: inserted.id };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to save protocol template.",
+    };
+  }
+}
+
+export interface DoctorProtocolTemplate {
+  id: string;
+  template_name: string;
+  specialty: string | null;
+  items: PrescriptionItemInput[];
+  created_at: string;
+}
+
+export type GetDoctorProtocolTemplatesResult =
+  | { success: true; templates: DoctorProtocolTemplate[] }
+  | { success: false; error: string };
+
+/**
+ * Fetches the acting doctor's saved protocol templates for the active specialty.
+ */
+export async function getDoctorProtocolTemplates(
+  ctx: ServiceContext,
+  specialty?: string
+): Promise<GetDoctorProtocolTemplatesResult> {
+  const supabase = ctx.db;
+
+  try {
+    assertPerm(ctx.role, "consultations:view");
+
+    if (specialty && !SPECIALTY_SLUG.test(specialty)) {
+      return { success: false, error: "Invalid specialty." };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query = (supabase.from("doctor_prescription_templates") as any)
+      .select("id, template_name, specialty, items, created_at")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("doctor_id", ctx.userId);
+
+    if (specialty) {
+      query = query.or(`specialty.eq.${specialty},specialty.is.null`);
+    }
+
+    const { data: rows, error } = await query.order("template_name", { ascending: true });
+
+    if (error) {
+      return { success: false, error: "Failed to fetch protocol templates." };
+    }
+
+    return { success: true, templates: rows ?? [] };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to load protocol templates.",
+    };
+  }
+}
+
+export interface VisitPrescriptionData {
+  id: string;
+  version: number;
+  status: string;
+  letterhead_mode: string;
+  items: PrescriptionItem[];
+}
+
+export type GetVisitPrescriptionResult =
+  | { success: true; prescription: VisitPrescriptionData | null }
+  | { success: false; error: string };
+
+/**
+ * Fetches the active prescription and all medication items for a visit.
+ */
+export async function getVisitPrescription(ctx: ServiceContext, visitId: string): Promise<GetVisitPrescriptionResult> {
+  const supabase = ctx.db;
+
+  try {
+    assertPerm(ctx.role, "consultations:view");
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rx, error: rxErr } = await (supabase.from("prescriptions") as any)
+      .select(`
+        id,
+        version,
+        status,
+        letterhead_mode,
+        items:prescription_items (
+          id,
+          prescription_id,
+          medicine_name,
+          generic_name,
+          dose_form,
+          dosage,
+          timing,
+          duration,
+          special_instructions,
+          cdci_brand_id,
+          cdci_generic_id,
+          sort_order,
+          created_at
+        )
+      `)
+      .eq("visit_id", visitId)
+      .eq("tenant_id", ctx.tenantId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (rxErr) {
+      console.error("[features/prescriptions/service] Fetch prescription error:", rxErr);
+      return { success: false, error: "Failed to load prescription." };
+    }
+
+    if (!rx) {
+      return { success: true, prescription: null };
+    }
+
+    const sortedItems = (rx.items || []).sort(
+      (a: PrescriptionItem, b: PrescriptionItem) => a.sort_order - b.sort_order
+    );
+
+    return {
+      success: true,
+      prescription: {
+        id: rx.id,
+        version: rx.version,
+        status: rx.status,
+        letterhead_mode: rx.letterhead_mode,
+        items: sortedItems,
+      },
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to load prescription.",
+    };
+  }
+}
+
+export type GetPrescriptionPdfSignedUrlResult =
+  | { success: true; signedUrl: string; version: number }
+  | { success: false; error: string };
+
+/**
+ * Compiles and returns a time-limited signed storage URL (3600s TTL)
+ * for previewing and printing a prescription in the browser.
+ */
+export async function getPrescriptionPdfSignedUrl(
+  ctx: ServiceContext,
+  prescriptionId: string,
+  letterheadMode: "blank_paper" | "preprinted_letterhead" = "blank_paper"
+): Promise<GetPrescriptionPdfSignedUrlResult> {
+  const supabase = ctx.db;
+
+  try {
+    assertPerm(ctx.role, "consultations:view");
+
+    // 1. Fetch prescription record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: rx, error: rxErr } = await (supabase.from("prescriptions") as any)
+      .select("id, visit_id, patient_id, doctor_id, version, status, amendment_reason, signed_at")
+      .eq("id", prescriptionId)
+      .eq("tenant_id", ctx.tenantId)
+      .single();
+
+    if (rxErr || !rx) {
+      return { success: false, error: "Prescription not found or access denied." };
+    }
+
+    // 2. Fetch visit record
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
+      .select("id, status, specialty, vitals, chief_complaints, clinical_notes, advice, investigations_advised, created_at, scheduled_at, signed_at")
+      .eq("id", rx.visit_id)
+      .eq("tenant_id", ctx.tenantId)
+      .single();
+
+    if (visitErr || !visit) {
+      return { success: false, error: "Visit encounter record not found." };
+    }
+
+    // 3. Fetch clinic tenant details
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: tenant } = await (supabase.from("tenants") as any)
+      .select("name, address, phone, registration_number, logo_url")
+      .eq("id", ctx.tenantId)
+      .single();
+
+    // 4. Fetch patient details
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: patient } = await (supabase.from("patients") as any)
+      .select("full_name, age, sex, phone, address, abha_id")
+      .eq("id", rx.patient_id)
+      .eq("tenant_id", ctx.tenantId)
+      .single();
+
+    // 5. Fetch doctor membership info
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: doctorMember } = await (supabase.from("memberships") as any)
+      .select("qualifications, medical_council_reg_no")
+      .eq("tenant_id", ctx.tenantId)
+      .eq("user_id", rx.doctor_id)
+      .maybeSingle();
+
+    // 6. Fetch consultation diagnoses
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: diagnoses } = await (supabase.from("consultation_diagnoses") as any)
+      .select("diagnosis_name, icd11_code, snomed_concept_id")
+      .eq("visit_id", rx.visit_id)
+      .eq("tenant_id", ctx.tenantId)
+      .order("created_at", { ascending: true });
+
+    // 7. Fetch prescription items
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: items } = await (supabase.from("prescription_items") as any)
+      .select("medicine_name, generic_name, dose_form, dosage, timing, duration, special_instructions, sort_order")
+      .eq("prescription_id", rx.id)
+      .order("sort_order", { ascending: true });
+
+    // 8. Fetch follow-up
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: followUp } = await (supabase.from("follow_ups") as any)
+      .select("follow_up_date")
+      .eq("visit_id", rx.visit_id)
+      .eq("tenant_id", ctx.tenantId)
+      .maybeSingle();
+
+    // 9. Build payload
+    const payload: PrescriptionPdfPayload = {
+      tenant_id: ctx.tenantId,
+      visit_id: rx.visit_id,
+      prescription_id: rx.id,
+      version: rx.version,
+      letterhead_mode: letterheadMode,
+      amendment_reason: rx.amendment_reason || null,
+      signed_at: rx.signed_at || visit.signed_at || null,
+      clinic: {
+        name: tenant?.name || "Clinic",
+        address: tenant?.address || null,
+        phone: tenant?.phone || null,
+        registration_number: tenant?.registration_number || null,
+        logo_url: tenant?.logo_url || null,
+      },
+      doctor: {
+        name: "Doctor",
+        qualifications: doctorMember?.qualifications || null,
+        medical_council_reg_no: doctorMember?.medical_council_reg_no || null,
+      },
+      patient: {
+        full_name: patient?.full_name || "Patient",
+        age: patient?.age || null,
+        sex: patient?.sex || null,
+        phone: patient?.phone || null,
+        address: typeof patient?.address === "string" ? patient.address : null,
+        abha_id: patient?.abha_id || null,
+        uhid: rx.patient_id.slice(0, 8).toUpperCase(),
+      },
+      visit: {
+        visit_date: (visit.scheduled_at || visit.created_at || new Date().toISOString()).split("T")[0],
+        vitals: visit.vitals || null,
+        chief_complaints: visit.chief_complaints || [],
+        clinical_notes: visit.clinical_notes || null,
+        specialty: visit.specialty || "general_physician",
+      },
+      diagnoses: (diagnoses || []).map((d: { diagnosis_name: string; icd11_code?: string; snomed_concept_id?: string }) => ({
+        diagnosis_name: d.diagnosis_name,
+        icd11_code: d.icd11_code || null,
+        snomed_concept_id: d.snomed_concept_id || null,
+      })),
+      medications: (items || []).map((item: { medicine_name: string; generic_name?: string | null; dose_form?: string | null; dosage: string; timing?: string | null; duration: string; special_instructions?: string | null }) => ({
+        medicine_name: item.medicine_name,
+        generic_name: item.generic_name,
+        dose_form: item.dose_form,
+        dosage: item.dosage,
+        timing: item.timing,
+        duration: item.duration,
+        special_instructions: item.special_instructions,
+      })),
+      investigations_advised: visit.investigations_advised || [],
+      advice: visit.advice || [],
+      follow_up_date: followUp?.follow_up_date || null,
+    };
+
+    // 10. Generate PDF and get 3600s signed URL
+    const { signedUrl } = await generateAndArchivePrescriptionPdf(ctx, payload);
+
+    return {
+      success: true,
+      signedUrl,
+      version: rx.version,
+    };
+  } catch (err: unknown) {
+    console.error("[features/prescriptions/service] getPrescriptionPdfSignedUrl error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to generate prescription preview.",
+    };
+  }
+}
+
+export type SharePrescriptionViaWhatsAppResult = { success: boolean; shareUrl?: string; token?: string; error?: string };
+
+/**
+ * Shares an official prescription via WhatsApp with a 7-day secure tokenized link (/r/[token]).
+ * Enqueues Event #6 (prescription_ready) outbox notification.
+ */
+export async function sharePrescriptionViaWhatsApp(
+  ctx: ServiceContext,
+  prescriptionId: string
+): Promise<SharePrescriptionViaWhatsAppResult> {
+  const supabase = ctx.db;
+
+  try {
+    assertPerm(ctx.role, "consultations:view");
+
+    // 1. Fetch prescription record joined with patient and tenant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let { data: rx, error: rxErr } = await (supabase.from("prescriptions") as any)
+      .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+      .eq("id", prescriptionId)
+      .eq("tenant_id", ctx.tenantId)
+      .single();
+
+    if (rxErr || !rx) {
+      // Fallback: Check if prescriptionId is actually visitId
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: rxByVisit } = await (supabase.from("prescriptions") as any)
+          .select("*, patient:patients(id, full_name, phone), tenant:tenants(name, phone)")
+          .eq("visit_id", prescriptionId)
+          .eq("tenant_id", ctx.tenantId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (rxByVisit) {
+          rx = rxByVisit;
+          prescriptionId = rxByVisit.id;
+          rxErr = null;
+        }
+      } catch {
+        // Ignore fallback lookup error
+      }
+    }
+
+    if (rxErr || !rx) {
+      return { success: false, error: "Prescription not found." };
+    }
+
+    if (!rx.patient?.phone) {
+      return { success: false, error: "Patient does not have a phone number registered." };
+    }
+
+    // 2. Generate secure 64-character token in document_share_tokens
+    const token = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: tokenErr } = await (supabase.from("document_share_tokens") as any).insert({
+      tenant_id: ctx.tenantId,
+      document_id: null,
+      resource_type: "prescription",
+      resource_id: prescriptionId,
+      token,
+      expires_at: expiresAt,
+      created_by: ctx.userId,
+    });
+
+    if (tokenErr) {
+      console.error("[sharePrescriptionViaWhatsApp] Token creation error:", tokenErr);
+      return { success: false, error: "Failed to generate secure share link." };
+    }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const shareUrl = `${baseUrl}/r/${token}`;
+
+    // 3. Enqueue Event #6 (prescription_ready)
+    await enqueueMessage(supabase, {
+      tenantId: ctx.tenantId,
+      patientId: rx.patient_id,
+      channel: "whatsapp",
+      messageType: "prescription_ready",
+      templateId: "prescription_ready",
+      templateParams: {
+        patient_name: rx.patient.full_name || "Patient",
+        clinic_name: rx.tenant?.name || "Clinic",
+        document_url: shareUrl,
+      },
+      recipientPhone: rx.patient.phone,
+      metadata: {
+        prescription_id: prescriptionId,
+        share_token: token,
+        share_url: shareUrl,
+        buttons: [
+          {
+            id: "btn_view_rx",
+            text: "View Prescription",
+            url: shareUrl,
+          },
+        ],
+      },
+    });
+
+    // 4. Record audit log (no token or phone in the audit trail)
+    await recordAudit(ctx, {
+      action: "prescription.share_whatsapp",
+      entityType: "prescription",
+      entityId: prescriptionId,
+    });
+
+    return { success: true, shareUrl, token };
+  } catch (err: unknown) {
+    console.error("[features/prescriptions/service] sharePrescriptionViaWhatsApp error:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Failed to share prescription.",
+    };
+  }
+}

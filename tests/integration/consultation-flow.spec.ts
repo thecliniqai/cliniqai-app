@@ -7,7 +7,7 @@ import { searchDiagnoses, addConsultationDiagnosis, getVisitDiagnoses } from "@/
 import {
   addPrescriptionItem,
   getVisitPrescription,
-} from "@/features/prescriptions/actions";
+} from "@/features/prescriptions/service";
 import { ctxFor } from "../helpers/context";
 
 describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-workspace, REQ-prescribing, REQ-multi-tenancy)", () => {
@@ -266,6 +266,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   it("7. Doctor prescribes 2 medications using fast dosage chips (Paracetamol & Amoxicillin)", async () => {
     // 1. Prescribe Paracetamol 650mg
     const med1Res = await addPrescriptionItem(
+      ctxFor(tenantA),
       visitAId,
       {
         medicine_name: "Paracetamol 650mg",
@@ -275,9 +276,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
         timing: "After food",
         duration: "5 days",
         special_instructions: "Take SOS if pain recurs",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(med1Res.success).toBe(true);
     if (!med1Res.success) return;
@@ -285,6 +284,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
     // 2. Prescribe Amoxicillin 500mg
     const med2Res = await addPrescriptionItem(
+      ctxFor(tenantA),
       visitAId,
       {
         medicine_name: "Amoxicillin 500mg",
@@ -294,14 +294,12 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
         timing: "After food",
         duration: "5 days",
         special_instructions: "Complete full 5-day course",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(med2Res.success).toBe(true);
 
     // 3. Verify prescription and ordered items
-    const rxRes = await getVisitPrescription(visitAId, tenantA.client, sessionA);
+    const rxRes = await getVisitPrescription(ctxFor(tenantA), visitAId);
     expect(rxRes.success).toBe(true);
     if (rxRes.success && rxRes.prescription) {
       expect(rxRes.prescription.id).toBe(prescriptionAId);
