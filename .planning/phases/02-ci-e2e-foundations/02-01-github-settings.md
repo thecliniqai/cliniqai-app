@@ -116,3 +116,9 @@ diff <(jq -S . "$E/00-main-rules-before.json") <(jq -S . "$E/z-main-rules-after.
 
 `feature/v2` rules after = v2rules' rules + the four `feature-v2-ci` rules. Nightly: the first scheduled run after (a)
 is the acceptance link (`gh run list --workflow nightly.yml --event schedule --limit 1`).
+
+## Applied (orchestrator, 2026-11-12) — CI run 43198582433 green (`evidence/02-01/ci-run.json`)
+- 0, a, c, d applied; responses in `evidence/github-settings/`.
+- **b (ruleset `feature-v2-ci`) deferred until PR #3 (V2-01) merges.** PR #3's head branch has no `ci.yml`, so the five
+  required checks would never report on it and, with no bypass actors, #3 could not be merged. Apply b immediately
+  after #3 merges and #4 is retargeted to `feature/v2`, then run the after-state diff.
