@@ -199,6 +199,11 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
     (`https://staging.<domain>`). `staging-readonly`: no reviewer, branch `feature/v2`; secrets
     `SUPABASE_ACCESS_TOKEN_STAGING_RO` (03-E11), `STAGING_DB_URL_RO` (the read-only role from `docs/runbooks/staging.md`,
     password set by you); same variables.
+  - *Values (correction from 03-08):* `STAGING_DB_URL` must be the **Session pooler** URL (Dashboard → Connect → Session
+    pooler: user `postgres.<ref>`, port 5432, password percent-encoded) — GitHub runners have no IPv6 and the Free-plan
+    direct host is IPv6-only. `STAGING_DB_URL_RO` = same host, user `clinicos_drift_ro.<ref>` (create the role with the
+    SQL in `docs/runbooks/staging.md` §3, after the first migrate). `STAGING_SECRET_KEY` must be an `sb_secret_…` key;
+    `STAGING_SEED_PASSWORD` ≥ 16 characters.
   - *Why:* R-9, R-21: migrations, seed and re-check only after your approval; nightly drift reads with read-only
     credentials.
   - *Unblocks:* acceptance 7, 12, 14; AUTH-00 re-check.
