@@ -4,7 +4,7 @@ roadmap_id: V2-02
 name: CI & e2e foundations
 status: awaiting PO gate approval (G3-partial)
 base_commit: 2695964 (V2-01 head, stacked)
-head_commit: 004a2f3
+head_commit: 5076e1b
 ---
 
 # Phase 02 (V2-02) — summary
@@ -28,6 +28,9 @@ the AI-06 L1 lane. The PO delegated decisions to the agent acting as CTO. Ruling
 - **Cross-tenant reference writes:** a clinic-A user could create A rows pointing at clinic B's patients, visits or users. Affected: visits/booking/waitlist promotion, waitlist, consents, follow-ups, diagnoses, referrals, invoices, schedule blocks, lab uploads. No B data was read or changed. Now refused by `lib/auth/tenant-refs.ts`; the DB constraint is V2-05 P1-02.
 - **Users in two clinics acting with the wrong role:** by-id queue/visit/waitlist/referral reads and updates relied on RLS alone, which allows every clinic the user belongs to. They now filter on the active clinic.
 - **Credentials could reach a URL:** the login and forgot-password forms had no `method` (default GET), so a click before hydration would submit email and password as query parameters (history, server and proxy logs). Found by root-causing a CI-only iPhone flake; forms are now POST and submit is enabled only after hydration, asserted in journey 1.
+- **Journey 9 checked less than it claimed:** responses whose bodies could not be read counted as passing, so the
+  server's HTML for clinic B's URL was never checked. The capture now bounds reads, fails on unreadable bodies, checks
+  the server HTML directly and probes each URL in a fresh page (found while root-causing a CI flake).
 - Lockfile out of sync for CI's npm (regenerated with npm 11.19.1); a gitleaks false positive suppressed by exact fingerprint.
 
 ## Deleted tests (TEST_STRATEGY T-12 / E-5)

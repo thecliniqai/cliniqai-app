@@ -2,7 +2,7 @@
 phase: 02
 roadmap_id: V2-02
 status: awaiting PO gate approval (G3-partial)
-verified_commit: 004a2f3 (code); branch head adds the merge of feature/v2 and docs only
+verified_commit: 5076e1b (CI run 43296726451: five jobs green, Playwright 122 passed, 0 retried)
 ci_run: evidence/ci-run.json
 ---
 
@@ -41,7 +41,10 @@ forgot-password, join at 360/820/1280 px with 0 serious/critical axe violations 
 | `2695964..63cb713` | Independent | approve-with-fixes (one more cross-tenant write; guard leg could pass vacuously; inline actions not inventoried) | fixed in 02-06 |
 | same | Adversarial | pass-with-fixes (0 C/H; 3 M: lab visit ref, guard blind spots incl. multi-clinic users, ruleset not yet applied) | fixed in 02-06; ruleset pending PR #3 |
 Every fix has a test that fails without it. The 02-06 delta and the auth-form fix were verified by the full Vitest lane,
-the guard canary and the Playwright PR lane (repeated runs for the formerly flaky journey); triage in `02-PLAN.md`.
+the guard canary and the Playwright PR lane (repeated runs for the formerly flaky journeys); triage in `02-PLAN.md`.
+Two CI-only flakes were root-caused, not retried to green: journey 1 (a GET login form — fixed in product) and journey 9
+(response capture blocked on a never-closing RSC prefetch stream; unreadable bodies had silently passed — the test now
+bounds reads, fails on unreadable bodies, checks the server HTML directly and isolates each probe in a fresh page).
 
 Required checks on `feature/v2`: ruleset `feature-v2-ci` (id 27150224) applied after PR #3 merged; `main` and `v2rules`
 unchanged (`evidence/github-settings/`, empty diffs).
