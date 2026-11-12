@@ -104,6 +104,15 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
   const tokenHash = hashInviteToken(rawToken.trim());
 
   try {
+    // Authenticate before any database call (ADR-0005 V1); the RPC re-checks auth.uid() and binds the membership to it.
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: "Sign in to accept this invitation." };
+    }
+
     const { data: tenantId, error } = await (
       supabase.rpc as unknown as (
         name: string,

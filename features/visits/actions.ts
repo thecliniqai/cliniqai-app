@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { resolveServiceContext } from "@/lib/auth/context";
 import type { VisitStatus } from "@/lib/db/types";
-import { visitsFilterSchema, VisitsFilterInput, ClinicVisitsRegisterResult, ActiveDoctorOption } from "./schema";
+import type { VisitsFilterInput, ClinicVisitsRegisterResult, ActiveDoctorOption } from "./schema";
 import type { RecordVitalsInput } from "@/features/consultation/schema";
 import * as visitsService from "./service";
 import type {
@@ -87,18 +87,20 @@ export async function getActiveClinicDoctors(): Promise<ActiveDoctorOption[]> {
 
 /**
  * Retrieves the unified register of clinic visits with filtering, search, pagination, and metrics.
- * An unauthenticated or unauthorised caller gets an empty register, as before.
+ * An unauthenticated or unauthorised caller gets an explicit failure (ADR-0005 V1), never an empty register that
+ * reads as "no visits".
  */
+export type GetClinicVisitsRegisterActionResult =
+  | ({ success: true } & ClinicVisitsRegisterResult)
+  | { success: false; error: string };
+
 export async function getClinicVisitsRegister(
   input: Partial<VisitsFilterInput> = {}
-): Promise<ClinicVisitsRegisterResult> {
+): Promise<GetClinicVisitsRegisterActionResult> {
   const resolved = await resolveServiceContext("appointments:view");
-  if (!resolved.ok) {
-    const paging = visitsFilterSchema.safeParse(input);
-    const { page, pageSize } = paging.success ? paging.data : visitsFilterSchema.parse({});
-    return visitsService.emptyVisitsRegister(page, pageSize);
-  }
-  return visitsService.getClinicVisitsRegister(resolved.ctx, input);
+  if (!resolved.ok) return { success: false, error: resolved.error };
+  const register = await visitsService.getClinicVisitsRegister(resolved.ctx, input);
+  return { success: true, ...register };
 }
 
 /**

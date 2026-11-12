@@ -42,14 +42,6 @@ export async function getPatient(patientId: string, includeErased = false): Prom
   return patientsService.getPatient(ctx, patientId, includeErased);
 }
 
-/**
- * Builds the PostgREST OR filter clause for a patient search (pure helper; kept as an action export for existing
- * importers).
- */
-export async function buildPatientSearchFilter(query: string): Promise<string> {
-  return patientsService.buildPatientSearchFilter(query);
-}
-
 /** Throws when unauthenticated or not permitted, as before. */
 export async function searchPatients(query: string): Promise<Patient[]> {
   const ctx = await requireServiceContext("patients:view");

@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 /**
- * Vitals measurement bounds and clinical validation schema.
+ * Vitals measurement bounds and clinical validation schema (caller input).
  * Enforces systolic > diastolic when both blood pressure values are present.
+ * `recorded_by` is not an input field: the recorder is always derived from the session (ADR-0005 D1, SEC-02);
+ * zod strips a caller-sent value. It exists only on the stored shape, `Vitals`, below.
  */
 const vitalsFieldsSchema = z.object({
     systolic:z.number().int().min(50, "Systolic BP must be >= 50").max(250, "Systolic BP must be <= 250").nullable().optional(),
@@ -15,7 +17,6 @@ const vitalsFieldsSchema = z.object({
     respiratory_rate: z.number().int().min(8, "Respiratory rate must be >= 8").max(60, "Respiratory rate must be <= 60").nullable().optional(),
     bmi: z.number().nullable().optional(),
     recorded_at: z.string().nullable().optional(),
-    recorded_by: z.string().nullable().optional(),
   });
 
 const bloodPressureOrder = {
@@ -33,15 +34,14 @@ const bloodPressureOrder = {
 
 export const vitalsSchema = vitalsFieldsSchema.refine(bloodPressureOrder.check, bloodPressureOrder.options);
 
-export type Vitals = z.infer<typeof vitalsSchema>;
+/** Stored vitals (visits.vitals JSONB): the validated measurements plus the server-set recorder. */
+export type Vitals = z.infer<typeof vitalsSchema> & { recorded_by?: string | null };
 
 /**
  * Input accepted by `recordVisitVitals`. `recorded_by` is not an input: the recorder is always the session user
  * (ADR-0005 D1, SEC-02); a caller-sent value is stripped by zod.
  */
-export const recordVitalsInputSchema = vitalsFieldsSchema
-  .omit({ recorded_by: true })
-  .refine(bloodPressureOrder.check, bloodPressureOrder.options);
+export const recordVitalsInputSchema = vitalsSchema;
 
 export type RecordVitalsInput = z.infer<typeof recordVitalsInputSchema>;
 
