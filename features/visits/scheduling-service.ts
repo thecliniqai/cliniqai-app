@@ -3,6 +3,7 @@ import "server-only";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { memberOfTenant } from "@/lib/auth/tenant-refs";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import { isDateOnly, isUuid } from "@/lib/utils/filter-values";
 import { formatDoctorDisplayName } from "@/features/staff/formatters";
@@ -69,6 +70,10 @@ export async function createScheduleBlock(
 
     if (isTargetingOther || isClinicWide) {
       assertPerm(ctx.role, "clinic:manage");
+    }
+    // A targeted doctor must belong to the caller's clinic (P0-13: the FK and RLS do not check this).
+    if (isTargetingOther && data.doctor_id && !(await memberOfTenant(ctx, data.doctor_id))) {
+      return { success: false, error: "Doctor not found in this clinic." };
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -7,8 +7,14 @@
  *      names of its declared type (resolved by the type checker, three levels deep, project types only);
  *   2. the ADR-0005 Decision 1 non-action modules (the ones that could switch to the service role on a
  *      caller-supplied session or client at the V2-01 base) with the same parameter detail;
- *   3. the keys of every zod object literal in `features/** /schema.ts`.
- * and flags every banned acting-principal name (ADR-0005 V3).
+ *   3. the keys of every zod object literal in `features/** /schema.ts`;
+ *   4. (P0-13, V2-02 02-02) for every `"use server"` export, its static guard: the first `requireServiceContext` /
+ *      `resolveServiceContext` / `requirePermission` / `getActiveMembership` call in its body, in source order, and the
+ *      permission literal passed to it, or `delegated:<name>` when the body reaches it through a project function;
+ *   5. (P0-13) every route handler module (`app/** /route.ts`, and `*-route.ts` in an extra dir) and its exported
+ *      HTTP methods.
+ * and flags every banned acting-principal name (ADR-0005 V3). The guard and route fields feed
+ * tests/security/guard-*.spec.ts, which fail when an action or route has no entry in tests/security/guard-manifest.ts.
  *
  * Usage (reads source only; no network, no env):
  *   npm run inventory -- [--out <file.json>] [--scan-dir <dir>]... [--extra-dir <dir>]...
@@ -78,10 +84,23 @@ interface ParamInfo {
   typeFields: string[];
 }
 
+/** The guard an action's body reaches first (P0-13). `permission` is null for a membership-only guard. */
+export interface StaticGuard {
+  call: string;
+  permission: string | null;
+}
+
 interface ExportInfo {
   name: string;
   kind: "function" | "value";
   signatures: ParamInfo[][];
+  /** `"use server"` exports only: the static guard, or null when the body reaches none. */
+  guard?: StaticGuard | null;
+}
+
+export interface RouteHandlerInfo {
+  file: string;
+  methods: string[];
 }
 
 interface ModuleInfo {
@@ -189,7 +208,70 @@ function paramsOf(checker: ts.TypeChecker, sig: ts.Signature): ParamInfo[] {
   });
 }
 
-function moduleExports(checker: ts.TypeChecker, sf: ts.SourceFile): ExportInfo[] {
+const GUARD_CALLS = new Set(["requireServiceContext", "resolveServiceContext", "requirePermission", "getActiveMembership"]);
+const HTTP_METHODS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
+const MAX_DELEGATION_DEPTH = 4;
+
+function isProjectFile(file: string): boolean {
+  return !file.includes("/node_modules/") && !file.includes("/typescript/lib/") && !file.endsWith(".d.ts");
+}
+
+/** The body of a project function an identifier refers to (imports and `const a = b` aliases followed). */
+function functionBodyOf(checker: ts.TypeChecker, id: ts.Identifier, hops = 0): ts.Node | undefined {
+  let symbol = checker.getSymbolAtLocation(id);
+  if (symbol && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+  const decl = symbol?.valueDeclaration ?? symbol?.getDeclarations()?.[0];
+  if (!decl || !isProjectFile(decl.getSourceFile().fileName)) return undefined;
+  if (ts.isFunctionDeclaration(decl)) return decl.body;
+  if (ts.isVariableDeclaration(decl) && decl.initializer) {
+    const init = decl.initializer;
+    if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) return init.body;
+    if (ts.isIdentifier(init) && hops < 3) return functionBodyOf(checker, init, hops + 1);
+  }
+  return undefined;
+}
+
+/** The first string-literal-typed argument of a guard call (`requirePermission(supabase, "x")` and `("x")` alike). */
+function permissionArg(checker: ts.TypeChecker, call: ts.CallExpression): string | null {
+  for (const arg of call.arguments) {
+    const t = checker.getTypeAtLocation(arg);
+    if (t.isStringLiteral()) return t.value;
+  }
+  return null;
+}
+
+/** The first guard call reached from `body`, in source order, following calls into project functions. */
+function findGuard(checker: ts.TypeChecker, body: ts.Node, depth: number, seen: Set<ts.Node>): StaticGuard | null {
+  const visit = (node: ts.Node): StaticGuard | undefined => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+      const name = node.expression.text;
+      if (GUARD_CALLS.has(name)) return { call: name, permission: permissionArg(checker, node) };
+      const target = depth < MAX_DELEGATION_DEPTH ? functionBodyOf(checker, node.expression) : undefined;
+      if (target && !seen.has(target)) {
+        seen.add(target);
+        const inner = findGuard(checker, target, depth + 1, seen);
+        if (inner) {
+          return { call: inner.call.startsWith("delegated:") ? inner.call : `delegated:${name}`, permission: inner.permission };
+        }
+      }
+    }
+    return ts.forEachChild(node, visit);
+  };
+  return visit(body) ?? null;
+}
+
+function exportGuard(checker: ts.TypeChecker, decl: ts.Declaration): StaticGuard | null {
+  let body: ts.Node | undefined;
+  if (ts.isFunctionDeclaration(decl)) body = decl.body;
+  else if (ts.isVariableDeclaration(decl) && decl.initializer) {
+    const init = decl.initializer;
+    if (ts.isArrowFunction(init) || ts.isFunctionExpression(init)) body = init.body;
+    else if (ts.isIdentifier(init)) body = functionBodyOf(checker, init);
+  }
+  return body ? findGuard(checker, body, 0, new Set([body])) : null;
+}
+
+function moduleExports(checker: ts.TypeChecker, sf: ts.SourceFile, withGuard = false): ExportInfo[] {
   const moduleSymbol = checker.getSymbolAtLocation(sf);
   if (!moduleSymbol) return [];
   const out: ExportInfo[] = [];
@@ -204,6 +286,7 @@ function moduleExports(checker: ts.TypeChecker, sf: ts.SourceFile): ExportInfo[]
       name: exported.getName(),
       kind: sigs.length > 0 ? "function" : "value",
       signatures: sigs.map((s) => paramsOf(checker, s)),
+      ...(withGuard ? { guard: sigs.length > 0 ? exportGuard(checker, decl) : null } : {}),
     });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
@@ -270,6 +353,12 @@ export interface InventoryOptions {
   extraDirs?: string[];
 }
 
+/** A route handler module: `route.ts` under app/, or a `*-route.ts` fixture in an extra dir (P0-13 canary). */
+function isRouteModule(relFile: string, extraDirs: string[]): boolean {
+  if (/^app\/(.+\/)?route\.ts$/.test(relFile)) return true;
+  return extraDirs.some((d) => relFile.startsWith(`${d.replace(/\/$/, "")}/`)) && /(^|\/|-)route\.ts$/.test(relFile);
+}
+
 /** Builds the inventory from source. Also used by tests/security/p0-01-action-sweep.spec.ts to generate its cases. */
 export function buildInventory(options: InventoryOptions = {}) {
   const files: string[] = [];
@@ -284,6 +373,7 @@ export function buildInventory(options: InventoryOptions = {}) {
   const useServerModules: ModuleInfo[] = [];
   const nonActionModules: Array<ModuleInfo & { present: boolean }> = [];
   const schemaFiles: Array<{ file: string; keys: Array<{ key: string; line: number; schema: string }> }> = [];
+  const routeHandlers: RouteHandlerInfo[] = [];
   const flags: Flag[] = [];
   const noted: Flag[] = [];
 
@@ -292,9 +382,15 @@ export function buildInventory(options: InventoryOptions = {}) {
     if (!sf) continue;
     const relFile = rel(file);
     if (hasUseServerDirective(sf)) {
-      const mod = { file: relFile, exports: moduleExports(checker, sf) };
+      const mod = { file: relFile, exports: moduleExports(checker, sf, true) };
       useServerModules.push(mod);
       flags.push(...flagsFor(mod, BANNED_ACTION_NAME, "use-server export: acting principal"));
+    }
+    if (isRouteModule(relFile, options.extraDirs ?? [])) {
+      const methods = moduleExports(checker, sf)
+        .map((e) => e.name)
+        .filter((n) => HTTP_METHODS.has(n));
+      routeHandlers.push({ file: relFile, methods });
     }
     if (/^features\/.+\/schema\.ts$/.test(relFile)) {
       const keys = schemaKeys(sf);
@@ -359,6 +455,12 @@ export function buildInventory(options: InventoryOptions = {}) {
       nonActionModules: nonActionModules.length,
       nonActionModulesPresent: nonActionModules.filter((m) => m.present).length,
       schemaFiles: schemaFiles.length,
+      routeModules: routeHandlers.length,
+      routeMethods: routeHandlers.reduce((n, r) => n + r.methods.length, 0),
+      unguardedUseServerFunctionExports: useServerModules.reduce(
+        (n, m) => n + m.exports.filter((e) => e.kind === "function" && !e.guard).length,
+        0
+      ),
       flagged: flags.length,
       noted: noted.length,
     },
@@ -367,6 +469,7 @@ export function buildInventory(options: InventoryOptions = {}) {
     useServerModules,
     nonActionModules,
     schemaFiles,
+    routeHandlers,
   };
   return report;
 }
@@ -399,6 +502,7 @@ function main() {
   process.stderr.write(
     `inventory: ${report.counts.useServerModules} "use server" modules, ${exportCount} exports; ` +
       `${report.counts.nonActionModulesPresent}/${report.counts.nonActionModules} D1 non-action modules present; ` +
+      `${report.counts.routeModules} route modules, ${report.counts.routeMethods} methods; ` +
       `${flags.length} flagged, ${noted.length} noted\n`
   );
   if (flags.length > 0) {

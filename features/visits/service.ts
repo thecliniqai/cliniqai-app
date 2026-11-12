@@ -4,6 +4,7 @@ import { z } from "zod";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { memberOfTenant, patientInTenant } from "@/lib/auth/tenant-refs";
 import { isDateOnly } from "@/lib/utils/filter-values";
 import { Visit, VisitStatus } from "@/lib/db/types";
 import {
@@ -57,6 +58,14 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
       };
     }
     const data = parseResult.data;
+
+    // The patient and the doctor must belong to the caller's clinic (P0-13: the FKs and RLS do not check this).
+    if (!(await patientInTenant(ctx, data.patient_id))) {
+      return { success: false, error: "Patient not found or access denied." };
+    }
+    if (!(await memberOfTenant(ctx, data.doctor_id))) {
+      return { success: false, error: "Doctor not found in this clinic." };
+    }
 
     // Insert visit under RLS
     const { data: newVisit, error: insertError } = await (

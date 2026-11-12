@@ -3,6 +3,7 @@ import "server-only";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { visitInTenant } from "@/lib/auth/tenant-refs";
 import { Invoice, InvoiceItem, Payment } from "@/lib/db/types";
 import {
   createInvoiceSchema,
@@ -88,6 +89,11 @@ export async function createVisitInvoice(
     assertPerm(ctx.role, "appointments:edit");
     const session = ctx;
     const data = parseResult.data;
+
+    // The visit must be this clinic's visit of the invoiced patient (P0-13: the FKs and RLS do not check this).
+    if (!(await visitInTenant(ctx, data.visit_id, data.patient_id))) {
+      return { success: false, error: "Visit not found or access denied." };
+    }
 
     // 1. Calculate item totals with decimal precision (avoiding float drift)
     const processedItems = data.items.map((item) => {

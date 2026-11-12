@@ -157,7 +157,9 @@ export async function addConsultationDiagnosis(
       .eq("tenant_id", session.tenantId)
       .single();
 
-    if (visitErr || !visit) {
+    // The patient must be the visit's own patient: a caller-supplied patient_id could otherwise point at another
+    // tenant's patient (P0-13: the FK and RLS do not check this).
+    if (visitErr || !visit || visit.patient_id !== data.patient_id) {
       return { success: false, error: "Visit not found or access denied." };
     }
 

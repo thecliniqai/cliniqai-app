@@ -52,6 +52,18 @@ function createMockSupabase(overrides?: {
           }),
         };
       }
+      if (table === "patients") {
+        // createVisit checks the patient belongs to the caller's clinic (P0-13, lib/auth/tenant-refs.ts).
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: { id: "11111111-1111-4111-8111-111111111111" }, error: null }),
+              }),
+            }),
+          }),
+        };
+      }
       if (table === "schedule_blocks") {
         return {
           select: () => ({

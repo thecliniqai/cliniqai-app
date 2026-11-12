@@ -3,6 +3,7 @@ import "server-only";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { memberOfTenant, visitInTenant } from "@/lib/auth/tenant-refs";
 import {
   saveConsultationDraftSchema,
   SaveConsultationDraftInput,
@@ -232,6 +233,15 @@ export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpI
 
   try {
     assertPerm(ctx.role, "consultations:edit");
+
+    // The visit (and its patient) and any doctor must belong to the caller's clinic (P0-13: the FKs and RLS do not
+    // check this).
+    if (!(await visitInTenant(ctx, input.visitId, input.patientId))) {
+      return { success: false, error: "Visit not found or access denied." };
+    }
+    if (input.doctorId && !(await memberOfTenant(ctx, input.doctorId))) {
+      return { success: false, error: "Doctor not found in this clinic." };
+    }
 
     // Check if an existing follow-up is already tied to this visit
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

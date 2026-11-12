@@ -4,6 +4,7 @@ import { z } from "zod";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { memberOfTenant, patientInTenant } from "@/lib/auth/tenant-refs";
 import { Patient, WaitlistEntry } from "@/lib/db/types";
 import { createVisit } from "@/features/visits/service";
 
@@ -43,6 +44,14 @@ export async function addToWaitlist(ctx: ServiceContext, input: AddToWaitlistInp
       };
     }
     const data = parseResult.data;
+
+    // The patient and any doctor must belong to the caller's clinic (P0-13: the FKs and RLS do not check this).
+    if (!(await patientInTenant(ctx, data.patient_id))) {
+      return { success: false, error: "Patient not found or access denied." };
+    }
+    if (data.doctor_id && !(await memberOfTenant(ctx, data.doctor_id))) {
+      return { success: false, error: "Doctor not found in this clinic." };
+    }
 
     const { data: newEntry, error } = await (
       supabase.from("waitlist_entries") as unknown as {
