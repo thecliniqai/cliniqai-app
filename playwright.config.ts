@@ -15,6 +15,9 @@ const setup = { dependencies: ["setup"] };
 const A11Y = /\/a11y\//;
 /** M0 baseline-capture specs (02-03b) run only in the baseline lane. */
 const BASELINE = /\/m0\/baseline\//;
+/** Baseline screenshots: the vp-* projects. Baseline axe report: the m0-axe-* projects (the PR-lane devices). */
+const BASELINE_SCREENSHOTS = /\/m0\/baseline\/screenshots\.spec\.ts$/;
+const BASELINE_AXE = /\/m0\/baseline\/axe-routes\.spec\.ts$/;
 const GOLDEN = /@golden/;
 
 /** Custom Android tablet (PWA_STRATEGY §9.1): Chromium, Pixel 7 user agent, 800×1280, touch. */
@@ -56,14 +59,29 @@ const nightlyLane: Project[] = [
   nightly("ipad-mini-744", ipadMini744),
 ];
 
-// M0 baseline lane (02-03b): screenshots at fixed widths, Chromium.
+// M0 baseline lane (02-03b, `npm run e2e:baseline`): screenshots at fixed widths (Chromium), the axe report per route
+// on the PR-lane devices (FRONTEND_MIGRATION_PLAN M0, erratum 2026-11-10), and the six flows on desktop-chrome for
+// the interaction counts.
 const baseline = (width: number, height: number): Project => ({
   name: `vp-${width}`,
   use: { ...devices["Desktop Chrome"], viewport: { width, height } },
-  testMatch: BASELINE,
+  testMatch: BASELINE_SCREENSHOTS,
   ...setup,
 });
-const baselineLane: Project[] = [baseline(360, 780), baseline(768, 1024), baseline(1280, 800)];
+const baselineAxe = (name: string, use: Project["use"]): Project => ({
+  name: `m0-axe-${name}`,
+  use,
+  testMatch: BASELINE_AXE,
+  ...setup,
+});
+const baselineLane: Project[] = [
+  baseline(360, 780),
+  baseline(768, 1024),
+  baseline(1280, 800),
+  baselineAxe("desktop-chrome", devices["Desktop Chrome"]),
+  baselineAxe("pixel-7", devices["Pixel 7"]),
+  baselineAxe("iphone-15", devices["iPhone 15"]),
+];
 
 export default defineConfig({
   testDir: "./tests/e2e",

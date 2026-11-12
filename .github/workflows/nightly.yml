@@ -27,8 +27,9 @@ env:
 
 jobs:
   # Full device matrix (02-03a, `e2e:nightly`: smoke + @golden on the PWA_STRATEGY §9.1 nightly projects) or the M0
-  # baseline capture (02-03b, `e2e:baseline`). The "Lane enabled?" gate now only matters for m0-baseline, which
-  # passes with a notice until 02-03b adds `e2e:baseline`; 02-03b deletes the gate and its `if:` conditions.
+  # baseline capture (02-03b, `e2e:baseline`: the six flows on desktop-chrome for interaction counts, screenshots at
+  # 360/768/1280, the report-only axe run per route on the PR-lane devices, then scripts/m0-baseline-report.mjs). The
+  # baseline report is uploaded as an artifact; the orchestrator commits it with the run link.
   e2e-nightly:
     name: e2e-nightly
     runs-on: ubuntu-24.04
@@ -39,7 +40,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Lane enabled?
+      - name: Lane script
         id: lane
         run: |
           case "$LANE" in
@@ -48,47 +49,33 @@ jobs:
             *) echo "unknown lane" >&2; exit 2 ;;
           esac
           echo "script=$script" >> "$GITHUB_OUTPUT"
-          if SCRIPT="$script" node -e 'process.exit(require("./package.json").scripts?.[process.env.SCRIPT] ? 0 : 1)'; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=$LANE lane not enabled yet::No $script script; plans 02-03a/02-03b enable it."
-          fi
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        if: steps.lane.outputs.enabled == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
-      - if: steps.lane.outputs.enabled == 'true'
-        run: npm ci
+      - run: npm ci
       - name: Playwright version
         id: pw
-        if: steps.lane.outputs.enabled == 'true'
         run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: steps.lane.outputs.enabled == 'true'
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
       - name: Install browsers
-        if: steps.lane.outputs.enabled == 'true'
         run: npx playwright install --with-deps chromium webkit
       - name: Start the local Supabase stack
-        if: steps.lane.outputs.enabled == 'true'
         run: npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
       - name: e2e build
-        if: steps.lane.outputs.enabled == 'true'
         run: npm run e2e:build
       - name: Run the lane
-        if: steps.lane.outputs.enabled == 'true'
         run: npm run "$SCRIPT"
         env:
           SCRIPT: ${{ steps.lane.outputs.script }}
       - name: Run summary (retried and failed tests; report only)
-        if: ${{ !cancelled() && steps.lane.outputs.enabled == 'true' }}
+        if: ${{ !cancelled() }}
         run: node scripts/ci/playwright-summary.mjs playwright-report/results.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() && steps.lane.outputs.enabled == 'true' }}
+        if: ${{ !cancelled() }}
         with:
           name: playwright-${{ env.LANE }}
           path: |
@@ -96,8 +83,15 @@ jobs:
             test-results/
           if-no-files-found: warn
           retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && env.LANE == 'm0-baseline' }}
+        with:
+          name: m0-baseline-report
+          path: .planning/phases/02-ci-e2e-foundations/evidence/m0-baseline/
+          if-no-files-found: error
+          retention-days: 90
       - name: Stop the local stack
-        if: ${{ always() && steps.lane.outputs.enabled == 'true' }}
+        if: ${{ always() }}
         run: npx supabase stop --no-backup
 
   # Full dependency audit including dev dependencies: report only (the PR gate is production deps, high/critical).

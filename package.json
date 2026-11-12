@@ -23,6 +23,7 @@
     "e2e:build": "tsx tests/e2e/support/build.ts",
     "e2e:pr": "playwright test --project=desktop-chrome --project=pixel-7 --project=iphone-15",
     "e2e:nightly": "playwright test --project=iphone-se-3 --project=galaxy-tab-s4 --project=galaxy-tab-s4-landscape --project=android-tablet-800 --project=ipad-gen7 --project=ipad-gen7-landscape --project=ipad-mini-744",
+    "e2e:baseline": "playwright test tests/e2e/m0 --project=desktop-chrome --project=vp-360 --project=vp-768 --project=vp-1280 --project=m0-axe-desktop-chrome --project=m0-axe-pixel-7 --project=m0-axe-iphone-15 && node scripts/m0-baseline-report.mjs",
     "seed:local": "tsx scripts/seed-local-dev.ts",
     "seed:cdci": "npx tsx --env-file=.env scripts/seed-cdci.ts",
     "seed:cdci:test": "npx tsx --env-file=.env scripts/seed-cdci-test-fixture.ts",

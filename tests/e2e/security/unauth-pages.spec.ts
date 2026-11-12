@@ -6,39 +6,12 @@
  * session, each one must end on `/login`, and neither the raw (unfollowed) response nor the final page may contain
  * any of the run's tenant data (tenant/patient names, staff emails).
  */
-import fs from "node:fs";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { expect, test } from "../fixtures";
-import { ROOT } from "../support/app-env";
 import { readRunData, tenantDataMarkers } from "../support/run-data";
+import { dashboardRoutes } from "../support/routes";
 
-const DASHBOARD_DIR = path.join(ROOT, "app", "(dashboard)");
-
-interface DashboardRoute {
-  /** Route pattern as written in the filesystem, e.g. `/patients/[id]`. */
-  pattern: string;
-  /** Concrete URL with dynamic segments filled. */
-  url: string;
-}
-
-function dashboardRoutes(dir = DASHBOARD_DIR, segments: string[] = []): DashboardRoute[] {
-  const routes: DashboardRoute[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.isDirectory()) {
-      routes.push(...dashboardRoutes(path.join(dir, entry.name), [...segments, entry.name]));
-    } else if (entry.name === "page.tsx") {
-      const visible = segments.filter((s) => !/^\(.*\)$/.test(s) && !s.startsWith("@"));
-      routes.push({
-        pattern: `/${visible.join("/")}`,
-        url: `/${visible.map((s) => (/^\[.*\]$/.test(s) ? randomUUID() : s)).join("/")}`,
-      });
-    }
-  }
-  return routes.sort((a, b) => a.pattern.localeCompare(b.pattern));
-}
-
-const ROUTES = dashboardRoutes();
+const ROUTES = dashboardRoutes(() => randomUUID());
 
 test("the dashboard route enumeration found the dashboard pages", () => {
   // Guards the enumeration itself: an empty or broken walk would make every per-route test vanish.

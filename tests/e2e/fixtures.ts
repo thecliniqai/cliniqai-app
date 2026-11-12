@@ -7,9 +7,13 @@
  * leave the machine nor pass silently. Service workers are blocked in the config (`serviceWorkers: "block"`).
  *
  * `consoleErrors` collects `console.error` messages and uncaught page errors for specs that assert a clean console.
+ *
+ * `ux` (V2-02 plan 02-03b) counts a characterisation flow's user actions and keystrokes (support/ux-counter.ts); after
+ * a passing test on the desktop-chrome project it writes the flow's counts for the M0 baseline report.
  */
 import { createRequire } from "node:module";
 import { test as base, expect } from "@playwright/test";
+import { COUNTS_PROJECT, UxCounter } from "./support/ux-counter";
 
 const { isLoopbackHost } = createRequire(__filename)("../setup/loopback.cjs") as {
   isLoopbackHost: (host: unknown) => boolean;
@@ -40,6 +44,8 @@ interface E2eFixtures {
   blockedHosts: string[];
   /** `console.error` messages and uncaught page errors seen during this test. */
   consoleErrors: string[];
+  /** Counts the user actions of an M0 characterisation flow. */
+  ux: UxCounter;
 }
 
 export const test = base.extend<E2eFixtures>({
@@ -77,6 +83,20 @@ export const test = base.extend<E2eFixtures>({
     });
     page.on("pageerror", (err) => errors.push(`pageerror: ${err.message}`));
     await provide(errors);
+  },
+
+  ux: async ({}, provide, testInfo) => {
+    const ux = new UxCounter();
+    await provide(ux);
+    // Only a clean pass of the expected-to-pass flow on the M0 source-of-truth project is a baseline measurement.
+    if (
+      testInfo.project.name === COUNTS_PROJECT &&
+      testInfo.expectedStatus === "passed" &&
+      testInfo.status === "passed" &&
+      testInfo.retry === 0
+    ) {
+      ux.write();
+    }
   },
 });
 
