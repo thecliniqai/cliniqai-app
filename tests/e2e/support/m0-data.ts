@@ -30,9 +30,12 @@ export function syntheticPhoneDigits(): string {
   return `90000${String(randomInt(0, 100_000)).padStart(5, "0")}`;
 }
 
-/** The app's "today" for the queue, cabin and tokens: the UTC calendar date (`toISOString().split("T")[0]`). */
+/**
+ * The app's "today" for the queue, cabin and tokens: the clinic date in the tenant's zone (V2-03 03-05; synthetic
+ * tenants keep the default Asia/Kolkata), no longer the UTC calendar date.
+ */
 export function appToday(): string {
-  return new Date().toISOString().split("T")[0];
+  return istDate();
 }
 
 /** YYYY-MM-DD in India for now + `offsetDays`. */
