@@ -1,0 +1,22 @@
+# Fixture (V2-03 03-08, tests/ci/workflow-policy.spec.ts): passes every rule. Comments are ignored, so the words
+# pull_request_target and actions/checkout@v4 here are not findings.
+name: Fixture clean
+on:
+  push:
+    branches: [feature/v2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment: staging
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/local-thing
+      - name: Uses a staging secret inside a job with an environment
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: echo "fixture"

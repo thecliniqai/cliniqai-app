@@ -1,0 +1,18 @@
+# Fixture (V2-03 03-08): a workflow using the staging Environment and a staging secret that also runs on PRs
+# -> staging-no-pr-trigger.
+name: Fixture staging on PR
+on:
+  pull_request:
+  push:
+    branches: [feature/v2]
+permissions:
+  contents: read
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    environment: staging
+    steps:
+      - name: Migrate
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: echo "fixture"

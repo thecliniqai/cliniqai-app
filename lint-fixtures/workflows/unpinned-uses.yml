@@ -1,0 +1,11 @@
+# Fixture (V2-03 03-08): an action pinned to a tag, not a commit SHA -> uses-pinned.
+name: Fixture unpinned
+on: [push]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@3d3c42e5aac5ba805825da76410c181273ba90b1

@@ -68,6 +68,10 @@ jobs:
       # templates are code-only. The hosted (staging) half is scripts/drift/auth-config-hosted.mjs in drift.yml (03-08).
       - name: Auth config matches the auth policy
         run: node scripts/ci/check-auth-config.mjs
+      # V2-03 03-08 (R-9, R-19, R-21; T-03-09): SHA-pinned actions, top-level permissions, no PR trigger on staging
+      # workflows, staging secrets only in jobs with an `environment`, no secrets dump.
+      - name: Workflow policy (.github/workflows)
+        run: node scripts/ci/workflow-policy.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
