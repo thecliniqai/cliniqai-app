@@ -1,14 +1,16 @@
-import { createClient } from "@/lib/supabase/server";
-import { getAdminClient } from "@/lib/supabase/admin";
+import "server-only";
+
+import type { ServiceContext } from "@/lib/auth/context";
 import { AiChatClient, AiUnavailableError, getAiChatClient } from "./client";
 import { CatchUpSummary } from "./types";
 
 export interface GenerateCatchUpSummaryInput {
-  tenantId: string;
   patientId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  clientOverride?: any;
-  aiClientOverride?: AiChatClient;
+}
+
+export interface CatchUpSummaryDeps {
+  /** The AI adapter to use (tests inject a fake); defaults to the configured provider. */
+  aiClient?: AiChatClient;
 }
 
 /**
@@ -18,29 +20,27 @@ export interface GenerateCatchUpSummaryInput {
  * Fails closed (AI-01, AI_STRATEGY.md §4.6): with no configured provider it throws `AiUnavailableError` before
  * reading any visit data or calling out; a provider error or invalid output also throws. It never returns
  * template or mock bullets in place of a model summary.
+ *
+ * Reads only through `ctx.db` (the caller's user-JWT client, RLS applies) and only within `ctx.tenantId`
+ * (ADR-0005 D1); there is no service-role fallback.
  */
 export async function generatePatientCatchUpSummary(
-  input: GenerateCatchUpSummaryInput
+  ctx: Pick<ServiceContext, "tenantId" | "db">,
+  input: GenerateCatchUpSummaryInput,
+  deps: CatchUpSummaryDeps = {}
 ): Promise<CatchUpSummary> {
-  const aiClient = input.aiClientOverride ?? getAiChatClient();
+  const aiClient = deps.aiClient ?? getAiChatClient();
   if (!aiClient) {
     throw new AiUnavailableError("not_configured");
   }
 
-  let supabase = input.clientOverride;
-  if (!supabase) {
-    try {
-      supabase = await createClient();
-    } catch {
-      supabase = getAdminClient();
-    }
-  }
+  const supabase = ctx.db;
 
   // 1. Fetch last 3 completed/signed visits for this patient
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: visits, error: visitErr } = await (supabase.from("visits") as any)
     .select("id, scheduled_at, created_at")
-    .eq("tenant_id", input.tenantId)
+    .eq("tenant_id", ctx.tenantId)
     .eq("patient_id", input.patientId)
     .in("status", ["completed", "in_consultation", "waiting", "booked"])
     .order("created_at", { ascending: false })
@@ -61,14 +61,14 @@ export async function generatePatientCatchUpSummary(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: diagnoses } = await (supabase.from("consultation_diagnoses") as any)
     .select("visit_id, diagnosis_name")
-    .eq("tenant_id", input.tenantId)
+    .eq("tenant_id", ctx.tenantId)
     .in("visit_id", visitIds);
 
   // 3. Fetch prescriptions & items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: rxList } = await (supabase.from("prescriptions") as any)
     .select("id, visit_id")
-    .eq("tenant_id", input.tenantId)
+    .eq("tenant_id", ctx.tenantId)
     .in("visit_id", visitIds);
 
   const rxIds = (rxList || []).map((r: { id: string }) => r.id);

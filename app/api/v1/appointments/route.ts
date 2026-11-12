@@ -4,7 +4,7 @@ import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
-import { recordAuditLegacy } from "@/lib/audit/audit";
+import { recordAudit } from "@/lib/audit/audit";
 
 /**
  * GET /api/v1/appointments
@@ -183,6 +183,17 @@ export async function POST(req: NextRequest) {
       duration
     );
 
+    if (slotCheck.checkFailed) {
+      // Fail closed (V2-01 F8): availability could not be verified, so nothing is booked
+      return apiError(
+        "SLOT_CHECK_FAILED",
+        "Slot availability could not be verified. Please retry.",
+        503,
+        undefined,
+        rateHeaders
+      );
+    }
+
     if (!slotCheck.available) {
       if (slotCheck.conflictingVisit) {
         return apiError(
@@ -237,13 +248,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Record audit log
-    await recordAuditLegacy(
-      {
+    await recordAudit(apiKeyServiceContext(session, admin), {
         action: "appointment.create",
         entityType: "appointment",
         entityId: visit.id,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
         metadata: {
           doctor_id,
           patient_id,
@@ -251,14 +259,7 @@ export async function POST(req: NextRequest) {
           actor_type: "api_key",
           api_key_id: session.apiKeyId,
         },
-      },
-      admin,
-      {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-      }
-    );
+    });
 
     return apiSuccess(visit, undefined, 201, rateHeaders);
   } catch (err: unknown) {

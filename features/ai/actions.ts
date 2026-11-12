@@ -1,7 +1,9 @@
 "use server";
 
 import { requirePermission } from "@/lib/permissions/guards";
+import { requireServiceContext } from "@/lib/auth/context";
 import {
+  getAiChatClient,
   AiUnavailableError,
   AiUnavailableReason,
   generateSoapFromShorthand,
@@ -64,11 +66,12 @@ export async function getPatientCatchUpSummaryAction(input: {
   patientId: string;
 }): Promise<GetPatientCatchUpActionResult> {
   try {
-    const session = await requirePermission("consultations:view");
-    const summary = await generatePatientCatchUpSummary({
-      tenantId: session.tenantId,
-      patientId: input.patientId,
-    });
+    await requirePermission("consultations:view");
+    // Fail closed before any data access (AI-01): no provider, no read.
+    const aiClient = getAiChatClient();
+    if (!aiClient) throw new AiUnavailableError("not_configured");
+    const ctx = await requireServiceContext("consultations:view");
+    const summary = await generatePatientCatchUpSummary(ctx, { patientId: input.patientId }, { aiClient });
     return { success: true, summary };
   } catch (err: unknown) {
     if (err instanceof AiUnavailableError) return aiUnavailable(err.reason);
@@ -89,10 +92,9 @@ export async function getFrequentPrescriptionsAction(input: {
   limit?: number;
 }): Promise<GetFrequentPrescriptionsActionResult> {
   try {
-    const session = await requirePermission("consultations:view");
-    const doctorId = input.doctorId || session.userId;
-    const suggestions = await getDoctorFrequentPrescriptions({
-      tenantId: session.tenantId,
+    const ctx = await requireServiceContext("consultations:view");
+    const doctorId = input.doctorId || ctx.userId;
+    const suggestions = await getDoctorFrequentPrescriptions(ctx, {
       doctorId,
       diagnosis: input.diagnosis,
       limit: input.limit,

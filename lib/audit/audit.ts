@@ -1,8 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/types";
 import type { ServiceContext } from "@/lib/auth/context";
-import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership } from "@/lib/auth/tenant";
 
 export type AuditAction =
   | "patient.create"
@@ -94,12 +92,6 @@ export interface RecordAuditParams {
     | "dpdp";
   entityId?: string | null;
   metadata?: Record<string, unknown>;
-}
-
-/** TEMP 01-01b/c: the legacy adapter still lets its callers state the actor type (v1 routes pass "api_key"). */
-export interface LegacyRecordAuditParams extends RecordAuditParams {
-  actorType?: "user" | "api_key";
-  apiKeyId?: string | null;
 }
 
 const ALLOWED_METADATA_KEYS = new Set([
@@ -215,20 +207,4 @@ export async function recordAudit(
     ctx.actorType === "api_key" ? ctx.apiKeyId ?? null : null,
     params
   );
-}
-
-/**
- * TEMP 01-01c: old override signature for the domains not yet moved to services (prescriptions, consultation,
- * billing, api-keys, webhooks, dpdp, `/api/v1`). Delete with the last caller; new code must call
- * `recordAudit(ctx, params)`.
- */
-export async function recordAuditLegacy(
-  params: LegacyRecordAuditParams,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  clientOverride?: SupabaseClient<Database, any, any>,
-  membershipOverride?: AuditMembership
-): Promise<void> {
-  const membership = membershipOverride || (await getActiveMembership());
-  const supabase = clientOverride || (await createClient());
-  await insertAuditRow(supabase, membership, params.actorType || "user", params.apiKeyId || null, params);
 }

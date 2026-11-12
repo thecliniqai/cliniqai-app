@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { recordAuditLegacy } from "@/lib/audit/audit";
+import { recordAudit } from "@/lib/audit/audit";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 
 /**
@@ -197,24 +197,14 @@ export async function POST(req: NextRequest) {
 
     // 4. Record audit log (D-08)
     try {
-      await recordAuditLegacy(
-        {
+      await recordAudit(apiKeyServiceContext(session, admin), {
           action: "lab_order.create",
           entityType: "lab_order",
           entityId: doc.id,
-          actorType: "api_key",
-          apiKeyId: session.apiKeyId,
           metadata: {
             storage_path: doc.storage_path,
           },
-        },
-        admin,
-        {
-          userId: session.userId,
-          tenantId: session.tenantId,
-          role: "owner",
-        }
-      );
+      });
     } catch (auditErr) {
       console.error("[api/v1/lab-orders] Audit logging failed:", auditErr);
     }

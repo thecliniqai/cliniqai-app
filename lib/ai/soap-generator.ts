@@ -61,16 +61,16 @@ Do NOT prescribe specific medications in this output. Focus on symptoms, examina
  * Fails closed (AI-01, AI_STRATEGY.md §4.6): when no provider is configured, the provider errors, or the output
  * is not valid JSON matching `SoapDraftZodSchema`, it throws `AiUnavailableError` and produces no draft. There is
  * no regex, partial or mock fallback. The availability check runs before anything else, so an unconfigured
- * deployment makes no outbound call. `clientOverride` lets tests inject a fake adapter.
+ * deployment makes no outbound call. `aiClient` lets tests inject a fake adapter.
  */
 export async function generateSoapFromShorthand(
   input: {
     shorthand: string;
     patientContext?: Record<string, unknown>;
   },
-  clientOverride?: AiChatClient
+  aiClient?: AiChatClient
 ): Promise<SoapDraft> {
-  const client = clientOverride ?? getAiChatClient();
+  const client = aiClient ?? getAiChatClient();
   if (!client) {
     throw new AiUnavailableError("not_configured");
   }

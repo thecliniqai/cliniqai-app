@@ -193,7 +193,8 @@ export async function toggleGlobalConsent(
       return { success: false, error: "Failed to record global consent update." };
     }
 
-    // 2. Record immutable compliance audit entry for each synchronized purpose
+    // 2. Record immutable compliance audit entry for each synchronized purpose. The free-text note (possible PHI)
+    // stays on the consent record; the audit trail carries a fixed reason code only (V2-01 F2).
     for (const record of data as { id: string; consent_type: string }[]) {
       await recordAudit(ctx, {
         action: targetStatus === "granted" ? "patient.consent.granted" : "patient.consent.withdrawn",
@@ -201,7 +202,7 @@ export async function toggleGlobalConsent(
         entityId: record.id,
         metadata: {
           consent_type: record.consent_type,
-          reason: cleanReason,
+          reason: targetStatus === "granted" ? "global_consent_granted" : "global_consent_withdrawn",
           status: targetStatus,
         },
       });

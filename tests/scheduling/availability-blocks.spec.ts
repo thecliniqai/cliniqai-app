@@ -385,8 +385,49 @@ describe("Doctor Availability & Schedule Blocks (REQ-appointment-booking, REQ-mu
         "2026-10-19T05:30:00.000Z",
         15
       );
-      expect(res).toEqual({ available: false });
+      expect(res).toEqual({ available: false, checkFailed: true });
       expect(from).not.toHaveBeenCalled();
+    });
+
+    // F8: any unexpected database error fails closed (unavailable + checkFailed), never "available".
+    function failingClient(failOn: "memberships" | "schedule_blocks" | "visits" | "throw") {
+      const dbError = { message: "synthetic failure", code: "XX000" };
+      return {
+        from: (table: string) => {
+          if (failOn === "throw") throw new Error("synthetic network failure");
+          const chain: Record<string, unknown> = {};
+          const result = (fails: boolean) => (fails ? { data: null, error: dbError } : { data: [], error: null });
+          for (const m of ["select", "eq", "or", "lte", "gte"]) chain[m] = () => chain;
+          chain.maybeSingle = async () =>
+            failOn === "memberships" && table === "memberships" ? { data: null, error: dbError } : { data: null, error: null };
+          chain.then = (resolve: (v: unknown) => unknown) => resolve(result(failOn === table));
+          chain.not = async () => result(failOn === "visits" && table === "visits");
+          return chain;
+        },
+      } as any;
+    }
+
+    it.each(["memberships", "schedule_blocks", "visits", "throw"] as const)(
+      "fails closed when the %s lookup errors",
+      async (failOn) => {
+        const res = await checkSlotAvailability(
+          mockCtx(failingClient(failOn), { userId: "test-user", tenantId: "test-tenant" }),
+          DOCTOR_ID,
+          "2026-10-19T05:30:00.000Z",
+          15
+        );
+        expect(res).toEqual({ available: false, checkFailed: true });
+      }
+    );
+
+    it("reports a free slot as available when every lookup succeeds (control for the F8 cases)", async () => {
+      const res = await checkSlotAvailability(
+        mockCtx(failingClient("none" as never), { userId: "test-user", tenantId: "test-tenant" }),
+        DOCTOR_ID,
+        "2026-10-19T05:30:00.000Z",
+        15
+      );
+      expect(res).toEqual({ available: true });
     });
   });
 });

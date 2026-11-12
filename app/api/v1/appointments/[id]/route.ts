@@ -4,7 +4,7 @@ import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
-import { recordAuditLegacy } from "@/lib/audit/audit";
+import { recordAudit } from "@/lib/audit/audit";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -140,6 +140,17 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
         duration
       );
 
+      if (slotCheck.checkFailed) {
+        // Fail closed (V2-01 F8): availability could not be verified, so nothing is rescheduled
+        return apiError(
+          "SLOT_CHECK_FAILED",
+          "Slot availability could not be verified. Please retry.",
+          503,
+          undefined,
+          rateHeaders
+        );
+      }
+
       // Ignore conflict if it conflicts with itself
       if (
         !slotCheck.available &&
@@ -175,13 +186,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     }
 
     // 4. Record audit log
-    await recordAuditLegacy(
-      {
+    await recordAudit(apiKeyServiceContext(session, admin), {
         action: "appointment.reschedule",
         entityType: "appointment",
         entityId: id,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
         metadata: {
           old_status: existing.scheduled_at,
           new_status: targetScheduledAt,
@@ -189,14 +197,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           actor_type: "api_key",
           api_key_id: session.apiKeyId,
         },
-      },
-      admin,
-      {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-      }
-    );
+    });
 
     return apiSuccess(updated, undefined, 200, rateHeaders);
   } catch (err: unknown) {
@@ -262,27 +263,17 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     }
 
     // Record audit log
-    await recordAuditLegacy(
-      {
+    await recordAudit(apiKeyServiceContext(session, admin), {
         action: "appointment.cancel",
         entityType: "appointment",
         entityId: id,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
         metadata: {
           old_status: existing.status,
           new_status: "cancelled",
           actor_type: "api_key",
           api_key_id: session.apiKeyId,
         },
-      },
-      admin,
-      {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-      }
-    );
+    });
 
     return apiSuccess(
       {

@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { INDIAN_MOBILE_REGEX, toE164, extractTenDigits } from "@/lib/utils/phone";
-import { recordAuditLegacy } from "@/lib/audit/audit";
+import { recordAudit } from "@/lib/audit/audit";
 import { erasePatientRecord } from "@/features/dpdp/erasure";
 
 interface RouteContext {
@@ -170,26 +170,16 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     }
 
     // 3. Record audit log
-    await recordAuditLegacy(
-      {
+    await recordAudit(apiKeyServiceContext(session, admin), {
         action: "patient.update",
         entityType: "patient",
         entityId: id,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
         metadata: {
           fields_changed: Object.keys(parseResult.data),
           actor_type: "api_key",
           api_key_id: session.apiKeyId,
         },
-      },
-      admin,
-      {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-      }
-    );
+    });
 
     return apiSuccess(updatedPatient, undefined, 200, rateHeaders);
   } catch (err: unknown) {
@@ -237,18 +227,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
   try {
     const admin = getAdminClient();
-    const result = await erasePatientRecord(
-      id,
-      reason,
-      {
-        tenantId: session.tenantId,
-        userId: session.userId,
-        role: session.role,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
-      },
-      admin
-    );
+    const result = await erasePatientRecord(apiKeyServiceContext(session, admin), id, reason);
 
     return apiSuccess(
       {

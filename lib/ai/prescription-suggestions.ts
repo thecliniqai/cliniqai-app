@@ -1,21 +1,22 @@
-import { createClient } from "@/lib/supabase/server";
-import { getAdminClient } from "@/lib/supabase/admin";
+import "server-only";
+
+import type { ServiceContext } from "@/lib/auth/context";
 import { PrescriptionSuggestion } from "./types";
 
 export interface GetFrequentPrescriptionsInput {
-  tenantId: string;
+  /** Target doctor whose past prescriptions are ranked. */
   doctorId: string;
   diagnosis: string;
   limit?: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  clientOverride?: any;
 }
 
 /**
  * Deterministically queries the doctor's own past verified prescriptions matching the diagnosis.
  * Zero LLM usage — pure SQL/database aggregation preventing fabricated drug regimens (T-05-11).
+ * Reads only through `ctx.db` within `ctx.tenantId` (ADR-0005 D1); there is no service-role fallback.
  */
 export async function getDoctorFrequentPrescriptions(
+  ctx: Pick<ServiceContext, "tenantId" | "db">,
   input: GetFrequentPrescriptionsInput
 ): Promise<PrescriptionSuggestion[]> {
   const cleanDiagnosis = (input.diagnosis || "").trim();
@@ -24,14 +25,7 @@ export async function getDoctorFrequentPrescriptions(
   }
 
   const limit = input.limit || 6;
-  let supabase = input.clientOverride;
-  if (!supabase) {
-    try {
-      supabase = await createClient();
-    } catch {
-      supabase = getAdminClient();
-    }
-  }
+  const supabase = ctx.db;
 
   try {
     // 1. Find visits for this doctor & tenant that had a matching diagnosis
@@ -40,7 +34,7 @@ export async function getDoctorFrequentPrescriptions(
       supabase.from("consultation_diagnoses") as any
     )
       .select("visit_id")
-      .eq("tenant_id", input.tenantId)
+      .eq("tenant_id", ctx.tenantId)
       .ilike("diagnosis_name", `%${cleanDiagnosis}%`)
       .limit(100);
 
@@ -60,7 +54,7 @@ export async function getDoctorFrequentPrescriptions(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: prescriptions, error: rxErr } = await (supabase.from("prescriptions") as any)
       .select("id")
-      .eq("tenant_id", input.tenantId)
+      .eq("tenant_id", ctx.tenantId)
       .in("visit_id", visitIds);
 
     if (rxErr || !prescriptions || prescriptions.length === 0) {

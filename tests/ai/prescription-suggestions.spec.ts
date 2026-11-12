@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { getDoctorFrequentPrescriptions } from "@/lib/ai/prescription-suggestions";
 import { generatePatientCatchUpSummary } from "@/lib/ai/catch-up-summary";
 import type { AiChatClient } from "@/lib/ai/client";
+import { mockCtx } from "../helpers/context";
 
 // AI-01: tests inject a fake adapter; there is no mock provider.
 function fakeAiClient(output: string) {
@@ -12,15 +13,13 @@ function fakeAiClient(output: string) {
 describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up Summary (REQ-ai-features, T-05-11, T-05-10)", () => {
   describe("Zero-Hallucination SQL Suggestions (T-05-11)", () => {
     it("returns empty array immediately when diagnosis string is too short or empty", async () => {
-      const results1 = await getDoctorFrequentPrescriptions({
-        tenantId: "tenant-123",
+      const results1 = await getDoctorFrequentPrescriptions(mockCtx({}, { tenantId: "tenant-123" }), {
         doctorId: "doc-456",
         diagnosis: "",
       });
       expect(results1).toEqual([]);
 
-      const results2 = await getDoctorFrequentPrescriptions({
-        tenantId: "tenant-123",
+      const results2 = await getDoctorFrequentPrescriptions(mockCtx({}, { tenantId: "tenant-123" }), {
         doctorId: "doc-456",
         diagnosis: "a",
       });
@@ -89,11 +88,9 @@ describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up S
         }),
       };
 
-      const suggestions = await getDoctorFrequentPrescriptions({
-        tenantId: "tenant-123",
+      const suggestions = await getDoctorFrequentPrescriptions(mockCtx(mockSupabase, { tenantId: "tenant-123" }), {
         doctorId: "doc-456",
         diagnosis: "Pharyngitis",
-        clientOverride: mockSupabase,
       });
 
       expect(suggestions).toHaveLength(2);
@@ -119,11 +116,9 @@ describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up S
         })),
       };
 
-      const suggestions = await getDoctorFrequentPrescriptions({
-        tenantId: "tenant-123",
+      const suggestions = await getDoctorFrequentPrescriptions(mockCtx(mockSupabase, { tenantId: "tenant-123" }), {
         doctorId: "doc-456",
         diagnosis: "UnusualRareCondition",
-        clientOverride: mockSupabase,
       });
 
       expect(suggestions).toEqual([]);
@@ -139,11 +134,9 @@ describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up S
         })),
       };
 
-      const suggestions = await getDoctorFrequentPrescriptions({
-        tenantId: "tenant-123",
+      const suggestions = await getDoctorFrequentPrescriptions(mockCtx(mockSupabase, { tenantId: "tenant-123" }), {
         doctorId: "doc-456",
         diagnosis: "Fever",
-        clientOverride: mockSupabase,
       });
 
       expect(suggestions).toEqual([]);
@@ -163,12 +156,11 @@ describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up S
       };
 
       const fake = fakeAiClient("{}");
-      const summary = await generatePatientCatchUpSummary({
-        tenantId: "tenant-123",
-        patientId: "patient-new",
-        clientOverride: mockSupabase,
-        aiClientOverride: fake.client,
-      });
+      const summary = await generatePatientCatchUpSummary(
+        mockCtx(mockSupabase, { tenantId: "tenant-123" }),
+        { patientId: "patient-new" },
+        { aiClient: fake.client }
+      );
 
       expect(fake.chatCompletion).not.toHaveBeenCalled();
 
@@ -238,12 +230,11 @@ describe("Wave 3: Deterministic Historical Prescription Suggestions & Catch-Up S
         })
       );
 
-      const summary = await generatePatientCatchUpSummary({
-        tenantId: "tenant-123",
-        patientId: "patient-regular",
-        clientOverride: mockSupabase,
-        aiClientOverride: mockAiClient,
-      });
+      const summary = await generatePatientCatchUpSummary(
+        mockCtx(mockSupabase, { tenantId: "tenant-123" }),
+        { patientId: "patient-regular" },
+        { aiClient: mockAiClient }
+      );
 
       expect(mockChatCompletion).toHaveBeenCalled();
       expect(summary.last_visit_date).toBe("2026-10-15T10:00:00Z");

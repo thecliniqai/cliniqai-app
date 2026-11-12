@@ -69,29 +69,3 @@ export async function resolveServiceContext(permission?: Permission): Promise<Se
     };
   }
 }
-
-/**
- * TEMP 01-01c: bridges the domains that still carry override parameters (consultation, prescriptions, billing)
- * to the ctx-taking PDF generators. The role, when the legacy session lacks it, is read from the caller's own
- * membership row through `db` (fail closed when absent). Delete with the last caller.
- */
-export async function legacyServiceContext(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db: SupabaseClient<Database, any, any>,
-  session: { userId: string; tenantId: string; role?: UserRole }
-): Promise<ServiceContext> {
-  let role = session.role;
-  if (!role) {
-    const { data } = await db
-      .from("memberships")
-      .select("role")
-      .eq("user_id", session.userId)
-      .eq("tenant_id", session.tenantId)
-      .maybeSingle();
-    role = (data as { role: UserRole } | null)?.role;
-    if (!role) {
-      throw new Error("Unauthorized: no membership for the acting user in this clinic");
-    }
-  }
-  return { userId: session.userId, tenantId: session.tenantId, role, actorType: "user", db };
-}

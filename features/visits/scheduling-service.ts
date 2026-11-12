@@ -36,6 +36,9 @@ export interface CheckSlotResult {
   blockReason?: string;
   conflictingVisit?: Visit | null;
   conflictingBlock?: ScheduleBlock | null;
+  /** Set when availability could not be verified (denied caller, bad doctor id, or any database error). Callers must
+   * treat it as "do not book" (V2-01 F8: fail closed; a false "unavailable" beats a double booking). */
+  checkFailed?: boolean;
 }
 
 /**
@@ -111,8 +114,8 @@ export async function createScheduleBlock(
 }
 
 /**
- * Deletes a schedule block. Doctors can delete their own blocks; deleting another doctor's block needs
- * "clinic:manage".
+ * Deletes a schedule block. Doctors can delete their own blocks; deleting another doctor's block or a clinic-wide
+ * block needs "clinic:manage" (the same rule as creating one).
  */
 export async function deleteScheduleBlock(ctx: ServiceContext, blockId: string): Promise<DeleteScheduleBlockResult> {
   const supabase = ctx.db;
@@ -137,7 +140,11 @@ export async function deleteScheduleBlock(ctx: ServiceContext, blockId: string):
       return { success: false, error: "Schedule block not found or access denied." };
     }
 
-    if (block.doctor_id && block.doctor_id !== session.userId && block.created_by !== session.userId) {
+    // Same rule as createScheduleBlock (V2-01 F7): only a doctor's own block needs no more than appointments:edit;
+    // another doctor's block or a clinic-wide block needs clinic:manage.
+    const isOtherDoctors = Boolean(block.doctor_id) && block.doctor_id !== session.userId;
+    const isClinicWide = !block.doctor_id;
+    if (isOtherDoctors || isClinicWide) {
       assertPerm(ctx.role, "clinic:manage");
     }
 
@@ -236,15 +243,16 @@ export async function checkSlotAvailability(
   const supabase = ctx.db;
   const session = ctx;
 
-  // A denied caller or a doctor id that is not a uuid (it is interpolated into a PostgREST filter string below)
-  // is told the slot is unavailable; unexpected errors further down keep the pre-existing fail-open answer.
+  // Fails closed (V2-01 F8): a denied caller, a doctor id that is not a uuid (it is interpolated into a PostgREST
+  // filter string below) or any database error yields `available: false` with `checkFailed: true`.
+  const failed: CheckSlotResult = { available: false, checkFailed: true };
   try {
     assertPerm(ctx.role, "appointments:view");
   } catch {
-    return { available: false };
+    return failed;
   }
   if (!isUuid(doctorId)) {
-    return { available: false };
+    return failed;
   }
 
   try {
@@ -260,11 +268,16 @@ export async function checkSlotAvailability(
 
     // 1. Check Doctor Working Shifts (availability_schedule)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: member } = await (supabase.from("memberships") as any)
+    const { data: member, error: memberErr } = await (supabase.from("memberships") as any)
       .select("availability_schedule")
       .eq("tenant_id", session.tenantId)
       .eq("user_id", doctorId)
       .maybeSingle();
+
+    if (memberErr) {
+      console.error("[features/visits/scheduling-service] Availability check failed (shifts):", memberErr.message);
+      return failed;
+    }
 
     if (member?.availability_schedule) {
       const schedule = member.availability_schedule as DoctorWeeklySchedule;
@@ -282,12 +295,17 @@ export async function checkSlotAvailability(
 
     // 2. Check Schedule Blocks (doctor-specific or clinic-wide)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: blocks } = await (supabase.from("schedule_blocks") as any)
+    const { data: blocks, error: blocksErr } = await (supabase.from("schedule_blocks") as any)
       .select("*")
       .eq("tenant_id", session.tenantId)
       .or(`doctor_id.eq.${doctorId},doctor_id.is.null`)
       .lte("start_time", targetEndISO)
       .gte("end_time", targetStartISO);
+
+    if (blocksErr) {
+      console.error("[features/visits/scheduling-service] Availability check failed (blocks):", blocksErr.message);
+      return failed;
+    }
 
     if (blocks && blocks.length > 0) {
       for (const block of blocks as ScheduleBlock[]) {
@@ -328,8 +346,8 @@ export async function checkSlotAvailability(
       .not("status", "in", '("cancelled")');
 
     if (error || !visits) {
-      console.error("[features/visits/scheduling-service] Availability check failed:", error);
-      return { available: true };
+      console.error("[features/visits/scheduling-service] Availability check failed (visits):", error?.message);
+      return failed;
     }
 
     for (const v of visits) {
@@ -348,8 +366,8 @@ export async function checkSlotAvailability(
 
     return { available: true };
   } catch (err: unknown) {
-    console.error("[features/visits/scheduling-service] Slot availability error:", err);
-    return { available: true };
+    console.error("[features/visits/scheduling-service] Slot availability error:", err instanceof Error ? err.message : err);
+    return failed;
   }
 }
 
@@ -396,6 +414,11 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
       data.scheduled_at,
       data.estimated_duration_minutes
     );
+
+    if (slotCheck.checkFailed) {
+      // Fail closed (F8): never book a slot whose availability could not be verified
+      return { success: false, error: "Could not verify slot availability. Please try again." };
+    }
 
     if (!slotCheck.available) {
       if (slotCheck.isBlocked && !data.override_block) {

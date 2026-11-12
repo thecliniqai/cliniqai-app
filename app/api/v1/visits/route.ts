@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
-import { recordAuditLegacy } from "@/lib/audit/audit";
+import { recordAudit } from "@/lib/audit/audit";
 
 /**
  * GET /api/v1/visits
@@ -221,25 +221,15 @@ export async function POST(req: NextRequest) {
 
     // 5. Audit log mutation (D-08)
     try {
-      await recordAuditLegacy(
-        {
+      await recordAudit(apiKeyServiceContext(session, admin), {
           action: "visit.create",
           entityType: "visit",
           entityId: newVisit.id,
-          actorType: "api_key",
-          apiKeyId: session.apiKeyId,
           metadata: {
             origin_type: originType,
             new_status: visitStatus,
           },
-        },
-        admin,
-        {
-          userId: session.userId,
-          tenantId: session.tenantId,
-          role: "owner",
-        }
-      );
+      });
     } catch (auditErr) {
       console.error("[api/v1/visits] Audit logging failed:", auditErr);
     }

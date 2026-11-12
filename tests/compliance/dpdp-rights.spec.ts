@@ -235,7 +235,7 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
 
   describe("Task 1: DPDP Right to Access Dual-Format Data Export", () => {
     it("exportPatientDpdpArchive compiles demographics, visits, prescriptions, documents, billing, and consent", async () => {
-      const bundle = await exportPatientDpdpArchive(patientId, tenantA.tenantId);
+      const bundle = await exportPatientDpdpArchive(ctxFor(tenantA), patientId);
 
       expect(bundle).toBeDefined();
       expect(bundle.export_metadata.standard).toBe("DPDP_ACT_2023_RIGHT_TO_ACCESS");
@@ -269,7 +269,7 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
     });
 
     it("generateDpdpMedicalSummaryPdf compiles a valid PDF binary buffer", async () => {
-      const bundle = await exportPatientDpdpArchive(patientId, tenantA.tenantId, { skipAudit: true });
+      const bundle = await exportPatientDpdpArchive(ctxFor(tenantA), patientId, { skipAudit: true });
       const pdfBuffer = await generateDpdpMedicalSummaryPdf(bundle);
 
       expect(pdfBuffer).toBeDefined();
@@ -278,6 +278,18 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
       // PDF binary starts with %PDF-
       const header = pdfBuffer.subarray(0, 5).toString("utf-8");
       expect(header).toBe("%PDF-");
+    });
+
+    it("export and erasure take the tenant from the context: tenant B cannot reach tenant A's patient", async () => {
+      await expect(exportPatientDpdpArchive(ctxFor(tenantB), patientId, { skipAudit: true })).rejects.toThrow(
+        /not found or unauthorized/i
+      );
+      await expect(erasePatientRecord(ctxFor(tenantB), patientId, "Cross-tenant attempt")).rejects.toThrow(
+        /not found or unauthorized/i
+      );
+
+      const { data: p } = await getAdminClient().from("patients").select("is_deleted").eq("id", patientId).single();
+      expect(p?.is_deleted).toBe(false);
     });
 
     it("GET /api/v1/patients/[id]/export with format=json returns application/json archive", async () => {
@@ -359,16 +371,7 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
 
     it("erasePatientRecord marks is_deleted = true, status = 'erased', and populates erased_at", async () => {
       const reason = "Patient submitted DPDP formal erasure notice";
-      const result = await erasePatientRecord(
-        patientId,
-        reason,
-        {
-          tenantId: tenantA.tenantId,
-          userId: tenantA.userId,
-          role: "owner",
-          actorType: "user",
-        }
-      );
+      const result = await erasePatientRecord(ctxFor(tenantA), patientId, reason);
 
       expect(result.success).toBe(true);
       expect(result.retentionPolicy).toBe("NMC_REGULATION_1.3.1_3_YEAR_MANDATE");
@@ -533,6 +536,11 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
         .eq("entity_id", withdrawnRecords![0].id)
         .eq("action", "patient.consent.withdrawn");
       expect(withdrawLogs!.length).toBeGreaterThanOrEqual(1);
+      // F2: the free-text note stays on the consent record; the audit trail carries a fixed reason code only
+      expect(withdrawnRecords![0].note).toBe("Patient withdrew all processing consent");
+      expect(withdrawLogs![0].metadata?.reason).toBe("global_consent_withdrawn");
+      expect(JSON.stringify(withdrawLogs![0].metadata)).not.toContain("Patient withdrew");
+      expect(withdrawLogs![0].actor_id).toBe(tenantA.userId);
 
       // 2. Grant consent globally
       const grantRes = await toggleGlobalConsent(

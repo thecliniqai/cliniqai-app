@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { recordAuditLegacy } from "@/lib/audit/audit";
+import { recordAudit } from "@/lib/audit/audit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -196,25 +196,15 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     // 4. Audit log update (D-08)
     try {
-      await recordAuditLegacy(
-        {
+      await recordAudit(apiKeyServiceContext(session, admin), {
           action: "visit.status_update",
           entityType: "visit",
           entityId: id,
-          actorType: "api_key",
-          apiKeyId: session.apiKeyId,
           metadata: {
             old_status: existingVisit.status,
             new_status: status || existingVisit.status,
           },
-        },
-        admin,
-        {
-          userId: session.userId,
-          tenantId: session.tenantId,
-          role: "owner",
-        }
-      );
+      });
     } catch (auditErr) {
       console.error("[api/v1/visits/[id]] Audit logging failed:", auditErr);
     }
