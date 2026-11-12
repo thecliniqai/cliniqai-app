@@ -200,18 +200,15 @@ export async function promoteWaitlistEntry(
     const session = ctx;
 
     // 1. Fetch waitlist entry
-    const { data: entry, error: fetchError } = await (
-      supabase.from("waitlist_entries") as unknown as {
-        select: (cols: string) => {
-          eq: (col: string, val: string) => {
-            single: () => Promise<{ data: WaitlistEntry | null; error: { message: string } | null }>;
-          };
-        };
-      }
+    // By id AND the active clinic (AR-M2b: RLS admits every clinic the user belongs to).
+    const { data: entry, error: fetchError } = (await (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase.from("waitlist_entries") as any
     )
       .select("*")
       .eq("id", entryId)
-      .single();
+      .eq("tenant_id", session.tenantId)
+      .single()) as { data: WaitlistEntry | null; error: { message: string } | null };
 
     if (fetchError || !entry) {
       return { success: false, error: "Waitlist entry not found." };
@@ -237,18 +234,14 @@ export async function promoteWaitlistEntry(
     }
 
     // 3. Mark waitlist entry as promoted
-    await (
-      supabase.from("waitlist_entries") as unknown as {
-        update: (vals: Record<string, unknown>) => {
-          eq: (col: string, val: string) => Promise<{ error: unknown }>;
-        };
-      }
-    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("waitlist_entries") as any)
       .update({
         status: "promoted",
         promoted_visit_id: visitRes.visitId,
       })
-      .eq("id", entryId);
+      .eq("id", entryId)
+      .eq("tenant_id", session.tenantId);
 
     // 4. Audit
     await recordAudit(ctx, {

@@ -169,6 +169,22 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/webhooks/actions.ts#testPingWebhook": "clinic:manage",
 };
 
+/**
+ * Leg 3 positive controls that cannot succeed in the test lane (V2-02 02-06, IR-F2/AR-M2a). Every other action whose
+ * valid inputs carry a reference must succeed with them (tests/security/guard/valid-inputs.ts), so a refused forged
+ * variant is attributable to the forged reference. An entry here keeps the per-reference variants (nothing of B may
+ * come back, B unchanged, no A row references B) but drops the control; adding one is a security decision (say why).
+ * The spec fails on an entry for an action that is not in ACTION_GUARDS or has no reference to forge.
+ */
+export const LEG3_CONTROL_EXEMPT: Record<string, string> = {
+  "features/ai/actions.ts#getPatientCatchUpSummaryAction":
+    "AI is off in the test lane (AI_ENABLED=false): the action fails closed before any data access (AI-01), so no input can succeed.",
+  "features/clinics/actions.ts#createClinic":
+    "Onboarding ({ authenticated }): a successful control would give the shared outsider user a clinic and change the later legs; create_clinic_with_owner is covered by tests/security/membership-guard.spec.ts.",
+  "features/webhooks/actions.ts#testPingWebhook":
+    "Delivers the ping over outbound HTTP at once (dispatchWebhookQueueItem); the test lane's network guard refuses every non-loopback host, so no input can succeed.",
+};
+
 const SESSION_RECEIPT: RouteGuard = { kind: "session", permission: "appointments:view", resource: "invoice" };
 const CRON: RouteGuard = { kind: "cron-secret" };
 const V1_KEY: RouteGuard = { kind: "api-v1", key: true };

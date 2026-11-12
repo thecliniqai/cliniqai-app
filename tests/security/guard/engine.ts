@@ -12,6 +12,10 @@
  *     access beyond the membership lookup (`from:memberships`);
  *   - tenant B's ids (least-privileged role holding the permission): nothing returned contains a B id, name, phone
  *     or email; the spec then proves B's rows are byte-identical and no tenant-A row references a B id.
+ * Leg 3 forges in two ways (02-06, IR-F2/AR-M2a): every id at once (`argsFor(c, world.b)`), and ONE reference at a time
+ * inside otherwise-valid tenant-A inputs (`referenceSlots` / `forgeAt`), so an action that checks its first reference
+ * but stores an unchecked second one is reached. A positive control (`positiveControlLeg`) proves the same valid
+ * inputs succeed, so a refusal of a forged variant is attributable to the forged reference and not to validation.
  * Row counts are compared per batch by the specs (`countRows`), not per case.
  */
 import path from "node:path";
@@ -24,7 +28,7 @@ import { hasPerm, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import type { buildInventory } from "@/scripts/inventory-server-actions";
 import type { TestDb } from "../../helpers/db";
 import type { ActionGuard, RouteGuard } from "../guard-manifest";
-import type { GuardWorld } from "./world";
+import type { GuardWorld, TenantRowIds } from "./world";
 
 export const ROOT = path.resolve(__dirname, "../../..");
 
@@ -55,6 +59,11 @@ export interface Violation {
 /** What `createClient()` from `@/lib/supabase/server` returns while a leg runs (set by the spec's vi.mock). */
 export interface RequestSlot {
   client: unknown;
+  /**
+   * The `clinic_active_tenant` cookie while a leg runs (a spec that mocks `next/headers` reads it). Set only for a
+   * user with several memberships (the dual-member leg, AR-M2b); null otherwise.
+   */
+  activeTenant?: string | null;
 }
 
 export const ROLES: readonly UserRole[] = ["owner", "admin", "doctor", "nurse", "receptionist"];
@@ -175,16 +184,19 @@ export async function invokeAction(
   slot: RequestSlot,
   client: object,
   fn: (...args: unknown[]) => unknown,
-  args: unknown[]
+  args: unknown[],
+  activeTenant: string | null = null
 ): Promise<CallOutcome> {
   const access: string[] = [];
   slot.client = recordingClient(client, access);
+  slot.activeTenant = activeTenant;
   try {
     return { threw: false, value: await fn(...args), access };
   } catch (error) {
     return { threw: true, error, access };
   } finally {
     slot.client = null;
+    slot.activeTenant = null;
   }
 }
 
@@ -222,7 +234,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 const tomorrowIso = () => new Date(Date.now() + 86_400_000).toISOString();
 
 /** Tenant B's id for an id-shaped parameter or field name, else undefined. */
-export function bIdFor(name: string, fnName: string, b: GuardWorld["b"]): string | undefined {
+export function bIdFor(name: string, fnName: string, b: TenantRowIds): string | undefined {
   const leaf = name.split(".").pop() ?? name;
   // Identifiers that are not row references (ABHA number, SNOMED/ICD/CDCI codes, provider message ids): a B uuid
   // there is just an opaque string the caller may store, so they get no B id.
@@ -249,7 +261,7 @@ export function bIdFor(name: string, fnName: string, b: GuardWorld["b"]): string
 }
 
 /** The forged object every object/FormData parameter gets: plausible fields, B's ids, B as the acting tenant/actor. */
-export function forgedObject(fnName: string, fields: string[], b: GuardWorld["b"]): Record<string, unknown> {
+export function forgedObject(fnName: string, fields: string[], b: TenantRowIds): Record<string, unknown> {
   const out: Record<string, unknown> = {
     name: "Synthetic Forged Clinic",
     full_name: "Synthetic Forged Name",
@@ -283,7 +295,7 @@ export function forgedObject(fnName: string, fields: string[], b: GuardWorld["b"
   return out;
 }
 
-function stringArg(p: ParamInfo, fnName: string, b: GuardWorld["b"]): string {
+function stringArg(p: ParamInfo, fnName: string, b: TenantRowIds): string {
   const id = bIdFor(p.name, fnName, b);
   if (id) return id;
   if (/token/i.test(p.name)) return randomBytes(32).toString("hex");
@@ -295,7 +307,11 @@ function stringArg(p: ParamInfo, fnName: string, b: GuardWorld["b"]): string {
   return b.patient;
 }
 
-export function argsFor(c: Pick<ActionCase, "name" | "params">, b: GuardWorld["b"]): unknown[] {
+/**
+ * Arguments for an action with `ids` in every id-shaped parameter and field: tenant B's ids for the all-at-once
+ * forgery, or a tenant-A row set for the generic valid inputs of the per-reference legs.
+ */
+export function argsFor(c: Pick<ActionCase, "name" | "params">, b: TenantRowIds): unknown[] {
   return c.params.map((p) => {
     const t = p.typeText;
     const fields = [...p.typeFields, ...p.destructuredFields];
@@ -370,20 +386,104 @@ export async function refusedActionLeg(
   return out;
 }
 
-/** Leg 3: tenant B's ids and B as the acting tenant/actor; nothing B-identifying may come back. */
+/**
+ * Leg 3: tenant B's ids (every id at once by default, or the given forged `args`) and B as the acting tenant/actor;
+ * nothing B-identifying may come back. Writes are checked by the spec afterwards (B snapshot, A rows referencing B).
+ */
 export async function crossTenantActionLeg(
   slot: RequestSlot,
   c: ActionCase,
   fn: (...args: unknown[]) => unknown,
   client: object,
-  world: GuardWorld
+  world: GuardWorld,
+  args: unknown[] = argsFor(c, world.b),
+  leg = "tenant B ids",
+  activeTenant: string | null = null
 ): Promise<Violation[]> {
-  const o = await invokeAction(slot, client, fn, argsFor(c, world.b));
+  const o = await invokeAction(slot, client, fn, args, activeTenant);
   const text = o.threw ? messageOf(o) ?? "" : serialise(o.value);
   const leaked = world.bSecrets.filter((s) => text.includes(s));
   return leaked.length > 0
-    ? [{ key: c.key, leg: "tenant B ids", detail: `returned tenant B data (${leaked.length} B values) in ${brief(text)}` }]
+    ? [{ key: c.key, leg, detail: `returned tenant B data (${leaked.length} B values) in ${brief(text)}` }]
     : [];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// One reference at a time (02-06, IR-F2 / AR-M2a)
+// ---------------------------------------------------------------------------------------------------------------
+
+/** Where one value sits in an argument list: the argument index, then object keys, array indices or FormData names. */
+export type ArgPath = Array<string | number>;
+
+export function pathLabel(path: ArgPath): string {
+  return path.map((p, i) => (i === 0 ? `arg${p}` : typeof p === "number" ? `[${p}]` : `.${p}`)).join("");
+}
+
+function keyOfValue(ids: TenantRowIds, value: string): keyof TenantRowIds | undefined {
+  return (Object.keys(ids) as Array<keyof TenantRowIds>).find((k) => ids[k] === value);
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && Object.getPrototypeOf(v) === Object.prototype;
+}
+
+/** Every position in `args` that holds one of `a`'s ids: each is a reference the action receives from the caller. */
+export function referenceSlots(args: unknown[], a: TenantRowIds): ArgPath[] {
+  const out: ArgPath[] = [];
+  const walk = (v: unknown, path: ArgPath) => {
+    if (typeof v === "string") {
+      if (keyOfValue(a, v)) out.push(path);
+    } else if (v instanceof FormData) {
+      for (const [k, val] of v.entries()) if (typeof val === "string" && keyOfValue(a, val)) out.push([...path, k]);
+    } else if (Array.isArray(v)) {
+      v.forEach((x, i) => walk(x, [...path, i]));
+    } else if (isPlainObject(v)) {
+      for (const [k, x] of Object.entries(v)) walk(x, [...path, k]);
+    }
+  };
+  args.forEach((v, i) => walk(v, [i]));
+  return out;
+}
+
+/** A copy of `args` with the A id at `path` replaced by B's id for the same row (everything else unchanged). */
+export function forgeAt(args: unknown[], path: ArgPath, a: TenantRowIds, b: TenantRowIds): unknown[] {
+  const swap = (value: unknown): string => {
+    const key = typeof value === "string" ? keyOfValue(a, value) : undefined;
+    if (!key) throw new Error(`guard engine: no tenant-A id at ${pathLabel(path)}`);
+    return b[key];
+  };
+  const clone = (v: unknown, rest: ArgPath): unknown => {
+    if (v instanceof FormData) {
+      const fd = new FormData();
+      for (const [k, val] of v.entries()) fd.append(k, rest.length === 1 && rest[0] === k ? swap(val) : val);
+      return fd;
+    }
+    if (rest.length === 0) return swap(v);
+    const [head, ...tail] = rest;
+    if (Array.isArray(v)) return v.map((x, i) => (i === head ? clone(x, tail) : x));
+    if (isPlainObject(v)) return { ...v, [head]: clone(v[head as string], tail) };
+    throw new Error(`guard engine: cannot descend into ${pathLabel(path)}`);
+  };
+  return args.map((v, i) => (i === path[0] ? clone(v, path.slice(1)) : v));
+}
+
+/**
+ * Positive control: the otherwise-valid tenant-A inputs succeed (no throw, not the failure shape; `voidResult` for an
+ * action that returns nothing on success). Without it a forged variant refused for any other reason would pass.
+ */
+export async function positiveControlLeg(
+  slot: RequestSlot,
+  c: ActionCase,
+  fn: (...args: unknown[]) => unknown,
+  client: object,
+  args: unknown[],
+  opts: { voidResult?: boolean; activeTenant?: string | null; leg?: string } = {}
+): Promise<Violation[]> {
+  const o = await invokeAction(slot, client, fn, args, opts.activeTenant ?? null);
+  const ok = !o.threw && (opts.voidResult ? true : !isFailureShape(o.value));
+  if (ok) return [];
+  const why = o.threw ? `threw ${brief(messageOf(o) ?? "")}` : `returned ${brief(serialise(o.value))}`;
+  return [{ key: c.key, leg: opts.leg ?? "positive control", detail: `valid tenant-A inputs did not succeed: ${why}` }];
 }
 
 // ---------------------------------------------------------------------------------------------------------------

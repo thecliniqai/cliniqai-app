@@ -18,19 +18,20 @@ import type { ServiceContext } from "@/lib/auth/context";
 /** Fixed, id-free message for a reference that is not in the caller's clinic. */
 export const FOREIGN_REFERENCE_MESSAGE = "Not found in this clinic.";
 
-async function existsInTenant(ctx: ServiceContext, table: "patients" | "visits", id: string): Promise<boolean> {
+/**
+ * True when `patientId` is an active patient of the caller's clinic. A soft-deleted or erased (DPDP) patient is
+ * refused like a foreign one: no new visit, waitlist entry or consent may point at them (AR-L6).
+ */
+export async function patientInTenant(ctx: ServiceContext, patientId: string): Promise<boolean> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (ctx.db.from(table) as any)
+  const { data, error } = await (ctx.db.from("patients") as any)
     .select("id")
-    .eq("id", id)
+    .eq("id", patientId)
     .eq("tenant_id", ctx.tenantId)
+    .eq("is_deleted", false)
+    .is("erased_at", null)
     .maybeSingle();
   return !error && !!data;
-}
-
-/** True when `patientId` is a patient of the caller's clinic. */
-export function patientInTenant(ctx: ServiceContext, patientId: string): Promise<boolean> {
-  return existsInTenant(ctx, "patients", patientId);
 }
 
 /** True when `visitId` is a visit of the caller's clinic and, if `patientId` is given, belongs to that patient. */

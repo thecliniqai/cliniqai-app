@@ -28,6 +28,18 @@ describe("inventory gate (F14)", () => {
     expect(r.stderr).toContain("FLAG lint-fixtures/inventory/flagged/actions.ts saveNoteFixture param 1: clientOverride");
   }, 60_000);
 
+  it("exits 1 on entry points it cannot inventory: inline \"use server\", route.{js,jsx,tsx,mjs}, a JS action module (02-06)", () => {
+    const r = inventory("lint-fixtures/inventory/inline");
+    expect(r.status).toBe(1);
+    expect(r.report.counts.flagged).toBe(6);
+    const dir = "lint-fixtures/inventory/inline";
+    expect(r.stderr).toContain(`FLAG ${dir}/page.tsx (inline) function-level directive (line 6): use server`);
+    for (const route of ["js-route/route.js", "jsx-route/route.jsx", "tsx-route/route.tsx", "mjs-route/route.mjs"]) {
+      expect(r.stderr).toContain(`FLAG ${dir}/${route} (module) file name`);
+    }
+    expect(r.stderr).toContain(`FLAG ${dir}/js-module/actions.js (module) directive: use server`);
+  }, 60_000);
+
   it("exits 0 on an action that takes only target ids", () => {
     const r = inventory("lint-fixtures/inventory/clean");
     expect(r.status).toBe(0);

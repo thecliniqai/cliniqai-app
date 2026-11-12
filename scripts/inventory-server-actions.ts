@@ -13,7 +13,10 @@
  *      permission literal passed to it, or `delegated:<name>` when the body reaches it through a project function;
  *   5. (P0-13) every route handler module (`app/** /route.ts`, and `*-route.ts` in an extra dir) and its exported
  *      HTTP methods.
- * and flags every banned acting-principal name (ADR-0005 V3). The guard and route fields feed
+ * and flags every banned acting-principal name (ADR-0005 V3), and (P0-13, V2-02 02-06, IR-F3/AR-M2c) every entry
+ * point the inventory cannot see: a function-level (inline) `"use server"` directive, a `"use server"` module that is
+ * not TypeScript, and a route handler named `route.{js,jsx,tsx,mjs}` (Next serves those too). The guard and route
+ * fields feed
  * tests/security/guard-*.spec.ts, which fail when an action or route has no entry in tests/security/guard-manifest.ts.
  *
  * Usage (reads source only; no network, no env):
@@ -116,17 +119,40 @@ interface Flag {
   rule: string;
 }
 
-function walk(dir: string, out: string[]) {
+function walk(dir: string, out: string[], other: string[] = []) {
   if (!fs.existsSync(dir)) return;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-      walk(full, out);
+      walk(full, out, other);
     } else if (/\.(ts|tsx)$/.test(entry.name) && !entry.name.endsWith(".d.ts")) {
       out.push(full);
+    } else if (/\.(js|jsx|mjs|cjs)$/.test(entry.name)) {
+      other.push(full);
     }
   }
+}
+
+/** Route handler files Next serves that the inventory does not read (only `route.ts` is inventoried). */
+const NON_TS_ROUTE = /(^|\/)route\.(js|jsx|tsx|mjs|cjs)$/;
+
+/** Lines of every function-level `"use server"` directive (an inline server action) in a source file. */
+function inlineUseServerLines(sf: ts.SourceFile): number[] {
+  const lines: number[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isFunctionLike(node) && "body" in node && node.body && ts.isBlock(node.body)) {
+      for (const stmt of node.body.statements) {
+        if (!ts.isExpressionStatement(stmt) || !ts.isStringLiteral(stmt.expression)) break;
+        if (stmt.expression.text === "use server") {
+          lines.push(sf.getLineAndCharacterOfPosition(stmt.getStart(sf)).line + 1);
+        }
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return lines;
 }
 
 function rel(file: string) {
@@ -362,7 +388,10 @@ function isRouteModule(relFile: string, extraDirs: string[]): boolean {
 /** Builds the inventory from source. Also used by tests/security/p0-01-action-sweep.spec.ts to generate its cases. */
 export function buildInventory(options: InventoryOptions = {}) {
   const files: string[] = [];
-  for (const dir of [...(options.scanDirs ?? SCAN_DIRS), ...(options.extraDirs ?? [])]) walk(path.join(ROOT, dir), files);
+  const otherFiles: string[] = [];
+  for (const dir of [...(options.scanDirs ?? SCAN_DIRS), ...(options.extraDirs ?? [])]) {
+    walk(path.join(ROOT, dir), files, otherFiles);
+  }
 
   const configPath = path.join(ROOT, "tsconfig.json");
   const config = ts.readConfigFile(configPath, ts.sys.readFile);
@@ -381,6 +410,24 @@ export function buildInventory(options: InventoryOptions = {}) {
     const sf = program.getSourceFile(file);
     if (!sf) continue;
     const relFile = rel(file);
+    for (const line of inlineUseServerLines(sf)) {
+      flags.push({
+        file: relFile,
+        export: "(inline)",
+        where: `function-level directive (line ${line})`,
+        name: "use server",
+        rule: "P0-13: inline \"use server\" action is not inventoried; move it to a \"use server\" module",
+      });
+    }
+    if (NON_TS_ROUTE.test(relFile)) {
+      flags.push({
+        file: relFile,
+        export: "(module)",
+        where: "file name",
+        name: path.basename(relFile),
+        rule: "P0-13: route handler must be route.ts so the guard inventory sees it",
+      });
+    }
     if (hasUseServerDirective(sf)) {
       const mod = { file: relFile, exports: moduleExports(checker, sf, true) };
       useServerModules.push(mod);
@@ -406,6 +453,28 @@ export function buildInventory(options: InventoryOptions = {}) {
           });
         }
       }
+    }
+  }
+
+  // Non-TypeScript sources are not in the program: a route file or a "use server" directive there is never inventoried.
+  for (const file of otherFiles.sort()) {
+    const relFile = rel(file);
+    if (NON_TS_ROUTE.test(relFile)) {
+      flags.push({
+        file: relFile,
+        export: "(module)",
+        where: "file name",
+        name: path.basename(relFile),
+        rule: "P0-13: route handler must be route.ts so the guard inventory sees it",
+      });
+    } else if (/["']use server["']/.test(fs.readFileSync(file, "utf8"))) {
+      flags.push({
+        file: relFile,
+        export: "(module)",
+        where: "directive",
+        name: "use server",
+        rule: "P0-13: \"use server\" in a non-TypeScript module is not inventoried",
+      });
     }
   }
 

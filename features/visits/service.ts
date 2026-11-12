@@ -188,18 +188,15 @@ export async function updateVisitStatus(
     assertPerm(ctx.role, "appointments:edit");
 
     // Fetch existing visit
-    const { data: existing, error: readError } = await (
-      supabase.from("visits") as unknown as {
-        select: (cols: string) => {
-          eq: (col: string, val: string) => {
-            single: () => Promise<{ data: Visit | null; error: { message: string } | null }>;
-          };
-        };
-      }
+    // By id AND the active clinic: RLS admits every clinic the user belongs to (AR-M2b).
+    const { data: existing, error: readError } = (await (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase.from("visits") as any
     )
       .select("*")
       .eq("id", visitId)
-      .single();
+      .eq("tenant_id", ctx.tenantId)
+      .single()) as { data: Visit | null; error: { message: string } | null };
 
     if (readError || !existing) {
       return { success: false, error: "Visit not found or inaccessible." };
@@ -207,18 +204,14 @@ export async function updateVisitStatus(
 
     const oldStatus = existing.status;
 
-    const { error: updateError } = await (
-      supabase.from("visits") as unknown as {
-        update: (vals: Record<string, unknown>) => {
-          eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>;
-        };
-      }
-    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: updateError } = await (supabase.from("visits") as any)
       .update({
         status: newStatus,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", visitId);
+      .eq("id", visitId)
+      .eq("tenant_id", ctx.tenantId);
 
     if (updateError) {
       console.error("[features/visits/service] Failed to update visit status:", updateError);
@@ -261,6 +254,7 @@ export async function confirmAppointment(ctx: ServiceContext, visitId: string): 
     const { data: existing, error: readError } = await (supabase.from("visits") as any)
       .select("id, status, metadata")
       .eq("id", visitId)
+      .eq("tenant_id", session.tenantId)
       .single();
 
     if (readError || !existing) {
@@ -289,7 +283,8 @@ export async function confirmAppointment(ctx: ServiceContext, visitId: string): 
         },
         updated_at: new Date().toISOString(),
       })
-      .eq("id", visitId);
+      .eq("id", visitId)
+      .eq("tenant_id", session.tenantId);
 
     if (updateError) {
       console.error("[confirmAppointment] Failed to update visit status:", updateError);
@@ -328,18 +323,15 @@ export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise
     const session = ctx;
 
     // 1. Fetch existing visit
-    const { data: existing, error: readError } = await (
-      supabase.from("visits") as unknown as {
-        select: (cols: string) => {
-          eq: (col: string, val: string) => {
-            single: () => Promise<{ data: Visit | null; error: { message: string } | null }>;
-          };
-        };
-      }
+    // By id AND the active clinic: RLS admits every clinic the user belongs to (AR-M2b).
+    const { data: existing, error: readError } = (await (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase.from("visits") as any
     )
       .select("*")
       .eq("id", visitId)
-      .single();
+      .eq("tenant_id", ctx.tenantId)
+      .single()) as { data: Visit | null; error: { message: string } | null };
 
     if (readError || !existing) {
       return { success: false, error: "Visit not found." };
@@ -350,18 +342,14 @@ export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise
     }
 
     // 2. Mark visit cancelled
-    await (
-      supabase.from("visits") as unknown as {
-        update: (vals: Record<string, unknown>) => {
-          eq: (col: string, val: string) => Promise<{ error: unknown }>;
-        };
-      }
-    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("visits") as any)
       .update({
         status: "cancelled",
         updated_at: new Date().toISOString(),
       })
-      .eq("id", visitId);
+      .eq("id", visitId)
+      .eq("tenant_id", session.tenantId);
 
     // 3. Audit cancellation
     await recordAudit(ctx, {
@@ -444,18 +432,14 @@ export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise
           promotedPatientId = topCandidate.patient_id;
 
           // Mark candidate waitlist entry as promoted
-          await (
-            supabase.from("waitlist_entries") as unknown as {
-              update: (vals: Record<string, unknown>) => {
-                eq: (col: string, val: string) => Promise<{ error: unknown }>;
-              };
-            }
-          )
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase.from("waitlist_entries") as any)
             .update({
               status: "promoted",
               promoted_visit_id: replacementVisitId,
             })
-            .eq("id", topCandidate.id);
+            .eq("id", topCandidate.id)
+            .eq("tenant_id", session.tenantId);
 
           await recordAudit(ctx, {
             action: "visit.auto_promoted_from_waitlist",

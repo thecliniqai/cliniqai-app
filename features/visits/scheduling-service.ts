@@ -477,6 +477,7 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
     const { data: patient } = await (supabase.from("patients") as any)
       .select("full_name, phone")
       .eq("id", data.patient_id)
+      .eq("tenant_id", session.tenantId)
       .single();
 
     if (patient?.phone) {

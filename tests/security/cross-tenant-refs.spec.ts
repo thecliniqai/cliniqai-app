@@ -20,13 +20,14 @@ import { recordFollowUp } from "@/features/consultation/service";
 import { addConsultationDiagnosis } from "@/features/terminology/service";
 import { createReferral } from "@/features/referrals/service";
 import { createVisitInvoice } from "@/features/billing/service";
+import { uploadLabDocument } from "@/features/labs/service";
 import { ctxFor } from "../helpers/context";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 
 const admin = getAdminClient();
 const TABLES = ["visits", "waitlist_entries", "consent_records", "follow_ups", "consultation_diagnoses", "referrals",
-  "invoices", "schedule_blocks"] as const;
+  "invoices", "schedule_blocks", "patient_documents"] as const;
 
 async function insertRow(table: string, row: Record<string, unknown>): Promise<string> {
   const { data, error } = await admin.from(table).insert(row).select("id").single();
@@ -175,6 +176,50 @@ describe("P0-13: services refuse references to another clinic's patient, visit o
     });
     expect((await createScheduleBlock(ctxFor(ownerA), input(ownerB.userId))).success).toBe(false);
     expect((await createScheduleBlock(ctxFor(ownerA), input(doctorA.userId))).success).toBe(true);
+  });
+
+  it("uploadLabDocument (IR-F1/AR-M1): a B visit, or another A patient's visit, is refused before the upload", async () => {
+    const other = await seedPatientAndVisit(ownerA, "A2");
+    const form = (visit_id: string) => {
+      const fd = new FormData();
+      fd.set("file", new File([Buffer.from("%PDF-1.4 synthetic")], "synthetic.pdf", { type: "application/pdf" }));
+      fd.set("patient_id", A.patient);
+      fd.set("visit_id", visit_id);
+      fd.set("title", "Synthetic report");
+      fd.set("document_type", "lab_report");
+      fd.set("report_date", new Date().toISOString().slice(0, 10));
+      fd.set("is_abnormal", "false");
+      return fd;
+    };
+    const docsOf = async () =>
+      (await admin.from("patient_documents").select("id").eq("tenant_id", ownerA.tenantId).eq("patient_id", A.patient)).data ?? [];
+    const before = (await docsOf()).length;
+    const foreign = await uploadLabDocument(ctxFor(doctorA), form(B.visit));
+    expect(foreign).toEqual({ success: false, error: "Not found in this clinic." });
+    const otherPatients = await uploadLabDocument(ctxFor(doctorA), form(other.visit));
+    expect(otherPatients).toEqual({ success: false, error: "Not found in this clinic." });
+    expect((await docsOf()).length).toBe(before);
+    expect((await uploadLabDocument(ctxFor(doctorA), form(A.visit))).success).toBe(true);
+  });
+
+  it("a soft-deleted or erased patient of the same clinic is refused like a foreign one (AR-L6)", async () => {
+    const deleted = await seedPatientAndVisit(ownerA, "A-deleted");
+    const erased = await seedPatientAndVisit(ownerA, "A-erased");
+    await admin.from("patients").update({ is_deleted: true }).eq("id", deleted.patient);
+    await admin.from("patients").update({ erased_at: new Date().toISOString(), status: "erased" }).eq("id", erased.patient);
+    const date = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+    for (const patient of [deleted.patient, erased.patient]) {
+      expect((await createVisit(ctxFor(receptionistA), visitInput(patient, doctorA.userId))).success).toBe(false);
+      expect((await addToWaitlist(ctxFor(receptionistA), { patient_id: patient, doctor_id: null, target_date: date, priority: 0 })).success).toBe(false);
+      expect((await grantConsent(ctxFor(nurseA), patient, "data_sharing")).success).toBe(false);
+    }
+    const { data: rows } = await admin
+      .from("visits")
+      .select("id")
+      .in("patient_id", [deleted.patient, erased.patient])
+      .neq("id", deleted.visit)
+      .neq("id", erased.visit);
+    expect(rows ?? []).toEqual([]);
   });
 
   it("no tenant A row references a tenant B id", async () => {

@@ -3,6 +3,7 @@ import "server-only";
 import { createShareToken } from "@/features/sharing/tokens";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
+import { FOREIGN_REFERENCE_MESSAGE, visitInTenant } from "@/lib/auth/tenant-refs";
 import { recordAudit } from "@/lib/audit/audit";
 import { PatientDocument } from "@/lib/db/types";
 import { uploadFile, getSignedUrl, deleteFile, getStorageProviderForDb } from "@/lib/storage";
@@ -85,6 +86,11 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
 
     if (patientErr || !patient) {
       return { success: false, error: "Patient record not found." };
+    }
+
+    // A linked visit must be this clinic's and this patient's (P0-13 / IR-F1: the FK references the visit id alone).
+    if (visit_id && !(await visitInTenant(ctx, visit_id, patient_id))) {
+      return { success: false, error: FOREIGN_REFERENCE_MESSAGE };
     }
 
     // 4. Compute amended filename & storage path

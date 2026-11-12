@@ -381,7 +381,8 @@ export async function getPatientConsultationHistory(
     const { data: diagnoses, error: diagErr } = await (supabase as any)
       .from("consultation_diagnoses")
       .select("id, visit_id, diagnosis_name, icd11_code, snomed_concept_id, is_chronic")
-      .in("visit_id", visitIds);
+      .in("visit_id", visitIds)
+      .eq("tenant_id", ctx.tenantId);
 
     if (diagErr) throw new Error(diagErr.message);
 
@@ -391,6 +392,7 @@ export async function getPatientConsultationHistory(
       .from("prescriptions")
       .select("id, visit_id, version, status")
       .in("visit_id", visitIds)
+      .eq("tenant_id", ctx.tenantId)
       .eq("status", "active");
 
     if (rxErr) throw new Error(rxErr.message);

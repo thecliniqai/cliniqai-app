@@ -92,13 +92,15 @@ export async function createReferral(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: diagList } = await (supabase.from("consultation_diagnoses") as any)
             .select("diagnosis_name")
-            .eq("visit_id", v.id);
+            .eq("visit_id", v.id)
+            .eq("tenant_id", session.tenantId);
 
           // Fetch prescriptions for visit
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: rxList } = await (supabase.from("prescriptions") as any)
             .select("id")
             .eq("visit_id", v.id)
+            .eq("tenant_id", session.tenantId)
             .order("version", { ascending: false })
             .limit(1);
 
@@ -396,6 +398,8 @@ export async function acknowledgeReferral(
         updated_at: new Date().toISOString(),
       })
       .eq("id", referralId)
+      // Only the receiving clinic, and only the one the caller is acting in (AR-M2b).
+      .eq("target_tenant_id", session.tenantId)
       .select("id")
       .single();
 

@@ -1,26 +1,41 @@
 /**
- * The seeded world the P0-13 guard specs share (V2-02 plan 02-02 step 3). Local stack only; synthetic data only.
+ * The seeded world the P0-13 guard specs share (V2-02 plan 02-02 step 3, 02-06 review fixes). Local stack only;
+ * synthetic data only.
  *
  *   - tenant A: owner, admin, doctor, nurse and receptionist (each a real user with a real JWT client);
- *   - tenant B: an owner and one row in every table an action or route takes an id for (patient, visit, invoice and
- *     item, lab document, prescription and item, referral, schedule block, waitlist entry, notification, webhook
- *     subscription, API key, diagnosis), plus two share tokens (an appointment token and a document token);
+ *   - tenant B: an owner and one row in every table an action or route takes an id for (`seedTenantRows`: patient,
+ *     visit and a signed visit, invoice and item, lab document, prescription and item, referral, schedule block,
+ *     waitlist entry, notification, webhook subscription, API key, diagnosis), plus two share tokens (an appointment
+ *     token and a document token);
+ *   - `aRows(caller)`: a FRESH set of the same rows in tenant A on every call (02-06, IR-F2/AR-M2a). Leg 3 forges one
+ *     reference at a time into otherwise-valid tenant-A inputs, and a positive control proves those inputs succeed;
+ *     each call gets its own rows, so a destructive control or variant cannot make the next one vacuous;
+ *   - `dual`: per role R, a user who is R in tenant A AND a receptionist in tenant B (02-06, AR-M2b). RLS admits every
+ *     clinic a user belongs to, so acting in A with A's role must still never reach B's rows by id;
  *   - `noMember`: a signed-in user with no membership (the "no clinic" leg);
  *   - `outsider`: a second user with no membership, for the `{ authenticated }` actions (onboarding may give it a
  *     clinic, so it is kept apart from `noMember`).
  */
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { UserRole } from "@/lib/db/types";
+import { referralLetterPath } from "@/lib/storage/tenant-path";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { addMemberToTenant, createUnlinkedUser, seedTenantWithOwner, type SeededTenant } from "../../helpers/tenants";
 import type { TestDb } from "../../helpers/db";
 
-export interface TenantBIds {
+/** One row id per table an entry point takes an id for, plus the tenant, a user and a membership. */
+export interface TenantRowIds {
   tenant: string;
+  /** The doctor/owner user the rows point at (`doctor_id`, `created_by`, …). */
   ownerUser: string;
+  /** A membership of this tenant (B: the owner's; A: the caller's own). */
   membership: string;
+  /** The acting caller (B: the owner). A schedule block is the caller's own time: only managers block others'. */
+  callerUser: string;
   patient: string;
   visit: string;
+  /** A completed, signed visit of the same patient (amendment flows). */
+  signedVisit: string;
   invoice: string;
   invoiceItem: string;
   document: string;
@@ -35,6 +50,18 @@ export interface TenantBIds {
   diagnosis: string;
 }
 
+/** The tenant-A doctor's shift on every weekday (IST), seeded by `seedGuardWorld`. */
+export const GUARD_DOCTOR_SHIFT = { start: "08:00", end: "20:00" } as const;
+
+/** Tenant B's rows (the name the engine and the canary use). */
+export type TenantBIds = TenantRowIds;
+
+/** The acting caller a fresh tenant-A row set is seeded for (notification recipient, own membership). */
+export interface Caller {
+  userId: string;
+  role: UserRole;
+}
+
 export interface GuardWorld {
   tenantA: string;
   roles: Record<UserRole, SeededTenant>;
@@ -43,6 +70,10 @@ export interface GuardWorld {
   bSecrets: string[];
   /** Raw share tokens issued by tenant B (for the public-token wrong-type leg). */
   bTokens: { appointment: string; patientDocument: string };
+  /** A fresh set of tenant-A rows for `caller` (see the file comment). */
+  aRows: (caller: Caller) => Promise<TenantRowIds>;
+  /** Per role R: R in tenant A and a receptionist in tenant B. */
+  dual: Record<UserRole, SeededTenant>;
   noMember: { userId: string; client: TestDb };
   outsider: { userId: string; client: TestDb };
 }
@@ -62,162 +93,195 @@ async function insertToken(admin: TestDb, row: Record<string, unknown>): Promise
   return token;
 }
 
-export async function seedGuardWorld(label: string): Promise<GuardWorld> {
-  const admin = getAdminClient();
-  const tag = randomUUID().slice(0, 8);
-
-  const ownerA = await seedTenantWithOwner(`Guard ${label} A ${tag}`);
-  const roles: Record<UserRole, SeededTenant> = {
-    owner: ownerA,
-    admin: await addMemberToTenant(ownerA.tenantId, "admin"),
-    doctor: await addMemberToTenant(ownerA.tenantId, "doctor"),
-    nurse: await addMemberToTenant(ownerA.tenantId, "nurse"),
-    receptionist: await addMemberToTenant(ownerA.tenantId, "receptionist"),
-  };
-
-  const ownerB = await seedTenantWithOwner(`Guard ${label} B ${tag}`);
-  const t = ownerB.tenantId;
-  const u = ownerB.userId;
-  const patientName = `Synthetic Guard Patient B ${tag}`;
-  const patientPhone = `+9198${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
-
-  const { data: membership, error: memErr } = await admin
+async function membershipId(admin: TestDb, tenantId: string, userId: string): Promise<string> {
+  const { data, error } = await admin
     .from("memberships")
     .select("id")
-    .eq("tenant_id", t)
-    .eq("user_id", u)
+    .eq("tenant_id", tenantId)
+    .eq("user_id", userId)
     .single();
-  if (memErr || !membership) throw new Error(`guard world: B membership lookup failed: ${memErr?.message}`);
+  if (error || !data) throw new Error(`guard world: membership lookup failed: ${error?.message}`);
+  return (data as { id: string }).id;
+}
+
+async function putObject(admin: TestDb, key: string): Promise<void> {
+  const { error } = await admin.storage
+    .from("clinic-records")
+    .upload(key, Buffer.from("%PDF-1.4 synthetic guard object"), { contentType: "application/pdf", upsert: true });
+  if (error) throw new Error(`guard world: storage seed failed: ${error.message}`);
+}
+
+const syntheticPhone = () => `+9198${Math.floor(10_000_000 + Math.random() * 89_999_999)}`;
+const daysAhead = (d: number, minutes = 0) => new Date(Date.now() + d * 86_400_000 + minutes * 60_000);
+
+interface RowSeed {
+  tenantId: string;
+  doctorUser: string;
+  caller: Caller;
+  membership: string;
+  patientName: string;
+  patientPhone: string;
+  /** Target clinic of the seeded referral (A: itself, so the inbound-referral actions have a row to act on). */
+  referralTarget: string | null;
+}
+
+/** One row in every table an entry point takes an id for, in `seed.tenantId`. */
+export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<TenantRowIds> {
+  const t = seed.tenantId;
+  const u = seed.doctorUser;
+  const tag = randomUUID().replace(/-/g, "").slice(0, 10);
+  // Random future minutes keep every seeded slot apart, so a booking control never collides with an earlier seed.
+  const offset = Math.floor(Math.random() * 20_000);
+  // The block sits on a known UTC date (5 days ahead, 06:00-11:00 UTC start, same date in IST), so a by-date read finds it.
+  const now = new Date();
+  const blockStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 5, 6, Math.floor(Math.random() * 300))
+  );
 
   const patient = await insertRow(admin, "patients", {
     tenant_id: t,
-    full_name: patientName,
-    phone: patientPhone,
+    full_name: seed.patientName,
+    phone: seed.patientPhone,
     sex: "female",
     age: 41,
     created_by: u,
   });
-  const visit = await insertRow(admin, "visits", {
-    tenant_id: t,
-    patient_id: patient,
-    doctor_id: u,
-    origin_type: "scheduled",
-    status: "booked",
-    scheduled_at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
-    created_by: u,
-  });
-  const invoice = await insertRow(admin, "invoices", {
-    tenant_id: t,
-    visit_id: visit,
-    patient_id: patient,
-    invoice_number: `INV-GUARD-${tag}`,
-  });
-  const invoiceItem = await insertRow(admin, "invoice_items", {
-    tenant_id: t,
-    invoice_id: invoice,
-    item_type: "consultation",
-    description: "Synthetic consultation",
-    unit_price: 500,
-    quantity: 1,
-    total_price: 500,
-  });
-  const document = await insertRow(admin, "patient_documents", {
-    tenant_id: t,
-    patient_id: patient,
-    title: "Synthetic Guard Report",
-    original_filename: "synthetic.pdf",
-    storage_path: `tenants/${t}/patients/${patient}/labs/synthetic_${tag}.pdf`,
-    file_size_bytes: 12,
-    mime_type: "application/pdf",
-    uploaded_by: u,
-  });
-  const prescription = await insertRow(admin, "prescriptions", {
-    tenant_id: t,
-    visit_id: visit,
-    patient_id: patient,
-    doctor_id: u,
-  });
-  const rxItem = await insertRow(admin, "prescription_items", {
-    prescription_id: prescription,
-    medicine_name: "Synthetic Tablet 500",
-    dosage: "1-0-1",
-    duration: "5 days",
-  });
-  const referral = await insertRow(admin, "referrals", {
-    tenant_id: t,
-    patient_id: patient,
-    referral_type: "out_of_network",
-    referring_doctor_id: u,
-    referred_to_name: "Synthetic Specialist",
-    reason_for_referral: "Synthetic reason",
-  });
-  const block = await insertRow(admin, "schedule_blocks", {
-    tenant_id: t,
-    doctor_id: u,
-    start_time: new Date(Date.now() + 5 * 86_400_000).toISOString(),
-    end_time: new Date(Date.now() + 5 * 86_400_000 + 3_600_000).toISOString(),
-    reason: "Synthetic block",
-    created_by: u,
-  });
-  const waitlist = await insertRow(admin, "waitlist_entries", {
-    tenant_id: t,
-    patient_id: patient,
-    doctor_id: u,
-    target_date: new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10),
-    created_by: u,
-  });
-  const notification = await insertRow(admin, "in_app_notifications", {
-    tenant_id: t,
-    recipient_user_id: u,
-    recipient_role: "owner",
-    category: "system",
-    event_type: "guard.synthetic",
-    title: "Synthetic notification",
-    message: "Synthetic message",
-  });
-  const webhookSub = await insertRow(admin, "webhook_subscriptions", {
-    tenant_id: t,
-    endpoint_url: "https://example.invalid/guard-hook",
-    event_types: ["visit.created"],
-    signing_secret: randomBytes(16).toString("hex"),
-    created_by: u,
-  });
-  const apiKey = await insertRow(admin, "api_keys", {
-    tenant_id: t,
-    name: "Synthetic Guard Key B",
-    key_prefix: `clq_live_g${tag.slice(0, 6)}`,
-    key_hash: randomBytes(32).toString("hex"),
-    created_by: u,
-  });
-  const diagnosis = await insertRow(admin, "consultation_diagnoses", {
-    tenant_id: t,
-    visit_id: visit,
-    patient_id: patient,
-    diagnosis_name: "Synthetic diagnosis",
-  });
+  const [visit, signedVisit, document, referral, block, waitlist, notification, webhookSub, apiKey] = await Promise.all([
+    insertRow(admin, "visits", {
+      tenant_id: t,
+      patient_id: patient,
+      doctor_id: u,
+      origin_type: "scheduled",
+      status: "booked",
+      scheduled_at: daysAhead(2, offset).toISOString(),
+      created_by: u,
+    }),
+    insertRow(admin, "visits", {
+      tenant_id: t,
+      patient_id: patient,
+      doctor_id: u,
+      origin_type: "walk_in",
+      status: "completed",
+      scheduled_at: daysAhead(-1, -offset).toISOString(),
+      signed_at: daysAhead(-1, 30 - offset).toISOString(),
+      signed_by: u,
+      created_by: u,
+    }),
+    insertRow(admin, "patient_documents", {
+      tenant_id: t,
+      patient_id: patient,
+      title: "Synthetic Guard Report",
+      original_filename: "synthetic.pdf",
+      storage_path: `tenants/${t}/patients/${patient}/labs/synthetic_${tag}.pdf`,
+      file_size_bytes: 12,
+      mime_type: "application/pdf",
+      uploaded_by: u,
+    }),
+    insertRow(admin, "referrals", {
+      tenant_id: t,
+      patient_id: patient,
+      referral_type: seed.referralTarget ? "in_network" : "out_of_network",
+      target_tenant_id: seed.referralTarget,
+      referring_doctor_id: u,
+      referred_to_name: "Synthetic Specialist",
+      reason_for_referral: "Synthetic reason",
+    }),
+    insertRow(admin, "schedule_blocks", {
+      tenant_id: t,
+      doctor_id: seed.caller.userId,
+      start_time: blockStart.toISOString(),
+      end_time: new Date(blockStart.getTime() + 3_600_000).toISOString(),
+      reason: "Synthetic block",
+      created_by: u,
+    }),
+    insertRow(admin, "waitlist_entries", {
+      tenant_id: t,
+      patient_id: patient,
+      doctor_id: u,
+      target_date: daysAhead(3).toISOString().slice(0, 10),
+      created_by: u,
+    }),
+    insertRow(admin, "in_app_notifications", {
+      tenant_id: t,
+      recipient_user_id: seed.caller.userId,
+      recipient_role: seed.caller.role,
+      category: "system",
+      event_type: "guard.synthetic",
+      title: "Synthetic notification",
+      message: "Synthetic message",
+    }),
+    insertRow(admin, "webhook_subscriptions", {
+      tenant_id: t,
+      endpoint_url: "https://example.invalid/guard-hook",
+      event_types: ["visit.created"],
+      signing_secret: randomBytes(16).toString("hex"),
+      created_by: u,
+    }),
+    insertRow(admin, "api_keys", {
+      tenant_id: t,
+      name: "Synthetic Guard Key",
+      key_prefix: `clq_live_g${tag}`,
+      key_hash: randomBytes(32).toString("hex"),
+      created_by: u,
+    }),
+  ]);
+  const [invoice, prescription, diagnosis] = await Promise.all([
+    insertRow(admin, "invoices", {
+      tenant_id: t,
+      visit_id: visit,
+      patient_id: patient,
+      invoice_number: `INV-GUARD-${tag}`,
+      subtotal: 500,
+      total_amount: 500,
+      status: "issued",
+    }),
+    insertRow(admin, "prescriptions", {
+      tenant_id: t,
+      visit_id: visit,
+      patient_id: patient,
+      doctor_id: u,
+    }),
+    insertRow(admin, "consultation_diagnoses", {
+      tenant_id: t,
+      visit_id: visit,
+      patient_id: patient,
+      diagnosis_name: "Synthetic diagnosis",
+    }),
+  ]);
+  const [invoiceItem, rxItem] = await Promise.all([
+    insertRow(admin, "invoice_items", {
+      tenant_id: t,
+      invoice_id: invoice,
+      item_type: "consultation",
+      description: "Synthetic consultation",
+      unit_price: 500,
+      quantity: 1,
+      total_price: 500,
+    }),
+    insertRow(admin, "prescription_items", {
+      prescription_id: prescription,
+      medicine_name: "Synthetic Tablet 500",
+      dosage: "1-0-1",
+      duration: "5 days",
+    }),
+    // The letter and the document exist in storage, so the signed-URL controls can succeed.
+    putObject(admin, `tenants/${t}/patients/${patient}/labs/synthetic_${tag}.pdf`),
+    putObject(admin, referralLetterPath(t, referral)),
+  ]);
+  const { error: refErr } = await admin
+    .from("referrals")
+    .update({ pdf_storage_path: referralLetterPath(t, referral) })
+    .eq("id", referral);
+  if (refErr) throw new Error(`guard world: referral letter marker failed: ${refErr.message}`);
 
-  const appointmentToken = await insertToken(admin, {
-    tenant_id: t,
-    resource_type: "appointment",
-    resource_id: visit,
-    created_by: u,
-    expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
-  });
-  const documentToken = await insertToken(admin, {
-    tenant_id: t,
-    resource_type: "patient_document",
-    resource_id: document,
-    document_id: document,
-    created_by: u,
-    expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
-  });
-
-  const b: TenantBIds = {
+  return {
     tenant: t,
     ownerUser: u,
-    membership: (membership as { id: string }).id,
+    membership: seed.membership,
+    callerUser: seed.caller.userId,
     patient,
     visit,
+    signedVisit,
     invoice,
     invoiceItem,
     document,
@@ -231,6 +295,93 @@ export async function seedGuardWorld(label: string): Promise<GuardWorld> {
     apiKey,
     diagnosis,
   };
+}
+
+export async function seedGuardWorld(label: string): Promise<GuardWorld> {
+  const admin = getAdminClient();
+  const tag = randomUUID().slice(0, 8);
+
+  const ownerA = await seedTenantWithOwner(`Guard ${label} A ${tag}`);
+  const roles: Record<UserRole, SeededTenant> = {
+    owner: ownerA,
+    admin: await addMemberToTenant(ownerA.tenantId, "admin"),
+    doctor: await addMemberToTenant(ownerA.tenantId, "doctor"),
+    nurse: await addMemberToTenant(ownerA.tenantId, "nurse"),
+    receptionist: await addMemberToTenant(ownerA.tenantId, "receptionist"),
+  };
+
+  // The A doctor works 08:00-20:00 IST every day (GUARD_DOCTOR_SHIFT), so a slot control inside it is never off-duty.
+  const day = { enabled: true, shifts: [GUARD_DOCTOR_SHIFT] };
+  const { error: scheduleErr } = await admin
+    .from("memberships")
+    .update({
+      availability_schedule: { monday: day, tuesday: day, wednesday: day, thursday: day, friday: day, saturday: day, sunday: day },
+    })
+    .eq("tenant_id", ownerA.tenantId)
+    .eq("user_id", roles.doctor.userId);
+  if (scheduleErr) throw new Error(`guard world: doctor schedule failed: ${scheduleErr.message}`);
+
+  const ownerB = await seedTenantWithOwner(`Guard ${label} B ${tag}`);
+  const t = ownerB.tenantId;
+  const u = ownerB.userId;
+  const patientName = `Synthetic Guard Patient B ${tag}`;
+  const patientPhone = syntheticPhone();
+
+  const b = await seedTenantRows(admin, {
+    tenantId: t,
+    doctorUser: u,
+    caller: { userId: u, role: "owner" },
+    membership: await membershipId(admin, t, u),
+    patientName,
+    patientPhone,
+    referralTarget: null,
+  });
+
+  const appointmentToken = await insertToken(admin, {
+    tenant_id: t,
+    resource_type: "appointment",
+    resource_id: b.visit,
+    created_by: u,
+    expires_at: daysAhead(7).toISOString(),
+  });
+  const documentToken = await insertToken(admin, {
+    tenant_id: t,
+    resource_type: "patient_document",
+    resource_id: b.document,
+    document_id: b.document,
+    created_by: u,
+    expires_at: daysAhead(7).toISOString(),
+  });
+
+  // Per role R: R in A, receptionist in B. Created before any snapshot of B, so their B membership is part of it.
+  const dual = {} as Record<UserRole, SeededTenant>;
+  for (const role of Object.keys(roles) as UserRole[]) {
+    const member = await addMemberToTenant(ownerA.tenantId, role);
+    const { error } = await admin.from("memberships").insert({ user_id: member.userId, tenant_id: t, role: "receptionist" });
+    if (error) throw new Error(`guard world: dual membership failed: ${error.message}`);
+    dual[role] = member;
+  }
+
+  const memberships = new Map<string, string>();
+  const aRows = async (caller: Caller): Promise<TenantRowIds> => {
+    let own = memberships.get(caller.userId);
+    if (!own) {
+      // A caller without an A membership (the `outsider` of the { authenticated } actions) gets the owner's.
+      const isMember = Object.values(roles).some((r) => r.userId === caller.userId) ||
+        Object.values(dual).some((r) => r.userId === caller.userId);
+      own = await membershipId(admin, ownerA.tenantId, isMember ? caller.userId : ownerA.userId);
+      memberships.set(caller.userId, own);
+    }
+    return seedTenantRows(admin, {
+      tenantId: ownerA.tenantId,
+      doctorUser: roles.doctor.userId,
+      caller,
+      membership: own,
+      patientName: `Synthetic Guard Patient A ${randomUUID().slice(0, 8)}`,
+      patientPhone: syntheticPhone(),
+      referralTarget: ownerA.tenantId,
+    });
+  };
 
   return {
     tenantA: ownerA.tenantId,
@@ -238,6 +389,8 @@ export async function seedGuardWorld(label: string): Promise<GuardWorld> {
     b,
     bSecrets: [...Object.values(b), ownerB.tenantName, patientName, patientPhone, ownerB.userEmail],
     bTokens: { appointment: appointmentToken, patientDocument: documentToken },
+    aRows,
+    dual,
     noMember: await createUnlinkedUser(),
     outsider: await createUnlinkedUser(),
   };

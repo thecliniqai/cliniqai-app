@@ -92,8 +92,28 @@ const P001_SCHEMA_GATES = [
   },
 ];
 
+/**
+ * P0-13 gates (V2-02 02-06, IR-F3/AR-M2c): every server entry point must be one the guard inventory
+ * (scripts/inventory-server-actions.ts) and so tests/security/guard-*.spec.ts can see. A function-level (inline)
+ * `"use server"` action and a route handler named `route.{js,jsx,tsx,mjs,cjs}` are both served by Next but not
+ * inventoried. The inventory flags the same shapes. Proven by tests/security/p0-13-lint-gates.spec.ts.
+ */
+const P013_INLINE_ACTION_GATES = [
+  {
+    selector: ':function > BlockStatement > ExpressionStatement[directive="use server"]',
+    message:
+      "P0-13: inline \"use server\" actions are not inventoried by the guard test. Move the action to a \"use server\" module and give it a guard-manifest entry.",
+  },
+];
+const P013_ROUTE_FILE_GATES = [
+  {
+    selector: "Program",
+    message: "P0-13: route handlers must be named route.ts so the guard inventory and tests/security/guard-routes.spec.ts see them.",
+  },
+];
+
 // Flat-config `no-restricted-syntax` options do not merge across config objects: each file set gets one combined list.
-const BASE_RESTRICTED_SYNTAX = [...AUTH01_GATES, ...P001_ACTION_GATES];
+const BASE_RESTRICTED_SYNTAX = [...AUTH01_GATES, ...P001_ACTION_GATES, ...P013_INLINE_ACTION_GATES];
 
 const eslintConfig = [
   {
@@ -128,6 +148,12 @@ const eslintConfig = [
     files: ["features/**/schema.ts"],
     rules: {
       "no-restricted-syntax": ["error", ...BASE_RESTRICTED_SYNTAX, ...P001_SCHEMA_GATES],
+    },
+  },
+  {
+    files: ["app/**/route.js", "app/**/route.jsx", "app/**/route.tsx", "app/**/route.mjs", "app/**/route.cjs"],
+    rules: {
+      "no-restricted-syntax": ["error", ...BASE_RESTRICTED_SYNTAX, ...P013_ROUTE_FILE_GATES],
     },
   },
 ];

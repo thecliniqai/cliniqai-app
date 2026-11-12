@@ -28,36 +28,30 @@ export async function checkInVisit(
     const today = new Date().toISOString().split("T")[0];
 
     // 1. Verify visit belongs to tenant and get current state
-    const { data: visit, error: visitError } = await (
-      supabase.from("visits") as unknown as {
-        select: (cols: string) => {
-          eq: (col: string, val: string) => {
-            single: () => Promise<{ data: Visit | null; error: { message: string } | null }>;
-          };
-        };
-      }
+    // By id AND the active clinic: RLS admits every clinic the user belongs to, so a member of two clinics acting in
+    // one must not reach the other's visit by id (AR-M2b).
+    const { data: visit, error: visitError } = (await (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase.from("visits") as any
     )
       .select("*")
       .eq("id", visitId)
-      .single();
+      .eq("tenant_id", session.tenantId)
+      .single()) as { data: Visit | null; error: { message: string } | null };
 
     if (visitError || !visit) {
       return { success: false, error: "Visit record not found." };
     }
 
     // 2. Check if a token already exists for this visit
-    const { data: existingToken } = await (
-      supabase.from("queue_tokens") as unknown as {
-        select: (cols: string) => {
-          eq: (col: string, val: string) => {
-            maybeSingle: () => Promise<{ data: QueueToken | null; error: unknown }>;
-          };
-        };
-      }
+    const { data: existingToken } = (await (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase.from("queue_tokens") as any
     )
       .select("*")
       .eq("visit_id", visitId)
-      .maybeSingle();
+      .eq("tenant_id", session.tenantId)
+      .maybeSingle()) as { data: QueueToken | null; error: unknown };
 
     if (existingToken) {
       return {
@@ -108,18 +102,14 @@ export async function checkInVisit(
     }
 
     // 5. Update visit status to 'waiting'
-    await (
-      supabase.from("visits") as unknown as {
-        update: (row: Record<string, unknown>) => {
-          eq: (col: string, val: string) => Promise<{ error: unknown }>;
-        };
-      }
-    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("visits") as any)
       .update({
         status: "waiting",
         updated_at: new Date().toISOString(),
       })
-      .eq("id", visitId);
+      .eq("id", visitId)
+      .eq("tenant_id", session.tenantId);
 
     // 6. Record audit log
     await recordAudit(ctx, {
@@ -157,7 +147,9 @@ export const QUEUE_TRANSITION_REFUSED_MESSAGE =
 
 type QueueTokenUpdate = {
   update: (vals: Record<string, unknown>) => {
-    eq: (col: string, val: string) => Promise<{ error: unknown }>;
+    eq: (col: string, val: string) => {
+      eq: (col: string, val: string) => Promise<{ error: unknown }>;
+    };
   };
 };
 
@@ -206,7 +198,8 @@ export async function transitionQueueState(
         if (current?.status === "completed") {
           await (supabase.from("queue_tokens") as unknown as QueueTokenUpdate)
             .update({ completed_at: nowIso })
-            .eq("visit_id", visitId);
+            .eq("visit_id", visitId)
+            .eq("tenant_id", ctx.tenantId);
           return { success: true };
         }
       }
@@ -215,7 +208,8 @@ export async function transitionQueueState(
 
     await (supabase.from("queue_tokens") as unknown as QueueTokenUpdate)
       .update(targetState === "in_consultation" ? { called_at: nowIso } : { completed_at: nowIso })
-      .eq("visit_id", visitId);
+      .eq("visit_id", visitId)
+      .eq("tenant_id", ctx.tenantId);
 
     await recordAudit(ctx, {
       action: "queue.transition",
