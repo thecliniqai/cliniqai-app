@@ -1,5 +1,9 @@
 export type UserRole = "owner" | "admin" | "doctor" | "receptionist" | "nurse";
 
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+/** A jsonb object returned by the token-scoped RPCs (000020). */
+export type JsonObject = { [key: string]: Json | undefined };
+
 export interface Tenant {
   id: string;
   name: string;
@@ -421,20 +425,23 @@ export interface PatientDocument {
   updated_at: string;
 }
 
+/** Types a member can share (create_share_token, 000020). `appointment` tokens are system-issued only. */
 export type DocumentShareResourceType = "patient_document" | "prescription" | "invoice" | "referral";
+export type ShareTokenResourceType = DocumentShareResourceType | "appointment";
 
 export interface DocumentShareToken {
   id: string;
   tenant_id: string;
   document_id: string | null;
-  resource_type?: DocumentShareResourceType;
+  resource_type?: ShareTokenResourceType;
   resource_id?: string | null;
   token: string;
   expires_at: string;
   access_count: number;
   last_accessed_at: string | null;
   revoked_at: string | null;
-  created_by: string;
+  /** NULL for system-issued tokens (reschedule links, 000020 / D9). */
+  created_by: string | null;
   created_at: string;
 }
 
@@ -1170,13 +1177,15 @@ export interface Database {
         Insert: {
           id?: string;
           tenant_id: string;
-          document_id: string;
+          document_id?: string | null;
+          resource_type?: ShareTokenResourceType;
+          resource_id?: string | null;
           token: string;
           expires_at?: string;
           access_count?: number;
           last_accessed_at?: string | null;
           revoked_at?: string | null;
-          created_by: string;
+          created_by?: string | null;
           created_at?: string;
         };
         Update: {
@@ -1437,6 +1446,54 @@ export interface Database {
           p_role: string;
         };
         Returns: Database["public"]["Tables"]["memberships"]["Row"];
+      };
+      create_share_token: {
+        Args: {
+          p_resource_type: DocumentShareResourceType;
+          p_resource_id: string;
+        };
+        Returns: { token: string; expires_at: string }[];
+      };
+      create_reschedule_token: {
+        Args: {
+          p_visit_id: string;
+        };
+        Returns: string;
+      };
+      resolve_share_token: {
+        Args: {
+          p_token: string;
+          p_kinds: DocumentShareResourceType[];
+        };
+        Returns: JsonObject | null;
+      };
+      share_token_object: {
+        Args: {
+          p_token: string;
+          p_kinds: DocumentShareResourceType[];
+        };
+        Returns: JsonObject | null;
+      };
+      get_reschedule_context: {
+        Args: {
+          p_token: string;
+          p_from: string;
+          p_to: string;
+        };
+        Returns: JsonObject | null;
+      };
+      consume_reschedule_token: {
+        Args: {
+          p_token: string;
+          p_new_at: string;
+        };
+        Returns: JsonObject | null;
+      };
+      reschedule_token_visit: {
+        Args: {
+          p_token: string;
+        };
+        Returns: JsonObject | null;
       };
       search_medicines: {
         Args: {

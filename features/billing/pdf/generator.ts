@@ -283,7 +283,8 @@ export async function compileAndArchiveReceiptPdf(
 }
 
 /**
- * Public share-link path only (`app/api/r/[token]`; moves to token-scoped RPCs in 01-04). There is no acting user,
+ * Public share-link path only (`features/sharing/system.ts` `renderSharedReceiptPdf`: the invoice id and tenant come
+ * from a valid invoice token via the `share_token_object` RPC, 000020). There is no acting user,
  * so no audit row is written (the old code attempted one with actor "system", which never satisfied the uuid
  * column).
  */

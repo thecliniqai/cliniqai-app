@@ -15,7 +15,7 @@ import {
   AddInvoiceItemInput,
 } from "./schema";
 import { completeAndSignConsultation } from "@/features/consultation/service";
-import { randomBytes } from "crypto";
+import { createShareToken } from "@/features/sharing/tokens";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import type { InteractiveButton } from "@/lib/messaging/types";
 import {
@@ -1054,32 +1054,12 @@ export async function shareReceiptViaWhatsApp(
       };
     }
 
-    // 2. Generate secure 64-character token in document_share_tokens
-    const token = randomBytes(32).toString("hex");
-    const expiresAt = new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000
-    ).toISOString();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: tokenErr } = await (
-      supabase.from("document_share_tokens") as any
-    ).insert({
-      tenant_id: session.tenantId,
-      document_id: null,
-      resource_type: "invoice",
-      resource_id: invoiceId,
-      token,
-      expires_at: expiresAt,
-      created_by: session.userId,
-    });
-
-    if (tokenErr) {
-      console.error(
-        "[shareReceiptViaWhatsApp] Token creation error:",
-        tokenErr
-      );
+    // 2. Secure 64-character token via create_share_token (tenant from the invoice row, P0-04)
+    const created = await createShareToken(supabase, "invoice", inv.id ?? invoiceId);
+    if (!created) {
       return { success: false, error: "Failed to generate secure share link." };
     }
+    const { token } = created;
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const shareUrl = `${baseUrl}/r/${token}`;
@@ -1260,43 +1240,28 @@ export async function sendConsolidatedConsultationWhatsApp(
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const expiresAt = new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000
-    ).toISOString();
 
-    // 6. Generate 64-char crypto token for Prescription
+    // 6./7. Share tokens for the prescription and the receipt via create_share_token (P0-04). A refused token is
+    // reported, not silently linked: the message must never carry a link that does not resolve.
     let rxShareUrl: string | undefined;
     let rxToken: string | undefined;
     if (rx?.id) {
-      rxToken = randomBytes(32).toString("hex");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("document_share_tokens") as any).insert({
-        tenant_id: session.tenantId,
-        document_id: null,
-        resource_type: "prescription",
-        resource_id: rx.id,
-        token: rxToken,
-        expires_at: expiresAt,
-        created_by: session.userId,
-      });
+      const created = await createShareToken(supabase, "prescription", rx.id);
+      if (!created) {
+        return { success: false, error: "Failed to generate secure share links." };
+      }
+      rxToken = created.token;
       rxShareUrl = `${baseUrl}/r/${rxToken}`;
     }
 
-    // 7. Generate 64-char crypto token for Invoice Receipt
     let invoiceShareUrl: string | undefined;
     let invToken: string | undefined;
     if (invoiceId) {
-      invToken = randomBytes(32).toString("hex");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("document_share_tokens") as any).insert({
-        tenant_id: session.tenantId,
-        document_id: null,
-        resource_type: "invoice",
-        resource_id: invoiceId,
-        token: invToken,
-        expires_at: expiresAt,
-        created_by: session.userId,
-      });
+      const created = await createShareToken(supabase, "invoice", invoiceId);
+      if (!created) {
+        return { success: false, error: "Failed to generate secure share links." };
+      }
+      invToken = created.token;
       invoiceShareUrl = `${baseUrl}/r/${invToken}`;
     }
 

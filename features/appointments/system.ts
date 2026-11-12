@@ -2,16 +2,15 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
-import { randomBytes } from "crypto";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 
 /**
  * Appointment use-cases that run without a signed-in user (ADR-0005 D2): the inbound messaging webhook
- * (`app/api/webhooks/**`, allow-listed) and, until 01-04 replaces it with token-scoped RPCs, the public reschedule
- * link. This module is `server-only`, never `"use server"`, and builds no client of its own: the caller passes the
- * database it was allowed to open and a fixed reason label. The acting principal is the system, recorded as
- * `system:<reason>`; no caller-chosen actor or acting tenant is accepted (the tenant always comes from the
- * appointment row).
+ * (`app/api/webhooks/**`, allow-listed) and the follow-up of a public reschedule link (called only from
+ * `features/sharing/system.ts` after `consume_reschedule_token` succeeded). This module is `server-only`, never
+ * `"use server"`, and builds no client of its own: the caller passes the database it was allowed to open and a fixed
+ * reason label. The acting principal is the system, recorded as `system:<reason>`; no caller-chosen actor or acting
+ * tenant is accepted (the tenant always comes from the appointment row).
  */
 export type AppointmentSystemReason = "messaging_webhook" | "patient_self_service_reschedule";
 
@@ -21,13 +20,6 @@ export interface AppointmentSystemContext {
   reason: AppointmentSystemReason;
 }
 
-export interface RescheduleAppointmentInput {
-  appointmentId: string;
-  newScheduledAt: string;
-  doctorId?: string;
-  reason?: string;
-}
-
 export interface CancelAppointmentInput {
   appointmentId: string;
   reason?: string;
@@ -35,45 +27,32 @@ export interface CancelAppointmentInput {
 }
 
 /**
- * Reschedules an appointment and queues Event #2 (appointment_rescheduled) notification.
+ * Side effects of a reschedule that the database already applied (`consume_reschedule_token`, 000020): queues
+ * Event #2 (appointment_rescheduled) to the patient and the `appointment.rescheduled` webhook event. The visit and
+ * tenant are read from the appointment row; the new time is the one stored on it.
  */
-export async function rescheduleAppointment(sys: AppointmentSystemContext, input: RescheduleAppointmentInput) {
+export async function notifyAppointmentRescheduled(sys: AppointmentSystemContext, appointmentId: string) {
   const supabase = sys.db;
 
-  // Fetch current visit
   const { data: visit, error: fetchError } = await supabase
     .from("visits")
-    .select("*, patient:patients(full_name, phone)")
-    .eq("id", input.appointmentId)
+    .select("id, tenant_id, patient_id, scheduled_at, patient:patients(full_name, phone)")
+    .eq("id", appointmentId)
     .single();
 
   if (fetchError || !visit) {
     throw new Error("Appointment not found");
   }
 
-  const updatePayload: Record<string, unknown> = {
-    scheduled_at: input.newScheduledAt,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (input.doctorId) {
-    updatePayload.doctor_id = input.doctorId;
-  }
-
-  const { data: updated, error: updateError } = await supabase
-    .from("visits")
-    .update(updatePayload)
-    .eq("id", input.appointmentId)
-    .eq("tenant_id", visit.tenant_id)
-    .select()
-    .single();
-
-  if (updateError || !updated) {
-    throw new Error(`Failed to reschedule appointment: ${updateError?.message || "Unknown error"}`);
-  }
+  const input = { appointmentId: visit.id as string, newScheduledAt: visit.scheduled_at as string };
+  const rawPatient = (visit as { patient?: unknown }).patient;
+  const patient = (Array.isArray(rawPatient) ? rawPatient[0] : rawPatient) as
+    | { full_name?: string | null; phone?: string | null }
+    | null
+    | undefined;
 
   // Queue Event #2 (appointment_rescheduled)
-  if (visit.patient?.phone) {
+  if (patient?.phone) {
     const formattedDateTime = new Date(input.newScheduledAt).toLocaleString("en-IN", {
       dateStyle: "medium",
       timeStyle: "short",
@@ -88,11 +67,11 @@ export async function rescheduleAppointment(sys: AppointmentSystemContext, input
       messageType: "appointment_rescheduled",
       templateId: "appointment_rescheduled",
       templateParams: {
-        patient_name: visit.patient?.full_name || "Patient",
+        patient_name: patient.full_name || "Patient",
         doctor_name: "Doctor",
         new_date_time: formattedDateTime,
       },
-      recipientPhone: visit.patient?.phone,
+      recipientPhone: patient.phone,
       metadata: {
         buttons: [
           { id: "btn_confirm", text: "Confirm" },
@@ -109,10 +88,8 @@ export async function rescheduleAppointment(sys: AppointmentSystemContext, input
       scheduled_at: input.newScheduledAt,
     });
   } catch (webhookErr) {
-    console.warn("[rescheduleAppointment] Failed to enqueue webhook event:", webhookErr);
+    console.warn("[notifyAppointmentRescheduled] Failed to enqueue webhook event:", webhookErr);
   }
-
-  return { success: true, appointment: updated };
 }
 
 /**
@@ -211,24 +188,13 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
  * from the appointment row, never taken from the caller. (Token storage is replaced by 01-04, P0-04.)
  */
 export async function generateRescheduleToken(sys: AppointmentSystemContext, appointmentId: string): Promise<string> {
-  const supabase = sys.db;
-  const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-  const { data: visit } = await supabase.from("visits").select("tenant_id").eq("id", appointmentId).maybeSingle();
-  if (!visit?.tenant_id) {
-    throw new Error("Appointment not found");
+  // create_reschedule_token (000020, service_role only): resource_type 'appointment', created_by NULL (system-issued,
+  // D9), tenant from the visit row, 24 h expiry; refused for a missing, completed or cancelled visit. Errors are
+  // raised, never ignored (the v1 insert used a nil-uuid creator that failed the FK silently).
+  const { data: token, error } = await sys.db.rpc("create_reschedule_token", { p_visit_id: appointmentId });
+  if (error || typeof token !== "string" || token.length === 0) {
+    throw new Error("Could not create a reschedule link for this appointment");
   }
-
-  await supabase.from("document_share_tokens").insert({
-    tenant_id: visit.tenant_id,
-    document_id: null,
-    resource_type: "referral", // using referral/appointment polymorphic slot
-    resource_id: appointmentId,
-    token,
-    expires_at: expiresAt,
-    created_by: "00000000-0000-0000-0000-000000000000",
-  });
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   return `${baseUrl}/reschedule/${token}`;

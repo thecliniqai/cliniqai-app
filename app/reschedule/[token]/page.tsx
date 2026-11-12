@@ -18,8 +18,6 @@ interface ReschedulePageProps {
 }
 
 interface AppointmentDetails {
-  id: string;
-  patient_name: string;
   doctor_name: string;
   doctor_specialty: string;
   current_scheduled_at: string;

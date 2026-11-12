@@ -1,6 +1,6 @@
 import React from "react";
-import { getAdminClient } from "@/lib/supabase/admin";
-import { getSignedUrl, SupabaseStorageProvider } from "@/lib/storage";
+import { DOCUMENT_LINK_KINDS, isPlausibleToken, resolveShareToken } from "@/features/sharing/public-links";
+import { signSharedObject } from "@/features/sharing/system";
 import {
   FileText,
   Download,
@@ -20,7 +20,7 @@ interface PublicDocumentPageProps {
 export default async function PublicDocumentViewerPage({ params }: PublicDocumentPageProps) {
   const { token } = await params;
 
-  if (!token || typeof token !== "string" || token.length < 32) {
+  if (!isPlausibleToken(token)) {
     return (
       <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center p-4">
         <div className="max-w-[480px] w-full bg-white rounded-xl border border-[#E5E7EB] p-6 text-center shadow-xs">
@@ -36,20 +36,12 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
     );
   }
 
-  const admin = getAdminClient();
+  // Token-scoped resolution (P0-04, ADR-0005 D3): bound to the token's tenant and to document kinds only.
+  const resolved = await resolveShareToken(token, DOCUMENT_LINK_KINDS);
+  const isRevoked = resolved.status === "revoked";
 
-  // 1. Fetch token record
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: shareToken, error: tokenErr } = await (admin.from("document_share_tokens") as any)
-    .select("*, tenants(id, name, phone, address, logo_url)")
-    .eq("token", token)
-    .single();
-
-  const isExpired = shareToken && new Date(shareToken.expires_at).getTime() <= Date.now();
-  const isRevoked = shareToken && Boolean(shareToken.revoked_at);
-
-  if (tokenErr || !shareToken || isExpired || isRevoked) {
-    const clinicPhone = shareToken?.tenants?.phone;
+  if (resolved.status !== "ok") {
+    const clinicPhone = resolved.status === "revoked" || resolved.status === "expired" ? resolved.clinic?.phone : null;
     return (
       <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center p-4">
         <div className="max-w-[480px] w-full bg-white rounded-xl border border-amber-200 bg-amber-50/50 p-6 text-center shadow-xs">
@@ -79,129 +71,25 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
     );
   }
 
-  const resourceType = shareToken.resource_type || "patient_document";
-  const resourceId = shareToken.resource_id || shareToken.document_id;
+  const doc = resolved.document;
+  const BADGES: Record<string, string> = { prescription: "PRESCRIPTION", invoice: "RECEIPT", referral: "REFERRAL" };
+  const docTitle = doc.title || "Clinical Document";
+  const docBadge = BADGES[doc.resource_type] ?? (doc.document_type || "lab_report").replace(/_/g, " ").toUpperCase();
+  const originalFilename = doc.original_filename || "document.pdf";
+  const mimeType = doc.mime_type || "application/pdf";
+  const patientName = doc.patient_name || "Patient";
+  const reportDateStr = doc.report_date
+    ? new Date(doc.report_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : "";
 
-  let docTitle = "Clinical Document";
-  let docBadge = "Document";
-  let originalFilename = "document.pdf";
-  let mimeType = "application/pdf";
-  let storagePath = "";
-  let storageBucket = "clinic-records";
-  let patientName = "Patient";
-  let reportDateStr = new Date(shareToken.created_at).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  // Short-lived signed URL for the object behind this token (tenant-prefix checked); else the download route.
+  const signed = await signSharedObject(token, DOCUMENT_LINK_KINDS);
+  const signedUrl = signed?.signedUrl ?? `/api/r/${token}?download=true`;
 
-  if (resourceType === "patient_document" || shareToken.document_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: doc } = await (admin.from("patient_documents") as any)
-      .select("*, patients(full_name)")
-      .eq("id", resourceId)
-      .single();
-
-    if (doc) {
-      docTitle = doc.title || "Lab Report";
-      docBadge = (doc.document_type || "lab_report").replace(/_/g, " ").toUpperCase();
-      originalFilename = doc.original_filename || "report.pdf";
-      mimeType = doc.mime_type || "application/pdf";
-      storagePath = doc.storage_path;
-      storageBucket = "clinic-records";
-      patientName = doc.patients?.full_name || "Patient";
-      if (doc.report_date) {
-        reportDateStr = new Date(doc.report_date).toLocaleDateString("en-IN", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        });
-      }
-    }
-  } else if (resourceType === "prescription") {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rx } = await (admin.from("prescriptions") as any)
-      .select("*, patients(full_name)")
-      .eq("id", resourceId)
-      .single();
-
-    if (rx) {
-      docTitle = "Official Prescription";
-      docBadge = "PRESCRIPTION";
-      originalFilename = `Prescription_${rx.id.slice(0, 8)}.pdf`;
-      storagePath = rx.pdf_storage_path || `${shareToken.tenant_id}/${rx.id}.pdf`;
-      storageBucket = "prescriptions";
-      patientName = rx.patients?.full_name || "Patient";
-    }
-  } else if (resourceType === "invoice") {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: inv } = await (admin.from("invoices") as any)
-      .select("*, patients(full_name)")
-      .eq("id", resourceId)
-      .single();
-
-    if (inv) {
-      docTitle = `Payment Receipt #${inv.invoice_number || ""}`;
-      docBadge = "RECEIPT";
-      originalFilename = `Receipt_${inv.invoice_number || inv.id.slice(0, 8)}.pdf`;
-      storagePath = `${shareToken.tenant_id}/receipts/inv_${inv.id}.pdf`;
-      storageBucket = "prescriptions";
-      patientName = inv.patients?.full_name || "Patient";
-    }
-  } else if (resourceType === "referral") {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: ref } = await (admin.from("referrals") as any)
-      .select("*, patients(full_name)")
-      .eq("id", resourceId)
-      .single();
-
-    if (ref) {
-      docTitle = `Referral Letter — ${ref.referred_to_name || "Specialist"}`;
-      docBadge = "REFERRAL";
-      originalFilename = `Referral_${ref.id.slice(0, 8)}.pdf`;
-      storagePath = ref.pdf_storage_path || `tenants/${shareToken.tenant_id}/referrals/${ref.id}/referral_letter.pdf`;
-      storageBucket = "clinic-records";
-      patientName = ref.patients?.full_name || "Patient";
-    }
-  }
-
-  // Atomically increment access counter
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin.from("document_share_tokens") as any)
-    .update({
-      access_count: (shareToken.access_count || 0) + 1,
-      last_accessed_at: new Date().toISOString(),
-    })
-    .eq("id", shareToken.id);
-
-  // Generate signed URL
-  const storageProvider = new SupabaseStorageProvider({
-    defaultBucket: storageBucket,
-    client: admin,
-  });
-
-  let signedUrl = `/api/r/${token}?download=true`;
-  try {
-    const signedRes = await getSignedUrl(
-      {
-        path: storagePath,
-        bucket: storageBucket,
-        expiresInSeconds: 600,
-        downloadFilename: originalFilename,
-      },
-      storageProvider
-    );
-    if (signedRes?.signedUrl) {
-      signedUrl = signedRes.signedUrl;
-    }
-  } catch {
-    // Keep fallback direct download route
-  }
-
-  const clinic = shareToken.tenants || {
-    name: "Clinic",
-    phone: null,
-    address: null,
+  const clinic = {
+    name: doc.clinic?.name || "Clinic",
+    phone: doc.clinic?.phone ?? null,
+    address: doc.clinic?.address ?? null,
   };
 
   const isPdf = mimeType === "application/pdf" || originalFilename.toLowerCase().endsWith(".pdf");

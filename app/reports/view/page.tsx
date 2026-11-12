@@ -1,6 +1,6 @@
 import React from "react";
-import { getAdminClient } from "@/lib/supabase/admin";
-import { getSignedUrl, SupabaseStorageProvider } from "@/lib/storage";
+import { isPlausibleToken, REPORT_LINK_KINDS, resolveShareToken } from "@/features/sharing/public-links";
+import { signSharedObject } from "@/features/sharing/system";
 import { ShieldCheck, Download, AlertCircle, FileText, Calendar, User, HardDrive } from "lucide-react";
 
 interface ReportViewerPageProps {
@@ -18,7 +18,7 @@ function formatBytes(bytes: number): string {
 export default async function PublicReportViewerPage({ searchParams }: ReportViewerPageProps) {
   const { token } = await searchParams;
 
-  if (!token || typeof token !== "string" || token.length < 32) {
+  if (!isPlausibleToken(token)) {
     return (
       <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl border border-[#E5E7EB] p-8 text-center shadow-sm">
@@ -34,18 +34,12 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
     );
   }
 
-  const admin = getAdminClient();
+  // Token-scoped resolution (P0-04, ADR-0005 D3): patient_document tokens only, bound to the token's tenant.
+  const resolved = await resolveShareToken(token, REPORT_LINK_KINDS);
+  const signed = resolved.status === "ok" ? await signSharedObject(token, REPORT_LINK_KINDS) : null;
+  const clinicPhone = resolved.status === "revoked" || resolved.status === "expired" ? resolved.clinic?.phone : null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: shareToken, error: tokenErr } = await (admin.from("document_share_tokens") as any)
-    .select("*, patient_documents(*, tenants(name, phone, address, logo_url), patients(full_name))")
-    .eq("token", token)
-    .single();
-
-  const isExpired = shareToken && new Date(shareToken.expires_at).getTime() <= Date.now();
-  const isRevoked = shareToken && Boolean(shareToken.revoked_at);
-
-  if (tokenErr || !shareToken || isExpired || isRevoked || !shareToken.patient_documents) {
+  if (resolved.status !== "ok" || !signed) {
     return (
       <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl border border-[#E5E7EB] p-8 text-center shadow-sm">
@@ -56,9 +50,9 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
           <p className="text-sm text-[#4B5563] mb-6">
             This document link has expired or has been revoked for your security. Please contact your clinic to request a fresh link.
           </p>
-          {shareToken?.patient_documents?.tenants?.phone && (
+          {clinicPhone && (
             <p className="text-xs text-[#6B7280]">
-              Clinic Contact: <span className="font-semibold">{shareToken.patient_documents.tenants.phone}</span>
+              Clinic Contact: <span className="font-semibold">{clinicPhone}</span>
             </p>
           )}
         </div>
@@ -66,38 +60,24 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
     );
   }
 
-  const doc = shareToken.patient_documents;
-  const clinic = doc.tenants || { name: "Clinic", phone: null, address: null, logo_url: null };
-  const patientName = doc.patients?.full_name || "Patient";
-
-  // Atomically increment access counter
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (admin.from("document_share_tokens") as any)
-    .update({
-      access_count: (shareToken.access_count || 0) + 1,
-      last_accessed_at: new Date().toISOString(),
-    })
-    .eq("id", shareToken.id);
-
-  // Generate 600-second signed URL for download and preview
-  const storageProvider = new SupabaseStorageProvider({
-    defaultBucket: "clinic-records",
-    client: admin,
-  });
-
-  const { signedUrl } = await getSignedUrl(
-    {
-      path: doc.storage_path,
-      bucket: "clinic-records",
-      expiresInSeconds: 600,
-      downloadFilename: doc.original_filename,
-    },
-    storageProvider
-  );
+  const doc = {
+    ...resolved.document,
+    file_size_bytes: Number(resolved.document.file_size_bytes ?? 0),
+    is_abnormal: Boolean(resolved.document.is_abnormal),
+    notes: resolved.document.notes ?? null,
+  };
+  const clinic = {
+    name: doc.clinic?.name || "Clinic",
+    phone: doc.clinic?.phone ?? null,
+    address: doc.clinic?.address ?? null,
+    logo_url: doc.clinic?.logo_url ?? null,
+  };
+  const patientName = doc.patient_name || "Patient";
+  const signedUrl = signed.signedUrl;
 
   const isPdf = doc.mime_type === "application/pdf" || doc.original_filename.toLowerCase().endsWith(".pdf");
   const isImage = doc.mime_type.startsWith("image/");
-  const formattedExpiry = new Date(shareToken.expires_at).toLocaleDateString("en-IN", {
+  const formattedExpiry = new Date(doc.expires_at).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "short",
     year: "numeric",

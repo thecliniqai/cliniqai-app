@@ -340,7 +340,13 @@ async function handleInboundAction({
 
   // 5. Action: [Reschedule] Flow (D-04)
   if (action === "reschedule") {
-    const rescheduleUrl = await generateRescheduleToken(sys, appointment.id);
+    // A closed or missing appointment gets no link (create_reschedule_token refuses it); the front desk is still alerted.
+    let rescheduleUrl: string | null = null;
+    try {
+      rescheduleUrl = await generateRescheduleToken(sys, appointment.id);
+    } catch {
+      rescheduleUrl = null;
+    }
 
     // Front-desk alert
     await supabase.from("in_app_notifications").insert({
@@ -354,14 +360,16 @@ async function handleInboundAction({
     });
 
     try {
-      await sendDirectWhatsApp(
-        from,
-        "appointment_reschedule_link",
-        {
-          patient_name: appointment.patient?.full_name || "Patient",
-          message: `To pick a new appointment time that works best for you, please tap this link: ${rescheduleUrl}`,
-        }
-      );
+      if (rescheduleUrl) {
+        await sendDirectWhatsApp(
+          from,
+          "appointment_reschedule_link",
+          {
+            patient_name: appointment.patient?.full_name || "Patient",
+            message: `To pick a new appointment time that works best for you, please tap this link: ${rescheduleUrl}`,
+          }
+        );
+      }
     } catch (err) {
       console.error("[Webhook] Failed to dispatch appointment_reschedule_link:", err);
     }

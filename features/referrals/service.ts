@@ -8,7 +8,7 @@ import { getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
 import { createReferralSchema, closeReferralLoopSchema, acknowledgeReferralSchema } from "./schema";
 import { ReferralItem, CreateReferralInput, CloseReferralLoopInput, ConsentedHistorySnapshot } from "./types";
 import { generateAndArchiveReferralPdf } from "./pdf/generator";
-import { randomBytes } from "crypto";
+import { createShareToken } from "@/features/sharing/tokens";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 
 /**
@@ -575,25 +575,12 @@ export async function shareReferralLetterViaWhatsApp(
       return { success: false, error: "Patient does not have a phone number registered." };
     }
 
-    // 2. Generate secure 64-character token in document_share_tokens
-    const token = randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: tokenErr } = await (supabase.from("document_share_tokens") as any).insert({
-      tenant_id: session.tenantId,
-      document_id: null,
-      resource_type: "referral",
-      resource_id: referralId,
-      token,
-      expires_at: expiresAt,
-      created_by: session.userId,
-    });
-
-    if (tokenErr) {
-      console.error("[shareReferralLetterViaWhatsApp] Token creation error:", tokenErr);
+    // 2. Secure 64-character token via create_share_token (tenant from the referral row, P0-04)
+    const created = await createShareToken(supabase, "referral", ref.id);
+    if (!created) {
       return { success: false, error: "Failed to generate secure share link." };
     }
+    const { token } = created;
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const shareUrl = `${baseUrl}/r/${token}`;

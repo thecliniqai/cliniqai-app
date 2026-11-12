@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomBytes } from "crypto";
+import { createShareToken } from "@/features/sharing/tokens";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
@@ -733,25 +733,12 @@ export async function sharePrescriptionViaWhatsApp(
       return { success: false, error: "Patient does not have a phone number registered." };
     }
 
-    // 2. Generate secure 64-character token in document_share_tokens
-    const token = randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: tokenErr } = await (supabase.from("document_share_tokens") as any).insert({
-      tenant_id: ctx.tenantId,
-      document_id: null,
-      resource_type: "prescription",
-      resource_id: prescriptionId,
-      token,
-      expires_at: expiresAt,
-      created_by: ctx.userId,
-    });
-
-    if (tokenErr) {
-      console.error("[sharePrescriptionViaWhatsApp] Token creation error:", tokenErr);
+    // 2. Secure 64-character token via create_share_token (tenant from the prescription row, P0-04)
+    const created = await createShareToken(supabase, "prescription", rx.id ?? prescriptionId);
+    if (!created) {
       return { success: false, error: "Failed to generate secure share link." };
     }
+    const { token } = created;
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const shareUrl = `${baseUrl}/r/${token}`;

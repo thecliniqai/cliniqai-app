@@ -1,6 +1,6 @@
 import "server-only";
 
-import crypto from "crypto";
+import { createShareToken } from "@/features/sharing/tokens";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
@@ -288,27 +288,12 @@ export async function generateDocumentShareToken(ctx: ServiceContext, documentId
       return { success: false, error: "Document not found or access denied." };
     }
 
-    // 2. Generate 64-character random hex token (256-bit entropy)
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    // 3. Insert into document_share_tokens
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: tokenRow, error: insertErr } = await (supabase.from("document_share_tokens") as any)
-      .insert({
-        tenant_id: session.tenantId,
-        document_id: documentId,
-        token,
-        expires_at: expiresAt,
-        created_by: session.userId,
-      })
-      .select("token, expires_at")
-      .single();
-
-    if (insertErr || !tokenRow) {
-      console.error("[features/labs/actions] Failed to create share token:", insertErr);
+    // 2. 64-hex token (256-bit) with a 7-day TTL, minted by create_share_token (tenant from the document row, P0-04)
+    const created = await createShareToken(supabase, "patient_document", documentId);
+    if (!created) {
       return { success: false, error: "Failed to generate patient share link." };
     }
+    const { token, expiresAt } = created;
 
     // 4. Audit logging
     await recordAudit(ctx, {
@@ -437,25 +422,12 @@ export async function shareLabReportViaWhatsApp(
       return { success: false, error: "Patient does not have a phone number registered." };
     }
 
-    // 2. Generate secure 64-character token in document_share_tokens
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: tokenErr } = await (supabase.from("document_share_tokens") as any).insert({
-      tenant_id: session.tenantId,
-      document_id: documentId,
-      resource_type: "patient_document",
-      resource_id: documentId,
-      token,
-      expires_at: expiresAt,
-      created_by: session.userId,
-    });
-
-    if (tokenErr) {
-      console.error("[shareLabReportViaWhatsApp] Token creation error:", tokenErr);
+    // 2. Secure 64-character token via create_share_token (P0-04)
+    const created = await createShareToken(supabase, "patient_document", documentId);
+    if (!created) {
       return { success: false, error: "Failed to generate secure share link." };
     }
+    const { token } = created;
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const shareUrl = `${baseUrl}/r/${token}`;
