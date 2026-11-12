@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
 import { recordAudit } from "@/lib/audit/audit";
 
@@ -16,7 +16,8 @@ interface RouteContext {
  * origin_type = 'scheduled' and tenant_id = session.tenantId.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -36,7 +37,6 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   }
 
   const { id } = await params;
-  const admin = getAdminClient();
 
   try {
     const { data: visit, error } = await (admin.from("visits") as any)
@@ -67,7 +67,8 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
  * Enforces slot-conflict checking for the new time slot.
  */
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -104,8 +105,6 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       rateHeaders
     );
   }
-
-  const admin = getAdminClient();
 
   try {
     // 1. Fetch existing appointment
@@ -211,7 +210,8 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
  * Cancels a scheduled appointment: updates status to 'cancelled'.
  */
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -231,7 +231,6 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   }
 
   const { id } = await params;
-  const admin = getAdminClient();
 
   try {
     const { data: existing, error: fetchErr } = await (admin.from("visits") as any)

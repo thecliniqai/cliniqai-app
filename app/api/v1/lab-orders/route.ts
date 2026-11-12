@@ -3,7 +3,7 @@ import { z } from "zod";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { isDateOnly } from "@/lib/utils/filter-values";
@@ -31,7 +31,8 @@ const labOrderCreateSchema = z.object({
  * Filters: patient_id, visit_id. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -60,8 +61,6 @@ export async function GET(req: NextRequest) {
 
   const patientId = searchParams.get("patient_id");
   const visitId = searchParams.get("visit_id");
-
-  const admin = getAdminClient();
 
   try {
     let query = (admin.from("patient_documents") as any)
@@ -113,7 +112,8 @@ export async function GET(req: NextRequest) {
  * Requires title, storage_path, patient_id; sets uploaded_by = session.userId.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -170,8 +170,6 @@ export async function POST(req: NextRequest) {
       rateHeaders
     );
   }
-
-  const admin = getAdminClient();
 
   try {
     // 1. Verify patient exists and belongs to active tenant

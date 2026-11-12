@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import * as nodeCrypto from "node:crypto";
 import * as routeModule from "@/app/api/webhooks/messaging/[provider]/route";
 import * as appointmentsActions from "@/features/appointments/system";
-import * as adminSupabase from "@/lib/supabase/admin";
+import * as systemDb from "@/lib/supabase/system";
 import * as messagingModule from "@/lib/messaging";
 import { verifyMsg91WebhookSecret } from "@/lib/messaging/webhook-helpers";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -152,7 +152,7 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
     it.each(["dev", "twilio", "gupshup", "unknown", "MSG91", "msg91 "])(
       "provider %j answers 404 with an empty body for every method, even with a valid secret",
       async (provider) => {
-        const dbSpy = vi.spyOn(adminSupabase, "getAdminClient");
+        const dbSpy = vi.spyOn(systemDb, "getSystemDb");
         for (const method of handlers) {
           const handler = routeModule[method] as (req: NextRequest, c: unknown) => Promise<Response>;
           const res = await handler(
@@ -211,7 +211,7 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
     ];
 
     it.each(cases)("%s → 401 { ok: false }, no DB access, visit unchanged", async (_label, headers, query) => {
-      const dbSpy = vi.spyOn(adminSupabase, "getAdminClient");
+      const dbSpy = vi.spyOn(systemDb, "getSystemDb");
       const res = await routeModule.POST(webhook("msg91", cancelA(), { headers, query }), ctx("msg91"));
       expect(res.status).toBe(401);
       expect(await res.json()).toEqual({ ok: false });
@@ -221,7 +221,7 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
 
     it("the MSG91 API auth key is not a webhook credential", async () => {
       process.env.MSG91_AUTH_KEY = "synthetic-auth-key";
-      const dbSpy = vi.spyOn(adminSupabase, "getAdminClient");
+      const dbSpy = vi.spyOn(systemDb, "getSystemDb");
       const res = await routeModule.POST(
         webhook("msg91", cancelA(), { headers: { "content-type": "application/json", authkey: "synthetic-auth-key" } }),
         ctx("msg91")
@@ -235,7 +235,7 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
       async (nodeEnv) => {
         delete process.env.MSG91_WEBHOOK_SECRET;
         (process.env as Record<string, string>).NODE_ENV = nodeEnv;
-        const dbSpy = vi.spyOn(adminSupabase, "getAdminClient");
+        const dbSpy = vi.spyOn(systemDb, "getSystemDb");
         const headerSets: Record<string, string>[] = [
           { "content-type": "application/json" },
           { "content-type": "application/json", "x-webhook-secret": "" },

@@ -4,15 +4,15 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const { requirePermissionMock, createClientMock, getAdminClientMock } = vi.hoisted(() => ({
+const { requirePermissionMock, createClientMock, getSystemDbMock } = vi.hoisted(() => ({
   requirePermissionMock: vi.fn(),
   createClientMock: vi.fn(),
-  getAdminClientMock: vi.fn(),
+  getSystemDbMock: vi.fn(),
 }));
 
 vi.mock("@/lib/permissions/guards", () => ({ requirePermission: requirePermissionMock }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: createClientMock }));
-vi.mock("@/lib/supabase/admin", () => ({ getAdminClient: getAdminClientMock }));
+vi.mock("@/lib/supabase/system", () => ({ getSystemDb: getSystemDbMock }));
 
 import * as aiLib from "@/lib/ai";
 import { generateSoapAction, getPatientCatchUpSummaryAction } from "@/features/ai/actions";
@@ -96,7 +96,7 @@ describe("AI-01 containment", () => {
     beforeEach(() => {
       requirePermissionMock.mockReset().mockResolvedValue(SESSION);
       createClientMock.mockReset();
-      getAdminClientMock.mockReset();
+      getSystemDbMock.mockReset();
       fetchSpy = vi.fn().mockResolvedValue(
         new Response(JSON.stringify({ choices: [{ message: { content: "{}" } }] }), { status: 200 })
       );
@@ -149,7 +149,7 @@ describe("AI-01 containment", () => {
         expect(result).not.toHaveProperty("summary");
         expect(fetchSpy).not.toHaveBeenCalled();
         expect(createClientMock).not.toHaveBeenCalled();
-        expect(getAdminClientMock).not.toHaveBeenCalled();
+        expect(getSystemDbMock).not.toHaveBeenCalled();
       }
     );
 

@@ -4,7 +4,7 @@
  *
  * - `/api/health`: liveness only, plus `region` and `release` from the platform names (null locally, shape-checked).
  * - `/api/ready`: one `readiness_probe()` RPC; the body holds only the allow-listed keys with booleans and counts; no
- *   service role (it still answers 200 when `@/lib/supabase/admin` throws on import); providers reported from the env
+ *   service role (it still answers 200 when `@/lib/supabase/system` throws on import); providers reported from the env
  *   schema; a failure is a 503 carrying no error text, logged with an error code only.
  * - The proxy passes both probes through without a session refresh.
  */
@@ -16,7 +16,7 @@ import { publicEnv } from "@/lib/env";
 const state = vi.hoisted(() => ({ client: null as unknown }));
 
 // The service-role factory must not be reachable from the readiness route at all.
-vi.mock("@/lib/supabase/admin", () => {
+vi.mock("@/lib/supabase/system", () => {
   throw new Error("readiness must not import the service-role client");
 });
 

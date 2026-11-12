@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
 import { recordAudit } from "@/lib/audit/audit";
 
@@ -12,7 +12,8 @@ import { recordAudit } from "@/lib/audit/audit";
  * Filters: doctor_id, status, start_date, end_date. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -43,8 +44,6 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const startDate = searchParams.get("start_date");
   const endDate = searchParams.get("end_date");
-
-  const admin = getAdminClient();
 
   try {
     let query = (admin.from("visits") as any)
@@ -101,7 +100,8 @@ export async function GET(req: NextRequest) {
  * Validates doctor belongs to tenant, runs slot-conflict checks, and audits creation.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -142,8 +142,6 @@ export async function POST(req: NextRequest) {
   const duration = typeof estimated_duration_minutes === "number" && estimated_duration_minutes > 0
     ? estimated_duration_minutes
     : 15;
-
-  const admin = getAdminClient();
 
   try {
     // 1. Verify patient exists and belongs to active tenant

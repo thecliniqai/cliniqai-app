@@ -3,7 +3,7 @@ import { z } from "zod";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
 
 interface RouteParams {
@@ -43,7 +43,8 @@ function visitLocked(rateHeaders: Record<string, string>) {
  * Retrieve detailed clinical visit record scoped strictly to active tenant.
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -66,8 +67,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   if (!id) {
     return apiError("VALIDATION_ERROR", "Visit ID is required.", 400, undefined, rateHeaders);
   }
-
-  const admin = getAdminClient();
 
   try {
     const { data: visit, error } = await (admin.from("visits") as any)
@@ -98,7 +97,8 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  * is requested, at least one diagnosis or clinical note must exist.
  */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -136,8 +136,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   const { status, clinical_notes, chief_complaints, vitals, advice, investigations_advised } = parsed.data;
-
-  const admin = getAdminClient();
 
   try {
     // 1. Fetch existing encounter

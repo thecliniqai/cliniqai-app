@@ -1,8 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createSupabaseClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "@/lib/db/types";
-import { publicEnv } from "@/lib/env";
-import { serverEnv } from "@/lib/env-server";
 import {
   StorageDeleteOptions,
   StorageDownloadOptions,
@@ -25,6 +23,11 @@ export class SupabaseStorageProvider implements StorageProvider {
     this.client = options?.client;
   }
 
+  /**
+   * The injected client, else the caller's cookie (user-JWT) client. If that cannot be created (no request scope),
+   * this throws: request-path code never falls back to the service role (ADR-0005 D2, V2-03 03-02). Privileged
+   * callers (`features/<domain>/system.ts`) inject a `getSystemDb` client explicitly.
+   */
   private async getClient(): Promise<AnySupabaseClient> {
     if (this.client) {
       return this.client;
@@ -32,18 +35,6 @@ export class SupabaseStorageProvider implements StorageProvider {
     try {
       return await createClient();
     } catch {
-      // Fallback for non-cookie contexts (tests/scripts) if service role key is present
-      // 03-02 deletes this fallback (ADR-0005 D2); 03-01 only moves its read to the typed accessor.
-      const secretKey = serverEnv().SUPABASE_SECRET_KEY;
-      if (secretKey) {
-        return createSupabaseClient<Database>(
-          publicEnv.NEXT_PUBLIC_SUPABASE_URL,
-          secretKey,
-          {
-            auth: { autoRefreshToken: false, persistSession: false },
-          }
-        );
-      }
       throw new Error("Could not initialize Supabase client for storage");
     }
   }

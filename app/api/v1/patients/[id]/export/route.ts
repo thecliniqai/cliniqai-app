@@ -4,7 +4,7 @@ import { apiV1Enabled } from "@/lib/api/enabled";
 import { apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { requireServiceContext, type ServiceContext } from "@/lib/auth/context";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { recordAudit } from "@/lib/audit/audit";
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
   if (authHeader && authHeader.startsWith("Bearer ")) {
     // 1a. Bearer token authentication
-    const admin = getAdminClient();
+    const admin = getSystemDb("api_v1");
     const auth = await authenticateApiKey(admin, req);
     if (!auth.success) {
       return auth.response;

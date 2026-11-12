@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
 
@@ -12,7 +12,8 @@ import { recordAudit } from "@/lib/audit/audit";
  * Filters: patient_id, status, referral_type. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -42,8 +43,6 @@ export async function GET(req: NextRequest) {
   const patientId = searchParams.get("patient_id");
   const status = searchParams.get("status");
   const referralType = searchParams.get("referral_type");
-
-  const admin = getAdminClient();
 
   try {
     let query = (admin.from("referrals") as any)
@@ -95,7 +94,8 @@ export async function GET(req: NextRequest) {
  * Enforces patient_consents_history_sharing for in-network referrals (T-06-08).
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -166,8 +166,6 @@ export async function POST(req: NextRequest) {
       rateHeaders
     );
   }
-
-  const admin = getAdminClient();
 
   try {
     // 1. Verify patient belongs to active tenant

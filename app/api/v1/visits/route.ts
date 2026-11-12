@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
 
@@ -12,7 +12,8 @@ import { recordAudit } from "@/lib/audit/audit";
  * Filters: patient_id, doctor_id, status, start_date, end_date. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -44,8 +45,6 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const startDate = searchParams.get("start_date");
   const endDate = searchParams.get("end_date");
-
-  const admin = getAdminClient();
 
   try {
     let query = (admin.from("visits") as any)
@@ -113,7 +112,8 @@ export async function GET(req: NextRequest) {
  * Grounded in public.visits with created_by = session.userId.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -159,8 +159,6 @@ export async function POST(req: NextRequest) {
 
   const originType = origin_type === "scheduled" ? "scheduled" : "walk_in";
   const visitStatus = status === "in_consultation" ? "in_consultation" : "waiting";
-
-  const admin = getAdminClient();
 
   try {
     // 1. Verify patient exists and belongs to active tenant

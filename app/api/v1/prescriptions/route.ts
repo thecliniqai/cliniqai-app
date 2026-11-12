@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
@@ -13,7 +13,8 @@ import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
  * Filters: patient_id, doctor_id, visit_id. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -43,8 +44,6 @@ export async function GET(req: NextRequest) {
   const patientId = searchParams.get("patient_id");
   const doctorId = searchParams.get("doctor_id");
   const visitId = searchParams.get("visit_id");
-
-  const admin = getAdminClient();
 
   try {
     let query = (admin.from("prescriptions") as any)
@@ -100,7 +99,8 @@ export async function GET(req: NextRequest) {
  * Accurately inserts timing and special_instructions (no nonexistent frequency/instructions or tenant_id on items).
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -154,8 +154,6 @@ export async function POST(req: NextRequest) {
       return apiError("VALIDATION_ERROR", `Item at index ${i} is missing required 'duration'.`, 422, undefined, rateHeaders);
     }
   }
-
-  const admin = getAdminClient();
 
   try {
     // 1. Verify patient exists and belongs to active tenant

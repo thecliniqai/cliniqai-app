@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { z } from "zod";
 import { INDIAN_MOBILE_REGEX, toE164, extractTenDigits } from "@/lib/utils/phone";
 import { recordAudit } from "@/lib/audit/audit";
@@ -44,7 +44,8 @@ const patientUpdateSchema = z.object({
  * Returns 404 if patient does not exist or has been soft-deleted / erased.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -64,7 +65,6 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
   }
 
   const { id } = await params;
-  const admin = getAdminClient();
 
   try {
     const { data: patient, error } = await (admin.from("patients") as any)
@@ -95,7 +95,8 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
  * Records audit trail with actor_type: 'api_key'.
  */
 export async function PUT(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -115,7 +116,6 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
   }
 
   const { id } = await params;
-  const admin = getAdminClient();
 
   let body: unknown;
   try {
@@ -195,7 +195,8 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
  * Retains underlying clinical records for NMC mandatory 3-year medical record retention.
  */
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -226,7 +227,6 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
   }
 
   try {
-    const admin = getAdminClient();
     const result = await erasePatientRecord(apiKeyServiceContext(session, admin), id, reason);
 
     return apiSuccess(

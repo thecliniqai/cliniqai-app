@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -13,7 +13,8 @@ interface RouteParams {
  * Retrieve detailed lab report document record scoped strictly to active tenant.
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const admin = getSystemDb("api_v1");
+  const auth = await authenticateApiKey(admin, req);
   if (!auth.success) {
     return auth.response;
   }
@@ -36,8 +37,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   if (!id) {
     return apiError("VALIDATION_ERROR", "Lab order ID is required.", 400, undefined, rateHeaders);
   }
-
-  const admin = getAdminClient();
 
   try {
     const { data: doc, error } = await (admin.from("patient_documents") as any)

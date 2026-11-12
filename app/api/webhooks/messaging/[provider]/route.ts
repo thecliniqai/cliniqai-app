@@ -4,7 +4,7 @@ import {
   generateRescheduleToken,
   type AppointmentSystemContext,
 } from "@/features/appointments/system";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { sendDirectWhatsApp } from "@/lib/messaging";
 import { toIndianMobileE164FromInternational, toIndianMobileE164Strict } from "@/lib/utils/phone";
 import {
@@ -30,7 +30,7 @@ async function handleMsg91Webhook(req: NextRequest) {
   const rawBody = await req.text();
   const event = parseMsg91Payload(rawBody);
   // Allow-listed system path (ADR-0005 D2): opened only after the secret check above.
-  const supabase: AppointmentSystemContext["db"] = getAdminClient();
+  const supabase: AppointmentSystemContext["db"] = getSystemDb("webhook.messaging_inbound");
   const nowIso = new Date().toISOString();
 
   // Branch A: Delivery Reports (DLR) (Decision D-06, Peer Review Findings 3, 4, 6)
