@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
+import { createVisit } from "@/features/visits/service";
+import { ctxFor } from "../helpers/context";
 import {
   createVisitInvoice,
   recordPayment,
@@ -35,18 +36,14 @@ describe("Per-Visit Billing & Payment Recording Integration (REQ-billing-invoici
     patientAId = pA.id;
 
     // 2. Create visit in Tenant A
-    const visitRes = await createVisit(
-      {
-        patient_id: patientAId,
-        doctor_id: tenantA.userId,
-        origin_type: "walk_in",
-        reason_for_visit: "Minor laceration dressing and consultation",
-        estimated_duration_minutes: 15,
-        is_overbooked: false,
-      },
-      tenantA.client,
-      { userId: tenantA.userId, tenantId: tenantA.tenantId }
-    );
+    const visitRes = await createVisit(ctxFor(tenantA), {
+      patient_id: patientAId,
+      doctor_id: tenantA.userId,
+      origin_type: "walk_in",
+      reason_for_visit: "Minor laceration dressing and consultation",
+      estimated_duration_minutes: 15,
+      is_overbooked: false,
+    });
 
     if (!visitRes.success) throw new Error(`Failed to create test visit: ${visitRes.error}`);
     visitAId = visitRes.visitId;

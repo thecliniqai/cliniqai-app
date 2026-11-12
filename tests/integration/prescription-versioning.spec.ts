@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
+import { createVisit } from "@/features/visits/service";
 import { transitionQueueState } from "@/features/queue/actions";
 import {
   saveConsultationDraft,
@@ -60,17 +60,14 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
   it("1. Create visit encounter, add clinical notes, diagnoses, and prescription items", async () => {
     // 1. Create walk-in visit
-    const visitRes = await createVisit(
-      {
-        patient_id: patientAId,
-        doctor_id: tenantA.userId,
-        origin_type: "walk_in",
-        estimated_duration_minutes: 15,
-        reason_for_visit: "High grade fever with body ache",
-      },
-      tenantA.client,
-      sessionA
-    );
+    const visitRes = await createVisit(ctxFor(tenantA), {
+      patient_id: patientAId,
+      doctor_id: tenantA.userId,
+      origin_type: "walk_in",
+      estimated_duration_minutes: 15,
+      reason_for_visit: "High grade fever with body ache",
+      is_overbooked: false,
+    });
     expect(visitRes.success).toBe(true);
     if (!visitRes.success) return;
     visitAId = visitRes.visitId;

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
+import { createVisit } from "@/features/visits/service";
+import { ctxFor } from "../helpers/context";
 import { checkInVisit, transitionQueueState, getQueueForDate } from "@/features/queue/actions";
 
 describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi-tenancy)", () => {
@@ -50,6 +51,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
 
     // 1. Create walk-in visit
     const visitRes = await createVisit(
+      ctxFor(tenant),
       {
         patient_id: patientAId,
         doctor_id: tenant.userId,
@@ -57,9 +59,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
         reason_for_visit: "Acute fever and headache",
         estimated_duration_minutes: 15,
         is_overbooked: false,
-      },
-      tenant.client,
-      session
+      }
     );
 
     expect(visitRes.success).toBe(true);
@@ -100,6 +100,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
 
     // 1. Create scheduled appointment
     const visitRes = await createVisit(
+      ctxFor(tenant),
       {
         patient_id: patientBId,
         doctor_id: tenant.userId,
@@ -108,9 +109,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
         reason_for_visit: "Follow-up consultation",
         estimated_duration_minutes: 20,
         is_overbooked: false,
-      },
-      tenant.client,
-      session
+      }
     );
 
     expect(visitRes.success).toBe(true);

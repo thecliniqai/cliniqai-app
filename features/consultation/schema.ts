@@ -4,9 +4,8 @@ import { z } from "zod";
  * Vitals measurement bounds and clinical validation schema.
  * Enforces systolic > diastolic when both blood pressure values are present.
  */
-export const vitalsSchema = z
-  .object({
-    systolic: z.number().int().min(50, "Systolic BP must be >= 50").max(250, "Systolic BP must be <= 250").nullable().optional(),
+const vitalsFieldsSchema = z.object({
+    systolic:z.number().int().min(50, "Systolic BP must be >= 50").max(250, "Systolic BP must be <= 250").nullable().optional(),
     diastolic: z.number().int().min(30, "Diastolic BP must be >= 30").max(150, "Diastolic BP must be <= 150").nullable().optional(),
     pulse: z.number().int().min(30, "Pulse must be >= 30").max(220, "Pulse must be <= 220").nullable().optional(),
     temperature: z.number().min(90, "Temperature must be >= 90°F").max(110, "Temperature must be <= 110°F").nullable().optional(),
@@ -17,21 +16,34 @@ export const vitalsSchema = z
     bmi: z.number().nullable().optional(),
     recorded_at: z.string().nullable().optional(),
     recorded_by: z.string().nullable().optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.systolic != null && data.diastolic != null) {
-        return data.systolic > data.diastolic;
-      }
-      return true;
-    },
-    {
-      message: "Systolic BP must be strictly greater than diastolic BP",
-      path: ["systolic"],
+  });
+
+const bloodPressureOrder = {
+  check: (data: { systolic?: number | null; diastolic?: number | null }) => {
+    if (data.systolic != null && data.diastolic != null) {
+      return data.systolic > data.diastolic;
     }
-  );
+    return true;
+  },
+  options: {
+    message: "Systolic BP must be strictly greater than diastolic BP",
+    path: ["systolic"],
+  },
+};
+
+export const vitalsSchema = vitalsFieldsSchema.refine(bloodPressureOrder.check, bloodPressureOrder.options);
 
 export type Vitals = z.infer<typeof vitalsSchema>;
+
+/**
+ * Input accepted by `recordVisitVitals`. `recorded_by` is not an input: the recorder is always the session user
+ * (ADR-0005 D1, SEC-02); a caller-sent value is stripped by zod.
+ */
+export const recordVitalsInputSchema = vitalsFieldsSchema
+  .omit({ recorded_by: true })
+  .refine(bloodPressureOrder.check, bloodPressureOrder.options);
+
+export type RecordVitalsInput = z.infer<typeof recordVitalsInputSchema>;
 
 /**
  * Chief Complaint item schema with symptom name and duration.

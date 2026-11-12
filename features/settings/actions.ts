@@ -700,7 +700,9 @@ export async function deleteDoctorScheduleBlock(
   clientOverride?: SupabaseClient<Database>,
   sessionOverride?: { userId: string; tenantId: string }
 ): Promise<{ success: boolean; error?: string }> {
+  void clientOverride;
+  void sessionOverride;
   const { deleteScheduleBlock } = await import("@/features/visits/scheduling");
-  return deleteScheduleBlock(blockId, clientOverride, sessionOverride);
+  return deleteScheduleBlock(blockId);
 }
 

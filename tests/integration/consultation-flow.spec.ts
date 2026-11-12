@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
+import { createVisit } from "@/features/visits/service";
 import { checkInVisit, transitionQueueState } from "@/features/queue/actions";
 import { saveConsultationDraft, recordFollowUp, getPatientConsultationHistory } from "@/features/consultation/actions";
 import { searchDiagnoses, addConsultationDiagnosis, getVisitDiagnoses } from "@/features/terminology/service";
@@ -52,18 +52,15 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
   it("1. Setup fixture and create scheduled visit (status 'booked')", async () => {
     const scheduledTime = new Date().toISOString();
-    const createRes = await createVisit(
-      {
-        patient_id: patientAId,
-        doctor_id: tenantA.userId,
-        origin_type: "scheduled",
-        scheduled_at: scheduledTime,
-        estimated_duration_minutes: 20,
-        reason_for_visit: "Severe tooth pain and fever",
-      },
-      tenantA.client,
-      sessionA
-    );
+    const createRes = await createVisit(ctxFor(tenantA), {
+      patient_id: patientAId,
+      doctor_id: tenantA.userId,
+      origin_type: "scheduled",
+      scheduled_at: scheduledTime,
+      estimated_duration_minutes: 20,
+      reason_for_visit: "Severe tooth pain and fever",
+      is_overbooked: false,
+    });
 
     expect(createRes.success).toBe(true);
     if (!createRes.success) return;

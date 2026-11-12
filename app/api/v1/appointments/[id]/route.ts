@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { checkSlotAvailability } from "@/features/visits/scheduling";
+import { checkSlotAvailability } from "@/features/visits/scheduling-service";
 import { recordAuditLegacy } from "@/lib/audit/audit";
 
 interface RouteContext {
@@ -134,11 +134,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     // 2. If scheduled_at or doctor_id changed, check slot conflicts
     if (scheduled_at !== existing.scheduled_at || doctor_id !== existing.doctor_id) {
       const slotCheck = await checkSlotAvailability(
+        apiKeyServiceContext(session, admin),
         targetDoctorId,
         targetScheduledAt,
-        duration,
-        admin,
-        { userId: session.userId, tenantId: session.tenantId }
+        duration
       );
 
       // Ignore conflict if it conflicts with itself

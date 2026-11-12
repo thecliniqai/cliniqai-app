@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { buildPatientSearchFilter, searchPatients } from "@/features/patients/service";
 import { mockCtx } from "../helpers/context";
-import { getClinicVisitsRegister } from "@/features/visits/actions";
+import { getClinicVisitsRegister } from "@/features/visits/service";
 
 describe("Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03)", () => {
   const tenantId = "tenant-test-clinic-01";
@@ -180,11 +180,7 @@ describe("Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03)", () =
         }),
       };
 
-      await getClinicVisitsRegister(
-        { searchQuery: "9876543210" },
-        mockSupabase,
-        mockSession
-      );
+      await getClinicVisitsRegister(mockCtx(mockSupabase, mockSession), { searchQuery: "9876543210" });
 
       expect(patientTenantId).toBe(tenantId);
       expect(visitsTenantId).toBe(tenantId);

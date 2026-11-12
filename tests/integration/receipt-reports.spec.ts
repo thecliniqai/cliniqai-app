@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
+import { createVisit } from "@/features/visits/service";
 import {
   createVisitInvoice,
   recordPayment,
@@ -49,6 +49,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
 
     // 2. Create Visit 1
     const v1 = await createVisit(
+      ctxFor(tenantA),
       {
         patient_id: patientAId,
         doctor_id: tenantA.userId,
@@ -56,15 +57,14 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
         reason_for_visit: "General health checkup",
         estimated_duration_minutes: 15,
         is_overbooked: false,
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     if (!v1.success) throw new Error(`Failed to create visit 1: ${v1.error}`);
     visitA1Id = v1.visitId;
 
     // 3. Create Visit 2
     const v2 = await createVisit(
+      ctxFor(tenantA),
       {
         patient_id: patientAId,
         doctor_id: tenantA.userId,
@@ -72,9 +72,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
         reason_for_visit: "Follow-up consultation",
         estimated_duration_minutes: 15,
         is_overbooked: false,
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     if (!v2.success) throw new Error(`Failed to create visit 2: ${v2.error}`);
     visitA2Id = v2.visitId;

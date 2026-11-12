@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { getVisitsForDate } from "@/features/visits/actions";
-import { getWaitlistForDate } from "@/features/waitlist/actions";
+import { getVisitsForDate } from "@/features/visits/service";
+import { getWaitlistForDate } from "@/features/waitlist/service";
 import { getTenantDoctorDirectory } from "@/features/staff/service";
 import { requireServiceContext } from "@/lib/auth/context";
-import { getScheduleBlocksForDate } from "@/features/visits/scheduling";
+import { getScheduleBlocksForDate } from "@/features/visits/scheduling-service";
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { TimelineVisit } from "@/components/calendar/doctor-timeline";
 
@@ -18,7 +17,6 @@ interface CalendarPageProps {
 
 export default async function CalendarPage(props: CalendarPageProps) {
   const searchParams = await props.searchParams;
-  const supabase = await createClient();
 
   let membership;
   try {
@@ -43,20 +41,15 @@ export default async function CalendarPage(props: CalendarPageProps) {
   }));
 
   // Fetch visits for date
-  const visitsRes = await getVisitsForDate(currentDate);
+  const visitsRes = await getVisitsForDate(membership, currentDate);
   const visits = (visitsRes.success ? visitsRes.visits : []) as TimelineVisit[];
 
   // Fetch active waitlist entries for date
-  const waitlistRes = await getWaitlistForDate(currentDate);
+  const waitlistRes = await getWaitlistForDate(membership, currentDate);
   const waitlistEntries = waitlistRes.success ? waitlistRes.entries : [];
 
   // Fetch schedule blocks for date
-  const scheduleBlocks = await getScheduleBlocksForDate(
-    currentDate,
-    undefined,
-    supabase,
-    { userId: membership.userId, tenantId: membership.tenantId }
-  );
+  const scheduleBlocks = await getScheduleBlocksForDate(membership, currentDate);
 
   return (
     <div className="max-w-7xl mx-auto py-2">

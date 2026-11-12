@@ -4,6 +4,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { Database } from "@/lib/db/types";
 import { apiError, ApiErrorResponse } from "@/lib/api/envelope";
+import type { ServiceContext } from "@/lib/auth/context";
 
 export interface AuthenticatedApiKeySession {
   apiKeyId: string;
@@ -148,5 +149,24 @@ export async function authenticateApiKey(
       name: keyRecord.name,
       role: "admin",
     },
+  };
+}
+
+/**
+ * Builds the explicit service context for an authenticated API key (ADR-0005 Phasing: `/api/v1/**` stays on the
+ * register until P1-37). Tenant and actor come only from the verified key; `db` is the register route's client.
+ */
+export function apiKeyServiceContext(
+  session: AuthenticatedApiKeySession,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: SupabaseClient<Database, any, any>
+): ServiceContext {
+  return {
+    userId: session.userId,
+    tenantId: session.tenantId,
+    role: session.role,
+    actorType: "api_key",
+    apiKeyId: session.apiKeyId,
+    db,
   };
 }

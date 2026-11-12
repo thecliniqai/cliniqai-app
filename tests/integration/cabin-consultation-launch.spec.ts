@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
+import { createVisit } from "@/features/visits/service";
+import { ctxFor } from "../helpers/context";
 import { checkInVisit, transitionQueueState } from "@/features/queue/actions";
 import { saveConsultationDraft } from "@/features/consultation/actions";
 
@@ -36,19 +37,15 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
 
     // Step A: Create scheduled visit
-    const createRes = await createVisit(
-      {
-        patient_id: patientAId,
-        doctor_id: tenantA.userId,
-        origin_type: "scheduled",
-        scheduled_at: new Date().toISOString(),
-        reason_for_visit: "Severe sore throat and fatigue",
-        estimated_duration_minutes: 15,
-        is_overbooked: false,
-      },
-      tenantA.client,
-      sessionA
-    );
+    const createRes = await createVisit(ctxFor(tenantA), {
+      patient_id: patientAId,
+      doctor_id: tenantA.userId,
+      origin_type: "scheduled",
+      scheduled_at: new Date().toISOString(),
+      reason_for_visit: "Severe sore throat and fatigue",
+      estimated_duration_minutes: 15,
+      is_overbooked: false,
+    });
 
     expect(createRes.success).toBe(true);
     if (!createRes.success) return;

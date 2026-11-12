@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { checkSlotAvailability } from "@/features/visits/scheduling";
+import { checkSlotAvailability } from "@/features/visits/scheduling-service";
 import { recordAuditLegacy } from "@/lib/audit/audit";
 
 /**
@@ -177,11 +177,10 @@ export async function POST(req: NextRequest) {
 
     // 3. Slot conflict verification
     const slotCheck = await checkSlotAvailability(
+      apiKeyServiceContext(session, admin),
       doctor_id,
       scheduled_at,
-      duration,
-      admin,
-      { userId: session.userId, tenantId: session.tenantId }
+      duration
     );
 
     if (!slotCheck.available) {
