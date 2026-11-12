@@ -1,3 +1,5 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/db/types";
 import { SupabaseStorageProvider } from "./supabase-provider";
 import { R2StorageProvider } from "./r2-provider";
 import {
@@ -79,6 +81,25 @@ export function getStorageProvider(override?: StorageProvider): StorageProvider 
   }
 
   return defaultProviderInstance;
+}
+
+/**
+ * The storage provider for a service call: R2 when configured (same rule as `getStorageProvider`), otherwise
+ * Supabase Storage through the caller's own client, so storage RLS applies to the acting user and no service-role
+ * fallback is reachable (ADR-0005 D2).
+ */
+export function getStorageProviderForDb(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: SupabaseClient<Database, any, any>,
+  defaultBucket: string
+): StorageProvider {
+  const useR2 =
+    process.env.STORAGE_PROVIDER === "r2" ||
+    Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID);
+  if (useR2) {
+    return getStorageProvider();
+  }
+  return new SupabaseStorageProvider({ defaultBucket, client: db });
 }
 
 /**

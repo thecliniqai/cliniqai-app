@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { Database, PatientDocument } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uploadFile, getSignedUrl, deleteFile, SupabaseStorageProvider } from "@/lib/storage";
@@ -156,7 +156,7 @@ export async function uploadLabDocument(
     }
 
     // 7. Audit logging
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "patient_document.upload",
         entityType: "patient_document",
@@ -352,7 +352,7 @@ export async function generateDocumentShareToken(
     }
 
     // 4. Audit logging
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "patient_document.generate_share_token",
         entityType: "patient_document",
@@ -438,7 +438,7 @@ export async function deleteLabDocument(
     }
 
     // 4. Audit logging
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "patient_document.delete",
         entityType: "patient_document",
@@ -549,7 +549,7 @@ export async function shareLabReportViaWhatsApp(
     );
 
     // 4. Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "patient_document.share_whatsapp",
         entityType: "patient_document",

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { Invoice, InvoiceItem, Payment, Database } from "@/lib/db/types";
 import {
   createInvoiceSchema,
@@ -20,7 +20,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import type { InteractiveButton } from "@/lib/messaging/types";
-import { compileAndGenerateReceiptPdf } from "./pdf/generator";
+import { compileAndArchiveReceiptPdf } from "./pdf/generator";
 
 export type CreateInvoiceResult =
   | { success: true; invoice: Invoice; items: InvoiceItem[] }
@@ -137,7 +137,7 @@ export async function createVisitInvoice(
     }
 
     // 5. Record Audit
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "invoice.create",
         entityType: "invoice",
@@ -260,7 +260,7 @@ export async function recordPayment(
     }
 
     // 4. Record Audit Log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "invoice.payment_recorded",
         entityType: "payment",
@@ -492,7 +492,7 @@ export async function addInvoiceItem(
       .eq("id", data.invoice_id)
       .eq("tenant_id", session.tenantId);
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "invoice.item_add",
         entityType: "invoice",
@@ -607,7 +607,7 @@ export async function deleteInvoiceItem(
         .eq("tenant_id", session.tenantId);
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "invoice.item_remove",
         entityType: "invoice",
@@ -718,12 +718,9 @@ export async function completeAndBillConsultation(
 
     // 3b. Generate and archive Receipt PDF to storage immediately
     try {
-      await compileAndGenerateReceiptPdf(
-        invoiceResult.invoice.id,
-        supabase,
-        session.tenantId,
-        session.userId
-      );
+      // TEMP 01-01b/c: legacy session bridged to a service context
+      const { legacyServiceContext } = await import("@/lib/auth/context");
+      await compileAndArchiveReceiptPdf(await legacyServiceContext(supabase, session), invoiceResult.invoice.id);
     } catch (pdfErr) {
       console.warn("[completeAndBillConsultation] Receipt PDF generation warning:", pdfErr);
     }
@@ -875,7 +872,9 @@ export async function getInvoiceReceiptPdfSignedUrl(
 
     const { generateAndArchiveReceiptPdf } = await import("@/features/billing/pdf/generator");
 
+    const { legacyServiceContext } = await import("@/lib/auth/context"); // TEMP 01-01b/c
     const { signedUrl } = await generateAndArchiveReceiptPdf(
+      await legacyServiceContext(supabase, session),
       {
         tenant_id: session.tenantId,
         invoice_id: invoice.id,
@@ -920,9 +919,7 @@ export async function getInvoiceReceiptPdfSignedUrl(
         total_paid: totalPaid,
         balance_due: balanceDue,
         status: invoice.status,
-      },
-      supabase as any,
-      session
+      }
     );
 
     return {
@@ -1045,7 +1042,7 @@ export async function shareReceiptViaWhatsApp(
     );
 
     // 4. Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "invoice.share_whatsapp",
         entityType: "invoice",
@@ -1270,7 +1267,7 @@ export async function sendConsolidatedConsultationWhatsApp(
     );
 
     // 10. Record consolidated audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "consultation.share_consolidated_whatsapp",
         entityType: "visit",

@@ -3,9 +3,9 @@ import { authenticateApiKey } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { buildPatientSearchFilter } from "@/features/patients/actions";
+import { buildPatientSearchFilter } from "@/features/patients/service";
 import { patientSchema } from "@/features/patients/schema";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 
 /**
  * GET /api/v1/patients
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       .eq("is_deleted", false);
 
     if (search.trim()) {
-      const searchFilter = await buildPatientSearchFilter(search);
+      const searchFilter = buildPatientSearchFilter(search);
       if (searchFilter) {
         query = query.or(searchFilter);
       }
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Record audit log entry
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "patient.create",
         entityType: "patient",

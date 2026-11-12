@@ -4,7 +4,7 @@ import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { checkSlotAvailability } from "@/features/visits/scheduling";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -176,7 +176,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     }
 
     // 4. Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "appointment.reschedule",
         entityType: "appointment",
@@ -263,7 +263,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     }
 
     // Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "appointment.cancel",
         entityType: "appointment",

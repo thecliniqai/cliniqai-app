@@ -3,8 +3,8 @@ import { NextRequest } from "next/server";
 import { exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { erasePatientRecord } from "@/features/dpdp/erasure";
-import { getPatient, searchPatients, getPatients } from "@/features/patients/actions";
-import { toggleGlobalConsent } from "@/features/patients/consent";
+import { getPatient, searchPatients, getPatients } from "@/features/patients/service";
+import { toggleGlobalConsent } from "@/features/patients/consent-service";
 import { updateStatutorySettings } from "@/features/settings/actions";
 import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { GET as exportRoute } from "@/app/api/v1/patients/[id]/export/route";
@@ -12,6 +12,7 @@ import { DELETE as deletePatientRoute } from "@/app/api/v1/patients/[id]/route";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { ctxFor } from "../helpers/context";
 
 describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D-16)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -409,24 +410,24 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
     });
 
     it("searchPatients, getPatient, and getPatients suppress erased patients from active queries", async () => {
-      const session = { userId: tenantA.userId, tenantId: tenantA.tenantId };
+      const ctx = ctxFor(tenantA);
 
       // 1. searchPatients by name: should NOT return erased Aarav Sharma
-      const searchResults = await searchPatients("Aarav", undefined, session);
+      const searchResults = await searchPatients(ctx, "Aarav");
       expect(searchResults.some((p) => p.id === patientId)).toBe(false);
 
       // 2. getPatient: returns null for erased patient
-      const patient = await getPatient(patientId, false, undefined, session);
+      const patient = await getPatient(ctx, patientId, false);
       expect(patient).toBeNull();
 
       // 3. getPatient with includeErased=true returns the record for compliance audit
-      const complianceRecord = await getPatient(patientId, true, undefined, session);
+      const complianceRecord = await getPatient(ctx, patientId, true);
       expect(complianceRecord).not.toBeNull();
       expect(complianceRecord?.id).toBe(patientId);
       expect(complianceRecord?.is_deleted).toBe(true);
 
       // 4. getPatients list helper excludes erased patients
-      const list = await getPatients(undefined, session);
+      const list = await getPatients(ctx);
       expect(list.some((p) => p.id === patientId)).toBe(false);
     });
 
@@ -498,19 +499,14 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
     });
 
     it("toggleGlobalConsent records global, treatment, and data_sharing consent entries", async () => {
-      const session = {
-        userId: tenantA.userId,
-        tenantId: tenantA.tenantId,
-        role: "owner",
-      };
+      const ctx = ctxFor(tenantA);
 
       // 1. Withdraw consent globally
       const withdrawRes = await toggleGlobalConsent(
+        ctx,
         consentPatientId,
         "withdrawn",
-        "Patient withdrew all processing consent",
-        undefined,
-        session
+        "Patient withdrew all processing consent"
       );
       expect(withdrawRes.success).toBe(true);
 
@@ -540,11 +536,10 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
 
       // 2. Grant consent globally
       const grantRes = await toggleGlobalConsent(
+        ctx,
         consentPatientId,
         "granted",
-        "Patient re-consented to clinical treatment & records",
-        undefined,
-        session
+        "Patient re-consented to clinical treatment & records"
       );
       expect(grantRes.success).toBe(true);
 
@@ -621,12 +616,8 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
     });
 
     it("generateAndArchivePrescriptionPdf enriches statutory registration fields in payload and PDF", async () => {
-      const session = {
-        userId: tenantA.userId,
-        tenantId: tenantA.tenantId,
-      };
-
       const pdfResult = await generateAndArchivePrescriptionPdf(
+        ctxFor(tenantA),
         {
           tenant_id: tenantA.tenantId,
           visit_id: visitId,
@@ -662,9 +653,7 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
               duration: "30 days",
             },
           ],
-        },
-        undefined,
-        session
+        }
       );
 
       expect(pdfResult).toBeDefined();

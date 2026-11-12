@@ -1,5 +1,5 @@
 import { getAdminClient } from "@/lib/supabase/admin";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import type { Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -158,7 +158,7 @@ export async function exportPatientDpdpArchive(
   // 8. Log compliance audit event
   if (!options?.skipAudit) {
     try {
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "dpdp.data_export",
           entityType: "patient",

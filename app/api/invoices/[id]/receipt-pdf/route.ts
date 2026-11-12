@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership } from "@/lib/auth/tenant";
+import { resolveServiceContext } from "@/lib/auth/context";
 import { generateAndArchiveReceiptPdf } from "@/features/billing/pdf/generator";
 import { ReceiptPdfPayload } from "@/features/billing/pdf/receipt-document";
 
@@ -11,19 +10,20 @@ export async function GET(
   try {
     const { id: invoiceId } = await params;
 
-    // 1. Authenticate user session
-    const supabase = await createClient();
+    // 1-2. Authenticate and resolve the tenant membership server-side (session only, never caller input)
+    const resolved = await resolveServiceContext();
+    if (!resolved.ok) {
+      if (resolved.reason === "unauthenticated") {
+        return new NextResponse("Unauthorized", { status: 401 });
+      }
+      return new NextResponse(resolved.error, { status: 500 });
+    }
+    const ctx = resolved.ctx;
+    const supabase = ctx.db;
+    const membership = ctx;
     const {
       data: { user },
-      error: authErr,
     } = await supabase.auth.getUser();
-
-    if (authErr || !user) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    // 2. Validate tenant membership server-side
-    const membership = await getActiveMembership();
 
     // 3. Fetch invoice under strict tenant isolation (supports invoice ID or visit ID)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,7 +73,7 @@ export async function GET(
           .maybeSingle();
 
         doctorInfo = {
-          name: doctorMember?.full_name || user.user_metadata?.full_name || "Clinician",
+          name: doctorMember?.full_name || user?.user_metadata?.full_name || "Clinician",
           qualifications: doctorMember?.qualifications || null,
           registration_no: doctorMember?.medical_council_reg_no || null,
         };
@@ -156,11 +156,7 @@ export async function GET(
     };
 
     // 10. Generate PDF buffer
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { buffer } = await generateAndArchiveReceiptPdf(payload, supabase as any, {
-      userId: membership.userId,
-      tenantId: membership.tenantId,
-    });
+    const { buffer } = await generateAndArchiveReceiptPdf(ctx, payload);
 
     const filename = `Receipt-${invoice.invoice_number}.pdf`;
     const disposition = isDownload

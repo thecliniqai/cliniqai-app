@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership } from "@/lib/auth/tenant";
-import { getTenantDoctorDirectory } from "@/features/staff/actions";
+import { getTenantDoctorDirectory } from "@/features/staff/service";
+import { requireServiceContext } from "@/lib/auth/context";
 import { DoctorCabinView, DoctorOption } from "@/components/cabin/doctor-cabin-view";
 import { CabinVisitItem } from "@/components/cabin/my-queue-card";
 
@@ -18,7 +18,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
 
   let membership;
   try {
-    membership = await getActiveMembership();
+    membership = await requireServiceContext();
   } catch {
     redirect("/login");
   }
@@ -33,10 +33,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
   const currentDate = searchParams.date || today;
 
   // Fetch doctors and practicing owners for the tenant
-  const doctorDirectory = await getTenantDoctorDirectory(supabase, {
-    userId: membership.userId,
-    tenantId: membership.tenantId,
-  });
+  const doctorDirectory = await getTenantDoctorDirectory(membership);
 
   const doctors: DoctorOption[] = doctorDirectory.map((d) => ({
     id: d.id,

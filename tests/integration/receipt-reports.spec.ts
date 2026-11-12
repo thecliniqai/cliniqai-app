@@ -14,6 +14,7 @@ import {
   getDailyCollectionReport,
 } from "@/features/billing/reports-actions";
 import { formatCollectionReportCsv } from "@/features/billing/csv-utils";
+import { ctxFor } from "../helpers/context";
 
 describe("Payment Receipts & Financial Collection Reports Integration (REQ-billing-invoicing, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -230,7 +231,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
     };
 
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
-    const result = await generateAndArchiveReceiptPdf(payload, tenantA.client, sessionA);
+    const result = await generateAndArchiveReceiptPdf(ctxFor(tenantA), payload);
 
     expect(result.buffer).toBeDefined();
     expect(result.buffer.length).toBeGreaterThan(1000);

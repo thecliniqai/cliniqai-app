@@ -1,15 +1,10 @@
+import "server-only";
+
 import React from "react";
 import { pdf } from "@react-pdf/renderer";
-import { createClient } from "@/lib/supabase/server";
-import { getAdminClient } from "@/lib/supabase/admin";
 import { recordAudit } from "@/lib/audit/audit";
-import { Database } from "@/lib/db/types";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  uploadFile,
-  getSignedUrl,
-  SupabaseStorageProvider,
-} from "@/lib/storage";
+import type { ServiceContext } from "@/lib/auth/context";
+import { uploadFile, getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
 import {
   PrescriptionDocument,
   PrescriptionPdfPayload,
@@ -46,16 +41,14 @@ async function streamToBuffer(stream: unknown): Promise<Buffer> {
  * generates a 3600-second signed URL, and records a compliance audit log entry.
  */
 export async function generateAndArchivePrescriptionPdf(
-  payload: PrescriptionPdfPayload,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  clientOverride?: SupabaseClient<Database, any, any>,
-  sessionOverride?: { userId: string; tenantId: string }
+  ctx: ServiceContext,
+  payload: PrescriptionPdfPayload
 ): Promise<GeneratePrescriptionPdfResult> {
-  const supabase = clientOverride || (sessionOverride ? getAdminClient() : await createClient());
-  const session = sessionOverride || {
-    userId: payload.doctor.name, // fallback for testing
-    tenantId: payload.tenant_id,
-  };
+  // The archive is always written under the acting tenant (ADR-0005 D1); a payload for another tenant is refused.
+  if (payload.tenant_id !== ctx.tenantId) {
+    throw new Error("Prescription payload does not belong to the active clinic.");
+  }
+  const supabase = ctx.db;
 
   // Enrich clinic statutory details if not already provided
   if (
@@ -90,10 +83,8 @@ export async function generateAndArchivePrescriptionPdf(
   // 2. Define deterministic storage path: ${tenant_id}/${visit_id}/rx_v${version}.pdf
   const storagePath = `${payload.tenant_id}/${payload.visit_id}/rx_v${payload.version}.pdf`;
 
-  // 3. Resolve storage provider (respecting clientOverride if provided)
-  const storageProvider = clientOverride
-    ? new SupabaseStorageProvider({ defaultBucket: "prescriptions", client: clientOverride })
-    : undefined;
+  // 3. Resolve storage provider bound to the acting user's client
+  const storageProvider = getStorageProviderForDb(ctx.db, "prescriptions");
 
   // Upload using unified storage abstraction
   try {
@@ -139,8 +130,7 @@ export async function generateAndArchivePrescriptionPdf(
 
   // 6. Record compliance audit trail (AGENTS.md §9, §10)
   try {
-    await recordAudit(
-      {
+    await recordAudit(ctx, {
         action: "prescription.generate_pdf",
         entityType: "prescription",
         entityId: payload.prescription_id || payload.visit_id,
@@ -149,10 +139,7 @@ export async function generateAndArchivePrescriptionPdf(
           letterhead_mode: payload.letterhead_mode,
           storage_path: storagePath,
         },
-      },
-      supabase as any,
-      session
-    );
+      });
   } catch (auditErr) {
     console.warn("[features/prescriptions/pdf/generator] Audit log warning:", auditErr);
   }

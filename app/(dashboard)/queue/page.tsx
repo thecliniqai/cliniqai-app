@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership } from "@/lib/auth/tenant";
 import { getQueueForDate } from "@/features/queue/actions";
-import { getTenantDoctorDirectory } from "@/features/staff/actions";
+import { getTenantDoctorDirectory } from "@/features/staff/service";
+import { requireServiceContext } from "@/lib/auth/context";
 import { QueueView } from "@/components/queue/queue-view";
 import { DoctorOption } from "@/components/queue/walk-in-drawer";
 
@@ -19,7 +19,7 @@ export default async function QueuePage(props: QueuePageProps) {
 
   let membership;
   try {
-    membership = await getActiveMembership();
+    membership = await requireServiceContext();
   } catch {
     redirect("/login");
   }
@@ -30,10 +30,7 @@ export default async function QueuePage(props: QueuePageProps) {
   const selectedDoctorId = searchParams.doctor || "all";
 
   // Fetch resolved doctors for tenant
-  const doctorDirectory = await getTenantDoctorDirectory(supabase, {
-    userId: membership.userId,
-    tenantId: membership.tenantId,
-  });
+  const doctorDirectory = await getTenantDoctorDirectory(membership);
 
   const doctors: DoctorOption[] = doctorDirectory.map((d) => ({
     id: d.id,

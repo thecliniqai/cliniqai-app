@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/permissions/guards";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -96,7 +96,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
       // Record audit log for PDF compilation
       try {
-        await recordAudit(
+        await recordAuditLegacy(
           {
             action: "dpdp.data_export",
             entityType: "patient",

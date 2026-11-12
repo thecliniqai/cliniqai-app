@@ -3,15 +3,12 @@ import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/actions";
 import { checkInVisit, transitionQueueState } from "@/features/queue/actions";
 import { saveConsultationDraft, recordFollowUp, getPatientConsultationHistory } from "@/features/consultation/actions";
-import {
-  searchDiagnoses,
-  addConsultationDiagnosis,
-  getVisitDiagnoses,
-} from "@/features/terminology/actions";
+import { searchDiagnoses, addConsultationDiagnosis, getVisitDiagnoses } from "@/features/terminology/service";
 import {
   addPrescriptionItem,
   getVisitPrescription,
 } from "@/features/prescriptions/actions";
+import { ctxFor } from "../helpers/context";
 
 describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-workspace, REQ-prescribing, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -207,14 +204,14 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   it("6. Doctor searches terminology and adds 2 diagnoses (1 chronic synced to patient profile, 1 custom)", async () => {
     // 1. Search diagnoses
     const searchRes = await searchDiagnoses(
+      ctxFor(tenantA),
       { query: "Hypertension", limit: 5 },
-      tenantA.client,
-      sessionA
     );
     expect(searchRes.success).toBe(true);
 
     // 2. Add catalog diagnosis with is_chronic: true
     const chronicDiagRes = await addConsultationDiagnosis(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         patient_id: patientAId,
@@ -225,8 +222,6 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
         is_custom: false,
         notes: "BP consistently elevated; starting regular monitoring",
       },
-      tenantA.client,
-      sessionA
     );
     expect(chronicDiagRes.success).toBe(true);
 
@@ -242,6 +237,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
     // 3. Add custom diagnosis for dental pulpitis
     const customDiagRes = await addConsultationDiagnosis(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         patient_id: patientAId,
@@ -250,8 +246,6 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
         is_custom: true,
         notes: "Endodontic access opening advised",
       },
-      tenantA.client,
-      sessionA
     );
     expect(customDiagRes.success).toBe(true);
 
@@ -267,7 +261,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
     expect(doctorCustom?.diagnosis_name).toBe("Acute Irreversible Pulpitis - 46");
 
     // 4. Verify both diagnoses are returned for this visit
-    const visitDiagsRes = await getVisitDiagnoses(visitAId, tenantA.client, sessionA);
+    const visitDiagsRes = await getVisitDiagnoses(ctxFor(tenantA), visitAId);
     expect(visitDiagsRes.success).toBe(true);
     if (visitDiagsRes.success) {
       expect(visitDiagsRes.diagnoses).toHaveLength(2);

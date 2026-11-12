@@ -8,7 +8,7 @@ import {
   reopenVisitForAmendment,
   finalizeVisitAmendment,
 } from "@/features/consultation/actions";
-import { addConsultationDiagnosis } from "@/features/terminology/actions";
+import { addConsultationDiagnosis } from "@/features/terminology/service";
 import {
   addPrescriptionItem,
   removePrescriptionItem,
@@ -16,6 +16,7 @@ import {
 } from "@/features/prescriptions/actions";
 import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
+import { ctxFor } from "../helpers/context";
 
 describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendment Lifecycle (REQ-e-prescriptions, REQ-diagnosis-visit-management, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -106,6 +107,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     // 4. Add diagnosis
     const diagRes = await addConsultationDiagnosis(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         patient_id: patientAId,
@@ -114,8 +116,6 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         is_chronic: false,
         is_custom: false,
       },
-      tenantA.client,
-      sessionA
     );
     expect(diagRes.success).toBe(true);
 
@@ -225,7 +225,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
       advice: ["Strict bed rest"],
     };
 
-    const genRes = await generateAndArchivePrescriptionPdf(payload, tenantA.client, sessionA);
+    const genRes = await generateAndArchivePrescriptionPdf(ctxFor(tenantA), payload);
 
     expect(genRes.buffer).toBeDefined();
     expect(genRes.buffer.length).toBeGreaterThan(1000);

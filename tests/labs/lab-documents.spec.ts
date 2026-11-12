@@ -3,6 +3,7 @@ import { uploadLabDocument, getPatientDocuments, deleteLabDocument } from "@/fea
 import { formatAmendedFilename } from "@/features/labs/utils";
 import { uploadLabDocumentSchema } from "@/features/labs/schema";
 import { seedTenantWithOwner } from "../helpers/tenants";
+import { ctxFor } from "../helpers/context";
 
 describe("Lab Reports & Records Management (REQ-lab-records)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -263,7 +264,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
         advice: ["30 minutes brisk walking daily", "Reduce refined sugars"],
       };
 
-      const result = await generateAndArchivePrescriptionPdf(payload, tenantA.client, sessionA);
+      const result = await generateAndArchivePrescriptionPdf(ctxFor(tenantA), payload);
       expect(result.buffer).toBeInstanceOf(Buffer);
       expect(result.buffer.length).toBeGreaterThan(1000);
       expect(result.storagePath).toBe(`${tenantA.tenantId}/${visitId}/rx_v1.pdf`);

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { Visit, VisitOriginType, VisitStatus, Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
@@ -90,7 +90,7 @@ export async function createVisit(
     }
 
     // Audit record creation
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "visit.create",
         entityType: "visit",
@@ -224,7 +224,7 @@ export async function updateVisitStatus(
     }
 
     // Record audit event
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "visit.status_update",
         entityType: "visit",
@@ -307,7 +307,7 @@ export async function confirmAppointment(
     }
 
     // Record audit event
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "visit.confirm",
         entityType: "visit",
@@ -389,7 +389,7 @@ export async function cancelVisit(
       .eq("id", visitId);
 
     // 3. Audit cancellation
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "visit.cancel",
         entityType: "visit",
@@ -490,7 +490,7 @@ export async function cancelVisit(
             .eq("id", topCandidate.id);
 
           // Audit auto-promotion
-          await recordAudit(
+          await recordAuditLegacy(
             {
               action: "visit.auto_promoted_from_waitlist",
               entityType: "visit",
@@ -1031,7 +1031,7 @@ export async function recordVisitVitals(
       return { success: false, error: "Failed to record patient vitals." };
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "vitals.record",
         entityType: "visit",

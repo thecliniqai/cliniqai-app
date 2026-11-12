@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { Database, PrescriptionItem } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -13,6 +13,7 @@ import {
   ProtocolTemplateInput,
   MedicineSearchResult,
 } from "./schema";
+import { legacyServiceContext } from "@/lib/auth/context"; // TEMP 01-01b/c
 import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
 import { PrescriptionPdfPayload } from "./pdf/prescription-document";
 import { randomBytes } from "crypto";
@@ -279,7 +280,7 @@ export async function addPrescriptionItem(
     }
 
     // 5. Record audit trail
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "prescription.item_add",
         entityType: "prescription",
@@ -344,7 +345,7 @@ export async function removePrescriptionItem(
       return { success: false, error: "Failed to delete prescription item." };
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "prescription.item_remove",
         entityType: "prescription",
@@ -408,7 +409,7 @@ export async function saveDoctorProtocolTemplate(
       return { success: false, error: "Failed to save protocol template." };
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "prescription.template_save",
         entityType: "prescription",
@@ -712,7 +713,7 @@ export async function getPrescriptionPdfSignedUrl(
     };
 
     // 10. Generate PDF and get 3600s signed URL
-    const { signedUrl } = await generateAndArchivePrescriptionPdf(payload, clientOverride, session);
+    const { signedUrl } = await generateAndArchivePrescriptionPdf(await legacyServiceContext(supabase, session), payload);
 
     return {
       success: true,
@@ -835,7 +836,7 @@ export async function sharePrescriptionViaWhatsApp(
     );
 
     // 4. Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "prescription.share_whatsapp",
         entityType: "prescription",

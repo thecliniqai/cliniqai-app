@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership } from "@/lib/auth/tenant";
 import { getVisitsForDate } from "@/features/visits/actions";
 import { getWaitlistForDate } from "@/features/waitlist/actions";
-import { getTenantDoctorDirectory } from "@/features/staff/actions";
+import { getTenantDoctorDirectory } from "@/features/staff/service";
+import { requireServiceContext } from "@/lib/auth/context";
 import { getScheduleBlocksForDate } from "@/features/visits/scheduling";
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { TimelineVisit } from "@/components/calendar/doctor-timeline";
@@ -22,7 +22,7 @@ export default async function CalendarPage(props: CalendarPageProps) {
 
   let membership;
   try {
-    membership = await getActiveMembership();
+    membership = await requireServiceContext();
   } catch {
     redirect("/login");
   }
@@ -32,10 +32,7 @@ export default async function CalendarPage(props: CalendarPageProps) {
   const currentDate = searchParams.date || today;
 
   // Fetch resolved doctor directory for tenant
-  const doctorDirectory = await getTenantDoctorDirectory(supabase, {
-    userId: membership.userId,
-    tenantId: membership.tenantId,
-  });
+  const doctorDirectory = await getTenantDoctorDirectory(membership);
 
   const doctors = doctorDirectory.map((d) => ({
     id: d.id,

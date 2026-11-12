@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { QueuePriority, QueueToken, Visit, Database, Patient } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QueueItem } from "@/components/queue/queue-card";
-import { getTenantDoctorMap } from "@/features/staff/actions";
+import { getTenantDoctorMap } from "@/features/staff/service";
+import { legacyServiceContext } from "@/lib/auth/context"; // TEMP 01-01b/c
 
 export type CheckInResult =
   | { success: true; tokenNumber: number; queueTokenId: string }
@@ -120,7 +121,7 @@ export async function checkInVisit(
       .eq("id", visitId);
 
     // 6. Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "queue.check_in",
         entityType: "queue_token",
@@ -192,7 +193,7 @@ export async function transitionQueueState(
         .update({ status: "in_consultation", updated_at: nowIso })
         .eq("id", visitId);
 
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "queue.transition",
           entityType: "visit",
@@ -227,7 +228,7 @@ export async function transitionQueueState(
         .update({ status: "completed", updated_at: nowIso })
         .eq("id", visitId);
 
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "queue.transition",
           entityType: "visit",
@@ -310,7 +311,7 @@ export async function getQueueForDate(
       return { success: false, error: "Failed to load queue for date." };
     }
 
-    const doctorMap = await getTenantDoctorMap(supabase, session);
+    const doctorMap = await getTenantDoctorMap(await legacyServiceContext(supabase, session));
 
     const items: QueueItem[] = (data || []).map((row) => {
       const queueToken = Array.isArray(row.queue_tokens)

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/permissions/guards";
 import { getActiveMembership } from "@/lib/auth/tenant";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { Tenant, Membership, Database } from "@/lib/db/types";
 import {
   clinicSettingsSchema,
@@ -103,7 +103,7 @@ export async function updateClinicSettings(
       }
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "clinic.settings.update",
         entityType: "clinic",
@@ -200,7 +200,7 @@ export async function updateStatutorySettings(
       return { success: false, error: "Failed to persist statutory registrations in database." };
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "clinic.settings.update",
         entityType: "clinic",
@@ -298,7 +298,7 @@ export async function updateUserProfile(
       console.warn("[updateUserProfile] Could not sync auth user metadata:", authErr);
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "user.profile.update",
         entityType: "membership",
@@ -419,7 +419,7 @@ export async function updateStaffMember(
       return { success: false, error: "Failed to update staff member in database." };
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "staff.member.update",
         entityType: "membership",
@@ -550,7 +550,7 @@ export async function updateDoctorAvailability(
       return { success: false, error: "Failed to update doctor availability." };
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "staff.member.update",
         entityType: "membership",

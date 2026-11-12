@@ -4,7 +4,9 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import { generateInviteToken, hashInviteToken } from "./invite";
-import { formatDoctorDisplayName, formatStaffDisplayName } from "./formatters";
+import { resolveServiceContext } from "@/lib/auth/context";
+import * as staffService from "./service";
+import type { TenantDoctorInfo, TenantStaffInfo } from "./service";
 import { UserRole } from "@/lib/db/types";
 
 const inviteStaffSchema = z.object({
@@ -137,124 +139,24 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
   }
 }
 
-export interface TenantDoctorInfo {
-  id: string; // user_id
-  membershipId: string;
-  name: string; // e.g. "Dr. Sarah Jenkins"
-  fullName: string | null;
-  role: string;
-  specialty: string;
-  default_slot_duration_minutes: number;
-  availability_schedule: any | null;
+export type { TenantDoctorInfo, TenantStaffInfo } from "./service";
+
+// The acting tenant comes only from the session (ADR-0005 D1). A caller without a membership gets an empty
+// directory, as before.
+export async function getTenantDoctorDirectory(): Promise<TenantDoctorInfo[]> {
+  const resolved = await resolveServiceContext();
+  if (!resolved.ok) return [];
+  return staffService.getTenantDoctorDirectory(resolved.ctx);
 }
 
-export async function getTenantDoctorDirectory(
-  clientOverride?: any,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<TenantDoctorInfo[]> {
-  try {
-    const supabase = clientOverride || (await createClient());
-    let session = sessionOverride;
-    if (!session) {
-      const { getActiveMembership } = await import("@/lib/auth/tenant");
-      const active = await getActiveMembership();
-      session = { userId: active.userId, tenantId: active.tenantId };
-    }
-
-    const { data: tenant } = await (supabase.from("tenants") as any)
-      .select("owner_is_practicing_doctor")
-      .eq("id", session.tenantId)
-      .single();
-
-    const { data: memberRows, error } = await (supabase.from("memberships") as any)
-      .select("id, user_id, tenant_id, role, full_name, default_specialty, default_slot_duration_minutes, availability_schedule, qualifications, medical_council_reg_no")
-      .eq("tenant_id", session.tenantId);
-
-    if (error || !memberRows) {
-      console.error("[getTenantDoctorDirectory] Error fetching members:", error ? { message: error.message, code: error.code, details: error.details, hint: error.hint } : "No rows returned");
-      return [];
-    }
-
-    const ownerPracticing = tenant?.owner_is_practicing_doctor ?? true;
-
-    // Doctors: role == 'doctor' OR (owner when practicing) OR (admin with doctor qualifications/specialty)
-    const doctorMembers = memberRows.filter((m: any) => {
-      if (m.role === "doctor") return true;
-      if (m.role === "owner" && ownerPracticing) return true;
-      if (m.role === "admin" && (m.qualifications || m.medical_council_reg_no)) return true;
-      return false;
-    });
-
-    return doctorMembers.map((m: any, index: number) => ({
-      id: m.user_id,
-      membershipId: m.id,
-      name: formatDoctorDisplayName(m.full_name, index + 1),
-      fullName: m.full_name || null,
-      role: m.role,
-      specialty: m.default_specialty || "general_physician",
-      default_slot_duration_minutes: m.default_slot_duration_minutes || 15,
-      availability_schedule: m.availability_schedule || null,
-    }));
-  } catch (err) {
-    console.error("[getTenantDoctorDirectory] Unexpected error:", err);
-    return [];
-  }
+export async function getTenantStaffDirectory(): Promise<TenantStaffInfo[]> {
+  const resolved = await resolveServiceContext();
+  if (!resolved.ok) return [];
+  return staffService.getTenantStaffDirectory(resolved.ctx);
 }
 
-export interface TenantStaffInfo {
-  id: string; // user_id
-  membershipId: string;
-  name: string;
-  fullName: string | null;
-  role: string;
-  specialty?: string;
+export async function getTenantDoctorMap(): Promise<Record<string, string>> {
+  const resolved = await resolveServiceContext();
+  if (!resolved.ok) return {};
+  return staffService.getTenantDoctorMap(resolved.ctx);
 }
-
-export async function getTenantStaffDirectory(
-  clientOverride?: any,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<TenantStaffInfo[]> {
-  try {
-    const supabase = clientOverride || (await createClient());
-    let session = sessionOverride;
-    if (!session) {
-      const { getActiveMembership } = await import("@/lib/auth/tenant");
-      const active = await getActiveMembership();
-      session = { userId: active.userId, tenantId: active.tenantId };
-    }
-
-    const { data: memberRows, error } = await (supabase.from("memberships") as any)
-      .select("id, user_id, tenant_id, role, full_name, default_specialty")
-      .eq("tenant_id", session.tenantId);
-
-    if (error || !memberRows) {
-      console.error("[getTenantStaffDirectory] Error fetching members:", error ? { message: error.message, code: error.code, details: error.details, hint: error.hint } : "No rows returned");
-      return [];
-    }
-
-    return memberRows.map((m: any, index: number) => ({
-      id: m.user_id,
-      membershipId: m.id,
-      name: formatStaffDisplayName(m.full_name, m.role, index + 1),
-      fullName: m.full_name || null,
-      role: m.role,
-      specialty: m.default_specialty,
-    }));
-  } catch (err) {
-    console.error("[getTenantStaffDirectory] Unexpected error:", err);
-    return [];
-  }
-}
-
-export async function getTenantDoctorMap(
-  clientOverride?: any,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<Record<string, string>> {
-  const doctors = await getTenantDoctorDirectory(clientOverride, sessionOverride);
-  const map: Record<string, string> = {};
-  for (const doc of doctors) {
-    map[doc.id] = doc.name;
-  }
-  return map;
-}
-

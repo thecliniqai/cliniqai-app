@@ -3,7 +3,7 @@ import { authenticateApiKey } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -163,7 +163,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     try {
       const auditAction =
         status === "acknowledged" ? "referral.acknowledge" : "referral.close_loop";
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: auditAction,
           entityType: "referral",

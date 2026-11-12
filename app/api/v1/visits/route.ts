@@ -4,7 +4,7 @@ import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 
 /**
  * GET /api/v1/visits
@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
 
     // 5. Audit log mutation (D-08)
     try {
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "visit.create",
           entityType: "visit",

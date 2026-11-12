@@ -1,7 +1,7 @@
 import { getAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import type { Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -89,7 +89,7 @@ export async function erasePatientRecord(
   // 3. Record compliance audit entry in audit_logs
   const retentionPolicy = "NMC_REGULATION_1.3.1_3_YEAR_MANDATE";
 
-  await recordAudit(
+  await recordAuditLegacy(
     {
       action: "dpdp.patient_erasure",
       entityType: "patient",

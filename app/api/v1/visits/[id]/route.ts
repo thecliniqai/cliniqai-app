@@ -3,7 +3,7 @@ import { authenticateApiKey } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -196,7 +196,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     // 4. Audit log update (D-08)
     try {
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "visit.status_update",
           entityType: "visit",

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { createVisit } from "./actions";
@@ -99,7 +99,7 @@ export async function createScheduleBlock(
       return { success: false, error: "Failed to create schedule block." };
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "schedule_block.create",
         entityType: "schedule_block",
@@ -175,7 +175,7 @@ export async function deleteScheduleBlock(
       return { success: false, error: "Failed to delete schedule block." };
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "schedule_block.delete",
         entityType: "schedule_block",

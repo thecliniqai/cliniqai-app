@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
-import { getPatient } from "@/features/patients/actions";
+import { getPatient } from "@/features/patients/service";
+import { ctxFor } from "../helpers/context";
 import { createAppointment } from "@/features/appointments/actions";
 
 describe("Phase 06-05 Task 3: Performance Benchmarks for Core Clinical Actions (Roadmap Success Criterion 3)", () => {
@@ -50,15 +51,14 @@ describe("Phase 06-05 Task 3: Performance Benchmarks for Core Clinical Actions (
 
   describe("1. Core Action 1: Open Patient Record (<1-2s Target)", () => {
     it("fetches patient details with tenant filtering in < 500ms (SLA: < 2000ms)", async () => {
-      const admin = getAdminClient();
-      const session = { userId: tenant.userId, tenantId: tenant.tenantId };
+      const ctx = ctxFor(tenant);
 
       // Warmup query
-      await getPatient(testPatientId, false, admin as any, session);
+      await getPatient(ctx, testPatientId, false);
 
       // Timed execution
       const t0 = performance.now();
-      const patient = await getPatient(testPatientId, false, admin as any, session);
+      const patient = await getPatient(ctx, testPatientId, false);
       const elapsed = performance.now() - t0;
 
       expect(patient).toBeDefined();
@@ -173,13 +173,12 @@ describe("Phase 06-05 Task 3: Performance Benchmarks for Core Clinical Actions (
 
   describe("5. Composite SLA Throughput & Consistency Benchmark", () => {
     it("executes 5 consecutive core actions and asserts average latency < 500ms", async () => {
-      const admin = getAdminClient();
-      const session = { userId: tenant.userId, tenantId: tenant.tenantId };
+      const ctx = ctxFor(tenant);
       const latencies: number[] = [];
 
       for (let i = 0; i < 5; i++) {
         const start = performance.now();
-        await getPatient(testPatientId, false, admin as any, session);
+        await getPatient(ctx, testPatientId, false);
         latencies.push(performance.now() - start);
       }
 

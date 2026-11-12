@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { Database, Patient, WaitlistEntry } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createVisit } from "@/features/visits/actions";
@@ -76,7 +76,7 @@ export async function addToWaitlist(
     }
 
     // Record audit event
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "waitlist.add",
         entityType: "waitlist",
@@ -257,7 +257,7 @@ export async function promoteWaitlistEntry(
       .eq("id", entryId);
 
     // 4. Audit
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "waitlist.promote",
         entityType: "waitlist",
@@ -270,7 +270,7 @@ export async function promoteWaitlistEntry(
       session
     );
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "visit.auto_promoted_from_waitlist",
         entityType: "visit",

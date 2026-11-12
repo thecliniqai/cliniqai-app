@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { validateWebhookEndpoint } from "@/lib/webhooks/ssrf";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { dispatchWebhookQueueItem } from "@/lib/webhooks/dispatcher";
@@ -114,7 +114,7 @@ export async function createWebhookSubscription(
 
     // Audit trail (D-08, AGENTS.md §10)
     try {
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "webhook.create",
           entityType: "webhook",
@@ -179,7 +179,7 @@ export async function deleteWebhookSubscription(
     }
 
     try {
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "webhook.delete",
           entityType: "webhook",

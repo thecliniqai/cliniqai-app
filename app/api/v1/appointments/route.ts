@@ -4,7 +4,7 @@ import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { checkSlotAvailability } from "@/features/visits/scheduling";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 
 /**
  * GET /api/v1/appointments
@@ -238,7 +238,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "appointment.create",
         entityType: "appointment",

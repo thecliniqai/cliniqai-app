@@ -104,7 +104,7 @@ export async function updateClinicProfile(input: UpdateProfileInput): Promise<Up
     }
 
     // Record audit trail for admin configuration change
-    await recordAudit({
+    await recordAudit({ ...session, actorType: "user", db: supabase }, {
       action: "clinic.profile.update",
       entityType: "clinic",
       entityId: session.tenantId,

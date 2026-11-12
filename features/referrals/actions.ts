@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { Database, Referral } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSignedUrl, SupabaseStorageProvider } from "@/lib/storage";
@@ -19,6 +19,7 @@ import {
   ConsentedHistorySnapshot,
 } from "./types";
 import { generateAndArchiveReferralPdf } from "./pdf/generator";
+import { legacyServiceContext } from "@/lib/auth/context"; // TEMP: removed when referrals moves to its service
 import { randomBytes } from "crypto";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 
@@ -143,7 +144,7 @@ export async function createReferral(
         note: `DPDP consent granted for referral to clinic ${input.target_tenant_id}`,
       });
 
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "patient.consent.granted",
           entityType: "consent",
@@ -194,6 +195,7 @@ export async function createReferral(
     let signedUrl: string | undefined;
     try {
       const pdfRes = await generateAndArchiveReferralPdf(
+        await legacyServiceContext(supabase, session),
         {
           referral_id: referral.id,
           tenant_id: session.tenantId,
@@ -233,9 +235,7 @@ export async function createReferral(
             medications: (referral.active_medications_snapshot as any[]) || [],
             investigations_advised: referral.investigations_advised || [],
           },
-        },
-        clientOverride,
-        sessionOverride
+        }
       );
       signedUrl = pdfRes.signedUrl;
       referral.pdf_storage_path = pdfRes.storagePath;
@@ -244,7 +244,7 @@ export async function createReferral(
     }
 
     // 7. Audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "referral.create",
         entityType: "referral",
@@ -419,7 +419,7 @@ export async function acknowledgeReferral(
       return { success: false, error: error?.message || "Referral not found or update failed." };
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "referral.acknowledge",
         entityType: "referral",
@@ -490,7 +490,7 @@ export async function closeReferralLoop(
       };
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "referral.close_loop",
         entityType: "referral",
@@ -681,7 +681,7 @@ export async function shareReferralLetterViaWhatsApp(
     );
 
     // 4. Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "referral.share_whatsapp",
         entityType: "referral",

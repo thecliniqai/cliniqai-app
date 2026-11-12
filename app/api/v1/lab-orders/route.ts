@@ -3,7 +3,7 @@ import { authenticateApiKey } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 
 /**
@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
 
     // 4. Record audit log (D-08)
     try {
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "lab_order.create",
           entityType: "lab_order",

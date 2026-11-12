@@ -5,7 +5,7 @@ import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 import { INDIAN_MOBILE_REGEX, toE164, extractTenDigits } from "@/lib/utils/phone";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { erasePatientRecord } from "@/features/dpdp/erasure";
 
 interface RouteContext {
@@ -170,7 +170,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     }
 
     // 3. Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "patient.update",
         entityType: "patient",

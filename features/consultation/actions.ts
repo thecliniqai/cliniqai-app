@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 import { Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -12,6 +12,7 @@ import {
   Vitals,
   ChiefComplaintItem,
 } from "./schema";
+import { legacyServiceContext } from "@/lib/auth/context"; // TEMP 01-01b/c
 import { generateAndArchivePrescriptionPdf } from "../prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "../prescriptions/pdf/prescription-document";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
@@ -141,7 +142,7 @@ export async function saveConsultationDraft(
     }
 
     // 5. Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "consultation.draft_save",
         entityType: "visit",
@@ -268,7 +269,7 @@ export async function recordFollowUp(
       followUpId = inserted.id;
     }
 
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "follow_up.record",
         entityType: "follow_up",
@@ -670,14 +671,14 @@ export async function completeAndSignConsultation(
     try {
       const payload = await buildVisitPdfPayload(visitId, session.tenantId, session.userId, supabase, 1);
       if (payload) {
-        await generateAndArchivePrescriptionPdf(payload, clientOverride, session);
+        await generateAndArchivePrescriptionPdf(await legacyServiceContext(supabase, session), payload);
       }
     } catch (pdfErr) {
       console.warn("[completeAndSignConsultation] Archival PDF warning:", pdfErr);
     }
 
     // 7. Compliance audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "visit.complete_and_sign",
         entityType: "visit",
@@ -879,7 +880,7 @@ export async function reopenVisitForAmendment(
       .eq("tenant_id", session.tenantId);
 
     // 8. Record audit trail
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "visit.reopen_for_amendment",
         entityType: "visit",
@@ -1003,14 +1004,14 @@ export async function finalizeVisitAmendment(
         amendmentReason
       );
       if (payload) {
-        await generateAndArchivePrescriptionPdf(payload, clientOverride, session);
+        await generateAndArchivePrescriptionPdf(await legacyServiceContext(supabase, session), payload);
       }
     } catch (pdfErr) {
       console.warn("[finalizeVisitAmendment] PDF regeneration warning:", pdfErr);
     }
 
     // 6. Record audit log
-    await recordAudit(
+    await recordAuditLegacy(
       {
         action: "visit.amend_finalized",
         entityType: "visit",

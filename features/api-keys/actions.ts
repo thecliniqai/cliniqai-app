@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
+import { recordAuditLegacy } from "@/lib/audit/audit";
 
 export interface ApiKeyItem {
   id: string;
@@ -132,7 +132,7 @@ export async function createApiKey(
 
     // 3. Audit trail (D-08, AGENTS.md §10)
     try {
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "api_key.create",
           entityType: "api_key",
@@ -205,7 +205,7 @@ export async function revokeApiKey(
 
     // Audit log
     try {
-      await recordAudit(
+      await recordAuditLegacy(
         {
           action: "api_key.revoke",
           entityType: "api_key",

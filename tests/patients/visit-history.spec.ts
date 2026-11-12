@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { getPatientVisitHistory } from "@/features/patients/actions";
+import { getPatientVisitHistory } from "@/features/patients/service";
+import { mockCtx } from "../helpers/context";
 import { PatientVisitHistoryItem } from "@/features/patients/schema";
 
 describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", () => {
@@ -175,10 +176,7 @@ describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", 
       }),
     };
 
-    const result = await getPatientVisitHistory(patientId, mockClient, {
-      userId: "user-1",
-      tenantId,
-    });
+    const result = await getPatientVisitHistory(mockCtx(mockClient, { userId: "user-1", tenantId }), patientId);
 
     // 1. Check tenant filter enforcement
     expect(queryTracker.tenantFilter).toBe(tenantId);
@@ -223,10 +221,7 @@ describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", 
       })),
     };
 
-    const result = await getPatientVisitHistory("empty-patient", mockClient, {
-      userId: "user-1",
-      tenantId: "tenant-100",
-    });
+    const result = await getPatientVisitHistory(mockCtx(mockClient, { userId: "user-1", tenantId: "tenant-100" }), "empty-patient");
 
     expect(result).toEqual([]);
   });
