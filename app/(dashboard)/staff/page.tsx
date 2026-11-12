@@ -91,7 +91,7 @@ export default async function StaffPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <InviteStaffForm />
+            <InviteStaffForm canInviteAdmin={membership.role === "owner"} />
           </CardContent>
         </Card>
       )}

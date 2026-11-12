@@ -1425,6 +1425,19 @@ export interface Database {
         };
         Returns: number;
       };
+      generate_tenant_invoice_number: {
+        Args: {
+          p_tenant_id: string;
+        };
+        Returns: string;
+      };
+      change_member_role: {
+        Args: {
+          p_membership_id: string;
+          p_role: string;
+        };
+        Returns: Database["public"]["Tables"]["memberships"]["Row"];
+      };
       search_medicines: {
         Args: {
           p_query?: string | null;

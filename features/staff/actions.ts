@@ -45,6 +45,11 @@ export async function inviteStaff(
     // 1. Enforce permission server-side
     const session = await requirePermission(supabase, "staff:invite");
 
+    // Owner/admin invitations are owner-only (P0-02). The invitations INSERT policy (000019) enforces the same rule.
+    if (role === "admin" && session.role !== "owner") {
+      return { success: false, error: "Only a clinic owner can invite an admin." };
+    }
+
     // 2. Generate cryptographically safe token
     const { tokenHash, expiresAt } = generateInviteToken(7);
 

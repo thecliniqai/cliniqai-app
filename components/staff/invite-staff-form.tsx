@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { inviteStaff } from "@/features/staff/actions";
 
-export function InviteStaffForm() {
+/** `canInviteAdmin`: only owners may invite an admin (P0-02); the server and the database enforce it too. */
+export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("doctor");
@@ -62,7 +63,7 @@ export function InviteStaffForm() {
             className="w-full h-11 px-3.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
           >
             <option value="doctor">Doctor (Clinical Consultations & Prescriptions)</option>
-            <option value="admin">Admin (Operational & Staff Management)</option>
+            {canInviteAdmin && <option value="admin">Admin (Operational & Staff Management)</option>}
             <option value="receptionist">Receptionist (Intake, Front Desk & Scheduling)</option>
             <option value="nurse">Nurse (Vitals, Triage & Assistant)</option>
           </select>

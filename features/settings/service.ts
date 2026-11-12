@@ -30,6 +30,24 @@ function toFieldErrors(issues: { path: (string | number)[]; message: string }[])
   return fieldErrors;
 }
 
+/** Maps a change_member_role error (000019) to a message safe to show; never echoes database text. */
+function roleChangeErrorMessage(err: { message?: string; code?: string }): string {
+  const msg = err.message ?? "";
+  if (msg.includes("last_owner")) {
+    return "Cannot change role of the sole clinic owner. Assign another owner first.";
+  }
+  if (msg.includes("owner_required")) {
+    return "Only a clinic owner can grant or change the owner and admin roles.";
+  }
+  if (msg.includes("not_found")) {
+    return "Staff member not found or access denied.";
+  }
+  if (msg.includes("forbidden") || err.code === "42501") {
+    return "You do not have permission to change staff roles.";
+  }
+  return "Failed to update staff member role.";
+}
+
 function canManageOthers(ctx: ServiceContext): boolean {
   return ctx.role === "owner" || ctx.role === "admin";
 }
@@ -319,27 +337,27 @@ export async function updateStaffMember(ctx: ServiceContext, input: StaffEditInp
       return { success: false, error: "Staff member not found or access denied." };
     }
 
-    // Guard: Do not allow demoting the last owner
-    if (existing.role === "owner" && data.role !== "owner") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { count } = await (supabase.from("memberships") as any)
-        .select("*", { count: "exact", head: true })
-        .eq("tenant_id", session.tenantId)
-        .eq("role", "owner");
+    // Role changes go only through the change_member_role RPC (P0-02): it re-derives the tenant from the target row,
+    // allows owner/admin grants to owners only, enforces the last-owner guard under a lock and audits the change.
+    // It runs before the profile update so a refused role change leaves the row untouched.
+    if (data.role !== existing.role) {
+      const { error: roleErr } = await (
+        supabase.rpc as unknown as (
+          name: "change_member_role",
+          args: { p_membership_id: string; p_role: string }
+        ) => Promise<{ error: { message?: string; code?: string } | null }>
+      )("change_member_role", { p_membership_id: data.membership_id, p_role: data.role });
 
-      if ((count ?? 0) <= 1) {
-        return {
-          success: false,
-          error: "Cannot change role of the sole clinic owner. Assign another owner first.",
-        };
+      if (roleErr) {
+        return { success: false, error: roleChangeErrorMessage(roleErr) };
       }
     }
 
+    // Profile columns only: `role`, `tenant_id` and `user_id` are not writable by `authenticated` (000019).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updatePayload: Record<string, any> = {
       full_name: data.full_name.trim(),
       phone: data.phone?.trim() ?? null,
-      role: data.role,
       qualifications: data.qualifications?.trim() ?? null,
       medical_council_reg_no: data.medical_council_reg_no?.trim() ?? null,
       default_specialty: data.default_specialty ?? "general_physician",
