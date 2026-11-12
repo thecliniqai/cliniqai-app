@@ -1,180 +1,109 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { acceptInvite } from "@/features/staff/actions";
-import { requestOtpAction } from "@/features/auth/dev-actions";
+import { FormMessage } from "@/components/auth/auth-form-parts";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Field } from "@/components/ui/field";
-import { Building2 } from "lucide-react";
 
+/**
+ * Minimal invitation acceptance (AUTH-04a, ruling R4): an invitee who already has an account signs in, opens the
+ * invitation link again and accepts. Setting a password from the invite (new staff) arrives with AUTH-06.
+ */
 function JoinClinicContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token")?.trim() ?? "";
 
-  const token = searchParams.get("token") || "";
-  const initialEmail = searchParams.get("email") || "";
-
-  const [email, setEmail] = useState(initialEmail);
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"otp_request" | "otp_verify">("otp_request");
+  const [supabase] = useState(() => createClient());
+  const [session, setSession] = useState<"checking" | "signed_out" | { email: string }>("checking");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [devOtpHint, setDevOtpHint] = useState<string | null>(null);
 
-  const supabase = createClient();
+  useEffect(() => {
+    let active = true;
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!active) return;
+        setSession(data.user ? { email: data.user.email ?? "" } : "signed_out");
+      })
+      .catch(() => {
+        if (active) setSession("signed_out");
+      });
+    return () => {
+      active = false;
+    };
+  }, [supabase]);
 
-  const handleRequestOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  const handleAccept = async () => {
+    if (loading) return;
     setError(null);
-
-    const res = await requestOtpAction(email, "join");
-    setLoading(false);
-
-    if (!res.success) {
-      setError(res.error || "Failed to generate verification code.");
-    } else {
-      if (res.devOtp) {
-        setDevOtpHint(res.devOtp);
-      }
-      setStep("otp_verify");
-    }
-  };
-
-  const handleVerifyAndJoin = async (e: React.FormEvent) => {
-    e.preventDefault();
     setLoading(true);
-    setError(null);
-
-    // 1. Verify OTP with Supabase Auth
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email,
-      token: otp.trim(),
-      type: "email",
-    });
-
-    if (verifyError) {
-      setLoading(false);
-      setError(verifyError.message);
-      return;
-    }
-
-    // 2. Consume the invitation via atomic Server Action
     const result = await acceptInvite(token);
-    setLoading(false);
-
     if (!result.success) {
       setError(result.error);
+      setLoading(false);
       return;
     }
-
-    // 3. Route to active dashboard
-    router.push("/");
+    router.replace("/");
+    router.refresh();
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/70 flex flex-col justify-center items-center p-4">
-      <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl p-8 sm:p-10 shadow-theme-sm">
-        <div className="mb-8 text-center flex flex-col items-center">
+    <main className="min-h-screen bg-gray-50/70 flex flex-col justify-center items-center p-4">
+      <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl p-6 sm:p-10 shadow-theme-sm space-y-6">
+        <div className="text-center flex flex-col items-center">
           <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center mb-4 shadow-2xs">
-            <Building2 className="w-6 h-6" />
+            <Building2 className="w-6 h-6" aria-hidden="true" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-            Join Clinic Team
-          </h1>
-          <p className="text-sm text-gray-500 mt-1.5 max-w-xs">
-            Accept your invitation to collaborate on ClinicQ
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Join your clinic</h1>
+          <p className="text-sm text-gray-500 mt-1.5 max-w-xs">Accept your invitation to the clinic team on ClinicOS.</p>
         </div>
 
-        {error && (
-          <div
-            role="alert"
-            className="mb-6 p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start gap-2"
-          >
-            <span className="font-semibold">{error}</span>
+        <FormMessage id="join-error" tone="error" message={error} />
+
+        {!token ? (
+          <p className="text-sm text-gray-700 text-center">
+            This invitation link is incomplete. Ask your clinic to send it again.
+          </p>
+        ) : session === "checking" ? (
+          <p className="text-sm text-gray-500 text-center" role="status">
+            Checking your sign-in…
+          </p>
+        ) : session === "signed_out" ? (
+          <div className="space-y-4 text-center">
+            <p className="text-sm text-gray-700">Sign in to accept this invitation.</p>
+            <p className="text-sm text-gray-500">After signing in, open the invitation link again.</p>
+            <Link
+              href="/login"
+              className="inline-flex w-full items-center justify-center min-h-[44px] px-4 rounded-lg bg-[#1769E0] text-white text-sm font-semibold hover:bg-[#0F5AB8] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1769E0]"
+            >
+              Sign in
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700 text-center">
+              Signed in as <span className="font-semibold text-gray-900 break-all">{session.email}</span>
+            </p>
+            <Button
+              type="button"
+              variant="primary"
+              loading={loading}
+              onClick={handleAccept}
+              aria-describedby="join-error"
+              className="w-full h-11 text-sm font-semibold"
+            >
+              Accept invitation
+            </Button>
           </div>
         )}
-
-        {step === "otp_request" ? (
-          <form onSubmit={handleRequestOtp} className="space-y-5">
-            <Field label="Your Email Address" htmlFor="email" required>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="name@example.com"
-              />
-            </Field>
-
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full h-11 text-sm font-semibold shadow-theme-xs"
-              disabled={loading || !token}
-            >
-              {loading ? "Sending Code..." : "Send Verification Code"}
-            </Button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyAndJoin} className="space-y-5">
-            {devOtpHint && (
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center justify-between shadow-xs animate-in fade-in duration-150">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
-                    DEV OTP
-                  </span>
-                  <span className="font-mono text-sm font-bold tracking-widest text-emerald-950">
-                    {devOtpHint}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setOtp(devOtpHint)}
-                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 underline cursor-pointer"
-                >
-                  Auto-fill
-                </button>
-              </div>
-            )}
-
-            <Field
-              label="Verification Code"
-              htmlFor="otp"
-              required
-              help="Check your email for the one-time login code."
-            >
-              <Input
-                id="otp"
-                type="text"
-                pattern="[0-9]*"
-                maxLength={10}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="text-center tracking-widest text-lg font-bold"
-                required
-                placeholder="Enter verification code"
-                autoFocus
-              />
-            </Field>
-
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full h-11 text-sm font-semibold shadow-theme-xs"
-              disabled={loading}
-            >
-              {loading ? "Verifying..." : "Verify & Join Clinic"}
-            </Button>
-          </form>
-        )}
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -183,7 +112,7 @@ export default function JoinClinicPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-gray-50/70 flex items-center justify-center">
-          <p className="text-sm text-gray-500">Loading invitation details...</p>
+          <p className="text-sm text-gray-500">Loading invitation…</p>
         </div>
       }
     >
@@ -191,5 +120,3 @@ export default function JoinClinicPage() {
     </Suspense>
   );
 }
-
-

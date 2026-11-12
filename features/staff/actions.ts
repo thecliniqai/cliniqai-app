@@ -15,7 +15,7 @@ const inviteStaffSchema = z.object({
 });
 
 export type InviteStaffResult =
-  | { success: true; inviteId: string; rawToken?: string; inviteLink?: string }
+  | { success: true; inviteId: string }
   | { success: false; error: string };
 
 export async function inviteStaff(
@@ -44,7 +44,7 @@ export async function inviteStaff(
     const session = await requirePermission(supabase, "staff:invite");
 
     // 2. Generate cryptographically safe token
-    const { rawToken, tokenHash, expiresAt } = generateInviteToken(7);
+    const { tokenHash, expiresAt } = generateInviteToken(7);
 
     // 3. Insert invite row (RLS policy requires membership with owner/admin)
     const { data, error } = await (supabase.from("invitations") as any)
@@ -67,34 +67,10 @@ export async function inviteStaff(
       };
     }
 
-    const isProd = process.env.NODE_ENV === "production";
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const inviteLink = `${baseUrl}/join?token=${rawToken}&email=${encodeURIComponent(email.toLowerCase().trim())}`;
-
-    // Suppress dev logger in production mode (D-17)
-    if (!isProd) {
-      const { logDevAuthEvent } = await import("@/lib/auth/dev-logger");
-      logDevAuthEvent({
-        type: "STAFF_INVITATION",
-        email: email.toLowerCase().trim(),
-        role,
-        link: inviteLink,
-      });
-    }
-
-    // In production, rawToken and inviteLink must never be returned in client response
-    if (isProd) {
-      return {
-        success: true,
-        inviteId: (data as { id: string }).id,
-      };
-    }
-
+    // The raw token is never returned or logged: invitation delivery arrives with AUTH-06 (AUTH_REDESIGN §6).
     return {
       success: true,
       inviteId: (data as { id: string }).id,
-      rawToken,
-      inviteLink,
     };
   } catch (err: unknown) {
     console.error("[features/staff/actions] Unauthorized or error creating invitation:", err);
@@ -146,17 +122,17 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
       if (msg.includes("Invalid invitation token")) {
         return { success: false, error: "Invalid invitation link." };
       }
-      return { success: false, error: "Failed to accept invitation. " + (msg || "Please try again.") };
+      return { success: false, error: "Failed to accept invitation. Please try again." };
     }
 
     return {
       success: true,
       tenantId: tenantId as string,
     };
-  } catch (err: unknown) {
+  } catch {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to accept invitation.",
+      error: "Failed to accept invitation. Please try again.",
     };
   }
 }

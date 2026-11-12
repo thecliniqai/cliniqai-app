@@ -276,7 +276,7 @@ export async function getQueueForDate(
     const startOfDay = `${dateStr}T00:00:00.000Z`;
     const endOfDay = `${dateStr}T23:59:59.999Z`;
 
-    let query = (supabase.from("visits") as unknown as {
+    const query = (supabase.from("visits") as unknown as {
       select: (cols: string) => {
         eq: (col: string, val: string) => {
           or: (f1: string) => {

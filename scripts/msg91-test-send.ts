@@ -34,7 +34,6 @@ const SAMPLE_DATA: Record<string, string> = {
   vaccine_name: "MMR Booster",
   due_date: "Next Monday",
   token: "sample-token-123",
-  otp_code: "481920",
 };
 
 async function main() {

@@ -15,9 +15,16 @@ enabled = true
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["https://localhost:3000"]
 jwt_expiry = 3600
-enable_signup = true
+# Signups are off until owner signup returns in V2-13b (AUTH-07); seeds use admin.createUser (01-06 ruling R1).
+enable_signup = false
 
 [auth.email]
+# Keeps the email provider (password sign-in) on; user creation is governed by [auth] enable_signup above.
 enable_signup = true
 double_confirm_changes = true
 enable_confirmations = false
+
+# Recovery is code-only: the email carries the 6-digit {{ .Token }} and no link (AUTH-04a, 01-06 ruling R2).
+[auth.email.template.recovery]
+subject = "Your ClinicOS password reset code"
+content_path = "./supabase/templates/recovery.html"

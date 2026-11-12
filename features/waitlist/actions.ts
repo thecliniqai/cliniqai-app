@@ -127,7 +127,7 @@ export async function getWaitlistForDate(
   try {
     const session = sessionOverride || (await requirePermission("appointments:view"));
 
-    let query = (supabase.from("waitlist_entries") as unknown as {
+    const query = (supabase.from("waitlist_entries") as unknown as {
       select: (cols: string) => {
         eq: (col: string, val: string) => {
           eq: (col: string, val: string) => {

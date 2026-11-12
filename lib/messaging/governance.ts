@@ -140,8 +140,7 @@ export function evaluateMessageEligibility({
     // Fallback to SMS if the event permits SMS fallback
     const permitsSmsFallback =
       eventType === "appointment_booked" ||
-      eventType === "appointment_rescheduled" ||
-      eventType === "otp_login";
+      eventType === "appointment_rescheduled";
 
     if (permitsSmsFallback && config?.sms_enabled !== false) {
       resolvedChannel = "sms";

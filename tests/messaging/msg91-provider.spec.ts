@@ -111,8 +111,8 @@ describe("MSG91 Provider & Template Mapping (REQ-reminders-notifications, T-05.1
       });
     });
 
-    it("maps all 13 pre-approved templates in whatsapp-templates.json without error", () => {
-      expect(WHATSAPP_TEMPLATES.length).toBe(13);
+    it("maps all 12 pre-approved templates in whatsapp-templates.json without error", () => {
+      expect(WHATSAPP_TEMPLATES.length).toBe(12);
 
       for (const tpl of WHATSAPP_TEMPLATES) {
         expect(TEMPLATE_POSITIONAL_MAP[tpl.template_name]).toBeDefined();

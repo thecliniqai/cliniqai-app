@@ -491,39 +491,5 @@
         "text": "ClinicQ Health Services"
       }
     ]
-  },
-  {
-    "template_name": "staff_onboarding_otp",
-    "language": "en",
-    "category": "AUTHENTICATION",
-    "button_url": false,
-    "description": "Instant OTP delivery for clinic staff authentication and invite verification (Phase 1 onboarding).",
-    "components": [
-      {
-        "type": "BODY",
-        "text": "{{1}} is your ClinicQ verification code for clinic staff login. Valid for 10 minutes. For security, never share this code with anyone.",
-        "example": {
-          "body_text": [
-            [
-              "481920"
-            ]
-          ]
-        }
-      },
-      {
-        "type": "FOOTER",
-        "text": "ClinicQ Security"
-      },
-      {
-        "type": "BUTTONS",
-        "buttons": [
-          {
-            "type": "OTP",
-            "otp_type": "COPY_CODE",
-            "text": "Copy Code"
-          }
-        ]
-      }
-    ]
   }
 ]

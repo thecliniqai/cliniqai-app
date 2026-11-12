@@ -7,6 +7,11 @@ import { randomBytes } from "node:crypto";
 // Per-run random password: seeded users never share a known credential (V2-00 / P2-04).
 const TEST_PASSWORD = `T-${randomBytes(18).toString("base64url")}!9a`;
 
+/** The per-run password of every seeded user (for password sign-in tests; never print it). */
+export function seededUserPassword(): string {
+  return TEST_PASSWORD;
+}
+
 export interface SeededTenant {
   tenantId: string;
   tenantName: string;

@@ -138,7 +138,7 @@ export async function getVisitsForDate(
     const startOfDay = `${dateStr}T00:00:00.000Z`;
     const endOfDay = `${dateStr}T23:59:59.999Z`;
 
-    let query = (supabase.from("visits") as any)
+    const query = (supabase.from("visits") as any)
       .select("*, patients(full_name, phone, age, date_of_birth)")
       .eq("tenant_id", session.tenantId)
       .or(`and(scheduled_at.gte.${startOfDay},scheduled_at.lte.${endOfDay}),and(scheduled_at.is.null,created_at.gte.${startOfDay},created_at.lte.${endOfDay})`);

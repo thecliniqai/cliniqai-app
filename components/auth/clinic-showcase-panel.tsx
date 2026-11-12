@@ -3,12 +3,10 @@
 import React from "react";
 import {
   Stethoscope,
-  ShieldCheck,
   Activity,
   Clock,
   Users,
   CheckCircle2,
-  Lock,
   Sparkles,
 } from "lucide-react";
 
@@ -35,7 +33,7 @@ export function ClinicShowcasePanel() {
         aria-hidden="true"
       />
 
-      {/* Top Header: Brand & Accreditations */}
+      {/* Top Header: Brand */}
       <div className="relative z-10 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#1769E0] text-white flex items-center justify-center shadow-theme-xs">
@@ -50,11 +48,6 @@ export function ClinicShowcasePanel() {
             </span>
           </div>
         </div>
-
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>ABDM M1/M2/M3 Ready</span>
-        </span>
       </div>
 
       {/* Centerpiece: Headline + Live Clinic Simulation Card */}
@@ -64,11 +57,11 @@ export function ClinicShowcasePanel() {
             <Sparkles className="w-3 h-3 text-[#1769E0]" />
             <span>High-Throughput Outpatient Operations</span>
           </div>
-          <h1 className="text-2xl xl:text-3xl font-extrabold tracking-tight text-gray-900 leading-snug">
+          <p className="text-2xl xl:text-3xl font-extrabold tracking-tight text-gray-900 leading-snug">
             Streamline clinic queues, consultations, and patient records with zero operational friction.
-          </h1>
+          </p>
           <p className="text-xs xl:text-sm text-gray-600 mt-2.5 leading-relaxed">
-            Built for modern clinics and multi-doctor polyclinics. Instant walk-in check-in, live token routing, and secure ABDM-linked health records.
+            Built for modern clinics and multi-doctor polyclinics. Walk-in check-in, token queues, consultations and patient records in one place.
           </p>
         </div>
 
@@ -81,9 +74,9 @@ export function ClinicShowcasePanel() {
                 DR
               </div>
               <div>
-                <h4 className="text-xs font-bold text-gray-900">
+                <p className="text-xs font-bold text-gray-900">
                   Dr. Ramesh Sharma
-                </h4>
+                </p>
                 <p className="text-[11px] text-gray-500">
                   General Medicine · Room OPD 1
                 </p>
@@ -150,37 +143,11 @@ export function ClinicShowcasePanel() {
             </div>
           </div>
         </div>
-
-        {/* Floating Trust Metric Badges */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 shadow-2xs text-xs font-semibold text-gray-700">
-            <span className="text-amber-500">⚡</span>
-            <span>&lt; 2s Patient Registration</span>
-          </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 shadow-2xs text-xs font-semibold text-gray-700">
-            <Lock className="w-3 h-3 text-[#1769E0]" />
-            <span>Multi-Tenant Database RLS</span>
-          </div>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 shadow-2xs text-xs font-semibold text-gray-700">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>100% Indian Data Residency</span>
-          </div>
-        </div>
       </div>
 
-      {/* Bottom Footer: Doctor Testimonial & Copyright */}
-      <div className="relative z-10 pt-4 border-t border-gray-200/80">
-        <blockquote className="text-xs text-gray-600 italic">
-          &ldquo;ClinicOS transformed our morning OPD queues. Patients check in under 3 seconds, and doctors have instant longitudinal history at their fingertips.&rdquo;
-        </blockquote>
-        <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500">
-          <span className="font-semibold text-gray-800 not-italic">
-            Dr. Priya Patel, Medical Director
-          </span>
-          <span className="text-gray-400">
-            ISO 27001 Aligned · End-to-End Encrypted
-          </span>
-        </div>
+      {/* Bottom Footer */}
+      <div className="relative z-10 pt-4 border-t border-gray-200/80 text-[11px] text-gray-500">
+        Illustrative preview with sample data.
       </div>
     </div>
   );
