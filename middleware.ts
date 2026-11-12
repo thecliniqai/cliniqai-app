@@ -1,13 +1,19 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { apiV1Enabled, isApiV1Path } from "@/lib/api/enabled";
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  if (
-    pathname.startsWith("/api/v1") ||
-    pathname === "/api/health" ||
-    pathname === "/api/ready"
-  ) {
+
+  // PO-16: `/api/v1/**` (docs and openapi.json included) is a plain 404 unless API_V1_ENABLED is on.
+  if (isApiV1Path(pathname)) {
+    if (!apiV1Enabled()) {
+      return new NextResponse(null, { status: 404 });
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname === "/api/health" || pathname === "/api/ready") {
     return NextResponse.next();
   }
 
@@ -62,5 +68,9 @@ export const config = {
      * - public assets
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // PO-16: the extension exclusion above must not let `/api/v1/<route>/<id>.png` reach a dynamic v1 handler
+    // without the API_V1_ENABLED check.
+    "/api/v1",
+    "/api/v1/:path*",
   ],
 };

@@ -592,13 +592,18 @@ export async function completeAndSignConsultation(
     // 1. Fetch visit and verify access
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("id, status, clinical_notes, patient_id, doctor_id")
+      .select("id, status, clinical_notes, patient_id, doctor_id, signed_at")
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId)
       .single();
 
     if (visitErr || !visit) {
       return { success: false, error: "Visit not found or access denied." };
+    }
+
+    // P1-23: a signed record is never re-signed here (amendments go through reopen/finalize).
+    if (visit.status === "completed" || visit.signed_at) {
+      return { success: false, error: "This consultation is already signed." };
     }
 
     // 2. Clinical safety check: Ensure at least one diagnosis or clinical note exists
@@ -619,9 +624,33 @@ export async function completeAndSignConsultation(
       };
     }
 
-    // 3. Mark active prescription as signed/issued
+    // 3. Claim the visit: transition to completed only while it is still unsigned. The lock sits in the UPDATE
+    // filter, so a concurrent second sign-off matches 0 rows instead of re-stamping the record (P1-23).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("prescriptions") as any)
+    const { data: claimedVisits, error: claimErr } = await (supabase.from("visits") as any)
+      .update({
+        status: "completed",
+        signed_at: nowIso,
+        signed_by: ctx.userId,
+        updated_at: nowIso,
+      })
+      .eq("id", visitId)
+      .eq("tenant_id", ctx.tenantId)
+      .neq("status", "completed")
+      .is("signed_at", null)
+      .select("id");
+
+    if (claimErr) {
+      console.error("[completeAndSignConsultation] Visit update error:", claimErr.code);
+      return { success: false, error: "Failed to sign off the consultation." };
+    }
+    if (!Array.isArray(claimedVisits) || claimedVisits.length !== 1) {
+      return { success: false, error: "This consultation is already signed." };
+    }
+
+    // 4. Mark active prescription as signed/issued. Full atomicity with step 3 is P1-05 (V2-07).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: rxErr } = await (supabase.from("prescriptions") as any)
       .update({
         signed_at: nowIso,
         updated_at: nowIso,
@@ -630,24 +659,12 @@ export async function completeAndSignConsultation(
       .eq("tenant_id", ctx.tenantId)
       .eq("status", "active");
 
-    // 4. Update visit to completed
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("visits") as any)
-      .update({
-        status: "completed",
-        signed_at: nowIso,
-        signed_by: ctx.userId,
-        updated_at: nowIso,
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", ctx.tenantId);
+    if (rxErr) {
+      console.error("[completeAndSignConsultation] Prescription update error:", rxErr.code);
+      return { success: false, error: "The visit was signed, but the prescription could not be sealed." };
+    }
 
-    // 5. Update queue token called_at/status if present
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("queue_tokens") as any)
-      .update({ updated_at: nowIso })
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId);
+    // 5. (Removed, P1-23) The old `queue_tokens.updated_at` write targeted a column that does not exist.
 
     // 6. Generate initial archival PDF v1
     try {
@@ -674,7 +691,7 @@ export async function completeAndSignConsultation(
       await enqueueWebhookEvent(supabase, ctx.tenantId, "visit.completed", {
         visit_id: visitId,
         patient_id: visit.patient_id,
-        doctor_id: visit.doctor_id || ctx.userId,
+        doctor_id: visit.doctor_id,
         completed_at: nowIso,
       });
 

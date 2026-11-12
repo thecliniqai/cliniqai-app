@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
@@ -7,6 +8,34 @@ import { recordAudit } from "@/lib/audit/audit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+const VISIT_STATUSES = [
+  "booked",
+  "confirmed",
+  "waiting",
+  "in_consultation",
+  "completed",
+  "cancelled",
+  "no_show",
+] as const;
+
+/** Body of `PATCH /api/v1/visits/[id]`; `status` must be a real visit status (unknown keys are ignored). */
+const visitPatchSchema = z.object({
+  status: z.enum(VISIT_STATUSES).optional(),
+  clinical_notes: z.string().nullable().optional(),
+  chief_complaints: z.union([z.string(), z.array(z.unknown())]).nullable().optional(),
+  vitals: z.record(z.unknown()).nullable().optional(),
+  advice: z.unknown().optional(),
+  investigations_advised: z.unknown().optional(),
+});
+
+function isVisitLocked(visit: { status?: string | null; signed_at?: string | null }): boolean {
+  return visit.status === "completed" || Boolean(visit.signed_at);
+}
+
+function visitLocked(rateHeaders: Record<string, string>) {
+  return apiError("VISIT_LOCKED", "Signed visits cannot be modified.", 409, undefined, rateHeaders);
 }
 
 /**
@@ -93,14 +122,20 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return apiError("VALIDATION_ERROR", "Visit ID is required.", 400, undefined, rateHeaders);
   }
 
-  let body: any;
+  let body: unknown;
   try {
     body = await req.json();
   } catch {
     return apiError("INVALID_JSON", "Request body must be valid JSON.", 400, undefined, rateHeaders);
   }
 
-  const { status, clinical_notes, chief_complaints, vitals, advice, investigations_advised } = body || {};
+  const parsed = visitPatchSchema.safeParse(body ?? {});
+  if (!parsed.success) {
+    const field = parsed.error.issues[0]?.path.join(".") || "body";
+    return apiError("VALIDATION_ERROR", `Field '${field}' is invalid.`, 422, undefined, rateHeaders);
+  }
+
+  const { status, clinical_notes, chief_complaints, vitals, advice, investigations_advised } = parsed.data;
 
   const admin = getAdminClient();
 
@@ -118,6 +153,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     if (!existingVisit) {
       return apiError("NOT_FOUND", "Visit not found in active clinic.", 404, undefined, rateHeaders);
+    }
+
+    // DB-13/API-04 interim guard (V2-01 R10): a completed or signed visit is read-only through the API, for any body.
+    // Amendments go through the in-app reopen/finalize flow. The same lock is repeated in the UPDATE filter below.
+    if (isVisitLocked(existingVisit)) {
+      return visitLocked(rateHeaders);
     }
 
     // 2. Clinical safety check if transitioning status to 'completed'
@@ -183,15 +224,22 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       updateData.investigations_advised = investigations_advised;
     }
 
-    const { data: updatedVisit, error: updateErr } = await (admin.from("visits") as any)
+    // The lock is part of the filter, so a visit signed between the read above and this write matches 0 rows.
+    const { data: updatedRows, error: updateErr } = await (admin.from("visits") as any)
       .update(updateData)
       .eq("id", id)
       .eq("tenant_id", session.tenantId)
-      .select()
-      .single();
+      .neq("status", "completed")
+      .is("signed_at", null)
+      .select();
 
-    if (updateErr || !updatedVisit) {
-      return apiError("DATABASE_ERROR", updateErr?.message || "Failed to update visit.", 500, undefined, rateHeaders);
+    if (updateErr) {
+      return apiError("DATABASE_ERROR", updateErr.message || "Failed to update visit.", 500, undefined, rateHeaders);
+    }
+
+    const updatedVisit = Array.isArray(updatedRows) ? updatedRows[0] : null;
+    if (!updatedVisit) {
+      return visitLocked(rateHeaders);
     }
 
     // 4. Audit log update (D-08)

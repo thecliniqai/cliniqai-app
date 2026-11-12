@@ -164,6 +164,8 @@ describe("Phase 06-05 Task 2: Health & Readiness Probes (D-18, T-06-18, T-06-19)
 
   describe("3. Middleware Optimization (T-06-19)", () => {
     it("bypasses Supabase auth session refresh for /api/v1 routes", async () => {
+      // PO-16 (01-05): /api/v1 is a 404 unless the switch is on; this case covers the enabled pass-through.
+      process.env.API_V1_ENABLED = "true";
       const req = new NextRequest("http://localhost:3000/api/v1/patients");
       const res = await middleware(req);
       expect(res.status).toBe(200);

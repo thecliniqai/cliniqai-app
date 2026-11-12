@@ -1,10 +1,29 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { recordAudit } from "@/lib/audit/audit";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { isDateOnly } from "@/lib/utils/filter-values";
+import { isPatientStoragePath } from "@/lib/storage/tenant-path";
+
+const LAB_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
+
+/** P0-05: body of `POST /api/v1/lab-orders`. Unknown keys are ignored; tenant and uploader come from the key. */
+const labOrderCreateSchema = z.object({
+  patient_id: z.string().uuid(),
+  visit_id: z.string().uuid().nullish(),
+  title: z.string().trim().min(1).max(200),
+  original_filename: z.string().trim().max(255).nullish(),
+  storage_path: z.string().trim().min(1).max(512),
+  file_size_bytes: z.number().int().min(0).nullish(),
+  mime_type: z.enum(LAB_MIME_TYPES).nullish(),
+  report_date: z.string().refine(isDateOnly, "Expected YYYY-MM-DD").nullish(),
+  notes: z.string().max(2000).nullish(),
+  is_abnormal: z.boolean().nullish(),
+});
 
 /**
  * GET /api/v1/lab-orders
@@ -113,11 +132,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: any;
+  let body: unknown;
   try {
     body = await req.json();
   } catch {
     return apiError("INVALID_JSON", "Request body must be valid JSON.", 400, undefined, rateHeaders);
+  }
+
+  const parsed = labOrderCreateSchema.safeParse(body ?? {});
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    const field = first?.path.join(".") || "body";
+    return apiError("VALIDATION_ERROR", `Field '${field}' is invalid.`, 422, undefined, rateHeaders);
   }
 
   const {
@@ -131,16 +157,18 @@ export async function POST(req: NextRequest) {
     report_date,
     notes,
     is_abnormal,
-  } = body || {};
+  } = parsed.data;
 
-  if (!patient_id || typeof patient_id !== "string") {
-    return apiError("VALIDATION_ERROR", "Field 'patient_id' is required.", 422, undefined, rateHeaders);
-  }
-  if (!title || typeof title !== "string" || !title.trim()) {
-    return apiError("VALIDATION_ERROR", "Field 'title' is required.", 422, undefined, rateHeaders);
-  }
-  if (!storage_path || typeof storage_path !== "string" || !storage_path.trim()) {
-    return apiError("VALIDATION_ERROR", "Field 'storage_path' is required.", 422, undefined, rateHeaders);
+  // P0-05 (ARC-06): the object key must sit under this key's tenant and this patient, with no traversal. The tenant
+  // comes only from the verified API key, never from the body.
+  if (!isPatientStoragePath(session.tenantId, patient_id, storage_path)) {
+    return apiError(
+      "VALIDATION_ERROR",
+      "Field 'storage_path' must be under tenants/<tenant_id>/patients/<patient_id>/.",
+      422,
+      undefined,
+      rateHeaders
+    );
   }
 
   const admin = getAdminClient();
@@ -178,12 +206,12 @@ export async function POST(req: NextRequest) {
         patient_id,
         visit_id: visit_id || null,
         document_type: "lab_report",
-        title: title.trim(),
-        original_filename: original_filename?.trim() || title.trim(),
-        storage_path: storage_path.trim(),
-        file_size_bytes: typeof file_size_bytes === "number" && file_size_bytes >= 0 ? file_size_bytes : 0,
-        mime_type: mime_type?.trim() || "application/pdf",
-        report_date: report_date || new Date().toISOString().slice(0, 10),
+        title,
+        original_filename: original_filename || title,
+        storage_path,
+        file_size_bytes: file_size_bytes ?? 0,
+        mime_type: mime_type ?? "application/pdf",
+        report_date: report_date ?? new Date().toISOString().slice(0, 10),
         notes: notes || null,
         is_abnormal: Boolean(is_abnormal),
         uploaded_by: session.userId,
@@ -201,8 +229,9 @@ export async function POST(req: NextRequest) {
           action: "lab_order.create",
           entityType: "lab_order",
           entityId: doc.id,
+          // The object key embeds the patient id and the uploaded file name; it is not copied into audit metadata.
           metadata: {
-            storage_path: doc.storage_path,
+            document_type: "lab_report",
           },
       });
     } catch (auditErr) {

@@ -15,6 +15,7 @@ import {
   finalizeVisitAmendment,
 } from "@/features/consultation/service";
 import { completeAndBillConsultation } from "@/features/billing/service";
+import { getAdminClient } from "@/lib/supabase/admin";
 
 describe("consultation service guards (01-01c)", () => {
   let owner: SeededTenant;
@@ -172,6 +173,107 @@ describe("consultation service guards (01-01c)", () => {
         .eq("action", "visit.complete_and_sign");
       expect(audit).toHaveLength(1);
       expect(audit?.[0].actor_id).toBe(doctor.userId);
+    });
+  });
+
+  // V2-01 01-05 P1-23 (ARC-10, D10): sign-off error handling and the `visit.completed` payload.
+  describe("P1-23: completeAndSignConsultation", () => {
+    let subscriptionId: string;
+
+    beforeAll(async () => {
+      // Loopback endpoint: the dispatcher's SSRF check fails it permanently, so nothing leaves the machine.
+      const { data, error } = await getAdminClient()
+        .from("webhook_subscriptions")
+        .insert({
+          tenant_id: owner.tenantId,
+          endpoint_url: "https://127.0.0.1/p1-23-hook",
+          event_types: ["visit.completed"],
+          signing_secret: "whsec_p1_23_synthetic",
+          is_active: true,
+          created_by: owner.userId,
+        })
+        .select("id")
+        .single();
+      if (error || !data) throw new Error(`subscription seed failed: ${error?.message}`);
+      subscriptionId = data.id;
+    });
+
+    async function completedEventsFor(visitId: string): Promise<Array<Record<string, unknown>>> {
+      const { data } = await getAdminClient()
+        .from("webhook_delivery_queue")
+        .select("payload")
+        .eq("subscription_id", subscriptionId)
+        .eq("event_type", "visit.completed");
+      return (data ?? [])
+        .map((row: { payload: string }) => JSON.parse(row.payload).data as Record<string, unknown>)
+        .filter((d) => d.visit_id === visitId);
+    }
+
+    it("emits visit.completed with the visit's patient_id and the visit doctor (not the signer)", async () => {
+      const visitId = await newVisit();
+      await saveConsultationDraft(ctxFor(owner), { visit_id: visitId, clinical_notes: "Synthetic note." });
+
+      // The owner signs a visit assigned to `doctor`.
+      const res = await completeAndSignConsultation(ctxFor(owner), visitId);
+      expect(res.success).toBe(true);
+
+      const events = await completedEventsFor(visitId);
+      expect(events).toHaveLength(1);
+      expect(events[0].patient_id).toBe(patientId);
+      expect(events[0].doctor_id).toBe(doctor.userId);
+      expect(events[0].doctor_id).not.toBe(owner.userId);
+
+      const { data: visit } = await owner.client
+        .from("visits")
+        .select("status, signed_by")
+        .eq("id", visitId)
+        .single();
+      expect(visit).toEqual({ status: "completed", signed_by: owner.userId });
+    });
+
+    it("refuses a second sign-off: signer, signed_at and the outbox are unchanged", async () => {
+      const visitId = await newVisit();
+      await saveConsultationDraft(ctxFor(doctor), { visit_id: visitId, clinical_notes: "Synthetic note." });
+      expect((await completeAndSignConsultation(ctxFor(doctor), visitId)).success).toBe(true);
+
+      const { data: before } = await owner.client
+        .from("visits")
+        .select("status, signed_at, signed_by")
+        .eq("id", visitId)
+        .single();
+
+      const second = await completeAndSignConsultation(ctxFor(owner), visitId);
+      expect(second.success).toBe(false);
+
+      const { data: after } = await owner.client
+        .from("visits")
+        .select("status, signed_at, signed_by")
+        .eq("id", visitId)
+        .single();
+      expect(after).toEqual(before);
+      expect(after?.signed_by).toBe(doctor.userId);
+
+      const { data: audit } = await owner.client
+        .from("audit_logs")
+        .select("id")
+        .eq("entity_id", visitId)
+        .eq("action", "visit.complete_and_sign");
+      expect(audit).toHaveLength(1);
+    });
+
+    it("refuses to sign a visit reopened for amendment (signed_at still set)", async () => {
+      const visitId = await newVisit();
+      await saveConsultationDraft(ctxFor(doctor), { visit_id: visitId, clinical_notes: "Synthetic note." });
+      expect((await completeAndSignConsultation(ctxFor(doctor), visitId)).success).toBe(true);
+      expect(
+        (await reopenVisitForAmendment(ctxFor(doctor), visitId, "Synthetic amendment reason text")).success
+      ).toBe(true);
+
+      const res = await completeAndSignConsultation(ctxFor(owner), visitId);
+      expect(res.success).toBe(false);
+
+      const { data: visit } = await owner.client.from("visits").select("status, signed_by").eq("id", visitId).single();
+      expect(visit).toEqual({ status: "in_consultation", signed_by: doctor.userId });
     });
   });
 });
