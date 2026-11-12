@@ -1,0 +1,27 @@
+$ git show HEAD:lib/storage/supabase-provider.ts > lib/storage/supabase-provider.ts   # service-role fallback restored
+$ npx vitest run tests/storage/no-service-role-fallback.spec.ts
+   × SupabaseStorageProvider without a request scope > createSignedUrl rejects and creates no client of its own 33ms
+   × SupabaseStorageProvider without a request scope > download rejects and creates no client of its own 11ms
+   × SupabaseStorageProvider without a request scope > delete rejects and creates no client of its own 3ms
+   × SupabaseStorageProvider without a request scope > upload rejects and creates no client of its own 3ms
+   ✓ SupabaseStorageProvider without a request scope > control: an injected client is used and the cookie client is never asked for 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/storage/no-service-role-fallback.spec.ts > SupabaseStorageProvider without a request scope > createSignedUrl rejects and creates no client of its own
+AssertionError: expected [Function] to throw error including 'Could not initialize Supabase client …' but got 'Failed to create signed URL from Supa…'
+     44|   ])("%s rejects and creates no client of its own", async (_name, call…
+     46|     await expect(call(provider)).rejects.toThrow("Could not initialize…
+ FAIL  tests/storage/no-service-role-fallback.spec.ts > SupabaseStorageProvider without a request scope > download rejects and creates no client of its own
+AssertionError: expected [Function] to throw error including 'Could not initialize Supabase client …' but got 'Failed to download from Supabase stor…'
+     44|   ])("%s rejects and creates no client of its own", async (_name, call…
+     46|     await expect(call(provider)).rejects.toThrow("Could not initialize…
+ FAIL  tests/storage/no-service-role-fallback.spec.ts > SupabaseStorageProvider without a request scope > delete rejects and creates no client of its own
+AssertionError: expected [Function] to throw error including 'Could not initialize Supabase client …' but got 'Failed to delete from Supabase storag…'
+     44|   ])("%s rejects and creates no client of its own", async (_name, call…
+     46|     await expect(call(provider)).rejects.toThrow("Could not initialize…
+ FAIL  tests/storage/no-service-role-fallback.spec.ts > SupabaseStorageProvider without a request scope > upload rejects and creates no client of its own
+AssertionError: expected [Function] to throw error including 'Could not initialize Supabase client …' but got 'Failed to upload to Supabase storage …'
+     44|   ])("%s rejects and creates no client of its own", async (_name, call…
+     46|     await expect(call(provider)).rejects.toThrow("Could not initialize…
+ Test Files  1 failed (1)
+      Tests  4 failed | 1 passed (5)
+exit 

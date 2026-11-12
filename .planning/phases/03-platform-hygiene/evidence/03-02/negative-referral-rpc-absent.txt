@@ -1,0 +1,6 @@
+$ docker exec supabase_db_clinicos psql -U postgres -c "drop function public.referral_source_clinics(uuid[])"   # migration 000026 not applied
+DROP FUNCTION
+$ npx vitest run tests/referrals/referral-source-clinics.spec.ts
+AssertionError: expected { code: 'PGRST202', …(3) } to be null
+ Test Files  1 failed (1)
+      Tests  7 skipped (7)

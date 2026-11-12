@@ -1,0 +1,43 @@
+# commit f37f917 (census of service-role reach; tool output)
+$ git grep -l "@/lib/supabase/system" f37f917 -- app lib features components proxy.ts instrumentation.ts
+app/api/cron/dispatch-communications/route.ts
+app/api/cron/webhooks/route.ts
+app/api/v1/appointments/[id]/route.ts
+app/api/v1/appointments/route.ts
+app/api/v1/lab-orders/[id]/route.ts
+app/api/v1/lab-orders/route.ts
+app/api/v1/patients/[id]/export/route.ts
+app/api/v1/patients/[id]/route.ts
+app/api/v1/patients/route.ts
+app/api/v1/prescriptions/[id]/route.ts
+app/api/v1/prescriptions/route.ts
+app/api/v1/referrals/[id]/route.ts
+app/api/v1/referrals/route.ts
+app/api/v1/visits/[id]/route.ts
+app/api/v1/visits/route.ts
+app/api/webhooks/messaging/[provider]/route.ts
+features/sharing/system.ts
+$ git grep -n SUPABASE_SECRET_KEY f37f917 -- app lib features components proxy.ts instrumentation.ts next.config.ts
+lib/env.ts:47:  SUPABASE_SERVICE_ROLE_KEY: "renamed to SUPABASE_SECRET_KEY (R-K)",
+lib/env.ts:59:  SUPABASE_SECRET_KEY: "SUPABASE_SERVICE_ROLE_KEY",
+lib/env.ts:72:  SUPABASE_SECRET_KEY: text.optional(),
+lib/env.ts:111:  SUPABASE_SECRET_KEY?: string;
+lib/env.ts:305:    if (!present(raw.SUPABASE_SECRET_KEY)) add("SUPABASE_SECRET_KEY", `required in ${tier}`);
+lib/env.ts:306:    else if (isLocalDemoKey(raw.SUPABASE_SECRET_KEY)) add("SUPABASE_SECRET_KEY", `must not be a local-stack key in ${tier}`);
+lib/env.ts:425:  SUPABASE_SECRET_KEY: {
+lib/supabase/system.ts:48:  const key = serverEnv().SUPABASE_SECRET_KEY;
+lib/supabase/system.ts:50:    throw new Error("SUPABASE_SECRET_KEY is required for the system client");
+$ git grep -n "from \"@supabase/supabase-js\"" f37f917 -- app lib features components proxy.ts   (only system.ts value-imports createClient)
+features/appointments/system.ts:4:import type { SupabaseClient } from "@supabase/supabase-js";
+features/auth/password-flows.ts:1:import type { SupabaseClient } from "@supabase/supabase-js";
+features/billing/pdf/generator.ts:8:import type { SupabaseClient } from "@supabase/supabase-js";
+features/sharing/tokens.ts:3:import type { SupabaseClient } from "@supabase/supabase-js";
+lib/api/auth.ts:3:import { SupabaseClient } from "@supabase/supabase-js";
+lib/api/doctor-guard.ts:1:import { SupabaseClient } from "@supabase/supabase-js";
+lib/audit/audit.ts:1:import type { SupabaseClient } from "@supabase/supabase-js";
+lib/auth/context.ts:3:import type { SupabaseClient } from "@supabase/supabase-js";
+lib/messaging/dispatcher.ts:1:import type { SupabaseClient } from "@supabase/supabase-js";
+lib/storage/index.ts:1:import type { SupabaseClient } from "@supabase/supabase-js";
+lib/storage/supabase-provider.ts:2:import type { SupabaseClient } from "@supabase/supabase-js";
+lib/supabase/system.ts:3:import { createClient } from "@supabase/supabase-js";
+lib/webhooks/outbox.ts:2:import type { SupabaseClient } from "@supabase/supabase-js";

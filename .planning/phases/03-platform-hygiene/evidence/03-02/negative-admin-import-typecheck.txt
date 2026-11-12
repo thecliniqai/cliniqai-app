@@ -1,0 +1,4 @@
+$ printf 'import { getAdminClient } from "@/lib/supabase/admin"; ...' > app/api/__negative_admin_import.ts
+$ npx tsc --noEmit
+app/api/__negative_admin_import.ts(1,32): error TS2307: Cannot find module '@/lib/supabase/admin' or its corresponding type declarations.
+exit 2
