@@ -1,0 +1,23 @@
+[
+  {
+    "file": "components/settings/developer/api-key-table.tsx",
+    "rule": "L1-R5",
+    "reason": "\"AI voice agent\" names a third-party integration example (v2.1 product, AI-21..26), not a clinicOS feature label. Copy rewrite with the settings redesign.",
+    "owner": "V2-06 AI-02 / V2-11",
+    "expires": "2027-02-10"
+  },
+  {
+    "file": "components/settings/developer/create-api-key-modal.tsx",
+    "rule": "L1-R5",
+    "reason": "\"AI Voice Receptionist\" / \"AI Voice Agent Integration\" are third-party integration examples, not a clinicOS feature label. Copy rewrite with the settings redesign.",
+    "owner": "V2-06 AI-02 / V2-11",
+    "expires": "2027-02-10"
+  },
+  {
+    "file": "components/settings/developer/revoke-key-modal.tsx",
+    "rule": "L1-R5",
+    "reason": "\"AI voice agents\" names third-party integrations in the revoke warning, not a clinicOS feature label. Copy rewrite with the settings redesign.",
+    "owner": "V2-06 AI-02 / V2-11",
+    "expires": "2027-02-10"
+  }
+]

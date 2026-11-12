@@ -1,0 +1,236 @@
+# PR + push lane (V2-02 plan 02-01, P0-11; TEST_STRATEGY §8). Job names are the required-check names of the
+# `feature-v2-ci` ruleset: static, security, test, build, e2e. Keep them stable.
+#
+# Rules for this file (rulings RL-2, RL-8):
+# - no repository secrets, no pull_request_target: every lane runs on the local Supabase stack's demo keys and
+#   offline providers; fork PRs see nothing sensitive;
+# - GITHUB_TOKEN is read-only (top-level `permissions`), checkout does not persist credentials;
+# - every `uses:` is pinned to a full commit SHA with the release tag in a comment (repo policy
+#   sha_pinning_required). To bump: `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` (dereference annotated tags via
+#   `gh api repos/<owner>/<repo>/git/tags/<sha>`), release at least two weeks old.
+name: CI
+
+on:
+  # All base branches, so stacked phase PRs (into v2/** branches, OA-2) and PRs into feature/v2 both run.
+  pull_request:
+  push:
+    branches: [feature/v2]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Superseded PR runs are cancelled; pushes to feature/v2 always finish (their results are merge evidence).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  CI: "true"
+
+jobs:
+  static:
+    name: static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: No env files besides the template and the local-stack test defaults
+        run: node scripts/ci/assert-no-env-files.mjs
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Typecheck (app tsconfig.json + tests tsconfig.tests.json)
+        run: npm run typecheck
+      - name: No doc-grep tests (TEST_STRATEGY §9.6)
+        run: node scripts/ci/assert-no-doc-grep-tests.mjs
+      - name: Lint (errors fail; warnings reported)
+        run: npm run lint
+      - name: Server-action inventory (F14; exits 1 on any flag)
+        run: npm run inventory -- --out inventory.json
+      - name: AI-06 L1 policy checks
+        run: npm run ci:ai-l1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: inventory
+          path: inventory.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  security:
+    name: security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans the full history
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: npm audit gate (production deps, high/critical, expiring allowlist)
+        run: npm run ci:audit
+      - name: npm registry signatures and provenance
+        run: npm audit signatures
+      - name: Install pinned gitleaks (checksum-verified)
+        run: scripts/ci/install-gitleaks.sh "$RUNNER_TEMP/gitleaks-bin"
+      - name: gitleaks (full history)
+        run: >-
+          "$RUNNER_TEMP/gitleaks-bin/gitleaks" git --redact --no-banner --config .gitleaks.toml
+          --report-format sarif --report-path gitleaks.sarif .
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: gitleaks-sarif
+          path: gitleaks.sarif
+          if-no-files-found: warn
+          retention-days: 14
+
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Start the local Supabase stack (same services as npm run test:db)
+        # IR-F8: image pulls hit registry rate limits; retry with cleanup and backoff (bounded: 3 attempts).
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
+          -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+      # One run produces both the JSON report and v8 coverage (02-05); coverage is report-only until V2-14.
+      - name: Vitest (full unit + DB lane, with coverage)
+        run: npx vitest run --reporter=dot --reporter=json --outputFile.json=vitest-report.json --coverage.enabled
+      - name: Report gate (0 failed, 0 skipped/todo, total >= floor)
+        if: ${{ !cancelled() }}
+        run: node scripts/ci/assert-vitest-report.mjs vitest-report.json
+      - name: Coverage summary (report only, never fails)
+        if: ${{ !cancelled() }}
+        run: node scripts/ci/coverage-summary.mjs coverage/coverage-summary.json
+      # P0-13 (02-02 step 5): copies lint-fixtures/p0-13/unguarded-action.ts into features/, requires
+      # tests/security/guard-actions.spec.ts to FAIL naming it, and always deletes the copy.
+      - name: P0-13 canary (an unguarded server action must fail the guard spec)
+        if: ${{ !cancelled() }}
+        run: node scripts/ci/guard-canary.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: vitest-report
+          path: vitest-report.json
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop the local stack
+        if: ${{ always() }}
+        run: npx supabase stop --no-backup
+
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'middleware.ts', 'next.config.ts', 'postcss.config.mjs') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+      - name: next build (production, loopback Supabase URL, placeholder anon key, offline messaging)
+        run: npm run build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-placeholder-not-a-key
+          MESSAGING_PROVIDER: dev
+
+  # Playwright PR lane (02-03a; RL-16, RL-20): desktop-chrome (all specs), pixel-7 (all but the viewport-owning a11y
+  # specs), iphone-15 (@golden). The checkout has no .env by construction; the app server is built and served only
+  # through the guarded `e2e:build` / `serve.ts` path on 127.0.0.1:3100.
+  e2e:
+    name: e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium-webkit
+      # Only the engines the PR lane uses (Chromium for desktop-chrome/pixel-7, WebKit for iphone-15). OS packages are
+      # not cached, so `install-deps` always runs; the browser download is skipped on a cache hit.
+      - name: Install browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium webkit
+      - name: Install browser OS dependencies (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium webkit
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .next/cache
+          key: nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'middleware.ts', 'next.config.ts', 'postcss.config.mjs') }}
+          restore-keys: |
+            nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+      - name: Start the local Supabase stack (same services as npm run test:db)
+        # IR-F8: image pulls hit registry rate limits; retry with cleanup and backoff (bounded: 3 attempts).
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
+          -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+      - name: e2e build (guarded env, output marker scan, build stamp)
+        run: npm run e2e:build
+      - name: Playwright PR lane
+        run: npm run e2e:pr
+      - name: Run summary (retried and failed tests; report only)
+        if: ${{ !cancelled() }}
+        run: node scripts/ci/playwright-summary.mjs playwright-report/results.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-pr
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop the local stack
+        if: ${{ always() }}
+        run: npx supabase stop --no-backup

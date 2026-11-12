@@ -1,0 +1,291 @@
+{
+  "commit": "ade531fe6c7a87c3ee9f440238b359541378de8c",
+  "flows": [
+    {
+      "id": "register-patient",
+      "label": "Register patient",
+      "flow": "register-patient",
+      "description": "Owner registers a new patient from the patient list (name, phone, age, sex)",
+      "actions": 6,
+      "keystrokes": 43,
+      "clicks": 2,
+      "fills": 3,
+      "selects": 1,
+      "toggles": 0,
+      "presses": 0,
+      "durationMs": 518,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "Register Patient",
+          "keystrokes": 0
+        },
+        {
+          "kind": "fill",
+          "target": "Patient Full Name",
+          "keystrokes": 31
+        },
+        {
+          "kind": "fill",
+          "target": "Mobile Phone Number",
+          "keystrokes": 10
+        },
+        {
+          "kind": "fill",
+          "target": "Age (Years)",
+          "keystrokes": 2
+        },
+        {
+          "kind": "select",
+          "target": "Sex / Gender",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Save Patient Record",
+          "keystrokes": 0
+        }
+      ]
+    },
+    {
+      "id": "walk-in-token",
+      "label": "Walk-in to token",
+      "flow": "walk-in-token",
+      "description": "Front desk adds an existing patient as a walk-in and issues a token",
+      "actions": 4,
+      "keystrokes": 28,
+      "clicks": 2,
+      "fills": 1,
+      "selects": 1,
+      "toggles": 0,
+      "presses": 0,
+      "durationMs": 1204,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "+ Add Walk-In",
+          "keystrokes": 0
+        },
+        {
+          "kind": "select",
+          "target": "Consulting Doctor",
+          "keystrokes": 0
+        },
+        {
+          "kind": "fill",
+          "target": "Search by Name or Phone",
+          "keystrokes": 28
+        },
+        {
+          "kind": "click",
+          "target": "Issue Token",
+          "keystrokes": 0
+        }
+      ]
+    },
+    {
+      "id": "book-appointment",
+      "label": "Book appointment",
+      "flow": "book-appointment",
+      "description": "Front desk books an existing patient into a free slot from the calendar",
+      "actions": 6,
+      "keystrokes": 32,
+      "clicks": 3,
+      "fills": 2,
+      "selects": 1,
+      "toggles": 0,
+      "presses": 0,
+      "durationMs": 693,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "+ Book Appointment",
+          "keystrokes": 0
+        },
+        {
+          "kind": "fill",
+          "target": "Start Time",
+          "keystrokes": 5
+        },
+        {
+          "kind": "select",
+          "target": "Doctor Assigned",
+          "keystrokes": 0
+        },
+        {
+          "kind": "fill",
+          "target": "Search by Name or Phone",
+          "keystrokes": 27
+        },
+        {
+          "kind": "click",
+          "target": "patient search result",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Confirm Booking",
+          "keystrokes": 0
+        }
+      ]
+    },
+    {
+      "id": "cancel-appointment",
+      "label": "Cancel appointment",
+      "flow": "cancel-appointment",
+      "description": "Front desk cancels a booked appointment from the calendar",
+      "actions": 1,
+      "keystrokes": 0,
+      "clicks": 1,
+      "fills": 0,
+      "selects": 0,
+      "toggles": 0,
+      "presses": 0,
+      "durationMs": 325,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "Cancel Appointment (+ confirm OK)",
+          "keystrokes": 0
+        }
+      ]
+    },
+    {
+      "id": "consult-rx-finish",
+      "label": "Consult → Rx → finish",
+      "flow": "consult-rx-finish",
+      "description": "Doctor opens a waiting patient, notes + diagnosis, 2 medicines, signs (fee to reception)",
+      "actions": 12,
+      "keystrokes": 105,
+      "clicks": 8,
+      "fills": 3,
+      "selects": 0,
+      "toggles": 1,
+      "presses": 0,
+      "durationMs": 1824,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "Start Consultation",
+          "keystrokes": 0
+        },
+        {
+          "kind": "fill",
+          "target": "Clinical notes",
+          "keystrokes": 53
+        },
+        {
+          "kind": "click",
+          "target": "Quick diagnosis: Viral Fever",
+          "keystrokes": 0
+        },
+        {
+          "kind": "fill",
+          "target": "Medicine search",
+          "keystrokes": 26
+        },
+        {
+          "kind": "click",
+          "target": "Add as custom medicine",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Add to Prescription",
+          "keystrokes": 0
+        },
+        {
+          "kind": "fill",
+          "target": "Medicine search",
+          "keystrokes": 26
+        },
+        {
+          "kind": "click",
+          "target": "Add as custom medicine",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Add to Prescription",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Complete & Sign",
+          "keystrokes": 0
+        },
+        {
+          "kind": "uncheck",
+          "target": "Collect fee at desk: off",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Sign & Route to Reception",
+          "keystrokes": 0
+        }
+      ]
+    },
+    {
+      "id": "checkout-collect",
+      "label": "Checkout and collect",
+      "flow": "checkout-collect",
+      "description": "Front desk bills a completed visit (₹600) and collects ₹200 cash, then ₹400 UPI",
+      "actions": 9,
+      "keystrokes": 22,
+      "clicks": 6,
+      "fills": 3,
+      "selects": 0,
+      "toggles": 0,
+      "presses": 0,
+      "durationMs": 1130,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "Checkout",
+          "keystrokes": 0
+        },
+        {
+          "kind": "fill",
+          "target": "OPD Consultation Fee",
+          "keystrokes": 3
+        },
+        {
+          "kind": "fill",
+          "target": "Amount to Collect",
+          "keystrokes": 3
+        },
+        {
+          "kind": "click",
+          "target": "Collect ₹200 & Checkout",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Close drawer",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Checkout",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "UPI / QR",
+          "keystrokes": 0
+        },
+        {
+          "kind": "fill",
+          "target": "UPI UTR / Reference ID",
+          "keystrokes": 16
+        },
+        {
+          "kind": "click",
+          "target": "Collect ₹400 & Checkout (double-click)",
+          "keystrokes": 0
+        }
+      ]
+    }
+  ]
+}

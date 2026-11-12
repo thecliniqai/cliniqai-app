@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
 import { getPatient } from "@/features/patients/service";
 import { ctxFor } from "../helpers/context";

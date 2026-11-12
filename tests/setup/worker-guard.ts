@@ -10,12 +10,14 @@
  *    - DNS lookups of non-loopback names never reach a resolver: they return a fixed public test address
  *      (TEST_PUBLIC_ADDRESS), so code that validates hostnames (e.g. the webhook SSRF check) behaves
  *      deterministically offline, and any attempt to then connect is refused by the socket block.
+ *    - (02-06, AR-L5) the c-ares resolver (`dns.resolve*`, `dns.Resolver`, `dns.promises`) and `dgram` refuse
+ *      non-loopback names and addresses without sending a query (tests/setup/dns-udp-guard.cjs).
  *    Specs that stub `fetch` or `dns` themselves replace these wrappers and are unaffected.
  */
 import dns from "node:dns";
 import net from "node:net";
 import path from "node:path";
-import { syncBuiltinESMExports } from "node:module";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { beforeAll } from "vitest";
 import { assertLocalTestEnv } from "./test-env";
 
@@ -25,7 +27,9 @@ beforeAll(() => {
   assertLocalTestEnv();
 });
 
-const LOOPBACK_NAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+// Shared with the e2e server guard (tests/e2e/support/server-net-guard.cjs), loaded with Node's own require.
+const loopback = createRequire(__filename)("./loopback.cjs") as { isLoopbackHost: (host: unknown) => boolean };
+
 /** Fixed public address (documentation-adjacent, never contacted: sockets to it are refused). */
 export const TEST_PUBLIC_ADDRESS = "93.184.216.34";
 
@@ -37,12 +41,7 @@ export class NonLocalNetworkError extends Error {
 }
 
 export function isLoopbackHost(host: string | undefined | null): boolean {
-  if (!host) return false;
-  const h = host.replace(/^\[|\]$/g, "").toLowerCase();
-  if (LOOPBACK_NAMES.has(h) || h === "localhost.") return true;
-  if (net.isIPv4(h)) return h.startsWith("127.");
-  if (net.isIPv6(h)) return h === "::1" || /^::ffff:127\./.test(h);
-  return false;
+  return loopback.isLoopbackHost(host);
 }
 
 // --- 2. env files ---------------------------------------------------------------------------------------------
@@ -104,6 +103,11 @@ dns.lookup = ((hostname: string, options: unknown, callback?: unknown) => {
   );
 }) as typeof dns.lookup;
 syncBuiltinESMExports();
+
+// --- 3b'. resolver and UDP (shared with the e2e server guard) ------------------------------------------------------
+(createRequire(__filename)("./dns-udp-guard.cjs") as { installDnsUdpGuard: (label: string) => void }).installDnsUdpGuard(
+  "Test lane",
+);
 
 // --- 3c. fetch (readable error before any socket work) --------------------------------------------------------
 function requestHost(input: Parameters<typeof fetch>[0]): string | null {

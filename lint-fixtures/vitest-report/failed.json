@@ -1,0 +1,31 @@
+{
+  "numTotalTestSuites": 2,
+  "numPassedTestSuites": 1,
+  "numFailedTestSuites": 1,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 3,
+  "numPassedTests": 2,
+  "numFailedTests": 1,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "success": false,
+  "testResults": [
+    {
+      "name": "/repo/tests/fixture/a.spec.ts",
+      "status": "failed",
+      "message": "",
+      "assertionResults": [
+        { "fullName": "fixture a one", "title": "one", "status": "passed", "failureMessages": [] },
+        { "fullName": "fixture a rejects the forged tenant", "title": "rejects the forged tenant", "status": "failed", "failureMessages": ["expected 0, received 1"] }
+      ]
+    },
+    {
+      "name": "/repo/tests/fixture/b.spec.ts",
+      "status": "passed",
+      "message": "",
+      "assertionResults": [
+        { "fullName": "fixture b one", "title": "one", "status": "passed", "failureMessages": [] }
+      ]
+    }
+  ]
+}

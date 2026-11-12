@@ -3,6 +3,7 @@ import "server-only";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { patientInTenant } from "@/lib/auth/tenant-refs";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -65,6 +66,11 @@ export async function grantConsent(
     assertPerm(ctx.role, "patients:edit");
     const session = ctx;
 
+    // The patient must belong to the caller's clinic (P0-13: the FK and RLS do not check this).
+    if (!(await patientInTenant(ctx, patientId))) {
+      return { success: false, error: "Patient not found or access denied." };
+    }
+
     // Append-only insert: never modify historical rows
     const { data, error } = await (supabase.from("consent_records") as any)
       .insert({
@@ -112,6 +118,11 @@ export async function withdrawConsent(
   try {
     assertPerm(ctx.role, "patients:edit");
     const session = ctx;
+
+    // The patient must belong to the caller's clinic (P0-13: the FK and RLS do not check this).
+    if (!(await patientInTenant(ctx, patientId))) {
+      return { success: false, error: "Patient not found or access denied." };
+    }
 
     // Append-only insert: withdrawal appends a new row with status 'withdrawn'
     const { data, error } = await (supabase.from("consent_records") as any)
@@ -166,6 +177,11 @@ export async function toggleGlobalConsent(
   try {
     assertPerm(ctx.role, "patients:edit");
     const session = ctx;
+    // The patient must belong to the caller's clinic (P0-13: the FK and RLS do not check this).
+    if (!(await patientInTenant(ctx, patientId))) {
+      return { success: false, error: "Patient not found or access denied." };
+    }
+
     const timestamp = new Date().toISOString();
     const cleanReason =
       note?.trim() ||

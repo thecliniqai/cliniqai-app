@@ -1,0 +1,62 @@
+{
+  "auditReportVersion": 2,
+  "vulnerabilities": {
+    "fixture-direct": {
+      "name": "fixture-direct",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "fixture-transitive"
+      ],
+      "effects": [],
+      "range": "*",
+      "nodes": [
+        "node_modules/fixture-direct"
+      ],
+      "fixAvailable": false
+    },
+    "fixture-transitive": {
+      "name": "fixture-transitive",
+      "severity": "critical",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1000001,
+          "name": "fixture-transitive",
+          "dependency": "fixture-transitive",
+          "title": "Fixture advisory re-rated to critical",
+          "url": "https://github.com/advisories/GHSA-aaaa-bbbb-cccc",
+          "severity": "critical",
+          "range": "<2.0.0"
+        },
+        {
+          "source": 1000002,
+          "name": "fixture-transitive",
+          "dependency": "fixture-transitive",
+          "title": "Fixture moderate advisory (not gated)",
+          "url": "https://github.com/advisories/GHSA-dddd-eeee-ffff",
+          "severity": "moderate",
+          "range": "<2.0.0"
+        }
+      ],
+      "effects": [
+        "fixture-direct"
+      ],
+      "range": "<2.0.0",
+      "nodes": [
+        "node_modules/fixture-transitive"
+      ],
+      "fixAvailable": false
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 1,
+      "high": 1,
+      "critical": 1,
+      "total": 3
+    }
+  }
+}

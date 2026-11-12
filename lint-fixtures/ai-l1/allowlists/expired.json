@@ -1,0 +1,9 @@
+[
+  {
+    "file": "components/settings/integrations.tsx",
+    "rule": "L1-R5",
+    "reason": "Fixture: exception that expired before the fixed test date",
+    "owner": "fixture",
+    "expires": "2026-11-01"
+  }
+]

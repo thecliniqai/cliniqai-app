@@ -1,0 +1,38 @@
+[
+  {
+    "id": "GHSA-6g55-p6wh-862q",
+    "package": "postcss",
+    "severity": "high",
+    "reason": "postcss bundled by next 15.5.28 (sourceMappingURL file read). Build-time CSS processing of our own sources only; fixed by the Next upgrade.",
+    "owner": "V2-03 plan 03-06 / V2-14",
+    "ruling": "F20",
+    "expires": "2027-02-10"
+  },
+  {
+    "id": "GHSA-r28c-9q8g-f849",
+    "package": "postcss",
+    "severity": "high",
+    "reason": "postcss bundled by next 15.5.28 (source-map auto-loading path traversal). Build-time CSS processing of our own sources only; fixed by the Next upgrade.",
+    "owner": "V2-03 plan 03-06 / V2-14",
+    "ruling": "F20",
+    "expires": "2027-02-10"
+  },
+  {
+    "id": "GHSA-j4fx-xxwh-2485",
+    "package": "jsondiffpatch",
+    "severity": "high",
+    "reason": "Transitive via ai@4 (AI SDK v4 chain). AI is disabled and server-side only; removed by the AI SDK upgrade.",
+    "owner": "V2-12 P1-19",
+    "ruling": "P1-19",
+    "expires": "2027-02-10"
+  },
+  {
+    "id": "GHSA-mrhx-c7xc-m3w5",
+    "package": "zod",
+    "severity": "high",
+    "reason": "zod 3 (oversized constrained collections). Inputs are bounded by server-action body limits; fixed by the zod 4 migration with the AI SDK upgrade.",
+    "owner": "V2-12 P1-19",
+    "ruling": "P1-19",
+    "expires": "2027-02-10"
+  }
+]

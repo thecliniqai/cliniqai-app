@@ -279,8 +279,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
 
     // Tenant B attempts to fetch Tenant A's invoice receipt
     const crossRes = await getInvoiceReceiptPdfSignedUrl(ctxFor(tenantB), invoiceA1Id);
-    expect(crossRes.success).toBe(false);
-    expect(crossRes.error).toContain("access denied");
+    expect(crossRes).toMatchObject({ success: false, error: expect.stringContaining("access denied") });
 
     // Tenant B queries daily collection report
     const todayStr = new Date().toISOString().split("T")[0];

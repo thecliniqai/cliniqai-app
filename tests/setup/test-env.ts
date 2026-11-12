@@ -30,6 +30,9 @@ const PINNED_IF_SET: Record<string, string[]> = {
   AI_EVAL_LIVE: ["false", "0"],
   NODE_ENV: ["test"],
   ENABLE_DEV_AUTH_LOGS: ["false", "0"],
+  // V2-02 (02-03a): the AI kill switch stays off in every test lane, Vitest and the e2e app server alike. Specs that
+  // exercise the switch stub it per test (`vi.stubEnv`), after this guard has run.
+  AI_ENABLED: ["false", "0"],
 };
 
 /**
@@ -74,7 +77,13 @@ export const FORBIDDEN_VARS = [
 const URL_VARS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_APP_URL", "PLAYWRIGHT_TEST_BASE_URL"];
 
 /** Fragments that identify hosted services anywhere in any variable's value. */
-const HOSTED_MARKERS = [".supabase.co", ".supabase.in", ".supabase.net", "r2.cloudflarestorage.com", "pooler.supabase"];
+export const HOSTED_MARKERS = [".supabase.co", ".supabase.in", ".supabase.net", "r2.cloudflarestorage.com", "pooler.supabase"];
+
+/**
+ * The environment the guard reads and fills: `process.env` or a plain map in the guard's own tests. Wider than
+ * `NodeJS.ProcessEnv`, whose Next.js augmentation makes `NODE_ENV` required.
+ */
+export type EnvMap = Record<string, string | undefined>;
 
 export class TestEnvGuardError extends Error {
   constructor(public readonly problems: string[]) {
@@ -106,7 +115,7 @@ export function parseEnvFile(content: string): Record<string, string> {
  * Fill unset variables from `.env.test`. Never touches `.env`. Returns the parsed file so callers can compare.
  * Throws if `.env.test` is missing: the lane must not silently fall back to anything else.
  */
-export function loadTestEnv(rootDir: string, env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+export function loadTestEnv(rootDir: string, env: EnvMap = process.env): Record<string, string> {
   const file = path.join(rootDir, TEST_ENV_FILE);
   if (!fs.existsSync(file)) {
     throw new TestEnvGuardError([`${TEST_ENV_FILE} not found at ${file}`]);
@@ -138,7 +147,7 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | null 
  */
 export function loadLocalStackKeys(
   rootDir: string,
-  env: NodeJS.ProcessEnv = process.env,
+  env: EnvMap = process.env,
   readStatus: (cwd: string) => string = defaultReadStatus,
 ): void {
   if (env.NEXT_PUBLIC_SUPABASE_ANON_KEY && env.SUPABASE_SERVICE_ROLE_KEY) return;
@@ -177,9 +186,18 @@ function hostOf(value: string): string | null {
   }
 }
 
+export interface TestEnvRuleOptions {
+  /** Extra `NODE_ENV` values allowed on top of `test` (the e2e app server runs `next start`, i.e. `production`). */
+  allowNodeEnv?: string[];
+}
+
 /** Collect every reason the environment is not the local test stack. Empty array = safe. */
-export function findTestEnvProblems(env: NodeJS.ProcessEnv): string[] {
+export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {}): string[] {
   const problems: string[] = [];
+  const pinnedIfSet: Record<string, string[]> = {
+    ...PINNED_IF_SET,
+    NODE_ENV: [...PINNED_IF_SET.NODE_ENV, ...(options.allowNodeEnv ?? [])],
+  };
 
   if (!env.NEXT_PUBLIC_SUPABASE_URL) problems.push("NEXT_PUBLIC_SUPABASE_URL is not set");
 
@@ -196,7 +214,7 @@ export function findTestEnvProblems(env: NodeJS.ProcessEnv): string[] {
       problems.push(`${key} must be ${allowed.join(" or ")} (got ${env[key] ? `"${env[key]}"` : "unset"})`);
     }
   }
-  for (const [key, allowed] of Object.entries(PINNED_IF_SET)) {
+  for (const [key, allowed] of Object.entries(pinnedIfSet)) {
     const value = env[key];
     if (value !== undefined && value !== "" && !allowed.includes(value)) {
       problems.push(`${key} must be unset or ${allowed.join(" or ")} (got "${value}")`);
@@ -248,7 +266,28 @@ export function findTestEnvProblems(env: NodeJS.ProcessEnv): string[] {
 }
 
 /** Throw unless the environment is the local test stack. Never prints values of secrets. */
-export function assertLocalTestEnv(env: NodeJS.ProcessEnv = process.env): void {
+export function assertLocalTestEnv(env: EnvMap = process.env): void {
   const problems = findTestEnvProblems(env);
+  if (problems.length) throw new TestEnvGuardError(problems);
+}
+
+/**
+ * Problems with the environment of the e2e app server (V2-02 02-03a, ruling RL-16): the test-lane rules with
+ * `NODE_ENV=production` allowed, plus the two Next.js switches the safe server depends on —
+ * `__NEXT_PROCESSED_ENV=true` (Next loads no `.env*` file; pinned by tests/setup/next-env-flag.spec.ts) and
+ * `NEXT_TELEMETRY_DISABLED=1` (no outbound telemetry).
+ */
+export function findAppServerEnvProblems(env: EnvMap): string[] {
+  const problems = findTestEnvProblems(env, { allowNodeEnv: ["production"] });
+  if (env.__NEXT_PROCESSED_ENV !== "true") {
+    problems.push("__NEXT_PROCESSED_ENV must be \"true\" so Next loads no .env file into the e2e server");
+  }
+  if (env.NEXT_TELEMETRY_DISABLED !== "1") problems.push("NEXT_TELEMETRY_DISABLED must be \"1\" for the e2e server");
+  return problems;
+}
+
+/** Throw unless `env` is a safe environment for the e2e app server (`next build` / `next start`). */
+export function assertLocalAppServerEnv(env: EnvMap): void {
+  const problems = findAppServerEnvProblems(env);
   if (problems.length) throw new TestEnvGuardError(problems);
 }

@@ -3,6 +3,7 @@ import "server-only";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { memberOfTenant, visitInTenant } from "@/lib/auth/tenant-refs";
 import {
   saveConsultationDraftSchema,
   SaveConsultationDraftInput,
@@ -233,6 +234,15 @@ export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpI
   try {
     assertPerm(ctx.role, "consultations:edit");
 
+    // The visit (and its patient) and any doctor must belong to the caller's clinic (P0-13: the FKs and RLS do not
+    // check this).
+    if (!(await visitInTenant(ctx, input.visitId, input.patientId))) {
+      return { success: false, error: "Visit not found or access denied." };
+    }
+    if (input.doctorId && !(await memberOfTenant(ctx, input.doctorId))) {
+      return { success: false, error: "Doctor not found in this clinic." };
+    }
+
     // Check if an existing follow-up is already tied to this visit
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: existing } = await (supabase.from("follow_ups") as any)
@@ -371,7 +381,8 @@ export async function getPatientConsultationHistory(
     const { data: diagnoses, error: diagErr } = await (supabase as any)
       .from("consultation_diagnoses")
       .select("id, visit_id, diagnosis_name, icd11_code, snomed_concept_id, is_chronic")
-      .in("visit_id", visitIds);
+      .in("visit_id", visitIds)
+      .eq("tenant_id", ctx.tenantId);
 
     if (diagErr) throw new Error(diagErr.message);
 
@@ -381,6 +392,7 @@ export async function getPatientConsultationHistory(
       .from("prescriptions")
       .select("id, visit_id, version, status")
       .in("visit_id", visitIds)
+      .eq("tenant_id", ctx.tenantId)
       .eq("status", "active");
 
     if (rxErr) throw new Error(rxErr.message);

@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-11)
 
 **Core value:** Every core clinic action is obviously faster than the paper/WhatsApp status quo, and no clinic can ever see or change another clinic's data.
-**Current focus:** Milestone v2.0 — V2-01 Security containment complete, awaiting PO gate (G3-partial); next phase 02 (V2-02 CI & e2e foundations). V2-00 (G0) and V2-01a merged.
+**Current focus:** Milestone v2.0 — V2-01 merged (PR #3); V2-02 CI & e2e foundations complete, PR #4 awaiting PO gate; next phase 03 (V2-03 Platform hygiene).
 
 ## Current Position
 
-Phase: 01 (V2-01) complete — `.planning/phases/01-security-containment/01-SUMMARY.md`, `01-VERIFICATION.md`
-Plan: next = 02 (V2-02)
-Status: V2-01 PR open into feature/v2, awaiting PO gate
-Last activity: 2026-11-12 — V2-01 verified at 60d8db0 (86 files / 1128 tests, 2 runs; 5 review passes)
+Phase: 02 (V2-02) complete — `.planning/phases/02-ci-e2e-foundations/02-SUMMARY.md`, `02-VERIFICATION.md`
+Plan: next = 03 (V2-03)
+Status: V2-02 PR #4 into feature/v2 awaiting PO gate
+Last activity: 2026-11-13 — V2-02 verified (102 files / 1899 Vitest tests ×2, Playwright 122, CI 5 jobs green)
 
 ## Performance Metrics
 

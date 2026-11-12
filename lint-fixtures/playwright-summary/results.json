@@ -1,0 +1,88 @@
+{
+  "suites": [
+    {
+      "title": "smoke.spec.ts",
+      "specs": [],
+      "suites": [
+        {
+          "title": "owner session",
+          "specs": [
+            {
+              "title": "owner opens the app on its landing page",
+              "tests": [
+                {
+                  "projectName": "desktop-chrome",
+                  "status": "expected",
+                  "results": [
+                    {
+                      "status": "passed"
+                    }
+                  ]
+                },
+                {
+                  "projectName": "pixel-7",
+                  "status": "flaky",
+                  "results": [
+                    {
+                      "status": "failed"
+                    },
+                    {
+                      "status": "passed"
+                    }
+                  ]
+                },
+                {
+                  "projectName": "iphone-15",
+                  "status": "unexpected",
+                  "results": [
+                    {
+                      "status": "failed"
+                    },
+                    {
+                      "status": "failed"
+                    },
+                    {
+                      "status": "failed"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "m0/register-patient.spec.ts",
+      "specs": [
+        {
+          "title": "receptionist registers a patient (known v1 bug F-01)",
+          "tests": [
+            {
+              "projectName": "desktop-chrome",
+              "expectedStatus": "failed",
+              "status": "expected",
+              "annotations": [
+                {
+                  "type": "fail",
+                  "description": "F-01: receptionists cannot register patients in v1"
+                }
+              ],
+              "results": [
+                {
+                  "status": "failed",
+                  "errors": [
+                    {
+                      "message": "\u001b[31mError: KNOWN-BUG F-01: the new patient's record opens\u001b[39m\n\nexpect(page).toHaveURL(expected) failed"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "suites": []
+    }
+  ]
+}

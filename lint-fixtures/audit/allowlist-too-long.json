@@ -1,0 +1,11 @@
+[
+  {
+    "id": "GHSA-aaaa-bbbb-cccc",
+    "package": "fixture-transitive",
+    "severity": "high",
+    "reason": "Fixture waiver dated beyond the 90-day maximum",
+    "owner": "fixture",
+    "ruling": "fixture",
+    "expires": "2028-01-01"
+  }
+]

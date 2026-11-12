@@ -12,6 +12,7 @@ import { AuthMobileBrand, FormMessage, PasswordInput } from "@/components/auth/a
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
+import { useHydrated } from "@/lib/hooks/use-hydrated";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const SENT_NOTICE = "If an account exists for this email, we've sent a 6-digit code. It can take a minute to arrive.";
@@ -28,6 +29,7 @@ export default function ForgotPasswordPage() {
   const [newPassword, setNewPasswordValue] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const hydrated = useHydrated();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
@@ -165,7 +167,7 @@ export default function ForgotPasswordPage() {
           <FormMessage id="reset-notice" tone="info" message={notice} />
 
           {step === "request" && (
-            <form onSubmit={handleRequest} className="space-y-4" noValidate aria-describedby="reset-error">
+            <form method="post" onSubmit={handleRequest} className="space-y-4" noValidate aria-describedby="reset-error">
               <Field label="Email" htmlFor="email" required>
                 <Input
                   id="email"
@@ -184,7 +186,7 @@ export default function ForgotPasswordPage() {
                 />
               </Field>
 
-              <Button type="submit" variant="primary" loading={loading} className="w-full h-11 text-sm font-semibold">
+              <Button type="submit" variant="primary" loading={loading} disabled={!hydrated} className="w-full h-11 text-sm font-semibold">
                 Send code
               </Button>
             </form>
@@ -192,6 +194,7 @@ export default function ForgotPasswordPage() {
 
           {step === "reset" && (
             <form
+              method="post"
               onSubmit={handleReset}
               className="space-y-4"
               noValidate
@@ -261,7 +264,7 @@ export default function ForgotPasswordPage() {
                 />
               </Field>
 
-              <Button type="submit" variant="primary" loading={loading} className="w-full h-11 text-sm font-semibold">
+              <Button type="submit" variant="primary" loading={loading} disabled={!hydrated} className="w-full h-11 text-sm font-semibold">
                 Save new password
               </Button>
 

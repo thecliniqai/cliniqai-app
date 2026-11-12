@@ -1,0 +1,21 @@
+# Code owners (V2-02 plan 02-01 step 8). Ownership and review routing only: code-owner review is NOT a required
+# check (ruling RL-5: single admin, PO-10; reviews are the isolated Claude reviewer + the PO gate approval).
+# The explicit lines document the security-sensitive paths that get the adversarial second review (CLAUDE.md DoD 6).
+
+*                       @skarkhanis95
+
+/supabase/migrations/   @skarkhanis95
+/lib/permissions/       @skarkhanis95
+/lib/auth/              @skarkhanis95
+/lib/supabase/          @skarkhanis95
+/middleware.ts          @skarkhanis95
+/eslint.config.mjs      @skarkhanis95
+/.github/               @skarkhanis95
+/.gitleaks.toml         @skarkhanis95
+/.gitleaksignore        @skarkhanis95
+/tests/setup/           @skarkhanis95
+/tests/security/        @skarkhanis95
+/tests/security/guard-manifest.ts  @skarkhanis95
+/lint-fixtures/p0-13/   @skarkhanis95
+/scripts/ci/            @skarkhanis95
+/docs/adr/              @skarkhanis95

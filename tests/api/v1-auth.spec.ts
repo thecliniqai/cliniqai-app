@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey, createApiKeySecret } from "@/lib/api/auth";
 import { GET, POST } from "@/app/api/v1/patients/route";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getAdminClient } from "../helpers/supabase-admin";
 import { enableApiV1ForFile } from "../helpers/api-v1";
 
 enableApiV1ForFile();

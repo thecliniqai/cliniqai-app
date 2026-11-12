@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import crypto from "crypto";
 import { generateDocumentShareToken } from "@/features/labs/service";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
 import { shareTokenHash } from "../helpers/share-tokens";
 

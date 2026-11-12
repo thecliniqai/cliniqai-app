@@ -4,6 +4,7 @@ import { createVisit } from "@/features/visits/service";
 import { ctxFor } from "../helpers/context";
 import { checkInVisit, transitionQueueState } from "@/features/queue/service";
 import { saveConsultationDraft } from "@/features/consultation/service";
+import { consultationDraftInput } from "../helpers/fixtures";
 
 describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visit-management, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -80,7 +81,7 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
     // Step D: Clinician fills in triage vitals and clinical notes in consultation workspace
     const draftRes = await saveConsultationDraft(
       ctxFor(tenantA),
-      {
+      consultationDraftInput({
         visit_id: visitAId,
         vitals: {
           systolic: 122,
@@ -95,7 +96,7 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
         ],
         clinical_notes: "Erythematous pharynx with no tonsillar exudates.",
         specialty: "general_physician",
-      }
+      })
     );
 
     expect(draftRes.success).toBe(true);

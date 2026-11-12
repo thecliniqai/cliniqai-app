@@ -1,6 +1,7 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { Database, UserRole } from "@/lib/db/types";
+import { createClient } from "@supabase/supabase-js";
+import type { UserRole } from "@/lib/db/types";
 import { env } from "@/lib/env";
+import type { TestDb } from "./db";
 import { getAdminClient } from "./supabase-admin";
 import { randomBytes } from "node:crypto";
 
@@ -18,10 +19,10 @@ export interface SeededTenant {
   userId: string;
   userEmail: string;
   role: UserRole;
-  client: SupabaseClient<Database>;
+  client: TestDb;
 }
 
-async function signInWithRetry(client: SupabaseClient<Database>, email: string, password: string) {
+async function signInWithRetry(client: TestDb, email: string, password: string) {
   let attempts = 0;
   while (attempts < 5) {
     attempts++;
@@ -83,7 +84,7 @@ export async function seedTenantWithOwner(tenantName: string): Promise<SeededTen
   }
 
   // 4. Create authenticated anon client with user session
-  const userClient = createClient<Database>(
+  const userClient = createClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
@@ -112,7 +113,7 @@ export async function seedTenantWithOwner(tenantName: string): Promise<SeededTen
 export async function createUnlinkedUser(): Promise<{
   userId: string;
   userEmail: string;
-  client: SupabaseClient<Database>;
+  client: TestDb;
 }> {
   const admin = getAdminClient();
   const email = `unlinked-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
@@ -128,7 +129,7 @@ export async function createUnlinkedUser(): Promise<{
     throw new Error(`Failed to create test user: ${userError?.message}`);
   }
 
-  const userClient = createClient<Database>(
+  const userClient = createClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
@@ -181,7 +182,7 @@ export async function addMemberToTenant(
     throw new Error(`Failed to insert member: ${memError.message}`);
   }
 
-  const userClient = createClient<Database>(
+  const userClient = createClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
@@ -209,7 +210,7 @@ export interface DualMemberUser {
   userEmail: string;
   roleInA: UserRole;
   roleInB: UserRole;
-  client: SupabaseClient<Database>;
+  client: TestDb;
 }
 
 export interface DualTenantEcosystem {
@@ -283,7 +284,7 @@ export async function createDualMembershipUser(
   });
   if (memBError) throw new Error(`Failed to bind dual user to tenant B: ${memBError.message}`);
 
-  const userClient = createClient<Database>(
+  const userClient = createClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
@@ -332,7 +333,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
   );
 
   // 4. Seed Patients
-  const { data: patientA, error: pAError } = await (admin.from("patients") as any)
+  const { data: patientA, error: pAError } = await admin.from("patients")
     .insert({
       tenant_id: ownerA.tenantId,
       full_name: `Patient Alpha ${suffix}`,
@@ -344,7 +345,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
     .single();
   if (pAError || !patientA) throw new Error(`Failed to seed patient A: ${pAError?.message}`);
 
-  const { data: patientB, error: pBError } = await (admin.from("patients") as any)
+  const { data: patientB, error: pBError } = await admin.from("patients")
     .insert({
       tenant_id: ownerB.tenantId,
       full_name: `Patient Beta ${suffix}`,
@@ -357,7 +358,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
   if (pBError || !patientB) throw new Error(`Failed to seed patient B: ${pBError?.message}`);
 
   // 5. Seed Consent Records
-  const { data: consentA, error: cAError } = await (admin.from("consent_records") as any)
+  const { data: consentA, error: cAError } = await admin.from("consent_records")
     .insert({
       tenant_id: ownerA.tenantId,
       patient_id: patientA.id,
@@ -370,7 +371,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
     .single();
   if (cAError || !consentA) throw new Error(`Failed to seed consent A: ${cAError?.message}`);
 
-  const { data: consentB, error: cBError } = await (admin.from("consent_records") as any)
+  const { data: consentB, error: cBError } = await admin.from("consent_records")
     .insert({
       tenant_id: ownerB.tenantId,
       patient_id: patientB.id,
@@ -384,7 +385,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
   if (cBError || !consentB) throw new Error(`Failed to seed consent B: ${cBError?.message}`);
 
   // 6. Seed Audit Logs
-  const { data: auditA, error: audAError } = await (admin.from("audit_logs") as any)
+  const { data: auditA, error: audAError } = await admin.from("audit_logs")
     .insert({
       tenant_id: ownerA.tenantId,
       actor_id: ownerA.userId,
@@ -398,7 +399,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
     .single();
   if (audAError || !auditA) throw new Error(`Failed to seed audit log A: ${audAError?.message}`);
 
-  const { data: auditB, error: audBError } = await (admin.from("audit_logs") as any)
+  const { data: auditB, error: audBError } = await admin.from("audit_logs")
     .insert({
       tenant_id: ownerB.tenantId,
       actor_id: ownerB.userId,
@@ -420,7 +421,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
   const rawTokenB = crypto.randomBytes(32).toString("hex");
   const tokenHashB = crypto.createHash("sha256").update(rawTokenB).digest("hex");
 
-  const { data: invA, error: invAError } = await (admin.from("invitations") as any)
+  const { data: invA, error: invAError } = await admin.from("invitations")
     .insert({
       tenant_id: ownerA.tenantId,
       invited_address: `invited-a-${suffix}@example.com`,
@@ -433,7 +434,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
     .single();
   if (invAError || !invA) throw new Error(`Failed to seed invitation A: ${invAError?.message}`);
 
-  const { data: invB, error: invBError } = await (admin.from("invitations") as any)
+  const { data: invB, error: invBError } = await admin.from("invitations")
     .insert({
       tenant_id: ownerB.tenantId,
       invited_address: `invited-b-${suffix}@example.com`,
@@ -447,7 +448,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
   if (invBError || !invB) throw new Error(`Failed to seed invitation B: ${invBError?.message}`);
 
   // 8. Seed Subscriptions
-  const { data: subA, error: subAError } = await (admin.from("subscriptions") as any)
+  const { data: subA, error: subAError } = await admin.from("subscriptions")
     .insert({
       tenant_id: ownerA.tenantId,
       plan: "standard",
@@ -459,7 +460,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
     .single();
   if (subAError || !subA) throw new Error(`Failed to seed subscription A: ${subAError?.message}`);
 
-  const { data: subB, error: subBError } = await (admin.from("subscriptions") as any)
+  const { data: subB, error: subBError } = await admin.from("subscriptions")
     .insert({
       tenant_id: ownerB.tenantId,
       plan: "standard",
@@ -472,7 +473,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
   if (subBError || !subB) throw new Error(`Failed to seed subscription B: ${subBError?.message}`);
 
   // 9. Seed Payment Records
-  const { data: payA, error: payAError } = await (admin.from("payment_records") as any)
+  const { data: payA, error: payAError } = await admin.from("payment_records")
     .insert({
       tenant_id: ownerA.tenantId,
       amount_inr: 1000,
@@ -483,7 +484,7 @@ export async function seedDualTenantEcosystem(): Promise<DualTenantEcosystem> {
     .single();
   if (payAError || !payA) throw new Error(`Failed to seed payment record A: ${payAError?.message}`);
 
-  const { data: payB, error: payBError } = await (admin.from("payment_records") as any)
+  const { data: payB, error: payBError } = await admin.from("payment_records")
     .insert({
       tenant_id: ownerB.tenantId,
       amount_inr: 1000,

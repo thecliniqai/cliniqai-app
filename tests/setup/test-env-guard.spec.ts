@@ -12,6 +12,7 @@ import {
   loadLocalStackKeys,
   parseEnvFile,
   TestEnvGuardError,
+  type EnvMap,
 } from "./test-env";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -25,8 +26,8 @@ function fakeJwt(payload: Record<string, unknown>): string {
 const LOCAL_ANON = fakeJwt({ iss: "supabase-demo", role: "anon" });
 const LOCAL_SERVICE = fakeJwt({ iss: "supabase-demo", role: "service_role" });
 
-function safeEnv(overrides: Record<string, string | undefined> = {}): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
+function safeEnv(overrides: Record<string, string | undefined> = {}): EnvMap {
+  const env: EnvMap = {
     NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: LOCAL_ANON,
     SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE,
@@ -135,6 +136,23 @@ describe("test-env guard rules", () => {
     );
   });
 
+  it("pins the AI kill switch off (V2-02 02-03a)", () => {
+    for (const ok of ["false", "0"]) expect(findTestEnvProblems(safeEnv({ AI_ENABLED: ok }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ AI_ENABLED: "true" }))).toContain(
+      'AI_ENABLED must be unset or false or 0 (got "true")',
+    );
+  });
+
+  it("allows NODE_ENV=production only when the caller opts in (the e2e app server)", () => {
+    expect(findTestEnvProblems(safeEnv({ NODE_ENV: "production" }))).toContain(
+      'NODE_ENV must be unset or test (got "production")',
+    );
+    expect(findTestEnvProblems(safeEnv({ NODE_ENV: "production" }), { allowNodeEnv: ["production"] })).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ NODE_ENV: "development" }), { allowNodeEnv: ["production"] })).toContain(
+      'NODE_ENV must be unset or test or production (got "development")',
+    );
+  });
+
   it("never echoes secret values in its messages", () => {
     const secret = "sk-live-THIS-MUST-NOT-APPEAR";
     const problems = findTestEnvProblems(safeEnv({ OPENAI_API_KEY: secret, SUPABASE_ACCESS_TOKEN: secret }));
@@ -144,7 +162,7 @@ describe("test-env guard rules", () => {
 
 describe("local stack key loading", () => {
   it("fills keys from `supabase status` output and nothing else", () => {
-    const env: NodeJS.ProcessEnv = {};
+    const env: EnvMap = {};
     loadLocalStackKeys(ROOT, env, () => `ANON_KEY="${LOCAL_ANON}"\nSERVICE_ROLE_KEY="${LOCAL_SERVICE}"\nAPI_URL="x"\n`);
     expect(env.NEXT_PUBLIC_SUPABASE_ANON_KEY).toBe(LOCAL_ANON);
     expect(env.SUPABASE_SERVICE_ROLE_KEY).toBe(LOCAL_SERVICE);
@@ -190,6 +208,50 @@ describe("worker network block", () => {
     ]);
     const local = await dns.promises.lookup("localhost");
     expect(["127.0.0.1", "::1"]).toContain(local.address);
+  });
+
+  it("refuses resolver queries and UDP to non-loopback hosts without sending them (AR-L5)", async () => {
+    const dns = await import("node:dns");
+    const dgram = await import("node:dgram");
+    const blocked = /blocked a DNS\/UDP request to non-local host "partner-a.example.com"/;
+    await expect(dns.promises.resolve4("partner-a.example.com")).rejects.toThrow(blocked);
+    await expect(dns.promises.resolveTxt("partner-a.example.com")).rejects.toThrow(blocked);
+    await expect(new dns.promises.Resolver().resolve("partner-a.example.com")).rejects.toThrow(blocked);
+    const viaCallback = await new Promise<Error | null>((resolve) => dns.resolve6("partner-a.example.com", (err) => resolve(err)));
+    expect(viaCallback?.message).toMatch(blocked);
+    const viaResolver = await new Promise<Error | null>((resolve) =>
+      new dns.Resolver().resolveMx("partner-a.example.com", (err) => resolve(err)),
+    );
+    expect(viaResolver?.message).toMatch(blocked);
+    await expect(dns.promises.reverse("93.184.216.34")).rejects.toThrow(/non-local host "93.184.216.34"/);
+
+    const socket = dgram.createSocket("udp4");
+    try {
+      const sendErr = await new Promise<Error | null>((resolve) =>
+        socket.send(Buffer.from("x"), 53, "partner-a.example.com", (err) => resolve(err)),
+      );
+      expect(sendErr?.message).toMatch(blocked);
+      const connectErr = await new Promise<Error>((resolve) => {
+        socket.once("error", resolve);
+        socket.connect(53, "8.8.8.8");
+      });
+      expect(connectErr.message).toMatch(/non-local host "8.8.8.8"/);
+    } finally {
+      socket.close();
+    }
+
+    // Loopback still works: a UDP datagram to a local socket arrives.
+    const receiver = dgram.createSocket("udp4");
+    const sender = dgram.createSocket("udp4");
+    try {
+      await new Promise<void>((resolve) => receiver.bind(0, "127.0.0.1", () => resolve()));
+      const got = new Promise<string>((resolve) => receiver.once("message", (m) => resolve(m.toString())));
+      sender.send(Buffer.from("loopback"), receiver.address().port, "127.0.0.1");
+      expect(await got).toBe("loopback");
+    } finally {
+      receiver.close();
+      sender.close();
+    }
   });
 
   it("refuses to load .env files in workers", () => {

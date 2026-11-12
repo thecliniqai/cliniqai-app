@@ -75,6 +75,7 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
   const { data: tokenRow } = await (supabase.from("queue_tokens") as any)
     .select("token_number")
     .eq("visit_id", id)
+    .eq("tenant_id", membership.tenantId)
     .maybeSingle();
 
   // 3. Fetch patient past encounters timeline for the history drawer
@@ -89,6 +90,7 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
   const { data: followUpRow } = await (supabase.from("follow_ups") as any)
     .select("follow_up_date, notes")
     .eq("visit_id", id)
+    .eq("tenant_id", membership.tenantId)
     .maybeSingle();
 
   // 5. Fetch consultation diagnoses for this visit

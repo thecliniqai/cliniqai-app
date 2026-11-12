@@ -11,7 +11,7 @@ import { GET as exportRoute } from "@/app/api/v1/patients/[id]/export/route";
 import { DELETE as deletePatientRoute } from "@/app/api/v1/patients/[id]/route";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
 import { enableApiV1ForFile } from "../helpers/api-v1";
 
@@ -479,9 +479,11 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
         .select("is_deleted, status, erasure_reason")
         .eq("id", secondPatientId)
         .single();
-      expect(p.is_deleted).toBe(true);
-      expect(p.status).toBe("erased");
-      expect(p.erasure_reason).toBe("Patient DPDP erasure request via external portal");
+      expect(p).toMatchObject({
+        is_deleted: true,
+        status: "erased",
+        erasure_reason: "Patient DPDP erasure request via external portal",
+      });
     });
   });
 

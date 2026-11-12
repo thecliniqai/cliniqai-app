@@ -1,0 +1,20 @@
+[
+  {
+    "id": "GHSA-aaaa-bbbb-cccc",
+    "package": "fixture-transitive",
+    "severity": "high",
+    "reason": "Fixture waiver",
+    "owner": "fixture",
+    "ruling": "fixture",
+    "expires": "2027-01-31"
+  },
+  {
+    "id": "GHSA-kkkk-mmmm-nnnn",
+    "package": "fixture-fixed-long-ago",
+    "severity": "high",
+    "reason": "Fixture waiver for an advisory that is no longer reported",
+    "owner": "fixture",
+    "ruling": "fixture",
+    "expires": "2027-01-31"
+  }
+]

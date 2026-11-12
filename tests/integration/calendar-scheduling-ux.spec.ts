@@ -52,6 +52,18 @@ function createMockSupabase(overrides?: {
           }),
         };
       }
+      if (table === "patients") {
+        // createVisit checks the patient is an active patient of the caller's clinic (P0-13, lib/auth/tenant-refs.ts):
+        // any chain of eq/is filters ends in maybeSingle/single.
+        const patient = { id: "11111111-1111-4111-8111-111111111111" };
+        const filters: Record<string, unknown> = {
+          eq: () => filters,
+          is: () => filters,
+          maybeSingle: async () => ({ data: patient, error: null }),
+          single: async () => ({ data: patient, error: null }),
+        };
+        return { select: () => filters };
+      }
       if (table === "schedule_blocks") {
         return {
           select: () => ({
@@ -68,25 +80,31 @@ function createMockSupabase(overrides?: {
       if (table === "visits") {
         return {
           select: () => ({
-            eq: (col: string, val: string) => ({
-              single: async () => ({
-                data: existingVisits.find((v) => v.id === val) || null,
-                error: null,
-              }),
-              eq: () => ({
-                gte: () => ({
-                  lte: () => ({
-                    not: async () => ({ data: existingVisits, error: null }),
+            eq: (col: string, val: string) => {
+              const byId = async () => ({ data: existingVisits.find((v) => v.id === val) || null, error: null });
+              return {
+                single: byId,
+                // By id: the services also filter on the caller's clinic (AR-M2b); the slot query filters on the doctor.
+                eq: () => ({
+                  single: byId,
+                  gte: () => ({
+                    lte: () => ({
+                      not: async () => ({ data: existingVisits, error: null }),
+                    }),
                   }),
                 }),
-              }),
-            }),
+              };
+            },
           }),
           update: (payload: any) => ({
-            eq: async (col: string, val: string) => {
-              const target = existingVisits.find((v) => v.id === val);
-              if (target) Object.assign(target, payload);
-              return { error: null };
+            eq: (col: string, val: string) => {
+              const apply = () => {
+                const target = existingVisits.find((v) => v.id === val);
+                if (target) Object.assign(target, payload);
+                return { error: null };
+              };
+              // Awaited directly, or after a further `.eq("tenant_id", …)`.
+              return { then: (resolve: (r: { error: null }) => unknown) => resolve(apply()), eq: async () => apply() };
             },
           }),
           insert: (payload: any) => {
@@ -350,7 +368,7 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
           doctor_id: "22222222-2222-4222-8222-222222222222",
           status: "booked",
           scheduled_at: "2026-10-19T04:30:00.000Z",
-          metadata: {},
+          metadata: {} as Record<string, unknown>,
         },
       ];
 

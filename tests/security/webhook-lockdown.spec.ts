@@ -236,11 +236,12 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
         delete process.env.MSG91_WEBHOOK_SECRET;
         (process.env as Record<string, string>).NODE_ENV = nodeEnv;
         const dbSpy = vi.spyOn(adminSupabase, "getAdminClient");
-        for (const headers of [
+        const headerSets: Record<string, string>[] = [
           { "content-type": "application/json" },
           { "content-type": "application/json", "x-webhook-secret": "" },
           { "content-type": "application/json", "x-webhook-secret": SECRET },
-        ]) {
+        ];
+        for (const headers of headerSets) {
           const res = await routeModule.POST(webhook("msg91", cancelA(), { headers }), ctx("msg91"));
           expect(res.status).toBe(401);
         }

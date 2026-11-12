@@ -2,6 +2,10 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { seedCdciTestFixture } from "../../scripts/seed-cdci-test-fixture";
+import type { Database } from "@/lib/db/types";
+
+/** One row of `search_medicines` (the TestDb seam leaves RPC results untyped; this is the declared shape). */
+type MedicineSearchRow = Database["public"]["Functions"]["search_medicines"]["Returns"][number];
 
 describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -69,7 +73,7 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
 
     expect(doloErr).toBeNull();
     expect(doloResults).not.toBeNull();
-    const dolo650 = doloResults!.find((m) => m.medicine_name.includes("Dolo 650"));
+    const dolo650 = doloResults!.find((m: MedicineSearchRow) => m.medicine_name.includes("Dolo 650"));
     expect(dolo650).toBeDefined();
     expect(dolo650?.generic_name).toContain("Paracetamol");
     expect(dolo650?.is_custom).toBe(false);
@@ -84,7 +88,7 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
 
     expect(augErr).toBeNull();
     expect(augResults).not.toBeNull();
-    const augmentinDuo = augResults!.find((m) => m.medicine_name.includes("Augmentin 625"));
+    const augmentinDuo = augResults!.find((m: MedicineSearchRow) => m.medicine_name.includes("Augmentin 625"));
     expect(augmentinDuo).toBeDefined();
     expect(augmentinDuo?.generic_name).toContain("Amoxicillin");
   });
@@ -100,7 +104,7 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
     expect(paraErr).toBeNull();
     expect(paraResults).not.toBeNull();
     expect(paraResults!.length).toBeGreaterThan(0);
-    const hasParacetamol = paraResults!.some((m) =>
+    const hasParacetamol = paraResults!.some((m: MedicineSearchRow) =>
       m.generic_name?.toLowerCase().includes("paracetamol")
     );
     expect(hasParacetamol).toBe(true);
@@ -115,7 +119,7 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
     expect(amoxErr).toBeNull();
     expect(amoxResults).not.toBeNull();
     expect(amoxResults!.length).toBeGreaterThan(0);
-    const hasAmox = amoxResults!.some((m) =>
+    const hasAmox = amoxResults!.some((m: MedicineSearchRow) =>
       m.generic_name?.toLowerCase().includes("amoxicillin")
     );
     expect(hasAmox).toBe(true);
@@ -148,7 +152,7 @@ describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-
 
     expect(error).toBeNull();
     expect(data).not.toBeNull();
-    const foundDoctorACustom = data!.some((m) => m.medicine_name === "Dr A Custom Cough Syrup");
+    const foundDoctorACustom = data!.some((m: MedicineSearchRow) => m.medicine_name === "Dr A Custom Cough Syrup");
     expect(foundDoctorACustom).toBe(false);
   });
 

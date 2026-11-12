@@ -1,0 +1,175 @@
+{
+  "commit": "ade531fe6c7a87c3ee9f440238b359541378de8c",
+  "available": true,
+  "method": "app-build-manifest.json: page + enclosing layouts, gzip -9 per chunk",
+  "routes": [
+    {
+      "route": "/forgot-password",
+      "entry": "/(auth)/forgot-password/page",
+      "firstLoadGzipBytes": 205768,
+      "routeChunkGzipBytes": 2793,
+      "chunks": 12
+    },
+    {
+      "route": "/join",
+      "entry": "/(auth)/join/page",
+      "firstLoadGzipBytes": 201330,
+      "routeChunkGzipBytes": 4025,
+      "chunks": 11
+    },
+    {
+      "route": "/login",
+      "entry": "/(auth)/login/page",
+      "firstLoadGzipBytes": 204398,
+      "routeChunkGzipBytes": 1423,
+      "chunks": 12
+    },
+    {
+      "route": "/billing/register",
+      "entry": "/(dashboard)/billing/register/page",
+      "firstLoadGzipBytes": 208490,
+      "routeChunkGzipBytes": 200,
+      "chunks": 13
+    },
+    {
+      "route": "/billing/reports",
+      "entry": "/(dashboard)/billing/reports/page",
+      "firstLoadGzipBytes": 215358,
+      "routeChunkGzipBytes": 7068,
+      "chunks": 13
+    },
+    {
+      "route": "/cabin",
+      "entry": "/(dashboard)/cabin/page",
+      "firstLoadGzipBytes": 215679,
+      "routeChunkGzipBytes": 7389,
+      "chunks": 13
+    },
+    {
+      "route": "/calendar",
+      "entry": "/(dashboard)/calendar/page",
+      "firstLoadGzipBytes": 225543,
+      "routeChunkGzipBytes": 12888,
+      "chunks": 14
+    },
+    {
+      "route": "/consultation/[id]",
+      "entry": "/(dashboard)/consultation/[id]/page",
+      "firstLoadGzipBytes": 253664,
+      "routeChunkGzipBytes": 34748,
+      "chunks": 16
+    },
+    {
+      "route": "/",
+      "entry": "/(dashboard)/page",
+      "firstLoadGzipBytes": 209777,
+      "routeChunkGzipBytes": 1487,
+      "chunks": 13
+    },
+    {
+      "route": "/patients/[id]",
+      "entry": "/(dashboard)/patients/[id]/page",
+      "firstLoadGzipBytes": 236678,
+      "routeChunkGzipBytes": 16196,
+      "chunks": 16
+    },
+    {
+      "route": "/patients/new",
+      "entry": "/(dashboard)/patients/new/page",
+      "firstLoadGzipBytes": 216840,
+      "routeChunkGzipBytes": 5018,
+      "chunks": 14
+    },
+    {
+      "route": "/patients",
+      "entry": "/(dashboard)/patients/page",
+      "firstLoadGzipBytes": 212917,
+      "routeChunkGzipBytes": 4627,
+      "chunks": 13
+    },
+    {
+      "route": "/profile",
+      "entry": "/(dashboard)/profile/page",
+      "firstLoadGzipBytes": 221176,
+      "routeChunkGzipBytes": 4310,
+      "chunks": 15
+    },
+    {
+      "route": "/queue",
+      "entry": "/(dashboard)/queue/page",
+      "firstLoadGzipBytes": 227693,
+      "routeChunkGzipBytes": 16907,
+      "chunks": 14
+    },
+    {
+      "route": "/referrals",
+      "entry": "/(dashboard)/referrals/page",
+      "firstLoadGzipBytes": 216872,
+      "routeChunkGzipBytes": 5889,
+      "chunks": 14
+    },
+    {
+      "route": "/settings/billing",
+      "entry": "/(dashboard)/settings/billing/page",
+      "firstLoadGzipBytes": 209769,
+      "routeChunkGzipBytes": 1479,
+      "chunks": 13
+    },
+    {
+      "route": "/settings/clinic",
+      "entry": "/(dashboard)/settings/clinic/page",
+      "firstLoadGzipBytes": 223758,
+      "routeChunkGzipBytes": 4885,
+      "chunks": 16
+    },
+    {
+      "route": "/settings/developer",
+      "entry": "/(dashboard)/settings/developer/page",
+      "firstLoadGzipBytes": 219778,
+      "routeChunkGzipBytes": 11488,
+      "chunks": 13
+    },
+    {
+      "route": "/staff",
+      "entry": "/(dashboard)/staff/page",
+      "firstLoadGzipBytes": 222715,
+      "routeChunkGzipBytes": 5849,
+      "chunks": 15
+    },
+    {
+      "route": "/visits",
+      "entry": "/(dashboard)/visits/page",
+      "firstLoadGzipBytes": 218872,
+      "routeChunkGzipBytes": 10582,
+      "chunks": 13
+    },
+    {
+      "route": "/clinic/new",
+      "entry": "/(onboarding)/clinic/new/page",
+      "firstLoadGzipBytes": 115900,
+      "routeChunkGzipBytes": 2835,
+      "chunks": 7
+    },
+    {
+      "route": "/r/[token]",
+      "entry": "/r/[token]/page",
+      "firstLoadGzipBytes": 104407,
+      "routeChunkGzipBytes": 1479,
+      "chunks": 6
+    },
+    {
+      "route": "/reports/view",
+      "entry": "/reports/view/page",
+      "firstLoadGzipBytes": 104407,
+      "routeChunkGzipBytes": 1479,
+      "chunks": 6
+    },
+    {
+      "route": "/reschedule/[token]",
+      "entry": "/reschedule/[token]/page",
+      "firstLoadGzipBytes": 107974,
+      "routeChunkGzipBytes": 2652,
+      "chunks": 7
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+# Nightly lane (V2-02 plan 02-01 step 7; TEST_STRATEGY §8; PWA_STRATEGY §9.1). Schedules run only from the default
+# branch, so this fires once the default branch is feature/v2 (ruling RL-3, applied by the orchestrator).
+# Same rules as ci.yml: no secrets, read-only token (issues: write only on the reporter job), SHA-pinned actions.
+name: Nightly
+
+on:
+  schedule:
+    - cron: "30 20 * * *" # 02:00 IST
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "nightly = full device matrix + full audit; m0-baseline = M0 baseline capture (02-03b)"
+        type: choice
+        options: [nightly, m0-baseline]
+        default: nightly
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+  CI: "true"
+
+jobs:
+  # Full device matrix (02-03a, `e2e:nightly`: smoke + @golden on the PWA_STRATEGY §9.1 nightly projects) or the M0
+  # baseline capture (02-03b, `e2e:baseline`: the six flows on desktop-chrome for interaction counts, screenshots at
+  # 360/768/1280, the report-only axe run per route on the PR-lane devices, then scripts/m0-baseline-report.mjs). The
+  # baseline report is uploaded as an artifact; the orchestrator commits it with the run link.
+  e2e-nightly:
+    name: e2e-nightly
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      LANE: ${{ inputs.lane || 'nightly' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lane script
+        id: lane
+        run: |
+          case "$LANE" in
+            nightly) script="e2e:nightly" ;;
+            m0-baseline) script="e2e:baseline" ;;
+            *) echo "unknown lane" >&2; exit 2 ;;
+          esac
+          echo "script=$script" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Playwright version
+        id: pw
+        run: echo "version=$(node -p 'require("@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Start the local Supabase stack
+        # IR-F8: image pulls hit registry rate limits; retry with cleanup and backoff (bounded: 3 attempts).
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
+          -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+      - name: e2e build
+        run: npm run e2e:build
+      - name: Run the lane
+        run: npm run "$SCRIPT"
+        env:
+          SCRIPT: ${{ steps.lane.outputs.script }}
+      - name: Run summary (retried and failed tests; report only)
+        if: ${{ !cancelled() }}
+        run: node scripts/ci/playwright-summary.mjs playwright-report/results.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-${{ env.LANE }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && env.LANE == 'm0-baseline' }}
+        with:
+          name: m0-baseline-report
+          path: .planning/phases/02-ci-e2e-foundations/evidence/m0-baseline/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Stop the local stack
+        if: ${{ always() }}
+        run: npx supabase stop --no-backup
+
+  # Full dependency audit including dev dependencies: report only (the PR gate is production deps, high/critical).
+  audit-full:
+    name: audit-full
+    if: ${{ (inputs.lane || 'nightly') == 'nightly' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: npm audit (all deps, report only)
+        run: |
+          npm audit --json > npm-audit-full.json || true
+          node -e '
+            const r = require("./npm-audit-full.json");
+            const v = r.metadata?.vulnerabilities ?? {};
+            const rows = ["critical", "high", "moderate", "low", "info"].map((s) => `| ${s} | ${v[s] ?? 0} |`);
+            console.log(["### Full npm audit (report only)", "", "| severity | count |", "|---|---|", ...rows].join("\n"));
+          ' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: npm-audit-full
+          path: npm-audit-full.json
+          retention-days: 30
+
+  # One open "Nightly failing" issue opened by this bot: created on the first failure, commented on every later one.
+  report-failure:
+    name: report-failure
+    needs: [e2e-nightly, audit-full]
+    if: ${{ failure() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      HEAD_SHA: ${{ github.sha }}
+    steps:
+      # Only the issue picker (AR-L1); the job runs on schedule/dispatch from the repository's own branch, never on PR code.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci/pick-nightly-issue.mjs
+          sparse-checkout-cone-mode: false
+      - name: Open or update the Nightly failing issue
+        run: |
+          body="Nightly run failed: $RUN_URL (commit $HEAD_SHA)."
+          # AR-L1: only the bot's own issue (anyone can open one with this title); checked by the query and the script.
+          number="$(gh issue list --state open --author app/github-actions --search 'in:title "Nightly failing"' \
+            --json number,title,author | node scripts/ci/pick-nightly-issue.mjs)"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "Nightly failing" --body "$body"
+          fi

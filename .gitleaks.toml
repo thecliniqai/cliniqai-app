@@ -1,0 +1,44 @@
+# gitleaks configuration (V2-02 plan 02-01, P0-11, RL-9). Run by scripts/ci/install-gitleaks.sh in the CI
+# `security` job over the full git history on every PR.
+#
+# Default rules plus clinicOS-specific token shapes. Allowlists are as narrow as possible: one path pair + one exact
+# literal (SEC-28). Historic synthetic test values that the default `generic-api-key` rule flags are suppressed by
+# exact fingerprint (commit:file:rule:line) in .gitleaksignore, never by path or regex.
+
+title = "clinicOS gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "clinicos-api-key"
+description = "clinicOS public API key (lib/api/auth.ts: clq_live_ + 48 hex)"
+regex = '''clq_live_[a-f0-9]{48}'''
+keywords = ["clq_live_"]
+
+  # SEC-28: the API-key auth specs send a deliberately fake all-zero key to prove it is rejected.
+  [[rules.allowlists]]
+  description = "SEC-28 fake all-zero API key in the v1 API auth specs"
+  condition = "AND"
+  paths = ['''^tests/api/(v1-auth|api-v1-switch)\.spec\.ts$''']
+  regexTarget = "match"
+  regexes = ['''^clq_live_0{48}$''']
+
+[[rules]]
+id = "clinicos-webhook-signing-secret"
+description = "clinicOS outbound webhook signing secret (whsec_ + 48 hex)"
+regex = '''whsec_[a-f0-9]{48}'''
+keywords = ["whsec_"]
+
+[[rules]]
+id = "supabase-personal-access-token"
+description = "Supabase personal access token (sbp_ + 40 hex)"
+regex = '''sbp_[a-f0-9]{40}'''
+keywords = ["sbp_"]
+
+[[rules]]
+id = "msg91-auth-key"
+description = "MSG91 auth key assigned to an authkey / MSG91_AUTH_KEY name (6 digits, 'A', 16-32 alphanumerics)"
+regex = '''(?i)(?:msg91[_-]?auth[_-]?key|authkey)["'`]?\s*[:=]\s*["'`]?([0-9]{6}A[0-9A-Za-z]{16,32})\b'''
+secretGroup = 1
+keywords = ["authkey", "msg91"]

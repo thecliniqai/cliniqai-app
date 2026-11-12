@@ -1,7 +1,34 @@
-import { describe, it, expect, vi } from "vitest";
-import { computeDateRange, visitsFilterSchema } from "@/features/visits/schema";
+/**
+ * Clinic visits register and filters (Plan 03.2-02 / REQ-diagnosis-visit-management).
+ *
+ * The `computeDateRange` cases are pure unit tests. The register and doctor-list cases were rewritten in V2-02
+ * 02-04 (TEST_STRATEGY T-12, E-5) from a mocked client, whose "isolation" check only proved the service called
+ * `.eq("tenant_id", ...)`, into tests on the local stack: two tenants are seeded and the services run with real JWT
+ * clients (RLS applies), including a user who is a member of both tenants.
+ */
+import { beforeAll, describe, expect, it } from "vitest";
+import { computeDateRange } from "@/features/visits/schema";
 import { getClinicVisitsRegister, getActiveClinicDoctors } from "@/features/visits/service";
-import { mockCtx } from "../helpers/context";
+import { randomUUID } from "node:crypto";
+import {
+  addMemberToTenant,
+  createDualMembershipUser,
+  seedTenantWithOwner,
+  type DualMemberUser,
+  type SeededTenant,
+} from "../helpers/tenants";
+import { getAdminClient } from "../helpers/supabase-admin";
+import { ctxFor } from "../helpers/context";
+
+async function insertRow(table: string, row: Record<string, unknown>): Promise<string> {
+  const { data, error } = await getAdminClient().from(table).insert(row).select("id").single();
+  if (error || !data) throw new Error(`${table} seed failed: ${error?.message}`);
+  return data.id as string;
+}
+
+function minutesAgo(minutes: number): string {
+  return new Date(Date.now() - minutes * 60_000).toISOString();
+}
 
 describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-management)", () => {
   describe("computeDateRange (Date Math & Boundaries)", () => {
@@ -61,260 +88,212 @@ describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-m
     });
   });
 
-  describe("getClinicVisitsRegister (Data Access & Multi-Tenant Enforcement)", () => {
-    const tenantId = "tenant-apollo-1";
-    const doctorId = "doc-dr-raj";
-    const patientId = "patient-p1";
+  describe("getClinicVisitsRegister and getActiveClinicDoctors (local stack, two tenants)", () => {
+    // "last_7_days" rather than "today" so a run that crosses UTC midnight after seeding still sees every visit.
+    const filter = { datePreset: "last_7_days" as const };
 
-    const mockVisits = [
-      {
-        id: "v-1",
-        tenant_id: tenantId,
-        patient_id: patientId,
-        doctor_id: doctorId,
-        origin_type: "walk_in",
-        status: "completed",
-        scheduled_at: null,
-        created_at: "2026-10-16T09:30:00Z",
-        reason_for_visit: "Cough and cold",
-        specialty: "general_physician",
-      },
-      {
-        id: "v-2",
-        tenant_id: tenantId,
-        patient_id: patientId,
-        doctor_id: doctorId,
-        origin_type: "scheduled",
-        status: "in_consultation",
-        scheduled_at: "2026-10-16T10:00:00Z",
-        created_at: "2026-10-16T10:00:00Z",
-        reason_for_visit: "Routine follow-up",
-        specialty: "general_physician",
-      },
-      {
-        id: "v-3",
-        tenant_id: tenantId,
-        patient_id: "patient-p2",
-        doctor_id: "doc-dr-sneha",
-        origin_type: "walk_in",
-        status: "waiting",
-        scheduled_at: null,
-        created_at: "2026-10-16T10:15:00Z",
-        reason_for_visit: "Skin allergy",
-        specialty: "general_physician",
-      },
-    ];
+    let ownerA: SeededTenant;
+    let doctorA1: SeededTenant;
+    let doctorA2: SeededTenant;
+    let ownerB: SeededTenant;
+    let doctorB: SeededTenant;
+    let dual: DualMemberUser;
+    let v1: string;
+    let v2: string;
+    let v3: string;
+    let visitB: string;
 
-    const mockInvoices = [
-      {
-        id: "inv-1",
-        visit_id: "v-1",
-        tenant_id: tenantId,
-        invoice_number: "INV-001",
-        total_amount: 600,
-        status: "paid",
-      },
-      {
-        id: "inv-2",
-        visit_id: "v-2",
-        tenant_id: tenantId,
-        invoice_number: "INV-002",
-        total_amount: 400,
-        status: "draft",
-      },
-    ];
+    beforeAll(async () => {
+      const admin = getAdminClient();
+      const suffix = randomUUID().slice(0, 8);
 
-    it("strictly isolates queries to active tenant and calculates summary metrics", async () => {
-      let appliedTenantFilter = "";
+      ownerA = await seedTenantWithOwner(`Register Clinic A ${suffix}`);
+      doctorA1 = await addMemberToTenant(ownerA.tenantId, "doctor");
+      doctorA2 = await addMemberToTenant(ownerA.tenantId, "doctor");
+      ownerB = await seedTenantWithOwner(`Register Clinic B ${suffix}`);
+      doctorB = await addMemberToTenant(ownerB.tenantId, "doctor");
+      dual = await createDualMembershipUser(ownerA.tenantId, "doctor", ownerB.tenantId, "receptionist");
 
-      const mockClient: any = {
-        from: vi.fn((table: string) => {
-          const query: any = {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn((col: string, val: any) => {
-              if (col === "tenant_id") appliedTenantFilter = val;
-              return query;
-            }),
-            gte: vi.fn().mockReturnThis(),
-            lte: vi.fn().mockReturnThis(),
-            in: vi.fn().mockReturnThis(),
-            order: vi.fn().mockReturnThis(),
-            then: (resolve: any) => {
-              if (table === "visits") {
-                const filtered = mockVisits.filter((v) => v.tenant_id === appliedTenantFilter);
-                return resolve({ data: filtered, error: null });
-              }
-              if (table === "invoices") {
-                return resolve({ data: mockInvoices, error: null });
-              }
-              if (table === "patients") {
-                return resolve({
-                  data: [
-                    {
-                      id: patientId,
-                      full_name: "Rahul Sharma",
-                      phone: "+919876543210",
-                      age: 32,
-                      sex: "male",
-                      abha_id: "91-1234-5678-9012",
-                    },
-                    {
-                      id: "patient-p2",
-                      full_name: "Pooja Verma",
-                      phone: "+919876543211",
-                      age: 28,
-                      sex: "female",
-                    },
-                  ],
-                  error: null,
-                });
-              }
-              if (table === "memberships") {
-                return resolve({
-                  data: [
-                    {
-                      user_id: doctorId,
-                      full_name: "Dr. Raj Malhotra",
-                      qualifications: "MBBS, MD",
-                      default_specialty: "General Medicine",
-                      role: "doctor",
-                    },
-                    {
-                      user_id: "doc-dr-sneha",
-                      full_name: "Dr. Sneha Roy",
-                      qualifications: "MBBS",
-                      default_specialty: "General Medicine",
-                      role: "doctor",
-                    },
-                  ],
-                  error: null,
-                });
-              }
-              if (table === "queue_tokens") {
-                return resolve({
-                  data: [
-                    { visit_id: "v-1", token_number: 1 },
-                    { visit_id: "v-2", token_number: 2 },
-                  ],
-                  error: null,
-                });
-              }
-              if (table === "consultation_diagnoses") {
-                return resolve({
-                  data: [
-                    {
-                      id: "d-1",
-                      visit_id: "v-1",
-                      diagnosis_name: "Viral Bronchitis",
-                      icd11_code: "CA42",
-                      is_chronic: false,
-                    },
-                  ],
-                  error: null,
-                });
-              }
-              if (table === "prescriptions") {
-                return resolve({
-                  data: [
-                    {
-                      id: "rx-1",
-                      visit_id: "v-1",
-                      version: 1,
-                      status: "active",
-                      signed_at: "2026-10-16T09:45:00Z",
-                    },
-                  ],
-                  error: null,
-                });
-              }
-              if (table === "prescription_items") {
-                return resolve({
-                  data: [
-                    {
-                      id: "item-1",
-                      prescription_id: "rx-1",
-                      medicine_name: "Azithromycin 500mg",
-                      dosage: "1-0-0",
-                      duration: "3 days",
-                    },
-                  ],
-                  error: null,
-                });
-              }
-              if (table === "payments") {
-                return resolve({
-                  data: [{ invoice_id: "inv-1", amount: 600 }],
-                  error: null,
-                });
-              }
-              return resolve({ data: [], error: null });
-            },
-          };
-          return query;
-        }),
-      };
+      const { error: profileErr } = await admin
+        .from("memberships")
+        .update({ full_name: "Dr. Synthetic Raj", qualifications: "MBBS, MD" })
+        .eq("user_id", doctorA1.userId)
+        .eq("tenant_id", ownerA.tenantId);
+      if (profileErr) throw new Error(`doctor profile seed failed: ${profileErr.message}`);
 
-      const result = await getClinicVisitsRegister(mockCtx(mockClient, { userId: "usr-admin", tenantId }), {
-        datePreset: "today",
+      const p1 = await insertRow("patients", {
+        tenant_id: ownerA.tenantId,
+        full_name: "Synthetic Register Patient One",
+        phone: "+919800000301",
+        sex: "male",
+        age: 32,
+        created_by: ownerA.userId,
+      });
+      const p2 = await insertRow("patients", {
+        tenant_id: ownerA.tenantId,
+        full_name: "Synthetic Register Patient Two",
+        phone: "+919800000302",
+        sex: "female",
+        age: 28,
+        created_by: ownerA.userId,
+      });
+      const pB = await insertRow("patients", {
+        tenant_id: ownerB.tenantId,
+        full_name: "Synthetic Register Patient B",
+        phone: "+919800000303",
+        sex: "female",
+        age: 45,
+        created_by: ownerB.userId,
       });
 
-      // Verify tenant isolation
-      expect(appliedTenantFilter).toBe(tenantId);
+      const visit = (row: Record<string, unknown>) =>
+        insertRow("visits", { origin_type: "walk_in", specialty: "general_physician", ...row });
+      v1 = await visit({
+        tenant_id: ownerA.tenantId,
+        patient_id: p1,
+        doctor_id: doctorA1.userId,
+        status: "completed",
+        created_at: minutesAgo(30),
+        reason_for_visit: "Synthetic cough",
+        created_by: ownerA.userId,
+      });
+      v2 = await visit({
+        tenant_id: ownerA.tenantId,
+        patient_id: p1,
+        doctor_id: doctorA1.userId,
+        origin_type: "scheduled",
+        status: "in_consultation",
+        scheduled_at: minutesAgo(20),
+        created_at: minutesAgo(20),
+        reason_for_visit: "Synthetic follow-up",
+        created_by: ownerA.userId,
+      });
+      v3 = await visit({
+        tenant_id: ownerA.tenantId,
+        patient_id: p2,
+        doctor_id: doctorA2.userId,
+        status: "waiting",
+        created_at: minutesAgo(10),
+        reason_for_visit: "Synthetic rash",
+        created_by: ownerA.userId,
+      });
+      visitB = await visit({
+        tenant_id: ownerB.tenantId,
+        patient_id: pB,
+        doctor_id: doctorB.userId,
+        status: "completed",
+        created_at: minutesAgo(15),
+        reason_for_visit: "Synthetic tenant B visit",
+        created_by: ownerB.userId,
+      });
 
-      // Verify metrics
-      expect(result.totalCount).toBe(3);
-      expect(result.metrics.totalVisits).toBe(3);
-      expect(result.metrics.completedVisits).toBe(1);
-      expect(result.metrics.inProgressVisits).toBe(1);
-      expect(result.metrics.waitingVisits).toBe(1);
-      expect(result.metrics.totalBilledRevenue).toBe(1000); // 600 + 400
+      await insertRow("queue_tokens", { tenant_id: ownerA.tenantId, visit_id: v1, token_number: 1 });
+      await insertRow("queue_tokens", { tenant_id: ownerA.tenantId, visit_id: v2, token_number: 2 });
+      await insertRow("consultation_diagnoses", {
+        tenant_id: ownerA.tenantId,
+        visit_id: v1,
+        patient_id: p1,
+        diagnosis_name: "Viral Bronchitis",
+        icd11_code: "CA42",
+      });
+      const rxId = await insertRow("prescriptions", {
+        tenant_id: ownerA.tenantId,
+        visit_id: v1,
+        patient_id: p1,
+        doctor_id: doctorA1.userId,
+        version: 1,
+        status: "active",
+        letterhead_mode: "blank_paper",
+        signed_at: minutesAgo(25),
+      });
+      await insertRow("prescription_items", {
+        prescription_id: rxId,
+        medicine_name: "Azithromycin 500mg",
+        dosage: "1-0-0",
+        timing: "Before food",
+        duration: "3 days",
+      });
 
-      // Verify joined data
-      expect(result.visits.length).toBe(3);
-      expect(result.visits[0].patient.full_name).toBe("Rahul Sharma");
-      expect(result.visits[0].doctor.full_name).toBe("Dr. Raj Malhotra");
-      expect(result.visits[0].diagnoses[0].diagnosis_name).toBe("Viral Bronchitis");
-      expect(result.visits[0].prescription?.item_count).toBe(1);
-      expect(result.visits[0].invoice?.status).toBe("paid");
-      expect(result.visits[0].invoice?.balance_due).toBe(0);
+      const invoice = (tenantId: string, patientId: string, visitId: string, amount: number, status: string) =>
+        insertRow("invoices", {
+          tenant_id: tenantId,
+          patient_id: patientId,
+          visit_id: visitId,
+          invoice_number: `INV-REG-${suffix}-${visitId.slice(0, 8)}`,
+          subtotal: amount,
+          total_amount: amount,
+          status,
+        });
+      const inv1 = await invoice(ownerA.tenantId, p1, v1, 600, "paid");
+      await invoice(ownerA.tenantId, p1, v2, 400, "draft");
+      // Tenant B's revenue must never reach tenant A's metrics.
+      await invoice(ownerB.tenantId, pB, visitB, 999, "issued");
+      await insertRow("payments", {
+        tenant_id: ownerA.tenantId,
+        invoice_id: inv1,
+        amount: 600,
+        payment_method: "cash",
+        recorded_by: ownerA.userId,
+        recorded_at: minutesAgo(25),
+      });
     });
 
-    it("filters active clinic doctors by tenant", async () => {
-      let docTenant = "";
-      const mockClient: any = {
-        from: vi.fn(() => ({
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn((col: string, val: any) => {
-            if (col === "tenant_id") docTenant = val;
-            return {
-              in: vi.fn().mockReturnThis(),
-              order: vi.fn().mockReturnThis(),
-              then: (resolve: any) =>
-                resolve({
-                  data: [
-                    {
-                      id: "mem-1",
-                      user_id: "u-1",
-                      full_name: "Dr. Mehta",
-                      qualifications: "MD",
-                      default_specialty: "Cardiology",
-                      role: "doctor",
-                    },
-                  ],
-                  error: null,
-                }),
-            };
-          }),
-        })),
-      };
+    it("returns only the active tenant's visits, newest first, with summary metrics and joined data", async () => {
+      const result = await getClinicVisitsRegister(ctxFor(ownerA), filter);
 
-      const doctors = await getActiveClinicDoctors(
-        mockCtx(mockClient, { userId: "u-1", tenantId: "tenant-cardio-9" })
-      );
+      expect(result.visits.map((v) => v.id)).toEqual([v3, v2, v1]);
+      expect(result.totalCount).toBe(3);
+      expect(result.metrics).toEqual({
+        totalVisits: 3,
+        completedVisits: 1,
+        inProgressVisits: 1,
+        waitingVisits: 1,
+        totalBilledRevenue: 1000, // 600 + 400; tenant B's 999 excluded
+      });
 
-      expect(docTenant).toBe("tenant-cardio-9");
-      expect(doctors.length).toBe(1);
-      expect(doctors[0].full_name).toBe("Dr. Mehta");
+      const first = result.visits.find((v) => v.id === v1);
+      expect(first?.patient.full_name).toBe("Synthetic Register Patient One");
+      expect(first?.doctor.full_name).toBe("Dr. Synthetic Raj");
+      expect(first?.token_number).toBe(1);
+      expect(first?.diagnoses.map((d) => d.diagnosis_name)).toEqual(["Viral Bronchitis"]);
+      expect(first?.prescription?.item_count).toBe(1);
+      expect(first?.invoice?.status).toBe("paid");
+      expect(first?.invoice?.balance_due).toBe(0);
+    });
+
+    it("scopes the register to the context's tenant even for a user whose RLS reaches both tenants", async () => {
+      const inA = ctxFor({ userId: dual.userId, tenantId: ownerA.tenantId, role: dual.roleInA, client: dual.client });
+      const inB = ctxFor({ userId: dual.userId, tenantId: ownerB.tenantId, role: dual.roleInB, client: dual.client });
+
+      const asA = await getClinicVisitsRegister(inA, filter);
+      expect(asA.visits.map((v) => v.id)).toEqual([v3, v2, v1]);
+      expect(asA.metrics.totalBilledRevenue).toBe(1000);
+
+      // The same JWT does reach B's rows when acting in B, so A's result is the service's tenant scoping.
+      const asB = await getClinicVisitsRegister(inB, filter);
+      expect(asB.visits.map((v) => v.id)).toEqual([visitB]);
+      expect(asB.metrics.totalBilledRevenue).toBe(999);
+    });
+
+    it("lists the active tenant's doctors, owners and admins only", async () => {
+      const doctors = await getActiveClinicDoctors(ctxFor(ownerA));
+      const ids = doctors.map((d) => d.user_id);
+
+      expect(ids).toEqual(expect.arrayContaining([ownerA.userId, doctorA1.userId, doctorA2.userId, dual.userId]));
+      expect(ids).toHaveLength(4);
+      expect(ids).not.toContain(ownerB.userId);
+      expect(ids).not.toContain(doctorB.userId);
+      expect(doctors.find((d) => d.user_id === doctorA1.userId)?.full_name).toBe("Dr. Synthetic Raj");
+
+      const dualInA = ctxFor({
+        userId: dual.userId,
+        tenantId: ownerA.tenantId,
+        role: dual.roleInA,
+        client: dual.client,
+      });
+      const dualIds = (await getActiveClinicDoctors(dualInA)).map((d) => d.user_id);
+      expect(dualIds).not.toContain(ownerB.userId);
+      expect(dualIds).not.toContain(doctorB.userId);
     });
   });
 });

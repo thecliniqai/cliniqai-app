@@ -3,6 +3,7 @@ import "server-only";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { visitInTenant } from "@/lib/auth/tenant-refs";
 import { Referral } from "@/lib/db/types";
 import { getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
 import { createReferralSchema, closeReferralLoopSchema, acknowledgeReferralSchema } from "./schema";
@@ -43,10 +44,17 @@ export async function createReferral(
     const { data: patient, error: patientErr } = await (supabase.from("patients") as any)
       .select("id, full_name, phone, age, sex, address, abha_id")
       .eq("id", input.patient_id)
+      .eq("tenant_id", session.tenantId)
       .single();
 
     if (patientErr || !patient) {
       return { success: false, error: "Patient not found." };
+    }
+
+    // A linked visit must be this clinic's visit of the same patient (P0-13: the FK and RLS do not check this; the
+    // API-key path reads with the service role, so the tenant filters above and here are the only scoping).
+    if (input.visit_id && !(await visitInTenant(ctx, input.visit_id, input.patient_id))) {
+      return { success: false, error: "Visit not found." };
     }
 
     // 2. Fetch clinic info
@@ -84,13 +92,15 @@ export async function createReferral(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: diagList } = await (supabase.from("consultation_diagnoses") as any)
             .select("diagnosis_name")
-            .eq("visit_id", v.id);
+            .eq("visit_id", v.id)
+            .eq("tenant_id", session.tenantId);
 
           // Fetch prescriptions for visit
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: rxList } = await (supabase.from("prescriptions") as any)
             .select("id")
             .eq("visit_id", v.id)
+            .eq("tenant_id", session.tenantId)
             .order("version", { ascending: false })
             .limit(1);
 
@@ -388,6 +398,8 @@ export async function acknowledgeReferral(
         updated_at: new Date().toISOString(),
       })
       .eq("id", referralId)
+      // Only the receiving clinic, and only the one the caller is acting in (AR-M2b).
+      .eq("target_tenant_id", session.tenantId)
       .select("id")
       .single();
 

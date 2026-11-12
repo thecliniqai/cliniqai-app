@@ -6,19 +6,52 @@
  * Usage: node scripts/phase-evidence.mjs <evidence-dir> [runs=2]
  * Writes: commit.txt, full-run-<n>.json (Vitest JSON reporter), summary.json (per-run counts + per-file status +
  * teardown line), static-checks.json (typecheck, eslint, acceptance greps, inventory, dependency versions).
+ *
+ * Usage: node scripts/phase-evidence.mjs <evidence-dir> --ci-run <run-id>
+ * Writes only ci-run.json: the GitHub Actions run (URL, head SHA, branch, event, conclusion, per-job conclusions)
+ * exactly as `gh run view --json` returns it (V2-02: CI evidence = run link + commit SHA). Needs an authenticated
+ * `gh`; read-only. Run by the orchestrator.
  * Prints nothing sensitive: no env values, no test data.
  */
-import { execSync, spawnSync } from "node:child_process";
+import { execFileSync, execSync, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const dir = resolve(process.argv[2] ?? "");
-if (!process.argv[2]) {
-  console.error("usage: node scripts/phase-evidence.mjs <evidence-dir> [runs]");
+if (!process.argv[2] || process.argv[2].startsWith("--")) {
+  console.error("usage: node scripts/phase-evidence.mjs <evidence-dir> [runs] | <evidence-dir> --ci-run <run-id>");
   process.exit(2);
 }
-const runs = Number(process.argv[3] ?? 2);
 mkdirSync(dir, { recursive: true });
+
+const ciRunIdx = process.argv.indexOf("--ci-run");
+if (ciRunIdx > -1) {
+  const runId = process.argv[ciRunIdx + 1];
+  if (!/^\d+$/.test(runId ?? "")) {
+    console.error("--ci-run needs a numeric GitHub Actions run id");
+    process.exit(2);
+  }
+  const fields = "databaseId,url,headSha,headBranch,event,status,conclusion,workflowName,createdAt,updatedAt,jobs";
+  const run = JSON.parse(execFileSync("gh", ["run", "view", runId, "--json", fields], { encoding: "utf8" }));
+  const record = {
+    tool: "scripts/phase-evidence.mjs --ci-run",
+    recorded_at: new Date().toISOString(),
+    ...run,
+    jobs: (run.jobs ?? []).map((j) => ({
+      name: j.name,
+      conclusion: j.conclusion,
+      startedAt: j.startedAt,
+      completedAt: j.completedAt,
+      url: j.url,
+    })),
+  };
+  writeFileSync(join(dir, "ci-run.json"), `${JSON.stringify(record, null, 1)}\n`);
+  console.log(`ci-run ${run.databaseId}: ${run.workflowName} ${run.conclusion ?? run.status} @ ${run.headSha} ${run.url}`);
+  for (const j of record.jobs) console.log(`  ${j.name}: ${j.conclusion}`);
+  process.exit(0);
+}
+
+const runs = Number(process.argv[3] ?? 2);
 
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 const status = (cmd, args) => {
@@ -61,7 +94,11 @@ const grepCount = (pattern, paths) => {
   const r = spawnSync("grep", ["-rnE", pattern, ...paths], { encoding: "utf8" });
   return r.stdout.split("\n").filter(Boolean).length;
 };
-const inventory = spawnSync("npx", ["tsx", "scripts/inventory-server-actions.ts"], { encoding: "utf8" });
+// Local pinned tsx (devDependency), never an `npx` download.
+const inventory = spawnSync("node_modules/.bin/tsx", ["scripts/inventory-server-actions.ts"], {
+  encoding: "utf8",
+  maxBuffer: 64 * 1024 * 1024,
+});
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const installedNext = JSON.parse(readFileSync("node_modules/next/package.json", "utf8")).version;
 

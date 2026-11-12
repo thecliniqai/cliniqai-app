@@ -31,7 +31,6 @@ import {
   Loader2,
   User,
   Stethoscope,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -716,7 +715,6 @@ export function CheckoutDrawer({
                 <div className="p-4 rounded-xl bg-gray-50/80 border border-gray-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-[#1769E0]" />
                       Add Additional Service / Procedure
                     </span>
                     {isAddingItem && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1769E0]" />}

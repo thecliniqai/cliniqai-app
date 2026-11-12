@@ -5,9 +5,16 @@ node_modules
 
 # Testing & Coverage
 /coverage
+# CI report outputs (V2-02 02-01), uploaded as artifacts, never committed
+/inventory.json
+/vitest-report.json
+/gitleaks.sarif
+/npm-audit-full.json
 /test-results
 playwright-report
 blob-report
+# Playwright per-run seed data and signed-in storage states (V2-02 02-03a); never committed
+/playwright/.auth/
 
 # Next.js build output
 /.next/
@@ -69,3 +76,6 @@ pnpm-debug.log*
 
 # Supabase CLI local state (V2-01a)
 supabase/.branches/
+
+# P0-13 CI canary copy (scripts/ci/guard-canary.mjs deletes it; never commit it)
+/features/__guard_canary__/
