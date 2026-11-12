@@ -35,7 +35,8 @@
       "Bash(npx supabase db push*)",
       "Bash(supabase db reset --linked*)",
       "Bash(npx supabase db reset --linked*)",
-      "Bash(npm run seed:*)",
+      "Bash(npm run seed:cdci*)",
+      "Bash(npm run seed:diagnoses*)",
       "Read(./supabase/.temp/**)",
       "Read(**/supabase/.temp/**)",
       "Read(./.env.test.local)",
@@ -63,26 +64,21 @@
       "Edit(**/.env.*.local)",
       "Edit(**/.env.production)",
       "Edit(./.env.staging.local)",
-      "Edit(./.env.test.local)"
-    ],
-    "allow": [
-      "Bash(npm run typecheck)",
-      "Bash(npx tsc --noEmit)",
-      "Bash(git status*)",
-      "Bash(git log*)",
-      "Bash(npx eslint)",
-      "Bash(npx eslint *)",
-      "Bash(git diff)",
-      "Bash(git diff *)"
-    ],
-    "ask": [
-      "Bash(npm test*)",
-      "Bash(npm run test*)",
-      "Bash(npx vitest*)",
-      "Bash(npx playwright*)",
+      "Edit(./.env.test.local)",
       "Bash(npx tsx --env-file*)",
       "Bash(node --env-file*)",
       "Bash(npm run msg91:*)"
+    ],
+    "allow": [
+      "Bash",
+      "Read",
+      "Edit",
+      "Write",
+      "NotebookEdit",
+      "Glob",
+      "Grep",
+      "WebFetch",
+      "WebSearch"
     ]
   }
 }

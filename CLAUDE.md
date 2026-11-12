@@ -1,3 +1,6 @@
+# Sub Agent Rule
+Never set a mode when starting a subagent.
+
 # clinicOS — working agreement for coding agents
 
 Clinic management SaaS for independent doctors and small clinics in India (roles: owner/admin, doctor,
@@ -20,19 +23,25 @@ Storage) via @supabase/ssr · zod · Vitest · Playwright. Code: `app/` (routes)
 `lib/` (cross-cutting), `components/`, `supabase/migrations/`, `tests/`.
 
 ## Commands
-- `npm run typecheck` · `npx eslint .`
-- Tests: `vitest.config.ts` loads `.env` itself (any variable not already set in the shell), and the
-  seed/msg91 scripts use `--env-file=.env`, so a bare `npm test`, `npx vitest` or `npx playwright` can
-  reach the hosted project. Until the local DB harness (phase V2-01a) lands, do not run vitest,
-  playwright or any script without PO approval; the only approved form overrides every external service:
-  `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:9 NEXT_PUBLIC_SUPABASE_ANON_KEY=x SUPABASE_SERVICE_ROLE_KEY=x SUPABASE_ACCESS_TOKEN=x MSG91_AUTH_KEY=x MSG91_WEBHOOK_SECRET=testsecret MSG91_INTEGRATED_NUMBER=x MESSAGING_PROVIDER=dev AI_PROVIDER=mock AI_API_KEY=x npx vitest run --reporter=dot`
-  (expected: DB-backed files fail against the dead endpoint; see `docs/v2/TEST_STRATEGY.md`). Empty
-  overrides do not work (the loader fills unset or empty keys), and R2 cannot be disabled this way, so the
-  PO confirms `R2_*` is unset in `.env` (`docs/ops/secret-rotation.md`). Delete
-  `.planning/dev-messages.txt` if the run recreates it.
+- `npm run typecheck` (app + tests) · `npx eslint .` · `npm run inventory` (server-action inventory, exits 1 on a flag)
+- Local stack: `npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor` ·
+  `npx supabase db reset --local` (re-applies all migrations). Never `--linked`, never `db push`.
+- Unit + DB tests: `npm run test:db` (starts the stack, then `vitest run`) or `npx vitest run` with the stack
+  up. They run freely: `vitest.config.ts` never reads `.env`, uses the local stack keys, and a fail-closed
+  guard refuses any non-loopback Supabase URL or outbound network. Coverage: `npm run test:coverage`.
+  Delete `.planning/dev-messages.txt` if a run recreates it.
+- Browser tests: `npm run e2e:build`, then `npm run e2e:pr` (desktop, Pixel 7, iPhone 15). The e2e server
+  is locked down (allowlisted env, no `.env` loading, loopback only, port 3100). `npm run e2e:nightly` is the
+  full device matrix; `npm run e2e:baseline` regenerates the M0 report.
+- Synthetic local logins: `npm run seed:local` (loopback only; `-- --reset` removes them).
+- NEVER run: `seed:cdci*`, `seed:diagnoses`, `msg91:*`, or anything with `--env-file=.env` — they target
+  the hosted project or send real WhatsApp messages.
+- Gate evidence: `node scripts/phase-evidence.mjs <phase>/evidence 2` (two full runs + static checks) and
+  `node scripts/phase-evidence.mjs <phase>/evidence --ci-run <id>`. Never hand-type results.
+- CI: `.github/workflows/ci.yml` runs static, security, test, build and e2e on every PR; all five are
+  required to merge into `feature/v2`. A test that only passes on retry is a defect: root-cause it.
 - GSD is installed project-local and pinned: `npx -y @opengsd/gsd-core@1.16.0 --claude --local`
   (`.claude/*` other than `settings.json` is git-ignored, so the pin is recorded here).
-- Local DB (after V2-01a): `npx supabase start` / `npx supabase db reset`
 
 ## Non-negotiables
 - Work on `v2/phase-<n>-<slug>` branches off `feature/v2`; PR into `feature/v2`. Never commit to or
@@ -49,7 +58,7 @@ Storage) via @supabase/ssr · zod · Vitest · Playwright. Code: `app/` (routes)
 
 ## Definition of done (per task)
 1. Acceptance criteria met; tests assert real outcomes (no "renders" or source-grep tests).
-2. typecheck, lint and relevant tests pass locally; CI green on the PR (once CI exists, V2-02).
+2. typecheck, lint and relevant tests pass locally; CI green on the PR with 0 retried tests.
 3. UI checked at 360px, tablet and desktop; axe clean.
 4. Diff reviewed for unrelated changes, secrets and PHI.
 5. Evidence in the GSD VERIFICATION.md is produced by the tools (CI link + commit SHA), never hand-typed.
