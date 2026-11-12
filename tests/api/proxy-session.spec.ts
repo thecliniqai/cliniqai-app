@@ -14,11 +14,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import type { Session } from "@supabase/supabase-js";
 import { proxy } from "@/proxy";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { createUnlinkedUser } from "../helpers/tenants";
 
 /** `@supabase/ssr`'s default storage key: `sb-<first host label>-auth-token`. */
-const COOKIE = `sb-${new URL(env.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0]}-auth-token`;
+const COOKIE = `sb-${new URL(publicEnv.NEXT_PUBLIC_SUPABASE_URL).hostname.split(".")[0]}-auth-token`;
 
 function encodeSession(session: Session): string {
   return `base64-${Buffer.from(JSON.stringify(session), "utf8").toString("base64url")}`;

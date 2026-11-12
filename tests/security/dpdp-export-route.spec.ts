@@ -11,7 +11,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { hasPerm, PermissionDeniedError } from "@/lib/permissions";
 import { dpdpExportPermission, exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
@@ -94,7 +94,7 @@ describe("DPDP export app route (session cookie, independent of /api/v1)", () =>
   }, 60_000);
 
   it("an unauthenticated caller gets 401", async () => {
-    mockState.client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    mockState.client = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const res = await call(patientA);

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import type { UserRole } from "@/lib/db/types";
 import {
   seedTenantWithOwner,
@@ -200,7 +200,7 @@ describe("01-08 review fixes (000021)", () => {
   beforeAll(async () => {
     A = await seedClinic("A");
     B = await seedClinic("B");
-    anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    anon = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
   }, 120_000);

@@ -90,7 +90,7 @@ function chunks<T>(items: T[], size = CHUNK): T[][] {
 
 export function localAdminClient(env: NodeJS.ProcessEnv = process.env): SupabaseClient {
   assertLocalTestEnv(env);
-  return createClient(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SERVICE_ROLE_KEY!, {
+  return createClient(env.NEXT_PUBLIC_SUPABASE_URL!, env.SUPABASE_SECRET_KEY!, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
@@ -99,7 +99,7 @@ export function localAdminClient(env: NodeJS.ProcessEnv = process.env): Supabase
 export async function serverNow(env: NodeJS.ProcessEnv = process.env, marginMs = 2_000): Promise<string> {
   assertLocalTestEnv(env);
   const res = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/health`, {
-    headers: { apikey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "" },
+    headers: { apikey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "" },
   });
   if (!res.ok) throw new Error(`Local stack health check failed (HTTP ${res.status}); is \`npx supabase start\` running?`);
   const date = res.headers.get("date");

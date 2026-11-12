@@ -61,6 +61,9 @@ jobs:
         run: npm run inventory -- --out inventory.json
       - name: AI-06 L1 policy checks
         run: npm run ci:ai-l1
+      # V2-03 03-01 (I-07, R-15): .env.example is generated from lib/env.ts; this compares without printing it.
+      - name: .env.example matches the env schema
+        run: node scripts/ci/env-example.mjs --check
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
@@ -174,15 +177,19 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'proxy.ts', 'next.config.ts', 'postcss.config.mjs') }}
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'proxy.ts', 'instrumentation.ts', 'next.config.ts', 'postcss.config.mjs') }}
           restore-keys: |
             nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
-      - name: next build (production, loopback Supabase URL, placeholder anon key, offline messaging)
+      # V2-03 03-01 (R-11, K-6): a production build with offline providers is the `ci` tier of the env schema
+      # (loopback URLs only); next.config.ts refuses the build if any tier rule breaks.
+      - name: next build (production, APP_ENV=ci, loopback Supabase URL, placeholder key, offline messaging)
         run: npm run build
         env:
           NODE_ENV: production
+          APP_ENV: ci
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-placeholder-not-a-key
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-build-placeholder-not-a-key
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
           MESSAGING_PROVIDER: dev
 
   # Playwright PR lane (02-03a; RL-16, RL-20): desktop-chrome (all specs), pixel-7 (all but the viewport-owning a11y
@@ -220,7 +227,7 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .next/cache
-          key: nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'proxy.ts', 'next.config.ts', 'postcss.config.mjs') }}
+          key: nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'proxy.ts', 'instrumentation.ts', 'next.config.ts', 'postcss.config.mjs') }}
           restore-keys: |
             nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - name: Start the local Supabase stack (same services as npm run test:db)

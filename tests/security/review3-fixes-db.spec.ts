@@ -172,8 +172,8 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("anon has no access at all", async () => {
       const { createClient } = await import("@supabase/supabase-js");
-      const { env } = await import("@/lib/env");
-      const anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+      const { publicEnv } = await import("@/lib/env");
+      const anon = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
         auth: { autoRefreshToken: false, persistSession: false },
       });
       const { error } = await anon.from("communication_queue").select("id").limit(1);

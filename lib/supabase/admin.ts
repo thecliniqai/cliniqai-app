@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "@/lib/db/types";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
+import { serverEnv } from "@/lib/env-server";
 
 let adminClientInstance: ReturnType<typeof createClient<Database>> | null = null;
 
@@ -11,13 +12,13 @@ let adminClientInstance: ReturnType<typeof createClient<Database>> | null = null
  * NEVER import or expose to browser client (AGENTS.md §5, §8).
  */
 export function getAdminClient() {
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceKey = serverEnv().SUPABASE_SECRET_KEY;
   if (!serviceKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for server administrative operations");
+    throw new Error("SUPABASE_SECRET_KEY is required for server administrative operations");
   }
 
   if (!adminClientInstance) {
-    adminClientInstance = createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, serviceKey, {
+    adminClientInstance = createClient<Database>(publicEnv.NEXT_PUBLIC_SUPABASE_URL, serviceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,

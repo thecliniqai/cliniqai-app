@@ -18,7 +18,7 @@
  */
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
@@ -65,7 +65,7 @@ describe("P0-01 forged overrides at the action layer", () => {
   let forgedSession: { userId: string; tenantId: string; role: "owner" };
 
   const anon = () =>
-    createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 

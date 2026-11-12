@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
@@ -389,7 +389,7 @@ describe("P0-02 membership guard (000019)", () => {
     });
 
     it("an anon-key client without a session cannot execute any of the functions", async () => {
-      const anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+      const anon = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
         auth: { autoRefreshToken: false, persistSession: false },
       });
       const calls: Array<[string, Record<string, unknown>]> = [

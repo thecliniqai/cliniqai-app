@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createSupabaseClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "@/lib/db/types";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
+import { serverEnv } from "@/lib/env-server";
 import {
   StorageDeleteOptions,
   StorageDownloadOptions,
@@ -32,10 +33,12 @@ export class SupabaseStorageProvider implements StorageProvider {
       return await createClient();
     } catch {
       // Fallback for non-cookie contexts (tests/scripts) if service role key is present
-      if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      // 03-02 deletes this fallback (ADR-0005 D2); 03-01 only moves its read to the typed accessor.
+      const secretKey = serverEnv().SUPABASE_SECRET_KEY;
+      if (secretKey) {
         return createSupabaseClient<Database>(
-          env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.SUPABASE_SERVICE_ROLE_KEY,
+          publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+          secretKey,
           {
             auth: { autoRefreshToken: false, persistSession: false },
           }

@@ -24,6 +24,13 @@ const PINNED: Record<string, string[]> = {
   AI_PROVIDER: ["mock"],
 };
 
+/**
+ * V2-03 03-01 (R-11): the env-schema tier of each lane. Vitest (and the seed/Playwright runner processes that share
+ * this loader) run as `test`; the e2e app server as `e2e`. `loadTestEnv` fills `APP_ENV=test` when unset.
+ */
+export const TEST_APP_ENV = "test";
+export const E2E_APP_ENV = "e2e";
+
 /** Variables that may be unset or must hold one of these values. */
 const PINNED_IF_SET: Record<string, string[]> = {
   STORAGE_PROVIDER: ["supabase"],
@@ -50,6 +57,10 @@ const PROXY_VARS = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "htt
  * the shell (or a stray file) carries production/hosted config into the test lane.
  */
 export const FORBIDDEN_VARS = [
+  // V2-03 03-01 (R-K, R-32): retired names. The lane uses NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY / SUPABASE_SECRET_KEY.
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "MESSAGING_WEBHOOK_SECRET",
   "SUPABASE_ACCESS_TOKEN",
   "SUPABASE_DB_PASSWORD",
   "DATABASE_URL",
@@ -124,6 +135,7 @@ export function loadTestEnv(rootDir: string, env: EnvMap = process.env): Record<
   for (const [key, value] of Object.entries(parsed)) {
     if (env[key] === undefined || env[key] === "") env[key] = value;
   }
+  if (env.APP_ENV === undefined || env.APP_ENV === "") env.APP_ENV = TEST_APP_ENV;
   return parsed;
 }
 
@@ -142,7 +154,8 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | null 
 }
 
 /**
- * Read the local stack's anon and service-role keys from `npx supabase status -o env` and fill them if unset.
+ * Read the local stack's anon and service-role keys from `npx supabase status -o env` and fill them, under the R-K
+ * names `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY` (legacy JWT values), if unset.
  * Keys are never written to disk or printed. Throws a guard error if the local stack is not running.
  */
 export function loadLocalStackKeys(
@@ -150,7 +163,7 @@ export function loadLocalStackKeys(
   env: EnvMap = process.env,
   readStatus: (cwd: string) => string = defaultReadStatus,
 ): void {
-  if (env.NEXT_PUBLIC_SUPABASE_ANON_KEY && env.SUPABASE_SERVICE_ROLE_KEY) return;
+  if (env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && env.SUPABASE_SECRET_KEY) return;
   let status: string;
   try {
     status = readStatus(rootDir);
@@ -165,8 +178,8 @@ export function loadLocalStackKeys(
   if (!anon || !service) {
     throw new TestEnvGuardError(["`npx supabase status -o env` did not report ANON_KEY and SERVICE_ROLE_KEY"]);
   }
-  if (!env.NEXT_PUBLIC_SUPABASE_ANON_KEY) env.NEXT_PUBLIC_SUPABASE_ANON_KEY = anon;
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) env.SUPABASE_SERVICE_ROLE_KEY = service;
+  if (!env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = anon;
+  if (!env.SUPABASE_SECRET_KEY) env.SUPABASE_SECRET_KEY = service;
 }
 
 function defaultReadStatus(cwd: string): string {
@@ -189,6 +202,8 @@ function hostOf(value: string): string | null {
 export interface TestEnvRuleOptions {
   /** Extra `NODE_ENV` values allowed on top of `test` (the e2e app server runs `next start`, i.e. `production`). */
   allowNodeEnv?: string[];
+  /** The `APP_ENV` tier the lane must declare (default `test`; the e2e app server uses `e2e`). */
+  appEnv?: string;
 }
 
 /** Collect every reason the environment is not the local test stack. Empty array = safe. */
@@ -198,6 +213,7 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
     ...PINNED_IF_SET,
     NODE_ENV: [...PINNED_IF_SET.NODE_ENV, ...(options.allowNodeEnv ?? [])],
   };
+  const pinned: Record<string, string[]> = { ...PINNED, APP_ENV: [options.appEnv ?? TEST_APP_ENV] };
 
   if (!env.NEXT_PUBLIC_SUPABASE_URL) problems.push("NEXT_PUBLIC_SUPABASE_URL is not set");
 
@@ -209,7 +225,7 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
     else if (!LOOPBACK_HOSTS.has(host)) problems.push(`${key} points at non-local host "${host}"`);
   }
 
-  for (const [key, allowed] of Object.entries(PINNED)) {
+  for (const [key, allowed] of Object.entries(pinned)) {
     if (!allowed.includes(env[key] ?? "")) {
       problems.push(`${key} must be ${allowed.join(" or ")} (got ${env[key] ? `"${env[key]}"` : "unset"})`);
     }
@@ -237,8 +253,8 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
   }
 
   for (const [key, role] of [
-    ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon"],
-    ["SUPABASE_SERVICE_ROLE_KEY", "service_role"],
+    ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "anon"],
+    ["SUPABASE_SECRET_KEY", "service_role"],
   ] as const) {
     const value = env[key];
     if (!value) {
@@ -278,7 +294,7 @@ export function assertLocalTestEnv(env: EnvMap = process.env): void {
  * `NEXT_TELEMETRY_DISABLED=1` (no outbound telemetry).
  */
 export function findAppServerEnvProblems(env: EnvMap): string[] {
-  const problems = findTestEnvProblems(env, { allowNodeEnv: ["production"] });
+  const problems = findTestEnvProblems(env, { allowNodeEnv: ["production"], appEnv: E2E_APP_ENV });
   if (env.__NEXT_PROCESSED_ENV !== "true") {
     problems.push("__NEXT_PROCESSED_ENV must be \"true\" so Next loads no .env file into the e2e server");
   }

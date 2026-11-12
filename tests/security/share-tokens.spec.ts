@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { GET as getDocumentRoute } from "@/app/api/r/[token]/route";
@@ -167,7 +167,7 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
   beforeAll(async () => {
     A = await seedClinic("A");
     B = await seedClinic("B");
-    anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    anon = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     // A real object for tenant A's lab document so the signing path is exercised.

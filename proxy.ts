@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { apiRequestBlocked, isApiV1Path, normaliseRequestPath } from "@/lib/api/enabled";
 import { REQUEST_ID_HEADER, newRequestId } from "@/lib/log/request-id";
+import { publicEnv } from "@/lib/env";
 
 /**
  * V2-03 03-09a (BACKEND H2, T-03-07): continue to the handler with `x-request-id` forced to this request's id (any
@@ -42,8 +43,8 @@ export async function proxy(request: NextRequest) {
   let response = continueWithRequestId(request, requestId);
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
       cookies: {
         getAll() {

@@ -8,7 +8,7 @@
  */
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 
 const mockState = vi.hoisted(() => ({ client: null as unknown }));
@@ -38,7 +38,7 @@ describe("PDF route guards (F1, F3)", () => {
   });
 
   it("rejects an unauthenticated caller on both routes with 401", async () => {
-    mockState.client = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    mockState.client = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     expect((await call(getPrescriptionPdf, MISSING_ID)).status).toBe(401);

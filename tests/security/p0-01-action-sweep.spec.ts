@@ -18,7 +18,7 @@
 import path from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { buildInventory } from "@/scripts/inventory-server-actions";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
@@ -215,7 +215,7 @@ describe("ADR-0005 V1: every \"use server\" export rejects an unauthenticated ca
     const anonLog: string[] = [];
     state.client = recording(
       // Built before the sweep flag is set, so it is not counted as a client the action created.
-      createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+      createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
         auth: { autoRefreshToken: false, persistSession: false },
       }),
       anonLog,

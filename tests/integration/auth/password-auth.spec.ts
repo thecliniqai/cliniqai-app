@@ -11,7 +11,7 @@
 import { randomBytes } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { Database } from "@/lib/db/types";
 import { AUTH_MESSAGES, completeReset, requestReset, setNewPassword, signIn } from "@/features/auth/password-flows";
 import { addMemberToTenant, seedTenantWithOwner, seededUserPassword, type SeededTenant } from "../../helpers/tenants";
@@ -32,7 +32,7 @@ function browserLikeClient() {
     setItem: (k: string, v: string) => void store.set(k, v),
     removeItem: (k: string) => void store.delete(k),
   };
-  const client = createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+  const client = createClient<Database>(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
     auth: { flowType: "pkce", persistSession: true, autoRefreshToken: false, detectSessionInUrl: false, storage },
   });
   return { client, store };

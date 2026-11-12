@@ -23,7 +23,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/db/types";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { hasPerm, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import type { buildInventory } from "@/scripts/inventory-server-actions";
 import { rowsWhereIn, type PublicTable, type TestDb } from "../../helpers/db";
@@ -145,7 +145,7 @@ export function staticGuardViolations(c: ActionCase, guard: ActionGuard | undefi
 // ---------------------------------------------------------------------------------------------------------------
 
 export function anonClient(): TestDb {
-  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+  return createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

@@ -12,7 +12,7 @@
  */
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { assertLocalAppServerEnv, loadLocalStackKeys, type EnvMap } from "../../setup/test-env";
+import { E2E_APP_ENV, assertLocalAppServerEnv, loadLocalStackKeys, type EnvMap } from "../../setup/test-env";
 
 export const ROOT = path.resolve(__dirname, "../../..");
 
@@ -42,7 +42,7 @@ export function readLocalStackKeys(
 ): LocalStackKeys {
   const keys: EnvMap = {};
   loadLocalStackKeys(root, keys, readStatus);
-  return { anonKey: keys.NEXT_PUBLIC_SUPABASE_ANON_KEY!, serviceRoleKey: keys.SUPABASE_SERVICE_ROLE_KEY! };
+  return { anonKey: keys.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, serviceRoleKey: keys.SUPABASE_SECRET_KEY! };
 }
 
 export interface AppServerEnvOptions {
@@ -63,18 +63,19 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
   }
   Object.assign(env, {
     NODE_ENV: "production",
+    // V2-03 03-01 (R-11, K-6): a production build with offline providers and loopback URLs is the `e2e` tier.
+    APP_ENV: E2E_APP_ENV,
     __NEXT_PROCESSED_ENV: "true",
     NEXT_TELEMETRY_DISABLED: "1",
     NEXT_PUBLIC_SUPABASE_URL: LOCAL_SUPABASE_URL,
     SUPABASE_URL: LOCAL_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: keys.anonKey,
-    SUPABASE_SERVICE_ROLE_KEY: keys.serviceRoleKey,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: keys.anonKey,
+    SUPABASE_SECRET_KEY: keys.serviceRoleKey,
     NEXT_PUBLIC_APP_URL: E2E_BASE_URL,
     MESSAGING_PROVIDER: "dev",
     MSG91_AUTH_KEY: "x",
     AI_ENABLED: "false",
     AI_PROVIDER: "mock",
-    STORAGE_PROVIDER: "supabase",
     API_V1_ENABLED: "false",
     CRON_SECRET: "e2e-not-real",
     NODE_OPTIONS: `--require "${SERVER_NET_GUARD}"`,

@@ -29,8 +29,9 @@ const LOCAL_SERVICE = fakeJwt({ iss: "supabase-demo", role: "service_role" });
 function safeEnv(overrides: Record<string, string | undefined> = {}): EnvMap {
   const env: EnvMap = {
     NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: LOCAL_ANON,
-    SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON,
+    SUPABASE_SECRET_KEY: LOCAL_SERVICE,
+    APP_ENV: "test",
     NEXT_PUBLIC_APP_URL: "http://localhost:3000",
     MESSAGING_PROVIDER: "dev",
     AI_PROVIDER: "mock",
@@ -76,11 +77,11 @@ describe("test-env guard rules", () => {
 
   it("rejects keys that were not issued by the local stack", () => {
     const hostedService = fakeJwt({ iss: "supabase", ref: "abcd", role: "service_role" });
-    expect(findTestEnvProblems(safeEnv({ SUPABASE_SERVICE_ROLE_KEY: hostedService }))).toContain(
-      'SUPABASE_SERVICE_ROLE_KEY is not a local-stack key (issuer must be "supabase-demo")',
+    expect(findTestEnvProblems(safeEnv({ SUPABASE_SECRET_KEY: hostedService }))).toContain(
+      'SUPABASE_SECRET_KEY is not a local-stack key (issuer must be "supabase-demo")',
     );
-    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_abc" }))).toContain(
-      'NEXT_PUBLIC_SUPABASE_ANON_KEY is not a local-stack key (issuer must be "supabase-demo")',
+    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_abc" }))).toContain(
+      'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is not a local-stack key (issuer must be "supabase-demo")',
     );
   });
 
@@ -102,11 +103,11 @@ describe("test-env guard rules", () => {
   });
 
   it("rejects a key with the wrong role claim (anon key in the service-role slot)", () => {
-    expect(findTestEnvProblems(safeEnv({ SUPABASE_SERVICE_ROLE_KEY: LOCAL_ANON }))).toContain(
-      'SUPABASE_SERVICE_ROLE_KEY has the wrong role claim (must be "service_role")',
+    expect(findTestEnvProblems(safeEnv({ SUPABASE_SECRET_KEY: LOCAL_ANON }))).toContain(
+      'SUPABASE_SECRET_KEY has the wrong role claim (must be "service_role")',
     );
-    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_SUPABASE_ANON_KEY: LOCAL_SERVICE }))).toContain(
-      'NEXT_PUBLIC_SUPABASE_ANON_KEY has the wrong role claim (must be "anon")',
+    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_SERVICE }))).toContain(
+      'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY has the wrong role claim (must be "anon")',
     );
   });
 
@@ -124,6 +125,15 @@ describe("test-env guard rules", () => {
   it.each(["HTTPS_PROXY", "http_proxy", "NODE_USE_ENV_PROXY"])("refuses proxy variable %s", (key) => {
     expect(findTestEnvProblems(safeEnv({ [key]: "1" }))).toContain(
       `${key} must not be set in the test lane (unset proxies before running tests)`,
+    );
+  });
+
+  it("pins the env-schema tier: APP_ENV=test for the lane, e2e for the app server (03-01, R-11)", () => {
+    expect(findTestEnvProblems(safeEnv({ APP_ENV: undefined }))).toContain('APP_ENV must be test (got unset)');
+    expect(findTestEnvProblems(safeEnv({ APP_ENV: "production" }))).toContain('APP_ENV must be test (got "production")');
+    expect(findTestEnvProblems(safeEnv({ APP_ENV: "e2e" }), { appEnv: "e2e" })).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ APP_ENV: "staging" }), { appEnv: "e2e" })).toContain(
+      'APP_ENV must be e2e (got "staging")',
     );
   });
 
@@ -164,8 +174,8 @@ describe("local stack key loading", () => {
   it("fills keys from `supabase status` output and nothing else", () => {
     const env: EnvMap = {};
     loadLocalStackKeys(ROOT, env, () => `ANON_KEY="${LOCAL_ANON}"\nSERVICE_ROLE_KEY="${LOCAL_SERVICE}"\nAPI_URL="x"\n`);
-    expect(env.NEXT_PUBLIC_SUPABASE_ANON_KEY).toBe(LOCAL_ANON);
-    expect(env.SUPABASE_SERVICE_ROLE_KEY).toBe(LOCAL_SERVICE);
+    expect(env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).toBe(LOCAL_ANON);
+    expect(env.SUPABASE_SECRET_KEY).toBe(LOCAL_SERVICE);
     expect(env.API_URL).toBeUndefined();
   });
 
@@ -261,7 +271,7 @@ describe("worker network block", () => {
 
   it("still allows the local stack", async () => {
     const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/health`, {
-      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "" },
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "" },
     });
     expect(res.status).toBe(200);
   });

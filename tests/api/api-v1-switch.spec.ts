@@ -278,24 +278,33 @@ describe("AR2-H2: the v1 handlers enforce the switch themselves (proxy bypassed)
 describe("env schema: API_V1_ENABLED", () => {
   const base = {
     NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-test-key",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "anon-test-key",
+  };
+  // A production build (here the e2e tier: offline providers, loopback URLs) per V2-03 03-01.
+  const productionBuild = {
+    ...base,
+    NODE_ENV: "production",
+    APP_ENV: "e2e",
+    NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3100",
+    MESSAGING_PROVIDER: "dev",
   };
 
-  it("defaults to 'false'", () => {
-    expect(parseEnv({ ...base, NODE_ENV: "production" }).API_V1_ENABLED).toBe("false");
-    expect(parseEnv({ ...base, NODE_ENV: "test", API_V1_ENABLED: "" }).API_V1_ENABLED).toBe("false");
+  it("defaults to off", () => {
+    expect(parseEnv(productionBuild).API_V1_ENABLED).toBe(false);
+    expect(parseEnv({ ...base, NODE_ENV: "test", API_V1_ENABLED: "" }).API_V1_ENABLED).toBe(false);
   });
 
   it("accepts 'true' outside production", () => {
-    expect(parseEnv({ ...base, NODE_ENV: "development", API_V1_ENABLED: "true" }).API_V1_ENABLED).toBe("true");
-    expect(parseEnv({ ...base, NODE_ENV: "test", API_V1_ENABLED: "true" }).API_V1_ENABLED).toBe("true");
+    expect(parseEnv({ ...base, NODE_ENV: "development", API_V1_ENABLED: "true" }).API_V1_ENABLED).toBe(true);
+    expect(parseEnv({ ...base, NODE_ENV: "test", API_V1_ENABLED: "true" }).API_V1_ENABLED).toBe(true);
   });
 
   it("refuses 'true' in production", () => {
-    expect(() => parseEnv({ ...base, NODE_ENV: "production", API_V1_ENABLED: "true" })).toThrow(/API_V1_ENABLED/);
+    expect(() => parseEnv({ ...productionBuild, API_V1_ENABLED: "true" })).toThrow(/API_V1_ENABLED/);
   });
 
   it("refuses values other than 'true' and 'false'", () => {
     expect(() => parseEnv({ ...base, NODE_ENV: "test", API_V1_ENABLED: "1" })).toThrow(/API_V1_ENABLED/);
   });
 });
+
