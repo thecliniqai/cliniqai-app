@@ -10,3 +10,6 @@
 018fa53a52d3470bcbc0eeb39890d37028232bf7:tests/setup/next-env-flag.spec.ts:generic-api-key:19
 # V2-03 03-01: false positive, `API_V1_ENABLED: s.API_V1_ENABLED === "true"` is a boolean flag parse, not a key
 c97476c9fa749890575a29198dd90f5934cff079:lib/env.ts:generic-api-key:351
+# V2-03: the two lines above in ade37e1 quoted the same boolean-flag false positive (comment and wave note); never quote a flagged string
+ade37e1a59a03039dee1b525310d2724dfd0e1d9:.gitleaksignore:generic-api-key:11
+ade37e1a59a03039dee1b525310d2724dfd0e1d9:.planning/phases/03-platform-hygiene/03-WAVE-NOTES.md:generic-api-key:27
