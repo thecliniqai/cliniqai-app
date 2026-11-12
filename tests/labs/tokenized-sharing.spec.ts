@@ -4,6 +4,7 @@ import { generateDocumentShareToken } from "@/features/labs/service";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { ctxFor } from "../helpers/context";
+import { shareTokenHash } from "../helpers/share-tokens";
 
 describe("Tokenized Patient Document Sharing (REQ-lab-records, D-05)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -80,7 +81,7 @@ describe("Tokenized Patient Document Sharing (REQ-lab-records, D-05)", () => {
       // Fetch initial state
       const { data: initial } = await (admin.from("document_share_tokens") as any)
         .select("access_count, last_accessed_at")
-        .eq("token", activeToken)
+        .eq("token_hash", shareTokenHash(activeToken))
         .single();
 
       expect(initial?.access_count).toBe(0);
@@ -91,11 +92,11 @@ describe("Tokenized Patient Document Sharing (REQ-lab-records, D-05)", () => {
           access_count: initial.access_count + 1,
           last_accessed_at: new Date().toISOString(),
         })
-        .eq("token", activeToken);
+        .eq("token_hash", shareTokenHash(activeToken));
 
       const { data: updated } = await (admin.from("document_share_tokens") as any)
         .select("access_count, last_accessed_at")
-        .eq("token", activeToken)
+        .eq("token_hash", shareTokenHash(activeToken))
         .single();
 
       expect(updated?.access_count).toBe(1);
@@ -110,11 +111,11 @@ describe("Tokenized Patient Document Sharing (REQ-lab-records, D-05)", () => {
         .update({
           revoked_at: new Date().toISOString(),
         })
-        .eq("token", activeToken);
+        .eq("token_hash", shareTokenHash(activeToken));
 
       const { data: revokedToken } = await (admin.from("document_share_tokens") as any)
         .select("revoked_at")
-        .eq("token", activeToken)
+        .eq("token_hash", shareTokenHash(activeToken))
         .single();
 
       expect(revokedToken?.revoked_at).not.toBeNull();
@@ -128,14 +129,14 @@ describe("Tokenized Patient Document Sharing (REQ-lab-records, D-05)", () => {
       await (admin.from("document_share_tokens") as any).insert({
         tenant_id: tenantA.tenantId,
         document_id: documentAId,
-        token: expiredTokenHex,
+        token_hash: shareTokenHash(expiredTokenHex),
         expires_at: pastDate,
         created_by: tenantA.userId,
       });
 
       const { data: fetchedExpired } = await (admin.from("document_share_tokens") as any)
         .select("expires_at")
-        .eq("token", expiredTokenHex)
+        .eq("token_hash", shareTokenHash(expiredTokenHex))
         .single();
 
       const isExpired = new Date(fetchedExpired.expires_at).getTime() < Date.now();

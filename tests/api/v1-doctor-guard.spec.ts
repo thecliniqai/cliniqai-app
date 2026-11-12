@@ -12,6 +12,9 @@ import { GET as getReferralById, PATCH as patchReferralById } from "@/app/api/v1
 import { seedTenantWithOwner, addMemberToTenant, createUnlinkedUser } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { enableApiV1ForFile } from "../helpers/api-v1";
+
+enableApiV1ForFile();
 
 describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-05, T-06-07)", () => {
   let clinicA: Awaited<ReturnType<typeof seedTenantWithOwner>>;

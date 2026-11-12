@@ -19,6 +19,7 @@ import { canManageShareLink } from "@/features/sharing/tokens";
 import { updateStaffMember } from "@/features/settings/service";
 import { acknowledgeReferral, getReferralSignedUrl } from "@/features/referrals/service";
 import * as dispatcher from "@/lib/messaging/dispatcher";
+import { shareTokenHash } from "../helpers/share-tokens";
 
 // V2-01 plan 01-08 (review fixes, migration 000021). Local stack, real clients; the admin client only seeds rows and
 // reads results. Each case fails on the 000020 schema.
@@ -147,7 +148,7 @@ async function tokenRowByToken(token: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (admin.from("document_share_tokens") as any)
     .select("id, revoked_at, access_count")
-    .eq("token", token)
+    .eq("token_hash", shareTokenHash(token))
     .single();
   return data as { id: string; revoked_at: string | null; access_count: number };
 }
@@ -370,10 +371,15 @@ describe("01-08 review fixes (000021)", () => {
     });
 
     it("prescription and lab document links refuse a stored path outside the resource's own prefix", async () => {
-      // Rx: <tenant>/<visit>/...; pointed at another visit's file.
+      // Rx: <tenant>/<visit>/rx_v<n>.pdf; another visit's file can no longer be stored (CHECK, 000022) and the link
+      // does not sign it.
       const otherVisitPath = `${A.owner.tenantId}/${randomUUID()}/rx_v1.pdf`;
       await upload("prescriptions", otherVisitPath);
-      await admin.from("prescriptions").update({ pdf_storage_path: otherVisitPath }).eq("id", A.prescriptionId);
+      const rxWrite = await admin
+        .from("prescriptions")
+        .update({ pdf_storage_path: otherVisitPath })
+        .eq("id", A.prescriptionId);
+      expect(rxWrite.error?.code).toBe("23514");
       const rxToken = await mint(A.owner.client as SupabaseClient, "prescription", A.prescriptionId);
       expect((await docGet(rxToken, "?download=true")).status).toBe(404);
 
@@ -382,12 +388,17 @@ describe("01-08 review fixes (000021)", () => {
       await admin.from("prescriptions").update({ pdf_storage_path: ownRxPath }).eq("id", A.prescriptionId);
       expect((await docGet(rxToken, "?download=true")).status).toBe(302);
 
-      // Lab document: tenants/<tenant>/patients/<patient>/...; pointed at another patient's file.
+      // Lab document: tenants/<tenant>/patients/<patient>/...; another patient's file cannot be stored either.
       const otherPatientPath = `tenants/${A.owner.tenantId}/patients/${A.patient2Id}/labs/other.pdf`;
       await upload("clinic-records", otherPatientPath);
-      await admin.from("patient_documents").update({ storage_path: otherPatientPath }).eq("id", A.documentId);
+      const docWrite = await admin
+        .from("patient_documents")
+        .update({ storage_path: otherPatientPath })
+        .eq("id", A.documentId);
+      expect(docWrite.error?.code).toBe("23514");
       const docToken = await mint(A.owner.client as SupabaseClient, "patient_document", A.documentId);
-      expect((await docGet(docToken, "?download=true")).status).toBe(404);
+      const res = await docGet(docToken, "?download=true");
+      expect(decodeURIComponent(res.headers.get("location") ?? "")).not.toContain(A.patient2Id);
     });
   });
 

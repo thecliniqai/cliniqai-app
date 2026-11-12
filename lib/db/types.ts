@@ -435,7 +435,8 @@ export interface DocumentShareToken {
   document_id: string | null;
   resource_type?: ShareTokenResourceType;
   resource_id?: string | null;
-  token: string;
+  /** SHA-256 hex of the link token (000022, AR2-L1). The raw token is returned once at creation and never stored. */
+  token_hash: string;
   expires_at: string;
   access_count: number;
   last_accessed_at: string | null;
@@ -1180,7 +1181,7 @@ export interface Database {
           document_id?: string | null;
           resource_type?: ShareTokenResourceType;
           resource_id?: string | null;
-          token: string;
+          token_hash: string;
           expires_at?: string;
           access_count?: number;
           last_accessed_at?: string | null;
@@ -1192,7 +1193,7 @@ export interface Database {
           id?: string;
           tenant_id?: string;
           document_id?: string;
-          token?: string;
+          token_hash?: string;
           expires_at?: string;
           access_count?: number;
           last_accessed_at?: string | null;

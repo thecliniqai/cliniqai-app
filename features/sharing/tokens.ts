@@ -48,7 +48,9 @@ export async function revokeShareToken(
 /**
  * Creates a 7-day public share token through `create_share_token` (000020/000021, P0-04). The tenant is derived inside
  * the database from the resource row, the caller must be a member of that tenant with a role allowed for the type
- * (SHARE_LINK_PERMISSIONS), and the creation is audited there; members cannot insert tokens directly. `db` is the acting user's JWT client (`ctx.db`). Returns null on any refusal (missing resource, other
+ * (SHARE_LINK_PERMISSIONS), and the creation is audited there; members cannot insert tokens directly. Only the token's
+ * SHA-256 hash is stored (000022, AR2-L1): the token returned here is the only copy, so callers hand it to the
+ * recipient and never persist it. `db` is the acting user's JWT client (`ctx.db`). Returns null on any refusal (missing resource, other
  * tenant's resource, no session): callers map that to their own "could not create link" error.
  */
 export async function createShareToken(

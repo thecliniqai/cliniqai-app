@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext, apiV1NotFound } from "@/lib/api/auth";
+import { apiV1Enabled } from "@/lib/api/enabled";
 import { apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { requireServiceContext, type ServiceContext } from "@/lib/auth/context";
@@ -22,6 +23,8 @@ interface RouteContext {
  * service-role client, and in both cases the tenant and actor come from the verified credential.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
+  // Off with the `/api/v1` switch on both auth paths (AR2-H2: checked here as well as in the middleware).
+  if (!apiV1Enabled()) return apiV1NotFound();
   const { id } = await params;
   const authHeader = req.headers.get("authorization");
 

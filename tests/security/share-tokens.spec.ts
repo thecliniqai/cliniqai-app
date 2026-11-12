@@ -10,6 +10,7 @@ import { GET as getReportRoute } from "@/app/api/reports/view/route";
 import { GET as getRescheduleRoute, POST as postRescheduleRoute } from "@/app/api/reschedule/[token]/route";
 import { generateRescheduleToken } from "@/features/appointments/system";
 import * as dispatcher from "@/lib/messaging/dispatcher";
+import { shareTokenHash } from "../helpers/share-tokens";
 
 // V2-01 plan 01-04 (P0-04; SEC-05, ARC-05, F7(a)); SECURITY_VERIFICATION_PLAN TC-TOK-01..06. Local stack, real
 // clients; the admin client only seeds rows (including deliberately mis-bound tokens) and reads results.
@@ -98,7 +99,10 @@ async function seedClinic(label: string): Promise<ClinicResources> {
 async function seedToken(row: Record<string, unknown>): Promise<string> {
   const token = randomBytes(32).toString("hex");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (admin.from("document_share_tokens") as any).insert({ token, ...row });
+  const { error } = await (admin.from("document_share_tokens") as any).insert({
+    token_hash: shareTokenHash(token),
+    ...row,
+  });
   if (error) throw new Error(`seed token failed: ${error.message}`);
   return token;
 }
@@ -107,7 +111,7 @@ async function tokenRow(token: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data } = await (admin.from("document_share_tokens") as any)
     .select("tenant_id, resource_type, resource_id, created_by, access_count, revoked_at")
-    .eq("token", token)
+    .eq("token_hash", shareTokenHash(token))
     .single();
   return data as {
     tenant_id: string;
@@ -184,7 +188,7 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
         tenant_id: A.owner.tenantId,
         resource_type: "prescription",
         resource_id: B.prescriptionId,
-        token: randomBytes(32).toString("hex"),
+        token_hash: shareTokenHash(randomBytes(32).toString("hex")),
         created_by: A.owner.userId,
       });
       expect(insErr?.code).toBe("42501");
@@ -198,17 +202,23 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
       });
       for (const patch of [{ revoked_at: null }, { expires_at: new Date(Date.now() + 365 * 86_400_000).toISOString() }]) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (client.from("document_share_tokens") as any).update(patch).eq("token", token);
+        const { error } = await (client.from("document_share_tokens") as any)
+          .update(patch)
+          .eq("token_hash", shareTokenHash(token));
         expect(error?.code).toBe("42501");
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: delErr } = await (client.from("document_share_tokens") as any).delete().eq("token", token);
+      const { error: delErr } = await (client.from("document_share_tokens") as any)
+        .delete()
+        .eq("token_hash", shareTokenHash(token));
       expect(delErr?.code).toBe("42501");
       expect((await tokenRow(token)).revoked_at).not.toBeNull();
 
-      // Members can still read their own tenant's tokens.
+      // Members can still read their own tenant's token rows (hash and state only; AR2-L1).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: visible } = await (client.from("document_share_tokens") as any).select("token").eq("token", token);
+      const { data: visible } = await (client.from("document_share_tokens") as any)
+        .select("id, token_hash")
+        .eq("token_hash", shareTokenHash(token));
       expect(visible).toHaveLength(1);
     });
 
@@ -252,7 +262,7 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
         const { error } = await rpc(anon, name, args);
         expect(error?.code, name).toBe("42501");
       }
-      const { data } = await anon.from("document_share_tokens").select("token");
+      const { data } = await anon.from("document_share_tokens").select("id, token_hash");
       expect(data ?? []).toHaveLength(0);
     });
   });

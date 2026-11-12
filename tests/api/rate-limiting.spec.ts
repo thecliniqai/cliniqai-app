@@ -9,6 +9,9 @@ import { GET } from "@/app/api/v1/patients/route";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { enableApiV1ForFile } from "../helpers/api-v1";
+
+enableApiV1ForFile();
 
 describe("Sliding Window Rate Limiter (REQ-api-access, D-19, T-06-03)", () => {
   beforeEach(() => {

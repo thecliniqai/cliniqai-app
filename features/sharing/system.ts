@@ -1,7 +1,8 @@
 import "server-only";
 
 import { getAdminClient } from "@/lib/supabase/admin";
-import { getSignedUrl, getStorageProvider, SupabaseStorageProvider, validateStoragePath } from "@/lib/storage";
+import { getSignedUrl, getStorageProvider, SupabaseStorageProvider } from "@/lib/storage";
+import { isTenantScopedStoragePath, isWellFormedStorageKey } from "@/lib/storage/tenant-path";
 import { compileAndGenerateReceiptPdf } from "@/features/billing/pdf/generator";
 import { notifyAppointmentRescheduled } from "@/features/appointments/system";
 import type { DocumentShareResourceType } from "@/lib/db/types";
@@ -13,7 +14,7 @@ import type { DocumentShareResourceType } from "@/lib/db/types";
  * tenant and `resource_type`.
  *
  * - `signSharedObject`: a short-lived signed URL for the object behind a valid token. The storage path must sit under
- *   the token's tenant prefix (`tenants/<tenantId>/` or `<tenantId>/`) and pass `validateStoragePath`.
+ *   the token's tenant prefix (`tenants/<tenantId>/` or `<tenantId>/`) and be a well-formed key (`isTenantStoragePath`).
  * - `renderSharedReceiptPdf`: on-demand receipt PDF for an invoice token, compiled for the token's tenant.
  * - `notifySelfServiceReschedule`: patient confirmation + webhook after `consume_reschedule_token` succeeded.
  *
@@ -48,14 +49,16 @@ async function shareTokenObject(token: string, kinds: DocumentShareResourceType[
   return t;
 }
 
-/** True only for a storage key under the given tenant's prefix, with no traversal. */
+/**
+ * True only for a well-formed storage key (`isWellFormedStorageKey`: [A-Za-z0-9_./-], no empty or dot segments, so no
+ * `%2e%2e` that a URL parser would collapse to `..`; AR2-H1) under the given tenant's prefix (`tenants/<tenantId>/` or
+ * `<tenantId>/`).
+ */
 export function isTenantStoragePath(tenantId: string, path: string): boolean {
-  try {
-    validateStoragePath(path);
-  } catch {
-    return false;
-  }
-  return path.startsWith(`tenants/${tenantId}/`) || path.startsWith(`${tenantId}/`);
+  if (!tenantId || !isWellFormedStorageKey(path)) return false;
+  if (isTenantScopedStoragePath(tenantId, path)) return true;
+  const legacyPrefix = `${tenantId}/`;
+  return path.startsWith(legacyPrefix) && path.length > legacyPrefix.length;
 }
 
 /**

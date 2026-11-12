@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { apiV1Enabled } from "@/lib/api/enabled";
+import { apiV1NotFound } from "@/lib/api/auth";
 
 /**
  * Interactive developer API documentation viewer per D-07.
@@ -6,6 +8,8 @@ import { NextResponse } from "next/server";
  * Avoids third-party npm packages; strictly renders light mode ('darkMode: false') per DESIGN.md.
  */
 export async function GET() {
+  // Off with the `/api/v1` switch (AR2-H2: checked here as well as in the middleware).
+  if (!apiV1Enabled()) return apiV1NotFound();
   const html = `<!doctype html>
 <html lang="en">
   <head>

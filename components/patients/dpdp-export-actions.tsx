@@ -17,7 +17,8 @@ export function DpdpExportActions({ patientId }: DpdpExportActionsProps) {
     if (format === "pdf") setIsExportingPdf(true);
 
     try {
-      const response = await fetch(`/api/v1/patients/${patientId}/export?format=${format}`);
+      // Session-authenticated app route (not the public /api/v1 API, which is off by default).
+      const response = await fetch(`/api/patients/${patientId}/export?format=${format}`);
       if (!response.ok) {
         throw new Error(`Export failed with HTTP ${response.status}`);
       }

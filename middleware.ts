@@ -1,15 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { apiV1Enabled, isApiV1Path } from "@/lib/api/enabled";
+import { apiRequestBlocked, isApiV1Path, normaliseRequestPath } from "@/lib/api/enabled";
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
-  // PO-16: `/api/v1/**` (docs and openapi.json included) is a plain 404 unless API_V1_ENABLED is on.
-  if (isApiV1Path(pathname)) {
-    if (!apiV1Enabled()) {
-      return new NextResponse(null, { status: 404 });
-    }
+  // PO-16: `/api/v1/**` (docs and openapi.json included) is a plain 404 unless API_V1_ENABLED is on. AR2-H2: the check
+  // runs on the decoded, normalised path (Next decodes `/api/v%31/...` before matching the route), and any `/api` path
+  // that is undecodable or still holds `%` or a backslash is refused outright.
+  if (apiRequestBlocked(pathname)) {
+    return new NextResponse(null, { status: 404 });
+  }
+  if (isApiV1Path(normaliseRequestPath(pathname) ?? pathname)) {
     return NextResponse.next();
   }
 
@@ -72,5 +74,9 @@ export const config = {
     // without the API_V1_ENABLED check.
     "/api/v1",
     "/api/v1/:path*",
+    // AR2-H2: every /api path runs the middleware whatever its extension or encoding (`/api/v%31/x.png`), so the
+    // normalised switch check cannot be skipped by the asset exclusion above. Static assets outside /api stay excluded.
+    "/api",
+    "/api/:path*",
   ],
 };

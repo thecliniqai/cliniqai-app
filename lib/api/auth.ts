@@ -4,6 +4,15 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "@/lib/db/types";
 import { apiError, ApiErrorResponse } from "@/lib/api/envelope";
 import type { ServiceContext } from "@/lib/auth/context";
+import { apiV1Enabled } from "@/lib/api/enabled";
+
+/**
+ * The plain 404 the `/api/v1` switch answers with (same as the middleware: empty body, nothing that reveals the API).
+ * Handlers return it when `apiV1Enabled()` is false, so the switch does not depend on the middleware alone (AR2-H2).
+ */
+export function apiV1NotFound<T = ApiErrorResponse>(): NextResponse<T> {
+  return new NextResponse(null, { status: 404 }) as NextResponse<T>;
+}
 
 export interface AuthenticatedApiKeySession {
   apiKeyId: string;
@@ -47,6 +56,12 @@ export async function authenticateApiKey(
   db: SupabaseClient<Database, any, any>,
   req: NextRequest
 ): Promise<ApiKeyAuthResult> {
+  // AR2-H2 defence in depth: every key-authenticated v1 handler is off with the switch, even if the middleware is
+  // bypassed. Checked before the key is looked up, so no usage counter moves either.
+  if (!apiV1Enabled()) {
+    return { success: false, response: apiV1NotFound() };
+  }
+
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {

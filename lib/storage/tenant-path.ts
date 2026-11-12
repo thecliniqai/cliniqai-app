@@ -3,17 +3,22 @@
  *
  * P0-05 (ARC-06): a caller-supplied object key must sit under the caller's tenant (`tenants/<tenantId>/`) and, for
  * patient documents, under that patient (`tenants/<tenantId>/patients/<patientId>/`). Traversal, absolute paths,
- * backslashes, empty or dot segments, percent-encoding and control characters are refused outright, so the prefix
- * check cannot be sidestepped by a key that a storage backend would normalise elsewhere.
+ * backslashes, empty or dot segments and every character outside [A-Za-z0-9_./-] (percent-encoding, control and
+ * non-ASCII characters included) are refused outright, so the prefix check cannot be sidestepped by a key that a URL
+ * parser or storage backend would normalise elsewhere.
  */
 
-// eslint-disable-next-line no-control-regex
-const FORBIDDEN_CHARS = /[\u0000-\u001f\u007f\\%]/;
+/**
+ * AR2-H1: the only characters a key may contain. Anything else (`%`, backslash, spaces, control or non-ASCII characters)
+ * could be decoded or normalised by a URL parser or storage backend into a different key. The database applies the
+ * same rule (`public.is_safe_storage_key`, 000022).
+ */
+const KEY_CHARSET = /^[A-Za-z0-9_./-]+$/;
 
-/** True when `path` is a relative key with only non-empty, non-dot segments and no forbidden characters. */
+/** True when `path` is a relative key of [A-Za-z0-9_./-] with only non-empty, non-dot segments. */
 export function isWellFormedStorageKey(path: string): boolean {
   if (typeof path !== "string" || path.length === 0 || path.length > 512) return false;
-  if (path.startsWith("/") || FORBIDDEN_CHARS.test(path)) return false;
+  if (path.startsWith("/") || !KEY_CHARSET.test(path)) return false;
   const segments = path.split("/");
   return segments.every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
 }

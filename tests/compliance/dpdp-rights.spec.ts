@@ -13,6 +13,9 @@ import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { ctxFor } from "../helpers/context";
+import { enableApiV1ForFile } from "../helpers/api-v1";
+
+enableApiV1ForFile();
 
 describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D-16)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -164,7 +167,8 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
       title: "HbA1c & Fasting Glucose Report",
       document_type: "lab_report",
       original_filename: "hba1c_oct2026.pdf",
-      storage_path: `${tenantA.tenantId}/${patientId}/hba1c_oct2026.pdf`,
+      // tenants/<tenant>/patients/<patient>/... (patient_documents_storage_path_shape, 000022)
+      storage_path: `tenants/${tenantA.tenantId}/patients/${patientId}/labs/hba1c_oct2026.pdf`,
       file_size_bytes: 142850,
       mime_type: "application/pdf",
       report_date: "2026-10-15",

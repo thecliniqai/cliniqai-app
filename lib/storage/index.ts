@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/types";
 import { SupabaseStorageProvider } from "./supabase-provider";
 import { R2StorageProvider } from "./r2-provider";
+import { isWellFormedStorageKey } from "./tenant-path";
 import {
   StorageDeleteOptions,
   StorageDownloadOptions,
@@ -24,7 +25,10 @@ export function validateStoragePath(path: string): void {
   if (!path || typeof path !== "string") {
     throw new Error("Storage path must be a non-empty string");
   }
-  if (path.includes("..") || path.startsWith("/") || path.includes("\\")) {
+  // AR2-H1: same rule as `isWellFormedStorageKey` (and the database's `is_safe_storage_key`): [A-Za-z0-9_./-] only, no
+  // empty or dot segments. A `%2e%2e` segment would otherwise pass here and be collapsed to `..` by the URL parser
+  // when the provider builds the signing URL.
+  if (path.includes("..") || path.startsWith("/") || !isWellFormedStorageKey(path)) {
     throw new Error("Invalid storage path: path traversal characters are forbidden");
   }
 
