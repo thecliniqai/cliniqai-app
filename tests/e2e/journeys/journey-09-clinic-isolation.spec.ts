@@ -18,15 +18,31 @@ async function tenantBMarkers(): Promise<string[]> {
   return [tenantB.name, tenantB.patientName, phone, phone.slice(3)];
 }
 
-/** Collects the text of every response the page receives until `stop()` is awaited. */
-function captureResponses(page: Page): () => Promise<Array<{ url: string; body: string }>> {
-  const pending: Array<Promise<{ url: string; body: string }>> = [];
+type Captured = { url: string; status: number; body: string; unreadable: boolean };
+
+/** How long to wait for one response body. A streamed RSC prefetch can stay open after load (02-06 CI flake). */
+const BODY_READ_MS = 5_000;
+
+/**
+ * Collects the text of every response the page receives until `stop()` is awaited. A body that cannot be read
+ * (stream still open, evicted by the browser) is reported as `unreadable`, never as an empty, passing body.
+ */
+function captureResponses(page: Page): () => Promise<Captured[]> {
+  const pending: Array<Promise<Captured>> = [];
   const onResponse = (response: Response) => {
+    const url = response.url();
+    const status = response.status();
+    const timeout = new Promise<Captured>((resolve) =>
+      setTimeout(() => resolve({ url, status, body: "", unreadable: true }), BODY_READ_MS),
+    );
     pending.push(
-      response
-        .body()
-        .then((buf) => ({ url: response.url(), body: buf.toString("utf8") }))
-        .catch(() => ({ url: response.url(), body: "" })),
+      Promise.race([
+        response
+          .body()
+          .then((buf) => ({ url, status, body: buf.toString("utf8"), unreadable: false }))
+          .catch(() => ({ url, status, body: "", unreadable: true })),
+        timeout,
+      ]),
     );
   };
   page.on("response", onResponse);
@@ -34,6 +50,20 @@ function captureResponses(page: Page): () => Promise<Array<{ url: string; body: 
     page.off("response", onResponse);
     return Promise.all(pending);
   };
+}
+
+/**
+ * An unreadable body is acceptable only where the content is checked another way:
+ * - a Next.js RSC prefetch of a *different* route (the dashboard nav prefetches clinic-A pages, which cannot
+ *   carry B's record);
+ * - the probed page's own document, whose server HTML the test fetches directly (`serverHtml` below), because
+ *   the browser discards it when the client redirects away.
+ * Anything else must be readable so the "no B data" assertion is not vacuous.
+ */
+function unreadableIsAcceptable(capturedUrl: string, probedPath: string): boolean {
+  const url = new URL(capturedUrl);
+  if (url.pathname === probedPath && !url.searchParams.has("_rsc")) return true;
+  return url.searchParams.has("_rsc") && url.pathname !== probedPath;
 }
 
 for (const role of ["owner", "doctor", "receptionist"] as const satisfies readonly E2eRole[]) {
@@ -49,19 +79,33 @@ for (const role of ["owner", "doctor", "receptionist"] as const satisfies readon
       const pages = [`/patients/${tenantB.patientId}`, `/consultation/${tenantB.visitId}`];
 
       for (const path of pages) {
-        const stop = captureResponses(page);
-        const response = await page.goto(path);
-        await page.waitForLoadState("load");
+        // A fresh page per URL: a late response from the previous navigation must not land in this capture
+        // (the context keeps the session and the loopback-only network block).
+        const probe = await page.context().newPage();
+        const stop = captureResponses(probe);
+        const response = await probe.goto(path);
+        await probe.waitForLoadState("load");
         // Refused: not found (404) or sent elsewhere — never a page for B's record.
-        const served = response?.status() === 200 && new URL(page.url()).pathname === path;
+        const served = response?.status() === 200 && new URL(probe.url()).pathname === path;
         expect(served, `${path} was served to a clinic A ${role}`).toBe(false);
 
-        const html = await page.content();
+        const html = await probe.content();
+        // The server's own first response for B's URL, with this session, no redirects followed: the document the
+        // browser may already have discarded.
+        const serverHtml = (
+          await (await probe.request.get(path, { maxRedirects: 0, timeout: 10_000 })).body()
+        ).toString("utf8");
         const bodies = await stop();
+        const unexpectedlyUnreadable = bodies
+          .filter((b) => b.unreadable && !unreadableIsAcceptable(b.url, path))
+          .map((b) => `${b.status} ${b.url}`);
+        expect(unexpectedlyUnreadable, `responses while loading ${path} whose bodies could not be checked`).toEqual([]);
         for (const marker of markers) {
           expect(html, `DOM of ${path}`).not.toContain(marker);
+          expect(serverHtml, `server HTML of ${path}`).not.toContain(marker);
           for (const { url, body } of bodies) expect(body, `response ${url} while loading ${path}`).not.toContain(marker);
         }
+        await probe.close();
       }
 
       // Each PDF probe names a row that exists in clinic B (IR-F9: the receipt probe once sent a visit id, which can
