@@ -11,7 +11,7 @@ import { NextRequest } from "next/server";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
 import { shareLabReportViaWhatsApp } from "@/features/labs/service";
 import { mockCtx } from "../helpers/context";
-import { shareReferralLetterViaWhatsApp } from "@/features/referrals/actions";
+import { shareReferralLetterViaWhatsApp } from "@/features/referrals/service";
 import { shareReceiptViaWhatsApp, sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
 import * as dispatcher from "@/lib/messaging/dispatcher";
 
@@ -615,7 +615,7 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
         }),
       };
 
-      const res = await shareReferralLetterViaWhatsApp("ref-300", mockSupabase, session);
+      const res = await shareReferralLetterViaWhatsApp(mockCtx(mockSupabase, session), "ref-300");
       expect(res.success).toBe(true);
       expect(res.shareUrl).toContain("/r/");
       expect(enqueueSpy).toHaveBeenCalledWith(

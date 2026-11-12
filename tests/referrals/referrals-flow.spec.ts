@@ -1,15 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import {
-  createReferral,
-  getOutboundReferrals,
-  getInboundReferrals,
-  acknowledgeReferral,
-  closeReferralLoop,
-  getReferralSignedUrl,
-  getPatientReferrals,
-} from "@/features/referrals/actions";
+import { createReferral, getOutboundReferrals, getInboundReferrals, acknowledgeReferral, closeReferralLoop, getReferralSignedUrl, getPatientReferrals } from "@/features/referrals/service";
 import { createReferralSchema, closeReferralLoopSchema } from "@/features/referrals/schema";
 import { seedTenantWithOwner } from "../helpers/tenants";
+import { ctxFor } from "../helpers/context";
 
 describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -104,6 +97,7 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
   describe("2. Out-of-Network Referral & Branded PDF Generation", () => {
     it("creates out-of-network referral with specialist name and facility", async () => {
       const res = await createReferral(
+        ctxFor(tenantA),
         {
           patient_id: patientAId,
           referral_type: "out_of_network",
@@ -122,8 +116,6 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
           investigations_advised: ["2D Echocardiography", "TMT (Treadmill Test)"],
           letterhead_mode: "blank_paper",
         },
-        tenantA.client,
-        sessionA
       );
 
       expect(res.success).toBe(true);
@@ -138,14 +130,14 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
     });
 
     it("generates a valid 3600-second signed URL for the referral letter PDF", async () => {
-      const urlRes = await getReferralSignedUrl(outOfNetworkReferralId, tenantA.client, sessionA);
+      const urlRes = await getReferralSignedUrl(ctxFor(tenantA), outOfNetworkReferralId);
       expect(urlRes.success).toBe(true);
       expect(urlRes.signedUrl).toBeDefined();
       expect(urlRes.signedUrl).toContain("http");
     });
 
     it("retrieves outbound referrals including patient details", async () => {
-      const outRes = await getOutboundReferrals(tenantA.client, sessionA);
+      const outRes = await getOutboundReferrals(ctxFor(tenantA));
       expect(outRes.success).toBe(true);
       expect(outRes.referrals.length).toBeGreaterThanOrEqual(1);
 
@@ -159,6 +151,7 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
   describe("3. In-Network Referral, DPDP Consent & Loop Closure Lifecycle", () => {
     it("creates in-network referral and logs DPDP consent entry in consent_records", async () => {
       const res = await createReferral(
+        ctxFor(tenantA),
         {
           patient_id: patientAId,
           referral_type: "in_network",
@@ -172,8 +165,6 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
           patient_consents_history_sharing: true,
           letterhead_mode: "blank_paper",
         },
-        tenantA.client,
-        sessionA
       );
 
       expect(res.success).toBe(true);
@@ -202,7 +193,7 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
 
     it("allows target clinic (Tenant B) to view and acknowledge the inbound referral", async () => {
       // 1. Tenant B checks inbound register
-      const inRes = await getInboundReferrals(tenantB.client, sessionB);
+      const inRes = await getInboundReferrals(ctxFor(tenantB));
       expect(inRes.success).toBe(true);
 
       const found = inRes.referrals.find((r) => r.id === inNetworkReferralId);
@@ -212,7 +203,7 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
       expect(found?.originating_clinic?.name).toBe("City Care Family Clinic");
 
       // 2. Tenant B acknowledges referral
-      const ackRes = await acknowledgeReferral(inNetworkReferralId, tenantB.client, sessionB);
+      const ackRes = await acknowledgeReferral(ctxFor(tenantB), inNetworkReferralId);
       expect(ackRes.success).toBe(true);
 
       // Verify status updated in database
@@ -227,14 +218,13 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
 
     it("allows originating clinic (Tenant A) to Close the Loop with specialist return notes", async () => {
       const closeRes = await closeReferralLoop(
+        ctxFor(tenantA),
         {
           referral_id: inNetworkReferralId,
           closure_notes:
             "Patient underwent successful CAG at Metro Cardiology Center. Normal coronaries with slow flow. Started on Diltiazem. Patient advised regular follow-up.",
           return_date: "2026-10-22",
         },
-        tenantA.client,
-        sessionA
       );
 
       expect(closeRes.success).toBe(true);
@@ -251,7 +241,7 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
     });
 
     it("retrieves all referrals for a specific patient under the clinic", async () => {
-      const patRes = await getPatientReferrals(patientAId, tenantA.client, sessionA);
+      const patRes = await getPatientReferrals(ctxFor(tenantA), patientAId);
       expect(patRes.success).toBe(true);
       expect(patRes.referrals.length).toBe(2);
     });
@@ -259,7 +249,7 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
 
   describe("4. Multi-Tenant Boundary & Access Protection (T-04-11)", () => {
     it("proves Tenant B cannot view Tenant A outbound referrals", async () => {
-      const outRes = await getOutboundReferrals(tenantB.client, sessionB);
+      const outRes = await getOutboundReferrals(ctxFor(tenantB));
       expect(outRes.success).toBe(true);
 
       const leak = outRes.referrals.find((r) => r.id === outOfNetworkReferralId);
@@ -268,12 +258,11 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
 
     it("proves Tenant B cannot close the loop on Tenant A referral", async () => {
       const closeRes = await closeReferralLoop(
+        ctxFor(tenantB),
         {
           referral_id: outOfNetworkReferralId,
           closure_notes: "Unauthorized attempt by Tenant B",
         },
-        tenantB.client,
-        sessionB
       );
 
       expect(closeRes.success).toBe(false);
