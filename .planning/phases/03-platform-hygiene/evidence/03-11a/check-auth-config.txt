@@ -1,0 +1,2 @@
+auth-policy: PASS (39 config.toml settings match the local policy column)
+exit=0
