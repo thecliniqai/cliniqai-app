@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
+import { getRequestId, newRequestId } from "@/lib/log/request-id";
 
 export interface ApiSuccessResponse<T> {
   data: T;
@@ -35,15 +35,19 @@ export function apiSuccess<T>(
 /**
  * Uniform error response envelope: { error: { code, message, details?, correlation_id? } }
  * Sanitises internal database errors per AGENTS.md §12.
+ *
+ * V2-03 03-09a (BACKEND H2): `correlation_id` is the request id `proxy.ts` assigned (`x-request-id`), so a client's
+ * error report, the response header and the server log line share one id. Async because the id is read through
+ * `headers()`. Outside a request scope (a handler called directly) a fresh id is used.
  */
-export function apiError(
+export async function apiError(
   code: string,
   message: string,
   status: number = 400,
   details?: unknown,
   headers?: HeadersInit
-): NextResponse<ApiErrorResponse> {
-  const correlationId = crypto.randomUUID();
+): Promise<NextResponse<ApiErrorResponse>> {
+  const correlationId = (await getRequestId()) ?? newRequestId();
   let sanitizedMessage = message;
   let sanitizedDetails = details;
 

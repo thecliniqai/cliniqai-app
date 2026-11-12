@@ -67,7 +67,7 @@ export async function authenticateApiKey(
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return {
       success: false,
-      response: apiError(
+      response: await apiError(
         "UNAUTHORIZED",
         "Missing or invalid Authorization header. Expected Bearer clq_live_...",
         401
@@ -80,7 +80,7 @@ export async function authenticateApiKey(
   if (!rawToken.startsWith("clq_live_") || rawToken.length < 20) {
     return {
       success: false,
-      response: apiError(
+      response: await apiError(
         "UNAUTHORIZED",
         "Invalid API key format. Expected Bearer clq_live_...",
         401
@@ -100,7 +100,7 @@ export async function authenticateApiKey(
   if (error || !keyRecord) {
     return {
       success: false,
-      response: apiError("UNAUTHORIZED", "Invalid or revoked API key", 401),
+      response: await apiError("UNAUTHORIZED", "Invalid or revoked API key", 401),
     };
   }
 
@@ -114,7 +114,7 @@ export async function authenticateApiKey(
   ) {
     return {
       success: false,
-      response: apiError("UNAUTHORIZED", "Invalid or revoked API key", 401),
+      response: await apiError("UNAUTHORIZED", "Invalid or revoked API key", 401),
     };
   }
 
