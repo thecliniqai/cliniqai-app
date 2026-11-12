@@ -134,6 +134,7 @@ describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02
       };
 
       const item = await enqueueMessage(
+        mockClient as never,
         {
           tenantId: "tenant-1",
           patientId: "patient-1",
@@ -141,8 +142,7 @@ describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02
           messageType: "appointment_booked",
           templateId: "appointment_booked_en",
           recipientPhone: "+919876543210",
-        },
-        mockClient
+        }
       );
 
       expect(item.id).toBe("queue-123");
@@ -166,12 +166,20 @@ describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02
         max_retries: 3,
       };
 
-      const mockUpdate = vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-      });
       const mockAuditInsert = vi.fn().mockResolvedValue({ data: null, error: null });
+      // AR3-N1 (000024): each row is claimed and finished through the SECURITY DEFINER RPCs, never by direct UPDATE.
+      const mockRpc = vi.fn().mockImplementation((name: string) => {
+        if (name === "communication_queue_claim") {
+          return Promise.resolve({ data: [{ ...pendingItem, status: "processing" }], error: null });
+        }
+        if (name === "communication_queue_finish") {
+          return Promise.resolve({ data: [{ new_status: "sent", new_retry_count: 0 }], error: null });
+        }
+        return Promise.resolve({ data: null, error: { message: "unexpected rpc" } });
+      });
 
       const mockClient = {
+        rpc: mockRpc,
         from: vi.fn().mockImplementation((table: string) => {
           if (table === "communication_queue") {
             return {
@@ -179,12 +187,14 @@ describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02
                 in: vi.fn().mockReturnValue({
                   lte: vi.fn().mockReturnValue({
                     order: vi.fn().mockReturnValue({
-                      limit: vi.fn().mockResolvedValue({ data: [pendingItem], error: null }),
+                      limit: vi.fn().mockResolvedValue({ data: [{ id: pendingItem.id }], error: null }),
                     }),
                   }),
                 }),
               }),
-              update: mockUpdate,
+              update: vi.fn(() => {
+                throw new Error("direct queue update attempted");
+              }),
             };
           }
           if (table === "audit_logs") {
@@ -196,20 +206,55 @@ describe("Outbox Queue & Governance Engine (REQ-reminders-notifications, T-05-02
         }),
       };
 
-      const summary = await dispatchPendingQueue({
-        clientOverride: mockClient,
+      const summary = await dispatchPendingQueue(mockClient as never, {
         providerName: "dev",
       });
 
       expect(summary.processed).toBe(1);
       expect(summary.succeeded).toBe(1);
       expect(summary.failed).toBe(0);
+      expect(mockRpc).toHaveBeenCalledWith("communication_queue_claim", { p_id: "msg-1" });
+      expect(mockRpc).toHaveBeenCalledWith("communication_queue_finish", {
+        p_id: "msg-1",
+        p_success: true,
+        p_external_message_id: expect.any(String),
+        p_error: null,
+      });
       expect(mockAuditInsert).toHaveBeenCalledWith(
         expect.objectContaining({
           action: "communication_sent",
           tenant_id: "tenant-1",
+          entity_id: "msg-1",
+          metadata: expect.objectContaining({ queue_id: "msg-1", message_type: "appointment_reminder" }),
         })
       );
+      // No recipient phone in the audit trail (01-10).
+      expect(mockAuditInsert.mock.calls[0][0].metadata).not.toHaveProperty("recipient_phone");
+      expect(JSON.stringify(mockAuditInsert.mock.calls[0][0])).not.toContain("9876543210");
+    });
+
+    it("enqueueMessage dispatches only the row it inserted, and reads back no payload columns", async () => {
+      const mockSelect = vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: { id: "queue-9", status: "pending" }, error: null }),
+      });
+      const mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
+      const mockRpc = vi.fn().mockResolvedValue({ data: [], error: null });
+      const mockClient = { from: vi.fn().mockReturnValue({ insert: mockInsert }), rpc: mockRpc };
+
+      await enqueueMessage(mockClient as never, {
+        tenantId: "tenant-1",
+        channel: "whatsapp",
+        messageType: "lab_report_uploaded",
+        templateId: "lab_report_uploaded",
+        recipientPhone: "+919876543210",
+      });
+
+      expect(mockSelect).toHaveBeenCalledWith("id, status");
+      expect(mockInsert.mock.calls[0][0]).not.toHaveProperty("status");
+      expect(mockInsert.mock.calls[0][0]).not.toHaveProperty("created_by");
+      expect(mockRpc).toHaveBeenCalledTimes(1);
+      expect(mockRpc).toHaveBeenCalledWith("communication_queue_claim", { p_id: "queue-9" });
+      expect(mockClient.from).toHaveBeenCalledTimes(1);
     });
   });
 

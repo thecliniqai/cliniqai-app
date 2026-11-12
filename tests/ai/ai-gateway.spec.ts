@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
+  AiChatClient,
+  AiUnavailableError,
   OpenAiGatewayClient,
-  MockAiProvider,
+  resolveAiProviderConfig,
 } from "@/lib/ai/client";
 import {
   generateSoapFromShorthand,
@@ -9,136 +11,151 @@ import {
 } from "@/lib/ai/soap-generator";
 import { SoapDraftZodSchema } from "@/lib/ai/types";
 
-describe("Universal OpenAI-Compatible AI Gateway & Clinical SOAP Scribe (REQ-ai-features, T-05-10)", () => {
-  const originalEnv = { ...process.env };
+// AI-01: no MockAiProvider. Tests inject a fake adapter (AI_STRATEGY.md §7 L2) or stub `fetch`.
+function fakeClient(impl: AiChatClient["chatCompletion"]) {
+  const chatCompletion = vi.fn<AiChatClient["chatCompletion"]>(impl);
+  return { client: { chatCompletion } satisfies AiChatClient, chatCompletion };
+}
 
-  beforeEach(() => {
-    process.env = { ...originalEnv };
-  });
+async function expectUnavailable(promise: Promise<unknown>, reason: string) {
+  const err = await promise.then(
+    () => null,
+    (e: unknown) => e
+  );
+  expect(err).toBeInstanceOf(AiUnavailableError);
+  expect((err as AiUnavailableError).reason).toBe(reason);
+}
 
+const COMPLETE_ENV = {
+  AI_ENABLED: "true",
+  AI_PROVIDER: "openai",
+  AI_API_KEY: "x",
+  AI_MODEL_NAME: "model-x",
+  AI_BASE_URL: "http://127.0.0.1:9/v1",
+};
+
+describe("AI gateway and SOAP scribe (AI-01 fail-closed)", () => {
   afterEach(() => {
-    process.env = originalEnv;
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  describe("1. Provider Compatibility & MockAiProvider", () => {
-    it("initializes MockAiProvider in dev/test environment with deterministic responses", async () => {
-      const mockProvider = new MockAiProvider();
-      const response = await mockProvider.generateChatResponse(
-        [{ role: "user", content: "Patient c/o fever since 3 days" }],
-        true
-      );
-
-      expect(response).toBeDefined();
-      const parsed = JSON.parse(response);
-      expect(parsed.chief_complaints).toBeInstanceOf(Array);
-      expect(parsed.chief_complaints.length).toBeGreaterThan(0);
-      expect(parsed.chief_complaints[0].complaint).toContain("Fever");
-      expect(parsed.examination).toBeDefined();
-      expect(parsed.advice).toBeDefined();
-    });
-
-    it("OpenAiGatewayClient defaults to Mock provider when no API key is provided", async () => {
-      delete process.env.AI_API_KEY;
-      const client = new OpenAiGatewayClient({ provider: "mock" });
-      const output = await client.chatCompletion({
-        messages: [{ role: "user", content: "dry cough" }],
-        responseFormat: { type: "json_object" },
-      });
-
-      const parsed = JSON.parse(output);
-      expect(parsed.chief_complaints[0].complaint).toBe("Dry cough");
-    });
-
-    it("conforms to OpenAI Chat Completions REST schema when API key is provided", async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  chief_complaints: [{ complaint: "Headache", duration: "1 day", severity: "mild" }],
-                  examination: "BP 120/80 mmHg",
-                  diagnosis_hypothesis: "Tension headache",
-                  advice: "Rest and hydration",
-                }),
-              },
-            },
-          ],
-        }),
-      });
-
-      global.fetch = mockFetch;
-
-      const client = new OpenAiGatewayClient({
-        baseUrl: "https://api.openai.com/v1",
-        apiKey: "sk-real-api-key-12345",
-        model: "gpt-4o-mini",
+  describe("1. Provider configuration", () => {
+    it("returns a configuration only when AI is enabled and every value is set", () => {
+      expect(resolveAiProviderConfig(COMPLETE_ENV)).toEqual({
         provider: "openai",
+        apiKey: "x",
+        model: "model-x",
+        baseUrl: "http://127.0.0.1:9/v1",
       });
+    });
 
-      const output = await client.chatCompletion({
+    it.each([
+      ["AI_ENABLED unset", { ...COMPLETE_ENV, AI_ENABLED: undefined }],
+      ["AI_ENABLED false", { ...COMPLETE_ENV, AI_ENABLED: "false" }],
+      ["AI_PROVIDER=mock", { ...COMPLETE_ENV, AI_PROVIDER: "mock" }],
+      ["AI_PROVIDER unset", { ...COMPLETE_ENV, AI_PROVIDER: undefined }],
+      ["unknown provider", { ...COMPLETE_ENV, AI_PROVIDER: "something" }],
+      ["no API key", { ...COMPLETE_ENV, AI_API_KEY: "" }],
+      ["no model", { ...COMPLETE_ENV, AI_MODEL_NAME: undefined }],
+      ["no base URL", { ...COMPLETE_ENV, AI_BASE_URL: undefined }],
+    ])("has no provider when %s", (_label, env) => {
+      expect(resolveAiProviderConfig(env)).toBeNull();
+    });
+
+    it("the test lane itself (AI_PROVIDER=mock) has no provider", () => {
+      expect(process.env.AI_PROVIDER).toBe("mock");
+      expect(resolveAiProviderConfig()).toBeNull();
+    });
+  });
+
+  describe("2. OpenAI-compatible client", () => {
+    const config = {
+      provider: "openai" as const,
+      baseUrl: "http://127.0.0.1:9/v1",
+      apiKey: "x",
+      model: "model-x",
+    };
+
+    it("posts a Chat Completions request and returns the content", async () => {
+      const fetchSpy = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }), { status: 200 })
+      );
+      vi.stubGlobal("fetch", fetchSpy);
+
+      const output = await new OpenAiGatewayClient(config).chatCompletion({
         messages: [{ role: "user", content: "headache" }],
         responseFormat: { type: "json_object" },
         temperature: 0.2,
       });
 
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://api.openai.com/v1/chat/completions",
+      expect(output).toBe('{"ok":true}');
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "http://127.0.0.1:9/v1/chat/completions",
         expect.objectContaining({
           method: "POST",
-          headers: expect.objectContaining({
-            "Content-Type": "application/json",
-            Authorization: "Bearer sk-real-api-key-12345",
-          }),
+          headers: expect.objectContaining({ Authorization: "Bearer x" }),
           body: JSON.stringify({
-            model: "gpt-4o-mini",
+            model: "model-x",
             messages: [{ role: "user", content: "headache" }],
             temperature: 0.2,
             response_format: { type: "json_object" },
           }),
         })
       );
+    });
 
-      const parsed = JSON.parse(output);
-      expect(parsed.diagnosis_hypothesis).toBe("Tension headache");
+    it("maps a provider error to AiUnavailableError without exposing the provider body", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("echo: secret prompt", { status: 500 })));
+      const err = await new OpenAiGatewayClient(config)
+        .chatCompletion({ messages: [{ role: "user", content: "x" }] })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(AiUnavailableError);
+      expect((err as AiUnavailableError).reason).toBe("provider_error");
+      expect((err as Error).message).not.toContain("secret prompt");
+    });
+
+    it("maps a network failure to provider_error and an empty completion to invalid_output", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
+      await expectUnavailable(
+        new OpenAiGatewayClient(config).chatCompletion({ messages: [] }),
+        "provider_error"
+      );
+
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(new Response(JSON.stringify({ choices: [] }), { status: 200 }))
+      );
+      await expectUnavailable(
+        new OpenAiGatewayClient(config).chatCompletion({ messages: [] }),
+        "invalid_output"
+      );
     });
   });
 
-  describe("2. Zero Patient PII in External Prompts (T-05-10)", () => {
+  describe("3. Zero patient PII in external prompts (T-05-10)", () => {
     it("sanitizes patient name, phone, national ID, and address before constructing AI prompt", () => {
       const sensitivePatient = {
         id: "patient-123",
-        full_name: "Rahul Ramakant Sharma",
-        name: "Rahul",
-        phone: "+919876543210",
-        address: "Flat 402, Shivajinagar, Pune 411005",
+        full_name: "Synthetic Patient",
+        name: "Synthetic",
+        phone: "+910000000000",
+        address: "Synthetic address",
         abha_id: "14-digit-abha-id",
-        national_id: "1234-5678-9012",
-        email: "rahul@example.com",
+        national_id: "0000-0000-0000",
+        email: "patient@example.test",
         uhid: "UHID999",
-        // Clinical attributes that SHOULD be retained:
         age: 42,
         sex: "male",
         existing_conditions: ["Type 2 Diabetes", "Hypertension"],
         vitals: { bp: "130/85", pulse: 76 },
       };
 
-      const clean = sanitizePatientContextForPrompt(sensitivePatient);
+      const clean = sanitizePatientContextForPrompt(sensitivePatient) as Record<string, unknown>;
 
-      // Verify PII is completely absent
-      expect((clean as any).full_name).toBeUndefined();
-      expect((clean as any).name).toBeUndefined();
-      expect((clean as any).phone).toBeUndefined();
-      expect((clean as any).address).toBeUndefined();
-      expect((clean as any).abha_id).toBeUndefined();
-      expect((clean as any).national_id).toBeUndefined();
-      expect((clean as any).email).toBeUndefined();
-      expect((clean as any).uhid).toBeUndefined();
-      expect((clean as any).id).toBeUndefined();
-
-      // Verify clinical attributes are safely preserved
+      for (const key of ["full_name", "name", "phone", "address", "abha_id", "national_id", "email", "uhid", "id"]) {
+        expect(clean[key]).toBeUndefined();
+      }
       expect(clean.age).toBe(42);
       expect(clean.sex).toBe("male");
       expect(clean.existing_conditions).toEqual(["Type 2 Diabetes", "Hypertension"]);
@@ -146,27 +163,58 @@ describe("Universal OpenAI-Compatible AI Gateway & Clinical SOAP Scribe (REQ-ai-
     });
   });
 
-  describe("3. Structured SOAP Output & OPD Shorthand Normalization", () => {
-    it("validates structured SOAP output using Zod schema", async () => {
-      const result = await generateSoapFromShorthand({
-        shorthand: "c/o fever 3d, o/e throat congested, adv steam",
-      });
+  describe("4. SOAP draft from the provider, fail closed otherwise", () => {
+    const validDraft = {
+      chief_complaints: [{ complaint: "Fever", duration: "3 days", severity: "moderate" }],
+      examination: "Throat congested",
+      diagnosis_hypothesis: "",
+      advice: "Steam inhalation",
+    };
 
-      const validation = SoapDraftZodSchema.safeParse(result);
-      expect(validation.success).toBe(true);
-      expect(result.chief_complaints.length).toBeGreaterThan(0);
-      expect(result.examination).toBeTruthy();
-      expect(result.advice).toBeTruthy();
+    it("returns the provider's draft when it matches the schema", async () => {
+      const fake = fakeClient(async () => JSON.stringify(validDraft));
+      const result = await generateSoapFromShorthand(
+        { shorthand: "c/o fever 3d, o/e throat congested, adv steam" },
+        fake.client
+      );
+      expect(SoapDraftZodSchema.safeParse(result).success).toBe(true);
+      expect(result).toEqual(validDraft);
+      expect(fake.chatCompletion).toHaveBeenCalledTimes(1);
     });
 
-    it("returns empty draft for blank shorthand without error", async () => {
-      const result = await generateSoapFromShorthand({
-        shorthand: "   ",
-      });
+    it("produces no draft when no provider is configured, and makes no outbound call", async () => {
+      const fetchSpy = vi.fn();
+      vi.stubGlobal("fetch", fetchSpy);
+      await expectUnavailable(generateSoapFromShorthand({ shorthand: "c/o fever 3d" }), "not_configured");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
 
-      expect(result.chief_complaints).toEqual([]);
-      expect(result.examination).toBe("");
-      expect(result.advice).toBe("");
+    it.each([
+      ["non-JSON output", "c/o fever. o/e normal"],
+      ["schema-invalid output", JSON.stringify({ chief_complaints: "fever", examination: 42 })],
+    ])("produces no draft for %s (no regex or partial fallback)", async (_label, output) => {
+      const fake = fakeClient(async () => output);
+      await expectUnavailable(
+        generateSoapFromShorthand({ shorthand: "c/o fever 3d" }, fake.client),
+        "invalid_output"
+      );
+    });
+
+    it("produces no draft when the provider throws", async () => {
+      const fake = fakeClient(async () => {
+        throw new Error("upstream failure");
+      });
+      await expectUnavailable(
+        generateSoapFromShorthand({ shorthand: "c/o fever 3d" }, fake.client),
+        "provider_error"
+      );
+    });
+
+    it("returns an empty draft for blank shorthand without calling the provider", async () => {
+      const fake = fakeClient(async () => JSON.stringify(validDraft));
+      const result = await generateSoapFromShorthand({ shorthand: "   " }, fake.client);
+      expect(result).toEqual({ chief_complaints: [], examination: "", diagnosis_hypothesis: "", advice: "" });
+      expect(fake.chatCompletion).not.toHaveBeenCalled();
     });
   });
 });

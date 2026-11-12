@@ -12,6 +12,9 @@ import { GET as getReferralById, PATCH as patchReferralById } from "@/app/api/v1
 import { seedTenantWithOwner, addMemberToTenant, createUnlinkedUser } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { enableApiV1ForFile } from "../helpers/api-v1";
+
+enableApiV1ForFile();
 
 describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-05, T-06-07)", () => {
   let clinicA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -88,41 +91,41 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
 
   describe("1. validateDoctorAssignment Validator Function", () => {
     it("returns false if doctorId is empty or whitespace", async () => {
-      const res1 = await validateDoctorAssignment(clinicA.tenantId, "");
+      const res1 = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, "");
       expect(res1.valid).toBe(false);
       expect(res1.error).toContain("required");
 
-      const res2 = await validateDoctorAssignment(clinicA.tenantId, "   ");
+      const res2 = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, "   ");
       expect(res2.valid).toBe(false);
     });
 
     it("returns false if user is not a member of the clinic", async () => {
-      const res = await validateDoctorAssignment(clinicA.tenantId, unlinkedUser.userId);
+      const res = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, unlinkedUser.userId);
       expect(res.valid).toBe(false);
       expect(res.error).toContain("not found");
     });
 
     it("returns false if user belongs to another clinic (tenant isolation)", async () => {
-      const res = await validateDoctorAssignment(clinicA.tenantId, doctorB.userId);
+      const res = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, doctorB.userId);
       expect(res.valid).toBe(false);
       expect(res.error).toContain("not found");
     });
 
     it("returns false if user has receptionist or nurse role (T-06-05)", async () => {
-      const resRecep = await validateDoctorAssignment(clinicA.tenantId, receptionistA.userId);
+      const resRecep = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, receptionistA.userId);
       expect(resRecep.valid).toBe(false);
       expect(resRecep.error).toContain("receptionist");
 
-      const resNurse = await validateDoctorAssignment(clinicA.tenantId, nurseA.userId);
+      const resNurse = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, nurseA.userId);
       expect(resNurse.valid).toBe(false);
       expect(resNurse.error).toContain("nurse");
     });
 
     it("returns true if user has doctor or owner role", async () => {
-      const resDoc = await validateDoctorAssignment(clinicA.tenantId, doctorA.userId);
+      const resDoc = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, doctorA.userId);
       expect(resDoc.valid).toBe(true);
 
-      const resOwner = await validateDoctorAssignment(clinicA.tenantId, clinicA.userId);
+      const resOwner = await validateDoctorAssignment(getAdminClient(), clinicA.tenantId, clinicA.userId);
       expect(resOwner.valid).toBe(true);
     });
   });
@@ -321,6 +324,115 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(json.data.clinical_notes).toBe("Patient advised complete rest and adequate hydration.");
       expect(json.data.signed_at).toBeDefined();
       expect(json.data.signed_by).toBe(clinicA.userId);
+    });
+
+    // V2-01 01-05 (DB-13/API-04, R10): completed or signed visits are read-only through the API.
+    function patchReq(visitId: string, body: Record<string, unknown>) {
+      return new NextRequest(`http://localhost/api/v1/visits/${visitId}`, {
+        method: "PATCH",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    }
+
+    async function readVisit(visitId: string) {
+      const { data } = await getAdminClient()
+        .from("visits")
+        .select("status, clinical_notes, signed_at, signed_by, updated_at")
+        .eq("id", visitId)
+        .single();
+      return data;
+    }
+
+    it("rejects any PATCH of the completed visit with 409 VISIT_LOCKED and leaves the row unchanged", async () => {
+      const before = await readVisit(activeVisitId);
+      expect(before?.status).toBe("completed");
+
+      for (const body of [
+        { clinical_notes: "tamper" },
+        { status: "waiting" },
+        { status: "completed", clinical_notes: "re-sign attempt" },
+        { status: "cancelled" },
+        {},
+      ]) {
+        const res = await patchVisitById(patchReq(activeVisitId, body), {
+          params: Promise.resolve({ id: activeVisitId }),
+        });
+        const json = await res.json();
+        expect(res.status).toBe(409);
+        expect(json.error.code).toBe("VISIT_LOCKED");
+      }
+
+      expect(await readVisit(activeVisitId)).toEqual(before);
+    });
+
+    it("rejects a PATCH of a signed visit reopened for amendment (signed_at set, in_consultation)", async () => {
+      const admin = getAdminClient();
+      const signedAt = "2026-11-01T09:00:00.000Z";
+      const { data: v } = await admin
+        .from("visits")
+        .insert({
+          tenant_id: clinicA.tenantId,
+          patient_id: patientA.id,
+          doctor_id: doctorA.userId,
+          origin_type: "walk_in",
+          status: "in_consultation",
+          clinical_notes: "Signed synthetic note.",
+          signed_at: signedAt,
+          signed_by: doctorA.userId,
+          created_by: clinicA.userId,
+        })
+        .select("id")
+        .single();
+      const reopenedId = v!.id;
+      const before = await readVisit(reopenedId);
+
+      const res = await patchVisitById(patchReq(reopenedId, { clinical_notes: "tamper" }), {
+        params: Promise.resolve({ id: reopenedId }),
+      });
+      const json = await res.json();
+      expect(res.status).toBe(409);
+      expect(json.error.code).toBe("VISIT_LOCKED");
+
+      const after = await readVisit(reopenedId);
+      expect(after).toEqual(before);
+      expect(after?.clinical_notes).toBe("Signed synthetic note.");
+      expect(after?.signed_by).toBe(doctorA.userId);
+    });
+
+    it("still patches an open visit, and rejects an unknown status value with 422", async () => {
+      const admin = getAdminClient();
+      const { data: v } = await admin
+        .from("visits")
+        .insert({
+          tenant_id: clinicA.tenantId,
+          patient_id: patientA.id,
+          doctor_id: doctorA.userId,
+          origin_type: "walk_in",
+          status: "waiting",
+          created_by: clinicA.userId,
+        })
+        .select("id")
+        .single();
+      const openId = v!.id;
+
+      const ok = await patchVisitById(patchReq(openId, { status: "in_consultation", clinical_notes: "Open note." }), {
+        params: Promise.resolve({ id: openId }),
+      });
+      expect(ok.status).toBe(200);
+      const after = await readVisit(openId);
+      expect(after?.status).toBe("in_consultation");
+      expect(after?.clinical_notes).toBe("Open note.");
+      expect(after?.signed_at).toBeNull();
+
+      const bad = await patchVisitById(patchReq(openId, { status: "archived" }), {
+        params: Promise.resolve({ id: openId }),
+      });
+      expect(bad.status).toBe(422);
+      expect((await readVisit(openId))?.status).toBe("in_consultation");
     });
 
     it("Key B cannot read or patch Clinic A visit (returns 404)", async () => {
@@ -563,6 +675,79 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(json.data.is_abnormal).toBe(true);
       expect(json.data.uploaded_by).toBe(clinicA.userId);
       createdLabDocId = json.data.id;
+    });
+
+    // V2-01 01-05 P0-05 (ARC-06): the storage key must sit under the key's tenant and the body's patient.
+    it("rejects storage paths outside tenants/<tenant>/patients/<patient>/ with 422 and writes no row", async () => {
+      const otherPatientId = "00000000-0000-4000-8000-0000000000f1";
+      const badPaths = [
+        `tenants/${clinicB.tenantId}/patients/${patientA.id}/labs/x.pdf`, // other tenant
+        `${clinicA.tenantId}/patients/${patientA.id}/labs/x.pdf`, // legacy form, no tenants/ prefix
+        `labs/x.pdf`, // no prefix at all
+        `/tenants/${clinicA.tenantId}/patients/${patientA.id}/labs/x.pdf`, // absolute
+        `tenants/${clinicA.tenantId}/patients/${patientA.id}/../../../${clinicB.tenantId}/x.pdf`, // traversal
+        `tenants/${clinicA.tenantId}/patients/${patientA.id}/labs/%2e%2e/x.pdf`, // encoded traversal
+        `tenants/${clinicA.tenantId}/patients/${patientA.id}//x.pdf`, // empty segment
+        `tenants/${clinicA.tenantId}/patients/${patientA.id}\\..\\x.pdf`, // backslash
+        `tenants/${clinicA.tenantId}/patients/${otherPatientId}/labs/x.pdf`, // other patient
+        `tenants/${clinicA.tenantId}/patients/${patientA.id}/`, // prefix only
+      ];
+
+      for (const storage_path of badPaths) {
+        const title = `Path probe ${badPaths.indexOf(storage_path)}`;
+        const req = new NextRequest("http://localhost/api/v1/lab-orders", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${keyA.rawToken}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ patient_id: patientA.id, title, storage_path }),
+        });
+
+        const res = await createLabOrder(req);
+        const json = await res.json();
+        expect(res.status, storage_path).toBe(422);
+        expect(json.error.code).toBe("VALIDATION_ERROR");
+
+        const { data: rows } = await getAdminClient()
+          .from("patient_documents")
+          .select("id")
+          .eq("tenant_id", clinicA.tenantId)
+          .eq("title", title);
+        expect(rows ?? []).toHaveLength(0);
+      }
+    });
+
+    it("rejects an invalid body (non-uuid patient_id, unknown mime type, bad report_date) with 422", async () => {
+      const validPath = `tenants/${clinicA.tenantId}/patients/${patientA.id}/labs/probe.pdf`;
+      for (const body of [
+        { patient_id: "not-a-uuid", title: "Probe", storage_path: validPath },
+        { patient_id: patientA.id, title: "Probe", storage_path: validPath, mime_type: "text/html" },
+        { patient_id: patientA.id, title: "Probe", storage_path: validPath, report_date: "09/11/2026" },
+        { patient_id: patientA.id, title: "", storage_path: validPath },
+        { patient_id: patientA.id, title: "Probe" },
+      ]) {
+        const req = new NextRequest("http://localhost/api/v1/lab-orders", {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${keyA.rawToken}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(body),
+        });
+        const res = await createLabOrder(req);
+        expect(res.status).toBe(422);
+      }
+    });
+
+    it("does not copy the storage path into the lab_order.create audit metadata", async () => {
+      const { data: audit } = await getAdminClient()
+        .from("audit_logs")
+        .select("metadata")
+        .eq("entity_id", createdLabDocId)
+        .eq("action", "lab_order.create")
+        .single();
+      expect(JSON.stringify(audit?.metadata ?? {})).not.toContain("cbc_report.pdf");
     });
 
     it("GET /api/v1/lab-orders returns paginated list of lab documents", async () => {

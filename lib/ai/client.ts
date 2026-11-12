@@ -1,274 +1,121 @@
-import { createOpenAI } from "@ai-sdk/openai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { AiChatMessage, AiClientConfig, SoapDraft } from "./types";
+import { AiChatMessage, AiProviderConfig, AiProviderName } from "./types";
 
 /**
- * Sentinel value Google documents for replaying functionCall parts whose
- * original thoughtSignature is not available to the client.
- * See: https://ai.google.dev/gemini-api/docs/thought-signatures
+ * AI-01 (AI_STRATEGY.md §4.6, §7): there is no mock provider and no test-only branch. When no provider is
+ * configured, every AI feature fails closed with `AiUnavailableError`: no draft, no canned or regex output and
+ * no outbound call. Tests inject a fake `AiChatClient`; production code never inspects the test runner.
  */
-export const SKIP_THOUGHT_SIGNATURE_VALIDATOR =
-  "skip_thought_signature_validator";
+export type AiUnavailableReason = "not_configured" | "provider_error" | "invalid_output";
 
-export const geminiFetchInterceptor = async (
-  url: RequestInfo | URL,
-  init?: RequestInit
-): Promise<Response> => {
-  if (init?.body && typeof init.body === "string") {
-    try {
-      const parsed = JSON.parse(init.body);
-      if (Array.isArray(parsed.contents)) {
-        let modified = false;
-        for (const content of parsed.contents) {
-          if (Array.isArray(content.parts)) {
-            for (const part of content.parts) {
-              if (part.functionCall && !part.thoughtSignature) {
-                part.thoughtSignature = SKIP_THOUGHT_SIGNATURE_VALIDATOR;
-                modified = true;
-              }
-            }
-          }
-        }
-        if (modified) {
-          init.body = JSON.stringify(parsed);
-        }
-      }
-    } catch {
-      // Ignore JSON parse errors and pass request through
-    }
-  }
-  return fetch(url, init);
-};
-
-export function getAiGatewayModel() {
-  const provider = (process.env.AI_PROVIDER || "openai").toLowerCase();
-  const apiKey =
-    process.env.AI_API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-    "test-api-key";
-  const modelName =
-    process.env.AI_MODEL_NAME ||
-    (provider === "gemini" || provider === "google"
-      ? "gemini-3.1-flash-lite"
-      : "gpt-4o-mini");
-
-  if (
-    provider === "gemini" ||
-    provider === "google" ||
-    modelName.toLowerCase().startsWith("gemini")
-  ) {
-    const google = createGoogleGenerativeAI({
-      apiKey,
-      baseURL: process.env.AI_BASE_URL,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      fetch: geminiFetchInterceptor as any,
-    });
-    return google(modelName);
-  }
-
-  const baseURL = process.env.AI_BASE_URL || "https://api.openai.com/v1";
-  const openai = createOpenAI({
-    baseURL,
-    apiKey,
-  });
-
-  return openai(modelName);
-}
-
-export class MockAiProvider {
-  async generateChatResponse(
-    messages: AiChatMessage[],
-    isJson = false
-  ): Promise<string> {
-    const userPrompt = messages.find((m) => m.role === "user")?.content || "";
-
-    // If prompt is for Catch-Up summary
-    if (
-      userPrompt.toLowerCase().includes("catch-up") ||
-      userPrompt.toLowerCase().includes("catchup")
-    ) {
-      return JSON.stringify({
-        bullets: [
-          "Last visit (14d ago): Presented with viral fever, resolved on symptomatic treatment.",
-          "Medication History: Completed course of Azithromycin 500mg and Paracetamol 650mg.",
-          "Alerts & Chronic: Known mild hypertension; no drug allergies reported.",
-        ],
-      });
-    }
-
-    // Operations tool mocking: Patient search
-    if (
-      userPrompt.toLowerCase().includes("search patient") ||
-      userPrompt.toLowerCase().includes("find patient")
-    ) {
-      return JSON.stringify({
-        patients: [
-          {
-            id: "11111111-1111-1111-1111-111111111111",
-            full_name: "Ramesh Sharma",
-            phone: "+919876543210",
-            age: 45,
-            sex: "male",
-            last_visit_date: "2026-10-15",
-          },
-        ],
-      });
-    }
-
-    // Operations tool mocking: Doctor availability
-    if (
-      userPrompt.toLowerCase().includes("availability") ||
-      userPrompt.toLowerCase().includes("slots")
-    ) {
-      return JSON.stringify({
-        available_slots: ["09:00", "09:15", "09:30", "10:00", "11:30"],
-        shifts: [{ start_time: "09:00", end_time: "13:00" }],
-      });
-    }
-
-    // Operations tool mocking: Booking preview
-    if (
-      userPrompt.toLowerCase().includes("booking") ||
-      userPrompt.toLowerCase().includes("book appointment")
-    ) {
-      return JSON.stringify({
-        status: "preview_ready",
-        requires_confirmation: true,
-        details: {
-          patient_id: "11111111-1111-1111-1111-111111111111",
-          patient_name: "Ramesh Sharma",
-          phone: "+919876543210",
-          doctor_id: "22222222-2222-2222-2222-222222222222",
-          doctor_name: "Dr. A. Verma",
-          date: "2026-10-30",
-          start_time: "10:00",
-          consultation_type: "in_person",
-          fee: 500,
-          outside_shift_warning: false,
-        },
-      });
-    }
-
-    // Default: Mock Clinical SOAP Note response
-    const mockSoap: SoapDraft = {
-      chief_complaints: [
-        {
-          complaint: userPrompt.toLowerCase().includes("cough")
-            ? "Dry cough"
-            : "Fever with chills",
-          duration: "3 days",
-          severity: "moderate",
-        },
-      ],
-      examination:
-        "Throat congested, bilateral air entry equal. No wheeze. Vitals stable.",
-      diagnosis_hypothesis: "Acute Upper Respiratory Tract Infection",
-      advice: "Adequate hydration, warm saline gargles twice daily, light diet.",
-    };
-
-    return isJson ? JSON.stringify(mockSoap) : mockSoap.examination;
+export class AiUnavailableError extends Error {
+  constructor(public readonly reason: AiUnavailableReason) {
+    super("AI unavailable");
+    this.name = "AiUnavailableError";
   }
 }
 
-export class OpenAiGatewayClient {
-  public baseUrl: string;
-  public apiKey: string;
-  public model: string;
-  public provider: string;
-  private mockProvider: MockAiProvider;
+export interface AiChatClient {
+  chatCompletion(options: {
+    messages: AiChatMessage[];
+    responseFormat?: { type: "json_object" };
+    temperature?: number;
+  }): Promise<string>;
+}
 
-  constructor(config?: Partial<AiClientConfig>) {
-    const rawProvider =
-      config?.provider ||
-      process.env.AI_PROVIDER ||
-      (config?.apiKey || process.env.AI_API_KEY || process.env.GEMINI_API_KEY ? "openai" : "mock");
-    const isGemini =
-      rawProvider.toLowerCase() === "gemini" ||
-      rawProvider.toLowerCase() === "google" ||
-      (config?.model || process.env.AI_MODEL_NAME || "").toLowerCase().startsWith("gemini");
+const SUPPORTED_PROVIDERS: readonly AiProviderName[] = [
+  "openai",
+  "gemini",
+  "claude",
+  "groq",
+  "ollama",
+  "deepseek",
+];
 
-    this.provider = rawProvider;
-    this.baseUrl =
-      config?.baseUrl ||
-      process.env.AI_BASE_URL ||
-      (isGemini
-        ? "https://generativelanguage.googleapis.com/v1beta/openai"
-        : "https://api.openai.com/v1");
-    this.apiKey =
-      config?.apiKey ||
-      process.env.AI_API_KEY ||
-      process.env.GEMINI_API_KEY ||
-      process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-      "";
-    this.model =
-      config?.model ||
-      process.env.AI_MODEL_NAME ||
-      (isGemini ? "gemini-3.1-flash-lite" : "gpt-4o-mini");
-    this.mockProvider = new MockAiProvider();
-  }
+/**
+ * Resolves the provider configuration from the environment, or `null` when AI is not enabled and fully
+ * configured. Nothing is defaulted: `AI_ENABLED=true` (deploy-level kill switch, §4.6) plus an explicit
+ * supported `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL_NAME` and `AI_BASE_URL` are all required. Any other value of
+ * `AI_PROVIDER` (including the former `mock`) means "no provider".
+ */
+export function resolveAiProviderConfig(
+  env: Record<string, string | undefined> = process.env
+): AiProviderConfig | null {
+  if (env.AI_ENABLED !== "true") return null;
+
+  const provider = (env.AI_PROVIDER ?? "").trim().toLowerCase() as AiProviderName;
+  if (!SUPPORTED_PROVIDERS.includes(provider)) return null;
+
+  const apiKey = (env.AI_API_KEY ?? "").trim();
+  const model = (env.AI_MODEL_NAME ?? "").trim();
+  const baseUrl = (env.AI_BASE_URL ?? "").trim();
+  if (!apiKey || !model || !baseUrl) return null;
+
+  return { provider, apiKey, model, baseUrl };
+}
+
+/** Returns a chat client for the configured provider, or `null` when AI is unavailable. */
+export function getAiChatClient(
+  env: Record<string, string | undefined> = process.env
+): AiChatClient | null {
+  const config = resolveAiProviderConfig(env);
+  return config ? new OpenAiGatewayClient(config) : null;
+}
+
+/** OpenAI-compatible Chat Completions client. Constructed only from a complete configuration. */
+export class OpenAiGatewayClient implements AiChatClient {
+  constructor(private readonly config: AiProviderConfig) {}
 
   async chatCompletion(options: {
     messages: AiChatMessage[];
     responseFormat?: { type: "json_object" };
     temperature?: number;
   }): Promise<string> {
-    const isJson = options.responseFormat?.type === "json_object";
-
-    // Use mock provider if mock requested, apiKey missing, or test environment with no real key
-    if (
-      this.provider === "mock" ||
-      !this.apiKey ||
-      this.apiKey === "test-api-key" ||
-      this.apiKey.startsWith("mock-")
-    ) {
-      return this.mockProvider.generateChatResponse(options.messages, isJson);
-    }
-
-    const endpoint = `${this.baseUrl.replace(/\/$/, "")}/chat/completions`;
+    const endpoint = `${this.config.baseUrl.replace(/\/$/, "")}/chat/completions`;
 
     const payload: Record<string, unknown> = {
-      model: this.model,
+      model: this.config.model,
       messages: options.messages,
       temperature: options.temperature ?? 0.2,
     };
-
     if (options.responseFormat) {
       payload.response_format = options.responseFormat;
     }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${this.apiKey}`,
+      Authorization: `Bearer ${this.config.apiKey}`,
     };
-
-    // Google Generative AI OpenAI-compatible endpoint accepts both Bearer and x-goog-api-key
-    if (
-      this.provider.toLowerCase() === "gemini" ||
-      this.provider.toLowerCase() === "google" ||
-      this.baseUrl.includes("generativelanguage.googleapis.com")
-    ) {
-      headers["x-goog-api-key"] = this.apiKey;
+    if (this.config.provider === "gemini") {
+      headers["x-goog-api-key"] = this.config.apiKey;
     }
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-    });
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      throw new AiUnavailableError("provider_error");
+    }
 
+    // The provider's error body is not read or propagated: it can echo the prompt.
     if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`AI Gateway error (${response.status}): ${errText}`);
+      throw new AiUnavailableError("provider_error");
     }
 
-    const json = await response.json();
+    let json: { choices?: Array<{ message?: { content?: unknown } }> };
+    try {
+      json = await response.json();
+    } catch {
+      throw new AiUnavailableError("invalid_output");
+    }
+
     const content = json.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("AI Gateway returned an empty completion response.");
+    if (typeof content !== "string" || !content) {
+      throw new AiUnavailableError("invalid_output");
     }
-
     return content;
   }
 }

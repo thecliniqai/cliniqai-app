@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { bookAppointment } from "@/features/visits/scheduling";
-import { addToWaitlist, getWaitlistForDate } from "@/features/waitlist/actions";
-import { cancelVisit, getVisitsForDate } from "@/features/visits/actions";
+import { ctxFor } from "../helpers/context";
+import { bookAppointment } from "@/features/visits/scheduling-service";
+import { addToWaitlist, getWaitlistForDate } from "@/features/waitlist/service";
+import { cancelVisit } from "@/features/visits/service";
 
 describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booking, REQ-multi-tenancy)", () => {
   let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -65,9 +66,8 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
   });
 
   it("1. Booking an appointment occupies the slot on the doctor's calendar", async () => {
-    const session = { userId: tenant.userId, tenantId: tenant.tenantId };
-
     const res = await bookAppointment(
+      ctxFor(tenant),
       {
         patient_id: patient1Id,
         doctor_id: tenant.userId,
@@ -75,9 +75,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
         estimated_duration_minutes: 15,
         reason_for_visit: "Cardiac checkup",
         is_overbooked: false,
-      },
-      tenant.client,
-      session
+      }
     );
 
     expect(res.success).toBe(true);
@@ -97,9 +95,8 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
   });
 
   it("2. Attempting a second booking at the same time without override flag is rejected with conflict warning", async () => {
-    const session = { userId: tenant.userId, tenantId: tenant.tenantId };
-
     const res = await bookAppointment(
+      ctxFor(tenant),
       {
         patient_id: patient2Id,
         doctor_id: tenant.userId,
@@ -107,9 +104,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
         estimated_duration_minutes: 15,
         reason_for_visit: "Routine follow-up",
         is_overbooked: false,
-      },
-      tenant.client,
-      session
+      }
     );
 
     // Must be rejected with conflict
@@ -120,9 +115,8 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
   });
 
   it("3. Confirming overbook override successfully schedules the second appointment with is_overbooked: true", async () => {
-    const session = { userId: tenant.userId, tenantId: tenant.tenantId };
-
     const res = await bookAppointment(
+      ctxFor(tenant),
       {
         patient_id: patient2Id,
         doctor_id: tenant.userId,
@@ -130,9 +124,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
         estimated_duration_minutes: 15,
         reason_for_visit: "Urgent consultation",
         is_overbooked: true, // Overbooking confirmed
-      },
-      tenant.client,
-      session
+      }
     );
 
     expect(res.success).toBe(true);
@@ -151,9 +143,8 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
   });
 
   it("4. Adding a patient to the waitlist records an active entry under RLS", async () => {
-    const session = { userId: tenant.userId, tenantId: tenant.tenantId };
-
     const res = await addToWaitlist(
+      ctxFor(tenant),
       {
         patient_id: patient3Id,
         doctor_id: tenant.userId,
@@ -161,9 +152,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
         time_window: "Morning (9 AM - 1 PM)",
         priority: 5,
         notes: "Flexible timing",
-      },
-      tenant.client,
-      session
+      }
     );
 
     expect(res.success).toBe(true);
@@ -182,7 +171,7 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
     expect(entryRow?.target_date).toBe(testDate);
 
     // Verify retrieval via getWaitlistForDate
-    const listRes = await getWaitlistForDate(testDate, tenant.userId, tenant.client, session);
+    const listRes = await getWaitlistForDate(ctxFor(tenant), testDate, tenant.userId);
     expect(listRes.success).toBe(true);
     if (listRes.success) {
       expect(listRes.entries.some((e) => e.id === waitlistEntryId)).toBe(true);
@@ -190,10 +179,8 @@ describe("Doctor Calendar Scheduling & Waitlist Promotion (REQ-appointment-booki
   });
 
   it("5. Cancelling the original appointment automatically promotes the waitlisted patient into the slot", async () => {
-    const session = { userId: tenant.userId, tenantId: tenant.tenantId };
-
     // Cancel original appointment
-    const cancelRes = await cancelVisit(originalVisitId, tenant.client, session);
+    const cancelRes = await cancelVisit(ctxFor(tenant), originalVisitId);
     expect(cancelRes.success).toBe(true);
     expect(cancelRes.autoPromoted).toBe(true);
     expect(cancelRes.promotedPatientId).toBe(patient3Id);

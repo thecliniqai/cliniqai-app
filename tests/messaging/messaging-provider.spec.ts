@@ -84,7 +84,7 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
       expect(fileContent).toContain("Rahul Sharma");
     });
 
-    it("sendDirectWhatsApp formats buttons and simulated callback URLs", async () => {
+    it("sendDirectWhatsApp formats buttons without simulated webhook callback URLs", async () => {
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
       const testPhone = "+919876543210";
       const templateId = "appointment_booked";
@@ -115,8 +115,12 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
       const fileContent = fs.readFileSync(devMessagesPath, "utf8");
       expect(fileContent).toContain("[CLINICOS DEV MESSAGING] 📱 WhatsApp");
       expect(fileContent).toContain("[Confirm]");
-      expect(fileContent).toContain("action=confirm");
-      expect(fileContent).toContain("action=cancel");
+      expect(fileContent).toContain("(confirm)");
+      expect(fileContent).toContain("(cancel)");
+      // P0-03: the dev webhook is gone, so the logger must not advertise a simulator URL.
+      const logged = consoleSpy.mock.calls.flat().join("\n");
+      expect(logged).toContain("appointment_booked");
+      expect(logged).not.toContain("/api/webhooks/messaging/");
     });
   });
 

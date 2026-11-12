@@ -1,10 +1,11 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext, apiV1NotFound } from "@/lib/api/auth";
+import { apiV1Enabled } from "@/lib/api/enabled";
 import { apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { requirePermission } from "@/lib/permissions/guards";
+import { requireServiceContext, type ServiceContext } from "@/lib/auth/context";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { exportPatientDpdpArchive } from "@/features/dpdp/export";
+import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { recordAudit } from "@/lib/audit/audit";
 
@@ -17,25 +18,24 @@ interface RouteContext {
  * Generates DPDP Right to Access dual-format data export:
  * - format=json: Structured machine-readable JSON archive including billing records
  * - format=pdf: Publication-grade clinical Medical Summary PDF
- * Supports either API key Bearer auth or authenticated staff cookie session with patients:view.
+ * Supports either API key Bearer auth (register path, ADR-0005; the key principal keeps patients:view, see
+ * `dpdpExportPermission`) or an authenticated staff cookie session with exports:create (ruling 01-09). A staff session reads with its own user-JWT client (RLS applies); only the API key path uses the
+ * service-role client, and in both cases the tenant and actor come from the verified credential.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
+  // Off with the `/api/v1` switch on both auth paths (AR2-H2: checked here as well as in the middleware).
+  if (!apiV1Enabled()) return apiV1NotFound();
   const { id } = await params;
   const authHeader = req.headers.get("authorization");
 
-  let session: {
-    tenantId: string;
-    userId: string;
-    role?: string;
-    actorType: "user" | "api_key";
-    apiKeyId?: string;
-  };
+  let ctx: ServiceContext;
 
   let rateHeaders: Record<string, string> = {};
 
   if (authHeader && authHeader.startsWith("Bearer ")) {
     // 1a. Bearer token authentication
-    const auth = await authenticateApiKey(req);
+    const admin = getAdminClient();
+    const auth = await authenticateApiKey(admin, req);
     if (!auth.success) {
       return auth.response;
     }
@@ -53,64 +53,41 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       );
     }
 
-    session = {
-      tenantId: auth.session.tenantId,
-      userId: auth.session.userId,
-      role: auth.session.role,
-      actorType: "api_key",
-      apiKeyId: auth.session.apiKeyId,
-    };
+    ctx = apiKeyServiceContext(auth.session, admin);
   } else {
-    // 1b. Cookie session authentication with patients:view guard
+    // 1b. Cookie session authentication: same staff permission as the in-app export route (ruling 01-09)
     try {
-      const guarded = await requirePermission(undefined, "patients:view");
-      session = {
-        tenantId: guarded.tenantId,
-        userId: guarded.userId,
-        role: guarded.role,
-        actorType: "user",
-      };
+      ctx = await requireServiceContext(DPDP_EXPORT_PERMISSION);
     } catch {
       return apiError(
         "UNAUTHORIZED",
-        "Authentication required via Bearer API key or staff session with patients:view permission.",
+        "Authentication required via Bearer API key or staff session with exports:create permission.",
         401
       );
     }
   }
 
   const format = req.nextUrl.searchParams.get("format") || "json";
-  const admin = getAdminClient();
-
   try {
-    const bundle = await exportPatientDpdpArchive(
-      id,
-      session.tenantId,
-      { format: format === "pdf" ? "pdf" : "json", skipAudit: false },
-      admin,
-      session
-    );
+    const bundle = await exportPatientDpdpArchive(ctx, id, {
+      format: format === "pdf" ? "pdf" : "json",
+      skipAudit: false,
+    });
 
     if (format === "pdf") {
       const pdfBuffer = await generateDpdpMedicalSummaryPdf(bundle);
 
       // Record audit log for PDF compilation
       try {
-        await recordAudit(
-          {
-            action: "dpdp.data_export",
-            entityType: "patient",
-            entityId: id,
-            actorType: session.actorType,
-            apiKeyId: session.apiKeyId,
-            metadata: {
-              format: "pdf",
-              status: "completed",
-            },
+        await recordAudit(ctx, {
+          action: "dpdp.data_export",
+          entityType: "patient",
+          entityId: id,
+          metadata: {
+            format: "pdf",
+            status: "completed",
           },
-          admin,
-          session
-        );
+        });
       } catch (auditErr) {
         console.warn("[app/api/v1/patients/[id]/export] PDF audit warning:", auditErr);
       }

@@ -85,13 +85,13 @@ export default async function StaffPage() {
               <div>
                 <CardTitle>Invite New Staff Member</CardTitle>
                 <CardDescription>
-                  Send a secure email invitation with role-based clinical permissions
+                  Create an invitation with role-based clinical permissions
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <InviteStaffForm />
+            <InviteStaffForm canInviteAdmin={membership.role === "owner"} />
           </CardContent>
         </Card>
       )}

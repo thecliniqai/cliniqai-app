@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { buildPatientSearchFilter, searchPatients } from "@/features/patients/actions";
-import { getClinicVisitsRegister } from "@/features/visits/actions";
+import { buildPatientSearchFilter, searchPatients } from "@/features/patients/service";
+import { mockCtx } from "../helpers/context";
+import { getClinicVisitsRegister } from "@/features/visits/service";
 
 describe("Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03)", () => {
   const tenantId = "tenant-test-clinic-01";
@@ -101,7 +102,7 @@ describe("Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03)", () =
         }),
       };
 
-      const results = await searchPatients("9876543210", mockSupabase, mockSession);
+      const results = await searchPatients(mockCtx(mockSupabase, mockSession), "9876543210");
 
       expect(mockSupabase.from).toHaveBeenCalledWith("patients");
       expect(capturedTenantId).toBe(tenantId);
@@ -116,7 +117,7 @@ describe("Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03)", () =
         from: vi.fn(),
       };
 
-      const results = await searchPatients("   ", mockSupabase, mockSession);
+      const results = await searchPatients(mockCtx(mockSupabase, mockSession), "   ");
       expect(results).toEqual([]);
       expect(mockSupabase.from).not.toHaveBeenCalled();
     });
@@ -179,11 +180,7 @@ describe("Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03)", () =
         }),
       };
 
-      await getClinicVisitsRegister(
-        { searchQuery: "9876543210" },
-        mockSupabase,
-        mockSession
-      );
+      await getClinicVisitsRegister(mockCtx(mockSupabase, mockSession), { searchQuery: "9876543210" });
 
       expect(patientTenantId).toBe(tenantId);
       expect(visitsTenantId).toBe(tenantId);

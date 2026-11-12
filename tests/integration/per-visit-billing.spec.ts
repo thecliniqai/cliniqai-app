@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
+import { createVisit } from "@/features/visits/service";
+import { ctxFor } from "../helpers/context";
 import {
   createVisitInvoice,
   recordPayment,
   getVisitBillingDetails,
-} from "@/features/billing/actions";
+} from "@/features/billing/service";
 
 describe("Per-Visit Billing & Payment Recording Integration (REQ-billing-invoicing, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -35,18 +36,14 @@ describe("Per-Visit Billing & Payment Recording Integration (REQ-billing-invoici
     patientAId = pA.id;
 
     // 2. Create visit in Tenant A
-    const visitRes = await createVisit(
-      {
-        patient_id: patientAId,
-        doctor_id: tenantA.userId,
-        origin_type: "walk_in",
-        reason_for_visit: "Minor laceration dressing and consultation",
-        estimated_duration_minutes: 15,
-        is_overbooked: false,
-      },
-      tenantA.client,
-      { userId: tenantA.userId, tenantId: tenantA.tenantId }
-    );
+    const visitRes = await createVisit(ctxFor(tenantA), {
+      patient_id: patientAId,
+      doctor_id: tenantA.userId,
+      origin_type: "walk_in",
+      reason_for_visit: "Minor laceration dressing and consultation",
+      estimated_duration_minutes: 15,
+      is_overbooked: false,
+    });
 
     if (!visitRes.success) throw new Error(`Failed to create test visit: ${visitRes.error}`);
     visitAId = visitRes.visitId;
@@ -56,6 +53,7 @@ describe("Per-Visit Billing & Payment Recording Integration (REQ-billing-invoici
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
 
     const invRes = await createVisitInvoice(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         patient_id: patientAId,
@@ -75,9 +73,7 @@ describe("Per-Visit Billing & Payment Recording Integration (REQ-billing-invoici
         ],
         discount: 50.0,
         tax: 0,
-      },
-      tenantA.client,
-      sessionA
+      }
     );
 
     expect(invRes.success).toBe(true);
@@ -94,7 +90,7 @@ describe("Per-Visit Billing & Payment Recording Integration (REQ-billing-invoici
   it("2. Loads visit billing details with initial unpaid balance", async () => {
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
 
-    const details = await getVisitBillingDetails(visitAId, tenantA.client, sessionA);
+    const details = await getVisitBillingDetails(ctxFor(tenantA), visitAId);
     expect(details.success).toBe(true);
     if (!details.success) return;
 
@@ -109,14 +105,13 @@ describe("Per-Visit Billing & Payment Recording Integration (REQ-billing-invoici
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
 
     const payRes = await recordPayment(
+      ctxFor(tenantA),
       {
         invoice_id: invoiceAId,
         amount: 300.0,
         payment_method: "cash",
         notes: "Advance cash paid at reception",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
 
     expect(payRes.success).toBe(true);
@@ -140,15 +135,14 @@ describe("Per-Visit Billing & Payment Recording Integration (REQ-billing-invoici
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
 
     const payRes = await recordPayment(
+      ctxFor(tenantA),
       {
         invoice_id: invoiceAId,
         amount: 350.0,
         payment_method: "upi",
         reference_number: "UPI-TXN-12345678",
         notes: "GPay QR settlement",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
 
     expect(payRes.success).toBe(true);
@@ -189,13 +183,12 @@ describe("Per-Visit Billing & Payment Recording Integration (REQ-billing-invoici
     // Tenant B attempts to record payment on Tenant A's invoice
     const sessionB = { userId: tenantB.userId, tenantId: tenantB.tenantId };
     const unauthorizedPay = await recordPayment(
+      ctxFor(tenantB),
       {
         invoice_id: invoiceAId,
         amount: 50.0,
         payment_method: "cash",
-      },
-      tenantB.client,
-      sessionB
+      }
     );
 
     expect(unauthorizedPay.success).toBe(false);

@@ -11,6 +11,9 @@ import {
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { enableApiV1ForFile } from "../helpers/api-v1";
+
+enableApiV1ForFile();
 
 describe("External REST API CRUD & Schema Verification (REQ-api-access, D-03, D-05, D-06, D-08)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;

@@ -1,9 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { computeDateRange, visitsFilterSchema } from "@/features/visits/schema";
-import {
-  getClinicVisitsRegister,
-  getActiveClinicDoctors,
-} from "@/features/visits/actions";
+import { getClinicVisitsRegister, getActiveClinicDoctors } from "@/features/visits/service";
+import { mockCtx } from "../helpers/context";
 
 describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-management)", () => {
   describe("computeDateRange (Date Math & Boundaries)", () => {
@@ -256,11 +254,9 @@ describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-m
         }),
       };
 
-      const result = await getClinicVisitsRegister(
-        { datePreset: "today" },
-        mockClient,
-        { userId: "usr-admin", tenantId }
-      );
+      const result = await getClinicVisitsRegister(mockCtx(mockClient, { userId: "usr-admin", tenantId }), {
+        datePreset: "today",
+      });
 
       // Verify tenant isolation
       expect(appliedTenantFilter).toBe(tenantId);
@@ -312,10 +308,9 @@ describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-m
         })),
       };
 
-      const doctors = await getActiveClinicDoctors(mockClient, {
-        userId: "u-1",
-        tenantId: "tenant-cardio-9",
-      });
+      const doctors = await getActiveClinicDoctors(
+        mockCtx(mockClient, { userId: "u-1", tenantId: "tenant-cardio-9" })
+      );
 
       expect(docTenant).toBe("tenant-cardio-9");
       expect(doctors.length).toBe(1);

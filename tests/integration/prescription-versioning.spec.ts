@@ -1,21 +1,22 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
-import { transitionQueueState } from "@/features/queue/actions";
+import { createVisit } from "@/features/visits/service";
+import { transitionQueueState } from "@/features/queue/service";
 import {
   saveConsultationDraft,
   completeAndSignConsultation,
   reopenVisitForAmendment,
   finalizeVisitAmendment,
-} from "@/features/consultation/actions";
-import { addConsultationDiagnosis } from "@/features/terminology/actions";
+} from "@/features/consultation/service";
+import { addConsultationDiagnosis } from "@/features/terminology/service";
 import {
   addPrescriptionItem,
   removePrescriptionItem,
   getPrescriptionPdfSignedUrl,
-} from "@/features/prescriptions/actions";
+} from "@/features/prescriptions/service";
 import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
+import { ctxFor } from "../helpers/context";
 
 describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendment Lifecycle (REQ-e-prescriptions, REQ-diagnosis-visit-management, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -59,27 +60,25 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
   it("1. Create visit encounter, add clinical notes, diagnoses, and prescription items", async () => {
     // 1. Create walk-in visit
-    const visitRes = await createVisit(
-      {
-        patient_id: patientAId,
-        doctor_id: tenantA.userId,
-        origin_type: "walk_in",
-        estimated_duration_minutes: 15,
-        reason_for_visit: "High grade fever with body ache",
-      },
-      tenantA.client,
-      sessionA
-    );
+    const visitRes = await createVisit(ctxFor(tenantA), {
+      patient_id: patientAId,
+      doctor_id: tenantA.userId,
+      origin_type: "walk_in",
+      estimated_duration_minutes: 15,
+      reason_for_visit: "High grade fever with body ache",
+      is_overbooked: false,
+    });
     expect(visitRes.success).toBe(true);
     if (!visitRes.success) return;
     visitAId = visitRes.visitId;
 
     // 2. Transition status to in_consultation
-    const queueRes = await transitionQueueState(visitAId, "in_consultation", tenantA.client, sessionA);
+    const queueRes = await transitionQueueState(ctxFor(tenantA), visitAId, "in_consultation");
     expect(queueRes.success).toBe(true);
 
     // 3. Save consultation SOAP clinical documentation
     const draftRes = await saveConsultationDraft(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         specialty: "general_physician",
@@ -98,14 +97,13 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         clinical_notes: "Patient presents with chills and rigors. Chest clear, throat mildly congested.",
         advice: ["Strict bed rest", "Maintain oral fluid intake > 2.5L/day"],
         investigations_advised: ["Complete Blood Count (CBC)"],
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(draftRes.success).toBe(true);
 
     // 4. Add diagnosis
     const diagRes = await addConsultationDiagnosis(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         patient_id: patientAId,
@@ -114,13 +112,12 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         is_chronic: false,
         is_custom: false,
       },
-      tenantA.client,
-      sessionA
     );
     expect(diagRes.success).toBe(true);
 
     // 5. Prescribe 2 medications (Paracetamol 650mg & Cetirizine 10mg)
     const med1Res = await addPrescriptionItem(
+      ctxFor(tenantA),
       visitAId,
       {
         medicine_name: "Paracetamol 650mg",
@@ -130,9 +127,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         timing: "After food",
         duration: "3 days",
         special_instructions: "Take SOS if temp > 100°F",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(med1Res.success).toBe(true);
     if (!med1Res.success) return;
@@ -140,6 +135,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     med1ItemId = med1Res.itemId;
 
     const med2Res = await addPrescriptionItem(
+      ctxFor(tenantA),
       visitAId,
       {
         medicine_name: "Cetirizine 10mg",
@@ -149,15 +145,13 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         timing: "After food",
         duration: "5 days",
         special_instructions: "Take at bedtime",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(med2Res.success).toBe(true);
   });
 
   it("2. Call completeAndSignConsultation: transitions visit to 'completed' and seals prescription v1", async () => {
-    const signRes = await completeAndSignConsultation(visitAId, tenantA.client, sessionA);
+    const signRes = await completeAndSignConsultation(ctxFor(tenantA), visitAId);
     expect(signRes.success).toBe(true);
 
     // Verify visit status is completed and signed_at is recorded
@@ -225,7 +219,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
       advice: ["Strict bed rest"],
     };
 
-    const genRes = await generateAndArchivePrescriptionPdf(payload, tenantA.client, sessionA);
+    const genRes = await generateAndArchivePrescriptionPdf(ctxFor(tenantA), payload);
 
     expect(genRes.buffer).toBeDefined();
     expect(genRes.buffer.length).toBeGreaterThan(1000);
@@ -238,10 +232,9 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
   it("4. getPrescriptionPdfSignedUrl generates valid 3600s signed URLs for both Blank Paper and Pre-Printed modes", async () => {
     // 1. Blank paper mode
     const blankRes = await getPrescriptionPdfSignedUrl(
+      ctxFor(tenantA),
       prescriptionAId,
-      "blank_paper",
-      tenantA.client,
-      sessionA
+      "blank_paper"
     );
 
     expect(blankRes.success).toBe(true);
@@ -252,10 +245,9 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     // 2. Pre-printed letterhead mode
     const preprintedRes = await getPrescriptionPdfSignedUrl(
+      ctxFor(tenantA),
       prescriptionAId,
-      "preprinted_letterhead",
-      tenantA.client,
-      sessionA
+      "preprinted_letterhead"
     );
 
     expect(preprintedRes.success).toBe(true);
@@ -268,20 +260,18 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
   it("5. Post-sign-off amendment lifecycle: enforces justification, creates immutable revision snapshot, and increments version to v2", async () => {
     // 1. Attempt amendment without valid reason (< 10 chars) -> must fail
     const invalidRes = await reopenVisitForAmendment(
+      ctxFor(tenantA),
       visitAId,
-      "Too short",
-      tenantA.client,
-      sessionA
+      "Too short"
     );
     expect(invalidRes.success).toBe(false);
 
     // 2. Reopen for amendment with valid mandatory reason
     const validReason = "Adjusted medication dosage after CBC showed viral etiology";
     const reopenRes = await reopenVisitForAmendment(
+      ctxFor(tenantA),
       visitAId,
-      validReason,
-      tenantA.client,
-      sessionA
+      validReason
     );
 
     expect(reopenRes.success).toBe(true);
@@ -318,10 +308,11 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     expect(reopenedVisit?.status).toBe("in_consultation");
 
     // 5. Doctor edits medication: Remove 650mg and add 500mg
-    const removeRes = await removePrescriptionItem(med1ItemId, visitAId, tenantA.client, sessionA);
+    const removeRes = await removePrescriptionItem(ctxFor(tenantA), med1ItemId);
     expect(removeRes.success).toBe(true);
 
     const addRes = await addPrescriptionItem(
+      ctxFor(tenantA),
       visitAId,
       {
         medicine_name: "Paracetamol 500mg",
@@ -331,14 +322,12 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         timing: "After food",
         duration: "3 days",
         special_instructions: "Reduced dose to 500mg",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(addRes.success).toBe(true);
 
     // 6. Doctor finalizes amendment
-    const finalizeRes = await finalizeVisitAmendment(visitAId, tenantA.client, sessionA);
+    const finalizeRes = await finalizeVisitAmendment(ctxFor(tenantA), visitAId);
     expect(finalizeRes.success).toBe(true);
     if (finalizeRes.success) {
       expect(finalizeRes.version).toBe(2);
@@ -365,10 +354,9 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     // 9. Verify amended PDF signed URL returns v2
     const v2PdfRes = await getPrescriptionPdfSignedUrl(
+      ctxFor(tenantA),
       prescriptionAId,
-      "blank_paper",
-      tenantA.client,
-      sessionA
+      "blank_paper"
     );
     expect(v2PdfRes.success).toBe(true);
     if (v2PdfRes.success) {
@@ -388,19 +376,17 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     // 2. Tenant B cannot reopen Tenant A's visit for amendment
     const maliciousReopen = await reopenVisitForAmendment(
+      ctxFor(tenantB),
       visitAId,
-      "Malicious unauthorized attempt to reopen Tenant A visit",
-      tenantB.client,
-      sessionB
+      "Malicious unauthorized attempt to reopen Tenant A visit"
     );
     expect(maliciousReopen.success).toBe(false);
 
     // 3. Tenant B cannot generate or access Tenant A's signed prescription PDF URL
     const maliciousPdf = await getPrescriptionPdfSignedUrl(
+      ctxFor(tenantB),
       prescriptionAId,
-      "blank_paper",
-      tenantB.client,
-      sessionB
+      "blank_paper"
     );
     expect(maliciousPdf.success).toBe(false);
   });

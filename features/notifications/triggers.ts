@@ -1,83 +1,84 @@
-import { createClient } from "@/lib/supabase/server";
-import { getAdminClient } from "@/lib/supabase/admin";
+import "server-only";
+
+import type { ServiceContext } from "@/lib/auth/context";
 import { NotificationCategory, NotificationRecipientRole } from "@/lib/db/types";
 
-export interface BaseTriggerInput {
-  tenantId: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  clientOverride?: any;
-}
+/**
+ * Where a notification is written: the acting tenant and its client. A request path passes its `ServiceContext`;
+ * the tenant is never read from the trigger input (ADR-0005 D1) and there is no service-role fallback (D2).
+ */
+export type NotificationTarget = Pick<ServiceContext, "tenantId" | "db">;
 
-export interface DoctorPatientArrivedInput extends BaseTriggerInput {
+export interface DoctorPatientArrivedInput {
   doctorId: string;
   patientName: string;
   tokenNumber?: number;
   visitId: string;
 }
 
-export interface DoctorVitalsRecordedInput extends BaseTriggerInput {
+export interface DoctorVitalsRecordedInput {
   doctorId: string;
   patientName: string;
   vitalsSummary: string;
   visitId: string;
 }
 
-export interface DoctorLabReportReadyInput extends BaseTriggerInput {
+export interface DoctorLabReportReadyInput {
   doctorId: string;
   patientName: string;
   documentTitle: string;
   documentId: string;
 }
 
-export interface DoctorScheduleConflictInput extends BaseTriggerInput {
+export interface DoctorScheduleConflictInput {
   doctorId: string;
   appointmentTime: string;
   conflictingPatientName: string;
   visitId?: string;
 }
 
-export interface WaitlistSlotFreedInput extends BaseTriggerInput {
+export interface WaitlistSlotFreedInput {
   doctorName: string;
   slotTime: string;
   freedCount: number;
 }
 
-export interface FrontDeskWhatsAppReplyInput extends BaseTriggerInput {
+export interface FrontDeskWhatsAppReplyInput {
   patientName: string;
   patientPhone: string;
   messageText: string;
 }
 
-export interface FrontDeskNoShowInput extends BaseTriggerInput {
+export interface FrontDeskNoShowInput {
   patientName: string;
   appointmentTime: string;
   visitId: string;
 }
 
-export interface StaffInviteAcceptedInput extends BaseTriggerInput {
+export interface StaffInviteAcceptedInput {
   staffName: string;
   role: string;
 }
 
-export interface QuotaWarningInput extends BaseTriggerInput {
+export interface QuotaWarningInput {
   sentCount: number;
   quotaLimit: number;
 }
 
-export interface EndOfDayDigestInput extends BaseTriggerInput {
+export interface EndOfDayDigestInput {
   totalVisits: number;
   totalRevenue: number;
 }
 
-export interface OutboxFailureInput extends BaseTriggerInput {
+export interface OutboxFailureInput {
   messageType: string;
   recipient: string;
   error: string;
 }
 
 async function insertNotification(
+  target: NotificationTarget,
   payload: {
-    tenantId: string;
     recipientUserId?: string | null;
     recipientRole?: NotificationRecipientRole | null;
     category: NotificationCategory;
@@ -86,23 +87,14 @@ async function insertNotification(
     message: string;
     linkUrl?: string | null;
     metadata?: Record<string, unknown>;
-  },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  clientOverride?: any
-) {
-  let supabase = clientOverride;
-  if (!supabase) {
-    try {
-      supabase = await createClient();
-    } catch {
-      supabase = getAdminClient();
-    }
   }
+) {
+  const supabase = target.db;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase.from("in_app_notifications") as any)
     .insert({
-      tenant_id: payload.tenantId,
+      tenant_id: target.tenantId,
       recipient_user_id: payload.recipientUserId || null,
       recipient_role: payload.recipientRole || null,
       category: payload.category,
@@ -128,11 +120,11 @@ async function insertNotification(
 // ----------------------------------------------------------------------
 
 /** Event #13: Patient Checked In and Waiting */
-export async function notifyDoctorPatientArrived(input: DoctorPatientArrivedInput) {
+export async function notifyDoctorPatientArrived(target: NotificationTarget, input: DoctorPatientArrivedInput) {
   const tokenStr = input.tokenNumber ? ` (Token #${input.tokenNumber})` : "";
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientUserId: input.doctorId,
       recipientRole: "doctor",
       category: "clinical",
@@ -141,16 +133,15 @@ export async function notifyDoctorPatientArrived(input: DoctorPatientArrivedInpu
       message: `${input.patientName}${tokenStr} has checked in and is waiting for consultation.`,
       linkUrl: `/consultation/${input.visitId}`,
       metadata: { visit_id: input.visitId, token_number: input.tokenNumber },
-    },
-    input.clientOverride
+    }
   );
 }
 
 /** Event #14: Patient Vitals Recorded by Nurse */
-export async function notifyDoctorVitalsRecorded(input: DoctorVitalsRecordedInput) {
+export async function notifyDoctorVitalsRecorded(target: NotificationTarget, input: DoctorVitalsRecordedInput) {
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientUserId: input.doctorId,
       recipientRole: "doctor",
       category: "clinical",
@@ -159,16 +150,15 @@ export async function notifyDoctorVitalsRecorded(input: DoctorVitalsRecordedInpu
       message: `Vitals logged for ${input.patientName}: ${input.vitalsSummary}`,
       linkUrl: `/consultation/${input.visitId}`,
       metadata: { visit_id: input.visitId, summary: input.vitalsSummary },
-    },
-    input.clientOverride
+    }
   );
 }
 
 /** Event #15: Diagnostic Lab Report Uploaded */
-export async function notifyDoctorLabReportReady(input: DoctorLabReportReadyInput) {
+export async function notifyDoctorLabReportReady(target: NotificationTarget, input: DoctorLabReportReadyInput) {
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientUserId: input.doctorId,
       recipientRole: "doctor",
       category: "clinical",
@@ -177,16 +167,15 @@ export async function notifyDoctorLabReportReady(input: DoctorLabReportReadyInpu
       message: `Diagnostic report "${input.documentTitle}" is ready for ${input.patientName}.`,
       linkUrl: `/patients`,
       metadata: { document_id: input.documentId, document_title: input.documentTitle },
-    },
-    input.clientOverride
+    }
   );
 }
 
 /** Event #16: Schedule Conflict Detected */
-export async function notifyDoctorScheduleConflict(input: DoctorScheduleConflictInput) {
+export async function notifyDoctorScheduleConflict(target: NotificationTarget, input: DoctorScheduleConflictInput) {
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientUserId: input.doctorId,
       recipientRole: "doctor",
       category: "clinical",
@@ -195,8 +184,7 @@ export async function notifyDoctorScheduleConflict(input: DoctorScheduleConflict
       message: `Overlapping booking detected at ${input.appointmentTime} with ${input.conflictingPatientName}.`,
       linkUrl: `/calendar`,
       metadata: { visit_id: input.visitId, appointment_time: input.appointmentTime },
-    },
-    input.clientOverride
+    }
   );
 }
 
@@ -205,10 +193,10 @@ export async function notifyDoctorScheduleConflict(input: DoctorScheduleConflict
 // ----------------------------------------------------------------------
 
 /** Event #17: Waitlist Slot Freed via Cancellation */
-export async function notifyWaitlistSlotFreed(input: WaitlistSlotFreedInput) {
+export async function notifyWaitlistSlotFreed(target: NotificationTarget, input: WaitlistSlotFreedInput) {
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientRole: "receptionist",
       category: "queue",
       eventType: "waitlist_slot_freed",
@@ -216,16 +204,15 @@ export async function notifyWaitlistSlotFreed(input: WaitlistSlotFreedInput) {
       message: `Slot with Dr. ${input.doctorName} at ${input.slotTime} is now free. ${input.freedCount} waitlisted patient(s) eligible.`,
       linkUrl: `/queue?tab=waitlist`,
       metadata: { slot_time: input.slotTime, freed_count: input.freedCount },
-    },
-    input.clientOverride
+    }
   );
 }
 
 /** Event #18: Unhandled Inbound WhatsApp Reply Received */
-export async function notifyFrontDeskWhatsAppReply(input: FrontDeskWhatsAppReplyInput) {
+export async function notifyFrontDeskWhatsAppReply(target: NotificationTarget, input: FrontDeskWhatsAppReplyInput) {
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientRole: "receptionist",
       category: "queue",
       eventType: "whatsapp_reply",
@@ -233,16 +220,15 @@ export async function notifyFrontDeskWhatsAppReply(input: FrontDeskWhatsAppReply
       message: `${input.patientName} (${input.patientPhone}): "${input.messageText}"`,
       linkUrl: `/queue`,
       metadata: { phone: input.patientPhone, text: input.messageText },
-    },
-    input.clientOverride
+    }
   );
 }
 
 /** Event #19: Patient Appointment No-Show Alert */
-export async function notifyFrontDeskNoShow(input: FrontDeskNoShowInput) {
+export async function notifyFrontDeskNoShow(target: NotificationTarget, input: FrontDeskNoShowInput) {
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientRole: "receptionist",
       category: "queue",
       eventType: "appointment_no_show",
@@ -250,8 +236,7 @@ export async function notifyFrontDeskNoShow(input: FrontDeskNoShowInput) {
       message: `${input.patientName} did not arrive for scheduled slot at ${input.appointmentTime}.`,
       linkUrl: `/queue`,
       metadata: { visit_id: input.visitId, appointment_time: input.appointmentTime },
-    },
-    input.clientOverride
+    }
   );
 }
 
@@ -260,10 +245,10 @@ export async function notifyFrontDeskNoShow(input: FrontDeskNoShowInput) {
 // ----------------------------------------------------------------------
 
 /** Event #20: Staff Invitation Accepted */
-export async function notifyStaffInviteAccepted(input: StaffInviteAcceptedInput) {
+export async function notifyStaffInviteAccepted(target: NotificationTarget, input: StaffInviteAcceptedInput) {
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientRole: "admin",
       category: "system",
       eventType: "staff_invite_accepted",
@@ -271,16 +256,15 @@ export async function notifyStaffInviteAccepted(input: StaffInviteAcceptedInput)
       message: `${input.staffName} has accepted clinic invitation as ${input.role}.`,
       linkUrl: `/settings/staff`,
       metadata: { staff_name: input.staffName, role: input.role },
-    },
-    input.clientOverride
+    }
   );
 }
 
 /** Event #21: Monthly Messaging Quota 80% Warning */
-export async function notifyQuotaWarning(input: QuotaWarningInput) {
+export async function notifyQuotaWarning(target: NotificationTarget, input: QuotaWarningInput) {
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientRole: "owner",
       category: "system",
       eventType: "messaging_quota_warning",
@@ -288,16 +272,15 @@ export async function notifyQuotaWarning(input: QuotaWarningInput) {
       message: `Your clinic has sent ${input.sentCount} of ${input.quotaLimit} monthly messages. Non-critical messages may be deferred.`,
       linkUrl: `/settings`,
       metadata: { sent_count: input.sentCount, quota_limit: input.quotaLimit },
-    },
-    input.clientOverride
+    }
   );
 }
 
 /** Event #22: End-of-Day Clinic Revenue Digest */
-export async function notifyEndOfDayDigest(input: EndOfDayDigestInput) {
+export async function notifyEndOfDayDigest(target: NotificationTarget, input: EndOfDayDigestInput) {
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientRole: "owner",
       category: "billing",
       eventType: "end_of_day_digest",
@@ -305,16 +288,15 @@ export async function notifyEndOfDayDigest(input: EndOfDayDigestInput) {
       message: `Today's close: ${input.totalVisits} visits completed, ₹${input.totalRevenue} total revenue collected.`,
       linkUrl: `/reports`,
       metadata: { visits: input.totalVisits, revenue: input.totalRevenue },
-    },
-    input.clientOverride
+    }
   );
 }
 
 /** Event #23: Outbox Message Failure (Terminal Retries Exhausted) */
-export async function notifyOutboxFailure(input: OutboxFailureInput) {
+export async function notifyOutboxFailure(target: NotificationTarget, input: OutboxFailureInput) {
   return insertNotification(
+    target,
     {
-      tenantId: input.tenantId,
       recipientRole: "admin",
       category: "system",
       eventType: "outbox_delivery_failed",
@@ -322,7 +304,6 @@ export async function notifyOutboxFailure(input: OutboxFailureInput) {
       message: `Failed to deliver ${input.messageType} to ${input.recipient}: ${input.error}`,
       linkUrl: `/settings`,
       metadata: { message_type: input.messageType, recipient: input.recipient, error: input.error },
-    },
-    input.clientOverride
+    }
   );
 }

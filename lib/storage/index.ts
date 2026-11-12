@@ -1,5 +1,8 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/db/types";
 import { SupabaseStorageProvider } from "./supabase-provider";
 import { R2StorageProvider } from "./r2-provider";
+import { isWellFormedStorageKey } from "./tenant-path";
 import {
   StorageDeleteOptions,
   StorageDownloadOptions,
@@ -22,7 +25,10 @@ export function validateStoragePath(path: string): void {
   if (!path || typeof path !== "string") {
     throw new Error("Storage path must be a non-empty string");
   }
-  if (path.includes("..") || path.startsWith("/") || path.includes("\\")) {
+  // AR2-H1: same rule as `isWellFormedStorageKey` (and the database's `is_safe_storage_key`): [A-Za-z0-9_./-] only, no
+  // empty or dot segments. A `%2e%2e` segment would otherwise pass here and be collapsed to `..` by the URL parser
+  // when the provider builds the signing URL.
+  if (path.includes("..") || path.startsWith("/") || !isWellFormedStorageKey(path)) {
     throw new Error("Invalid storage path: path traversal characters are forbidden");
   }
 
@@ -79,6 +85,25 @@ export function getStorageProvider(override?: StorageProvider): StorageProvider 
   }
 
   return defaultProviderInstance;
+}
+
+/**
+ * The storage provider for a service call: R2 when configured (same rule as `getStorageProvider`), otherwise
+ * Supabase Storage through the caller's own client, so storage RLS applies to the acting user and no service-role
+ * fallback is reachable (ADR-0005 D2).
+ */
+export function getStorageProviderForDb(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: SupabaseClient<Database, any, any>,
+  defaultBucket: string
+): StorageProvider {
+  const useR2 =
+    process.env.STORAGE_PROVIDER === "r2" ||
+    Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID);
+  if (useR2) {
+    return getStorageProvider();
+  }
+  return new SupabaseStorageProvider({ defaultBucket, client: db });
 }
 
 /**

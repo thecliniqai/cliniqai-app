@@ -64,7 +64,7 @@ export function tenantStoragePrefixes(tenantId: string): Array<{ bucket: string;
 }
 
 /** Repo files the code under test writes as a side effect (git-ignored); removed if the run created them. */
-export const SIDE_EFFECT_FILES = [".planning/dev-messages.txt", ".planning/dev-auth-logs.txt"];
+export const SIDE_EFFECT_FILES = [".planning/dev-messages.txt"];
 
 export interface RunMarker {
   /** ISO timestamp from the local stack's clock, slightly before the first test ran. */

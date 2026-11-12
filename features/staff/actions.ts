@@ -4,7 +4,11 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import { generateInviteToken, hashInviteToken } from "./invite";
-import { formatDoctorDisplayName, formatStaffDisplayName } from "./formatters";
+import { resolveServiceContext } from "@/lib/auth/context";
+import { MultipleClinicsSelectionRequiredError, NoClinicMembershipError } from "@/lib/auth/tenant";
+import { clientErrorMessage } from "@/lib/errors/client-message";
+import * as staffService from "./service";
+import type { TenantDoctorInfo, TenantStaffInfo } from "./service";
 import { UserRole } from "@/lib/db/types";
 
 const inviteStaffSchema = z.object({
@@ -15,7 +19,7 @@ const inviteStaffSchema = z.object({
 });
 
 export type InviteStaffResult =
-  | { success: true; inviteId: string; rawToken?: string; inviteLink?: string }
+  | { success: true; inviteId: string }
   | { success: false; error: string };
 
 export async function inviteStaff(
@@ -43,8 +47,13 @@ export async function inviteStaff(
     // 1. Enforce permission server-side
     const session = await requirePermission(supabase, "staff:invite");
 
+    // Owner/admin invitations are owner-only (P0-02). The invitations INSERT policy (000019) enforces the same rule.
+    if (role === "admin" && session.role !== "owner") {
+      return { success: false, error: "Only a clinic owner can invite an admin." };
+    }
+
     // 2. Generate cryptographically safe token
-    const { rawToken, tokenHash, expiresAt } = generateInviteToken(7);
+    const { tokenHash, expiresAt } = generateInviteToken(7);
 
     // 3. Insert invite row (RLS policy requires membership with owner/admin)
     const { data, error } = await (supabase.from("invitations") as any)
@@ -60,47 +69,29 @@ export async function inviteStaff(
       .single();
 
     if (error || !data) {
-      console.error("[features/staff/actions] Failed to create invitation:", error);
+      console.error("[features/staff/actions] Failed to create invitation:", error?.code ?? "no_row");
       return {
         success: false,
         error: "Unable to create staff invitation. Please try again.",
       };
     }
 
-    const isProd = process.env.NODE_ENV === "production";
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const inviteLink = `${baseUrl}/join?token=${rawToken}&email=${encodeURIComponent(email.toLowerCase().trim())}`;
-
-    // Suppress dev logger in production mode (D-17)
-    if (!isProd) {
-      const { logDevAuthEvent } = await import("@/lib/auth/dev-logger");
-      logDevAuthEvent({
-        type: "STAFF_INVITATION",
-        email: email.toLowerCase().trim(),
-        role,
-        link: inviteLink,
-      });
-    }
-
-    // In production, rawToken and inviteLink must never be returned in client response
-    if (isProd) {
-      return {
-        success: true,
-        inviteId: (data as { id: string }).id,
-      };
-    }
-
+    // The raw token is never returned or logged: invitation delivery arrives with AUTH-06 (AUTH_REDESIGN §6).
     return {
       success: true,
       inviteId: (data as { id: string }).id,
-      rawToken,
-      inviteLink,
     };
   } catch (err: unknown) {
-    console.error("[features/staff/actions] Unauthorized or error creating invitation:", err);
+    // Session and permission refusals keep their fixed text; anything else gets a fixed message (IR-L2).
+    const known =
+      err instanceof NoClinicMembershipError ||
+      err instanceof MultipleClinicsSelectionRequiredError ||
+      (err instanceof Error && err.message === "Unauthenticated");
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to invite staff.",
+      error: known
+        ? (err as Error).message
+        : clientErrorMessage(err, "Failed to invite staff.", "features/staff/actions inviteStaff"),
     };
   }
 }
@@ -126,6 +117,15 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
   const tokenHash = hashInviteToken(rawToken.trim());
 
   try {
+    // Authenticate before any database call (ADR-0005 V1); the RPC re-checks auth.uid() and binds the membership to it.
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return { success: false, error: "Sign in to accept this invitation." };
+    }
+
     const { data: tenantId, error } = await (
       supabase.rpc as unknown as (
         name: string,
@@ -146,139 +146,39 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
       if (msg.includes("Invalid invitation token")) {
         return { success: false, error: "Invalid invitation link." };
       }
-      return { success: false, error: "Failed to accept invitation. " + (msg || "Please try again.") };
+      return { success: false, error: "Failed to accept invitation. Please try again." };
     }
 
     return {
       success: true,
       tenantId: tenantId as string,
     };
-  } catch (err: unknown) {
+  } catch {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to accept invitation.",
+      error: "Failed to accept invitation. Please try again.",
     };
   }
 }
 
-export interface TenantDoctorInfo {
-  id: string; // user_id
-  membershipId: string;
-  name: string; // e.g. "Dr. Sarah Jenkins"
-  fullName: string | null;
-  role: string;
-  specialty: string;
-  default_slot_duration_minutes: number;
-  availability_schedule: any | null;
+export type { TenantDoctorInfo, TenantStaffInfo } from "./service";
+
+// The acting tenant comes only from the session (ADR-0005 D1). A caller without a membership gets an empty
+// directory, as before.
+export async function getTenantDoctorDirectory(): Promise<TenantDoctorInfo[]> {
+  const resolved = await resolveServiceContext();
+  if (!resolved.ok) return [];
+  return staffService.getTenantDoctorDirectory(resolved.ctx);
 }
 
-export async function getTenantDoctorDirectory(
-  clientOverride?: any,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<TenantDoctorInfo[]> {
-  try {
-    const supabase = clientOverride || (await createClient());
-    let session = sessionOverride;
-    if (!session) {
-      const { getActiveMembership } = await import("@/lib/auth/tenant");
-      const active = await getActiveMembership();
-      session = { userId: active.userId, tenantId: active.tenantId };
-    }
-
-    const { data: tenant } = await (supabase.from("tenants") as any)
-      .select("owner_is_practicing_doctor")
-      .eq("id", session.tenantId)
-      .single();
-
-    const { data: memberRows, error } = await (supabase.from("memberships") as any)
-      .select("id, user_id, tenant_id, role, full_name, default_specialty, default_slot_duration_minutes, availability_schedule, qualifications, medical_council_reg_no")
-      .eq("tenant_id", session.tenantId);
-
-    if (error || !memberRows) {
-      console.error("[getTenantDoctorDirectory] Error fetching members:", error ? { message: error.message, code: error.code, details: error.details, hint: error.hint } : "No rows returned");
-      return [];
-    }
-
-    const ownerPracticing = tenant?.owner_is_practicing_doctor ?? true;
-
-    // Doctors: role == 'doctor' OR (owner when practicing) OR (admin with doctor qualifications/specialty)
-    const doctorMembers = memberRows.filter((m: any) => {
-      if (m.role === "doctor") return true;
-      if (m.role === "owner" && ownerPracticing) return true;
-      if (m.role === "admin" && (m.qualifications || m.medical_council_reg_no)) return true;
-      return false;
-    });
-
-    return doctorMembers.map((m: any, index: number) => ({
-      id: m.user_id,
-      membershipId: m.id,
-      name: formatDoctorDisplayName(m.full_name, index + 1),
-      fullName: m.full_name || null,
-      role: m.role,
-      specialty: m.default_specialty || "general_physician",
-      default_slot_duration_minutes: m.default_slot_duration_minutes || 15,
-      availability_schedule: m.availability_schedule || null,
-    }));
-  } catch (err) {
-    console.error("[getTenantDoctorDirectory] Unexpected error:", err);
-    return [];
-  }
+export async function getTenantStaffDirectory(): Promise<TenantStaffInfo[]> {
+  const resolved = await resolveServiceContext();
+  if (!resolved.ok) return [];
+  return staffService.getTenantStaffDirectory(resolved.ctx);
 }
 
-export interface TenantStaffInfo {
-  id: string; // user_id
-  membershipId: string;
-  name: string;
-  fullName: string | null;
-  role: string;
-  specialty?: string;
+export async function getTenantDoctorMap(): Promise<Record<string, string>> {
+  const resolved = await resolveServiceContext();
+  if (!resolved.ok) return {};
+  return staffService.getTenantDoctorMap(resolved.ctx);
 }
-
-export async function getTenantStaffDirectory(
-  clientOverride?: any,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<TenantStaffInfo[]> {
-  try {
-    const supabase = clientOverride || (await createClient());
-    let session = sessionOverride;
-    if (!session) {
-      const { getActiveMembership } = await import("@/lib/auth/tenant");
-      const active = await getActiveMembership();
-      session = { userId: active.userId, tenantId: active.tenantId };
-    }
-
-    const { data: memberRows, error } = await (supabase.from("memberships") as any)
-      .select("id, user_id, tenant_id, role, full_name, default_specialty")
-      .eq("tenant_id", session.tenantId);
-
-    if (error || !memberRows) {
-      console.error("[getTenantStaffDirectory] Error fetching members:", error ? { message: error.message, code: error.code, details: error.details, hint: error.hint } : "No rows returned");
-      return [];
-    }
-
-    return memberRows.map((m: any, index: number) => ({
-      id: m.user_id,
-      membershipId: m.id,
-      name: formatStaffDisplayName(m.full_name, m.role, index + 1),
-      fullName: m.full_name || null,
-      role: m.role,
-      specialty: m.default_specialty,
-    }));
-  } catch (err) {
-    console.error("[getTenantStaffDirectory] Unexpected error:", err);
-    return [];
-  }
-}
-
-export async function getTenantDoctorMap(
-  clientOverride?: any,
-  sessionOverride?: { userId: string; tenantId: string }
-): Promise<Record<string, string>> {
-  const doctors = await getTenantDoctorDirectory(clientOverride, sessionOverride);
-  const map: Record<string, string> = {};
-  for (const doc of doctors) {
-    map[doc.id] = doc.name;
-  }
-  return map;
-}
-

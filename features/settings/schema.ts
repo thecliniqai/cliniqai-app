@@ -73,34 +73,20 @@ export const clinicSettingsSchema = z.object({
 
 export type ClinicSettingsInput = z.infer<typeof clinicSettingsSchema>;
 
-export const userProfileSchema = z.object({
-  full_name: z.string().min(2, "Full name must be at least 2 characters."),
-  phone: optionalIndianPhone,
-  medical_council_reg_no: z.string().optional().nullable(),
-  qualifications: z.string().optional().nullable(),
-  default_specialty: z.string().default("general_physician"),
-  default_slot_duration_minutes: z.coerce.number().min(5).max(180).optional(),
-  availability_schedule: z.any().optional().nullable(),
-});
-
-export type UserProfileInput = z.infer<typeof userProfileSchema>;
-
-export const staffEditSchema = z.object({
-  membership_id: z.string().uuid("Invalid membership ID"),
-  full_name: z.string().min(2, "Full name must be at least 2 characters."),
-  phone: optionalIndianPhone,
-  role: z.enum(["owner", "admin", "doctor", "receptionist", "nurse"]),
-  medical_council_reg_no: z.string().optional().nullable(),
-  qualifications: z.string().optional().nullable(),
-  default_specialty: z.string().default("general_physician"),
-  default_slot_duration_minutes: z.coerce.number().min(5).max(180).optional(),
-  availability_schedule: z.any().optional().nullable(),
-});
-
-export type StaffEditInput = z.infer<typeof staffEditSchema>;
-
 // Doctor shift and weekly schedule schemas
 export const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Slot length bounds; the database CHECKs the same range (memberships_slot_duration_bounds, 000021). */
+export const MIN_SLOT_DURATION_MINUTES = 5;
+export const MAX_SLOT_DURATION_MINUTES = 120;
+/** Shifts per day; the database CHECKs the same limit (is_valid_weekly_schedule, 000021). */
+export const MAX_SHIFTS_PER_DAY = 8;
+
+export const slotDurationSchema = z.coerce
+  .number()
+  .int("Slot duration must be a whole number of minutes.")
+  .min(MIN_SLOT_DURATION_MINUTES, `Slot duration must be at least ${MIN_SLOT_DURATION_MINUTES} minutes.`)
+  .max(MAX_SLOT_DURATION_MINUTES, `Slot duration must be at most ${MAX_SLOT_DURATION_MINUTES} minutes.`);
 
 export const shiftSchema = z
   .object({
@@ -116,7 +102,7 @@ export type ShiftInput = z.infer<typeof shiftSchema>;
 export const dayAvailabilitySchema = z
   .object({
     enabled: z.boolean(),
-    shifts: z.array(shiftSchema),
+    shifts: z.array(shiftSchema).max(MAX_SHIFTS_PER_DAY, `At most ${MAX_SHIFTS_PER_DAY} shifts per day.`),
   })
   .refine(
     (day) => {
@@ -145,3 +131,29 @@ export const doctorWeeklyScheduleSchema = z.object({
 });
 
 export type DoctorWeeklyScheduleInput = z.infer<typeof doctorWeeklyScheduleSchema>;
+
+export const userProfileSchema = z.object({
+  full_name: z.string().min(2, "Full name must be at least 2 characters."),
+  phone: optionalIndianPhone,
+  medical_council_reg_no: z.string().optional().nullable(),
+  qualifications: z.string().optional().nullable(),
+  default_specialty: z.string().default("general_physician"),
+  default_slot_duration_minutes: slotDurationSchema.optional(),
+  availability_schedule: doctorWeeklyScheduleSchema.optional().nullable(),
+});
+
+export type UserProfileInput = z.infer<typeof userProfileSchema>;
+
+export const staffEditSchema = z.object({
+  membership_id: z.string().uuid("Invalid membership ID"),
+  full_name: z.string().min(2, "Full name must be at least 2 characters."),
+  phone: optionalIndianPhone,
+  role: z.enum(["owner", "admin", "doctor", "receptionist", "nurse"]),
+  medical_council_reg_no: z.string().optional().nullable(),
+  qualifications: z.string().optional().nullable(),
+  default_specialty: z.string().default("general_physician"),
+  default_slot_duration_minutes: slotDurationSchema.optional(),
+  availability_schedule: doctorWeeklyScheduleSchema.optional().nullable(),
+});
+
+export type StaffEditInput = z.infer<typeof staffEditSchema>;

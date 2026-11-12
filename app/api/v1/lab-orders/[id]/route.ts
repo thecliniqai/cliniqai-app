@@ -13,7 +13,7 @@ interface RouteParams {
  * Retrieve detailed lab report document record scoped strictly to active tenant.
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }

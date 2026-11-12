@@ -1,9 +1,18 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { getAdminClient } from "@/lib/supabase/admin";
 import { Database } from "@/lib/db/types";
 import { apiError, ApiErrorResponse } from "@/lib/api/envelope";
+import type { ServiceContext } from "@/lib/auth/context";
+import { apiV1Enabled } from "@/lib/api/enabled";
+
+/**
+ * The plain 404 the `/api/v1` switch answers with (same as the middleware: empty body, nothing that reveals the API).
+ * Handlers return it when `apiV1Enabled()` is false, so the switch does not depend on the middleware alone (AR2-H2).
+ */
+export function apiV1NotFound<T = ApiErrorResponse>(): NextResponse<T> {
+  return new NextResponse(null, { status: 404 }) as NextResponse<T>;
+}
 
 export interface AuthenticatedApiKeySession {
   apiKeyId: string;
@@ -42,9 +51,17 @@ export function createApiKeySecret(): {
  * 5. Returns AuthenticatedApiKeySession with tenant context and creator userId
  */
 export async function authenticateApiKey(
-  req: NextRequest,
-  clientOverride?: SupabaseClient<Database>
+  // Required, never defaulted (V2-01 R13): the `/api/v1` register route builds the client and passes it in.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: SupabaseClient<Database, any, any>,
+  req: NextRequest
 ): Promise<ApiKeyAuthResult> {
+  // AR2-H2 defence in depth: every key-authenticated v1 handler is off with the switch, even if the middleware is
+  // bypassed. Checked before the key is looked up, so no usage counter moves either.
+  if (!apiV1Enabled()) {
+    return { success: false, response: apiV1NotFound() };
+  }
+
   const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -72,7 +89,7 @@ export async function authenticateApiKey(
   }
 
   const computedHash = crypto.createHash("sha256").update(rawToken).digest("hex");
-  const supabase = clientOverride || getAdminClient();
+  const supabase = db;
 
   const { data: keyRecord, error } = await (supabase.from("api_keys") as any)
     .select("id, tenant_id, name, key_hash, created_by, revoked_at")
@@ -148,5 +165,24 @@ export async function authenticateApiKey(
       name: keyRecord.name,
       role: "admin",
     },
+  };
+}
+
+/**
+ * Builds the explicit service context for an authenticated API key (ADR-0005 Phasing: `/api/v1/**` stays on the
+ * register until P1-37). Tenant and actor come only from the verified key; `db` is the register route's client.
+ */
+export function apiKeyServiceContext(
+  session: AuthenticatedApiKeySession,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: SupabaseClient<Database, any, any>
+): ServiceContext {
+  return {
+    userId: session.userId,
+    tenantId: session.tenantId,
+    role: session.role,
+    actorType: "api_key",
+    apiKeyId: session.apiKeyId,
+    db,
   };
 }

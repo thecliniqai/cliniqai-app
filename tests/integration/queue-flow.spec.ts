@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
-import { checkInVisit, transitionQueueState, getQueueForDate } from "@/features/queue/actions";
+import { createVisit } from "@/features/visits/service";
+import { ctxFor } from "../helpers/context";
+import { checkInVisit, transitionQueueState, getQueueForDate } from "@/features/queue/service";
 
 describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi-tenancy)", () => {
   let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -46,10 +47,10 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
   });
 
   it("1. Adding a walk-in patient creates a visit with origin_type='walk_in', generates token #1, and sets status 'waiting'", async () => {
-    const session = { userId: tenant.userId, tenantId: tenant.tenantId };
 
     // 1. Create walk-in visit
     const visitRes = await createVisit(
+      ctxFor(tenant),
       {
         patient_id: patientAId,
         doctor_id: tenant.userId,
@@ -57,9 +58,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
         reason_for_visit: "Acute fever and headache",
         estimated_duration_minutes: 15,
         is_overbooked: false,
-      },
-      tenant.client,
-      session
+      }
     );
 
     expect(visitRes.success).toBe(true);
@@ -67,7 +66,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
     walkInVisitId = visitRes.visitId;
 
     // 2. Check in the walk-in visit to issue token
-    const checkInRes = await checkInVisit(walkInVisitId, "normal", tenant.client, session);
+    const checkInRes = await checkInVisit(ctxFor(tenant), walkInVisitId, "normal");
     expect(checkInRes.success).toBe(true);
     if (!checkInRes.success) return;
     expect(checkInRes.tokenNumber).toBe(1);
@@ -95,11 +94,11 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
   });
 
   it("2. Scheduled appointment checking in generates next token and transitions to 'waiting'", async () => {
-    const session = { userId: tenant.userId, tenantId: tenant.tenantId };
     const scheduledTime = new Date().toISOString();
 
     // 1. Create scheduled appointment
     const visitRes = await createVisit(
+      ctxFor(tenant),
       {
         patient_id: patientBId,
         doctor_id: tenant.userId,
@@ -108,9 +107,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
         reason_for_visit: "Follow-up consultation",
         estimated_duration_minutes: 20,
         is_overbooked: false,
-      },
-      tenant.client,
-      session
+      }
     );
 
     expect(visitRes.success).toBe(true);
@@ -128,7 +125,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
     expect(initialVisit?.status).toBe("booked");
 
     // 2. Check in the scheduled visit
-    const checkInRes = await checkInVisit(scheduledVisitId, "normal", tenant.client, session);
+    const checkInRes = await checkInVisit(ctxFor(tenant), scheduledVisitId, "normal");
     expect(checkInRes.success).toBe(true);
     if (!checkInRes.success) return;
     // Should receive sequential token #2
@@ -145,14 +142,8 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
   });
 
   it("3. Moving patient from 'waiting' to 'in_consultation' sets called_at timestamp", async () => {
-    const session = { userId: tenant.userId, tenantId: tenant.tenantId };
 
-    const transitionRes = await transitionQueueState(
-      walkInVisitId,
-      "in_consultation",
-      tenant.client,
-      session
-    );
+    const transitionRes = await transitionQueueState(ctxFor(tenant), walkInVisitId, "in_consultation");
 
     expect(transitionRes.success).toBe(true);
 
@@ -177,14 +168,8 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
   });
 
   it("4. Completing visit sets completed_at and removes patient from active waiting count", async () => {
-    const session = { userId: tenant.userId, tenantId: tenant.tenantId };
 
-    const transitionRes = await transitionQueueState(
-      walkInVisitId,
-      "completed",
-      tenant.client,
-      session
-    );
+    const transitionRes = await transitionQueueState(ctxFor(tenant), walkInVisitId, "completed");
 
     expect(transitionRes.success).toBe(true);
 
@@ -209,7 +194,7 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
 
     // Verify live queue query has 1 waiting patient (patient B), 0 with doctor, 1 completed
     const today = new Date().toISOString().split("T")[0];
-    const queueRes = await getQueueForDate(today, undefined, tenant.client, session);
+    const queueRes = await getQueueForDate(ctxFor(tenant), today);
     expect(queueRes.success).toBe(true);
 
     if (queueRes.success) {

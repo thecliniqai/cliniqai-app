@@ -6,7 +6,8 @@ import {
   patientSchema,
 } from "@/features/patients/schema";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { findPotentialDuplicates } from "@/features/patients/dedup";
+import { findPotentialDuplicates } from "@/features/patients/dedup-service";
+import { ctxFor } from "../helpers/context";
 
 describe("Patient Intake Deduplication & Age/DOB Sync (REQ-patient-records)", () => {
   describe("1. Age and DOB Bidirectional Derivation", () => {
@@ -78,12 +79,11 @@ describe("Patient Intake Deduplication & Age/DOB Sync (REQ-patient-records)", ()
     it("detects high-confidence duplicate on exact phone match regardless of formatting", async () => {
       // Input bare 10-digit phone
       const matches = await findPotentialDuplicates(
+        ctxFor(tenant),
         {
           phone: "9811122233",
           fullName: "Different Name",
-        },
-        tenant.client,
-        tenant.tenantId
+        }
       );
 
       const matched = matches.find((m) => m.patient.phone === "+919811122233");
@@ -94,13 +94,12 @@ describe("Patient Intake Deduplication & Age/DOB Sync (REQ-patient-records)", ()
 
     it("detects medium-confidence duplicate on matching name + approximate age (within 2 years)", async () => {
       const matches = await findPotentialDuplicates(
+        ctxFor(tenant),
         {
           phone: "9999900000", // Different phone
           fullName: "sunil narine", // Same name, lowercase
           age: 42, // Within 2 years of 41
-        },
-        tenant.client,
-        tenant.tenantId
+        }
       );
 
       const matched = matches.find((m) => m.patient.full_name === "Sunil Narine");
@@ -110,13 +109,12 @@ describe("Patient Intake Deduplication & Age/DOB Sync (REQ-patient-records)", ()
 
     it("does not match when name matches but age is significantly different", async () => {
       const matches = await findPotentialDuplicates(
+        ctxFor(tenant),
         {
           phone: "9999900000", // Different phone
           fullName: "Sunil Narine", // Same name
           age: 20, // 21 years younger -> not the same patient
-        },
-        tenant.client,
-        tenant.tenantId
+        }
       );
 
       const matched = matches.find((m) => m.patient.full_name === "Sunil Narine");

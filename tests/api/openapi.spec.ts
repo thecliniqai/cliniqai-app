@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 import { generateOpenApiSpec } from "@/lib/api/openapi-spec";
 import { GET as getOpenApiJson } from "@/app/api/v1/openapi.json/route";
 import { GET as getDocs } from "@/app/api/v1/docs/route";
+import { enableApiV1ForFile } from "../helpers/api-v1";
+
+enableApiV1ForFile();
 
 describe("Phase 06-05 Task 3: OpenAPI 3.0 Specification & Documentation (D-07, T-06-20)", () => {
   describe("1. Programmatic OpenAPI 3.0 Generator", () => {

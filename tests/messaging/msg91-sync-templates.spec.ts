@@ -32,8 +32,8 @@ describe("MSG91 Template Synchronizer & Status Inspection (D-07, Finding 7, T-05
       const integratedNumber = "919876543210";
       const items = buildAllPayloads(integratedNumber);
 
-      expect(items).toHaveLength(13);
-      expect(WHATSAPP_TEMPLATES).toHaveLength(13);
+      expect(items).toHaveLength(12);
+      expect(WHATSAPP_TEMPLATES).toHaveLength(12);
 
       for (const item of items) {
         expect(item).toHaveProperty("templateName");
@@ -76,11 +76,8 @@ describe("MSG91 Template Synchronizer & Status Inspection (D-07, Finding 7, T-05
       expect(rx?.category).toBe("UTILITY");
       expect(rx?.button_url).toBe(true);
 
-      // 3. staff_onboarding_otp: AUTHENTICATION, OTP button
-      const otp = map.get("staff_onboarding_otp");
-      expect(otp).toBeDefined();
-      expect(otp?.category).toBe("AUTHENTICATION");
-      expect(otp?.button_url).toBe(false);
+      // 3. staff login codes are not sent over WhatsApp (AUTH-01): no staff OTP template exists
+      expect(map.has("staff_onboarding_otp")).toBe(false);
     });
   });
 
@@ -287,7 +284,7 @@ describe("MSG91 Template Synchronizer & Status Inspection (D-07, Finding 7, T-05
         status: "PAUSED",
         id: "msg91_104",
       });
-      // Remaining 9 templates default to NOT SUBMITTED
+      // Remaining 8 templates default to NOT SUBMITTED
 
       const localNames = WHATSAPP_TEMPLATES.map((t) => t.template_name);
       const table = formatStatusTable(localNames, mockStatusMap);
@@ -310,7 +307,7 @@ describe("MSG91 Template Synchronizer & Status Inspection (D-07, Finding 7, T-05
 
       // Verify summary line
       expect(table).toContain(
-        "Summary: 1 APPROVED | 1 PENDING | 1 REJECTED | 1 PAUSED | 9 NOT SUBMITTED (Total: 13)"
+        "Summary: 1 APPROVED | 1 PENDING | 1 REJECTED | 1 PAUSED | 8 NOT SUBMITTED (Total: 12)"
       );
     });
   });

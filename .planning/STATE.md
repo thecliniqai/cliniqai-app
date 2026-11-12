@@ -3,8 +3,8 @@ gsd_state_version: "1.0"
 milestone: v2.0
 milestone_name: V2 Master Roadmap
 status: planning
-last_updated: "2026-11-11T12:29:44.878Z"
-last_activity: 2026-11-11
+last_updated: "2026-11-12T15:30:00.000Z"
+last_activity: 2026-11-12
 progress:
   total_phases: 0
   completed_phases: 0
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-11-11)
 
 **Core value:** Every core clinic action is obviously faster than the paper/WhatsApp status quo, and no clinic can ever see or change another clinic's data.
-**Current focus:** Milestone v2.0 — next phase 01A (V2-01a Local DB harness); V2-00 complete (G0 2026-11-11)
+**Current focus:** Milestone v2.0 — V2-01 Security containment complete, awaiting PO gate (G3-partial); next phase 02 (V2-02 CI & e2e foundations). V2-00 (G0) and V2-01a merged.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-11-11 — Milestone v2.0 started
+Phase: 01 (V2-01) complete — `.planning/phases/01-security-containment/01-SUMMARY.md`, `01-VERIFICATION.md`
+Plan: next = 02 (V2-02)
+Status: V2-01 PR open into feature/v2, awaiting PO gate
+Last activity: 2026-11-12 — V2-01 verified at 60d8db0 (86 files / 1128 tests, 2 runs; 5 review passes)
 
 ## Performance Metrics
 

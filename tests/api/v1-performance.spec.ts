@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
-import { getPatient } from "@/features/patients/actions";
-import { createAppointment } from "@/features/appointments/actions";
+import { getPatient } from "@/features/patients/service";
+import { ctxFor } from "../helpers/context";
+import { bookAppointment } from "@/features/visits/scheduling-service";
 
 describe("Phase 06-05 Task 3: Performance Benchmarks for Core Clinical Actions (Roadmap Success Criterion 3)", () => {
   let tenant: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -50,15 +51,14 @@ describe("Phase 06-05 Task 3: Performance Benchmarks for Core Clinical Actions (
 
   describe("1. Core Action 1: Open Patient Record (<1-2s Target)", () => {
     it("fetches patient details with tenant filtering in < 500ms (SLA: < 2000ms)", async () => {
-      const admin = getAdminClient();
-      const session = { userId: tenant.userId, tenantId: tenant.tenantId };
+      const ctx = ctxFor(tenant);
 
       // Warmup query
-      await getPatient(testPatientId, false, admin as any, session);
+      await getPatient(ctx, testPatientId, false);
 
       // Timed execution
       const t0 = performance.now();
-      const patient = await getPatient(testPatientId, false, admin as any, session);
+      const patient = await getPatient(ctx, testPatientId, false);
       const elapsed = performance.now() - t0;
 
       expect(patient).toBeDefined();
@@ -76,25 +76,28 @@ describe("Phase 06-05 Task 3: Performance Benchmarks for Core Clinical Actions (
 
       const scheduledAt = new Date(Date.now() + 86400000).toISOString();
 
+      // The clinic user's booking path (slot/conflict check + visit insert + outbox), on the owner's own client.
       const t0 = performance.now();
-      const res = await createAppointment(
-        {
-          tenantId: tenant.tenantId,
-          patientId: testPatientId,
-          doctorId: doctor.userId,
-          scheduledAt,
-          estimatedDurationMinutes: 15,
-          reasonForVisit: "Routine annual health checkup",
-          createdBy: tenant.userId,
-        },
-        admin
-      );
+      const res = await bookAppointment(ctxFor(tenant), {
+        patient_id: testPatientId,
+        doctor_id: doctor.userId,
+        scheduled_at: scheduledAt,
+        estimated_duration_minutes: 15,
+        reason_for_visit: "Routine annual health checkup",
+        override_off_duty: true,
+      });
       const elapsed = performance.now() - t0;
 
       expect(res.success).toBe(true);
-      expect(res.appointment).toBeDefined();
-      expect(res.appointment.origin_type).toBe("scheduled");
-      expect(res.appointment.status).toBe("booked");
+      if (!res.success) return;
+      const { data: appointment } = await (admin.from("visits") as any)
+        .select("origin_type, status, tenant_id, created_by")
+        .eq("id", res.visitId)
+        .single();
+      expect(appointment.origin_type).toBe("scheduled");
+      expect(appointment.status).toBe("booked");
+      expect(appointment.tenant_id).toBe(tenant.tenantId);
+      expect(appointment.created_by).toBe(tenant.userId);
 
       // Verify execution latency finishes well within the 1-2s SLA
       expect(elapsed).toBeLessThan(1200);
@@ -173,13 +176,12 @@ describe("Phase 06-05 Task 3: Performance Benchmarks for Core Clinical Actions (
 
   describe("5. Composite SLA Throughput & Consistency Benchmark", () => {
     it("executes 5 consecutive core actions and asserts average latency < 500ms", async () => {
-      const admin = getAdminClient();
-      const session = { userId: tenant.userId, tenantId: tenant.tenantId };
+      const ctx = ctxFor(tenant);
       const latencies: number[] = [];
 
       for (let i = 0; i < 5; i++) {
         const start = performance.now();
-        await getPatient(testPatientId, false, admin as any, session);
+        await getPatient(ctx, testPatientId, false);
         latencies.push(performance.now() - start);
       }
 

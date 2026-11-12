@@ -1,19 +1,20 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
+import { createVisit } from "@/features/visits/service";
 import {
   createVisitInvoice,
   recordPayment,
   getInvoiceReceiptPdfSignedUrl,
-} from "@/features/billing/actions";
+} from "@/features/billing/service";
 import {
   generateAndArchiveReceiptPdf,
 } from "@/features/billing/pdf/generator";
 import { ReceiptPdfPayload } from "@/features/billing/pdf/receipt-document";
 import {
   getDailyCollectionReport,
-} from "@/features/billing/reports-actions";
+} from "@/features/billing/reports-service";
 import { formatCollectionReportCsv } from "@/features/billing/csv-utils";
+import { ctxFor } from "../helpers/context";
 
 describe("Payment Receipts & Financial Collection Reports Integration (REQ-billing-invoicing, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -48,6 +49,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
 
     // 2. Create Visit 1
     const v1 = await createVisit(
+      ctxFor(tenantA),
       {
         patient_id: patientAId,
         doctor_id: tenantA.userId,
@@ -55,15 +57,14 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
         reason_for_visit: "General health checkup",
         estimated_duration_minutes: 15,
         is_overbooked: false,
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     if (!v1.success) throw new Error(`Failed to create visit 1: ${v1.error}`);
     visitA1Id = v1.visitId;
 
     // 3. Create Visit 2
     const v2 = await createVisit(
+      ctxFor(tenantA),
       {
         patient_id: patientAId,
         doctor_id: tenantA.userId,
@@ -71,15 +72,14 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
         reason_for_visit: "Follow-up consultation",
         estimated_duration_minutes: 15,
         is_overbooked: false,
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     if (!v2.success) throw new Error(`Failed to create visit 2: ${v2.error}`);
     visitA2Id = v2.visitId;
 
     // 4. Create Invoice 1: Total ₹700 (Consultation ₹500 + Dressing ₹200)
     const inv1 = await createVisitInvoice(
+      ctxFor(tenantA),
       {
         visit_id: visitA1Id,
         patient_id: patientAId,
@@ -99,15 +99,14 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
         ],
         discount: 0,
         tax: 0,
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     if (!inv1.success) throw new Error(`Failed to create invoice 1: ${inv1.error}`);
     invoiceA1Id = inv1.invoice.id;
 
     // 5. Create Invoice 2: Total ₹350
     const inv2 = await createVisitInvoice(
+      ctxFor(tenantA),
       {
         visit_id: visitA2Id,
         patient_id: patientAId,
@@ -121,9 +120,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
         ],
         discount: 0,
         tax: 0,
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     if (!inv2.success) throw new Error(`Failed to create invoice 2: ${inv2.error}`);
     invoiceA2Id = inv2.invoice.id;
@@ -131,36 +128,33 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
     // 6. Record payments:
     // Invoice 1: Cash ₹400 + Card ₹300 = ₹700 (Paid)
     await recordPayment(
+      ctxFor(tenantA),
       {
         invoice_id: invoiceA1Id,
         amount: 400,
         payment_method: "cash",
         reference_number: "CSH-001",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     await recordPayment(
+      ctxFor(tenantA),
       {
         invoice_id: invoiceA1Id,
         amount: 300,
         payment_method: "card",
         reference_number: "POS-7890",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
 
     // Invoice 2: UPI ₹350 = ₹350 (Paid)
     await recordPayment(
+      ctxFor(tenantA),
       {
         invoice_id: invoiceA2Id,
         amount: 350,
         payment_method: "upi",
         reference_number: "UPI-456789123",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
   });
 
@@ -230,7 +224,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
     };
 
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
-    const result = await generateAndArchiveReceiptPdf(payload, tenantA.client, sessionA);
+    const result = await generateAndArchiveReceiptPdf(ctxFor(tenantA), payload);
 
     expect(result.buffer).toBeDefined();
     expect(result.buffer.length).toBeGreaterThan(1000);
@@ -243,7 +237,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
 
   it("2. Retrieves signed receipt URL via Server Action with invoice details", async () => {
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
-    const res = await getInvoiceReceiptPdfSignedUrl(invoiceA1Id, tenantA.client, sessionA);
+    const res = await getInvoiceReceiptPdfSignedUrl(ctxFor(tenantA), invoiceA1Id);
 
     expect(res.success).toBe(true);
     if (!res.success) return;
@@ -256,7 +250,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
     const todayStr = new Date().toISOString().split("T")[0];
 
-    const reportRes = await getDailyCollectionReport(todayStr, todayStr, tenantA.client, sessionA);
+    const reportRes = await getDailyCollectionReport(ctxFor(tenantA), todayStr, todayStr);
 
     expect(reportRes.success).toBe(true);
     if (!reportRes.success) return;
@@ -284,13 +278,13 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
     const sessionB = { userId: tenantB.userId, tenantId: tenantB.tenantId };
 
     // Tenant B attempts to fetch Tenant A's invoice receipt
-    const crossRes = await getInvoiceReceiptPdfSignedUrl(invoiceA1Id, tenantB.client, sessionB);
+    const crossRes = await getInvoiceReceiptPdfSignedUrl(ctxFor(tenantB), invoiceA1Id);
     expect(crossRes.success).toBe(false);
     expect(crossRes.error).toContain("access denied");
 
     // Tenant B queries daily collection report
     const todayStr = new Date().toISOString().split("T")[0];
-    const bReportRes = await getDailyCollectionReport(todayStr, todayStr, tenantB.client, sessionB);
+    const bReportRes = await getDailyCollectionReport(ctxFor(tenantB), todayStr, todayStr);
 
     expect(bReportRes.success).toBe(true);
     if (!bReportRes.success) return;

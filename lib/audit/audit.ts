@@ -1,5 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership } from "@/lib/auth/tenant";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/db/types";
+import type { ServiceContext } from "@/lib/auth/context";
 
 export type AuditAction =
   | "patient.create"
@@ -91,8 +92,6 @@ export interface RecordAuditParams {
     | "dpdp";
   entityId?: string | null;
   metadata?: Record<string, unknown>;
-  actorType?: "user" | "api_key";
-  apiKeyId?: string | null;
 }
 
 const ALLOWED_METADATA_KEYS = new Set([
@@ -156,23 +155,16 @@ function filterMetadata(metadata?: Record<string, unknown>): Record<string, unkn
   return Object.keys(filtered).length > 0 ? filtered : null;
 }
 
-/**
- * Records an immutable audit log entry.
- * Actor identity and tenant boundary are derived strictly server-side.
- * Failure to write audit logs throws an error rather than silently proceeding,
- * guaranteeing audit integrity on sensitive paths.
- */
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/db/types";
+type AuditMembership = { userId: string; tenantId: string; role?: string };
 
-export async function recordAudit(
-  params: RecordAuditParams,
-  clientOverride?: SupabaseClient<Database>,
-  membershipOverride?: { userId: string; tenantId: string; role?: string }
+async function insertAuditRow(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<Database, any, any>,
+  membership: AuditMembership,
+  actorType: "user" | "api_key",
+  apiKeyId: string | null,
+  params: RecordAuditParams
 ): Promise<void> {
-  const membership = membershipOverride || (await getActiveMembership());
-  const supabase = clientOverride || (await createClient());
-
   const safeMetadata = filterMetadata(params.metadata);
 
   const { error } = await (
@@ -183,8 +175,8 @@ export async function recordAudit(
     tenant_id: membership.tenantId,
     actor_id: membership.userId,
     actor_role: membership.role || "owner",
-    actor_type: params.actorType || "user",
-    api_key_id: params.apiKeyId || null,
+    actor_type: actorType,
+    api_key_id: apiKeyId,
     action: params.action,
     entity_type: params.entityType,
     entity_id: params.entityId || null,
@@ -196,4 +188,23 @@ export async function recordAudit(
     // Mandatory audit guarantee: fail the transaction/action if audit cannot be recorded
     throw new Error("Audit log recording failed. Action was aborted to preserve compliance trail.");
   }
+}
+
+/**
+ * Records an immutable audit log entry.
+ * The actor, role, tenant and actor type come only from the service context, which is derived from the session
+ * (ADR-0005 D1) — never from params. Failure to write audit logs throws rather than silently proceeding,
+ * guaranteeing audit integrity on sensitive paths.
+ */
+export async function recordAudit(
+  ctx: Pick<ServiceContext, "userId" | "tenantId" | "role" | "actorType" | "apiKeyId" | "db">,
+  params: RecordAuditParams
+): Promise<void> {
+  await insertAuditRow(
+    ctx.db,
+    { userId: ctx.userId, tenantId: ctx.tenantId, role: ctx.role },
+    ctx.actorType,
+    ctx.actorType === "api_key" ? ctx.apiKeyId ?? null : null,
+    params
+  );
 }

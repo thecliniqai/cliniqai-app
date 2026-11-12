@@ -1,0 +1,393 @@
+/**
+ * Server-action inventory (V2-01 P0-01, ADR-0005 Verification 1 and 3; brief 01-01 §5 step 0).
+ *
+ * Lists, with the TypeScript compiler API (no new dependency):
+ *   1. every module under app/, features/, lib/ and components/ that starts with the `"use server"` directive,
+ *      every value export of it, and for each parameter its name, the field names it destructures and the field
+ *      names of its declared type (resolved by the type checker, three levels deep, project types only);
+ *   2. the ADR-0005 Decision 1 non-action modules (the ones that could switch to the service role on a
+ *      caller-supplied session or client at the V2-01 base) with the same parameter detail;
+ *   3. the keys of every zod object literal in `features/** /schema.ts`.
+ * and flags every banned acting-principal name (ADR-0005 V3).
+ *
+ * Usage (reads source only; no network, no env):
+ *   npx tsx scripts/inventory-server-actions.ts [--out <file.json>]
+ * Exit code 1 when anything is flagged, so it can gate CI.
+ */
+import { execSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import ts from "typescript";
+
+const ROOT = path.resolve(__dirname, "..");
+const SCAN_DIRS = ["app", "features", "lib", "components"];
+
+/**
+ * ADR-0005 D1 non-action modules: the 17 modules with override parameters at the V2-01 base (brief 01-01 §2b,
+ * VERIFICATION_LOG F9), at their current paths. `features/appointments/actions.ts` became
+ * `features/appointments/system.ts`; `lib/ai/tools/clinical-tools.ts` was deleted by 01-07 (AI-01).
+ */
+const D1_NON_ACTION_MODULES = [
+  "features/appointments/system.ts",
+  "features/prescriptions/pdf/generator.ts",
+  "features/billing/pdf/generator.ts",
+  "features/referrals/pdf/generator.ts",
+  "features/dpdp/erasure.ts",
+  "features/dpdp/export.ts",
+  "features/notifications/triggers.ts",
+  "lib/ai/catch-up-summary.ts",
+  "lib/ai/prescription-suggestions.ts",
+  "lib/ai/soap-generator.ts",
+  "lib/ai/tools/clinical-tools.ts",
+  "lib/api/auth.ts",
+  "lib/api/doctor-guard.ts",
+  "lib/audit/audit.ts",
+  "lib/messaging/dispatcher.ts",
+  "lib/webhooks/outbox.ts",
+  "lib/webhooks/dispatcher.ts",
+];
+
+/**
+ * Banned on `"use server"` exports (ADR-0005 V3): acting principal, session, DB client, acting tenant, acting
+ * actor — as a parameter, a destructured field or a field of the parameter's type. Target ids
+ * (`target_tenant_id`, `doctor_id`, `patientId`) do not match.
+ */
+const BANNED_ACTION_NAME =
+  /Override$|^(actorSession|session|client|actorId|actor_id|createdBy|created_by|recordedBy|recorded_by|signedBy|signed_by|tenantId|tenant_id)$/;
+
+/**
+ * Banned on the D1 non-action modules: the override seams themselves. These modules take a required, typed
+ * context (`ctx: ServiceContext`, `sys: { db }`) or, on the ADR-0005 exception register (`lib/api/**`,
+ * `lib/messaging/dispatcher.ts`, `lib/webhooks/**`), a required `db`; such names are reported, not flagged.
+ */
+const BANNED_NON_ACTION_NAME = /Override$|^actorSession$/;
+const NOTED_NON_ACTION_NAME = /^(session|client|db|supabase|tenantId|actorId|createdBy|recordedBy|signedBy)$/;
+
+const BANNED_SCHEMA_KEY = /^(created_by|recorded_by|signed_by|actor_id|tenant_id|createdBy|recordedBy|signedBy|actorId|tenantId)$/;
+
+interface ParamInfo {
+  index: number;
+  name: string;
+  optional: boolean;
+  hasDefault: boolean;
+  rest: boolean;
+  destructuredFields: string[];
+  typeText: string;
+  typeFields: string[];
+}
+
+interface ExportInfo {
+  name: string;
+  kind: "function" | "value";
+  signatures: ParamInfo[][];
+}
+
+interface ModuleInfo {
+  file: string;
+  exports: ExportInfo[];
+}
+
+interface Flag {
+  file: string;
+  export: string;
+  where: string;
+  name: string;
+  rule: string;
+}
+
+function walk(dir: string, out: string[]) {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      walk(full, out);
+    } else if (/\.(ts|tsx)$/.test(entry.name) && !entry.name.endsWith(".d.ts")) {
+      out.push(full);
+    }
+  }
+}
+
+function rel(file: string) {
+  return path.relative(ROOT, file).split(path.sep).join("/");
+}
+
+function hasUseServerDirective(sf: ts.SourceFile): boolean {
+  for (const stmt of sf.statements) {
+    if (!ts.isExpressionStatement(stmt) || !ts.isStringLiteral(stmt.expression)) return false;
+    if (stmt.expression.text === "use server") return true;
+  }
+  return false;
+}
+
+function bindingNames(name: ts.BindingName, prefix = ""): string[] {
+  if (ts.isIdentifier(name)) return [];
+  const out: string[] = [];
+  for (const el of name.elements) {
+    if (ts.isOmittedExpression(el)) continue;
+    let key: string | undefined;
+    if (ts.isObjectBindingPattern(name)) {
+      const prop = el.propertyName ?? el.name;
+      if (ts.isIdentifier(prop) || ts.isStringLiteral(prop)) key = prop.text;
+      else if (ts.isIdentifier(el.name)) key = el.name.text;
+    }
+    const label = key !== undefined ? `${prefix}${key}` : `${prefix}[]`;
+    if (key !== undefined) out.push(label);
+    if (!ts.isIdentifier(el.name)) out.push(...bindingNames(el.name, `${label}.`));
+  }
+  return out;
+}
+
+function isProjectDeclared(symbol: ts.Symbol | undefined): boolean {
+  const decls = symbol?.getDeclarations() ?? [];
+  if (decls.length === 0) return true; // anonymous object literal types
+  return decls.some((d) => {
+    const file = d.getSourceFile().fileName;
+    return !file.includes("/node_modules/") && !file.includes("/typescript/lib/");
+  });
+}
+
+function typeFields(checker: ts.TypeChecker, type: ts.Type, prefix: string, depth: number, seen: Set<ts.Type>): string[] {
+  if (depth > 3 || seen.has(type)) return [];
+  if (type.isUnion() || type.isIntersection()) {
+    return [...new Set(type.types.flatMap((t) => typeFields(checker, t, prefix, depth, seen)))];
+  }
+  if (!(type.flags & ts.TypeFlags.Object)) return [];
+  if (checker.isArrayType(type) || checker.isTupleType(type)) return [];
+  if (type.getCallSignatures().length > 0) return [];
+  const next = new Set(seen).add(type);
+  const out: string[] = [];
+  // Only properties declared in project source count (z.infer mapped types keep the schema.ts declarations;
+  // FormData, Date and other lib/node_modules types are skipped).
+  for (const prop of checker.getPropertiesOfType(type)) {
+    if (!isProjectDeclared(prop)) continue;
+    const label = `${prefix}${prop.getName()}`;
+    out.push(label);
+    const propType = checker.getNonNullableType(checker.getTypeOfSymbol(prop));
+    out.push(...typeFields(checker, propType, `${label}.`, depth + 1, next));
+  }
+  return out;
+}
+
+function paramsOf(checker: ts.TypeChecker, sig: ts.Signature): ParamInfo[] {
+  const decl = sig.getDeclaration();
+  if (!decl || !("parameters" in decl)) return [];
+  return decl.parameters.map((p, index) => {
+    const pType = checker.getNonNullableType(checker.getTypeAtLocation(p));
+    return {
+      index,
+      name: ts.isIdentifier(p.name) ? p.name.text : ts.isObjectBindingPattern(p.name) ? "{…}" : "[…]",
+      optional: !!p.questionToken,
+      hasDefault: !!p.initializer,
+      rest: !!p.dotDotDotToken,
+      destructuredFields: bindingNames(p.name),
+      typeText: checker.typeToString(pType, undefined, ts.TypeFormatFlags.NoTruncation),
+      typeFields: typeFields(checker, pType, "", 1, new Set()),
+    };
+  });
+}
+
+function moduleExports(checker: ts.TypeChecker, sf: ts.SourceFile): ExportInfo[] {
+  const moduleSymbol = checker.getSymbolAtLocation(sf);
+  if (!moduleSymbol) return [];
+  const out: ExportInfo[] = [];
+  for (const exported of checker.getExportsOfModule(moduleSymbol)) {
+    const symbol = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported;
+    if (!(symbol.flags & ts.SymbolFlags.Value)) continue; // types and interfaces are not callable from a client
+    const decl = symbol.valueDeclaration ?? symbol.getDeclarations()?.[0];
+    if (!decl) continue;
+    const type = checker.getTypeOfSymbolAtLocation(symbol, decl);
+    const sigs = type.getCallSignatures();
+    out.push({
+      name: exported.getName(),
+      kind: sigs.length > 0 ? "function" : "value",
+      signatures: sigs.map((s) => paramsOf(checker, s)),
+    });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function flagsFor(mod: ModuleInfo, banned: RegExp, rule: string): Flag[] {
+  const flags: Flag[] = [];
+  for (const exp of mod.exports) {
+    for (const params of exp.signatures) {
+      for (const p of params) {
+        const candidates: Array<[string, string]> = [
+          [`param ${p.index}`, p.name],
+          ...p.destructuredFields.map((f): [string, string] => [`param ${p.index} destructured ${f}`, f]),
+          ...p.typeFields.map((f): [string, string] => [`param ${p.index} type field ${f}`, f]),
+        ];
+        for (const [where, full] of candidates) {
+          const leaf = full.split(".").pop() ?? full;
+          if (banned.test(leaf)) flags.push({ file: mod.file, export: exp.name, where, name: full, rule });
+        }
+      }
+    }
+  }
+  return flags;
+}
+
+function schemaKeys(sf: ts.SourceFile): Array<{ key: string; line: number; schema: string }> {
+  const out: Array<{ key: string; line: number; schema: string }> = [];
+  const visit = (node: ts.Node, owner: string) => {
+    let nextOwner = owner;
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) nextOwner = node.name.text;
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression;
+      const method = ts.isPropertyAccessExpression(callee)
+        ? callee.name.text
+        : ts.isIdentifier(callee)
+          ? callee.text
+          : "";
+      if (/^(object|strictObject|extend)$/.test(method)) {
+        const arg = node.arguments[0];
+        if (arg && ts.isObjectLiteralExpression(arg)) {
+          for (const prop of arg.properties) {
+            const name = prop.name;
+            if (name && (ts.isIdentifier(name) || ts.isStringLiteral(name))) {
+              out.push({
+                key: name.text,
+                line: sf.getLineAndCharacterOfPosition(prop.getStart(sf)).line + 1,
+                schema: nextOwner,
+              });
+            }
+          }
+        }
+      }
+    }
+    ts.forEachChild(node, (child) => visit(child, nextOwner));
+  };
+  visit(sf, "(module)");
+  return out;
+}
+
+/** Builds the inventory from source. Also used by tests/security/p0-01-action-sweep.spec.ts to generate its cases. */
+export function buildInventory() {
+  const files: string[] = [];
+  for (const dir of SCAN_DIRS) walk(path.join(ROOT, dir), files);
+
+  const configPath = path.join(ROOT, "tsconfig.json");
+  const config = ts.readConfigFile(configPath, ts.sys.readFile);
+  const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, ROOT);
+  const program = ts.createProgram(files, { ...parsed.options, noEmit: true, incremental: false });
+  const checker = program.getTypeChecker();
+
+  const useServerModules: ModuleInfo[] = [];
+  const nonActionModules: Array<ModuleInfo & { present: boolean }> = [];
+  const schemaFiles: Array<{ file: string; keys: Array<{ key: string; line: number; schema: string }> }> = [];
+  const flags: Flag[] = [];
+  const noted: Flag[] = [];
+
+  for (const file of files.sort()) {
+    const sf = program.getSourceFile(file);
+    if (!sf) continue;
+    const relFile = rel(file);
+    if (hasUseServerDirective(sf)) {
+      const mod = { file: relFile, exports: moduleExports(checker, sf) };
+      useServerModules.push(mod);
+      flags.push(...flagsFor(mod, BANNED_ACTION_NAME, "use-server export: acting principal"));
+    }
+    if (/^features\/.+\/schema\.ts$/.test(relFile)) {
+      const keys = schemaKeys(sf);
+      schemaFiles.push({ file: relFile, keys });
+      for (const k of keys) {
+        if (BANNED_SCHEMA_KEY.test(k.key)) {
+          flags.push({
+            file: relFile,
+            export: k.schema,
+            where: `zod key (line ${k.line})`,
+            name: k.key,
+            rule: "schema: acting actor/tenant input field",
+          });
+        }
+      }
+    }
+  }
+
+  for (const relFile of D1_NON_ACTION_MODULES) {
+    const sf = program.getSourceFile(path.join(ROOT, relFile));
+    if (!sf) {
+      nonActionModules.push({ file: relFile, present: false, exports: [] });
+      continue;
+    }
+    const mod = { file: relFile, exports: moduleExports(checker, sf) };
+    nonActionModules.push({ ...mod, present: true });
+    if (hasUseServerDirective(sf)) {
+      flags.push({ file: relFile, export: "(module)", where: "directive", name: "use server", rule: "D1 non-action module must not be \"use server\"" });
+    }
+    flags.push(...flagsFor(mod, BANNED_NON_ACTION_NAME, "D1 non-action: override seam"));
+    noted.push(
+      ...flagsFor(mod, NOTED_NON_ACTION_NAME, "D1 non-action: required context/db (allowed: typed ctx or register path)").filter(
+        (n) => !n.where.includes("type field")
+      )
+    );
+  }
+
+  const exportCount = useServerModules.reduce((n, m) => n + m.exports.length, 0);
+  let commit = "unknown";
+  try {
+    commit = execSync("git rev-parse HEAD", { cwd: ROOT, encoding: "utf8" }).trim();
+  } catch {
+    // not a git checkout
+  }
+
+  const report = {
+    tool: "scripts/inventory-server-actions.ts",
+    commit,
+    rules: {
+      useServerBanned: BANNED_ACTION_NAME.source,
+      nonActionBanned: BANNED_NON_ACTION_NAME.source,
+      nonActionNoted: NOTED_NON_ACTION_NAME.source,
+      schemaBanned: BANNED_SCHEMA_KEY.source,
+    },
+    counts: {
+      useServerModules: useServerModules.length,
+      useServerExports: exportCount,
+      useServerFunctionExports: useServerModules.reduce(
+        (n, m) => n + m.exports.filter((e) => e.kind === "function").length,
+        0
+      ),
+      nonActionModules: nonActionModules.length,
+      nonActionModulesPresent: nonActionModules.filter((m) => m.present).length,
+      schemaFiles: schemaFiles.length,
+      flagged: flags.length,
+      noted: noted.length,
+    },
+    flagged: flags,
+    noted,
+    useServerModules,
+    nonActionModules,
+    schemaFiles,
+  };
+  return report;
+}
+
+function main() {
+  const outArg = process.argv.indexOf("--out");
+  const outFile = outArg > -1 ? path.resolve(process.argv[outArg + 1]) : undefined;
+  const report = buildInventory();
+  const { flagged: flags, noted } = report;
+  const exportCount = report.counts.useServerExports;
+
+  const json = `${JSON.stringify(report, null, 2)}\n`;
+  if (outFile) {
+    fs.mkdirSync(path.dirname(outFile), { recursive: true });
+    fs.writeFileSync(outFile, json);
+  } else {
+    process.stdout.write(json);
+  }
+  process.stderr.write(
+    `inventory: ${report.counts.useServerModules} "use server" modules, ${exportCount} exports; ` +
+      `${report.counts.nonActionModulesPresent}/${report.counts.nonActionModules} D1 non-action modules present; ` +
+      `${flags.length} flagged, ${noted.length} noted\n`
+  );
+  if (flags.length > 0) {
+    for (const f of flags) process.stderr.write(`FLAG ${f.file} ${f.export} ${f.where}: ${f.name} (${f.rule})\n`);
+    process.exitCode = 1;
+  }
+}
+
+// Run only as a script (`npx tsx scripts/inventory-server-actions.ts`), not when imported by a spec.
+if (process.argv[1] && /inventory-server-actions\.ts$/.test(process.argv[1])) {
+  main();
+}

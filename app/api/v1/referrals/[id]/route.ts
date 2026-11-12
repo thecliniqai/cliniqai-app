@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -14,7 +14,7 @@ interface RouteParams {
  * Retrieve detailed referral record scoped strictly to active clinic tenant.
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  * Update referral status (acknowledged, completed, cancelled) and closure notes.
  */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -163,24 +163,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     try {
       const auditAction =
         status === "acknowledged" ? "referral.acknowledge" : "referral.close_loop";
-      await recordAudit(
-        {
+      await recordAudit(apiKeyServiceContext(session, admin), {
           action: auditAction,
           entityType: "referral",
           entityId: id,
-          actorType: "api_key",
-          apiKeyId: session.apiKeyId,
           metadata: {
             status: status || existingReferral.status,
           },
-        },
-        admin,
-        {
-          userId: session.userId,
-          tenantId: session.tenantId,
-          role: "owner",
-        }
-      );
+      });
     } catch (auditErr) {
       console.error("[api/v1/referrals/[id]] Audit logging failed:", auditErr);
     }

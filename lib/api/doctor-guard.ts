@@ -1,5 +1,4 @@
 import { SupabaseClient } from "@supabase/supabase-js";
-import { getAdminClient } from "@/lib/supabase/admin";
 import { Database } from "@/lib/db/types";
 
 export interface DoctorValidationResult {
@@ -19,9 +18,11 @@ export interface DoctorValidationResult {
  * or users from other clinics are rejected with descriptive 403-appropriate errors.
  */
 export async function validateDoctorAssignment(
+  // Required, never defaulted (V2-01 R13): the `/api/v1` register route passes the client it built.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: SupabaseClient<Database, any, any>,
   tenantId: string,
-  doctorId: string,
-  clientOverride?: SupabaseClient<Database>
+  doctorId: string
 ): Promise<DoctorValidationResult> {
   if (!doctorId || typeof doctorId !== "string" || !doctorId.trim()) {
     return {
@@ -37,7 +38,7 @@ export async function validateDoctorAssignment(
     };
   }
 
-  const supabase = clientOverride || getAdminClient();
+  const supabase = db;
 
   const { data: membership, error } = await (supabase.from("memberships") as any)
     .select("id, role, user_id")

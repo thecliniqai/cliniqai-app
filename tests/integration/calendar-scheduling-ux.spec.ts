@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { checkSlotAvailability, bookAppointment } from "@/features/visits/scheduling";
-import { confirmAppointment } from "@/features/visits/actions";
+import { checkSlotAvailability, bookAppointment } from "@/features/visits/scheduling-service";
+import { confirmAppointment } from "@/features/visits/service";
+import { mockCtx } from "../helpers/context";
 import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { DoctorWeeklySchedule } from "@/lib/db/types";
 
@@ -144,11 +145,10 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
 
       // Monday 2026-10-19 at 09:30 IST = 04:00 UTC
       const res = await checkSlotAvailability(
+        mockCtx(mockClient, mockSession),
         "22222222-2222-4222-8222-222222222222",
         "2026-10-19T04:00:00.000Z",
-        15,
-        mockClient,
-        mockSession
+        15
       );
 
       expect(res.available).toBe(true);
@@ -160,11 +160,10 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
 
       // Monday 2026-10-19 at 18:30 IST = 13:00 UTC
       const res = await checkSlotAvailability(
+        mockCtx(mockClient, mockSession),
         "22222222-2222-4222-8222-222222222222",
         "2026-10-19T13:00:00.000Z",
-        15,
-        mockClient,
-        mockSession
+        15
       );
 
       expect(res.available).toBe(true);
@@ -176,11 +175,10 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
 
       // Monday 2026-10-19 at 14:30 IST = 09:00 UTC
       const res = await checkSlotAvailability(
+        mockCtx(mockClient, mockSession),
         "22222222-2222-4222-8222-222222222222",
         "2026-10-19T09:00:00.000Z",
-        15,
-        mockClient,
-        mockSession
+        15
       );
 
       expect(res.available).toBe(false);
@@ -206,11 +204,10 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
 
       // Attempting to book at 05:00 UTC (10:30 IST, within the 10:00–10:45 window)
       const res = await checkSlotAvailability(
+        mockCtx(mockClient, mockSession),
         "22222222-2222-4222-8222-222222222222",
         "2026-10-19T05:00:00.000Z",
-        15,
-        mockClient,
-        mockSession
+        15
       );
 
       expect(res.available).toBe(false);
@@ -233,11 +230,10 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
 
       // Slot at 05:15 UTC (10:45 IST, after the 45-min appointment ends)
       const res = await checkSlotAvailability(
+        mockCtx(mockClient, mockSession),
         "22222222-2222-4222-8222-222222222222",
         "2026-10-19T05:15:00.000Z",
-        15,
-        mockClient,
-        mockSession
+        15
       );
 
       expect(res.available).toBe(true);
@@ -249,6 +245,7 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
       const mockClient = createMockSupabase();
 
       const bookResult = await bookAppointment(
+        mockCtx(mockClient, mockSession),
         {
           patient_id: "11111111-1111-4111-8111-111111111111",
           doctor_id: "22222222-2222-4222-8222-222222222222",
@@ -257,9 +254,7 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
           reason_for_visit: "Regular checkup",
           is_overbooked: false,
           override_off_duty: false,
-        },
-        mockClient,
-        mockSession
+        }
       );
 
       expect(bookResult.success).toBe(false);
@@ -274,6 +269,7 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
       const mockClient = createMockSupabase({ insertedVisits });
 
       const bookResult = await bookAppointment(
+        mockCtx(mockClient, mockSession),
         {
           patient_id: "11111111-1111-4111-8111-111111111111",
           doctor_id: "22222222-2222-4222-8222-222222222222",
@@ -282,9 +278,7 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
           reason_for_visit: "[EMERGENCY OVERRIDE] Severe acute trauma approved by Dr.",
           is_overbooked: true,
           override_off_duty: true,
-        },
-        mockClient,
-        mockSession
+        }
       );
 
       expect(bookResult.success).toBe(true);
@@ -311,15 +305,14 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
 
       // First try without override -> should be blocked
       const blockedRes = await bookAppointment(
+        mockCtx(mockClient, mockSession),
         {
           patient_id: "11111111-1111-4111-8111-111111111111",
           doctor_id: "22222222-2222-4222-8222-222222222222",
           scheduled_at: "2026-10-19T04:30:00.000Z", // 10:00 IST (during OT block)
           estimated_duration_minutes: 15,
           override_block: false,
-        },
-        mockClient,
-        mockSession
+        }
       );
 
       expect(blockedRes.success).toBe(false);
@@ -330,6 +323,7 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
 
       // Second try with emergency override -> succeeds
       const overrideRes = await bookAppointment(
+        mockCtx(mockClient, mockSession),
         {
           patient_id: "11111111-1111-4111-8111-111111111111",
           doctor_id: "22222222-2222-4222-8222-222222222222",
@@ -338,9 +332,7 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
           reason_for_visit: "[EMERGENCY OVERRIDE] Patient in ICU needing immediate consult",
           is_overbooked: true,
           override_block: true,
-        },
-        mockClient,
-        mockSession
+        }
       );
 
       expect(overrideRes.success).toBe(true);
@@ -364,11 +356,7 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
 
       const mockClient = createMockSupabase({ existingVisits });
 
-      const confirmRes = await confirmAppointment(
-        "v-soft-book-1",
-        mockClient,
-        mockSession
-      );
+      const confirmRes = await confirmAppointment(mockCtx(mockClient, mockSession), "v-soft-book-1");
 
       expect(confirmRes.success).toBe(true);
       expect(existingVisits[0].status).toBe("confirmed");
@@ -387,11 +375,7 @@ describe("Calendar & Scheduling UX Integration (REQ-appointment-booking)", () =>
 
       const mockClient = createMockSupabase({ existingVisits });
 
-      const confirmRes = await confirmAppointment(
-        "v-cancelled-1",
-        mockClient,
-        mockSession
-      );
+      const confirmRes = await confirmAppointment(mockCtx(mockClient, mockSession), "v-cancelled-1");
 
       expect(confirmRes.success).toBe(false);
       if (!confirmRes.success) {

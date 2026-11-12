@@ -1,13 +1,10 @@
+import "server-only";
+
 import React from "react";
 import { pdf } from "@react-pdf/renderer";
-import { createClient } from "@/lib/supabase/server";
-import { Database } from "@/lib/db/types";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  uploadFile,
-  getSignedUrl,
-  SupabaseStorageProvider,
-} from "@/lib/storage";
+import type { ServiceContext } from "@/lib/auth/context";
+import { uploadFile, getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
+import { referralLetterPath } from "@/lib/storage/tenant-path";
 import {
   ReferralLetterDocument,
   ReferralPdfPayload,
@@ -44,11 +41,14 @@ async function streamToBuffer(stream: unknown): Promise<Buffer> {
  * generates a 3600-second signed URL, and persists the storage path.
  */
 export async function generateAndArchiveReferralPdf(
-  payload: ReferralPdfPayload,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  clientOverride?: SupabaseClient<Database, any, any>,
-  sessionOverride?: { userId: string; tenantId: string }
+  ctx: ServiceContext,
+  payload: ReferralPdfPayload
 ): Promise<GenerateReferralPdfResult> {
+  // The letter is always archived under the acting tenant (ADR-0005 D1); a payload for another tenant is refused.
+  if (payload.tenant_id !== ctx.tenantId) {
+    throw new Error("Referral payload does not belong to the active clinic.");
+  }
+
   // 1. Render React-PDF document to binary buffer server-side
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const doc = React.createElement(ReferralLetterDocument, { payload }) as any;
@@ -56,19 +56,13 @@ export async function generateAndArchiveReferralPdf(
   const stream = await instance.toBuffer();
   const buffer = await streamToBuffer(stream);
 
-  const supabase = clientOverride || (await createClient());
-  const session = sessionOverride || {
-    userId: payload.referring_doctor.name,
-    tenantId: payload.tenant_id,
-  };
+  const supabase = ctx.db;
 
   // 2. Define deterministic storage path: tenants/${tenant_id}/referrals/${referral_id}/referral_letter.pdf
-  const storagePath = `tenants/${payload.tenant_id}/referrals/${payload.referral_id}/referral_letter.pdf`;
+  const storagePath = referralLetterPath(payload.tenant_id, payload.referral_id);
 
-  // 3. Resolve storage provider (respecting clientOverride if provided)
-  const storageProvider = clientOverride
-    ? new SupabaseStorageProvider({ defaultBucket: "clinic-records", client: clientOverride })
-    : undefined;
+  // 3. Resolve storage provider bound to the acting user's client
+  const storageProvider = getStorageProviderForDb(ctx.db, "clinic-records");
 
   // Upload using unified storage abstraction
   try {
@@ -107,7 +101,7 @@ export async function generateAndArchiveReferralPdf(
       updated_at: new Date().toISOString(),
     })
     .eq("id", payload.referral_id)
-    .eq("tenant_id", session.tenantId);
+    .eq("tenant_id", ctx.tenantId);
 
   return {
     signedUrl,

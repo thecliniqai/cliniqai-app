@@ -25,6 +25,42 @@ export function extractTenDigits(phone: string | null | undefined): string {
 }
 
 /**
+ * Strict E.164 for an Indian mobile, for identity comparisons (AR2-L3): `+91` + `[6-9]` + 9 digits, or null.
+ * Accepts only a bare 10-digit mobile, `0` + 10 digits, `91` + 10 digits or `0091` + 10 digits (separators ignored).
+ * Unlike `extractTenDigits`, it never keeps "the last 10 digits" of a longer number, so `+1 917 123 4567` is not
+ * `+919171234567`.
+ */
+export function toIndianMobileE164Strict(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  let local: string | null = null;
+  if (digits.length === 10) local = digits;
+  else if (digits.length === 11 && digits.startsWith("0")) local = digits.slice(1);
+  else if (digits.length === 12 && digits.startsWith("91")) local = digits.slice(2);
+  else if (digits.length === 14 && digits.startsWith("0091")) local = digits.slice(4);
+  if (!local || !INDIAN_MOBILE_REGEX.test(local)) return null;
+  return `+91${local}`;
+}
+
+/**
+ * Strict E.164 for an Indian mobile given in international form only (AR3-N3), for an inbound sender: `+91` / `91` /
+ * `0091` + `[6-9]` + 9 digits (spaces, dashes, dots and parentheses ignored), or null. A bare 10-digit or `0`-prefixed
+ * number carries no country code and is refused, so a foreign number whose international digits happen to be ten
+ * (`+65 9123 4567` -> `6591234567`) never reads as an Indian mobile.
+ */
+export function toIndianMobileE164FromInternational(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  const compact = phone.trim().replace(/[\s\-().]/g, "");
+  if (!/^\+?\d+$/.test(compact)) return null;
+  const digits = compact.replace(/^\+/, "");
+  let local: string | null = null;
+  if (digits.length === 12 && digits.startsWith("91")) local = digits.slice(2);
+  else if (!compact.startsWith("+") && digits.length === 14 && digits.startsWith("0091")) local = digits.slice(4);
+  if (!local || !INDIAN_MOBILE_REGEX.test(local)) return null;
+  return `+91${local}`;
+}
+
+/**
  * Normalizes input to international ITU-T E.164 format (+91XXXXXXXXXX).
  * Returns +91${digits} if valid 10-digit Indian mobile, otherwise returns
  * trimmed input or empty string.

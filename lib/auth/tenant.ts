@@ -45,7 +45,9 @@ export async function getActiveMembership(explicitTenantId?: string): Promise<Ac
     .returns<Array<{ tenant_id: string; role: UserRole }>>();
 
   if (memError) {
-    throw new Error(`Failed to resolve clinic membership: ${memError.message}`);
+    // Database text never leaves the server (IR-L1); only the error code is logged.
+    console.error("[lib/auth/tenant] membership lookup failed:", memError.code ?? "unknown");
+    throw new Error("Failed to resolve clinic membership.");
   }
 
   if (!memberships || memberships.length === 0) {

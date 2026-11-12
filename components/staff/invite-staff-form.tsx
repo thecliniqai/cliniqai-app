@@ -2,25 +2,25 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Copy, Check, AlertCircle, Loader2 } from "lucide-react";
+import { Mail, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { inviteStaff } from "@/features/staff/actions";
 
-export function InviteStaffForm() {
+/** `canInviteAdmin`: only owners may invite an admin (P0-02); the server and the database enforce it too. */
+export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: boolean }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("doctor");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [lastInviteLink, setLastInviteLink] = useState<string | null>(null);
   const [lastInvitedEmail, setLastInvitedEmail] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setLastInvitedEmail(null);
 
     const formData = new FormData();
     formData.append("email", email);
@@ -29,22 +29,13 @@ export function InviteStaffForm() {
     startTransition(async () => {
       const res = await inviteStaff(formData);
       if (res.success) {
-        setLastInviteLink(res.inviteLink ?? null);
-        setLastInvitedEmail(res.inviteLink ? email : null);
+        setLastInvitedEmail(email.trim());
         setEmail("");
         router.refresh();
       } else {
         setError(res.error);
       }
     });
-  };
-
-  const handleCopy = () => {
-    if (lastInviteLink) {
-      navigator.clipboard.writeText(lastInviteLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
   };
 
   return (
@@ -72,7 +63,7 @@ export function InviteStaffForm() {
             className="w-full h-11 px-3.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
           >
             <option value="doctor">Doctor (Clinical Consultations & Prescriptions)</option>
-            <option value="admin">Admin (Operational & Staff Management)</option>
+            {canInviteAdmin && <option value="admin">Admin (Operational & Staff Management)</option>}
             <option value="receptionist">Receptionist (Intake, Front Desk & Scheduling)</option>
             <option value="nurse">Nurse (Vitals, Triage & Assistant)</option>
           </select>
@@ -99,48 +90,20 @@ export function InviteStaffForm() {
           ) : (
             <>
               <Mail className="w-4 h-4" />
-              <span>Send Invitation</span>
+              <span>Create Invitation</span>
             </>
           )}
         </Button>
       </form>
 
-      {/* Instant UAT Link Banner */}
-      {lastInviteLink && (
-        <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-800">
-              Invitation Created for {lastInvitedEmail}
-            </span>
-            <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-              UAT Mode Link
-            </span>
+      <div aria-live="polite">
+        {lastInvitedEmail && (
+          <div className="flex items-start gap-2 p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
+            <span>Invitation created for {lastInvitedEmail}.</span>
           </div>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              readOnly
-              value={lastInviteLink}
-              className="flex-1 px-3 py-1.5 text-xs font-mono bg-white border border-emerald-300 rounded-lg text-slate-800 select-all"
-            />
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={handleCopy}
-              className="h-8 gap-1.5 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-100 shrink-0"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? "Copied" : "Copy Link"}</span>
-            </Button>
-          </div>
-
-          <p className="text-[11px] text-emerald-700">
-            Paste this link into an Incognito window to join directly. (Also printed to terminal console &amp; <code className="font-mono">.planning/dev-auth-logs.txt</code>)
-          </p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

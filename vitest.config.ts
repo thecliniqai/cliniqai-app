@@ -27,6 +27,9 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./"),
+      // D12: `server-only` is not a dependency; Next aliases it internally. Vitest resolves it to Next's bundled
+      // empty module so services (`import "server-only"`) load in tests without adding a package.
+      "server-only": path.resolve(__dirname, "node_modules/next/dist/compiled/server-only/empty.js"),
     },
   },
 });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership } from "@/lib/auth/tenant";
+import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
+import { isUuid } from "@/lib/utils/filter-values";
 import { generateAndArchiveReceiptPdf } from "@/features/billing/pdf/generator";
 import { ReceiptPdfPayload } from "@/features/billing/pdf/receipt-document";
 
@@ -11,19 +11,29 @@ export async function GET(
   try {
     const { id: invoiceId } = await params;
 
-    // 1. Authenticate user session
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser();
-
-    if (authErr || !user) {
-      return new NextResponse("Unauthorized", { status: 401 });
+    // 1-2. Authenticate, check the same permission as the in-app receipt preview (getInvoiceReceiptPdfSignedUrl)
+    // and resolve the tenant membership server-side (session only, never caller input) — V2-01 F3
+    const resolved = await resolveServiceContext("appointments:view");
+    if (!resolved.ok) {
+      if (resolved.reason === "unauthenticated") {
+        return new NextResponse("Unauthorized", { status: 401 });
+      }
+      if (resolved.reason === "forbidden") {
+        return new NextResponse("Forbidden", { status: 403 });
+      }
+      return new NextResponse(CONTEXT_FAILURE_MESSAGE, { status: 500 });
     }
 
-    // 2. Validate tenant membership server-side
-    const membership = await getActiveMembership();
+    // The id (an invoice id or a visit id) goes into a PostgREST filter string, so it must be a UUID (V2-01 F1)
+    if (!isUuid(invoiceId)) {
+      return new NextResponse("Invoice not found or access denied", { status: 404 });
+    }
+    const ctx = resolved.ctx;
+    const supabase = ctx.db;
+    const membership = ctx;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     // 3. Fetch invoice under strict tenant isolation (supports invoice ID or visit ID)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,7 +83,7 @@ export async function GET(
           .maybeSingle();
 
         doctorInfo = {
-          name: doctorMember?.full_name || user.user_metadata?.full_name || "Clinician",
+          name: doctorMember?.full_name || user?.user_metadata?.full_name || "Clinician",
           qualifications: doctorMember?.qualifications || null,
           registration_no: doctorMember?.medical_council_reg_no || null,
         };
@@ -156,11 +166,7 @@ export async function GET(
     };
 
     // 10. Generate PDF buffer
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { buffer } = await generateAndArchiveReceiptPdf(payload, supabase as any, {
-      userId: membership.userId,
-      tenantId: membership.tenantId,
-    });
+    const { buffer } = await generateAndArchiveReceiptPdf(ctx, payload);
 
     const filename = `Receipt-${invoice.invoice_number}.pdf`;
     const disposition = isDownload
@@ -176,10 +182,8 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
-    console.error("[app/api/invoices/[id]/receipt-pdf] Error:", err);
-    return new NextResponse(
-      err instanceof Error ? err.message : "Internal Server Error",
-      { status: 500 }
-    );
+    // Fixed body; only the error name is logged (IR-L2).
+    console.error("[app/api/invoices/[id]/receipt-pdf] Error:", err instanceof Error ? err.name : "error");
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

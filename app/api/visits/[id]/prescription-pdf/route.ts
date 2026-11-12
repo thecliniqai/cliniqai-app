@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership } from "@/lib/auth/tenant";
+import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
 import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
 
@@ -11,19 +10,24 @@ export async function GET(
   try {
     const { id: visitId } = await params;
 
-    // 1. Authenticate user session
-    const supabase = await createClient();
+    // 1-2. Authenticate, check the same permission as the in-app prescription preview (getPrescriptionPdfSignedUrl)
+    // and resolve the tenant membership server-side (session only, never caller input) — V2-01 F3
+    const resolved = await resolveServiceContext("consultations:view");
+    if (!resolved.ok) {
+      if (resolved.reason === "unauthenticated") {
+        return new NextResponse("Unauthorized", { status: 401 });
+      }
+      if (resolved.reason === "forbidden") {
+        return new NextResponse("Forbidden", { status: 403 });
+      }
+      return new NextResponse(CONTEXT_FAILURE_MESSAGE, { status: 500 });
+    }
+    const ctx = resolved.ctx;
+    const supabase = ctx.db;
+    const membership = ctx;
     const {
       data: { user },
-      error: authErr,
     } = await supabase.auth.getUser();
-
-    if (authErr || !user) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    // 2. Validate tenant membership server-side
-    const membership = await getActiveMembership();
 
     // 3. Fetch visit data under strict tenant isolation
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,7 +139,7 @@ export async function GET(
         logo_url: tenant?.logo_url || null,
       },
       doctor: {
-        name: doctorMember?.full_name || user.user_metadata?.full_name || "Doctor",
+        name: doctorMember?.full_name || user?.user_metadata?.full_name || "Doctor",
         qualifications: doctorMember?.qualifications || null,
         medical_council_reg_no: doctorMember?.medical_council_reg_no || null,
       },
@@ -167,11 +171,7 @@ export async function GET(
     };
 
     // 12. Compile and archive PDF
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { buffer } = await generateAndArchivePrescriptionPdf(payload, supabase as any, {
-      userId: membership.userId,
-      tenantId: membership.tenantId,
-    });
+    const { buffer } = await generateAndArchivePrescriptionPdf(ctx, payload);
 
     const cleanName = (patient?.full_name || "Patient").replace(/[^a-zA-Z0-9_-]/g, "_");
     const filename = `Rx-${cleanName}-${visit.id.slice(0, 8)}.pdf`;
@@ -188,10 +188,8 @@ export async function GET(
       },
     });
   } catch (err: unknown) {
-    console.error("[app/api/visits/[id]/prescription-pdf] Error:", err);
-    return new NextResponse(
-      err instanceof Error ? err.message : "Internal Server Error",
-      { status: 500 }
-    );
+    // Fixed body; only the error name is logged (IR-L2).
+    console.error("[app/api/visits/[id]/prescription-pdf] Error:", err instanceof Error ? err.name : "error");
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

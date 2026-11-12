@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -12,7 +12,7 @@ import { recordAudit } from "@/lib/audit/audit";
  * Filters: patient_id, doctor_id, status, start_date, end_date. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
  * Grounded in public.visits with created_by = session.userId.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Enforce Doctor Guard (D-05, T-06-05)
-    const doctorCheck = await validateDoctorAssignment(session.tenantId, doctor_id, admin);
+    const doctorCheck = await validateDoctorAssignment(admin, session.tenantId, doctor_id);
     if (!doctorCheck.valid) {
       return apiError(
         "FORBIDDEN_CLINICIAN",
@@ -221,25 +221,15 @@ export async function POST(req: NextRequest) {
 
     // 5. Audit log mutation (D-08)
     try {
-      await recordAudit(
-        {
+      await recordAudit(apiKeyServiceContext(session, admin), {
           action: "visit.create",
           entityType: "visit",
           entityId: newVisit.id,
-          actorType: "api_key",
-          apiKeyId: session.apiKeyId,
           metadata: {
             origin_type: originType,
             new_status: visitStatus,
           },
-        },
-        admin,
-        {
-          userId: session.userId,
-          tenantId: session.tenantId,
-          role: "owner",
-        }
-      );
+      });
     } catch (auditErr) {
       console.error("[api/v1/visits] Audit logging failed:", auditErr);
     }

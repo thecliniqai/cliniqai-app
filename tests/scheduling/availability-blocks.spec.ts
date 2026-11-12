@@ -4,14 +4,15 @@ import {
   isSlotWithinShifts,
   getTimePartsFromISO,
 } from "@/features/visits/scheduling-utils";
-import {
-  checkSlotAvailability,
-} from "@/features/visits/scheduling";
+import { checkSlotAvailability } from "@/features/visits/scheduling-service";
+import { mockCtx } from "../helpers/context";
 import {
   formatDoctorDisplayName,
   formatStaffDisplayName,
 } from "@/features/staff/formatters";
 import { DoctorWeeklySchedule, DayAvailability, ScheduleBlock } from "@/lib/db/types";
+
+const DOCTOR_ID = "3f1c2b7e-5d4a-4c8e-9b2f-1a6d7e8c9b01";
 
 describe("Doctor Availability & Schedule Blocks (REQ-appointment-booking, REQ-multi-tenancy)", () => {
   const standardSchedule: DoctorWeeklySchedule = {
@@ -209,11 +210,10 @@ describe("Doctor Availability & Schedule Blocks (REQ-appointment-booking, REQ-mu
 
       // 2026-10-19T09:30:00.000Z = 15:00 IST (during the 13:00 - 17:00 break)
       const res = await checkSlotAvailability(
-        "doctor-uuid-1",
+        mockCtx(mockSupabase, { userId: "test-user", tenantId: "test-tenant" }),
+        DOCTOR_ID,
         "2026-10-19T09:30:00.000Z",
-        15,
-        mockSupabase,
-        { userId: "test-user", tenantId: "test-tenant" }
+        15
       );
 
       expect(res.available).toBe(false);
@@ -224,7 +224,7 @@ describe("Doctor Availability & Schedule Blocks (REQ-appointment-booking, REQ-mu
       const activeBlock: ScheduleBlock = {
         id: "block-1",
         tenant_id: "test-tenant",
-        doctor_id: "doctor-uuid-1",
+        doctor_id: DOCTOR_ID,
         start_time: "2026-10-19T04:00:00.000Z", // 09:30 IST
         end_time: "2026-10-19T06:00:00.000Z",   // 11:30 IST
         reason: "Surgeon attending Medical Conference",
@@ -279,11 +279,10 @@ describe("Doctor Availability & Schedule Blocks (REQ-appointment-booking, REQ-mu
 
       // Slot at 10:30 IST (05:00 UTC) falls inside shift, but collides with the 09:30-11:30 block
       const res = await checkSlotAvailability(
-        "doctor-uuid-1",
+        mockCtx(mockSupabase, { userId: "test-user", tenantId: "test-tenant" }),
+        DOCTOR_ID,
         "2026-10-19T05:00:00.000Z",
-        15,
-        mockSupabase,
-        { userId: "test-user", tenantId: "test-tenant" }
+        15
       );
 
       expect(res.available).toBe(false);
@@ -339,16 +338,96 @@ describe("Doctor Availability & Schedule Blocks (REQ-appointment-booking, REQ-mu
 
       // Slot at 11:00 IST (05:30 UTC) is within morning shift (10:00 - 13:00)
       const res = await checkSlotAvailability(
-        "doctor-uuid-1",
+        mockCtx(mockSupabase, { userId: "test-user", tenantId: "test-tenant" }),
+        DOCTOR_ID,
         "2026-10-19T05:30:00.000Z",
-        15,
-        mockSupabase,
-        { userId: "test-user", tenantId: "test-tenant" }
+        15
       );
 
       expect(res.available).toBe(true);
       expect(res.isOffDuty).toBeUndefined();
       expect(res.isBlocked).toBeUndefined();
+    });
+
+    it("rejects a doctor id that is not a uuid before it reaches a PostgREST filter string (R7)", async () => {
+      const orFilters: string[] = [];
+      const recordingClient = {
+        from: () => {
+          const chain: Record<string, unknown> = {};
+          for (const m of ["select", "eq", "lte", "gte", "not", "maybeSingle"]) {
+            chain[m] = () => chain;
+          }
+          chain.or = (filter: string) => {
+            orFilters.push(filter);
+            return chain;
+          };
+          return chain;
+        },
+      };
+
+      const res = await checkSlotAvailability(
+        mockCtx(recordingClient, { userId: "test-user", tenantId: "test-tenant" }),
+        `${DOCTOR_ID},doctor_id.not.is.null`,
+        "2026-10-19T05:30:00.000Z",
+        15
+      );
+
+      expect(res.available).toBe(false);
+      expect(orFilters).toEqual([]);
+    });
+
+    it("tells a context whose role lacks appointments:view that the slot is unavailable, without querying", async () => {
+      // Every clinic role has appointments:view today; a role unknown to the matrix must be refused.
+      const from = vi.fn();
+      const res = await checkSlotAvailability(
+        mockCtx({ from }, { role: "patient" as never }),
+        DOCTOR_ID,
+        "2026-10-19T05:30:00.000Z",
+        15
+      );
+      expect(res).toEqual({ available: false, checkFailed: true });
+      expect(from).not.toHaveBeenCalled();
+    });
+
+    // F8: any unexpected database error fails closed (unavailable + checkFailed), never "available".
+    function failingClient(failOn: "memberships" | "schedule_blocks" | "visits" | "throw") {
+      const dbError = { message: "synthetic failure", code: "XX000" };
+      return {
+        from: (table: string) => {
+          if (failOn === "throw") throw new Error("synthetic network failure");
+          const chain: Record<string, unknown> = {};
+          const result = (fails: boolean) => (fails ? { data: null, error: dbError } : { data: [], error: null });
+          for (const m of ["select", "eq", "or", "lte", "gte"]) chain[m] = () => chain;
+          chain.maybeSingle = async () =>
+            failOn === "memberships" && table === "memberships" ? { data: null, error: dbError } : { data: null, error: null };
+          chain.then = (resolve: (v: unknown) => unknown) => resolve(result(failOn === table));
+          chain.not = async () => result(failOn === "visits" && table === "visits");
+          return chain;
+        },
+      } as any;
+    }
+
+    it.each(["memberships", "schedule_blocks", "visits", "throw"] as const)(
+      "fails closed when the %s lookup errors",
+      async (failOn) => {
+        const res = await checkSlotAvailability(
+          mockCtx(failingClient(failOn), { userId: "test-user", tenantId: "test-tenant" }),
+          DOCTOR_ID,
+          "2026-10-19T05:30:00.000Z",
+          15
+        );
+        expect(res).toEqual({ available: false, checkFailed: true });
+      }
+    );
+
+    it("reports a free slot as available when every lookup succeeds (control for the F8 cases)", async () => {
+      const res = await checkSlotAvailability(
+        mockCtx(failingClient("none" as never), { userId: "test-user", tenantId: "test-tenant" }),
+        DOCTOR_ID,
+        "2026-10-19T05:30:00.000Z",
+        15
+      );
+      expect(res).toEqual({ available: true });
     });
   });
 });

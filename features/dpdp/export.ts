@@ -1,7 +1,8 @@
-import { getAdminClient } from "@/lib/supabase/admin";
+import "server-only";
+
+import { assertPerm } from "@/lib/permissions";
+import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
-import type { Database } from "@/lib/db/types";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface DpdpArchiveMetadata {
   standard: "DPDP_ACT_2023_RIGHT_TO_ACCESS";
@@ -38,22 +39,28 @@ export interface ExportPatientDpdpArchiveOptions {
 /**
  * Compiles a full, multi-domain patient clinical & billing dossier
  * under DPDP Act 2023 Right to Access (Section 11/12).
- * Strictly scoped to tenant_id and patient_id.
+ * Strictly scoped to the acting tenant (`ctx.tenantId`, ADR-0005 D1) and `patientId`; runs on `ctx.db`, so a staff
+ * session reads under RLS and only the `/api/v1` register path reads with its own client.
+ *
+ * Permission (ruling 01-09): a staff session needs `exports:create` (owner only today; a full-record export by any role
+ * is an exfiltration path; V2-05 P1-01 may widen it to admin). The `/api/v1` API-key principal (actorType
+ * "api_key", role "admin" by D-02) keeps `patients:view`, its behaviour before the ruling; that route is off by
+ * default (PO-16) and its scope is revisited in P1-37.
  */
+export const DPDP_EXPORT_PERMISSION = "exports:create" as const;
+
+export function dpdpExportPermission(ctx: Pick<ServiceContext, "actorType">): "exports:create" | "patients:view" {
+  return ctx.actorType === "api_key" ? "patients:view" : DPDP_EXPORT_PERMISSION;
+}
+
 export async function exportPatientDpdpArchive(
+  ctx: ServiceContext,
   patientId: string,
-  tenantId: string,
-  options?: ExportPatientDpdpArchiveOptions,
-  clientOverride?: SupabaseClient<Database>,
-  sessionOverride?: {
-    userId: string;
-    tenantId: string;
-    role?: string;
-    actorType?: "user" | "api_key";
-    apiKeyId?: string;
-  }
+  options?: ExportPatientDpdpArchiveOptions
 ): Promise<DpdpExportBundle> {
-  const supabase = clientOverride || getAdminClient();
+  assertPerm(ctx.role, dpdpExportPermission(ctx));
+  const supabase = ctx.db;
+  const tenantId = ctx.tenantId;
 
   // 1. Fetch Patient demographics (must belong to tenantId)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -158,25 +165,15 @@ export async function exportPatientDpdpArchive(
   // 8. Log compliance audit event
   if (!options?.skipAudit) {
     try {
-      await recordAudit(
-        {
-          action: "dpdp.data_export",
-          entityType: "patient",
-          entityId: patientId,
-          actorType: sessionOverride?.actorType || "user",
-          apiKeyId: sessionOverride?.apiKeyId || null,
-          metadata: {
-            format: options?.format || "json",
-            status: "completed",
-          },
+      await recordAudit(ctx, {
+        action: "dpdp.data_export",
+        entityType: "patient",
+        entityId: patientId,
+        metadata: {
+          format: options?.format || "json",
+          status: "completed",
         },
-        supabase,
-        sessionOverride || {
-          userId: patient.created_by,
-          tenantId: tenantId,
-          role: "owner",
-        }
-      );
+      });
     } catch (auditErr) {
       console.warn("[features/dpdp/export] Audit log warning:", auditErr);
     }

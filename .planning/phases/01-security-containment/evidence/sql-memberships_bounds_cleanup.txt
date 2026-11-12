@@ -1,0 +1,58 @@
+BEGIN
+ALTER TABLE
+ALTER TABLE
+SELECT 1
+INSERT 0 1
+INSERT 0 3
+INSERT 0 3
+psql:supabase/tests/memberships_bounds_cleanup.sql:48: NOTICE:  control ok: the CHECK fails on the planted rows without the clean-up
+DO
+SET
+CREATE FUNCTION
+REVOKE
+CREATE FUNCTION
+REVOKE
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+REVOKE
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+UPDATE 2
+UPDATE 1
+psql:supabase/tests/../migrations/000021_review_fixes.sql:620: NOTICE:  constraint "memberships_slot_duration_bounds" of relation "memberships" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+psql:supabase/tests/../migrations/000021_review_fixes.sql:625: NOTICE:  constraint "memberships_availability_schedule_shape" of relation "memberships" does not exist, skipping
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+REVOKE
+DROP TRIGGER
+CREATE TRIGGER
+DO
+REVOKE
+GRANT
+SET
+psql:supabase/tests/memberships_bounds_cleanup.sql:89: NOTICE:  PASS: 000021 clamps slot lengths to 5..120 and resets malformed schedules before validating its CHECKs; transaction rolled back
+DO
+ROLLBACK

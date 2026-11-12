@@ -1,17 +1,8 @@
-import { getAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
-import { requirePermission } from "@/lib/permissions/guards";
-import { recordAudit } from "@/lib/audit/audit";
-import type { Database } from "@/lib/db/types";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import "server-only";
 
-export interface ErasePatientActorSession {
-  tenantId: string;
-  userId: string;
-  role?: string;
-  actorType?: "user" | "api_key";
-  apiKeyId?: string;
-}
+import { assertPerm } from "@/lib/permissions";
+import type { ServiceContext } from "@/lib/auth/context";
+import { recordAudit } from "@/lib/audit/audit";
 
 export interface ErasePatientResult {
   success: boolean;
@@ -30,36 +21,24 @@ export interface ErasePatientResult {
  * is_deleted = true, and erased_at / erasure_reason are populated.
  * Historical visits, clinical notes, prescriptions, and billing records remain
  * immutably archived under restricted compliance retention.
+ *
+ * Tenant and actor come only from `ctx` (ADR-0005 D1): a staff session (`requireServiceContext`) or a verified API
+ * key (`apiKeyServiceContext`, `/api/v1` register). Requires patients:edit, as before.
  */
 export async function erasePatientRecord(
+  ctx: ServiceContext,
   patientId: string,
-  reason: string,
-  actorSession?: ErasePatientActorSession,
-  clientOverride?: SupabaseClient<Database>
+  reason: string
 ): Promise<ErasePatientResult> {
-  const supabase = clientOverride || (actorSession ? getAdminClient() : await createClient());
+  assertPerm(ctx.role, "patients:edit");
+  const supabase = ctx.db;
 
-  let session: ErasePatientActorSession;
-  if (actorSession?.actorType === "api_key") {
-    session = actorSession;
-  } else if (actorSession) {
-    session = actorSession;
-  } else {
-    const guarded = await requirePermission("patients:edit");
-    session = {
-      tenantId: guarded.tenantId,
-      userId: guarded.userId,
-      role: guarded.role,
-      actorType: "user",
-    };
-  }
-
-  // 1. Verify patient exists in tenant
+  // 1. Verify patient exists in the acting tenant
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: existing, error: fetchErr } = await (supabase.from("patients") as any)
-    .select("id, full_name, is_deleted, status")
+    .select("id, is_deleted, status")
     .eq("id", patientId)
-    .eq("tenant_id", session.tenantId)
+    .eq("tenant_id", ctx.tenantId)
     .maybeSingle();
 
   if (fetchErr || !existing) {
@@ -80,36 +59,26 @@ export async function erasePatientRecord(
       updated_at: erasedAt,
     })
     .eq("id", patientId)
-    .eq("tenant_id", session.tenantId);
+    .eq("tenant_id", ctx.tenantId);
 
   if (updateErr) {
     throw new Error(`Failed to soft-delete patient: ${updateErr.message}`);
   }
 
-  // 3. Record compliance audit entry in audit_logs
+  // 3. Record compliance audit entry (the free-text reason stays on the patient row, not in the audit trail)
   const retentionPolicy = "NMC_REGULATION_1.3.1_3_YEAR_MANDATE";
 
-  await recordAudit(
-    {
-      action: "dpdp.patient_erasure",
-      entityType: "patient",
-      entityId: patientId,
-      actorType: session.actorType || "user",
-      apiKeyId: session.apiKeyId || null,
-      metadata: {
-        retention_policy: retentionPolicy,
-        erased_at: erasedAt,
-        status: "erased",
-        reason: cleanReason,
-      },
+  await recordAudit(ctx, {
+    action: "dpdp.patient_erasure",
+    entityType: "patient",
+    entityId: patientId,
+    metadata: {
+      retention_policy: retentionPolicy,
+      erased_at: erasedAt,
+      status: "erased",
+      reason: "dpdp_section_12_erasure",
     },
-    supabase as any,
-    {
-      userId: session.userId,
-      tenantId: session.tenantId,
-      role: session.role || "owner",
-    }
-  );
+  });
 
   return {
     success: true,

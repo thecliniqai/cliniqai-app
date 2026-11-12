@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { buildPatientSearchFilter } from "@/features/patients/actions";
+import { buildPatientSearchFilter } from "@/features/patients/service";
 import { patientSchema } from "@/features/patients/schema";
 import { recordAudit } from "@/lib/audit/audit";
 
@@ -13,7 +13,7 @@ import { recordAudit } from "@/lib/audit/audit";
  * Filters out soft-deleted / erased patients (is_deleted = false).
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       .eq("is_deleted", false);
 
     if (search.trim()) {
-      const searchFilter = await buildPatientSearchFilter(search);
+      const searchFilter = buildPatientSearchFilter(search);
       if (searchFilter) {
         query = query.or(searchFilter);
       }
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
  * Uses creator's auth.users UUID for created_by FK compliance.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -158,26 +158,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Record audit log entry
-    await recordAudit(
-      {
+    await recordAudit(apiKeyServiceContext(session, admin), {
         action: "patient.create",
         entityType: "patient",
         entityId: patient.id,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
         metadata: {
           fields_changed: Object.keys(input),
           actor_type: "api_key",
           api_key_id: session.apiKeyId,
         },
-      },
-      admin,
-      {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-      }
-    );
+    });
 
     return apiSuccess(patient, undefined, 201, rateHeaders);
   } catch (err: unknown) {

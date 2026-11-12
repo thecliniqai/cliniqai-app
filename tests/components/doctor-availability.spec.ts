@@ -4,10 +4,8 @@ import {
   shiftSchema,
   dayAvailabilitySchema,
 } from "@/features/settings/schema";
-import {
-  updateDoctorAvailability,
-  updateDoctorSlotDuration,
-} from "@/features/settings/actions";
+import { updateDoctorAvailability, updateDoctorSlotDuration } from "@/features/settings/service";
+import { mockCtx } from "../helpers/context";
 import { DEFAULT_WEEKLY_SCHEDULE } from "@/components/profile/doctor-availability-card";
 
 describe("Doctor Availability & Shifts Management UI (REQ-appointment-booking, REQ-multi-tenancy)", () => {
@@ -102,12 +100,11 @@ describe("Doctor Availability & Shifts Management UI (REQ-appointment-booking, R
       } as any;
 
       const res = await updateDoctorAvailability(
+        mockCtx(mockSupabase, { userId: "user-1", tenantId: "tenant-1", role: "doctor" }),
         {
           membership_id: "membership-1",
           availability_schedule: DEFAULT_WEEKLY_SCHEDULE,
-        },
-        mockSupabase,
-        { userId: "user-1", tenantId: "tenant-1" }
+        }
       );
 
       expect(res.success).toBe(true);
@@ -139,12 +136,11 @@ describe("Doctor Availability & Shifts Management UI (REQ-appointment-booking, R
       } as any;
 
       const res = await updateDoctorAvailability(
+        mockCtx(mockSupabase, { userId: "doctor-1-uuid", tenantId: "tenant-1", role: "doctor" }),
         {
           membership_id: "membership-2",
           availability_schedule: DEFAULT_WEEKLY_SCHEDULE,
-        },
-        mockSupabase,
-        { userId: "doctor-1-uuid", tenantId: "tenant-1" }
+        }
       );
 
       expect(res.success).toBe(false);
@@ -202,12 +198,11 @@ describe("Doctor Availability & Shifts Management UI (REQ-appointment-booking, R
       } as any;
 
       const res = await updateDoctorAvailability(
+        mockCtx(mockSupabase, { userId: "owner-uuid", tenantId: "tenant-1", role: "owner" }),
         {
           membership_id: "membership-2",
           availability_schedule: DEFAULT_WEEKLY_SCHEDULE,
-        },
-        mockSupabase,
-        { userId: "owner-uuid", tenantId: "tenant-1" }
+        }
       );
 
       expect(res.success).toBe(true);
@@ -215,18 +210,22 @@ describe("Doctor Availability & Shifts Management UI (REQ-appointment-booking, R
   });
 
   describe("3. Slot Duration Configuration", () => {
-    it("validates slot duration boundaries (5 to 180 mins)", async () => {
+    it("validates slot duration boundaries (5 to 120 mins; AR-L3)", async () => {
+      const resJustAbove = await updateDoctorSlotDuration(
+        mockCtx({}, { userId: "u1", tenantId: "t1", role: "doctor" }),
+        { membership_id: "mem-1", default_slot_duration_minutes: 121 }
+      );
+      expect(resJustAbove.success).toBe(false);
+
       const resTooLow = await updateDoctorSlotDuration(
-        { membership_id: "mem-1", default_slot_duration_minutes: 2 },
-        {} as any,
-        { userId: "u1", tenantId: "t1" }
+        mockCtx({}, { userId: "u1", tenantId: "t1", role: "doctor" }),
+        { membership_id: "mem-1", default_slot_duration_minutes: 2 }
       );
       expect(resTooLow.success).toBe(false);
 
       const resTooHigh = await updateDoctorSlotDuration(
-        { membership_id: "mem-1", default_slot_duration_minutes: 240 },
-        {} as any,
-        { userId: "u1", tenantId: "t1" }
+        mockCtx({}, { userId: "u1", tenantId: "t1", role: "doctor" }),
+        { membership_id: "mem-1", default_slot_duration_minutes: 240 }
       );
       expect(resTooHigh.success).toBe(false);
     });
@@ -263,9 +262,8 @@ describe("Doctor Availability & Shifts Management UI (REQ-appointment-booking, R
       } as any;
 
       const res = await updateDoctorSlotDuration(
-        { membership_id: "membership-1", default_slot_duration_minutes: 30 },
-        mockSupabase,
-        { userId: "user-1", tenantId: "tenant-1" }
+        mockCtx(mockSupabase, { userId: "user-1", tenantId: "tenant-1", role: "doctor" }),
+        { membership_id: "membership-1", default_slot_duration_minutes: 30 }
       );
 
       expect(res.success).toBe(true);

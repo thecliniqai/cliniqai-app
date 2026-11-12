@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { checkSlotAvailability } from "@/features/visits/scheduling";
+import { checkSlotAvailability } from "@/features/visits/scheduling-service";
 import { recordAudit } from "@/lib/audit/audit";
 
 /**
@@ -12,7 +12,7 @@ import { recordAudit } from "@/lib/audit/audit";
  * Filters: doctor_id, status, start_date, end_date. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
  * Validates doctor belongs to tenant, runs slot-conflict checks, and audits creation.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -177,12 +177,22 @@ export async function POST(req: NextRequest) {
 
     // 3. Slot conflict verification
     const slotCheck = await checkSlotAvailability(
+      apiKeyServiceContext(session, admin),
       doctor_id,
       scheduled_at,
-      duration,
-      admin,
-      { userId: session.userId, tenantId: session.tenantId }
+      duration
     );
+
+    if (slotCheck.checkFailed) {
+      // Fail closed (V2-01 F8): availability could not be verified, so nothing is booked
+      return apiError(
+        "SLOT_CHECK_FAILED",
+        "Slot availability could not be verified. Please retry.",
+        503,
+        undefined,
+        rateHeaders
+      );
+    }
 
     if (!slotCheck.available) {
       if (slotCheck.conflictingVisit) {
@@ -238,13 +248,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Record audit log
-    await recordAudit(
-      {
+    await recordAudit(apiKeyServiceContext(session, admin), {
         action: "appointment.create",
         entityType: "appointment",
         entityId: visit.id,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
         metadata: {
           doctor_id,
           patient_id,
@@ -252,14 +259,7 @@ export async function POST(req: NextRequest) {
           actor_type: "api_key",
           api_key_id: session.apiKeyId,
         },
-      },
-      admin,
-      {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-      }
-    );
+    });
 
     return apiSuccess(visit, undefined, 201, rateHeaders);
   } catch (err: unknown) {

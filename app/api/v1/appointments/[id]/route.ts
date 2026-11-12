@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
-import { checkSlotAvailability } from "@/features/visits/scheduling";
+import { checkSlotAvailability } from "@/features/visits/scheduling-service";
 import { recordAudit } from "@/lib/audit/audit";
 
 interface RouteContext {
@@ -16,7 +16,7 @@ interface RouteContext {
  * origin_type = 'scheduled' and tenant_id = session.tenantId.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
  * Enforces slot-conflict checking for the new time slot.
  */
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -134,12 +134,22 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     // 2. If scheduled_at or doctor_id changed, check slot conflicts
     if (scheduled_at !== existing.scheduled_at || doctor_id !== existing.doctor_id) {
       const slotCheck = await checkSlotAvailability(
+        apiKeyServiceContext(session, admin),
         targetDoctorId,
         targetScheduledAt,
-        duration,
-        admin,
-        { userId: session.userId, tenantId: session.tenantId }
+        duration
       );
+
+      if (slotCheck.checkFailed) {
+        // Fail closed (V2-01 F8): availability could not be verified, so nothing is rescheduled
+        return apiError(
+          "SLOT_CHECK_FAILED",
+          "Slot availability could not be verified. Please retry.",
+          503,
+          undefined,
+          rateHeaders
+        );
+      }
 
       // Ignore conflict if it conflicts with itself
       if (
@@ -176,13 +186,10 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     }
 
     // 4. Record audit log
-    await recordAudit(
-      {
+    await recordAudit(apiKeyServiceContext(session, admin), {
         action: "appointment.reschedule",
         entityType: "appointment",
         entityId: id,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
         metadata: {
           old_status: existing.scheduled_at,
           new_status: targetScheduledAt,
@@ -190,14 +197,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
           actor_type: "api_key",
           api_key_id: session.apiKeyId,
         },
-      },
-      admin,
-      {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-      }
-    );
+    });
 
     return apiSuccess(updated, undefined, 200, rateHeaders);
   } catch (err: unknown) {
@@ -211,7 +211,7 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
  * Cancels a scheduled appointment: updates status to 'cancelled'.
  */
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -263,27 +263,17 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
     }
 
     // Record audit log
-    await recordAudit(
-      {
+    await recordAudit(apiKeyServiceContext(session, admin), {
         action: "appointment.cancel",
         entityType: "appointment",
         entityId: id,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
         metadata: {
           old_status: existing.status,
           new_status: "cancelled",
           actor_type: "api_key",
           api_key_id: session.apiKeyId,
         },
-      },
-      admin,
-      {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-      }
-    );
+    });
 
     return apiSuccess(
       {

@@ -1,12 +1,13 @@
 import { z } from "zod";
 
 /**
- * Vitals measurement bounds and clinical validation schema.
+ * Vitals measurement bounds and clinical validation schema (caller input).
  * Enforces systolic > diastolic when both blood pressure values are present.
+ * `recorded_by` is not an input field: the recorder is always derived from the session (ADR-0005 D1, SEC-02);
+ * zod strips a caller-sent value. It exists only on the stored shape, `Vitals`, below.
  */
-export const vitalsSchema = z
-  .object({
-    systolic: z.number().int().min(50, "Systolic BP must be >= 50").max(250, "Systolic BP must be <= 250").nullable().optional(),
+const vitalsFieldsSchema = z.object({
+    systolic:z.number().int().min(50, "Systolic BP must be >= 50").max(250, "Systolic BP must be <= 250").nullable().optional(),
     diastolic: z.number().int().min(30, "Diastolic BP must be >= 30").max(150, "Diastolic BP must be <= 150").nullable().optional(),
     pulse: z.number().int().min(30, "Pulse must be >= 30").max(220, "Pulse must be <= 220").nullable().optional(),
     temperature: z.number().min(90, "Temperature must be >= 90°F").max(110, "Temperature must be <= 110°F").nullable().optional(),
@@ -16,22 +17,33 @@ export const vitalsSchema = z
     respiratory_rate: z.number().int().min(8, "Respiratory rate must be >= 8").max(60, "Respiratory rate must be <= 60").nullable().optional(),
     bmi: z.number().nullable().optional(),
     recorded_at: z.string().nullable().optional(),
-    recorded_by: z.string().nullable().optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.systolic != null && data.diastolic != null) {
-        return data.systolic > data.diastolic;
-      }
-      return true;
-    },
-    {
-      message: "Systolic BP must be strictly greater than diastolic BP",
-      path: ["systolic"],
-    }
-  );
+  });
 
-export type Vitals = z.infer<typeof vitalsSchema>;
+const bloodPressureOrder = {
+  check: (data: { systolic?: number | null; diastolic?: number | null }) => {
+    if (data.systolic != null && data.diastolic != null) {
+      return data.systolic > data.diastolic;
+    }
+    return true;
+  },
+  options: {
+    message: "Systolic BP must be strictly greater than diastolic BP",
+    path: ["systolic"],
+  },
+};
+
+export const vitalsSchema = vitalsFieldsSchema.refine(bloodPressureOrder.check, bloodPressureOrder.options);
+
+/** Stored vitals (visits.vitals JSONB): the validated measurements plus the server-set recorder. */
+export type Vitals = z.infer<typeof vitalsSchema> & { recorded_by?: string | null };
+
+/**
+ * Input accepted by `recordVisitVitals`. `recorded_by` is not an input: the recorder is always the session user
+ * (ADR-0005 D1, SEC-02); a caller-sent value is stripped by zod.
+ */
+export const recordVitalsInputSchema = vitalsSchema;
+
+export type RecordVitalsInput = z.infer<typeof recordVitalsInputSchema>;
 
 /**
  * Chief Complaint item schema with symptom name and duration.

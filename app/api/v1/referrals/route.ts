@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -12,7 +12,7 @@ import { recordAudit } from "@/lib/audit/audit";
  * Filters: patient_id, status, referral_type. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
  * Enforces patient_consents_history_sharing for in-network referrals (T-06-08).
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -196,7 +196,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Enforce Doctor Guard on referring clinician (D-05, T-06-05)
-    const doctorCheck = await validateDoctorAssignment(session.tenantId, referring_doctor_id, admin);
+    const doctorCheck = await validateDoctorAssignment(admin, session.tenantId, referring_doctor_id);
     if (!doctorCheck.valid) {
       return apiError(
         "FORBIDDEN_CLINICIAN",
@@ -238,26 +238,16 @@ export async function POST(req: NextRequest) {
 
     // 5. Record audit log (D-08)
     try {
-      await recordAudit(
-        {
+      await recordAudit(apiKeyServiceContext(session, admin), {
           action: "referral.create",
           entityType: "referral",
           entityId: newReferral.id,
-          actorType: "api_key",
-          apiKeyId: session.apiKeyId,
           metadata: {
             referral_type: type,
             urgency: priority,
             patient_consents_history_sharing: newReferral.patient_consents_history_sharing,
           },
-        },
-        admin,
-        {
-          userId: session.userId,
-          tenantId: session.tenantId,
-          role: "owner",
-        }
-      );
+      });
     } catch (auditErr) {
       console.error("[api/v1/referrals] Audit logging failed:", auditErr);
     }

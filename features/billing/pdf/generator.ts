@@ -1,14 +1,12 @@
+import "server-only";
+
 import React from "react";
 import { pdf } from "@react-pdf/renderer";
-import { createClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit/audit";
+import type { ServiceContext } from "@/lib/auth/context";
 import { Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import {
-  uploadFile,
-  getSignedUrl,
-  SupabaseStorageProvider,
-} from "@/lib/storage";
+import { uploadFile, getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
 import { ReceiptDocument, ReceiptPdfPayload } from "./receipt-document";
 
 export interface GenerateReceiptPdfResult {
@@ -42,10 +40,40 @@ async function streamToBuffer(stream: unknown): Promise<Buffer> {
  * generates a 3600-second signed URL, and records an audit log entry.
  */
 export async function generateAndArchiveReceiptPdf(
-  payload: ReceiptPdfPayload,
+  ctx: ServiceContext,
+  payload: ReceiptPdfPayload
+): Promise<GenerateReceiptPdfResult> {
+  // The receipt is always archived under the acting tenant (ADR-0005 D1); a payload for another tenant is refused.
+  if (payload.tenant_id !== ctx.tenantId) {
+    throw new Error("Receipt payload does not belong to the active clinic.");
+  }
+
+  const result = await renderAndArchiveReceipt(ctx.db, payload);
+
+  // Record compliance audit trail (AGENTS.md §9, §10)
+  try {
+    await recordAudit(ctx, {
+      action: "invoice.generate_receipt_pdf",
+      entityType: "invoice",
+      entityId: payload.invoice_id,
+      metadata: {
+        invoice_number: payload.invoice_number,
+        total_amount: payload.total_amount,
+        storage_path: result.storagePath,
+      },
+    });
+  } catch (auditErr) {
+    console.warn("[features/billing/pdf/generator] Audit log warning:", auditErr);
+  }
+
+  return result;
+}
+
+/** Renders, uploads and signs a receipt through the given client. No audit: callers own that. */
+async function renderAndArchiveReceipt(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  clientOverride?: SupabaseClient<Database, any, any>,
-  sessionOverride?: { userId: string; tenantId: string }
+  db: SupabaseClient<Database, any, any>,
+  payload: ReceiptPdfPayload
 ): Promise<GenerateReceiptPdfResult> {
   // 1. Render React-PDF document to binary buffer server-side
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,18 +82,11 @@ export async function generateAndArchiveReceiptPdf(
   const stream = await instance.toBuffer();
   const buffer = await streamToBuffer(stream);
 
-  const session = sessionOverride || {
-    userId: payload.doctor?.name || "system",
-    tenantId: payload.tenant_id,
-  };
-
   // 2. Define deterministic storage path: ${tenant_id}/receipts/inv_${invoice_id}.pdf
   const storagePath = `${payload.tenant_id}/receipts/inv_${payload.invoice_id}.pdf`;
 
-  // 3. Resolve storage provider (respecting clientOverride if provided)
-  const storageProvider = clientOverride
-    ? new SupabaseStorageProvider({ defaultBucket: "prescriptions", client: clientOverride })
-    : undefined;
+  // 3. Resolve storage provider bound to the given client
+  const storageProvider = getStorageProviderForDb(db, "prescriptions");
 
   // 4. Upload using unified storage abstraction
   try {
@@ -102,26 +123,6 @@ export async function generateAndArchiveReceiptPdf(
     signedUrl = `/api/invoices/${payload.invoice_id}/receipt-pdf`;
   }
 
-  // 6. Record compliance audit trail (AGENTS.md §9, §10)
-  try {
-    await recordAudit(
-      {
-        action: "invoice.generate_receipt_pdf",
-        entityType: "invoice",
-        entityId: payload.invoice_id,
-        metadata: {
-          invoice_number: payload.invoice_number,
-          total_amount: payload.total_amount,
-          storage_path: storagePath,
-        },
-      },
-      clientOverride as any,
-      session
-    );
-  } catch (auditErr) {
-    console.warn("[features/billing/pdf/generator] Audit log warning:", auditErr);
-  }
-
   return {
     signedUrl,
     storagePath,
@@ -130,16 +131,14 @@ export async function generateAndArchiveReceiptPdf(
 }
 
 /**
- * Compiles ReceiptPdfPayload by reading the invoice, patient, tenant, items, and payments from DB,
- * and generates/archives the PDF.
+ * Compiles ReceiptPdfPayload by reading the invoice, patient, tenant, items, and payments through the given client.
  */
-export async function compileAndGenerateReceiptPdf(
+async function compileReceiptPayload(
   invoiceIdOrVisitId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-  tenantId: string,
-  userId?: string
-): Promise<{ payload: ReceiptPdfPayload; buffer: Buffer; storagePath: string; signedUrl: string } | null> {
+  tenantId: string
+): Promise<ReceiptPdfPayload | null> {
   // 1. Fetch invoice
   const { data: invoice } = await supabase
     .from("invoices")
@@ -268,10 +267,36 @@ export async function compileAndGenerateReceiptPdf(
     status: invoice.status,
   };
 
-  const res = await generateAndArchiveReceiptPdf(payload, supabase, {
-    userId: userId || "system",
-    tenantId,
-  });
+  return payload;
+}
+
+/**
+ * Compiles the receipt for an invoice (or visit) of the acting tenant and archives it, with an audit row.
+ */
+export async function compileAndArchiveReceiptPdf(
+  ctx: ServiceContext,
+  invoiceIdOrVisitId: string
+): Promise<GenerateReceiptPdfResult | null> {
+  const payload = await compileReceiptPayload(invoiceIdOrVisitId, ctx.db, ctx.tenantId);
+  if (!payload) return null;
+  return generateAndArchiveReceiptPdf(ctx, payload);
+}
+
+/**
+ * Public share-link path only (`features/sharing/system.ts` `renderSharedReceiptPdf`: the invoice id and tenant come
+ * from a valid invoice token via the `share_token_object` RPC, 000020). There is no acting user,
+ * so no audit row is written (the old code attempted one with actor "system", which never satisfied the uuid
+ * column).
+ */
+export async function compileAndGenerateReceiptPdf(
+  invoiceIdOrVisitId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  tenantId: string
+): Promise<{ payload: ReceiptPdfPayload; buffer: Buffer; storagePath: string; signedUrl: string } | null> {
+  const payload = await compileReceiptPayload(invoiceIdOrVisitId, supabase, tenantId);
+  if (!payload) return null;
+  const res = await renderAndArchiveReceipt(supabase, payload);
 
   return {
     payload,

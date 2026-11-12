@@ -65,9 +65,6 @@ export const TEMPLATE_POSITIONAL_MAP: Record<string, TemplatePositionalConfig> =
   balance_due_reminder: {
     body: ["patient_name", "balance_amount_inr", "invoice_number", "clinic_name"],
   },
-  staff_onboarding_otp: {
-    body: ["otp_code"],
-  },
 };
 
 /**
@@ -97,7 +94,6 @@ export const PARAMETER_ALIASES: Record<string, string[]> = {
   child_name: ["child_name", "childName", "patient_name", "patient"],
   vaccine_name: ["vaccine_name", "vaccineName", "vaccine"],
   due_date: ["due_date", "dueDate", "date"],
-  otp_code: ["otp_code", "otp", "code"],
   token: [
     "token",
     "document_url",

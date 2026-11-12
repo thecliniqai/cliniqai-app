@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
-import { checkInVisit, transitionQueueState } from "@/features/queue/actions";
-import { saveConsultationDraft } from "@/features/consultation/actions";
+import { createVisit } from "@/features/visits/service";
+import { ctxFor } from "../helpers/context";
+import { checkInVisit, transitionQueueState } from "@/features/queue/service";
+import { saveConsultationDraft } from "@/features/consultation/service";
 
 describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visit-management, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -36,26 +37,22 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
     const sessionA = { userId: tenantA.userId, tenantId: tenantA.tenantId };
 
     // Step A: Create scheduled visit
-    const createRes = await createVisit(
-      {
-        patient_id: patientAId,
-        doctor_id: tenantA.userId,
-        origin_type: "scheduled",
-        scheduled_at: new Date().toISOString(),
-        reason_for_visit: "Severe sore throat and fatigue",
-        estimated_duration_minutes: 15,
-        is_overbooked: false,
-      },
-      tenantA.client,
-      sessionA
-    );
+    const createRes = await createVisit(ctxFor(tenantA), {
+      patient_id: patientAId,
+      doctor_id: tenantA.userId,
+      origin_type: "scheduled",
+      scheduled_at: new Date().toISOString(),
+      reason_for_visit: "Severe sore throat and fatigue",
+      estimated_duration_minutes: 15,
+      is_overbooked: false,
+    });
 
     expect(createRes.success).toBe(true);
     if (!createRes.success) return;
     visitAId = createRes.visitId;
 
     // Step B: Check in visit via Queue
-    const checkInRes = await checkInVisit(visitAId, "normal", tenantA.client, sessionA);
+    const checkInRes = await checkInVisit(ctxFor(tenantA), visitAId, "normal");
     expect(checkInRes.success).toBe(true);
     if (!checkInRes.success) return;
     expect(checkInRes.tokenNumber).toBeGreaterThanOrEqual(1);
@@ -69,12 +66,7 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
     expect(waitingVisit?.status).toBe("waiting");
 
     // Step C: Launch consultation (1-tap Start Consultation action)
-    const transitionRes = await transitionQueueState(
-      visitAId,
-      "in_consultation",
-      tenantA.client,
-      sessionA
-    );
+    const transitionRes = await transitionQueueState(ctxFor(tenantA), visitAId, "in_consultation");
     expect(transitionRes.success).toBe(true);
 
     // Verify visit status is now 'in_consultation'
@@ -87,6 +79,7 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
 
     // Step D: Clinician fills in triage vitals and clinical notes in consultation workspace
     const draftRes = await saveConsultationDraft(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         vitals: {
@@ -102,9 +95,7 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
         ],
         clinical_notes: "Erythematous pharynx with no tonsillar exudates.",
         specialty: "general_physician",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
 
     expect(draftRes.success).toBe(true);
@@ -121,15 +112,9 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
   });
 
   it("2. Enforces cross-tenant boundary: Tenant B cannot transition or modify Tenant A's visit", async () => {
-    const sessionB = { userId: tenantB.userId, tenantId: tenantB.tenantId };
 
     // Tenant B attempts to transition Tenant A's visit
-    const unauthorizedTransition = await transitionQueueState(
-      visitAId,
-      "completed",
-      tenantB.client,
-      sessionB
-    );
+    const unauthorizedTransition = await transitionQueueState(ctxFor(tenantB), visitAId, "completed");
 
     // Should fail or not find the record under RLS
     // In our system, RLS or tenant check returns failure

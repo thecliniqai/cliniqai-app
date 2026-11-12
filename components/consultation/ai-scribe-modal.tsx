@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import {
   Sparkles,
-  Mic,
-  Square,
   AlertCircle,
   Check,
   X,
@@ -15,40 +13,6 @@ import {
 } from "lucide-react";
 import { generateSoapAction } from "@/features/ai/actions";
 import { SoapDraft, AnonymizedPatientContext } from "@/lib/ai/types";
-
-// Type definitions for Web Speech API
-interface SpeechRecognitionEvent extends Event {
-  results: SpeechRecognitionResultList;
-  resultIndex: number;
-}
-
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-  message?: string;
-}
-
-interface SpeechRecognitionInstance extends EventTarget {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
-  onend: (() => void) | null;
-}
-
-interface SpeechRecognitionConstructor {
-  new (): SpeechRecognitionInstance;
-}
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor;
-    webkitSpeechRecognition?: SpeechRecognitionConstructor;
-  }
-}
 
 export interface AiScribeModalProps {
   isOpen: boolean;
@@ -64,113 +28,14 @@ export function AiScribeModal({
   patientContext,
 }: AiScribeModalProps) {
   const [shorthand, setShorthand] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDraft, setGeneratedDraft] = useState<SoapDraft | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-
-  // Initialize Speech Recognition
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const SpeechConstructor =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechConstructor) {
-        setSpeechSupported(false);
-      }
-    }
-  }, []);
-
-  // Cleanup speech recognition on unmount or close
-  useEffect(() => {
-    if (!isOpen && isRecording) {
-      stopRecording();
-    }
-  }, [isOpen]);
-
-  const startRecording = () => {
-    if (typeof window === "undefined") return;
-    const SpeechConstructor =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechConstructor) {
-      setSpeechSupported(false);
-      return;
-    }
-
-    try {
-      const recognition = new SpeechConstructor();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = "en-IN"; // English (India) default
-
-      let interimTranscript = "";
-
-      recognition.onresult = (event: SpeechRecognitionEvent) => {
-        let finalTrans = "";
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTrans += event.results[i][0].transcript + " ";
-          } else {
-            interimTranscript += event.results[i][0].transcript;
-          }
-        }
-        if (finalTrans) {
-          setShorthand((prev) => (prev ? `${prev.trim()} ${finalTrans.trim()}` : finalTrans.trim()));
-        }
-      };
-
-      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error("Speech recognition error:", event.error);
-        if (event.error === "not-allowed") {
-          setErrorMessage("Microphone access was denied. Please allow microphone permissions in your browser.");
-        }
-        stopRecording();
-      };
-
-      recognition.onend = () => {
-        setIsRecording(false);
-      };
-
-      recognition.start();
-      recognitionRef.current = recognition;
-      setIsRecording(true);
-      setErrorMessage(null);
-    } catch (err) {
-      console.error("Failed to start speech recognition:", err);
-      setIsRecording(false);
-    }
-  };
-
-  const stopRecording = () => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        // Ignore errors during stop
-      }
-      recognitionRef.current = null;
-    }
-    setIsRecording(false);
-  };
-
-  const handleToggleRecord = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
   const handleGenerate = async () => {
     if (!shorthand.trim()) {
-      setErrorMessage("Please enter clinical notes or record dictation first.");
+      setErrorMessage("Please enter clinical notes first.");
       return;
-    }
-
-    if (isRecording) {
-      stopRecording();
     }
 
     setIsGenerating(true);
@@ -182,14 +47,18 @@ export function AiScribeModal({
         patientContext,
       });
 
-      if (res.success && res.draft) {
+      if (res.success) {
         setGeneratedDraft(res.draft);
       } else {
-        setErrorMessage(res.error || "Failed to generate structured SOAP notes. Your raw notes are preserved.");
+        setErrorMessage(
+          res.code === "AI_UNAVAILABLE"
+            ? "AI drafting is unavailable. Your notes are preserved; please write them directly."
+            : "Could not draft notes. Your notes are preserved."
+        );
       }
     } catch (err: unknown) {
       setErrorMessage(
-        err instanceof Error ? err.message : "AI service temporarily unavailable. Your raw notes are preserved."
+        "AI drafting is unavailable. Your notes are preserved; please write them directly."
       );
     } finally {
       setIsGenerating(false);
@@ -203,7 +72,6 @@ export function AiScribeModal({
   };
 
   const handleClose = () => {
-    stopRecording();
     setGeneratedDraft(null);
     setErrorMessage(null);
     onClose();
@@ -227,10 +95,10 @@ export function AiScribeModal({
             </div>
             <div>
               <h2 id="ai-scribe-modal-title" className="text-base font-semibold text-gray-900">
-                AI Clinical Scribe — Shorthand & Dictation
+                AI Clinical Scribe — Shorthand
               </h2>
               <p className="text-xs text-gray-500">
-                Dictate or type shorthand. Scribe normalizes notes for your approval.
+                Type shorthand. Scribe drafts notes for your approval.
               </p>
             </div>
           </div>
@@ -256,7 +124,7 @@ export function AiScribeModal({
             </div>
           )}
 
-          {/* Input & Dictation Area */}
+          {/* Input Area */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label
@@ -264,37 +132,8 @@ export function AiScribeModal({
                 className="text-xs font-semibold uppercase tracking-wider text-gray-600 flex items-center gap-1.5"
               >
                 <FileText className="h-3.5 w-3.5 text-gray-500" />
-                Raw Notes / Dictation Transcript
+                Raw Notes
               </label>
-
-              {speechSupported ? (
-                <button
-                  type="button"
-                  onClick={handleToggleRecord}
-                  className={`min-h-[36px] px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    isRecording
-                      ? "bg-rose-50 text-rose-700 border border-rose-300 animate-pulse"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200"
-                  }`}
-                  aria-pressed={isRecording}
-                >
-                  {isRecording ? (
-                    <>
-                      <Square className="h-3.5 w-3.5 text-rose-600 fill-current" />
-                      <span>⏹ Recording...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mic className="h-3.5 w-3.5 text-gray-600" />
-                      <span>🎙 Start Dictation</span>
-                    </>
-                  )}
-                </button>
-              ) : (
-                <span className="text-[11px] text-gray-400">
-                  Mic dictation requires Chrome/Edge
-                </span>
-              )}
             </div>
 
             <textarea

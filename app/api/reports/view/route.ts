@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminClient } from "@/lib/supabase/admin";
-import { getSignedUrl, SupabaseStorageProvider } from "@/lib/storage";
+import { isPlausibleToken, REPORT_LINK_KINDS, resolveShareToken } from "@/features/sharing/public-links";
+import { signSharedObject } from "@/features/sharing/system";
+
+// Public lab-report link (P0-04, ADR-0005 D3): patient_document tokens only, resolved by `resolve_share_token`
+// (bound to the token's tenant). Every "no such link" answer is the same 404; the response carries no ids.
+
+const NOT_FOUND_MESSAGE =
+  "This document link has expired or is invalid. Please contact your clinic for a new link.";
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,108 +14,65 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get("token");
     const download = searchParams.get("download") === "true";
 
-    if (!token || typeof token !== "string" || token.length < 32) {
-      return NextResponse.json(
-        { error: "Invalid or missing token parameter." },
-        { status: 400 }
-      );
+    if (!isPlausibleToken(token)) {
+      return NextResponse.json({ error: "Invalid or missing token parameter." }, { status: 400 });
     }
 
-    const admin = getAdminClient();
+    const resolved = await resolveShareToken(token, REPORT_LINK_KINDS);
 
-    // 1. Fetch token joined with document, tenant, and patient
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: shareToken, error: tokenErr } = await (admin.from("document_share_tokens") as any)
-      .select("*, patient_documents(*, tenants(name, phone, address, logo_url), patients(full_name))")
-      .eq("token", token)
-      .single();
-
-    if (tokenErr || !shareToken) {
-      return NextResponse.json(
-        { error: "This document link has expired or is invalid. Please contact your clinic for a new link." },
-        { status: 404 }
-      );
-    }
-
-    // 2. Check if revoked
-    if (shareToken.revoked_at) {
+    if (resolved.status === "revoked") {
       return NextResponse.json(
         { error: "This document link has been revoked. Please contact your clinic for a new link." },
         { status: 410 }
       );
     }
-
-    // 3. Check expiration
-    const now = new Date();
-    const expiresAt = new Date(shareToken.expires_at);
-    if (expiresAt.getTime() <= now.getTime()) {
+    if (resolved.status === "expired") {
       return NextResponse.json(
         { error: "This document link has expired. Please contact your clinic for a new link." },
         { status: 410 }
       );
     }
-
-    const doc = shareToken.patient_documents;
-    if (!doc) {
-      return NextResponse.json(
-        { error: "Underlying document not found." },
-        { status: 404 }
-      );
+    if (resolved.status !== "ok") {
+      return NextResponse.json({ error: NOT_FOUND_MESSAGE }, { status: 404 });
     }
 
-    // 4. Atomically increment access_count & stamp last_accessed_at
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin.from("document_share_tokens") as any)
-      .update({
-        access_count: (shareToken.access_count || 0) + 1,
-        last_accessed_at: new Date().toISOString(),
-      })
-      .eq("id", shareToken.id);
+    const doc = resolved.document;
+    const signed = await signSharedObject(token, REPORT_LINK_KINDS);
+    if (!signed) {
+      return NextResponse.json({ error: NOT_FOUND_MESSAGE }, { status: 404 });
+    }
 
-    // 5. Generate short-lived signed URL (600 seconds)
-    const storageProvider = new SupabaseStorageProvider({
-      defaultBucket: "clinic-records",
-      client: admin,
-    });
-
-    const { signedUrl } = await getSignedUrl(
-      {
-        path: doc.storage_path,
-        bucket: "clinic-records",
-        expiresInSeconds: 600,
-        downloadFilename: doc.original_filename,
-      },
-      storageProvider
-    );
-
-    // If download requested directly, redirect
     if (download) {
-      return NextResponse.redirect(signedUrl, { status: 302 });
+      return NextResponse.redirect(signed.signedUrl, { status: 302 });
     }
 
-    const clinic = doc.tenants || { name: "Clinic", phone: null, address: null, logo_url: null };
-    const patientName = doc.patients?.full_name || "Patient";
-
-    return NextResponse.json({
-      success: true,
-      document: {
-        id: doc.id,
-        title: doc.title,
-        document_type: doc.document_type,
-        report_date: doc.report_date,
-        original_filename: doc.original_filename,
-        file_size_bytes: doc.file_size_bytes,
-        mime_type: doc.mime_type,
-        is_abnormal: doc.is_abnormal,
-        notes: doc.notes,
+    return NextResponse.json(
+      {
+        success: true,
+        document: {
+          title: doc.title,
+          document_type: doc.document_type,
+          report_date: doc.report_date,
+          original_filename: doc.original_filename,
+          file_size_bytes: doc.file_size_bytes ?? null,
+          mime_type: doc.mime_type,
+          is_abnormal: doc.is_abnormal ?? false,
+          notes: doc.notes ?? null,
+        },
+        clinic: {
+          name: doc.clinic?.name ?? "Clinic",
+          phone: doc.clinic?.phone ?? null,
+          address: doc.clinic?.address ?? null,
+          logo_url: doc.clinic?.logo_url ?? null,
+        },
+        patient_name: doc.patient_name,
+        signed_url: signed.signedUrl,
+        expires_at: doc.expires_at,
       },
-      clinic,
-      patient_name: patientName,
-      signed_url: signedUrl,
-      expires_at: shareToken.expires_at,
-    });
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   } catch (err: unknown) {
-    console.error("[app/api/reports/view/route] Error verifying token:", err);
+    console.error("[app/api/reports/view/route] Error resolving token:", err instanceof Error ? err.name : "error");
     return NextResponse.json(
       { error: "An unexpected error occurred while loading this document." },
       { status: 500 }

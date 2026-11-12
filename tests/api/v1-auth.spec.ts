@@ -4,6 +4,9 @@ import { authenticateApiKey, createApiKeySecret } from "@/lib/api/auth";
 import { GET, POST } from "@/app/api/v1/patients/route";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { enableApiV1ForFile } from "../helpers/api-v1";
+
+enableApiV1ForFile();
 
 describe("API v1 Authentication & Tenant Isolation (REQ-api-access, D-01, D-02)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -152,7 +155,7 @@ describe("API v1 Authentication & Tenant Isolation (REQ-api-access, D-01, D-02)"
         },
       });
 
-      const authResult = await authenticateApiKey(req);
+      const authResult = await authenticateApiKey(getAdminClient(), req);
       expect(authResult.success).toBe(true);
       if (!authResult.success) return;
 

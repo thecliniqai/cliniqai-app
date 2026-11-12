@@ -1,13 +1,11 @@
-import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
-import { env } from "@/lib/env";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   CommunicationChannel,
   CommunicationQueueItem,
   CommunicationStatus,
 } from "@/lib/db/types";
 import { getMessagingProvider } from "./index";
-import { InteractiveButton } from "./types";
+import { InteractiveButton, MessagingProvider } from "./types";
 
 export interface EnqueueMessageInput {
   tenantId: string;
@@ -30,26 +28,32 @@ export interface DispatchSummary {
   failed: number;
 }
 
-export async function getDbClient(clientOverride?: unknown) {
-  if (clientOverride) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return clientOverride as any;
-  }
-  if (env.SUPABASE_SERVICE_ROLE_KEY) {
-    return createAdminClient(
-      env.NEXT_PUBLIC_SUPABASE_URL,
-      env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { persistSession: false } }
-    );
-  }
-  return await createClient();
-}
+/** What an enqueue returns: the row id and status only. Members cannot read message payload columns (AR3-N1, 000024). */
+export type EnqueuedMessage = Pick<CommunicationQueueItem, "id" | "status">;
+
+/** Outcome of one dispatch attempt; "skipped" when the row could not be claimed (not due, not yours, or taken). */
+export type DispatchOutcome = "sent" | "failed" | "dead_letter" | "skipped";
+
+/**
+ * The database client every outbox function runs on. It is a required argument (ADR-0005 register, V2-01 R13):
+ * request-path callers pass their own user-JWT client (`ctx.db`), so RLS applies; only the register entry points
+ * (`app/api/cron/**`, `/api/v1/**`, `app/api/webhooks/**`) build a service-role client and pass it in. There is no
+ * default and no fallback.
+ *
+ * AR3-N1 (000024): members may INSERT queue rows and read their status columns only. Sending goes through
+ * `communication_queue_claim` / `communication_queue_finish`: a member can claim only a row it enqueued itself (the
+ * payload it just built); the service role can claim any due row. Link-bearing payload values are redacted by the
+ * database once a row reaches a final status.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type MessagingDb = SupabaseClient<any, any, any>;
 
 /**
  * Calculates exponential retry backoff in milliseconds:
  * 1st failure (retry 0 -> 1): 1 minute
  * 2nd failure (retry 1 -> 2): 5 minutes
  * 3rd failure (retry 2 -> 3): 15 minutes
+ * (communication_queue_finish applies the same schedule in the database.)
  */
 export function calculateBackoffDelay(retryCount: number): number {
   if (retryCount <= 1) return 1 * 60 * 1000;
@@ -58,20 +62,20 @@ export function calculateBackoffDelay(retryCount: number): number {
 }
 
 /**
- * Inserts a transactional message into the communication_queue outbox.
+ * Inserts a transactional message into the communication_queue outbox, then tries to send that one row at once
+ * (best effort; the cron dispatcher retries what is left).
  */
 export async function enqueueMessage(
-  input: EnqueueMessageInput,
-  clientOverride?: unknown
-): Promise<CommunicationQueueItem> {
-  const supabase = await getDbClient(clientOverride);
-
+  db: MessagingDb,
+  input: EnqueueMessageInput
+): Promise<EnqueuedMessage> {
   const nextRetryAt = input.delayUntil
     ? typeof input.delayUntil === "string"
       ? input.delayUntil
       : input.delayUntil.toISOString()
     : new Date().toISOString();
 
+  // Exactly the columns members may insert (000024); status, retry_count and created_by take their defaults.
   const insertData = {
     tenant_id: input.tenantId,
     patient_id: input.patientId || null,
@@ -82,53 +86,193 @@ export async function enqueueMessage(
     template_params: input.templateParams || {},
     recipient_phone: input.recipientPhone || null,
     recipient_user_id: input.recipientUserId || null,
-    status: "pending" as CommunicationStatus,
-    retry_count: 0,
     max_retries: input.maxRetries ?? 3,
     next_retry_at: nextRetryAt,
     metadata: input.metadata || {},
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("communication_queue")
     .insert(insertData)
-    .select()
+    .select("id, status")
     .single();
 
   if (error || !data) {
     throw new Error(`Failed to enqueue communication: ${error?.message || "Unknown error"}`);
   }
 
-  // Opportunistic immediate dispatch: process queue immediately so dev/production messages fire without waiting for background cron
+  const enqueued = data as EnqueuedMessage;
+
+  // Opportunistic immediate dispatch of this row only, so messages fire without waiting for the background cron.
   if (!input.delayUntil) {
     try {
-      await dispatchPendingQueue({ clientOverride });
+      await dispatchQueuedMessage(db, enqueued.id);
     } catch {
-      // Opportunistic dispatch is best-effort; background cron recovers queued items
+      // Best effort; the background cron recovers queued items.
     }
   }
 
-  return data as CommunicationQueueItem;
+  return enqueued;
+}
+
+type ClaimedItem = CommunicationQueueItem;
+type SendResult = { success: boolean; externalMessageId?: string; error?: string };
+
+function firstRow<T>(data: unknown): T | null {
+  if (Array.isArray(data)) return (data[0] as T) ?? null;
+  return (data as T) ?? null;
+}
+
+async function sendClaimedItem(provider: MessagingProvider, item: ClaimedItem): Promise<SendResult> {
+  const stringParams: Record<string, string> = {};
+  if (item.template_params) {
+    for (const [k, v] of Object.entries(item.template_params)) {
+      stringParams[k] = String(v);
+    }
+  }
+  if (!stringParams.clinic_name) {
+    stringParams.clinic_name = "Clinic";
+  }
+
+  if (item.channel === "sms" && item.recipient_phone) {
+    return provider.sendSms(item.recipient_phone, item.template_id, stringParams);
+  }
+  if (item.channel === "whatsapp" && item.recipient_phone) {
+    const buttons = (item.metadata?.buttons as InteractiveButton[]) || [];
+    return provider.sendWhatsApp(item.recipient_phone, item.template_id, stringParams, buttons);
+  }
+  if (item.channel === "in_app") {
+    // In-app notifications do not go to SMS/WhatsApp providers
+    return { success: true, externalMessageId: `in-app-${item.id}` };
+  }
+  return { success: false, error: "Missing recipient_phone for external messaging" };
 }
 
 /**
- * Scans the outbox queue for pending/failed due items, attempts delivery via active provider,
- * and updates retry counts, backoff times, and audit logs.
+ * Claims one queue row (atomically, through communication_queue_claim), sends it and records the outcome through
+ * communication_queue_finish. A member's client can dispatch only rows it enqueued; the service role any due row.
  */
-export async function dispatchPendingQueue(options?: {
-  limit?: number;
-  providerName?: string;
-  clientOverride?: unknown;
-}): Promise<DispatchSummary> {
+export async function dispatchQueuedMessage(
+  db: MessagingDb,
+  queueId: string,
+  options?: { providerName?: string; provider?: MessagingProvider }
+): Promise<DispatchOutcome> {
+  const { data: claimed, error: claimError } = await db.rpc("communication_queue_claim", { p_id: queueId });
+  const item = claimError ? null : firstRow<ClaimedItem>(claimed);
+  if (!item) return "skipped";
+
+  const provider = options?.provider ?? getMessagingProvider(options?.providerName);
+
+  let sendResult: SendResult;
+  try {
+    sendResult = await sendClaimedItem(provider, item);
+  } catch (err: unknown) {
+    sendResult = {
+      success: false,
+      error: err instanceof Error ? err.message : "Unexpected dispatcher error",
+    };
+  }
+
+  const { data: finished } = await db.rpc("communication_queue_finish", {
+    p_id: item.id,
+    p_success: sendResult.success,
+    p_external_message_id: sendResult.externalMessageId ?? null,
+    p_error: sendResult.success ? null : sendResult.error || "Delivery failed",
+  });
+  const finishRow = firstRow<{ new_status: CommunicationStatus }>(finished);
+  const outcome: DispatchOutcome =
+    finishRow?.new_status === "sent" || finishRow?.new_status === "dead_letter" || finishRow?.new_status === "failed"
+      ? finishRow.new_status
+      : sendResult.success
+        ? "sent"
+        : "failed";
+
+  if (outcome === "sent") {
+    try {
+      await db.from("audit_logs").insert({
+        tenant_id: item.tenant_id,
+        actor_id: null,
+        actor_role: "system",
+        action: "communication_sent",
+        entity_type: "communication_queue",
+        entity_id: item.id,
+        occurred_at: new Date().toISOString(),
+        // No recipient phone (personal data) in the audit trail; the queue row id is entity_id.
+        metadata: {
+          queue_id: item.id,
+          channel: item.channel,
+          message_type: item.message_type,
+          template_id: item.template_id,
+          external_message_id: sendResult.externalMessageId,
+        },
+      });
+    } catch (auditErr) {
+      console.warn("[dispatchQueuedMessage] Failed to record audit log:", auditErr);
+    }
+    return outcome;
+  }
+
+  if (outcome === "dead_letter") {
+    // Event #23 In-App Outbox Failure Alert
+    try {
+      await db.from("in_app_notifications").insert({
+        tenant_id: item.tenant_id,
+        recipient_role: "admin",
+        category: "system",
+        event_type: "delivery_failure_alert",
+        title: "Message Delivery Failed",
+        // No recipient phone (personal data) in the alert; the queue row id and message type identify the message.
+        message: `A ${item.channel} message (${item.message_type}) failed permanently: ${sendResult.error || "Unknown error"}`,
+        is_read: false,
+        metadata: { queue_id: item.id, channel: item.channel, message_type: item.message_type },
+      });
+    } catch {
+      // Ignore in-app notification insert errors
+    }
+    return outcome;
+  }
+
+  // Failed with a retry scheduled. Conditional SMS Fallback: only appointment_booked and appointment_rescheduled (D-09)
+  const isEligibleForSmsFallback =
+    item.channel === "whatsapp" &&
+    (item.message_type === "appointment_booked" || item.message_type === "appointment_rescheduled") &&
+    item.recipient_phone;
+
+  if (isEligibleForSmsFallback && !item.metadata?.is_sms_fallback) {
+    await enqueueMessage(db, {
+      tenantId: item.tenant_id,
+      patientId: item.patient_id,
+      appointmentId: item.appointment_id,
+      channel: "sms",
+      messageType: item.message_type,
+      templateId: `${item.message_type}_sms_fallback`,
+      templateParams: item.template_params,
+      recipientPhone: item.recipient_phone,
+      metadata: { ...item.metadata, is_sms_fallback: true },
+    });
+  }
+
+  return outcome;
+}
+
+/**
+ * Scans the outbox queue for pending/failed due items and dispatches each through dispatchQueuedMessage (claim, send,
+ * finish). Runs on the system path (the cron route's service-role client): members cannot list other rows.
+ */
+export async function dispatchPendingQueue(
+  db: MessagingDb,
+  options?: {
+    limit?: number;
+    providerName?: string;
+  }
+): Promise<DispatchSummary> {
   const limit = options?.limit ?? 20;
   const provider = getMessagingProvider(options?.providerName);
-  const supabase = await getDbClient(options?.clientOverride);
   const nowIso = new Date().toISOString();
 
-  // 1. Fetch pending rows or failed rows due for retry
-  const { data: items, error: fetchError } = await supabase
+  const { data: items, error: fetchError } = await db
     .from("communication_queue")
-    .select("*")
+    .select("id")
     .in("status", ["pending", "failed"])
     .lte("next_retry_at", nowIso)
     .order("created_at", { ascending: true })
@@ -138,183 +282,17 @@ export async function dispatchPendingQueue(options?: {
     return { processed: 0, succeeded: 0, failed: 0 };
   }
 
+  let processed = 0;
   let succeeded = 0;
   let failed = 0;
 
-  for (const item of items as CommunicationQueueItem[]) {
-    // 2. Mark item as processing
-    await supabase
-      .from("communication_queue")
-      .update({ status: "processing", updated_at: new Date().toISOString() })
-      .eq("id", item.id);
-
-    try {
-      const stringParams: Record<string, string> = {};
-      if (item.template_params) {
-        for (const [k, v] of Object.entries(item.template_params)) {
-          stringParams[k] = String(v);
-        }
-      }
-      if (!stringParams.clinic_name) {
-        stringParams.clinic_name = "Clinic";
-      }
-
-      let sendResult: { success: boolean; externalMessageId?: string; error?: string } = {
-        success: false,
-      };
-
-      if (item.channel === "sms" && item.recipient_phone) {
-        sendResult = await provider.sendSms(
-          item.recipient_phone,
-          item.template_id,
-          stringParams
-        );
-      } else if (item.channel === "whatsapp" && item.recipient_phone) {
-        const buttons = (item.metadata?.buttons as InteractiveButton[]) || [];
-        sendResult = await provider.sendWhatsApp(
-          item.recipient_phone,
-          item.template_id,
-          stringParams,
-          buttons
-        );
-      } else if (item.channel === "in_app") {
-        // In-app notifications do not go to SMS/WhatsApp providers
-        sendResult = { success: true, externalMessageId: `in-app-${item.id}`, error: undefined };
-      } else {
-        sendResult = {
-          success: false,
-          externalMessageId: undefined,
-          error: "Missing recipient_phone for external messaging",
-        };
-      }
-
-      if (sendResult.success) {
-        succeeded++;
-        const sentAt = new Date().toISOString();
-
-        // Update queue item to sent
-        await supabase
-          .from("communication_queue")
-          .update({
-            status: "sent",
-            sent_at: sentAt,
-            external_message_id: sendResult.externalMessageId || null,
-            updated_at: sentAt,
-          })
-          .eq("id", item.id);
-
-        // Record audit log
-        try {
-          await supabase.from("audit_logs").insert({
-            tenant_id: item.tenant_id,
-            actor_id: null,
-            actor_role: "system",
-            action: "communication_sent",
-            entity_type: "communication_queue",
-            entity_id: item.id,
-            occurred_at: sentAt,
-            metadata: {
-              channel: item.channel,
-              template_id: item.template_id,
-              recipient_phone: item.recipient_phone,
-              external_message_id: sendResult.externalMessageId,
-            },
-          });
-        } catch (auditErr) {
-          console.warn("[dispatchPendingQueue] Failed to record audit log:", auditErr);
-        }
-      } else {
-        failed++;
-        const nextRetryCount = (item.retry_count || 0) + 1;
-        const maxRetries = item.max_retries || 3;
-
-        if (nextRetryCount >= maxRetries) {
-          // Dead letter status
-          await supabase
-            .from("communication_queue")
-            .update({
-              status: "dead_letter",
-              retry_count: nextRetryCount,
-              error_message: sendResult.error || "Max retries exceeded",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", item.id);
-
-          // Event #23 In-App Outbox Failure Alert
-          try {
-            await supabase.from("in_app_notifications").insert({
-              tenant_id: item.tenant_id,
-              recipient_role: "admin",
-              category: "system",
-              event_type: "delivery_failure_alert",
-              title: "Message Delivery Failed",
-              message: `Outbox message to ${item.recipient_phone || "recipient"} failed permanently: ${sendResult.error || "Unknown error"}`,
-              is_read: false,
-              metadata: { queue_id: item.id, channel: item.channel },
-            });
-          } catch {
-            // Ignore in-app notification insert errors
-          }
-        } else {
-          // Failed with exponential backoff retry
-          const backoffDelay = calculateBackoffDelay(nextRetryCount);
-          const nextRetryAt = new Date(Date.now() + backoffDelay).toISOString();
-
-          await supabase
-            .from("communication_queue")
-            .update({
-              status: "failed",
-              retry_count: nextRetryCount,
-              next_retry_at: nextRetryAt,
-              error_message: sendResult.error || "Delivery failed",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", item.id);
-
-          // Conditional SMS Fallback: only appointment_booked and appointment_rescheduled (D-09)
-          const isEligibleForSmsFallback =
-            item.channel === "whatsapp" &&
-            (item.message_type === "appointment_booked" ||
-              item.message_type === "appointment_rescheduled") &&
-            item.recipient_phone;
-
-          if (isEligibleForSmsFallback && !item.metadata?.is_sms_fallback) {
-            await enqueueMessage(
-              {
-                tenantId: item.tenant_id,
-                patientId: item.patient_id,
-                appointmentId: item.appointment_id,
-                channel: "sms",
-                messageType: item.message_type,
-                templateId: `${item.message_type}_sms_fallback`,
-                templateParams: item.template_params,
-                recipientPhone: item.recipient_phone,
-                metadata: { ...item.metadata, is_sms_fallback: true },
-              },
-              supabase
-            );
-          }
-        }
-      }
-    } catch (err: unknown) {
-      failed++;
-      const errorMessage = err instanceof Error ? err.message : "Unexpected dispatcher error";
-      await supabase
-        .from("communication_queue")
-        .update({
-          status: "failed",
-          retry_count: (item.retry_count || 0) + 1,
-          next_retry_at: new Date(Date.now() + 60000).toISOString(),
-          error_message: errorMessage,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", item.id);
-    }
+  for (const row of items as Array<{ id: string }>) {
+    const outcome = await dispatchQueuedMessage(db, row.id, { provider });
+    if (outcome === "skipped") continue;
+    processed++;
+    if (outcome === "sent") succeeded++;
+    else failed++;
   }
 
-  return {
-    processed: items.length,
-    succeeded,
-    failed,
-  };
+  return { processed, succeeded, failed };
 }

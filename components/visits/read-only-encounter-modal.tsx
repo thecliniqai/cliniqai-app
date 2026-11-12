@@ -23,12 +23,15 @@ interface ReadOnlyEncounterModalProps {
   visit: ClinicVisitRegisterItem | null;
   isOpen: boolean;
   onClose: () => void;
+  /** Whether the viewer's role has consultations:view (the prescription PDF route requires it, V2-01 F3/F9). */
+  canViewPrescription: boolean;
 }
 
 export function ReadOnlyEncounterModal({
   visit,
   isOpen,
   onClose,
+  canViewPrescription,
 }: ReadOnlyEncounterModalProps) {
   if (!visit) return null;
 
@@ -274,7 +277,7 @@ export function ReadOnlyEncounterModal({
         {/* Bottom Actions */}
         <div className="pt-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            {hasRx || visit.status === "completed" ? (
+            {canViewPrescription && (hasRx || visit.status === "completed") ? (
               <a
                 href={`/api/visits/${visit.id}/prescription-pdf`}
                 target="_blank"

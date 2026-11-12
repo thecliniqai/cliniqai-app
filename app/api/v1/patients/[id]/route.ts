@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { authenticateApiKey } from "@/lib/api/auth";
+import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getAdminClient } from "@/lib/supabase/admin";
@@ -44,7 +44,7 @@ const patientUpdateSchema = z.object({
  * Returns 404 if patient does not exist or has been soft-deleted / erased.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
  * Records audit trail with actor_type: 'api_key'.
  */
 export async function PUT(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -170,26 +170,16 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     }
 
     // 3. Record audit log
-    await recordAudit(
-      {
+    await recordAudit(apiKeyServiceContext(session, admin), {
         action: "patient.update",
         entityType: "patient",
         entityId: id,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
         metadata: {
           fields_changed: Object.keys(parseResult.data),
           actor_type: "api_key",
           api_key_id: session.apiKeyId,
         },
-      },
-      admin,
-      {
-        userId: session.userId,
-        tenantId: session.tenantId,
-        role: session.role,
-      }
-    );
+    });
 
     return apiSuccess(updatedPatient, undefined, 200, rateHeaders);
   } catch (err: unknown) {
@@ -205,7 +195,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
  * Retains underlying clinical records for NMC mandatory 3-year medical record retention.
  */
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const auth = await authenticateApiKey(req);
+  const auth = await authenticateApiKey(getAdminClient(), req);
   if (!auth.success) {
     return auth.response;
   }
@@ -237,18 +227,7 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
 
   try {
     const admin = getAdminClient();
-    const result = await erasePatientRecord(
-      id,
-      reason,
-      {
-        tenantId: session.tenantId,
-        userId: session.userId,
-        role: session.role,
-        actorType: "api_key",
-        apiKeyId: session.apiKeyId,
-      },
-      admin
-    );
+    const result = await erasePatientRecord(apiKeyServiceContext(session, admin), id, reason);
 
     return apiSuccess(
       {

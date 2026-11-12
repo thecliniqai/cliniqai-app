@@ -1,17 +1,14 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { createVisit } from "@/features/visits/actions";
-import { checkInVisit, transitionQueueState } from "@/features/queue/actions";
-import { saveConsultationDraft, recordFollowUp, getPatientConsultationHistory } from "@/features/consultation/actions";
-import {
-  searchDiagnoses,
-  addConsultationDiagnosis,
-  getVisitDiagnoses,
-} from "@/features/terminology/actions";
+import { createVisit } from "@/features/visits/service";
+import { checkInVisit, transitionQueueState } from "@/features/queue/service";
+import { saveConsultationDraft, recordFollowUp, getPatientConsultationHistory } from "@/features/consultation/service";
+import { searchDiagnoses, addConsultationDiagnosis, getVisitDiagnoses } from "@/features/terminology/service";
 import {
   addPrescriptionItem,
   getVisitPrescription,
-} from "@/features/prescriptions/actions";
+} from "@/features/prescriptions/service";
+import { ctxFor } from "../helpers/context";
 
 describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-workspace, REQ-prescribing, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -55,18 +52,15 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
   it("1. Setup fixture and create scheduled visit (status 'booked')", async () => {
     const scheduledTime = new Date().toISOString();
-    const createRes = await createVisit(
-      {
-        patient_id: patientAId,
-        doctor_id: tenantA.userId,
-        origin_type: "scheduled",
-        scheduled_at: scheduledTime,
-        estimated_duration_minutes: 20,
-        reason_for_visit: "Severe tooth pain and fever",
-      },
-      tenantA.client,
-      sessionA
-    );
+    const createRes = await createVisit(ctxFor(tenantA), {
+      patient_id: patientAId,
+      doctor_id: tenantA.userId,
+      origin_type: "scheduled",
+      scheduled_at: scheduledTime,
+      estimated_duration_minutes: 20,
+      reason_for_visit: "Severe tooth pain and fever",
+      is_overbooked: false,
+    });
 
     expect(createRes.success).toBe(true);
     if (!createRes.success) return;
@@ -84,7 +78,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("2. Check-in visit: transitions status from 'booked' -> 'waiting' and generates token", async () => {
-    const checkInRes = await checkInVisit(visitAId, "normal", tenantA.client, sessionA);
+    const checkInRes = await checkInVisit(ctxFor(tenantA), visitAId, "normal");
 
     expect(checkInRes.success).toBe(true);
     if (!checkInRes.success) return;
@@ -128,12 +122,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("4. Doctor calls patient into consultation room: transitions status to 'in_consultation'", async () => {
-    const transitionRes = await transitionQueueState(
-      visitAId,
-      "in_consultation",
-      tenantA.client,
-      sessionA
-    );
+    const transitionRes = await transitionQueueState(ctxFor(tenantA), visitAId, "in_consultation");
 
     expect(transitionRes.success).toBe(true);
 
@@ -148,6 +137,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
   it("5. Doctor records chief complaints, clinical examination notes, and specialty data (dental odontogram)", async () => {
     const draftRes = await saveConsultationDraft(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         specialty: "dental",
@@ -183,9 +173,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
           "Warm salt water rinses three times daily",
         ],
         investigations_advised: ["Intraoral Periapical (IOPA) X-Ray #46"],
-      },
-      tenantA.client,
-      sessionA
+      }
     );
 
     expect(draftRes.success).toBe(true);
@@ -207,14 +195,14 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   it("6. Doctor searches terminology and adds 2 diagnoses (1 chronic synced to patient profile, 1 custom)", async () => {
     // 1. Search diagnoses
     const searchRes = await searchDiagnoses(
+      ctxFor(tenantA),
       { query: "Hypertension", limit: 5 },
-      tenantA.client,
-      sessionA
     );
     expect(searchRes.success).toBe(true);
 
     // 2. Add catalog diagnosis with is_chronic: true
     const chronicDiagRes = await addConsultationDiagnosis(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         patient_id: patientAId,
@@ -225,8 +213,6 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
         is_custom: false,
         notes: "BP consistently elevated; starting regular monitoring",
       },
-      tenantA.client,
-      sessionA
     );
     expect(chronicDiagRes.success).toBe(true);
 
@@ -242,6 +228,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
     // 3. Add custom diagnosis for dental pulpitis
     const customDiagRes = await addConsultationDiagnosis(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         patient_id: patientAId,
@@ -250,8 +237,6 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
         is_custom: true,
         notes: "Endodontic access opening advised",
       },
-      tenantA.client,
-      sessionA
     );
     expect(customDiagRes.success).toBe(true);
 
@@ -267,7 +252,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
     expect(doctorCustom?.diagnosis_name).toBe("Acute Irreversible Pulpitis - 46");
 
     // 4. Verify both diagnoses are returned for this visit
-    const visitDiagsRes = await getVisitDiagnoses(visitAId, tenantA.client, sessionA);
+    const visitDiagsRes = await getVisitDiagnoses(ctxFor(tenantA), visitAId);
     expect(visitDiagsRes.success).toBe(true);
     if (visitDiagsRes.success) {
       expect(visitDiagsRes.diagnoses).toHaveLength(2);
@@ -280,6 +265,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   it("7. Doctor prescribes 2 medications using fast dosage chips (Paracetamol & Amoxicillin)", async () => {
     // 1. Prescribe Paracetamol 650mg
     const med1Res = await addPrescriptionItem(
+      ctxFor(tenantA),
       visitAId,
       {
         medicine_name: "Paracetamol 650mg",
@@ -289,9 +275,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
         timing: "After food",
         duration: "5 days",
         special_instructions: "Take SOS if pain recurs",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(med1Res.success).toBe(true);
     if (!med1Res.success) return;
@@ -299,6 +283,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
     // 2. Prescribe Amoxicillin 500mg
     const med2Res = await addPrescriptionItem(
+      ctxFor(tenantA),
       visitAId,
       {
         medicine_name: "Amoxicillin 500mg",
@@ -308,14 +293,12 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
         timing: "After food",
         duration: "5 days",
         special_instructions: "Complete full 5-day course",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(med2Res.success).toBe(true);
 
     // 3. Verify prescription and ordered items
-    const rxRes = await getVisitPrescription(visitAId, tenantA.client, sessionA);
+    const rxRes = await getVisitPrescription(ctxFor(tenantA), visitAId);
     expect(rxRes.success).toBe(true);
     if (rxRes.success && rxRes.prescription) {
       expect(rxRes.prescription.id).toBe(prescriptionAId);
@@ -338,14 +321,13 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
     const followUpDate = new Date(Date.now() + 5 * 86400000).toISOString().split("T")[0];
 
     const followUpRes = await recordFollowUp(
+      ctxFor(tenantA),
       {
         visitId: visitAId,
         patientId: patientAId,
         followUpDate,
         notes: "RCT obturation and crown preparation",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
 
     expect(followUpRes.success).toBe(true);
@@ -363,12 +345,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
   });
 
   it("9. Complete consultation: transitions status directly to 'completed' and verifies history retrieval", async () => {
-    const compRes = await transitionQueueState(
-      visitAId,
-      "completed",
-      tenantA.client,
-      sessionA
-    );
+    const compRes = await transitionQueueState(ctxFor(tenantA), visitAId, "completed");
     expect(compRes.success).toBe(true);
 
     const { data: visitRow } = await tenantA.client
@@ -381,10 +358,9 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
     // Longitudinal patient history query retrieves completed consultation encounter
     const historyRes = await getPatientConsultationHistory(
+      ctxFor(tenantA),
       patientAId,
-      undefined,
-      tenantA.client,
-      sessionA
+      undefined
     );
 
     expect(historyRes.success).toBe(true);

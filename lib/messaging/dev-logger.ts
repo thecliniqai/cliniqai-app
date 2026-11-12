@@ -52,10 +52,6 @@ export class DevLoggerProvider implements MessagingProvider {
       ? buttons.map((b) => `[${b.text}] (${b.id})`).join("  ")
       : null;
 
-    const simulatedWebhookLinks = buttons && buttons.length > 0
-      ? buttons.map((b) => `  ↳ Click ${b.text}: http://localhost:3000/api/webhooks/messaging/dev?action=${encodeURIComponent(b.id)}&from=${encodeURIComponent(to)}`).join("\n")
-      : null;
-
     const lines = [
       `\n${bannerBorder}`,
       `[CLINICOS DEV MESSAGING] 📱 WhatsApp — ${timestamp}`,
@@ -64,7 +60,6 @@ export class DevLoggerProvider implements MessagingProvider {
       `Template:   ${templateId}`,
       `Parameters: ${JSON.stringify(params, null, 2)}`,
       buttonSummary ? `Buttons:    ${buttonSummary}` : null,
-      simulatedWebhookLinks ? `Simulated Inbound Actions:\n${simulatedWebhookLinks}` : null,
       `${bannerBorder}\n`,
     ]
       .filter(Boolean)
