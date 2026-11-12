@@ -6,10 +6,11 @@ import {
   deleteFile,
   sanitizeStoragePath,
   validateStoragePath,
+  getStorageProviderForDb,
   SupabaseStorageProvider,
-  R2StorageProvider,
   StorageProvider,
 } from "@/lib/storage";
+import * as storageModule from "@/lib/storage";
 
 describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)", () => {
   const originalEnv = { ...process.env };
@@ -35,25 +36,46 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       expect(provider).toBeInstanceOf(SupabaseStorageProvider);
     });
 
-    it("selects R2 provider when STORAGE_PROVIDER=r2 and credentials are present", () => {
-      process.env.STORAGE_PROVIDER = "r2";
-      process.env.R2_ACCOUNT_ID = "mock-account-id";
-      process.env.R2_ACCESS_KEY_ID = "mock-access-key";
-      process.env.R2_SECRET_ACCESS_KEY = "mock-secret-key";
-
-      const provider = getStorageProvider();
-      expect(provider.name).toBe("r2");
-      expect(provider).toBeInstanceOf(R2StorageProvider);
+    // P1-43 (V2-03 03-10): Supabase Storage is the only provider. Stale R2 configuration must not switch providers
+    // (before 03-10 both cases below returned the R2/S3 provider).
+    it("stays on Supabase with STORAGE_PROVIDER=r2 and R2 credentials set", () => {
+      vi.stubEnv("STORAGE_PROVIDER", "r2");
+      vi.stubEnv("R2_ACCOUNT_ID", "synthetic-account-id");
+      vi.stubEnv("R2_ACCESS_KEY_ID", "synthetic-access-key");
+      vi.stubEnv("R2_SECRET_ACCESS_KEY", "synthetic-secret-key");
+      try {
+        const provider = getStorageProvider();
+        expect(provider.name).toBe("supabase");
+        expect(provider).toBeInstanceOf(SupabaseStorageProvider);
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
 
-    it("selects R2 provider when R2_ACCOUNT_ID and credentials are set even without STORAGE_PROVIDER=r2", () => {
-      delete process.env.STORAGE_PROVIDER;
-      process.env.R2_ACCOUNT_ID = "mock-account-id";
-      process.env.R2_ACCESS_KEY_ID = "mock-access-key";
-      process.env.R2_SECRET_ACCESS_KEY = "mock-secret-key";
+    it("binds a service call to the caller's client even with R2 credentials set (no provider switch)", async () => {
+      vi.stubEnv("STORAGE_PROVIDER", "r2");
+      vi.stubEnv("R2_ACCOUNT_ID", "synthetic-account-id");
+      vi.stubEnv("R2_ACCESS_KEY_ID", "synthetic-access-key");
+      vi.stubEnv("R2_SECRET_ACCESS_KEY", "synthetic-secret-key");
+      try {
+        const createSignedUrl = vi.fn(async () => ({ data: { signedUrl: "https://storage.local/signed" }, error: null }));
+        const from = vi.fn(() => ({ createSignedUrl }));
+        const callerClient = { storage: { from } } as unknown as Parameters<typeof getStorageProviderForDb>[0];
 
-      const provider = getStorageProvider();
-      expect(provider.name).toBe("r2");
+        const provider = getStorageProviderForDb(callerClient, "clinic-records");
+        expect(provider.name).toBe("supabase");
+        const out = await provider.createSignedUrl({ path: "tenants/t-1/labs/l-1/report.pdf", expiresInSeconds: 60 });
+
+        expect(out.signedUrl).toBe("https://storage.local/signed");
+        expect(from).toHaveBeenCalledWith("clinic-records");
+        expect(createSignedUrl).toHaveBeenCalledWith("tenants/t-1/labs/l-1/report.pdf", 60, { download: undefined });
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it("exports no R2/S3 provider", () => {
+      expect(Object.keys(storageModule).filter((k) => /r2|s3/i.test(k))).toEqual([]);
     });
   });
 

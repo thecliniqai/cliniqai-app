@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getAdminClient } from "@/lib/supabase/admin";
-import { getSignedUrl, getStorageProvider, SupabaseStorageProvider } from "@/lib/storage";
+import { getSignedUrl, SupabaseStorageProvider } from "@/lib/storage";
 import { isTenantScopedStoragePath, isWellFormedStorageKey } from "@/lib/storage/tenant-path";
 import { compileAndGenerateReceiptPdf } from "@/features/billing/pdf/generator";
 import { notifyAppointmentRescheduled } from "@/features/appointments/system";
@@ -74,11 +74,7 @@ export async function signSharedObject(
     return null;
   }
 
-  const useR2 =
-    process.env.STORAGE_PROVIDER === "r2" || Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID);
-  const provider = useR2
-    ? getStorageProvider()
-    : new SupabaseStorageProvider({ defaultBucket: target.bucket, client: getAdminClient() });
+  const provider = new SupabaseStorageProvider({ defaultBucket: target.bucket, client: getAdminClient() });
 
   try {
     const { signedUrl } = await getSignedUrl(

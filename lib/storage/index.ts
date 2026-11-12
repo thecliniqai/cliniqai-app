@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/types";
 import { SupabaseStorageProvider } from "./supabase-provider";
-import { R2StorageProvider } from "./r2-provider";
 import { isWellFormedStorageKey } from "./tenant-path";
 import {
   StorageDeleteOptions,
@@ -13,7 +12,6 @@ import {
 
 export * from "./types";
 export * from "./supabase-provider";
-export * from "./r2-provider";
 
 let defaultProviderInstance: StorageProvider | null = null;
 
@@ -63,24 +61,16 @@ export function sanitizeStoragePath(
 }
 
 /**
- * Resolves the active StorageProvider instance.
- * Automatically chooses R2StorageProvider if STORAGE_PROVIDER=r2 or R2_ACCOUNT_ID is set;
- * otherwise defaults to SupabaseStorageProvider.
+ * Resolves the default StorageProvider: Supabase Storage, the only provider (P1-43, C23; the R2/S3 provider was removed
+ * in V2-03 03-10). Stale `STORAGE_PROVIDER` / `R2_*` values are ignored here and rejected by the env schema in
+ * staging and production (03-01).
  */
 export function getStorageProvider(override?: StorageProvider): StorageProvider {
   if (override) {
     return override;
   }
 
-  const useR2 =
-    process.env.STORAGE_PROVIDER === "r2" ||
-    Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID);
-
-  if (useR2) {
-    return new R2StorageProvider();
-  }
-
-  if (!defaultProviderInstance || defaultProviderInstance.name !== "supabase") {
+  if (!defaultProviderInstance) {
     defaultProviderInstance = new SupabaseStorageProvider();
   }
 
@@ -88,21 +78,14 @@ export function getStorageProvider(override?: StorageProvider): StorageProvider 
 }
 
 /**
- * The storage provider for a service call: R2 when configured (same rule as `getStorageProvider`), otherwise
- * Supabase Storage through the caller's own client, so storage RLS applies to the acting user and no service-role
- * fallback is reachable (ADR-0005 D2).
+ * The storage provider for a service call: Supabase Storage through the caller's own client, so storage RLS applies
+ * to the acting user and no service-role fallback is reachable (ADR-0005 D2).
  */
 export function getStorageProviderForDb(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: SupabaseClient<Database, any, any>,
   defaultBucket: string
 ): StorageProvider {
-  const useR2 =
-    process.env.STORAGE_PROVIDER === "r2" ||
-    Boolean(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID);
-  if (useR2) {
-    return getStorageProvider();
-  }
   return new SupabaseStorageProvider({ defaultBucket, client: db });
 }
 
