@@ -1,0 +1,23 @@
+{
+ "commit": "14918998f0ada753f5e61082ea9206379e67675d",
+ "typecheck": {
+  "command": "npm run typecheck",
+  "exit_code": 0
+ },
+ "eslint": {
+  "command": "npx eslint . --quiet",
+  "exit_code": 1
+ },
+ "grep_auth01_banned_otp_terms_in_app_code": 27,
+ "grep_override_params_in_app_code": 493,
+ "inventory": {
+  "exit_code": 1,
+  "tail": [
+   ""
+  ]
+ },
+ "dependencies": {
+  "next_declared": "^15.2.1",
+  "next_installed": "15.5.28"
+ }
+}

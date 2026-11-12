@@ -1,0 +1,28 @@
+{
+ "commit": "60d8db0a7756810ac95ec93648daf1ea72bbf7df",
+ "typecheck": {
+  "command": "npm run typecheck",
+  "exit_code": 0
+ },
+ "eslint": {
+  "command": "npx eslint . --quiet",
+  "exit_code": 0
+ },
+ "grep_auth01_banned_otp_terms_in_app_code": 0,
+ "grep_override_params_in_app_code": 0,
+ "inventory": {
+  "exit_code": 0,
+  "tail": [
+   "          \"schema\": \"createScheduleBlockSchema\"",
+   "        }",
+   "      ]",
+   "    }",
+   "  ]",
+   "}"
+  ]
+ },
+ "dependencies": {
+  "next_declared": "15.5.28",
+  "next_installed": "15.5.28"
+ }
+}

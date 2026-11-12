@@ -723,3 +723,11 @@ Confirmed as designed: verifyOtp `type:'email'` for signup codes and `'recovery'
 single-use); CAPTCHA endpoint list matches C43; `/otp` creates users by default; the pre-account hijack is real
 and the post-verify `updateUser` + `signOut({scope:'others'})` fix works; a `postgres`-owned SECURITY DEFINER
 function can delete `auth.sessions` and that revokes refresh; `amr` carries per-method timestamps.
+
+### V2-01 gate evidence (2026-11-12)
+V2-01 Security containment verified at `60d8db0`: before (`1491899`) 71 files / 700 tests, after 86 files / 1128 tests,
+two consecutive local runs, 0 skipped; all ten roadmap acceptance items met. Evidence (tool-generated):
+`.planning/phases/01-security-containment/evidence/`; summary, decisions D1–D12 / R1–R17 / F1–F22 and five review
+reports (round 2 adversarial failed on two Highs, closed and re-verified in round 3): `01-SUMMARY.md`,
+`01-VERIFICATION.md`, `01-PLAN.md`, `reviews/`. ADR-0005 amendment A1 proposed. Decisions were taken by the agent as
+CTO under PO delegation (2026-11-11) and await PO confirmation at the gate.

@@ -1,0 +1,64 @@
+BEGIN
+       set_config        
+-------------------------
+ {"role":"service_role"}
+(1 row)
+
+  set_config  
+--------------
+ service_role
+(1 row)
+
+SELECT 1
+INSERT 0 1
+DO
+DO
+psql:supabase/tests/search_medicines_extension_schema.sql:73: NOTICE:  control ok: the stale function fails once pg_trgm moved (undefined_function)
+DO
+SET
+CREATE FUNCTION
+REVOKE
+CREATE FUNCTION
+REVOKE
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+REVOKE
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+REVOKE
+GRANT
+CREATE FUNCTION
+UPDATE 0
+UPDATE 0
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+CREATE FUNCTION
+REVOKE
+DROP TRIGGER
+CREATE TRIGGER
+DO
+REVOKE
+GRANT
+SET
+psql:supabase/tests/search_medicines_extension_schema.sql:109: NOTICE:  PASS: search_medicines resolves pg_trgm in schema "extensions" (the synthetic row matched a misspelt query only through similarity()); transaction rolled back
+DO
+ROLLBACK
