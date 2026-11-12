@@ -1,0 +1,51 @@
+{
+ "tool": "scripts/phase-evidence.mjs --ci-run",
+ "recorded_at": "2026-11-12T17:26:15.658Z",
+ "conclusion": "success",
+ "createdAt": "2026-11-12T17:17:34Z",
+ "databaseId": 43267858627,
+ "event": "pull_request",
+ "headBranch": "v2/phase-02-ci-e2e-foundations",
+ "headSha": "5c48dc6eb1c316a8aac1e9466347be8bf13fe973",
+ "jobs": [
+  {
+   "name": "e2e",
+   "conclusion": "success",
+   "startedAt": "2026-11-12T17:17:38Z",
+   "completedAt": "2026-11-12T17:23:58Z",
+   "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/43267858627/job/131356171788"
+  },
+  {
+   "name": "build",
+   "conclusion": "success",
+   "startedAt": "2026-11-12T17:17:38Z",
+   "completedAt": "2026-11-12T17:18:47Z",
+   "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/43267858627/job/131356171854"
+  },
+  {
+   "name": "test",
+   "conclusion": "success",
+   "startedAt": "2026-11-12T17:17:38Z",
+   "completedAt": "2026-11-12T17:25:46Z",
+   "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/43267858627/job/131356171902"
+  },
+  {
+   "name": "security",
+   "conclusion": "success",
+   "startedAt": "2026-11-12T17:17:38Z",
+   "completedAt": "2026-11-12T17:18:18Z",
+   "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/43267858627/job/131356172079"
+  },
+  {
+   "name": "static",
+   "conclusion": "success",
+   "startedAt": "2026-11-12T17:17:38Z",
+   "completedAt": "2026-11-12T17:18:26Z",
+   "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/43267858627/job/131356172393"
+  }
+ ],
+ "status": "completed",
+ "updatedAt": "2026-11-12T17:25:47Z",
+ "url": "https://github.com/thecliniqai/cliniqai-app/actions/runs/43267858627",
+ "workflowName": "CI"
+}

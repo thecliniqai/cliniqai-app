@@ -731,3 +731,11 @@ two consecutive local runs, 0 skipped; all ten roadmap acceptance items met. Evi
 reports (round 2 adversarial failed on two Highs, closed and re-verified in round 3): `01-SUMMARY.md`,
 `01-VERIFICATION.md`, `01-PLAN.md`, `reviews/`. ADR-0005 amendment A1 proposed. Decisions were taken by the agent as
 CTO under PO delegation (2026-11-11) and await PO confirmation at the gate.
+
+### V2-02 gate evidence (2026-11-13)
+V2-02 CI & e2e foundations verified at `004a2f3`: PR lane (static, security, test, build, e2e) green in GitHub Actions;
+Vitest 102 files / 1899 tests ×2 locally with 0 skipped; Playwright PR lane 122; guard canary proves an unguarded action
+fails the P0-13 guard; M0 baseline committed. Required checks on `feature/v2` applied (ruleset `feature-v2-ci`). Two
+defects found and fixed beyond scope: cross-tenant reference writes, and credentials able to reach a URL via a GET login
+form. Evidence and reviews: `.planning/phases/02-ci-e2e-foundations/` (`02-SUMMARY.md`, `02-VERIFICATION.md`,
+`evidence/`, `reviews/`). Decisions RL-1…23 / OA-1…6 by the agent as CTO under PO delegation, for PO confirmation.

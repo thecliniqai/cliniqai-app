@@ -122,3 +122,5 @@ is the acceptance link (`gh run list --workflow nightly.yml --event schedule --l
 - **b (ruleset `feature-v2-ci`) deferred until PR #3 (V2-01) merges.** PR #3's head branch has no `ci.yml`, so the five
   required checks would never report on it and, with no bypass actors, #3 could not be merged. Apply b immediately
   after #3 merges and #4 is retargeted to `feature/v2`, then run the after-state diff.
+
+- **b applied** 2026-11-13 after PR #3 merged (`e01c39b`): ruleset `feature-v2-ci` id 27150224, active; `v2rules` and `main` rules unchanged (diff empty); responses `evidence/github-settings/b-ruleset-feature-v2-ci.json`, `z-*-after.json`.
