@@ -62,6 +62,9 @@ export const FORBIDDEN_VARS = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "MESSAGING_WEBHOOK_SECRET",
   "SUPABASE_ACCESS_TOKEN",
+  // V2-03 03-11a (AUTH-02): the read-only Management API token for the hosted auth-config drift check lives only in
+  // the `staging-readonly` GitHub Environment; scripts/drift/auth-config-hosted.mjs refuses to run without it.
+  "SUPABASE_ACCESS_TOKEN_STAGING_RO",
   "SUPABASE_DB_PASSWORD",
   "DATABASE_URL",
   "R2_ACCOUNT_ID",
