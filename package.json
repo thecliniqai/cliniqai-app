@@ -63,6 +63,7 @@
     "eslint-config-next": "16.4.6",
     "postcss": "^8.5.3",
     "prettier": "^3.5.3",
+    "smol-toml": "1.9.1",
     "supabase": "2.120.0",
     "tailwindcss": "^4.0.12",
     "tsx": "4.23.15",
