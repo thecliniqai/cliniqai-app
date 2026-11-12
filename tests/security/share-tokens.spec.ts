@@ -11,6 +11,7 @@ import { GET as getRescheduleRoute, POST as postRescheduleRoute } from "@/app/ap
 import { generateRescheduleToken } from "@/features/appointments/system";
 import * as dispatcher from "@/lib/messaging/dispatcher";
 import { shareTokenHash } from "../helpers/share-tokens";
+import { jsonObject } from "../helpers/db";
 
 // V2-01 plan 01-04 (P0-04; SEC-05, ARC-05, F7(a)); SECURITY_VERIFICATION_PLAN TC-TOK-01..06. Local stack, real
 // clients; the admin client only seeds rows (including deliberately mis-bound tokens) and reads results.
@@ -515,10 +516,10 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
         .select("id, metadata")
         .eq("tenant_id", A.owner.tenantId)
         .eq("event_type", "appointment_rescheduled");
-      const forToken = (notes ?? []).filter(
-        (n: { metadata: { new_scheduled_at?: string } | null }) =>
-          n.metadata?.new_scheduled_at && new Date(n.metadata.new_scheduled_at).getTime() === winner.getTime()
-      );
+      const forToken = (notes ?? []).filter((n) => {
+        const at = jsonObject(n.metadata).new_scheduled_at;
+        return typeof at === "string" && new Date(at).getTime() === winner.getTime();
+      });
       expect(forToken).toHaveLength(1);
 
       // A third attempt after the race is also refused.

@@ -37,7 +37,8 @@ export async function assertRlsCatalog(): Promise<{
   const admin = getAdminClient();
 
   const { data: rawData, error } = await admin.rpc("get_tenant_table_rls_policies");
-  // The RPC returns SETOF rows; the TestDb seam (./db.ts) leaves its result untyped, so name the row shape here.
+  // `gen types` marks every column of a RETURNS TABLE function non-null; the policy columns come from a LEFT JOIN
+  // (a table with RLS on and no policy yields one row of nulls), so read the rows through the nullable shape.
   const data = rawData as PolicyCatalogRow[] | null;
 
   if (error) {

@@ -17,11 +17,11 @@ import {
 } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
+import { insertReturningId, type IdTable } from "../helpers/db";
+import type { TablesInsert } from "@/types/database";
 
-async function insertRow(table: string, row: Record<string, unknown>): Promise<string> {
-  const { data, error } = await getAdminClient().from(table).insert(row).select("id").single();
-  if (error || !data) throw new Error(`${table} seed failed: ${error?.message}`);
-  return data.id as string;
+function insertRow<T extends IdTable>(table: T, row: TablesInsert<T>): Promise<string> {
+  return insertReturningId(getAdminClient(), table, row);
 }
 
 function daysAgo(days: number): string {

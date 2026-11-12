@@ -26,7 +26,8 @@ import type { UserRole } from "@/lib/db/types";
 import { env } from "@/lib/env";
 import { hasPerm, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import type { buildInventory } from "@/scripts/inventory-server-actions";
-import type { TestDb } from "../../helpers/db";
+import { rowsWhereIn, type PublicTable, type TestDb } from "../../helpers/db";
+import type { Tables } from "@/types/database";
 import type { ActionGuard, RouteGuard } from "../guard-manifest";
 import type { GuardWorld, TenantRowIds } from "./world";
 
@@ -500,11 +501,13 @@ export async function countRows(admin: TestDb): Promise<Record<string, number>> 
   return counts;
 }
 
-async function rowsOf(admin: TestDb, table: string, column: string, values: string[]): Promise<string[]> {
-  if (values.length === 0) return [];
-  const { data, error } = await admin.from(table).select("*").in(column, values).limit(10_000);
-  if (error) throw new Error(`read ${table}: ${error.message}`);
-  return (data ?? []).map((r) => JSON.stringify(r)).sort();
+async function rowsOf<T extends PublicTable>(
+  admin: TestDb,
+  table: T,
+  column: keyof Tables<T> & string,
+  values: string[],
+): Promise<string[]> {
+  return (await rowsWhereIn(admin, table, column, values)).map((r) => JSON.stringify(r)).sort();
 }
 
 /** A hash per table of every row tenant B owns (plus its tenant row and prescription items). */

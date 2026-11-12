@@ -19,11 +19,11 @@ import {
 } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
+import { insertReturningId, type IdTable } from "../helpers/db";
+import type { TablesInsert } from "@/types/database";
 
-async function insertRow(table: string, row: Record<string, unknown>): Promise<string> {
-  const { data, error } = await getAdminClient().from(table).insert(row).select("id").single();
-  if (error || !data) throw new Error(`${table} seed failed: ${error?.message}`);
-  return data.id as string;
+function insertRow<T extends IdTable>(table: T, row: TablesInsert<T>): Promise<string> {
+  return insertReturningId(getAdminClient(), table, row);
 }
 
 function minutesAgo(minutes: number): string {
@@ -146,7 +146,10 @@ describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-m
         created_by: ownerB.userId,
       });
 
-      const visit = (row: Record<string, unknown>) =>
+      const visit = (
+        row: Omit<TablesInsert<"visits">, "origin_type" | "specialty"> &
+          Partial<Pick<TablesInsert<"visits">, "origin_type" | "specialty">>,
+      ) =>
         insertRow("visits", { origin_type: "walk_in", specialty: "general_physician", ...row });
       v1 = await visit({
         tenant_id: ownerA.tenantId,

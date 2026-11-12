@@ -14,6 +14,7 @@ import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
 import { enableApiV1ForFile } from "../helpers/api-v1";
+import { jsonObject } from "../helpers/db";
 
 enableApiV1ForFile();
 
@@ -382,11 +383,12 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
       expect(result.erasedAt).toBeDefined();
 
       const admin = getAdminClient();
-      const { data: p } = await admin
+      const { data: p, error } = await admin
         .from("patients")
         .select("*")
         .eq("id", patientId)
         .single();
+      if (error || !p) throw new Error(`read erased patient: ${error?.message}`);
 
       expect(p.is_deleted).toBe(true);
       expect(p.status).toBe("erased");
@@ -450,8 +452,8 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
       expect(logs).toBeDefined();
       expect(logs!.length).toBeGreaterThanOrEqual(1);
       const log = logs![0];
-      expect(log.metadata?.retention_policy).toBe("NMC_REGULATION_1.3.1_3_YEAR_MANDATE");
-      expect(log.metadata?.status).toBe("erased");
+      expect(jsonObject(log.metadata).retention_policy).toBe("NMC_REGULATION_1.3.1_3_YEAR_MANDATE");
+      expect(jsonObject(log.metadata).status).toBe("erased");
     });
 
     it("DELETE /api/v1/patients/[id] delegates to erasePatientRecord and returns success envelope", async () => {
@@ -544,7 +546,7 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
       expect(withdrawLogs!.length).toBeGreaterThanOrEqual(1);
       // F2: the free-text note stays on the consent record; the audit trail carries a fixed reason code only
       expect(withdrawnRecords![0].note).toBe("Patient withdrew all processing consent");
-      expect(withdrawLogs![0].metadata?.reason).toBe("global_consent_withdrawn");
+      expect(jsonObject(withdrawLogs![0].metadata).reason).toBe("global_consent_withdrawn");
       expect(JSON.stringify(withdrawLogs![0].metadata)).not.toContain("Patient withdrew");
       expect(withdrawLogs![0].actor_id).toBe(tenantA.userId);
 

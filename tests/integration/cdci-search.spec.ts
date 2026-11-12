@@ -4,7 +4,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { seedCdciTestFixture } from "../../scripts/seed-cdci-test-fixture";
 import type { Database } from "@/lib/db/types";
 
-/** One row of `search_medicines` (the TestDb seam leaves RPC results untyped; this is the declared shape). */
+/** One row of `search_medicines`, from the generated function signature. */
 type MedicineSearchRow = Database["public"]["Functions"]["search_medicines"]["Returns"][number];
 
 describe("CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-tenancy)", () => {

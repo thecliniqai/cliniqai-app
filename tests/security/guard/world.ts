@@ -21,7 +21,8 @@ import type { UserRole } from "@/lib/db/types";
 import { referralLetterPath } from "@/lib/storage/tenant-path";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { addMemberToTenant, createUnlinkedUser, seedTenantWithOwner, type SeededTenant } from "../../helpers/tenants";
-import type { TestDb } from "../../helpers/db";
+import { insertReturningId, type TestDb } from "../../helpers/db";
+import type { TablesInsert } from "@/types/database";
 
 /** One row id per table an entry point takes an id for, plus the tenant, a user and a membership. */
 export interface TenantRowIds {
@@ -78,13 +79,12 @@ export interface GuardWorld {
   outsider: { userId: string; client: TestDb };
 }
 
-async function insertRow(admin: TestDb, table: string, row: Record<string, unknown>): Promise<string> {
-  const { data, error } = await admin.from(table).insert(row).select("id").single();
-  if (error || !data) throw new Error(`guard world: seed ${table} failed: ${error?.message}`);
-  return (data as { id: string }).id;
-}
+const insertRow = insertReturningId;
 
-async function insertToken(admin: TestDb, row: Record<string, unknown>): Promise<string> {
+async function insertToken(
+  admin: TestDb,
+  row: Omit<TablesInsert<"document_share_tokens">, "token_hash">,
+): Promise<string> {
   const token = randomBytes(32).toString("hex");
   const { error } = await admin
     .from("document_share_tokens")

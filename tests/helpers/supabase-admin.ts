@@ -7,7 +7,7 @@ import type { TestDb } from "./db";
  * MANDATORY: ONLY used in test helpers and server administration scripts.
  * NEVER import or expose to browser client (AGENTS.md §5, §31).
  *
- * Typed through the RL-13b `TestDb` seam (see `./db.ts`) until generated types land in V2-03 plan 03-03.
+ * Typed as `SupabaseClient<Database>` over the generated `types/database.ts` (see `./db.ts`).
  */
 export function getAdminClient(): TestDb {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

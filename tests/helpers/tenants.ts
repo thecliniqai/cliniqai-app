@@ -221,7 +221,7 @@ export interface DualTenantEcosystem {
     doctor: SeededTenant;
     patientId: string;
     consentId: string;
-    auditLogId: string;
+    auditLogId: number;
     invitationId: string;
     invitationToken: string;
     subscriptionId: string;
@@ -234,7 +234,7 @@ export interface DualTenantEcosystem {
     doctor: SeededTenant;
     patientId: string;
     consentId: string;
-    auditLogId: string;
+    auditLogId: number;
     invitationId: string;
     invitationToken: string;
     subscriptionId: string;
