@@ -1,0 +1,95 @@
+{
+  "commit": "ade531fe6c7a87c3ee9f440238b359541378de8c",
+  "tests": [
+    {
+      "file": "m0/book-appointment.spec.ts",
+      "title": "book a free slot → booked visit at that time, visible on the calendar",
+      "project": "desktop-chrome",
+      "expected": "passed",
+      "outcome": "expected",
+      "result": "passed",
+      "knownBug": null
+    },
+    {
+      "file": "m0/book-appointment.spec.ts",
+      "title": "overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked",
+      "project": "desktop-chrome",
+      "expected": "passed",
+      "outcome": "expected",
+      "result": "passed",
+      "knownBug": null
+    },
+    {
+      "file": "m0/book-appointment.spec.ts",
+      "title": "overbook path with a new patient creates exactly one patient (known v1 bug F-04)",
+      "project": "desktop-chrome",
+      "expected": "failed",
+      "outcome": "expected",
+      "result": "failed",
+      "knownBug": "F-04: the overbook confirm re-runs createPatient, duplicating the new patient (P1, owner V2-08)"
+    },
+    {
+      "file": "m0/cancel-appointment.spec.ts",
+      "title": "cancel a booked visit → cancelled, slot free again for a booking without override",
+      "project": "desktop-chrome",
+      "expected": "passed",
+      "outcome": "expected",
+      "result": "passed",
+      "knownBug": null
+    },
+    {
+      "file": "m0/checkout-collect.spec.ts",
+      "title": "bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF",
+      "project": "desktop-chrome",
+      "expected": "passed",
+      "outcome": "expected",
+      "result": "passed",
+      "knownBug": null
+    },
+    {
+      "file": "m0/consult-rx-finish.spec.ts",
+      "title": "doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF",
+      "project": "desktop-chrome",
+      "expected": "passed",
+      "outcome": "expected",
+      "result": "passed",
+      "knownBug": null
+    },
+    {
+      "file": "m0/consult-rx-finish.spec.ts",
+      "title": "a signed prescription is read-only in the workspace (known v1 gap P1-03)",
+      "project": "desktop-chrome",
+      "expected": "failed",
+      "outcome": "expected",
+      "result": "failed",
+      "knownBug": "P1-03: v1 keeps the prescription builder editable after sign-off; clinical immutability lands in V2-09a"
+    },
+    {
+      "file": "m0/register-patient.spec.ts",
+      "title": "owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list",
+      "project": "desktop-chrome",
+      "expected": "passed",
+      "outcome": "expected",
+      "result": "passed",
+      "knownBug": null
+    },
+    {
+      "file": "m0/register-patient.spec.ts",
+      "title": "receptionist registers a patient (known v1 bug F-01)",
+      "project": "desktop-chrome",
+      "expected": "failed",
+      "outcome": "expected",
+      "result": "failed",
+      "knownBug": "F-01: receptionists cannot register patients in v1 (no patients:edit); fixed by PO-3 in V2-05/V2-08"
+    },
+    {
+      "file": "m0/walk-in-token.spec.ts",
+      "title": "walk-in for an existing patient → waiting visit + next queue token, visible in the queue",
+      "project": "desktop-chrome",
+      "expected": "passed",
+      "outcome": "expected",
+      "result": "passed",
+      "knownBug": null
+    }
+  ]
+}
