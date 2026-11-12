@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import crypto from "crypto";
-import { generateDocumentShareToken } from "@/features/labs/actions";
+import { generateDocumentShareToken } from "@/features/labs/service";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { getAdminClient } from "@/lib/supabase/admin";
+import { ctxFor } from "../helpers/context";
 
 describe("Tokenized Patient Document Sharing (REQ-lab-records, D-05)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -63,7 +64,7 @@ describe("Tokenized Patient Document Sharing (REQ-lab-records, D-05)", () => {
 
   describe("2. Server Action Token Generation & Retrieval", () => {
     it("generates a valid share token with 7-day TTL via generateDocumentShareToken", async () => {
-      const res = await generateDocumentShareToken(documentAId, tenantA.client, sessionA);
+      const res = await generateDocumentShareToken(ctxFor(tenantA), documentAId);
       expect(res.success).toBe(true);
       expect(res.token).toBeDefined();
       expect(res.token).toHaveLength(64);

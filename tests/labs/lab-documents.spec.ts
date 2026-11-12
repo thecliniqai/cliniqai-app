@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { uploadLabDocument, getPatientDocuments, deleteLabDocument } from "@/features/labs/actions";
+import { uploadLabDocument, getPatientDocuments, deleteLabDocument } from "@/features/labs/service";
 import { formatAmendedFilename } from "@/features/labs/utils";
 import { uploadLabDocumentSchema } from "@/features/labs/schema";
 import { seedTenantWithOwner } from "../helpers/tenants";
@@ -102,7 +102,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
       formData.set("is_abnormal", "true");
       formData.set("notes", "Elevated WBC count observed");
 
-      const uploadRes = await uploadLabDocument(formData, tenantA.client, sessionA);
+      const uploadRes = await uploadLabDocument(ctxFor(tenantA), formData);
       expect(uploadRes.success).toBe(true);
       if (uploadRes.success) {
         expect(uploadRes.document.title).toBe("Complete Blood Count");
@@ -114,7 +114,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
     });
 
     it("retrieves patient documents ordered by report_date DESC", async () => {
-      const listRes = await getPatientDocuments(patientAId, tenantA.client, sessionA);
+      const listRes = await getPatientDocuments(ctxFor(tenantA), patientAId);
       expect(listRes.success).toBe(true);
       expect(listRes.documents.length).toBeGreaterThanOrEqual(1);
       const found = listRes.documents.find((d) => d.id === documentAId);
@@ -134,7 +134,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
       formData.set("document_type", "lab_report");
       formData.set("report_date", "2026-10-22");
 
-      const uploadRes = await uploadLabDocument(formData, tenantA.client, sessionA);
+      const uploadRes = await uploadLabDocument(ctxFor(tenantA), formData);
       expect(uploadRes.success).toBe(false);
       expect(uploadRes.error).toContain("25MB");
     });
@@ -142,7 +142,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
 
   describe("3. Multi-Tenant RLS Boundary (T-04-03, T-04-06)", () => {
     it("proves Tenant B cannot query or view Tenant A patient documents via RLS", async () => {
-      const listRes = await getPatientDocuments(patientAId, tenantB.client, sessionB);
+      const listRes = await getPatientDocuments(ctxFor(tenantB), patientAId);
       // Because patientAId belongs to Tenant A, Tenant B's query filtered by tenant_id returns 0 items
       expect(listRes.documents).toHaveLength(0);
 
@@ -156,7 +156,7 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
     });
 
     it("proves Tenant B cannot delete Tenant A patient documents", async () => {
-      const delRes = await deleteLabDocument(documentAId, tenantB.client, sessionB);
+      const delRes = await deleteLabDocument(ctxFor(tenantB), documentAId);
       expect(delRes.success).toBe(false);
       expect(delRes.error).toContain("not found or access denied");
 

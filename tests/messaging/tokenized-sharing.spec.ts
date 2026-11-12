@@ -9,7 +9,8 @@ import * as appointmentsActions from "@/features/appointments/actions";
 import * as storageModule from "@/lib/storage";
 import { NextRequest } from "next/server";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
-import { shareLabReportViaWhatsApp } from "@/features/labs/actions";
+import { shareLabReportViaWhatsApp } from "@/features/labs/service";
+import { mockCtx } from "../helpers/context";
 import { shareReferralLetterViaWhatsApp } from "@/features/referrals/actions";
 import { shareReceiptViaWhatsApp, sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
 import * as dispatcher from "@/lib/messaging/dispatcher";
@@ -558,7 +559,7 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
         }),
       };
 
-      const res = await shareLabReportViaWhatsApp("doc-200", mockSupabase, session);
+      const res = await shareLabReportViaWhatsApp(mockCtx(mockSupabase, session), "doc-200");
       expect(res.success).toBe(true);
       expect(res.shareUrl).toContain("/r/");
       expect(enqueueSpy).toHaveBeenCalledWith(
