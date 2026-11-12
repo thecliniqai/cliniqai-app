@@ -7,7 +7,7 @@ import {
   completeAndSignConsultation,
   reopenVisitForAmendment,
   finalizeVisitAmendment,
-} from "@/features/consultation/actions";
+} from "@/features/consultation/service";
 import { addConsultationDiagnosis } from "@/features/terminology/service";
 import {
   addPrescriptionItem,
@@ -78,6 +78,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     // 3. Save consultation SOAP clinical documentation
     const draftRes = await saveConsultationDraft(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         specialty: "general_physician",
@@ -96,9 +97,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
         clinical_notes: "Patient presents with chills and rigors. Chest clear, throat mildly congested.",
         advice: ["Strict bed rest", "Maintain oral fluid intake > 2.5L/day"],
         investigations_advised: ["Complete Blood Count (CBC)"],
-      },
-      tenantA.client,
-      sessionA
+      }
     );
     expect(draftRes.success).toBe(true);
 
@@ -152,7 +151,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
   });
 
   it("2. Call completeAndSignConsultation: transitions visit to 'completed' and seals prescription v1", async () => {
-    const signRes = await completeAndSignConsultation(visitAId, tenantA.client, sessionA);
+    const signRes = await completeAndSignConsultation(ctxFor(tenantA), visitAId);
     expect(signRes.success).toBe(true);
 
     // Verify visit status is completed and signed_at is recorded
@@ -261,20 +260,18 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
   it("5. Post-sign-off amendment lifecycle: enforces justification, creates immutable revision snapshot, and increments version to v2", async () => {
     // 1. Attempt amendment without valid reason (< 10 chars) -> must fail
     const invalidRes = await reopenVisitForAmendment(
+      ctxFor(tenantA),
       visitAId,
-      "Too short",
-      tenantA.client,
-      sessionA
+      "Too short"
     );
     expect(invalidRes.success).toBe(false);
 
     // 2. Reopen for amendment with valid mandatory reason
     const validReason = "Adjusted medication dosage after CBC showed viral etiology";
     const reopenRes = await reopenVisitForAmendment(
+      ctxFor(tenantA),
       visitAId,
-      validReason,
-      tenantA.client,
-      sessionA
+      validReason
     );
 
     expect(reopenRes.success).toBe(true);
@@ -330,7 +327,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     expect(addRes.success).toBe(true);
 
     // 6. Doctor finalizes amendment
-    const finalizeRes = await finalizeVisitAmendment(visitAId, tenantA.client, sessionA);
+    const finalizeRes = await finalizeVisitAmendment(ctxFor(tenantA), visitAId);
     expect(finalizeRes.success).toBe(true);
     if (finalizeRes.success) {
       expect(finalizeRes.version).toBe(2);
@@ -379,10 +376,9 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     // 2. Tenant B cannot reopen Tenant A's visit for amendment
     const maliciousReopen = await reopenVisitForAmendment(
+      ctxFor(tenantB),
       visitAId,
-      "Malicious unauthorized attempt to reopen Tenant A visit",
-      tenantB.client,
-      sessionB
+      "Malicious unauthorized attempt to reopen Tenant A visit"
     );
     expect(maliciousReopen.success).toBe(false);
 

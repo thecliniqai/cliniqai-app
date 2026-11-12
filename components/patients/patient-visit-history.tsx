@@ -25,6 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Badge, StatusBadge } from "@/components/ui/badge";
 import { PatientVisitHistoryItem, PatientVisitVitals } from "@/features/patients/schema";
 import { cn } from "@/lib/utils";
+import { hasPerm } from "@/lib/permissions";
+import type { UserRole } from "@/lib/db/types";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
 import { shareReceiptViaWhatsApp } from "@/features/billing/actions";
 
@@ -52,6 +54,8 @@ export function PatientVisitHistory({
   };
 
   const isDoctorOrOwner = ["owner", "admin", "doctor"].includes(userRole);
+  // Prescription PDF / share need consultations:view (V2-01 F3/F9): no dead links for other roles.
+  const canViewPrescription = hasPerm(userRole as UserRole, "consultations:view");
 
   const [waSendingState, setWaSendingState] = useState<Record<string, "sending" | "sent" | "error">>({});
 
@@ -484,7 +488,7 @@ export function PatientVisitHistory({
                   <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                       {/* WhatsApp Rx */}
-                      {(hasRx || visit.status === "completed") && (
+                      {canViewPrescription && (hasRx || visit.status === "completed") && (
                         <Button
                           variant={waSendingState[`rx-${visit.id}`] === "sent" ? "outline" : "secondary"}
                           size="sm"
@@ -513,7 +517,7 @@ export function PatientVisitHistory({
                       )}
 
                       {/* Print Rx PDF */}
-                      {hasRx || visit.status === "completed" ? (
+                      {canViewPrescription && (hasRx || visit.status === "completed") ? (
                         <a
                           href={`/api/visits/${visit.id}/prescription-pdf`}
                           target="_blank"

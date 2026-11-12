@@ -194,16 +194,15 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
 
       // 2. Doctor saves consultation draft with recommended lab tests
       const advisedTests = ["CBC", "HbA1c", "Lipid Profile", "Thyroid Profile (TSH, T3, T4)"];
-      const { saveConsultationDraft } = await import("@/features/consultation/actions");
+      const { saveConsultationDraft } = await import("@/features/consultation/service");
 
       const draftRes = await saveConsultationDraft(
+        ctxFor(tenantA),
         {
           visit_id: visitId,
           investigations_advised: advisedTests,
           clinical_notes: "Routine diabetic workup and lipid screening advised.",
-        },
-        tenantA.client,
-        sessionA
+        }
       );
 
       expect(draftRes.success).toBe(true);

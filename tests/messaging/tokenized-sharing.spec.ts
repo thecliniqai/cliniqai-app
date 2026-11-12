@@ -12,7 +12,7 @@ import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/service";
 import { shareLabReportViaWhatsApp } from "@/features/labs/service";
 import { mockCtx } from "../helpers/context";
 import { shareReferralLetterViaWhatsApp } from "@/features/referrals/service";
-import { shareReceiptViaWhatsApp, sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
+import { shareReceiptViaWhatsApp, sendConsolidatedConsultationWhatsApp } from "@/features/billing/service";
 import * as dispatcher from "@/lib/messaging/dispatcher";
 
 describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications, T-05-06)", () => {
@@ -672,7 +672,7 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
         }),
       };
 
-      const res = await shareReceiptViaWhatsApp("inv-400", mockSupabase, session);
+      const res = await shareReceiptViaWhatsApp(mockCtx(mockSupabase, session), "inv-400");
       expect(res.success).toBe(true);
       expect(res.shareUrl).toContain("/r/");
       expect(enqueueSpy).toHaveBeenCalledWith(
@@ -811,9 +811,8 @@ describe("Tokenized Sharing & Public Mobile Routes (REQ-reminders-notifications,
       };
 
       const res = await sendConsolidatedConsultationWhatsApp(
-        { visitId: "visit-123", invoiceId: "inv-200" },
-        mockSupabase,
-        session
+        mockCtx(mockSupabase, session),
+        { visitId: "visit-123", invoiceId: "inv-200" }
       );
 
       expect(res.success).toBe(true);

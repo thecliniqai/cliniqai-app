@@ -42,6 +42,8 @@ interface DoctorCabinViewProps {
   doctors: DoctorOption[];
   isOwnerOrAdmin: boolean;
   currentDate: string;
+  /** Whether the viewer's role has consultations:view (prescription PDF/share require it, V2-01 F3/F9). */
+  canViewPrescription: boolean;
 }
 
 export function DoctorCabinView({
@@ -53,6 +55,7 @@ export function DoctorCabinView({
   doctors,
   isOwnerOrAdmin,
   currentDate,
+  canViewPrescription,
 }: DoctorCabinViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -441,7 +444,7 @@ export function DoctorCabinView({
                       <span>Review Visit</span>
                     </Link>
 
-                    {visit.prescription && (
+                    {canViewPrescription && visit.prescription && (
                       <button
                         type="button"
                         disabled={waSendingState[`rx-${visit.id}`] === "sending" || waSendingState[`rx-${visit.id}`] === "sent"}
@@ -467,7 +470,7 @@ export function DoctorCabinView({
                       </button>
                     )}
 
-                    {visit.prescription && (
+                    {canViewPrescription && visit.prescription && (
                       <a
                         href={`/api/visits/${visit.id}/prescription-pdf`}
                         target="_blank"

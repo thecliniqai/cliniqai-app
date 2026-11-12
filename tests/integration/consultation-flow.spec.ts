@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
 import { checkInVisit, transitionQueueState } from "@/features/queue/service";
-import { saveConsultationDraft, recordFollowUp, getPatientConsultationHistory } from "@/features/consultation/actions";
+import { saveConsultationDraft, recordFollowUp, getPatientConsultationHistory } from "@/features/consultation/service";
 import { searchDiagnoses, addConsultationDiagnosis, getVisitDiagnoses } from "@/features/terminology/service";
 import {
   addPrescriptionItem,
@@ -137,6 +137,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
   it("5. Doctor records chief complaints, clinical examination notes, and specialty data (dental odontogram)", async () => {
     const draftRes = await saveConsultationDraft(
+      ctxFor(tenantA),
       {
         visit_id: visitAId,
         specialty: "dental",
@@ -172,9 +173,7 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
           "Warm salt water rinses three times daily",
         ],
         investigations_advised: ["Intraoral Periapical (IOPA) X-Ray #46"],
-      },
-      tenantA.client,
-      sessionA
+      }
     );
 
     expect(draftRes.success).toBe(true);
@@ -322,14 +321,13 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
     const followUpDate = new Date(Date.now() + 5 * 86400000).toISOString().split("T")[0];
 
     const followUpRes = await recordFollowUp(
+      ctxFor(tenantA),
       {
         visitId: visitAId,
         patientId: patientAId,
         followUpDate,
         notes: "RCT obturation and crown preparation",
-      },
-      tenantA.client,
-      sessionA
+      }
     );
 
     expect(followUpRes.success).toBe(true);
@@ -360,10 +358,9 @@ describe("Consultation Lifecycle & Clinical Data Progression (REQ-consultation-w
 
     // Longitudinal patient history query retrieves completed consultation encounter
     const historyRes = await getPatientConsultationHistory(
+      ctxFor(tenantA),
       patientAId,
-      undefined,
-      tenantA.client,
-      sessionA
+      undefined
     );
 
     expect(historyRes.success).toBe(true);

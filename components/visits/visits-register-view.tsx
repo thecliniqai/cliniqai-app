@@ -31,6 +31,8 @@ import {
 } from "@/features/visits/schema";
 import { ReadOnlyEncounterModal } from "./read-only-encounter-modal";
 import { cn } from "@/lib/utils";
+import { hasPerm } from "@/lib/permissions";
+import type { UserRole } from "@/lib/db/types";
 import { formatTenDigitsDisplay } from "@/lib/utils/phone";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
 import { shareReceiptViaWhatsApp, sendConsolidatedConsultationWhatsApp } from "@/features/billing/actions";
@@ -80,6 +82,8 @@ export function VisitsRegisterView({
   const [previewVisit, setPreviewVisit] = useState<ClinicVisitRegisterItem | null>(null);
 
   const isDoctorOrOwner = ["owner", "admin", "doctor"].includes(userRole);
+  // Prescription PDF / share need consultations:view (V2-01 F3/F9): no dead links for other roles.
+  const canViewPrescription = hasPerm(userRole as UserRole, "consultations:view");
 
   const [waSendingState, setWaSendingState] = useState<Record<string, "sending" | "sent" | "error">>({});
 
@@ -586,7 +590,7 @@ export function VisitsRegisterView({
                       <td className="px-4 py-3.5 whitespace-nowrap text-right">
                         <div className="inline-flex items-center gap-1.5 justify-end">
                           {/* If BOTH Rx and Invoice exist: 1 single consolidated WhatsApp button */}
-                          {(hasRx || visit.status === "completed") && hasInvoice ? (
+                          {canViewPrescription && (hasRx || visit.status === "completed") && hasInvoice ? (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -609,7 +613,7 @@ export function VisitsRegisterView({
                           ) : (
                             <>
                               {/* Individual WhatsApp Rx button if only Rx */}
-                              {(hasRx || visit.status === "completed") && (
+                              {canViewPrescription && (hasRx || visit.status === "completed") && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -752,6 +756,7 @@ export function VisitsRegisterView({
         visit={previewVisit}
         isOpen={!!previewVisit}
         onClose={() => setPreviewVisit(null)}
+        canViewPrescription={canViewPrescription}
       />
     </div>
   );

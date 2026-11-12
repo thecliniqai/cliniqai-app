@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getTenantDoctorDirectory } from "@/features/staff/service";
 import { requireServiceContext } from "@/lib/auth/context";
+import { hasPerm } from "@/lib/permissions";
 import { DoctorCabinView, DoctorOption } from "@/components/cabin/doctor-cabin-view";
 import { CabinVisitItem } from "@/components/cabin/my-queue-card";
 
@@ -183,6 +184,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
         doctors={doctors}
         isOwnerOrAdmin={isOwnerOrAdmin}
         currentDate={currentDate}
+        canViewPrescription={hasPerm(membership.role, "consultations:view")}
       />
     </div>
   );
