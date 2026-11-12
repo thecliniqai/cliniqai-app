@@ -18,6 +18,8 @@ const TENANT_ID = "7d1c0b9a-8e7f-4a6b-9c5d-4e3f2a1b0c9d";
 const USER_ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 const PATIENT_ID = "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b";
 const DOCUMENT_ID = "9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a";
+/** A low-entropy synthetic cron token (>= 32 chars), built at runtime so it is not secret-shaped in source. */
+const CRON_TOKEN = ["synthetic", "cron", "x".repeat(32)].join("-");
 
 const PHONE = "+919000000001";
 const EMAIL = "synthetic.user@example.test";
@@ -215,7 +217,7 @@ describe("server error branches log the event and code, never the raw error (03-
   });
 
   it("cron route: a dispatcher exception becomes a fixed 500 body and one line", async () => {
-    vi.stubEnv("CRON_SECRET", "synthetic-cron-secret-0123456789abcdef");
+    vi.stubEnv("CRON_SECRET", CRON_TOKEN);
     try {
       // `serverEnv()` is memoised on the current values, so the stubbed secret is seen on the next call.
       mocks.getSystemDb.mockImplementation(() => {
@@ -224,7 +226,7 @@ describe("server error branches log the event and code, never the raw error (03-
 
       const res = await cronWebhooks(
         new NextRequest("http://localhost/api/cron/webhooks", {
-          headers: { authorization: "Bearer synthetic-cron-secret-0123456789abcdef" },
+          headers: { authorization: `Bearer ${CRON_TOKEN}` },
         })
       );
 

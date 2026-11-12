@@ -15,3 +15,5 @@ ade37e1a59a03039dee1b525310d2724dfd0e1d9:.gitleaksignore:generic-api-key:11
 ade37e1a59a03039dee1b525310d2724dfd0e1d9:.planning/phases/03-platform-hygiene/03-WAVE-NOTES.md:generic-api-key:27
 # V2-03 03-08: false positive, a synthetic JWT-shaped fixture (no real claims, no signature) that seed-staging must refuse as STAGING_SECRET_KEY
 cbdbdfcaed4ce97f4b60aa9707927a60bbc10333:tests/ci/staging-scripts.spec.ts:generic-api-key:292
+# V2-03 03-09c: false positive, a synthetic low-entropy cron token stubbed into CRON_SECRET in the logging spec (now built at runtime)
+6b8fad5649500da955fcd5cccd402b7557447b95:tests/observability/no-raw-error-logging.spec.ts:generic-api-key:212
