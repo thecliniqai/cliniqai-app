@@ -1,0 +1,12 @@
+{
+ "tool": "npx eslint . -f json (summarised by rule)",
+ "files_linted": 447,
+ "errors": 0,
+ "warnings": 400,
+ "by_rule": {
+  "@typescript-eslint/no-explicit-any:warn": 252,
+  "@typescript-eslint/no-unused-vars:warn": 119,
+  "(no rule: Unused eslint-disable directive):warn": 28,
+  "import/no-anonymous-default-export:warn": 1
+ }
+}

@@ -1,0 +1,11 @@
+
+> clinicos@0.1.0 ci:ai-l1
+> node scripts/ci/ai-l1-greps.mjs
+
+ai-l1: 1280 files, 4 finding(s), 4 waived (time-boxed)
+  waived L1-R5 components/settings/developer/api-key-table.tsx:90
+  waived L1-R5 components/settings/developer/create-api-key-modal.tsx:66
+  waived L1-R5 components/settings/developer/create-api-key-modal.tsx:75
+  waived L1-R5 components/settings/developer/revoke-key-modal.tsx:47
+ai-l1: PASS
+exit=0

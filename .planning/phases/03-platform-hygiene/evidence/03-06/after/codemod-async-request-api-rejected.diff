@@ -1,0 +1,32 @@
+--- app/reschedule/[token]/page.tsx (committed)
++++ app/reschedule/[token]/page.tsx (next-async-request-api codemod --dry --print, NOT applied)
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import React, { useState, useEffect } from "react";
++import React, { useState, useEffect, use } from "react";
+ import {
+   Calendar,
+   Clock,
+@@ -28,7 +28,8 @@
+   };
+ }
+ 
+-export default function PublicReschedulePage({ params }: ReschedulePageProps) {
++export default function PublicReschedulePage(props: ReschedulePageProps) {
++  const params = use(props.params);
+   const [token, setToken] = useState<string>("");
+   const [loading, setLoading] = useState<boolean>(true);
+   const [submitting, setSubmitting] = useState<boolean>(false);
+@@ -342,3 +343,11 @@
+     </div>
+   );
+ }
++
++All done. 
++Results: 
++0 errors
++0 unmodified
++0 skipped
++1 ok
++Time elapsed: 0.242seconds 

@@ -1,0 +1,15 @@
+{
+ "tool": "npx eslint . -f json (summarised by rule)",
+ "files_linted": 449,
+ "errors": 0,
+ "warnings": 435,
+ "by_rule": {
+  "@typescript-eslint/no-explicit-any:warn": 252,
+  "@typescript-eslint/no-unused-vars:warn": 119,
+  "react-hooks/set-state-in-effect:warn": 30,
+  "(no rule: Unused eslint-disable directive):warn": 28,
+  "react-hooks/purity:warn": 4,
+  "react-hooks/immutability:warn": 1,
+  "import/no-anonymous-default-export:warn": 1
+ }
+}
