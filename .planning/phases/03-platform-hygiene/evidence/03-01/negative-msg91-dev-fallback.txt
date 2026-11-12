@@ -1,0 +1,35 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+x······
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/messaging/provider-selection.spec.ts > provider selection (no fallback) > MESSAGING_PROVIDER=msg91 without MSG91_AUTH_KEY throws instead of yielding the dev provider
+AssertionError: expected DevLoggerProvider{ name: 'dev' } to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+DevLoggerProvider {
+  "name": "dev",
+}
+
+ ❯ tests/messaging/provider-selection.spec.ts:42:22
+     40|       error = e;
+     41|     }
+     42|     expect(provider).toBeNull();
+       |                      ^
+     43|     expect(error).toBeInstanceOf(EnvConfigError);
+     44|     expect((error as EnvConfigError).issues).toContain("MSG91_AUTH_KEY…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  03:56:10
+   Duration  428ms (transform 78ms, setup 8ms, collect 57ms, tests 221ms, environment 0ms, prepare 19ms)
+
+[teardown] removed run data: 1 tenant(s), 1 auth user(s), 0 storage object(s); verified none remain
