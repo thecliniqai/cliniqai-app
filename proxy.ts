@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { apiRequestBlocked, isApiV1Path, normaliseRequestPath } from "@/lib/api/enabled";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // PO-16: `/api/v1/**` (docs and openapi.json included) is a plain 404 unless API_V1_ENABLED is on. AR2-H2: the check
@@ -19,6 +19,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // @supabase/ssr 0.12 (AUTH_REDESIGN §4.2): `setAll` rebuilds the response with the refreshed cookies and the
+  // no-store cache headers it is handed; the proxy returns exactly that response, never a fresh `NextResponse.next()`
+  // built after the cookies were set (the cookies would be lost and the next request would refresh again).
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -33,29 +36,22 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(
-          cookiesToSet: Array<{
-            name: string;
-            value: string;
-            options?: Record<string, unknown>;
-          }>
-        ) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
+        setAll(cookiesToSet, headers) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({
             request,
           });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          // Cache-Control/Expires/Pragma: a response carrying auth cookies must never be cached and served to another user.
+          Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
         },
       },
     }
   );
 
-  // Refresh auth session
-  await supabase.auth.getUser();
+  // Refresh the session (the only refresh point; refreshing in two places risks refresh-token reuse sign-outs).
+  // getClaims() verifies the JWT and refreshes an expired session through the same cookie path.
+  await supabase.auth.getClaims();
 
   return response;
 }
@@ -74,7 +70,7 @@ export const config = {
     // without the API_V1_ENABLED check.
     "/api/v1",
     "/api/v1/:path*",
-    // AR2-H2: every /api path runs the middleware whatever its extension or encoding (`/api/v%31/x.png`), so the
+    // AR2-H2: every /api path runs the proxy whatever its extension or encoding (`/api/v%31/x.png`), so the
     // normalised switch check cannot be skipped by the asset exclusion above. Static assets outside /api stay excluded.
     "/api",
     "/api/:path*",

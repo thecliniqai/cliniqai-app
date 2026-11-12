@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 import { GET as getHealth } from "@/app/api/health/route";
 import { GET as getReady } from "@/app/api/ready/route";
-import { middleware } from "@/middleware";
+import { proxy } from "@/proxy";
 import * as adminModule from "@/lib/supabase/admin";
 
 describe("Phase 06-05 Task 2: Health & Readiness Probes (D-18, T-06-18, T-06-19)", () => {
@@ -167,19 +167,19 @@ describe("Phase 06-05 Task 2: Health & Readiness Probes (D-18, T-06-18, T-06-19)
       // PO-16 (01-05): /api/v1 is a 404 unless the switch is on; this case covers the enabled pass-through.
       process.env.API_V1_ENABLED = "true";
       const req = new NextRequest("http://localhost:3000/api/v1/patients");
-      const res = await middleware(req);
+      const res = await proxy(req);
       expect(res.status).toBe(200);
     });
 
     it("bypasses Supabase auth session refresh for /api/health", async () => {
       const req = new NextRequest("http://localhost:3000/api/health");
-      const res = await middleware(req);
+      const res = await proxy(req);
       expect(res.status).toBe(200);
     });
 
     it("bypasses Supabase auth session refresh for /api/ready", async () => {
       const req = new NextRequest("http://localhost:3000/api/ready");
-      const res = await middleware(req);
+      const res = await proxy(req);
       expect(res.status).toBe(200);
     });
   });
