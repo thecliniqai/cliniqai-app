@@ -1,0 +1,49 @@
+# HEAD c447ae7; local stack migrated from supabase/migrations (no drift at start)
+$ npm run db:types && git diff --exit-code -- types/database.ts
+exit=0
+
+# negative: a schema change with no migration and no regenerated types
+$ psql: alter table public.patients add column drift_probe_note text
+$ npm run db:types && git diff --exit-code -- types/database.ts
+diff --git a/types/database.ts b/types/database.ts
+index f54e658..c19c57c 100644
+--- a/types/database.ts
++++ b/types/database.ts
+@@ -1247,6 +1247,7 @@ export type Database = {
+           created_at: string;
+           created_by: string;
+           date_of_birth: string | null;
++          drift_probe_note: string | null;
+           emergency_contact: Json | null;
+           erased_at: string | null;
+           erasure_reason: string | null;
+@@ -1276,6 +1277,7 @@ export type Database = {
+           created_at?: string;
+           created_by: string;
+           date_of_birth?: string | null;
++          drift_probe_note?: string | null;
+           emergency_contact?: Json | null;
+           erased_at?: string | null;
+           erasure_reason?: string | null;
+@@ -1304,6 +1306,7 @@ export type Database = {
+           created_at?: string;
+           created_by?: string;
+           date_of_birth?: string | null;
++          drift_probe_note?: string | null;
+           emergency_contact?: Json | null;
+           erased_at?: string | null;
+           erasure_reason?: string | null;
+exit=1
+$ node scripts/ci/local-drift.mjs
+local-drift: FAIL (1 statement(s) beyond the allowlist):
+---
+alter table "public"."patients" add column "drift_probe_note" text;
+Schema drift: the local database differs from what supabase/migrations builds.
+exit=1
+
+# restore: drop the column, regenerate
+$ npm run db:types && git diff --exit-code -- types/database.ts
+exit=0
+$ node scripts/ci/local-drift.mjs
+local-drift: PASS (1 statement(s), 1 allowlisted: drop extension if exists "pg_net";)
+exit=0

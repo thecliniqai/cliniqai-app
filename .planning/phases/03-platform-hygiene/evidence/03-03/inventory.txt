@@ -1,0 +1,7 @@
+$ npm run inventory
+        "PUT"
+      ]
+    }
+  ]
+}
+exit=0
