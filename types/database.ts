@@ -2428,6 +2428,7 @@ export type Database = {
         Args: { raw_phone: string };
         Returns: string;
       };
+      readiness_probe: { Args: Record<PropertyKey, never>; Returns: Json };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
       resolve_share_token: {
         Args: { p_kinds: string[]; p_token: string };

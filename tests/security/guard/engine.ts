@@ -762,7 +762,11 @@ export async function healthRouteLeg(
   world: GuardWorld
 ): Promise<Violation[]> {
   const r = await callRoute(slot, anonClient(), c);
-  const out = [...expectStatus(c, "probe", r, [200, 503]), ...expectNoB(c, "probe", r, world), ...expectNoAccess(c, "probe", r)];
+  const out = [
+    ...expectStatus(c, "probe", r, [200, 503]),
+    ...expectNoB(c, "probe", r, world),
+    ...expectNoAccess(c, "probe", r, [...(guard.access ?? [])]),
+  ];
   let keys: string[] = [];
   try {
     keys = Object.keys(JSON.parse(r.body) as Record<string, unknown>);

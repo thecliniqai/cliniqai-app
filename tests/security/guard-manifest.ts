@@ -40,7 +40,12 @@ export type RouteGuard =
   /** `/api/v1` (PO-16, AR2-H2): switch off → 404 at the handler; switch on and no key → 401 (or the public docs). */
   | { kind: "api-v1"; key: boolean }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
-  | { kind: "public-health"; keys: readonly string[] };
+  | {
+      kind: "public-health";
+      keys: readonly string[];
+      /** Request-client calls the probe may make (03-01: `/api/ready` runs the counts-only readiness RPC as anon). */
+      access?: readonly string[];
+    };
 
 export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "app/(dashboard)/settings/clinic/actions.ts#updateClinicProfileAction": "clinic:manage",
@@ -196,8 +201,12 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   "app/api/cron/dispatch-communications/route.ts#POST": CRON,
   "app/api/cron/webhooks/route.ts#GET": CRON,
   "app/api/cron/webhooks/route.ts#POST": CRON,
-  "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime"] },
-  "app/api/ready/route.ts#GET": { kind: "public-health", keys: ["status", "checks", "timestamp", "correlationId"] },
+  "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime", "region", "release"] },
+  "app/api/ready/route.ts#GET": {
+    kind: "public-health",
+    keys: ["status", "checks", "outbox", "providers", "latestMigration", "correlationId", "timestamp"],
+    access: ["rpc:readiness_probe"],
+  },
   "app/api/invoices/[id]/receipt-pdf/route.ts#GET": SESSION_RECEIPT,
   "app/api/patients/[id]/export/route.ts#GET": { kind: "session", permission: "exports:create", resource: "patient" },
   "app/api/visits/[id]/prescription-pdf/route.ts#GET": {
