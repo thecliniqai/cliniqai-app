@@ -42,7 +42,15 @@
  *   staging-backup-environment-scope
  *                               (V2-04 04-05a, ruling R-48) the reviewer-free Environment `staging-backup` (backup
  *                               secrets only) may be used only by `backup.yml`: no other workflow gets its secrets
- *                               without the reviewed `staging` Environment.
+ *                               without the reviewed `staging` Environment;
+ *   staging-readonly-secrets-ro (V2-04 04-06, ruling R-28, T-04-15) a job in Environment `staging-readonly` references
+ *                               only secrets whose names end in `_RO` (the Environment's read-only credentials), so a
+ *                               write credential never reaches the reviewer-free read-only Environment;
+ *   staging-feature-v2-only     (04-06) every job in a `staging*` Environment has a job-level `if:` that starts with
+ *                               `github.ref == 'refs/heads/feature/v2'` and adds only `&&` conditions (no top-level
+ *                               `||` that could run it from another ref), on top of the Environments' branch rules;
+ *   ops-report-read-only        (04-06, R-28) every job of `ops-report.yml` runs in Environment `staging-readonly`
+ *                               (the report reads counts with the read-only role; never the reviewed `staging` one).
  *
  * Reader (no YAML dependency, deliberately small and fail-closed): block mappings and sequences, plain, single- and
  * double-quoted one-line scalars, `|`/`>` block scalars, `[a, b]` flow sequences of plain scalars and the empty `{}`.
@@ -78,6 +86,44 @@ const STAGING_DEPLOY_FILES = new Set(["staging.yml", "staging.yaml"]);
 const PLAN_JOB = "plan";
 const MIGRATE_JOB = "migrate";
 const PLAN_ENVIRONMENT = "staging-readonly";
+/** 04-06 (R-28): jobs in the read-only Environment read only read-only credentials (`*_RO`). */
+const READONLY_ENVIRONMENT = "staging-readonly";
+const READONLY_SECRET_NAME = /_RO$/;
+const ANY_SECRET = /secrets\.([A-Za-z0-9_]+)|secrets\[\s*['"]([A-Za-z0-9_]+)['"]\s*\]/g;
+/** 04-06: the ops report workflow runs only in the read-only Environment. */
+const READONLY_ONLY_FILES = new Set(["ops-report.yml", "ops-report.yaml"]);
+/** 04-06: a staging job's `if:` must start with this conjunct (feature/v2 only). */
+const FEATURE_V2_GUARD = /^github\.ref\s*==\s*'refs\/heads\/feature\/v2'\s*(?:&&([\s\S]*))?$/;
+
+/** True when `expr` has a `||` outside parentheses and quotes (it could hold without the leading conjunct). */
+export function hasTopLevelOr(expr) {
+  let depth = 0;
+  let quote = null;
+  for (let i = 0; i < expr.length; i++) {
+    const c = expr[i];
+    if (quote) {
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"') quote = c;
+    else if (c === "(") depth++;
+    else if (c === ")") depth--;
+    else if (c === "|" && expr[i + 1] === "|" && depth <= 0) return true;
+  }
+  return false;
+}
+
+/** Problems with a staging job's `if:` (undefined = none): it must limit the job to feature/v2. */
+export function featureV2GuardProblem(condition) {
+  if (condition === undefined || condition.trim() === "") return "has no job-level `if:`";
+  let expr = condition.trim();
+  const wrapped = /^\$\{\{([\s\S]*)\}\}$/.exec(expr);
+  if (wrapped) expr = wrapped[1].trim();
+  const m = FEATURE_V2_GUARD.exec(expr);
+  if (!m) return "has an `if:` that does not start with `github.ref == 'refs/heads/feature/v2'`";
+  if (m[1] !== undefined && hasTopLevelOr(m[1])) return "adds a top-level `||` after the feature/v2 check (it would also run from other refs)";
+  return undefined;
+}
 
 /** The line without its comment (a `#` that starts the line or follows whitespace, outside quotes). */
 export function stripComment(line) {
@@ -374,6 +420,32 @@ export function checkWorkflow(file, text) {
   for (const job of jobs) {
     if (job.environment === BACKUP_ENVIRONMENT && !BACKUP_FILES.has(base)) {
       fail(job.start, "staging-backup-environment-scope", `job \`${job.id}\` uses Environment \`${BACKUP_ENVIRONMENT}\` (no reviewer, backup secrets); only backup.yml may`);
+    }
+  }
+
+  // 04-06 (R-28, T-04-15): read-only Environment, read-only secrets; staging jobs from feature/v2 only; the ops report
+  // in the read-only Environment only.
+  scan.forEach((line, i) => {
+    const job = jobs.find((j) => i >= j.start && i < j.end);
+    if (!job || job.environment !== READONLY_ENVIRONMENT) return;
+    for (const m of line.matchAll(ANY_SECRET)) {
+      const name = m[1] ?? m[2];
+      if (!READONLY_SECRET_NAME.test(name)) {
+        fail(i, "staging-readonly-secrets-ro", `job \`${job.id}\` in Environment \`${READONLY_ENVIRONMENT}\` uses secrets.${name}; only read-only credentials (names ending in _RO) belong there`);
+      }
+    }
+  });
+  for (const job of jobs) {
+    if (!job.environment || !/staging/i.test(job.environment)) continue;
+    const ifEntry = entryOf(job.node, "if");
+    const problem = featureV2GuardProblem(ifEntry ? scalarOf(ifEntry.value) : undefined);
+    if (problem) fail(ifEntry ? ifEntry.line : job.start, "staging-feature-v2-only", `staging job \`${job.id}\` ${problem}`);
+  }
+  if (READONLY_ONLY_FILES.has(base)) {
+    for (const job of jobs) {
+      if (job.environment !== READONLY_ENVIRONMENT) {
+        fail(job.start, "ops-report-read-only", `job \`${job.id}\` must run in Environment \`${READONLY_ENVIRONMENT}\` (read-only role), not \`${job.environment ?? "none"}\``);
+      }
     }
   }
 

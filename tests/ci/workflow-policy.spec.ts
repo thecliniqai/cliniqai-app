@@ -146,6 +146,8 @@ describe("workflow policy enforces every rule the staging/drift headers claim (0
         "staging-plan-before-migrate",
         "staging-read-only-token",
         "staging-secret-step-scope",
+        // 04-06: its staging job has no job-level `if:` limiting it to feature/v2.
+        "staging-feature-v2-only",
       ].sort(),
     );
     expect(found.filter((r) => r === "staging-read-only-token")).toHaveLength(2); // contents and id-token
@@ -176,7 +178,8 @@ describe("workflow policy enforces every rule the staging/drift headers claim (0
       "a staging secret in a step's with:",
       "staging.yml",
       (t) => t.replace("          node-version-file: .nvmrc\n", "          node-version-file: .nvmrc\n          token: ${{ secrets.STAGING_SECRET_KEY }}\n"),
-      ["staging-secret-step-scope"],
+      // The first setup-node is the `plan` job's (Environment staging-readonly, 04-00), so 04-06's rule fires too.
+      ["staging-secret-step-scope", "staging-readonly-secrets-ro"],
     ],
     ["setup-node's npm cache", "staging.yml", (t) => t.replace("          node-version-file: .nvmrc\n", "          node-version-file: .nvmrc\n          cache: npm\n"), ["privileged-no-cache"]],
     [
@@ -291,5 +294,79 @@ describe("workflow policy: plan before migrate and password-free CLI URLs (04-00
     expect(after(edit, "drift.yml", drift).map((f) => f.rule)).toEqual(["staging-db-url-no-password"]);
     const ci = workflow("ci.yml");
     expect(after((t) => t.replace("run: node scripts/ci/assert-no-env-files.mjs", "run: node scripts/staging/target-guard.mjs --var X --print-db-url"), "ci.yml", ci)).toEqual([]);
+  });
+});
+
+/**
+ * V2-04 04-06 (R-28; T-04-15, T-04-17): the staging ops report workflow. It is a staging workflow (Environment
+ * `staging-readonly`), so every staging rule applies; three rules are new: a `staging-readonly` job reads only `*_RO`
+ * secrets, every job in a `staging*` Environment is limited to feature/v2 by its `if:`, and every job of
+ * `ops-report.yml` runs in `staging-readonly`. Each regression is made on the committed file.
+ */
+describe("workflow policy: the read-only ops report (04-06)", () => {
+  const report = () => workflow("ops-report.yml");
+  const after = (edit: (t: string) => string, name = "ops-report.yml", original = report()) => {
+    const text = edit(original);
+    expect(text, "the edit did not apply").not.toBe(original);
+    return checkWorkflow(`.github/workflows/${name}`, text);
+  };
+
+  it("the committed ops-report.yml passes: staging-readonly, feature/v2 only, read-only token, pinned actions, no PR trigger", () => {
+    const text = report();
+    expect(text).toMatch(/\n    environment: staging-readonly\n/);
+    expect(text).toMatch(/\n    if: \$\{\{ github\.ref == 'refs\/heads\/feature\/v2' \}\}\n/);
+    expect(text).toMatch(/\npermissions:\n  contents: read\n\n/);
+    expect(text).toContain("run: node scripts/ops/ops-report.mjs --out ops-report/ops-report.json --hours 48");
+    expect(text).not.toMatch(/pull_request|workflow_run/);
+    expect(checkWorkflow(".github/workflows/ops-report.yml", text)).toEqual([]);
+  });
+
+  it("the job moved to the reviewed staging Environment (write credentials) -> ops-report-read-only", () => {
+    const found = after((t) => t.replace("    environment: staging-readonly\n", "    environment: staging\n"));
+    expect(found.map((f) => f.rule)).toEqual(["ops-report-read-only"]);
+    expect(found[0].message).toContain("must run in Environment `staging-readonly`");
+  });
+
+  it("the write database URL in the staging-readonly job -> staging-readonly-secrets-ro (any workflow)", () => {
+    const found = after((t) => t.replace(/STAGING_DB_URL_RO: \$\{\{ secrets\.STAGING_DB_URL_RO \}\}\n(\s+SUPABASE_PROJECT_REF_STAGING: \$\{\{ vars\.SUPABASE_PROJECT_REF_STAGING \}\}\n\s+run: node scripts\/ops)/, "STAGING_DB_URL_RO: ${{ secrets.STAGING_DB_URL }}\n$1"));
+    expect(found.map((f) => f.rule)).toEqual(["staging-readonly-secrets-ro"]);
+    expect(found[0].message).toContain("uses secrets.STAGING_DB_URL;");
+    // The same rule in drift.yml (a non-STAGING secret name too), and the plan job of staging.yml.
+    const drift = workflow("drift.yml");
+    expect(after((t) => t.replace("secrets.SUPABASE_ACCESS_TOKEN_STAGING_RO", "secrets.SUPABASE_ACCESS_TOKEN"), "drift.yml", drift).map((f) => f.rule)).toEqual([
+      "staging-readonly-secrets-ro",
+    ]);
+    const staging = workflow("staging.yml");
+    const plan = after((t) => t.replace(/(\n  plan:[\s\S]*?)STAGING_DB_URL_RO: \$\{\{ secrets\.STAGING_DB_URL_RO \}\}/, "$1STAGING_DB_URL_RO: ${{ secrets.STAGING_DB_URL }}"), "staging.yml", staging);
+    expect(plan.map((f) => f.rule)).toEqual(["staging-readonly-secrets-ro"]);
+  });
+
+  it.each([
+    ["no job-level if", (t: string) => t.replace("    if: ${{ github.ref == 'refs/heads/feature/v2' }}\n", ""), "has no job-level `if:`"],
+    ["another branch", (t: string) => t.replace("refs/heads/feature/v2' }}", "refs/heads/main' }}"), "does not start with"],
+    ["an || that bypasses the branch", (t: string) => t.replace("refs/heads/feature/v2' }}", "refs/heads/feature/v2' && github.actor == 'x' || github.event_name == 'workflow_dispatch' }}"), "top-level `||`"],
+    ["the branch check second", (t: string) => t.replace("if: ${{ github.ref == 'refs/heads/feature/v2' }}", "if: ${{ github.event_name == 'schedule' && github.ref == 'refs/heads/feature/v2' }}"), "does not start with"],
+  ])("%s -> staging-feature-v2-only", (_label, edit, detail) => {
+    const found = after(edit);
+    expect(found.map((f) => f.rule)).toEqual(["staging-feature-v2-only"]);
+    expect(found[0].message).toContain(detail);
+  });
+
+  it("an || inside parentheses after the branch check passes (staging.yml's form); the rule covers backup.yml and drift.yml jobs", () => {
+    expect(after((t) => t.replace("refs/heads/feature/v2' }}", "refs/heads/feature/v2' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}"))).toEqual([]);
+    for (const name of ["backup.yml", "drift.yml", "staging.yml"]) {
+      const original = workflow(name);
+      const found = after((t) => t.replace("if: ${{ github.ref == 'refs/heads/feature/v2'", "if: ${{ github.ref != 'refs/heads/feature/v2'"), name, original);
+      expect(found.map((f) => f.rule), name).toEqual(["staging-feature-v2-only"]);
+    }
+  });
+
+  it("the standing staging rules bite on ops-report.yml too (it is a staging workflow)", () => {
+    expect(after((t) => t.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  pull_request:\n")).map((f) => f.rule)).toEqual(["staging-no-pr-trigger"]);
+    expect(after((t) => t.replace("  contents: read\n", "  contents: write\n")).map((f) => f.rule)).toEqual(["staging-read-only-token"]);
+    expect(after((t) => t.replace("run: node scripts/ops/ops-report.mjs --out", 'run: echo "${{ secrets.STAGING_DB_URL_RO }}"; node scripts/ops/ops-report.mjs --out')).map((f) => f.rule)).toContain("run-no-untrusted-expression");
+    expect(after((t) => t.replace("run: npm ci --ignore-scripts\n", "run: npm ci\n")).map((f) => f.rule)).toEqual(["privileged-ignore-scripts"]);
+    expect(after((t) => t.replace("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1", "actions/checkout@v7")).map((f) => f.rule)).toEqual(["uses-pinned"]);
+    expect(after((t) => t.replace("          node-version-file: .nvmrc\n", "          node-version-file: .nvmrc\n          cache: npm\n")).map((f) => f.rule)).toEqual(["privileged-no-cache"]);
   });
 });
