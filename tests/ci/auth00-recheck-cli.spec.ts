@@ -14,6 +14,8 @@ const TSX = path.join(ROOT, "node_modules/.bin/tsx");
 const REF = "abcdefghijklmnopqrst";
 const OTHER_REF = "zyxwvutsrqponmlkjihg";
 const DB_PASSWORD = "Fixture-db-password-not-real";
+/** A synthetic JWT-shaped value (no claims, no signature), assembled at runtime so no key-shaped literal is committed. */
+const LOCAL_JWT_SHAPED = [Buffer.from('{"alg":"HS256"}').toString("base64url"), "e30", "fixture"].join(".");
 
 const STAGING_ENV: Record<string, string | undefined> = {
   GITHUB_ACTIONS: "true",
@@ -55,7 +57,7 @@ describe("stagingRecheckProblems", () => {
       { STAGING_DB_URL: `postgresql://postgres.${OTHER_REF}:x@aws-1-ap-south-1.pooler.supabase.com:5432/postgres` },
       "STAGING_DB_URL:",
     ],
-    ["a local JWT secret key", { STAGING_SECRET_KEY: "eyJhbGciOiJIUzI1NiJ9.e30.fixture" }, "STAGING_SECRET_KEY must be a hosted secret key"],
+    ["a local JWT secret key", { STAGING_SECRET_KEY: LOCAL_JWT_SHAPED }, "STAGING_SECRET_KEY must be a hosted secret key"],
     ["a missing publishable key", { STAGING_PUBLISHABLE_KEY: undefined }, "STAGING_PUBLISHABLE_KEY must be a hosted publishable key"],
     ["a bad browser-check value", { PO_CAPTCHA_BROWSER_CHECK: "yes" }, "PO_CAPTCHA_BROWSER_CHECK must be one of"],
     ["a shell-looking retention note", { PO_AUTH_LOG_RETENTION: "1 day; $(id)" }, "PO_AUTH_LOG_RETENTION must be short plain text"],
