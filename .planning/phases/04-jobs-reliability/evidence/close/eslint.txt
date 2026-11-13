@@ -1,0 +1,5 @@
+# npx eslint . at 2260c64 (summary line)
+✖ 382 problems (0 errors, 382 warnings)
+  0 errors and 23 warnings potentially fixable with the `--fix` option.
+
+exit=0

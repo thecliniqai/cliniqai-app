@@ -1,0 +1,8 @@
+# npm run inventory at 2260c64 (tail)
+      "methods": [
+        "POST"
+      ]
+    }
+  ]
+}
+exit=0

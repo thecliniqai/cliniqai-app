@@ -1,0 +1,6 @@
+# npm run ci:ai-l1 at 2260c64
+  waived L1-R5 components/settings/developer/create-api-key-modal.tsx:66
+  waived L1-R5 components/settings/developer/create-api-key-modal.tsx:75
+  waived L1-R5 components/settings/developer/revoke-key-modal.tsx:47
+ai-l1: PASS
+exit=0

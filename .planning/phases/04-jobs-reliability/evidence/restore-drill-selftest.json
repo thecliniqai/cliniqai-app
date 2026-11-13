@@ -4,10 +4,10 @@
   "mode": "self-test",
   "environment": "local",
   "result": "pass",
-  "dump_started_at": "2026-11-13T08:27:57Z",
-  "drill_started_at": "2026-11-13T08:28:13Z",
-  "checks_green_at": "2026-11-13T08:28:45Z",
-  "rpo_seconds": 16,
+  "dump_started_at": "2026-11-13T22:27:25Z",
+  "drill_started_at": "2026-11-13T22:27:43Z",
+  "checks_green_at": "2026-11-13T22:28:15Z",
+  "rpo_seconds": 18,
   "rto_seconds": 32,
   "dump_age_h": 0,
   "targets": {
@@ -15,6 +15,8 @@
     "rto_seconds_max": 14400
   },
   "checks": {
+    "archive_digest": true,
+    "sql_guard": true,
     "decrypt": true,
     "wrong_key_refused": true,
     "restore": true,
@@ -23,23 +25,24 @@
     "manifest_compare": true,
     "drill_checks_sql": true,
     "breakglass_decrypt": true,
-    "failed_run_recorded": true
+    "failed_run_recorded": true,
+    "tampered_archive_refused": true
   },
   "counts": {
-    "tables": 82,
-    "rows": 2247,
+    "tables": 91,
+    "rows": 2905,
     "buckets": 3,
     "objects": 1,
     "object_bytes": 4096,
     "objects_excluded": 0,
     "files_without_row": 0,
-    "policies": 99,
-    "functions": 57,
+    "policies": 98,
+    "functions": 114,
     "rls_tables": 43,
     "auth_users": 5,
-    "pgtap_tests": 10,
-    "migrations": 32,
-    "archive_bytes": 1383034
+    "pgtap_tests": 13,
+    "migrations": 45,
+    "archive_bytes": 2007818
   },
   "versions": {
     "server": "17.11",

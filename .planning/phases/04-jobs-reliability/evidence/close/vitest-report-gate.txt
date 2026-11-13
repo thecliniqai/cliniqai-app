@@ -1,0 +1,8 @@
+# node scripts/ci/assert-vitest-report.mjs evidence/full-run-1.json
+vitest-report-gate: files=211 tests=4399 passed=4399 failed=0 skipped/todo=0 floor=4180 required=118
+vitest-report-gate: PASS
+exit=0
+# node scripts/ci/assert-vitest-report.mjs evidence/full-run-2.json
+vitest-report-gate: files=211 tests=4399 passed=4399 failed=0 skipped/todo=0 floor=4180 required=118
+vitest-report-gate: PASS
+exit=0

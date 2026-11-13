@@ -766,6 +766,31 @@ Evidence, reviews and triage: `.planning/phases/03-platform-hygiene/` (`03-SUMMA
 under PO delegation. Doc errata (R-24) are proposed in `03-SUMMARY.md`, not applied. Merge waits on 03-E13 (rulings,
 incl. R-9, R-35, R-36 and the proposed CLAUDE.md change), 03-E14 (two flagged packages) and 03-E15 (Next 16 outcome).
 
+### V2-04 gate evidence (2026-11-14) — awaiting PO gate
+V2-04 Jobs reliability verified locally at `2260c64`. Vitest ran twice locally: 211 files / 4399 tests, 0 skipped, 0
+failed. The report gate passed with floor 4180 and 118 required security/acceptance specs. Playwright PR lane: 196
+passed (10 KNOWN-BUG expected failures), 9 skipped by design, 0 failed, 0 retried. ESLint: 0 errors; every boundary
+message id 0 incl. P0-12; 1 service-role factory; the ADR-0005 exception register holds only `app/api/v1/**` and
+`lib/api/**`; 0 cron route files. Local drift PASS (0 statements), schema snapshot PASS. Restore drill self-test: pass,
+RPO 18 s, RTO 32 s. Typecheck, inventory, AI-06 L1, the audit gate and the workflow policy are green. CI run link:
+recorded by the orchestrator in `04-VERIFICATION.md` (`ci_run`).
+
+Roadmap acceptance 1 and 2 are met. 3, 4, 7 and 8 are met locally with their staging halves pending PO; 5 and 6 are
+code-complete / drilled locally and pending PO (04-P1, P7…P13, 04-R2, 04-P17; post-merge, R-19 pattern). D16, F-3a and
+F-3b are fixed in V2-04 (rows in §1 updated); OI-3's answer comes with 04-P9.
+
+Four isolated reviews found 1 High (H-SMS) and 10 distinct Mediums; all were fixed in 04-07a…c with regression tests.
+Three re-verification rounds followed: the first closed H-SMS and 8 Mediums and found M-FAIR and M-BACKUPAUTH partly
+open (N-1, N-2; fixed in 04-07d), the second reopened both through new routes (N-1b, N-2b; fixed in 04-07e), and the
+third found both CLOSED with one Info (I-1, fixed at close). Three independent-review Lows (L1, L5, L6) have no triage
+row and await an owner.
+
+ADR-0005 amendments A2 and A3 were accepted by the agent as CTO under PO delegation (2026-11-13) and applied to
+`docs/adr/0005-confine-service-role-client.md` at close. Rulings R-1…R-51 (incl. R-48 staging backups on R2, R-49 HMAC
+runner token, R-50/R-51 alerts) are in `04-PLAN.md`. Evidence, reviews and triage:
+`.planning/phases/04-jobs-reliability/` (`04-SUMMARY.md`, `04-VERIFICATION.md`, `04-07-REVIEW-TRIAGE.md`,
+`evidence/`, `reviews/`). No merge blocker is open (04-P14 and 04-P15 delegated to the CTO).
+
 ### G2-D design sign-off (2026-11-13)
 
 | Item | Result | Evidence |
