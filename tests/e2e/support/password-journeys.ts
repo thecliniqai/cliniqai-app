@@ -5,7 +5,7 @@
  */
 import { randomBytes } from "node:crypto";
 import type { Browser, BrowserContext, Page } from "@playwright/test";
-import { expect, isAllowedBrowserUrl } from "../fixtures";
+import { expect, routeLoopbackOnly } from "../fixtures";
 import { E2E_BASE_URL } from "./app-env";
 import { addMemberToTenant, seededUserPassword } from "../../helpers/tenants";
 import { LOCAL_MAILPIT_API_URL } from "../../setup/test-env";
@@ -43,12 +43,8 @@ export async function uiSignIn(page: Page, user: JourneyUser): Promise<void> {
 export async function guardedContext(browser: Browser): Promise<{ context: BrowserContext; page: Page; blocked: string[] }> {
   const context = await browser.newContext({ baseURL: E2E_BASE_URL, serviceWorkers: "block" });
   const blocked: string[] = [];
-  await context.route("**/*", async (route) => {
-    const url = route.request().url();
-    if (isAllowedBrowserUrl(url)) return route.continue();
-    blocked.push(new URL(url).host);
-    return route.abort("blockedbyclient");
-  });
+  // Same block as the fixture, incl. the local Turnstile stub (03-12c): the login page renders the widget.
+  await routeLoopbackOnly(context, blocked);
   return { context, page: await context.newPage(), blocked };
 }
 
