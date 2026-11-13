@@ -1,6 +1,8 @@
 Glyph check (width probe: equal widths under two different fallbacks ⇒ the named face draws the glyphs)
 rupeeGlyphOnly: rendered by the face (width with fallback monospace 38.73 px vs serif 38.73 px)
 rupeeInPlexSans: rendered by the face (width with fallback monospace 303.94 px vs serif 303.94 px)
+rupeeInManrope: rendered by the face (width with fallback monospace 288.16 px vs serif 288.16 px)
+rupeeInInter: rendered by the face (width with fallback monospace 296.97 px vs serif 296.97 px)
 devanagariInPlexSans: NOT in the face (fallback draws it) (width with fallback "IBM Plex Sans Devanagari" 319.56 px vs serif 289.98 px)
 devanagariInPlexDeva: rendered by the face (width with fallback monospace 319.56 px vs serif 319.56 px); differs from the system Devanagari face: true
-Faces loaded: IBM Plex Sans 400, IBM Plex Sans 500, IBM Plex Sans 600, IBM Plex Sans Devanagari 400, IBM Plex Sans Devanagari 600
+Faces loaded: Inter 100 900, IBM Plex Sans 400, IBM Plex Sans Devanagari 400, IBM Plex Sans Devanagari 600, Manrope 200 800

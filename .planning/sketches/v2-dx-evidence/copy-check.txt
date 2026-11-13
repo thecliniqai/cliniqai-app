@@ -1,30 +1,34 @@
-AI-02 copy check (mirrors L1-R5/R6) over every surface
+AI-02 copy check (mirrors L1-R5/R6) over every surface. The product name "CliniQ AI" (PO brand decision, 2026-11-14) is excluded from the feature-labelling rule and counted separately.
 Violations: 0
 
-ok   palette: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   palette-b: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   icon: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   components: 1 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   components-b: 1 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   today: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   today-b: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   today-lanes-variant: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   today-doctor: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   consult: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   consult-mid: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   consult-rx: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   consult-full: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   consult-b: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   consult-b-mid: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   install: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   offline: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   signup-trial: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   settings-billing: 1 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   settings-billing-b: 1 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   platform-b: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   locked-b: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   locked: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   locked-staff: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   platform: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   ai-labels: 12 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   price: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   palette: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 3); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   palette-a: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 2); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   palette-b: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 2); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   icon: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 5); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   components: 1 "AI" text nodes (brand name "CliniQ AI" excluded: 1); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   components-a: 1 "AI" text nodes (brand name "CliniQ AI" excluded: 1); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   components-b: 1 "AI" text nodes (brand name "CliniQ AI" excluded: 1); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   today: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   today-a: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   today-b: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   today-lanes-variant: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   today-doctor: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult-mid: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult-rx: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult-full: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult-a: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult-b: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult-b-mid: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   install: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 2); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   offline: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   signup-trial: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 1); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   settings-billing: 1 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   settings-billing-b: 1 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   platform-b: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 1); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   locked-b: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   locked: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   locked-staff: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   platform: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 1); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   ai-labels: 12 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   price: 0 "AI" text nodes (brand name "CliniQ AI" excluded: 0); outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0

@@ -19,7 +19,7 @@
       "clicks": 0,
       "presses": 2,
       "fills": 1,
-      "durationMs": 57,
+      "durationMs": 35,
       "m0": null,
       "steps": [
         {
@@ -57,7 +57,7 @@
       "clicks": 0,
       "presses": 1,
       "fills": 1,
-      "durationMs": 32,
+      "durationMs": 16,
       "m0": null,
       "steps": [
         {
@@ -90,7 +90,7 @@
       "clicks": 0,
       "presses": 3,
       "fills": 1,
-      "durationMs": 53,
+      "durationMs": 47,
       "m0": {
         "id": "walk-in-token",
         "actions": 4,
@@ -138,7 +138,7 @@
       "clicks": 0,
       "presses": 3,
       "fills": 1,
-      "durationMs": 57,
+      "durationMs": 51,
       "m0": {
         "id": "book-appointment",
         "actions": 6,
@@ -186,7 +186,7 @@
       "clicks": 2,
       "presses": 2,
       "fills": 1,
-      "durationMs": 232,
+      "durationMs": 110,
       "m0": {
         "id": "book-appointment",
         "actions": 6,
@@ -239,7 +239,7 @@
       "clicks": 4,
       "presses": 0,
       "fills": 0,
-      "durationMs": 156,
+      "durationMs": 142,
       "m0": null,
       "steps": [
         {
@@ -329,7 +329,7 @@
       "clicks": 3,
       "presses": 0,
       "fills": 0,
-      "durationMs": 125,
+      "durationMs": 108,
       "m0": null,
       "steps": [
         {
@@ -371,7 +371,7 @@
       "clicks": 3,
       "presses": 0,
       "fills": 0,
-      "durationMs": 100,
+      "durationMs": 106,
       "m0": null,
       "steps": [
         {
@@ -413,7 +413,7 @@
       "clicks": 1,
       "presses": 0,
       "fills": 0,
-      "durationMs": 42,
+      "durationMs": 36,
       "m0": null,
       "steps": [
         {
@@ -445,7 +445,7 @@
       "clicks": 1,
       "presses": 0,
       "fills": 0,
-      "durationMs": 33,
+      "durationMs": 34,
       "m0": null,
       "steps": [
         {
@@ -477,7 +477,7 @@
       "clicks": 3,
       "presses": 0,
       "fills": 0,
-      "durationMs": 214,
+      "durationMs": 108,
       "m0": null,
       "steps": [
         {
@@ -519,7 +519,7 @@
       "clicks": 1,
       "presses": 6,
       "fills": 3,
-      "durationMs": 130,
+      "durationMs": 103,
       "m0": null,
       "steps": [
         {
@@ -596,7 +596,7 @@
       "clicks": 3,
       "presses": 0,
       "fills": 0,
-      "durationMs": 131,
+      "durationMs": 113,
       "m0": null,
       "steps": [
         {
@@ -638,7 +638,7 @@
       "clicks": 1,
       "presses": 0,
       "fills": 0,
-      "durationMs": 47,
+      "durationMs": 49,
       "m0": null,
       "steps": [
         {
@@ -670,7 +670,7 @@
       "clicks": 2,
       "presses": 0,
       "fills": 0,
-      "durationMs": 107,
+      "durationMs": 83,
       "m0": null,
       "steps": [
         {
@@ -707,7 +707,7 @@
       "clicks": 10,
       "presses": 0,
       "fills": 0,
-      "durationMs": 355,
+      "durationMs": 341,
       "m0": {
         "id": "consult-rx-finish",
         "actions": 12,

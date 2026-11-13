@@ -1,4 +1,45 @@
-# V2-DX design proposal, round 3: Calm Confidence (for gate G2-D)
+# V2-DX design proposal (for gate G2-D)
+
+## Round 4 — CliniQ AI brand theme (PO, 2026-11-14)
+
+The PO reworked the visual identity in Claude Design and handed over a patch, applied verbatim as commit `d2e399f`: `themes/cliniq-ai.css` now loads by default after `clinic-paper.css` (same token names, so every component follows), with CliniQ Blue `#246BCE` for actions, Midnight `#0B1A42` ink, slate neutrals, a distinct hue per visit status (Booked violet · Waiting amber · With doctor Care Teal · To bill green · Done slate · No-show red · Cancelled outlined grey), Manrope (`--font-display`) for titles, prices and token numbers over Inter body, radii 6/10/14/20, the final brand mark and icons, and the product name "CliniQ AI". The round-3 type scale, control sizes and the consult structure are unchanged. Handoff note: `docs/design-v2/CLINIQ-AI-THEME-HANDOFF.md` (outside the sketches). The round-3 directions remain reachable with `?dir=a` / `?dir=b` for comparison only; **the brand theme is the recommendation by decision of the PO, not evaluated against A/B here.**
+
+What this round did (no brand decision was changed): adapted `v2-dx-capture.mjs` to the new theme, regenerated every piece of evidence, regenerated `themes/clinic-paper.theme.css` (the Tailwind registration now covers the brand tokens and `--font-display`: 179 names, 28/28 probe utilities incl. `font-display`, `bg-status-booked-bg`), and recorded the one AA finding below.
+
+| Round 3 (direction A) | Round 4 (CliniQ AI brand) |
+|---|---|
+| <img src="v2-dx-evidence/screens/round3/today-1280.png" width="440" alt="Today round 3 at 1280"> | <img src="v2-dx-evidence/screens/today/1280.png" width="440" alt="Today brand theme at 1280"> |
+| <img src="v2-dx-evidence/screens/round3/consult-1280.png" width="440" alt="Consult round 3 at 1280"> | <img src="v2-dx-evidence/screens/consult-rx/1280.png" width="440" alt="Consult brand theme at 1280"> |
+
+More brand-theme screens: [consult, full note](v2-dx-evidence/screens/consult-full/1280.png) · [consult 360](v2-dx-evidence/screens/consult-mid/360.png) · [consult 1440 with summary](v2-dx-evidence/screens/consult-rx/1440.png) · [doctor's queue](v2-dx-evidence/screens/today-doctor/1280.png) · [components](v2-dx-evidence/screens/components/1280.png) · [palette](v2-dx-evidence/screens/palette/1280.png) · [icons](v2-dx-evidence/screens/icon/1280.png) · [settings/billing](v2-dx-evidence/screens/settings-billing/1280.png). Round-3 directions for reference: [A](v2-dx-evidence/screens/today-a/1280.png) · [B](v2-dx-evidence/screens/today-b/1280.png).
+
+**Evidence (tool-generated, [README](v2-dx-evidence/README.md))**
+
+| Check | Result |
+|---|---|
+| axe (WCAG 2.0/2.1/2.2 A and AA) | **0 critical, 0 serious** over 111 runs (brand theme on every surface × width, the A/B sets, the gallery, the open sheets) |
+| Contrast, brand theme: every text/background pair incl. each status pill on its tint, status borders on the canvas, CliniQ Blue buttons in rest/hover/pressed, Midnight ink on slate surfaces, Manrope display at its sizes | **168/169** gated pairs pass ([contrast.md](v2-dx-evidence/contrast.md)); round-3 A and B 169/169 |
+| Consult flows | 10/10 asserted; whole consult **10 taps, 0 typed** (unchanged) |
+| Today flows | 7/7 asserted |
+| Density above the fold, r3 → r4 at 1280×800 | Today rows 16 → 15 (Inter/Manrope metrics; still +25% on round 2); consult controls 53 → 53; exam systems + findings 15 → 15 ([density.md](v2-dx-evidence/density.md)) |
+| ₹ glyph | drawn by Manrope (prices, tokens) and by Inter (body); no fallback face |
+| Maskable icon | farthest painted point 184.8 of 204.8 px, inside the safe zone (measured from the rasterised SVG) |
+| AI-02 copy rule | 0 violations; the product name "CliniQ AI" is excluded as a brand decision and counted separately |
+| Network calls, page errors | 0, 0 |
+
+**Brand AA notes (for the PO; nothing was changed)** — [brand-aa-notes.md](v2-dx-evidence/brand-aa-notes.md)
+
+| Pair | Ratio | Needs | Where it shows | Minimal compliant alternative |
+|---|---|---|---|---|
+| Care Teal border `#12A396` on the With-doctor wash `#EAFBF8` | 2.93:1 | 3:1 (non-text) | only if a With-doctor pill is ever drawn with its border on its own wash; the pill today has no border, and the token chip draws the same border on white (3.1:1, passes) | `#11998D` |
+
+Everything else in the brand theme passes, including Booked `#5B34B5` on `#F3EFFD` (7.1:1), To bill `#177A45` on `#E8F5EE` (4.8:1), Done `#465268` on `#F1F4F9` (7.1:1), No-show `#B42828` on `#FDECEC` (5.6:1), white on CliniQ Blue (5.2:1) and on its hover/pressed, and Midnight on slate (≥ 15:1).
+
+**Decision for the PO:** confirm the brand theme as the G2-D direction (replacing decision 1 of the round-3 list below), and say whether the Care Teal border should move to `#11998D` or stay (it is decorative today).
+
+---
+
+# Round 3 record: Calm Confidence (superseded by the brand theme above; kept for the reasoning and the component system)
 
 | | |
 |---|---|
