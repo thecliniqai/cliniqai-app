@@ -1,0 +1,69 @@
+rev: 45e1c40
+== A: toISOString() date split/slice
+45e1c40:app/(dashboard)/billing/reports/page.tsx:20:  const todayStr = new Date().toISOString().split("T")[0];
+45e1c40:app/(dashboard)/cabin/page.tsx:35:  const today = new Date().toISOString().split("T")[0];
+45e1c40:app/(dashboard)/calendar/page.tsx:29:  const today = new Date().toISOString().split("T")[0];
+45e1c40:app/(dashboard)/page.tsx:59:  const today = new Date().toISOString().split("T")[0];
+45e1c40:app/(dashboard)/queue/page.tsx:28:  const today = new Date().toISOString().split("T")[0];
+45e1c40:app/api/reschedule/[token]/route.ts:68:      targetDate = d.toISOString().split("T")[0];
+45e1c40:app/api/v1/lab-orders/route.ts:214:        report_date: report_date ?? new Date().toISOString().slice(0, 10),
+45e1c40:app/reschedule/[token]/page.tsx:112:      isoDate: d.toISOString().split("T")[0],
+45e1c40:components/billing/collection-reports-view.tsx:41:    const toYmd = (d: Date) => d.toISOString().split("T")[0];
+45e1c40:components/billing/collection-reports-view.tsx:150:                startDate === endDate && startDate === new Date().toISOString().split("T")[0]
+45e1c40:components/calendar/block-time-modal.tsx:33:  const todayStr = initialDate || new Date().toISOString().split("T")[0];
+45e1c40:components/calendar/booking-drawer.tsx:56:  const [date, setDate] = useState(defaultDate || new Date().toISOString().split("T")[0]);
+45e1c40:components/calendar/calendar-view.tsx:119:    const nextDate = current.toISOString().split("T")[0];
+45e1c40:components/calendar/calendar-view.tsx:129:    const today = new Date().toISOString().split("T")[0];
+45e1c40:components/calendar/calendar-view.tsx:246:    const today = new Date().toISOString().split("T")[0];
+45e1c40:components/consultation/consultation-workspace.tsx:159:        return d.toISOString().split("T")[0];
+45e1c40:components/consultation/consultation-workspace.tsx:387:      setFollowUpDate(d.toISOString().split("T")[0]);
+45e1c40:components/patients/age-dob-input.tsx:91:            max={new Date().toISOString().split("T")[0]}
+45e1c40:components/patients/patient-lab-documents.tsx:63:  const [reportDate, setReportDate] = useState(() => new Date().toISOString().split("T")[0]);
+45e1c40:components/patients/patient-lab-documents.tsx:170:    setReportDate(new Date().toISOString().split("T")[0]);
+45e1c40:components/queue/queue-view.tsx:49:    const nextDate = current.toISOString().split("T")[0];
+45e1c40:components/queue/queue-view.tsx:62:    const today = new Date().toISOString().split("T")[0];
+45e1c40:components/queue/queue-view.tsx:94:    const today = new Date().toISOString().split("T")[0];
+45e1c40:components/referrals/close-loop-modal.tsx:22:    new Date().toISOString().split("T")[0]
+45e1c40:features/api-keys/service.ts:44:    const todayDate = new Date().toISOString().slice(0, 10);
+45e1c40:features/labs/service.ts:64:      report_date: formData.get("report_date") || new Date().toISOString().split("T")[0],
+45e1c40:features/queue/service.ts:30:    const today = new Date().toISOString().split("T")[0];
+== B: other timestamp .split("T")[0] (not A)
+45e1c40:app/api/visits/[id]/prescription-pdf/route.ts:158:        visit_date: (visit.scheduled_at || visit.created_at || new Date().toISOString()).split("T")[0],
+45e1c40:components/calendar/doctor-timeline.tsx:170:        const sDate = block.start_time.split("T")[0];
+45e1c40:components/calendar/doctor-timeline.tsx:171:        const eDate = block.end_time.split("T")[0];
+45e1c40:features/billing/pdf/receipt-document.tsx:346:                Date: {payload.date.split("T")[0]}
+45e1c40:features/consultation/service.ts:581:      visit_date: (visit.scheduled_at || visit.created_at || new Date().toISOString()).split("T")[0],
+45e1c40:features/prescriptions/service.ts:644:        visit_date: (visit.scheduled_at || visit.created_at || new Date().toISOString()).split("T")[0],
+45e1c40:features/referrals/service.ts:121:            visit_date: v.created_at ? v.created_at.split("T")[0] : "",
+45e1c40:features/visits/scheduling-service.ts:272:    const targetDate = scheduledAt.split("T")[0];
+45e1c40:features/visits/service.ts:373:      const targetDate = existing.scheduled_at.split("T")[0];
+45e1c40:lib/api/auth.ts:124:  const today = now.split("T")[0];
+== C: UTC day-window / fixed-offset literals
+45e1c40:app/(dashboard)/cabin/page.tsx:66:  const startOfDay = `${currentDate}T00:00:00.000Z`;
+45e1c40:app/(dashboard)/cabin/page.tsx:67:  const endOfDay = `${currentDate}T23:59:59.999Z`;
+45e1c40:app/api/reschedule/[token]/route.ts:70:    const startOfDay = `${targetDate}T00:00:00.000Z`;
+45e1c40:app/api/reschedule/[token]/route.ts:71:    const endOfDay = `${targetDate}T23:59:59.999Z`;
+45e1c40:components/calendar/block-time-modal.tsx:66:      // Combine date and time into ISO strings in local clinic timezone (+05:30)
+45e1c40:components/calendar/block-time-modal.tsx:67:      startIso = `${date}T${startTime}:00+05:30`;
+45e1c40:components/calendar/block-time-modal.tsx:68:      endIso = `${date}T${endTime}:00+05:30`;
+45e1c40:components/calendar/block-time-modal.tsx:71:      startIso = `${date}T00:00:00+05:30`;
+45e1c40:components/calendar/block-time-modal.tsx:72:      endIso = `${date}T23:59:59+05:30`;
+45e1c40:components/calendar/block-time-modal.tsx:80:      startIso = `${startDate}T00:00:00+05:30`;
+45e1c40:components/calendar/block-time-modal.tsx:81:      endIso = `${endDate}T23:59:59+05:30`;
+45e1c40:features/billing/reports-service.ts:59:    const startIso = new Date(`${startDateStr}T00:00:00.000Z`).toISOString();
+45e1c40:features/billing/reports-service.ts:60:    const endIso = new Date(`${endDateStr}T23:59:59.999Z`).toISOString();
+45e1c40:features/queue/service.ts:257:    const startOfDay = `${dateStr}T00:00:00.000Z`;
+45e1c40:features/queue/service.ts:258:    const endOfDay = `${dateStr}T23:59:59.999Z`;
+45e1c40:features/visits/scheduling-service.ts:209:    const startOfDay = `${dateStr}T00:00:00.000Z`;
+45e1c40:features/visits/scheduling-service.ts:210:    const endOfDay = `${dateStr}T23:59:59.999Z`;
+45e1c40:features/visits/scheduling-service.ts:273:    const startOfDay = `${targetDate}T00:00:00.000Z`;
+45e1c40:features/visits/scheduling-service.ts:274:    const endOfDay = `${targetDate}T23:59:59.999Z`;
+45e1c40:features/visits/schema.ts:66:    ? new Date(`${customStart}T00:00:00.000Z`)
+45e1c40:features/visits/schema.ts:70:    ? new Date(`${customEnd}T23:59:59.999Z`)
+45e1c40:features/visits/service.ts:142:    const startOfDay = `${dateStr}T00:00:00.000Z`;
+45e1c40:features/visits/service.ts:143:    const endOfDay = `${dateStr}T23:59:59.999Z`;
+45e1c40:lib/utils/filter-values.ts:16:  const parsed = new Date(`${value}T00:00:00.000Z`);
+== counts
+A lines: 27
+B lines: 10
+C lines: 24
