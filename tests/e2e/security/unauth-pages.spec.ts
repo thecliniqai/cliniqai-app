@@ -54,25 +54,27 @@ for (const route of ROUTES) {
     const ids: string[] = [];
 
     const raw = await request.get(route.url, { maxRedirects: 0 });
+    const rawId = raw.headers()["x-request-id"] ?? "";
+    ids.push(rawId);
     const rawBody = await raw.text();
     for (const marker of markers) expect(rawBody, `raw response of ${route.pattern}`).not.toContain(marker);
-    expect(raw.status(), `raw status of ${route.pattern}`).toBe(307);
+    // Soft: a wrong redirect shape is reported, and the sink check below still runs (both are the OA-5 proof).
+    expect.soft(raw.status(), `raw status of ${route.pattern}`).toBe(307);
     const location = new URL(raw.headers()["location"] ?? "", E2E_BASE_URL);
-    expect(location.pathname).toBe("/login");
-    expect(location.searchParams.get("next")).toBe(route.url);
-    const rawId = raw.headers()["x-request-id"] ?? "";
-    expect(rawId).toMatch(UUID);
-    ids.push(rawId);
+    expect.soft(location.pathname, "redirect target").toBe("/login");
+    expect.soft(location.searchParams.get("next"), "the proxy's next parameter").toBe(route.url);
+    expect.soft(rawId).toMatch(UUID);
 
     page.on("response", (res) => {
       if (res.request().resourceType() === "document") ids.push(res.headers()["x-request-id"] ?? "");
     });
     await page.goto(route.url);
-    await expect(page).toHaveURL((url) => url.pathname === "/login" && url.searchParams.get("next") === route.url);
+    sweepIds.push(...ids);
+    await expect(page).toHaveURL((url) => url.pathname === "/login");
+    expect.soft(new URL(page.url()).searchParams.get("next"), "next survives to the login page").toBe(route.url);
     const html = await page.content();
     for (const marker of markers) expect(html, `final page of ${route.pattern}`).not.toContain(marker);
 
-    sweepIds.push(...ids);
     // onRequestError is awaited before a response completes (03-09b), so a page error would already be in the sink.
     expect(sinkRowsFor(ids), `error-sink rows for the requests of ${route.pattern}`).toBe(0);
   });
