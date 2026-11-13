@@ -34,6 +34,8 @@ async function p012At(fixture: string, relPath: string): Promise<Array<[number, 
 }
 
 const at = (...lines: number[]) => lines.map((l): [number, string] => [l, IMPORTS]);
+// 04-07a (review B L-1): the dynamic import()/require() forms are no-restricted-syntax gates.
+const dyn = (...lines: number[]) => lines.map((l): [number, string] => [l, "no-restricted-syntax"]);
 
 const FAILING: Array<[string, string, Array<[number, string]>]> = [
   ["provider-factory-import.ts", "features/patients/service.ts", at(1)],
@@ -62,6 +64,13 @@ const FAILING: Array<[string, string, Array<[number, string]>]> = [
   ["webhook-fire-and-forget.ts", "app/api/jobs/run/route.ts", at(1)],
   ["webhook-fire-and-forget.ts", "lib/jobs/enqueue.ts", at(1)],
   ["webhook-transport-imports.ts", "features/webhooks/service.ts", at(1, 2, 3, 4)],
+  // 04-07a: import()/require() of the barrel, a provider module, the deliverer or the transport (any case) fails outside
+  // the zones; inside lib/messaging only the webhook lines fail, inside lib/webhooks only the messaging lines.
+  ["dynamic-imports.ts", "features/billing/x.ts", dyn(3, 4, 5, 6, 7, 8, 9)],
+  ["dynamic-imports.ts", INBOUND, dyn(3, 4, 5, 6, 7, 8, 9)],
+  ["dynamic-imports.ts", "lib/jobs/enqueue.ts", dyn(3, 4, 5, 6, 7, 8, 9)],
+  ["dynamic-imports.ts", "lib/messaging/x.ts", dyn(6, 7, 9)],
+  ["dynamic-imports.ts", "lib/webhooks/x.ts", dyn(3, 4, 5, 8)],
 ];
 
 const PASSING: Array<[string, string]> = [
@@ -82,6 +91,8 @@ const PASSING: Array<[string, string]> = [
   ["webhook-fire-and-forget.ts", "tests/fixture/x.spec.ts"],
   ["webhook-transport-imports.ts", "lib/webhooks/x.ts"],
   ["webhook-transport-imports.ts", "lib/jobs/internal/x.ts"],
+  ["dynamic-imports.ts", "lib/jobs/internal/x.ts"],
+  ["dynamic-imports.ts", "tests/fixture/x.spec.ts"],
 ];
 
 describe("P0-12: provider and direct senders outside the runner fail lint", () => {

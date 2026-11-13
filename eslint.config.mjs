@@ -222,6 +222,29 @@ const BOUNDARY_SYNTAX = {
       message: `${P134} import() needs a string-literal specifier so the boundary rules can check it (ADR-0005 D4).`,
     },
   ],
+  // V2-04 04-07a (P0-12; review B L-1): the dynamic forms of the messagingSend / webhookDeliver import gates. A request
+  // path may not load the messaging barrel, a provider module or the webhook deliverer / pinned transport with import()
+  // or require() either (case-insensitive, as the static gates). Allowed where the static imports are (zones below).
+  messagingDynamic: [
+    {
+      selector: [
+        `ImportExpression[source.value=/${MESSAGING_BARREL}/i]`,
+        `ImportExpression[source.value=/${MESSAGING_PROVIDER_MODULE}/i]`,
+        `CallExpression[callee.name="require"][arguments.0.value=/${MESSAGING_BARREL}/i]`,
+        `CallExpression[callee.name="require"][arguments.0.value=/${MESSAGING_PROVIDER_MODULE}/i]`,
+      ].join(", "),
+      message: `${P012} a request path never sends a message; a dynamic import()/require() of the messaging barrel or a provider module is allowed only in ${MESSAGING_SEND_WHERE} (R-33). Enqueue through @/lib/jobs/enqueue.`,
+    },
+  ],
+  webhookDynamic: [
+    {
+      selector: [
+        `ImportExpression[source.value=/${WEBHOOK_DELIVER_MODULE}/i]`,
+        `CallExpression[callee.name="require"][arguments.0.value=/${WEBHOOK_DELIVER_MODULE}/i]`,
+      ].join(", "),
+      message: `${P012} a request path never delivers a webhook; a dynamic import()/require() of the webhook deliverer or its pinned transport is allowed only in ${WEBHOOK_DELIVER_WHERE} (R-33). Enqueue through @/lib/jobs/enqueue (enqueueWebhookEvent).`,
+    },
+  ],
   // P1-15 / 03-01: configuration is read through the typed env modules.
   processEnv: [
     {
@@ -434,6 +457,10 @@ const BOUNDARY_SYNTAX_ZONES = [
   // 03-09a: the dev-only client reporter reads NODE_ENV and writes one console.warn (03-09c census: the only site).
   { files: ["lib/log/client.ts"], allow: ["processEnv", "console", "rawStream"] },
   { files: ["lib/datetime/**"], allow: ["utcDate"] },
+  // V2-04 04-07a (P0-12): the dynamic forms follow the static messagingSend / webhookDeliver allowances.
+  { files: ["lib/messaging/**"], allow: ["messagingDynamic"] },
+  { files: ["lib/webhooks/**"], allow: ["webhookDynamic"] },
+  { files: ["lib/jobs/internal/**"], allow: ["messagingDynamic", "webhookDynamic"] },
 ];
 
 /** Import allowances, in order: a later zone overrides an earlier one for the files both match. */
