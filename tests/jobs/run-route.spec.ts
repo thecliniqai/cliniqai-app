@@ -62,6 +62,15 @@ function purgeDrillJobs(): void {
   psql("delete from ops.jobs where kind = 'drill.noop'");
 }
 
+/**
+ * 04-03a: the route claims every registered kind, now incl. `message.send`, whose jobs other specs leave pending (an
+ * enqueue in a guard leg, a share). Park every due non-drill job a day ahead so the counts here are this spec's own;
+ * no later spec depends on another file's leftover jobs.
+ */
+function parkOtherDueJobs(): void {
+  psql("update ops.jobs set run_at = now() + interval '1 day' where status = 'pending' and kind not like 'drill.%' and run_at <= now() + interval '1 hour'");
+}
+
 function runnerRunsSince(marker: string): string[] {
   return psql(`select source || '|' || coalesce(ok::text, 'null') from ops.job_runner_runs where started_at >= '${marker}'::timestamptz order by id`);
 }
@@ -87,6 +96,7 @@ let stderr: MockInstance;
 
 beforeAll(() => {
   purgeDrillJobs();
+  parkOtherDueJobs();
 });
 
 afterAll(() => {
@@ -103,6 +113,9 @@ beforeEach(() => {
   stderr = vi.spyOn(process.stderr, "write").mockImplementation(capture as typeof process.stderr.write);
   vi.stubEnv("JOBS_RUNNER_SECRET", secret);
   vi.stubEnv("JOBS_DRILL_ENABLED", "true");
+  // 04-03a (R-9): a message.send job reaching this route sends nothing and writes no .planning/dev-messages.txt.
+  vi.stubEnv("MESSAGING_PROVIDER", "sink");
+  parkOtherDueJobs();
 });
 
 afterEach(() => {

@@ -145,7 +145,8 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
       const provider = new Msg91Provider({ authKey: "" });
       const result = await provider.sendSms("+919999999999", "temp_1", { name: "Test" });
       expect(result.success).toBe(false);
-      expect(result.error).toContain("MSG91_AUTH_KEY is not configured");
+      // V2-04 04-03a (R-20): a fixed machine code, not retryable.
+      expect(result).toMatchObject({ error: "msg91_not_configured", retryable: false });
     });
 
     it("TwilioProvider gracefully reports error when credentials are missing", async () => {
