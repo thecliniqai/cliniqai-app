@@ -121,6 +121,25 @@ const BASE_RESTRICTED_SYNTAX = [...AUTH01_GATES, ...P001_ACTION_GATES, ...P013_I
  * system-factory allow-list or the exception register needs an ADR-0005 amendment accepted at a gate.
  */
 const P134 = "P1-34:";
+// V2-04 04-03a (P0-12, R-33): no request path sends a patient message; only the job runner does.
+const P012 = "P0-12:";
+const MESSAGING_SEND_NAMES = [
+  "getMessagingProvider",
+  "sendDirectSms",
+  "sendDirectWhatsApp",
+  "Msg91Provider",
+  "TwilioProvider",
+  "GupshupProvider",
+  "DevLoggerProvider",
+  "DisabledMessagingProvider",
+  "SinkProvider",
+];
+const MESSAGING_SEND_WHERE =
+  "lib/jobs/internal/** (the message.send handler) and lib/messaging/** (until 04-03c, also the inbound messaging webhook)";
+// The provider modules themselves, by alias or by any relative spelling (`../messaging/providers/msg91`).
+const MESSAGING_PROVIDER_MODULE = String.raw`^(?:@\/lib\/|(?:\.{1,2}\/)+(?:.*\/)?)messaging\/(?:providers(?:\/.*)?|dev-logger)$|^(?:\.{1,2}\/)+(?:providers(?:\/.*)?|dev-logger)$`;
+// The messaging barrel by any spelling (`@/lib/messaging`, `@/lib/messaging/index`, `../../lib/messaging`).
+const MESSAGING_BARREL = String.raw`^(?:@\/lib\/|(?:\.{1,2}\/)+(?:.*\/)?)messaging(?:\/index)?$`;
 const SYSTEM_TAIL = String.raw`system(?:\/index)?(?:\.[cm]?[jt]sx?)?\/?$`;
 // A module specifier that is an alias (`@/`), relative (`./`, `../`) or absolute (`/`) path, never a package name.
 const LOCAL_SPEC = String.raw`^(?:@|\.{1,2}|)\/`;
@@ -301,6 +320,21 @@ const BOUNDARY_IMPORT_PATTERNS = {
     regex: String.raw`^(?!@\/lib\/supabase\/${SYSTEM_TAIL})(?!@\/features\/[^/]+\/${SYSTEM_TAIL})${ANY_SYSTEM_MODULE}`,
     message: `${P134} import a system module only by its canonical alias (@/lib/supabase/system, @/features/<domain>/system) and only from ${SYSTEM_ALLOWED_WHERE} (ADR-0005 D4).`,
   },
+  // V2-04 04-03a (P0-12, R-33): the provider factory, the direct senders and the provider classes, from the barrel or
+  // the provider modules, only in lib/jobs/internal/** and lib/messaging/** (+ one owner-commented allowance below).
+  messagingSend: [
+    {
+      regex: MESSAGING_BARREL,
+      importNames: MESSAGING_SEND_NAMES,
+      allowTypeImports: true,
+      message: `${P012} a request path never sends a message; enqueue through @/lib/jobs/enqueue. The provider factory and the direct senders are importable only from ${MESSAGING_SEND_WHERE} (R-33).`,
+    },
+    {
+      regex: MESSAGING_PROVIDER_MODULE,
+      allowTypeImports: true,
+      message: `${P012} a request path never sends a message; enqueue through @/lib/jobs/enqueue. The messaging provider modules are importable only from ${MESSAGING_SEND_WHERE} (R-33).`,
+    },
+  ],
   jobsInternal: {
     regex: JOBS_INTERNAL_MODULE,
     message: `${P134} lib/jobs/internal (claim, handlers, runner) is importable only from app/api/jobs/** and lib/jobs/internal/**; request paths use the lib/jobs enqueue surface (ADR-0005 D2).`,
@@ -353,7 +387,7 @@ const appImports = (allow = [], extraPatterns = [], extraPaths = []) => [
     patterns: [
       ...Object.entries(BOUNDARY_IMPORT_PATTERNS)
         .filter(([group]) => !allow.includes(group))
-        .map(([, pattern]) => pattern),
+        .flatMap(([, pattern]) => [pattern].flat()),
       ...extraPatterns,
     ],
   },
@@ -396,8 +430,14 @@ const BOUNDARY_IMPORT_ZONES = [
   { files: ["features/*/system.ts", "app/api/webhooks/**"], allow: SYSTEM_MODULES },
   // ADR-0005 exception register. Owner P1-37 (public API rework): delete when /api/v1 stops using the service role.
   { files: ["app/api/v1/**", "lib/api/**"], allow: SYSTEM_MODULES },
+  // V2-04 04-03a (P0-12): the messaging modules themselves (the barrel re-exports the providers it builds). Before the
+  // register zone below, which still names lib/messaging/dispatcher.ts (deleted by 04-03a) until 04-03c drops it.
+  { files: ["lib/messaging/**"], allow: ["messagingSend"] },
   // ADR-0005 exception register. Owner V2-04 (enqueue RPC + app/api/jobs/run replace these): delete in V2-04 04-03c.
   { files: ["app/api/cron/**", "lib/messaging/dispatcher.ts", "lib/webhooks/**"], allow: SYSTEM_MODULES },
+  // P0-12 allowance, owner V2-04 04-03c: the inbound messaging webhook still sends its five bot replies with
+  // sendDirectWhatsApp. 04-03c queues them (enqueueMessageAsSystem) and deletes sendDirect* together with this zone.
+  { files: ["app/api/webhooks/messaging/\\[provider\\]/route.ts"], allow: [...SYSTEM_MODULES, "messagingSend"] },
   // ADR-0005 A1: the five public share routes (minimatch escapes the brackets of the dynamic segment).
   {
     files: [
@@ -412,6 +452,8 @@ const BOUNDARY_IMPORT_ZONES = [
   },
   // ADR-0005 D2: the jobs runner route and the jobs internals (after lib/jobs/** so the internals get the superset).
   { files: ["lib/jobs/internal/**", "app/api/jobs/**"], allow: [...SYSTEM_MODULES, "jobsInternal"] },
+  // P0-12 (R-33): only the internals (the message.send handler) build a provider; the runner route does not.
+  { files: ["lib/jobs/internal/**"], allow: [...SYSTEM_MODULES, "jobsInternal", "messagingSend"] },
 ];
 
 // ADR-0005 D4: tests and scripts are excepted from the boundary gates; so are the root tool configs. V2-04 04-05a:

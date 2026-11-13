@@ -317,7 +317,7 @@ describe("P1-34 boundary lint gates: the real tree", () => {
 
 type Counters = {
   files_linted: number;
-  boundary_messages: Record<"P1-34" | "P1-21" | "P1-25" | "P1-15", number> & { flagged: string[] };
+  boundary_messages: Record<"P1-34" | "P1-21" | "P1-25" | "P1-15" | "P0-12", number> & { flagged: string[] };
   boundary_directives: string[];
   p1_34_boundary_messages: number;
   utc_today_messages: number;
@@ -344,7 +344,7 @@ describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-check
     expect(c.service_role_factories).toEqual(["lib/supabase/system.ts"]);
     expect(c.p1_34_boundary_messages).toBe(0);
     expect(c.utc_today_messages).toBe(0);
-    expect(c.boundary_messages).toEqual({ "P1-34": 0, "P1-21": 0, "P1-25": 0, "P1-15": 0, flagged: [] });
+    expect(c.boundary_messages).toEqual({ "P1-34": 0, "P1-21": 0, "P1-25": 0, "P1-15": 0, "P0-12": 0, flagged: [] });
     expect(c.boundary_directives).toEqual([]);
     expect(c.system_module_importers.factory.length).toBeGreaterThan(0);
     expect(c.system_module_importers.factory.filter((f) => !ALLOWED_IMPORTER.some((re) => re.test(f)))).toEqual([]);

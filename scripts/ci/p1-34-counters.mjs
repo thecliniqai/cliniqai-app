@@ -4,7 +4,7 @@
  *
  * - `boundary_messages`: the real eslint.config.mjs over app code with inline configuration OFF (03-13c M-LINT: an
  *   `eslint-disable` or `/* eslint … *\/` comment cannot hide a gate from the census); count of messages per backlog
- *   id (P1-34, P1-21, P1-25, P1-15) and the file:line of each (expected all 0, so the list is empty).
+ *   id (P1-34, P1-21, P1-25, P1-15, P0-12) and the file:line of each (expected all 0, so the list is empty).
  * - `boundary_directives`: boundary messages that an inline directive suppresses when inline configuration is ON,
  *   as file:line (expected empty; the `clinicos/no-boundary-directive` rule also fails `npx eslint .` on them).
  * - `service_role_factories`: files flagged when a value-import restriction on every Supabase package (other than the
@@ -29,9 +29,10 @@ export const APP_CODE = [
   "instrumentation.ts",
   "next.config.ts",
 ];
-const IDS = ["P1-34", "P1-21", "P1-25", "P1-15"];
+// V2-04 04-03a: P0-12 (no request path sends a message, R-33) joins the per-backlog-id census.
+const IDS = ["P1-34", "P1-21", "P1-25", "P1-15", "P0-12"];
 // no-restricted-syntax messages start with the id; typescript-eslint's no-restricted-imports prepends a sentence.
-const BOUNDARY_ID = /(?:^|\s)(P1-(?:34|21|25|15)):/;
+const BOUNDARY_ID = /(?:^|\s)(P1-(?:34|21|25|15)|P0-12):/;
 const CENSUS = "census:";
 
 /** `targets`/`ignore` exist for the spec, which points the counters at lint-fixtures/p1-34 (ignored by default). */
