@@ -1,6 +1,6 @@
 # Runbook: background jobs and the scheduler
 
-V2-04 plan 04-02 (P0-12, C22, RL-23). Rulings R-12, R-16, R-17, R-18, R-21, R-32, R-34. Threats T-04-01, T-04-02,
+V2-04 plan 04-02 (P0-12, C22, RL-23). Rulings R-12, R-17, R-18, R-21, R-32, R-34, R-49 (supersedes R-16's revoke clause). Threats T-04-01, T-04-02,
 T-04-18, T-04-20. Later plans add their sections (04-03a message sends, 04-03b webhook delivery, 04-03c inbound
 idempotency, 04-04 alerts, 04-06 heartbeat, quota and the ops report). The PO does every hosted step; agents never set
 hosted secrets, never run SQL against a hosted project and never call a hosted runner.
@@ -12,9 +12,10 @@ pg_cron  'jobs-kick'  * * * * *  ──► ops.kick_job_runner()  (SECURITY DEFI
                                         │ reads Vault: jobs_runner_url, jobs_runner_secret
                                         │ none set → returns NULL, sends nothing (local stacks, CI)
                                         ▼
-                                  net.http_post(url, {"source":"pg_cron"}, Authorization: Bearer <secret>, 30 s)
+                                        │ token = v1.<unix_ts>.<hex hmac_sha256(secret, 'jobs-run|v1|' || unix_ts)>  (R-49)
+                                  net.http_post(url, {"source":"pg_cron"}, Authorization: Bearer <token>, 30 s)
                                         ▼  (sent by the pg_net worker after the cron transaction commits)
-POST /api/jobs/run  ──► isAuthorisedRunner (SHA-256 + timingSafeEqual, current + NEXT) ── else 401 {"ok":false}
+POST /api/jobs/run  ──► isAuthorisedRunner (|now − ts| ≤ 120 s; HMAC of current or NEXT, timingSafeEqual) ── else 401
                     ──► runJobs(getSystemDb("jobs.run"), budget 25 s, batch 25, lease 120 s, ≤ 10 per tenant)
                     ──► public.claim_jobs (FOR UPDATE SKIP LOCKED, lease token) → handler → complete/fail_job
 pg_cron  'jobs-reap'  * * * * *  ──► ops.reap_jobs()   (dead-letters expired leases with no attempts left)
@@ -23,10 +24,10 @@ pg_cron  'cron-history-cleanup'  15 0 * * *  ──► deletes cron.job_run_deta
 
 | Piece | Where |
 |---|---|
-| Schedules, kick, drill enqueue | `supabase/migrations/000033_jobs_scheduler.sql` |
+| Schedules, kick, drill enqueue | `supabase/migrations/000033_jobs_scheduler.sql`; the token-sending kick `000034_jobs_runner_token.sql` (R-49) |
 | Queue, claim, fencing, reaper | `supabase/migrations/000031_jobs_queue.sql`; runner `lib/jobs/internal/runner.ts` (record 04-01) |
 | Route | `app/api/jobs/run/route.ts` (`POST` only; other methods 405 `Allow: POST`; `maxDuration` 60 s) |
-| Bearer check | `lib/jobs/auth.ts` |
+| Bearer check | `lib/jobs/auth.ts` (`isAuthorisedRunner`, `mintRunnerToken`) |
 | Handlers | `lib/jobs/internal/registry.ts` (the route claims exactly these kinds); drills in `handlers/drill.ts` |
 | Env | `JOBS_RUNNER_SECRET` (required in staging/production, 32+ printable characters, not the `CRON_SECRET`), `JOBS_RUNNER_SECRET_NEXT` (rotation only), `JOBS_DRILL_ENABLED` (default false, refused in production) |
 
@@ -76,15 +77,16 @@ Vault secrets as above (docs/runbooks/backup-restore.md).
 ## 3. Rotating the runner secret
 
 1. New value: `openssl rand -hex 32`. Vercel: set `JOBS_RUNNER_SECRET_NEXT` = new value. Redeploy. The route now accepts
-   the old and the new secret.
+   tokens signed with the old or the new secret.
 2. Vault (SQL editor): `select vault.update_secret((select id from vault.secrets where name = 'jobs_runner_secret'), '<new value>');`
 3. Wait two minutes; check §6 that kicks answer 200.
-4. Vercel: `JOBS_RUNNER_SECRET` = new value, delete `JOBS_RUNNER_SECRET_NEXT`. Redeploy. The old value is now refused.
+4. Vercel: `JOBS_RUNNER_SECRET` = new value, delete `JOBS_RUNNER_SECRET_NEXT`. Redeploy. Tokens signed with the old
+   value are now refused.
 5. Record the date (names only) in `docs/ops/secret-rotation.md`.
 
 The schema refuses `JOBS_RUNNER_SECRET_NEXT` without a current secret or equal to it. Rotate at once if the value may
-have leaked (see §7, residual exposure): the worst a leaked runner secret allows is extra runner passes (idempotent:
-only due work runs; no data is returned).
+have leaked: the worst a leaked runner secret allows is extra runner passes (idempotent: only due work runs; no data is
+returned). The secret itself is never sent (R-49); only tokens are.
 
 ## 4. Pausing and resuming
 
@@ -100,12 +102,17 @@ kick (it returns NULL).
 
 ## 5. Manual run and drills
 
-Manual run (same bearer; idempotent, only due work runs):
+Manual run (idempotent, only due work runs). The route never accepts the raw secret: mint a token that is valid for
+120 s (the clock of the machine running this must be within a minute or so of real time):
 
 ```bash
+ts=$(date +%s)
+sig=$(printf 'jobs-run|v1|%s' "$ts" | openssl dgst -sha256 -hmac "$JOBS_RUNNER_SECRET" | awk '{print $NF}')
 curl -s -X POST https://staging.<domain>/api/jobs/run \
-  -H "Authorization: Bearer $JOBS_RUNNER_SECRET" -H "Content-Type: application/json" -d '{"source":"manual"}'
+  -H "Authorization: Bearer v1.$ts.$sig" -H "Content-Type: application/json" -d '{"source":"manual"}'
 ```
+
+(In TypeScript: `mintRunnerToken(secret)` from `lib/jobs/auth.ts`.)
 
 Drill (staging only, R-32): set `JOBS_DRILL_ENABLED=true` in Vercel and redeploy, then in the SQL editor:
 
@@ -156,7 +163,7 @@ select kind, status, count(*), min(run_at) from ops.jobs group by 1, 2 order by 
 |---|---|
 | `jobs-kick` runs `succeeded` but no `_http_response` rows | Vault secrets missing (kick returns NULL by design) |
 | `cron.job_run_details.return_message` = `jobs_runner_url_refused` / `jobs_runner_secret_refused` | the Vault URL is not https (or carries userinfo) / the Vault secret is too short or has spaces |
-| `status_code` 401 | Vault secret and `JOBS_RUNNER_SECRET` (or `_NEXT`) differ; or the env schema refused the deployment's secret |
+| `status_code` 401 | Vault secret and `JOBS_RUNNER_SECRET` (or `_NEXT`) differ; the database and app clocks differ by more than 120 s (token refused as stale/future); or the env schema refused the deployment's secret |
 | `timed_out` true | the function took more than 30 s (should not happen: budget 25 s) or the URL is unreachable |
 | `status_code` 405 | the URL points at a GET, or a redirect turned POST into GET (use the final https URL) |
 | runner runs with `ok = false` | a queue RPC failed (`error_code` is the SQLSTATE); unfinished jobs are re-claimed after their lease |
@@ -167,14 +174,15 @@ select kind, status, count(*), min(run_at) from ops.jobs group by 1, 2 order by 
 - The runner secret authorises one thing: a runner pass over **due** work. It is never the service key and never the
   `CRON_SECRET`. The route answers 401 before any body read or database access, compares in constant time and returns
   counts only.
-- **Residual exposure (R-16 as built, raised for a ruling in 04-02-SCHEDULER.md):** pg_net's objects are owned by
-  `supabase_admin`, which grants anon/authenticated USAGE on `net` and EXECUTE on `net.http_post`, and leaves
-  `net.http_request_queue` readable by PUBLIC. The `postgres` role that runs migrations cannot revoke grants it did not
-  make, so the plan's `REVOKE` is impossible here. While a request waits for the pg_net worker (normally under a
-  second), any role that can **log in** to the database can read its headers, including the bearer. anon and
-  authenticated cannot log in and cannot reach `net` through the API (`net` is not an API schema; PostgREST answers
-  PGRST106; no function in an API schema references `net.`). Keep the set of login roles with SQL access small, and
-  rotate the runner secret (§3) if a login role's credentials may have leaked.
+- **The secret never leaves the database (R-49).** pg_net's objects are owned by `supabase_admin`, which grants anon and
+  authenticated on `net` and leaves `net.http_request_queue` readable by PUBLIC; the `postgres` migration role cannot
+  revoke those grants (R-16's revoke clause is superseded). So the kick sends only a token: `v1.<unix_ts>.<hex
+  hmac_sha256(secret, 'jobs-run|v1|' || unix_ts)>`. The route accepts it for 120 s either side of its own clock, against
+  the current or next secret, in constant time; malformed, stale, future and wrong-secret tokens get 401 with no detail.
+  anon and authenticated cannot log in and cannot reach `net` through the API (`net` is not an API schema; PostgREST
+  answers PGRST106; no function in an API schema references `net.`).
+- **Accepted residual (R-49):** any role that can log in to the database can read a queued token while it waits for the
+  pg_net worker and replay it within its 120 s window. A replay only runs the idempotent runner over due work.
 - `service_role` holds Supabase's default Vault grant (not reachable through the API). No API role may execute
   `ops.kick_job_runner()` or `ops.drill_enqueue()` or use `cron`.
 

@@ -10,7 +10,7 @@ commits: [470d0fc, e027cdb, 3caabac, 97edec4, 4872619, 4d0bfc5]
 
 # 04-02 record: scheduler (pg_cron → pg_net → `/api/jobs/run`)
 
-**Outcome:** done locally, with one ruling needed (R-16, below). The full path ran for real once on macOS: pg_cron
+**Outcome:** done locally, including ruling **R-49** (orchestrator as CTO, 2026-11-13: the kick sends a short-lived HMAC token, never the secret; supersedes R-16's revoke clause; section below). The full path ran for real once on macOS: pg_cron
 `jobs-kick` → `ops.kick_job_runner()` → Vault → pg_net → `POST /api/jobs/run` on the e2e build → runner → 5/5
 `drill.noop` done, one `pg_cron` runner pass, one pg_net response 200, queue lag p95 27.5 s
 (`evidence/scheduler-local-e2e.json`, tool output). CI tests the DB half and the route half separately (pitfall 6,
@@ -87,13 +87,16 @@ served by PostgREST; no API-schema function references `net.`).
 - Full Vitest lane (`npm run test:db`, `vitest-full.txt`): run 1 at `4872619` had 7 failures in 3 files of other
   plans (D9); after `4d0bfc5`: **178 files, 3 797 tests passed, 0 failed**; teardown verified; every `cron.job` row
   active again afterwards.
+- After R-49 (000034): full Vitest lane 178 files, **3 811 passed, 0 failed**; e2e build scan clean; e2e PR lane 190
+  expected, 0 unexpected, 0 flaky, 0 retried; macOS scheduler run again 5/5 done through pg_cron with the token (one
+  pg_net 200, lag p95 42.2 s; `evidence/scheduler-local-e2e.json` now holds this run); `db:drift:local` PASS.
 - gitleaks 8.30.1 (docker, `--network none`) over the full history after the commits: no leaks found.
 
 ## Deviations
 
 | # | Plan said | Done | Why |
 |---|---|---|---|
-| D1 | `REVOKE USAGE ON SCHEMA net`, `REVOKE ALL ON ALL TABLES IN SCHEMA net`, `REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA net` from `PUBLIC, anon, authenticated` (R-16); test "anon and authenticated lack USAGE on `net`, EXECUTE on `net.http_post`, SELECT on `net.http_request_queue`" | **Not shipped; raised for a ruling.** Compensating assertions instead (PostgREST refuses `net`; no API-schema function references `net.`; only the kick calls pg_net or reads the secret; API roles cannot run the kick or read Vault) | Every `net` object is owned by `supabase_admin`, whose `grant_pg_net_access` event trigger grants anon/authenticated and which leaves the queue tables to PUBLIC. Migrations run as `postgres` (not superuser, not the grantor), so each REVOKE is a no-op with `WARNING: no privileges could be revoked` (`evidence/04-02/pg-net-revoke-probe.txt`). Shipping it would read as a control that does not exist. See "Ruling needed" |
+| D1 | `REVOKE USAGE ON SCHEMA net`, `REVOKE ALL ON ALL TABLES IN SCHEMA net`, `REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA net` from `PUBLIC, anon, authenticated` (R-16); test "anon and authenticated lack USAGE on `net`, EXECUTE on `net.http_post`, SELECT on `net.http_request_queue`" | **Not shipped; superseded by R-49** (HMAC token, migration 000034). Compensating assertions kept (PostgREST refuses `net`; no API-schema function references `net.`; only the kick calls pg_net or reads the secret; API roles cannot run the kick or read Vault) | Every `net` object is owned by `supabase_admin`, whose `grant_pg_net_access` event trigger grants anon/authenticated and which leaves the queue tables to PUBLIC. Migrations run as `postgres` (not superuser, not the grantor), so each REVOKE is a no-op with `WARNING: no privileges could be revoked` (`evidence/04-02/pg-net-revoke-probe.txt`). Shipping it would read as a control that does not exist. See "Ruling needed" |
 | D2 | `runJobs` result `{ claimed, done, retried, dead, stale, released, durationMs }` (04-01) | + `ok` | The route's `ok` must say whether the pass completed; without it a failed queue RPC would answer `ok: true`. 04-01's runner spec asserts it |
 | D3 | `jobs-internal-relative.ts` placeholder replaced by the real path | Keeps `// @ts-nocheck` (reason updated); `jobs-internal-import.ts` now imports the real `runJobs` and is typechecked | `./internal/runner` resolves only at the virtual path `lib/jobs/enqueue.ts`, not at `lint-fixtures/p1-34/`. The real route source is linted instead (stronger: the actual file, moved to three zones) |
 | D4 | body ≤ 1 KB | > 1 KB → 413 (read bounded, never buffered whole); bad JSON / unknown key → 400 | Explicit statuses; all bodies `{"ok":false}` |
@@ -101,23 +104,40 @@ served by PostgREST; no API-schema function references `net.`).
 | D6 | e2e "sets its own synthetic secret" | e2e uses the lane's `LOCAL_JOBS_RUNNER_SECRET` (exported as `E2E_JOBS_RUNNER_SECRET`) | the guard allows exactly one synthetic value in every test lane (like the ingest key and the hook secret); the Vitest lane leaves it unset and stubs random secrets |
 | D7 | test lanes set cron inactive, teardown sets "them" active | teardown sets **every** row active | heals a killed run (otherwise the local stack's schedules would stay off until the next `db reset`) |
 | D8 | (not in plan) | `environment.txt.example` gained the runner/drill lines and the Vault SQL | the PO's single list of where each key goes (04-00b precedent) |
+| D10 | bearer = the runner secret (R-18) | bearer = `v1.<ts>.<hmac>` token, ±120 s (R-49, migration 000034) | ruling R-49 above |
 | D9 | (not in plan; Rule 1/3, caused by 000033) | `scripts/drift/hosted-dump-diff.mjs` skips `pg_*` schemas and does not load `pg_cron` into its scratch DB; `restore-drill-checks-db.spec.ts` emulates a restore with `cron.unschedule`; `backup-runs-db.spec.ts` empties `ops.job_runner_runs` inside its rolled-back probe | With pg_cron installed a schema dump says `CREATE EXTENSION "pg_cron" WITH SCHEMA "pg_catalog"` (the tool tried `create schema pg_catalog`; pg_cron cannot exist outside `cron.database_name`; a staging dump will carry the same line); `postgres` may not DELETE from `cron.job`; the stale-runner probe assumed no ok runner pass in the shared lane, false once real passes exist. Each failed in the first full run and passes now |
 
-## Ruling needed (R-16, T-04-02) — for 04-P14 and review group B
+## Ruling R-49 (T-04-02; supersedes R-16's revoke clause) — implemented
 
-As built, while a kick waits for the pg_net worker (normally well under a second), its `Authorization` header sits in
-`net.http_request_queue`, which every database **login** role can read (PUBLIC has all privileges; owner
-`supabase_admin`). Login roles on a hosted project include `postgres`, `authenticator`, `supabase_auth_admin`,
-`supabase_storage_admin`, `supabase_read_only_user` and the V2-03 read-only role `clinicos_drift_ro` (used by GitHub
-workflows). anon and authenticated cannot log in and cannot reach `net` through the API (asserted). Impact of a leaked
-runner secret: extra runner passes over due work only (idempotent; no data returned; never the service key).
+**Finding:** while a kick waits for the pg_net worker, its headers sit in `net.http_request_queue`, which every database
+**login** role can read (PUBLIC has all privileges; owner `supabase_admin`; the `postgres` migration role cannot revoke,
+`evidence/04-02/pg-net-revoke-probe.txt`). With 000033 that header was the raw runner secret.
 
-Options: **(a)** accept with the compensating checks + rotation runbook (§3, §7 of `docs/runbooks/jobs.md`) —
-implemented; **(b)** replace the static bearer with a short-lived token (`<unix ts>.<HMAC-SHA256(secret, ts)>` built in
-`ops.kick_job_runner()` with pgcrypto, verified by the route with a ±2 min window and constant-time compare), so the
-queue never holds the secret — an auth-approach change (Rule 4), not done; **(c)** ask Supabase support whether the
-`net` grants can be narrowed on the hosted project. Recommendation: (a) now, (b) before production (V2-15) if the
-review agrees the read-only role's exposure matters.
+**Ruling (orchestrator as CTO, 2026-11-13):** the secret never goes on the wire. Migration
+`000034_jobs_runner_token.sql` (new number; 000033 is applied and unchanged) replaces only the body of
+`ops.kick_job_runner()`: `Authorization: Bearer v1.<unix_ts>.<hex hmac_sha256(key = secret, data = 'jobs-run|v1|' ||
+unix_ts)>` (pgcrypto `extensions.hmac`, `clock_timestamp()`). `lib/jobs/auth.ts` `isAuthorisedRunner` accepts a token
+only when it matches `^v1\.[1-9][0-9]{0,11}\.[0-9a-f]{64}$`, `|now − ts| ≤ 120 s`, and its HMAC equals that of the
+current or (during rotation) the next secret, compared with `timingSafeEqual` on 32-byte buffers against both secrets
+(no early exit); every refusal is 401 `{"ok":false}` with no detail. `mintRunnerToken(secret, ts)` builds the same token
+(tests, the e2e lane, operators; the runbook also gives the `openssl dgst -hmac` form). Rotation is unchanged
+(`JOBS_RUNNER_SECRET_NEXT`, then promote).
+
+**Accepted residual (R-49):** a login role that reads a queued token can replay it within its 120 s window; a replay
+only runs the idempotent runner over due work (no data returned). Clocks: the database and app clocks must agree within
+120 s (managed hosts are NTP-synced; a 401 with a correct secret points at skew, runbook §6).
+
+**Tests that fail without it** (`evidence/04-02/before-vitest-r49.txt`: the updated specs on `b53b199`, stack reset to
+000033 → 4 files, 31 tests fail; the queued row shows `leak:true`): `scheduler-migration-db.spec.ts` — the queued
+request's URL, headers, body and whole row never contain the secret, the bearer is `v1.<ts>.<hmac>` with `ts` within the
+call's window and the HMAC verified independently in Node; re-applying 000033 + 000034 keeps one row per schedule.
+`runner-auth.spec.ts` (31) — token format equals an independent HMAC; accepted now and at exactly ±120 s (fixed
+clock); stale −121 s / future +121 s / an hour / a day refused without comparing; wrong-secret token refused; a
+timestamp changed after signing refused; the raw secret and 16 malformed shapes refused without comparing; next secret
+accepted during rotation and refused once unset; both comparisons always run on 32-byte buffers; no current secret →
+false. `run-route.spec.ts` (29) — valid tokens (now, −100 s, +100 s, next secret) run the drill job; the raw secret,
+stale (−125 s), future (+125 s), other-secret and scheme-less tokens → 401 with no DB access. Guard legs and the e2e
+spec now also refuse the raw secret and a stale token, and use a minted token for the control.
 
 ## Handoffs
 

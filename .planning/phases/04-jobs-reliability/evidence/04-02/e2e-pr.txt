@@ -1,11 +1,11 @@
-# npm run e2e:pr at 4872619 (desktop-chrome, pixel-7, iphone-15); ✘ lines are knownBug expected failures
-  ✓   15 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:85:9 › R8 blocking: auth pages with the Turnstile widget › login at 360px with the widget failed: 0 serious/critical (588ms)
-  ✓   16 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:85:9 › R8 blocking: auth pages with the Turnstile widget › forgot-password at 360px with the widget failed: 0 serious/critical (570ms)
-  ✓   59 [desktop-chrome] › tests/e2e/jobs/run-route.spec.ts:44:5 › the runner route refuses a call without the bearer and runs a drill job with it (181ms)
-  ✓   60 [desktop-chrome] › tests/e2e/jobs/run-route.spec.ts:70:5 › GET /api/jobs/run is 405 with Allow: POST and runs nothing (120ms)
-  -  135 [pixel-7] › tests/e2e/jobs/run-route.spec.ts:44:5 › the runner route refuses a call without the bearer and runs a drill job with it
-  -  136 [pixel-7] › tests/e2e/jobs/run-route.spec.ts:70:5 › GET /api/jobs/run is 405 with Allow: POST and runs nothing
+# npm run e2e:pr after R-49 (desktop-chrome, pixel-7, iphone-15); ✘ lines in the full log are knownBug expected failures
+  ✓   15 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:85:9 › R8 blocking: auth pages with the Turnstile widget › login at 360px with the widget failed: 0 serious/critical (627ms)
+  ✓   16 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:85:9 › R8 blocking: auth pages with the Turnstile widget › forgot-password at 360px with the widget failed: 0 serious/critical (590ms)
+  ✓   59 [desktop-chrome] › tests/e2e/jobs/run-route.spec.ts:46:5 › the runner route refuses a call without the bearer and runs a drill job with it (192ms)
+  ✓   60 [desktop-chrome] › tests/e2e/jobs/run-route.spec.ts:79:5 › GET /api/jobs/run is 405 with Allow: POST and runs nothing (112ms)
+  -  135 [pixel-7] › tests/e2e/jobs/run-route.spec.ts:46:5 › the runner route refuses a call without the bearer and runs a drill job with it
+  -  136 [pixel-7] › tests/e2e/jobs/run-route.spec.ts:79:5 › GET /api/jobs/run is 405 with Allow: POST and runs nothing
   9 skipped
   190 passed (2.5m)
 exit 0
-results.json stats {"startTime":"2026-11-13T08:59:13.592Z","duration":148120.06,"expected":190,"skipped":9,"unexpected":0,"flaky":0} retried results: 0
+results.json stats {"startTime":"2026-11-13T09:27:09.861Z","duration":147911.005,"expected":190,"skipped":9,"unexpected":0,"flaky":0} retried results: 0

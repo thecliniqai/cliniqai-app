@@ -17,3 +17,10 @@ exit 1
    Duration  242.60s (transform 1.25s, setup 818ms, collect 12.65s, tests 213.53s, environment 9ms, prepare 3.56s)
 [teardown] removed run data: 123 tenant(s), 261 auth user(s), 1398 storage object(s); verified none remain
 exit 0
+
+## run 3 (after R-49, migration 000034)
+ Test Files  178 passed (178)
+      Tests  3811 passed (3811)
+   Duration  251.61s (transform 1.46s, setup 854ms, collect 13.68s, tests 220.96s, environment 9ms, prepare 3.68s)
+[teardown] removed run data: 123 tenant(s), 261 auth user(s), 1398 storage object(s); verified none remain
+exit 0

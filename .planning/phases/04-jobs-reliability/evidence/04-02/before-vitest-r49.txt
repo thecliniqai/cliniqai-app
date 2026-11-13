@@ -1,0 +1,68 @@
+# Before (R-49): the updated specs copied onto b53b199 (000033 kick sends the raw secret; auth compares the raw secret); stack reset to 000033 from that worktree. Tool output (vitest summary lines).
+ ❯ tests/jobs/run-route.spec.ts (29 tests | 24 failed) 2914ms
+   × POST /api/jobs/run: the tracer > runs a drill.noop job seeded by ops.drill_enqueue to done, inside the budget, counts only 163ms
+   × POST /api/jobs/run: the tracer > drains several due jobs in one pass; an empty body is a manual run 112ms
+   × POST /api/jobs/run: the tracer > accepts the rotation slot JOBS_RUNNER_SECRET_NEXT next to the current secret 69ms
+   × POST /api/jobs/run: the tracer > accepts a token minted 100 s ago or 100 s ahead (inside the ±120 s window, R-49) 74ms
+   × POST /api/jobs/run: the tracer > claims no drill kind while JOBS_DRILL_ENABLED is off (the job stays pending) 71ms
+   × POST /api/jobs/run: refusals before any database access > no configured secret: even `Bearer undefined` and the old secret are refused 33ms
+   × POST /api/jobs/run: refusals before any database access > an environment the schema refuses authenticates nothing 44ms
+   × POST /api/jobs/run: refusals before any database access > the raw secret as bearer (the 000033 form, R-49) → 401 134ms
+   × POST /api/jobs/run: refusals before any database access > a stale token (−125 s) → 401 31ms
+   × POST /api/jobs/run: refusals before any database access > a future token (+125 s) → 401 30ms
+   × POST /api/jobs/run: refusals before any database access > a token of another secret → 401 30ms
+   × POST /api/jobs/run: refusals before any database access > a token without the scheme → 401 31ms
+   × POST /api/jobs/run: refusals before any database access > a lower-case scheme → 401 30ms
+   × POST /api/jobs/run: refusals before any database access > the token in another header → 401 35ms
+   × POST /api/jobs/run: refusals before any database access > GET → 405 with Allow: POST, even with the bearer, and runs nothing 61ms
+   × POST /api/jobs/run: refusals before any database access > PUT → 405 with Allow: POST, even with the bearer, and runs nothing 60ms
+   × POST /api/jobs/run: refusals before any database access > PATCH → 405 with Allow: POST, even with the bearer, and runs nothing 60ms
+   × POST /api/jobs/run: refusals before any database access > DELETE → 405 with Allow: POST, even with the bearer, and runs nothing 61ms
+   × POST /api/jobs/run: body and failure handling > refuses a body that is more than 1 KB (nothing runs) 59ms
+   × POST /api/jobs/run: body and failure handling > refuses a body that is not JSON (nothing runs) 66ms
+   × POST /api/jobs/run: body and failure handling > refuses a body that is an unknown key (nothing runs) 61ms
+   × POST /api/jobs/run: body and failure handling > refuses a body that is an unknown source (nothing runs) 64ms
+   × POST /api/jobs/run: body and failure handling > refuses a body that is a JSON array (nothing runs) 60ms
+   × POST /api/jobs/run: body and failure handling > a thrown error is 500 { ok: false } with one jobs.run.failed line carrying a code only 62ms
+ ❯ tests/security/guard-routes.spec.ts (60 tests | 5 failed) 3291ms
+   × P0-13: every route handler is in the guard manifest and guarded > seeded legs > denial legs (no writes) > runner-secret: app/api/jobs/run/route.ts#DELETE 4ms
+   × P0-13: every route handler is in the guard manifest and guarded > seeded legs > denial legs (no writes) > runner-secret: app/api/jobs/run/route.ts#GET 1ms
+   × P0-13: every route handler is in the guard manifest and guarded > seeded legs > denial legs (no writes) > runner-secret: app/api/jobs/run/route.ts#PATCH 1ms
+   × P0-13: every route handler is in the guard manifest and guarded > seeded legs > denial legs (no writes) > runner-secret: app/api/jobs/run/route.ts#POST 6ms
+   × P0-13: every route handler is in the guard manifest and guarded > seeded legs > denial legs (no writes) > runner-secret: app/api/jobs/run/route.ts#PUT 1ms
+ ❯ tests/jobs/scheduler-migration-db.spec.ts (29 tests | 2 failed) 1780ms
+   × 000033: extensions and schedules > re-applying the migration (rolled back) keeps one row per name and the same job ids (A8) 38ms
+   × 000033: ops.kick_job_runner() > with synthetic secrets queues one POST: Vault URL, a fresh HMAC token (never the secret), JSON body, 30 s timeout (rolled back, never sent) 36ms
+ ❯ tests/jobs/runner-auth.spec.ts:88:36
+⎯⎯⎯⎯⎯⎯ Failed Tests 31 ⎯⎯⎯⎯⎯⎯⎯
+ ❯ tests/jobs/run-route.spec.ts:122:44
+ ❯ tests/jobs/run-route.spec.ts:143:38
+ ❯ tests/jobs/run-route.spec.ts:153:38
+ ❯ tests/jobs/run-route.spec.ts:162:40
+ ❯ tests/jobs/run-route.spec.ts:172:38
+ ❯ tests/jobs/run-route.spec.ts:194:25
+ ❯ tests/jobs/run-route.spec.ts:202:25
+ ❯ tests/jobs/run-route.spec.ts:220:5
+ ❯ tests/jobs/run-route.spec.ts:213:38
+ ❯ tests/jobs/run-route.spec.ts:220:25
+ ❯ tests/jobs/run-route.spec.ts:214:39
+ ❯ tests/jobs/run-route.spec.ts:220:25
+ ❯ tests/jobs/run-route.spec.ts:215:41
+ ❯ tests/jobs/run-route.spec.ts:220:25
+ ❯ tests/jobs/run-route.spec.ts:216:60
+ ❯ tests/jobs/run-route.spec.ts:220:25
+ ❯ tests/jobs/run-route.spec.ts:217:63
+ ❯ tests/jobs/run-route.spec.ts:220:25
+ ❯ tests/jobs/run-route.spec.ts:218:70
+ ❯ tests/jobs/run-route.spec.ts:220:25
+ ❯ tests/jobs/run-route.spec.ts:241:32
+ ❯ tests/jobs/run-route.spec.ts:260:38
+ ❯ tests/jobs/run-route.spec.ts:270:38
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:105:42
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:105:28
+AssertionError: expected 't\nt\nt\nid:1\nrow:POST|http://127.0.…' to match /^leak:false$/m
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:155:22
+ ❯ tests/security/guard-routes.spec.ts:151:28
+ Test Files  4 failed (4)
+      Tests  31 failed | 87 passed (118)
+# the 000033 kick's queued row, from the failing assertion's received value: leak:true (the raw secret is in the queue)

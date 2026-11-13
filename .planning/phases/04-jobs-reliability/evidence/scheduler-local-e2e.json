@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-13T08:59:01.792Z",
+  "generated_at": "2026-11-13T09:27:01.524Z",
   "tool": "scripts/ops/scheduler-local-e2e.ts",
   "platform": "darwin-arm64",
   "path": "pg_cron jobs-kick -> ops.kick_job_runner() -> Vault -> pg_net -> POST /api/jobs/run (e2e build) -> runner",
@@ -13,11 +13,11 @@
   },
   "lag_seconds": {
     "count": 5,
-    "min": 27.476,
-    "p50": 27.476,
-    "p95": 27.476,
-    "max": 27.476
+    "min": 42.212,
+    "p50": 42.212,
+    "p95": 42.212,
+    "max": 42.212
   },
-  "waited_seconds": 29,
+  "waited_seconds": 44,
   "passed": true
 }

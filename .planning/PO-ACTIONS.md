@@ -423,8 +423,9 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
 
 - [ ] **04-P8 · Vercel staging environment for jobs**
   - *Do / where:* Vercel → `clinicos-staging` → Settings → Environment Variables (the environment that serves
-    `feature/v2`): `JOBS_RUNNER_SECRET` = output of `openssl rand -hex 32` (sensitive; the same value goes to Vault in
-    04-P9); `OPS_ALERT_EMAIL=<04-P7 address>`; `MESSAGING_PROVIDER=sink` (replaces `disabled`, R-9);
+    `feature/v2`): `JOBS_RUNNER_SECRET` = output of `openssl rand -hex 32` (sensitive; a new value, never the
+    `CRON_SECRET`: the app refuses to boot when they are equal; the same value goes to Vault in 04-P9; it is never sent
+    over the wire, the scheduler sends a 2-minute HMAC token derived from it, R-49); `OPS_ALERT_EMAIL=<04-P7 address>`; `MESSAGING_PROVIDER=sink` (replaces `disabled`, R-9);
     `JOBS_DRILL_ENABLED=false`; `EMAIL_PROVIDER=ses` once 03-E6/E8 are done (until then alerts stay visible in the
     report only). Keep `CRON_SECRET` (diag route, R-27). Redeploy.
   - *Why:* R-9, R-17, R-32.
@@ -435,7 +436,7 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     counts: V2-03 M-PROBE).
 
 - [ ] **04-P9 · Scheduler secrets in staging Vault + answer OI-3**
-  - *Do / where:* after the approved migrate run with `000033`: staging SQL Editor:
+  - *Do / where:* after the approved migrate run with `000033` and `000034`: staging SQL Editor:
     `select vault.create_secret('<the 04-P8 JOBS_RUNNER_SECRET value>', 'jobs_runner_secret');` and
     `select vault.create_secret('https://staging.thecliniqai.com/api/jobs/run', 'jobs_runner_url');`. OI-3: Vercel (v1 and
     staging projects) → Settings → Cron Jobs — any entries? any external pinger calling `/api/cron/*`? (those routes
