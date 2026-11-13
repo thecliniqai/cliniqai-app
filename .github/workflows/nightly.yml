@@ -113,6 +113,7 @@ jobs:
       - name: npm audit (all deps, report only)
         run: |
           npm audit --json > npm-audit-full.json || true
+          # shellcheck disable=SC2016 # JavaScript template literals, not shell expansions
           node -e '
             const r = require("./npm-audit-full.json");
             const v = r.metadata?.vulnerabilities ?? {};

@@ -7,10 +7,17 @@
 # the issue picker, sparse), no data from the triggering run beyond its URL and conclusion.
 # workflow_run fires only for workflow files on the default branch, so alerts start once the default branch is
 # feature/v2 (RL-3), together with the schedules.
+#
+# 04-07c (review C L-2): `workflow_run` matches the triggering workflow by its `name:`, which any workflow (a fork PR's
+# too, under pull_request_review) can copy. The job therefore also requires the run to come from this repository's
+# `.github/workflows/backup.yml`, on feature/v2, from a schedule or a dispatch (workflow-policy `workflow-run-pinned`),
+# and the step re-checks path, branch and repository case-sensitively (GitHub's `==` ignores case). zizmor's
+# dangerous-triggers finding is suppressed below for that reason: no secret, no checkout of the run's code, no artefact
+# of the run, `issues: write` only.
 name: Staging backup alert
 
 on:
-  workflow_run:
+  workflow_run: # zizmor: ignore[dangerous-triggers] pinned by path, repository, branch and event (04-07c L-2)
     workflows: [Staging backup]
     types: [completed]
 
@@ -20,7 +27,13 @@ permissions:
 jobs:
   report-failure:
     name: report-failure
-    if: ${{ github.event.workflow_run.conclusion != 'success' && github.event.workflow_run.conclusion != 'skipped' && github.event.workflow_run.head_branch == 'feature/v2' && github.event.workflow_run.event != 'pull_request' }}
+    if: >-
+      ${{ github.event.workflow_run.path == '.github/workflows/backup.yml'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+      && contains(fromJSON('["schedule","workflow_dispatch"]'), github.event.workflow_run.event)
+      && github.event.workflow_run.head_branch == 'feature/v2'
+      && github.event.workflow_run.conclusion != 'success'
+      && github.event.workflow_run.conclusion != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
@@ -30,6 +43,10 @@ jobs:
       GH_REPO: ${{ github.repository }}
       RUN_URL: ${{ github.event.workflow_run.html_url }}
       CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+      WF_PATH: ${{ github.event.workflow_run.path }}
+      HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+      HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+      RUN_EVENT: ${{ github.event.workflow_run.event }}
     steps:
       # Only the issue picker (AR-L1): the bot comments only on an issue it opened itself.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,6 +56,15 @@ jobs:
           sparse-checkout-cone-mode: false
       - name: Open or update the Staging backup failing issue
         run: |
+          # Case-sensitive re-check of the job's `if:` (04-07c L-2/L-3): only this repository's backup.yml on feature/v2.
+          if [ "$WF_PATH" != ".github/workflows/backup.yml" ] || [ "$HEAD_BRANCH" != "feature/v2" ] || [ "$HEAD_REPO" != "$GH_REPO" ]; then
+            echo "not a feature/v2 run of this repository's backup.yml" >&2
+            exit 1
+          fi
+          case "$RUN_EVENT" in
+            schedule | workflow_dispatch) ;;
+            *) echo "unexpected triggering event" >&2; exit 1 ;;
+          esac
           case "$CONCLUSION" in
             failure | cancelled | timed_out | action_required | startup_failure | stale | neutral) ;;
             *) echo "unexpected conclusion" >&2; exit 1 ;;

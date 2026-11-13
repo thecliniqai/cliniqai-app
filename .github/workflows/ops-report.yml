@@ -38,6 +38,9 @@ jobs:
     timeout-minutes: 10
     environment: staging-readonly
     steps:
+      # 04-07c (L-3): GitHub's `==` ignores case, bash `=` does not; first, before any secret (staging-exact-ref-step).
+      - name: Exact ref check (feature/v2, case-sensitive)
+        run: '[ "$GITHUB_REF" = "refs/heads/feature/v2" ] || { echo "wrong ref: staging jobs run from feature/v2 only" >&2; exit 1; }'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

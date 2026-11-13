@@ -149,6 +149,7 @@ jobs:
       - name: Backup tools (pinned age release, pinned images)
         run: |
           ops/bin/install-age.sh
+          # shellcheck disable=SC2016 # the variables expand in the inner `bash -c`, after pins.env is sourced
           node scripts/ci/retry.mjs --attempts 3 --delay 30 -- bash -c '. ops/bin/pins.env && docker pull -q "$POSTGRES_IMAGE" && docker pull -q "$AWS_CLI_IMAGE"'
       # One run produces both the JSON report and v8 coverage (02-05); coverage is report-only until V2-14.
       - name: Vitest (full unit + DB lane, with coverage)

@@ -4,11 +4,12 @@
  * `environment`, a missing top-level `permissions`, `pull_request_target` and a secrets dump; the repository's own
  * workflows pass, and the same regressions introduced into those real files are caught.
  */
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { checkWorkflow } from "@/scripts/ci/workflow-policy.mjs";
+import { checkWorkflow, dynamicSecretLines } from "@/scripts/ci/workflow-policy.mjs";
 import { ROOT, runNodeChecker } from "./run-checker";
 
 const fixture = (name: string) => `lint-fixtures/workflows/${name}`;
@@ -56,9 +57,9 @@ describe("workflow policy on regressions of the real staging workflows", () => {
     expect(rules(".github/workflows/staging.yml", text)).toEqual(["staging-no-pr-trigger"]);
   });
 
-  it("drift.yml gains a workflow_run trigger -> staging-no-pr-trigger", () => {
+  it("drift.yml gains a workflow_run trigger -> staging-no-pr-trigger (and, 04-07c, workflow-run-pinned on each job)", () => {
     const text = workflow("drift.yml").replace(/^on:\n/m, 'on:\n  workflow_run:\n    workflows: ["CI"]\n');
-    expect(rules(".github/workflows/drift.yml", text)).toEqual(["staging-no-pr-trigger"]);
+    expect([...new Set(rules(".github/workflows/drift.yml", text))].sort()).toEqual(["staging-no-pr-trigger", "workflow-run-pinned"]);
   });
 
   it("the migrate job loses its environment -> staging-secret-needs-environment for each STAGING_DB_URL reference", () => {
@@ -148,6 +149,8 @@ describe("workflow policy enforces every rule the staging/drift headers claim (0
         "staging-secret-step-scope",
         // 04-06: its staging job has no job-level `if:` limiting it to feature/v2.
         "staging-feature-v2-only",
+        // 04-07c (L-3): nor the case-sensitive ref check as its first step.
+        "staging-exact-ref-step",
       ].sort(),
     );
     expect(found.filter((r) => r === "staging-read-only-token")).toHaveLength(2); // contents and id-token
@@ -370,3 +373,259 @@ describe("workflow policy: the read-only ops report (04-06)", () => {
     expect(after((t) => t.replace("          node-version-file: .nvmrc\n", "          node-version-file: .nvmrc\n          cache: npm\n")).map((f) => f.rule)).toEqual(["privileged-no-cache"]);
   });
 });
+
+/**
+ * V2-04 04-07c (review C M-1, L-2, L-3; triage M-POLICY): the reviewer's bypasses. Each fixture in
+ * lint-fixtures/workflows/bypass-*.yml passed the policy as committed at 0dc606b (exit 0; before/after in
+ * evidence/04-07c/workflow-policy-bypass-before-after.txt) and is now refused, naming each rule it breaks. The same
+ * bypasses are then applied to the committed workflows, and the backup alert's conditions are evaluated against a fork
+ * PR's spoofed run with GitHub's case-insensitive string comparison.
+ */
+describe("workflow policy: environment, secret-name and workflow_run bypasses (04-07c)", () => {
+  const ruleSet = (file: string, text: string) => [...new Set(rules(file, text))].sort();
+
+  it.each([
+    [
+      "bypass-environment-expression.yml",
+      ["environment-literal", "no-dynamic-secret", "staging-exact-ref-step", "staging-feature-v2-only", "staging-no-pr-trigger", "workflow-run-pinned"],
+    ],
+    ["bypass-environment-matrix.yml", ["environment-literal", "no-dynamic-secret", "staging-exact-ref-step"]],
+    ["bypass-environment-case.yml", ["environment-known", "staging-backup-environment-scope"]],
+    ["bypass-readonly-case.yml", ["environment-known", "staging-readonly-secrets-ro"]],
+    ["bypass-workflow-run-name-only.yml", ["workflow-run-pinned"]],
+  ])("%s is refused (CLI exit 1) naming %j", (file, expected) => {
+    const r = runNodeChecker("workflow-policy.mjs", [fixture(file)]);
+    expect(r.status).toBe(1);
+    const found = [...new Set([...r.stderr.matchAll(/\[([a-z0-9-]+)\]/g)].map((m) => m[1]))].sort();
+    expect(found).toEqual(expected);
+  });
+
+  it("the bypasses applied to the committed backup.yml: expression, matrix, mixed-case and unknown Environment names", () => {
+    const backup = workflow("backup.yml");
+    const env = (name: string) => backup.replace("    environment: staging-backup\n", `    environment: ${name}\n`);
+    expect(ruleSet(".github/workflows/backup.yml", env("${{ vars.BK_ENV }}"))).toEqual(["environment-literal"]);
+    expect(ruleSet(".github/workflows/backup.yml", env("${{ matrix.e }}"))).toEqual(["environment-literal"]);
+    expect(ruleSet(".github/workflows/backup.yml", env("Staging-Backup"))).toEqual(["environment-known"]);
+    expect(ruleSet(".github/workflows/backup.yml", env("production"))).toEqual(["environment-known"]);
+    const mapping = backup.replace("    environment: staging-backup\n", "    environment:\n      name: ${{ inputs.env }}\n");
+    expect(ruleSet(".github/workflows/backup.yml", mapping)).toEqual(["environment-literal"]);
+    // A mixed-case `staging-backup` in another file is caught by the scope rule too (names compared lower-cased).
+    expect(ruleSet(".github/workflows/other.yml", env("STAGING-BACKUP"))).toEqual(["environment-known", "staging-backup-environment-scope"]);
+  });
+
+  it("a computed index into secrets is refused wherever it appears; literal reads and other contexts pass", () => {
+    const backup = workflow("backup.yml");
+    for (const expr of ["secrets[matrix.n]", "secrets[ format('{0}_{1}', 'BACKUP', 'S3_BUCKET') ]", "secrets[inputs.name]", "fromJSON(toJSON(secrets))[matrix.n]"]) {
+      const text = backup.replace("BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}\n          BACKUP_S3_ACCESS_KEY_ID", `BACKUP_S3_BUCKET: \${{ ${expr} }}\n          BACKUP_S3_ACCESS_KEY_ID`);
+      expect(text, expr).not.toBe(backup);
+      expect(rules(".github/workflows/backup.yml", text), expr).toContain(expr.includes("toJSON") ? "no-secrets-dump" : "no-dynamic-secret");
+    }
+    expect(dynamicSecretLines("a: ${{ secrets.X }}\nb: ${{ secrets['Y'] }}\nc: ${{ inputs.secrets }}\nd: ${{ toJSON(secrets) }}\n")).toEqual([]);
+    expect(dynamicSecretLines("a: 1\nb: ${{ format('{0}',\n  secrets[matrix.n]) }}\n")).toEqual([2]);
+  });
+
+  it("any job with an Environment makes the workflow a staging workflow: workflow_run and PR triggers are refused next to it", () => {
+    const ci = workflow("ci.yml");
+    const withEnv = ci.replace(/(\n  static:\n(?: {4}.*\n)*? {4}runs-on: [^\n]+\n)/, "$1    environment: staging-readonly\n");
+    expect(withEnv, "the edit did not apply").not.toBe(ci);
+    const found = ruleSet(".github/workflows/ci.yml", withEnv);
+    expect(found).toContain("staging-no-pr-trigger");
+    expect(found).toContain("staging-feature-v2-only");
+    expect(found).toContain("staging-exact-ref-step");
+    const report = workflow("ops-report.yml").replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  workflow_run:\n    workflows: [CI]\n");
+    expect(ruleSet(".github/workflows/ops-report.yml", report)).toEqual(["staging-no-pr-trigger", "workflow-run-pinned"]);
+  });
+
+  it("every staging job starts with the exact-ref step; removing it, conditioning it or weakening it is refused", () => {
+    for (const name of ["staging.yml", "drift.yml", "ops-report.yml", "backup.yml"]) {
+      const text = workflow(name);
+      const jobs = (text.match(/\n {4}environment: /g) ?? []).length;
+      expect((text.match(/\n {6}- name: Exact ref check \(feature\/v2, case-sensitive\)\n {8}run: '\[ "\$GITHUB_REF" = "refs\/heads\/feature\/v2" \] \|\| /g) ?? []).length, name).toBe(jobs);
+      expect(checkWorkflow(`.github/workflows/${name}`, text), name).toEqual([]);
+    }
+    const ops = workflow("ops-report.yml");
+    const step = /      - name: Exact ref check \(feature\/v2, case-sensitive\)\n        run: [^\n]+\n/;
+    expect(ruleSet(".github/workflows/ops-report.yml", ops.replace(step, ""))).toEqual(["staging-exact-ref-step"]);
+    expect(ruleSet(".github/workflows/ops-report.yml", ops.replace("      - name: Exact ref check (feature/v2, case-sensitive)\n", "      - name: Exact ref check (feature/v2, case-sensitive)\n        if: ${{ false }}\n"))).toEqual(["staging-exact-ref-step"]);
+    expect(ruleSet(".github/workflows/ops-report.yml", ops.replace("      - name: Exact ref check (feature/v2, case-sensitive)\n", "      - name: Exact ref check (feature/v2, case-sensitive)\n        continue-on-error: true\n"))).toEqual(["staging-exact-ref-step"]);
+    expect(ruleSet(".github/workflows/ops-report.yml", ops.replace('= "refs/heads/feature/v2" ] ||', '== "refs/heads/feature/v2" ] ||'))).toEqual(["staging-exact-ref-step"]);
+    expect(ruleSet(".github/workflows/ops-report.yml", ops.replace('exit 1; }\'', 'exit 0; }\''))).toEqual(["staging-exact-ref-step"]);
+  });
+
+  it("the exact-ref step is case-sensitive where GitHub's == is not: Feature/V2 passes the if: but fails the step", () => {
+    const line = /\n {8}run: '(\[ "\$GITHUB_REF" = [^\n]+)'\n/.exec(workflow("backup.yml"))?.[1];
+    expect(line).toBeDefined();
+    const step = (ref: string) => spawnSync("bash", ["-e", "-c", line!], { encoding: "utf8", env: { PATH: process.env.PATH, GITHUB_REF: ref, NODE_ENV: "test" } });
+    expect(step("refs/heads/feature/v2").status).toBe(0);
+    for (const ref of ["refs/heads/Feature/V2", "refs/heads/FEATURE/v2", "refs/heads/feature/v2-x", "refs/tags/feature/v2"]) {
+      const r = step(ref);
+      expect(r.status, ref).toBe(1);
+      expect(r.stderr).toContain("wrong ref");
+    }
+    // The job `if:` alone would have let the mixed-case branch through (GitHub compares strings case-insensitively).
+    expect(evaluateIf("github.ref == 'refs/heads/feature/v2'", { github: { ref: "refs/heads/Feature/V2" } })).toBe(true);
+  });
+
+  it("backup-alert.yml: each pinned condition is required and a top-level || is refused", () => {
+    const alert = workflow("backup-alert.yml");
+    expect(checkWorkflow(".github/workflows/backup-alert.yml", alert)).toEqual([]);
+    for (const [label, cut] of [
+      ["path", "github.event.workflow_run.path == '.github/workflows/backup.yml'\n      && "],
+      ["repository", "\n      && github.event.workflow_run.head_repository.full_name == github.repository"],
+      ["event", "\n      && contains(fromJSON('[\"schedule\",\"workflow_dispatch\"]'), github.event.workflow_run.event)"],
+    ]) {
+      const text = alert.replace(cut, "");
+      expect(text, label).not.toBe(alert);
+      const found = checkWorkflow(".github/workflows/backup-alert.yml", text);
+      expect(found.map((f) => f.rule), label).toEqual(["workflow-run-pinned"]);
+    }
+    const widened = alert.replace(`'["schedule","workflow_dispatch"]'`, `'["schedule","workflow_dispatch","pull_request_review"]'`);
+    expect(ruleSet(".github/workflows/backup-alert.yml", widened)).toEqual(["workflow-run-pinned"]);
+    const or = alert.replace("&& github.event.workflow_run.conclusion != 'skipped' }}", "&& github.event.workflow_run.conclusion != 'skipped' || github.actor == 'x' }}");
+    expect(checkWorkflow(".github/workflows/backup-alert.yml", or).map((f) => f.message)).toEqual([expect.stringContaining("top-level `||`")]);
+  });
+
+  describe("backup-alert.yml against a fork PR's spoofed 'Staging backup' run (review C L-2)", () => {
+    const alert = workflow("backup-alert.yml");
+    const ifExpr = /\n {4}if: >-\n((?: {6}[^\n]*\n)+)/.exec(alert)![1].split("\n").map((l) => l.trim()).join(" ").trim();
+    const script = /\n {8}run: \|\n((?: {10}[^\n]*\n?)+)/.exec(alert)![1].split("\n").map((l) => l.slice(10)).join("\n");
+    const repo = "clinicos/clinicOS";
+    const genuine = {
+      path: ".github/workflows/backup.yml",
+      head_repository: { full_name: repo },
+      event: "schedule",
+      head_branch: "feature/v2",
+      conclusion: "failure",
+      html_url: "https://github.com/clinicos/clinicOS/actions/runs/1",
+    };
+    const ctx = (run: Record<string, unknown>) => ({ github: { repository: repo, event: { workflow_run: run } } });
+
+    /** Runs the step's script with a recording `gh` (no network) the way the job's env would pass the event. */
+    function runStep(run: typeof genuine) {
+      const bin = fs.mkdtempSync(path.join(os.tmpdir(), "fake-gh-"));
+      const log = path.join(bin, "gh.log");
+      try {
+        fs.writeFileSync(path.join(bin, "gh"), `#!/bin/sh\necho "$*" >> "${log}"\ncase "$1 $2" in "issue list") echo '[]' ;; esac\n`, { mode: 0o755 });
+        const r = spawnSync("bash", ["-e", "-c", script], {
+          cwd: ROOT,
+          encoding: "utf8",
+          env: {
+            PATH: `${bin}:${process.env.PATH}`,
+            GH_REPO: repo,
+            RUN_URL: run.html_url,
+            CONCLUSION: run.conclusion,
+            WF_PATH: run.path,
+            HEAD_BRANCH: run.head_branch,
+            HEAD_REPO: run.head_repository.full_name,
+            RUN_EVENT: run.event,
+            NODE_ENV: "test",
+          },
+        });
+        return { status: r.status, stderr: r.stderr, gh: fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "" };
+      } finally {
+        fs.rmSync(bin, { recursive: true, force: true });
+      }
+    }
+
+    it("a genuine failed scheduled or dispatched run of backup.yml opens the issue", () => {
+      expect(evaluateIf(ifExpr, ctx(genuine))).toBe(true);
+      expect(evaluateIf(ifExpr, ctx({ ...genuine, event: "workflow_dispatch", conclusion: "timed_out" }))).toBe(true);
+      const r = runStep(genuine);
+      expect(r.stderr).toBe("");
+      expect(r.status).toBe(0);
+      expect(r.gh).toContain('issue create --title Staging backup failing');
+      expect(evaluateIf(ifExpr, ctx({ ...genuine, conclusion: "success" }))).toBe(false);
+    });
+
+    it.each([
+      ["a fork PR's copy under pull_request_review (fork branch named feature/v2)", { head_repository: { full_name: "attacker/clinicOS" }, event: "pull_request_review" }],
+      ["the same from a branch of this repository under pull_request_review_comment", { event: "pull_request_review_comment" }],
+      ["a workflow at another path that copies the name", { path: ".github/workflows/fake-backup.yml" }],
+      ["a fork's run of the real file path under workflow_dispatch", { head_repository: { full_name: "attacker/clinicOS" }, event: "workflow_dispatch" }],
+      ["a pull_request run", { event: "pull_request" }],
+      ["another branch", { head_branch: "main" }],
+    ])("refuses %s at the job condition", (_label, spoof) => {
+      expect(evaluateIf(ifExpr, ctx({ ...genuine, ...spoof }))).toBe(false);
+    });
+
+    it.each([
+      ["a mixed-case branch Feature/V2", { head_branch: "Feature/V2" }],
+      ["a mixed-case workflow path", { path: ".github/workflows/Backup.yml" }],
+      ["a mixed-case repository owner", { head_repository: { full_name: "Clinicos/clinicOS" } }],
+    ])("%s passes GitHub's case-insensitive if: but the step refuses it and opens nothing", (_label, spoof) => {
+      const run = { ...genuine, ...spoof } as typeof genuine;
+      expect(evaluateIf(ifExpr, ctx(run))).toBe(true);
+      const r = runStep(run);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain("not a feature/v2 run of this repository's backup.yml");
+      expect(r.gh).toBe("");
+    });
+  });
+});
+
+/**
+ * A small evaluator for the expression forms the pinned `if:` conditions use, with GitHub's semantics: string `==` and
+ * `!=` ignore case, `&&` / `||` / parentheses, `contains(fromJSON('[…]'), x)` (case-insensitive), dotted context paths.
+ */
+function evaluateIf(expr: string, context: Record<string, unknown>): boolean {
+  const src = expr.trim().replace(/^\$\{\{([\s\S]*)\}\}$/, "$1");
+  const tokens = [...src.matchAll(/\s*('(?:[^']|'')*'|&&|\|\||==|!=|[(),]|[A-Za-z_][A-Za-z0-9_.-]*)/gy)].map((m) => m[1]);
+  let i = 0;
+  const peek = () => tokens[i];
+  const next = () => tokens[i++];
+  const resolve = (p: string): unknown => p.split(".").reduce<unknown>((o, k) => (o && typeof o === "object" ? (o as Record<string, unknown>)[k] : undefined), context);
+  const eq = (a: unknown, b: unknown) => String(a ?? "").toLowerCase() === String(b ?? "").toLowerCase();
+  function primary(): unknown {
+    const t = next();
+    if (t === "(") {
+      const v = or();
+      next();
+      return v;
+    }
+    if (t.startsWith("'")) return t.slice(1, -1).replace(/''/g, "'");
+    if (t === "contains" || t === "fromJSON") {
+      next(); // (
+      const args: unknown[] = [or()];
+      while (peek() === ",") {
+        next();
+        args.push(or());
+      }
+      next(); // )
+      if (t === "fromJSON") return JSON.parse(String(args[0]));
+      const [hay, needle] = args;
+      return Array.isArray(hay) ? hay.some((h) => eq(h, needle)) : String(hay).toLowerCase().includes(String(needle).toLowerCase());
+    }
+    if (t === "true" || t === "false") return t === "true";
+    return resolve(t);
+  }
+  function comparison(): unknown {
+    const left = primary();
+    if (peek() === "==" || peek() === "!=") {
+      const op = next();
+      const right = primary();
+      return op === "==" ? eq(left, right) : !eq(left, right);
+    }
+    return left;
+  }
+  function and(): unknown {
+    let v = comparison();
+    while (peek() === "&&") {
+      next();
+      const r = comparison();
+      v = Boolean(v) && Boolean(r);
+    }
+    return v;
+  }
+  function or(): unknown {
+    let v = and();
+    while (peek() === "||") {
+      next();
+      const r = and();
+      v = Boolean(v) || Boolean(r);
+    }
+    return v;
+  }
+  const result = or();
+  if (i !== tokens.length) throw new Error(`evaluateIf: could not parse ${src}`);
+  return Boolean(result);
+}

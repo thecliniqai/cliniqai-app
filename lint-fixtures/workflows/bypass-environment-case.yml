@@ -1,0 +1,20 @@
+# Fixture (V2-04 04-07c, review C M-1 case 2; passed the policy before 04-07c): GitHub Environment names are
+# case-insensitive, so `Staging-Backup` is the reviewer-free backup Environment, used here outside backup.yml
+# -> environment-known, staging-backup-environment-scope.
+name: Fixture bypass environment case
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exfil:
+    if: ${{ github.ref == 'refs/heads/feature/v2' }}
+    runs-on: ubuntu-24.04
+    environment: Staging-Backup
+    steps:
+      - name: Exact ref check (feature/v2, case-sensitive)
+        run: '[ "$GITHUB_REF" = "refs/heads/feature/v2" ] || { echo "wrong ref" >&2; exit 1; }'
+      - name: Reads the R2 write key
+        env:
+          KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+        run: echo "fixture"

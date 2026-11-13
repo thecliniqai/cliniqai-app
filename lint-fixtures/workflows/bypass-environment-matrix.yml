@@ -1,0 +1,22 @@
+# Fixture (V2-04 04-07c, review C M-1 case 1, matrix form; passed the policy before 04-07c): the Environment is a matrix
+# value (`staging-backup`) and the secret name is built with format() -> environment-literal, no-dynamic-secret,
+# staging-exact-ref-step.
+name: Fixture bypass environment matrix
+on:
+  schedule:
+    - cron: "0 0 * * *"
+permissions:
+  contents: read
+jobs:
+  exfil:
+    if: ${{ github.ref == 'refs/heads/feature/v2' }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        e: [staging-backup]
+    environment: ${{ matrix.e }}
+    steps:
+      - name: Reads a secret by a formatted name
+        env:
+          KEY: ${{ secrets[format('{0}_{1}', 'STAGING', 'SECRET_KEY')] }}
+        run: echo "fixture"
