@@ -42,10 +42,10 @@ jobs:
       - name: No env files besides the template and the local-stack test defaults
         run: node scripts/ci/assert-no-env-files.mjs
       # V2-03 03-03 (B2, R-4): applied migrations are immutable; new ones continue the zero-padded sequence.
-      - name: Migration immutability (vs the PR base, or feature/v2 on push)
-        env:
-          BASE_REF: origin/${{ github.base_ref || 'feature/v2' }}
-        run: node scripts/ci/migration-immutability.mjs --base "$BASE_REF"
+      # 03-13b: `--base auto` = the PR base, or on a push the commit before the push (so a push to feature/v2 is
+      # checked too); `--against` fails when a new migration's number is taken on (or not above) feature/v2.
+      - name: Migration immutability (vs the PR base or the pre-push commit; no number collision with feature/v2)
+        run: node scripts/ci/migration-immutability.mjs --base auto --against origin/feature/v2
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
