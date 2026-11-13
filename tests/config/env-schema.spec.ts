@@ -18,6 +18,10 @@ function fakeJwt(payload: Record<string, unknown>): string {
 }
 const LOCAL_ANON = fakeJwt({ iss: "supabase-demo", role: "anon" });
 const LOCAL_SERVICE = fakeJwt({ iss: "supabase-demo", role: "service_role" });
+/** 03-13 H-ENV: hosted-shaped keys (R-K prefixes), assembled at runtime so no key-shaped literal sits in the repo. */
+const hostedKey = (kind: "publishable" | "secret", marker: string) => ["sb", kind, marker].join("_");
+const PUBLISHABLE = hostedKey("publishable", "MARKER-publishable-value");
+const SECRET = hostedKey("secret", "MARKER-secret-key-value");
 
 /** `v1,whsec_<base64>` of a synthetic key (assembled at runtime; no secret-shaped literal in the repo). */
 function hookSecret(key: string): string {
@@ -33,8 +37,8 @@ const PRODUCTION: EnvSource = {
   NODE_ENV: "production",
   APP_ENV: "production",
   NEXT_PUBLIC_SUPABASE_URL: "https://db.synthetic-project.example.org",
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "MARKER-publishable-value",
-  SUPABASE_SECRET_KEY: "MARKER-secret-key-value",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: PUBLISHABLE,
+  SUPABASE_SECRET_KEY: SECRET,
   NEXT_PUBLIC_APP_URL: "https://app.synthetic-clinic.example.org",
   CRON_SECRET: "MARKER-cron-secret-value-0123456789abcdef",
   MESSAGING_PROVIDER: "msg91",
@@ -572,5 +576,103 @@ describe("env schema: every tier", () => {
         expect(message).not.toContain(value);
       }
     }
+  });
+});
+
+describe("env schema: a Supabase key in the other key's variable (03-13 H-ENV, R-K)", () => {
+  // Legacy hosted JWTs (issuer `supabase`) and the hosted prefixes, each carrying a MARKER the message must not echo.
+  const HOSTED_SERVICE_JWT = fakeJwt({ iss: "supabase", ref: "MARKER-ref", role: "service_role" });
+  const HOSTED_ANON_JWT = fakeJwt({ iss: "supabase", ref: "MARKER-ref", role: "anon" });
+  const ADMIN_JWT = fakeJwt({ iss: "supabase", ref: "MARKER-ref", role: "supabase_admin" });
+  const local = { NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+  const every: Array<[string, EnvSource]> = [
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+    ["ci", CI_BUILD],
+    ["e2e", { ...CI_BUILD, APP_ENV: "e2e" }],
+    ["test", { ...local, NODE_ENV: "test" }],
+    ["development", local],
+  ];
+
+  describe.each(every)("%s", (_tier, profile) => {
+    it.each<[string, EnvSource, string]>([
+      ["an sb_secret_ key as the publishable key", { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: SECRET }, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
+      [
+        "an upper-case, space-padded secret prefix as the publishable key",
+        { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ` ${SECRET.replace("sb_secret_", "SB_SECRET_")}` },
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+      ],
+      ["a service_role JWT as the publishable key", { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: HOSTED_SERVICE_JWT }, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
+      ["the local service_role JWT as the publishable key", { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_SERVICE }, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
+      ["a JWT of another role as the publishable key", { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ADMIN_JWT }, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"],
+      ["an sb_publishable_ key as the secret key", { SUPABASE_SECRET_KEY: PUBLISHABLE }, "SUPABASE_SECRET_KEY"],
+      ["an anon JWT as the secret key", { SUPABASE_SECRET_KEY: HOSTED_ANON_JWT }, "SUPABASE_SECRET_KEY"],
+      ["the local anon JWT as the secret key", { SUPABASE_SECRET_KEY: LOCAL_ANON }, "SUPABASE_SECRET_KEY"],
+    ])("refuses %s, naming the key and no value", (_label, override, key) => {
+      const issues = expectRejected({ ...profile, ...override }, key);
+      for (const value of Object.values(override)) expect(issues.join("\n")).not.toContain(value!.trim());
+    });
+
+    it("refuses both keys swapped at once", () => {
+      const issues = issuesOf({ ...profile, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: SECRET, SUPABASE_SECRET_KEY: PUBLISHABLE });
+      expect(issues).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(/^NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: must not be a secret key/),
+          expect.stringMatching(/^SUPABASE_SECRET_KEY: must not be a publishable key/),
+        ]),
+      );
+    });
+  });
+
+  it("the local stack's own keys parse in the local tiers", () => {
+    const env = parseEnv({ ...local, NODE_ENV: "test", SUPABASE_SECRET_KEY: LOCAL_SERVICE });
+    expect(env.SUPABASE_SECRET_KEY).toBe(LOCAL_SERVICE);
+    expect(parseEnv(buildAppServerEnv({ source: {}, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } })).APP_ENV).toBe("e2e");
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s requires the sb_publishable_ / sb_secret_ prefixes (legacy and unrecognised keys refused)", (tier, profile) => {
+    expect(parseEnv(profile).APP_ENV).toBe(tier);
+    expect(issuesOf({ ...profile, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: HOSTED_ANON_JWT })).toContain(
+      `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: must be a publishable key (sb_publishable_...) in ${tier} (R-K)`,
+    );
+    expect(issuesOf({ ...profile, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "MARKER-unrecognised-key" })).toContain(
+      `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: must be a publishable key (sb_publishable_...) in ${tier} (R-K)`,
+    );
+    expect(issuesOf({ ...profile, SUPABASE_SECRET_KEY: HOSTED_SERVICE_JWT })).toContain(
+      `SUPABASE_SECRET_KEY: must be a secret key (sb_secret_...) in ${tier} (R-K)`,
+    );
+    expect(issuesOf({ ...profile, SUPABASE_SECRET_KEY: "MARKER-unrecognised-secret" })).toContain(
+      `SUPABASE_SECRET_KEY: must be a secret key (sb_secret_...) in ${tier} (R-K)`,
+    );
+  });
+});
+
+describe("env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9)", () => {
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s refuses a preview or development deployment and accepts production or no Vercel at all", (tier, profile) => {
+    for (const vercelEnv of ["preview", "development", "LEAK-vercel-env"]) {
+      const issues = issuesOf({ ...profile, VERCEL_ENV: vercelEnv });
+      expect(issues).toContain(`VERCEL_ENV: must be production when APP_ENV=${tier} (no preview or development deployment with ${tier} secrets)`);
+      expect(issues.join("\n")).not.toContain("LEAK-vercel-env");
+    }
+    expect(parseEnv({ ...profile, VERCEL_ENV: "production" }).VERCEL_ENV).toBe("production");
+    expect(parseEnv(profile).VERCEL_ENV).toBeUndefined();
+  });
+
+  it("staging refuses any branch but feature/v2; production is not bound to a branch here", () => {
+    expect(issuesOf({ ...STAGING, VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "LEAK-attacker-branch" })).toEqual([
+      "VERCEL_GIT_COMMIT_REF: must be feature/v2 when APP_ENV=staging (staging deploys only that branch)",
+    ]);
+    expect(parseEnv({ ...STAGING, VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "feature/v2" }).APP_ENV).toBe("staging");
+    expect(parseEnv({ ...PRODUCTION, VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "main" }).APP_ENV).toBe("production");
+  });
+
+  it("the build and local tiers ignore VERCEL_ENV (the tier is never inferred from it, R-11)", () => {
+    expect(parseEnv({ ...CI_BUILD, VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "any-branch" }).APP_ENV).toBe("ci");
   });
 });

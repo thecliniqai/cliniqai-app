@@ -68,6 +68,20 @@ export const SES_REGION = "ap-south-1";
 export const DEFAULT_LOCAL_APP_URL = "http://localhost:3000";
 /** JWT issuer of the keys every `npx supabase start` stack uses; never valid in staging or production. */
 export const LOCAL_DEMO_KEY_ISSUER = "supabase-demo";
+/**
+ * 03-13 H-ENV (R-K): Supabase's key prefixes. New projects issue only these; the legacy keys are JWTs whose `role` is
+ * `anon` (publishable) or `service_role` (secret). The publishable key is inlined into every page; the secret key
+ * bypasses RLS, so a key in the other's variable is refused in every tier.
+ */
+export const PUBLISHABLE_KEY_PREFIX = "sb_publishable_";
+export const SECRET_KEY_PREFIX = "sb_secret_";
+/**
+ * 03-13 M-PREVIEW: the only Vercel environment a deploy tier may run in. A preview (any pushed branch) or a
+ * development deployment never runs with staging or production secrets; off Vercel `VERCEL_ENV` is unset.
+ */
+export const DEPLOY_VERCEL_ENV = "production";
+/** 03-13 M-PREVIEW: staging deploys only from this branch (the Vercel staging project's production branch, PO E4). */
+export const STAGING_GIT_BRANCH = "feature/v2";
 export const MIN_CRON_SECRET_LENGTH = 32;
 /** 03-09b: the error-sink ingest key (its SHA-256 is the vault secret `ops_error_ingest_key_sha256`). */
 export const MIN_ERROR_INGEST_KEY_LENGTH = 32;
@@ -143,6 +157,8 @@ const shapeSchema = z.object({
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: text.optional(),
   VERCEL_REGION: text.optional(),
   VERCEL_GIT_COMMIT_SHA: text.optional(),
+  VERCEL_ENV: text.optional(),
+  VERCEL_GIT_COMMIT_REF: text.optional(),
 });
 
 type Shape = z.infer<typeof shapeSchema>;
@@ -197,6 +213,10 @@ export interface Env {
   NEXT_PUBLIC_TURNSTILE_SITE_KEY?: string;
   VERCEL_REGION?: string;
   VERCEL_GIT_COMMIT_SHA?: string;
+  /** Set by Vercel (production | preview | development); a deploy tier requires `production` when it is set. */
+  VERCEL_ENV?: string;
+  /** Set by Vercel (the deployed branch); staging requires `feature/v2` when it is set. */
+  VERCEL_GIT_COMMIT_REF?: string;
 }
 
 export type EnvSource = Record<string, string | undefined>;
@@ -250,18 +270,40 @@ function isHttpsUrl(url: string): boolean {
   }
 }
 
-/** True for a JWT issued by the local Supabase stack (`supabase-demo`). */
-function isLocalDemoKey(key: string): boolean {
-  const part = key.split(".")[1];
-  if (!part) return false;
+/** The decoded payload of a JWT-shaped key (`header.payload.signature`), or null when it is not one. */
+function jwtPayload(key: string): Record<string, unknown> | null {
+  const parts = key.trim().split(".");
+  if (parts.length !== 3 || !parts[1]) return null;
   try {
     // `atob` (not Buffer): this module is also bundled for the browser.
-    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
-    const payload = JSON.parse(atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, "="))) as { iss?: unknown };
-    return payload.iss === LOCAL_DEMO_KEY_ISSUER;
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload: unknown = JSON.parse(atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, "=")));
+    return payload !== null && typeof payload === "object" && !Array.isArray(payload) ? (payload as Record<string, unknown>) : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** True for a JWT issued by the local Supabase stack (`supabase-demo`). */
+function isLocalDemoKey(key: string): boolean {
+  return jwtPayload(key)?.iss === LOCAL_DEMO_KEY_ISSUER;
+}
+
+/**
+ * What a Supabase key is, from its prefix or its decoded JWT `role` (03-13 H-ENV). `opaque` = neither (a local
+ * placeholder, or something that is not a Supabase key at all).
+ */
+type SupabaseKeyKind = "publishable" | "secret" | "anon-jwt" | "service-role-jwt" | "other-jwt" | "opaque";
+
+function supabaseKeyKind(key: string): SupabaseKeyKind {
+  const lower = key.trim().toLowerCase();
+  if (lower.startsWith(PUBLISHABLE_KEY_PREFIX)) return "publishable";
+  if (lower.startsWith(SECRET_KEY_PREFIX)) return "secret";
+  const payload = jwtPayload(key);
+  if (!payload) return "opaque";
+  if (payload.role === "anon") return "anon-jwt";
+  if (payload.role === "service_role") return "service-role-jwt";
+  return "other-jwt";
 }
 
 function present(value: string | undefined): value is string {
@@ -431,6 +473,31 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", `must be one of Cloudflare's test site keys in ${tier}`);
   }
 
+  // 03-13 H-ENV: the publishable key is inlined into every page's JavaScript; a secret key there hands RLS-bypassing
+  // access to anyone who opens the site. The secret key slot must not hold a publishable key either (system paths
+  // would silently run without their privileges). Checked in every tier, by prefix and by decoded JWT role.
+  const publishableKind = present(raw.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) ? supabaseKeyKind(raw.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) : null;
+  if (publishableKind === "secret" || publishableKind === "service-role-jwt" || publishableKind === "other-jwt") {
+    add(
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+      `must not be a secret key (${SECRET_KEY_PREFIX}... or a JWT whose role is not anon): it is inlined into every page`,
+    );
+  }
+  const secretKind = present(raw.SUPABASE_SECRET_KEY) ? supabaseKeyKind(raw.SUPABASE_SECRET_KEY) : null;
+  if (secretKind === "publishable" || secretKind === "anon-jwt" || secretKind === "other-jwt") {
+    add("SUPABASE_SECRET_KEY", `must not be a publishable key (${PUBLISHABLE_KEY_PREFIX}... or a JWT whose role is not service_role)`);
+  }
+
+  // 03-13 M-PREVIEW: staging and production secrets run only in a Vercel production deployment (or off Vercel, where
+  // VERCEL_ENV is unset). The tier is still never inferred from VERCEL_ENV (R-11); this only refuses a deploy tier on a
+  // preview or development deployment, which would run any pushed branch with those secrets and no PO approval (R-9).
+  if (deploy && present(raw.VERCEL_ENV) && raw.VERCEL_ENV !== DEPLOY_VERCEL_ENV) {
+    add("VERCEL_ENV", `must be ${DEPLOY_VERCEL_ENV} when APP_ENV=${tier} (no preview or development deployment with ${tier} secrets)`);
+  }
+  if (tier === "staging" && present(raw.VERCEL_GIT_COMMIT_REF) && raw.VERCEL_GIT_COMMIT_REF !== STAGING_GIT_BRANCH) {
+    add("VERCEL_GIT_COMMIT_REF", `must be ${STAGING_GIT_BRANCH} when APP_ENV=staging (staging deploys only that branch)`);
+  }
+
   if (LOOPBACK_TIERS.includes(tier)) {
     if (present(supabaseUrl) && !isLoopbackUrl(supabaseUrl)) add("NEXT_PUBLIC_SUPABASE_URL", `must be a loopback URL in ${tier}`);
     if (present(appUrl) && !isLoopbackUrl(appUrl)) add("NEXT_PUBLIC_APP_URL", `must be a loopback URL in ${tier}`);
@@ -453,11 +520,19 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     if (present(supabaseUrl) && (!isHttpsUrl(supabaseUrl) || isLoopbackUrl(supabaseUrl))) {
       add("NEXT_PUBLIC_SUPABASE_URL", `must be a non-loopback https URL in ${tier}`);
     }
-    if (present(raw.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) && isLocalDemoKey(raw.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)) {
+    // R-K: hosted projects issue only `sb_publishable_` / `sb_secret_` keys; anything else in a deploy tier is a
+    // local-stack key, a legacy JWT or a paste error (a swapped key is refused below, in every tier).
+    const publishable = raw.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    if (present(publishable) && isLocalDemoKey(publishable)) {
       add("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", `must not be a local-stack key in ${tier}`);
+    } else if (present(publishable) && ["opaque", "anon-jwt"].includes(supabaseKeyKind(publishable))) {
+      add("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", `must be a publishable key (${PUBLISHABLE_KEY_PREFIX}...) in ${tier} (R-K)`);
     }
     if (!present(raw.SUPABASE_SECRET_KEY)) add("SUPABASE_SECRET_KEY", `required in ${tier}`);
     else if (isLocalDemoKey(raw.SUPABASE_SECRET_KEY)) add("SUPABASE_SECRET_KEY", `must not be a local-stack key in ${tier}`);
+    else if (["opaque", "service-role-jwt"].includes(supabaseKeyKind(raw.SUPABASE_SECRET_KEY))) {
+      add("SUPABASE_SECRET_KEY", `must be a secret key (${SECRET_KEY_PREFIX}...) in ${tier} (R-K)`);
+    }
     if (present(appUrl) && (!isHttpsUrl(appUrl) || isLoopbackUrl(appUrl))) {
       add("NEXT_PUBLIC_APP_URL", `must be a non-loopback https URL in ${tier}`);
     }
@@ -564,7 +639,10 @@ export interface EnvDoc {
 /** Placeholder for deployment-only secrets; `.env.example` writes these keys commented out. */
 export const SET_IN_VERCEL = "<set in Vercel>";
 
-export const ENV_DOCS: Record<Exclude<EnvName, "NODE_ENV" | "VERCEL_REGION" | "VERCEL_GIT_COMMIT_SHA">, EnvDoc> = {
+export const ENV_DOCS: Record<
+  Exclude<EnvName, "NODE_ENV" | "VERCEL_REGION" | "VERCEL_GIT_COMMIT_SHA" | "VERCEL_ENV" | "VERCEL_GIT_COMMIT_REF">,
+  EnvDoc
+> = {
   APP_ENV: {
     group: "Deployment tier",
     notes: [
@@ -582,7 +660,8 @@ export const ENV_DOCS: Record<Exclude<EnvName, "NODE_ENV" | "VERCEL_REGION" | "V
     group: "Supabase",
     notes: [
       "Publishable (sb_publishable_...) or legacy anon JWT key (R-K). Formerly NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-      "Local stack: `npx supabase status -o env`. Never the local-stack key in staging/production.",
+      "Local stack: `npx supabase status -o env`. staging/production: an sb_publishable_ key only.",
+      "Inlined into every page: a secret key (sb_secret_... or a non-anon JWT) is refused in every tier (03-13).",
     ],
     example: "<publishable key>",
   },
@@ -590,7 +669,8 @@ export const ENV_DOCS: Record<Exclude<EnvName, "NODE_ENV" | "VERCEL_REGION" | "V
     group: "Supabase",
     notes: [
       "Secret (sb_secret_...) or legacy service-role JWT key (R-K). Formerly SUPABASE_SERVICE_ROLE_KEY. Server only.",
-      "Required in staging/production; optional locally (system paths fail without it).",
+      "Required in staging/production (an sb_secret_ key only); optional locally (system paths fail without it).",
+      "A publishable key (sb_publishable_... or a non-service_role JWT) is refused in every tier (03-13).",
     ],
     example: SET_IN_VERCEL,
   },
@@ -808,4 +888,6 @@ export const PLATFORM_NAMES: Readonly<Record<string, string>> = {
   NODE_ENV: "set by Next (development for next dev, production for next build/start); never set by hand",
   VERCEL_REGION: "set by Vercel at runtime; reported by /api/health as region (R-30)",
   VERCEL_GIT_COMMIT_SHA: "set by Vercel; reported by /api/health as release (R-26)",
+  VERCEL_ENV: "set by Vercel; staging/production refuse anything but production (no preview with deploy secrets, 03-13)",
+  VERCEL_GIT_COMMIT_REF: "set by Vercel; staging refuses any branch but feature/v2 (03-13)",
 };

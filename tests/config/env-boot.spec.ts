@@ -28,17 +28,39 @@ function boot(env: Record<string, string | undefined>): { status: number | null;
   return { status: res.status, stdout: res.stdout, stderr: res.stderr };
 }
 
+/** 03-13 H-ENV: hosted-shaped keys (R-K prefixes), assembled at runtime so no key-shaped literal sits in the repo. */
+const BOOT_PUBLISHABLE = ["sb", "publishable", "MARKER-boot-publishable"].join("_");
+const BOOT_SECRET = ["sb", "secret", "MARKER-boot-secret"].join("_");
+
 /** A production deployment that has everything except real providers (synthetic values, each a leak marker). */
 const PRODUCTION_WITHOUT_PROVIDERS = {
   NODE_ENV: "production",
   APP_ENV: "production",
   NEXT_PUBLIC_SUPABASE_URL: "https://db.synthetic-project.example.org",
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "MARKER-boot-publishable",
-  SUPABASE_SECRET_KEY: "MARKER-boot-secret",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: BOOT_PUBLISHABLE,
+  SUPABASE_SECRET_KEY: BOOT_SECRET,
   NEXT_PUBLIC_APP_URL: "https://app.synthetic-clinic.example.org",
   CRON_SECRET: "MARKER-boot-cron-secret-0123456789abcdef",
   MESSAGING_PROVIDER: "dev",
   AI_PROVIDER: "mock",
+};
+
+/** Every rule satisfied (synthetic values). */
+const COMPLETE_PRODUCTION = {
+  ...PRODUCTION_WITHOUT_PROVIDERS,
+  MESSAGING_PROVIDER: "msg91",
+  MSG91_AUTH_KEY: "MARKER-boot-msg91",
+  MSG91_INTEGRATED_NUMBER: "910000000001",
+  MSG91_WEBHOOK_SECRET: "MARKER-boot-webhook",
+  AI_PROVIDER: undefined,
+  ERROR_INGEST_KEY: "MARKER-boot-error-ingest-0123456789abcdef",
+  EMAIL_PROVIDER: "ses",
+  EMAIL_FROM: "no-reply@auth.synthetic-clinic.example.org",
+  SES_ACCESS_KEY_ID: ["AKIA", "MARKERBOOT000000"].join(""),
+  SES_SECRET_ACCESS_KEY: "MARKER-boot-ses-secret-access-key-0123456789",
+  SEND_EMAIL_HOOK_SECRET: `v1,whsec_${Buffer.from("MARKER-boot-hook-key-0123456789ab").toString("base64")}`,
+  PWNED_CHECK: "on",
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0xMARKER-boot-turnstile-key",
 };
 
 const CI_BUILD = {
@@ -66,7 +88,7 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
     expect(res.stderr).toContain("PWNED_CHECK: must be on in production");
     // 03-12c: production must show a real Turnstile widget (C43).
     expect(res.stderr).toContain("NEXT_PUBLIC_TURNSTILE_SITE_KEY: required in production");
-    for (const value of Object.values(PRODUCTION_WITHOUT_PROVIDERS).filter((v) => v.startsWith("MARKER"))) {
+    for (const value of Object.values(PRODUCTION_WITHOUT_PROVIDERS).filter((v) => v.includes("MARKER"))) {
       expect(res.stderr).not.toContain(value);
       expect(res.stdout).not.toContain(value);
     }
@@ -103,26 +125,35 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
   });
 
   it("a complete synthetic production profile boots", () => {
-    const res = boot({
-      ...PRODUCTION_WITHOUT_PROVIDERS,
-      MESSAGING_PROVIDER: "msg91",
-      MSG91_AUTH_KEY: "MARKER-boot-msg91",
-      MSG91_INTEGRATED_NUMBER: "910000000001",
-      MSG91_WEBHOOK_SECRET: "MARKER-boot-webhook",
-      AI_PROVIDER: undefined,
-      ERROR_INGEST_KEY: "MARKER-boot-error-ingest-0123456789abcdef",
-      EMAIL_PROVIDER: "ses",
-      EMAIL_FROM: "no-reply@auth.synthetic-clinic.example.org",
-      SES_ACCESS_KEY_ID: ["AKIA", "MARKERBOOT000000"].join(""),
-      SES_SECRET_ACCESS_KEY: "MARKER-boot-ses-secret-access-key-0123456789",
-      SEND_EMAIL_HOOK_SECRET: `v1,whsec_${Buffer.from("MARKER-boot-hook-key-0123456789ab").toString("base64")}`,
-      PWNED_CHECK: "on",
-      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0xMARKER-boot-turnstile-key",
-    });
+    const res = boot(COMPLETE_PRODUCTION);
     expect(res.stderr).toBe("");
     expect(res.status).toBe(0);
   });
+
+  it("the secret key in the publishable variable stops the build, naming the key and no value (03-13 H-ENV)", () => {
+    // The swap the PO could make in Vercel: next build would otherwise inline the secret key into every page.
+    const res = boot({ ...COMPLETE_PRODUCTION, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: BOOT_SECRET, SUPABASE_SECRET_KEY: BOOT_PUBLISHABLE });
+    expect(res.status).not.toBe(0);
+    expect(res.stdout).not.toContain("boot-ok");
+    expect(res.stderr).toContain("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: must not be a secret key");
+    expect(res.stderr).toContain("SUPABASE_SECRET_KEY: must not be a publishable key");
+    for (const value of [BOOT_SECRET, BOOT_PUBLISHABLE]) {
+      expect(res.stderr).not.toContain(value);
+      expect(res.stdout).not.toContain(value);
+    }
+  });
+
+  it("a staging profile on a Vercel preview deployment stops the build (03-13 M-PREVIEW)", () => {
+    const staging = { ...COMPLETE_PRODUCTION, APP_ENV: "staging" };
+    expect(boot({ ...staging, VERCEL_ENV: "production", VERCEL_GIT_COMMIT_REF: "feature/v2" }).status).toBe(0);
+    const res = boot({ ...staging, VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "MARKER-pushed-branch" });
+    expect(res.status).not.toBe(0);
+    expect(res.stderr).toContain("VERCEL_ENV: must be production when APP_ENV=staging");
+    expect(res.stderr).toContain("VERCEL_GIT_COMMIT_REF: must be feature/v2 when APP_ENV=staging");
+    expect(res.stderr).not.toContain("MARKER-pushed-branch");
+  });
 });
+
 
 describe("boot: instrumentation.ts register() (every server instance)", () => {
   afterEach(() => {

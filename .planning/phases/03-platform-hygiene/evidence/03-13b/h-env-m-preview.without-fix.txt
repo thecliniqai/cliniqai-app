@@ -1,0 +1,43 @@
+# without-fix run: files reverted to HEAD 06fd200: lib/env.ts
+# command: npx vitest run tests/config/env-schema.spec.ts tests/config/env-boot.spec.ts --reporter=dot 2>&1 | grep -v '^\[teardown\]' | tail -40
+ FAIL  tests/config/env-schema.spec.ts > env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > production refuses a preview or development deployment and accepts production or no Vercel at all
+ FAIL  tests/config/env-schema.spec.ts > env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > staging refuses a preview or development deployment and accepts production or no Vercel at all
+AssertionError: expected [] to include 'VERCEL_ENV: must be production when A…'
+ ❯ tests/config/env-schema.spec.ts:660:22
+    658|     for (const vercelEnv of ["preview", "development", "LEAK-vercel-en…
+    659|       const issues = issuesOf({ ...profile, VERCEL_ENV: vercelEnv });
+    660|       expect(issues).toContain(`VERCEL_ENV: must be production when AP…
+       |                      ^
+    661|       expect(issues.join("\n")).not.toContain("LEAK-vercel-env");
+    662|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/57]⎯
+
+ FAIL  tests/config/env-schema.spec.ts > env schema: deploy tiers only in a Vercel production deployment (03-13 M-PREVIEW, R-9) > staging refuses any branch but feature/v2; production is not bound to a branch here
+AssertionError: expected [] to deeply equal [ Array(1) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   "VERCEL_GIT_COMMIT_REF: must be feature/v2 when APP_ENV=staging (staging deploys only that branch)",[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/config/env-schema.spec.ts:668:111
+    666| 
+    667|   it("staging refuses any branch but feature/v2; production is not bou…
+    668|     expect(issuesOf({ ...STAGING, VERCEL_ENV: "production", VERCEL_GIT…
+       |                                                                                                               ^
+    669|       "VERCEL_GIT_COMMIT_REF: must be feature/v2 when APP_ENV=staging …
+    670|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/57]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  57 failed | 131 passed (188)
+   Start at  08:23:39
+   Duration  1.29s (transform 48ms, setup 12ms, collect 26ms, tests 934ms, environment 0ms, prepare 41ms)
+
+# exit: 0
