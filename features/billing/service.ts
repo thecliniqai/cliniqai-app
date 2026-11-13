@@ -30,6 +30,7 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { mapDbError, type DbErrorMessages } from "@/lib/db/errors";
 import { appError, type Result } from "@/lib/errors/app-error";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Billing use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
 // server action checked before the move, and completeAndBillConsultation calls the consultation, invoice, payment and
@@ -224,8 +225,7 @@ export async function createVisitInvoice(
   } catch (err: unknown) {
     return {
       success: false,
-      error:
-        err instanceof Error ? err.message : "Failed to create visit invoice.",
+      error: clientErrorMessage(err, "Failed to create visit invoice.", "billing.invoice_create.failed"),
     };
   }
 }
@@ -471,7 +471,7 @@ export async function getVisitBillingDetails(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to load billing.",
+      error: clientErrorMessage(err, "Failed to load billing.", "billing.load.failed"),
     };
   }
 }
@@ -607,7 +607,7 @@ export async function addInvoiceItem(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to add invoice item.",
+      error: clientErrorMessage(err, "Failed to add invoice item.", "billing.item_add.failed"),
     };
   }
 }
@@ -726,8 +726,7 @@ export async function deleteInvoiceItem(
   } catch (err: unknown) {
     return {
       success: false,
-      error:
-        err instanceof Error ? err.message : "Failed to remove invoice item.",
+      error: clientErrorMessage(err, "Failed to remove invoice item.", "billing.item_remove.failed"),
     };
   }
 }
@@ -907,10 +906,8 @@ export async function completeAndBillConsultation(
       invoiceShareUrl = waRes.invoiceShareUrl;
     } catch (waErr) {
       log.warn({ event: "billing.checkout_whatsapp.failed", code: errorTag(waErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      whatsAppError =
-        waErr instanceof Error
-          ? waErr.message
-          : "Failed to dispatch automated WhatsApp";
+      // 03-13c (M-ERRMSG): the dispatch error can carry the recipient's phone; the client gets fixed text only.
+      whatsAppError = "Failed to dispatch automated WhatsApp";
     }
 
     return {
@@ -928,10 +925,7 @@ export async function completeAndBillConsultation(
   } catch (err: unknown) {
     return {
       success: false,
-      error:
-        err instanceof Error
-          ? err.message
-          : "Failed to complete and bill consultation.",
+      error: clientErrorMessage(err, "Failed to complete and bill consultation.", "billing.checkout.failed"),
     };
   }
 }
@@ -1111,7 +1105,7 @@ export async function getInvoiceReceiptPdfSignedUrl(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to load receipt PDF.",
+      error: clientErrorMessage(err, "Failed to load receipt PDF.", "billing.receipt_pdf.failed"),
     };
   }
 }
@@ -1229,7 +1223,7 @@ export async function shareReceiptViaWhatsApp(
     log.error({ event: "billing.receipt_share.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to share receipt.",
+      error: clientErrorMessage(err, "Failed to share receipt."),
     };
   }
 }
@@ -1451,10 +1445,7 @@ export async function sendConsolidatedConsultationWhatsApp(
     log.error({ event: "billing.consolidated_whatsapp.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error:
-        err instanceof Error
-          ? err.message
-          : "Failed to dispatch consolidated consultation WhatsApp.",
+      error: clientErrorMessage(err, "Failed to dispatch consolidated consultation WhatsApp."),
     };
   }
 }

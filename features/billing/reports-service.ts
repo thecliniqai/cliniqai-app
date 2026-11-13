@@ -4,6 +4,7 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 import { isYmd, rangeWindowUtc } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 
@@ -189,7 +190,7 @@ export async function getDailyCollectionReport(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to load collection report.",
+      error: clientErrorMessage(err, "Failed to load collection report.", "billing.collection_report.failed"),
     };
   }
 }
