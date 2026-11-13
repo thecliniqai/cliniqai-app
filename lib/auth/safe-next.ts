@@ -11,9 +11,10 @@
  *     (browsers treat `\` as `/`), relative paths without a leading slash, empty strings, non-strings;
  *   - control characters (U+0000–U+001F, U+007F–U+009F) anywhere, raw or after decoding: the URL parser strips tab
  *     and newline, so `/\t/evil.example` would become `//evil.example`;
- *   - a backslash anywhere, raw or after decoding;
- *   - an encoded slash or backslash (`%2F`, `%5C`, also double-encoded `%252F`): `/%2F%2Fevil.example` would decode
- *     to `//evil.example` in whatever reads it next;
+ *   - a raw backslash anywhere, and a backslash in the path after decoding (an encoded one in the query is harmless);
+ *   - in the PATH part (before the first `?` or `#`), an encoded slash or backslash (`%2F`, `%5C`, also
+ *     double-encoded `%252F`): `/%2F%2Fevil.example` would decode to `//evil.example` in whatever reads it next. The
+ *     query string and fragment may carry them (`/reports?date=2026%2F11`): they cannot change the origin;
  *   - a value that does not decode cleanly (malformed `%` escapes) or keeps decoding after
  *     {@link MAX_DECODE_ROUNDS} rounds;
  *   - a value that the URL parser resolves to another origin (a final, independent check).
@@ -45,11 +46,17 @@ function decodedForms(raw: string): string[] | null {
   return null;
 }
 
+/** The path part of `value`: everything before the first `?` or `#`. */
+function pathPart(value: string): string {
+  const end = value.search(/[?#]/);
+  return end === -1 ? value : value.slice(0, end);
+}
+
 function isSafeForm(form: string): boolean {
   if (CONTROL.test(form)) return false;
-  if (form.includes("\\")) return false;
-  if (ENCODED_SLASH_OR_BACKSLASH.test(form)) return false;
-  // Exactly one leading slash in every decoded form too (`/%2F…` is caught above; this keeps the rule explicit).
+  // The raw path is checked separately (and in every decoded form), so a backslash decoded from the query is harmless.
+  if (pathPart(form).includes("\\")) return false;
+  // Exactly one leading slash in every decoded form too (`/%2F…` is caught below; this keeps the rule explicit).
   return form.startsWith("/") && !form.startsWith("//");
 }
 
@@ -58,9 +65,13 @@ export function safeNextPath(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   if (raw.length === 0 || raw.length > MAX_NEXT_LENGTH) return null;
   if (!/^\/(?![/\\])/.test(raw)) return null;
+  if (raw.includes("\\")) return null;
 
   const forms = decodedForms(raw);
   if (forms === null || !forms.every(isSafeForm)) return null;
+  // Encoded slashes are refused in the path (and in every decoded form of it), allowed in the query and fragment.
+  const pathForms = decodedForms(pathPart(raw));
+  if (pathForms === null || pathForms.some((f) => ENCODED_SLASH_OR_BACKSLASH.test(f) || f.includes("\\"))) return null;
 
   let url: URL;
   try {

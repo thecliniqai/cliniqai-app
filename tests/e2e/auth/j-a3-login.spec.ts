@@ -43,6 +43,19 @@ test("J-A3: ?next=/patients is honoured after sign-in", async ({ page }) => {
   await page.waitForURL((url) => url.pathname === "/patients", { timeout: 30_000 });
 });
 
+test("J-A3: signed out, /patients?x=1 → proxy sends to /login?next=… → sign-in returns to /patients?x=1", async ({ page }) => {
+  const receptionist = readRunData().tenantA.users.receptionist;
+  await page.goto("/patients?x=1");
+  // 03-12b: the proxy's 307 carries the path and query in `next`; 03-12c: the login page consumes it via safeNextPath.
+  await expect(page).toHaveURL((url) => url.pathname === "/login" && url.searchParams.get("next") === "/patients?x=1");
+  const submit = page.getByRole("button", { name: "Sign in", exact: true });
+  await expect(submit).toBeEnabled();
+  await page.getByLabel(/^Email/).fill(receptionist.email);
+  await page.getByLabel(/^Password/).fill(runPassword());
+  await submit.click();
+  await page.waitForURL((url) => url.pathname === "/patients" && url.search === "?x=1", { timeout: 30_000 });
+});
+
 const UNSAFE_NEXT = ["//evil.example", "/\\evil.example", "https://evil.example/patients", "/%2F%2Fevil.example", "javascript:alert(1)"];
 
 test("J-A3: unsafe next values land on the default page", async ({ page, context }) => {

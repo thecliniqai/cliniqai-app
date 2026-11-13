@@ -17,6 +17,11 @@ describe("safeNextPath keeps same-origin paths", () => {
     ["/javascript:alert(1)", "/javascript:alert(1)"],
     // Dot segments resolve inside the origin.
     ["/patients/../billing", "/billing"],
+    // What proxy.ts sets for a signed-out `/patients?x=1` (03-12b): path + query, kept as is.
+    ["/patients?x=1", "/patients?x=1"],
+    // Encoded slashes may sit in the query string or fragment; they cannot change the origin.
+    ["/reports?date=2026%2F11%2F13", "/reports?date=2026%2F11%2F13"],
+    ["/reports?q=a%5Cb#x%2Fy", "/reports?q=a%5Cb#x%2Fy"],
   ])("%s → %s", (raw, expected) => {
     expect(safeNextPath(raw)).toBe(expected);
   });
@@ -55,6 +60,9 @@ describe("safeNextPath refuses everything else (the caller lands on its default 
     ["double-encoded slash", "/%252F%252Fevil.example"],
     ["double-encoded backslash", "/%255Cevil.example"],
     ["fully encoded leading slashes", "%2F%2Fevil.example"],
+    ["encoded slash in the path before a query", "/%2F%2Fevil.example?x=1"],
+    ["encoded question mark hiding a path slash", "/%3F/%2F%2Fevil.example"],
+    ["raw backslash in the query", "/patients?x=\\evil"],
     ["encoded scheme", "%6A%61%76%61%73%63%72%69%70%74:alert(1)"],
     // Control characters (raw and encoded); the URL parser drops tab/newline, turning `/\t/x` into `//x`.
     ["tab between slashes", "/\t/evil.example"],
