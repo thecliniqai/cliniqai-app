@@ -32,6 +32,8 @@
  *     quoted spellings of the function name included), and `SET NAMES` (another spelling of client_encoding);
  *   - `COPY … PROGRAM` however the words are separated (`COPY(…) TO PROGRAM`, `COPY/**\/t FROM PROGRAM`: a comment
  *     now separates words as psql's lexer does).
+ * 04-07e close (re-check I-1), also refused: `CREATE EVENT TRIGGER … ON login` (a trigger that runs at every connect;
+ * the local and hosted `postgres` role can create one without superuser, and pg_dump of this schema writes none).
  * Settings changed by server-side code (a function body, `EXECUTE` of a built string) stay invisible to any text scan:
  * restricted psql and its forced `standard_conforming_strings` / `client_encoding` (ops/bin/psql-restricted.sh) are
  * the controls there, and `COPY … PROGRAM` needs superuser or pg_execute_server_program, which the restore role
@@ -80,6 +82,7 @@ const REASON_META = "psql meta-command (unquoted backslash outside COPY data)";
 const REASON_LINE_START = "line starts with a backslash outside COPY data (psql meta-command shape)";
 const REASON_DOLLAR_AFTER_DIGIT = "dollar quote directly after a digit (psql may open a quote the guard would not)";
 const REASON_UNICODE_QUOTE = "Unicode-escape quoted text U&'…' or U&\"…\" (can spell a setting name; pg_dump never writes it)";
+const REASON_LOGIN_EVENT_TRIGGER = "CREATE EVENT TRIGGER … ON login (runs at every connect; pg_dump of this schema writes none)";
 /** pg_dump's own set_config line; any other set_config call outside a function body is refused (04-07e, L-E). */
 const SET_CONFIG_ALLOWED = "select pg_catalog.set_config('search_path', '', false)";
 const REASON_SCS_AMBIGUOUS =
@@ -118,6 +121,11 @@ export function scanSql(text: string): GuardScan {
     }
     if (/^set (?:session |local )?names\b/.test(bareNorm)) {
       flag(line, "SET NAMES changes client_encoding (only pg_dump's own SET line is allowed)");
+    }
+    // 04-07e close (re-check I-1): a login event trigger runs at every connect and could change a setting there; on
+    // Supabase a non-superuser `postgres` can create one (supautils delegation). pg_dump of this schema writes none.
+    if (/^create event trigger\b[\s\S]*\bon login\b/.test(bareNorm)) {
+      flag(line, REASON_LOGIN_EVENT_TRIGGER);
     }
   };
 

@@ -176,6 +176,7 @@ describe("sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, S
   const SET_CONFIG = "set_config call (only pg_dump's own search_path line is allowed outside a function body)";
   const NAMES = "SET NAMES changes client_encoding (only pg_dump's own SET line is allowed)";
   const PROGRAM = "COPY … PROGRAM (server-side command)";
+  const LOGIN_TRIGGER = "CREATE EVENT TRIGGER … ON login (runs at every connect; pg_dump of this schema writes none)";
 
   it.each([
     // L-D: psql ends the number at `$` and opens a dollar quote; the 04-07d guard did not, and passed the live `\!`.
@@ -196,6 +197,9 @@ describe("sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, S
     ["COPY/**/t FROM PROGRAM", "COPY/**/t FROM PROGRAM 'echo x';\n", [`1:${PROGRAM}`]],
     ["TO/* c */PROGRAM", "copy t to/* c */program 'echo x';\n", [`1:${PROGRAM}`]],
     ["COPY on one line, PROGRAM on the next after a comment", "COPY t TO -- c\nPROGRAM 'echo x';\n", [`2:${PROGRAM}`]],
+    // 04-07e close (re-check I-1): a login event trigger runs at every connect; `postgres` can create one on Supabase.
+    ["CREATE EVENT TRIGGER … ON login", "CREATE EVENT TRIGGER flip ON login EXECUTE FUNCTION public.flip();\n", [`1:${LOGIN_TRIGGER}`]],
+    ["a quoted, commented, multi-line ON \"login\"", "create event trigger \"a b\"\n  on/* c */\"login\"\n  execute function f();\n", [`1:${LOGIN_TRIGGER}`]],
   ])("refuses %s", (_label, sql, expected) => {
     expect(reasons(sql)).toEqual(expected);
   });
@@ -206,6 +210,7 @@ describe("sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, S
       "CREATE FUNCTION f(p int) RETURNS int LANGUAGE plpgsql AS $$ BEGIN PERFORM set_config('app.x', 'y', true); RETURN $1 + 1; END $$;",
       "CREATE FUNCTION g(int) RETURNS int LANGUAGE sql AS $_$ SELECT $1 $_$;",
       "SELECT a$b, c1$ FROM t1;",
+      "CREATE EVENT TRIGGER ddl_watch ON ddl_command_end EXECUTE FUNCTION f();",
       "COPY/**/t (a) FROM stdin;",
       "\\N",
       "\\.",

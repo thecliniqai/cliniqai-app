@@ -73,3 +73,12 @@ through new routes (N-1b, N-2b, both Medium) plus three guard Lows. Record: `04-
 | N-1b (Medium) | re-check, N-1 / M-FAIR | Fixed (000045): a hand-back restores the claim stamp (`prev_last_claimed_at`), so it costs no rotation turn; `claim_jobs` returns its fair order (`claim_order`) and the runner starts each batch in it (least recently served tenant first). Real-runner probe #8 (12 s bound, 1.5 s jobs): victim within 2 passes | 04-07e |
 | N-2b (Medium) | re-check, N-2 / M-BACKUPAUTH | Fixed: every ops/** psql session through `psql-restricted.sh` (now also forcing `standard_conforming_strings` on and UTF8); `manifest-guard.ts` validates every manifest field before use; counts and checks are fixed SQL using quoted psql variables (`:'name'`) | 04-07e |
 | L-D, L-E, L-F (Low) | re-check, sql-guard | Fixed in `sql-guard.ts` (dollar quote after a digit; `U&` quotes, `set_config` outside pg_dump's own line, `SET NAMES`; COPY spellings with comments/parentheses). Residual accepted: settings changed by server-side code are invisible to a text scan; restricted psql with forced settings and the restore role's missing `pg_execute_server_program` (asserted) are the controls | 04-07e |
+
+## Second re-check outcome (04-07e close)
+
+Source: `reviews/v204-review-n1b-n2b-recheck.md` (isolated adversarial re-checker at `b5c9e11`): N-1b and N-2b
+**CLOSED**; one Info, no other new finding.
+
+| ID | Source | Decision | Plan |
+|---|---|---|---|
+| I-1 (Info) | re-check, N-2b record | Fixed: the 04-07e record no longer says a login event trigger needs superuser (the local non-superuser `postgres` created one); `sql-guard.ts` refuses `CREATE EVENT TRIGGER … ON login` (`evidence/04-07e/i1-negative-proof.txt`) | 04-07e close |

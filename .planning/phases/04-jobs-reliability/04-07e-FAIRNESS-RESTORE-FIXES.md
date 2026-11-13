@@ -40,8 +40,12 @@ inside a throwaway psql container. Base `3947174`. Commits: `cc53d91` (N-1b, mig
 - **N-2b: PGOPTIONS only on loopback targets.** Supabase's poolers (the session pooler is the backup and real-restore
   URL) are not known to pass startup options through, and this cannot be tested locally. The explicit session `SET`
   right after `\restrict` covers every target. It runs before any caller SQL and overrides role and database settings,
-  so PGOPTIONS adds nothing there. A login event trigger could flip the setting at connect, but creating one needs
-  superuser. On the drill and local stacks both are in place.
+  so PGOPTIONS adds nothing there. A login event trigger could flip the setting at connect, and creating one does
+  not need superuser: on the local stack the non-superuser `postgres` created one (re-check I-1, presumably supautils'
+  event-trigger delegation, which Supabase also ships hosted). The wrapper's session `SET` runs after the login trigger
+  and wins (re-check probe 1), and restricted mode refuses every meta-command anyway; `sql-guard.ts` now also refuses
+  `CREATE EVENT TRIGGER … ON login` (pg_dump of this schema writes none; `evidence/04-07e/i1-negative-proof.txt`). On
+  the drill and local stacks both are in place.
 - **N-2b: backup.sh is restricted too** (the task: every ops/\*\* psql). It runs only fixed SQL against the source
   database, so restricted mode costs nothing. Its heredocs now pass `-f -`: the wrapper adds `-c`, and with any `-c`
   psql reads no stdin. The wrapper refuses a call without `-c`/`-f`, because otherwise such a call silently does
