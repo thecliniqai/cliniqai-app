@@ -2,7 +2,8 @@
 #
 # The staging app deploys through the Vercel Git integration on feature/v2 (R-26). This workflow applies the
 # migrations to the staging database and then waits until the deployment whose /api/health `release` equals this
-# commit answers /api/ready with the repository's newest migration ("staging deploys from CI").
+# commit answers /api/ready with `checks.schema: "current"` (its EXPECTED_MIGRATION, the repository's newest, is applied;
+# 03-13c M-PROBE) ("staging deploys from CI").
 #
 # Rules for this file (checked by scripts/ci/workflow-policy.mjs in the `static` job):
 # - never runs on pull_request / pull_request_target / workflow_run: PR code never sits next to staging credentials;
@@ -40,6 +41,16 @@ on:
         default: not-recorded
       auth_log_retention:
         description: "recheck only: how long the Auth logs keep failed sign-ins, as the dashboard shows it (e.g. 1 day)"
+        type: string
+        required: false
+        default: ""
+      stale_wait_seconds:
+        description: "recheck only, item 10 (optional): seconds 601-890 to wait before the stale emailed-code session probe; empty = skip"
+        type: string
+        required: false
+        default: ""
+      email_cap_probe:
+        description: "recheck only, item 11 (optional): sends 1-70 for the Send Email hook vs email-cap probe (SES simulator); empty = skip"
         type: string
         required: false
         default: ""
@@ -93,7 +104,7 @@ jobs:
         run: |
           DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url)"
           npx supabase db push --db-url "$DB_URL" --yes
-      - name: Wait for the release on staging, then readiness at the newest migration
+      - name: Wait for the release on staging, then readiness with the schema current
         env:
           STAGING_ORIGIN: ${{ vars.STAGING_ORIGIN }}
           RELEASE_SHA: ${{ github.sha }}
@@ -163,7 +174,11 @@ jobs:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
           PO_CAPTCHA_BROWSER_CHECK: ${{ inputs.captcha_browser_check }}
           PO_AUTH_LOG_RETENTION: ${{ inputs.auth_log_retention }}
-        run: npx tsx scripts/staging/auth00-recheck.ts --target staging --out auth00-recheck-report.json
+          # Optional 03-13a probes: validated by recheck-args.mjs (digits in range or empty) and passed to the kit as
+          # an argument array (--stale-wait-seconds / --email-cap-probe), never through a shell.
+          PO_STALE_WAIT_SECONDS: ${{ inputs.stale_wait_seconds }}
+          PO_EMAIL_CAP_PROBE: ${{ inputs.email_cap_probe }}
+        run: node scripts/staging/recheck-args.mjs --out auth00-recheck-report.json
       - name: Upload the report (statuses and codes only)
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

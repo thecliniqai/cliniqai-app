@@ -1,0 +1,7 @@
+# without-fix run: files reverted to HEAD d4a8eeb: scripts/staging/recheck-args.mjs .github/workflows/staging.yml
+# command: /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/vt.sh tests/ci/recheck-args.spec.ts --reporter=dot 2>&1 | grep -E ' FAIL |Tests |Test Files|Cannot find' | head -20
+ FAIL  tests/ci/recheck-args.spec.ts [ tests/ci/recheck-args.spec.ts ]
+Error: Cannot find module '@/scripts/staging/recheck-args.mjs' imported from '/Users/sid/Code/clinicOS/tests/ci/recheck-args.spec.ts'.
+ Test Files  1 failed (1)
+      Tests  no tests
+# exit: 0
