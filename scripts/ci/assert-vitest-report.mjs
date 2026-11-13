@@ -21,6 +21,8 @@
  *   1805 — V2-02 02-06 (IR-F5): the full suite at 21eff42 had 1885 tests, +14 in the 02-06 CI-hardening commit
  *          (known-bug-match 3, ci-scripts 6, vitest-report-gate 2, playwright-summary 1, audit-gate 1,
  *          test-env-guard 1) = 1899; 1899 × 0.95 = 1804.05 → 1805.
+ *   3292 — V2-03 phase close: the full suite at 570a82d (code at e4eb4c1) had 3465 tests in 162 files, 0 skipped;
+ *          3465 × 0.95 = 3291.75 → 3292. REQUIRED_FILES gains every spec V2-03 added outside tests/e2e (60 files; 69 in total).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -29,9 +31,9 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 1805;
+const FLOOR = 3292;
 
-/** Security specs that must be present with at least one passed test (IR-F5). */
+/** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 phase close). */
 const REQUIRED_FILES = [
   "tests/security/guard-actions.spec.ts",
   "tests/security/guard-routes.spec.ts",
@@ -42,6 +44,82 @@ const REQUIRED_FILES = [
   "tests/security/multi-clinic-tenant-filters.spec.ts",
   "tests/security/share-tokens.spec.ts",
   "tests/security/membership-guard.spec.ts",
+  // V2-03 (03-PLAN.md "Phase close" step 1 plus each plan record's close note).
+  // 03-01 env schema and boot; readiness probe; synthetic-phone guard (M-SEEDPHONE); env example.
+  "tests/config/env-schema.spec.ts",
+  "tests/config/env-boot.spec.ts",
+  "tests/api/readiness-probe-db.spec.ts",
+  "tests/ci/env-example.spec.ts",
+  "tests/utils/synthetic-phones.spec.ts",
+  "tests/messaging/provider-selection.spec.ts",
+  // 03-02 / 03-04 service-role factory and boundary gates.
+  "tests/security/system-db.spec.ts",
+  "tests/storage/no-service-role-fallback.spec.ts",
+  "tests/referrals/referral-source-clinics.spec.ts",
+  "tests/security/p1-34-lint-gates.spec.ts",
+  // 03-03 generated types, migration immutability, drift.
+  "tests/ci/migration-immutability.spec.ts",
+  "tests/ci/local-drift.spec.ts",
+  "tests/ci/schema-snapshot.spec.ts",
+  "tests/ci/hosted-dump-diff.spec.ts",
+  // 03-05 clinic-timezone dates.
+  "tests/utils/datetime.spec.ts",
+  "tests/integration/ist-boundaries.spec.ts",
+  // 03-06 proxy session.
+  "tests/api/proxy-session.spec.ts",
+  // 03-07 D1 spike.
+  "tests/billing/record-payment-rpc.spec.ts",
+  "tests/db/error-map.spec.ts",
+  // 03-08 staging workflows and scripts.
+  "tests/ci/workflow-policy.spec.ts",
+  "tests/ci/staging-scripts.spec.ts",
+  "tests/integration/demo-clinic-seed.spec.ts",
+  // 03-09a/b/c logger, request id, error sink, sweep.
+  "tests/observability/logger.spec.ts",
+  "tests/observability/request-id.spec.ts",
+  "tests/observability/scrub.spec.ts",
+  "tests/observability/error-sink-db.spec.ts",
+  "tests/observability/on-request-error.spec.ts",
+  "tests/observability/diag-route.spec.ts",
+  "tests/observability/no-raw-error-logging.spec.ts",
+  // 03-10 SSRF.
+  "tests/api/webhook-ssrf.spec.ts",
+  // 03-11a auth config as code and drift.
+  "tests/ci/auth-policy.spec.ts",
+  "tests/ci/auth-config-hosted.spec.ts",
+  "tests/integration/auth/auth-config-applied.spec.ts",
+  // 03-11b Send Email hook and SES.
+  "tests/auth/send-email-hook.spec.ts",
+  "tests/auth/ses-sender.spec.ts",
+  "tests/integration/auth/mailpit-sender.spec.ts",
+  // 03-12a FT-05 password flows.
+  "tests/auth/pwned.spec.ts",
+  "tests/auth/password-service.spec.ts",
+  "tests/integration/auth/change-password.spec.ts",
+  "tests/integration/auth/reset-completion.spec.ts",
+  // 03-12b sign-out and public paths.
+  "tests/auth/public-paths.spec.ts",
+  "tests/auth/signout-route.spec.ts",
+  // 03-12c Turnstile, safe next, AUTH-00 re-check kit.
+  "tests/auth/safe-next.spec.ts",
+  "tests/auth/password-flows-captcha.spec.ts",
+  "tests/integration/auth/auth00-recheck-kit.spec.ts",
+  "tests/ci/auth00-recheck-cli.spec.ts",
+  "tests/ci/recheck-args.spec.ts",
+  // 03-13a…e review fixes.
+  "tests/auth/session-age.spec.ts",
+  "tests/api/proxy-matcher.spec.ts",
+  "tests/billing/payment-actor-guards.spec.ts",
+  "tests/observability/error-sink-scrub-db.spec.ts",
+  "tests/api/v1-system-client-order.spec.ts",
+  "tests/billing/billing-error-messages.spec.ts",
+  "tests/observability/console-scrub.spec.ts",
+  "tests/observability/sink-flood.spec.ts",
+  "tests/api/webhook-dispatch-hardening.spec.ts",
+  "tests/messaging/provider-timeouts-and-synthetic.spec.ts",
+  "tests/security/no-raw-error-responses.spec.ts",
+  "tests/auth/session-age-token-hook-db.spec.ts",
+  "tests/integration/auth/session-age-token-hook.spec.ts",
 ];
 
 const file = process.argv[2];

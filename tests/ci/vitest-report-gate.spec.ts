@@ -43,10 +43,10 @@ describe("vitest report gate", () => {
     expect(r.stderr).toContain("file failed: /repo/tests/fixture/broken-import.spec.ts");
   });
 
-  it("fails when the suite shrinks below the recorded floor (default 1805, 95% of the suite, IR-F5)", () => {
+  it("fails when the suite shrinks below the recorded floor (default 3292, 95% of the suite, IR-F5)", () => {
     const r = statusGate("clean");
     expect(r.status).toBe(1);
-    expect(r.stderr).toContain("total 3 is below the floor 1805");
+    expect(r.stderr).toContain("total 3 is below the floor 3292");
   });
 
   it("fails when a required security spec file is missing, naming each one (IR-F5)", () => {
