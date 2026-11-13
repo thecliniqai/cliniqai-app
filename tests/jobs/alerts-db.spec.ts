@@ -26,6 +26,9 @@ const BASELINE = [
   "delete from ops.backup_runs",
   "delete from ops.error_events",
   "delete from ops.error_event_overflow",
+  // 04-06: heartbeat_gap and the quota rules read these.
+  "delete from ops.heartbeats",
+  "delete from ops.quota_snapshots",
   "delete from vault.secrets where name = 'jobs_runner_url'",
   "delete from public.communication_queue where status = 'dead_letter'",
   "delete from public.webhook_delivery_queue where status = 'failed'",
@@ -155,7 +158,7 @@ describe("ops.evaluate_alerts(): quiet baseline", () => {
     expect(out.jobs).toEqual([]);
   });
 
-  it("the nine rules are registered with the planned severities, enabled, each with its function", () => {
+  it("the nine rules are registered with the planned severities, enabled, each with its function (+ 04-06's four)", () => {
     const rows = psql("select rule || '|' || severity || '|' || enabled || '|' || fn from ops.alert_rules order by rule");
     expect(rows).toEqual([
       "backup_stale|critical|true|ops.alert_rule_backup_stale",
@@ -163,9 +166,14 @@ describe("ops.evaluate_alerts(): quiet baseline", () => {
       "error_burst|warn|true|ops.alert_rule_error_burst",
       "error_sink_overflow|warn|true|ops.alert_rule_error_sink_overflow",
       "error_sink_size|warn|true|ops.alert_rule_error_sink_size",
+      // 04-06 (heartbeat FT-03, quota FT-04): tests/ops/heartbeat-quota-db.spec.ts.
+      "heartbeat_gap|warn|true|ops.alert_rule_heartbeat_gap",
       "lease_expiry|warn|true|ops.alert_rule_lease_expiry",
       "queue_lag|warn|true|ops.alert_rule_queue_lag",
       "queue_oldest_due|critical|true|ops.alert_rule_queue_oldest_due",
+      "quota_critical|critical|true|ops.alert_rule_quota_critical",
+      "quota_upgrade_trigger|warn|true|ops.alert_rule_quota_upgrade_trigger",
+      "quota_weekly_summary|info|true|ops.alert_rule_quota_weekly_summary",
       "runner_stale|critical|true|ops.alert_rule_runner_stale",
     ]);
   });

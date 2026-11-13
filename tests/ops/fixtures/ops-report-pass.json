@@ -1,0 +1,134 @@
+{
+  "report_version": 1,
+  "generated_at": "2026-11-13T05:00:00Z",
+  "window_hours": 48,
+  "jobs": {
+    "by_kind_status": [
+      {
+        "kind": "alert.notify",
+        "status": "done",
+        "count": 1
+      },
+      {
+        "kind": "drill.noop",
+        "status": "done",
+        "count": 300
+      },
+      {
+        "kind": "message.send",
+        "status": "done",
+        "count": 12
+      }
+    ],
+    "lag": {
+      "samples": 313,
+      "p50_seconds": 21.4,
+      "p95_seconds": 48.9,
+      "max_seconds": 71.2
+    }
+  },
+  "dead_last_24h": {
+    "total": 1,
+    "by_kind": [
+      {
+        "kind": "drill.always_fail",
+        "count": 1
+      }
+    ]
+  },
+  "runner": {
+    "configured": true,
+    "runs": 2880,
+    "ok_runs": 2878,
+    "largest_ok_gap_seconds": 121.3,
+    "last_ok_age_seconds": 14.2
+  },
+  "alerts": [
+    {
+      "rule": "dead_letter",
+      "severity": "warn",
+      "status": "resolved",
+      "opened": "2026-11-12T09:05:00Z",
+      "last_seen": "2026-11-12T09:20:00Z",
+      "resolved_at": "2026-11-12T09:30:00Z",
+      "count": 4,
+      "notified": true,
+      "notify_count": 1,
+      "notify_tries": 1,
+      "unsent": false,
+      "provider_id_present": true
+    }
+  ],
+  "heartbeats": {
+    "count": 8,
+    "at": [
+      "2026-11-11T06:00:00Z",
+      "2026-11-11T12:00:00Z",
+      "2026-11-11T18:00:00Z",
+      "2026-11-12T00:00:00Z",
+      "2026-11-12T06:00:00Z",
+      "2026-11-12T12:00:00Z",
+      "2026-11-12T18:00:00Z",
+      "2026-11-13T00:00:00Z"
+    ],
+    "largest_gap_seconds": 21600,
+    "covered_seconds": 169200,
+    "last_at": "2026-11-13T00:00:00Z"
+  },
+  "quota": {
+    "at": "2026-11-12T21:30:00Z",
+    "plan": "free",
+    "db_bytes": 41234567,
+    "storage_bytes": 1048576,
+    "mau_estimate": 5,
+    "limits": {
+      "db_bytes": 500000000,
+      "storage_bytes": 1000000000,
+      "mau": 50000
+    },
+    "levels": {
+      "db_bytes": "ok",
+      "storage_bytes": "ok",
+      "mau": "ok"
+    }
+  },
+  "backups": [
+    {
+      "environment": "staging",
+      "started_at": "2026-11-11T20:30:00Z",
+      "finished_at": "2026-11-11T20:34:00Z",
+      "status": "ok",
+      "archive_bytes": 5242880,
+      "duration_s": 240,
+      "error_code": null
+    },
+    {
+      "environment": "staging",
+      "started_at": "2026-11-12T08:30:00Z",
+      "finished_at": "2026-11-12T08:34:00Z",
+      "status": "ok",
+      "archive_bytes": 5243904,
+      "duration_s": 236,
+      "error_code": null
+    },
+    {
+      "environment": "staging",
+      "started_at": "2026-11-12T20:30:00Z",
+      "finished_at": "2026-11-12T20:31:00Z",
+      "status": "failed",
+      "archive_bytes": null,
+      "duration_s": 60,
+      "error_code": "drill_forced"
+    }
+  ],
+  "tables": {
+    "jobs": 313,
+    "job_runner_runs": 20160,
+    "alerts": 1,
+    "heartbeats": 9,
+    "quota_snapshots": 3,
+    "backup_runs": 3,
+    "inbound_webhook_events": 0,
+    "error_events": 2
+  }
+}

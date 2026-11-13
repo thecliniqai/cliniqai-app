@@ -55,6 +55,9 @@ column ops.error_events.route_path text not_null=f default=- identity=- generate
 column ops.error_events.route_type text not_null=f default=- identity=- generated=-
 column ops.error_events.tenant_id uuid not_null=f default=- identity=- generated=-
 column ops.error_events.user_id uuid not_null=f default=- identity=- generated=-
+column ops.heartbeats.at timestamp with time zone not_null=t default=now() identity=- generated=-
+column ops.heartbeats.id bigint not_null=t default=nextval('ops.heartbeats_id_seq'::regclass) identity=- generated=-
+column ops.heartbeats.source text not_null=t default='pg_cron'::text identity=- generated=-
 column ops.inbound_webhook_events.attempts integer not_null=t default=1 identity=- generated=-
 column ops.inbound_webhook_events.dedupe_key text not_null=t default=- identity=- generated=-
 column ops.inbound_webhook_events.id bigint not_null=t default=- identity=a generated=-
@@ -94,6 +97,19 @@ column ops.jobs.updated_at timestamp with time zone not_null=t default=now() ide
 column ops.message_templates.channel text not_null=t default=- identity=- generated=-
 column ops.message_templates.template_id text not_null=t default=- identity=- generated=-
 column ops.message_templates.unmatched_ok boolean not_null=t default=false identity=- generated=-
+column ops.quota_limits.limit_value numeric not_null=t default=- identity=- generated=-
+column ops.quota_limits.metric text not_null=t default=- identity=- generated=-
+column ops.quota_limits.plan text not_null=t default=- identity=- generated=-
+column ops.quota_snapshots.at timestamp with time zone not_null=t default=now() identity=- generated=-
+column ops.quota_snapshots.db_bytes bigint not_null=t default=- identity=- generated=-
+column ops.quota_snapshots.id bigint not_null=t default=nextval('ops.quota_snapshots_id_seq'::regclass) identity=- generated=-
+column ops.quota_snapshots.levels jsonb not_null=t default=- identity=- generated=-
+column ops.quota_snapshots.limits jsonb not_null=t default=- identity=- generated=-
+column ops.quota_snapshots.mau_estimate integer not_null=t default=- identity=- generated=-
+column ops.quota_snapshots.plan text not_null=t default=- identity=- generated=-
+column ops.quota_snapshots.storage_bytes bigint not_null=t default=- identity=- generated=-
+column ops.settings.key text not_null=t default=- identity=- generated=-
+column ops.settings.value text not_null=t default=- identity=- generated=-
 column public.api_key_usage_daily.api_key_id uuid not_null=t default=- identity=- generated=-
 column public.api_key_usage_daily.date date not_null=t default=- identity=- generated=-
 column public.api_key_usage_daily.error_count integer not_null=t default=0 identity=- generated=-
@@ -608,6 +624,8 @@ constraint ops.error_events.error_events_pkey PRIMARY KEY (id)
 constraint ops.error_events.error_events_release_check CHECK ((release ~ '^[0-9a-f]{7,40}$'::text))
 constraint ops.error_events.error_events_route_path_check CHECK ((route_path ~ '^/[A-Za-z0-9_./()\[\]@~+-]{0,199}$'::text))
 constraint ops.error_events.error_events_route_type_check CHECK ((route_type = ANY (ARRAY['render'::text, 'route'::text, 'action'::text, 'proxy'::text])))
+constraint ops.heartbeats.heartbeats_pkey PRIMARY KEY (id)
+constraint ops.heartbeats.heartbeats_source_check CHECK ((source = ANY (ARRAY['pg_cron'::text, 'manual'::text])))
 constraint ops.inbound_webhook_events.inbound_webhook_events_attempts_check CHECK ((attempts >= 1))
 constraint ops.inbound_webhook_events.inbound_webhook_events_dedupe_key_check CHECK (((char_length(dedupe_key) >= 1) AND (char_length(dedupe_key) <= 200)))
 constraint ops.inbound_webhook_events.inbound_webhook_events_outcome_check CHECK ((outcome = ANY (ARRAY['processed'::text, 'ignored'::text, 'failed'::text])))
@@ -637,6 +655,20 @@ constraint ops.jobs.jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenan
 constraint ops.message_templates.message_templates_channel_check CHECK ((channel = ANY (ARRAY['whatsapp'::text, 'sms'::text, 'in_app'::text])))
 constraint ops.message_templates.message_templates_pkey PRIMARY KEY (template_id)
 constraint ops.message_templates.message_templates_template_id_check CHECK ((template_id ~ '^[a-z][a-z0-9_]{0,99}$'::text))
+constraint ops.quota_limits.quota_limits_limit_value_check CHECK ((limit_value > (0)::numeric))
+constraint ops.quota_limits.quota_limits_metric_check CHECK ((metric = ANY (ARRAY['db_bytes'::text, 'storage_bytes'::text, 'mau'::text])))
+constraint ops.quota_limits.quota_limits_pkey PRIMARY KEY (plan, metric)
+constraint ops.quota_limits.quota_limits_plan_check CHECK ((plan ~ '^[a-z][a-z0-9_]{0,30}$'::text))
+constraint ops.quota_snapshots.quota_snapshots_db_bytes_check CHECK ((db_bytes >= 0))
+constraint ops.quota_snapshots.quota_snapshots_levels_check CHECK (((jsonb_typeof(levels) = 'object'::text) AND (octet_length((levels)::text) <= 512)))
+constraint ops.quota_snapshots.quota_snapshots_limits_check CHECK (((jsonb_typeof(limits) = 'object'::text) AND (octet_length((limits)::text) <= 512)))
+constraint ops.quota_snapshots.quota_snapshots_mau_estimate_check CHECK ((mau_estimate >= 0))
+constraint ops.quota_snapshots.quota_snapshots_pkey PRIMARY KEY (id)
+constraint ops.quota_snapshots.quota_snapshots_plan_check CHECK ((plan ~ '^[a-z][a-z0-9_]{0,30}$'::text))
+constraint ops.quota_snapshots.quota_snapshots_storage_bytes_check CHECK ((storage_bytes >= 0))
+constraint ops.settings.settings_key_check CHECK ((key ~ '^[a-z][a-z0-9_]{0,62}$'::text))
+constraint ops.settings.settings_pkey PRIMARY KEY (key)
+constraint ops.settings.settings_value_check CHECK (((char_length(value) >= 1) AND (char_length(value) <= 200)))
 constraint public.api_key_usage_daily.api_key_usage_daily_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
 constraint public.api_key_usage_daily.api_key_usage_daily_pkey PRIMARY KEY (api_key_id, date)
 constraint public.api_key_usage_daily.api_key_usage_daily_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
@@ -903,27 +935,39 @@ function ops.alert_rule_dead_letter(p_params jsonb) returns TABLE(firing boolean
 function ops.alert_rule_error_burst(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=054ab58c4297c1d39cc175cb9a760ec8
 function ops.alert_rule_error_sink_overflow(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=c30facae1e636a10365f455f4c2646e6
 function ops.alert_rule_error_sink_size(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=ea26f3d10fb1af93ed599a2f33780703
+function ops.alert_rule_heartbeat_gap(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=aa639f6971f0a90b3c3f74cc4036b1df
 function ops.alert_rule_lease_expiry(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=797792f5a8904b96115a47d0a9fdc186
 function ops.alert_rule_queue_lag(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=ec673ebd8c41763848b18dfe7490a5fc
 function ops.alert_rule_queue_oldest_due(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=93d659a832db434ed8d97aec954b9a3e
+function ops.alert_rule_quota_critical(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=7ae03f81fa11b99bc992ef632537eeab
+function ops.alert_rule_quota_upgrade_trigger(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=198614f8e121bbb05754270ac8c6cb3f
+function ops.alert_rule_quota_weekly_summary(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=7e0f726da351711239db1f43f9e1162c
 function ops.alert_rule_runner_stale(p_params jsonb) returns TABLE(firing boolean, details jsonb) lang=sql security_definer=t volatility=s config=search_path="" body_md5=9bcab0235177eece6456918ac1bd18bb
 function ops.backfill_delivery_jobs() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=ef4f996cd2cb1cc86acedcd710f1a30b
 function ops.backup_runner_stale() returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=9a8d5274788a81a84161ee59019a023f
+function ops.cleanup() returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=b156227a48d12892a3e6f18f92d217ef
 function ops.communication_queue_enqueue_job() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=96fd89c9a82aded58b07cbfc8c491453
 function ops.drill_enqueue(p_kind text, p_count integer, p_spread interval, p_max_attempts integer) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4fbe44f1b91bd1952a6352df5a741aea
 function ops.enqueue_job(p_kind text, p_tenant_id uuid, p_payload jsonb, p_dedupe_key text, p_run_at timestamp with time zone, p_max_attempts integer) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=34010c593d6ed05864c55aed746a90db
+function ops.enqueue_quota_weekly_summary() returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=aaadcc3a82d21c6e03602260ea42d69e
 function ops.error_events_size() returns jsonb lang=sql security_definer=f volatility=s config=search_path="" body_md5=bef6ccb364b88adfc674fe75687ce17e
 function ops.error_sink_daily_cap() returns integer lang=sql security_definer=f volatility=s config=search_path="" body_md5=767817c66a4b05c817c8799a25abb42f
 function ops.evaluate_alerts() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=1a312c89d5ec8dc0ceafa24ec84e370e
+function ops.heartbeat() returns timestamp with time zone lang=sql security_definer=t volatility=v config=search_path="" body_md5=38052fa0d9e10bc2a50b3bebec60f8bb
 function ops.job_error_code(p_code text) returns text lang=sql security_definer=t volatility=i config=search_path="" body_md5=8dc6403af216f42e661efb3cb947645d
 function ops.kick_job_runner() returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0db715c86023c2e77b8ce1bcb5a1ed0d
 function ops.message_job_dead() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=f07edd2f03953d478bdb0c8bad90d850
 function ops.purge_error_events(p_older_than interval) returns integer lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8438d2fe2e64b4198d3d8a3b164d57cd
+function ops.quota_details(p_snapshot_id bigint) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=c937b973c571fa847243f44bed8adb26
+function ops.quota_level(p_used numeric, p_limit numeric) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=087148648f318b6ffeff5bd5d35f85c6
+function ops.quota_snapshot() returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=1158edaea5e6ad1418d0a9824c80b9b9
 function ops.reap_delivery_rows() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f19964253599685dcce60a350a48b35c
 function ops.reap_jobs() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=ee96223216deec9bcd478172b3d58c1d
 function ops.redact_reply_unmatched_payload() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b7b3fe38eb4d7642c14787e79b457d2
 function ops.replay_job(p_id uuid) returns void lang=plpgsql security_definer=f volatility=v config=lock_timeout=2s,search_path="" body_md5=f8117378d4df7843eaf978a3aaafeeb0
+function ops.report_all(p_hours integer) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=7cb2ad0a6606bff065cfde77fb75a7d7
 function ops.scrub_text(p_text text) returns text lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=0f77a1b8ed4621eeb8f1017a3d70eda6
+function ops.utc_text(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=42079a21f3de41233494ff11a2fa1e07
 function ops.webhook_delivery_enqueue_job() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=38101db227044c6de5ea0b4884431409
 function ops.webhook_job_dead() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9adac804d193ddd2cf90f715841f6c52
 function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=335bcb17d06170df44c79181e1bc6548
@@ -2115,6 +2159,8 @@ index ops.error_events_last_seen CREATE INDEX error_events_last_seen ON ops.erro
 index ops.error_events_occurred_on CREATE INDEX error_events_occurred_on ON ops.error_events USING btree (occurred_on)
 index ops.error_events_pkey CREATE UNIQUE INDEX error_events_pkey ON ops.error_events USING btree (id)
 index ops.error_events_request_id CREATE INDEX error_events_request_id ON ops.error_events USING btree (request_id) WHERE (request_id IS NOT NULL)
+index ops.heartbeats_at CREATE INDEX heartbeats_at ON ops.heartbeats USING btree (at)
+index ops.heartbeats_pkey CREATE UNIQUE INDEX heartbeats_pkey ON ops.heartbeats USING btree (id)
 index ops.inbound_webhook_events_pkey CREATE UNIQUE INDEX inbound_webhook_events_pkey ON ops.inbound_webhook_events USING btree (id)
 index ops.inbound_webhook_events_provider_key CREATE UNIQUE INDEX inbound_webhook_events_provider_key ON ops.inbound_webhook_events USING btree (provider, dedupe_key)
 index ops.inbound_webhook_events_received_at CREATE INDEX inbound_webhook_events_received_at ON ops.inbound_webhook_events USING btree (received_at)
@@ -2129,6 +2175,10 @@ index ops.jobs_running_locked_until CREATE INDEX jobs_running_locked_until ON op
 index ops.jobs_status_finished_at CREATE INDEX jobs_status_finished_at ON ops.jobs USING btree (status, finished_at)
 index ops.jobs_tenant_id CREATE INDEX jobs_tenant_id ON ops.jobs USING btree (tenant_id)
 index ops.message_templates_pkey CREATE UNIQUE INDEX message_templates_pkey ON ops.message_templates USING btree (template_id)
+index ops.quota_limits_pkey CREATE UNIQUE INDEX quota_limits_pkey ON ops.quota_limits USING btree (plan, metric)
+index ops.quota_snapshots_at CREATE INDEX quota_snapshots_at ON ops.quota_snapshots USING btree (at)
+index ops.quota_snapshots_pkey CREATE UNIQUE INDEX quota_snapshots_pkey ON ops.quota_snapshots USING btree (id)
+index ops.settings_pkey CREATE UNIQUE INDEX settings_pkey ON ops.settings USING btree (key)
 index public.api_key_usage_daily_pkey CREATE UNIQUE INDEX api_key_usage_daily_pkey ON public.api_key_usage_daily USING btree (api_key_id, date)
 index public.api_keys_key_hash_key CREATE UNIQUE INDEX api_keys_key_hash_key ON public.api_keys USING btree (key_hash)
 index public.api_keys_pkey CREATE UNIQUE INDEX api_keys_pkey ON public.api_keys USING btree (id)
@@ -2367,12 +2417,18 @@ relation ops.backup_runs_id_seq kind=S rls=f force_rls=f
 relation ops.error_event_overflow kind=r rls=t force_rls=f
 relation ops.error_events kind=r rls=t force_rls=f
 relation ops.error_events_id_seq kind=S rls=f force_rls=f
+relation ops.heartbeats kind=r rls=t force_rls=f
+relation ops.heartbeats_id_seq kind=S rls=f force_rls=f
 relation ops.inbound_webhook_events kind=r rls=t force_rls=f
 relation ops.inbound_webhook_events_id_seq kind=S rls=f force_rls=f
 relation ops.job_runner_runs kind=r rls=t force_rls=f
 relation ops.job_runner_runs_id_seq kind=S rls=f force_rls=f
 relation ops.jobs kind=r rls=t force_rls=f
 relation ops.message_templates kind=r rls=t force_rls=f
+relation ops.quota_limits kind=r rls=t force_rls=f
+relation ops.quota_snapshots kind=r rls=t force_rls=f
+relation ops.quota_snapshots_id_seq kind=S rls=f force_rls=f
+relation ops.settings kind=r rls=t force_rls=f
 relation public.api_key_usage_daily kind=r rls=t force_rls=f
 relation public.api_keys kind=r rls=t force_rls=f
 relation public.audit_logs kind=r rls=t force_rls=f
