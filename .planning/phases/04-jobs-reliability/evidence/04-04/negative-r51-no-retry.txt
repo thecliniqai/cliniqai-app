@@ -1,0 +1,52 @@
+# R-51 negative proof: the pre-ruling ops.evaluate_alerts() body (HEAD b05e21f's 000039) put on the local stack, then
+# npx vitest run tests/jobs/alert-notify-db.spec.ts -t R-51; the amended body was restored afterwards (md5(prosrc) = snapshot body_md5).
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-13T17:42:38.272Z","level":"info","event":"jobs.run.completed","durationMs":16,"count":1}
+{"ts":"2026-11-13T17:42:38.312Z","level":"info","event":"jobs.run.completed","durationMs":9,"count":1}
+{"ts":"2026-11-13T17:42:38.351Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T17:42:38.390Z","level":"info","event":"jobs.run.completed","durationMs":9,"count":1}
+{"ts":"2026-11-13T17:42:38.429Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+ ❯ tests/jobs/alert-notify-db.spec.ts (10 tests | 1 failed | 9 skipped) 1071ms
+   ↓ alert.notify → Mailpit > sends one message to the ops inbox with the expected subject and records the notification
+   ↓ alert.notify → Mailpit > a critical rule says CRITICAL in the subject
+   ↓ alert.notify → Mailpit > a patient's dead-lettered message raises dead_letter; the email carries no patient or owner identifier
+   ↓ alert.notify → Mailpit > no input of the shared scrub vectors survives into the email, as a detail value or as a key
+   × alert.notify: channel and failure handling > R-51: provider down → no email, notified_at null; provider back → the next evaluation sends exactly one 700ms
+     → expected [ Array(1) ] to deeply equal [ …(2) ]
+   ↓ alert.notify: channel and failure handling > OPS_ALERT_EMAIL unset → dead alert_channel_unconfigured, no message, the alert stays unnotified
+   ↓ alert.notify: channel and failure handling > EMAIL_PROVIDER=disabled → dead alert_channel_unconfigured, no message
+   ↓ alert.notify: channel and failure handling > an unreachable Mailpit is retried with the sender's fixed code; nothing recorded as notified
+   ↓ alert.notify: channel and failure handling > an alert already notified for this notification is done without a second send
+   ↓ alert.notify: channel and failure handling > an unknown alert → dead alert_not_found
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/jobs/alert-notify-db.spec.ts > alert.notify: channel and failure handling > R-51: provider down → no email, notified_at null; provider back → the next evaluation sends exactly one
+AssertionError: expected [ Array(1) ] to deeply equal [ …(2) ]
+
+- Expected
++ Received
+
+  [
+    "alert:a0420374-2b4c-4911-92c4-c4fc27c1f05d:1",
+-   "alert:a0420374-2b4c-4911-92c4-c4fc27c1f05d:1:r2",
+  ]
+
+ ❯ tests/jobs/alert-notify-db.spec.ts:232:44
+    230|       psql("select ops.evaluate_alerts()");
+    231|       const jobs = notifyJobsFor(alert.id);
+    232|       expect(jobs.map((j) => j.dedupeKey)).toEqual([`alert:${alert.id}…
+       |                                            ^
+    233|       await notify("back");
+    234| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 skipped (10)
+   Start at  23:12:37
+   Duration  1.58s (transform 100ms, setup 9ms, collect 136ms, tests 1.07s, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 1 tenant(s), 1 auth user(s), 0 storage object(s); verified none remain

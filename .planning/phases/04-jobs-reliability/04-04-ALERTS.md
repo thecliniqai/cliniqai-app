@@ -49,11 +49,16 @@ dependency added. Base `d159dc4`.
 | `error_sink_size` | warn | `ops.error_events_size()` bytes > 50 000 000 | 24 h |
 | `backup_stale` | critical | `ops.backup_runs` has rows and none `ok` in 13 h, **or the latest run failed** (D5) | 3 h |
 
+- **Amended in place after the orchestrator's rulings (000039 was never pushed or applied elsewhere, so no 000040):**
+  `ops.alerts` gained `notify_seq_enqueued`, `notify_tries`, `notify_enqueued_at`, `notify_job_id` and the evaluator the
+  R-51 retry below; snapshot regenerated after `db reset --local` (types unchanged: `ops` only).
 - `ops.evaluate_alerts() returns int` (number of firing rules): advisory xact lock; per enabled rule (function resolved
   with `to_regprocedure(fn || '(jsonb)')`, run in its own exception block so one broken rule never stops the others);
   firing → refresh the open alert (`count + 1`, `last_seen`, `details`, `clean_evaluations = 0`) or open one; a new
   alert or `notified_at` older than the cooldown → `ops.enqueue_job('alert.notify', null, {alert_id, seq},
   'alert:<id>:<seq>', now(), 5)` with `seq = notify_count + 1`; not firing → `clean_evaluations + 1`, resolved at 2.
+  **R-51 (at-least-once):** for any open alert, a notification enqueued but not recorded as sent is enqueued again
+  (`alert:<id>:<seq>:r<try>`, same `seq`) once its last try is 15+ minutes old and no try is pending or running.
   Cron `ops-evaluate-alerts` `*/5 * * * *`.
 - `public.ops_alert_payload(uuid) → jsonb` and `public.ops_alert_notified(uuid, text, int) → boolean` (service role
   only; the second sets `notified_at`, `notify_count = seq` and an id-shaped provider id only when `notify_count < seq`).
@@ -87,6 +92,7 @@ dependency added. Base `d159dc4`.
 | Spec | Proves |
 |---|---|
 | `tests/jobs/alert-drill-db.spec.ts` (tracer, 1) | `ops.drill_enqueue('drill.always_fail', 1, '0', 2)` → two passes with the real registry (`pending`/`drill_failure`, then `dead`, attempts 2) → evaluate → one open `dead_letter` naming the job id, one job `alert:<id>:1` → runner → **exactly one Mailpit message** (subject `[clinicos test] WARN dead_letter`, to the ops inbox, tag `ops-alert`, alert id, job id, runbook anchor) → alert `notify_count 1`, provider id = Mailpit id; a second evaluation → `count 2`, no new job, still one message |
+| R-51 additions | `alerts-db` (+1): a pending try is never doubled; a dead try < 15 min → nothing, ≥ 15 min → one `alert:<id>:1:r2` (also while the alert is clearing); once sent, nothing; a failed `seq 2` is retried as `seq 2`. `alert-notify-db` (+1): **provider down (5 failed tries, job dead) → no email, `notified_at` null → inside 15 min nothing → provider back → the next evaluation enqueues one retry → exactly one email, alert notified → later evaluations send nothing.** Without the change it fails (`evidence/04-04/negative-r51-no-retry.txt`: the pre-ruling evaluator body on the stack, no `:r2` job) |
 | `tests/jobs/alerts-db.spec.ts` (33, rolled-back sessions from an emptied baseline) | quiet baseline: no alert, no job; the nine rules and severities; **each rule fires on its synthetic condition and stays quiet just below it**: dead job / dead-lettered message / failed webhook vs 16 min old; p95 150 s over 5 samples vs 4 samples, p95 under 120 s, 119 s; due 6 min vs 4 min; Vault URL with no pass, a failed pass, a 6-min-old pass vs a recent ok pass and no Vault secret; 4 vs 3 lease expiries and 4 outside the window; 21 errors (one or two fingerprints) vs 20 and 11 min old; overflow today 3 / yesterday vs 2 days ago and 0; size with the parameter lowered vs the default; 14-h-old ok / a failed latest run (with or without an earlier ok) vs no rows, a 2-h ok, a failure followed by an ok; **persistent condition inside the cooldown → count 2, one job**; expired cooldown → `seq 2`; inside the cooldown or never notified → no new job; two clean evaluations resolve, firing again opens a new alert with `seq 1`; a dead `alert.notify` → nothing (R-36); a broken rule parameter and a disabled rule do not stop the others; with all nine firing, details are only numbers, booleans, null, ISO timestamps and UUID lists; grants (no API role on the evaluator/rules/tables; handler RPCs service role only, no PUBLIC), definer + empty `search_path` for all 12 functions, PostgREST refuses anon (42501), `ops_alert_notified` idempotent per seq and drops a free-text provider id, cron row once as `postgres` |
 | `tests/jobs/alert-notify-db.spec.ts` (9, Mailpit) | one message per notification with the expected subject and IST/UTC lines, recorded on the alert, job done after 1 attempt; CRITICAL subject; **a synthetic patient's dead-lettered message raises `dead_letter` and the email holds none of the patient's phone (both forms), name, guardian name/phone, the owner's email or clinic name, or the tenant/patient/visit/queue ids**; **every input of `tests/fixtures/scrub-vectors.json` put into the details as values and keys (in 4 KB batches) leaves none of its `absent` strings**; `OPS_ALERT_EMAIL` unset and `EMAIL_PROVIDER=disabled` → dead `alert_channel_unconfigured`, no message, alert unnotified; unreachable Mailpit → retried with `mailpit_unreachable`; already notified → done, no send; unknown alert → dead `alert_not_found` |
 | `tests/jobs/alert-email.spec.ts` (50, unit) | exact text layout incl. IST conversion and the anchor; HTML escaping (only the renderer's own tags appear); the detail filter (8 kept, 9 omitted incl. phone strings, a rule-like word, objects, an 11-item list, Infinity, bad keys); each of the 46 scrub vectors; 20-key cap |
@@ -109,6 +115,8 @@ transaction share `now()`): fixed in `7f8cdcd` by comparing as sets; three isola
   case above and the guard manifest's `/api/ready` key allowlist, which I had not updated). Run 2 (`vitest-full-run2.txt`,
   at `9892d71`): **195 files, 4 091 passed, 0 failed**; teardown verified; `cron.job` 5/5 active afterwards; no
   `ops.alerts` rows or `alert.notify`/`drill.always_fail` jobs left; no `.planning/dev-messages.txt`.
+- After rulings R-50/R-51 (`c1d4096`, 000039 amended): full Vitest lane run 3 (`vitest-full-run3.txt`): **195 files,
+  4 093 passed, 0 failed**; `cron.job` 5/5 active; no alert residue; snapshot `--check` and `db:drift:local` PASS.
 - `e2e-build.txt`: output scan clean (1 315 files). `e2e-pr.txt` (desktop, Pixel 7, iPhone 15): **196 passed, 9
   skipped, 0 failed, 0 flaky, 0 retried**; the 10 `✘` lines are the same `knownBug` expected failures as 04-03c's run.
 - gitleaks 8.30.1 (docker, `--network none`) over the full history after the code commits: no leaks found (637
@@ -122,9 +130,9 @@ transaction share `now()`): fixed in `7f8cdcd` by comparing as sets; three isola
 | D2 | `ops.alert_rules.fn regprocedure` | `fn text` (CHECK `^ops\.alert_rule_…`), resolved with `to_regprocedure` at evaluation | pg_upgrade refuses user tables with `regprocedure` columns, and Supabase major-version upgrades use pg_upgrade; text + a name check keeps the same closed set |
 | D3 | rule parameters "lowered in a rolled-back transaction" | `params jsonb` (+ `description`) on `ops.alert_rules`; each rule reads its thresholds from it | the plan's size test needs a parameter; one place to tune thresholds by migration |
 | D4 | payload `{alert_id}`, `ops_alert_notified(p_alert_id, p_provider_message_id)` | payload `{alert_id, seq}`, `ops_alert_notified(…, p_seq)`; the handler skips when `notify_count ≥ seq` | exactly once per notification: a retried job cannot bump the count twice or re-send after a recorded send; the email idempotency key is per `(alert, seq)` (Resend dedupes a retry after a lost `notified` write; Mailpit/SES may repeat in that one case, documented) |
-| D5 | `backup_stale`: rows exist and none `ok` in 13 h | also fires when the latest run failed | the roadmap's "a deliberately failed run raises an alert" and the brief's "a deliberately failed backup row raises the backup-stale alert"; the GitHub issue path (04-05a) stays the independent channel. PO confirms (04-P14) |
+| D5 | `backup_stale`: rows exist and none `ok` in 13 h | also fires when the latest run failed | the roadmap's "a deliberately failed run raises an alert"; the GitHub issue path (04-05a) stays the independent channel. **Accepted by the orchestrator as ruling R-50** |
 | D6 | `runner_stale`: no `ok` run in 5 min | keyed on `started_at` (indexed) of an `ok` pass | a pass lasts ≤ 25 s; `coalesce(finished_at, started_at)` cannot use the index (probe must stay index-only) |
-| D7 | evaluate: "when newly opened or `notified_at` older than the cooldown" | a never-sent alert (`notified_at` null) is not re-enqueued | R-36: a broken channel must not produce a job every 5 min; the alert stays open and visible (ops report, 04-06) |
+| D7 | evaluate: "when newly opened or `notified_at` older than the cooldown" | ~~a never-sent alert is not re-enqueued~~ **reversed by ruling R-51**: re-enqueued every 15 min (no try in flight) until recorded as sent; one email per successful notification (`seq` + handler skip + idempotency key) | orchestrator: at-least-once delivery for alerts; the 15-minute floor keeps R-36's flood protection |
 | D8 | — | queue_lag skips rows whose `run_at` moved past their first claim | a retry rewrites `run_at`; such rows would give negative lag |
 | D9 | — | advisory lock; per-rule exception block with `RAISE WARNING` (rule name + SQLSTATE); returns the number of firing rules | concurrent cron/manual calls cannot double-open; one bad parameter cannot silence every alert |
 | D10 | "details … rule names" allowed in the email | detail values limited to numbers, booleans, null, ISO timestamps, UUIDs (rule names only in the header) | a lower-case word could be a name; stricter than planned |
@@ -154,7 +162,8 @@ for `anon`.
    `delete from ops.jobs where kind = 'drill.always_fail';`, `JOBS_DRILL_ENABLED=false`, redeploy
    (`docs/runbooks/jobs.md` §12).
 3. **Production (V2-15):** `OPS_ALERT_EMAIL` is required by the env schema (boot fails without it).
-4. **Rulings to confirm (04-P14):** D5 (`backup_stale` on a failed latest run) and D7 (a never-sent alert is not re-sent).
+4. **Rulings (orchestrator as CTO, PO confirms at the gate, 04-P14):** R-50 (D5 accepted) and R-51 (D7 reversed:
+   alerts are re-notified every 15 minutes until sent).
 
 ## Handoffs
 
