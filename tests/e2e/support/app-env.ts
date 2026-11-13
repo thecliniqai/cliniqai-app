@@ -89,7 +89,8 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: keys.anonKey,
     SUPABASE_SECRET_KEY: keys.serviceRoleKey,
     NEXT_PUBLIC_APP_URL: E2E_BASE_URL,
-    MESSAGING_PROVIDER: "dev",
+    // V2-04 04-03a (R-9): a runner pass in e2e sends nothing and writes no .planning/dev-messages.txt.
+    MESSAGING_PROVIDER: "sink",
     MSG91_AUTH_KEY: "x",
     AI_ENABLED: "false",
     AI_PROVIDER: "mock",

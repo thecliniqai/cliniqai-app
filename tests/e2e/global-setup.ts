@@ -28,7 +28,7 @@ import { AUTH_DIR, RUN_FILE, RUN_PASSWORD_VAR, type RunData, type RunTenant } fr
 
 /**
  * A random +91 90000 0xxxx number: valid-looking, NOT a reserved range (India has none), so it may be a real
- * subscriber's. Safe only because the e2e lane's messaging is pinned offline (MESSAGING_PROVIDER=dev).
+ * subscriber's. Safe only because the e2e lane's messaging is pinned offline (MESSAGING_PROVIDER=sink, 04-03a).
  */
 function syntheticPhone(): string {
   return `+9190000${String(randomInt(0, 100_000)).padStart(5, "0")}`;

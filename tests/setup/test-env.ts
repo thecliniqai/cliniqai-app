@@ -309,6 +309,11 @@ export interface TestEnvRuleOptions {
   pwnedCheck?: boolean;
   /** 04-02 (R-32): the e2e app server runs the drill job kinds; the Vitest lane keeps them off (specs stub them). */
   drillJobs?: boolean;
+  /**
+   * 04-03a (R-9): the e2e app server's messaging provider is `sink` (a runner pass sends nothing and writes no
+   * `.planning/dev-messages.txt`); the Vitest lane stays on `dev` and specs inject a recording provider.
+   */
+  sinkMessaging?: boolean;
 }
 
 /** Collect every reason the environment is not the local test stack. Empty array = safe. */
@@ -318,7 +323,11 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
     ...PINNED_IF_SET,
     NODE_ENV: [...PINNED_IF_SET.NODE_ENV, ...(options.allowNodeEnv ?? [])],
   };
-  const pinned: Record<string, string[]> = { ...PINNED, APP_ENV: [options.appEnv ?? TEST_APP_ENV] };
+  const pinned: Record<string, string[]> = {
+    ...PINNED,
+    ...(options.sinkMessaging ? { MESSAGING_PROVIDER: ["sink"] } : {}),
+    APP_ENV: [options.appEnv ?? TEST_APP_ENV],
+  };
 
   if (!env.NEXT_PUBLIC_SUPABASE_URL) problems.push("NEXT_PUBLIC_SUPABASE_URL is not set");
 
@@ -441,6 +450,7 @@ export function findAppServerEnvProblems(env: EnvMap): string[] {
     diagRoute: true,
     pwnedCheck: true,
     drillJobs: true,
+    sinkMessaging: true,
   });
   if (env.__NEXT_PROCESSED_ENV !== "true") {
     problems.push("__NEXT_PROCESSED_ENV must be \"true\" so Next loads no .env file into the e2e server");

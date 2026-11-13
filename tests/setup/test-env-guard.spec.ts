@@ -229,6 +229,15 @@ describe("test-env guard rules", () => {
     expect(findTestEnvProblems(safeEnv({ JOBS_DRILL_ENABLED: "true" }), { drillJobs: true })).toEqual([]);
   });
 
+  it("pins messaging to dev in the Vitest lane and to sink for the e2e app server; never a real provider (04-03a)", () => {
+    expect(findTestEnvProblems(safeEnv({ MESSAGING_PROVIDER: "sink" }))).toContain('MESSAGING_PROVIDER must be dev (got "sink")');
+    expect(findTestEnvProblems(safeEnv({ MESSAGING_PROVIDER: "sink" }), { sinkMessaging: true })).toEqual([]);
+    expect(findTestEnvProblems(safeEnv(), { sinkMessaging: true })).toContain('MESSAGING_PROVIDER must be sink (got "dev")');
+    expect(findTestEnvProblems(safeEnv({ MESSAGING_PROVIDER: "msg91" }), { sinkMessaging: true })).toContain(
+      'MESSAGING_PROVIDER must be sink (got "msg91")',
+    );
+  });
+
   it("pins the Send Email hook secret to the local synthetic secret and never echoes another value (03-11b)", () => {
     expect(findTestEnvProblems(safeEnv({ SEND_EMAIL_HOOK_SECRET: LOCAL_SEND_EMAIL_HOOK_SECRET }))).toEqual([]);
     const other = `v1,whsec_${Buffer.from("LEAK-another-hook-secret-value-x").toString("base64")}`;

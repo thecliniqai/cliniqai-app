@@ -141,6 +141,15 @@ describe("GET /api/ready (readiness RPC, no service role)", () => {
     expect(await res.text()).not.toMatch(/"messagesBacklog":3/);
   });
 
+  it("reports the sink messaging provider as disabled: it sends nothing (04-03a, R-9)", async () => {
+    vi.stubEnv("MESSAGING_PROVIDER", "sink");
+    const body = await (await getReady()).json();
+    expect(body.providers.messaging).toBe("disabled");
+    // Control: a real provider with its credentials is "configured".
+    vi.stubEnv("MESSAGING_PROVIDER", "msg91");
+    expect((await (await getReady()).json()).providers.messaging).toBe("configured");
+  });
+
   it("reports AI, messaging and email from the env schema, never by calling a provider", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     // The test lane: messaging dev, AI off, email disabled (03-11b).

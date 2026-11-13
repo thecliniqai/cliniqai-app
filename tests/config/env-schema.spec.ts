@@ -140,7 +140,8 @@ describe("env schema: complete profiles pass", () => {
     const env = buildAppServerEnv({ source: {}, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } });
     const parsed = parseEnv(env);
     expect(parsed.APP_ENV).toBe("e2e");
-    expect(parsed.MESSAGING_PROVIDER).toBe("dev");
+    // 04-03a (R-9): a runner pass in e2e sends nothing and writes no file.
+    expect(parsed.MESSAGING_PROVIDER).toBe("sink");
     // 03-09b: the e2e server writes to the local sink and serves the diagnostic route.
     expect(parsed.ERROR_INGEST_KEY).toBeDefined();
     expect(parsed.DIAG_ERROR_ROUTE_ENABLED).toBe(true);
@@ -229,6 +230,18 @@ describe("env schema: staging and production are fail-closed", () => {
 
   it("production refuses the disabled messaging provider (staging allows it)", () => {
     expectRejected({ ...PRODUCTION, MESSAGING_PROVIDER: "disabled" }, "MESSAGING_PROVIDER");
+  });
+
+  it("MESSAGING_PROVIDER=sink parses in staging and every local tier and is refused in production (04-03a, R-9)", () => {
+    expect(parseEnv({ ...STAGING, MESSAGING_PROVIDER: "sink" }).MESSAGING_PROVIDER).toBe("sink");
+    expectRejected({ ...PRODUCTION, MESSAGING_PROVIDER: "sink" }, "MESSAGING_PROVIDER");
+    let message = "";
+    try {
+      parseEnv({ ...PRODUCTION, MESSAGING_PROVIDER: "sink" });
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toMatch(/MESSAGING_PROVIDER: must not be sink in production/);
   });
 
   it("lists every broken rule at once, never a value", () => {

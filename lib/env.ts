@@ -30,7 +30,8 @@ export const LOOPBACK_TIERS: readonly AppEnv[] = ["test", "e2e", "ci"];
 /** Tiers with offline defaults (`MESSAGING_PROVIDER=dev`, `NEXT_PUBLIC_APP_URL=http://localhost:3000`). */
 export const DEFAULTED_TIERS: readonly AppEnv[] = ["development", "test"];
 
-export const MESSAGING_PROVIDERS = ["dev", "disabled", "msg91", "twilio", "gupshup"] as const;
+/** V2-04 04-03a (R-9): `sink` runs the real queue and runner but sends nothing (staging, e2e); refused in production. */
+export const MESSAGING_PROVIDERS = ["dev", "disabled", "sink", "msg91", "twilio", "gupshup"] as const;
 export type MessagingProviderName = (typeof MESSAGING_PROVIDERS)[number];
 /** The AI providers `lib/ai/client.ts` can call. `mock` is accepted only as the offline marker of local lanes. */
 export const AI_PROVIDERS = ["openai", "gemini", "claude", "groq", "ollama", "deepseek"] as const;
@@ -636,6 +637,7 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
   if (deploy) {
     if (messaging === "dev") add("MESSAGING_PROVIDER", `must not be dev in ${tier}`);
     if (messaging === "disabled" && tier === "production") add("MESSAGING_PROVIDER", "must not be disabled in production");
+    if (messaging === "sink" && tier === "production") add("MESSAGING_PROVIDER", "must not be sink in production");
     if (messaging === "msg91") {
       if (!present(raw.MSG91_INTEGRATED_NUMBER) && !present(raw.MSG91_SENDER_ID)) {
         add("MSG91_INTEGRATED_NUMBER", "MSG91_INTEGRATED_NUMBER or MSG91_SENDER_ID required when MESSAGING_PROVIDER=msg91");
@@ -858,8 +860,9 @@ export const ENV_DOCS: Record<
   MESSAGING_PROVIDER: {
     group: "Messaging",
     notes: [
-      "dev | disabled | msg91 | twilio | gupshup. Defaults to dev in development and test only.",
-      "staging: not dev (disabled allowed until accounts exist, R-16); production: a real provider.",
+      "dev | disabled | sink | msg91 | twilio | gupshup. Defaults to dev in development and test only.",
+      "staging: not dev (disabled or sink allowed until accounts exist, R-16/R-9); production: a real provider.",
+      "sink: the job runner 'sends' with no network, file or recipient (V2-04 04-03a); e2e uses it.",
     ],
     example: "dev",
   },

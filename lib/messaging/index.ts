@@ -3,6 +3,7 @@ import { DevLoggerProvider } from "./dev-logger";
 import { DisabledMessagingProvider } from "./providers/disabled";
 import { GupshupProvider } from "./providers/gupshup";
 import { Msg91Provider } from "./providers/msg91";
+import { SinkProvider } from "./providers/sink";
 import { TwilioProvider } from "./providers/twilio";
 import {
   InteractiveButton,
@@ -16,6 +17,7 @@ export * from "./providers/disabled";
 export * from "./providers/msg91";
 export * from "./providers/twilio";
 export * from "./providers/gupshup";
+export * from "./providers/sink";
 
 let cachedProvider: MessagingProvider | null = null;
 let cachedProviderName: string | null = null;
@@ -48,6 +50,9 @@ export function getMessagingProvider(overrideName?: string): MessagingProvider {
     case "disabled":
       provider = new DisabledMessagingProvider();
       break;
+    case "sink":
+      provider = new SinkProvider();
+      break;
     case "dev":
       provider = new DevLoggerProvider();
       break;
@@ -60,6 +65,10 @@ export function getMessagingProvider(overrideName?: string): MessagingProvider {
   return provider;
 }
 
+/**
+ * Direct sends outside the queue. V2-04 04-03a: importable only from `lib/jobs/internal/**`, `lib/messaging/**` and,
+ * until 04-03c moves its bot replies to the queue and deletes these two, the inbound messaging webhook (ESLint P0-12).
+ */
 export async function sendDirectSms(
   to: string,
   templateId: string,

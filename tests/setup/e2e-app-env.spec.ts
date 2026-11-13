@@ -56,7 +56,7 @@ describe("buildAppServerEnv", () => {
       NEXT_PUBLIC_APP_URL: E2E_BASE_URL,
       AI_ENABLED: "false",
       AI_PROVIDER: "mock",
-      MESSAGING_PROVIDER: "dev",
+      MESSAGING_PROVIDER: "sink",
       API_V1_ENABLED: "false",
     });
     expect(E2E_BASE_URL).toBe("http://127.0.0.1:3100");

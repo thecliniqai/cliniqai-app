@@ -53,7 +53,8 @@ function parseProbe(data: unknown): ProbeResult | null {
 function providerStates(): { ai: ProviderState; messaging: ProviderState; email: ProviderState } {
   try {
     const env = serverEnv();
-    const realMessaging = env.MESSAGING_PROVIDER !== "dev" && env.MESSAGING_PROVIDER !== "disabled";
+    // 04-03a: `sink` (R-9) sends nothing, like `dev` and `disabled`.
+    const realMessaging = !["dev", "disabled", "sink"].includes(env.MESSAGING_PROVIDER);
     return {
       ai: resolveAiProviderConfig(env) ? "configured" : "disabled",
       messaging: realMessaging ? "configured" : "disabled",
