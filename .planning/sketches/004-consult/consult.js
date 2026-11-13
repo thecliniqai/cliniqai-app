@@ -178,7 +178,7 @@
     );
   }
   function sec(id, n, title, body) {
-    return '<section class="sec" id="s-' + id + '" data-sec="' + id + '" aria-labelledby="h-' + id + '"><div class="sec-head"><h2 id="h-' + id + '">' + title + '</h2><span class="sum" id="sum-' + id + '"></span><kbd>Alt ' + n + "</kbd></div>" + body + "</section>";
+    return '<section class="sec" id="s-' + id + '" data-sec="' + id + '" aria-labelledby="h-' + id + '"><div class="sec-label"><h2 id="h-' + id + '">' + title + '</h2><span class="sum" id="sum-' + id + '"></span><kbd>Alt ' + n + '</kbd></div><div class="sec-body">' + body + "</div></section>";
   }
 
   /* ------------------------------------------------------------------ patient context */
@@ -211,7 +211,7 @@
         .join("") +
       "</nav>" +
       sec("complaints", 1, "Complaints", '<div class="group"><div class="eyebrow">Tap to add <span class="smart">· ranked for you</span></div><div class="tiles" id="c-tiles"></div></div><ul class="items" id="c-items" aria-label="Complaints added"></ul><div class="group" id="c-notes"></div>') +
-      sec("exam", 2, "Examination", '<div class="group"><div class="vit-strip" id="vit"></div></div><div class="group"><div class="eyebrow">Template <span class="smart">· all findings start normal</span></div><div class="tiles" id="t-tiles"></div></div><div class="group"><div class="exam" id="exam"></div></div><div class="group" id="signs-g"><div class="eyebrow">General signs · tap any that are present</div><div class="signs" id="signs"></div></div>') +
+      sec("exam", 2, "Examination", '<div class="vit-line" id="vit"></div><div class="group"><div class="eyebrow">Template <span class="smart">· all findings start normal</span></div><div class="tiles" id="t-tiles"></div></div><div class="group"><div class="exam" id="exam"></div></div><div class="group" id="signs-g"><div class="eyebrow">General signs · tap any that are present</div><div class="signs" id="signs"></div></div>') +
       sec("dx", 3, "Diagnosis", '<div id="dx-sugg"></div><ul class="items" id="dx-items" aria-label="Diagnoses"></ul>') +
       sec("rx", 4, "Prescription", '<div id="rx-sugg"></div><ol class="rx-lines" id="rx-lines" aria-label="Prescription lines"></ol><div class="group rx-entry"><div class="eyebrow">Add a medicine</div><div class="combo"><label class="sr-only" for="rx-q">Medicine</label><div class="input-wrap">' + icon("search") + '<input class="input" id="rx-q" role="combobox" aria-expanded="false" aria-controls="rx-list" aria-autocomplete="list" autocomplete="off" placeholder="Type a medicine or salt · Enter picks the top match"><kbd class="kbd-lg">M</kbd></div><ul class="listbox" id="rx-list" role="listbox" aria-label="Medicines" hidden></ul></div><div class="dose" id="dose" hidden></div></div>') +
       sec("plan", 5, "Plan", '<div class="group"><div class="eyebrow" id="inv-eb">Investigations</div><div class="tiles" id="inv-tiles"></div></div><div class="group"><div class="eyebrow" id="adv-eb">Advice</div><div class="tiles" id="adv-tiles"></div></div><div class="group"><div class="eyebrow" id="fu-eb">Follow-up</div><div class="tiles" id="fu-tiles"></div><p class="hint-line" id="fu-hint"></p></div><div class="group"><div class="tiles"><button type="button" class="tile ghost">' + icon("share") + 'Refer to a specialist</button><button type="button" class="tile ghost">' + icon("file") + "Attach a report</button></div></div>");
@@ -224,7 +224,7 @@
       topbar:
         '<a class="icon-btn" href="../003-today/index.html?mode=doctor" aria-label="Back to My queue">' +
         icon("back") +
-        '</a><div class="cx-id"><span class="token s-with-doctor"><span class="sr-only">Token </span>14</span><div class="who"><h1>Suresh Patil</h1><p class="tnum">54 y · M · CQ-0050 · Walk-in · with you 6 min</p></div></div>' +
+        '</a><div class="cx-id"><span class="token s-with-doctor"><span class="sr-only">Token </span>14</span><div class="who"><h1>Suresh Patil</h1><p class="tnum">54 y · M · CQ-0050 · Walk-in · 6 min with you</p></div></div>' +
         '<span class="save" id="save" role="status">' +
         icon("check") +
         '<span>Saved 10:48 am</span></span><div class="cx-actions"><button type="button" class="btn btn-secondary ctx-btn" data-ctx>Patient</button><button type="button" class="btn btn-secondary sum-btn" data-sum aria-pressed="' +
@@ -328,7 +328,7 @@
   /* ------------------------------------------------------------------ examination */
   function drawExam() {
     document.getElementById("vit").innerHTML =
-      '<div class="vits"><span>Vitals · front desk 10:21 am</span><span class="flag"><span>BP</span> <b>150/95</b> <b style="font-weight:500">high</b></span><span><span>Pulse</span> <b>96</b></span><span><span>Temp</span> <b>100.8°F</b></span><span><span>SpO₂</span> <b>97%</b></span><span><span>Wt</span> <b>78 kg</b></span></div><button type="button" class="btn btn-ghost btn-sm" data-vitals>Edit</button>';
+      '<div class="vits"><span class="flag"><span>BP</span> <b>150/95</b> <b style="font-weight:500">high</b></span><span><span>Pulse</span> <b>96</b></span><span><span>Temp</span> <b>100.8°F</b></span><span><span>SpO₂</span> <b>97%</b></span><span><span>Wt</span> <b>78 kg</b></span><span><span>Front desk 10:21 am</span></span></div><button type="button" class="btn btn-ghost btn-sm" data-vitals>Edit</button>';
     const ranked = rankedTemplates();
     document.getElementById("t-tiles").innerHTML = ranked.map((r, i) => tile(r.t.name, 'data-t="' + r.t.id + '"', S.exam && S.exam.t === r.t.id, i === 0 && r.s > 0 ? "suggested" : "")).join("");
     const ex = document.getElementById("exam");
@@ -530,7 +530,7 @@
       '</small><button type="button" class="icon-btn" data-dose-cancel aria-label="Cancel">' +
       icon("x") +
       "</button></div>" +
-      '<div class="dose-row"><div class="lbl">Frequency <span>· keys</span>' +
+      '<div class="dose-grid"><div class="dose-row"><div class="lbl">Frequency' +
       FREQ.map((f, i) => "<kbd>" + (i + 1) + "</kbd>").join("") +
       '</div><div class="tiles freq-tiles">' +
       FREQ.map((f) => tile(f, 'data-pf="' + f + '"', p.f === f)).join("") +
@@ -542,7 +542,7 @@
       DUR_RX.map((d) => tile(durWord(d), 'data-pd="' + d + '"', p.dur === d)).join("") +
       '<span class="stepper" aria-label="Duration in days"><button type="button" data-pstep="-1" aria-label="One day less">−</button><output id="pdur">' +
       durWord(p.dur) +
-      '</output><button type="button" data-pstep="1" aria-label="One day more">+</button></span></div></div>' +
+      '</output><button type="button" data-pstep="1" aria-label="One day more">+</button></span></div></div></div>' +
       '<div class="dose-foot"><input class="input grow" id="pnote" placeholder="Instruction (optional), e.g. with warm water" value="' +
       esc(p.note || "") +
       '" aria-label="Instruction"><button type="button" class="btn btn-primary" data-dose-add>' +

@@ -1,10 +1,10 @@
 /* DX-04 low-fidelity surfaces: same tokens, minimal layout. Structure and copy are the point, not polish. */
-.lf { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 20px; }
+.lf { max-width: 1040px; margin: 0 auto; padding: 16px 16px 48px; display: grid; gap: 16px; }
 .lf-head { display: grid; gap: 4px; }
 .lf-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
-.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 16px; display: grid; gap: 12px; }
-.card h2 { font-size: var(--text-title-3); line-height: var(--text-title-3--line-height); font-weight: 600; }
-.card h3 { font-size: var(--text-body); font-weight: 600; }
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 14px 16px; display: grid; gap: 10px; }
+.card h2 { font-size: var(--text-title-2); line-height: var(--text-title-2--line-height); font-weight: 600; letter-spacing: -0.01em; }
+.card h3 { font-size: var(--text-body-md); font-weight: 600; }
 .tag { font-size: var(--text-caption); color: var(--color-fg-subtle); font-weight: 500; }
 .steps { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 10px; counter-reset: s; }
 .steps li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; counter-increment: s; }
@@ -14,7 +14,7 @@
 .stepper .done::before { content: "✓"; color: var(--color-success-fg); font-weight: 600; }
 .stepper [aria-current] { color: var(--color-fg); font-weight: 600; }
 .price { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
-.price b { font-size: var(--text-title-1); line-height: var(--text-title-1--line-height); font-weight: 600; font-variant-numeric: tabular-nums; }
+.price b { font-size: var(--text-title-1); line-height: var(--text-title-1--line-height); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: var(--tracking-title); }
 .price span { color: var(--color-fg-muted); }
 .ticks { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: var(--text-body-sm); }
 .ticks li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; }
@@ -24,14 +24,14 @@
 .kvrow:first-of-type { border-top: 0; }
 .kvrow .k { color: var(--color-fg-muted); }
 .kvrow .v { font-variant-numeric: tabular-nums; text-align: right; }
-.soon { display: flex; justify-content: space-between; gap: 12px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--color-sunken); color: var(--color-fg-muted); font-size: var(--text-body-sm); }
+.soon { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--color-surface-soft); border: 1px solid var(--color-border); color: var(--color-fg-muted); font-size: var(--text-body-sm); }
 .center { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; }
 .center .box { max-width: 440px; display: grid; gap: 14px; justify-items: center; text-align: center; }
 .spin { width: 28px; height: 28px; border-radius: 999px; border: 3px solid var(--color-border); border-top-color: var(--color-accent); animation: spin 900ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 table.dt { width: 100%; border-collapse: collapse; font-size: var(--text-body-sm); }
-.dt th { text-align: left; font-size: var(--text-label); font-weight: 600; color: var(--color-fg-muted); background: var(--color-sunken); padding: 10px 12px; border-bottom: 1px solid var(--color-border); }
-.dt td { padding: 12px; border-bottom: 1px solid var(--color-border-subtle); vertical-align: top; font-variant-numeric: tabular-nums; }
+.dt th { text-align: left; font-size: var(--text-caption); font-weight: 600; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--color-fg-muted); background: var(--color-surface-soft); padding: 8px 12px; border-bottom: 1px solid var(--color-border); }
+.dt td { padding: 9px 12px; border-bottom: 1px solid var(--color-border); vertical-align: top; font-variant-numeric: tabular-nums; }
 .dt td.num, .dt th.num { text-align: right; }
 .dt a { font-weight: 500; }
 @media (max-width: 767px) {
