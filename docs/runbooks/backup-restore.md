@@ -9,7 +9,7 @@ V2-15.
 
 | Piece | Where | What it does |
 |---|---|---|
-| `.github/workflows/backup.yml` ("Staging backup") | GitHub Actions, Environment `staging`, `feature/v2` only | 02:00 and 14:00 IST: `ops/backup/backup.sh` with `BACKUP_ENV=staging`, then a names-and-sizes listing of `staging/` as the `backup-evidence` artifact |
+| `.github/workflows/backup.yml` ("Staging backup") | GitHub Actions, Environment `staging-backup` (no reviewer, R-48), `feature/v2` only | 02:00 and 14:00 IST: `ops/backup/backup.sh` with `BACKUP_ENV=staging`, then a names-and-sizes listing of `staging/` as the `backup-evidence` artifact |
 | `ops/backup/backup.sh` | the workflow; locally with `BACKUP_ENV=local` | validates config (exit 2 on anything unsafe, naming the variable only) → `supabase db dump` (roles, schema, data with `cron.job`, `cron.job_run_details`, `net.*` queues and vector tables excluded, migration history) + `storage_policies.sql` (the CLI's schema dump skips the `storage` schema) → `aws s3 sync` of every Storage bucket → `manifest.json` (row counts from the dump, per-object size and SHA-256) → `tar` → `age` to every recipient → header check → upload `staging/<UTC yyyy-mm-ddTHHMMSSZ>.tar.age` → `ops.backup_runs` row (counts only) → dead-man check |
 | `.github/workflows/backup-alert.yml` | GitHub Actions on `workflow_run` of "Staging backup" | any non-success run on `feature/v2` → opens or comments on the bot's **"Staging backup failing"** issue (GitHub emails watchers) |
 | `ops.backup_runs` (migration 000032) | staging and local DB | one row per run: `ok` with key/size/duration/counts, or `failed` with a machine code (`dump_failed`, `storage_failed`, `encrypt_failed`, `upload_failed`, …); read by 04-04's `backup_stale` alert and 04-06's report |
@@ -34,14 +34,16 @@ R2 additionally encrypts at rest. Names carry no tenant or patient data.
    endpoint `https://<account-id>.r2.cloudflarestorage.com`.
 4. **Supabase Storage S3 access (staging).** Supabase staging → Storage → S3 Connection: enable, create an access key;
    note the region shown.
-5. **GitHub Environment `staging`** (repo → Settings → Environments → staging): secrets `BACKUP_S3_ENDPOINT`,
-   `BACKUP_S3_BUCKET` (= `clinicos-staging-backups`), `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`,
-   `BACKUP_AGE_RECIPIENTS` (the two `age1…` lines, space separated), `STAGING_STORAGE_S3_KEY_ID`,
-   `STAGING_STORAGE_S3_SECRET`; variable `STAGING_STORAGE_S3_REGION`. `STAGING_DB_URL` and
-   `SUPABASE_PROJECT_REF_STAGING` already exist (V2-03 03-E10). See `environment.txt.example` §D/§E.
-6. **Approval.** Environment `staging` has a required reviewer, so every scheduled backup run waits for that approval;
-   a run left waiting backs nothing up, and the `backup_stale` alert (13 h) is what notices. Either approve each run,
-   or keep the backup secrets in a dedicated environment without a reviewer (open point in 04-05a-BACKUP.md).
+5. **GitHub Environment `staging-backup`** (ruling R-48; repo → Settings → Environments → New environment): **no**
+   required reviewer, deployment branches **`feature/v2` only**. Secrets: `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`
+   (= `clinicos-staging-backups`), `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_AGE_RECIPIENTS`
+   (the two `age1…` lines, space separated), `STAGING_STORAGE_S3_KEY_ID`, `STAGING_STORAGE_S3_SECRET`,
+   `STAGING_BACKUP_DB_URL` (same value as `STAGING_DB_URL`: the session pooler URL for `postgres.<ref>`; a read-only
+   role cannot run `supabase db dump`, which issues `SET ROLE postgres`, nor write the `ops.backup_runs` row).
+   Variables: `STAGING_STORAGE_S3_REGION`, `SUPABASE_PROJECT_REF_STAGING` (Environment variables are per Environment).
+   See `environment.txt.example` §E. `workflow-policy.mjs` refuses `staging-backup` in any workflow but `backup.yml`.
+6. **Why no reviewer (R-48).** Scheduled backups must not wait for a human. The job reads synthetic staging data and
+   writes age-encrypted objects; migrations and seeds stay behind the reviewed `staging` Environment.
 7. **Ops inbox (04-P7).** Watch the repository (or at least Issues) with the ops inbox account so the
    "Staging backup failing" issue reaches email.
 
@@ -70,7 +72,7 @@ after the drill.
 
 | Signal | Path |
 |---|---|
-| a run fails (any step, exit 64 drill, exit 3 stale job runner), times out, is cancelled or never approved | backup-alert.yml → "Staging backup failing" issue (email to watchers); GitHub also emails the workflow's last editor about failed scheduled runs |
+| a run fails (any step, exit 64 drill, exit 3 stale job runner), times out or is cancelled | backup-alert.yml → "Staging backup failing" issue (email to watchers); GitHub also emails the workflow's last editor about failed scheduled runs |
 | no successful backup for 13 h (schedule not firing, every run failing) | 04-04 `backup_stale` rule on `ops.backup_runs` → `alert.notify` email to `OPS_ALERT_EMAIL` |
 | the job runner is configured but has no ok pass in 15 min | `ops.backup_runner_stale()` → backup exits 3 after uploading → failed run → issue (R-41: independent of the app) |
 
@@ -134,9 +136,13 @@ every archive is encrypted to both (R-3). Rotate the R2 token yearly or on suspi
 ## 10. Targets and limits
 
 RPO ≤ 12 h (twice-daily), RTO ≤ 4 h (drill measures it), retention 30 days (R2 lifecycle; `retention_ok` in the
-evidence). R2 has no object versioning; the token can delete objects, so a leaked token could delete backups — keep it
-in the `staging` Environment only (open point for go-live: AWS versioned SSE-KMS bucket, `docs/ops/backup-aws-golive.md`).
-R2 has no India region: acceptable for synthetic staging data only.
+evidence).
+
+**Accepted risks (R-48; owner V2-15 / go-live; staging holds synthetic data only):** R2 has no object versioning; the
+R2 token (Object Read & Write) can delete or overwrite backups; R2 has no India region. The reviewer-free
+`staging-backup` Environment holds a `postgres` database URL for staging, limited to `feature/v2` and to
+`backup.yml` by the workflow policy. Go-live moves production backups to the AWS design
+(`docs/ops/backup-aws-golive.md`: versioned SSE-KMS bucket in `ap-south-1`, writer without Delete, no GitHub runner).
 
 ## 11. Local commands (agents may run)
 

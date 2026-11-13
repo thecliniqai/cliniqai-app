@@ -38,7 +38,11 @@
  *                               role), so the PO sees the pending migrations before approving `staging`;
  *   staging-db-url-no-password  (04-00, review A L-7) in a staging workflow, every `run:` command that uses the target
  *                               guard's `--print-db-url` also passes `--no-password`: the CLI gets the password as
- *                               `PGPASSWORD` (`--print-pgpassword`), never in argv.
+ *                               `PGPASSWORD` (`--print-pgpassword`), never in argv;
+ *   staging-backup-environment-scope
+ *                               (V2-04 04-05a, ruling R-48) the reviewer-free Environment `staging-backup` (backup
+ *                               secrets only) may be used only by `backup.yml`: no other workflow gets its secrets
+ *                               without the reviewed `staging` Environment.
  *
  * Reader (no YAML dependency, deliberately small and fail-closed): block mappings and sequences, plain, single- and
  * double-quoted one-line scalars, `|`/`>` block scalars, `[a, b]` flow sequences of plain scalars and the empty `{}`.
@@ -59,6 +63,9 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 const STAGING_FILES = new Set(["staging.yml", "staging.yaml", "drift.yml", "drift.yaml"]);
 /** The only triggers a staging workflow may have (R-19): never anything a PR, a comment or another run can start. */
 const STAGING_TRIGGERS = new Set(["push", "schedule", "workflow_dispatch"]);
+/** 04-05a (R-48): the reviewer-free Environment for the scheduled backup and the only workflow file allowed to use it. */
+const BACKUP_ENVIRONMENT = "staging-backup";
+const BACKUP_FILES = new Set(["backup.yml"]);
 const PINNED_ACTION = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(\/[A-Za-z0-9_./-]+)?@[0-9a-f]{40}$/;
 const PINNED_DOCKER = /^docker:\/\/[^@\s]+@sha256:[0-9a-f]{64}$/;
 const STAGING_SECRET = /secrets\.([A-Za-z0-9_]*STAGING[A-Za-z0-9_]*)|secrets\[\s*['"]([A-Za-z0-9_]*STAGING[A-Za-z0-9_]*)['"]\s*\]/gi;
@@ -360,6 +367,13 @@ export function checkWorkflow(file, text) {
       fail(ref.line, "staging-secret-needs-environment", `secrets.${ref.name} is referenced outside a job (workflow-level); scope it to a step of a job with \`environment:\``);
     } else if (!job.environment) {
       fail(ref.line, "staging-secret-needs-environment", `job \`${job.id}\` uses secrets.${ref.name} without declaring \`environment:\``);
+    }
+  }
+
+  // 04-05a (R-48): the reviewer-free backup Environment belongs to backup.yml alone.
+  for (const job of jobs) {
+    if (job.environment === BACKUP_ENVIRONMENT && !BACKUP_FILES.has(base)) {
+      fail(job.start, "staging-backup-environment-scope", `job \`${job.id}\` uses Environment \`${BACKUP_ENVIRONMENT}\` (no reviewer, backup secrets); only backup.yml may`);
     }
   }
 

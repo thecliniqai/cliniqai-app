@@ -17,7 +17,7 @@ output at `4ce7806`). Nothing contacted AWS, R2, GitHub settings or a hosted Sup
 dispatched; no real key was generated outside a temp dir (throwaway keys, deleted).
 
 **PO decision 2026-11-13 (orchestrator, mid-plan):** staging backups go to **Cloudflare R2** from a GitHub Actions
-workflow in Environment `staging`; AWS Mumbai is decided at go-live. The AWS CloudFormation design that was already
+workflow (Environment `staging-backup` from ruling R-48); AWS Mumbai is decided at go-live. The AWS CloudFormation design that was already
 written (and passed `cfn-lint 1.59.0`, 42,849 bytes) moved to `docs/ops/backup-aws-golive.md`, not wired into CI.
 Secret names are exactly `environment.txt.example` §E (`BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`,
 `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_AGE_RECIPIENTS`); added: `STAGING_STORAGE_S3_KEY_ID`,
@@ -67,7 +67,7 @@ stack stopped with `--no-backup`). Run log: `evidence/04-05a/selftest-run.txt`.
 ## Deviations
 
 1. **[PO decision] R2 instead of AWS for staging** (orchestrator, 2026-11-13): EventBridge + CodeBuild + SNS replaced by
-   `backup.yml` (Environment `staging`) + `backup-alert.yml` (issue → email); the OIDC evidence workflow is replaced by a
+   `backup.yml` (Environment `staging-backup`, R-48) + `backup-alert.yml` (issue → email); the OIDC evidence workflow is replaced by a
    names-and-sizes listing artifact produced by the backup run itself (the R2 token can list); `render.ts`,
    `stack.template.ts`, `stack.json`, the stack policy and render specs and the CI `render --check` step were removed;
    the design lives in `docs/ops/backup-aws-golive.md`. R2 has no object versioning and no `ap-south-1`; the bucket
@@ -85,14 +85,26 @@ stack stopped with `--no-backup`). Run log: `evidence/04-05a/selftest-run.txt`.
 5. Hosted dump uses the target-guard password-free URL + `PGPASSWORD` (04-00 L-7 proved the CLI honours it); psql in
    the pinned image gets `PGPASSWORD`/`PGSSLMODE` by name.
 
+## Ruling R-48 (orchestrator as CTO, 2026-11-13) and accepted risks
+
+Scheduled backups must not wait for a human approval: the backup job (with its `force_fail` drill input) runs in a new
+GitHub Environment **`staging-backup`**: no required reviewer, deployment branches `feature/v2` only, holding only the
+backup secrets and variables. The job reads synthetic staging data and writes age-encrypted objects; migrations and
+seeds stay behind the reviewed `staging` Environment. `scripts/ci/workflow-policy.mjs` gained
+`staging-backup-environment-scope`: only `backup.yml` may use `staging-backup` (spec: the same job in `staging.yml`,
+`drift.yml`, `nightly.yml` or any other file, by name or mapping form, is refused).
+
+**Deviation from the ruling's wording:** the ruling asked for "the read-only DB URL"; the job cannot use the read-only
+role: `supabase db dump` issues `SET ROLE postgres` and the job inserts its `ops.backup_runs` row. The Environment
+therefore holds `STAGING_BACKUP_DB_URL` (same value as `STAGING_DB_URL`, the `postgres` session pooler URL), limited
+by the branch rule and the policy rule above. A least-privilege backup role is a go-live item.
+
+**Accepted risks (owner V2-15 / go-live; staging holds synthetic data only):** no R2 object versioning; the R2 token
+(Object Read & Write) can delete or overwrite backups; R2 has no India region; the reviewer-free Environment holds a
+`postgres` staging DB URL.
+
 ## Open points for the orchestrator / PO
 
-- **Environment `staging` has a required reviewer**, so each scheduled backup waits for approval (twice a day). Either
-  the PO approves each run, or the backup secrets (+ a copy of `STAGING_DB_URL` and the project ref) go into a separate
-  Environment without a reviewer (e.g. `staging-backup`, feature/v2 only) and `backup.yml` names it (one line; the
-  policy treats any `staging*` Environment the same). Not changed here: the brief said Environment `staging`.
-- R2 token holds Object Write, so whoever holds it could delete backups (no versioning). Option: an R2 bucket lock
-  (retention rule) on `staging/`, which may conflict with the 30-day lifecycle; residual for review C.
 - `backup-alert.yml` (workflow_run) and the schedules fire only once the default branch is `feature/v2` (RL-3).
 - Review C (backups/IaC/keys/drill) scope now: `backup.sh`, `run.sh`, the two workflows, the R2 token scope.
 
@@ -105,9 +117,11 @@ stack stopped with `--no-backup`). Run log: `evidence/04-05a/selftest-run.txt`.
 4. R2 → Manage API tokens → `clinicos-staging-backup`, **Object Read & Write**, scoped to that bucket only; note access
    key id, secret, endpoint `https://<account-id>.r2.cloudflarestorage.com`.
 5. Supabase staging → Storage → S3 Connection → enable, create an access key, note the region.
-6. GitHub → Environment `staging` → secrets `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`,
-   `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_AGE_RECIPIENTS` (space separated), `STAGING_STORAGE_S3_KEY_ID`,
-   `STAGING_STORAGE_S3_SECRET`; variable `STAGING_STORAGE_S3_REGION` (decide the reviewer question above first).
+6. GitHub → Settings → Environments → new **`staging-backup`**: no required reviewer, deployment branches `feature/v2`
+   only; secrets `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`, `BACKUP_S3_SECRET_ACCESS_KEY`,
+   `BACKUP_AGE_RECIPIENTS` (space separated), `STAGING_STORAGE_S3_KEY_ID`, `STAGING_STORAGE_S3_SECRET`,
+   `STAGING_BACKUP_DB_URL` (= `STAGING_DB_URL` value); variables `STAGING_STORAGE_S3_REGION`,
+   `SUPABASE_PROJECT_REF_STAGING`.
 7. Watch the repository's Issues with the ops inbox (alert email).
 8. After merge + 2 days: Run workflow "Staging backup" with `force_fail` (04-P11); then the first restore drill on the
    PO's machine (04-P13, runbook §7).

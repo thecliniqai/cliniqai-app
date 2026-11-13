@@ -236,6 +236,23 @@ describe("workflow policy: plan before migrate and password-free CLI URLs (04-00
     expect(checkWorkflow(".github/workflows/staging.yml", text)).toEqual([]);
   });
 
+  it("Environment staging-backup is accepted in backup.yml only (04-05a, R-48)", () => {
+    const backup = workflow("backup.yml");
+    expect(backup).toMatch(/\n    environment: staging-backup\n/);
+    expect(checkWorkflow(".github/workflows/backup.yml", backup)).toEqual([]);
+    // The same job in any other workflow file is refused, by name or in the mapping form.
+    for (const name of ["staging.yml", "drift.yml", "backup-copy.yml", "nightly.yml"]) {
+      const found = checkWorkflow(`.github/workflows/${name}`, backup).filter((f) => f.rule === "staging-backup-environment-scope");
+      expect(found, name).toHaveLength(1);
+      expect(found[0].message).toContain("only backup.yml may");
+    }
+    const mapping = backup.replace("    environment: staging-backup\n", "    environment:\n      name: staging-backup\n");
+    expect(checkWorkflow(".github/workflows/other.yml", mapping).map((f) => f.rule)).toContain("staging-backup-environment-scope");
+    // It still counts as a staging workflow: a PR trigger is refused.
+    const pr = backup.replace("  workflow_dispatch:\n", "  workflow_dispatch:\n  pull_request:\n");
+    expect(checkWorkflow(".github/workflows/backup.yml", pr).map((f) => f.rule)).toContain("staging-no-pr-trigger");
+  });
+
   it("migrate without `needs: plan` fails (L-5)", () => {
     const found = after((t) => t.replace("    needs: plan\n", ""));
     expect(found.map((f) => f.rule)).toEqual(["staging-plan-before-migrate"]);

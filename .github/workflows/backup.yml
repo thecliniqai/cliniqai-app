@@ -6,7 +6,10 @@
 # recipients (primary + break-glass, R-3), uploads it to the R2 bucket and records a counts-only `ops.backup_runs` row.
 # Synthetic staging data only (PO-23(h) keeps production off GitHub-hosted runners).
 #
-# Same rules as staging.yml (scripts/ci/workflow-policy.mjs): Environment `staging`, feature/v2 only, no PR trigger,
+# Environment `staging-backup` (ruling R-48): no required reviewer, so the schedule never waits for a human; deployment
+# branch feature/v2 only; it holds only the backup secrets and variables. Migrations and seeds stay behind the reviewed
+# `staging` Environment; workflow-policy allows `staging-backup` in this file only (`staging-backup-environment-scope`).
+# Same rules as staging.yml (scripts/ci/workflow-policy.mjs): feature/v2 only, no PR trigger,
 # read-only token, secrets only in the step that needs them, `npm ci --ignore-scripts` without a cache, SHA-pinned
 # actions, no `${{ }}` in `run:`. The database URL is checked by scripts/staging/target-guard.mjs and reaches the CLI
 # without its password (PGPASSWORD, 04-00 L-7). Every S3 call uses the digest-pinned AWS CLI image (ops/bin/pins.env).
@@ -44,7 +47,7 @@ jobs:
     if: ${{ github.ref == 'refs/heads/feature/v2' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
-    environment: staging
+    environment: staging-backup
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -58,14 +61,14 @@ jobs:
         run: ops/bin/install-age.sh
       - name: Target guard (the staging project only; masks the database password)
         env:
-          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          STAGING_BACKUP_DB_URL: ${{ secrets.STAGING_BACKUP_DB_URL }}
           SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
-        run: node scripts/staging/target-guard.mjs --var STAGING_DB_URL --mask
+        run: node scripts/staging/target-guard.mjs --var STAGING_BACKUP_DB_URL --mask
       - name: Backup (dump + Storage sync, age to two recipients, upload to R2, ops.backup_runs row)
         env:
           BACKUP_ENV: staging
           FORCE_FAIL: ${{ inputs.force_fail && '1' || '' }}
-          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          STAGING_BACKUP_DB_URL: ${{ secrets.STAGING_BACKUP_DB_URL }}
           SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
           PGSSLMODE: require
           STORAGE_S3_ENDPOINT: https://${{ vars.SUPABASE_PROJECT_REF_STAGING }}.storage.supabase.co/storage/v1/s3
@@ -79,8 +82,8 @@ jobs:
           BACKUP_AGE_RECIPIENTS: ${{ secrets.BACKUP_AGE_RECIPIENTS }}
           BACKUP_S3_PREFIX: staging/
         run: |
-          DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url --no-password)"
-          PGPASSWORD="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-pgpassword)"
+          DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_BACKUP_DB_URL --print-db-url --no-password)"
+          PGPASSWORD="$(node scripts/staging/target-guard.mjs --var STAGING_BACKUP_DB_URL --print-pgpassword)"
           export DB_URL PGPASSWORD
           AGE_BIN="$PWD/.cache/ops-bin/age" bash ops/backup/backup.sh
       # Names, sizes and timestamps of the archives under staging/ (never contents); verdicts in the job summary.
