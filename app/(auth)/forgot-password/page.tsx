@@ -19,7 +19,7 @@ import { publicEnv } from "@/lib/env";
 import { en } from "@/messages/en";
 
 const RESEND_COOLDOWN_SECONDS = 60;
-const SENT_NOTICE = `If an account exists for this email, we've sent a ${RECOVERY_CODE_LENGTH}-digit code. It can take a minute to arrive.`;
+const SENT_NOTICE = `If an account exists for this email, we've sent an ${RECOVERY_CODE_LENGTH}-digit code. It can take a minute to arrive.`;
 const RESET_FAILED = "We couldn't reset your password, try again";
 
 /**
@@ -197,7 +197,7 @@ export default function ForgotPasswordPage() {
             </h1>
             <p className="text-sm text-gray-500 mt-1.5">
               {step === "request"
-                ? `Enter your clinic email and we'll send you a ${RECOVERY_CODE_LENGTH}-digit code.`
+                ? `Enter your clinic email and we'll send you an ${RECOVERY_CODE_LENGTH}-digit code.`
                 : step === "reset"
                   ? "Enter the code from the email and choose a new password."
                   : en.auth.flows.reset_done}

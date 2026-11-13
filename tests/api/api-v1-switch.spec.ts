@@ -164,8 +164,9 @@ describe("AR2-H2: encoded and look-alike paths cannot get past the switch", () =
     ]) {
       expect(unstable_doesMiddlewareMatch({ config, url }), url).toBe(true);
     }
-    // Static assets outside /api stay excluded.
-    for (const url of ["/logo.png", "/images/hero.webp", "/_next/static/chunk.js"]) {
+    // Static assets outside /api stay excluded: top-level image files only since 03-13a (review D L-4), so a nested
+    // `/images/hero.webp` runs the proxy like any page path.
+    for (const url of ["/logo.png", "/hero.webp", "/_next/static/chunk.js"]) {
       expect(unstable_doesMiddlewareMatch({ config, url }), url).toBe(false);
     }
   });

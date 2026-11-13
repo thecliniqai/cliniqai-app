@@ -29,7 +29,7 @@
   "smtp_admin_email": null,
   "smtp_host": null,
   "smtp_pass": "FAKE-SECRET-MARKER-smtp-0000",
-  "mailer_otp_length": 6,
+  "mailer_otp_length": 8,
   "mailer_otp_exp": 600,
   "mailer_subjects_recovery": "Your ClinicOS password reset code",
   "mailer_subjects_confirmation": "Your ClinicOS confirmation code",

@@ -26,7 +26,9 @@ vi.mock("@supabase/ssr", () => ({
         if (ssr.refreshCookie) {
           opts.cookies.setAll([{ ...ssr.refreshCookie, options: { path: "/" } }], { "Cache-Control": "private, no-store" });
         }
-        return ssr.signedIn ? { data: { claims: { sub: "00000000-0000-4000-8000-000000000001" } }, error: null } : { data: null, error: null };
+        // 03-13a (H-AUTH): a password session (`amr` password); a session without a readable `amr` is ended by the proxy.
+        const claims = { sub: "00000000-0000-4000-8000-000000000001", amr: [{ method: "password", timestamp: Math.floor(Date.now() / 1000) }] };
+        return ssr.signedIn ? { data: { claims }, error: null } : { data: null, error: null };
       },
     },
   }),
