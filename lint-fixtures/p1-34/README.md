@@ -3,16 +3,19 @@
 Bypass fixtures for the boundary gates in `eslint.config.mjs` (ADR-0005 D2/D4 + A1, C50 a/d/e; P1-21, P1-25, P1-15).
 `lint-fixtures/**` is ignored by `npx eslint .`; `tests/security/p1-34-lint-gates.spec.ts` lints each file as text at
 the virtual repository paths below, so the real `files:` globs decide, and asserts the rule id, line and backlog
-prefix of every boundary message. `scripts/ci/p1-34-counters.mjs` (the `static-checks.json` counters) is also run
+prefix of every boundary message. Since 03-13c it lints with inline configuration **off** (as the census does), so a
+directive cannot hide a gate; `inline-disable.ts` is also linted with it on, where `clinicos/no-boundary-directive`
+fails the directive itself. `scripts/ci/p1-34-counters.mjs` (the `static-checks.json` counters) is also run
 over this directory by the spec.
 
-Rule ids: **imports** = `@typescript-eslint/no-restricted-imports`; **syntax** = `no-restricted-syntax`.
+Rule ids: **imports** = `@typescript-eslint/no-restricted-imports`; **syntax** = `no-restricted-syntax`;
+**directive** = `clinicos/no-boundary-directive` (03-13c).
 
 | Fixture | Fails lint at (rule, prefix) | Passes at |
 |---|---|---|
 | `action-factory-import.ts` | `features/patients/actions.ts` (imports, P1-34) | |
 | `page-factory-import.tsx` | `app/(dashboard)/fixture/page.tsx` (imports, P1-34) | |
-| `factory-import.ts` | `features/patients/service.ts`, `app/api/r/[token]/route.ts`, `lib/supabase/server.ts` (imports, P1-34) | `app/api/webhooks/x/route.ts`, `app/api/jobs/run/route.ts`, `lib/jobs/x.ts`, `lib/jobs/internal/runner.ts`, `features/x/system.ts`; register: `app/api/v1/x/route.ts`, `lib/api/x.ts`, `app/api/cron/x/route.ts`, `lib/messaging/dispatcher.ts`, `lib/webhooks/x.ts`; `tests/fixture/x.spec.ts` |
+| `factory-import.ts` | `features/patients/service.ts`, `app/api/r/[token]/route.ts`, `lib/supabase/server.ts`, `lib/jobs/x.ts` (03-13c: the enqueue surface is not the allow-list) (imports, P1-34) | `app/api/webhooks/x/route.ts`, `app/api/jobs/run/route.ts`, `lib/jobs/internal/runner.ts`, `features/x/system.ts`; register: `app/api/v1/x/route.ts`, `lib/api/x.ts`, `app/api/cron/x/route.ts`, `lib/messaging/dispatcher.ts`, `lib/webhooks/x.ts`; `tests/fixture/x.spec.ts` |
 | `traversal-factory-import.ts` | `features/patients/service.ts` (imports, P1-34) | |
 | `reexport-factory.ts` | `lib/db/system-reexport.ts` (imports, P1-34) | |
 | `sharing-system-import.ts` | `features/patients/service.ts`, `app/api/patients/route.ts`, `app/(dashboard)/patients/page.tsx` (imports, P1-34) | the 5 ADR-0005 A1 routes |
@@ -34,10 +37,19 @@ Rule ids: **imports** = `@typescript-eslint/no-restricted-imports`; **syntax** =
 | `client-server-logger.tsx` | `components/fixture/widget.tsx` (syntax, P1-25, 2 lines) | |
 | `client-reporter.tsx` | | `components/fixture/widget.tsx` |
 | `utc-date-patterns.ts` | `features/visits/service.ts`, `lib/log/client.ts` (syntax, P1-21, 7 lines) | `lib/datetime/x.ts` |
+| `supabase-client-class.ts` (03-13c) | `features/patients/service.ts`, `lib/supabase/system.ts` (`new SupabaseClient`; imports, P1-34) | `tests/fixture/x.spec.ts` |
+| `gotrue-admin.ts` (03-13c) | `features/patients/service.ts`, `lib/supabase/system.ts`, `lib/supabase/server.ts` (`GoTrueAdminApi`, `@supabase/auth-js`; imports, P1-34, 2 lines) | |
+| `postgrest-client.ts` (03-13c) | `features/patients/service.ts`, `lib/supabase/system.ts` (`@supabase/postgrest-js`; imports, P1-34) | |
+| `supabase-subpath.ts` (03-13c) | `features/auth/service.ts`, `lib/supabase/server.ts`, `lib/supabase/system.ts` (`@supabase/ssr/dist/…`, `@supabase/supabase-js/dist/…`; imports, P1-34, 2 lines) | |
+| `require-forms.ts` (03-13c) | `features/patients/service.ts`, `lib/jobs/internal/runner.ts` (aliased `require`, `module.require`, computed `require()`, `createRequire`; syntax, P1-34, 7 messages) | `scripts/fixture.ts` |
+| `computed-secret-key.ts` (03-13c) | `features/settings/service.ts` (secret-key name from pieces, computed / destructured / spread / enumerated `serverEnv()` reads; syntax, P1-34, 11 messages) | `lib/env.ts`, `lib/env-server.ts` |
+| `inline-disable.ts` (03-13c) | `features/patients/service.ts` (directive lines 1, 3, 4 + the hidden factory import, line 2) | `tests/fixture/x.spec.ts` |
+| `tooling-import.ts` (03-13c) | `features/patients/service.ts`, `lib/webhooks/x.ts` (imports of `lint-fixtures/`, `scripts/`, `tests/`, `docs/`; imports, P1-34, 4 lines) | `tests/fixture/x.spec.ts` |
 | `base-gates.ts` | AUTH-01 + P0-13 at every zone path, tooling included (self-test: zones keep the base list) | |
 
 The five ADR-0005 A1 routes: `app/api/r/[token]/route.ts`, `app/r/[token]/page.tsx`, `app/api/reports/view/route.ts`,
 `app/reports/view/page.tsx`, `app/api/reschedule/[token]/route.ts`.
 
-Three fixtures start with `// @ts-nocheck` because they import modules that do not exist at their real location
-(`lib/jobs` lands in V2-04); `npm run typecheck` covers `lint-fixtures/`.
+Five fixtures start with `// @ts-nocheck` because they import modules that do not exist at their real location
+(`lib/jobs` lands in V2-04; the laundering probes of `tooling-import.ts`; untyped package subpaths in
+`supabase-subpath.ts`); `npm run typecheck` covers `lint-fixtures/`.

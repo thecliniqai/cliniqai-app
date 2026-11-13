@@ -4,6 +4,13 @@
  * `files:` globs of eslint.config.mjs decide, then the exact rule, line and backlog prefix of every boundary message
  * is asserted. Last, the real app code is linted and must carry 0 boundary messages (the roadmap acceptance
  * "1 service-role factory, 0 service-role imports outside the allow-list and the register").
+ *
+ * 03-13c (M-LINT, M-ALLOWLIST; review B M-3/M-4, IND L-3): every lint here runs with inline configuration OFF, so an
+ * `eslint-disable` or `/* eslint … *\/` comment cannot hide a gate from the spec or the census; with it ON (what
+ * `npx eslint .` does) the `clinicos/no-boundary-directive` rule fails the directive itself. Fixtures cover every
+ * Supabase value import (SupabaseClient, GoTrueAdminApi, @supabase/postgrest-js, @supabase/auth-js, package subpaths),
+ * every require form, secret-key names built from pieces and computed env reads, the narrowed lib/jobs zone and imports
+ * of the tooling trees.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -20,7 +27,7 @@ const SYNTAX = "no-restricted-syntax";
 
 let eslint: ESLint;
 beforeAll(() => {
-  eslint = new ESLint({ cwd: ROOT, ignore: false });
+  eslint = new ESLint({ cwd: ROOT, ignore: false, allowInlineConfig: false });
 });
 
 // no-restricted-syntax messages start with the backlog id; typescript-eslint's no-restricted-imports prepends its own
@@ -62,6 +69,11 @@ const A1_ROUTES = [
 type Expected = Array<[number, Prefix, string]>;
 const imp = (line: number): [number, Prefix, string] => [line, "P1-34:", IMPORTS];
 const syn = (line: number, prefix: Prefix = "P1-34:"): [number, Prefix, string] => [line, prefix, SYNTAX];
+const DIRECTIVE = "clinicos/no-boundary-directive";
+const dir = (line: number): [number, Prefix, string] => [line, "P1-34:", DIRECTIVE];
+const REQUIRE_LINES: Expected = [1, 1, 2, 4, 4, 6, 7].map((l) => syn(l));
+const SECRET_PIECES_LINES: Expected = [2, 2, 2, 2, 3, 3, 3, 6, 7, 8, 9].map((l) => syn(l));
+const TOOLING_LINES: Expected = [2, 3, 4, 5].map((l) => imp(l));
 
 const UTC_LINES: Expected = [3, 4, 5, 6, 7, 8, 9].map((l) => syn(l, "P1-21:"));
 const ENV_LINES: Expected = [1, 2, 3, 5].map((l) => syn(l, "P1-15:"));
@@ -74,6 +86,10 @@ const FAILING: Array<[string, string, string, Expected]> = [
   ["a feature service importing the system factory", "factory-import.ts", "features/patients/service.ts", [imp(1)]],
   ["an A1 share route importing the factory itself", "factory-import.ts", "app/api/r/[token]/route.ts", [imp(1)]],
   ["the cookie-client module importing the factory", "factory-import.ts", "lib/supabase/server.ts", [imp(1)]],
+  // 03-13c M-ALLOWLIST: the enqueue surface is not the allow-list (ADR-0005 D2); only lib/jobs/internal/** is.
+  ["the lib/jobs enqueue surface wrapping the factory", "factory-import.ts", "lib/jobs/x.ts", [imp(1)]],
+  ["a feature importing a factory wrapper from lint-fixtures/, scripts/, tests/, docs/", "tooling-import.ts", "features/patients/service.ts", TOOLING_LINES],
+  ["a register zone importing the tooling trees", "tooling-import.ts", "lib/webhooks/x.ts", TOOLING_LINES],
   ["a relative path to the factory", "traversal-factory-import.ts", "features/patients/service.ts", [imp(1)]],
   ["a re-export of the factory", "reexport-factory.ts", "lib/db/system-reexport.ts", [imp(1)]],
   // features/*/system and ADR-0005 A1.
@@ -93,6 +109,21 @@ const FAILING: Array<[string, string, string, Expected]> = [
   ["a createClient value import and the secret key in a feature", "second-factory.ts", "features/reports/service.ts", [imp(2), syn(6)]],
   ["a namespace import of @supabase/supabase-js", "namespace-supabase-js.ts", "features/patients/service.ts", [imp(1)]],
   ["a createServerClient value import in a feature", "ssr-client-import.ts", "features/auth/service.ts", [imp(1)]],
+  // 03-13c M-LINT: every other way to build a client from a Supabase package.
+  ["new SupabaseClient in a feature", "supabase-client-class.ts", "features/patients/service.ts", [imp(1)]],
+  ["new SupabaseClient in the factory module (createClient only)", "supabase-client-class.ts", "lib/supabase/system.ts", [imp(1)]],
+  ["GoTrueAdminApi and @supabase/auth-js in a feature", "gotrue-admin.ts", "features/patients/service.ts", [imp(1), imp(2)]],
+  ["GoTrueAdminApi and @supabase/auth-js in the factory module", "gotrue-admin.ts", "lib/supabase/system.ts", [imp(1), imp(2)]],
+  ["GoTrueAdminApi and @supabase/auth-js in a cookie-session module", "gotrue-admin.ts", "lib/supabase/server.ts", [imp(1), imp(2)]],
+  ["@supabase/postgrest-js in a feature", "postgrest-client.ts", "features/patients/service.ts", [imp(1)]],
+  ["@supabase/postgrest-js in the factory module", "postgrest-client.ts", "lib/supabase/system.ts", [imp(1)]],
+  ["@supabase/ssr and supabase-js subpaths in a feature", "supabase-subpath.ts", "features/auth/service.ts", [imp(2), imp(3)]],
+  ["@supabase/ssr and supabase-js subpaths in a cookie-session module", "supabase-subpath.ts", "lib/supabase/server.ts", [imp(2), imp(3)]],
+  ["@supabase/ssr and supabase-js subpaths in the factory module", "supabase-subpath.ts", "lib/supabase/system.ts", [imp(2), imp(3)]],
+  ["the secret-key name built from pieces, and computed/spread/enumerated env reads", "computed-secret-key.ts", "features/settings/service.ts", SECRET_PIECES_LINES],
+  ["require aliased, module.require, a computed require and createRequire", "require-forms.ts", "features/patients/service.ts", REQUIRE_LINES],
+  ["the require forms on an allowed path", "require-forms.ts", "lib/jobs/internal/runner.ts", REQUIRE_LINES],
+  ["inline directives that silence or blanket the gates (inline configuration off)", "inline-disable.ts", "features/patients/service.ts", [dir(1), imp(2), dir(3), dir(4)]],
   ["the secret-key names as strings in a feature", "secret-key-names.ts", "features/settings/service.ts", [syn(1), syn(2)]],
   // lib/jobs internals (ADR-0005 D2).
   ["an action importing a lib/jobs internal", "jobs-internal-import.ts", "features/patients/actions.ts", [imp(3)]],
@@ -114,7 +145,6 @@ const PASSING: Array<[string, string]> = [
   ...A1_ROUTES.map((route): [string, string] => ["sharing-system-import.ts", route]),
   ["factory-import.ts", "app/api/webhooks/x/route.ts"],
   ["factory-import.ts", "app/api/jobs/run/route.ts"],
-  ["factory-import.ts", "lib/jobs/x.ts"],
   ["factory-import.ts", "lib/jobs/internal/runner.ts"],
   ["factory-import.ts", "features/x/system.ts"],
   // Exception register (ADR-0005): P1-37 and V2-04 entries.
@@ -147,6 +177,12 @@ const PASSING: Array<[string, string]> = [
   ["second-factory.ts", "scripts/fixture.ts"],
   ["console.ts", "scripts/fixture.ts"],
   ["process-env.ts", "tests/fixture/x.spec.ts"],
+  // 03-13c: the env modules may build env names; tooling may import its own trees and use require.
+  ["computed-secret-key.ts", "lib/env.ts"],
+  ["computed-secret-key.ts", "lib/env-server.ts"],
+  ["tooling-import.ts", "tests/fixture/x.spec.ts"],
+  ["require-forms.ts", "scripts/fixture.ts"],
+  ["supabase-client-class.ts", "tests/fixture/x.spec.ts"],
 ];
 
 describe("P1-34 boundary lint gates: bypass fixtures fail lint", () => {
@@ -159,6 +195,25 @@ describe("P1-34 boundary lint gates: bypass fixtures fail lint", () => {
 describe("P1-34 boundary lint gates: allowed paths stay clean", () => {
   it.each(PASSING)("%s at %s", async (fixture, relPath) => {
     expect(await boundaryAt(fixture, relPath)).toEqual([]);
+  }, 60_000);
+});
+
+describe("P1-34 boundary lint gates: inline directives (03-13c M-LINT)", () => {
+  it("with inline configuration on (`npx eslint .`), the directive rule still fails a directive that names a gate", async () => {
+    const withInline = new ESLint({ cwd: ROOT, ignore: false });
+    const code = fs.readFileSync(path.join(FIXTURES, "inline-disable.ts"), "utf8");
+    const [result] = await withInline.lintText(code, { filePath: path.join(ROOT, "features/patients/service.ts") });
+    const got = boundaryMessages(result.messages).map((m) => [m.line, m.ruleId, m.severity]);
+    // Line 4's blanket `/* eslint-disable */` silences everything after it, including its own report; the spec and the
+    // census lint with inline configuration off, where it is reported (above).
+    expect(got).toEqual([
+      [1, DIRECTIVE, 2],
+      [3, DIRECTIVE, 2],
+    ]);
+  }, 60_000);
+
+  it("tooling may carry directives (the rule is off there)", async () => {
+    expect(await boundaryAt("inline-disable.ts", "tests/fixture/x.spec.ts")).toEqual([]);
   }, 60_000);
 });
 
@@ -212,6 +267,7 @@ describe("P1-34 boundary lint gates: the real tree", () => {
 type Counters = {
   files_linted: number;
   boundary_messages: Record<"P1-34" | "P1-21" | "P1-25" | "P1-15", number> & { flagged: string[] };
+  boundary_directives: string[];
   p1_34_boundary_messages: number;
   utc_today_messages: number;
   service_role_factories: string[];
@@ -220,7 +276,7 @@ type Counters = {
 
 // The ADR-0005 allow-list and exception register, written out independently of eslint.config.mjs.
 const ALLOWED_IMPORTER = [
-  /^lib\/jobs\//,
+  /^lib\/jobs\/internal\//, // ADR-0005 D2: the internals only (03-13c M-ALLOWLIST)
   /^features\/[^/]+\/system\.ts$/,
   /^app\/api\/(jobs|webhooks)\//,
   /^app\/api\/v1\//, // register, P1-37
@@ -238,6 +294,7 @@ describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-check
     expect(c.p1_34_boundary_messages).toBe(0);
     expect(c.utc_today_messages).toBe(0);
     expect(c.boundary_messages).toEqual({ "P1-34": 0, "P1-21": 0, "P1-25": 0, "P1-15": 0, flagged: [] });
+    expect(c.boundary_directives).toEqual([]);
     expect(c.system_module_importers.factory.length).toBeGreaterThan(0);
     expect(c.system_module_importers.factory.filter((f) => !ALLOWED_IMPORTER.some((re) => re.test(f)))).toEqual([]);
     expect(
@@ -248,16 +305,29 @@ describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-check
     expect(c.system_module_importers.non_canonical).toEqual([]);
   }, 180_000);
 
-  it("the counters see the fixtures' second factories, system importers and UTC patterns", async () => {
+  it("the counters see the fixtures' second factories, system importers, directives and UTC patterns", async () => {
     const c = (await p134Counters({ cwd: ROOT, targets: ["lint-fixtures/p1-34"], ignore: false })) as Counters;
     const names = (files: string[]) => files.map((f) => path.basename(f)).sort();
-    expect(names(c.service_role_factories)).toEqual(["namespace-supabase-js.ts", "second-factory.ts"]);
+    expect(names(c.service_role_factories)).toEqual([
+      "gotrue-admin.ts",
+      "namespace-supabase-js.ts",
+      "postgrest-client.ts",
+      "second-factory.ts",
+      "supabase-client-class.ts",
+      "supabase-subpath.ts",
+    ]);
     expect(names(c.system_module_importers.factory)).toEqual([
       "action-factory-import.ts",
       "factory-import.ts",
+      "inline-disable.ts",
       "page-factory-import.tsx",
       "reexport-factory.ts",
     ]);
+    // The import a directive hides from `npx eslint .` is still counted (inline configuration off) and listed.
+    expect(c.boundary_directives).toContain("lint-fixtures/p1-34/inline-disable.ts:2 @typescript-eslint/no-restricted-imports");
+    expect(c.boundary_messages.flagged).toContain(
+      "lint-fixtures/p1-34/inline-disable.ts:2 P1-34 @typescript-eslint/no-restricted-imports",
+    );
     expect(names(c.system_module_importers.feature_system)).toEqual([
       "other-feature-system-import.ts",
       "sharing-system-import.ts",

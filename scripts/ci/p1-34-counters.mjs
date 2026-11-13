@@ -2,10 +2,14 @@
  * V2-03 03-04 acceptance counters (P1-34 / ADR-0005 V4, P1-21), computed by ESLint, never by grep. Used by
  * scripts/phase-evidence.mjs (`static-checks.json`) and proven by tests/security/p1-34-lint-gates.spec.ts.
  *
- * - `boundary_messages`: the real eslint.config.mjs over app code; count of messages per backlog id (P1-34, P1-21,
- *   P1-25, P1-15) and the file:line of each (expected all 0, so the list is empty).
- * - `service_role_factories`: files flagged when the `createClient` value-import restriction is applied to every
- *   app-code file through `overrideConfig` (expected exactly `lib/supabase/system.ts`).
+ * - `boundary_messages`: the real eslint.config.mjs over app code with inline configuration OFF (03-13c M-LINT: an
+ *   `eslint-disable` or `/* eslint … *\/` comment cannot hide a gate from the census); count of messages per backlog
+ *   id (P1-34, P1-21, P1-25, P1-15) and the file:line of each (expected all 0, so the list is empty).
+ * - `boundary_directives`: boundary messages that an inline directive suppresses when inline configuration is ON,
+ *   as file:line (expected empty; the `clinicos/no-boundary-directive` rule also fails `npx eslint .` on them).
+ * - `service_role_factories`: files flagged when a value-import restriction on every Supabase package (other than the
+ *   bare `@supabase/ssr`) is applied to every app-code file through `overrideConfig` (expected exactly
+ *   `lib/supabase/system.ts`).
  * - `system_module_importers`: files flagged when the system-module import patterns are applied to every app-code
  *   file the same way; each is inside the allow-list or the exception register when `boundary_messages` is 0.
  *
@@ -35,7 +39,7 @@ export async function p134Counters({ cwd = process.cwd(), targets = APP_CODE, ig
   const { P134_CENSUS } = await import(pathToFileURL(join(cwd, "eslint.config.mjs")).href);
   const rel = (file) => relative(cwd, file);
 
-  const real = await new ESLint({ cwd, ignore }).lintFiles(targets);
+  const real = await new ESLint({ cwd, ignore, allowInlineConfig: false }).lintFiles(targets);
   const byId = Object.fromEntries(IDS.map((id) => [id, 0]));
   const flagged = [];
   for (const result of real) {
@@ -47,16 +51,28 @@ export async function p134Counters({ cwd = process.cwd(), targets = APP_CODE, ig
     }
   }
 
+  // The same lint as `npx eslint .` (inline configuration on): what a directive suppresses there.
+  const directives = [];
+  for (const result of await new ESLint({ cwd, ignore }).lintFiles(targets)) {
+    for (const m of result.suppressedMessages ?? []) {
+      if (BOUNDARY_ID.test(m.message)) directives.push(`${rel(result.filePath)}:${m.line} ${m.ruleId}`);
+    }
+  }
+
   const censusRule = {
-    paths: [{ ...P134_CENSUS.factoryPath, message: `${CENSUS}createClient` }],
-    patterns: Object.entries(P134_CENSUS.systemPatterns).map(([name, regex]) => ({
-      regex,
-      message: `${CENSUS}${name}`,
-    })),
+    paths: [],
+    patterns: [
+      { ...P134_CENSUS.factoryPattern, message: `${CENSUS}supabaseValue` },
+      ...Object.entries(P134_CENSUS.systemPatterns).map(([name, regex]) => ({
+        regex,
+        message: `${CENSUS}${name}`,
+      })),
+    ],
   };
   const census = await new ESLint({
     cwd,
     ignore,
+    allowInlineConfig: false,
     overrideConfig: {
       rules: {
         "no-restricted-syntax": "off",
@@ -72,7 +88,7 @@ export async function p134Counters({ cwd = process.cwd(), targets = APP_CODE, ig
       const at = m.message.indexOf(CENSUS);
       if (at === -1) continue;
       const tag = m.message.slice(at + CENSUS.length);
-      if (tag === "createClient") factories.add(rel(result.filePath));
+      if (tag === "supabaseValue") factories.add(rel(result.filePath));
       else importers[tag]?.add(rel(result.filePath));
     }
   }
@@ -81,6 +97,7 @@ export async function p134Counters({ cwd = process.cwd(), targets = APP_CODE, ig
   return {
     files_linted: real.length,
     boundary_messages: { ...byId, flagged },
+    boundary_directives: directives.sort(),
     p1_34_boundary_messages: byId["P1-34"],
     utc_today_messages: byId["P1-21"],
     service_role_factories: sorted(factories),

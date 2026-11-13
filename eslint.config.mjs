@@ -127,9 +127,15 @@ const LOCAL_SPEC = String.raw`^(?:@|\.{1,2}|)\/`;
 // Any local module named `system`: the factory, a `features/<domain>/system` module, or a non-canonical spelling of one.
 const ANY_SYSTEM_MODULE = String.raw`${LOCAL_SPEC}(?:.*\/)?${SYSTEM_TAIL}`;
 const JOBS_INTERNAL_MODULE = String.raw`(?:${LOCAL_SPEC}(?:.*\/)?jobs\/internal(?:\/.*)?$|^\.{1,2}\/(?:\.\.\/)*internal(?:\/.*)?$)`;
-const SUPABASE_CLIENT_PACKAGES = String.raw`^@supabase\/(?:supabase-js|ssr)(?:\/.*)?$`;
+// 03-13c (M-LINT): every Supabase package, any subpath (supabase-js, ssr, postgrest-js, auth-js, storage-js, …).
+const SUPABASE_CLIENT_PACKAGES = String.raw`^@supabase\/`;
 const SYSTEM_ALLOWED_WHERE =
-  "lib/jobs/**, features/<domain>/system.ts, app/api/{jobs,webhooks}/** and the ADR-0005 exception register";
+  "lib/jobs/internal/**, features/<domain>/system.ts, app/api/{jobs,webhooks}/** and the ADR-0005 exception register";
+// 03-13c (M-ALLOWLIST): the tooling and document trees are never imported by app code (a factory wrapper there would
+// launder the service role past every zone); alias, relative or traversing spellings.
+const TOOLING_TREE_MODULE = String.raw`^(?:@\/|(?:\.\.?\/)+)(?:scripts|tests|docs|lint-fixtures|\.planning)(?:\/|$)`;
+// 03-13c (M-LINT): the eslint rules that carry the boundary gates; an inline directive may not name or blanket them.
+const BOUNDARY_RULE_IDS = ["@typescript-eslint/no-restricted-imports", "no-restricted-imports", "no-restricted-syntax"];
 
 /** `no-restricted-syntax` boundary groups, keyed so a zone can name the groups it is allowed. */
 const BOUNDARY_SYNTAX = {
@@ -142,6 +148,20 @@ const BOUNDARY_SYNTAX = {
         "TemplateElement[value.raw=/SUPABASE_(SECRET|SERVICE_ROLE)_KEY/]",
       ].join(", "),
       message: `${P134} the service-role key is read only by lib/supabase/system.ts (getSystemDb) and the env modules (ADR-0005 D4).`,
+    },
+    {
+      // 03-13c (M-LINT, review B M-3 / IND L-3): a secret-key name built from pieces, or a computed read of the env.
+      selector: [
+        "Literal[value=/^(SUPABASE|SUPABASE_|SECRET|SECRET_|_SECRET|SECRET_KEY|_SECRET_KEY|SERVICE_ROLE|SERVICE_ROLE_|_SERVICE_ROLE|SERVICE_ROLE_KEY|_SERVICE_ROLE_KEY|_KEY|KEY)$/]",
+        "TemplateElement[value.raw=/(^|[^A-Z_])(SECRET|SERVICE_ROLE)(_KEY)?($|[^A-Z_])/]",
+        'MemberExpression[computed=true][object.type="CallExpression"][object.callee.name="serverEnv"]',
+        'MemberExpression[computed=true][property.type!="Literal"][object.name=/env$/i]',
+        'VariableDeclarator[init.callee.name="serverEnv"] > ObjectPattern > Property[computed=true]',
+        'VariableDeclarator[init.callee.name="serverEnv"] > ObjectPattern > RestElement',
+        'SpreadElement > CallExpression[callee.name="serverEnv"]',
+        'CallExpression[callee.object.name=/^(Object|Reflect|JSON)$/] > CallExpression.arguments[callee.name="serverEnv"]',
+      ].join(", "),
+      message: `${P134} read the env through named properties (serverEnv().NAME); a computed, spread or enumerated read, or a secret-key name built from pieces, could reach the service-role key (ADR-0005 D4).`,
     },
   ],
   // ADR-0005 D4: no dynamic import()/require() of the factory, a system module, a jobs internal or a Supabase client
@@ -158,8 +178,21 @@ const BOUNDARY_SYNTAX = {
         `TSExternalModuleReference[expression.value=/${ANY_SYSTEM_MODULE}/]`,
         `TSExternalModuleReference[expression.value=/${JOBS_INTERNAL_MODULE}/]`,
         `TSExternalModuleReference[expression.value=/${SUPABASE_CLIENT_PACKAGES}/]`,
+        `ImportExpression[source.value=/${TOOLING_TREE_MODULE}/]`,
+        `CallExpression[callee.name="require"][arguments.0.value=/${TOOLING_TREE_MODULE}/]`,
       ].join(", "),
       message: `${P134} dynamic import()/require() of the service-role factory, a system module, a jobs internal or a Supabase client package is banned everywhere; use a static import from an allowed path (ADR-0005 D4).`,
+    },
+    {
+      // 03-13c (M-LINT, review B M-3): every other way to load a module at run time, which no rule could check.
+      selector: [
+        'CallExpression[callee.name="require"]:not([arguments.0.type="Literal"])',
+        'Identifier[name="require"]:not(CallExpression > Identifier.callee):not(Property > Identifier.key)',
+        'MemberExpression[property.name="require"]',
+        'MemberExpression[property.value="require"]',
+        "Identifier[name=/^(createRequire|__non_webpack_require__|__webpack_require__)$/]",
+      ].join(", "),
+      message: `${P134} require() needs a string-literal specifier and may not be aliased, reached as module.require or built with createRequire, so the boundary rules can check it (ADR-0005 D4).`,
     },
     {
       selector: 'ImportExpression:not([source.type="Literal"])',
@@ -224,6 +257,19 @@ const appSyntax = (allow = []) => ["error", ...BASE_RESTRICTED_SYNTAX, ...bounda
  * require()`; the dynamic forms are BOUNDARY_SYNTAX.dynamicImports). Regex patterns are case-insensitive.
  */
 const BOUNDARY_IMPORT_PATTERNS = {
+  // 03-13c (M-LINT): a VALUE import from any Supabase package or subpath makes or reaches a client (createClient,
+  // new SupabaseClient, GoTrueAdminApi, PostgrestClient, @supabase/ssr/dist/…). Only the factory and the three
+  // cookie-session modules may; each of them is narrowed to its own names below. Type imports are allowed.
+  supabaseValue: {
+    regex: SUPABASE_CLIENT_PACKAGES,
+    allowTypeImports: true,
+    message: `${P134} a value import from a Supabase package (any package or subpath) creates a second client factory; the only ones are lib/supabase/system.ts (getSystemDb) and the cookie-session modules lib/supabase/{server,client}.ts and proxy.ts. Type imports are allowed (ADR-0005 D2/D4).`,
+  },
+  // 03-13c (M-ALLOWLIST): app code never imports scripts/, tests/, docs/, lint-fixtures/ or .planning/.
+  toolingTree: {
+    regex: TOOLING_TREE_MODULE,
+    message: `${P134} app code may not import scripts/, tests/, docs/, lint-fixtures/ or .planning/: a helper there is outside every boundary zone (ADR-0005 D4).`,
+  },
   factory: {
     regex: String.raw`^@\/lib\/supabase\/${SYSTEM_TAIL}`,
     message: `${P134} the service-role factory (@/lib/supabase/system) is importable only from ${SYSTEM_ALLOWED_WHERE} (ADR-0005 D2/D4).`,
@@ -242,31 +288,50 @@ const BOUNDARY_IMPORT_PATTERNS = {
     message: `${P134} lib/jobs/internal (claim, handlers, runner) is importable only from app/api/jobs/** and lib/jobs/internal/**; request paths use the lib/jobs enqueue surface (ADR-0005 D2).`,
   },
 };
-const BOUNDARY_IMPORT_PATHS = {
-  createClient: {
-    name: "@supabase/supabase-js",
-    importNames: ["createClient"],
-    allowTypeImports: true,
-    message: `${P134} a createClient value import makes a second Supabase client factory; the only one is lib/supabase/system.ts (getSystemDb). Type imports are allowed (ADR-0005 D2/D4).`,
-  },
-  ssrClients: {
-    name: "@supabase/ssr",
-    importNames: ["createServerClient", "createBrowserClient"],
-    allowTypeImports: true,
-    message: `${P134} the cookie-session clients are created only in lib/supabase/server.ts, lib/supabase/client.ts and proxy.ts (ADR-0005 D4).`,
-  },
+/** The narrowed Supabase allowance of the factory and of the cookie-session modules (zones below). */
+const SUPABASE_FACTORY_ONLY = {
+  paths: [
+    {
+      name: "@supabase/supabase-js",
+      allowImportNames: ["createClient"],
+      allowTypeImports: true,
+      message: `${P134} the factory imports createClient only from @supabase/supabase-js (ADR-0005 D2/D4).`,
+    },
+  ],
+  patterns: [
+    {
+      regex: String.raw`^@supabase\/(?!supabase-js$)`,
+      allowTypeImports: true,
+      message: `${P134} the factory imports createClient from the bare @supabase/supabase-js only (ADR-0005 D2/D4).`,
+    },
+  ],
+};
+const SUPABASE_SSR_ONLY = {
+  paths: [
+    {
+      name: "@supabase/ssr",
+      allowImportNames: ["createServerClient", "createBrowserClient"],
+      allowTypeImports: true,
+      message: `${P134} the cookie-session modules import createServerClient / createBrowserClient only (ADR-0005 D4).`,
+    },
+  ],
+  patterns: [
+    {
+      regex: String.raw`^@supabase\/(?!ssr$)`,
+      allowTypeImports: true,
+      message: `${P134} the cookie-session modules import from the bare @supabase/ssr only (ADR-0005 D4).`,
+    },
+  ],
 };
 // ADR-0005 A1: features/sharing/system from the five public share routes, and no other features/*/system.
 const A1_SHARING_ONLY = {
   regex: String.raw`^@\/features\/(?!sharing\/${SYSTEM_TAIL})[^/]+\/${SYSTEM_TAIL}`,
   message: `${P134} the ADR-0005 A1 share routes may import features/sharing/system only.`,
 };
-const appImports = (allow = [], extraPatterns = []) => [
+const appImports = (allow = [], extraPatterns = [], extraPaths = []) => [
   "error",
   {
-    paths: Object.entries(BOUNDARY_IMPORT_PATHS)
-      .filter(([group]) => !allow.includes(group))
-      .map(([, path]) => path),
+    paths: extraPaths,
     patterns: [
       ...Object.entries(BOUNDARY_IMPORT_PATTERNS)
         .filter(([group]) => !allow.includes(group))
@@ -290,10 +355,21 @@ const BOUNDARY_SYNTAX_ZONES = [
 
 /** Import allowances, in order: a later zone overrides an earlier one for the files both match. */
 const BOUNDARY_IMPORT_ZONES = [
-  { files: ["lib/supabase/system.ts"], allow: ["createClient"] },
-  { files: ["lib/supabase/server.ts", "lib/supabase/client.ts", "proxy.ts"], allow: ["ssrClients"] },
-  // ADR-0005 D2 allow-list.
-  { files: ["lib/jobs/**", "features/*/system.ts", "app/api/webhooks/**"], allow: SYSTEM_MODULES },
+  {
+    files: ["lib/supabase/system.ts"],
+    allow: ["supabaseValue"],
+    extraPatterns: SUPABASE_FACTORY_ONLY.patterns,
+    extraPaths: SUPABASE_FACTORY_ONLY.paths,
+  },
+  {
+    files: ["lib/supabase/server.ts", "lib/supabase/client.ts", "proxy.ts"],
+    allow: ["supabaseValue"],
+    extraPatterns: SUPABASE_SSR_ONLY.patterns,
+    extraPaths: SUPABASE_SSR_ONLY.paths,
+  },
+  // ADR-0005 D2 allow-list. lib/jobs: only the internals (zone at the end), never the enqueue surface that request
+  // paths import (03-13c M-ALLOWLIST).
+  { files: ["features/*/system.ts", "app/api/webhooks/**"], allow: SYSTEM_MODULES },
   // ADR-0005 exception register. Owner P1-37 (public API rework): delete when /api/v1 stops using the service role.
   { files: ["app/api/v1/**", "lib/api/**"], allow: SYSTEM_MODULES },
   // ADR-0005 exception register. Owner V2-04 (enqueue RPC + app/api/jobs/run replace these): delete in V2-04 04-03c.
@@ -324,6 +400,46 @@ const TOOLING_FILES = [
   "postcss.config.mjs",
 ];
 
+/**
+ * 03-13c (M-LINT, review B M-3): an inline directive cannot switch a boundary gate off. Reports any `eslint-disable*`
+ * comment that names a boundary rule or names no rule at all (a blanket disable), and any `/* eslint … *\/` rule
+ * configuration comment for a boundary rule, in app code. The census (scripts/ci/p1-34-counters.mjs) and
+ * tests/security/p1-34-lint-gates.spec.ts additionally lint with inline configuration off, so a gate silenced by a
+ * directive this rule cannot see still counts.
+ */
+const BOUNDARY_DIRECTIVE = /^\s*(eslint-disable(?:-next-line|-line)?|eslint-enable|eslint)(?:\s+([\s\S]*?))?(?:\s+--[\s\S]*)?\s*$/;
+const boundaryDirectivePlugin = {
+  rules: {
+    "no-boundary-directive": {
+      meta: { type: "problem", schema: [], docs: { description: "No inline directive may disable a P1-34 boundary gate." } },
+      create(context) {
+        return {
+          Program() {
+            for (const comment of context.sourceCode.getAllComments()) {
+              const match = BOUNDARY_DIRECTIVE.exec(comment.value);
+              if (!match) continue;
+              const [, kind, rest = ""] = match;
+              if (kind === "eslint-enable") continue;
+              if (kind === "eslint" && comment.type !== "Block") continue;
+              const names = kind === "eslint"
+                ? [...rest.matchAll(/([@\w/-]+)\s*:/g)].map((m) => m[1])
+                : rest.split(",").map((n) => n.trim()).filter(Boolean);
+              const blanket = kind !== "eslint" && names.length === 0;
+              const boundary = names.some((n) => BOUNDARY_RULE_IDS.includes(n) || n === "clinicos/no-boundary-directive");
+              if (blanket || boundary) {
+                context.report({
+                  loc: comment.loc,
+                  message: `${P134} an inline eslint directive may not disable or reconfigure the boundary gates (${BOUNDARY_RULE_IDS.join(", ")}) or blanket-disable all rules in app code; fix the code or amend ADR-0005.`,
+                });
+              }
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 const eslintConfig = [
   {
     ignores: [
@@ -349,10 +465,12 @@ const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
   {
+    plugins: { clinicos: boundaryDirectivePlugin },
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
       "no-restricted-syntax": appSyntax(),
       "@typescript-eslint/no-restricted-imports": appImports(),
+      "clinicos/no-boundary-directive": "error",
     },
   },
   {
@@ -384,9 +502,9 @@ const eslintConfig = [
     files,
     rules: { "no-restricted-syntax": appSyntax(allow) },
   })),
-  ...BOUNDARY_IMPORT_ZONES.map(({ files, allow, extraPatterns }) => ({
+  ...BOUNDARY_IMPORT_ZONES.map(({ files, allow, extraPatterns, extraPaths }) => ({
     files,
-    rules: { "@typescript-eslint/no-restricted-imports": appImports(allow, extraPatterns) },
+    rules: { "@typescript-eslint/no-restricted-imports": appImports(allow, extraPatterns, extraPaths) },
   })),
   {
     // Last, so it wins over every zone above: tooling keeps the AUTH-01 / P0-01 / P0-13 gates only.
@@ -394,17 +512,21 @@ const eslintConfig = [
     rules: {
       "no-restricted-syntax": ["error", ...BASE_RESTRICTED_SYNTAX],
       "@typescript-eslint/no-restricted-imports": "off",
+      "clinicos/no-boundary-directive": "off",
     },
   },
 ];
 
 /**
- * Census inputs for scripts/phase-evidence.mjs (`static-checks.json`): the same createClient restriction and system-module
- * patterns as the gates above, applied to every app-code file through `overrideConfig` so ESLint itself lists the
+ * Census inputs for scripts/phase-evidence.mjs (`static-checks.json`): a Supabase value-import restriction and the
+ * system-module patterns of the gates above, applied to every app-code file through `overrideConfig` so ESLint itself lists the
  * service-role factory (expected `lib/supabase/system.ts` only) and every importer of a system module.
  */
 export const P134_CENSUS = {
-  factoryPath: BOUNDARY_IMPORT_PATHS.createClient,
+  // 03-13c: any value import from a Supabase package other than the bare @supabase/ssr (the cookie-session clients) is
+  // a client factory, whatever the name (createClient, SupabaseClient, GoTrueAdminApi, PostgrestClient, a subpath).
+  factoryPattern: { regex: String.raw`^@supabase\/(?!ssr$)`, allowTypeImports: true },
+  boundaryRuleIds: BOUNDARY_RULE_IDS,
   systemPatterns: {
     factory: BOUNDARY_IMPORT_PATTERNS.factory.regex,
     featureSystem: BOUNDARY_IMPORT_PATTERNS.featureSystem.regex,
