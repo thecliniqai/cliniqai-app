@@ -32,6 +32,8 @@ export const en = {
       reset_failed: "We couldn't reset your password, try again",
       change_failed: "We couldn't change your password, try again",
       reset_session_stale: "This reset has expired. Request a new code and try again.",
+      // 03-13a (M-EMAILCAP): GoTrue refused to send (per-address interval or the project-wide email cap).
+      reset_send_limited: "We can't send a code right now. Try again later.",
       // 03-13a (ruling R-35): a reset ends signed out.
       reset_done: "Your password was changed. Sign in with your new password.",
     },

@@ -88,6 +88,17 @@ describe("requestReset with Turnstile", () => {
     expect(auth.resetPasswordForEmail).toHaveBeenCalledWith(EMAIL);
   });
 
+  it("03-13a M-EMAILCAP: over_email_send_rate_limit (per-address interval or the project email cap) is 'try again later', not success", async () => {
+    const { client, auth } = fakeClient();
+    auth.resetPasswordForEmail.mockResolvedValue({ data: null, error: { code: "over_email_send_rate_limit", message: "x" } });
+    expect(await requestReset(client, { email: EMAIL }, { required: true, token: TOKEN })).toEqual({
+      ok: false,
+      code: "email_send_limited",
+      message: "We can't send a code right now. Try again later.",
+    });
+    expect(AUTH_MESSAGES.reset_send_limited).toBe("We can't send a code right now. Try again later.");
+  });
+
   it("maps GoTrue's captcha_failed to the catalogue copy", async () => {
     const { client, auth } = fakeClient();
     auth.resetPasswordForEmail.mockResolvedValue({ data: null, error: { code: "captcha_failed", message: "x" } });

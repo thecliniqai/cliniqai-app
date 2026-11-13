@@ -39,6 +39,7 @@ export type AuthFlowErrorCode =
   | "same_password"
   | "captcha_failed"
   | "captcha_required"
+  | "email_send_limited"
   | "unknown";
 
 export type AuthFlowFailure = { ok: false; code: AuthFlowErrorCode; message: string };
@@ -67,6 +68,7 @@ export const AUTH_MESSAGES = {
   sign_in_failed: en.auth.flows.sign_in_failed,
   reset_request_failed: en.auth.flows.reset_request_failed,
   reset_failed: en.auth.flows.reset_failed,
+  reset_send_limited: en.auth.flows.reset_send_limited,
 } as const;
 
 type Flow = "sign_in" | "reset_request" | "verify_code";
@@ -142,10 +144,14 @@ export async function signIn(client: AuthClient, input: SignInInput, captcha?: C
 }
 
 /**
- * Step 1 of forgot password: request a 6-digit recovery code. No `redirectTo`: recovery is code-only.
- * The result is the same whether or not the account exists (Supabase `/recover` answers 200 either way). The
- * per-address resend limit (`over_email_send_rate_limit`) can only trigger for an address that exists, so it is
- * also reported as success to avoid revealing the account.
+ * Step 1 of forgot password: request an 8-digit recovery code (R-36). No `redirectTo`: recovery is code-only.
+ * The result is the same whether or not the account exists (Supabase `/recover` answers 200 either way).
+ *
+ * M-EMAILCAP (03-13a): `over_email_send_rate_limit` is NOT reported as success. GoTrue uses that one code both for the
+ * per-address minimum interval and for the project-wide `email_sent` cap; when the cap is spent no email goes out for
+ * anyone, and a "we've sent a code" notice would leave the user waiting for nothing. The page says "try again later"
+ * instead. The per-address case reveals that the address requested a code in the last minute; GoTrue already answers
+ * a direct `/recover` caller with that 429, so hiding it here protected nothing.
  */
 export async function requestReset(
   client: AuthClient,
@@ -163,7 +169,9 @@ export async function requestReset(
         ? await client.auth.resetPasswordForEmail(parsed.data.email)
         : await client.auth.resetPasswordForEmail(parsed.data.email, { captchaToken: token });
     if (error) {
-      if (authErrorCodeOf(error) === "over_email_send_rate_limit") return { ok: true };
+      if (authErrorCodeOf(error) === "over_email_send_rate_limit") {
+        return { ok: false, code: "email_send_limited", message: AUTH_MESSAGES.reset_send_limited };
+      }
       return mapAuthError(error, "reset_request");
     }
     return { ok: true };
