@@ -1,18 +1,18 @@
 Tailwind 4.3.3 via @tailwindcss/postcss
-Input: @import clinic-paper.css (unchanged) + generated clinic-paper.theme.css (@theme reference, 154 names)
-Utilities resolving to var(--token): 17/17
+Input: @import clinic-paper.css (unchanged) + generated clinic-paper.theme.css (@theme reference, 172 names)
+Utilities resolving to var(--token): 21/21
 Runtime values emitted from clinic-paper.css: yes
 
-OK   .bg-canvas { background-color: var(--color-canvas, #f6f5f1); }
+OK   .bg-canvas { background-color: var(--color-canvas, #ffffff); }
 OK   .bg-surface { background-color: var(--color-surface, #ffffff); }
-OK   .text-fg-muted { color: var(--color-fg-muted, #57544d); }
-OK   .border-border-control { border-color: var(--color-border-control, #8a867c); }
+OK   .text-fg-muted { color: var(--color-fg-muted, #52524d); }
+OK   .border-border-control { border-color: var(--color-border-control, #858580); }
 OK   .bg-status-waiting-bg { background-color: var(--color-status-waiting-bg, #fdf3e1); }
 OK   .text-status-waiting-fg { color: var(--color-status-waiting-fg, #8a4b00); }
 OK   .h-control { height: var(--spacing-control, 2.75rem); }
 OK   .w-sidebar { width: var(--spacing-sidebar, 14.5rem); }
-OK   .rounded-lg { border-radius: var(--radius-lg, 10px); }
-OK   .shadow-popover { --tw-shadow: 0 1px 2px var(--tw-shadow-color, rgb(28 27 24 / 0.06)), 0 4px 12px var(--tw-shadow-color, rgb(28 27 24 / 0.08)); box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow); }
+OK   .rounded-lg { border-radius: var(--radius-lg, 12px); }
+OK   .shadow-popover { --tw-shadow: 0 1px 2px var(--tw-shadow-color, rgb(23 23 26 / 0.05)), 0 8px 24px var(--tw-shadow-color, rgb(23 23 26 / 0.08)); box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow); }
 OK   .text-title-1 { font-size: var(--text-title-1, 1.5rem); line-height: var(--tw-leading, var(--text-title-1--line-height, 2rem)); }
 OK   .text-token { font-size: var(--text-token, 1.75rem); line-height: var(--tw-leading, var(--text-token--line-height, 2rem)); }
 OK   .bg-accent { background-color: var(--color-accent, #0e716b); }
@@ -20,3 +20,7 @@ OK   .text-fg-on-accent { color: var(--color-fg-on-accent, #ffffff); }
 OK   .bg-ai-bg { background-color: var(--color-ai-bg, #ffffff); }
 OK   .font-sans { font-family: var(--font-sans, "IBM Plex Sans", "IBM Plex Sans Devanagari", "Noto Sans", "Noto Sans Devanagari", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif); }
 OK   .ease-out { --tw-ease: var(--ease-out, cubic-bezier(0.2, 0, 0, 1)); transition-timing-function: var(--ease-out, cubic-bezier(0.2, 0, 0, 1)); }
+OK   .text-body-md { font-size: var(--text-body-md, 0.9375rem); line-height: var(--tw-leading, var(--text-body-md--line-height, 1.375rem)); }
+OK   .h-tile { height: var(--spacing-tile, 3.25rem); }
+OK   .max-w-note-max { max-width: var(--spacing-note-max, 52rem); }
+OK   .bg-finding-abnormal-bg { background-color: var(--color-finding-abnormal-bg, #fdf3e1); }

@@ -4,10 +4,14 @@ Violations: 0
 ok   palette: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
 ok   icon: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
 ok   today: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   today-b: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
 ok   today-lanes-variant: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
 ok   today-doctor: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   consult: 5 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
-ok   consult-rx: 5 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult-mid: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult-rx: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult-full: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
+ok   consult-b: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
 ok   install: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
 ok   offline: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
 ok   signup-trial: 0 "AI" text nodes; outside AI-labelled elements: 0; within 80 chars of ₹/price/buy/upgrade: 0; sparkle glyph outside AI elements: 0
