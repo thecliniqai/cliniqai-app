@@ -55,6 +55,7 @@ review after the fix. **Accepted** items carry a reason and an owner phase.
 | Staging can serve new code against the old schema until the PO approves `migrate` (IND Low) | By design (R-9 approval); runbook orders migrate before promote | V2-04 runbook |
 | Lab storage keys contain patient names (IND Low) | Key scheme change touches every stored document | V2-05 (storage policies) |
 | Overpayment / status change via direct table writes | Contract step | V2-07 |
+| H-AUTH residual: an access token minted just before the 600 s bound stays valid at GoTrue until ~1,500 s after the code (03-13e) | Bounded ≤ 25 min; refresh refused by the token hook; the proxy ends the session on first app request; cutting `exp` broke GoTrue's reported expiry | V2-13b (session time-box on Pro or a shorter JWT expiry review) |
 
 ## New rulings (PO confirms with E13)
 

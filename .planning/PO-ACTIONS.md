@@ -113,6 +113,11 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
     sign-ins 30, token refreshes 150, token verifications 30; MFA TOTP on; Site URL `https://staging.<domain>`, no
     extra redirect URLs; security notification "password changed" on; email templates pasted from
     `supabase/templates/*.html` (used only by the SMTP fallback); CAPTCHA after 03-E7; Send Email hook after 03-E8.
+  - *Access-token hook (03-13e, H-AUTH):* **only after migration 000030 is applied on staging** (a hook pointing at a
+    missing function blocks every sign-in): Authentication → Hooks → Customize Access Token (JWT) Claims → Postgres,
+    schema `private`, function `session_age_token_hook` (`pg-functions://postgres/private/session_age_token_hook`).
+    *Verify (Claude):* `node scripts/ci/check-auth-config.mjs --print staging`; drift `auth-config` job green; AUTH-00
+    kit item 10 with `stale_wait_seconds` shows the stale refresh refused (403).
   - *Why:* AUTH-02/03, A00-1, A00-4, A00-5; settings are applied by you, not pushed from CI (R-20).
   - *Unblocks:* acceptance 10, 12; AUTH-00 re-check.
   - *Verify (Claude):* after merge, `gh run list --workflow drift.yml --limit 1 --json conclusion,url,headSha` → the
