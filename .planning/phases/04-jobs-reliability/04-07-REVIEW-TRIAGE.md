@@ -62,3 +62,14 @@ Accepted (reason, owner):
 | Item | Reason | Owner |
 |---|---|---|
 | L-B: member-supplied free text inside a permitted template's values / buttons (each value ≤ 256 chars, up to three buttons; Twilio/Gupshup append them to the body) | The M-ROLE design: recipient, template and sender are fixed; only pre-approved templates a role may send are callable, each value is length-capped, and the text goes only to the clinic's own patient. Per-variable shape rules (e.g. names without digits or URLs) belong with the template catalogue rework | V2-12 |
+
+## Adversarial re-check follow-ups (04-07e)
+
+Source: `reviews/v204-review-n1-n2-recheck.md` (isolated adversarial re-checker at `3947174`): N-1 and N-2 OPEN again
+through new routes (N-1b, N-2b, both Medium) plus three guard Lows. Record: `04-07e-FAIRNESS-RESTORE-FIXES.md`.
+
+| ID | Source | Decision | Plan |
+|---|---|---|---|
+| N-1b (Medium) | re-check, N-1 / M-FAIR | Fixed (000045): a hand-back restores the claim stamp (`prev_last_claimed_at`), so it costs no rotation turn; `claim_jobs` returns its fair order (`claim_order`) and the runner starts each batch in it (least recently served tenant first). Real-runner probe #8 (12 s bound, 1.5 s jobs): victim within 2 passes | 04-07e |
+| N-2b (Medium) | re-check, N-2 / M-BACKUPAUTH | Fixed: every ops/** psql session through `psql-restricted.sh` (now also forcing `standard_conforming_strings` on and UTF8); `manifest-guard.ts` validates every manifest field before use; counts and checks are fixed SQL using quoted psql variables (`:'name'`) | 04-07e |
+| L-D, L-E, L-F (Low) | re-check, sql-guard | Fixed in `sql-guard.ts` (dollar quote after a digit; `U&` quotes, `set_config` outside pg_dump's own line, `SET NAMES`; COPY spellings with comments/parentheses). Residual accepted: settings changed by server-side code are invisible to a text scan; restricted psql with forced settings and the restore role's missing `pg_execute_server_program` (asserted) are the controls | 04-07e |

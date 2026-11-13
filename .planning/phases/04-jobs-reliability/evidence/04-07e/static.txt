@@ -1,0 +1,20 @@
+# 04-07e static checks on aee46aa
+## npm run typecheck
+> clinicos@0.1.0 typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+exit 0
+## npx eslint .
+✖ 382 problems (0 errors, 382 warnings)
+  0 errors and 23 warnings potentially fixable with the `--fix` option.
+
+exit 0
+## npm run inventory
+    "flagged": 0,
+  "flagged": [],
+                "typeText": "{ patient_id: string; visit_id: string; discount: number; payment_method: \"cash\" | \"upi\" | \"card\"; consultation_fee: number; additional_items: { description: string; item_type: \"consultation\" | \"procedure\" | \"medicine\" | \"other\"; quantity: number; unit_price: number; total_price?: number | undefined; }[]; payment_collected: boolean; reference_number?: string | null | undefined; }",
+                "typeText": "{ patient_id: string; visit_id: string; items: { description: string; item_type: \"consultation\" | \"procedure\" | \"medicine\" | \"other\"; quantity: number; unit_price: number; total_price?: number | undefined; }[]; discount: number; tax: number; }",
+                  "clinical_summary",
+exit 0
+## node scripts/drift/schema-snapshot.mjs --local --check
+schema-snapshot: PASS (local: 2520 lines equal the committed snapshot)
