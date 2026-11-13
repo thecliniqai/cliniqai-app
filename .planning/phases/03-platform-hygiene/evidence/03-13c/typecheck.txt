@@ -1,0 +1,8 @@
+
+> clinicos@0.1.0 typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+tests/ci/migration-immutability.spec.ts(149,5): error TS2769: No overload matches this call.
+  Overload 3 of 8, '(command: string, args?: readonly string[] | undefined, options?: SpawnSyncOptions | undefined): SpawnSyncReturns<string | NonSharedBuffer>', gave the following error.
+    Property 'NODE_ENV' is missing in type '{ PATH: string; HOME: string; }' but required in type 'ProcessEnv'.
+exit=2 at 84c7477

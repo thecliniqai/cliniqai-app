@@ -1,0 +1,1074 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ERROR:  function "public.readiness_probe(text)" does not exist
+LINE 1: ...ng(p.proconfig, ',') from pg_proc p where p.oid = 'public.re...
+                                                             ^
+ERROR:  function "public.readiness_probe(text)" does not exist
+LINE 1: ...m pg_proc p, aclexplode(p.proacl) a where p.oid = 'public.re...
+                                                             ^
+ ❯ tests/api/readiness-probe-db.spec.ts (7 tests | 5 failed) 196ms
+   × readiness_probe(p_expected_migration) (migrations 000025, 000029) > anon executes it through PostgREST and gets booleans only (no count, no version) 12ms
+     → expected { code: 'PGRST202', …(3) } to be null
+   × readiness_probe(p_expected_migration) (migrations 000025, 000029) > schema_current answers only for the exact six-digit version asked 2ms
+     → Cannot read properties of null (reading 'schema_current')
+   ✓ readiness_probe(p_expected_migration) (migrations 000025, 000029) > EXPECTED_MIGRATION is the newest migration file (bump it with every new migration) 0ms
+   × readiness_probe(p_expected_migration) (migrations 000025, 000029) > each flag is an indexed check: with sequential scans off, no plan scans a queue table 87ms
+     → select 1 from public.communication_queue q where q.status in ('failed', 'dead_letter') and q.updated_at >= now() - interval '24 hours': expected 'BEGIN\nSET\nResult  (cost=10000000001…' not to match /Seq Scan/
+   × readiness_probe(p_expected_migration) (migrations 000025, 000029) > is SECURITY DEFINER with search_path pinned to the empty string 33ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -Atc select p.prosecdef::text || '|' || array_to_string(p.proconfig, ',') from pg_proc p where p.oid = 'public.readiness_probe(text)'::regprocedure
+ERROR:  function "public.readiness_probe(text)" does not exist
+LINE 1: ...ng(p.proconfig, ',') from pg_proc p where p.oid = 'public.re...
+                                                             ^
+
+   × readiness_probe(p_expected_migration) (migrations 000025, 000029) > only anon may execute it; authenticated, service_role and PUBLIC may not; the 000025 overload is gone 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -Atc select has_function_privilege('anon', 'public.readiness_probe(text)', 'execute')::text || '|' || has_function_privilege('authenticated', 'public.readiness_probe(text)', 'execute')::text || '|' || has_function_privilege('service_role', 'public.readiness_probe(text)', 'execute')::text || '|' || coalesce((select bool_or(a.grantee = 0)::text from pg_proc p, aclexplode(p.proacl) a where p.oid = 'public.readiness_probe(text)'::regprocedure), 'false')
+ERROR:  function "public.readiness_probe(text)" does not exist
+LINE 1: ...m pg_proc p, aclexplode(p.proacl) a where p.oid = 'public.re...
+                                                             ^
+
+   ✓ readiness_probe(p_expected_migration) (migrations 000025, 000029) > anon can execute no other SECURITY DEFINER function in public 33ms
+{"ts":"2026-11-13T03:01:03.410Z","level":"error","event":"ready.probe_failed","code":"PGRST202"}
+{"ts":"2026-11-13T03:01:03.416Z","level":"error","event":"ready.probe_failed","code":"PGRST202"}
+{"ts":"2026-11-13T03:01:03.418Z","level":"error","event":"ready.probe_failed","code":"PGRST202"}
+{"ts":"2026-11-13T03:01:03.419Z","level":"error","event":"ready.probe_failed","code":"PGRST202"}
+ ❯ tests/api/health-probes.spec.ts (13 tests | 1 failed) 22ms
+   ✓ GET /api/health (liveness) > returns 200 with status, uptime, and null region/release when the platform sets none 2ms
+   ✓ GET /api/health (liveness) > reports Vercel's region and the deployed commit (R-26, R-30) 0ms
+   ✓ GET /api/health (liveness) > drops platform values that are not a region or a SHA 0ms
+   × GET /api/ready (readiness RPC, no service role) > returns 200 with only the allow-listed keys, all booleans, no count and no version (admin import throws) 11ms
+     → expected 503 to be 200 // Object.is equality
+   ✓ GET /api/ready (readiness RPC, no service role) > asks for the build's expected migration through the cookie-less client, never the cookie session 0ms
+   ✓ GET /api/ready (readiness RPC, no service role) > is not ready (503, schema behind) when the expected migration is not applied 0ms
+   ✓ GET /api/ready (readiness RPC, no service role) > refuses an answer carrying counts instead of booleans (the 000025 shape) 1ms
+   ✓ GET /api/ready (readiness RPC, no service role) > reports AI, messaging and email from the env schema, never by calling a provider 5ms
+   ✓ GET /api/ready (readiness RPC, no service role) > returns 503 with no error text when the RPC fails, logging only an error code 1ms
+   ✓ GET /api/ready (readiness RPC, no service role) > returns 503 when the client throws, and when the RPC answers an unexpected shape 0ms
+   ✓ proxy: probes bypass the session refresh (T-06-19) > bypasses Supabase auth session refresh for /api/v1 routes when the API is on 1ms
+   ✓ proxy: probes bypass the session refresh (T-06-19) > passes /api/health straight through 0ms
+   ✓ proxy: probes bypass the session refresh (T-06-19) > passes /api/ready straight through 0ms
+ ❯ tests/observability/error-sink-scrub-db.spec.ts (79 tests | 46 failed) 2324ms
+   ✓ ops_ingest_error second scrub: shared message vectors > message mobile-plus91 69ms
+   × ops_ingest_error second scrub: shared message vectors > message mobile-plus91-spaced 42ms
+     → expected 'send failed for +91 90000 00002' not to contain '90000 00002'
+   × ops_ingest_error second scrub: shared message vectors > message mobile-plus91-dashed 37ms
+     → expected 'send failed for +91-90000-00003' not to contain '90000-00003'
+   ✓ ops_ingest_error second scrub: shared message vectors > message mobile-0-prefixed 32ms
+   × ops_ingest_error second scrub: shared message vectors > message mobile-0-prefixed-spaced 32ms
+     → expected 'callback [NUMBER] 00005 unreachable' not to contain '00005'
+   ✓ ops_ingest_error second scrub: shared message vectors > message mobile-bare 31ms
+   × ops_ingest_error second scrub: shared message vectors > message mobile-3-3-4 31ms
+     → expected 'phone 900 000 0007 rejected' not to contain '0007'
+   × ops_ingest_error second scrub: shared message vectors > message mobile-4-3-3 31ms
+     → expected 'sms to 9000 000 021 failed' not to contain '9000 000'
+   × ops_ingest_error second scrub: shared message vectors > message mobile-3-2-2-3 32ms
+     → expected 'sms to 900 00 00 022 failed' not to contain '00 022'
+   × ops_ingest_error second scrub: shared message vectors > message mobile-2-dashed-pairs 30ms
+     → expected 'sms to 90-00-00-00-23 failed' not to contain '00-23'
+   × ops_ingest_error second scrub: shared message vectors > message mobile-dotted 30ms
+     → expected 'sms to 90000.00024 failed' not to contain '00024'
+   × ops_ingest_error second scrub: shared message vectors > message mobile-underscored 32ms
+     → expected 'sms to 90000_00025 failed' not to contain '00025'
+   × ops_ingest_error second scrub: shared message vectors > message mobile-plus91-parens 33ms
+     → expected 'sms to +91 (900) 000-0026 failed' not to contain '0026'
+   × ops_ingest_error second scrub: shared message vectors > message mobile-fullwidth-digits 32ms
+     → expected 'phone ９０００００００３１ rejected' not to contain '９０００'
+   × ops_ingest_error second scrub: shared message vectors > message aadhaar-spaced 31ms
+     → expected 'aadhaar 2000 0000 0008 invalid' not to contain '2000 0000 0008'
+   ✓ ops_ingest_error second scrub: shared message vectors > message aadhaar-unspaced 36ms
+   × ops_ingest_error second scrub: shared message vectors > message aadhaar-dashed 35ms
+     → expected 'aadhaar 2000-0000-0027 invalid' not to contain '0027'
+   × ops_ingest_error second scrub: shared message vectors > message aadhaar-dotted 33ms
+     → expected 'aadhaar 2000.0000.0028 invalid' not to contain '0028'
+   × ops_ingest_error second scrub: shared message vectors > message abha-number 33ms
+     → expected 'abha 91-0000-0000-0010 not linked' not to contain '91-0000-0000-0010'
+   × ops_ingest_error second scrub: shared message vectors > message abha-address 32ms
+     → expected 'abha address synthetic.patient29@abdm…' not to contain 'synthetic.patient29'
+   × ops_ingest_error second scrub: shared message vectors > message pan 33ms
+     → expected 'pan ABCDE1234F mismatch' not to contain 'ABCDE1234F'
+   ✓ ops_ingest_error second scrub: shared message vectors > message email-ascii 33ms
+   × ops_ingest_error second scrub: shared message vectors > message email-unicode 29ms
+     → expected 'invite to sÿnthetic.pätient@exämple.i…' not to contain 'sÿnthetic'
+   × ops_ingest_error second scrub: shared message vectors > message email-no-tld 31ms
+     → expected 'invite to synthetic30@localhost bounc…' not to contain 'synthetic30'
+   ✓ ops_ingest_error second scrub: shared message vectors > message pg-key-detail 31ms
+   × ops_ingest_error second scrub: shared message vectors > message pg-key-detail-name 31ms
+     → expected 'Key (full_name)=(Synthetic Patientnam…' not to contain 'Synthetic Patientname'
+   × ops_ingest_error second scrub: shared message vectors > message pg-key-expression-index 32ms
+     → expected 'Key (lower(full_name::text))=(synthet…' not to contain 'synthetic rowname'
+   × ops_ingest_error second scrub: shared message vectors > message pg-key-value-with-paren 32ms
+     → expected 'Key (full_name)=(Synthetic) Tailname)…' not to contain 'Tailname'
+   × ops_ingest_error second scrub: shared message vectors > message pg-key-multiline-value 31ms
+     → expected 'Key (notes)=(Synthetic first line\nSy…' not to contain 'Synthetic first line'
+   × ops_ingest_error second scrub: shared message vectors > message pg-failing-row 31ms
+     → expected 'new row for relation "patients" viola…' not to contain 'Synthetic Rowname'
+   × ops_ingest_error second scrub: shared message vectors > message pg-failing-row-multiline 32ms
+     → expected 'Failing row contains (abc, Synthetic …' not to contain 'Synthetic Rowname'
+   × ops_ingest_error second scrub: shared message vectors > message pg-quoted-input 31ms
+     → expected 'invalid input syntax for type uuid: "…' not to contain 'Synthetic Inputvalue'
+   ✓ ops_ingest_error second scrub: shared message vectors > message digit-run-long 34ms
+   ✓ ops_ingest_error second scrub: shared message vectors > message digit-run-six 31ms
+   ✓ ops_ingest_error second scrub: shared message vectors > message uuid 41ms
+   × ops_ingest_error second scrub: shared message vectors > message bearer 31ms
+     → expected 'upstream said Bearer syntheticBearerV…' not to contain 'syntheticBearerValueXyz'
+   × ops_ingest_error second scrub: shared message vectors > message sb-secret-letters 31ms
+     → expected 'leaked sb_secret_aaaabbbbccccddddeeee…' not to contain 'aaaabbbbccccddddeeee'
+   × ops_ingest_error second scrub: shared message vectors > message sb-publishable-letters 30ms
+     → expected 'leaked sb_publishable_ffffgggghhhhiii…' not to contain 'ffffgggghhhhiiiijjjjkkkk'
+   × ops_ingest_error second scrub: shared message vectors > message share-token-path 30ms
+     → expected 'fetch /r/k7Qp2xZ9mN4vB8sL1tR6 failed' not to contain 'k7Qp2xZ9mN4vB8sL1tR6'
+   × ops_ingest_error second scrub: shared message vectors > message share-token-path-letters 30ms
+     → expected 'fetch /r/abcdefghijklmnopqrstuvwxyzAB…' not to contain 'abcdefghijklmnopqrstuvwxyzABCDEF'
+   × ops_ingest_error second scrub: shared message vectors > message reschedule-token-path 31ms
+     → expected 'fetch /reschedule/Zq_-abcdefghijklmno…' not to contain 'abcdefghijklmnopqrst'
+   × ops_ingest_error second scrub: shared message vectors > message letter-token-mixed-case 30ms
+     → expected 'token QwErTyUiOpAsDfGhJkLzXcVbNm reje…' not to contain 'QwErTyUiOpAsDfGhJkLzXcVbNm'
+   ✓ ops_ingest_error second scrub: shared message vectors > message query-string 30ms
+   × ops_ingest_error second scrub: shared message vectors > message json-payload 30ms
+     → expected 'payload {"phone":"Synthetic Jsonvalue…' not to contain 'Synthetic Jsonvalue'
+   × ops_ingest_error second scrub: shared message vectors > message storage-key-name 31ms
+     → expected 'Object not found: clinic-records/tena…' not to contain 'Synthetic_Labname'
+   × ops_ingest_error second scrub: shared message vectors > message scrub-before-truncate 3ms
+     → expected 'invalid_event' to be null
+   ✓ ops_ingest_error second scrub: shared message vectors > benign text is stored word-for-word: relation "public.patients" does not exist 30ms
+   ✓ ops_ingest_error second scrub: shared message vectors > benign text is stored word-for-word: column patients.full_name does not exist 29ms
+   ✓ ops_ingest_error second scrub: shared message vectors > benign text is stored word-for-word: TypeError: Cannot read properties of undefined (reading 'id') 31ms
+   ✓ ops_ingest_error second scrub: shared message vectors > benign text is stored word-for-word: PGRST116 JSON object requested, multiple (or no) rows returned 32ms
+   ✓ ops_ingest_error second scrub: shared message vectors > benign text is stored word-for-word: fetch failed with status 503 39ms
+   ✓ ops_ingest_error second scrub: shared message vectors > benign text is stored word-for-word: ERR_INVALID_ARG_TYPE 31ms
+   ✓ ops_ingest_error second scrub: shared message vectors > benign text is stored word-for-word: duplicate key value violates unique constraint "patients_phone_key" 30ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > field name-class 31ms
+   × ops_ingest_error second scrub: error_name, error_code, route_path > field name-digits 33ms
+     → expected '9000000032' to be 'Error' // Object.is equality
+   × ops_ingest_error second scrub: error_name, error_code, route_path > field name-email 3ms
+     → expected 'invalid_event' to be null
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > field code-sqlstate 31ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > field code-postgrest 32ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > field code-upper-snake 29ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > field code-node 30ms
+   × ops_ingest_error second scrub: error_name, error_code, route_path > field code-name-and-phone 30ms
+     → expected 'synthetic.patient_9000000033' to be null // Object.is equality
+   × ops_ingest_error second scrub: error_name, error_code, route_path > field code-digits 30ms
+     → expected '9000000034' to be null // Object.is equality
+   × ops_ingest_error second scrub: error_name, error_code, route_path > field code-lower-free-text 30ms
+     → expected 'ramesh' to be null // Object.is equality
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > route pattern kept: /r/[token] 30ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > route pattern kept: /(dashboard)/patients/[id] 30ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > route pattern kept: /api/diag/error 31ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > route pattern kept: /api/v1/patients/[id] 30ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > route pattern kept: /[...slug] 30ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > route pattern kept: /_not-found 30ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > route pattern kept: /proxy 30ms
+   × ops_ingest_error second scrub: error_name, error_code, route_path > concrete or malformed route not stored: /r/abcDEF1234567890token 30ms
+     → expected '/r/abcDEF1234567890token' to be null
+   × ops_ingest_error second scrub: error_name, error_code, route_path > concrete or malformed route not stored: /patients/9000000035 30ms
+     → expected '/patients/9000000035' to be null
+   × ops_ingest_error second scrub: error_name, error_code, route_path > concrete or malformed route not stored: /r/k7Qp2xZ9mN4vB8sL1tR6 31ms
+     → expected '/r/k7Qp2xZ9mN4vB8sL1tR6' to be null
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > concrete or malformed route not stored: /a b 2ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > concrete or malformed route not stored: /a%40b 1ms
+   ✓ ops_ingest_error second scrub: error_name, error_code, route_path > concrete or malformed route not stored: r/[token] 1ms
+   × ops_ingest_error second scrub: cut after the scrub (review B L-2) > a 498-character message the scrub lengthens is stored (cut to 500), not refused by the column CHECK 1ms
+     → expected 'new row for relation "error_events" v…' to be null
+   ✓ ops_ingest_error second scrub: cut after the scrub (review B L-2) > a message over 2000 characters is refused before any work 1ms
+   × ops_ingest_error second scrub: cut after the scrub (review B L-2) > hostile 2000-character inputs are scrubbed in bounded time 1ms
+     → expected 'invalid_event' to be null
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 52 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/health-probes.spec.ts > GET /api/ready (readiness RPC, no service role) > returns 200 with only the allow-listed keys, all booleans, no count and no version (admin import throws)
+AssertionError: expected 503 to be 200 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 503[39m
+
+ ❯ tests/api/health-probes.spec.ts:104:24
+    102|   it("returns 200 with only the allow-listed keys, all booleans, no co…
+    103|     const res = await getReady();
+    104|     expect(res.status).toBe(200);
+       |                        ^
+    105|     expect(res.headers.get("Cache-Control")).toBe("no-store");
+    106|     const body = await res.json();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/52]⎯
+
+ FAIL  tests/api/readiness-probe-db.spec.ts > readiness_probe(p_expected_migration) (migrations 000025, 000029) > anon executes it through PostgREST and gets booleans only (no count, no version)
+AssertionError: expected { code: 'PGRST202', …(3) } to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+{
+  "code": "PGRST202",
+  "details": "Searched for the function public.readiness_probe with parameter p_expected_migration or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.",
+  "hint": null,
+  "message": "Could not find the function public.readiness_probe(p_expected_migration) in the schema cache",
+}
+
+ ❯ tests/api/readiness-probe-db.spec.ts:57:19
+     55|       p_expected_migration: EXPECTED_MIGRATION,
+     56|     });
+     57|     expect(error).toBeNull();
+       |                   ^
+     58|     const body = data as Record<string, unknown>;
+     59|     expect(Object.keys(body).sort()).toEqual(["db", ...FLAGS, "schema_…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/52]⎯
+
+ FAIL  tests/api/readiness-probe-db.spec.ts > readiness_probe(p_expected_migration) (migrations 000025, 000029) > schema_current answers only for the exact six-digit version asked
+TypeError: Cannot read properties of null (reading 'schema_current')
+ ❯ ask tests/api/readiness-probe-db.spec.ts:70:10
+     68|     const ask = async (v: unknown) =>
+     69|       ((await anon.rpc("readiness_probe", { p_expected_migration: v as…
+     70|         .schema_current;
+       |          ^
+     71|     expect(await ask("999999")).toBe(false);
+     72|     expect(await ask("00002")).toBeNull();
+ ❯ tests/api/readiness-probe-db.spec.ts:71:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/52]⎯
+
+ FAIL  tests/api/readiness-probe-db.spec.ts > readiness_probe(p_expected_migration) (migrations 000025, 000029) > each flag is an indexed check: with sequential scans off, no plan scans a queue table
+AssertionError: select 1 from public.communication_queue q where q.status in ('failed', 'dead_letter') and q.updated_at >= now() - interval '24 hours': expected 'BEGIN\nSET\nResult  (cost=10000000001…' not to match /Seq Scan/
+
+[32m- Expected:[39m 
+/Seq Scan/
+
+[31m+ Received:[39m 
+"BEGIN
+SET
+Result  (cost=10000000001.00..10000000001.01 rows=1 width=1)
+  InitPlan 1
+    ->  Seq Scan on communication_queue q  (cost=10000000000.00..10000000001.00 rows=1 width=0)
+          Filter: ((status = ANY ('{failed,dead_letter}'::text[])) AND (updated_at >= (now() - '24:00:00'::interval)))
+ROLLBACK"
+
+ ❯ tests/api/readiness-probe-db.spec.ts:97:31
+     95|     for (const check of checks) {
+     96|       const plan = psql(`begin; set local enable_seqscan = off; explai…
+     97|       expect(plan, check).not.toMatch(/Seq Scan/);
+       |                               ^
+     98|     }
+     99|     // The function body runs exactly these four predicates.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/52]⎯
+
+ FAIL  tests/api/readiness-probe-db.spec.ts > readiness_probe(p_expected_migration) (migrations 000025, 000029) > is SECURITY DEFINER with search_path pinned to the empty string
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -Atc select p.prosecdef::text || '|' || array_to_string(p.proconfig, ',') from pg_proc p where p.oid = 'public.readiness_probe(text)'::regprocedure
+ERROR:  function "public.readiness_probe(text)" does not exist
+LINE 1: ...ng(p.proconfig, ',') from pg_proc p where p.oid = 'public.re...
+                                                             ^
+
+ ❯ psql tests/api/readiness-probe-db.spec.ts:37:15
+     35|   const projectId = /^project_id\s*=\s*"([^"]+)"/m.exec(toml)?.[1];
+     36|   if (!projectId) throw new Error("project_id not found in supabase/co…
+     37|   const out = execFileSync("docker", ["exec", `supabase_db_${projectId…
+       |               ^
+     38|     encoding: "utf8",
+     39|   });
+ ❯ tests/api/readiness-probe-db.spec.ts:106:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/52]⎯
+
+ FAIL  tests/api/readiness-probe-db.spec.ts > readiness_probe(p_expected_migration) (migrations 000025, 000029) > only anon may execute it; authenticated, service_role and PUBLIC may not; the 000025 overload is gone
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -Atc select has_function_privilege('anon', 'public.readiness_probe(text)', 'execute')::text || '|' || has_function_privilege('authenticated', 'public.readiness_probe(text)', 'execute')::text || '|' || has_function_privilege('service_role', 'public.readiness_probe(text)', 'execute')::text || '|' || coalesce((select bool_or(a.grantee = 0)::text from pg_proc p, aclexplode(p.proacl) a where p.oid = 'public.readiness_probe(text)'::regprocedure), 'false')
+ERROR:  function "public.readiness_probe(text)" does not exist
+LINE 1: ...m pg_proc p, aclexplode(p.proacl) a where p.oid = 'public.re...
+                                                             ^
+
+ ❯ psql tests/api/readiness-probe-db.spec.ts:37:15
+     35|   const projectId = /^project_id\s*=\s*"([^"]+)"/m.exec(toml)?.[1];
+     36|   if (!projectId) throw new Error("project_id not found in supabase/co…
+     37|   const out = execFileSync("docker", ["exec", `supabase_db_${projectId…
+       |               ^
+     38|     encoding: "utf8",
+     39|   });
+ ❯ tests/api/readiness-probe-db.spec.ts:114:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-plus91-spaced
+AssertionError: expected 'send failed for +91 90000 00002' not to contain '90000 00002'
+
+Expected: [32m"90000 00002"[39m
+Received: [31m"[7msend failed for +91 [27m90000 00002"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-plus91-dashed
+AssertionError: expected 'send failed for +91-90000-00003' not to contain '90000-00003'
+
+Expected: [32m"90000-00003"[39m
+Received: [31m"[7msend failed for +91-[27m90000-00003"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-0-prefixed-spaced
+AssertionError: expected 'callback [NUMBER] 00005 unreachable' not to contain '00005'
+
+Expected: [32m"00005"[39m
+Received: [31m"callback [NUMBER] 00005 unreachable"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-3-3-4
+AssertionError: expected 'phone 900 000 0007 rejected' not to contain '0007'
+
+Expected: [32m"0007"[39m
+Received: [31m"phone 900 000 0007 rejected"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-4-3-3
+AssertionError: expected 'sms to 9000 000 021 failed' not to contain '9000 000'
+
+Expected: [32m"9000 00[7m0[27m"[39m
+Received: [31m"[7msms to [27m9000 00[7m0[27m[7m 021 failed[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-3-2-2-3
+AssertionError: expected 'sms to 900 00 00 022 failed' not to contain '00 022'
+
+Expected: [32m"00 022"[39m
+Received: [31m"sms to 900 00 00 022 failed"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-2-dashed-pairs
+AssertionError: expected 'sms to 90-00-00-00-23 failed' not to contain '00-23'
+
+Expected: [32m"00-23"[39m
+Received: [31m"sms to 90-00-00-00-23 failed"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-dotted
+AssertionError: expected 'sms to 90000.00024 failed' not to contain '00024'
+
+Expected: [32m"00024"[39m
+Received: [31m"sms to 90000.00024 failed"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-underscored
+AssertionError: expected 'sms to 90000_00025 failed' not to contain '00025'
+
+Expected: [32m"00025"[39m
+Received: [31m"sms to 90000_00025 failed"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-plus91-parens
+AssertionError: expected 'sms to +91 (900) 000-0026 failed' not to contain '0026'
+
+Expected: [32m"0026"[39m
+Received: [31m"sms to +91 (900) 000-0026 failed"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message mobile-fullwidth-digits
+AssertionError: expected 'phone ９０００００００３１ rejected' not to contain '９０００'
+
+Expected: [32m"９０００"[39m
+Received: [31m"phone ９０００００００３１ rejected"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message aadhaar-spaced
+AssertionError: expected 'aadhaar 2000 0000 0008 invalid' not to contain '2000 0000 0008'
+
+Expected: [32m"2000 0000 0008"[39m
+Received: [31m"[7maadhaar [27m2000 0000 0008[7m invalid[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message aadhaar-dashed
+AssertionError: expected 'aadhaar 2000-0000-0027 invalid' not to contain '0027'
+
+Expected: [32m"0027"[39m
+Received: [31m"aadhaar 2000-0000-0027 invalid"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message aadhaar-dotted
+AssertionError: expected 'aadhaar 2000.0000.0028 invalid' not to contain '0028'
+
+Expected: [32m"0028"[39m
+Received: [31m"aadhaar 2000.0000.0028 invalid"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message abha-number
+AssertionError: expected 'abha 91-0000-0000-0010 not linked' not to contain '91-0000-0000-0010'
+
+Expected: [32m"91-0000-0000-0010"[39m
+Received: [31m"[7mabha [27m91-0000-0000-0010[7m not linked[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message abha-address
+AssertionError: expected 'abha address synthetic.patient29@abdm…' not to contain 'synthetic.patient29'
+
+Expected: [32m"synthetic.patient29"[39m
+Received: [31m"[7mabha address [27msynthetic.patient29[7m@abdm not linked[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message pan
+AssertionError: expected 'pan ABCDE1234F mismatch' not to contain 'ABCDE1234F'
+
+Expected: [32m"ABCDE1234F"[39m
+Received: [31m"[7mpan [27mABCDE1234F[7m mismatch[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message email-unicode
+AssertionError: expected 'invite to sÿnthetic.pätient@exämple.i…' not to contain 'sÿnthetic'
+
+Expected: [32m"sÿnthetic"[39m
+Received: [31m"invite to sÿnthetic.pätient@exämple.in bounced"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message email-no-tld
+AssertionError: expected 'invite to synthetic30@localhost bounc…' not to contain 'synthetic30'
+
+Expected: [32m"synthetic30"[39m
+Received: [31m"[7minvite to [27msynthetic30[7m@localhost bounced[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message pg-key-detail-name
+AssertionError: expected 'Key (full_name)=(Synthetic Patientnam…' not to contain 'Synthetic Patientname'
+
+Expected: [32m"Synthetic Patientname"[39m
+Received: [31m"[7mKey (full_name)=([27mSynthetic Patientname[7m) already exists.[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message pg-key-expression-index
+AssertionError: expected 'Key (lower(full_name::text))=(synthet…' not to contain 'synthetic rowname'
+
+Expected: [32m"synthetic rowname"[39m
+Received: [31m"Key (lower(full_name::text))=(synthetic rowname) already exists."[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message pg-key-value-with-paren
+AssertionError: expected 'Key (full_name)=(Synthetic) Tailname)…' not to contain 'Tailname'
+
+Expected: [32m"Tailname"[39m
+Received: [31m"Key (full_name)=(Synthetic) Tailname) already exists."[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message pg-key-multiline-value
+AssertionError: expected 'Key (notes)=(Synthetic first line\nSy…' not to contain 'Synthetic first line'
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Synthetic first line[39m
+[31m+ [7mKey (notes)=([27mSynthetic first line[39m
+[31m+ Synthetic diabetic history) already exists.[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message pg-failing-row
+AssertionError: expected 'new row for relation "patients" viola…' not to contain 'Synthetic Rowname'
+
+Expected: [32m"Synthetic Rowname"[39m
+Received: [31m"new row for relation "patients" violates check constraint "x" Failing row contains (Synthetic Rowname, 1990-01-01, f)."[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message pg-failing-row-multiline
+AssertionError: expected 'Failing row contains (abc, Synthetic …' not to contain 'Synthetic Rowname'
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Synthetic Rowname[39m
+[31m+ Failing row contains (abc, Synthetic Rowname[39m
+[31m+ next line diabetic).[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message pg-quoted-input
+AssertionError: expected 'invalid input syntax for type uuid: "…' not to contain 'Synthetic Inputvalue'
+
+Expected: [32m"Synthetic Inputvalue"[39m
+Received: [31m"[7minvalid input syntax for type uuid: "[27mSynthetic Inputvalue[7m"[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message bearer
+AssertionError: expected 'upstream said Bearer syntheticBearerV…' not to contain 'syntheticBearerValueXyz'
+
+Expected: [32m"syntheticBearerValueXyz"[39m
+Received: [31m"[7mupstream said Bearer [27msyntheticBearerValueXyz"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message sb-secret-letters
+AssertionError: expected 'leaked sb_secret_aaaabbbbccccddddeeee…' not to contain 'aaaabbbbccccddddeeee'
+
+Expected: [32m"[7ma[27maaabbbbccccddddeee[7me[27m"[39m
+Received: [31m"[7mleaked sb_secret_[27maaa[7ma[27mbbbbccccddddeee[7me[27m[7m in a header[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message sb-publishable-letters
+AssertionError: expected 'leaked sb_publishable_ffffgggghhhhiii…' not to contain 'ffffgggghhhhiiiijjjjkkkk'
+
+Expected: [32m"ffffgggghhhhiiiijjjjkkkk"[39m
+Received: [31m"[7mleaked sb_publishable_[27mffffgggghhhhiiiijjjjkkkk[7m in a header[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message share-token-path
+AssertionError: expected 'fetch /r/k7Qp2xZ9mN4vB8sL1tR6 failed' not to contain 'k7Qp2xZ9mN4vB8sL1tR6'
+
+Expected: [32m"k7Qp2xZ9mN4vB8sL1tR6"[39m
+Received: [31m"[7mfetch /r/[27mk7Qp2xZ9mN4vB8sL1tR6[7m failed[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message share-token-path-letters
+AssertionError: expected 'fetch /r/abcdefghijklmnopqrstuvwxyzAB…' not to contain 'abcdefghijklmnopqrstuvwxyzABCDEF'
+
+Expected: [32m"abcdefghijklmnopqrstuvwxyzABCDEF"[39m
+Received: [31m"[7mfetch /r/[27mabcdefghijklmnopqrstuvwxyzABCDEF[7m failed[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message reschedule-token-path
+AssertionError: expected 'fetch /reschedule/Zq_-abcdefghijklmno…' not to contain 'abcdefghijklmnopqrst'
+
+Expected: [32m"abcdefghijklmnopqrst"[39m
+Received: [31m"[7mfetch /reschedule/Zq_-[27mabcdefghijklmnopqrst[7m failed[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message letter-token-mixed-case
+AssertionError: expected 'token QwErTyUiOpAsDfGhJkLzXcVbNm reje…' not to contain 'QwErTyUiOpAsDfGhJkLzXcVbNm'
+
+Expected: [32m"QwErTyUiOpAsDfGhJkLzXcVbNm"[39m
+Received: [31m"[7mtoken [27mQwErTyUiOpAsDfGhJkLzXcVbNm[7m rejected[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message json-payload
+AssertionError: expected 'payload {"phone":"Synthetic Jsonvalue…' not to contain 'Synthetic Jsonvalue'
+
+Expected: [32m"Synthetic Jsonvalue"[39m
+Received: [31m"[7mpayload {"phone":"[27mSynthetic Jsonvalue[7m"} rejected[27m"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[40/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message storage-key-name
+AssertionError: expected 'Object not found: clinic-records/tena…' not to contain 'Synthetic_Labname'
+
+Expected: [32m"Synthetic_Labname"[39m
+Received: [31m"Object not found: clinic-records/tenants/7d1c0b9a-0000-4000-8000-[NUMBER]/patients/7d1c0b9a-0000-4000-8000-[NUMBER]/labs/Synthetic_Labname_cbc_2026-01-01.pdf"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:82:65
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+       |                                                                 ^
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+     84|     expect(row!.message).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[41/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: shared message vectors > message scrub-before-truncate
+AssertionError: expected 'invalid_event' to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+"invalid_event"
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:81:19
+     79|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+     80|     const { error, row } = await ingestAndRead({ message: vector.input…
+     81|     expect(error).toBeNull();
+       |                   ^
+     82|     for (const value of vector.absent) expect(row!.message).not.toCont…
+     83|     for (const value of vector.kept) expect(row!.message).toContain(va…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[42/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: error_name, error_code, route_path > field name-digits
+AssertionError: expected '9000000032' to be 'Error' // Object.is equality
+
+Expected: [32m"Error"[39m
+Received: [31m"9000000032"[39m
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:99:64
+     97|     const { error, row } = await ingestAndRead({ [vector.field]: vecto…
+     98|     expect(error).toBeNull();
+     99|     if (vector.field === "error_name") expect(row!.error_name).toBe(ve…
+       |                                                                ^
+    100|     else expect(row!.error_code).toBe(vector.stored);
+    101|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[43/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: error_name, error_code, route_path > field name-email
+AssertionError: expected 'invalid_event' to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+"invalid_event"
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:98:19
+     96|   it.each(VECTORS.fields.map((v) => [v.id, v] as const))("field %s", a…
+     97|     const { error, row } = await ingestAndRead({ [vector.field]: vecto…
+     98|     expect(error).toBeNull();
+       |                   ^
+     99|     if (vector.field === "error_name") expect(row!.error_name).toBe(ve…
+    100|     else expect(row!.error_code).toBe(vector.stored);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[44/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: error_name, error_code, route_path > field code-name-and-phone
+AssertionError: expected 'synthetic.patient_9000000033' to be null // Object.is equality
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+"synthetic.patient_9000000033"
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:100:34
+     98|     expect(error).toBeNull();
+     99|     if (vector.field === "error_name") expect(row!.error_name).toBe(ve…
+    100|     else expect(row!.error_code).toBe(vector.stored);
+       |                                  ^
+    101|   });
+    102| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[45/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: error_name, error_code, route_path > field code-digits
+AssertionError: expected '9000000034' to be null // Object.is equality
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+"9000000034"
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:100:34
+     98|     expect(error).toBeNull();
+     99|     if (vector.field === "error_name") expect(row!.error_name).toBe(ve…
+    100|     else expect(row!.error_code).toBe(vector.stored);
+       |                                  ^
+    101|   });
+    102| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[46/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: error_name, error_code, route_path > field code-lower-free-text
+AssertionError: expected 'ramesh' to be null // Object.is equality
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+"ramesh"
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:100:34
+     98|     expect(error).toBeNull();
+     99|     if (vector.field === "error_name") expect(row!.error_name).toBe(ve…
+    100|     else expect(row!.error_code).toBe(vector.stored);
+       |                                  ^
+    101|   });
+    102| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[47/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: error_name, error_code, route_path > concrete or malformed route not stored: /r/abcDEF1234567890token
+AssertionError: expected '/r/abcDEF1234567890token' to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+"/r/abcDEF1234567890token"
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:112:34
+    110|     const { error, row } = await ingestAndRead({ route_path: route });
+    111|     if (error) expect(error).toBe("invalid_event");
+    112|     else expect(row!.route_path).toBeNull();
+       |                                  ^
+    113|   });
+    114| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[48/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: error_name, error_code, route_path > concrete or malformed route not stored: /patients/9000000035
+AssertionError: expected '/patients/9000000035' to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+"/patients/9000000035"
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:112:34
+    110|     const { error, row } = await ingestAndRead({ route_path: route });
+    111|     if (error) expect(error).toBe("invalid_event");
+    112|     else expect(row!.route_path).toBeNull();
+       |                                  ^
+    113|   });
+    114| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[49/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: error_name, error_code, route_path > concrete or malformed route not stored: /r/k7Qp2xZ9mN4vB8sL1tR6
+AssertionError: expected '/r/k7Qp2xZ9mN4vB8sL1tR6' to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+"/r/k7Qp2xZ9mN4vB8sL1tR6"
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:112:34
+    110|     const { error, row } = await ingestAndRead({ route_path: route });
+    111|     if (error) expect(error).toBe("invalid_event");
+    112|     else expect(row!.route_path).toBeNull();
+       |                                  ^
+    113|   });
+    114| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[50/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: cut after the scrub (review B L-2) > a 498-character message the scrub lengthens is stored (cut to 500), not refused by the column CHECK
+AssertionError: expected 'new row for relation "error_events" v…' to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+"new row for relation \"error_events\" violates check constraint \"error_events_message_check\""
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:119:19
+    117|   it("a 498-character message the scrub lengthens is stored (cut to 50…
+    118|     const { error, row } = await ingestAndRead({ message: "?a ".repeat…
+    119|     expect(error).toBeNull();
+       |                   ^
+    120|     expect(row!.message.length).toBe(500);
+    121|     expect(row!.message.startsWith("?[QUERY]")).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[51/52]⎯
+
+ FAIL  tests/observability/error-sink-scrub-db.spec.ts > ops_ingest_error second scrub: cut after the scrub (review B L-2) > hostile 2000-character inputs are scrubbed in bounded time
+AssertionError: expected 'invalid_event' to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+"invalid_event"
+
+ ❯ tests/observability/error-sink-scrub-db.spec.ts:141:21
+    139|     for (const message of hostile) {
+    140|       const { error, row } = await ingestAndRead({ message: message.sl…
+    141|       expect(error).toBeNull();
+       |                     ^
+    142|       expect(row!.message.length).toBeLessThanOrEqual(500);
+    143|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[52/52]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  52 failed | 47 passed (99)
+   Start at  08:31:02
+   Duration  3.08s (transform 69ms, setup 17ms, collect 129ms, tests 2.54s, environment 0ms, prepare 55ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

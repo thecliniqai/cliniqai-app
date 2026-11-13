@@ -1,0 +1,205 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/billing/payment-actor-guards.spec.ts (9 tests | 7 failed) 577ms
+   × H-PAY: direct payments INSERT through PostgREST > a nurse naming another user in recorded_by is stored as the nurse (actor forced to auth.uid()) 22ms
+     → expected [ [ …(2) ] ] to deeply equal [ [ …(2) ] ]
+   × H-PAY: direct payments INSERT through PostgREST > the reviewer's forged command: a direct insert carrying a command id is refused, and the RPC then does not replay it 7ms
+     → expected undefined to be '42501' // Object.is equality
+   × H-PAY: direct payments INSERT through PostgREST > record_payment does not replay another actor's row with the same command id (IDEMPOTENCY_MISMATCH) 9ms
+     → expected { Object (replayed, paid_total, ...) } to be null
+   ✓ H-PAY: direct payments INSERT through PostgREST > the RPC's own command still records and replays for its actor 14ms
+   × Low: record_payment inside a savepoint (outbox subject check) > succeeds inside SAVEPOINT and writes its outbox row; the marker does not outlive the call 56ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c set local role authenticated -c select set_config('request.jwt.claims', '{"sub":"7c249dc9-bb98-4443-b042-2b4c2179fd9c","role":"authenticated"}', true) is not null -c savepoint s1 -c select (public.record_payment('aefd72b6-ccf0-429f-a3ea-22662a10db0c', 'd9cc1186-e640-49b0-94c7-93e332b61195', 100, 'cash', null, '32e5f389-73da-4076-aff5-b6ea8042e2a0') ->> 'invoice_status') -c release savepoint s1 -c select coalesce(current_setting('clinicos.record_payment_id', true), '') = '' -c reset role -c select count(*) from public.webhook_delivery_queue q join public.payments p on q.payload like '%' || p.id::text || '%' where p.invoice_id = 'd9cc1186-e640-49b0-94c7-93e332b61195' -c rollback
+ERROR:  OUTBOX_SUBJECT_INVALID
+CONTEXT:  PL/pgSQL function private.outbox_payment_recorded(uuid) line 16 at RAISE
+SQL statement "SELECT private.outbox_payment_recorded(v_payment_id)"
+PL/pgSQL function public.record_payment(uuid,uuid,numeric,text,text,uuid,text,text) line 155 at PERFORM
+
+   × Low: record_payment inside a savepoint (outbox subject check) > succeeds inside a plpgsql exception block 44ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c set local role authenticated -c select set_config('request.jwt.claims', '{"sub":"7c249dc9-bb98-4443-b042-2b4c2179fd9c","role":"authenticated"}', true) is not null -c do $$ begin perform public.record_payment('aefd72b6-ccf0-429f-a3ea-22662a10db0c', '4fea6da6-f138-4227-a380-d72ce965b91f', 50, 'cash', null, '6b12e1ca-32a5-433b-a2bb-50cc99c97d92');
+           exception when others then raise exception 'wrapped: %', sqlerrm; end $$ -c reset role -c select status from public.invoices where id = '4fea6da6-f138-4227-a380-d72ce965b91f' -c rollback
+ERROR:  wrapped: OUTBOX_SUBJECT_INVALID
+CONTEXT:  PL/pgSQL function inline_code_block line 2 at RAISE
+
+   × M-AUDITSYS: direct audit_logs INSERT through PostgREST > a nurse claiming the system (the reviewer's row) is stored as the nurse, role nurse, without system_actor 5ms
+     → expected [ { actor_id: null, …(4) } ] to deeply equal [ { …(5) } ]
+   × M-AUDITSYS: direct audit_logs INSERT through PostgREST > a nurse naming another user, an API key and the owner role is stored as the nurse 6ms
+     → expected [ { …(5) } ] to deeply equal [ { …(5) } ]
+   ✓ M-AUDITSYS: direct audit_logs INSERT through PostgREST > the service role (system path, /api/v1) keeps its actor_type and api key 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/payment-actor-guards.spec.ts > H-PAY: direct payments INSERT through PostgREST > a nurse naming another user in recorded_by is stored as the nurse (actor forced to auth.uid())
+AssertionError: expected [ [ …(2) ] ] to deeply equal [ [ …(2) ] ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    [[22m
+[32m-     "7c249dc9-bb98-4443-b042-2b4c2179fd9c",[39m
+[31m+     "355dede8-75f0-48a4-a6f9-e3f4b14093a7",[39m
+[2m      null,[22m
+[2m    ],[22m
+[2m  ][22m
+
+ ❯ tests/billing/payment-actor-guards.spec.ts:85:68
+     83|     expect(error).toBeNull();
+     84|     const rows = await paymentsOf(invoiceId);
+     85|     expect(rows.map((r) => [r.recorded_by, r.recorded_by_system])).toE…
+       |                                                                    ^
+     86|   });
+     87| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/billing/payment-actor-guards.spec.ts > H-PAY: direct payments INSERT through PostgREST > the reviewer's forged command: a direct insert carrying a command id is refused, and the RPC then does not replay it
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+[32m- Expected:[39m 
+"42501"
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ tests/billing/payment-actor-guards.spec.ts:99:25
+     97|       command_id: commandId,
+     98|     });
+     99|     expect(error?.code).toBe("42501");
+       |                         ^
+    100|     expect(error?.message).toBe("COMMAND_ID_RPC_ONLY");
+    101|     expect(await paymentsOf(invoiceId)).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/billing/payment-actor-guards.spec.ts > H-PAY: direct payments INSERT through PostgREST > record_payment does not replay another actor's row with the same command id (IDEMPOTENCY_MISMATCH)
+AssertionError: expected { Object (replayed, paid_total, ...) } to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+{
+  "balance_due": 60,
+  "invoice_status": "issued",
+  "paid_total": 40,
+  "payment_id": "11107254-156c-4754-b7d8-ea3f7eb420db",
+  "replayed": true,
+  "total_amount": 100,
+}
+
+ ❯ tests/billing/payment-actor-guards.spec.ts:136:18
+    134|       p_command_id: commandId,
+    135|     });
+    136|     expect(data).toBeNull();
+       |                  ^
+    137|     expect(error?.message).toBe("IDEMPOTENCY_MISMATCH");
+    138| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/billing/payment-actor-guards.spec.ts > Low: record_payment inside a savepoint (outbox subject check) > succeeds inside SAVEPOINT and writes its outbox row; the marker does not outlive the call
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c set local role authenticated -c select set_config('request.jwt.claims', '{"sub":"7c249dc9-bb98-4443-b042-2b4c2179fd9c","role":"authenticated"}', true) is not null -c savepoint s1 -c select (public.record_payment('aefd72b6-ccf0-429f-a3ea-22662a10db0c', 'd9cc1186-e640-49b0-94c7-93e332b61195', 100, 'cash', null, '32e5f389-73da-4076-aff5-b6ea8042e2a0') ->> 'invoice_status') -c release savepoint s1 -c select coalesce(current_setting('clinicos.record_payment_id', true), '') = '' -c reset role -c select count(*) from public.webhook_delivery_queue q join public.payments p on q.payload like '%' || p.id::text || '%' where p.invoice_id = 'd9cc1186-e640-49b0-94c7-93e332b61195' -c rollback
+ERROR:  OUTBOX_SUBJECT_INVALID
+CONTEXT:  PL/pgSQL function private.outbox_payment_recorded(uuid) line 16 at RAISE
+SQL statement "SELECT private.outbox_payment_recorded(v_payment_id)"
+PL/pgSQL function public.record_payment(uuid,uuid,numeric,text,text,uuid,text,text) line 155 at PERFORM
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ tests/billing/payment-actor-guards.spec.ts:177:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/billing/payment-actor-guards.spec.ts > Low: record_payment inside a savepoint (outbox subject check) > succeeds inside a plpgsql exception block
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -qAt -c begin -c set local role authenticated -c select set_config('request.jwt.claims', '{"sub":"7c249dc9-bb98-4443-b042-2b4c2179fd9c","role":"authenticated"}', true) is not null -c do $$ begin perform public.record_payment('aefd72b6-ccf0-429f-a3ea-22662a10db0c', '4fea6da6-f138-4227-a380-d72ce965b91f', 50, 'cash', null, '6b12e1ca-32a5-433b-a2bb-50cc99c97d92');
+           exception when others then raise exception 'wrapped: %', sqlerrm; end $$ -c reset role -c select status from public.invoices where id = '4fea6da6-f138-4227-a380-d72ce965b91f' -c rollback
+ERROR:  wrapped: OUTBOX_SUBJECT_INVALID
+CONTEXT:  PL/pgSQL function inline_code_block line 2 at RAISE
+
+ ❯ psqlSession tests/helpers/sql.ts:54:15
+     52|   const args = ["exec", localDbContainer(), "psql", "-U", "postgres", …
+     53|   for (const s of statements) args.push("-c", s);
+     54|   const out = execFileSync("docker", args, { encoding: "utf8", stdio: …
+       |               ^
+     55|   return out.trim().split("\n").filter(Boolean);
+     56| }
+ ❯ tests/billing/payment-actor-guards.spec.ts:195:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/billing/payment-actor-guards.spec.ts > M-AUDITSYS: direct audit_logs INSERT through PostgREST > a nurse claiming the system (the reviewer's row) is stored as the nurse, role nurse, without system_actor
+AssertionError: expected [ { actor_id: null, …(4) } ] to deeply equal [ { …(5) } ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    {[22m
+[32m-     "actor_id": "7c249dc9-bb98-4443-b042-2b4c2179fd9c",[39m
+[32m-     "actor_role": "nurse",[39m
+[32m-     "actor_type": "user",[39m
+[31m+     "actor_id": null,[39m
+[31m+     "actor_role": "system",[39m
+[31m+     "actor_type": "system",[39m
+[2m      "api_key_id": null,[22m
+[2m      "metadata": {[22m
+[2m        "invoice_id": "fd1c6ef6-6283-4b7e-826e-485a0eaddcdd",[22m
+[31m+       "system_actor": "system:payment_webhook",[39m
+[2m      },[22m
+[2m    },[22m
+[2m  ][22m
+
+ ❯ tests/billing/payment-actor-guards.spec.ts:233:38
+    231|     });
+    232|     expect(error).toBeNull();
+    233|     expect(await auditRow(entityId)).toEqual([
+       |                                      ^
+    234|       { actor_id: nurse.userId, actor_role: "nurse", actor_type: "user…
+    235|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/billing/payment-actor-guards.spec.ts > M-AUDITSYS: direct audit_logs INSERT through PostgREST > a nurse naming another user, an API key and the owner role is stored as the nurse
+AssertionError: expected [ { …(5) } ] to deeply equal [ { …(5) } ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    {[22m
+[32m-     "actor_id": "7c249dc9-bb98-4443-b042-2b4c2179fd9c",[39m
+[32m-     "actor_role": "nurse",[39m
+[32m-     "actor_type": "user",[39m
+[32m-     "api_key_id": null,[39m
+[31m+     "actor_id": "6fe25aa6-c116-454d-a80a-c345057ae1e5",[39m
+[31m+     "actor_role": "owner",[39m
+[31m+     "actor_type": "api_key",[39m
+[31m+     "api_key_id": "9fb22eda-c34e-457d-9d0e-c08d1d615d29",[39m
+[2m      "metadata": null,[22m
+[2m    },[22m
+[2m  ][22m
+
+ ❯ tests/billing/payment-actor-guards.spec.ts:258:38
+    256|     });
+    257|     expect(error).toBeNull();
+    258|     expect(await auditRow(entityId)).toEqual([
+       |                                      ^
+    259|       { actor_id: nurse.userId, actor_role: "nurse", actor_type: "user…
+    260|     ]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 2 passed (9)
+   Start at  08:26:40
+   Duration  896ms (transform 46ms, setup 8ms, collect 39ms, tests 577ms, environment 0ms, prepare 22ms)
+
+[teardown] removed run data: 2 tenant(s), 3 auth user(s), 0 storage object(s); verified none remain

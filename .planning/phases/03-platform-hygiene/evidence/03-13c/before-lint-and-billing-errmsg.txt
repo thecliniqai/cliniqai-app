@@ -1,0 +1,595 @@
+
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-head
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts (121 tests | 20 failed) 13287ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a server action importing the system factory  694ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a dashboard page importing the system factory 75ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a feature service importing the system factory 3ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > an A1 share route importing the factory itself 8ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the cookie-client module importing the factory 8ms
+   × P1-34 boundary lint gates: bypass fixtures fail lint > the lib/jobs enqueue surface wrapping the factory 17ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ] ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > a feature importing a factory wrapper from lint-fixtures/, scripts/, tests/, docs/ 3ms
+     → expected [] to deeply equal [ [ 2, 'P1-34:', …(2) ], …(3) ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > a register zone importing the tooling trees 7ms
+     → expected [] to deeply equal [ [ 2, 'P1-34:', …(2) ], …(3) ]
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a relative path to the factory 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a re-export of the factory 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a feature service importing features/sharing/system 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a non-A1 route importing features/sharing/system 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a non-A1 page importing features/sharing/system 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > an A1 route importing another domain's system module 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > an action importing its own domain's ./system 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > dynamic import() of the factory 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > dynamic import() of the factory on an allowed path 3ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > require() of the factory 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > require() of the factory on an allowed path 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a computed import() specifier 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > dynamic import() of @supabase/supabase-js 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a createClient value import and the secret key in a feature 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a namespace import of @supabase/supabase-js 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a createServerClient value import in a feature 1ms
+   × P1-34 boundary lint gates: bypass fixtures fail lint > new SupabaseClient in a feature 2ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ] ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > new SupabaseClient in the factory module (createClient only) 7ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ] ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > GoTrueAdminApi and @supabase/auth-js in a feature 2ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ], …(1) ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > GoTrueAdminApi and @supabase/auth-js in the factory module 2ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ], …(1) ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > GoTrueAdminApi and @supabase/auth-js in a cookie-session module 3ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ], …(1) ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/postgrest-js in a feature 2ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ] ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/postgrest-js in the factory module 1ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ] ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/ssr and supabase-js subpaths in a feature 1ms
+     → expected [] to deeply equal [ [ 2, 'P1-34:', …(2) ], …(1) ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/ssr and supabase-js subpaths in a cookie-session module 1ms
+     → expected [] to deeply equal [ [ 2, 'P1-34:', …(2) ], …(1) ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/ssr and supabase-js subpaths in the factory module 1ms
+     → expected [] to deeply equal [ [ 2, 'P1-34:', …(2) ], …(1) ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > the secret-key name built from pieces, and computed/spread/enumerated env reads 3ms
+     → expected [] to deeply equal [ [ 2, 'P1-34:', …(2) ], …(10) ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > require aliased, module.require, a computed require and createRequire 2ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ], …(6) ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > the require forms on an allowed path 7ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ], …(6) ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > inline directives that silence or blanket the gates (inline configuration off) 2ms
+     → expected [ [ 2, 'P1-34:', …(2) ] ] to deeply equal [ [ 1, 'P1-34:', …(2) ], …(3) ]
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the secret-key names as strings in a feature 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > an action importing a lib/jobs internal 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a register route importing a lib/jobs internal 8ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the jobs enqueue surface importing a lib/jobs internal 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the jobs enqueue surface importing ./internal 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > process.env in a feature 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > process.env in the system factory 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > console in a feature 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > console in the server logger 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > console in the env module 6ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the server logger imported into "use client" code 7ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > each UTC-date pattern in a feature 3ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > each UTC-date pattern outside lib/datetime 8ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/api/r/[token]/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/r/[token]/page.tsx 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/api/reports/view/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/reports/view/page.tsx 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/api/reschedule/[token]/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/webhooks/x/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/jobs/run/route.ts 6ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/jobs/internal/runner.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at features/x/system.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/v1/x/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/api/x.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/cron/x/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/messaging/dispatcher.ts 3ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/webhooks/x.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > other-feature-system-import.ts at features/sharing/system.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > other-feature-system-import.ts at app/api/webhooks/messaging/x/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > second-factory.ts at lib/supabase/system.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > ssr-client-import.ts at lib/supabase/server.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > ssr-client-import.ts at lib/supabase/client.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > ssr-client-import.ts at proxy.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > type-imports.ts at features/patients/service.ts 2ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > secret-key-names.ts at lib/env.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > secret-key-names.ts at lib/env-server.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at lib/env.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at lib/env-server.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at next.config.ts 6ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at instrumentation.ts 3ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at lib/log/client.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > console.ts at lib/log/client.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > client-reporter.tsx at components/fixture/widget.tsx 5ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > utc-date-patterns.ts at lib/datetime/x.ts 6ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > jobs-internal-import.ts at app/api/jobs/run/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > jobs-internal-import.ts at lib/jobs/internal/registry.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at tests/fixture/x.spec.ts 5ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > second-factory.ts at scripts/fixture.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > console.ts at scripts/fixture.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at tests/fixture/x.spec.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > computed-secret-key.ts at lib/env.ts 4ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > computed-secret-key.ts at lib/env-server.ts 2ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > tooling-import.ts at tests/fixture/x.spec.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > require-forms.ts at scripts/fixture.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > supabase-client-class.ts at tests/fixture/x.spec.ts 1ms
+   × P1-34 boundary lint gates: inline directives (03-13c M-LINT) > with inline configuration on (`npx eslint .`), the directive rule still fails a directive that names a gate 7ms
+     → expected [] to deeply equal [ [ 1, …(2) ], [ 3, …(2) ] ]
+   ✓ P1-34 boundary lint gates: inline directives (03-13c M-LINT) > tooling may carry directives (the rule is off there) 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/v1/x/route.ts 2ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/cron/x/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/webhooks/x/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/jobs/run/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/api/x.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/webhooks/x.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/messaging/dispatcher.ts 2ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/jobs/internal/runner.ts 2ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at features/x/system.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/supabase/system.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/supabase/server.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at proxy.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/env.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at next.config.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/log/client.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/datetime/x.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/r/[token]/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/r/[token]/page.tsx 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/reports/view/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/reports/view/page.tsx 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/reschedule/[token]/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at tests/fixture/x.spec.ts 3ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at scripts/fixture.ts 1ms
+   ✓ P1-34 boundary lint gates: the real tree > app code carries 0 boundary messages  4263ms
+   × P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed 7894ms
+     → expected undefined to deeply equal []
+   × P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the counters see the fixtures' second factories, system importers, directives and UTC patterns 90ms
+     → expected [ 'namespace-supabase-js.ts', …(1) ] to deeply equal [ 'gotrue-admin.ts', …(5) ]
+ ❯ tests/billing/billing-error-messages.spec.ts (5 tests | 5 failed) 12ms
+   × features/billing: no raw error text in a service result (M-ERRMSG) > getVisitBillingDetails returns a fixed message, never the database error 3ms
+     → expected 'Key (phone)=(+919000000099) already e…' not to contain '9000000099'
+   × features/billing: no raw error text in a service result (M-ERRMSG) > deleteInvoiceItem returns a fixed message, never the database error 0ms
+     → expected 'Key (phone)=(+919000000099) already e…' not to contain '9000000099'
+   × features/billing: no raw error text in a service result (M-ERRMSG) > getInvoiceReceiptPdfSignedUrl returns a fixed message, never the database error 0ms
+     → expected 'Key (phone)=(+919000000099) already e…' not to contain '9000000099'
+   × features/billing: no raw error text in a service result (M-ERRMSG) > shareReceiptViaWhatsApp returns a fixed message, never the database error 1ms
+     → expected 'Key (phone)=(+919000000099) already e…' not to contain '9000000099'
+   × features/billing: no raw error text in a service result (M-ERRMSG) > getDailyCollectionReport returns a fixed message, never the database error 8ms
+     → expected 'Key (phone)=(+919000000099) already e…' not to contain '9000000099'
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 25 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/billing-error-messages.spec.ts > features/billing: no raw error text in a service result (M-ERRMSG) > getVisitBillingDetails returns a fixed message, never the database error
+ FAIL  tests/billing/billing-error-messages.spec.ts > features/billing: no raw error text in a service result (M-ERRMSG) > deleteInvoiceItem returns a fixed message, never the database error
+ FAIL  tests/billing/billing-error-messages.spec.ts > features/billing: no raw error text in a service result (M-ERRMSG) > getInvoiceReceiptPdfSignedUrl returns a fixed message, never the database error
+ FAIL  tests/billing/billing-error-messages.spec.ts > features/billing: no raw error text in a service result (M-ERRMSG) > shareReceiptViaWhatsApp returns a fixed message, never the database error
+ FAIL  tests/billing/billing-error-messages.spec.ts > features/billing: no raw error text in a service result (M-ERRMSG) > getDailyCollectionReport returns a fixed message, never the database error
+AssertionError: expected 'Key (phone)=(+919000000099) already e…' not to contain '9000000099'
+
+Expected: [32m"9000000099"[39m
+Received: [31m"Key (phone)=(+919000000099) already exists for Synthetic Leakname"[39m
+
+ ❯ tests/billing/billing-error-messages.spec.ts:42:30
+     40|     expect(result.success).toBe(false);
+     41|     expect(typeof result.error).toBe("string");
+     42|     expect(result.error).not.toContain("9000000099");
+       |                              ^
+     43|     expect(result.error).not.toContain("Leakname");
+     44|     expect(result.error).not.toContain("Key (");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/25]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the lib/jobs enqueue surface wrapping the factory
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > new SupabaseClient in a feature
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > new SupabaseClient in the factory module (createClient only)
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/postgrest-js in a feature
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/postgrest-js in the factory module
+AssertionError: expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ] ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     1,[39m
+[32m-     "P1-34:",[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:191:17
+    189|   it.each(FAILING)("%s", async (_name, fixture, relPath, expected) => {
+    190|     const got = await boundaryAt(fixture, relPath);
+    191|     expect(got).toEqual(expected.map(([line, prefix, rule]) => [line, …
+       |                 ^
+    192|   }, 60_000);
+    193| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/25]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a feature importing a factory wrapper from lint-fixtures/, scripts/, tests/, docs/
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a register zone importing the tooling trees
+AssertionError: expected [] to deeply equal [ [ 2, 'P1-34:', …(2) ], …(3) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     2,[39m
+[32m-     "P1-34:",[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     3,[39m
+[32m-     "P1-34:",[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     4,[39m
+[32m-     "P1-34:",[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     5,[39m
+[32m-     "P1-34:",[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:191:17
+    189|   it.each(FAILING)("%s", async (_name, fixture, relPath, expected) => {
+    190|     const got = await boundaryAt(fixture, relPath);
+    191|     expect(got).toEqual(expected.map(([line, prefix, rule]) => [line, …
+       |                 ^
+    192|   }, 60_000);
+    193| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/25]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > GoTrueAdminApi and @supabase/auth-js in a feature
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > GoTrueAdminApi and @supabase/auth-js in the factory module
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > GoTrueAdminApi and @supabase/auth-js in a cookie-session module
+AssertionError: expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ], …(1) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     1,[39m
+[32m-     "P1-34:",[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     2,[39m
+[32m-     "P1-34:",[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:191:17
+    189|   it.each(FAILING)("%s", async (_name, fixture, relPath, expected) => {
+    190|     const got = await boundaryAt(fixture, relPath);
+    191|     expect(got).toEqual(expected.map(([line, prefix, rule]) => [line, …
+       |                 ^
+    192|   }, 60_000);
+    193| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/25]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/ssr and supabase-js subpaths in a feature
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/ssr and supabase-js subpaths in a cookie-session module
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/ssr and supabase-js subpaths in the factory module
+AssertionError: expected [] to deeply equal [ [ 2, 'P1-34:', …(2) ], …(1) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     2,[39m
+[32m-     "P1-34:",[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     3,[39m
+[32m-     "P1-34:",[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:191:17
+    189|   it.each(FAILING)("%s", async (_name, fixture, relPath, expected) => {
+    190|     const got = await boundaryAt(fixture, relPath);
+    191|     expect(got).toEqual(expected.map(([line, prefix, rule]) => [line, …
+       |                 ^
+    192|   }, 60_000);
+    193| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/25]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the secret-key name built from pieces, and computed/spread/enumerated env reads
+AssertionError: expected [] to deeply equal [ [ 2, 'P1-34:', …(2) ], …(10) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     2,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     2,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     2,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     2,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     3,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     3,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     3,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     6,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     7,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     8,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     9,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:191:17
+    189|   it.each(FAILING)("%s", async (_name, fixture, relPath, expected) => {
+    190|     const got = await boundaryAt(fixture, relPath);
+    191|     expect(got).toEqual(expected.map(([line, prefix, rule]) => [line, …
+       |                 ^
+    192|   }, 60_000);
+    193| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/25]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > require aliased, module.require, a computed require and createRequire
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the require forms on an allowed path
+AssertionError: expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ], …(6) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     1,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     1,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     2,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     4,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     4,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     6,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     7,[39m
+[32m-     "P1-34:",[39m
+[32m-     "no-restricted-syntax",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:191:17
+    189|   it.each(FAILING)("%s", async (_name, fixture, relPath, expected) => {
+    190|     const got = await boundaryAt(fixture, relPath);
+    191|     expect(got).toEqual(expected.map(([line, prefix, rule]) => [line, …
+       |                 ^
+    192|   }, 60_000);
+    193| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/25]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > inline directives that silence or blanket the gates (inline configuration off)
+AssertionError: expected [ [ 2, 'P1-34:', …(2) ] ] to deeply equal [ [ 1, 'P1-34:', …(2) ], …(3) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    [[22m
+[32m-     1,[39m
+[32m-     "P1-34:",[39m
+[32m-     "clinicos/no-boundary-directive",[39m
+[2m      2,[22m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     2,[39m
+[2m      "P1-34:",[22m
+[2m      "@typescript-eslint/no-restricted-imports",[22m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     3,[39m
+[32m-     "P1-34:",[39m
+[32m-     "clinicos/no-boundary-directive",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     4,[39m
+[32m-     "P1-34:",[39m
+[32m-     "clinicos/no-boundary-directive",[39m
+[2m      2,[22m
+[2m    ],[22m
+[2m  ][22m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:191:17
+    189|   it.each(FAILING)("%s", async (_name, fixture, relPath, expected) => {
+    190|     const got = await boundaryAt(fixture, relPath);
+    191|     expect(got).toEqual(expected.map(([line, prefix, rule]) => [line, …
+       |                 ^
+    192|   }, 60_000);
+    193| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/25]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: inline directives (03-13c M-LINT) > with inline configuration on (`npx eslint .`), the directive rule still fails a directive that names a gate
+AssertionError: expected [] to deeply equal [ [ 1, …(2) ], [ 3, …(2) ] ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     1,[39m
+[32m-     "clinicos/no-boundary-directive",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     3,[39m
+[32m-     "clinicos/no-boundary-directive",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:209:17
+    207|     // Line 4's blanket `/* eslint-disable */` silences everything aft…
+    208|     // census lint with inline configuration off, where it is reported…
+    209|     expect(got).toEqual([
+       |                 ^
+    210|       [1, DIRECTIVE, 2],
+    211|       [3, DIRECTIVE, 2],
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/25]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed
+AssertionError: expected undefined to deeply equal []
+
+[32m- Expected:[39m 
+[]
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:297:35
+    295|     expect(c.utc_today_messages).toBe(0);
+    296|     expect(c.boundary_messages).toEqual({ "P1-34": 0, "P1-21": 0, "P1-…
+    297|     expect(c.boundary_directives).toEqual([]);
+       |                                   ^
+    298|     expect(c.system_module_importers.factory.length).toBeGreaterThan(0…
+    299|     expect(c.system_module_importers.factory.filter((f) => !ALLOWED_IM…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/25]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the counters see the fixtures' second factories, system importers, directives and UTC patterns
+AssertionError: expected [ 'namespace-supabase-js.ts', …(1) ] to deeply equal [ 'gotrue-admin.ts', …(5) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[32m-   "gotrue-admin.ts",[39m
+[2m    "namespace-supabase-js.ts",[22m
+[32m-   "postgrest-client.ts",[39m
+[2m    "second-factory.ts",[22m
+[32m-   "supabase-client-class.ts",[39m
+[32m-   "supabase-subpath.ts",[39m
+[2m  ][22m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:311:45
+    309|     const c = (await p134Counters({ cwd: ROOT, targets: ["lint-fixture…
+    310|     const names = (files: string[]) => files.map((f) => path.basename(…
+    311|     expect(names(c.service_role_factories)).toEqual([
+       |                                             ^
+    312|       "gotrue-admin.ts",
+    313|       "namespace-supabase-js.ts",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/25]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  25 failed | 101 passed (126)
+   Start at  08:45:04
+   Duration  14.03s (transform 169ms, setup 15ms, collect 347ms, tests 13.30s, environment 0ms, prepare 48ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

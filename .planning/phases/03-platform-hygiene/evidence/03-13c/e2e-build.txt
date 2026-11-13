@@ -1,0 +1,85 @@
+
+> clinicos@0.1.0 e2e:build
+> tsx tests/e2e/support/build.ts
+
+[e2e:build] next build with the guarded e2e environment (no .env, loopback only)
+▲ Next.js 16.4.6 (Turbopack)
+- Environments: .env
+✓ Running next.config.ts took 55ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1695ms
+  Running TypeScript ...
+  Finished TypeScript in 2.1s ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/35) ...
+  Generating static pages using 9 workers (8/35) 
+  Generating static pages using 9 workers (17/35) 
+  Generating static pages using 9 workers (26/35) 
+✓ Generating static pages using 9 workers (35/35) in 176ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /api/auth/send-email
+├ ƒ /api/cron/dispatch-communications
+├ ƒ /api/cron/webhooks
+├ ƒ /api/diag/error
+├ ƒ /api/health
+├ ƒ /api/invoices/[id]/receipt-pdf
+├ ƒ /api/patients/[id]/export
+├ ƒ /api/r/[token]
+├ ƒ /api/ready
+├ ƒ /api/reports/view
+├ ƒ /api/reschedule/[token]
+├ ƒ /api/v1/appointments
+├ ƒ /api/v1/appointments/[id]
+├ ƒ /api/v1/docs
+├ ƒ /api/v1/lab-orders
+├ ƒ /api/v1/lab-orders/[id]
+├ ƒ /api/v1/openapi.json
+├ ƒ /api/v1/patients
+├ ƒ /api/v1/patients/[id]
+├ ƒ /api/v1/patients/[id]/export
+├ ƒ /api/v1/prescriptions
+├ ƒ /api/v1/prescriptions/[id]
+├ ƒ /api/v1/referrals
+├ ƒ /api/v1/referrals/[id]
+├ ƒ /api/v1/visits
+├ ƒ /api/v1/visits/[id]
+├ ƒ /api/visits/[id]/prescription-pdf
+├ ƒ /api/webhooks/messaging/[provider]
+├ ƒ /auth/signout
+├ ƒ /billing/register
+├ ƒ /billing/reports
+├ ƒ /cabin
+├ ƒ /calendar
+├ ○ /clinic/new
+├ ƒ /consultation/[id]
+├ ○ /forgot-password
+├ ○ /join
+├ ○ /login
+├ ƒ /patients
+├ ƒ /patients/[id]
+├ ƒ /patients/new
+├ ƒ /profile
+├ ƒ /queue
+├ ƒ /r/[token]
+├ ƒ /referrals
+├ ƒ /reports/view
+├ ƒ /reschedule/[token]
+├ ƒ /settings/billing
+├ ƒ /settings/clinic
+├ ƒ /settings/developer
+├ ƒ /staff
+└ ƒ /visits
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[e2e:build] output scan clean (1354 files); stamp written for build ic3eK33Zihp2NLFBVr_xX
+exit=0
