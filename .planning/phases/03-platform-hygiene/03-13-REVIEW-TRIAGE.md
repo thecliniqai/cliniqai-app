@@ -45,6 +45,11 @@ review after the fix. **Accepted** items carry a reason and an owner phase.
 03-13b: migration-immutability gate also runs on pushes to `feature/v2`; CI fails when two branches use the same migration number against `origin/feature/v2`.
 03-13c: `record_payment` outbox check works inside a savepoint; `/api/v1` authenticates before taking the system client; DB ingest truncates after scrubbing.
 03-13d: timeouts on MSG91/Gupshup/Twilio/AI fetches; webhook URL redacted (path/query) in audit rows; owner retry limit capped; error-sink per-fingerprint flood bound.
+Phase close (High re-verify Low, `reviews/v203-review-high-reverify.md`): fixed in `e4eb4c1`. `console.dir`, `console.dirxml`
+and `console.table` are wrapped by the console scrubber (dir/table pass only the scrubbed first argument); a P1-25 lint gate
+confines `process.stdout`/`process.stderr` (member, computed, `globalThis`, destructured, `node:process` import, `require`)
+to `lib/log/**` and `lib/observability/**`. Regression: `tests/observability/console-scrub.spec.ts` (real Node `Console`,
+fails without the fix) and `lint-fixtures/p1-34/raw-stream.ts` in `tests/security/p1-34-lint-gates.spec.ts`.
 
 ## Accepted (reason, owner)
 
