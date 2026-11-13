@@ -5,6 +5,7 @@
  * workflows pass, and the same regressions introduced into those real files are caught.
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkWorkflow } from "@/scripts/ci/workflow-policy.mjs";
@@ -85,5 +86,130 @@ describe("workflow policy on regressions of the real staging workflows", () => {
       .replace(/actions\/checkout@[0-9a-f]{40}/, "actions/checkout@v7")
       .replace(/^permissions:\n  contents: read\n/m, "");
     expect(rules(".github/workflows/ci.yml", text).sort()).toEqual(["top-level-permissions", "uses-pinned"]);
+  });
+});
+
+/** A full commit SHA, so the pin rule stays quiet and each case isolates its own rule. */
+const PIN = "3d3c42e5aac5ba805825da76410c181273ba90b1";
+
+describe("workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY)", () => {
+  // The review's bypass fixture (A M-3), verbatim in shape: flow-style triggers with pull_request, write-all, job-level
+  // write scopes, a staging secret in job-level env, setup-node's npm cache and an untrusted context in run:.
+  const BYPASS_FLOW = [
+    "name: bypass",
+    "on: { pull_request: { branches: [feature/v2] }, workflow_dispatch: {} }",
+    "permissions: write-all",
+    "jobs:",
+    "  migrate:",
+    "    runs-on: ubuntu-24.04",
+    "    environment: staging",
+    "    permissions:",
+    "      contents: write",
+    "      id-token: write",
+    "    env:",
+    "      DB: ${{ secrets.STAGING_DB_URL }}",
+    "    steps:",
+    `      - uses: actions/setup-node@${PIN}`,
+    "        with:",
+    "          cache: npm",
+    '      - run: echo "${{ github.head_ref }}"',
+    "",
+  ].join("\n");
+  // The same workflow in block style, so every individual rule fires.
+  const BYPASS_BLOCK = BYPASS_FLOW.replace(
+    "on: { pull_request: { branches: [feature/v2] }, workflow_dispatch: {} }",
+    "on:\n  pull_request:\n    branches: [feature/v2]\n  workflow_dispatch:",
+  );
+
+  it("the flow-style bypass fixture fails (CLI exit 1) instead of passing", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "workflow-policy-"));
+    try {
+      const file = path.join(dir, "staging.yml");
+      fs.writeFileSync(file, BYPASS_FLOW);
+      const r = runNodeChecker("workflow-policy.mjs", [file]);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain("[parseable-yaml] flow mappings ({ … }) are not supported");
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("the block-style bypass names every rule it breaks", () => {
+    const found = rules(".github/workflows/staging.yml", BYPASS_BLOCK);
+    expect([...new Set(found)].sort()).toEqual(
+      [
+        "no-write-all",
+        "privileged-no-cache",
+        "run-no-untrusted-expression",
+        "staging-no-pr-trigger",
+        "staging-read-only-token",
+        "staging-secret-step-scope",
+      ].sort(),
+    );
+    expect(found.filter((r) => r === "staging-read-only-token")).toHaveLength(2); // contents and id-token
+  });
+
+  const staging = () => workflow("staging.yml");
+  const drift = () => workflow("drift.yml");
+  /** Applies `edit`, checks it changed the text, returns the rules found. */
+  const after = (name: string, original: string, edit: (t: string) => string) => {
+    const text = edit(original);
+    expect(text, "the edit did not apply").not.toBe(original);
+    return rules(`.github/workflows/${name}`, text);
+  };
+
+  it.each<[string, string, (t: string) => string, string[]]>([
+    ["triggers as a flow list with pull_request", "staging.yml", (t) => t.replace(/^on:\n/m, "on: [push, pull_request]\nx-old-on:\n"), ["staging-no-pr-trigger"]],
+    ["an issue_comment trigger", "drift.yml", (t) => t.replace(/^on:\n/m, "on:\n  issue_comment:\n"), ["staging-no-pr-trigger"]],
+    ["a pull_request_review trigger", "staging.yml", (t) => t.replace(/^on:\n/m, "on:\n  pull_request_review:\n"), ["staging-no-pr-trigger"]],
+    ["permissions: write-all", "drift.yml", (t) => t.replace(/^permissions:\n  contents: read\n/m, "permissions: write-all\n"), ["no-write-all"]],
+    ["a job-level contents: write", "staging.yml", (t) => t.replace("    environment: staging\n", "    environment: staging\n    permissions:\n      contents: write\n"), ["staging-read-only-token"]],
+    [
+      "a staging secret in job-level env",
+      "drift.yml",
+      (t) => t.replace("    environment: staging-readonly\n", "    environment: staging-readonly\n    env:\n      RO: ${{ secrets.STAGING_DB_URL_RO }}\n"),
+      ["staging-secret-step-scope"],
+    ],
+    [
+      "a staging secret in a step's with:",
+      "staging.yml",
+      (t) => t.replace("          node-version-file: .nvmrc\n", "          node-version-file: .nvmrc\n          token: ${{ secrets.STAGING_SECRET_KEY }}\n"),
+      ["staging-secret-step-scope"],
+    ],
+    ["setup-node's npm cache", "staging.yml", (t) => t.replace("          node-version-file: .nvmrc\n", "          node-version-file: .nvmrc\n          cache: npm\n"), ["privileged-no-cache"]],
+    [
+      "an actions/cache step",
+      "drift.yml",
+      (t) => t.replace("      - name: npm ci (no install scripts)\n", `      - uses: actions/cache@${PIN}\n        with:\n          path: x\n          key: k\n      - name: npm ci (no install scripts)\n`),
+      ["privileged-no-cache"],
+    ],
+    ["npm ci without --ignore-scripts", "staging.yml", (t) => t.replace("run: npm ci --ignore-scripts\n", "run: npm ci\n"), ["privileged-ignore-scripts"]],
+    ["a checkout that persists credentials", "drift.yml", (t) => t.replace("          persist-credentials: false\n", "          persist-credentials: true\n"), ["privileged-checkout-no-persist"]],
+    ["any expression in a staging run:", "staging.yml", (t) => t.replace('run: node scripts/staging/wait-for-release.mjs "$STAGING_ORIGIN" "$RELEASE_SHA"', "run: node scripts/staging/wait-for-release.mjs ${{ vars.STAGING_ORIGIN }}"), ["run-no-untrusted-expression"]],
+    [
+      "a staging secret hidden in a shell comment of a run: script",
+      "staging.yml",
+      (t) => t.replace('          if [ "$TASK" = "seed-reset" ]; then\n', '          # ${{ secrets.STAGING_SECRET_KEY }}\n          if [ "$TASK" = "seed-reset" ]; then\n'),
+      ["run-no-untrusted-expression", "staging-secret-step-scope"],
+    ],
+    ["a YAML anchor", "drift.yml", (t) => t.replace("    runs-on: ubuntu-24.04\n", "    runs-on: &os ubuntu-24.04\n"), ["parseable-yaml"]],
+    ["a duplicate key", "drift.yml", (t) => t.replace("    runs-on: ubuntu-24.04\n", "    runs-on: ubuntu-24.04\n    runs-on: ubuntu-22.04\n"), ["parseable-yaml"]],
+  ])("staging/drift regression: %s", (_label, name, edit, expected) => {
+    const found = after(name, name === "staging.yml" ? staging() : drift(), edit);
+    expect([...new Set(found)].sort()).toEqual([...expected].sort());
+  });
+
+  it("ci.yml: an untrusted context in run: fails even outside staging; the existing safe expressions pass", () => {
+    const ci = workflow("ci.yml");
+    expect(rules(".github/workflows/ci.yml", ci)).toEqual([]);
+    for (const expr of ["github.head_ref", "github.event.pull_request.title", "inputs.lane", "steps.pw.outputs.version", "secrets.GITHUB_TOKEN"]) {
+      const found = after("ci.yml", ci, (t) => t.replace("run: node scripts/ci/assert-no-env-files.mjs", `run: echo "\${{ ${expr} }}"`));
+      expect(found, expr).toEqual(["run-no-untrusted-expression"]);
+    }
+  });
+
+  it("ci.yml keeps its npm caches and plain npm ci (no environment, not a staging workflow)", () => {
+    expect(rules(".github/workflows/ci.yml", workflow("ci.yml"))).toEqual([]);
+    expect(rules(".github/workflows/nightly.yml", workflow("nightly.yml"))).toEqual([]);
   });
 });

@@ -1,0 +1,23 @@
+# without-fix run: files reverted to HEAD 1a32b7c: scripts/ci/workflow-policy.mjs
+# command: npx vitest run tests/ci/workflow-policy.spec.ts --reporter=dot 2>&1 | grep -E ' FAIL |Tests |Test Files' | head -40
+⎯⎯⎯⎯⎯⎯ Failed Tests 17 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > the flow-style bypass fixture fails (CLI exit 1) instead of passing
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > the block-style bypass names every rule it breaks
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: an issue_comment trigger
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a pull_request_review trigger
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: permissions: write-all
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a job-level contents: write
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a staging secret in job-level env
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a staging secret in a step's with:
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: setup-node's npm cache
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: an actions/cache step
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: npm ci without --ignore-scripts
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a checkout that persists credentials
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: any expression in a staging run:
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a staging secret hidden in a shell comment of a run: script
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a YAML anchor
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > staging/drift regression: a duplicate key
+ FAIL  tests/ci/workflow-policy.spec.ts > workflow policy enforces every rule the staging/drift headers claim (03-13b M-POLICY) > ci.yml: an untrusted context in run: fails even outside staging; the existing safe expressions pass
+ Test Files  1 failed (1)
+      Tests  17 failed | 16 passed (33)
+# exit: 0
