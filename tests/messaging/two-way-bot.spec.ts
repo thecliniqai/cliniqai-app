@@ -55,9 +55,27 @@ describe("Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05
       expect(key({ messageId: "wamid.HBg", customerNumber: "919000000001", text: "hi" })).toBe("in:wamid.HBg");
       const raw = JSON.stringify({ customerNumber: "919000000001", text: "hi" });
       expect(key(raw)).toBe(`in:sha256:${createHash("sha256").update(raw).digest("hex")}`);
-      // A message id with spaces or of another type is not used (the hash is).
+      // A message id with spaces or of a non-id type is not used (the hash is).
       expect(key({ uuid: "a b", customerNumber: "919000000001" })).toMatch(/^in:sha256:[0-9a-f]{64}$/);
-      expect(key({ uuid: 42, customerNumber: "919000000001" })).toMatch(/^in:sha256:[0-9a-f]{64}$/);
+      expect(key({ uuid: { id: 1 }, customerNumber: "919000000001" })).toMatch(/^in:sha256:[0-9a-f]{64}$/);
+      expect(key({ uuid: -1, customerNumber: "919000000001" })).toMatch(/^in:sha256:[0-9a-f]{64}$/);
+      expect(key({ uuid: 1.5, customerNumber: "919000000001" })).toMatch(/^in:sha256:[0-9a-f]{64}$/);
+    });
+
+    // V2-04 04-07a (review B L-5): the provider id is preferred whenever there is one (a numeric id too), so two
+    // identical texts with different ids are two keys, and a retry whose envelope changed (field order, an added
+    // field) is still the same key. Without an id the hash covers every field, so a timestamp separates two messages.
+    it("04-07a: the provider id is preferred (numeric ids included); without one the body hash covers the timestamp", () => {
+      expect(key({ uuid: 42, customerNumber: "919000000001", text: "hi" })).toBe("in:42");
+      expect(key({ message_id: "m-1", customerNumber: "919000000001", text: "hi" })).toBe(
+        key({ text: "hi", customerNumber: "919000000001", message_id: "m-1", retry: 2 })
+      );
+      expect(key({ message_id: "m-1", customerNumber: "919000000001", text: "hi" })).not.toBe(
+        key({ message_id: "m-2", customerNumber: "919000000001", text: "hi" })
+      );
+      expect(key({ customerNumber: "919000000001", text: "hi", ts: "2026-11-14T05:00:00Z" })).not.toBe(
+        key({ customerNumber: "919000000001", text: "hi", ts: "2026-11-14T05:00:09Z" })
+      );
     });
 
     it("a key never exceeds the 200-character column and never carries the sender's number", () => {

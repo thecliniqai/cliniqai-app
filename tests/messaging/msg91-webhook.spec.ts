@@ -25,6 +25,7 @@ import {
   useWebhookSecret,
   visitStatus,
 } from "./inbound-helpers";
+import { psql } from "../helpers/sql";
 
 // MSG91 webhook (REQ-reminders-notifications, D-04, D-05, D-06). Section 1 (secret) and section 6 (parsers) are pure
 // unit tests. V2-04 04-03c (P0-12, R-25): sections 2-5 run against the local stack through the real route, because the
@@ -255,6 +256,8 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
         expect(res).toEqual(OK);
         expect(res.text).not.toContain(requestId);
         expect(keyFor({ direction: "outbound", status: "Delivered", request_id: requestId })).toBe(`dlr:${requestId}:delivered`);
+        // 04-07a: kept for a later finish write; this spec's report never gets one.
+        psql(`delete from ops.early_delivery_reports where external_message_id = '${requestId}'`);
       });
     });
   });

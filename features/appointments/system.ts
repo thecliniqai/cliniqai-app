@@ -22,6 +22,18 @@ export interface AppointmentSystemContext {
   reason: AppointmentSystemReason;
 }
 
+/**
+ * The visit is not (or no longer) in a state the cancel may change: a business no-op the inbound webhook records as
+ * handled (04-07a M-INBOUND). Every other cancel failure is an ordinary Error the webhook answers 500 to, so the
+ * provider retries.
+ */
+export class AppointmentNotCancellableError extends Error {
+  constructor() {
+    super("Appointment not cancellable");
+    this.name = "AppointmentNotCancellableError";
+  }
+}
+
 export interface CancelAppointmentInput {
   appointmentId: string;
   reason?: string;
@@ -32,6 +44,11 @@ export interface CancelAppointmentInput {
    * cancellable".
    */
   onlyFromStatuses?: readonly string[];
+  /**
+   * The inbound callback key that asked for the cancel (04-07a M-INBOUND), stored as `metadata.cancel_source_key` so a
+   * provider retry of the same callback can tell its own earlier cancel from a visit cancelled some other way.
+   */
+  sourceKey?: string;
 }
 
 /**
@@ -125,7 +142,7 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
   }
 
   if (input.onlyFromStatuses && !input.onlyFromStatuses.includes(visit.status)) {
-    throw new Error("Appointment not cancellable");
+    throw new AppointmentNotCancellableError();
   }
 
   let cancelQuery = supabase
@@ -137,6 +154,7 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
         cancellation_reason: input.reason || "clinic_cancelled",
         cancelled_by: `system:${sys.reason}`,
         cancelled_at: new Date().toISOString(),
+        ...(input.sourceKey ? { cancel_source_key: input.sourceKey } : {}),
       },
       updated_at: new Date().toISOString(),
     })
@@ -145,10 +163,11 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
   if (input.onlyFromStatuses) {
     cancelQuery = cancelQuery.in("status", [...input.onlyFromStatuses]);
   }
-  const { data: updated, error: updateError } = await cancelQuery.select().single();
+  const { data: updated, error: updateError } = await cancelQuery.select().maybeSingle();
 
-  if (input.onlyFromStatuses && (updateError || !updated)) {
-    throw new Error("Appointment not cancellable");
+  // No row and no error: the status filter matched nothing (the visit moved on between the read and the update).
+  if (input.onlyFromStatuses && !updateError && !updated) {
+    throw new AppointmentNotCancellableError();
   }
   if (updateError || !updated) {
     throw new Error("Failed to cancel appointment.", { cause: updateError });

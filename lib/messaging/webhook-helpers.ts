@@ -63,8 +63,14 @@ const PROVIDER_ID = /^[A-Za-z0-9_.:=+\/-]{1,128}$/;
  *
  * - delivery report → `dlr:<requestId>:<status>` (a repeat of the same report is the same key; `delivered` then `read`
  *   are two keys); `null` without a request id or for a status the route ignores;
- * - inbound message → `in:<message id>` when the payload carries the message's own id, else `in:sha256:<hex of the raw
- *   body>` (a provider retry repeats the body byte for byte).
+ * - inbound message → `in:<message id>` whenever the payload carries the message's own provider id (preferred: the id
+ *   names the message, whatever else a retry changes), else `in:sha256:<hex of the raw body>`.
+ *
+ * The body-hash fallback (04-07a, review B L-5) relies on a provider retry repeating the body byte for byte. The hash
+ * covers every field of the body, so any provider timestamp or id field under a name not read below still separates
+ * two messages. Only a payload with neither an id nor a timestamp makes two identical texts from one sender (say "hi"
+ * twice) one key, and the second is then dropped as a duplicate; the MSG91 inbound id field is to be confirmed against
+ * a live payload at the V2-12 staging check (04-03c record), which removes that case.
  *
  * A key longer than 200 characters (the column limit) is replaced by `<prefix>:sha256:<hex>` of itself.
  */
@@ -286,8 +292,13 @@ export function parseMsg91Payload(rawBody: string): Msg91WebhookEvent {
 
   // V2-04 04-03c: the inbound message's own id, if MSG91 sends one under a known name (not yet verified against a live
   // MSG91 payload; the dedupe key falls back to a hash of the raw body without it).
+  // 04-07a (L-5): a numeric id counts as well (it would otherwise fall back to the body hash).
   const rawMessageId = parsed.uuid ?? parsed.message_uuid ?? parsed.messageId ?? parsed.message_id;
-  const messageId = typeof rawMessageId === "string" && PROVIDER_ID.test(rawMessageId) ? rawMessageId : undefined;
+  const idText =
+    typeof rawMessageId === "number" && Number.isSafeInteger(rawMessageId) && rawMessageId >= 0
+      ? String(rawMessageId)
+      : rawMessageId;
+  const messageId = typeof idText === "string" && PROVIDER_ID.test(idText) ? idText : undefined;
 
   return {
     type: "inbound",

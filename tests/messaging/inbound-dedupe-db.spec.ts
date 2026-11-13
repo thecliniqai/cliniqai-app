@@ -21,6 +21,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import * as messaging from "@/lib/messaging";
 import * as systemDb from "@/lib/supabase/system";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { psql } from "../helpers/sql";
 import { addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { anonClient } from "../jobs/helpers";
 import { onlyFor, recordingProvider } from "../jobs/message-helpers";
@@ -46,6 +47,7 @@ import {
 } from "./inbound-helpers";
 
 const OK = { status: 200, text: JSON.stringify({ ok: true }) };
+const IN_FLIGHT = { status: 503, text: JSON.stringify({ ok: false }) };
 const keys: string[] = [];
 const replyKeys: string[] = [];
 function track<T>(body: T): T {
@@ -97,10 +99,13 @@ describe("inbound replies: exactly-once effect, at most one queued reply", () =>
     expect(event!.raw).not.toContain("btn_confirm");
   });
 
-  it("the same reply posted 5 times at once → one confirmation, one reply, every answer 200", async () => {
+  it("the same reply posted 5 times at once → one confirmation, one reply; 200 for the first, 200 or 503 for the rest", async () => {
     const body = track(buttonReply(c, "btn_confirm"));
     const answers = await Promise.all(Array.from({ length: 5 }, () => postMsg91(body)));
-    expect(answers).toEqual(Array.from({ length: 5 }, () => OK));
+    // 04-07a M-INBOUND: a copy that arrives while the first is still processing answers 503 (the provider retries it
+    // later and then reads `duplicate`); one that arrives after it finished answers 200.
+    expect(answers.filter((a) => a.status === 200)).not.toHaveLength(0);
+    for (const a of answers) expect([OK, IN_FLIGHT]).toContainEqual(a);
     expect(await visitStatus(c.visitId)).toBe("confirmed");
     expect(await auditCount(c.visitId, "appointment_confirmed_whatsapp")).toBe(1);
     expect((await botReplies(c.visitId)).map((r) => r.templateId)).toEqual(["appointment_confirmed_ack"]);
@@ -141,10 +146,12 @@ describe("inbound replies: exactly-once effect, at most one queued reply", () =>
     expect(inboundEvent("msg91", keyFor(body))).toMatchObject({ outcome: "processed", attempts: 2 });
   });
 
-  it("a recent unfinished claim (another instance is on it) answers 200 without any effect", async () => {
+  it("a recent unfinished claim (another instance is on it) answers 503 Retry-After without any effect (04-07a M-INBOUND)", async () => {
     const body = track(buttonReply(c, "btn_confirm"));
     seedInboundEvent("msg91", keyFor(body), { ageMinutes: 1, outcome: null });
-    expect(await postMsg91(body)).toEqual(OK);
+    // Before 04-07a: 200, so a provider that timed out the first delivery stopped retrying; if that first attempt then
+    // failed, the callback was lost.
+    expect(await postMsg91(body)).toEqual(IN_FLIGHT);
     expect(await visitStatus(c.visitId)).toBe("booked");
     expect(await botReplies(c.visitId)).toEqual([]);
   });
@@ -263,10 +270,13 @@ describe("delivery reports: one transition and one audit row per report, monoton
     expect(inboundEvent("msg91", keyFor(body))).toMatchObject({ outcome: "processed", attempts: 2 });
   });
 
-  it("an unknown request id is finished as ignored (a repeat is a duplicate)", async () => {
-    const body = dlr(`req-unknown-${randomUUID()}`, "Delivered");
+  it("an unknown request id is finished as ignored (a repeat is a duplicate); 04-07a keeps it for a later finish", async () => {
+    const id = `req-unknown-${randomUUID()}`;
+    const body = dlr(id, "Delivered");
     expect(await postMsg91(body)).toEqual(OK);
     expect(inboundEvent("msg91", keyFor(body))).toMatchObject({ outcome: "ignored", processed: true });
+    expect(psql(`select status from ops.early_delivery_reports where external_message_id = '${id}'`)).toEqual(["delivered"]);
+    psql(`delete from ops.early_delivery_reports where external_message_id = '${id}'`);
   });
 });
 

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  AppointmentNotCancellableError,
   cancelAppointment,
   generateRescheduleToken,
   type AppointmentSystemContext,
 } from "@/features/appointments/system";
 import { getSystemDb } from "@/lib/supabase/system";
-import { enqueueMessageAsSystem, enqueueUnmatchedReplyAsSystem } from "@/lib/jobs/enqueue";
+import { EnqueueError, enqueueMessageAsSystem, enqueueUnmatchedReplyAsSystem } from "@/lib/jobs/enqueue";
 import { toIndianMobileE164FromInternational, toIndianMobileE164Strict } from "@/lib/utils/phone";
 import {
   inboundDedupeKey,
@@ -24,9 +25,15 @@ import { getRequestId } from "@/lib/log/request-id";
  * V2-04 04-03c (P0-12; R-25; T-04-08):
  * - Exactly-once effect: after the secret check the callback's key (`inboundDedupeKey`: `dlr:<requestId>:<status>`, or
  *   the inbound message's id / a hash of the raw body) is claimed with `inbound_webhook_begin('msg91', key)`. A provider
- *   retry of a callback that finished, or one arriving while another instance processes it, answers 200 with no side
- *   effect. An exception marks the key `failed` and answers 500, so MSG91 retries; a retry is safe because every
- *   effect is status-guarded or deduplicated (visit updates filter on status, replies carry `bot:<key>:<template>`).
+ *   retry of a callback that finished answers 200 with no side effect; one arriving while another instance still
+ *   processes it answers 503 with `Retry-After` (04-07a M-INBOUND), so the provider tries again later and a first
+ *   attempt that then fails is not lost. An exception marks the key `failed` and answers 500, so MSG91 retries.
+ * - 04-07a M-INBOUND: a transient failure of any effect (the cancel, a queued reply, a front-desk note) throws, so the
+ *   key is `failed` and the callback is processed again. Only a business no-op (the visit is no longer actionable) or a
+ *   permanent refusal of a reply (the stored recipient is no longer the patient's number) is recorded as handled. A
+ *   retry is safe because every effect is status-guarded or deduplicated: visit updates filter on status, a cancel
+ *   records its callback key (`metadata.cancel_source_key`), replies carry `bot:<key>:<template>` and front-desk notes
+ *   carry `metadata.inbound_key`.
  * - Delivery reports go through `communication_queue_apply_dlr` (monotonic status + audit row in one transaction).
  * - No bot reply is sent here: replies are queued (`enqueueMessageAsSystem`, visible in the communication log, or
  *   `enqueueUnmatchedReplyAsSystem` for a sender no patient matches) and the job runner sends them.
@@ -65,8 +72,13 @@ async function handleMsg91Webhook(req: NextRequest) {
     log.error({ event: "messaging.inbound.dedupe_failed", code: errorTag(beginError), requestId });
     return NextResponse.json({ ok: false }, { status: 500 });
   }
+  if (claim === "in_flight") {
+    // Another instance is processing this callback: ask the provider to come back rather than report it handled.
+    log.info({ event: "messaging.inbound.duplicate", reason: "in_flight", requestId });
+    return NextResponse.json({ ok: false }, { status: 503, headers: { "Retry-After": "60" } });
+  }
   if (claim !== "process") {
-    log.info({ event: "messaging.inbound.duplicate", reason: claim === "in_flight" ? "in_flight" : "key_seen", requestId });
+    log.info({ event: "messaging.inbound.duplicate", reason: "key_seen", requestId });
     return OK();
   }
 
@@ -118,6 +130,8 @@ async function applyDeliveryReport(
     p_reason_code: event.reason && REASON_CODE.test(event.reason) ? event.reason : (null as unknown as string),
   });
   if (error) throw error;
+  // A report for an id no row carries yet is kept by the RPC (`kept: true`) and applied when the sender's finish writes
+  // the id (04-07a); there is nothing more to do here for it.
   const applied = (data ?? {}) as {
     applied?: boolean;
     tenant_id?: string;
@@ -126,16 +140,17 @@ async function applyDeliveryReport(
   };
   if (!applied.applied) return "ignored";
 
-  // Urgent notification alert to receptionist (Peer Review Finding 4: category: 'system'). Copy unchanged; the phone in
-  // it stays flagged for V2-12 (P1-13).
+  // Urgent notification alert to receptionist (Peer Review Finding 4: category: 'system'). The phone in it stays flagged
+  // for V2-12 (P1-13). 04-07a (review B L-6): the reason is a machine code, never the provider's free text.
   if (status === "failed" && applied.tenant_id && URGENT_MESSAGE_TYPES.includes(applied.message_type ?? "")) {
+    const reasonCode = event.reason && REASON_CODE.test(event.reason) ? event.reason : "unreachable";
     const { error: noteError } = await supabase.from("in_app_notifications").insert({
       tenant_id: applied.tenant_id,
       recipient_role: "receptionist",
       category: "system", // Constraint check: ('clinical', 'queue', 'billing', 'system')
       event_type: "whatsapp_delivery_failed",
       title: "WhatsApp Delivery Failed",
-      message: `Failed to deliver notification to patient (${applied.recipient_phone}). Reason: ${event.reason || "Unreachable"}`,
+      message: `Failed to deliver notification to patient (${applied.recipient_phone}). Reason: ${reasonCode}`,
       link_url: "/calendar",
     });
     // Not retried (the transition is applied; a retry would see a repeat): logged.
@@ -147,14 +162,16 @@ async function applyDeliveryReport(
 /**
  * Resolves the visit a reply refers to. Only the `replyMsgId` correlation is used (P0-03, SEC-04/SEC-19):
  * `communication_queue.external_message_id` is matched with `.eq` (a bound value, never a PostgREST filter string),
- * and the visit is then read inside the queue row's tenant. There is no phone-number fallback.
+ * and the visit is then read inside the queue row's tenant. There is no phone-number fallback, and (04-07a, review B
+ * L-2) no metadata fallback: only the row's `appointment_id` column, which the enqueue RPC checked against the
+ * patient, names the visit. The visit is returned in any status; the caller decides what a status allows.
  */
 async function resolveAppointmentByReply(supabase: any, replyMsgId: string | undefined, from: string) {
   if (!replyMsgId) return null;
 
   const { data: queueItem } = await supabase
     .from("communication_queue")
-    .select("id, tenant_id, appointment_id, recipient_phone, metadata")
+    .select("id, tenant_id, appointment_id, recipient_phone")
     .eq("external_message_id", replyMsgId)
     .maybeSingle();
 
@@ -163,9 +180,7 @@ async function resolveAppointmentByReply(supabase: any, replyMsgId: string | und
   // AR-L1: the reply must come from the number the message was sent to; otherwise it is treated as unmatched.
   if (!isSameMobile(from, queueItem.recipient_phone)) return null;
 
-  // The dispatcher stores the visit in the `appointment_id` column; older rows may carry it in metadata.
-  const appointmentId =
-    queueItem.appointment_id || queueItem.metadata?.appointment_id || queueItem.metadata?.visit_id;
+  const appointmentId = queueItem.appointment_id;
   if (!appointmentId) return null;
 
   const { data: visit } = await supabase
@@ -175,7 +190,7 @@ async function resolveAppointmentByReply(supabase: any, replyMsgId: string | und
     .eq("tenant_id", queueItem.tenant_id)
     .maybeSingle();
 
-  if (!visit || ["cancelled", "completed"].includes(visit.status)) return null;
+  if (!visit) return null;
   return { visit, recipientPhone: queueItem.recipient_phone as string };
 }
 
@@ -204,9 +219,17 @@ type BotReplyTemplate =
   | "conversational_triage";
 
 /**
+ * True for an enqueue refusal that a retry cannot change (the subject or recipient no longer qualifies, a template the
+ * RPC refuses): logged and treated as handled. Anything else (a database or network error) is transient.
+ */
+function isPermanentEnqueueRefusal(err: unknown): boolean {
+  return err instanceof EnqueueError && ["NOT_FOUND", "VALIDATION_FAILED", "FORBIDDEN"].includes(err.appError.code);
+}
+
+/**
  * Queues one bot reply to the number the message was sent to (AR-L1) through the system enqueue RPC (R-25: it appears
  * in the communication log; the runner sends it). `bot:<key>:<template>` makes a reprocessed callback queue it once.
- * Best effort, as the direct send was: the state change already stands and a retry could not re-run it.
+ * 04-07a M-INBOUND: a transient failure throws (the callback is processed again); a permanent refusal is logged.
  */
 async function queueReply(
   supabase: SystemDb,
@@ -233,7 +256,40 @@ async function queueReply(
     );
   } catch (err) {
     log.error({ event: "messaging.inbound_reply.enqueue_failed", code: errorTag(err), requestId: await getRequestId() });
+    if (!isPermanentEnqueueRefusal(err)) throw err;
   }
+}
+
+interface FrontDeskNote {
+  tenant_id: string;
+  event_type: "reschedule_requested" | "inbound_whatsapp_reply";
+  title: string;
+  message: string;
+  link_url: string;
+}
+
+/**
+ * Writes one receptionist note per inbound callback (04-07a, review IND L4): a reprocessed callback finds the note it
+ * already wrote by `metadata.inbound_key` and writes no second one. The callback key is claimed by one instance at a
+ * time (`inbound_webhook_begin`), so the read-then-insert cannot race itself. A failure throws (processed again).
+ */
+async function noteOnce(supabase: SystemDb, key: string, note: FrontDeskNote) {
+  const { data: existing, error: readError } = await supabase
+    .from("in_app_notifications")
+    .select("id")
+    .eq("tenant_id", note.tenant_id)
+    .eq("event_type", note.event_type)
+    .eq("metadata->>inbound_key", key)
+    .limit(1);
+  if (readError) throw readError;
+  if ((existing ?? []).length > 0) return;
+  const { error } = await supabase.from("in_app_notifications").insert({
+    ...note,
+    recipient_role: "receptionist",
+    category: "system", // Constraint check: ('clinical', 'queue', 'billing', 'system')
+    metadata: { inbound_key: key },
+  });
+  if (error) throw error;
 }
 
 /**
@@ -246,16 +302,22 @@ async function handleInboundAction(
   event: Extract<Msg91WebhookEvent, { type: "inbound" }>,
   key: string
 ): Promise<Outcome> {
-  const { from, body, action, replyMsgId } = event;
+  const { from, action, replyMsgId } = event;
   const nowIso = new Date().toISOString();
   const sys: AppointmentSystemContext = { db: supabase, reason: "messaging_webhook" };
 
   // 1. Resolve the appointment strictly via replyMsgId message correlation, from the number it was sent to (AR-L1)
   const resolved = await resolveAppointmentByReply(supabase, replyMsgId, from);
 
-  // 2. Unmatched sender: one queued "not found" reply (R-25: a tenant-less job whose phone is erased when it finishes).
-  // Only an Indian mobile in E.164 gets one (T-04-16); any other sender gets nothing.
-  if (!resolved) {
+  // A retry of this very callback after its cancel succeeded (a later step failed): carry on to the acknowledgement.
+  const ownCancelRetry =
+    action === "cancel" &&
+    resolved?.visit?.status === "cancelled" &&
+    resolved.visit.metadata?.cancel_source_key === key;
+
+  // 2. Unmatched sender, or a visit that is over (cancelled or completed): one queued "not found" reply (R-25: a
+  // tenant-less job whose phone is erased when it finishes). Only an Indian mobile in E.164 gets one (T-04-16).
+  if (!resolved || (["cancelled", "completed"].includes(resolved.visit.status) && !ownCancelRetry)) {
     const to = toIndianMobileE164FromInternational(from);
     if (!to) return "ignored";
     try {
@@ -266,6 +328,7 @@ async function handleInboundAction(
       });
     } catch (err) {
       log.error({ event: "messaging.inbound_bot_not_found.failed", code: errorTag(err), requestId: await getRequestId() });
+      if (!isPermanentEnqueueRefusal(err)) throw err;
     }
     return "processed";
   }
@@ -328,32 +391,25 @@ async function handleInboundAction(
   // AR2-L4: only a booked or confirmed visit (checked again in the UPDATE filter); a late "cancel" for a patient who is
   // already waiting or with the doctor changes nothing.
   if (action === "cancel") {
-    if (!isPatientActionable(appointment.status)) {
-      return "ignored";
+    if (!ownCancelRetry) {
+      if (!isPatientActionable(appointment.status)) {
+        return "ignored";
+      }
+      try {
+        await cancelAppointment(sys, {
+          appointmentId: appointment.id,
+          reason: "patient_whatsapp_bot",
+          isClinicInitiated: false,
+          onlyFromStatuses: PATIENT_ACTIONABLE_STATUSES,
+          sourceKey: key,
+        });
+      } catch (err) {
+        // A visit that moved on is a business no-op; any other failure is retried by the provider (M-INBOUND).
+        if (err instanceof AppointmentNotCancellableError) return "ignored";
+        throw err;
+      }
+      await auditCancel(supabase, appointment, nowIso);
     }
-    try {
-      await cancelAppointment(sys, {
-        appointmentId: appointment.id,
-        reason: "patient_whatsapp_bot",
-        isClinicInitiated: false,
-        onlyFromStatuses: PATIENT_ACTIONABLE_STATUSES,
-      });
-    } catch (err) {
-      log.warn({ event: "messaging.inbound_cancel.failed", code: errorTag(err), requestId: await getRequestId() });
-      return "ignored";
-    }
-
-    const { error: auditError } = await supabase.from("audit_logs").insert({
-      tenant_id: appointment.tenant_id,
-      actor_id: null,
-      actor_role: "patient",
-      action: "appointment_cancelled_whatsapp",
-      entity_type: "visits",
-      entity_id: appointment.id,
-      occurred_at: nowIso,
-      metadata: { appointment_id: appointment.id },
-    });
-    if (auditError) log.warn({ event: "messaging.inbound_cancel_audit.failed", code: errorTag(auditError) });
 
     await queueReply(supabase, key, appointment, replyTo, "appointment_cancelled_ack", {
       patient_name: patientName,
@@ -361,6 +417,44 @@ async function handleInboundAction(
     });
     return "processed";
   }
+
+  return handleRescheduleOrTriage(supabase, sys, event, key, appointment, replyTo, patientName);
+}
+
+/** Audited only by the call that cancelled the visit (a retry of the same callback does not audit again). */
+async function auditCancel(supabase: SystemDb, appointment: { id: string; tenant_id: string }, nowIso: string) {
+  const { error: auditError } = await supabase.from("audit_logs").insert({
+    tenant_id: appointment.tenant_id,
+    actor_id: null,
+    actor_role: "patient",
+    action: "appointment_cancelled_whatsapp",
+    entity_type: "visits",
+    entity_id: appointment.id,
+    occurred_at: nowIso,
+    metadata: { appointment_id: appointment.id },
+  });
+  if (auditError) log.warn({ event: "messaging.inbound_cancel_audit.failed", code: errorTag(auditError) });
+}
+
+/** The fields of the correlated visit the reschedule and triage branches read. */
+interface ReplyVisit {
+  id: string;
+  tenant_id: string;
+  patient_id: string;
+  status: string;
+  patient?: { full_name?: string | null } | null;
+}
+
+async function handleRescheduleOrTriage(
+  supabase: SystemDb,
+  sys: AppointmentSystemContext,
+  event: Extract<Msg91WebhookEvent, { type: "inbound" }>,
+  key: string,
+  appointment: ReplyVisit,
+  replyTo: string,
+  patientName: string
+): Promise<Outcome> {
+  const { from, body, action } = event;
 
   // 5. Action: [Reschedule] Flow (D-04)
   if (action === "reschedule") {
@@ -375,17 +469,14 @@ async function handleInboundAction(
       }
     }
 
-    // Front-desk alert
-    const { error: noteError } = await supabase.from("in_app_notifications").insert({
+    // Front-desk alert (one per callback, 04-07a)
+    await noteOnce(supabase, key, {
       tenant_id: appointment.tenant_id,
-      recipient_role: "receptionist",
-      category: "system", // Constraint check: ('clinical', 'queue', 'billing', 'system')
       event_type: "reschedule_requested",
       title: "Appointment Reschedule Requested",
       message: `Patient ${appointment.patient?.full_name || from} requested to reschedule via WhatsApp.`,
       link_url: `/calendar`,
     });
-    if (noteError) log.warn({ event: "messaging.inbound_reschedule_note.failed", code: errorTag(noteError) });
 
     if (rescheduleUrl) {
       await queueReply(supabase, key, appointment, replyTo, "appointment_reschedule_link", {
@@ -396,17 +487,14 @@ async function handleInboundAction(
     return "processed";
   }
 
-  // 6. Action: Unhandled / Conversational Auto-Triage (D-05, Event #18)
-  const { error: triageError } = await supabase.from("in_app_notifications").insert({
+  // 6. Action: Unhandled / Conversational Auto-Triage (D-05, Event #18); one note per callback (04-07a)
+  await noteOnce(supabase, key, {
     tenant_id: appointment.tenant_id,
-    recipient_role: "receptionist",
-    category: "system", // Constraint check: ('clinical', 'queue', 'billing', 'system')
     event_type: "inbound_whatsapp_reply",
     title: `Inbound WhatsApp: ${appointment.patient?.full_name || from}`,
     message: `Patient message: "${body}"`,
     link_url: `/patients/${appointment.patient_id}`,
   });
-  if (triageError) throw triageError;
 
   await queueReply(supabase, key, appointment, replyTo, "conversational_triage", {
     message:
