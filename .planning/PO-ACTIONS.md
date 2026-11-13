@@ -222,7 +222,7 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Unblocks:* acceptance 12.
   - *Verify (Claude):* the `drift.yml` `auth-config` job runs green after merge (`gh run view <id> --json jobs`).
 
-- [ ] **03-E13 · Confirm the V2-03 rulings** — read the rulings table at the end of this plan (A00-1…A00-5, R-1…R-34,
+- [ ] **03-E13 · Confirm the V2-03 rulings** — also the review rulings in `.planning/phases/03-platform-hygiene/03-13-REVIEW-TRIAGE.md`: **R-35** password reset ends signed out (deviates from AUTH_REDESIGN), **R-36** email OTP length 8, and the accepted-risk table; read the rulings table at the end of this plan (A00-1…A00-5, R-1…R-34,
   R-K) and confirm or overturn them; in particular **R-9** (CLAUDE.md says "never `db push`"; staging migrations would run
   only in the PO-approved `staging` Environment workflow that agents never dispatch) and the proposed CLAUDE.md Commands
   update (phase close step 6). *Verify:* your confirmation recorded in VERIFICATION_LOG's gate section.
