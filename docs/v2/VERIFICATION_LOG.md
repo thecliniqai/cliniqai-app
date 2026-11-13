@@ -739,3 +739,23 @@ fails the P0-13 guard; M0 baseline committed. Required checks on `feature/v2` ap
 defects found and fixed beyond scope: cross-tenant reference writes, and credentials able to reach a URL via a GET login
 form. Evidence and reviews: `.planning/phases/02-ci-e2e-foundations/` (`02-SUMMARY.md`, `02-VERIFICATION.md`,
 `evidence/`, `reviews/`). Decisions RL-1…23 / OA-1…6 by the agent as CTO under PO delegation, for PO confirmation.
+
+### V2-03 gate evidence (2026-11-13) — awaiting PO gate
+V2-03 Platform hygiene verified locally at `2e6f3c2`. Vitest ran twice locally: 162 files / 3465 tests, 0 skipped, 0
+failed. The report gate passed with floor 3292 and 69 required security/acceptance specs. Playwright PR lane: 188
+expected (10 KNOWN-BUG expected failures), 7 skipped by design, 0 unexpected, 0 retried. The ESLint census reports
+1 service-role factory and 0 boundary or UTC-today messages. Local drift passed (pg_net only). Typecheck, inventory,
+AI-06 L1 and the audit gate are green. CI run link: recorded by the orchestrator in `03-VERIFICATION.md`
+(`ci_run`).
+
+Roadmap acceptance 2, 4, 5, 6 and 11 are met. 1, 3, 8, 10, 12 and 13 are met locally, with their hosted halves
+pending PO. 7, 9 and 14 are code-complete and pending PO (03-E0…E11, post-merge, R-19).
+
+Six isolated reviews found 4 distinct Highs (H-AUTH, H-ENV, H-LOG, H-PAY). All were fixed in 03-13a…e with regression
+tests, and a fresh re-verification found them CLOSED. H-AUTH on hosted needs 03-E3 (access-token hook). The
+re-verify's one Low was fixed at close.
+
+Evidence, reviews and triage: `.planning/phases/03-platform-hygiene/` (`03-SUMMARY.md`, `03-VERIFICATION.md`,
+`03-13-REVIEW-TRIAGE.md`, `evidence/`, `reviews/`). Rulings A00-1…5, R-1…R-36 and R-K were taken by the agent as CTO
+under PO delegation. Doc errata (R-24) are proposed in `03-SUMMARY.md`, not applied. Merge waits on 03-E13 (rulings,
+incl. R-9, R-35, R-36 and the proposed CLAUDE.md change), 03-E14 (two flagged packages) and 03-E15 (Next 16 outcome).

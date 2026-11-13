@@ -1,0 +1,4 @@
+export-error-events: wrote 1 row(s) to .planning/phases/03-platform-hygiene/evidence/error-events-export.json; check OK
+exit=0
+check-error-export: OK (1 row(s); allowed columns only; no PII pattern)
+check exit=0

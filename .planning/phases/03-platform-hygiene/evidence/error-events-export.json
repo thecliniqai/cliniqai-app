@@ -1,9 +1,9 @@
 [
   {
-    "fingerprint": "065334a15c1580b3db17d42d46a04f318ebcdcb3644fed686c533cc943765e94",
+    "fingerprint": "1861aa22af8afb78d840b3cf38b0a94abf4691edcfb0c5677e82322bb43308cd",
     "occurred_on": "2026-11-13",
-    "first_seen": "2026-11-13T00:24:47.015183+00:00",
-    "last_seen": "2026-11-13T00:24:47.015183+00:00",
+    "first_seen": "2026-11-13T04:45:32.400612+00:00",
+    "last_seen": "2026-11-13T04:45:32.400612+00:00",
     "count": 1,
     "environment": "e2e",
     "release": null,
@@ -13,7 +13,7 @@
     "error_name": "DiagnosticError",
     "error_code": "DIAG_SYNTHETIC",
     "digest": null,
-    "message": "Diagnostic error (synthetic): duplicate key value violates unique constraint \"patients_phone_key\" Key (phone)=([REDACTED]) contact [EMAIL], mobile [PHONE REDACTED], link /r/abc?[QUERY]",
+    "message": "Diagnostic error (synthetic): contact [EMAIL], mobile [PHONE REDACTED], link /r/[TOKEN]?[QUERY] duplicate key value violates unique constraint \"patients_phone_key\" Key (phone)=([REDACTED])",
     "frames": [
       ".next/server/chunks/_0702m-vaqspuv._.js:1",
       "node:internal/async_local_storage/async_context_frame:59",
@@ -26,7 +26,7 @@
       "node:internal/async_local_storage/async_context_frame:63",
       "node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5"
     ],
-    "request_id": "2ee7e9b6-a614-4779-bf37-66b4fb1a07dd",
+    "request_id": "397f713f-523e-47d9-9fbb-631232a2cf6a",
     "tenant_id": null,
     "user_id": null
   }

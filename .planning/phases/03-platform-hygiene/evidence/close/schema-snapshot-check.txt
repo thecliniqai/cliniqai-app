@@ -1,0 +1,2 @@
+schema-snapshot: PASS (local: 2210 lines equal the committed snapshot)
+exit=0
