@@ -1,0 +1,96 @@
+# Before: the 04-02 specs (and the test-lane files they need: tests/setup/{test-env,global-setup,cron-pause}.ts, tests/e2e/support/app-env.ts, guard manifest/engine, lint fixtures) copied onto pre-plan 84256d1 in a throwaway worktree; local stack reset to 000032 from that worktree. Tool output (vitest summary lines).
+ ❯ tests/security/p1-34-lint-gates.spec.ts (143 tests | 7 failed) 16138ms
+   × P1-34 boundary lint gates: the real jobs runner files (04-02) > app/api/jobs/run/route.ts lints clean where it lives 3ms
+   × P1-34 boundary lint gates: the real jobs runner files (04-02) > lib/jobs/internal/registry.ts lints clean where it lives 0ms
+   × P1-34 boundary lint gates: the real jobs runner files (04-02) > lib/jobs/internal/handlers/drill.ts lints clean where it lives 0ms
+   × P1-34 boundary lint gates: the real jobs runner files (04-02) > lib/jobs/auth.ts lints clean where it lives 0ms
+   × P1-34 boundary lint gates: the real jobs runner files (04-02) > the runner route's source fails as a server action (the factory and two jobs internals) 0ms
+   × P1-34 boundary lint gates: the real jobs runner files (04-02) > the runner route's source fails as a register route (the two jobs internals; the register may hold the factory until P1-37) 0ms
+   × P1-34 boundary lint gates: the real jobs runner files (04-02) > the runner route's source fails as the enqueue surface (the factory and two jobs internals) 0ms
+ ❯ tests/security/guard-routes.spec.ts (55 tests | 1 failed) 2901ms
+   × P0-13: every route handler is in the guard manifest and guarded > the manifest lists exactly the inventoried route methods (a new route without an entry fails here) 3ms
+ ❯ tests/jobs/scheduler-migration-db.spec.ts (29 tests | 27 failed) 1121ms
+   × 000033: extensions and schedules > installs pg_cron and pg_net (pg_net recorded in `extensions`) 50ms
+   × 000033: extensions and schedules > cron.job holds the three schedules exactly once, owned by postgres 36ms
+   × 000033: extensions and schedules > the test lane paused every schedule for this run (global setup; the teardown resumes them) 30ms
+   × 000033: extensions and schedules > re-applying the migration (rolled back) keeps one row per name and the same job ids (A8) 31ms
+   × 000033: ops.kick_job_runner() > without Vault secrets returns NULL and queues nothing 30ms
+   × 000033: ops.kick_job_runner() > with synthetic secrets queues one POST: Vault URL, bearer, JSON body, 30 s timeout (rolled back, never sent) 30ms
+   × 000033: ops.kick_job_runner() > accepts https (any host) 32ms
+   × 000033: ops.kick_job_runner() > accepts localhost 29ms
+   × 000033: ops.kick_job_runner() > accepts the Docker host 37ms
+   × 000033: ops.kick_job_runner() > refuses plain http to a public host (22023, nothing queued) 32ms
+   × 000033: ops.kick_job_runner() > refuses http to a private address (22023, nothing queued) 30ms
+   × 000033: ops.kick_job_runner() > refuses userinfo in the authority (22023, nothing queued) 32ms
+   × 000033: ops.kick_job_runner() > refuses a loopback name used as userinfo (22023, nothing queued) 29ms
+   × 000033: ops.kick_job_runner() > refuses whitespace (22023, nothing queued) 32ms
+   × 000033: ops.kick_job_runner() > refuses another scheme (22023, nothing queued) 35ms
+   × 000033: ops.kick_job_runner() > refuses a secret shorter than 32 characters (22023), never echoing it 30ms
+   × 000033: ops.kick_job_runner() > refuses a secret with a space (22023), never echoing it 30ms
+   × 000033: exposure of net, Vault and the scheduler functions (R-16 as built, T-04-02) > no function in an API schema references net.; only ops.kick_job_runner() calls pg_net or reads the runner secret 71ms
+   × 000033: exposure of net, Vault and the scheduler functions (R-16 as built, T-04-02) > no API role may execute the scheduler functions or use cron; anon and authenticated cannot read Vault 29ms
+   × 000033: exposure of net, Vault and the scheduler functions (R-16 as built, T-04-02) > both functions are SECURITY DEFINER with an empty search_path, owned by postgres 28ms
+   × 000033: ops.drill_enqueue (R-32) > enqueues drill jobs spread evenly over the interval: empty payload, no tenant, drill:<kind>:<uuid> keys 29ms
+   × 000033: ops.drill_enqueue (R-32) > refuses a non-drill kind (22023) 32ms
+   × 000033: ops.drill_enqueue (R-32) > refuses a kind outside the kind shape (22023) 29ms
+   × 000033: ops.drill_enqueue (R-32) > refuses 0 jobs (22023) 29ms
+   × 000033: ops.drill_enqueue (R-32) > refuses 501 jobs (22023) 28ms
+   × 000033: ops.drill_enqueue (R-32) > refuses a negative spread (22023) 29ms
+   × 000033: ops.drill_enqueue (R-32) > refuses 21 attempts (22023) 29ms
+ ✓ tests/setup/test-env-guard.spec.ts (81 tests) 167ms
+ ❯ tests/jobs/runner.spec.ts (9 tests | 2 failed) 59ms
+   × runJobs: outcomes and counts > maps done / retry / dead to complete_job and fail_job and returns the counts 3ms
+   × runJobs: outcomes and counts > a failed queue RPC ends the pass with ok = false and the error code, never the message 1ms
+ ❯ tests/config/env-schema.spec.ts (253 tests | 11 failed) 33ms
+   × env schema: job runner secret and drill switch (04-02) > production without JOBS_RUNNER_SECRET throws naming it 3ms
+   × env schema: job runner secret and drill switch (04-02) > staging without JOBS_RUNNER_SECRET throws naming it 0ms
+   × env schema: job runner secret and drill switch (04-02) > a 20-character or spaced JOBS_RUNNER_SECRET throws in production, never echoed 1ms
+   × env schema: job runner secret and drill switch (04-02) > a 20-character or spaced JOBS_RUNNER_SECRET throws in staging, never echoed 0ms
+   × env schema: job runner secret and drill switch (04-02) > a 20-character or spaced JOBS_RUNNER_SECRET throws in test, never echoed 0ms
+   × env schema: job runner secret and drill switch (04-02) > JOBS_RUNNER_SECRET_NEXT equal to the current secret throws naming the key 0ms
+   × env schema: job runner secret and drill switch (04-02) > JOBS_RUNNER_SECRET_NEXT needs a current secret and the same shape 0ms
+   × env schema: job runner secret and drill switch (04-02) > the runner secret must not be the cron secret (a dedicated secret, R-16) 0ms
+   × env schema: job runner secret and drill switch (04-02) > a padded runner secret or rotation slot is refused in every tier (both are secret names) 0ms
+   × env schema: job runner secret and drill switch (04-02) > production with JOBS_DRILL_ENABLED=true throws (R-32); staging may drill; it defaults to false 0ms
+   × env schema: job runner secret and drill switch (04-02) > the e2e app server runs the drill kinds with its synthetic runner secret 0ms
+ ❯ tests/api/proxy-matcher.spec.ts (24 tests | 1 failed) 12ms
+   × proxy: the job runner path skips the session refresh (04-02) > /api/jobs/run: no session client, request id set 5ms
+ ❯ tests/jobs/run-route.spec.ts:23:1
+ ❯ tests/jobs/runner-auth.spec.ts:27:32
+⎯⎯⎯⎯⎯⎯ Failed Tests 49 ⎯⎯⎯⎯⎯⎯⎯
+ ❯ tests/api/proxy-matcher.spec.ts:54:68
+ ❯ tests/config/env-schema.spec.ts:491:20
+ ❯ tests/config/env-schema.spec.ts:501:67
+ ❯ tests/config/env-schema.spec.ts:508:20
+ ❯ tests/config/env-schema.spec.ts:513:74
+ ❯ tests/config/env-schema.spec.ts:522:20
+ ❯ tests/config/env-schema.spec.ts:527:30
+ ❯ tests/config/env-schema.spec.ts:542:5
+ ❯ tests/config/env-schema.spec.ts:551:36
+ ❯ tests/jobs/runner.spec.ts:318:20
+ ❯ tests/jobs/runner.spec.ts:383:20
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:80:141
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:87:12
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:93:12
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:101:20
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:128:34
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:146:32
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:169:32
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:183:22
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:192:22
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:221:159
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:232:16
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:244:7
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:264:32
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:283:22
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:283:22
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:283:22
+ ❯ tests/jobs/scheduler-migration-db.spec.ts:283:22
+ ❯ tests/security/guard-routes.spec.ts:94:100
+ ❯ tests/security/p1-34-lint-gates.spec.ts:234:39
+ ❯ tests/security/p1-34-lint-gates.spec.ts:234:39
+ ❯ tests/security/p1-34-lint-gates.spec.ts:234:39
+ ❯ tests/security/p1-34-lint-gates.spec.ts:234:39
+ ❯ tests/security/p1-34-lint-gates.spec.ts:244:37
+ Test Files  8 failed | 1 passed (9)
+      Tests  49 failed | 545 passed (594)

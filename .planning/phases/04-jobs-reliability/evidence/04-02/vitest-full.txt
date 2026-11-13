@@ -1,0 +1,19 @@
+# Full Vitest lane (npm run test:db). Run 1 at 4872619: 7 failures caused by 000033 in other plans' specs/tools (see 04-02-SCHEDULER.md D9); run 2 after the fix commit.
+## run 1
+      Tests  7 failed | 3790 passed (3797)
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ FAIL  tests/ops/backup-runs-db.spec.ts > ops.backup_runner_stale() (dead-man for the scheduler, R-41) > is true when a runner is configured and no pass finished ok in the last 15 minutes
+ FAIL  tests/ops/restore-drill-checks-db.spec.ts > restore_drill_checks.sql on the primary local stack > fails naming patients when RLS is off on public.patients
+ FAIL  tests/ops/restore-drill-checks-db.spec.ts > restore_drill_checks.sql on the primary local stack > fails when a cron.job row came back with the restore
+ FAIL  tests/ops/restore-drill-checks-db.spec.ts > restore_drill_checks.sql on the primary local stack > fails when a restored count differs from the manifest (policies, users)
+ FAIL  tests/ops/restore-drill-checks-db.spec.ts > restore_drill_checks.sql on the primary local stack > passes with the manifest values computed live: 10 checks ok, nothing persists
+ Test Files  3 failed | 175 passed (178)
+exit 1
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+## run 2
+ Test Files  178 passed (178)
+      Tests  3797 passed (3797)
+   Duration  242.60s (transform 1.25s, setup 818ms, collect 12.65s, tests 213.53s, environment 9ms, prepare 3.56s)
+[teardown] removed run data: 123 tenant(s), 261 auth user(s), 1398 storage object(s); verified none remain
+exit 0
