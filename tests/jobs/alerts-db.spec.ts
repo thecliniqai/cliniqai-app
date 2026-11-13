@@ -361,7 +361,7 @@ describe("lifecycle: cooldown, resolution, robustness", () => {
     );
   });
 
-  it("an expired cooldown enqueues notification n + 1; inside the cooldown, or never notified, nothing new", () => {
+  it("an expired cooldown enqueues notification n + 1; inside the cooldown nothing new", () => {
     const notifiedAgo = (minutes: number) =>
       `update ops.alerts set notified_at = now() - interval '${minutes} minutes', notify_count = 1 where rule = 'dead_letter'`;
     const expired = run([deadJob()], [EVALUATE, notifiedAgo(61), EVALUATE, EVALUATE]);
@@ -371,10 +371,55 @@ describe("lifecycle: cooldown, resolution, robustness", () => {
       [2, `alert:${alert.id}:2`],
     ]);
     expect(run([deadJob()], [EVALUATE, notifiedAgo(30), EVALUATE]).jobs).toHaveLength(1);
-    // A send that never succeeded (notified_at null) is not retried by every evaluation (R-36; the ops report shows it).
-    expect(
-      run([deadJob()], [EVALUATE, "update ops.alerts set first_seen = now() - interval '1 day'", EVALUATE, EVALUATE]).jobs,
-    ).toHaveLength(1);
+  });
+
+  it("R-51: a notification never recorded as sent is tried again after 15 minutes while no try is in flight, until sent", () => {
+    const notifyJobDead = "update ops.jobs set status = 'dead', finished_at = now(), last_error = 'mailpit_unreachable' where kind = 'alert.notify'";
+    const triedAgo = (minutes: number) =>
+      `update ops.alerts set notify_enqueued_at = now() - interval '${minutes} minutes' where rule = 'dead_letter'`;
+
+    // The first try is still pending (the runner retries it with backoff): no second job, however old.
+    expect(run([deadJob()], [EVALUATE, triedAgo(60), EVALUATE]).jobs).toHaveLength(1);
+    // The first try died less than 15 minutes ago: nothing yet.
+    expect(run([deadJob()], [EVALUATE, notifyJobDead, triedAgo(14), EVALUATE]).jobs).toHaveLength(1);
+    // Died, 16 minutes ago: one new try of the same notification (seq 1), then nothing while it is in flight.
+    const retried = run([deadJob()], [EVALUATE, notifyJobDead, triedAgo(16), EVALUATE, EVALUATE]);
+    const [alert] = retried.alerts;
+    expect(retried.jobs.map((j) => [j.seq, j.dedupeKey])).toEqual([
+      [1, `alert:${alert.id}:1`],
+      [1, `alert:${alert.id}:1:r2`],
+    ]);
+    // Also during the clean evaluations before it resolves (the alert is still open).
+    const clearing = run(
+      [deadJob()],
+      [EVALUATE, notifyJobDead, triedAgo(16), "delete from ops.jobs where kind = 'test.alerts_dead'", EVALUATE],
+    );
+    expect(clearing.alerts.map((a) => a.status)).toEqual(["open"]);
+    expect(clearing.jobs.map((j) => j.dedupeKey)).toEqual([`alert:${clearing.alerts[0].id}:1`, `alert:${clearing.alerts[0].id}:1:r2`]);
+    // Once recorded as sent, no further try; the next notification waits for the cooldown.
+    const sent = run(
+      [deadJob()],
+      [EVALUATE, notifyJobDead, triedAgo(16), "update ops.alerts set notified_at = now(), notify_count = 1", EVALUATE],
+    );
+    expect(sent.jobs).toHaveLength(1);
+    // A failed re-notification (n = 2) is retried as n = 2, never skipped to n = 3.
+    const second = run(
+      [deadJob()],
+      [
+        EVALUATE,
+        "update ops.alerts set notified_at = now() - interval '61 minutes', notify_count = 1",
+        "update ops.jobs set status = 'done', finished_at = now() where kind = 'alert.notify'",
+        EVALUATE,
+        notifyJobDead,
+        triedAgo(16),
+        EVALUATE,
+      ],
+    );
+    expect(second.jobs.map((j) => [j.seq, j.dedupeKey.replace(second.alerts[0].id, "<id>")])).toEqual([
+      [1, "alert:<id>:1"],
+      [2, "alert:<id>:2"],
+      [2, "alert:<id>:2:r2"],
+    ]);
   });
 
   it("a rule whose parameters break does not stop the others; a disabled rule never fires", () => {

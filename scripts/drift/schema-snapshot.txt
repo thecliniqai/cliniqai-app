@@ -14,6 +14,10 @@ column ops.alerts.id uuid not_null=t default=gen_random_uuid() identity=- genera
 column ops.alerts.last_seen timestamp with time zone not_null=t default=now() identity=- generated=-
 column ops.alerts.notified_at timestamp with time zone not_null=f default=- identity=- generated=-
 column ops.alerts.notify_count integer not_null=t default=0 identity=- generated=-
+column ops.alerts.notify_enqueued_at timestamp with time zone not_null=f default=- identity=- generated=-
+column ops.alerts.notify_job_id uuid not_null=f default=- identity=- generated=-
+column ops.alerts.notify_seq_enqueued integer not_null=t default=0 identity=- generated=-
+column ops.alerts.notify_tries integer not_null=t default=0 identity=- generated=-
 column ops.alerts.provider_message_id text not_null=f default=- identity=- generated=-
 column ops.alerts.resolved_at timestamp with time zone not_null=f default=- identity=- generated=-
 column ops.alerts.rule text not_null=t default=- identity=- generated=-
@@ -570,6 +574,8 @@ constraint ops.alerts.alerts_clean_evaluations_check CHECK ((clean_evaluations >
 constraint ops.alerts.alerts_count_check CHECK ((count >= 1))
 constraint ops.alerts.alerts_details_check CHECK (((jsonb_typeof(details) = 'object'::text) AND (octet_length((details)::text) <= 4096)))
 constraint ops.alerts.alerts_notify_count_check CHECK ((notify_count >= 0))
+constraint ops.alerts.alerts_notify_seq_enqueued_check CHECK ((notify_seq_enqueued >= 0))
+constraint ops.alerts.alerts_notify_tries_check CHECK ((notify_tries >= 0))
 constraint ops.alerts.alerts_pkey PRIMARY KEY (id)
 constraint ops.alerts.alerts_provider_message_id_check CHECK ((char_length(provider_message_id) <= 200))
 constraint ops.alerts.alerts_resolved_has_time CHECK (((status = 'resolved'::text) = (resolved_at IS NOT NULL)))
@@ -908,7 +914,7 @@ function ops.drill_enqueue(p_kind text, p_count integer, p_spread interval, p_ma
 function ops.enqueue_job(p_kind text, p_tenant_id uuid, p_payload jsonb, p_dedupe_key text, p_run_at timestamp with time zone, p_max_attempts integer) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=34010c593d6ed05864c55aed746a90db
 function ops.error_events_size() returns jsonb lang=sql security_definer=f volatility=s config=search_path="" body_md5=bef6ccb364b88adfc674fe75687ce17e
 function ops.error_sink_daily_cap() returns integer lang=sql security_definer=f volatility=s config=search_path="" body_md5=767817c66a4b05c817c8799a25abb42f
-function ops.evaluate_alerts() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9cf97d3a0528ef25e746730b19db74e3
+function ops.evaluate_alerts() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=1a312c89d5ec8dc0ceafa24ec84e370e
 function ops.job_error_code(p_code text) returns text lang=sql security_definer=t volatility=i config=search_path="" body_md5=8dc6403af216f42e661efb3cb947645d
 function ops.kick_job_runner() returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0db715c86023c2e77b8ce1bcb5a1ed0d
 function ops.message_job_dead() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=f07edd2f03953d478bdb0c8bad90d850

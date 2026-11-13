@@ -19,7 +19,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { psql } from "../helpers/sql";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import VECTORS from "../fixtures/scrub-vectors.json";
-import { LOCAL_OPS_ALERT_EMAIL } from "../setup/test-env";
+import { LOCAL_MAILPIT_API_URL, LOCAL_OPS_ALERT_EMAIL } from "../setup/test-env";
 import {
   alertFor,
   deleteMail,
@@ -199,6 +199,55 @@ describe("alert.notify → Mailpit", () => {
 });
 
 describe("alert.notify: channel and failure handling", () => {
+  it("R-51: provider down → no email, notified_at null; provider back → the next evaluation sends exactly one", async () => {
+    useMailpitAlerts();
+    psql(
+      "insert into ops.jobs (kind, dedupe_key, status, attempts, max_attempts, finished_at, last_error) values " +
+        "('test.alert_retry', 'alert-retry:' || gen_random_uuid(), 'dead', 1, 1, now(), 'drill_failure')",
+    );
+    try {
+      psql("select ops.evaluate_alerts()");
+      const alert = alertFor("dead_letter")!;
+      expect(notifyJobsFor(alert.id)).toHaveLength(1);
+
+      // The email provider is down: every try of the job fails until it is dead (5 attempts, run_at advanced by SQL).
+      vi.stubEnv("MAILPIT_API_URL", "http://127.0.0.1:9");
+      for (let i = 0; i < 5; i++) {
+        psql(`update ops.jobs set run_at = now() where kind = 'alert.notify' and status = 'pending' and payload ->> 'alert_id' = '${uuid(alert.id)}'`);
+        await notify(`down-${i}`);
+      }
+      expect(notifyJobsFor(alert.id)).toEqual([expect.objectContaining({ status: "dead", attempts: 5, lastError: "mailpit_unreachable" })]);
+      expect(await collect(alert.id)).toHaveLength(0);
+      expect(alertFor("dead_letter")).toMatchObject({ id: alert.id, notified: false, notifyCount: 0 });
+
+      // Inside the 15-minute retry interval nothing new is enqueued.
+      psql("select ops.evaluate_alerts()");
+      expect(notifyJobsFor(alert.id)).toHaveLength(1);
+
+      // The provider is back; the retry interval has passed (moved by SQL): the next evaluation tries again, once.
+      vi.stubEnv("MAILPIT_API_URL", LOCAL_MAILPIT_API_URL);
+      psql(`update ops.alerts set notify_enqueued_at = now() - interval '16 minutes' where id = '${uuid(alert.id)}'`);
+      psql("select ops.evaluate_alerts()");
+      const jobs = notifyJobsFor(alert.id);
+      expect(jobs.map((j) => j.dedupeKey)).toEqual([`alert:${alert.id}:1`, `alert:${alert.id}:1:r2`]);
+      await notify("back");
+
+      const found = await collect(alert.id);
+      expect(found).toHaveLength(1);
+      expect((await mailMessage(found[0].ID)).Subject).toBe("[clinicos test] WARN dead_letter");
+      expect(alertFor("dead_letter")).toMatchObject({ id: alert.id, notified: true, notifyCount: 1, providerMessageId: found[0].ID });
+
+      // Sent: later evaluations (even past the retry interval) enqueue nothing more, and no second email goes out.
+      psql(`update ops.alerts set notify_enqueued_at = now() - interval '16 minutes' where id = '${uuid(alert.id)}'`);
+      psql("select ops.evaluate_alerts()");
+      expect(notifyJobsFor(alert.id)).toHaveLength(2);
+      await notify("after");
+      expect(await collect(alert.id)).toHaveLength(1);
+    } finally {
+      psql("delete from ops.jobs where kind = 'test.alert_retry'");
+    }
+  });
+
   it("OPS_ALERT_EMAIL unset → dead alert_channel_unconfigured, no message, the alert stays unnotified", async () => {
     useMailpitAlerts();
     vi.stubEnv("OPS_ALERT_EMAIL", "");

@@ -341,7 +341,7 @@ runner (/api/jobs/run) ──► alert.notify ──► public.ops_alert_payload
 **Channel.** Email only (R-1), through the same `EMAIL_PROVIDER` as auth email (Resend until go-live, SES after;
 Mailpit locally). `OPS_ALERT_EMAIL` is required in production, optional in staging. Without it (or with
 `EMAIL_PROVIDER=disabled`) the `alert.notify` job dies with `alert_channel_unconfigured`; the alert stays open with
-`notified_at` null and the ops report (04-06) shows it. Backups also alert on their own path (the `backup-alert.yml`
+`notified_at` null, the ops report (04-06) shows it, and the next evaluation 15 minutes later tries again (R-51). Backups also alert on their own path (the `backup-alert.yml`
 issue, 04-05a), so a broken app channel never hides a failed backup.
 
 **What an alert email contains.** Environment, rule, severity, status, alert id, first and last seen (IST and UTC), the
@@ -353,7 +353,14 @@ names, phones, emails, payloads or messages ever (the rule functions produce cou
 default 60; `error_sink_overflow` 6 h, `error_sink_size` 24 h, `backup_stale` 3 h). The job's dedupe key
 `alert:<id>:<seq>` makes a repeated evaluation unable to enqueue a second email for the same notification, and the
 handler sends nothing when `notify_count` already covers it. A dead `alert.notify` never counts toward `dead_letter`
-(R-36), and a send that never succeeded is not retried by every evaluation (re-check it in the report).
+(R-36).
+
+**At-least-once (R-51).** A notification that was never recorded as sent (its job died: provider down, channel
+unconfigured) is enqueued again by the next evaluation at least 15 minutes after the previous try, as long as no try of
+it is still pending or running, keyed `alert:<id>:<seq>:r<try>`, until it is sent; a failed re-notification is retried
+as the same `seq` (never skipped). Still one email per successful notification: the handler skips a `seq` already
+recorded and the provider gets the idempotency key `ops-alert/<id>/<seq>`. Watch `notify_tries` on `ops.alerts` for a
+channel that keeps failing.
 
 ### Rules
 

@@ -13,11 +13,16 @@
 --     with reg* columns other than regclass/regtype/regrole, and Supabase major upgrades use pg_upgrade.
 --   * ops.alerts: at most one open alert per rule (unique partial index). Firing → open or refresh (count + 1,
 --     last_seen, details, clean_evaluations 0). Newly opened, or last notified longer ago than the rule's cooldown →
---     one `alert.notify` job keyed `alert:<id>:<n>` (n = notify_count + 1), so a persistent condition sends one email
---     per cooldown, and a repeated evaluation cannot enqueue a second job for the same notification. Not firing →
---     clean_evaluations + 1; resolved at 2.
---   * Recursion guard (R-36): `alert.notify` jobs never count toward `dead_letter`; an alert whose email could not be
---     sent stays open with notified_at null (the ops report shows it, 04-06) and is not re-sent by every evaluation.
+--     one `alert.notify` job for notification n = notify_count + 1, keyed `alert:<id>:<n>`, so a persistent condition
+--     sends one email per cooldown, and a repeated evaluation cannot enqueue a second job for the same notification.
+--     Not firing → clean_evaluations + 1; resolved at 2.
+--   * At-least-once (ruling R-51, reverses 04-04 D7): a notification that has not been recorded as sent (its job died,
+--     e.g. the provider was down or the channel unconfigured) is enqueued again by the next evaluation at least 15
+--     minutes after the previous try, while no try of it is still pending or running, keyed `alert:<id>:<n>:r<try>`,
+--     until notified_at/notify_count record it. The handler sends nothing for an n already recorded and passes the
+--     provider idempotency key `ops-alert/<id>/<n>`, so a successful notification is emailed once.
+--   * Recursion guard (R-36): `alert.notify` jobs never count toward `dead_letter`; the retry above is rate-limited
+--     (one try per 15 minutes per alert), so a broken channel cannot flood the queue.
 --   * public.ops_alert_payload / public.ops_alert_notified: the handler's two RPCs, service_role only.
 --   * readiness_probe(p_expected_migration) (R-41, revised for V2-03 M-PROBE): same signature, still booleans only and
 --     anon only; adds jobs_backlog, jobs_dead_24h, runner_stale, alerts_critical_open, each an indexed EXISTS.
@@ -67,6 +72,11 @@ CREATE TABLE ops.alerts (
     clean_evaluations INTEGER NOT NULL DEFAULT 0 CHECK (clean_evaluations >= 0),
     notified_at TIMESTAMPTZ,
     notify_count INTEGER NOT NULL DEFAULT 0 CHECK (notify_count >= 0),
+    -- R-51: the notification last enqueued (n), how many tries of it, when, and the job of the latest try.
+    notify_seq_enqueued INTEGER NOT NULL DEFAULT 0 CHECK (notify_seq_enqueued >= 0),
+    notify_tries INTEGER NOT NULL DEFAULT 0 CHECK (notify_tries >= 0),
+    notify_enqueued_at TIMESTAMPTZ,
+    notify_job_id UUID,
     provider_message_id TEXT CHECK (char_length(provider_message_id) <= 200),
     resolved_at TIMESTAMPTZ,
     CONSTRAINT alerts_resolved_has_time CHECK ((status = 'resolved') = (resolved_at IS NOT NULL))
@@ -429,6 +439,11 @@ DECLARE
     v_alert ops.alerts%ROWTYPE;
     v_new BOOLEAN;
     v_firing_count INTEGER := 0;
+    v_seq INTEGER;
+    v_try INTEGER;
+    v_job UUID;
+    -- R-51: a notification not yet recorded as sent is tried again at most this often.
+    c_retry CONSTANT INTERVAL := INTERVAL '15 minutes';
 BEGIN
     -- One evaluation at a time (pg_cron and a manual call cannot interleave).
     PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext('ops.evaluate_alerts'));
@@ -479,23 +494,56 @@ BEGIN
                 v_new := true;
             END IF;
 
-            IF v_new OR (v_alert.notified_at IS NOT NULL
-                         AND v_alert.notified_at < now() - make_interval(mins => r.cooldown_minutes)) THEN
-                PERFORM ops.enqueue_job(
-                    'alert.notify',
-                    NULL,
-                    jsonb_build_object('alert_id', v_alert.id, 'seq', v_alert.notify_count + 1),
-                    'alert:' || v_alert.id::text || ':' || (v_alert.notify_count + 1)::text,
-                    now(),
-                    5
-                );
-            END IF;
         ELSE
+            v_new := false;
             UPDATE ops.alerts a
                SET clean_evaluations = a.clean_evaluations + 1,
                    status = CASE WHEN a.clean_evaluations + 1 >= 2 THEN 'resolved' ELSE 'open' END,
                    resolved_at = CASE WHEN a.clean_evaluations + 1 >= 2 THEN now() ELSE NULL END
-             WHERE a.rule = r.rule AND a.status = 'open';
+             WHERE a.rule = r.rule AND a.status = 'open'
+            RETURNING a.* INTO v_alert;
+            IF NOT FOUND OR v_alert.status <> 'open' THEN
+                CONTINUE;
+            END IF;
+        END IF;
+
+        -- Notification for the open alert of this rule (v_alert).
+        v_seq := NULL;
+        IF v_alert.notify_seq_enqueued <= v_alert.notify_count THEN
+            -- Every enqueued notification is recorded as sent: a new one only while firing, when the alert is new or
+            -- the cooldown since the last sent one has passed.
+            IF coalesce(v_firing, false)
+               AND (v_new OR (v_alert.notified_at IS NOT NULL
+                              AND v_alert.notified_at < now() - make_interval(mins => r.cooldown_minutes))) THEN
+                v_seq := v_alert.notify_count + 1;
+                v_try := 1;
+            END IF;
+        ELSIF v_alert.notify_enqueued_at < now() - c_retry
+              AND NOT EXISTS (
+                  SELECT 1 FROM ops.jobs j
+                   WHERE j.id = v_alert.notify_job_id AND j.status IN ('pending', 'running')
+              ) THEN
+            -- R-51: notification n was enqueued but never recorded as sent and no try of it is in flight.
+            v_seq := v_alert.notify_seq_enqueued;
+            v_try := v_alert.notify_tries + 1;
+        END IF;
+
+        IF v_seq IS NOT NULL THEN
+            v_job := ops.enqueue_job(
+                'alert.notify',
+                NULL,
+                jsonb_build_object('alert_id', v_alert.id, 'seq', v_seq),
+                'alert:' || v_alert.id::text || ':' || v_seq::text
+                    || CASE WHEN v_try > 1 THEN ':r' || v_try::text ELSE '' END,
+                now(),
+                5
+            );
+            UPDATE ops.alerts a
+               SET notify_seq_enqueued = v_seq,
+                   notify_tries = v_try,
+                   notify_enqueued_at = now(),
+                   notify_job_id = v_job
+             WHERE a.id = v_alert.id;
         END IF;
     END LOOP;
 
@@ -505,7 +553,8 @@ $$;
 
 COMMENT ON FUNCTION ops.evaluate_alerts() IS
     'V2-04 04-04: evaluates every enabled rule in ops.alert_rules; opens/refreshes/resolves ops.alerts and enqueues one '
-    'alert.notify job per new alert or per expired cooldown (dedupe alert:<id>:<n>). Returns the number of firing rules. '
+    'alert.notify job per new alert or per expired cooldown (dedupe alert:<id>:<n>), and re-tries a notification not '
+    'recorded as sent every 15 minutes while none is in flight (R-51). Returns the number of firing rules. '
     'pg_cron every 5 minutes; postgres only.';
 
 REVOKE ALL ON FUNCTION ops.evaluate_alerts() FROM PUBLIC, anon, authenticated, service_role;
