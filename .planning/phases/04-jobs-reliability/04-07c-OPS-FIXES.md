@@ -6,7 +6,7 @@ status: complete
 requirements: [FT-02, P1-25 (alerts part)]
 triage: 04-07-REVIEW-TRIAGE.md (M-POLICY, M-BACKUPAUTH, M-RESTORE, 04-07c Lows, runner-secret ruling)
 plan_head_before: 64c455c
-commits: [17634ba, 624f47a, 448a769, docs commit]
+commits: [17634ba, 624f47a, 448a769, 838d4bd, evidence commit]
 ---
 
 # 04-07c record: ops review fixes
@@ -31,8 +31,8 @@ dispatched, no `--linked`/`db push` was used, no `.env*` file was read, and no d
 | L-2 (C L-2) backup-alert by name | `backup-alert.yml` `if:` requires `workflow_run.path == '.github/workflows/backup.yml'`, `head_repository.full_name == github.repository`, event in schedule/dispatch; the step re-checks path, branch and repository case-sensitively; policy rule `workflow-run-pinned` | `17634ba` | `tests/ci/workflow-policy.spec.ts` › "backup-alert.yml against a fork PR's spoofed 'Staging backup' run" (GitHub-semantics evaluator: fork/pull_request_review/other path refused at the `if:`; mixed-case branch/path/owner pass the `if:` but the step exits 1 and opens nothing; genuine runs open the issue via a recording `gh`); `bypass-workflow-run-name-only.yml` fixture |
 | L-3 (C L-3) case-insensitive `==` | Every staging job starts with `[ "$GITHUB_REF" = "refs/heads/feature/v2" ] \|\| { …; exit 1; }` (9 jobs in `staging`, `drift`, `ops-report`, `backup`); rule `staging-exact-ref-step` (first step, no `if`/`shell`/`env`/`continue-on-error`) | `17634ba` | `tests/ci/workflow-policy.spec.ts` › exact-ref step (removed, conditioned, weakened → refused; `Feature/V2` passes GitHub's `==` but the step exits 1) |
 | L-4 (C L-4) R-51 without end | A try that died with `alert_channel_unconfigured` sets `ops.alerts.notify_stopped_code` (terminal) and drops the dead-try link; no further retry; clearing the code resumes | `448a769` | `tests/jobs/alert-review-fixes-db.spec.ts` › L-4 (1 dead job, not one per 15 min; report shows it unsent; other codes still retried; clearing resumes) |
-| Plan/roadmap drift (IND L7) | R-49 row added to the rulings; R-14/R-30/R-16 marked; key_links, artifacts, acceptance lines and an errata paragraph in `04-PLAN.md`; roadmap V2-04 dependencies, expected changes and acceptance: R2 instead of `ap-south-1` (erratum 2026-11-14); `backup.sh` header Environment `staging-backup` | docs commit (`backup.sh` in `448a769`) | documentation |
-| Runner secrets (triage "Accepted") | `docs/runbooks/jobs.md` §2: staging and production never share `JOBS_RUNNER_SECRET` (tokens are not bound to an environment); `staging.md` §5: never share secrets across environments; restore §8 step 5 | docs commit | documentation |
+| Plan/roadmap drift (IND L7) | R-49 row added to the rulings; R-14/R-30/R-16 marked; key_links, artifacts, acceptance lines and an errata paragraph in `04-PLAN.md`; roadmap V2-04 dependencies, expected changes and acceptance: R2 instead of `ap-south-1` (erratum 2026-11-14); `backup.sh` header Environment `staging-backup` | `838d4bd` (`backup.sh` in `448a769`) | documentation |
+| Runner secrets (triage "Accepted") | `docs/runbooks/jobs.md` §2: staging and production never share `JOBS_RUNNER_SECRET` (tokens are not bound to an environment); `staging.md` §5: never share secrets across environments; restore §8 step 5 | `838d4bd` | documentation |
 
 ## Deviations
 
@@ -59,6 +59,9 @@ dispatched, no `--linked`/`db push` was used, no `.env*` file was read, and no d
    and dropped `backup_runs_ok_has_digest` on the local stack for a few seconds. Another plan's lane held the run lock
    at the time (pid 18670). Both changes were restored at once, and `schema-snapshot --check` passes. The proofs were
    then re-run inside rolled-back transactions under the run lock (`evidence/04-07c/migration-000042-negative-proof.txt`).
+   Later, a shell chain whose lock acquisition failed still ran its `rm -f` of the lock file. That deleted the e2e
+   lane's lock (Playwright, pid 48732) for about a second. I recreated it with that pid at once; no other run started
+   in between. The scripts now remove the lock only when they took it.
 
 ## PO-ACTIONS text changes (for the orchestrator; `.planning/PO-ACTIONS.md` not edited here)
 
@@ -88,4 +91,6 @@ dispatched, no `--linked`/`db push` was used, no `.env*` file was read, and no d
 `workflow-policy-bypass-before-after.txt`, `restore-guards-negative-proof.txt`, `migration-000042-negative-proof.txt`,
 `restore-drill-selftest.json` + `restore-drill-selftest-run.txt` (self-test after `db reset --local` with 000042:
 digest ok, tampered refused, SQL guard PASS, 13 pgTAP checks), `workflows-actionlint-zizmor.txt`, `vitest-full-run.txt`,
-`gitleaks.txt`.
+`gitleaks.txt`. Full Vitest lane at `838d4bd` (+ docs only after): **206 files, 4294 tests passed, 0 failed**
+(`vitest-full-run.txt`). Orchestrator request: `docs/runbooks/jobs.md` §11 now says a dead-lettered share message cannot
+be replayed (its link was scrubbed) and is re-shared from the app (evidence commit).

@@ -320,7 +320,11 @@ select ops.replay_job('<job id>');
 ```
 
 `JOB_NOT_REPLAYABLE`: the id is unknown, the job is not `dead`, or it is a `message.reply_unmatched` job (its phone was
-erased; the sender gets a reply again only if they write again). Replay only after fixing the cause in `last_error`
+erased; the sender gets a reply again only if they write again), or (04-07a, M-REPLAY, migration 000041) a
+`message.send` whose row was redacted when it dead-lettered. **A dead-lettered share message (prescription, invoice or
+lab-report link) cannot be replayed:** its link and token were scrubbed to `[redacted]`, so a replay would send a broken
+link. Re-share it from the app (the record's Share action), which mints a new link and enqueues a new message. Replay
+only after fixing the cause in `last_error`
 (provider down, template missing, endpoint fixed); a replayed message that fails again dead-letters again (no second
 "Message Delivery Failed" note). Record the replay (job id, reason) in the incident note.
 
