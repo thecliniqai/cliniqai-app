@@ -2,8 +2,7 @@ import "server-only";
 import { serverEnv } from "@/lib/env-server";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { enqueueMessageAsSystem } from "@/lib/jobs/enqueue";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { enqueueMessageAsSystem, enqueueWebhookEventAsSystem } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -100,12 +99,10 @@ export async function notifyAppointmentRescheduled(sys: AppointmentSystemContext
     }
   }
 
-  // Enqueue webhook event: appointment.rescheduled
+  // Webhook event appointment.rescheduled (04-03b): queued through the system RPC (tenant and the new time from the
+  // visit row); one event per visit and time.
   try {
-    await enqueueWebhookEvent(supabase, visit.tenant_id, "appointment.rescheduled", {
-      appointment_id: input.appointmentId,
-      scheduled_at: input.newScheduledAt,
-    });
+    await enqueueWebhookEventAsSystem(supabase, "appointment.rescheduled", input.appointmentId, `system:${sys.reason}`);
   } catch (webhookErr) {
     log.warn({ event: "appointments.reschedule_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
   }
@@ -157,12 +154,10 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
     throw new Error("Failed to cancel appointment.", { cause: updateError });
   }
 
-  // Enqueue webhook event: appointment.cancelled
+  // Webhook event appointment.cancelled (04-03b): queued through the system RPC; the reason is the one stored on the
+  // visit above (`metadata.cancellation_reason`).
   try {
-    await enqueueWebhookEvent(supabase, visit.tenant_id, "appointment.cancelled", {
-      appointment_id: input.appointmentId,
-      reason: input.reason || "clinic_cancelled",
-    });
+    await enqueueWebhookEventAsSystem(supabase, "appointment.cancelled", input.appointmentId, `system:${sys.reason}`);
   } catch (webhookErr) {
     log.warn({ event: "appointments.cancel_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
   }

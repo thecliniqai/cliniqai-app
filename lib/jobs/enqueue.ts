@@ -12,8 +12,15 @@
  * - `enqueueMessageAsSystem(db, input, actor)`: `public.enqueue_message_system` (service role only) for system modules,
  *   inbound webhooks and job handlers, on a client the caller was allowed to open; `actor` is a closed set.
  *
- * No provider import, no system factory import (ESLint P1-34 and P0-12 zones). Errors are thrown as
- * {@link EnqueueError}: a fixed message, the mapped {@link AppError} and a code-shaped `code` for `errorTag`.
+ * Webhook events (04-03b; R-19, R-26): `enqueueWebhookEvent(ctx, eventType, subjectId)` calls
+ * `public.enqueue_webhook_event` on `ctx.db`; `enqueueWebhookEventAsSystem(db, eventType, subjectId, actor)` calls
+ * `public.enqueue_webhook_event_system`. The event data is built in SQL from the subject row (no caller payload), the
+ * subscriptions are read as definer (doctor and receptionist events are no longer dropped), one row per subscription is
+ * written with the event key `<event>:<subject>` and the row's trigger creates its `webhook.deliver` job. The test ping
+ * is `enqueueWebhookEvent(ctx, "ping", subscriptionId)` (owner/admin, 5 per clinic per minute).
+ *
+ * No provider import, no deliverer import, no system factory import (ESLint P1-34 and P0-12 zones). Errors are thrown
+ * as {@link EnqueueError}: a fixed message, the mapped {@link AppError} and a code-shaped `code` for `errorTag`.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ServiceContext } from "@/lib/auth/context";
@@ -46,7 +53,7 @@ export interface EnqueuedMessage {
   deduped: boolean;
 }
 
-/** The closed set of system actors `enqueue_message_system` accepts (same list in SQL). */
+/** The closed set of system actors `enqueue_message_system` / `enqueue_webhook_event_system` accept (same list in SQL). */
 export type MessageSystemActor =
   | "system:messaging_webhook"
   | "system:patient_self_service_reschedule"
@@ -125,4 +132,69 @@ export async function enqueueMessageAsSystem(
   actor: MessageSystemActor
 ): Promise<EnqueuedMessage> {
   return call(db, "enqueue_message_system", { p_system_actor: actor, ...subjectArgs(input) });
+}
+
+/** The closed set of webhook events a request path may raise (same list in SQL, migration 000036). */
+export type WebhookEventType =
+  | "appointment.rescheduled"
+  | "appointment.cancelled"
+  | "visit.completed"
+  | "prescription.issued"
+  | "lab_result.ready";
+
+/** What a webhook enqueue returns: how many deliveries were queued (0: no active subscriber, or already queued). */
+export interface EnqueuedWebhookEvent {
+  queued: number;
+  deliveryIds: string[];
+}
+
+const WEBHOOK_MESSAGES = {
+  NOT_FOUND: "The record for this webhook event was not found.",
+  VALIDATION_FAILED: "This webhook event cannot be sent.",
+  FORBIDDEN: "You do not have permission to send this webhook event.",
+  INTERNAL: "Failed to queue the webhook event.",
+};
+
+function parseWebhookResult(data: unknown): EnqueuedWebhookEvent {
+  const row = (data ?? {}) as { queued?: unknown; delivery_ids?: unknown };
+  const ids = Array.isArray(row.delivery_ids) ? row.delivery_ids.filter((v): v is string => typeof v === "string") : null;
+  if (typeof row.queued !== "number" || !ids) throw new EnqueueError(mapDbError(null, WEBHOOK_MESSAGES));
+  return { queued: row.queued, deliveryIds: ids };
+}
+
+async function callWebhook(db: AnyDb, fn: string, args: Record<string, unknown>): Promise<EnqueuedWebhookEvent> {
+  const { data, error } = await db.rpc(fn, args);
+  if (error) throw new EnqueueError(mapDbError(error as DbErrorLike, WEBHOOK_MESSAGES));
+  return parseWebhookResult(data);
+}
+
+/**
+ * Queues a webhook event about `subjectId` (the visit, prescription or patient document; the subscription for `ping`)
+ * for the caller's active clinic (`ctx.tenantId`) on the caller's own client.
+ */
+export async function enqueueWebhookEvent(
+  ctx: Pick<ServiceContext, "db" | "tenantId">,
+  eventType: WebhookEventType | "ping",
+  subjectId: string
+): Promise<EnqueuedWebhookEvent> {
+  return callWebhook(ctx.db as AnyDb, "enqueue_webhook_event", {
+    p_tenant_id: ctx.tenantId,
+    p_event_type: eventType,
+    p_subject_id: subjectId,
+    p_subscription_id: eventType === "ping" ? subjectId : null,
+  });
+}
+
+/** Queues a webhook event on the system path (service-role client; the tenant comes from the subject row). */
+export async function enqueueWebhookEventAsSystem(
+  db: AnyDb,
+  eventType: WebhookEventType,
+  subjectId: string,
+  actor: MessageSystemActor
+): Promise<EnqueuedWebhookEvent> {
+  return callWebhook(db, "enqueue_webhook_event_system", {
+    p_system_actor: actor,
+    p_event_type: eventType,
+    p_subject_id: subjectId,
+  });
 }

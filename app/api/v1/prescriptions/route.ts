@@ -5,7 +5,7 @@ import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { enqueueWebhookEventAsSystem } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -264,18 +264,9 @@ export async function POST(req: NextRequest) {
       log.error({ event: "api.prescriptions_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
 
-    // 8. Enqueue webhook event: prescription.issued
+    // 8. Webhook event prescription.issued (04-03b): queued through the system RPC; tenant and data from the row.
     try {
-      await enqueueWebhookEvent(
-        admin,
-        session.tenantId,
-        "prescription.issued",
-        {
-          prescription_id: newPrescription.id,
-          patient_id: newPrescription.patient_id,
-          visit_id: newPrescription.visit_id,
-        }
-      );
+      await enqueueWebhookEventAsSystem(admin, "prescription.issued", newPrescription.id, "system:api_v1");
     } catch (webhookErr) {
       log.warn({ event: "api.prescriptions_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
     }

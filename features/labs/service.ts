@@ -12,8 +12,7 @@ import { isPatientStoragePath } from "@/lib/storage/tenant-path";
 import { uploadLabDocumentSchema, generateShareTokenSchema } from "./schema";
 import { LabDocumentItem, ShareTokenResult, DeleteLabDocumentResult } from "./types";
 import { formatAmendedFilename } from "./utils";
-import { enqueueMessage } from "@/lib/jobs/enqueue";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { enqueueMessage, enqueueWebhookEvent } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { getTenantToday } from "@/lib/datetime/server";
@@ -160,18 +159,9 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
       },
     });
 
-    // 8. Enqueue webhook event: lab_result.ready
+    // 8. Webhook event lab_result.ready (04-03b): queued through the RPC, data built in SQL from the document row.
     try {
-      await enqueueWebhookEvent(
-        supabase,
-        session.tenantId,
-        "lab_result.ready",
-        {
-          document_id: newDoc.id,
-          patient_id: newDoc.patient_id,
-          title: newDoc.title,
-        }
-      );
+      await enqueueWebhookEvent(ctx, "lab_result.ready", newDoc.id);
     } catch (webhookErr) {
       log.warn({ event: "labs.upload_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }

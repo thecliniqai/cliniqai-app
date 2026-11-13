@@ -6,8 +6,7 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { PrescriptionItem } from "@/lib/db/types";
-import { enqueueMessage } from "@/lib/jobs/enqueue";
-import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { enqueueMessage, enqueueWebhookEvent } from "@/lib/jobs/enqueue";
 import {
   prescriptionItemSchema,
   PrescriptionItemInput,
@@ -139,11 +138,8 @@ export async function getOrCreateDraftPrescription(
     }
 
     try {
-      await enqueueWebhookEvent(supabase, ctx.tenantId, "prescription.issued", {
-        prescription_id: created.id,
-        patient_id: visit.patient_id,
-        visit_id: visitId,
-      });
+      // 04-03b: queued through the RPC; one event per prescription (event key), data built in SQL.
+      await enqueueWebhookEvent(ctx, "prescription.issued", created.id);
     } catch (webhookErr) {
       log.warn({ event: "prescriptions.draft_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }

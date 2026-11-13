@@ -6,11 +6,13 @@
 import { serverEnv } from "@/lib/env-server";
 import { DRILL_HANDLERS } from "./handlers/drill";
 import { MESSAGE_SEND_HANDLERS } from "./handlers/message-send";
+import { WEBHOOK_DELIVER_HANDLERS } from "./handlers/webhook-deliver";
 import type { HandlerMap } from "./types";
 
-/** The production handlers. 04-03a: `message.send`. */
+/** The production handlers. 04-03a: `message.send`; 04-03b: `webhook.deliver`. */
 const PRODUCTION_HANDLERS: HandlerMap = {
   ...MESSAGE_SEND_HANDLERS,
+  ...WEBHOOK_DELIVER_HANDLERS,
 };
 
 export function getJobHandlers(): HandlerMap {

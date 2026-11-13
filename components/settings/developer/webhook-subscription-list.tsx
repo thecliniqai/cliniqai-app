@@ -25,7 +25,8 @@ export interface WebhookSubscriptionListProps {
   onAddEndpoint: () => void;
   onDeleteSubscription: (sub: WebhookSubscriptionItem) => void;
   onViewLogs: (sub: WebhookSubscriptionItem) => void;
-  onTestPing: (subId: string) => Promise<{ success: boolean; responseStatus?: number | null; durationMs?: number; error?: string }>;
+  /** V2-04 04-03b (R-26): the ping is queued, never sent from the request; the result appears in the delivery logs. */
+  onTestPing: (subId: string) => Promise<{ success: boolean; queued?: boolean; error?: string }>;
 }
 
 export function WebhookSubscriptionList({
@@ -38,7 +39,7 @@ export function WebhookSubscriptionList({
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
   const [copiedSecretId, setCopiedSecretId] = useState<string | null>(null);
   const [pingingId, setPingingId] = useState<string | null>(null);
-  const [pingResults, setPingResults] = useState<Record<string, { success: boolean; status?: number | null; durationMs?: number }>>({});
+  const [pingResults, setPingResults] = useState<Record<string, { queued: boolean; error?: string }>>({});
 
   const toggleSecretReveal = (id: string) => {
     setRevealedSecrets((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -60,7 +61,7 @@ export function WebhookSubscriptionList({
       const res = await onTestPing(id);
       setPingResults((prev) => ({
         ...prev,
-        [id]: { success: res.success, status: res.responseStatus, durationMs: res.durationMs },
+        [id]: { queued: res.success && res.queued === true, error: res.success ? undefined : res.error },
       }));
     } finally {
       setPingingId(null);
@@ -202,8 +203,8 @@ export function WebhookSubscriptionList({
                     {/* Actions */}
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {/* Ping button with inline result */}
-                        <div className="flex items-center gap-1.5">
+                        {/* Ping button with its status line (04-03b, R-26: queued, result in Delivery logs) */}
+                        <div className="flex flex-col items-end gap-1">
                           <button
                             onClick={() => handlePing(sub.id)}
                             disabled={isPinging}
@@ -211,20 +212,23 @@ export function WebhookSubscriptionList({
                             aria-label={`Send test ping to ${sub.endpointUrl}`}
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${isPinging ? "animate-spin text-[#1769E0]" : ""}`} />
-                            <span>{isPinging ? "Pinging..." : "Send Test Ping"}</span>
+                            <span>{isPinging ? "Queuing..." : "Send Test Ping"}</span>
                           </button>
 
-                          {pingResult && (
-                            <span
-                              className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
-                                pingResult.success
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : "bg-rose-50 text-rose-700 border border-rose-200"
-                              }`}
-                            >
-                              {pingResult.success ? `✓ ${pingResult.status || 200}` : `✗ ${pingResult.status || "Err"}`}
-                            </span>
-                          )}
+                          {/* Polite live region, present before any result so the change is announced. */}
+                          <p
+                            role="status"
+                            aria-live="polite"
+                            className={`max-w-[14rem] whitespace-normal text-right text-[11px] leading-snug ${
+                              pingResult?.queued ? "text-gray-600" : "text-rose-700"
+                            }`}
+                          >
+                            {pingResult
+                              ? pingResult.queued
+                                ? "Test ping queued. The result appears in Delivery logs within about a minute."
+                                : pingResult.error || "Test ping could not be queued."
+                              : null}
+                          </p>
                         </div>
 
                         {/* View Logs button */}

@@ -214,8 +214,6 @@ export const LEG3_CONTROL_EXEMPT: Record<string, string> = {
     "AI is off in the test lane (AI_ENABLED=false): the action fails closed before any data access (AI-01), so no input can succeed.",
   "features/clinics/actions.ts#createClinic":
     "Onboarding ({ authenticated }): a successful control would give the shared outsider user a clinic and change the later legs; create_clinic_with_owner is covered by tests/security/membership-guard.spec.ts.",
-  "features/webhooks/actions.ts#testPingWebhook":
-    "Delivers the ping over outbound HTTP at once (dispatchWebhookQueueItem); the test lane's network guard refuses every non-loopback host, so no input can succeed.",
 };
 
 const SESSION_RECEIPT: RouteGuard = { kind: "session", permission: "appointments:view", resource: "invoice" };
@@ -231,8 +229,6 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   "app/api/auth/send-email/route.ts#POST": { kind: "webhook-signature" },
   // V2-03 03-12b (AUTH-04b, T-03-13): server-side sign-out; same-origin form POST, works with or without a session.
   "app/auth/signout/route.ts#POST": { kind: "signout" },
-  "app/api/cron/webhooks/route.ts#GET": CRON,
-  "app/api/cron/webhooks/route.ts#POST": CRON,
   // V2-03 03-09b (R-18, T-03-15): the diagnostic error route authenticates with the cron bearer before its flag.
   "app/api/diag/error/route.ts#POST": CRON,
   "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime", "region", "release"] },
