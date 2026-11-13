@@ -91,6 +91,7 @@ column ops.jobs.finished_at timestamp with time zone not_null=f default=- identi
 column ops.jobs.first_claimed_at timestamp with time zone not_null=f default=- identity=- generated=-
 column ops.jobs.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
 column ops.jobs.kind text not_null=t default=- identity=- generated=-
+column ops.jobs.last_claimed_at timestamp with time zone not_null=f default=- identity=- generated=-
 column ops.jobs.last_error text not_null=f default=- identity=- generated=-
 column ops.jobs.last_lease_expired_at timestamp with time zone not_null=f default=- identity=- generated=-
 column ops.jobs.lease_token uuid not_null=f default=- identity=- generated=-
@@ -1007,7 +1008,7 @@ function private.session_age_token_hook(event jsonb) returns jsonb lang=plpgsql 
 function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=3f9364431c0bfd99577d1cf49f87bf8e
 function private.webhook_iso(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cf107b0b69f25a02f89ee3381aca5f4f
 function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4b9a79b32cd6254b22017731a27dde2a
-function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=c59510c400c90ee2c619878f11a109a6
+function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=fcbb1dd8180e93a41a2ff86c0d2ebe2b
 function public.communication_metadata_strip_tokens(p jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=699c303067ef7c6e5ac6a23949259380
 function public.communication_payload_redact(p jsonb) returns jsonb lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=e5a03ebc6b0a124b256fe7c73d684772
 function public.communication_queue_apply_dlr(p_external_message_id text, p_status text, p_at timestamp with time zone, p_reason_code text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e24095fda52f0c8d19095845be9f31f1
@@ -2205,6 +2206,7 @@ index ops.jobs_pkey CREATE UNIQUE INDEX jobs_pkey ON ops.jobs USING btree (id)
 index ops.jobs_running_locked_until CREATE INDEX jobs_running_locked_until ON ops.jobs USING btree (locked_until) WHERE (status = 'running'::text)
 index ops.jobs_status_finished_at CREATE INDEX jobs_status_finished_at ON ops.jobs USING btree (status, finished_at)
 index ops.jobs_tenant_id CREATE INDEX jobs_tenant_id ON ops.jobs USING btree (tenant_id)
+index ops.jobs_tenant_last_claimed_at CREATE INDEX jobs_tenant_last_claimed_at ON ops.jobs USING btree (tenant_id, last_claimed_at)
 index ops.message_templates_pkey CREATE UNIQUE INDEX message_templates_pkey ON ops.message_templates USING btree (template_id)
 index ops.quota_limits_pkey CREATE UNIQUE INDEX quota_limits_pkey ON ops.quota_limits USING btree (plan, metric)
 index ops.quota_snapshots_at CREATE INDEX quota_snapshots_at ON ops.quota_snapshots USING btree (at)

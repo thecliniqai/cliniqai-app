@@ -9,6 +9,10 @@
  *   configuration (`RUN_PASS_CONFIG`) and a 12 s handler bound (message.send's): tenant A has 30 due jobs, all older
  *   than tenant B's one; B's job is among the first two the pass runs (the 04-01 runner claimed batches of 1, so the
  *   pass ran only A's oldest jobs). And `claim_jobs` interleaves tenants even when p_per_tenant ≥ the batch.
+ * - Rotation (04-07d, re-verification N-1, migration 000044): tenants are claimed least recently served first, so with
+ *   10 tenants holding older backlogs an 11th tenant's job is claimed within 2 batches (000043: batch 41), 23
+ *   backlogged tenants are all served within 3 batches, and the real runner runs the 11th tenant's job among its first
+ *   20.
  * - 04-03a (roadmap "the parallel-dispatcher test shows 0 duplicate sends", T-04-07): 200 `communication_queue` rows
  *   enqueued through `enqueue_message_system` (their trigger creates 200 `message.send` jobs), 8 concurrent `runJobs`
  *   with the real `message.send` handler and a recording provider → 200 provider calls for those rows, 200 distinct
@@ -194,6 +198,108 @@ describe("tenant fairness (04-07b M-FAIR)", () => {
     expect(claimed.filter((r) => r.tenant_id === b).map((r) => r.id).sort()).toEqual([...bIds].sort());
     // 04-07b: the claim counts no attempt (start_job does).
     expect(claimed.every((r) => r.attempts === 0)).toBe(true);
+  });
+});
+
+/**
+ * Claims with the route's batch / per-tenant values until `stop` holds, marking every claimed batch done as a runner
+ * would. Returns the tenant ids of each batch, in claim order.
+ */
+async function claimBatches(k: string, worker: string, maxBatches: number, stop: (seen: Set<string>) => boolean) {
+  const batches: string[][] = [];
+  const seen = new Set<string>();
+  for (let b = 0; b < maxBatches && !stop(seen); b++) {
+    const { data, error } = await getAdminClient().rpc("claim_jobs", {
+      p_kinds: [k],
+      p_batch: RUN_PASS_CONFIG.batch,
+      p_lease_seconds: RUN_PASS_CONFIG.leaseSeconds,
+      p_worker: worker,
+      p_per_tenant: RUN_PASS_CONFIG.perTenant,
+    });
+    expect(error).toBeNull();
+    const rows = data ?? [];
+    if (rows.length === 0) break;
+    batches.push(rows.map((r) => r.tenant_id ?? ""));
+    for (const r of rows) seen.add(r.tenant_id ?? "");
+    psql(
+      `update ops.jobs set status = 'done', finished_at = now(), updated_at = now() ` +
+        `where id in (${rows.map((r) => `'${r.id}'`).join(",")})`
+    );
+  }
+  return batches;
+}
+
+describe("tenant rotation across more tenants than a batch (04-07d, re-verification N-1)", () => {
+  // 000043 chose the claimed tenants by their oldest due work, so with ≥ 10 tenants holding older backlogs every other
+  // tenant waited for those backlogs to drain (the re-verifier's repro: the victim's first claim was batch 41 of 45).
+  it("re-verifier's repro: 10 tenants × 40 jobs from 30 minutes ago, an 11th tenant's one job from 1 minute ago → served within 2 batches", async () => {
+    const k = kind("rotate");
+    const backlogged = Array.from({ length: 10 }, (_, i) => tenant(`rotate ${i}`));
+    for (const t of backlogged) enqueueMany(k, t, 40, { ageSeconds: 1800 });
+    const victim = tenant("rotate victim");
+    enqueueMany(k, victim, 1, { ageSeconds: 60 });
+
+    const batches = await claimBatches(k, `${WORKER}-rotate`, 45, (seen) => seen.has(victim));
+
+    const first = batches.findIndex((b) => b.includes(victim));
+    expect(first).toBeGreaterThanOrEqual(0);
+    expect(first + 1).toBeLessThanOrEqual(2);
+    // The per-tenant cap and the round-robin still hold: every batch is 10 rows from 10 distinct tenants.
+    for (const b of batches) {
+      expect(b).toHaveLength(RUN_PASS_CONFIG.batch);
+      expect(new Set(b).size).toBe(RUN_PASS_CONFIG.batch);
+    }
+  });
+
+  it("bound: with 23 backlogged tenants every one is served within ceil(23 / 10) = 3 batches", async () => {
+    const k = kind("bound");
+    const all = Array.from({ length: 23 }, (_, i) => tenant(`bound ${i}`));
+    // Older backlogs for the first tenants, so oldest-work ordering alone would keep serving them.
+    all.forEach((t, i) => enqueueMany(k, t, 6, { ageSeconds: 3600 - i * 60 }));
+
+    const batches = await claimBatches(k, `${WORKER}-bound`, 3, () => false);
+
+    expect(batches).toHaveLength(3);
+    expect(new Set(batches.flat())).toEqual(new Set(all));
+  });
+
+  it("through the real runner with the route's configuration: the 11th tenant's job runs among the first 2 batches (20 jobs)", async () => {
+    const k = kind("rotrun");
+    const backlogged = Array.from({ length: 10 }, (_, i) => tenant(`rotrun ${i}`));
+    for (const t of backlogged) enqueueMany(k, t, 40, { ageSeconds: 1800 });
+    const victim = tenant("rotrun victim");
+    const [victimJob] = enqueueMany(k, victim, 1, { ageSeconds: 60 });
+
+    // Every job "takes" 1 s of the pass's clock and a 1 s handler starts only with ≥ 2.5 s of the 25 s budget left, so
+    // the pass runs 23 jobs over 3 claims. 000043: all 23 were the backlogged tenants' (the victim's job was the 401st).
+    let clock = Date.now();
+    const order: string[] = [];
+    const result = await runJobs({
+      db: getAdminClient(),
+      ...RUN_PASS_CONFIG,
+      worker: `${WORKER}-rotrun`,
+      source: "test",
+      kinds: [k],
+      handlers: {
+        [k]: {
+          schema: z.object({ n: z.number().int() }),
+          maxDurationMs: 1_000,
+          async run(job) {
+            order.push(job.id);
+            clock += 1_000;
+            return { outcome: "done" };
+          },
+        },
+      },
+      now: () => new Date(clock),
+    });
+
+    expect(result).toMatchObject({ ok: true, stale: 0 });
+    expect(order.length).toBeGreaterThanOrEqual(2 * RUN_PASS_CONFIG.batch);
+    const at = order.indexOf(victimJob);
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(at).toBeLessThan(2 * RUN_PASS_CONFIG.batch);
+    expect(jobRows(k).find((r) => r.id === victimJob)).toMatchObject({ status: "done", attempts: 1 });
   });
 });
 
