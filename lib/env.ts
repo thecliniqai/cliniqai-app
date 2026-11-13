@@ -46,6 +46,22 @@ export const PWNED_CHECK_VALUES = ["on", "off"] as const;
 export type PwnedCheck = (typeof PWNED_CHECK_VALUES)[number];
 export const PWNED_API_PUBLIC_BASE_URL = "https://api.pwnedpasswords.com";
 export const PWNED_OVERRIDE_TIERS: readonly AppEnv[] = ["development", "test", "e2e"];
+/**
+ * 03-12c (C43, R-17, R-22): Cloudflare Turnstile site key on sign-in and the reset request. Cloudflare's documented
+ * test site keys (developers.cloudflare.com/turnstile/troubleshooting/testing/) are the only values local tiers may
+ * use; production needs a real key. The secret key lives in Supabase Auth (CAPTCHA settings), never in the app.
+ */
+export const TURNSTILE_TEST_SITE_KEYS = [
+  "1x00000000000000000000AA", // visible, always passes (the e2e lane's key)
+  "2x00000000000000000000AB", // visible, always blocks
+  "1x00000000000000000000BB", // invisible, always passes
+  "2x00000000000000000000BB", // invisible, always blocks
+  "3x00000000000000000000FF", // visible, forces an interactive challenge
+] as const;
+export const TURNSTILE_SITE_KEY_PATTERN = /^[0-9]x[A-Za-z0-9_-]{16,64}$/;
+/** Tiers where only a Cloudflare test site key may be set (no real Cloudflare widget from a local or test lane). */
+export const TURNSTILE_TEST_KEY_TIERS: readonly AppEnv[] = ["development", "test", "e2e", "ci"];
+
 /** PO-A3: SES runs in Mumbai only. A constant, not an env name: Vercel reserves `AWS_REGION` (and sets it per function). */
 export const SES_REGION = "ap-south-1";
 
@@ -124,6 +140,7 @@ const shapeSchema = z.object({
   SEND_EMAIL_HOOK_SECRET: text.optional(),
   PWNED_CHECK: z.enum(PWNED_CHECK_VALUES).optional(),
   PWNED_API_BASE_URL: text.url().optional(),
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: text.optional(),
   VERCEL_REGION: text.optional(),
   VERCEL_GIT_COMMIT_SHA: text.optional(),
 });
@@ -176,6 +193,8 @@ export interface Env {
   PWNED_CHECK: PwnedCheck;
   /** Defaults to the public API; another value only in development/test/e2e (loopback in test/e2e). */
   PWNED_API_BASE_URL: string;
+  /** Unset = no widget (local default). Required, and not a test key, in production (03-12c). */
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY?: string;
   VERCEL_REGION?: string;
   VERCEL_GIT_COMMIT_SHA?: string;
 }
@@ -397,6 +416,21 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     add("PWNED_CHECK", `on in ${tier} needs a loopback PWNED_API_BASE_URL (no public network from a test lane)`);
   }
 
+  // 03-12c (C43, R-17, R-22): production must show a real Turnstile widget; local and test tiers only Cloudflare's
+  // test keys (the e2e lane fulfils the script with a local stub); staging may run without one until PO action E7.
+  const turnstileKey = raw.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const isTestTurnstileKey = present(turnstileKey) && (TURNSTILE_TEST_SITE_KEYS as readonly string[]).includes(turnstileKey);
+  if (present(turnstileKey) && !TURNSTILE_SITE_KEY_PATTERN.test(turnstileKey)) {
+    add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "must be a Cloudflare Turnstile site key (<digit>x<16-64 characters>)");
+  }
+  if (tier === "production") {
+    if (!present(turnstileKey)) add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "required in production (C43)");
+    else if (isTestTurnstileKey) add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "must not be a Cloudflare test key in production");
+  }
+  if (TURNSTILE_TEST_KEY_TIERS.includes(tier) && present(turnstileKey) && !isTestTurnstileKey) {
+    add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", `must be one of Cloudflare's test site keys in ${tier}`);
+  }
+
   if (LOOPBACK_TIERS.includes(tier)) {
     if (present(supabaseUrl) && !isLoopbackUrl(supabaseUrl)) add("NEXT_PUBLIC_SUPABASE_URL", `must be a loopback URL in ${tier}`);
     if (present(appUrl) && !isLoopbackUrl(appUrl)) add("NEXT_PUBLIC_APP_URL", `must be a loopback URL in ${tier}`);
@@ -507,6 +541,11 @@ export const publicEnv = {
   },
   get NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY(): string {
     return requirePublic("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, false);
+  },
+  /** 03-12c: the Turnstile site key, or undefined when the widget is off (blank counts as unset). */
+  get NEXT_PUBLIC_TURNSTILE_SITE_KEY(): string | undefined {
+    const value = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+    return present(value) ? value : undefined;
   },
 };
 
@@ -749,6 +788,16 @@ export const ENV_DOCS: Record<Exclude<EnvName, "NODE_ENV" | "VERCEL_REGION" | "V
     notes: [
       `Range API base URL; default ${PWNED_API_PUBLIC_BASE_URL}. Settable only in development, test and e2e`,
       "(loopback only in test/e2e, where PWNED_CHECK=on requires it). Leave unset in ci, staging and production.",
+    ],
+    example: "",
+  },
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: {
+    group: "Bot protection",
+    notes: [
+      "Cloudflare Turnstile site key (public) for sign-in and the reset request (C43, 03-12c). Unset = no widget.",
+      "Required in production (a real key; test keys refused). Staging: optional until PO action E7. development,",
+      "test, e2e, ci: only Cloudflare's test site keys (1x00000000000000000000AA always passes).",
+      "The secret key is set in Supabase Auth -> Bot and Abuse Protection, never in the app.",
     ],
     example: "",
   },

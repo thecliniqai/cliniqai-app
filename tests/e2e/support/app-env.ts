@@ -15,6 +15,7 @@ import path from "node:path";
 import {
   E2E_APP_ENV,
   E2E_PWNED_API_BASE_URL,
+  E2E_TURNSTILE_SITE_KEY,
   LOCAL_ERROR_INGEST_KEY,
   LOCAL_MAILPIT_API_URL,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
@@ -105,6 +106,10 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // starts (tests/e2e/support/pwned-range-server.ts); J-A4/J-A5 prove a listed password is refused.
     PWNED_CHECK: "on",
     PWNED_API_BASE_URL: E2E_PWNED_API_BASE_URL,
+    // V2-03 03-12c (C43, R-22): sign-in and the reset request render the Turnstile widget with Cloudflare's always-pass
+    // test key. The browser never reaches Cloudflare: tests/e2e/fixtures.ts fulfils the widget script with
+    // tests/e2e/support/turnstile-stub.js, and local GoTrue has CAPTCHA off, so the lane proves the token wiring.
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: E2E_TURNSTILE_SITE_KEY,
     NODE_OPTIONS: `--require "${SERVER_NET_GUARD}"`,
   } satisfies EnvMap);
   assertLocalAppServerEnv(env);

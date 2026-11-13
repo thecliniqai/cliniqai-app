@@ -52,6 +52,8 @@ const PRODUCTION: EnvSource = {
   SEND_EMAIL_HOOK_SECRET: HOOK_SECRET,
   // 03-12a: production rejects breached passwords (FT-05).
   PWNED_CHECK: "on",
+  // 03-12c: production shows a real Turnstile widget on sign-in and reset (C43). Synthetic, key-shaped.
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0xMARKER-turnstile-site-key",
 };
 
 const STAGING: EnvSource = { ...PRODUCTION, APP_ENV: "staging", MESSAGING_PROVIDER: "disabled" };
@@ -418,6 +420,66 @@ describe("env schema: breached-password check (03-12a, FT-05, R-17)", () => {
     );
     expectRejected({ ...CI_BUILD, PWNED_CHECK: "on" }, "PWNED_CHECK");
     expect(parseEnv({ ...local, NODE_ENV: "test", PWNED_CHECK: "on", PWNED_API_BASE_URL: LOOPBACK_RANGE }).PWNED_CHECK).toBe("on");
+  });
+});
+
+describe("env schema: Turnstile site key (03-12c, C43, R-17, R-22)", () => {
+  const local = { NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+  const PASS_KEY = "1x00000000000000000000AA";
+  const REAL_SHAPED = "0xMARKER-turnstile-site-key";
+
+  it("production requires a key (unset throws)", () => {
+    expect(parseEnv(PRODUCTION).NEXT_PUBLIC_TURNSTILE_SITE_KEY).toBe(REAL_SHAPED);
+    expect(issuesOf({ ...PRODUCTION, NEXT_PUBLIC_TURNSTILE_SITE_KEY: undefined })).toContain(
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY: required in production (C43)",
+    );
+    expect(issuesOf({ ...PRODUCTION, NEXT_PUBLIC_TURNSTILE_SITE_KEY: "" })).toContain(
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY: required in production (C43)",
+    );
+  });
+
+  it.each(["1x00000000000000000000AA", "2x00000000000000000000AB", "1x00000000000000000000BB", "2x00000000000000000000BB", "3x00000000000000000000FF"])(
+    "production refuses the Cloudflare test key %s",
+    (key) => {
+      expect(issuesOf({ ...PRODUCTION, NEXT_PUBLIC_TURNSTILE_SITE_KEY: key })).toContain(
+        "NEXT_PUBLIC_TURNSTILE_SITE_KEY: must not be a Cloudflare test key in production",
+      );
+    },
+  );
+
+  it("staging is optional: unset, a test key or a real key all parse (PO action E7 sets the real one)", () => {
+    expect(parseEnv({ ...STAGING, NEXT_PUBLIC_TURNSTILE_SITE_KEY: undefined }).NEXT_PUBLIC_TURNSTILE_SITE_KEY).toBeUndefined();
+    expect(parseEnv({ ...STAGING, NEXT_PUBLIC_TURNSTILE_SITE_KEY: PASS_KEY }).NEXT_PUBLIC_TURNSTILE_SITE_KEY).toBe(PASS_KEY);
+    expect(parseEnv(STAGING).NEXT_PUBLIC_TURNSTILE_SITE_KEY).toBe(REAL_SHAPED);
+  });
+
+  it("development, test, e2e and ci accept only Cloudflare's test keys (and default to no widget)", () => {
+    const profiles: Array<[string, EnvSource]> = [
+      ["development", local],
+      ["test", { ...local, NODE_ENV: "test" }],
+      ["ci", CI_BUILD],
+      ["e2e", { ...CI_BUILD, APP_ENV: "e2e" }],
+    ];
+    for (const [tier, profile] of profiles) {
+      expect(parseEnv(profile).NEXT_PUBLIC_TURNSTILE_SITE_KEY, tier).toBeUndefined();
+      expect(parseEnv({ ...profile, NEXT_PUBLIC_TURNSTILE_SITE_KEY: PASS_KEY }).NEXT_PUBLIC_TURNSTILE_SITE_KEY, tier).toBe(PASS_KEY);
+      expect(issuesOf({ ...profile, NEXT_PUBLIC_TURNSTILE_SITE_KEY: REAL_SHAPED }), tier).toContain(
+        `NEXT_PUBLIC_TURNSTILE_SITE_KEY: must be one of Cloudflare's test site keys in ${tier}`,
+      );
+    }
+  });
+
+  it("a value that is not site-key shaped throws in every tier", () => {
+    for (const profile of [PRODUCTION, STAGING, CI_BUILD]) {
+      expectRejected({ ...profile, NEXT_PUBLIC_TURNSTILE_SITE_KEY: "LEAK-not-a-site-key" }, "NEXT_PUBLIC_TURNSTILE_SITE_KEY");
+      expectRejected({ ...profile, NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x<script>" }, "NEXT_PUBLIC_TURNSTILE_SITE_KEY");
+    }
+  });
+
+  it("the e2e app server builds with the always-pass test key (R-22)", () => {
+    const env = buildAppServerEnv({ source: {}, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } });
+    expect(env.NEXT_PUBLIC_TURNSTILE_SITE_KEY).toBe(PASS_KEY);
+    expect(parseEnv(env).NEXT_PUBLIC_TURNSTILE_SITE_KEY).toBe(PASS_KEY);
   });
 });
 

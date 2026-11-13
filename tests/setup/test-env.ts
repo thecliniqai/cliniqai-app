@@ -54,6 +54,24 @@ export const LOCAL_MAILPIT_API_URL = "http://127.0.0.1:54324";
 export const E2E_PWNED_RANGE_PORT = 3101;
 export const E2E_PWNED_API_BASE_URL = `http://127.0.0.1:${E2E_PWNED_RANGE_PORT}`;
 
+/**
+ * V2-03 03-12c (C43, R-22): Cloudflare's documented Turnstile test site keys (the same list as
+ * `TURNSTILE_TEST_SITE_KEYS` in lib/env.ts; tests/setup/test-env-guard.spec.ts keeps them equal). A test lane may set
+ * only these; the e2e app server builds with the always-pass key and the browser gets the script from a local stub
+ * (tests/e2e/support/turnstile-stub.js). Local GoTrue keeps CAPTCHA off (supabase/config.toml).
+ */
+export const TURNSTILE_TEST_SITE_KEYS = [
+  "1x00000000000000000000AA",
+  "2x00000000000000000000AB",
+  "1x00000000000000000000BB",
+  "2x00000000000000000000BB",
+  "3x00000000000000000000FF",
+] as const;
+/** The e2e build's site key: visible widget, always passes. */
+export const E2E_TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
+/** Cloudflare's visible always-blocks test key (the stub fails the widget and issues no token, as Cloudflare does). */
+export const TURNSTILE_ALWAYS_FAIL_SITE_KEY = "2x00000000000000000000AB";
+
 /** Variables that may be unset or must hold one of these values. */
 const PINNED_IF_SET: Record<string, string[]> = {
   STORAGE_PROVIDER: ["supabase"],
@@ -65,6 +83,8 @@ const PINNED_IF_SET: Record<string, string[]> = {
   AI_ENABLED: ["false", "0"],
   // V2-03 03-11b: auth email never goes to SES from a test lane; specs stub `ses` only with an injected client.
   EMAIL_PROVIDER: ["disabled", "mailpit"],
+  // V2-03 03-12c: no real Turnstile widget from a test lane (a real key would load Cloudflare's challenge).
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: [...TURNSTILE_TEST_SITE_KEYS],
 };
 
 /**

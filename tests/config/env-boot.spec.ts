@@ -64,6 +64,8 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
     expect(res.stderr).toContain("SEND_EMAIL_HOOK_SECRET: required in production");
     // 03-12a: production must reject breached passwords (FT-05).
     expect(res.stderr).toContain("PWNED_CHECK: must be on in production");
+    // 03-12c: production must show a real Turnstile widget (C43).
+    expect(res.stderr).toContain("NEXT_PUBLIC_TURNSTILE_SITE_KEY: required in production");
     for (const value of Object.values(PRODUCTION_WITHOUT_PROVIDERS).filter((v) => v.startsWith("MARKER"))) {
       expect(res.stderr).not.toContain(value);
       expect(res.stdout).not.toContain(value);
@@ -115,6 +117,7 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
       SES_SECRET_ACCESS_KEY: "MARKER-boot-ses-secret-access-key-0123456789",
       SEND_EMAIL_HOOK_SECRET: `v1,whsec_${Buffer.from("MARKER-boot-hook-key-0123456789ab").toString("base64")}`,
       PWNED_CHECK: "on",
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0xMARKER-boot-turnstile-key",
     });
     expect(res.stderr).toBe("");
     expect(res.status).toBe(0);

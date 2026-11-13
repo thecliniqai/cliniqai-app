@@ -6,11 +6,13 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { TURNSTILE_TEST_SITE_KEYS as SCHEMA_TURNSTILE_TEST_SITE_KEYS } from "@/lib/env";
 import {
   FORBIDDEN_VARS,
   findTestEnvProblems,
   LOCAL_ERROR_INGEST_KEY,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
+  TURNSTILE_TEST_SITE_KEYS,
   loadLocalStackKeys,
   parseEnvFile,
   TestEnvGuardError,
@@ -213,6 +215,16 @@ describe("test-env guard rules", () => {
     );
     expect(findTestEnvProblems(safeEnv({ MAILPIT_API_URL: "http://mail.example.org:8025" }))).toContain(
       'MAILPIT_API_URL points at non-local host "mail.example.org"',
+    );
+  });
+
+  it("allows only Cloudflare's Turnstile test site keys in a test lane (03-12c, R-22)", () => {
+    expect([...TURNSTILE_TEST_SITE_KEYS]).toEqual([...SCHEMA_TURNSTILE_TEST_SITE_KEYS]);
+    for (const key of TURNSTILE_TEST_SITE_KEYS) {
+      expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: key }))).toEqual([]);
+    }
+    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAAsyntheticRealKey" }))[0]).toMatch(
+      /^NEXT_PUBLIC_TURNSTILE_SITE_KEY must be unset or 1x00000000000000000000AA/,
     );
   });
 
