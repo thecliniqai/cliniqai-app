@@ -59,6 +59,7 @@ fails without the fix) and `lint-fixtures/p1-34/raw-stream.ts` in `tests/securit
 | Hook failure reveals account existence during an email outage (D L-3) | Outage-only side channel; signups are off | V2-13b |
 | Staging can serve new code against the old schema until the PO approves `migrate` (IND Low) | By design (R-9 approval); runbook orders migrate before promote | V2-04 runbook |
 | Lab storage keys contain patient names (IND Low) | Key scheme change touches every stored document | V2-05 (storage policies) |
+| Review A Lows L-1, L-2, L-3, L-5, L-6, L-7, L-8 (whitespace-only env values; odd loopback URL forms in deploy tiers; CLI opaque local keys unrecognised; dry run gates nothing; wait-for-release false-fail on newer deploy; DB URLs in argv; test-lane guard misses staging names/opaque hosted keys) | Staging/env hardening, none exploitable without staging access; V2-04 edits the same env schema and staging workflows | V2-04 (carry-over plan 04-00) |
 | Overpayment / status change via direct table writes | Contract step | V2-07 |
 | H-AUTH residual: an access token minted just before the 600 s bound stays valid at GoTrue until ~1,500 s after the code (03-13e) | Bounded ≤ 25 min; refresh refused by the token hook; the proxy ends the session on first app request; cutting `exp` broke GoTrue's reported expiry | V2-13b (session time-box on Pro or a shorter JWT expiry review) |
 
