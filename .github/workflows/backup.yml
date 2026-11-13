@@ -1,0 +1,111 @@
+# Staging backup (V2-04 04-05a; FT-02, rulings R-3, R-4, R-31; PO decision 2026-11-13: staging backups go to
+# Cloudflare R2, AWS Mumbai is decided at go-live, docs/ops/backup-aws-golive.md). Runbook: docs/runbooks/backup-restore.md.
+#
+# Twice a day (02:00 and 14:00 IST) dumps the staging database (roles, schema, data without cron/net queues, migration
+# history, storage policies) and syncs its Storage buckets, writes a manifest, encrypts the archive with age to two
+# recipients (primary + break-glass, R-3), uploads it to the R2 bucket and records a counts-only `ops.backup_runs` row.
+# Synthetic staging data only (PO-23(h) keeps production off GitHub-hosted runners).
+#
+# Same rules as staging.yml (scripts/ci/workflow-policy.mjs): Environment `staging`, feature/v2 only, no PR trigger,
+# read-only token, secrets only in the step that needs them, `npm ci --ignore-scripts` without a cache, SHA-pinned
+# actions, no `${{ }}` in `run:`. The database URL is checked by scripts/staging/target-guard.mjs and reaches the CLI
+# without its password (PGPASSWORD, 04-00 L-7). Every S3 call uses the digest-pinned AWS CLI image (ops/bin/pins.env).
+#
+# Alerts: a failed, cancelled or timed-out run (including the dead-man exit 3 for a stale job runner, R-41) triggers
+# backup-alert.yml, which opens or comments on the bot's "Staging backup failing" issue (GitHub emails watchers);
+# GitHub also emails the workflow's last editor about failed scheduled runs; a run that never happens is caught by the
+# in-app `backup_stale` alert on `ops.backup_runs` (04-04). Failed-run drill (04-P11): Run workflow with
+# `force_fail` = true (exit 64 before any connection).
+# Schedules run only from the default branch, so the twice-daily runs start once the default branch is feature/v2 (RL-3).
+name: Staging backup
+run-name: ${{ inputs.force_fail && 'Staging backup (forced failure drill)' || 'Staging backup' }}
+
+on:
+  schedule:
+    - cron: "30 20 * * *" # 02:00 IST
+    - cron: "30 8 * * *" # 14:00 IST
+  workflow_dispatch:
+    inputs:
+      force_fail:
+        description: "Failed-run drill (04-P11): fail before any connection, so the alert path fires"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: backup
+    if: ${{ github.ref == 'refs/heads/feature/v2' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: staging
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: npm ci (no install scripts; the Supabase CLI comes from its platform package)
+        run: npm ci --ignore-scripts
+      - name: Install age (pinned release, SHA-256 verified)
+        run: ops/bin/install-age.sh
+      - name: Target guard (the staging project only; masks the database password)
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+        run: node scripts/staging/target-guard.mjs --var STAGING_DB_URL --mask
+      - name: Backup (dump + Storage sync, age to two recipients, upload to R2, ops.backup_runs row)
+        env:
+          BACKUP_ENV: staging
+          FORCE_FAIL: ${{ inputs.force_fail && '1' || '' }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+          PGSSLMODE: require
+          STORAGE_S3_ENDPOINT: https://${{ vars.SUPABASE_PROJECT_REF_STAGING }}.storage.supabase.co/storage/v1/s3
+          STORAGE_S3_REGION: ${{ vars.STAGING_STORAGE_S3_REGION }}
+          STORAGE_S3_KEY_ID: ${{ secrets.STAGING_STORAGE_S3_KEY_ID }}
+          STORAGE_S3_SECRET: ${{ secrets.STAGING_STORAGE_S3_SECRET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          BACKUP_S3_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          BACKUP_AGE_RECIPIENTS: ${{ secrets.BACKUP_AGE_RECIPIENTS }}
+          BACKUP_S3_PREFIX: staging/
+        run: |
+          DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url --no-password)"
+          PGPASSWORD="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-pgpassword)"
+          export DB_URL PGPASSWORD
+          AGE_BIN="$PWD/.cache/ops-bin/age" bash ops/backup/backup.sh
+      # Names, sizes and timestamps of the archives under staging/ (never contents); verdicts in the job summary.
+      - name: Bucket listing evidence
+        env:
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+        run: |
+          mkdir -p backup-evidence
+          ops/bin/aws-docker.sh s3api list-objects-v2 --bucket "$BACKUP_S3_BUCKET" --prefix staging/ \
+            --endpoint-url "$BACKUP_S3_ENDPOINT" --output json > backup-evidence/listing.json
+          npx tsx ops/backup/evidence.ts --listing backup-evidence/listing.json --prefix staging/ --days 2 \
+            --out backup-evidence/backup-evidence.json
+          rm -f backup-evidence/listing.json
+          npx tsx ops/backup/evidence.ts --check backup-evidence/backup-evidence.json \
+            --require keys_ok,retention_ok >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: backup-evidence
+          path: backup-evidence/backup-evidence.json
+          if-no-files-found: ignore
+          retention-days: 90

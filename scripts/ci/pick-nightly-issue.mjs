@@ -8,12 +8,18 @@
  * issue (whose body they can edit and which they can close). The workflow also passes `--author app/github-actions`
  * to the query; this is the second, tested check.
  *
- * Usage: gh issue list … --json number,title,author | node scripts/ci/pick-nightly-issue.mjs
+ * Usage: gh issue list … --json number,title,author | node scripts/ci/pick-nightly-issue.mjs [--title "<title>"]
+ * `--title` (V2-04 04-05a) picks another bot-owned alert issue, e.g. "Staging backup failing" for backup-alert.yml.
  * Exit 0 always with a number or empty output; exit 2 on unreadable input.
  */
 import { readFileSync } from "node:fs";
 
-const TITLE = "Nightly failing";
+const titleAt = process.argv.indexOf("--title");
+const TITLE = titleAt > -1 ? process.argv[titleAt + 1] : "Nightly failing";
+if (!TITLE) {
+  console.error("pick-nightly-issue: --title needs a value");
+  process.exit(2);
+}
 /** How `gh` reports the GitHub Actions bot as an author. */
 const BOT_LOGINS = new Set(["app/github-actions", "github-actions[bot]", "github-actions"]);
 

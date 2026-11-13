@@ -79,6 +79,9 @@ pnpm-debug.log*
 
 # Supabase CLI local state (V2-01a)
 supabase/.branches/
+# Restore-drill stack CLI state (V2-04 04-05a; service-version pins for K-6 go here, never committed)
+ops/restore-drill/supabase/.branches/
+ops/restore-drill/supabase/.temp/
 
 # P0-13 CI canary copy (scripts/ci/guard-canary.mjs deletes it; never commit it)
 /features/__guard_canary__/

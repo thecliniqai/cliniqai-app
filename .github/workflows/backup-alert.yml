@@ -1,0 +1,53 @@
+# Staging backup alert (V2-04 04-05a; FT-02 "a deliberately failed run raises an alert", R-1 email only, no AWS SNS).
+#
+# When a run of backup.yml ("Staging backup") on feature/v2 ends in anything but success (failure, cancelled, timed out,
+# or never approved), opens the bot's "Staging backup failing" issue or comments on it with the run link; GitHub emails
+# the issue to watchers (the PO's ops inbox, 04-P7). backup.yml itself keeps a read-only token (staging workflow); this
+# separate workflow holds the one write scope it needs (`issues: write`) and no secret, no checkout of run code (only
+# the issue picker, sparse), no data from the triggering run beyond its URL and conclusion.
+# workflow_run fires only for workflow files on the default branch, so alerts start once the default branch is
+# feature/v2 (RL-3), together with the schedules.
+name: Staging backup alert
+
+on:
+  workflow_run:
+    workflows: [Staging backup]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  report-failure:
+    name: report-failure
+    if: ${{ github.event.workflow_run.conclusion != 'success' && github.event.workflow_run.conclusion != 'skipped' && github.event.workflow_run.head_branch == 'feature/v2' && github.event.workflow_run.event != 'pull_request' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.event.workflow_run.html_url }}
+      CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+    steps:
+      # Only the issue picker (AR-L1): the bot comments only on an issue it opened itself.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci/pick-nightly-issue.mjs
+          sparse-checkout-cone-mode: false
+      - name: Open or update the Staging backup failing issue
+        run: |
+          case "$CONCLUSION" in
+            failure | cancelled | timed_out | action_required | startup_failure | stale | neutral) ;;
+            *) echo "unexpected conclusion" >&2; exit 1 ;;
+          esac
+          body="Staging backup run ended with conclusion: $CONCLUSION. $RUN_URL (runbook: docs/runbooks/backup-restore.md §6)."
+          number="$(gh issue list --state open --author app/github-actions --search 'in:title "Staging backup failing"' \
+            --json number,title,author | node scripts/ci/pick-nightly-issue.mjs --title "Staging backup failing")"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "Staging backup failing" --body "$body"
+          fi
