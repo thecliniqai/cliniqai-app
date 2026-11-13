@@ -201,6 +201,8 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   "app/api/cron/dispatch-communications/route.ts#POST": CRON,
   "app/api/cron/webhooks/route.ts#GET": CRON,
   "app/api/cron/webhooks/route.ts#POST": CRON,
+  // V2-03 03-09b (R-18, T-03-15): the diagnostic error route authenticates with the cron bearer before its flag.
+  "app/api/diag/error/route.ts#POST": CRON,
   "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime", "region", "release"] },
   "app/api/ready/route.ts#GET": {
     kind: "public-health",

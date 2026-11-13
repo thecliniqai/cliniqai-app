@@ -32,6 +32,8 @@ const PRODUCTION: EnvSource = {
   MSG91_INTEGRATED_NUMBER: "910000000001",
   MSG91_WEBHOOK_SECRET: "MARKER-msg91-webhook-value",
   AI_ENABLED: "false",
+  // 03-09b: production must report its errors to the sink.
+  ERROR_INGEST_KEY: "MARKER-error-ingest-key-value-0123456789",
 };
 
 const STAGING: EnvSource = { ...PRODUCTION, APP_ENV: "staging", MESSAGING_PROVIDER: "disabled" };
@@ -104,6 +106,9 @@ describe("env schema: complete profiles pass", () => {
     const parsed = parseEnv(env);
     expect(parsed.APP_ENV).toBe("e2e");
     expect(parsed.MESSAGING_PROVIDER).toBe("dev");
+    // 03-09b: the e2e server writes to the local sink and serves the diagnostic route.
+    expect(parsed.ERROR_INGEST_KEY).toBeDefined();
+    expect(parsed.DIAG_ERROR_ROUTE_ENABLED).toBe(true);
   });
 
   it("development and test default the app URL and the offline messaging provider", () => {
@@ -202,6 +207,43 @@ describe("env schema: staging and production are fail-closed", () => {
   });
 });
 
+describe("env schema: error sink and diagnostic route (03-09b, R-7, R-18)", () => {
+  it("production without ERROR_INGEST_KEY throws; staging and the local tiers may leave it unset", () => {
+    expectRejected({ ...PRODUCTION, ERROR_INGEST_KEY: undefined }, "ERROR_INGEST_KEY");
+    expect(parseEnv({ ...STAGING, ERROR_INGEST_KEY: undefined }).ERROR_INGEST_KEY).toBeUndefined();
+    expect(parseEnv(CI_BUILD).ERROR_INGEST_KEY).toBeUndefined();
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+    ["ci", CI_BUILD],
+  ])("a short ERROR_INGEST_KEY throws in %s, without echoing it", (_tier, profile) => {
+    expectRejected({ ...profile, ERROR_INGEST_KEY: "MARKER-short-ingest" }, "ERROR_INGEST_KEY");
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("a local placeholder ERROR_INGEST_KEY throws in %s", (_tier, profile) => {
+    expectRejected({ ...profile, ERROR_INGEST_KEY: "not-real-ingest-key-not-real-ingest-key-" }, "ERROR_INGEST_KEY");
+  });
+
+  it("DIAG_ERROR_ROUTE_ENABLED=true throws in production (T-03-15)", () => {
+    expectRejected({ ...PRODUCTION, DIAG_ERROR_ROUTE_ENABLED: "true" }, "DIAG_ERROR_ROUTE_ENABLED");
+  });
+
+  it("DIAG_ERROR_ROUTE_ENABLED=true parses in staging (PO action E9) and e2e; it defaults to false", () => {
+    expect(parseEnv({ ...STAGING, DIAG_ERROR_ROUTE_ENABLED: "true" }).DIAG_ERROR_ROUTE_ENABLED).toBe(true);
+    expect(parseEnv(PRODUCTION).DIAG_ERROR_ROUTE_ENABLED).toBe(false);
+    expect(parseEnv({ ...PRODUCTION, DIAG_ERROR_ROUTE_ENABLED: "false" }).DIAG_ERROR_ROUTE_ENABLED).toBe(false);
+  });
+
+  it("a non-boolean DIAG_ERROR_ROUTE_ENABLED throws", () => {
+    expectRejected({ ...STAGING, DIAG_ERROR_ROUTE_ENABLED: "yes" }, "DIAG_ERROR_ROUTE_ENABLED");
+  });
+});
+
 describe("env schema: build tiers (ci, e2e, test) are loopback-only (K-6)", () => {
   it.each(["ci", "e2e"])("%s with a non-loopback Supabase URL throws", (tier) => {
     expectRejected({ ...CI_BUILD, APP_ENV: tier, NEXT_PUBLIC_SUPABASE_URL: "https://db.synthetic.example.org" }, "NEXT_PUBLIC_SUPABASE_URL");
@@ -281,7 +323,13 @@ describe("env schema: every tier", () => {
     } catch (e) {
       const message = (e as Error).message;
       expect(message).toMatch(/MESSAGING_PROVIDER: must not be dev in production/);
-      for (const value of [LOCAL_SERVICE, PRODUCTION.MSG91_AUTH_KEY!, PRODUCTION.CRON_SECRET!, PRODUCTION.MSG91_WEBHOOK_SECRET!]) {
+      for (const value of [
+        LOCAL_SERVICE,
+        PRODUCTION.MSG91_AUTH_KEY!,
+        PRODUCTION.CRON_SECRET!,
+        PRODUCTION.MSG91_WEBHOOK_SECRET!,
+        PRODUCTION.ERROR_INGEST_KEY!,
+      ]) {
         expect(message).not.toContain(value);
       }
     }

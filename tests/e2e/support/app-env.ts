@@ -12,7 +12,13 @@
  */
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { E2E_APP_ENV, assertLocalAppServerEnv, loadLocalStackKeys, type EnvMap } from "../../setup/test-env";
+import {
+  E2E_APP_ENV,
+  LOCAL_ERROR_INGEST_KEY,
+  assertLocalAppServerEnv,
+  loadLocalStackKeys,
+  type EnvMap,
+} from "../../setup/test-env";
 
 export const ROOT = path.resolve(__dirname, "../../..");
 
@@ -21,6 +27,8 @@ export const E2E_HOST = "127.0.0.1";
 export const E2E_PORT = 3100;
 export const E2E_BASE_URL = `http://${E2E_HOST}:${E2E_PORT}`;
 export const LOCAL_SUPABASE_URL = "http://127.0.0.1:54321";
+/** The e2e server's cron bearer (synthetic); `POST /api/diag/error` authenticates with it (03-09b). */
+export const E2E_CRON_SECRET = "e2e-not-real";
 
 export const SERVER_NET_GUARD = path.join(ROOT, "tests/e2e/support/server-net-guard.cjs");
 /** Written by `npm run e2e:build` after a guarded build passed the output scan; `serve.ts` refuses without it. */
@@ -77,7 +85,11 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     AI_ENABLED: "false",
     AI_PROVIDER: "mock",
     API_V1_ENABLED: "false",
-    CRON_SECRET: "e2e-not-real",
+    CRON_SECRET: E2E_CRON_SECRET,
+    // V2-03 03-09b (R-18): the sink is on (synthetic key, its hash installed by global setup) and so is the
+    // diagnostic error route that proves it end to end (tests/e2e/observability/error-sink.spec.ts).
+    ERROR_INGEST_KEY: LOCAL_ERROR_INGEST_KEY,
+    DIAG_ERROR_ROUTE_ENABLED: "true",
     NODE_OPTIONS: `--require "${SERVER_NET_GUARD}"`,
   } satisfies EnvMap);
   assertLocalAppServerEnv(env);

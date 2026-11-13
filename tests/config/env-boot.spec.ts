@@ -57,6 +57,8 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
     expect(res.stdout).not.toContain("boot-ok");
     expect(res.stderr).toContain("MESSAGING_PROVIDER: must not be dev in production");
     expect(res.stderr).toContain("AI_PROVIDER: must not be mock in production");
+    // 03-09b: production must report its errors to the sink.
+    expect(res.stderr).toContain("ERROR_INGEST_KEY: required in production");
     for (const value of Object.values(PRODUCTION_WITHOUT_PROVIDERS).filter((v) => v.startsWith("MARKER"))) {
       expect(res.stderr).not.toContain(value);
       expect(res.stdout).not.toContain(value);
@@ -101,6 +103,7 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
       MSG91_INTEGRATED_NUMBER: "910000000001",
       MSG91_WEBHOOK_SECRET: "MARKER-boot-webhook",
       AI_PROVIDER: undefined,
+      ERROR_INGEST_KEY: "MARKER-boot-error-ingest-0123456789abcdef",
     });
     expect(res.stderr).toBe("");
     expect(res.status).toBe(0);

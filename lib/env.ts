@@ -40,6 +40,8 @@ export const DEFAULT_LOCAL_APP_URL = "http://localhost:3000";
 /** JWT issuer of the keys every `npx supabase start` stack uses; never valid in staging or production. */
 export const LOCAL_DEMO_KEY_ISSUER = "supabase-demo";
 export const MIN_CRON_SECRET_LENGTH = 32;
+/** 03-09b: the error-sink ingest key (its SHA-256 is the vault secret `ops_error_ingest_key_sha256`). */
+export const MIN_ERROR_INGEST_KEY_LENGTH = 32;
 
 /** Names that must not be set in staging or production (stale hosted config fails loudly), with what replaced them. */
 export const RETIRED_NAMES: Readonly<Record<string, string>> = {
@@ -91,6 +93,8 @@ const shapeSchema = z.object({
   AI_API_KEY: text.optional(),
   AI_MODEL_NAME: text.optional(),
   AI_BASE_URL: text.url().optional(),
+  ERROR_INGEST_KEY: text.optional(),
+  DIAG_ERROR_ROUTE_ENABLED: flag.optional(),
   VERCEL_REGION: text.optional(),
   VERCEL_GIT_COMMIT_SHA: text.optional(),
 });
@@ -130,6 +134,8 @@ export interface Env {
   AI_API_KEY?: string;
   AI_MODEL_NAME?: string;
   AI_BASE_URL?: string;
+  ERROR_INGEST_KEY?: string;
+  DIAG_ERROR_ROUTE_ENABLED: boolean;
   VERCEL_REGION?: string;
   VERCEL_GIT_COMMIT_SHA?: string;
 }
@@ -277,6 +283,19 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     }
   }
 
+  // 03-09b (R-7, R-18): the error-sink key is long enough to resist guessing; production must report its errors; the
+  // diagnostic error route never runs in production.
+  if (present(raw.ERROR_INGEST_KEY) && raw.ERROR_INGEST_KEY.length < MIN_ERROR_INGEST_KEY_LENGTH) {
+    add("ERROR_INGEST_KEY", `at least ${MIN_ERROR_INGEST_KEY_LENGTH} characters`);
+  }
+  if (tier === "production" && !present(raw.ERROR_INGEST_KEY)) add("ERROR_INGEST_KEY", "required in production");
+  if (deploy && present(raw.ERROR_INGEST_KEY) && /not-real/i.test(raw.ERROR_INGEST_KEY)) {
+    add("ERROR_INGEST_KEY", `must not be a local placeholder in ${tier}`);
+  }
+  if (raw.DIAG_ERROR_ROUTE_ENABLED === "true" && tier === "production") {
+    add("DIAG_ERROR_ROUTE_ENABLED", "must not be true in production (R-18)");
+  }
+
   if (LOOPBACK_TIERS.includes(tier)) {
     if (present(supabaseUrl) && !isLoopbackUrl(supabaseUrl)) add("NEXT_PUBLIC_SUPABASE_URL", `must be a loopback URL in ${tier}`);
     if (present(appUrl) && !isLoopbackUrl(appUrl)) add("NEXT_PUBLIC_APP_URL", `must be a loopback URL in ${tier}`);
@@ -350,6 +369,7 @@ export function parseEnv(source: EnvSource): Env {
     MESSAGING_PROVIDER: s.MESSAGING_PROVIDER ?? "dev",
     API_V1_ENABLED: s.API_V1_ENABLED === "true",
     AI_ENABLED: s.AI_ENABLED === "true",
+    DIAG_ERROR_ROUTE_ENABLED: s.DIAG_ERROR_ROUTE_ENABLED === "true",
   };
 }
 
@@ -549,6 +569,23 @@ export const ENV_DOCS: Record<Exclude<EnvName, "NODE_ENV" | "VERCEL_REGION" | "V
     group: "AI",
     notes: ["OpenAI-compatible base URL of the provider."],
     example: SET_IN_VERCEL,
+  },
+  ERROR_INGEST_KEY: {
+    group: "Observability",
+    notes: [
+      `Error-sink ingest key (03-09b, R-7), at least ${MIN_ERROR_INGEST_KEY_LENGTH} characters. Server only.`,
+      "Its SHA-256 (hex) is the vault secret ops_error_ingest_key_sha256 (docs/runbooks/error-sink.md, PO action E9).",
+      "Required in production; unset elsewhere means errors are logged but not written to ops.error_events.",
+    ],
+    example: SET_IN_VERCEL,
+  },
+  DIAG_ERROR_ROUTE_ENABLED: {
+    group: "Observability",
+    notes: [
+      "true | false (default false). POST /api/diag/error (CRON_SECRET bearer) throws a synthetic error (R-18).",
+      "Refused in production; on staging true only during PO action E9.",
+    ],
+    example: "false",
   },
 };
 
