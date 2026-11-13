@@ -26,11 +26,14 @@ const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 /* surface id → [file, query, widths, fullPage] */
 const SURFACES = [
   ["palette", "001-palette-type/index.html", "", [360, 1280], true],
+  ["palette-a", "001-palette-type/index.html", "?dir=a", [1280], true],
   ["palette-b", "001-palette-type/index.html", "?dir=b", [1280], true],
   ["icon", "002-icon/index.html", "", [360, 1280], true],
   ["components", "006-components/index.html", "", [360, 1280], true],
+  ["components-a", "006-components/index.html", "?dir=a", [1280], true],
   ["components-b", "006-components/index.html", "?dir=b", [1280], true],
   ["today", "003-today/index.html", "", WIDTHS, false],
+  ["today-a", "003-today/index.html", "?dir=a", [1280], false],
   ["today-b", "003-today/index.html", "?dir=b", [360, 1280], false],
   ["today-lanes-variant", "003-today/index.html", "?layout=lanes", [820, 1180], false],
   ["today-doctor", "003-today/index.html", "?mode=doctor", [360, 820, 1280], false],
@@ -38,6 +41,7 @@ const SURFACES = [
   ["consult-mid", "004-consult/index.html", "?demo=mid&tab=exam", CONSULT_WIDTHS, false],
   ["consult-rx", "004-consult/index.html", "?demo=rx&tab=rx", CONSULT_WIDTHS, false],
   ["consult-full", "004-consult/index.html", "?demo=rx", [360, 1280], "tall"],
+  ["consult-a", "004-consult/index.html", "?demo=rx&tab=rx&dir=a", [1280], false],
   ["consult-b", "004-consult/index.html", "?demo=rx&tab=rx&dir=b", [360, 1280], false],
   ["consult-b-mid", "004-consult/index.html", "?demo=mid&tab=exam&dir=b", [1280], false],
   ["install", "005-surfaces/install.html", "", WIDTHS, true],
@@ -112,6 +116,7 @@ function contrastReportFor(label, files) {
   for (const f of files) Object.assign(map, parseTokens(fs.readFileSync(path.join(HERE, f), "utf8")));
   const names = Object.keys(map);
   const hex = (n) => resolve(map, map["--color-" + n] !== undefined ? "--color-" + n : "--" + n);
+  const exists = (n) => map["--color-" + n] !== undefined || map["--" + n] !== undefined;
   const pairs = [];
   const add = (fg, bg, min, kind, note = "", info = false) => pairs.push({ fg, bg, min: info ? 0 : min, kind: info ? "info" : kind, note });
   // 1. Every semantic *-fg / *-bg family pair (status, feedback, safety, preview, ai)
@@ -131,6 +136,22 @@ function contrastReportFor(label, files) {
   add("status-with-doctor-fg", "surface-soft", 4.5, "text", "accent text on the patient column");
   add("danger-fg", "surface-soft", 4.5, "text", "allergy line on the patient column");
   add("ring", "ring-glow", 3, "non-text", "focus ring on its glow");
+  // Round 4 (brand): every status pill text on its wash and its border on the canvas; Midnight ink on slate
+  for (const st of ["booked", "waiting", "with-doctor", "to-bill", "done", "no-show", "cancelled"]) {
+    add("status-" + st + "-fg", "status-" + st + "-bg", 4.5, "text", "status pill text on its tint");
+    add("status-" + st + "-border", "canvas", 3, "non-text", "status border / token chip on the canvas");
+    add("status-" + st + "-fg", "canvas", 4.5, "text", "status text used inline on white");
+  }
+  add("fg", "surface-soft", 4.5, "text", "Midnight ink on slate soft");
+  add("fg", "surface-muted", 4.5, "text", "Midnight ink on slate muted");
+  add("fg-secondary", "surface-muted", 4.5, "text", "secondary ink on slate muted");
+  add("button-primary-fg", "button-primary-bg-hover", 4.5, "text", "primary button hover");
+  add("button-primary-fg", "button-primary-bg-pressed", 4.5, "text", "primary button pressed");
+  add("button-secondary-fg", "button-secondary-bg", 4.5, "text", "soft button");
+  add("fg", "canvas", 3, "text", "Manrope display 26 px 800 and title-1 20 px 700 (large text, 3:1)");
+  add("fg-secondary", "canvas", 3, "text", "Manrope token numbers 22 px 800 (large text, 3:1)");
+  add("accent", "canvas", 4.5, "text", "CliniQ Blue as link text");
+  add("row-next-bg", "canvas", 0, "info", "next-up row tint vs canvas (indicator bar carries the meaning)");
   add("tile-selected-border", "surface", 3, "non-text", "selected tile outline");
   add("tile-border", "surface", 3, "non-text", "quick tile outline (hairline; adjacent text carries meaning)", true);
   add("button-primary-fg", "button-primary-bg", 4.5, "text", "primary button");
@@ -151,7 +172,7 @@ function contrastReportFor(label, files) {
   // 7. Exempt (WCAG 1.4.3 exempts disabled), reported only
   add("fg-disabled", "surface", 0, "exempt", "disabled text");
   add("button-disabled-fg", "button-disabled-bg", 0, "exempt", "disabled button");
-  const rows = pairs.map((p) => {
+  const rows = pairs.filter((p) => exists(p.fg) && exists(p.bg)).map((p) => {
     const a = hex(p.fg);
     const b = hex(p.bg);
     const r = ratio(a, b);
@@ -167,30 +188,50 @@ function contrastReportFor(label, files) {
     md += `| ${r.fg} | ${r.bg} | \`${r.fgHex}\` | \`${r.bgHex}\` | ${r.ratio.toFixed(2)} | ${r.min || "—"} | ${r.pass === null ? r.kind : r.pass ? "pass" : "**FAIL**"} | ${r.note} |\n`;
   return { gated: gated.length, failed: failed.length, rows, md };
 }
+function darkenToPass(fgHex, bgHex, min) {
+  /* minimal compliant alternative: scale the foreground towards black (or white on dark fills) until it passes */
+  const toward = lum(fgHex) < lum(bgHex) ? 0 : 255;
+  let rgb = hexToRgb(fgHex);
+  for (let i = 0; i < 60; i++) {
+    const hex = "#" + rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+    if (ratio(hex, bgHex) >= min) return hex;
+    rgb = rgb.map((v) => v + (toward - v) * 0.06);
+  }
+  return null;
+}
 function contrastReport() {
-  const a = contrastReportFor("Direction A · Clinic Teal (recommended)", ["themes/clinic-paper.css"]);
-  const b = contrastReportFor("Direction B · Graphite + Cobalt", ["themes/clinic-paper.css", "themes/direction-b.css"]);
-  write("contrast.md", "# Contrast report (tool-generated by v2-dx-capture.mjs)\n\n" + a.md + "\n" + b.md);
-  write("contrast.json", JSON.stringify({ a: a.rows, b: b.rows }, null, 2));
-  return { gated: a.gated, failed: a.failed, b: { gated: b.gated, failed: b.failed } };
+  const brand = contrastReportFor("CliniQ AI brand theme (default: clinic-paper.css + cliniq-ai.css)", ["themes/clinic-paper.css", "themes/cliniq-ai.css"]);
+  const a = contrastReportFor("Round-3 direction A · Calm Confidence (?dir=a)", ["themes/clinic-paper.css"]);
+  const b = contrastReportFor("Round-3 direction B · Calm Azure (?dir=b)", ["themes/clinic-paper.css", "themes/direction-b.css"]);
+  write("contrast.md", "# Contrast report (tool-generated by v2-dx-capture.mjs)\n\n" + brand.md + "\n" + a.md + "\n" + b.md);
+  write("contrast.json", JSON.stringify({ brand: brand.rows, a: a.rows, b: b.rows }, null, 2));
+  const fails = brand.rows.filter((r) => r.pass === false);
+  let notes = "# Brand AA notes (tool-generated; the brand tokens were NOT changed)\n\n";
+  notes += fails.length
+    ? `${fails.length} gated pair(s) in the CliniQ AI theme fall below WCAG AA. For each, the minimal compliant alternative is the same hue moved toward black until it passes; the PO decides.\n\n| Foreground token | Background token | FG | BG | Ratio | Needs | Minimal compliant FG | Note |\n|---|---|---|---|---|---|---|---|\n` +
+      fails.map((r) => `| ${r.fg} | ${r.bg} | \`${r.fgHex}\` | \`${r.bgHex}\` | ${r.ratio.toFixed(2)} | ${r.min} | \`${darkenToPass(r.fgHex, r.bgHex, r.min) || "n/a"}\` | ${r.note} |`).join("\n") +
+      "\n"
+    : "Every gated text and non-text pair in the CliniQ AI theme passes WCAG AA (text ≥ 4.5:1, non-text ≥ 3:1). Nothing to decide.\n";
+  write("brand-aa-notes.md", notes);
+  return { gated: brand.gated, failed: brand.failed, a: { gated: a.gated, failed: a.failed }, b: { gated: b.gated, failed: b.failed }, fails };
 }
 
 /* ------------------------------------------------------------------ tailwind consumption proof */
 async function tailwindProof() {
-  const css = fs.readFileSync(path.join(HERE, "themes/clinic-paper.css"), "utf8");
-  const map = parseTokens(css);
+  const map = {};
+  for (const f of ["themes/clinic-paper.css", "themes/cliniq-ai.css"]) Object.assign(map, parseTokens(fs.readFileSync(path.join(HERE, f), "utf8")));
   const ns = /^--(color|text|radius|shadow|spacing|font|ease|font-weight)-/;
   const reg = Object.keys(map).filter((n) => ns.test(n));
   const theme =
-    "/* GENERATED by v2-dx-capture.mjs from clinic-paper.css. Do not edit.\n   Registers token names with Tailwind v4 without emitting them; values come from clinic-paper.css at runtime. */\n@theme reference {\n" +
+    "/* GENERATED by v2-dx-capture.mjs from clinic-paper.css + cliniq-ai.css (CliniQ AI brand theme). Do not edit.\n   Registers token names with Tailwind v4 without emitting them; values come from the token files at runtime. */\n@theme reference {\n" +
     reg.map((n) => `  ${n}: ${resolve(map, n)};`).join("\n") +
     "\n}\n";
   fs.writeFileSync(path.join(HERE, "themes/clinic-paper.theme.css"), theme);
-  const probe = ["bg-canvas", "bg-surface", "text-fg-muted", "border-border-control", "bg-status-waiting-bg", "text-status-waiting-fg", "h-control", "w-sidebar", "rounded-lg", "shadow-popover", "text-title-1", "text-token", "bg-accent", "text-fg-on-accent", "bg-ai-bg", "font-sans", "ease-out", "text-body-md", "h-tile", "max-w-note-max", "bg-finding-abnormal-bg", "bg-surface-soft", "text-fg-secondary", "h-control-compact", "text-caption"];
+  const probe = ["bg-canvas", "bg-surface", "text-fg-muted", "border-border-control", "bg-status-waiting-bg", "text-status-waiting-fg", "h-control", "w-sidebar", "rounded-lg", "shadow-popover", "text-title-1", "text-token", "bg-accent", "text-fg-on-accent", "bg-ai-bg", "font-sans", "ease-out", "text-body-md", "h-tile", "max-w-note-max", "bg-finding-abnormal-bg", "bg-surface-soft", "text-fg-secondary", "h-control-compact", "text-caption", "font-display", "bg-status-booked-bg", "text-status-with-doctor-fg"];
   const { default: postcss } = await import("postcss");
   const { default: tw } = await import("@tailwindcss/postcss");
   const tmp = path.join(HERE, "themes");
-  const input = `@import "tailwindcss" source(none);\n@import "./clinic-paper.css";\n@import "./clinic-paper.theme.css";\n@source inline("${probe.join(" ")}");\n`;
+  const input = `@import "tailwindcss" source(none);\n@import "./clinic-paper.css";\n@import "./cliniq-ai.css";\n@import "./clinic-paper.theme.css";\n@source inline("${probe.join(" ")}");\n`;
   const res = await postcss([tw({ base: tmp })]).process(input, { from: path.join(tmp, "__probe.css") });
   const lines = [];
   let ok = 0;
@@ -203,7 +244,7 @@ async function tailwindProof() {
     lines.push(`${good ? "OK  " : "FAIL"} .${cls} { ${body} }`);
   }
   const rootHasToken = /--color-canvas:\s*var\(--color-white\)/.test(res.css);
-  const header = `Tailwind ${JSON.parse(fs.readFileSync(path.join(REPO, "node_modules/tailwindcss/package.json"), "utf8")).version} via @tailwindcss/postcss\nInput: @import clinic-paper.css (unchanged) + generated clinic-paper.theme.css (@theme reference, ${reg.length} names)\nUtilities resolving to var(--token): ${ok}/${probe.length}\nRuntime values emitted from clinic-paper.css: ${rootHasToken ? "yes" : "NO"}\n\n`;
+  const header = `Tailwind ${JSON.parse(fs.readFileSync(path.join(REPO, "node_modules/tailwindcss/package.json"), "utf8")).version} via @tailwindcss/postcss\nInput: @import clinic-paper.css + cliniq-ai.css (unchanged) + generated clinic-paper.theme.css (@theme reference, ${reg.length} names)\nUtilities resolving to var(--token): ${ok}/${probe.length}\nRuntime values emitted from clinic-paper.css: ${rootHasToken ? "yes" : "NO"}\n\n`;
   write("tailwind-consumption.txt", header + lines.join("\n") + "\n");
   return { ok, total: probe.length, names: reg.length, rootHasToken };
 }
@@ -230,15 +271,33 @@ async function icons(browser) {
     out.push(name);
   }
   await page.close();
-  // maskable safe zone: farthest painted point of the glyph vs the 80 % circle (radius 204.8 on 512)
-  const svg = fs.readFileSync(path.join(HERE, "002-icon/icon-maskable.svg"), "utf8");
-  const c = /<circle cx="(\d+)" cy="(\d+)" r="(\d+)"[^>]*stroke-width="(\d+)"/.exec(svg).slice(1).map(Number);
-  const p = /<path d="M(\d+) (\d+) (\d+) (\d+)"[^>]*stroke-width="(\d+)"/.exec(svg).slice(1).map(Number);
-  const d = (x, y) => Math.hypot(x - 256, y - 256);
-  const ring = d(c[0], c[1]) + c[2] + c[3] / 2;
-  const tail = Math.max(d(p[0], p[1]), d(p[2], p[3])) + p[4] / 2;
-  const far = Math.max(ring, tail);
-  write("icons/safe-zone.txt", `Maskable safe zone (W3C: circle of radius 40% = 204.8 px on 512)\nRing outer extent from centre: ${ring.toFixed(1)} px\nTail outer extent from centre: ${tail.toFixed(1)} px\nFarthest painted glyph point: ${far.toFixed(1)} px → ${far <= 204.8 ? "INSIDE" : "OUTSIDE"} the safe zone\n`);
+  // maskable safe zone: rasterise the maskable SVG (as a data: URL, so the canvas is not tainted) and find the
+  // farthest non-background pixel from the centre; W3C safe zone = circle of radius 40 % (204.8 px on 512).
+  const svgText = fs.readFileSync(path.join(HERE, "002-icon/icon-maskable.svg"), "utf8");
+  const probe = await browser.newPage();
+  await guard(probe);
+  await probe.setContent("<canvas id=c width=512 height=512></canvas>");
+  const far = await probe.evaluate(async (svg) => {
+    const img = new Image();
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    await img.decode();
+    const c = document.getElementById("c");
+    const g = c.getContext("2d");
+    g.drawImage(img, 0, 0, 512, 512);
+    const d = g.getImageData(0, 0, 512, 512).data;
+    const bg = [d[0], d[1], d[2]];
+    let max = 0;
+    for (let y = 0; y < 512; y++) for (let x = 0; x < 512; x++) {
+      const i = (y * 512 + x) * 4;
+      if (d[i + 3] > 8 && (Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]) > 24)) {
+        const r = Math.hypot(x + 0.5 - 256, y + 0.5 - 256);
+        if (r > max) max = r;
+      }
+    }
+    return max;
+  }, svgText);
+  await probe.close();
+  write("icons/safe-zone.txt", `Maskable safe zone (W3C: circle of radius 40% = 204.8 px on 512)\nMethod: rasterised 002-icon/icon-maskable.svg at 512 px; farthest pixel that differs from the corner background colour.\nFarthest painted glyph point: ${far.toFixed(1)} px → ${far <= 204.8 ? "INSIDE" : "OUTSIDE"} the safe zone\n`);
   return { pngs: out.length, far, inside: far <= 204.8 };
 }
 
@@ -710,13 +769,17 @@ async function counts(browser) {
 }
 
 /* ------------------------------------------------------------------ density (round 3 vs round 2) */
-const R2_COMMIT = "e746613";
+const ARCHIVES = { r2: "e746613", r3: "8a48708" };
 async function density(browser) {
   const { execSync } = await import("node:child_process");
   const os = await import("node:os");
-  const snap = fs.mkdtempSync(path.join(os.tmpdir(), "v2dx-r2-"));
-  execSync(`git -C "${REPO}" archive ${R2_COMMIT} .planning/sketches | tar -x -C "${snap}"`, { stdio: "ignore" });
-  const r2 = (f) => pathToFileURL(path.join(snap, ".planning/sketches", f)).href;
+  const snaps = {};
+  for (const [k, commit] of Object.entries(ARCHIVES)) {
+    const snap = fs.mkdtempSync(path.join(os.tmpdir(), "v2dx-" + k + "-"));
+    execSync(`git -C "${REPO}" archive ${commit} .planning/sketches | tar -x -C "${snap}"`, { stdio: "ignore" });
+    snaps[k] = (f) => pathToFileURL(path.join(snap, ".planning/sketches", f)).href;
+    snaps[k].dir = snap;
+  }
   const probes = [
     { id: "today-rows", label: "Today, front desk: queue rows fully visible (all lanes)", file: "003-today/index.html", vp: [[1280, 800], [820, 1180]], count: () => Array.from(document.querySelectorAll(".row")).filter((r) => { const b = r.getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight && b.width > 0; }).length },
     { id: "today-doctor-rows", label: "Today, doctor: queue rows fully visible", file: "003-today/index.html?mode=doctor", vp: [[1280, 800], [820, 1180]], count: () => Array.from(document.querySelectorAll(".row")).filter((r) => { const b = r.getBoundingClientRect(); return b.top >= 0 && b.bottom <= innerHeight && b.width > 0; }).length },
@@ -728,7 +791,9 @@ async function density(browser) {
   for (const pr of probes) {
     for (const [w, h] of pr.vp) {
       const out = { id: pr.id, label: pr.label, w, h };
-      for (const [k, base] of [["r3", (f) => { const [a, q] = f.split("?"); return url(a, q ? "?" + q : ""); }], ["r2", (f) => { const [a, q] = f.split("?"); return r2(a) + (q ? "?" + q : ""); }]]) {
+      const bases = [["r4", (f) => { const [a, q] = f.split("?"); return url(a, q ? "?" + q : ""); }]];
+      for (const k of Object.keys(ARCHIVES)) bases.push([k, (f) => { const [a, q] = f.split("?"); return snaps[k](a) + (q ? "?" + q : ""); }]);
+      for (const [k, base] of bases) {
         const ctx = await browser.newContext({ viewport: { width: w, height: h }, reducedMotion: "reduce" });
         const page = await ctx.newPage();
         await guard(page);
@@ -736,8 +801,8 @@ async function density(browser) {
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(700);
         out[k] = await page.evaluate(pr.count);
-        if (k === "r2" && (pr.id === "today-rows" || pr.id === "consult-sections") && w === 1280) {
-          const f = path.join(OUT, "screens", "round2", pr.id.split("-")[0] + "-1280.png");
+        if (k !== "r4" && (pr.id === "today-rows" || pr.id === "consult-sections") && w === 1280) {
+          const f = path.join(OUT, "screens", "round" + k.slice(1), pr.id.split("-")[0] + "-1280.png");
           mkdir(path.dirname(f));
           await page.screenshot({ path: f });
         }
@@ -746,9 +811,9 @@ async function density(browser) {
       rows.push(out);
     }
   }
-  fs.rmSync(snap, { recursive: true, force: true });
-  let md = `# Density: information visible above the fold, round 3 vs round 2 (tool-generated)\n\nRound 2 = commit ${R2_COMMIT} rendered from a git archive at capture time; same probes, same viewports, no scrolling.\n\n| Probe | Viewport | Round 2 | Round 3 | Change |\n|---|---|---|---|---|\n`;
-  for (const r of rows) md += `| ${r.label} | ${r.w}×${r.h} | ${r.r2} | ${r.r3} | ${r.r2 ? Math.round(((r.r3 - r.r2) / r.r2) * 100) + "%" : "—"} |\n`;
+  for (const k of Object.keys(ARCHIVES)) fs.rmSync(snaps[k].dir, { recursive: true, force: true });
+  let md = `# Density: information visible above the fold, round 4 (brand theme) vs rounds 3 and 2 (tool-generated)\n\nRound 2 = commit ${ARCHIVES.r2}, round 3 = commit ${ARCHIVES.r3}, each rendered from a git archive at capture time; same probes, same viewports, no scrolling.\n\n| Probe | Viewport | Round 2 | Round 3 | Round 4 (brand) | r3 → r4 |\n|---|---|---|---|---|---|\n`;
+  for (const r of rows) md += `| ${r.label} | ${r.w}×${r.h} | ${r.r2} | ${r.r3} | ${r.r4} | ${r.r3 ? Math.round(((r.r4 - r.r3) / r.r3) * 100) + "%" : "—"} |\n`;
   write("density.md", md);
   write("density.json", JSON.stringify(rows, null, 2));
   return rows;
@@ -769,12 +834,14 @@ async function copyCheck(browser) {
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       let n;
       while ((n = walker.nextNode())) {
-        if (/\bAI\b/.test(n.nodeValue)) {
+        const brandFree = n.nodeValue.replace(/CliniQ AI/g, "CliniQ");
+        if (/CliniQ AI/.test(n.nodeValue)) out.brand = (out.brand || 0) + 1;
+        if (/\bAI\b/.test(brandFree)) {
           out.total += 1;
           if (!n.parentElement.closest(allowed)) out.outside.push(n.nodeValue.trim().slice(0, 80));
         }
       }
-      const text = document.body.innerText.replace(/\s+/g, " ");
+      const text = document.body.innerText.replace(/\s+/g, " ").replace(/CliniQ AI/g, "CliniQ");
       for (const m of text.matchAll(/\bAI\b/g)) {
         const win = text.slice(Math.max(0, m.index - 80), m.index + 82);
         if (/₹|\bprice\b|\bbuy\b|\bupgrade\b/i.test(win)) out.near.push(win);
@@ -786,12 +853,12 @@ async function copyCheck(browser) {
     });
     const bad = r.outside.length + r.near.length + r.sparkleOutside;
     violations += bad;
-    lines.push(`${bad ? "FAIL" : "ok  "} ${id}: ${r.total} "AI" text nodes; outside AI-labelled elements: ${r.outside.length}; within 80 chars of ₹/price/buy/upgrade: ${r.near.length}; sparkle glyph outside AI elements: ${r.sparkleOutside}`);
+    lines.push(`${bad ? "FAIL" : "ok  "} ${id}: ${r.total} "AI" text nodes (brand name "CliniQ AI" excluded: ${r.brand || 0}); outside AI-labelled elements: ${r.outside.length}; within 80 chars of ₹/price/buy/upgrade: ${r.near.length}; sparkle glyph outside AI elements: ${r.sparkleOutside}`);
     for (const o of r.outside) lines.push("     outside: " + o);
     for (const o of r.near) lines.push("     near price: " + o);
   }
   await page.close();
-  write("copy-check.txt", `AI-02 copy check (mirrors L1-R5/R6) over every surface\nViolations: ${violations}\n\n` + lines.join("\n") + "\n");
+  write("copy-check.txt", `AI-02 copy check (mirrors L1-R5/R6) over every surface. The product name "CliniQ AI" (PO brand decision, 2026-11-14) is excluded from the feature-labelling rule and counted separately.\nViolations: ${violations}\n\n` + lines.join("\n") + "\n");
   return violations;
 }
 async function glyphs(browser) {
@@ -801,6 +868,8 @@ async function glyphs(browser) {
   const r = await page.evaluate(async () => {
     await document.fonts.load('16px "IBM Plex Sans"', "₹");
     await document.fonts.load('16px "IBM Plex Sans Devanagari"', "क");
+    await document.fonts.load('700 16px "Manrope"', "₹");
+    await document.fonts.load('16px "Inter"', "₹");
     await document.fonts.ready;
     function w(font, txt) {
       const s = document.createElement("span");
@@ -821,6 +890,8 @@ async function glyphs(browser) {
     return {
       rupeeGlyphOnly: probe("IBM Plex Sans", "₹", "monospace", "serif"),
       rupeeInPlexSans: probe("IBM Plex Sans", "₹1,49,900", "monospace", "serif"),
+      rupeeInManrope: probe("Manrope", "₹1,49,900", "monospace", "serif"),
+      rupeeInInter: probe("Inter", "₹1,49,900", "monospace", "serif"),
       devanagariInPlexSans: probe("IBM Plex Sans", "पेरासिटामोल", '"IBM Plex Sans Devanagari"', "serif"),
       devanagariInPlexDeva: Object.assign(probe("IBM Plex Sans Devanagari", "पेरासिटामोल", "monospace", "serif"), { differsFromSystem: Math.abs(sys - deva) > 0.5 }),
       fontsLoaded: Array.from(document.fonts).filter((f) => f.status === "loaded").map((f) => f.family + " " + f.weight),
@@ -831,7 +902,7 @@ async function glyphs(browser) {
   write(
     "glyphs.txt",
     "Glyph check (width probe: equal widths under two different fallbacks ⇒ the named face draws the glyphs)\n" +
-      ["rupeeGlyphOnly", "rupeeInPlexSans", "devanagariInPlexSans", "devanagariInPlexDeva"].map(fmt).join("\n") +
+      ["rupeeGlyphOnly", "rupeeInPlexSans", "rupeeInManrope", "rupeeInInter", "devanagariInPlexSans", "devanagariInPlexDeva"].map(fmt).join("\n") +
       "\nFaces loaded: " +
       [...new Set(r.fontsLoaded)].join(", ") +
       "\n"
@@ -874,14 +945,15 @@ Generated: ${new Date().toISOString()} · Playwright ${JSON.parse(fs.readFileSyn
 |---|---|
 | Network requests from the prototypes (all aborted) | ${blocked}${blocked ? " (" + [...blockedUrls].join(", ") + ")" : ""} |
 | Page errors | ${pageErrors.length}${pageErrors.length ? ": " + [...new Set(pageErrors)].join("; ") : ""} |
-| Screenshots | ${screens} PNG (Chromium 360/744/820/1180/1280, consult also 1440; WebKit iPhone 15 390 for ${wk.join(", ")}) |
+| Screenshots | ${screens} PNG (brand theme by default; \`-a\` / \`-b\` sets are the round-3 directions; Chromium 360/744/820/1180/1280, consult also 1440; WebKit iPhone 15 390 for ${wk.join(", ")}) |
 | axe runs | ${axeRuns.length}; violation nodes: critical ${byImpact.critical}, serious ${byImpact.serious}, moderate ${byImpact.moderate}, minor ${byImpact.minor} → [axe/SUMMARY.md](axe/SUMMARY.md) |
-| Contrast, direction A (gated token pairs) | ${contrast.gated - contrast.failed}/${contrast.gated} pass, ${contrast.failed} fail → [contrast.md](contrast.md) |
-| Contrast, direction B | ${contrast.b.gated - contrast.b.failed}/${contrast.b.gated} pass, ${contrast.b.failed} fail |
+| Contrast, CliniQ AI brand theme (gated token pairs) | ${contrast.gated - contrast.failed}/${contrast.gated} pass, ${contrast.failed} fail → [contrast.md](contrast.md), [brand-aa-notes.md](brand-aa-notes.md) |
+| Contrast, round-3 direction A / B | ${contrast.a.gated - contrast.a.failed}/${contrast.a.gated} · ${contrast.b.gated - contrast.b.failed}/${contrast.b.gated} pass |
+| ₹ in Manrope (prices, tokens) / Inter (body) | ${gl.rupeeInManrope.inFont ? "Manrope draws it" : "Manrope FALLBACK"} / ${gl.rupeeInInter.inFont ? "Inter draws it" : "Inter FALLBACK"} |
 | Interaction flows | ${outcomes}/${cnt.length} outcomes asserted; ${flowsMet}/${flowsTargeted} meet their target → [counts.md](counts.md), videos in \`walkthrough/\` |
 | Whole consult by tap (A–E) | ${whole ? whole.clicks + " taps, " + whole.presses + " presses, " + whole.typedChars + " typed characters" : "n/a"} vs v1 ${whole && whole.v1 ? whole.v1.taps + " taps, ≈ " + whole.v1.typed + " typed (code-derived)" : ""}; M0 measured 12 actions / 105 keystrokes |
 | AI-02 copy check | ${copyViolations} violations → [copy-check.txt](copy-check.txt) |
-| Density vs round 2 (above the fold) | ${dens.filter((d) => d.w === 1280).map((d) => d.id + " " + d.r2 + "→" + d.r3).join(" · ")} → [density.md](density.md) |
+| Density above the fold, r2 → r3 → r4 (1280×800) | ${dens.filter((d) => d.w === 1280).map((d) => d.id + " " + d.r2 + "→" + d.r3 + "→" + d.r4).join(" · ")} → [density.md](density.md) |
 | ₹ glyph in IBM Plex Sans | ${gl.rupeeGlyphOnly.inFont ? "rendered by Plex (no fallback face needed)" : "FALLBACK needed"} → [glyphs.txt](glyphs.txt) |
 | Devanagari | Plex Sans Latin: ${gl.devanagariInPlexSans.inFont ? "has it" : "does not have it (expected)"}; Plex Sans Devanagari draws it: ${gl.devanagariInPlexDeva.inFont && gl.devanagariInPlexDeva.differsFromSystem ? "yes" : "NO"} |
 | Icon maskable safe zone | farthest glyph point ${ic.far.toFixed(1)} px of 204.8 → ${ic.inside ? "inside" : "OUTSIDE"}; ${ic.pngs} PNGs in \`icons/\` |
