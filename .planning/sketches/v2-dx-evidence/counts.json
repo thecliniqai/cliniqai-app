@@ -19,7 +19,7 @@
       "clicks": 0,
       "presses": 2,
       "fills": 1,
-      "durationMs": 35,
+      "durationMs": 31,
       "m0": null,
       "steps": [
         {
@@ -57,7 +57,7 @@
       "clicks": 0,
       "presses": 1,
       "fills": 1,
-      "durationMs": 16,
+      "durationMs": 17,
       "m0": null,
       "steps": [
         {
@@ -90,7 +90,7 @@
       "clicks": 0,
       "presses": 3,
       "fills": 1,
-      "durationMs": 47,
+      "durationMs": 25,
       "m0": {
         "id": "walk-in-token",
         "actions": 4,
@@ -138,7 +138,7 @@
       "clicks": 0,
       "presses": 3,
       "fills": 1,
-      "durationMs": 51,
+      "durationMs": 34,
       "m0": {
         "id": "book-appointment",
         "actions": 6,
@@ -186,7 +186,7 @@
       "clicks": 2,
       "presses": 2,
       "fills": 1,
-      "durationMs": 110,
+      "durationMs": 98,
       "m0": {
         "id": "book-appointment",
         "actions": 6,
@@ -239,7 +239,7 @@
       "clicks": 4,
       "presses": 0,
       "fills": 0,
-      "durationMs": 142,
+      "durationMs": 141,
       "m0": null,
       "steps": [
         {
@@ -282,7 +282,7 @@
       "clicks": 3,
       "presses": 0,
       "fills": 0,
-      "durationMs": 138,
+      "durationMs": 105,
       "m0": {
         "id": "checkout-collect",
         "actions": 9,
@@ -329,7 +329,7 @@
       "clicks": 3,
       "presses": 0,
       "fills": 0,
-      "durationMs": 108,
+      "durationMs": 111,
       "m0": null,
       "steps": [
         {
@@ -371,7 +371,7 @@
       "clicks": 3,
       "presses": 0,
       "fills": 0,
-      "durationMs": 106,
+      "durationMs": 102,
       "m0": null,
       "steps": [
         {
@@ -413,7 +413,7 @@
       "clicks": 1,
       "presses": 0,
       "fills": 0,
-      "durationMs": 36,
+      "durationMs": 38,
       "m0": null,
       "steps": [
         {
@@ -445,7 +445,7 @@
       "clicks": 1,
       "presses": 0,
       "fills": 0,
-      "durationMs": 34,
+      "durationMs": 35,
       "m0": null,
       "steps": [
         {
@@ -477,7 +477,7 @@
       "clicks": 3,
       "presses": 0,
       "fills": 0,
-      "durationMs": 108,
+      "durationMs": 107,
       "m0": null,
       "steps": [
         {
@@ -638,7 +638,7 @@
       "clicks": 1,
       "presses": 0,
       "fills": 0,
-      "durationMs": 49,
+      "durationMs": 50,
       "m0": null,
       "steps": [
         {
@@ -670,7 +670,7 @@
       "clicks": 2,
       "presses": 0,
       "fills": 0,
-      "durationMs": 83,
+      "durationMs": 85,
       "m0": null,
       "steps": [
         {

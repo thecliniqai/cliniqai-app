@@ -160,10 +160,10 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#12a396",
+      "fgHex": "#11998d",
       "bgHex": "#eafbf8",
-      "ratio": 2.93,
-      "pass": false
+      "ratio": 3.29,
+      "pass": true
     },
     {
       "fg": "status-to-bill-fg",
@@ -1337,9 +1337,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "status border / token chip on the canvas",
-      "fgHex": "#12a396",
+      "fgHex": "#11998d",
       "bgHex": "#ffffff",
-      "ratio": 3.13,
+      "ratio": 3.52,
       "pass": true
     },
     {
@@ -1777,9 +1777,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#12a396",
+      "fgHex": "#11998d",
       "bgHex": "#ffffff",
-      "ratio": 3.13,
+      "ratio": 3.52,
       "pass": true
     },
     {

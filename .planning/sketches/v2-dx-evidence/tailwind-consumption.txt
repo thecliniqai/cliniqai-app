@@ -1,5 +1,5 @@
 Tailwind 4.3.3 via @tailwindcss/postcss
-Input: @import clinic-paper.css + cliniq-ai.css (unchanged) + generated clinic-paper.theme.css (@theme reference, 179 names)
+Input: @import clinic-paper.css + cliniq-ai.css (unchanged) + generated clinic-paper.theme.css (@theme reference, 180 names)
 Utilities resolving to var(--token): 28/28
 Runtime values emitted from clinic-paper.css: yes
 

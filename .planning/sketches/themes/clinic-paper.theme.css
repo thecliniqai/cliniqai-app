@@ -88,7 +88,7 @@
   --color-status-waiting-border: #8a5710;
   --color-status-with-doctor-bg: #eafbf8;
   --color-status-with-doctor-fg: #0d6962;
-  --color-status-with-doctor-border: #12a396;
+  --color-status-with-doctor-border: #11998d;
   --color-status-to-bill-bg: #e8f5ee;
   --color-status-to-bill-fg: #177a45;
   --color-status-to-bill-border: #177a45;
@@ -179,6 +179,7 @@
   --color-teal-50: #eafbf8;
   --color-teal-100: #c9f4ee;
   --color-teal-500: #12a396;
+  --color-teal-550: #11998d;
   --color-teal-700: #0d6962;
   --font-display: "Manrope", "Inter", "IBM Plex Sans Devanagari", "Noto Sans Devanagari", ui-sans-serif,
     system-ui, sans-serif;

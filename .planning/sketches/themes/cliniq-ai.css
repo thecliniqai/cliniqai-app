@@ -61,6 +61,7 @@
   --color-teal-50: #eafbf8;
   --color-teal-100: #c9f4ee;
   --color-teal-500: #12a396; /* Care Teal: borders, graphics (3.1:1 on white, not for text) */
+  --color-teal-550: #11998d; /* Care Teal, AA border on the teal wash (PO 2026-11-14: 3.0:1+ on #EAFBF8) */
   --color-teal-700: #0d6962; /* teal text on teal-50, 6.1:1 */
 
   /* "To bill" brass: kept from round 3 */
@@ -90,7 +91,7 @@
   --color-status-booked-border: #7c5cd6; /* 4.8:1 on white */
   --color-status-with-doctor-bg: var(--color-teal-50);
   --color-status-with-doctor-fg: var(--color-teal-700); /* 6.1:1 */
-  --color-status-with-doctor-border: var(--color-teal-500);
+  --color-status-with-doctor-border: var(--color-teal-550);
   --color-status-to-bill-bg: var(--color-success-50);
   --color-status-to-bill-fg: var(--color-success-600); /* 4.8:1 */
   --color-status-to-bill-border: var(--color-success-600);

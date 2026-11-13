@@ -4,7 +4,7 @@
 
 Source: `themes/clinic-paper.css` + `themes/cliniq-ai.css` (var() chains resolved). WCAG 2.x relative luminance. Text ≥ 4.5:1; non-text ≥ 3:1.
 
-**Gated pairs: 169 · pass: 168 · fail: 1** · informational/exempt: 8
+**Gated pairs: 169 · pass: 169 · fail: 0** · informational/exempt: 8
 
 | Foreground token | Background token | FG | BG | Ratio | Needs | Result | Note |
 |---|---|---|---|---|---|---|---|
@@ -22,7 +22,7 @@ Source: `themes/clinic-paper.css` + `themes/cliniq-ai.css` (var() chains resolve
 | status-waiting-fg | status-waiting-bg | `#8a5710` | `#fdf3e2` | 5.53 | 4.5 | pass |  |
 | status-waiting-border | status-waiting-bg | `#8a5710` | `#fdf3e2` | 5.53 | 3 | pass | chip/alert outline |
 | status-with-doctor-fg | status-with-doctor-bg | `#0d6962` | `#eafbf8` | 6.11 | 4.5 | pass |  |
-| status-with-doctor-border | status-with-doctor-bg | `#12a396` | `#eafbf8` | 2.93 | 3 | **FAIL** | chip/alert outline |
+| status-with-doctor-border | status-with-doctor-bg | `#11998d` | `#eafbf8` | 3.29 | 3 | pass | chip/alert outline |
 | status-to-bill-fg | status-to-bill-bg | `#177a45` | `#e8f5ee` | 4.79 | 4.5 | pass |  |
 | status-to-bill-border | status-to-bill-bg | `#177a45` | `#e8f5ee` | 4.79 | 3 | pass | chip/alert outline |
 | status-done-fg | status-done-bg | `#465268` | `#f1f4f9` | 7.14 | 4.5 | pass |  |
@@ -129,7 +129,7 @@ Source: `themes/clinic-paper.css` + `themes/cliniq-ai.css` (var() chains resolve
 | status-waiting-border | canvas | `#8a5710` | `#ffffff` | 6.08 | 3 | pass | status border / token chip on the canvas |
 | status-waiting-fg | canvas | `#8a5710` | `#ffffff` | 6.08 | 4.5 | pass | status text used inline on white |
 | status-with-doctor-fg | status-with-doctor-bg | `#0d6962` | `#eafbf8` | 6.11 | 4.5 | pass | status pill text on its tint |
-| status-with-doctor-border | canvas | `#12a396` | `#ffffff` | 3.13 | 3 | pass | status border / token chip on the canvas |
+| status-with-doctor-border | canvas | `#11998d` | `#ffffff` | 3.52 | 3 | pass | status border / token chip on the canvas |
 | status-with-doctor-fg | canvas | `#0d6962` | `#ffffff` | 6.53 | 4.5 | pass | status text used inline on white |
 | status-to-bill-fg | status-to-bill-bg | `#177a45` | `#e8f5ee` | 4.79 | 4.5 | pass | status pill text on its tint |
 | status-to-bill-border | canvas | `#177a45` | `#ffffff` | 5.38 | 3 | pass | status border / token chip on the canvas |
@@ -169,7 +169,7 @@ Source: `themes/clinic-paper.css` + `themes/cliniq-ai.css` (var() chains resolve
 | border-strong | surface | `#cdd5e1` | `#ffffff` | 1.48 | — | info | panel/tile hairline: decorative, text carries meaning |
 | status-booked-border | surface | `#7c5cd6` | `#ffffff` | 4.82 | 3 | pass | token chip border |
 | status-waiting-border | surface | `#8a5710` | `#ffffff` | 6.08 | 3 | pass | token chip border |
-| status-with-doctor-border | surface | `#12a396` | `#ffffff` | 3.13 | 3 | pass | token chip border |
+| status-with-doctor-border | surface | `#11998d` | `#ffffff` | 3.52 | 3 | pass | token chip border |
 | status-to-bill-border | surface | `#177a45` | `#ffffff` | 5.38 | 3 | pass | token chip border |
 | status-done-border | surface | `#7e8ba2` | `#ffffff` | 3.44 | 3 | pass | token chip border |
 | status-no-show-border | surface | `#b42828` | `#ffffff` | 6.41 | 3 | pass | token chip border |
