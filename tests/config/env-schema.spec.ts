@@ -31,6 +31,15 @@ function hookSecret(key: string): string {
 const SES_KEY_ID = ["AKIA", "MARKERSYNTH00000"].join("");
 const SES_SECRET = "MARKER-ses-secret-access-key-value-0123456789";
 const HOOK_SECRET = hookSecret("MARKER-hook-key-for-prod-0123456");
+/** 04-00b: a synthetic Resend key (`re_` + body), assembled at runtime. */
+const RESEND_KEY = ["re", "MARKERschemaResendKey0000"].join("_");
+/** 04-00b: the PO's launch configuration (Resend until go-live): SES names unset, Resend key set. */
+const RESEND_EMAIL: EnvSource = {
+  EMAIL_PROVIDER: "resend",
+  RESEND_API_KEY: RESEND_KEY,
+  SES_ACCESS_KEY_ID: undefined,
+  SES_SECRET_ACCESS_KEY: undefined,
+};
 
 /** Synthetic values; each is a marker that must never appear in an error message. */
 const PRODUCTION: EnvSource = {
@@ -234,15 +243,94 @@ describe("env schema: staging and production are fail-closed", () => {
   });
 });
 
+describe("env schema: the Resend provider (04-00b, PO decision 2026-11-13)", () => {
+  const local = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s parses with EMAIL_PROVIDER=resend, the key, the sender and the hook secret", (_tier, profile) => {
+    const env = parseEnv({ ...profile, ...RESEND_EMAIL });
+    expect(env.EMAIL_PROVIDER).toBe("resend");
+    expect(env.RESEND_API_KEY).toBe(RESEND_KEY);
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s refuses resend without RESEND_API_KEY (no silent fallback), naming the key", (tier, profile) => {
+    const issues = issuesOf({ ...profile, ...RESEND_EMAIL, RESEND_API_KEY: undefined });
+    expect(issues).toEqual(["RESEND_API_KEY: required when EMAIL_PROVIDER=resend"]);
+    expect(issuesOf({ ...profile, ...RESEND_EMAIL, RESEND_API_KEY: " " })).toEqual(["RESEND_API_KEY: required when EMAIL_PROVIDER=resend"]);
+    void tier;
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s refuses resend without the sender address or the hook secret", (_tier, profile) => {
+    expect(issuesOf({ ...profile, ...RESEND_EMAIL, EMAIL_FROM: undefined })).toContain("EMAIL_FROM: required when EMAIL_PROVIDER=resend");
+    expect(issuesOf({ ...profile, ...RESEND_EMAIL, SEND_EMAIL_HOOK_SECRET: undefined })).toContain(
+      "SEND_EMAIL_HOOK_SECRET: required when EMAIL_PROVIDER=resend",
+    );
+  });
+
+  it("resend needs its key, the sender address and the hook secret in the local tiers too", () => {
+    const issues = issuesOf({ ...local, EMAIL_PROVIDER: "resend" });
+    expect(issues.map((i) => i.split(":")[0]).sort()).toEqual(["EMAIL_FROM", "RESEND_API_KEY", "SEND_EMAIL_HOOK_SECRET"].sort());
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s refuses EMAIL_PROVIDER=mailpit (a loopback catcher, never a deploy sender)", (tier, profile) => {
+    expect(issuesOf({ ...profile, EMAIL_PROVIDER: "mailpit", MAILPIT_API_URL: "http://127.0.0.1:54324" })).toContain(
+      `EMAIL_PROVIDER: must not be mailpit in ${tier}`,
+    );
+  });
+
+  it("a value that is not a Resend key is refused in every tier, never echoed", () => {
+    for (const bad of ["MARKER-not-a-resend-key-000000", ["re", "MARKERshort"].join("_"), ["sk", "MARKERsomeOtherService0000"].join("_")]) {
+      const issues = issuesOf({ ...PRODUCTION, ...RESEND_EMAIL, RESEND_API_KEY: bad });
+      expect(issues).toContain("RESEND_API_KEY: must be a Resend API key (re_ followed by 16 to 200 letters, digits, _ or -)");
+      expect(issues.join("\n")).not.toContain(bad);
+    }
+    expect(issuesOf({ ...local, RESEND_API_KEY: "MARKER-local-not-a-key" })).toContain(
+      "RESEND_API_KEY: must be a Resend API key (re_ followed by 16 to 200 letters, digits, _ or -)",
+    );
+  });
+
+  it("the key is server only: a NEXT_PUBLIC_ name for it, or a Resend key in any public name, is refused in every tier", () => {
+    for (const profile of [PRODUCTION, STAGING, local, CI_BUILD]) {
+      const named = issuesOf({ ...profile, NEXT_PUBLIC_RESEND_API_KEY: RESEND_KEY });
+      expect(named.some((i) => i.startsWith("NEXT_PUBLIC_RESEND_API_KEY: must not be set: the Resend API key is server only"))).toBe(true);
+      expect(named.join("\n")).not.toContain(RESEND_KEY);
+    }
+    // In production the Turnstile site key is the public name a paste error would most likely hit.
+    expect(issuesOf({ ...PRODUCTION, ...RESEND_EMAIL, NEXT_PUBLIC_TURNSTILE_SITE_KEY: RESEND_KEY })).toContain(
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY: must not hold a Resend API key (server only, RESEND_API_KEY)",
+    );
+    expect(issuesOf({ ...local, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: RESEND_KEY })).toContain(
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: must not hold a Resend API key (server only, RESEND_API_KEY)",
+    );
+    expect(SECRET_ENV_NAMES).toContain("RESEND_API_KEY");
+  });
+
+  it("a padded Resend key is refused naming the key, never the value", () => {
+    const issues = issuesOf({ ...PRODUCTION, ...RESEND_EMAIL, RESEND_API_KEY: `${RESEND_KEY}\n` });
+    expect(issues).toEqual(["RESEND_API_KEY: must not have leading or trailing whitespace"]);
+  });
+});
+
 describe("env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31)", () => {
   const local = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
 
-  it("production parses with SES and the hook secret; EMAIL_PROVIDER is required and must be ses", () => {
+  it("production parses with SES and the hook secret; EMAIL_PROVIDER is required and must be a real provider", () => {
     expect(parseEnv(PRODUCTION).EMAIL_PROVIDER).toBe("ses");
     expect(expectRejected({ ...PRODUCTION, EMAIL_PROVIDER: undefined }, "EMAIL_PROVIDER")).toContain(
-      "EMAIL_PROVIDER: required in production (ses, or disabled in staging)",
+      "EMAIL_PROVIDER: required in production (resend or ses, or disabled in staging)",
     );
-    expect(issuesOf({ ...PRODUCTION, EMAIL_PROVIDER: "disabled" })).toContain("EMAIL_PROVIDER: must be ses in production");
+    expect(issuesOf({ ...PRODUCTION, EMAIL_PROVIDER: "disabled" })).toContain("EMAIL_PROVIDER: must be resend or ses in production");
     const mailpit = issuesOf({ ...PRODUCTION, EMAIL_PROVIDER: "mailpit", MAILPIT_API_URL: "http://127.0.0.1:54324" });
     expect(mailpit).toContain("EMAIL_PROVIDER: must not be mailpit in production");
   });
@@ -329,7 +417,16 @@ describe("env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3
     expect(e2e.SEND_EMAIL_HOOK_SECRET).toBe(LOCAL_SEND_EMAIL_HOOK_SECRET);
   });
 
-  it("names no email value in the Error message", () => {
+  it("names no email value in the Error message (04-00b: the Resend key too)", () => {
+    try {
+      parseEnv({ ...PRODUCTION, EMAIL_PROVIDER: "resend", RESEND_API_KEY: `${RESEND_KEY}!`, NEXT_PUBLIC_RESEND_API_KEY: RESEND_KEY });
+      throw new Error("expected a throw");
+    } catch (e) {
+      expect((e as Error).message).not.toContain(RESEND_KEY);
+    }
+  });
+
+  it("names no SES value in the Error message", () => {
     try {
       parseEnv({ ...PRODUCTION, EMAIL_PROVIDER: "disabled", SES_ACCESS_KEY_ID: "MARKER-bad-id", SEND_EMAIL_HOOK_SECRET: "MARKER-bad" });
       throw new Error("expected a throw");

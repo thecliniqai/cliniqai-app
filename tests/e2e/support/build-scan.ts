@@ -8,7 +8,9 @@
  *     do not match, because no literal label precedes the domain;
  *   - a Supabase JWT that is not a local-stack key (hosted keys carry a project `ref` or a non-`supabase-demo`
  *     issuer), or any `service_role` JWT in the browser bundles (`.next/static/`);
- *   - an opaque hosted key (`sb_publishable_…`, `sb_secret_…`).
+ *   - an opaque hosted key (`sb_publishable_…`, `sb_secret_…`);
+ *   - 04-00b: a string literal shaped like a Resend API key (`"re_…"`, 20+ key characters) in any bundle: the key is
+ *     server only and read at run time, so a literal one in the output was baked in by a build.
  * Findings name the file and the kind only, never a key value.
  */
 import fs from "node:fs";
@@ -36,6 +38,7 @@ const HOSTED_HOST =
   /\b([a-z0-9][a-z0-9-]*)((?:\.[a-z0-9-]+)*)\.(supabase\.(?:co|in|net)|pooler\.supabase\.com|r2\.cloudflarestorage\.com)\b/gi;
 const JWT = /eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g;
 const OPAQUE_KEY = /\bsb_(publishable|secret)_[A-Za-z0-9_-]{20,}/g;
+const RESEND_KEY_LITERAL = /["'`]re_[A-Za-z0-9_-]{20,200}["'`]/g;
 
 /** Findings in one file's text. `browser` = the file is served to the browser (`.next/static/`). */
 export function scanText(text: string, file: string, browser: boolean): ScanFinding[] {
@@ -55,6 +58,8 @@ export function scanText(text: string, file: string, browser: boolean): ScanFind
     }
   }
   for (const m of text.matchAll(OPAQUE_KEY)) findings.push({ file, kind: `hosted sb_${m[1]}_ key` });
+  const resendLiterals = text.match(RESEND_KEY_LITERAL)?.length ?? 0;
+  for (let i = 0; i < resendLiterals; i++) findings.push({ file, kind: "Resend API key literal" });
   return findings;
 }
 

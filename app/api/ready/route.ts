@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveAiProviderConfig } from "@/lib/ai/client";
+import { REAL_EMAIL_PROVIDERS } from "@/lib/env";
 import { serverEnv } from "@/lib/env-server";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -56,8 +57,9 @@ function providerStates(): { ai: ProviderState; messaging: ProviderState; email:
     return {
       ai: resolveAiProviderConfig(env) ? "configured" : "disabled",
       messaging: realMessaging ? "configured" : "disabled",
-      // 03-11b (R-16): only SES delivers real mail; Mailpit is a local catcher and `disabled` sends nothing.
-      email: env.EMAIL_PROVIDER === "ses" ? "configured" : "disabled",
+      // 03-11b (R-16), 04-00b: only SES and Resend deliver real mail; Mailpit is a local catcher and `disabled` sends
+      // nothing. The env schema has already required each one's credentials, so the provider name is enough.
+      email: REAL_EMAIL_PROVIDERS.includes(env.EMAIL_PROVIDER) ? "configured" : "disabled",
     };
   } catch {
     return { ai: "disabled", messaging: "disabled", email: "disabled" };

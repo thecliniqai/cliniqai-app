@@ -29,9 +29,14 @@
  *     so a retry that lands on another instance can still re-send the same code: harmless (the same code to the same
  *     address); a shared store arrives with the V2-04 outbox.
  *
+ * 04-00b: every provider call carries an idempotency key derived from the signed `webhook-id` and the message's index
+ * ({@link idempotencyKeyFor}). Resend answers a repeated key with the first result and sends nothing, so a retry that
+ * lands on another instance (past the per-instance memory above) does not send the code twice.
+ *
  * Logs carry the event, the action type, the provider, a count and the request id; never an address, a code, a token
  * hash or a provider message.
  */
+import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { Webhook } from "standardwebhooks";
 import { z } from "zod";
@@ -95,9 +100,19 @@ class BudgetExceededError extends Error {
   }
 }
 
+/**
+ * 04-00b: the provider idempotency key of message `index` of the delivery `webhookId`: `auth-email/<sha256 hex>/<n>`.
+ * Hashed so the outbound header has a fixed shape whatever the (signed) inbound id holds; per message because an
+ * `email_change` delivery sends two different messages. `null` without an id (nothing to derive it from).
+ */
+export function idempotencyKeyFor(webhookId: string, index: number): string | null {
+  if (!webhookId) return null;
+  return `auth-email/${createHash("sha256").update(webhookId, "utf8").digest("hex")}/${index}`;
+}
+
 /** Sends every message in parallel; rejects once the budget is spent, aborting the provider calls. */
 async function sendWithinBudget(
-  send: (message: EmailMessage, signal: AbortSignal) => Promise<unknown>,
+  send: (message: EmailMessage, signal: AbortSignal, index: number) => Promise<unknown>,
   messages: EmailMessage[],
 ): Promise<void> {
   const controller = new AbortController();
@@ -109,7 +124,7 @@ async function sendWithinBudget(
     }, HOOK_SEND_BUDGET_MS);
   });
   try {
-    await Promise.race([Promise.all(messages.map((m) => send(m, controller.signal))), deadline]);
+    await Promise.race([Promise.all(messages.map((m, i) => send(m, controller.signal, i))), deadline]);
   } finally {
     clearTimeout(timer);
   }
@@ -265,20 +280,23 @@ export async function POST(request: NextRequest): Promise<Response> {
     }
   }
 
-  const outcome = deliver(planned, action, requestId);
+  const outcome = deliver(planned, action, requestId, webhookId);
   remember(webhookId, outcome, Date.now());
   const result = await outcome;
   if (result.status !== 200 && deliveries.get(webhookId)?.outcome === outcome) deliveries.delete(webhookId);
   return result.status === 200 ? ok() : hookError(result.status, result.message);
 }
 
-async function deliver(planned: Delivery[], action: LogWord, requestId: string | undefined): Promise<Outcome> {
+async function deliver(planned: Delivery[], action: LogWord, requestId: string | undefined, webhookId: string): Promise<Outcome> {
   let provider = "unknown";
   try {
     const messages: EmailMessage[] = planned.map((d) => ({ to: d.to, ...renderAuthEmail(d.kind, d.code) }));
     const sender = getEmailSender();
     provider = sender.provider;
-    await sendWithinBudget((message, signal) => sender.send(message, { signal }), messages);
+    await sendWithinBudget((message, signal, index) => {
+      const idempotencyKey = idempotencyKeyFor(webhookId, index);
+      return sender.send(message, idempotencyKey ? { signal, idempotencyKey } : { signal });
+    }, messages);
   } catch (err) {
     const disabled = err instanceof EmailDisabledError;
     const status = disabled ? 503 : 500;

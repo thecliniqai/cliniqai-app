@@ -244,6 +244,22 @@ describe("test-env guard rules", () => {
     );
   });
 
+  it("never lets a test lane select Resend or carry a Resend key, by any name (04-00b)", () => {
+    // Built at run time: no key-shaped literal in the repo.
+    const key = ["re", "MARKERguard0000000000000"].join("_");
+    expect(findTestEnvProblems(safeEnv({ EMAIL_PROVIDER: "resend" }))).toContain(
+      'EMAIL_PROVIDER must be unset or disabled or mailpit (got "resend")',
+    );
+    for (const name of ["RESEND_API_KEY", "NEXT_PUBLIC_RESEND_API_KEY"]) {
+      const problems = findTestEnvProblems(safeEnv({ [name]: key }));
+      expect(problems).toContain(`${name} must not be set in the test lane`);
+      expect(problems.join("\n")).not.toContain(key);
+    }
+    expect(findTestEnvProblems(safeEnv({ SOME_URL: "https://api.resend.com/emails" }))).toContain(
+      'SOME_URL references a hosted service ("api.resend.com")',
+    );
+  });
+
   it("allows only Cloudflare's Turnstile test site keys in a test lane (03-12c, R-22)", () => {
     expect([...TURNSTILE_TEST_SITE_KEYS]).toEqual([...SCHEMA_TURNSTILE_TEST_SITE_KEYS]);
     for (const key of TURNSTILE_TEST_SITE_KEYS) {

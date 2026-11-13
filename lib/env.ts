@@ -35,11 +35,16 @@ export type MessagingProviderName = (typeof MESSAGING_PROVIDERS)[number];
 /** The AI providers `lib/ai/client.ts` can call. `mock` is accepted only as the offline marker of local lanes. */
 export const AI_PROVIDERS = ["openai", "gemini", "claude", "groq", "ollama", "deepseek"] as const;
 export type AiProviderId = (typeof AI_PROVIDERS)[number];
-/** 03-11b (AUTH-03, PO-A3): who delivers auth email. `mailpit` is the local catcher; `disabled` sends nothing. */
-export const EMAIL_PROVIDERS = ["mailpit", "ses", "disabled"] as const;
+/**
+ * 03-11b (AUTH-03, PO-A3): who delivers auth email. `mailpit` is the local catcher; `disabled` sends nothing.
+ * 04-00b (PO decision 2026-11-13): `resend` until go-live, SES after it.
+ */
+export const EMAIL_PROVIDERS = ["mailpit", "ses", "resend", "disabled"] as const;
 export type EmailProviderName = (typeof EMAIL_PROVIDERS)[number];
 /** Tiers that may use the local Mailpit sender (never staging or production). */
 export const MAILPIT_TIERS: readonly AppEnv[] = ["development", "test", "e2e", "ci"];
+/** 04-00b: the providers that deliver real mail (what `/api/ready` reports as `configured`; production must use one). */
+export const REAL_EMAIL_PROVIDERS: readonly EmailProviderName[] = ["ses", "resend"];
 
 /** 03-12a (FT-05): breached-password check switch, and the tiers that may point it at another range API. */
 export const PWNED_CHECK_VALUES = ["on", "off"] as const;
@@ -93,6 +98,11 @@ export const SEND_EMAIL_HOOK_SECRET_PATTERN = /^v1,whsec_[A-Za-z0-9+/]+={0,2}$/;
 export const MIN_SEND_EMAIL_HOOK_KEY_BYTES = 24;
 /** 03-11b (R-31): long-term access key id of the least-privilege SES IAM user. */
 export const SES_ACCESS_KEY_ID_PATTERN = /^AKIA[A-Z0-9]{16}$/;
+/**
+ * 04-00b: a Resend API key (`re_` and the key body). Lenient on the body (Resend does not document its length), strict
+ * on the prefix and the character set, so a pasted label, a URL or a key of another service is refused at boot.
+ */
+export const RESEND_API_KEY_PATTERN = /^re_[A-Za-z0-9_-]{16,200}$/;
 
 /** Names that must not be set in staging or production (stale hosted config fails loudly), with what replaced them. */
 export const RETIRED_NAMES: Readonly<Record<string, string>> = {
@@ -104,6 +114,14 @@ export const RETIRED_NAMES: Readonly<Record<string, string>> = {
   R2_ACCESS_KEY_ID: "removed with the R2 provider (P1-43)",
   R2_SECRET_ACCESS_KEY: "removed with the R2 provider (P1-43)",
   R2_BUCKET_NAME: "removed with the R2 provider (P1-43)",
+};
+
+/**
+ * 04-00b: public names that would carry a server-only secret into every page (`next build` inlines `NEXT_PUBLIC_*`).
+ * Refused in every tier, whatever their value.
+ */
+export const SERVER_ONLY_SECRET_PUBLIC_NAMES: Readonly<Record<string, string>> = {
+  NEXT_PUBLIC_RESEND_API_KEY: "the Resend API key is server only (RESEND_API_KEY); a NEXT_PUBLIC_ name is inlined into every page",
 };
 
 /** The old name of a renamed key, so a missing new name can say where its value went. */
@@ -151,6 +169,7 @@ const shapeSchema = z.object({
   MAILPIT_API_URL: text.url().optional(),
   SES_ACCESS_KEY_ID: text.optional(),
   SES_SECRET_ACCESS_KEY: text.optional(),
+  RESEND_API_KEY: text.optional(),
   SEND_EMAIL_HOOK_SECRET: text.optional(),
   PWNED_CHECK: z.enum(PWNED_CHECK_VALUES).optional(),
   PWNED_API_BASE_URL: text.url().optional(),
@@ -166,7 +185,11 @@ export type EnvName = keyof Shape;
 
 /** Every name the schema reads (the retired names are read only to refuse them). */
 export const ENV_NAMES = Object.keys(shapeSchema.shape) as EnvName[];
-export const ENV_SOURCE_NAMES: readonly string[] = [...ENV_NAMES, ...Object.keys(RETIRED_NAMES)];
+export const ENV_SOURCE_NAMES: readonly string[] = [
+  ...ENV_NAMES,
+  ...Object.keys(RETIRED_NAMES),
+  ...Object.keys(SERVER_ONLY_SECRET_PUBLIC_NAMES),
+];
 
 /**
  * 04-00 (review A L-1, R-47): credential-shaped names (`*_SECRET`, `*_SECRET_KEY`, `*_KEY`, `*_TOKEN`, `*_PASSWORD`;
@@ -214,6 +237,8 @@ export interface Env {
   MAILPIT_API_URL?: string;
   SES_ACCESS_KEY_ID?: string;
   SES_SECRET_ACCESS_KEY?: string;
+  /** 04-00b: server only; required when `EMAIL_PROVIDER=resend`. */
+  RESEND_API_KEY?: string;
   SEND_EMAIL_HOOK_SECRET?: string;
   /** Defaults to `off`; required `on` in production (FT-05, R-17). */
   PWNED_CHECK: PwnedCheck;
@@ -460,14 +485,14 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     add("DIAG_ERROR_ROUTE_ENABLED", "must not be true in production (R-18)");
   }
 
-  // 03-11b (AUTH-03, PO-A3, R-16, R-17, R-31): auth email. Off (`disabled`) unless chosen; staging must choose (ses, or
-  // disabled until the PO's SES account exists); production sends through SES. Mailpit is a loopback catcher for local
-  // lanes only. SES needs the sender address, the IAM user's key pair and the hook secret that authenticates the
-  // Send Email hook calls it serves.
+  // 03-11b (AUTH-03, PO-A3, R-16, R-17, R-31): auth email. Off (`disabled`) unless chosen; staging must choose (a real
+  // provider, or disabled until the PO's provider account exists); production sends through a real provider (04-00b:
+  // resend until go-live, ses after it). Mailpit is a loopback catcher for local lanes only. SES and Resend need the
+  // sender address, their credential and the hook secret that authenticates the Send Email hook calls they serve.
   const emailProvider = raw.EMAIL_PROVIDER ?? (deploy ? undefined : "disabled");
-  if (deploy && !present(raw.EMAIL_PROVIDER)) add("EMAIL_PROVIDER", `required in ${tier} (ses, or disabled in staging)`);
-  if (tier === "production" && present(raw.EMAIL_PROVIDER) && raw.EMAIL_PROVIDER !== "ses") {
-    add("EMAIL_PROVIDER", "must be ses in production");
+  if (deploy && !present(raw.EMAIL_PROVIDER)) add("EMAIL_PROVIDER", `required in ${tier} (resend or ses, or disabled in staging)`);
+  if (tier === "production" && present(raw.EMAIL_PROVIDER) && !(REAL_EMAIL_PROVIDERS as readonly string[]).includes(raw.EMAIL_PROVIDER)) {
+    add("EMAIL_PROVIDER", "must be resend or ses in production");
   }
   if (emailProvider === "mailpit") {
     if (!MAILPIT_TIERS.includes(tier)) add("EMAIL_PROVIDER", `must not be mailpit in ${tier}`);
@@ -480,6 +505,25 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     if (!present(raw.SES_ACCESS_KEY_ID)) add("SES_ACCESS_KEY_ID", "required when EMAIL_PROVIDER=ses (R-31)");
     if (!present(raw.SES_SECRET_ACCESS_KEY)) add("SES_SECRET_ACCESS_KEY", "required when EMAIL_PROVIDER=ses (R-31)");
     if (!present(raw.SEND_EMAIL_HOOK_SECRET)) add("SEND_EMAIL_HOOK_SECRET", "required when EMAIL_PROVIDER=ses");
+  }
+  // 04-00b: Resend (PO decision 2026-11-13). The key is checked in every tier (no silent fallback to `disabled`).
+  if (emailProvider === "resend") {
+    if (!present(raw.EMAIL_FROM)) add("EMAIL_FROM", "required when EMAIL_PROVIDER=resend");
+    if (!present(raw.RESEND_API_KEY)) add("RESEND_API_KEY", "required when EMAIL_PROVIDER=resend");
+    if (!present(raw.SEND_EMAIL_HOOK_SECRET)) add("SEND_EMAIL_HOOK_SECRET", "required when EMAIL_PROVIDER=resend");
+  }
+  if (present(raw.RESEND_API_KEY) && !RESEND_API_KEY_PATTERN.test(raw.RESEND_API_KEY.trim())) {
+    add("RESEND_API_KEY", "must be a Resend API key (re_ followed by 16 to 200 letters, digits, _ or -)");
+  }
+  // 04-00b: the Resend key never reaches the browser bundle: a NEXT_PUBLIC_ name for it, or a Resend-key-shaped value in
+  // any public name, is refused in every tier (Next inlines NEXT_PUBLIC_* values into every page).
+  for (const [name, why] of Object.entries(SERVER_ONLY_SECRET_PUBLIC_NAMES)) {
+    if (present(raw[name])) add(name, `must not be set: ${why}`);
+  }
+  for (const [name, value] of Object.entries(raw)) {
+    if (name.startsWith("NEXT_PUBLIC_") && present(value) && /^re_[A-Za-z0-9_-]{16,}/.test(value.trim())) {
+      add(name, "must not hold a Resend API key (server only, RESEND_API_KEY)");
+    }
   }
   if (present(raw.SES_ACCESS_KEY_ID) && !SES_ACCESS_KEY_ID_PATTERN.test(raw.SES_ACCESS_KEY_ID)) {
     add("SES_ACCESS_KEY_ID", "must be an IAM user access key id (AKIA followed by 16 characters)");
@@ -873,8 +917,9 @@ export const ENV_DOCS: Record<
   EMAIL_PROVIDER: {
     group: "Email",
     notes: [
-      "mailpit | ses | disabled. Who delivers auth email for the Send Email hook (03-11b, AUTH-03).",
-      "Defaults to disabled outside staging/production; staging: ses or disabled (R-16); production: ses.",
+      "mailpit | ses | resend | disabled. Who delivers auth email for the Send Email hook (03-11b, AUTH-03).",
+      "Defaults to disabled outside staging/production; staging: resend, ses or disabled (R-16); production: resend or ses.",
+      "resend until go-live, ses after it (PO decision 2026-11-13, 04-00b).",
       "mailpit (the local stack's catcher, loopback only) is refused in staging and production.",
     ],
     example: "disabled",
@@ -882,7 +927,8 @@ export const ENV_DOCS: Record<
   EMAIL_FROM: {
     group: "Email",
     notes: [
-      "Sender address. Required for ses and mailpit; for ses it is the verified identity's address (no-reply@auth.<domain>).",
+      "Sender address, a plain address (no display name). Required for resend, ses and mailpit; for resend and ses it is",
+      "an address on the verified domain (no-reply@auth.<domain>).",
     ],
     example: "no-reply@auth.example.com",
   },
@@ -905,11 +951,19 @@ export const ENV_DOCS: Record<
     notes: ["Secret access key of the same IAM user. Server only. Required when EMAIL_PROVIDER=ses."],
     example: SET_IN_VERCEL,
   },
+  RESEND_API_KEY: {
+    group: "Email",
+    notes: [
+      "Resend API key (re_...), sending access limited to the auth.<domain> domain (04-00b). Server only: never a",
+      "NEXT_PUBLIC_ name (refused in every tier). Required when EMAIL_PROVIDER=resend. Mark it Sensitive in Vercel.",
+    ],
+    example: SET_IN_VERCEL,
+  },
   SEND_EMAIL_HOOK_SECRET: {
     group: "Email",
     notes: [
       "Supabase Auth Send Email hook secret, v1,whsec_<base64> as the dashboard shows it (PO action E8).",
-      `Decoded key at least ${MIN_SEND_EMAIL_HOOK_KEY_BYTES} bytes. Required in production and with ses; unset means every hook call is refused (401).`,
+      `Decoded key at least ${MIN_SEND_EMAIL_HOOK_KEY_BYTES} bytes. Required in production and with resend or ses; unset means every hook call is refused (401).`,
     ],
     example: SET_IN_VERCEL,
   },

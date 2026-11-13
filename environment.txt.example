@@ -2,7 +2,7 @@
 #
 # Copy the lines you need into the destination named in each section. Never put a real value in this file
 # or in any committed file. `.env*` files are git-ignored; Vercel, GitHub and Supabase hold the hosted values.
-# Generated from the env schema in lib/env.ts (2026-11-13). Names marked (after 04-00b) arrive with the next V2-04 plan.
+# Generated from the env schema in lib/env.ts (2026-11-13; Resend names from V2-04 plan 04-00b).
 
 ########################################################################################################
 # A. YOUR LAPTOP — file: .env.local   (for `npm run dev` against the LOCAL Supabase stack)
@@ -35,9 +35,9 @@ SUPABASE_SECRET_KEY=<Supabase staging → Project Settings → API Keys → Secr
 NEXT_PUBLIC_APP_URL=https://staging.thecliniqai.com
 CRON_SECRET=<openssl rand -hex 32>                                                             # Sensitive
 MESSAGING_PROVIDER=disabled
-EMAIL_PROVIDER=disabled            # switch to `resend` (after 04-00b) once the Resend domain is verified
-EMAIL_FROM=ClinicQ <no-reply@auth.thecliniqai.com>
-RESEND_API_KEY=<Resend → API Keys → "clinicos-staging", Sending access, domain auth.thecliniqai.com>  # Sensitive (after 04-00b)
+EMAIL_PROVIDER=disabled            # switch to `resend` once the Resend domain is verified (then also set the two below)
+EMAIL_FROM=no-reply@auth.thecliniqai.com   # a plain address on the verified domain (no display name; the app refuses one)
+RESEND_API_KEY=<Resend → API Keys → "clinicos-staging", Sending access, domain auth.thecliniqai.com>  # Sensitive
 SEND_EMAIL_HOOK_SECRET=<Supabase staging → Authentication → Hooks → Send Email → generated secret>    # Sensitive
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=<Cloudflare → Turnstile → widget "clinicos-staging" → Site key>
 ERROR_INGEST_KEY=<openssl rand -hex 32>                                                        # Sensitive
@@ -47,7 +47,8 @@ AI_ENABLED=false
 API_V1_ENABLED=false
 #
 # DO NOT SET on Vercel (the app refuses to boot with these): NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY,
-# STORAGE_PROVIDER, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, MAILPIT_API_URL.
+# STORAGE_PROVIDER, R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, MAILPIT_API_URL,
+# NEXT_PUBLIC_RESEND_API_KEY (the Resend key is server only; a NEXT_PUBLIC_ name would put it in every page).
 # Not needed until go-live: SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY, MSG91_* / TWILIO_* / GUPSHUP_*, AI_*.
 
 ########################################################################################################

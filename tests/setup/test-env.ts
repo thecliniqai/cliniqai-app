@@ -82,6 +82,8 @@ const PINNED_IF_SET: Record<string, string[]> = {
   // exercise the switch stub it per test (`vi.stubEnv`), after this guard has run.
   AI_ENABLED: ["false", "0"],
   // V2-03 03-11b: auth email never goes to SES from a test lane; specs stub `ses` only with an injected client.
+  // V2-04 04-00b: nor to Resend; specs stub `resend` after this guard ran, with a synthetic key built at run time and
+  // a transport that reaches only a loopback fake (tests/auth/resend-sender.spec.ts, send-email-hook-resend.spec.ts).
   EMAIL_PROVIDER: ["disabled", "mailpit"],
   // V2-03 03-12c: no real Turnstile widget from a test lane (a real key would load Cloudflare's challenge).
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: [...TURNSTILE_TEST_SITE_KEYS],
@@ -136,6 +138,10 @@ export const FORBIDDEN_VARS = [
   "AWS_SESSION_TOKEN",
   "SES_ACCESS_KEY_ID",
   "SES_SECRET_ACCESS_KEY",
+  // V2-04 04-00b: no Resend key in a test lane (specs build a synthetic one at run time, after the guard), and never a
+  // public name for it.
+  "RESEND_API_KEY",
+  "NEXT_PUBLIC_RESEND_API_KEY",
 ] as const;
 
 /** Variables whose value is a URL that must be loopback. */
@@ -167,6 +173,8 @@ export const HOSTED_MARKERS = [
   ".supabase.net",
   "r2.cloudflarestorage.com",
   "pooler.supabase",
+  // V2-04 04-00b: the Resend API is a constant in lib/email/resend.ts; no test-lane value may name it.
+  "api.resend.com",
   ["sb", "secret", ""].join("_"),
   ["sb", "publishable", ""].join("_"),
 ];

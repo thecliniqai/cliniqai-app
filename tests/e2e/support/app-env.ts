@@ -98,6 +98,8 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     DIAG_ERROR_ROUTE_ENABLED: "true",
     // V2-03 03-11b: the Send Email hook route verifies with the local synthetic secret and delivers to the local
     // Mailpit (tests/e2e/auth/send-email-hook.spec.ts). Local GoTrue keeps its own SMTP path (hook off in config.toml).
+    // V2-04 04-00b: the e2e server stays on Mailpit; RESEND_API_KEY is never set here (the guard forbids it in every
+    // test lane). The Resend sender is proven against a loopback fake in Vitest (tests/auth/send-email-hook-resend.spec.ts).
     EMAIL_PROVIDER: "mailpit",
     MAILPIT_API_URL: LOCAL_MAILPIT_API_URL,
     EMAIL_FROM: E2E_EMAIL_FROM,

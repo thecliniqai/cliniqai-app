@@ -127,6 +127,15 @@ describe("build output scan", () => {
     ]);
   });
 
+  it("flags a Resend-key-shaped literal in any bundle, and not the provider's name or URL (04-00b)", () => {
+    // Assembled at run time: no key-shaped literal in the repo.
+    const key = ["re", "SyntheticScanKey00000000000"].join("_");
+    expect(scanText(`h={authorization:"Bearer "+e};k="${key}"`, "l.js", true)).toEqual([{ file: "l.js", kind: "Resend API key literal" }]);
+    expect(scanText(`k='${key}'`, "m.js", false)).toEqual([{ file: "m.js", kind: "Resend API key literal" }]);
+    expect(JSON.stringify(scanText(`k="${key}"`, "n.js", true))).not.toContain(key);
+    expect(scanText('u="https://api.resend.com/emails";p="resend";x="re_try"', "o.js", true)).toEqual([]);
+  });
+
   it("never echoes a key value in a finding", () => {
     const hosted = fakeJwt({ iss: "supabase", ref: "abcdefghijklmnop", role: "service_role" });
     expect(JSON.stringify(scanText(hosted, "k.js", true))).not.toContain(hosted);

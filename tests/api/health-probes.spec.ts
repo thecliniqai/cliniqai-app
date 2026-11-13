@@ -154,6 +154,22 @@ describe("GET /api/ready (readiness RPC, no service role)", () => {
     body = await (await getReady()).json();
     expect(body.providers.email).toBe("disabled");
 
+    // 04-00b: Resend with a complete (synthetic, assembled at runtime) configuration is a real provider; the probe
+    // reports a boolean-like state only and calls nothing (no fetch to any Resend URL).
+    const resendKey = ["re", "SyntheticReadyProbeKey00000"].join("_");
+    vi.stubEnv("EMAIL_PROVIDER", "resend");
+    vi.stubEnv("RESEND_API_KEY", resendKey);
+    vi.stubEnv("SEND_EMAIL_HOOK_SECRET", `v1,whsec_${Buffer.from("synthetic-not-real-hook-key-32b!").toString("base64")}`);
+    const resendText = await (await getReady()).text();
+    expect(JSON.parse(resendText).providers.email).toBe("configured");
+    expect(resendText).not.toContain(resendKey);
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("resend"))).toEqual([]);
+    // Without its key the schema refuses the configuration and the probe says disabled (fail closed).
+    vi.stubEnv("RESEND_API_KEY", "");
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    body = await (await getReady()).json();
+    expect(body.providers.email).toBe("disabled");
+
     // SES with a complete (synthetic, assembled at runtime) configuration.
     vi.stubEnv("EMAIL_PROVIDER", "ses");
     vi.stubEnv("SES_ACCESS_KEY_ID", ["AKIA", "SYNTHETIC0000000"].join(""));
