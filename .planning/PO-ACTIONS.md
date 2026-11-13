@@ -127,8 +127,8 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
     `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` (sensitive), `NEXT_PUBLIC_APP_URL=https://staging.<domain>`,
     `CRON_SECRET` (random, ≥ 32 chars), `MESSAGING_PROVIDER=disabled` (until MSG91 staging credentials exist),
     `AI_ENABLED=false`, `API_V1_ENABLED=false`, `EMAIL_PROVIDER=disabled` (switch to `ses` after 03-E6/03-E8),
-    `EMAIL_FROM=no-reply@auth.<domain>`, `AWS_REGION=ap-south-1`, `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` of the 03-E6 IAM
-    user, `SEND_EMAIL_HOOK_SECRET` (03-E8), `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (03-E7), `ERROR_INGEST_KEY` (03-E9),
+    `EMAIL_FROM=no-reply@auth.<domain>`, `SES_ACCESS_KEY_ID`/`SES_SECRET_ACCESS_KEY` of the 03-E6 IAM user (region is
+    fixed to ap-south-1 in code; **corrected by 03-11b: Vercel reserves the `AWS_*` names**), `SEND_EMAIL_HOOK_SECRET` (03-E8), `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (03-E7), `ERROR_INGEST_KEY` (03-E9),
     `PWNED_CHECK=on`, `DIAG_ERROR_ROUTE_ENABLED=false` (true only during 03-E9). Do **not** set `R2_*`,
     `STORAGE_PROVIDER`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (the schema rejects them). On the
     existing v1 Vercel project, stop building `v2/**` and `feature/v2` previews (or set `APP_ENV` there), because v2
