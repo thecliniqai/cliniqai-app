@@ -189,7 +189,7 @@ select kind, status, count(*), min(run_at) from ops.jobs group by 1, 2 order by 
 ## 8. Retention
 
 `cron-history-cleanup` keeps 7 days of `cron.job_run_details` (pitfall 10; about 1 440 rows a day per schedule).
-`net._http_response` is trimmed by pg_net itself. `ops.jobs` and `ops.job_runner_runs` retention arrives with 04-06.
+`net._http_response` is trimmed by pg_net itself. `ops.jobs` and `ops.job_runner_runs` retention arrives with 04-06. `ops.alerts` retention is handed to 04-06 (resolved alerts; wave notes).
 
 ## 9. Patient messages (`message.send`, V2-04 04-03a)
 
@@ -320,3 +320,151 @@ enqueue RPCs, the triggers and the runner do); the migration checks this against
 privilege is back. `ops.backfill_delivery_jobs()` (postgres only) gives every open delivery row its job; it ran once in
 the migration and can be run again safely (it returns the number of jobs it created).
 
+
+## 12. Alerts (V2-04 04-04)
+
+P1-25 (alerts part), rulings R-1 (email only), R-5 (rules), R-36 (recursion guard), R-41 (readiness flags), R-46
+(error-sink rules); threats T-04-09, T-04-10, T-04-22. Migration `000039_ops_alerts.sql`.
+
+```
+pg_cron 'ops-evaluate-alerts' */5 * * * *  ──► ops.evaluate_alerts()   (pure SQL: runs while the app is down)
+   for each enabled rule in ops.alert_rules: ops.alert_rule_<x>(params) → (firing, details)
+   firing     → open or refresh ops.alerts (one open row per rule; count + 1, last_seen, details)
+                new alert, or notified longer ago than the rule's cooldown
+                  → ops.enqueue_job('alert.notify', null, {alert_id, seq}, 'alert:<id>:<seq>')
+   not firing → clean_evaluations + 1; resolved after 2 clean evaluations (10 minutes)
+runner (/api/jobs/run) ──► alert.notify ──► public.ops_alert_payload ──► getEmailSender().send(OPS_ALERT_EMAIL,
+                           "[clinicos <APP_ENV>] <SEVERITY> <rule>", tag ops-alert, idempotency key ops-alert/<id>/<seq>)
+                       ──► public.ops_alert_notified(id, provider message id, seq)
+```
+
+**Channel.** Email only (R-1), through the same `EMAIL_PROVIDER` as auth email (Resend until go-live, SES after;
+Mailpit locally). `OPS_ALERT_EMAIL` is required in production, optional in staging. Without it (or with
+`EMAIL_PROVIDER=disabled`) the `alert.notify` job dies with `alert_channel_unconfigured`; the alert stays open with
+`notified_at` null and the ops report (04-06) shows it. Backups also alert on their own path (the `backup-alert.yml`
+issue, 04-05a), so a broken app channel never hides a failed backup.
+
+**What an alert email contains.** Environment, rule, severity, status, alert id, first and last seen (IST and UTC), the
+number of firing evaluations, the notification number, the details and the runbook anchor below. Details are written
+only when they are numbers, booleans, ISO timestamps or UUIDs (job ids); anything else is counted as `omitted`. No
+names, phones, emails, payloads or messages ever (the rule functions produce counts; the renderer re-checks).
+
+**Noise control.** One open alert per rule; a persistent condition sends one email per cooldown (`cooldown_minutes`,
+default 60; `error_sink_overflow` 6 h, `error_sink_size` 24 h, `backup_stale` 3 h). The job's dedupe key
+`alert:<id>:<seq>` makes a repeated evaluation unable to enqueue a second email for the same notification, and the
+handler sends nothing when `notify_count` already covers it. A dead `alert.notify` never counts toward `dead_letter`
+(R-36), and a send that never succeeded is not retried by every evaluation (re-check it in the report).
+
+### Rules
+
+| Rule | Severity | Fires when (defaults in `ops.alert_rules.params`) |
+|---|---|---|
+| `dead_letter` | warn | a job went `dead` (any kind except `alert.notify`), a message row became `dead_letter`, or a webhook delivery became `failed`, in the last 15 min |
+| `queue_lag` | warn | p95 of `first_claimed_at − run_at` over jobs first claimed in the last 15 min > 120 s, with ≥ 5 samples |
+| `queue_oldest_due` | critical | a `pending` job is due for more than 5 min |
+| `runner_stale` | critical | Vault holds `jobs_runner_url` and no runner pass started `ok` in 5 min (silent on local and CI stacks) |
+| `lease_expiry` | warn | more than 3 job leases expired in the last 15 min |
+| `error_burst` | warn | more than 20 server errors (`ops.error_events` counts seen in the last 10 min) |
+| `error_sink_overflow` | warn | the error sink dropped events today or yesterday (UTC): its daily cap of 500 new fingerprints was hit |
+| `error_sink_size` | warn | `ops.error_events` is larger than 50 MB (10 % of the Free database) |
+| `backup_stale` | critical | backups are recorded and none finished `ok` in 13 h, or the latest run failed |
+
+```sql
+-- open alerts (counts and ids only)
+select rule, severity, first_seen, last_seen, count, notified_at, notify_count, details
+  from ops.alerts where status = 'open' order by severity, first_seen;
+-- did the email go out?
+select status, attempts, last_error from ops.jobs where kind = 'alert.notify' order by created_at desc limit 20;
+-- evaluate now (postgres only), e.g. after a fix, instead of waiting 5 minutes
+select ops.evaluate_alerts();
+-- silence a noisy rule for a while (record it in the incident note; re-enable afterwards)
+update ops.alert_rules set enabled = false where rule = '<rule>';
+```
+
+A rule parameter is changed in a reviewed migration (`update ops.alert_rules set params = …`), never by hand in staging
+or production (the drift check compares `ops`).
+
+### dead_letter
+
+Find the jobs: `select id, kind, last_error, finished_at from ops.jobs where id = any('{<job_ids>}')`. `last_error` is a
+code: fix the cause (provider down, template refused, endpoint gone), then replay with `ops.replay_job(id)` (§11).
+`messages_dead_letter` / `webhooks_failed` without dead jobs: a delivery report said `failed` (§11) or the reaper
+marked a stuck delivery `outcome_unknown` (§10). A `drill.always_fail` job is the alert drill (below).
+
+### queue_lag
+
+The runner is keeping up too slowly. Check runner passes (§6): `claimed` near the batch (25) every minute means more work
+than one pass per minute drains; long `durationMs` means slow providers. Check `cron.job_run_details` for `jobs-kick`
+gaps and pg_net `timed_out`. Lag acceptance is p95 < 2 min (roadmap V2-04).
+
+### queue_oldest_due
+
+Due work is not being claimed. Usual causes, in order: `jobs-kick` paused or failing (§6), the deployment has no handler
+for the kind (`job_ids` → `kind`), the runner returns 401 (secret/clock, §6), the app is down. `runner_stale` usually
+fires with it when the runner itself is down; an `alert.notify` job cannot be delivered while the runner is down, so read
+open alerts in the SQL editor or the ops report.
+
+### runner_stale
+
+No successful runner pass in 5 minutes while the scheduler is configured. Check §6 in order: `cron.job_run_details`
+(`jobs-kick` ran?), `net._http_response` (status 401/405/5xx or `timed_out`), `ops.job_runner_runs` (`ok = false` and its
+`error_code`). The backup job has its own stricter dead-man (`ops.backup_runner_stale()`, 15 min).
+
+### lease_expiry
+
+Handlers ran past their lease (120 s) or the function was killed (Vercel timeout, deploy mid-pass). The re-claimed jobs
+finish exactly once (fencing), but repeated expiries burn attempts. Check the `job_ids` kinds and their providers'
+latency; a deploy during a pass explains a one-off.
+
+### error_burst
+
+Many server errors in 10 minutes. Read the sink: `select error_name, error_code, route_path, count, last_seen from
+ops.error_events order by last_seen desc limit 20` (scrubbed: no PHI). A release that broke a route shows one
+fingerprint with a large count; roll back per `docs/runbooks/staging.md`.
+
+### error_sink_overflow
+
+More than 500 new error fingerprints in a UTC day: later new errors are counted, not stored. Usually an error whose
+message varies per call (an id in it) or an attack. Find the noisy fingerprints of the day (`group by error_name,
+route_path`), fix the source; the cap resets at 00:00 UTC (05:30 IST).
+
+### error_sink_size
+
+`ops.error_events` above 50 MB. The 180-day purge (`ops.purge_error_events()`, scheduled by 04-06's `ops.cleanup`) should
+keep it far below: check that the cleanup schedule runs; purge earlier with `select ops.purge_error_events(interval '30
+days')` if the database nears its Free-plan limit.
+
+### backup_stale
+
+No `ok` backup in 13 hours, or the latest run failed. `select environment, started_at, status, error_code from
+ops.backup_runs order by started_at desc limit 10`, then `docs/runbooks/backup-restore.md` (the failed workflow run and its
+issue carry the step that failed). It resolves after the next `ok` run.
+
+### Alert drill
+
+**Local (what CI runs, `tests/jobs/alert-drill-db.spec.ts`):** a `drill.always_fail` job dies after two runner passes,
+`ops.evaluate_alerts()` opens `dead_letter`, the runner sends one email to `ops-alerts@example.test` through Mailpit.
+
+**Staging (PO, roadmap "an alert fires in the staging drill"; 04-P7, P8, P9, P12):** with `OPS_ALERT_EMAIL` set in
+Vercel `clinicos-staging` (Production scope) and redeployed, the scheduler configured (§2) and `JOBS_DRILL_ENABLED=true`
+for the drill (redeploy):
+
+```sql
+select ops.drill_enqueue('drill.always_fail', 1, interval '0', 2);
+-- wait about 2-3 minutes (two runner passes with backoff), then:
+select status, attempts, last_error from ops.jobs where kind = 'drill.always_fail';   -- dead | 2 | drill_failure
+select ops.evaluate_alerts();                                                          -- or wait for the 5-minute schedule
+select rule, notified_at, notify_count from ops.alerts where status = 'open' and rule = 'dead_letter';
+-- within a minute: notified_at set, notify_count 1, and one "[clinicos staging] WARN dead_letter" email in the inbox
+delete from ops.jobs where kind = 'drill.always_fail';
+```
+
+Then set `JOBS_DRILL_ENABLED=false` again and redeploy. The alert resolves by itself 10 minutes after the drill job
+leaves the 15-minute window. Record the drill (time, alert id, provider message id; never the inbox content) in the
+phase evidence.
+
+### Readiness flags (R-41)
+
+`/api/ready` returns `jobs: { backlog, dead24h, runnerStale, alertsCriticalOpen }`, booleans only (a due job waiting over
+5 min; a job dead in 24 h; a configured runner with no ok pass in 5 min; an open critical alert). They never change the
+status code; the uptime monitor (V2-15) decides what pages.
