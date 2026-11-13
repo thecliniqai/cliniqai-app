@@ -26,7 +26,8 @@ Supabase project is a test database with no real patient data (PO-1), so this is
 | `MSG91_AUTH_KEY` | MSG91 → Authkey → regenerate | | PO | |
 | `MSG91_WEBHOOK_SECRET` | Generate a new random value; update MSG91 webhook config | | PO | |
 | `AI_API_KEY` (Gemini AI Studio) | Google AI Studio → API keys → delete and recreate. In v2 the AI provider becomes Vertex AI in `asia-south1` (AI_STRATEGY) | | PO | |
-| `CRON_SECRET` (if set) | Generate a new random value | | PO | |
+| `CRON_SECRET` (if set) | Generate a new random value. Since V2-04 it is only the bearer of `/api/diag/error` (and of `/api/cron/*` until 04-03a/b delete them); never the job runner's (R-27) | | PO | |
+| `JOBS_RUNNER_SECRET` + Vault `jobs_runner_secret` (V2-04 04-02) | `openssl rand -hex 32`; the same value in Vercel and in Supabase Vault (SQL editor). Rotate through `JOBS_RUNNER_SECRET_NEXT` with no missed kick: docs/runbooks/jobs.md §3 | | PO | `POST /api/jobs/run` with the old bearer → 401 |
 
 Not secrets (no rotation): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_APP_URL`, `MSG91_INTEGRATED_NUMBER`,
 `MSG91_SENDER_ID`, `MESSAGING_PROVIDER`, `AI_PROVIDER`, `AI_MODEL_NAME`, `AI_BASE_URL`.
