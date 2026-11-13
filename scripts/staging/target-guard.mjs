@@ -13,11 +13,19 @@
  * Everything else is refused: a loopback or private host, any IP literal, `localhost`, another project's ref, an
  * unknown scheme, a missing or malformed ref. Problems name the rule and at most the host, never a password.
  *
+ * 03-13 M-GUARD: the Supabase CLI parses `--db-url` with pgx, which applies URL query parameters (`host`, `port`,
+ * `user`, `dbname`, `options`, `sslmode`, ...) on top of the authority, so `…@db.<ref>.supabase.co/postgres?host=<other>`
+ * would connect elsewhere while the host check above passes. A database URL may therefore carry no query parameter
+ * except `sslmode=require|verify-full` (once), no fragment, and a single-segment database name. Consumers pass the CLI
+ * {@link canonicalDbUrl}: the URL re-serialised from the checked parts with TLS required (`sslmode=require` unless
+ * `verify-full` was given), never the raw secret.
+ *
  * CLI (used by staging.yml / drift.yml):
- *   node scripts/staging/target-guard.mjs --var <ENV_NAME> [--mask]
+ *   node scripts/staging/target-guard.mjs --var <ENV_NAME> [--mask | --print-db-url]
  * reads the URL from the named environment variable and the ref from `SUPABASE_PROJECT_REF_STAGING`. `--mask` makes
  * a GitHub Actions runner mask the database password in every later log line of the job (`::add-mask::`), on top of
- * the masking GitHub already applies to the whole secret.
+ * the masking GitHub already applies to the whole secret. `--print-db-url` prints only the canonical database URL on
+ * stdout (status lines go to stderr) for `DB_URL="$(…)"` in the step that runs the CLI.
  * Exit 0 = accepted, 1 = refused, 2 = usage.
  */
 import { pathToFileURL } from "node:url";
@@ -27,6 +35,9 @@ export const PROJECT_REF = /^[a-z0-9]{20}$/;
 const POOLER_HOST = /^aws-[0-9]+-[a-z0-9-]+\.pooler\.supabase\.com$/;
 const DB_SCHEMES = new Set(["postgres:", "postgresql:"]);
 const LOCAL_NAMES = new Set(["localhost", "localhost.localdomain", "host.docker.internal", "kubernetes.docker.internal"]);
+/** 03-13 M-GUARD: the only query parameter a staging database URL may carry, and its accepted values (TLS required). */
+export const DB_URL_SSLMODES = new Set(["require", "verify-full"]);
+const DB_NAME_PATH = /^\/[A-Za-z0-9_-]*$/;
 
 /** IPv4/IPv6 literal (the WHATWG URL parser normalises IPv4 forms such as `0x7f.1` and `2130706433`). */
 function isIpLiteral(hostname) {
@@ -85,6 +96,17 @@ export function stagingTargetProblems({ url, ref, kind = "any" }) {
 
   const user = decodeURIComponent(u.username);
   if (!u.password) problems.push("the database URL carries no password");
+  // pgx applies query parameters over the authority (host, user, port, dbname, options, sslmode=disable, ...).
+  const params = [...new URLSearchParams(u.search).keys()];
+  const extra = [...new Set(params.filter((k) => k !== "sslmode"))].sort();
+  if (extra.length) problems.push(`the database URL carries query parameters other than sslmode (${extra.join(", ")}); they would override the checked target`);
+  const sslmodes = new URLSearchParams(u.search).getAll("sslmode");
+  if (sslmodes.length > 1) problems.push("the database URL names sslmode more than once");
+  else if (sslmodes.length === 1 && !DB_URL_SSLMODES.has(sslmodes[0])) {
+    problems.push(`the database URL's sslmode must be ${[...DB_URL_SSLMODES].join(" or ")} (TLS is required)`);
+  }
+  if (u.hash) problems.push("the database URL must not carry a fragment");
+  if (!DB_NAME_PATH.test(u.pathname)) problems.push("the database URL's path must be a single database name");
   if (host === `db.${ref}.supabase.co`) return problems;
   if (POOLER_HOST.test(host)) {
     if (!user.endsWith(`.${ref}`)) problems.push(`the pooler user name does not end in ".${ref}" (the staging project)`);
@@ -92,6 +114,21 @@ export function stagingTargetProblems({ url, ref, kind = "any" }) {
   }
   problems.push(`the database host "${host}" is neither db.${ref}.supabase.co nor a Supabase pooler host`);
   return problems;
+}
+
+/**
+ * The database URL re-serialised from its checked parts (scheme, user, password, host, port, database) with TLS
+ * required: `?sslmode=require`, or `verify-full` when the URL asked for it. Call only on a URL that
+ * {@link stagingTargetProblems} accepted; throws on anything that is not a postgres URL.
+ * @param {string} url
+ * @returns {string}
+ */
+export function canonicalDbUrl(url) {
+  const u = new URL(url);
+  if (!DB_SCHEMES.has(u.protocol)) throw new Error("canonicalDbUrl: not a postgres:// or postgresql:// URL");
+  const sslmode = new URLSearchParams(u.search).get("sslmode") === "verify-full" ? "verify-full" : "require";
+  const auth = u.password ? `${u.username}:${u.password}` : u.username;
+  return `${u.protocol}//${auth}@${u.hostname}${u.port ? `:${u.port}` : ""}${u.pathname || "/"}?sslmode=${sslmode}`;
 }
 
 /** The decoded password of a database URL, or null. */
@@ -122,15 +159,22 @@ export function redactUrl(text, url) {
 function main(argv, env) {
   const i = argv.indexOf("--var");
   const name = i > -1 ? argv[i + 1] : undefined;
-  if (!name || !/^[A-Z][A-Z0-9_]*$/.test(name)) {
-    console.error("usage: node scripts/staging/target-guard.mjs --var <ENV_NAME> [--mask]");
+  const printDbUrl = argv.includes("--print-db-url");
+  if (!name || !/^[A-Z][A-Z0-9_]*$/.test(name) || (printDbUrl && argv.includes("--mask"))) {
+    console.error("usage: node scripts/staging/target-guard.mjs --var <ENV_NAME> [--mask | --print-db-url]");
     return 2;
   }
   const url = env[name];
-  const problems = stagingTargetProblems({ url, ref: env[REF_VAR] });
+  const problems = stagingTargetProblems({ url, ref: env[REF_VAR], kind: printDbUrl ? "db" : "any" });
   if (problems.length) {
     for (const p of problems) console.error(`target-guard: REFUSED ${name}: ${p}`);
     return 1;
+  }
+  if (printDbUrl) {
+    // stdout carries only the URL (captured by `DB_URL="$(…)"`, never echoed); the status line goes to stderr.
+    console.error(`target-guard: OK ${name} is the staging project ${env[REF_VAR]} (${new URL(url).hostname}); TLS required`);
+    process.stdout.write(`${canonicalDbUrl(url)}\n`);
+    return 0;
   }
   if (argv.includes("--mask") && env.GITHUB_ACTIONS === "true") {
     const pw = urlPassword(url);

@@ -21,7 +21,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkRegion, pinnedRegion } from "@/scripts/staging/check-region.mjs";
 import { diffArgs, runSchemaDrift } from "@/scripts/staging/schema-drift.mjs";
-import { redactUrl, stagingTargetProblems } from "@/scripts/staging/target-guard.mjs";
+import { canonicalDbUrl, redactUrl, stagingTargetProblems } from "@/scripts/staging/target-guard.mjs";
 import { newestMigration, waitForRelease } from "@/scripts/staging/wait-for-release.mjs";
 import { ROOT } from "./run-checker";
 
@@ -59,6 +59,56 @@ describe("target-guard", () => {
     const problems = stagingTargetProblems({ url, ref: REF });
     expect(problems.join("\n")).toMatch(problem);
     expect(problems.join("\n")).not.toContain(PW);
+  });
+
+  // 03-13 M-GUARD: pgx (the Supabase CLI's driver) applies URL query parameters over the authority, so each of these
+  // would connect somewhere other than the host the guard checked, or without TLS.
+  it.each([
+    ["?host= pointing at loopback", `${dbUrl("postgres", `db.${REF}.supabase.co`)}?host=127.0.0.1`, /query parameters other than sslmode \(host\)/],
+    ["?host= pointing at another project", `${dbUrl("postgres", `db.${REF}.supabase.co`)}?host=db.${OTHER_REF}.supabase.co`, /\(host\)/],
+    ["?user= naming another project's pooler tenant", `${dbUrl(`postgres.${REF}`, "aws-0-ap-south-1.pooler.supabase.com")}?user=postgres.${OTHER_REF}`, /\(user\)/],
+    ["sslmode=disable", `${dbUrl("postgres", `db.${REF}.supabase.co`)}?sslmode=disable`, /sslmode must be require or verify-full/],
+    ["sslmode=prefer", `${dbUrl("postgres", `db.${REF}.supabase.co`)}?sslmode=prefer`, /sslmode must be require or verify-full/],
+    ["sslmode twice", `${dbUrl("postgres", `db.${REF}.supabase.co`)}?sslmode=require&sslmode=disable`, /sslmode more than once/],
+    ["port, dbname and options overrides", `${dbUrl("postgres", `db.${REF}.supabase.co`)}?port=6543&dbname=x&options=-c%20x%3Dy`, /\(dbname, options, port\)/],
+    ["an upper-case HOST parameter", `${dbUrl("postgres", `db.${REF}.supabase.co`)}?HOST=127.0.0.1`, /\(HOST\)/],
+    ["a fragment", `${dbUrl("postgres", `db.${REF}.supabase.co`)}#host=127.0.0.1`, /fragment/],
+    ["a multi-segment path", dbUrl("postgres", `db.${REF}.supabase.co`).replace(":5432/postgres", ":5432/postgres/x"), /single database name/],
+  ])("refuses a database URL with %s", (_label, url, problem) => {
+    const problems = stagingTargetProblems({ url, ref: REF, kind: "db" });
+    expect(problems.join("\n")).toMatch(problem);
+    expect(problems.join("\n")).not.toContain(PW);
+  });
+
+  it("accepts sslmode=require / verify-full and re-serialises the URL with TLS required (the CLI never sees the raw secret)", () => {
+    const pooler = dbUrl(`postgres.${REF}`, "aws-0-ap-south-1.pooler.supabase.com");
+    expect(stagingTargetProblems({ url: `${pooler}?sslmode=require`, ref: REF })).toEqual([]);
+    expect(stagingTargetProblems({ url: `${pooler}?sslmode=verify-full`, ref: REF })).toEqual([]);
+    expect(canonicalDbUrl(pooler)).toBe(`${pooler}?sslmode=require`);
+    expect(canonicalDbUrl(`${pooler}?sslmode=verify-full`)).toBe(`${pooler}?sslmode=verify-full`);
+    expect(new URL(canonicalDbUrl(pooler)).password).toBe(encodeURIComponent(PW));
+  });
+
+  it("CLI --print-db-url prints only the canonical URL on stdout; refuses a re-targeting URL with nothing on stdout", () => {
+    const guard = path.join(ROOT, "scripts/staging/target-guard.mjs");
+    const pooler = dbUrl(`postgres.${REF}`, "aws-0-ap-south-1.pooler.supabase.com");
+    const base = { PATH: process.env.PATH, GITHUB_ACTIONS: "true", SUPABASE_PROJECT_REF_STAGING: REF };
+    const ok = runWithEnv(process.execPath, [guard, "--var", "STAGING_DB_URL", "--print-db-url"], { ...base, STAGING_DB_URL: pooler });
+    expect(ok.status).toBe(0);
+    expect(ok.stdout).toBe(`${pooler}?sslmode=require\n`);
+    expect(ok.stderr).toContain("target-guard: OK STAGING_DB_URL is the staging project");
+    expect(ok.stderr).not.toContain(PW);
+    expect(ok.stderr).not.toContain(encodeURIComponent(PW));
+
+    const refused = runWithEnv(process.execPath, [guard, "--var", "STAGING_DB_URL", "--print-db-url"], { ...base, STAGING_DB_URL: `${pooler}?host=127.0.0.1` });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toBe("");
+    expect(refused.stderr).toContain("(host)");
+    expect(refused.stderr).not.toContain(encodeURIComponent(PW));
+
+    // An API URL is not a database target for --print-db-url; --mask and --print-db-url together is a usage error.
+    expect(runWithEnv(process.execPath, [guard, "--var", "X", "--print-db-url"], { ...base, X: `https://${REF}.supabase.co` }).status).toBe(1);
+    expect(runWithEnv(process.execPath, [guard, "--var", "X", "--print-db-url", "--mask"], { ...base, X: pooler }).status).toBe(2);
   });
 
   it("refuses a missing or malformed ref and a missing URL", () => {
@@ -245,10 +295,19 @@ describe("schema-drift (staging, read-only)", () => {
     expect(cli.calls).toEqual([]);
   });
 
+  it("refuses a re-targeting query parameter without running the CLI (03-13 M-GUARD)", () => {
+    const cli = fakeCli({ status: 0, stdout: "{}" });
+    const r = runSchemaDrift({ vars: { ...vars, STAGING_DB_URL_RO: `${roUrl}?host=127.0.0.1` }, spawnImpl: cli.spawnImpl });
+    expect(r.exitCode).toBe(2);
+    expect(r.lines.join("\n")).toContain("(host)");
+    expect(cli.calls).toEqual([]);
+  });
+
   it("runs the read-only diff against the given URL with --schema public and passes on no drift", () => {
     const cli = fakeCli({ status: 0, stdout: JSON.stringify({ diff: "" }) });
     const r = runSchemaDrift({ vars, spawnImpl: cli.spawnImpl });
-    expect(cli.calls[0]).toEqual(["npx", ...diffArgs(roUrl)]);
+    // 03-13 M-GUARD: the CLI gets the re-serialised URL (TLS required), not the raw secret.
+    expect(cli.calls[0]).toEqual(["npx", ...diffArgs(`${roUrl}?sslmode=require`)]);
     expect(cli.calls[0]).toEqual(expect.arrayContaining(["--db-url", "--schema", "public"]));
     expect(cli.calls[0]).not.toContain("-f");
     expect(r.lines.join("\n")).toContain("local-drift: PASS");
@@ -263,12 +322,13 @@ describe("schema-drift (staging, read-only)", () => {
   });
 
   it("exits 2 when the CLI fails, showing its stderr with the URL and password redacted", () => {
-    const cli = fakeCli({ status: 1, stderr: `failed to connect to ${roUrl} (password ${PW})` });
+    const cli = fakeCli({ status: 1, stderr: `failed to connect to ${roUrl} (password ${PW}); retry ${roUrl}?sslmode=require` });
     const r = runSchemaDrift({ vars, spawnImpl: cli.spawnImpl });
     expect(r.exitCode).toBe(2);
     const printed = r.lines.join("\n");
     expect(printed).toContain("failed to connect to <staging-url>");
     expect(printed).not.toContain(PW);
+    expect(printed).not.toContain(encodeURIComponent(PW));
   });
 });
 

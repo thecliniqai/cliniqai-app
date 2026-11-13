@@ -20,7 +20,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { REF_VAR, redactUrl, stagingTargetProblems } from "./target-guard.mjs";
+import { REF_VAR, canonicalDbUrl, redactUrl, stagingTargetProblems } from "./target-guard.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const DB_URL_VAR = "STAGING_DB_URL_RO";
@@ -40,14 +40,18 @@ export function runSchemaDrift({ vars = process.env, out, spawnImpl = spawnSync 
   const problems = stagingTargetProblems({ url, ref: vars[REF_VAR], kind: "db" });
   if (problems.length) return { exitCode: 2, lines: problems.map((p) => `schema-drift: REFUSED ${DB_URL_VAR}: ${p}`) };
 
-  const diff = spawnImpl("npx", diffArgs(url), {
+  // 03-13 M-GUARD: the CLI gets the URL re-serialised from the checked parts with TLS required, never the raw secret.
+  const target = canonicalDbUrl(url);
+  // The raw URL first: it is a prefix of the canonical one, so both print as `<staging-url>` (password always `***`).
+  const redact = (text) => redactUrl(redactUrl(text, url), target);
+  const diff = spawnImpl("npx", diffArgs(target), {
     cwd: REPO_ROOT,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
-    env: { ...process.env, [DB_URL_VAR]: undefined },
+    env: { ...process.env, [DB_URL_VAR]: undefined, PGSSLMODE: "require" },
   });
   if (diff.error || diff.status !== 0) {
-    const stderr = redactUrl(String(diff.stderr ?? ""), url).trim();
+    const stderr = redact(String(diff.stderr ?? "")).trim();
     return {
       exitCode: 2,
       lines: [`schema-drift: \`supabase db diff --db-url <staging>\` failed (exit ${diff.status})`, ...(stderr ? [stderr] : [])],
@@ -56,13 +60,13 @@ export function runSchemaDrift({ vars = process.env, out, spawnImpl = spawnSync 
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "schema-drift-"));
   const input = path.join(dir, "staging-diff.json");
-  fs.writeFileSync(input, redactUrl(String(diff.stdout ?? ""), url));
+  fs.writeFileSync(input, redact(String(diff.stdout ?? "")));
   const judge = spawnImpl(process.execPath, [path.join(REPO_ROOT, "scripts/ci/local-drift.mjs"), "--input", input, ...(out ? ["--out", out] : [])], {
     cwd: REPO_ROOT,
     encoding: "utf8",
   });
   fs.rmSync(dir, { recursive: true, force: true });
-  const lines = [String(judge.stdout ?? "").trim(), String(judge.stderr ?? "").trim()].filter(Boolean).map((l) => redactUrl(l, url));
+  const lines = [String(judge.stdout ?? "").trim(), String(judge.stderr ?? "").trim()].filter(Boolean).map(redact);
   return { exitCode: judge.status === 0 ? 0 : judge.status === 1 ? 1 : 2, lines };
 }
 

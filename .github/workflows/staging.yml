@@ -13,7 +13,9 @@
 #   a staging secret);
 # - the GITHUB_TOKEN is read-only, checkout does not persist credentials, every `uses:` is pinned to a commit SHA;
 # - migrations go through `supabase db push --db-url` (never link state, never --include-seed); every database URL is
-#   checked by scripts/staging/target-guard.mjs first, which also masks the password for the rest of the job.
+#   checked by scripts/staging/target-guard.mjs first, which also masks the password for the rest of the job. The CLI
+#   gets the URL re-serialised by the guard (`--print-db-url`: no query parameter that could re-target pgx, TLS
+#   required), never the raw secret (03-13 M-GUARD).
 # - the AUTH-00 re-check (03-12c, task `recheck`) runs scripts/staging/auth00-recheck.ts: synthetic users only (created
 #   and deleted by the kit), one burst of at most 40 password grants, read-only catalogue queries; its JSON report is
 #   uploaded as an artifact and holds no key, password, code or token.
@@ -78,11 +80,19 @@ jobs:
       - name: Migrations that would be applied (dry run)
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
-        run: npx supabase db push --db-url "$STAGING_DB_URL" --dry-run
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+          PGSSLMODE: require
+        run: |
+          DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url)"
+          npx supabase db push --db-url "$DB_URL" --dry-run
       - name: Apply the migrations
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
-        run: npx supabase db push --db-url "$STAGING_DB_URL" --yes
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+          PGSSLMODE: require
+        run: |
+          DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url)"
+          npx supabase db push --db-url "$DB_URL" --yes
       - name: Wait for the release on staging, then readiness at the newest migration
         env:
           STAGING_ORIGIN: ${{ vars.STAGING_ORIGIN }}
