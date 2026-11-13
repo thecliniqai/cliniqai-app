@@ -47,6 +47,12 @@ export type RouteGuard =
    * wrong signature, another secret's signature and a stale timestamp all answer 401 and send nothing.
    */
   | { kind: "webhook-signature" }
+  /**
+   * Session-ending form POST (03-12b, T-03-13): a cross-origin, cross-site, `Origin: null` or signal-less call 403 and
+   * an unknown `scope` 400, all without calling `auth.signOut` (the caller's session still works); signed out it is
+   * 303 → `/login` with `Clear-Site-Data: "cache"`. No data access in any leg. GET is not exported (Next answers 405).
+   */
+  | { kind: "signout" }
   /** `/api/v1` (PO-16, AR2-H2): switch off → 404 at the handler; switch on and no key → 401 (or the public docs). */
   | { kind: "api-v1"; key: boolean }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
@@ -214,6 +220,8 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // V2-03 03-11b (AUTH-03, T-03-05): Supabase Auth calls the Send Email hook server to server; no session exists, the
   // Standard Webhooks signature with SEND_EMAIL_HOOK_SECRET is the authentication.
   "app/api/auth/send-email/route.ts#POST": { kind: "webhook-signature" },
+  // V2-03 03-12b (AUTH-04b, T-03-13): server-side sign-out; same-origin form POST, works with or without a session.
+  "app/auth/signout/route.ts#POST": { kind: "signout" },
   "app/api/cron/dispatch-communications/route.ts#GET": CRON,
   "app/api/cron/dispatch-communications/route.ts#POST": CRON,
   "app/api/cron/webhooks/route.ts#GET": CRON,

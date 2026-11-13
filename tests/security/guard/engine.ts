@@ -601,12 +601,16 @@ export interface RouteCall {
   query?: Record<string, string>;
   headers?: Record<string, string>;
   body?: unknown;
+  /** Sent as `application/x-www-form-urlencoded` instead of a JSON `body` (03-12b sign-out form). */
+  form?: Record<string, string>;
 }
 
 export interface RouteResult {
   status: number;
   body: string;
   access: string[];
+  /** Response headers (lower-case names). */
+  headers: Headers;
 }
 
 /** `app/api/x/[id]/route.ts` → `/api/x/<params.id>` (fixtures outside app/ map to `/__fixture__/<name>`). */
@@ -636,16 +640,23 @@ export async function callRoute(
   const handler = await loadRouteHandler(c.file, c.method);
   const access: string[] = [];
   slot.client = recordingClient(client, access);
-  const hasBody = call.body !== undefined && !["GET", "HEAD"].includes(c.method);
+  const canHaveBody = !["GET", "HEAD"].includes(c.method);
+  const hasForm = call.form !== undefined && canHaveBody;
+  const hasBody = !hasForm && call.body !== undefined && canHaveBody;
+  const contentType: Record<string, string> = hasForm
+    ? { "content-type": "application/x-www-form-urlencoded" }
+    : hasBody
+      ? { "content-type": "application/json" }
+      : {};
   const req = new NextRequest(routeUrl(c.file, call.params, call.query), {
     method: c.method,
-    headers: { ...(hasBody ? { "content-type": "application/json" } : {}), ...(call.headers ?? {}) },
-    body: hasBody ? JSON.stringify(call.body) : undefined,
+    headers: { ...contentType, ...(call.headers ?? {}) },
+    body: hasForm ? new URLSearchParams(call.form).toString() : hasBody ? JSON.stringify(call.body) : undefined,
   });
   try {
     const res = await handler(req, { params: Promise.resolve(call.params ?? {}) });
     const body = res.body ? Buffer.from(await res.arrayBuffer()).toString("latin1") : "";
-    return { status: res.status, body, access };
+    return { status: res.status, body, access, headers: res.headers };
   } finally {
     slot.client = null;
   }
@@ -811,6 +822,79 @@ export async function webhookSignatureRouteLegs(
   await leg("stale timestamp (10 minutes old)", signedWebhookHeaders(secrets.secret, body, new Date(Date.now() - 600_000)));
   await leg("signature over a different body", signedWebhookHeaders(secrets.secret, `${body} `));
   if (sent() !== before) out.push(routeV(c, "sends", `${sent() - before} message(s) sent by refused calls`));
+  return out;
+}
+
+/**
+ * Wraps a signed-in client so every `auth.signOut` call is recorded in `calls` (with its options) and still made.
+ * The `signout` legs hand this to the route through the request slot.
+ */
+export function signOutSpy<T extends { auth: object }>(client: T, calls: unknown[]): T {
+  const auth = new Proxy(client.auth, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target) as unknown;
+      if (prop === "signOut" && typeof value === "function") {
+        return (...args: unknown[]) => {
+          calls.push(args[0] ?? null);
+          return (value as (...a: unknown[]) => unknown).apply(target, args);
+        };
+      }
+      return typeof value === "function" ? (value as (...a: unknown[]) => unknown).bind(target) : value;
+    },
+  });
+  return new Proxy(client, {
+    get(target, prop) {
+      return prop === "auth" ? auth : (Reflect.get(target, prop, target) as unknown);
+    },
+  });
+}
+
+/**
+ * `signout` route (03-12b, T-03-13). `signedIn` is a live session of a throwaway user; `appOrigin` the
+ * `NEXT_PUBLIC_APP_URL` origin the route trusts. Every refused leg must answer 403 (or 400 for a bad scope) with an
+ * empty body, make no `auth.signOut` call and touch no data, and the session must still work afterwards; the
+ * signed-out leg must answer 303 → `/login` with `Clear-Site-Data: "cache"` and no body.
+ */
+export async function signoutRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  signedIn: TestDb,
+  appOrigin: string
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const calls: unknown[] = [];
+  const spied = signOutSpy(signedIn, calls);
+  const refusedLegs: Array<[string, Record<string, string>, Record<string, string>, number]> = [
+    ["cross-origin Origin", { origin: "https://evil.example" }, {}, 403],
+    ["cross-origin Origin, browser says cross-site", { origin: "https://evil.example", "sec-fetch-site": "cross-site" }, {}, 403],
+    ["app Origin but the browser says cross-site", { origin: appOrigin, "sec-fetch-site": "cross-site" }, {}, 403],
+    ["sibling site (same-site)", { origin: "https://other.example", "sec-fetch-site": "same-site" }, {}, 403],
+    ["typed into the address bar (none)", { "sec-fetch-site": "none" }, {}, 403],
+    ["Origin: null", { origin: "null" }, {}, 403],
+    ["no Origin, no Sec-Fetch-Site", {}, {}, 403],
+    ["Origin differs only by port", { origin: `${new URL(appOrigin).protocol}//${new URL(appOrigin).hostname}:1` }, {}, 403],
+    ["unknown scope", { origin: appOrigin }, { scope: "everyone" }, 400],
+  ];
+  for (const [leg, headers, form, status] of refusedLegs) {
+    const before = calls.length;
+    const r = await callRoute(slot, spied, c, { headers, form });
+    out.push(...expectStatus(c, leg, r, [status]), ...expectNoAccess(c, leg, r));
+    if (r.body !== "") out.push(routeV(c, leg, `refusal has a body: ${brief(r.body)}`));
+    if (calls.length !== before) out.push(routeV(c, leg, "auth.signOut was called"));
+  }
+  const { data, error } = await signedIn.auth.getUser();
+  if (error || !data.user) out.push(routeV(c, "refused legs", "the caller's session no longer works after refused calls"));
+
+  for (const [leg, headers] of [
+    ["signed out, Origin matches", { origin: appOrigin }],
+    ["signed out, Sec-Fetch-Site same-origin", { "sec-fetch-site": "same-origin" }],
+  ] as Array<[string, Record<string, string>]>) {
+    const r = await callRoute(slot, anonClient(), c, { headers, form: { scope: "local" } });
+    out.push(...expectStatus(c, leg, r, [303]), ...expectNoAccess(c, leg, r), ...expectNoIds(c, leg, r));
+    if (r.headers.get("location") !== "/login") out.push(routeV(c, leg, `location ${r.headers.get("location")}`));
+    if (r.headers.get("clear-site-data") !== '"cache"') out.push(routeV(c, leg, "no Clear-Site-Data: \"cache\""));
+    if (r.body !== "") out.push(routeV(c, leg, `303 has a body: ${brief(r.body)}`));
+  }
   return out;
 }
 
