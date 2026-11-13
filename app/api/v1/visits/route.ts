@@ -14,11 +14,11 @@ import { getRequestId } from "@/lib/log/request-id";
  * Filters: patient_id, doctor_id, status, start_date, end_date. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -114,11 +114,11 @@ export async function GET(req: NextRequest) {
  * Grounded in public.visits with created_by = session.userId.
  */
 export async function POST(req: NextRequest) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);

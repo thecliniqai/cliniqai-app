@@ -13,11 +13,11 @@ import { recordAudit } from "@/lib/audit/audit";
  * Filters out soft-deleted / erased patients (is_deleted = false).
  */
 export async function GET(req: NextRequest) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -89,11 +89,11 @@ export async function GET(req: NextRequest) {
  * Uses creator's auth.users UUID for created_by FK compliance.
  */
 export async function POST(req: NextRequest) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);

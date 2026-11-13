@@ -34,11 +34,11 @@ const labOrderCreateSchema = z.object({
  * Filters: patient_id, visit_id. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -115,11 +115,11 @@ export async function GET(req: NextRequest) {
  * Requires title, storage_path, patient_id; sets uploaded_by = session.userId.
  */
 export async function POST(req: NextRequest) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);

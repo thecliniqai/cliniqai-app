@@ -248,14 +248,16 @@ describe("AR2-H2: the v1 handlers enforce the switch themselves (proxy bypassed)
   it("authenticateApiKey answers 404 before touching the database when the flag is off", async () => {
     vi.stubEnv("API_V1_ENABLED", "false");
     const from = vi.fn();
+    const acquire = vi.fn(() => ({ from }) as never);
     const res = await authenticateApiKey(
-      { from } as never,
       new NextRequest("http://localhost/api/v1/patients", {
         headers: { authorization: "Bearer clq_live_000000000000000000000000000000000000000000000000" },
-      })
+      }),
+      acquire
     );
     expect(res.success).toBe(false);
     if (!res.success) expect(res.response.status).toBe(404);
+    expect(acquire).not.toHaveBeenCalled();
     expect(from).not.toHaveBeenCalled();
   });
 

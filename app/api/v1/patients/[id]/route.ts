@@ -44,11 +44,11 @@ const patientUpdateSchema = z.object({
  * Returns 404 if patient does not exist or has been soft-deleted / erased.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -95,11 +95,11 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
  * Records audit trail with actor_type: 'api_key'.
  */
 export async function PUT(req: NextRequest, { params }: RouteContext) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -195,11 +195,11 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
  * Retains underlying clinical records for NMC mandatory 3-year medical record retention.
  */
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);

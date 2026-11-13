@@ -16,11 +16,11 @@ interface RouteContext {
  * origin_type = 'scheduled' and tenant_id = session.tenantId.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -67,11 +67,11 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
  * Enforces slot-conflict checking for the new time slot.
  */
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -210,11 +210,11 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
  * Cancels a scheduled appointment: updates status to 'cancelled'.
  */
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  const admin = getSystemDb("api_v1");
-  const auth = await authenticateApiKey(admin, req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);

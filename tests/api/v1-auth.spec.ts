@@ -156,7 +156,7 @@ describe("API v1 Authentication & Tenant Isolation (REQ-api-access, D-01, D-02)"
         },
       });
 
-      const authResult = await authenticateApiKey(getAdminClient(), req);
+      const authResult = await authenticateApiKey(req, () => getAdminClient());
       expect(authResult.success).toBe(true);
       if (!authResult.success) return;
 

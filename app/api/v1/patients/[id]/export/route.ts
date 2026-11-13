@@ -36,11 +36,11 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
   if (authHeader && authHeader.startsWith("Bearer ")) {
     // 1a. Bearer token authentication
-    const admin = getSystemDb("api_v1");
-    const auth = await authenticateApiKey(admin, req);
+    const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
     if (!auth.success) {
       return auth.response;
     }
+    const admin = auth.db;
 
     const rateLimit = checkRateLimit(auth.session.apiKeyId);
     rateHeaders = getRateLimitHeaders(rateLimit);
