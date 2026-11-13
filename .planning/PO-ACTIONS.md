@@ -140,7 +140,8 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Verify (Claude):* `curl -s -o /dev/null -w "%{http_code}\n" "https://$(cat supabase/.temp/project-ref).supabase.co/auth/v1/health"`
     is not 200 (paused projects do not serve; assumption, confirmed by your screenshot of the paused state).
 
-- [ ] **03-E1c · Unlink the local CLI from the v1 project**
+- [x] **03-E1c · Unlink the local CLI from the v1 project**
+  - **Done by Claude on 2026-11-13: `npx supabase unlink`, then `test ! -e supabase/.temp/project-ref` → `unlinked`.**
   - *Do / where:* repo root: `npx supabase unlink` (after 03-E1a and 03-E1b).
   - *Why:* any CLI call without `--local` can otherwise target the hosted project (R-12, pitfall 2).
   - *Verify (Claude):* `test ! -e supabase/.temp/project-ref && echo unlinked`.
