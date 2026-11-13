@@ -1,0 +1,82 @@
+[
+  {
+    "id": "today-rows",
+    "label": "Today, front desk: queue rows fully visible (all lanes)",
+    "w": 1280,
+    "h": 800,
+    "r3": 16,
+    "r2": 12
+  },
+  {
+    "id": "today-rows",
+    "label": "Today, front desk: queue rows fully visible (all lanes)",
+    "w": 820,
+    "h": 1180,
+    "r3": 12,
+    "r2": 10
+  },
+  {
+    "id": "today-doctor-rows",
+    "label": "Today, doctor: queue rows fully visible",
+    "w": 1280,
+    "h": 800,
+    "r3": 5,
+    "r2": 5
+  },
+  {
+    "id": "today-doctor-rows",
+    "label": "Today, doctor: queue rows fully visible",
+    "w": 820,
+    "h": 1180,
+    "r3": 5,
+    "r2": 5
+  },
+  {
+    "id": "consult-sections",
+    "label": "Consult, full note: sections whose heading is visible",
+    "w": 1280,
+    "h": 800,
+    "r3": 2,
+    "r2": 2
+  },
+  {
+    "id": "consult-sections",
+    "label": "Consult, full note: sections whose heading is visible",
+    "w": 820,
+    "h": 1180,
+    "r3": 2,
+    "r2": 2
+  },
+  {
+    "id": "consult-controls",
+    "label": "Consult, full note: tiles, pills and lines fully visible",
+    "w": 1280,
+    "h": 800,
+    "r3": 53,
+    "r2": 39
+  },
+  {
+    "id": "consult-controls",
+    "label": "Consult, full note: tiles, pills and lines fully visible",
+    "w": 820,
+    "h": 1180,
+    "r3": 53,
+    "r2": 45
+  },
+  {
+    "id": "consult-exam",
+    "label": "Consult, exam section: exam systems + finding tiles visible",
+    "w": 1280,
+    "h": 800,
+    "r3": 15,
+    "r2": 7
+  },
+  {
+    "id": "consult-exam",
+    "label": "Consult, exam section: exam systems + finding tiles visible",
+    "w": 820,
+    "h": 1180,
+    "r3": 15,
+    "r2": 15
+  }
+]

@@ -1,14 +1,25 @@
 {
   "a": [
     {
+      "fg": "accent-2-fg",
+      "bg": "accent-2-bg",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#6d5434",
+      "bgHex": "#f7f1e8",
+      "ratio": 6.3,
+      "pass": true
+    },
+    {
       "fg": "success-fg",
       "bg": "success-bg",
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#e8f5ec",
-      "ratio": 5.81,
+      "fgHex": "#26734d",
+      "bgHex": "#eaf5ee",
+      "ratio": 5.16,
       "pass": true
     },
     {
@@ -17,9 +28,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#2f9a62",
-      "bgHex": "#e8f5ec",
-      "ratio": 3.16,
+      "fgHex": "#26734d",
+      "bgHex": "#eaf5ee",
+      "ratio": 5.16,
       "pass": true
     },
     {
@@ -28,9 +39,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fdf3e1",
-      "ratio": 6.18,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -39,9 +50,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#b7791f",
-      "bgHex": "#fdf3e1",
-      "ratio": 3.31,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -50,9 +61,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#fdeeec",
-      "ratio": 6.48,
+      "fgHex": "#b54848",
+      "bgHex": "#fbeded",
+      "ratio": 4.63,
       "pass": true
     },
     {
@@ -61,9 +72,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#d9452f",
-      "bgHex": "#fdeeec",
-      "ratio": 3.84,
+      "fgHex": "#b54848",
+      "bgHex": "#fbeded",
+      "ratio": 4.63,
       "pass": true
     },
     {
@@ -72,9 +83,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#eaf1fc",
-      "ratio": 6.14,
+      "fgHex": "#356f9b",
+      "bgHex": "#eaf2f8",
+      "ratio": 4.76,
       "pass": true
     },
     {
@@ -83,9 +94,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#3b76d6",
-      "bgHex": "#eaf1fc",
-      "ratio": 3.89,
+      "fgHex": "#356f9b",
+      "bgHex": "#eaf2f8",
+      "ratio": 4.76,
       "pass": true
     },
     {
@@ -94,9 +105,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#44505c",
-      "bgHex": "#eef1f4",
-      "ratio": 7.27,
+      "fgHex": "#356f9b",
+      "bgHex": "#eaf2f8",
+      "ratio": 4.76,
       "pass": true
     },
     {
@@ -105,9 +116,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#6b7785",
-      "bgHex": "#eef1f4",
-      "ratio": 4.02,
+      "fgHex": "#356f9b",
+      "bgHex": "#eaf2f8",
+      "ratio": 4.76,
       "pass": true
     },
     {
@@ -116,9 +127,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fdf3e1",
-      "ratio": 6.18,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -127,9 +138,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#b7791f",
-      "bgHex": "#fdf3e1",
-      "ratio": 3.31,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -138,9 +149,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#0b5f5a",
-      "bgHex": "#e9f4f2",
-      "ratio": 6.68,
+      "fgHex": "#176b5b",
+      "bgHex": "#eaf4f0",
+      "ratio": 5.68,
       "pass": true
     },
     {
@@ -149,9 +160,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#16847c",
-      "bgHex": "#e9f4f2",
-      "ratio": 4.04,
+      "fgHex": "#176b5b",
+      "bgHex": "#eaf4f0",
+      "ratio": 5.68,
       "pass": true
     },
     {
@@ -160,9 +171,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#5b3fa8",
-      "bgHex": "#f1edfa",
-      "ratio": 6.7,
+      "fgHex": "#6d5434",
+      "bgHex": "#f7f1e8",
+      "ratio": 6.3,
       "pass": true
     },
     {
@@ -171,9 +182,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#7a5cc7",
-      "bgHex": "#f1edfa",
-      "ratio": 4.36,
+      "fgHex": "#6d5434",
+      "bgHex": "#f7f1e8",
+      "ratio": 6.3,
       "pass": true
     },
     {
@@ -182,9 +193,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#e8f5ec",
-      "ratio": 5.81,
+      "fgHex": "#26734d",
+      "bgHex": "#eaf5ee",
+      "ratio": 5.16,
       "pass": true
     },
     {
@@ -193,9 +204,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#2f9a62",
-      "bgHex": "#e8f5ec",
-      "ratio": 3.16,
+      "fgHex": "#26734d",
+      "bgHex": "#eaf5ee",
+      "ratio": 5.16,
       "pass": true
     },
     {
@@ -204,9 +215,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#f5f5f4",
-      "ratio": 7.2,
+      "fgHex": "#b54848",
+      "bgHex": "#fbeded",
+      "ratio": 4.63,
       "pass": true
     },
     {
@@ -215,9 +226,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#858580",
-      "bgHex": "#f5f5f4",
-      "ratio": 3.4,
+      "fgHex": "#b54848",
+      "bgHex": "#fbeded",
+      "ratio": 4.63,
       "pass": true
     },
     {
@@ -226,9 +237,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#fdeeec",
-      "ratio": 6.48,
+      "fgHex": "#5c6c66",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.04,
       "pass": true
     },
     {
@@ -237,9 +248,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#d9452f",
-      "bgHex": "#fdeeec",
-      "ratio": 3.84,
+      "fgHex": "#5c6c66",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.04,
       "pass": true
     },
     {
@@ -249,8 +260,8 @@
       "kind": "text",
       "note": "",
       "fgHex": "#ffffff",
-      "bgHex": "#b42318",
-      "ratio": 6.57,
+      "bgHex": "#b54848",
+      "ratio": 5.27,
       "pass": true
     },
     {
@@ -259,9 +270,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fdf3e1",
-      "ratio": 6.18,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -270,9 +281,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fdf3e1",
-      "ratio": 6.18,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -281,9 +292,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#b7791f",
-      "bgHex": "#fdf3e1",
-      "ratio": 3.31,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -292,9 +303,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
+      "fgHex": "#182b27",
       "bgHex": "#ffffff",
-      "ratio": 17.89,
+      "ratio": 14.85,
       "pass": true
     },
     {
@@ -303,9 +314,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#858580",
+      "fgHex": "#7f8e87",
       "bgHex": "#ffffff",
-      "ratio": 3.71,
+      "ratio": 3.43,
       "pass": true
     },
     {
@@ -314,9 +325,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#eaf1fc",
-      "ratio": 6.14,
+      "fgHex": "#356f9b",
+      "bgHex": "#eaf2f8",
+      "ratio": 4.76,
       "pass": true
     },
     {
@@ -325,9 +336,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#3b76d6",
-      "bgHex": "#eaf1fc",
-      "ratio": 3.89,
+      "fgHex": "#356f9b",
+      "bgHex": "#eaf2f8",
+      "ratio": 4.76,
       "pass": true
     },
     {
@@ -336,9 +347,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "placeholders only appear inside inputs (input-bg = surface)",
-      "fgHex": "#76766f",
+      "fgHex": "#5c6c66",
       "bgHex": "#ffffff",
-      "ratio": 4.57,
+      "ratio": 5.54,
       "pass": true
     },
     {
@@ -347,9 +358,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
+      "fgHex": "#182b27",
       "bgHex": "#ffffff",
-      "ratio": 17.89,
+      "ratio": 14.85,
       "pass": true
     },
     {
@@ -358,9 +369,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
+      "fgHex": "#182b27",
       "bgHex": "#ffffff",
-      "ratio": 17.89,
+      "ratio": 14.85,
       "pass": true
     },
     {
@@ -369,9 +380,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
-      "bgHex": "#f5f5f4",
-      "ratio": 16.4,
+      "fgHex": "#182b27",
+      "bgHex": "#f1f5f3",
+      "ratio": 13.51,
       "pass": true
     },
     {
@@ -380,9 +391,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
-      "bgHex": "#e9f4f2",
-      "ratio": 15.92,
+      "fgHex": "#182b27",
+      "bgHex": "#eaf4f0",
+      "ratio": 13.23,
       "pass": true
     },
     {
@@ -391,9 +402,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
-      "bgHex": "#fafafa",
-      "ratio": 17.14,
+      "fgHex": "#182b27",
+      "bgHex": "#f8faf9",
+      "ratio": 14.17,
       "pass": true
     },
     {
@@ -402,9 +413,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#38383a",
+      "fgHex": "#425650",
       "bgHex": "#ffffff",
-      "ratio": 11.7,
+      "ratio": 7.84,
       "pass": true
     },
     {
@@ -413,9 +424,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#38383a",
+      "fgHex": "#425650",
       "bgHex": "#ffffff",
-      "ratio": 11.7,
+      "ratio": 7.84,
       "pass": true
     },
     {
@@ -424,9 +435,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#38383a",
-      "bgHex": "#f5f5f4",
-      "ratio": 10.72,
+      "fgHex": "#425650",
+      "bgHex": "#f1f5f3",
+      "ratio": 7.13,
       "pass": true
     },
     {
@@ -435,427 +446,427 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#38383a",
-      "bgHex": "#e9f4f2",
-      "ratio": 10.41,
-      "pass": true
-    },
-    {
-      "fg": "fg-body-tint",
-      "bg": "hover",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#38383a",
-      "bgHex": "#fafafa",
-      "ratio": 11.21,
-      "pass": true
-    },
-    {
-      "fg": "fg-muted",
-      "bg": "canvas",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#ffffff",
-      "ratio": 7.86,
-      "pass": true
-    },
-    {
-      "fg": "fg-muted",
-      "bg": "surface",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#ffffff",
-      "ratio": 7.86,
-      "pass": true
-    },
-    {
-      "fg": "fg-muted",
-      "bg": "sunken",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#f5f5f4",
-      "ratio": 7.2,
-      "pass": true
-    },
-    {
-      "fg": "fg-muted",
-      "bg": "selected",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#e9f4f2",
-      "ratio": 6.99,
-      "pass": true
-    },
-    {
-      "fg": "fg-muted",
-      "bg": "hover",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#fafafa",
-      "ratio": 7.53,
-      "pass": true
-    },
-    {
-      "fg": "fg-subtle",
-      "bg": "canvas",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#6a6a64",
-      "bgHex": "#ffffff",
-      "ratio": 5.44,
-      "pass": true
-    },
-    {
-      "fg": "fg-subtle",
-      "bg": "surface",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#6a6a64",
-      "bgHex": "#ffffff",
-      "ratio": 5.44,
-      "pass": true
-    },
-    {
-      "fg": "fg-subtle",
-      "bg": "sunken",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#6a6a64",
-      "bgHex": "#f5f5f4",
-      "ratio": 4.99,
-      "pass": true
-    },
-    {
-      "fg": "fg-subtle",
-      "bg": "selected",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#6a6a64",
-      "bgHex": "#e9f4f2",
-      "ratio": 4.84,
-      "pass": true
-    },
-    {
-      "fg": "fg-subtle",
-      "bg": "hover",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#6a6a64",
-      "bgHex": "#fafafa",
-      "ratio": 5.21,
-      "pass": true
-    },
-    {
-      "fg": "accent",
-      "bg": "canvas",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#0e716b",
-      "bgHex": "#ffffff",
-      "ratio": 5.84,
-      "pass": true
-    },
-    {
-      "fg": "accent",
-      "bg": "surface",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#0e716b",
-      "bgHex": "#ffffff",
-      "ratio": 5.84,
-      "pass": true
-    },
-    {
-      "fg": "accent",
-      "bg": "sunken",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#0e716b",
-      "bgHex": "#f5f5f4",
-      "ratio": 5.36,
-      "pass": true
-    },
-    {
-      "fg": "accent",
-      "bg": "selected",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#0e716b",
-      "bgHex": "#e9f4f2",
-      "ratio": 5.2,
-      "pass": true
-    },
-    {
-      "fg": "accent",
-      "bg": "hover",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#0e716b",
-      "bgHex": "#fafafa",
-      "ratio": 5.6,
-      "pass": true
-    },
-    {
-      "fg": "accent-fg",
-      "bg": "canvas",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#0b5f5a",
-      "bgHex": "#ffffff",
-      "ratio": 7.5,
-      "pass": true
-    },
-    {
-      "fg": "accent-fg",
-      "bg": "surface",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#0b5f5a",
-      "bgHex": "#ffffff",
-      "ratio": 7.5,
-      "pass": true
-    },
-    {
-      "fg": "accent-fg",
-      "bg": "sunken",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#0b5f5a",
-      "bgHex": "#f5f5f4",
-      "ratio": 6.88,
-      "pass": true
-    },
-    {
-      "fg": "accent-fg",
-      "bg": "selected",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#0b5f5a",
-      "bgHex": "#e9f4f2",
-      "ratio": 6.68,
-      "pass": true
-    },
-    {
-      "fg": "accent-fg",
-      "bg": "hover",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#0b5f5a",
-      "bgHex": "#fafafa",
-      "ratio": 7.19,
-      "pass": true
-    },
-    {
-      "fg": "danger-fg",
-      "bg": "canvas",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#ffffff",
-      "ratio": 7.31,
-      "pass": true
-    },
-    {
-      "fg": "danger-fg",
-      "bg": "surface",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#ffffff",
-      "ratio": 7.31,
-      "pass": true
-    },
-    {
-      "fg": "danger-fg",
-      "bg": "sunken",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#f5f5f4",
-      "ratio": 6.7,
-      "pass": true
-    },
-    {
-      "fg": "danger-fg",
-      "bg": "selected",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#e9f4f2",
-      "ratio": 6.51,
-      "pass": true
-    },
-    {
-      "fg": "danger-fg",
-      "bg": "hover",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#fafafa",
-      "ratio": 7.01,
-      "pass": true
-    },
-    {
-      "fg": "warning-fg",
-      "bg": "canvas",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#ffffff",
-      "ratio": 6.8,
-      "pass": true
-    },
-    {
-      "fg": "warning-fg",
-      "bg": "surface",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#ffffff",
-      "ratio": 6.8,
-      "pass": true
-    },
-    {
-      "fg": "warning-fg",
-      "bg": "sunken",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#f5f5f4",
-      "ratio": 6.24,
-      "pass": true
-    },
-    {
-      "fg": "warning-fg",
-      "bg": "selected",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#e9f4f2",
-      "ratio": 6.05,
-      "pass": true
-    },
-    {
-      "fg": "warning-fg",
-      "bg": "hover",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fafafa",
-      "ratio": 6.52,
-      "pass": true
-    },
-    {
-      "fg": "success-fg",
-      "bg": "canvas",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#ffffff",
-      "ratio": 6.53,
-      "pass": true
-    },
-    {
-      "fg": "success-fg",
-      "bg": "surface",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#ffffff",
-      "ratio": 6.53,
-      "pass": true
-    },
-    {
-      "fg": "success-fg",
-      "bg": "sunken",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#f5f5f4",
-      "ratio": 5.98,
-      "pass": true
-    },
-    {
-      "fg": "success-fg",
-      "bg": "selected",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#e9f4f2",
-      "ratio": 5.81,
-      "pass": true
-    },
-    {
-      "fg": "success-fg",
-      "bg": "hover",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#fafafa",
-      "ratio": 6.25,
-      "pass": true
-    },
-    {
-      "fg": "info-fg",
-      "bg": "canvas",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#ffffff",
+      "fgHex": "#425650",
+      "bgHex": "#eaf4f0",
       "ratio": 6.98,
       "pass": true
     },
     {
+      "fg": "fg-body-tint",
+      "bg": "hover",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#425650",
+      "bgHex": "#f8faf9",
+      "ratio": 7.48,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "canvas",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#5c6c66",
+      "bgHex": "#ffffff",
+      "ratio": 5.54,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "surface",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#5c6c66",
+      "bgHex": "#ffffff",
+      "ratio": 5.54,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "sunken",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#5c6c66",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.04,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "selected",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#5c6c66",
+      "bgHex": "#eaf4f0",
+      "ratio": 4.93,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "hover",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#5c6c66",
+      "bgHex": "#f8faf9",
+      "ratio": 5.28,
+      "pass": true
+    },
+    {
+      "fg": "fg-subtle",
+      "bg": "canvas",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#5c6c66",
+      "bgHex": "#ffffff",
+      "ratio": 5.54,
+      "pass": true
+    },
+    {
+      "fg": "fg-subtle",
+      "bg": "surface",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#5c6c66",
+      "bgHex": "#ffffff",
+      "ratio": 5.54,
+      "pass": true
+    },
+    {
+      "fg": "fg-subtle",
+      "bg": "sunken",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#5c6c66",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.04,
+      "pass": true
+    },
+    {
+      "fg": "fg-subtle",
+      "bg": "selected",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#5c6c66",
+      "bgHex": "#eaf4f0",
+      "ratio": 4.93,
+      "pass": true
+    },
+    {
+      "fg": "fg-subtle",
+      "bg": "hover",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#5c6c66",
+      "bgHex": "#f8faf9",
+      "ratio": 5.28,
+      "pass": true
+    },
+    {
+      "fg": "accent",
+      "bg": "canvas",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#176b5b",
+      "bgHex": "#ffffff",
+      "ratio": 6.38,
+      "pass": true
+    },
+    {
+      "fg": "accent",
+      "bg": "surface",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#176b5b",
+      "bgHex": "#ffffff",
+      "ratio": 6.38,
+      "pass": true
+    },
+    {
+      "fg": "accent",
+      "bg": "sunken",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#176b5b",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.8,
+      "pass": true
+    },
+    {
+      "fg": "accent",
+      "bg": "selected",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#176b5b",
+      "bgHex": "#eaf4f0",
+      "ratio": 5.68,
+      "pass": true
+    },
+    {
+      "fg": "accent",
+      "bg": "hover",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#176b5b",
+      "bgHex": "#f8faf9",
+      "ratio": 6.09,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "canvas",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#176b5b",
+      "bgHex": "#ffffff",
+      "ratio": 6.38,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "surface",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#176b5b",
+      "bgHex": "#ffffff",
+      "ratio": 6.38,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "sunken",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#176b5b",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.8,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "selected",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#176b5b",
+      "bgHex": "#eaf4f0",
+      "ratio": 5.68,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "hover",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#176b5b",
+      "bgHex": "#f8faf9",
+      "ratio": 6.09,
+      "pass": true
+    },
+    {
+      "fg": "danger-fg",
+      "bg": "canvas",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#b54848",
+      "bgHex": "#ffffff",
+      "ratio": 5.27,
+      "pass": true
+    },
+    {
+      "fg": "danger-fg",
+      "bg": "surface",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#b54848",
+      "bgHex": "#ffffff",
+      "ratio": 5.27,
+      "pass": true
+    },
+    {
+      "fg": "danger-fg",
+      "bg": "sunken",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#b54848",
+      "bgHex": "#f1f5f3",
+      "ratio": 4.79,
+      "pass": true
+    },
+    {
+      "fg": "danger-fg",
+      "bg": "selected",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#b54848",
+      "bgHex": "#eaf4f0",
+      "ratio": 4.69,
+      "pass": true
+    },
+    {
+      "fg": "danger-fg",
+      "bg": "hover",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#b54848",
+      "bgHex": "#f8faf9",
+      "ratio": 5.03,
+      "pass": true
+    },
+    {
+      "fg": "warning-fg",
+      "bg": "canvas",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#8f5e1b",
+      "bgHex": "#ffffff",
+      "ratio": 5.55,
+      "pass": true
+    },
+    {
+      "fg": "warning-fg",
+      "bg": "surface",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#8f5e1b",
+      "bgHex": "#ffffff",
+      "ratio": 5.55,
+      "pass": true
+    },
+    {
+      "fg": "warning-fg",
+      "bg": "sunken",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#8f5e1b",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.05,
+      "pass": true
+    },
+    {
+      "fg": "warning-fg",
+      "bg": "selected",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#8f5e1b",
+      "bgHex": "#eaf4f0",
+      "ratio": 4.94,
+      "pass": true
+    },
+    {
+      "fg": "warning-fg",
+      "bg": "hover",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#8f5e1b",
+      "bgHex": "#f8faf9",
+      "ratio": 5.29,
+      "pass": true
+    },
+    {
+      "fg": "success-fg",
+      "bg": "canvas",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#26734d",
+      "bgHex": "#ffffff",
+      "ratio": 5.77,
+      "pass": true
+    },
+    {
+      "fg": "success-fg",
+      "bg": "surface",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#26734d",
+      "bgHex": "#ffffff",
+      "ratio": 5.77,
+      "pass": true
+    },
+    {
+      "fg": "success-fg",
+      "bg": "sunken",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#26734d",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.24,
+      "pass": true
+    },
+    {
+      "fg": "success-fg",
+      "bg": "selected",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#26734d",
+      "bgHex": "#eaf4f0",
+      "ratio": 5.13,
+      "pass": true
+    },
+    {
+      "fg": "success-fg",
+      "bg": "hover",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#26734d",
+      "bgHex": "#f8faf9",
+      "ratio": 5.5,
+      "pass": true
+    },
+    {
+      "fg": "info-fg",
+      "bg": "canvas",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#356f9b",
+      "bgHex": "#ffffff",
+      "ratio": 5.39,
+      "pass": true
+    },
+    {
       "fg": "info-fg",
       "bg": "surface",
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
+      "fgHex": "#356f9b",
       "bgHex": "#ffffff",
-      "ratio": 6.98,
+      "ratio": 5.39,
       "pass": true
     },
     {
@@ -864,9 +875,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#f5f5f4",
-      "ratio": 6.39,
+      "fgHex": "#356f9b",
+      "bgHex": "#f1f5f3",
+      "ratio": 4.9,
       "pass": true
     },
     {
@@ -875,9 +886,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#e9f4f2",
-      "ratio": 6.21,
+      "fgHex": "#356f9b",
+      "bgHex": "#eaf4f0",
+      "ratio": 4.8,
       "pass": true
     },
     {
@@ -886,9 +897,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#fafafa",
-      "ratio": 6.68,
+      "fgHex": "#356f9b",
+      "bgHex": "#f8faf9",
+      "ratio": 5.14,
       "pass": true
     },
     {
@@ -897,9 +908,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
+      "fgHex": "#5c6c66",
       "bgHex": "#ffffff",
-      "ratio": 7.86,
+      "ratio": 5.54,
       "pass": true
     },
     {
@@ -908,9 +919,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
+      "fgHex": "#5c6c66",
       "bgHex": "#ffffff",
-      "ratio": 7.86,
+      "ratio": 5.54,
       "pass": true
     },
     {
@@ -919,9 +930,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#f5f5f4",
-      "ratio": 7.2,
+      "fgHex": "#5c6c66",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.04,
       "pass": true
     },
     {
@@ -930,9 +941,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#e9f4f2",
-      "ratio": 6.99,
+      "fgHex": "#5c6c66",
+      "bgHex": "#eaf4f0",
+      "ratio": 4.93,
       "pass": true
     },
     {
@@ -941,9 +952,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#fafafa",
-      "ratio": 7.53,
+      "fgHex": "#5c6c66",
+      "bgHex": "#f8faf9",
+      "ratio": 5.28,
       "pass": true
     },
     {
@@ -952,9 +963,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
+      "fgHex": "#8f5e1b",
       "bgHex": "#ffffff",
-      "ratio": 6.8,
+      "ratio": 5.55,
       "pass": true
     },
     {
@@ -963,9 +974,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
+      "fgHex": "#8f5e1b",
       "bgHex": "#ffffff",
-      "ratio": 6.8,
+      "ratio": 5.55,
       "pass": true
     },
     {
@@ -974,9 +985,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#f5f5f4",
-      "ratio": 6.24,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.05,
       "pass": true
     },
     {
@@ -985,9 +996,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#e9f4f2",
-      "ratio": 6.05,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#eaf4f0",
+      "ratio": 4.94,
       "pass": true
     },
     {
@@ -996,9 +1007,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fafafa",
-      "ratio": 6.52,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#f8faf9",
+      "ratio": 5.29,
       "pass": true
     },
     {
@@ -1007,9 +1018,240 @@
       "min": 4.5,
       "kind": "text",
       "note": "selected quick tile",
-      "fgHex": "#0b5f5a",
-      "bgHex": "#e9f4f2",
-      "ratio": 6.68,
+      "fgHex": "#176b5b",
+      "bgHex": "#eaf4f0",
+      "ratio": 5.68,
+      "pass": true
+    },
+    {
+      "fg": "fg",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#182b27",
+      "bgHex": "#f8faf9",
+      "ratio": 14.17,
+      "pass": true
+    },
+    {
+      "fg": "fg",
+      "bg": "surface-muted",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#182b27",
+      "bgHex": "#f1f5f3",
+      "ratio": 13.51,
+      "pass": true
+    },
+    {
+      "fg": "fg",
+      "bg": "accent-subtle",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#182b27",
+      "bgHex": "#eaf4f0",
+      "ratio": 13.23,
+      "pass": true
+    },
+    {
+      "fg": "fg",
+      "bg": "accent-tint",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#182b27",
+      "bgHex": "#f3f8f5",
+      "ratio": 13.83,
+      "pass": true
+    },
+    {
+      "fg": "fg-secondary",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#425650",
+      "bgHex": "#f8faf9",
+      "ratio": 7.48,
+      "pass": true
+    },
+    {
+      "fg": "fg-secondary",
+      "bg": "surface-muted",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#425650",
+      "bgHex": "#f1f5f3",
+      "ratio": 7.13,
+      "pass": true
+    },
+    {
+      "fg": "fg-secondary",
+      "bg": "accent-subtle",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#425650",
+      "bgHex": "#eaf4f0",
+      "ratio": 6.98,
+      "pass": true
+    },
+    {
+      "fg": "fg-secondary",
+      "bg": "accent-tint",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#425650",
+      "bgHex": "#f3f8f5",
+      "ratio": 7.3,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#5c6c66",
+      "bgHex": "#f8faf9",
+      "ratio": 5.28,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "surface-muted",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#5c6c66",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.04,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "accent-subtle",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#5c6c66",
+      "bgHex": "#eaf4f0",
+      "ratio": 4.93,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "accent-tint",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#5c6c66",
+      "bgHex": "#f3f8f5",
+      "ratio": 5.16,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#176b5b",
+      "bgHex": "#f8faf9",
+      "ratio": 6.09,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "surface-muted",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#176b5b",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.8,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "accent-subtle",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#176b5b",
+      "bgHex": "#eaf4f0",
+      "ratio": 5.68,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "accent-tint",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#176b5b",
+      "bgHex": "#f3f8f5",
+      "ratio": 5.94,
+      "pass": true
+    },
+    {
+      "fg": "accent-2-fg",
+      "bg": "accent-2-bg",
+      "min": 4.5,
+      "kind": "text",
+      "note": "To bill pill / brass highlight",
+      "fgHex": "#6d5434",
+      "bgHex": "#f7f1e8",
+      "ratio": 6.3,
+      "pass": true
+    },
+    {
+      "fg": "fg-icon",
+      "bg": "surface",
+      "min": 3,
+      "kind": "non-text",
+      "note": "icon-only ink (PO muted ink), never body text",
+      "fgHex": "#71817b",
+      "bgHex": "#ffffff",
+      "ratio": 4.09,
+      "pass": true
+    },
+    {
+      "fg": "status-with-doctor-fg",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "accent text on the patient column",
+      "fgHex": "#176b5b",
+      "bgHex": "#f8faf9",
+      "ratio": 6.09,
+      "pass": true
+    },
+    {
+      "fg": "danger-fg",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "allergy line on the patient column",
+      "fgHex": "#b54848",
+      "bgHex": "#f8faf9",
+      "ratio": 5.03,
+      "pass": true
+    },
+    {
+      "fg": "ring",
+      "bg": "ring-glow",
+      "min": 3,
+      "kind": "non-text",
+      "note": "focus ring on its glow",
+      "fgHex": "#2879b8",
+      "bgHex": "#eaf3fa",
+      "ratio": 4.14,
       "pass": true
     },
     {
@@ -1018,9 +1260,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "selected tile outline",
-      "fgHex": "#0e716b",
+      "fgHex": "#176b5b",
       "bgHex": "#ffffff",
-      "ratio": 5.84,
+      "ratio": 6.38,
       "pass": true
     },
     {
@@ -1029,9 +1271,9 @@
       "min": 0,
       "kind": "info",
       "note": "quick tile outline (hairline; adjacent text carries meaning)",
-      "fgHex": "#d8d8d4",
+      "fgHex": "#cdd9d2",
       "bgHex": "#ffffff",
-      "ratio": 1.43,
+      "ratio": 1.45,
       "pass": null
     },
     {
@@ -1041,8 +1283,8 @@
       "kind": "text",
       "note": "primary button",
       "fgHex": "#ffffff",
-      "bgHex": "#0e716b",
-      "ratio": 5.84,
+      "bgHex": "#176b5b",
+      "ratio": 6.38,
       "pass": true
     },
     {
@@ -1052,8 +1294,8 @@
       "kind": "text",
       "note": "section strip: current pill",
       "fgHex": "#ffffff",
-      "bgHex": "#17171a",
-      "ratio": 17.89,
+      "bgHex": "#182b27",
+      "ratio": 14.85,
       "pass": true
     },
     {
@@ -1063,8 +1305,8 @@
       "kind": "text",
       "note": "button / banner label",
       "fgHex": "#ffffff",
-      "bgHex": "#0e716b",
-      "ratio": 5.84,
+      "bgHex": "#176b5b",
+      "ratio": 6.38,
       "pass": true
     },
     {
@@ -1074,8 +1316,8 @@
       "kind": "text",
       "note": "button / banner label",
       "fgHex": "#ffffff",
-      "bgHex": "#0b5f5a",
-      "ratio": 7.5,
+      "bgHex": "#12584b",
+      "ratio": 8.32,
       "pass": true
     },
     {
@@ -1085,8 +1327,8 @@
       "kind": "text",
       "note": "button / banner label",
       "fgHex": "#ffffff",
-      "bgHex": "#0a4d49",
-      "ratio": 9.67,
+      "bgHex": "#0d493f",
+      "ratio": 10.28,
       "pass": true
     },
     {
@@ -1096,8 +1338,8 @@
       "kind": "text",
       "note": "button / banner label",
       "fgHex": "#ffffff",
-      "bgHex": "#b42318",
-      "ratio": 6.57,
+      "bgHex": "#b54848",
+      "ratio": 5.27,
       "pass": true
     },
     {
@@ -1107,8 +1349,8 @@
       "kind": "text",
       "note": "button / banner label",
       "fgHex": "#ffffff",
-      "bgHex": "#b42318",
-      "ratio": 6.57,
+      "bgHex": "#b54848",
+      "ratio": 5.27,
       "pass": true
     },
     {
@@ -1118,8 +1360,8 @@
       "kind": "text",
       "note": "toast (inverted)",
       "fgHex": "#ffffff",
-      "bgHex": "#17171a",
-      "ratio": 17.89,
+      "bgHex": "#182b27",
+      "ratio": 14.85,
       "pass": true
     },
     {
@@ -1128,9 +1370,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "input/checkbox boundary",
-      "fgHex": "#858580",
+      "fgHex": "#7f8e87",
       "bgHex": "#ffffff",
-      "ratio": 3.71,
+      "ratio": 3.43,
       "pass": true
     },
     {
@@ -1139,9 +1381,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "input/checkbox boundary",
-      "fgHex": "#858580",
+      "fgHex": "#7f8e87",
       "bgHex": "#ffffff",
-      "ratio": 3.71,
+      "ratio": 3.43,
       "pass": true
     },
     {
@@ -1150,9 +1392,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "input/checkbox boundary",
-      "fgHex": "#858580",
-      "bgHex": "#f5f5f4",
-      "ratio": 3.4,
+      "fgHex": "#7f8e87",
+      "bgHex": "#f1f5f3",
+      "ratio": 3.12,
       "pass": true
     },
     {
@@ -1161,9 +1403,9 @@
       "min": 0,
       "kind": "info",
       "note": "panel/tile hairline: decorative, text carries meaning",
-      "fgHex": "#d8d8d4",
+      "fgHex": "#cdd9d2",
       "bgHex": "#ffffff",
-      "ratio": 1.43,
+      "ratio": 1.45,
       "pass": null
     },
     {
@@ -1172,9 +1414,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#6b7785",
+      "fgHex": "#356f9b",
       "bgHex": "#ffffff",
-      "ratio": 4.56,
+      "ratio": 5.39,
       "pass": true
     },
     {
@@ -1183,9 +1425,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#b7791f",
+      "fgHex": "#8f5e1b",
       "bgHex": "#ffffff",
-      "ratio": 3.64,
+      "ratio": 5.55,
       "pass": true
     },
     {
@@ -1194,9 +1436,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#16847c",
+      "fgHex": "#176b5b",
       "bgHex": "#ffffff",
-      "ratio": 4.54,
+      "ratio": 6.38,
       "pass": true
     },
     {
@@ -1205,9 +1447,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#7a5cc7",
+      "fgHex": "#6d5434",
       "bgHex": "#ffffff",
-      "ratio": 5.02,
+      "ratio": 7.08,
       "pass": true
     },
     {
@@ -1216,9 +1458,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#2f9a62",
+      "fgHex": "#26734d",
       "bgHex": "#ffffff",
-      "ratio": 3.55,
+      "ratio": 5.77,
       "pass": true
     },
     {
@@ -1227,9 +1469,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#858580",
+      "fgHex": "#b54848",
       "bgHex": "#ffffff",
-      "ratio": 3.71,
+      "ratio": 5.27,
       "pass": true
     },
     {
@@ -1238,9 +1480,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#d9452f",
+      "fgHex": "#5c6c66",
       "bgHex": "#ffffff",
-      "ratio": 4.34,
+      "ratio": 5.54,
       "pass": true
     },
     {
@@ -1249,9 +1491,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "selected-row 3 px indicator",
-      "fgHex": "#0e716b",
-      "bgHex": "#e9f4f2",
-      "ratio": 5.2,
+      "fgHex": "#176b5b",
+      "bgHex": "#eaf4f0",
+      "ratio": 5.68,
       "pass": true
     },
     {
@@ -1260,9 +1502,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "BINDING: ring on its halo (any fill)",
-      "fgHex": "#1f5fd1",
+      "fgHex": "#2879b8",
       "bgHex": "#ffffff",
-      "ratio": 5.81,
+      "ratio": 4.65,
       "pass": true
     },
     {
@@ -1271,9 +1513,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "ring next to page background",
-      "fgHex": "#1f5fd1",
+      "fgHex": "#2879b8",
       "bgHex": "#ffffff",
-      "ratio": 5.81,
+      "ratio": 4.65,
       "pass": true
     },
     {
@@ -1282,9 +1524,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "ring next to page background",
-      "fgHex": "#1f5fd1",
+      "fgHex": "#2879b8",
       "bgHex": "#ffffff",
-      "ratio": 5.81,
+      "ratio": 4.65,
       "pass": true
     },
     {
@@ -1293,9 +1535,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "ring next to page background",
-      "fgHex": "#1f5fd1",
-      "bgHex": "#f5f5f4",
-      "ratio": 5.32,
+      "fgHex": "#2879b8",
+      "bgHex": "#f1f5f3",
+      "ratio": 4.23,
       "pass": true
     },
     {
@@ -1304,9 +1546,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "ring next to page background",
-      "fgHex": "#1f5fd1",
-      "bgHex": "#e9f4f2",
-      "ratio": 5.17,
+      "fgHex": "#2879b8",
+      "bgHex": "#eaf4f0",
+      "ratio": 4.14,
       "pass": true
     },
     {
@@ -1315,9 +1557,9 @@
       "min": 0,
       "kind": "info",
       "note": "ring vs solid fill: not relied on (halo separates them)",
-      "fgHex": "#1f5fd1",
-      "bgHex": "#0e716b",
-      "ratio": 1.01,
+      "fgHex": "#2879b8",
+      "bgHex": "#176b5b",
+      "ratio": 1.37,
       "pass": null
     },
     {
@@ -1326,8 +1568,8 @@
       "min": 0,
       "kind": "info",
       "note": "ring vs solid fill: not relied on (halo separates them)",
-      "fgHex": "#1f5fd1",
-      "bgHex": "#b42318",
+      "fgHex": "#2879b8",
+      "bgHex": "#b54848",
       "ratio": 1.13,
       "pass": null
     },
@@ -1338,31 +1580,9 @@
       "kind": "info",
       "note": "halo vs teal fill: separation only",
       "fgHex": "#ffffff",
-      "bgHex": "#0e716b",
-      "ratio": 5.84,
+      "bgHex": "#176b5b",
+      "ratio": 6.38,
       "pass": null
-    },
-    {
-      "fg": "plum-700",
-      "bg": "plum-50",
-      "min": 4.5,
-      "kind": "text",
-      "note": "DX-7 option B",
-      "fgHex": "#7d2f63",
-      "bgHex": "#f8edf4",
-      "ratio": 7.49,
-      "pass": true
-    },
-    {
-      "fg": "plum-500",
-      "bg": "plum-50",
-      "min": 3,
-      "kind": "non-text",
-      "note": "DX-7 option B",
-      "fgHex": "#a8508a",
-      "bgHex": "#f8edf4",
-      "ratio": 4.41,
-      "pass": true
     },
     {
       "fg": "fg-disabled",
@@ -1370,9 +1590,9 @@
       "min": 0,
       "kind": "exempt",
       "note": "disabled text",
-      "fgHex": "#a3a39e",
+      "fgHex": "#96a39e",
       "bgHex": "#ffffff",
-      "ratio": 2.53,
+      "ratio": 2.62,
       "pass": null
     },
     {
@@ -1381,22 +1601,33 @@
       "min": 0,
       "kind": "exempt",
       "note": "disabled button",
-      "fgHex": "#6a6a64",
-      "bgHex": "#ededeb",
-      "ratio": 4.64,
+      "fgHex": "#5c6c66",
+      "bgHex": "#f1f5f3",
+      "ratio": 5.04,
       "pass": null
     }
   ],
   "b": [
+    {
+      "fg": "accent-2-fg",
+      "bg": "accent-2-bg",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#6b5739",
+      "bgHex": "#f7f3ec",
+      "ratio": 6.23,
+      "pass": true
+    },
     {
       "fg": "success-fg",
       "bg": "success-bg",
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#e8f5ec",
-      "ratio": 5.81,
+      "fgHex": "#26734d",
+      "bgHex": "#eaf5ee",
+      "ratio": 5.16,
       "pass": true
     },
     {
@@ -1405,9 +1636,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#2f9a62",
-      "bgHex": "#e8f5ec",
-      "ratio": 3.16,
+      "fgHex": "#26734d",
+      "bgHex": "#eaf5ee",
+      "ratio": 5.16,
       "pass": true
     },
     {
@@ -1416,9 +1647,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fdf3e1",
-      "ratio": 6.18,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -1427,9 +1658,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#b7791f",
-      "bgHex": "#fdf3e1",
-      "ratio": 3.31,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -1438,9 +1669,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#fdeeec",
-      "ratio": 6.48,
+      "fgHex": "#b54848",
+      "bgHex": "#fbeded",
+      "ratio": 4.63,
       "pass": true
     },
     {
@@ -1449,9 +1680,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#d9452f",
-      "bgHex": "#fdeeec",
-      "ratio": 3.84,
+      "fgHex": "#b54848",
+      "bgHex": "#fbeded",
+      "ratio": 4.63,
       "pass": true
     },
     {
@@ -1460,9 +1691,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#eaf1fc",
-      "ratio": 6.14,
+      "fgHex": "#4c6680",
+      "bgHex": "#eef2f7",
+      "ratio": 5.31,
       "pass": true
     },
     {
@@ -1471,9 +1702,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#3b76d6",
-      "bgHex": "#eaf1fc",
-      "ratio": 3.89,
+      "fgHex": "#4c6680",
+      "bgHex": "#eef2f7",
+      "ratio": 5.31,
       "pass": true
     },
     {
@@ -1482,9 +1713,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#44505c",
-      "bgHex": "#eef1f4",
-      "ratio": 7.27,
+      "fgHex": "#4c6680",
+      "bgHex": "#eef2f7",
+      "ratio": 5.31,
       "pass": true
     },
     {
@@ -1493,9 +1724,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#6b7785",
-      "bgHex": "#eef1f4",
-      "ratio": 4.02,
+      "fgHex": "#4c6680",
+      "bgHex": "#eef2f7",
+      "ratio": 5.31,
       "pass": true
     },
     {
@@ -1504,9 +1735,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fdf3e1",
-      "ratio": 6.18,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -1515,9 +1746,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#b7791f",
-      "bgHex": "#fdf3e1",
-      "ratio": 3.31,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -1526,9 +1757,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#253aa6",
-      "bgHex": "#eceffd",
-      "ratio": 8.2,
+      "fgHex": "#245b8f",
+      "bgHex": "#eaf2fa",
+      "ratio": 6.26,
       "pass": true
     },
     {
@@ -1537,9 +1768,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#4b63d9",
-      "bgHex": "#eceffd",
-      "ratio": 4.49,
+      "fgHex": "#245b8f",
+      "bgHex": "#eaf2fa",
+      "ratio": 6.26,
       "pass": true
     },
     {
@@ -1548,9 +1779,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#5b3fa8",
-      "bgHex": "#f1edfa",
-      "ratio": 6.7,
+      "fgHex": "#6b5739",
+      "bgHex": "#f7f3ec",
+      "ratio": 6.23,
       "pass": true
     },
     {
@@ -1559,9 +1790,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#7a5cc7",
-      "bgHex": "#f1edfa",
-      "ratio": 4.36,
+      "fgHex": "#6b5739",
+      "bgHex": "#f7f3ec",
+      "ratio": 6.23,
       "pass": true
     },
     {
@@ -1570,9 +1801,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#e8f5ec",
-      "ratio": 5.81,
+      "fgHex": "#26734d",
+      "bgHex": "#eaf5ee",
+      "ratio": 5.16,
       "pass": true
     },
     {
@@ -1581,9 +1812,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#2f9a62",
-      "bgHex": "#e8f5ec",
-      "ratio": 3.16,
+      "fgHex": "#26734d",
+      "bgHex": "#eaf5ee",
+      "ratio": 5.16,
       "pass": true
     },
     {
@@ -1592,9 +1823,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#f5f5f4",
-      "ratio": 7.2,
+      "fgHex": "#b54848",
+      "bgHex": "#fbeded",
+      "ratio": 4.63,
       "pass": true
     },
     {
@@ -1603,9 +1834,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#858580",
-      "bgHex": "#f5f5f4",
-      "ratio": 3.4,
+      "fgHex": "#b54848",
+      "bgHex": "#fbeded",
+      "ratio": 4.63,
       "pass": true
     },
     {
@@ -1614,9 +1845,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#fdeeec",
-      "ratio": 6.48,
+      "fgHex": "#566a7e",
+      "bgHex": "#eef2f7",
+      "ratio": 4.97,
       "pass": true
     },
     {
@@ -1625,9 +1856,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#d9452f",
-      "bgHex": "#fdeeec",
-      "ratio": 3.84,
+      "fgHex": "#566a7e",
+      "bgHex": "#eef2f7",
+      "ratio": 4.97,
       "pass": true
     },
     {
@@ -1637,8 +1868,8 @@
       "kind": "text",
       "note": "",
       "fgHex": "#ffffff",
-      "bgHex": "#b42318",
-      "ratio": 6.57,
+      "bgHex": "#b54848",
+      "ratio": 5.27,
       "pass": true
     },
     {
@@ -1647,9 +1878,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fdf3e1",
-      "ratio": 6.18,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -1658,9 +1889,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fdf3e1",
-      "ratio": 6.18,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -1669,9 +1900,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#b7791f",
-      "bgHex": "#fdf3e1",
-      "ratio": 3.31,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#fbf3e5",
+      "ratio": 5.03,
       "pass": true
     },
     {
@@ -1680,9 +1911,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
+      "fgHex": "#192b3d",
       "bgHex": "#ffffff",
-      "ratio": 17.89,
+      "ratio": 14.44,
       "pass": true
     },
     {
@@ -1691,9 +1922,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#858580",
+      "fgHex": "#7a8b9c",
       "bgHex": "#ffffff",
-      "ratio": 3.71,
+      "ratio": 3.5,
       "pass": true
     },
     {
@@ -1702,9 +1933,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#eaf1fc",
-      "ratio": 6.14,
+      "fgHex": "#4c6680",
+      "bgHex": "#eef2f7",
+      "ratio": 5.31,
       "pass": true
     },
     {
@@ -1713,9 +1944,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "chip/alert outline",
-      "fgHex": "#3b76d6",
-      "bgHex": "#eaf1fc",
-      "ratio": 3.89,
+      "fgHex": "#4c6680",
+      "bgHex": "#eef2f7",
+      "ratio": 5.31,
       "pass": true
     },
     {
@@ -1724,9 +1955,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "placeholders only appear inside inputs (input-bg = surface)",
-      "fgHex": "#76766f",
+      "fgHex": "#566a7e",
       "bgHex": "#ffffff",
-      "ratio": 4.57,
+      "ratio": 5.59,
       "pass": true
     },
     {
@@ -1735,9 +1966,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
+      "fgHex": "#192b3d",
       "bgHex": "#ffffff",
-      "ratio": 17.89,
+      "ratio": 14.44,
       "pass": true
     },
     {
@@ -1746,9 +1977,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
+      "fgHex": "#192b3d",
       "bgHex": "#ffffff",
-      "ratio": 17.89,
+      "ratio": 14.44,
       "pass": true
     },
     {
@@ -1757,9 +1988,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
-      "bgHex": "#f5f5f4",
-      "ratio": 16.4,
+      "fgHex": "#192b3d",
+      "bgHex": "#eef2f7",
+      "ratio": 12.84,
       "pass": true
     },
     {
@@ -1768,9 +1999,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
-      "bgHex": "#eceffd",
-      "ratio": 15.62,
+      "fgHex": "#192b3d",
+      "bgHex": "#eaf2fa",
+      "ratio": 12.78,
       "pass": true
     },
     {
@@ -1779,9 +2010,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#17171a",
-      "bgHex": "#fafafa",
-      "ratio": 17.14,
+      "fgHex": "#192b3d",
+      "bgHex": "#f7f9fc",
+      "ratio": 13.69,
       "pass": true
     },
     {
@@ -1790,9 +2021,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#38383a",
+      "fgHex": "#45596d",
       "bgHex": "#ffffff",
-      "ratio": 11.7,
+      "ratio": 7.23,
       "pass": true
     },
     {
@@ -1801,9 +2032,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#38383a",
+      "fgHex": "#45596d",
       "bgHex": "#ffffff",
-      "ratio": 11.7,
+      "ratio": 7.23,
       "pass": true
     },
     {
@@ -1812,9 +2043,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#38383a",
-      "bgHex": "#f5f5f4",
-      "ratio": 10.72,
+      "fgHex": "#45596d",
+      "bgHex": "#eef2f7",
+      "ratio": 6.43,
       "pass": true
     },
     {
@@ -1823,9 +2054,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#38383a",
-      "bgHex": "#eceffd",
-      "ratio": 10.21,
+      "fgHex": "#45596d",
+      "bgHex": "#eaf2fa",
+      "ratio": 6.4,
       "pass": true
     },
     {
@@ -1834,64 +2065,64 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#38383a",
-      "bgHex": "#fafafa",
-      "ratio": 11.21,
-      "pass": true
-    },
-    {
-      "fg": "fg-muted",
-      "bg": "canvas",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#ffffff",
-      "ratio": 7.86,
-      "pass": true
-    },
-    {
-      "fg": "fg-muted",
-      "bg": "surface",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#ffffff",
-      "ratio": 7.86,
-      "pass": true
-    },
-    {
-      "fg": "fg-muted",
-      "bg": "sunken",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#f5f5f4",
-      "ratio": 7.2,
-      "pass": true
-    },
-    {
-      "fg": "fg-muted",
-      "bg": "selected",
-      "min": 4.5,
-      "kind": "text",
-      "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#eceffd",
+      "fgHex": "#45596d",
+      "bgHex": "#f7f9fc",
       "ratio": 6.86,
       "pass": true
     },
     {
       "fg": "fg-muted",
+      "bg": "canvas",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#566a7e",
+      "bgHex": "#ffffff",
+      "ratio": 5.59,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "surface",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#566a7e",
+      "bgHex": "#ffffff",
+      "ratio": 5.59,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "sunken",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#566a7e",
+      "bgHex": "#eef2f7",
+      "ratio": 4.97,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "selected",
+      "min": 4.5,
+      "kind": "text",
+      "note": "",
+      "fgHex": "#566a7e",
+      "bgHex": "#eaf2fa",
+      "ratio": 4.94,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
       "bg": "hover",
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#fafafa",
-      "ratio": 7.53,
+      "fgHex": "#566a7e",
+      "bgHex": "#f7f9fc",
+      "ratio": 5.3,
       "pass": true
     },
     {
@@ -1900,9 +2131,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#6a6a64",
+      "fgHex": "#566a7e",
       "bgHex": "#ffffff",
-      "ratio": 5.44,
+      "ratio": 5.59,
       "pass": true
     },
     {
@@ -1911,9 +2142,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#6a6a64",
+      "fgHex": "#566a7e",
       "bgHex": "#ffffff",
-      "ratio": 5.44,
+      "ratio": 5.59,
       "pass": true
     },
     {
@@ -1922,9 +2153,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#6a6a64",
-      "bgHex": "#f5f5f4",
-      "ratio": 4.99,
+      "fgHex": "#566a7e",
+      "bgHex": "#eef2f7",
+      "ratio": 4.97,
       "pass": true
     },
     {
@@ -1933,9 +2164,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#6a6a64",
-      "bgHex": "#eceffd",
-      "ratio": 4.75,
+      "fgHex": "#566a7e",
+      "bgHex": "#eaf2fa",
+      "ratio": 4.94,
       "pass": true
     },
     {
@@ -1944,9 +2175,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#6a6a64",
-      "bgHex": "#fafafa",
-      "ratio": 5.21,
+      "fgHex": "#566a7e",
+      "bgHex": "#f7f9fc",
+      "ratio": 5.3,
       "pass": true
     },
     {
@@ -1955,9 +2186,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#2f49c8",
+      "fgHex": "#245b8f",
       "bgHex": "#ffffff",
-      "ratio": 7.22,
+      "ratio": 7.08,
       "pass": true
     },
     {
@@ -1966,9 +2197,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#2f49c8",
+      "fgHex": "#245b8f",
       "bgHex": "#ffffff",
-      "ratio": 7.22,
+      "ratio": 7.08,
       "pass": true
     },
     {
@@ -1977,9 +2208,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#2f49c8",
-      "bgHex": "#f5f5f4",
-      "ratio": 6.62,
+      "fgHex": "#245b8f",
+      "bgHex": "#eef2f7",
+      "ratio": 6.29,
       "pass": true
     },
     {
@@ -1988,9 +2219,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#2f49c8",
-      "bgHex": "#eceffd",
-      "ratio": 6.3,
+      "fgHex": "#245b8f",
+      "bgHex": "#eaf2fa",
+      "ratio": 6.26,
       "pass": true
     },
     {
@@ -1999,9 +2230,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#2f49c8",
-      "bgHex": "#fafafa",
-      "ratio": 6.92,
+      "fgHex": "#245b8f",
+      "bgHex": "#f7f9fc",
+      "ratio": 6.71,
       "pass": true
     },
     {
@@ -2010,9 +2241,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#253aa6",
+      "fgHex": "#245b8f",
       "bgHex": "#ffffff",
-      "ratio": 9.4,
+      "ratio": 7.08,
       "pass": true
     },
     {
@@ -2021,9 +2252,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#253aa6",
+      "fgHex": "#245b8f",
       "bgHex": "#ffffff",
-      "ratio": 9.4,
+      "ratio": 7.08,
       "pass": true
     },
     {
@@ -2032,9 +2263,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#253aa6",
-      "bgHex": "#f5f5f4",
-      "ratio": 8.61,
+      "fgHex": "#245b8f",
+      "bgHex": "#eef2f7",
+      "ratio": 6.29,
       "pass": true
     },
     {
@@ -2043,9 +2274,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#253aa6",
-      "bgHex": "#eceffd",
-      "ratio": 8.2,
+      "fgHex": "#245b8f",
+      "bgHex": "#eaf2fa",
+      "ratio": 6.26,
       "pass": true
     },
     {
@@ -2054,9 +2285,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#253aa6",
-      "bgHex": "#fafafa",
-      "ratio": 9,
+      "fgHex": "#245b8f",
+      "bgHex": "#f7f9fc",
+      "ratio": 6.71,
       "pass": true
     },
     {
@@ -2065,9 +2296,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#a81f15",
+      "fgHex": "#b54848",
       "bgHex": "#ffffff",
-      "ratio": 7.31,
+      "ratio": 5.27,
       "pass": true
     },
     {
@@ -2076,9 +2307,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#a81f15",
+      "fgHex": "#b54848",
       "bgHex": "#ffffff",
-      "ratio": 7.31,
+      "ratio": 5.27,
       "pass": true
     },
     {
@@ -2087,9 +2318,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#f5f5f4",
-      "ratio": 6.7,
+      "fgHex": "#b54848",
+      "bgHex": "#eef2f7",
+      "ratio": 4.69,
       "pass": true
     },
     {
@@ -2098,9 +2329,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#eceffd",
-      "ratio": 6.38,
+      "fgHex": "#b54848",
+      "bgHex": "#eaf2fa",
+      "ratio": 4.66,
       "pass": true
     },
     {
@@ -2109,9 +2340,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#a81f15",
-      "bgHex": "#fafafa",
-      "ratio": 7.01,
+      "fgHex": "#b54848",
+      "bgHex": "#f7f9fc",
+      "ratio": 5,
       "pass": true
     },
     {
@@ -2120,9 +2351,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
+      "fgHex": "#8f5e1b",
       "bgHex": "#ffffff",
-      "ratio": 6.8,
+      "ratio": 5.55,
       "pass": true
     },
     {
@@ -2131,9 +2362,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
+      "fgHex": "#8f5e1b",
       "bgHex": "#ffffff",
-      "ratio": 6.8,
+      "ratio": 5.55,
       "pass": true
     },
     {
@@ -2142,9 +2373,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#f5f5f4",
-      "ratio": 6.24,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#eef2f7",
+      "ratio": 4.94,
       "pass": true
     },
     {
@@ -2153,9 +2384,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#eceffd",
-      "ratio": 5.94,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#eaf2fa",
+      "ratio": 4.91,
       "pass": true
     },
     {
@@ -2164,9 +2395,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fafafa",
-      "ratio": 6.52,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#f7f9fc",
+      "ratio": 5.26,
       "pass": true
     },
     {
@@ -2175,9 +2406,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#166b43",
+      "fgHex": "#26734d",
       "bgHex": "#ffffff",
-      "ratio": 6.53,
+      "ratio": 5.77,
       "pass": true
     },
     {
@@ -2186,9 +2417,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#166b43",
+      "fgHex": "#26734d",
       "bgHex": "#ffffff",
-      "ratio": 6.53,
+      "ratio": 5.77,
       "pass": true
     },
     {
@@ -2197,9 +2428,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#f5f5f4",
-      "ratio": 5.98,
+      "fgHex": "#26734d",
+      "bgHex": "#eef2f7",
+      "ratio": 5.13,
       "pass": true
     },
     {
@@ -2208,9 +2439,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#eceffd",
-      "ratio": 5.7,
+      "fgHex": "#26734d",
+      "bgHex": "#eaf2fa",
+      "ratio": 5.1,
       "pass": true
     },
     {
@@ -2219,9 +2450,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#166b43",
-      "bgHex": "#fafafa",
-      "ratio": 6.25,
+      "fgHex": "#26734d",
+      "bgHex": "#f7f9fc",
+      "ratio": 5.47,
       "pass": true
     },
     {
@@ -2230,9 +2461,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
+      "fgHex": "#4c6680",
       "bgHex": "#ffffff",
-      "ratio": 6.98,
+      "ratio": 5.97,
       "pass": true
     },
     {
@@ -2241,9 +2472,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
+      "fgHex": "#4c6680",
       "bgHex": "#ffffff",
-      "ratio": 6.98,
+      "ratio": 5.97,
       "pass": true
     },
     {
@@ -2252,9 +2483,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#f5f5f4",
-      "ratio": 6.39,
+      "fgHex": "#4c6680",
+      "bgHex": "#eef2f7",
+      "ratio": 5.31,
       "pass": true
     },
     {
@@ -2263,9 +2494,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#eceffd",
-      "ratio": 6.09,
+      "fgHex": "#4c6680",
+      "bgHex": "#eaf2fa",
+      "ratio": 5.28,
       "pass": true
     },
     {
@@ -2274,9 +2505,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#1d56b0",
-      "bgHex": "#fafafa",
-      "ratio": 6.68,
+      "fgHex": "#4c6680",
+      "bgHex": "#f7f9fc",
+      "ratio": 5.66,
       "pass": true
     },
     {
@@ -2285,9 +2516,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
+      "fgHex": "#566a7e",
       "bgHex": "#ffffff",
-      "ratio": 7.86,
+      "ratio": 5.59,
       "pass": true
     },
     {
@@ -2296,9 +2527,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
+      "fgHex": "#566a7e",
       "bgHex": "#ffffff",
-      "ratio": 7.86,
+      "ratio": 5.59,
       "pass": true
     },
     {
@@ -2307,9 +2538,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#f5f5f4",
-      "ratio": 7.2,
+      "fgHex": "#566a7e",
+      "bgHex": "#eef2f7",
+      "ratio": 4.97,
       "pass": true
     },
     {
@@ -2318,9 +2549,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#eceffd",
-      "ratio": 6.86,
+      "fgHex": "#566a7e",
+      "bgHex": "#eaf2fa",
+      "ratio": 4.94,
       "pass": true
     },
     {
@@ -2329,9 +2560,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#52524d",
-      "bgHex": "#fafafa",
-      "ratio": 7.53,
+      "fgHex": "#566a7e",
+      "bgHex": "#f7f9fc",
+      "ratio": 5.3,
       "pass": true
     },
     {
@@ -2340,9 +2571,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
+      "fgHex": "#8f5e1b",
       "bgHex": "#ffffff",
-      "ratio": 6.8,
+      "ratio": 5.55,
       "pass": true
     },
     {
@@ -2351,9 +2582,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
+      "fgHex": "#8f5e1b",
       "bgHex": "#ffffff",
-      "ratio": 6.8,
+      "ratio": 5.55,
       "pass": true
     },
     {
@@ -2362,9 +2593,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#f5f5f4",
-      "ratio": 6.24,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#eef2f7",
+      "ratio": 4.94,
       "pass": true
     },
     {
@@ -2373,9 +2604,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#eceffd",
-      "ratio": 5.94,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#eaf2fa",
+      "ratio": 4.91,
       "pass": true
     },
     {
@@ -2384,9 +2615,9 @@
       "min": 4.5,
       "kind": "text",
       "note": "",
-      "fgHex": "#8a4b00",
-      "bgHex": "#fafafa",
-      "ratio": 6.52,
+      "fgHex": "#8f5e1b",
+      "bgHex": "#f7f9fc",
+      "ratio": 5.26,
       "pass": true
     },
     {
@@ -2395,9 +2626,240 @@
       "min": 4.5,
       "kind": "text",
       "note": "selected quick tile",
-      "fgHex": "#253aa6",
-      "bgHex": "#eceffd",
-      "ratio": 8.2,
+      "fgHex": "#245b8f",
+      "bgHex": "#eaf2fa",
+      "ratio": 6.26,
+      "pass": true
+    },
+    {
+      "fg": "fg",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#192b3d",
+      "bgHex": "#f7f9fc",
+      "ratio": 13.69,
+      "pass": true
+    },
+    {
+      "fg": "fg",
+      "bg": "surface-muted",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#192b3d",
+      "bgHex": "#eef2f7",
+      "ratio": 12.84,
+      "pass": true
+    },
+    {
+      "fg": "fg",
+      "bg": "accent-subtle",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#192b3d",
+      "bgHex": "#eaf2fa",
+      "ratio": 12.78,
+      "pass": true
+    },
+    {
+      "fg": "fg",
+      "bg": "accent-tint",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#192b3d",
+      "bgHex": "#f3f7fc",
+      "ratio": 13.42,
+      "pass": true
+    },
+    {
+      "fg": "fg-secondary",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#45596d",
+      "bgHex": "#f7f9fc",
+      "ratio": 6.86,
+      "pass": true
+    },
+    {
+      "fg": "fg-secondary",
+      "bg": "surface-muted",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#45596d",
+      "bgHex": "#eef2f7",
+      "ratio": 6.43,
+      "pass": true
+    },
+    {
+      "fg": "fg-secondary",
+      "bg": "accent-subtle",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#45596d",
+      "bgHex": "#eaf2fa",
+      "ratio": 6.4,
+      "pass": true
+    },
+    {
+      "fg": "fg-secondary",
+      "bg": "accent-tint",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#45596d",
+      "bgHex": "#f3f7fc",
+      "ratio": 6.72,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#566a7e",
+      "bgHex": "#f7f9fc",
+      "ratio": 5.3,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "surface-muted",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#566a7e",
+      "bgHex": "#eef2f7",
+      "ratio": 4.97,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "accent-subtle",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#566a7e",
+      "bgHex": "#eaf2fa",
+      "ratio": 4.94,
+      "pass": true
+    },
+    {
+      "fg": "fg-muted",
+      "bg": "accent-tint",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#566a7e",
+      "bgHex": "#f3f7fc",
+      "ratio": 5.19,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#245b8f",
+      "bgHex": "#f7f9fc",
+      "ratio": 6.71,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "surface-muted",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#245b8f",
+      "bgHex": "#eef2f7",
+      "ratio": 6.29,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "accent-subtle",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#245b8f",
+      "bgHex": "#eaf2fa",
+      "ratio": 6.26,
+      "pass": true
+    },
+    {
+      "fg": "accent-fg",
+      "bg": "accent-tint",
+      "min": 4.5,
+      "kind": "text",
+      "note": "text on soft/tinted surface",
+      "fgHex": "#245b8f",
+      "bgHex": "#f3f7fc",
+      "ratio": 6.58,
+      "pass": true
+    },
+    {
+      "fg": "accent-2-fg",
+      "bg": "accent-2-bg",
+      "min": 4.5,
+      "kind": "text",
+      "note": "To bill pill / brass highlight",
+      "fgHex": "#6b5739",
+      "bgHex": "#f7f3ec",
+      "ratio": 6.23,
+      "pass": true
+    },
+    {
+      "fg": "fg-icon",
+      "bg": "surface",
+      "min": 3,
+      "kind": "non-text",
+      "note": "icon-only ink (PO muted ink), never body text",
+      "fgHex": "#718397",
+      "bgHex": "#ffffff",
+      "ratio": 3.89,
+      "pass": true
+    },
+    {
+      "fg": "status-with-doctor-fg",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "accent text on the patient column",
+      "fgHex": "#245b8f",
+      "bgHex": "#f7f9fc",
+      "ratio": 6.71,
+      "pass": true
+    },
+    {
+      "fg": "danger-fg",
+      "bg": "surface-soft",
+      "min": 4.5,
+      "kind": "text",
+      "note": "allergy line on the patient column",
+      "fgHex": "#b54848",
+      "bgHex": "#f7f9fc",
+      "ratio": 5,
+      "pass": true
+    },
+    {
+      "fg": "ring",
+      "bg": "ring-glow",
+      "min": 3,
+      "kind": "non-text",
+      "note": "focus ring on its glow",
+      "fgHex": "#2879b8",
+      "bgHex": "#eaf3fa",
+      "ratio": 4.14,
       "pass": true
     },
     {
@@ -2406,9 +2868,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "selected tile outline",
-      "fgHex": "#2f49c8",
+      "fgHex": "#245b8f",
       "bgHex": "#ffffff",
-      "ratio": 7.22,
+      "ratio": 7.08,
       "pass": true
     },
     {
@@ -2417,9 +2879,9 @@
       "min": 0,
       "kind": "info",
       "note": "quick tile outline (hairline; adjacent text carries meaning)",
-      "fgHex": "#d8d8d4",
+      "fgHex": "#cad5e2",
       "bgHex": "#ffffff",
-      "ratio": 1.43,
+      "ratio": 1.49,
       "pass": null
     },
     {
@@ -2429,8 +2891,8 @@
       "kind": "text",
       "note": "primary button",
       "fgHex": "#ffffff",
-      "bgHex": "#17171a",
-      "ratio": 17.89,
+      "bgHex": "#245b8f",
+      "ratio": 7.08,
       "pass": true
     },
     {
@@ -2440,8 +2902,8 @@
       "kind": "text",
       "note": "section strip: current pill",
       "fgHex": "#ffffff",
-      "bgHex": "#17171a",
-      "ratio": 17.89,
+      "bgHex": "#192b3d",
+      "ratio": 14.44,
       "pass": true
     },
     {
@@ -2451,8 +2913,8 @@
       "kind": "text",
       "note": "button / banner label",
       "fgHex": "#ffffff",
-      "bgHex": "#2f49c8",
-      "ratio": 7.22,
+      "bgHex": "#245b8f",
+      "ratio": 7.08,
       "pass": true
     },
     {
@@ -2462,8 +2924,8 @@
       "kind": "text",
       "note": "button / banner label",
       "fgHex": "#ffffff",
-      "bgHex": "#253aa6",
-      "ratio": 9.4,
+      "bgHex": "#1d4c78",
+      "ratio": 8.91,
       "pass": true
     },
     {
@@ -2473,8 +2935,8 @@
       "kind": "text",
       "note": "button / banner label",
       "fgHex": "#ffffff",
-      "bgHex": "#1d2f87",
-      "ratio": 11.61,
+      "bgHex": "#163b60",
+      "ratio": 11.48,
       "pass": true
     },
     {
@@ -2484,8 +2946,8 @@
       "kind": "text",
       "note": "button / banner label",
       "fgHex": "#ffffff",
-      "bgHex": "#b42318",
-      "ratio": 6.57,
+      "bgHex": "#b54848",
+      "ratio": 5.27,
       "pass": true
     },
     {
@@ -2495,8 +2957,8 @@
       "kind": "text",
       "note": "button / banner label",
       "fgHex": "#ffffff",
-      "bgHex": "#b42318",
-      "ratio": 6.57,
+      "bgHex": "#b54848",
+      "ratio": 5.27,
       "pass": true
     },
     {
@@ -2506,8 +2968,8 @@
       "kind": "text",
       "note": "toast (inverted)",
       "fgHex": "#ffffff",
-      "bgHex": "#17171a",
-      "ratio": 17.89,
+      "bgHex": "#192b3d",
+      "ratio": 14.44,
       "pass": true
     },
     {
@@ -2516,9 +2978,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "input/checkbox boundary",
-      "fgHex": "#858580",
+      "fgHex": "#7a8b9c",
       "bgHex": "#ffffff",
-      "ratio": 3.71,
+      "ratio": 3.5,
       "pass": true
     },
     {
@@ -2527,9 +2989,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "input/checkbox boundary",
-      "fgHex": "#858580",
+      "fgHex": "#7a8b9c",
       "bgHex": "#ffffff",
-      "ratio": 3.71,
+      "ratio": 3.5,
       "pass": true
     },
     {
@@ -2538,9 +3000,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "input/checkbox boundary",
-      "fgHex": "#858580",
-      "bgHex": "#f5f5f4",
-      "ratio": 3.4,
+      "fgHex": "#7a8b9c",
+      "bgHex": "#eef2f7",
+      "ratio": 3.11,
       "pass": true
     },
     {
@@ -2549,9 +3011,9 @@
       "min": 0,
       "kind": "info",
       "note": "panel/tile hairline: decorative, text carries meaning",
-      "fgHex": "#d8d8d4",
+      "fgHex": "#cad5e2",
       "bgHex": "#ffffff",
-      "ratio": 1.43,
+      "ratio": 1.49,
       "pass": null
     },
     {
@@ -2560,9 +3022,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#6b7785",
+      "fgHex": "#4c6680",
       "bgHex": "#ffffff",
-      "ratio": 4.56,
+      "ratio": 5.97,
       "pass": true
     },
     {
@@ -2571,9 +3033,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#b7791f",
+      "fgHex": "#8f5e1b",
       "bgHex": "#ffffff",
-      "ratio": 3.64,
+      "ratio": 5.55,
       "pass": true
     },
     {
@@ -2582,9 +3044,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#4b63d9",
+      "fgHex": "#245b8f",
       "bgHex": "#ffffff",
-      "ratio": 5.14,
+      "ratio": 7.08,
       "pass": true
     },
     {
@@ -2593,9 +3055,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#7a5cc7",
+      "fgHex": "#6b5739",
       "bgHex": "#ffffff",
-      "ratio": 5.02,
+      "ratio": 6.89,
       "pass": true
     },
     {
@@ -2604,9 +3066,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#2f9a62",
+      "fgHex": "#26734d",
       "bgHex": "#ffffff",
-      "ratio": 3.55,
+      "ratio": 5.77,
       "pass": true
     },
     {
@@ -2615,9 +3077,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#858580",
+      "fgHex": "#b54848",
       "bgHex": "#ffffff",
-      "ratio": 3.71,
+      "ratio": 5.27,
       "pass": true
     },
     {
@@ -2626,9 +3088,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "token chip border",
-      "fgHex": "#d9452f",
+      "fgHex": "#566a7e",
       "bgHex": "#ffffff",
-      "ratio": 4.34,
+      "ratio": 5.59,
       "pass": true
     },
     {
@@ -2637,9 +3099,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "selected-row 3 px indicator",
-      "fgHex": "#2f49c8",
-      "bgHex": "#eceffd",
-      "ratio": 6.3,
+      "fgHex": "#245b8f",
+      "bgHex": "#eaf2fa",
+      "ratio": 6.26,
       "pass": true
     },
     {
@@ -2648,9 +3110,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "BINDING: ring on its halo (any fill)",
-      "fgHex": "#1540a8",
+      "fgHex": "#2879b8",
       "bgHex": "#ffffff",
-      "ratio": 9.01,
+      "ratio": 4.65,
       "pass": true
     },
     {
@@ -2659,9 +3121,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "ring next to page background",
-      "fgHex": "#1540a8",
+      "fgHex": "#2879b8",
       "bgHex": "#ffffff",
-      "ratio": 9.01,
+      "ratio": 4.65,
       "pass": true
     },
     {
@@ -2670,9 +3132,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "ring next to page background",
-      "fgHex": "#1540a8",
+      "fgHex": "#2879b8",
       "bgHex": "#ffffff",
-      "ratio": 9.01,
+      "ratio": 4.65,
       "pass": true
     },
     {
@@ -2681,9 +3143,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "ring next to page background",
-      "fgHex": "#1540a8",
-      "bgHex": "#f5f5f4",
-      "ratio": 8.26,
+      "fgHex": "#2879b8",
+      "bgHex": "#eef2f7",
+      "ratio": 4.14,
       "pass": true
     },
     {
@@ -2692,9 +3154,9 @@
       "min": 3,
       "kind": "non-text",
       "note": "ring next to page background",
-      "fgHex": "#1540a8",
-      "bgHex": "#eceffd",
-      "ratio": 7.87,
+      "fgHex": "#2879b8",
+      "bgHex": "#eaf2fa",
+      "ratio": 4.11,
       "pass": true
     },
     {
@@ -2703,9 +3165,9 @@
       "min": 0,
       "kind": "info",
       "note": "ring vs solid fill: not relied on (halo separates them)",
-      "fgHex": "#1540a8",
-      "bgHex": "#2f49c8",
-      "ratio": 1.25,
+      "fgHex": "#2879b8",
+      "bgHex": "#245b8f",
+      "ratio": 1.52,
       "pass": null
     },
     {
@@ -2714,9 +3176,9 @@
       "min": 0,
       "kind": "info",
       "note": "ring vs solid fill: not relied on (halo separates them)",
-      "fgHex": "#1540a8",
-      "bgHex": "#b42318",
-      "ratio": 1.37,
+      "fgHex": "#2879b8",
+      "bgHex": "#b54848",
+      "ratio": 1.13,
       "pass": null
     },
     {
@@ -2726,31 +3188,9 @@
       "kind": "info",
       "note": "halo vs teal fill: separation only",
       "fgHex": "#ffffff",
-      "bgHex": "#2f49c8",
-      "ratio": 7.22,
+      "bgHex": "#245b8f",
+      "ratio": 7.08,
       "pass": null
-    },
-    {
-      "fg": "plum-700",
-      "bg": "plum-50",
-      "min": 4.5,
-      "kind": "text",
-      "note": "DX-7 option B",
-      "fgHex": "#7d2f63",
-      "bgHex": "#f8edf4",
-      "ratio": 7.49,
-      "pass": true
-    },
-    {
-      "fg": "plum-500",
-      "bg": "plum-50",
-      "min": 3,
-      "kind": "non-text",
-      "note": "DX-7 option B",
-      "fgHex": "#a8508a",
-      "bgHex": "#f8edf4",
-      "ratio": 4.41,
-      "pass": true
     },
     {
       "fg": "fg-disabled",
@@ -2758,9 +3198,9 @@
       "min": 0,
       "kind": "exempt",
       "note": "disabled text",
-      "fgHex": "#a3a39e",
+      "fgHex": "#98a6b6",
       "bgHex": "#ffffff",
-      "ratio": 2.53,
+      "ratio": 2.48,
       "pass": null
     },
     {
@@ -2769,9 +3209,9 @@
       "min": 0,
       "kind": "exempt",
       "note": "disabled button",
-      "fgHex": "#6a6a64",
-      "bgHex": "#ededeb",
-      "ratio": 4.64,
+      "fgHex": "#566a7e",
+      "bgHex": "#eef2f7",
+      "ratio": 4.97,
       "pass": null
     }
   ]

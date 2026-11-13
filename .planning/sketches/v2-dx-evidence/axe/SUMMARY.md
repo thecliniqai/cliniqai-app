@@ -1,6 +1,6 @@
 # axe summary (tool-generated)
 
-axe-core via @axe-core/playwright, tags wcag2a, wcag2aa, wcag21a, wcag21aa, wcag22aa. 97 runs (surfaces × widths, plus open sheets/menus at 360 and 1280).
+axe-core via @axe-core/playwright, tags wcag2a, wcag2aa, wcag21a, wcag21aa, wcag22aa. 107 runs (surfaces × widths, plus open sheets/menus at 360 and 1280).
 
 **Violation nodes by impact: critical 0, serious 0, moderate 0, minor 0**
 
@@ -8,16 +8,21 @@ axe-core via @axe-core/playwright, tags wcag2a, wcag2aa, wcag21a, wcag21aa, wcag
 |---|---|---|---|
 | palette | 360 | none | 19 |
 | palette | 1280 | none | 19 |
+| palette-b | 1280 | none | 19 |
 | icon | 360 | none | 17 |
 | icon | 1280 | none | 17 |
+| components | 360 | none | 32 |
+| components | 1280 | none | 32 |
+| components-b | 1280 | none | 32 |
 | today | 360 | none | 30 |
 | today | 744 | none | 29 |
 | today | 820 | none | 29 |
 | today | 1180 | none | 29 |
 | today | 1280 | none | 29 |
+| today-b | 360 | none | 30 |
 | today-b | 1280 | none | 29 |
-| today-lanes-variant | 820 | none | 29 |
-| today-lanes-variant | 1180 | none | 29 |
+| today-lanes-variant | 820 | none | 28 |
+| today-lanes-variant | 1180 | none | 28 |
 | today-doctor | 360 | none | 22 |
 | today-doctor | 820 | none | 22 |
 | today-doctor | 1280 | none | 22 |
@@ -38,7 +43,9 @@ axe-core via @axe-core/playwright, tags wcag2a, wcag2aa, wcag21a, wcag21aa, wcag
 | consult-rx | 1440 | none | 29 |
 | consult-full | 360 | none | 29 |
 | consult-full | 1280 | none | 28 |
+| consult-b | 360 | none | 29 |
 | consult-b | 1280 | none | 29 |
+| consult-b-mid | 1280 | none | 28 |
 | install | 360 | none | 19 |
 | install | 744 | none | 19 |
 | install | 820 | none | 19 |
@@ -59,6 +66,9 @@ axe-core via @axe-core/playwright, tags wcag2a, wcag2aa, wcag21a, wcag21aa, wcag
 | settings-billing | 820 | none | 21 |
 | settings-billing | 1180 | none | 21 |
 | settings-billing | 1280 | none | 21 |
+| settings-billing-b | 1280 | none | 21 |
+| platform-b | 1280 | none | 26 |
+| locked-b | 360 | none | 13 |
 | locked | 360 | none | 13 |
 | locked | 744 | none | 13 |
 | locked | 820 | none | 13 |

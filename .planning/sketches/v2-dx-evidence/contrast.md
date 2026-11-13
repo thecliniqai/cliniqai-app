@@ -4,268 +4,308 @@
 
 Source: `themes/clinic-paper.css` (var() chains resolved). WCAG 2.x relative luminance. Text ≥ 4.5:1; non-text ≥ 3:1.
 
-**Gated pairs: 119 · pass: 119 · fail: 0** · informational/exempt: 7
+**Gated pairs: 139 · pass: 139 · fail: 0** · informational/exempt: 7
 
 | Foreground token | Background token | FG | BG | Ratio | Needs | Result | Note |
 |---|---|---|---|---|---|---|---|
-| success-fg | success-bg | `#166b43` | `#e8f5ec` | 5.81 | 4.5 | pass |  |
-| success-border | success-bg | `#2f9a62` | `#e8f5ec` | 3.16 | 3 | pass | chip/alert outline |
-| warning-fg | warning-bg | `#8a4b00` | `#fdf3e1` | 6.18 | 4.5 | pass |  |
-| warning-border | warning-bg | `#b7791f` | `#fdf3e1` | 3.31 | 3 | pass | chip/alert outline |
-| danger-fg | danger-bg | `#a81f15` | `#fdeeec` | 6.48 | 4.5 | pass |  |
-| danger-border | danger-bg | `#d9452f` | `#fdeeec` | 3.84 | 3 | pass | chip/alert outline |
-| info-fg | info-bg | `#1d56b0` | `#eaf1fc` | 6.14 | 4.5 | pass |  |
-| info-border | info-bg | `#3b76d6` | `#eaf1fc` | 3.89 | 3 | pass | chip/alert outline |
-| status-booked-fg | status-booked-bg | `#44505c` | `#eef1f4` | 7.27 | 4.5 | pass |  |
-| status-booked-border | status-booked-bg | `#6b7785` | `#eef1f4` | 4.02 | 3 | pass | chip/alert outline |
-| status-waiting-fg | status-waiting-bg | `#8a4b00` | `#fdf3e1` | 6.18 | 4.5 | pass |  |
-| status-waiting-border | status-waiting-bg | `#b7791f` | `#fdf3e1` | 3.31 | 3 | pass | chip/alert outline |
-| status-with-doctor-fg | status-with-doctor-bg | `#0b5f5a` | `#e9f4f2` | 6.68 | 4.5 | pass |  |
-| status-with-doctor-border | status-with-doctor-bg | `#16847c` | `#e9f4f2` | 4.04 | 3 | pass | chip/alert outline |
-| status-to-bill-fg | status-to-bill-bg | `#5b3fa8` | `#f1edfa` | 6.70 | 4.5 | pass |  |
-| status-to-bill-border | status-to-bill-bg | `#7a5cc7` | `#f1edfa` | 4.36 | 3 | pass | chip/alert outline |
-| status-done-fg | status-done-bg | `#166b43` | `#e8f5ec` | 5.81 | 4.5 | pass |  |
-| status-done-border | status-done-bg | `#2f9a62` | `#e8f5ec` | 3.16 | 3 | pass | chip/alert outline |
-| status-no-show-fg | status-no-show-bg | `#52524d` | `#f5f5f4` | 7.20 | 4.5 | pass |  |
-| status-no-show-border | status-no-show-bg | `#858580` | `#f5f5f4` | 3.40 | 3 | pass | chip/alert outline |
-| status-cancelled-fg | status-cancelled-bg | `#a81f15` | `#fdeeec` | 6.48 | 4.5 | pass |  |
-| status-cancelled-border | status-cancelled-bg | `#d9452f` | `#fdeeec` | 3.84 | 3 | pass | chip/alert outline |
-| alert-allergy-fg | alert-allergy-bg | `#ffffff` | `#b42318` | 6.57 | 4.5 | pass |  |
-| alert-unrecorded-fg | alert-unrecorded-bg | `#8a4b00` | `#fdf3e1` | 6.18 | 4.5 | pass |  |
-| finding-abnormal-fg | finding-abnormal-bg | `#8a4b00` | `#fdf3e1` | 6.18 | 4.5 | pass |  |
-| finding-abnormal-border | finding-abnormal-bg | `#b7791f` | `#fdf3e1` | 3.31 | 3 | pass | chip/alert outline |
-| ai-fg | ai-bg | `#17171a` | `#ffffff` | 17.89 | 4.5 | pass |  |
-| ai-border | ai-bg | `#858580` | `#ffffff` | 3.71 | 3 | pass | chip/alert outline |
-| preview-fg | preview-bg | `#1d56b0` | `#eaf1fc` | 6.14 | 4.5 | pass |  |
-| preview-border | preview-bg | `#3b76d6` | `#eaf1fc` | 3.89 | 3 | pass | chip/alert outline |
-| fg-placeholder | surface | `#76766f` | `#ffffff` | 4.57 | 4.5 | pass | placeholders only appear inside inputs (input-bg = surface) |
-| fg | canvas | `#17171a` | `#ffffff` | 17.89 | 4.5 | pass |  |
-| fg | surface | `#17171a` | `#ffffff` | 17.89 | 4.5 | pass |  |
-| fg | sunken | `#17171a` | `#f5f5f4` | 16.40 | 4.5 | pass |  |
-| fg | selected | `#17171a` | `#e9f4f2` | 15.92 | 4.5 | pass |  |
-| fg | hover | `#17171a` | `#fafafa` | 17.14 | 4.5 | pass |  |
-| fg-body-tint | canvas | `#38383a` | `#ffffff` | 11.70 | 4.5 | pass |  |
-| fg-body-tint | surface | `#38383a` | `#ffffff` | 11.70 | 4.5 | pass |  |
-| fg-body-tint | sunken | `#38383a` | `#f5f5f4` | 10.72 | 4.5 | pass |  |
-| fg-body-tint | selected | `#38383a` | `#e9f4f2` | 10.41 | 4.5 | pass |  |
-| fg-body-tint | hover | `#38383a` | `#fafafa` | 11.21 | 4.5 | pass |  |
-| fg-muted | canvas | `#52524d` | `#ffffff` | 7.86 | 4.5 | pass |  |
-| fg-muted | surface | `#52524d` | `#ffffff` | 7.86 | 4.5 | pass |  |
-| fg-muted | sunken | `#52524d` | `#f5f5f4` | 7.20 | 4.5 | pass |  |
-| fg-muted | selected | `#52524d` | `#e9f4f2` | 6.99 | 4.5 | pass |  |
-| fg-muted | hover | `#52524d` | `#fafafa` | 7.53 | 4.5 | pass |  |
-| fg-subtle | canvas | `#6a6a64` | `#ffffff` | 5.44 | 4.5 | pass |  |
-| fg-subtle | surface | `#6a6a64` | `#ffffff` | 5.44 | 4.5 | pass |  |
-| fg-subtle | sunken | `#6a6a64` | `#f5f5f4` | 4.99 | 4.5 | pass |  |
-| fg-subtle | selected | `#6a6a64` | `#e9f4f2` | 4.84 | 4.5 | pass |  |
-| fg-subtle | hover | `#6a6a64` | `#fafafa` | 5.21 | 4.5 | pass |  |
-| accent | canvas | `#0e716b` | `#ffffff` | 5.84 | 4.5 | pass |  |
-| accent | surface | `#0e716b` | `#ffffff` | 5.84 | 4.5 | pass |  |
-| accent | sunken | `#0e716b` | `#f5f5f4` | 5.36 | 4.5 | pass |  |
-| accent | selected | `#0e716b` | `#e9f4f2` | 5.20 | 4.5 | pass |  |
-| accent | hover | `#0e716b` | `#fafafa` | 5.60 | 4.5 | pass |  |
-| accent-fg | canvas | `#0b5f5a` | `#ffffff` | 7.50 | 4.5 | pass |  |
-| accent-fg | surface | `#0b5f5a` | `#ffffff` | 7.50 | 4.5 | pass |  |
-| accent-fg | sunken | `#0b5f5a` | `#f5f5f4` | 6.88 | 4.5 | pass |  |
-| accent-fg | selected | `#0b5f5a` | `#e9f4f2` | 6.68 | 4.5 | pass |  |
-| accent-fg | hover | `#0b5f5a` | `#fafafa` | 7.19 | 4.5 | pass |  |
-| danger-fg | canvas | `#a81f15` | `#ffffff` | 7.31 | 4.5 | pass |  |
-| danger-fg | surface | `#a81f15` | `#ffffff` | 7.31 | 4.5 | pass |  |
-| danger-fg | sunken | `#a81f15` | `#f5f5f4` | 6.70 | 4.5 | pass |  |
-| danger-fg | selected | `#a81f15` | `#e9f4f2` | 6.51 | 4.5 | pass |  |
-| danger-fg | hover | `#a81f15` | `#fafafa` | 7.01 | 4.5 | pass |  |
-| warning-fg | canvas | `#8a4b00` | `#ffffff` | 6.80 | 4.5 | pass |  |
-| warning-fg | surface | `#8a4b00` | `#ffffff` | 6.80 | 4.5 | pass |  |
-| warning-fg | sunken | `#8a4b00` | `#f5f5f4` | 6.24 | 4.5 | pass |  |
-| warning-fg | selected | `#8a4b00` | `#e9f4f2` | 6.05 | 4.5 | pass |  |
-| warning-fg | hover | `#8a4b00` | `#fafafa` | 6.52 | 4.5 | pass |  |
-| success-fg | canvas | `#166b43` | `#ffffff` | 6.53 | 4.5 | pass |  |
-| success-fg | surface | `#166b43` | `#ffffff` | 6.53 | 4.5 | pass |  |
-| success-fg | sunken | `#166b43` | `#f5f5f4` | 5.98 | 4.5 | pass |  |
-| success-fg | selected | `#166b43` | `#e9f4f2` | 5.81 | 4.5 | pass |  |
-| success-fg | hover | `#166b43` | `#fafafa` | 6.25 | 4.5 | pass |  |
-| info-fg | canvas | `#1d56b0` | `#ffffff` | 6.98 | 4.5 | pass |  |
-| info-fg | surface | `#1d56b0` | `#ffffff` | 6.98 | 4.5 | pass |  |
-| info-fg | sunken | `#1d56b0` | `#f5f5f4` | 6.39 | 4.5 | pass |  |
-| info-fg | selected | `#1d56b0` | `#e9f4f2` | 6.21 | 4.5 | pass |  |
-| info-fg | hover | `#1d56b0` | `#fafafa` | 6.68 | 4.5 | pass |  |
-| smart-fg | canvas | `#52524d` | `#ffffff` | 7.86 | 4.5 | pass |  |
-| smart-fg | surface | `#52524d` | `#ffffff` | 7.86 | 4.5 | pass |  |
-| smart-fg | sunken | `#52524d` | `#f5f5f4` | 7.20 | 4.5 | pass |  |
-| smart-fg | selected | `#52524d` | `#e9f4f2` | 6.99 | 4.5 | pass |  |
-| smart-fg | hover | `#52524d` | `#fafafa` | 7.53 | 4.5 | pass |  |
-| finding-abnormal-fg | canvas | `#8a4b00` | `#ffffff` | 6.80 | 4.5 | pass |  |
-| finding-abnormal-fg | surface | `#8a4b00` | `#ffffff` | 6.80 | 4.5 | pass |  |
-| finding-abnormal-fg | sunken | `#8a4b00` | `#f5f5f4` | 6.24 | 4.5 | pass |  |
-| finding-abnormal-fg | selected | `#8a4b00` | `#e9f4f2` | 6.05 | 4.5 | pass |  |
-| finding-abnormal-fg | hover | `#8a4b00` | `#fafafa` | 6.52 | 4.5 | pass |  |
-| tile-selected-fg | tile-selected-bg | `#0b5f5a` | `#e9f4f2` | 6.68 | 4.5 | pass | selected quick tile |
-| tile-selected-border | surface | `#0e716b` | `#ffffff` | 5.84 | 3 | pass | selected tile outline |
-| tile-border | surface | `#d8d8d4` | `#ffffff` | 1.43 | — | info | quick tile outline (hairline; adjacent text carries meaning) |
-| button-primary-fg | button-primary-bg | `#ffffff` | `#0e716b` | 5.84 | 4.5 | pass | primary button |
-| surface | fg | `#ffffff` | `#17171a` | 17.89 | 4.5 | pass | section strip: current pill |
-| fg-on-accent | accent | `#ffffff` | `#0e716b` | 5.84 | 4.5 | pass | button / banner label |
-| fg-on-accent | accent-hover | `#ffffff` | `#0b5f5a` | 7.50 | 4.5 | pass | button / banner label |
-| fg-on-accent | accent-pressed | `#ffffff` | `#0a4d49` | 9.67 | 4.5 | pass | button / banner label |
-| fg-on-accent | danger-solid | `#ffffff` | `#b42318` | 6.57 | 4.5 | pass | button / banner label |
-| fg-on-accent | alert-allergy-bg | `#ffffff` | `#b42318` | 6.57 | 4.5 | pass | button / banner label |
-| surface | fg | `#ffffff` | `#17171a` | 17.89 | 4.5 | pass | toast (inverted) |
-| border-control | surface | `#858580` | `#ffffff` | 3.71 | 3 | pass | input/checkbox boundary |
-| border-control | canvas | `#858580` | `#ffffff` | 3.71 | 3 | pass | input/checkbox boundary |
-| border-control | sunken | `#858580` | `#f5f5f4` | 3.40 | 3 | pass | input/checkbox boundary |
-| border-strong | surface | `#d8d8d4` | `#ffffff` | 1.43 | — | info | panel/tile hairline: decorative, text carries meaning |
-| status-booked-border | surface | `#6b7785` | `#ffffff` | 4.56 | 3 | pass | token chip border |
-| status-waiting-border | surface | `#b7791f` | `#ffffff` | 3.64 | 3 | pass | token chip border |
-| status-with-doctor-border | surface | `#16847c` | `#ffffff` | 4.54 | 3 | pass | token chip border |
-| status-to-bill-border | surface | `#7a5cc7` | `#ffffff` | 5.02 | 3 | pass | token chip border |
-| status-done-border | surface | `#2f9a62` | `#ffffff` | 3.55 | 3 | pass | token chip border |
-| status-no-show-border | surface | `#858580` | `#ffffff` | 3.71 | 3 | pass | token chip border |
-| status-cancelled-border | surface | `#d9452f` | `#ffffff` | 4.34 | 3 | pass | token chip border |
-| accent | accent-subtle | `#0e716b` | `#e9f4f2` | 5.20 | 3 | pass | selected-row 3 px indicator |
-| ring | ring-halo | `#1f5fd1` | `#ffffff` | 5.81 | 3 | pass | BINDING: ring on its halo (any fill) |
-| ring | canvas | `#1f5fd1` | `#ffffff` | 5.81 | 3 | pass | ring next to page background |
-| ring | surface | `#1f5fd1` | `#ffffff` | 5.81 | 3 | pass | ring next to page background |
-| ring | sunken | `#1f5fd1` | `#f5f5f4` | 5.32 | 3 | pass | ring next to page background |
-| ring | selected | `#1f5fd1` | `#e9f4f2` | 5.17 | 3 | pass | ring next to page background |
-| ring | accent | `#1f5fd1` | `#0e716b` | 1.01 | — | info | ring vs solid fill: not relied on (halo separates them) |
-| ring | danger-solid | `#1f5fd1` | `#b42318` | 1.13 | — | info | ring vs solid fill: not relied on (halo separates them) |
-| ring-halo | accent | `#ffffff` | `#0e716b` | 5.84 | — | info | halo vs teal fill: separation only |
-| plum-700 | plum-50 | `#7d2f63` | `#f8edf4` | 7.49 | 4.5 | pass | DX-7 option B |
-| plum-500 | plum-50 | `#a8508a` | `#f8edf4` | 4.41 | 3 | pass | DX-7 option B |
-| fg-disabled | surface | `#a3a39e` | `#ffffff` | 2.53 | — | exempt | disabled text |
-| button-disabled-fg | button-disabled-bg | `#6a6a64` | `#ededeb` | 4.64 | — | exempt | disabled button |
+| accent-2-fg | accent-2-bg | `#6d5434` | `#f7f1e8` | 6.30 | 4.5 | pass |  |
+| success-fg | success-bg | `#26734d` | `#eaf5ee` | 5.16 | 4.5 | pass |  |
+| success-border | success-bg | `#26734d` | `#eaf5ee` | 5.16 | 3 | pass | chip/alert outline |
+| warning-fg | warning-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 4.5 | pass |  |
+| warning-border | warning-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 3 | pass | chip/alert outline |
+| danger-fg | danger-bg | `#b54848` | `#fbeded` | 4.63 | 4.5 | pass |  |
+| danger-border | danger-bg | `#b54848` | `#fbeded` | 4.63 | 3 | pass | chip/alert outline |
+| info-fg | info-bg | `#356f9b` | `#eaf2f8` | 4.76 | 4.5 | pass |  |
+| info-border | info-bg | `#356f9b` | `#eaf2f8` | 4.76 | 3 | pass | chip/alert outline |
+| status-booked-fg | status-booked-bg | `#356f9b` | `#eaf2f8` | 4.76 | 4.5 | pass |  |
+| status-booked-border | status-booked-bg | `#356f9b` | `#eaf2f8` | 4.76 | 3 | pass | chip/alert outline |
+| status-waiting-fg | status-waiting-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 4.5 | pass |  |
+| status-waiting-border | status-waiting-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 3 | pass | chip/alert outline |
+| status-with-doctor-fg | status-with-doctor-bg | `#176b5b` | `#eaf4f0` | 5.68 | 4.5 | pass |  |
+| status-with-doctor-border | status-with-doctor-bg | `#176b5b` | `#eaf4f0` | 5.68 | 3 | pass | chip/alert outline |
+| status-to-bill-fg | status-to-bill-bg | `#6d5434` | `#f7f1e8` | 6.30 | 4.5 | pass |  |
+| status-to-bill-border | status-to-bill-bg | `#6d5434` | `#f7f1e8` | 6.30 | 3 | pass | chip/alert outline |
+| status-done-fg | status-done-bg | `#26734d` | `#eaf5ee` | 5.16 | 4.5 | pass |  |
+| status-done-border | status-done-bg | `#26734d` | `#eaf5ee` | 5.16 | 3 | pass | chip/alert outline |
+| status-no-show-fg | status-no-show-bg | `#b54848` | `#fbeded` | 4.63 | 4.5 | pass |  |
+| status-no-show-border | status-no-show-bg | `#b54848` | `#fbeded` | 4.63 | 3 | pass | chip/alert outline |
+| status-cancelled-fg | status-cancelled-bg | `#5c6c66` | `#f1f5f3` | 5.04 | 4.5 | pass |  |
+| status-cancelled-border | status-cancelled-bg | `#5c6c66` | `#f1f5f3` | 5.04 | 3 | pass | chip/alert outline |
+| alert-allergy-fg | alert-allergy-bg | `#ffffff` | `#b54848` | 5.27 | 4.5 | pass |  |
+| alert-unrecorded-fg | alert-unrecorded-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 4.5 | pass |  |
+| finding-abnormal-fg | finding-abnormal-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 4.5 | pass |  |
+| finding-abnormal-border | finding-abnormal-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 3 | pass | chip/alert outline |
+| ai-fg | ai-bg | `#182b27` | `#ffffff` | 14.85 | 4.5 | pass |  |
+| ai-border | ai-bg | `#7f8e87` | `#ffffff` | 3.43 | 3 | pass | chip/alert outline |
+| preview-fg | preview-bg | `#356f9b` | `#eaf2f8` | 4.76 | 4.5 | pass |  |
+| preview-border | preview-bg | `#356f9b` | `#eaf2f8` | 4.76 | 3 | pass | chip/alert outline |
+| fg-placeholder | surface | `#5c6c66` | `#ffffff` | 5.54 | 4.5 | pass | placeholders only appear inside inputs (input-bg = surface) |
+| fg | canvas | `#182b27` | `#ffffff` | 14.85 | 4.5 | pass |  |
+| fg | surface | `#182b27` | `#ffffff` | 14.85 | 4.5 | pass |  |
+| fg | sunken | `#182b27` | `#f1f5f3` | 13.51 | 4.5 | pass |  |
+| fg | selected | `#182b27` | `#eaf4f0` | 13.23 | 4.5 | pass |  |
+| fg | hover | `#182b27` | `#f8faf9` | 14.17 | 4.5 | pass |  |
+| fg-body-tint | canvas | `#425650` | `#ffffff` | 7.84 | 4.5 | pass |  |
+| fg-body-tint | surface | `#425650` | `#ffffff` | 7.84 | 4.5 | pass |  |
+| fg-body-tint | sunken | `#425650` | `#f1f5f3` | 7.13 | 4.5 | pass |  |
+| fg-body-tint | selected | `#425650` | `#eaf4f0` | 6.98 | 4.5 | pass |  |
+| fg-body-tint | hover | `#425650` | `#f8faf9` | 7.48 | 4.5 | pass |  |
+| fg-muted | canvas | `#5c6c66` | `#ffffff` | 5.54 | 4.5 | pass |  |
+| fg-muted | surface | `#5c6c66` | `#ffffff` | 5.54 | 4.5 | pass |  |
+| fg-muted | sunken | `#5c6c66` | `#f1f5f3` | 5.04 | 4.5 | pass |  |
+| fg-muted | selected | `#5c6c66` | `#eaf4f0` | 4.93 | 4.5 | pass |  |
+| fg-muted | hover | `#5c6c66` | `#f8faf9` | 5.28 | 4.5 | pass |  |
+| fg-subtle | canvas | `#5c6c66` | `#ffffff` | 5.54 | 4.5 | pass |  |
+| fg-subtle | surface | `#5c6c66` | `#ffffff` | 5.54 | 4.5 | pass |  |
+| fg-subtle | sunken | `#5c6c66` | `#f1f5f3` | 5.04 | 4.5 | pass |  |
+| fg-subtle | selected | `#5c6c66` | `#eaf4f0` | 4.93 | 4.5 | pass |  |
+| fg-subtle | hover | `#5c6c66` | `#f8faf9` | 5.28 | 4.5 | pass |  |
+| accent | canvas | `#176b5b` | `#ffffff` | 6.38 | 4.5 | pass |  |
+| accent | surface | `#176b5b` | `#ffffff` | 6.38 | 4.5 | pass |  |
+| accent | sunken | `#176b5b` | `#f1f5f3` | 5.80 | 4.5 | pass |  |
+| accent | selected | `#176b5b` | `#eaf4f0` | 5.68 | 4.5 | pass |  |
+| accent | hover | `#176b5b` | `#f8faf9` | 6.09 | 4.5 | pass |  |
+| accent-fg | canvas | `#176b5b` | `#ffffff` | 6.38 | 4.5 | pass |  |
+| accent-fg | surface | `#176b5b` | `#ffffff` | 6.38 | 4.5 | pass |  |
+| accent-fg | sunken | `#176b5b` | `#f1f5f3` | 5.80 | 4.5 | pass |  |
+| accent-fg | selected | `#176b5b` | `#eaf4f0` | 5.68 | 4.5 | pass |  |
+| accent-fg | hover | `#176b5b` | `#f8faf9` | 6.09 | 4.5 | pass |  |
+| danger-fg | canvas | `#b54848` | `#ffffff` | 5.27 | 4.5 | pass |  |
+| danger-fg | surface | `#b54848` | `#ffffff` | 5.27 | 4.5 | pass |  |
+| danger-fg | sunken | `#b54848` | `#f1f5f3` | 4.79 | 4.5 | pass |  |
+| danger-fg | selected | `#b54848` | `#eaf4f0` | 4.69 | 4.5 | pass |  |
+| danger-fg | hover | `#b54848` | `#f8faf9` | 5.03 | 4.5 | pass |  |
+| warning-fg | canvas | `#8f5e1b` | `#ffffff` | 5.55 | 4.5 | pass |  |
+| warning-fg | surface | `#8f5e1b` | `#ffffff` | 5.55 | 4.5 | pass |  |
+| warning-fg | sunken | `#8f5e1b` | `#f1f5f3` | 5.05 | 4.5 | pass |  |
+| warning-fg | selected | `#8f5e1b` | `#eaf4f0` | 4.94 | 4.5 | pass |  |
+| warning-fg | hover | `#8f5e1b` | `#f8faf9` | 5.29 | 4.5 | pass |  |
+| success-fg | canvas | `#26734d` | `#ffffff` | 5.77 | 4.5 | pass |  |
+| success-fg | surface | `#26734d` | `#ffffff` | 5.77 | 4.5 | pass |  |
+| success-fg | sunken | `#26734d` | `#f1f5f3` | 5.24 | 4.5 | pass |  |
+| success-fg | selected | `#26734d` | `#eaf4f0` | 5.13 | 4.5 | pass |  |
+| success-fg | hover | `#26734d` | `#f8faf9` | 5.50 | 4.5 | pass |  |
+| info-fg | canvas | `#356f9b` | `#ffffff` | 5.39 | 4.5 | pass |  |
+| info-fg | surface | `#356f9b` | `#ffffff` | 5.39 | 4.5 | pass |  |
+| info-fg | sunken | `#356f9b` | `#f1f5f3` | 4.90 | 4.5 | pass |  |
+| info-fg | selected | `#356f9b` | `#eaf4f0` | 4.80 | 4.5 | pass |  |
+| info-fg | hover | `#356f9b` | `#f8faf9` | 5.14 | 4.5 | pass |  |
+| smart-fg | canvas | `#5c6c66` | `#ffffff` | 5.54 | 4.5 | pass |  |
+| smart-fg | surface | `#5c6c66` | `#ffffff` | 5.54 | 4.5 | pass |  |
+| smart-fg | sunken | `#5c6c66` | `#f1f5f3` | 5.04 | 4.5 | pass |  |
+| smart-fg | selected | `#5c6c66` | `#eaf4f0` | 4.93 | 4.5 | pass |  |
+| smart-fg | hover | `#5c6c66` | `#f8faf9` | 5.28 | 4.5 | pass |  |
+| finding-abnormal-fg | canvas | `#8f5e1b` | `#ffffff` | 5.55 | 4.5 | pass |  |
+| finding-abnormal-fg | surface | `#8f5e1b` | `#ffffff` | 5.55 | 4.5 | pass |  |
+| finding-abnormal-fg | sunken | `#8f5e1b` | `#f1f5f3` | 5.05 | 4.5 | pass |  |
+| finding-abnormal-fg | selected | `#8f5e1b` | `#eaf4f0` | 4.94 | 4.5 | pass |  |
+| finding-abnormal-fg | hover | `#8f5e1b` | `#f8faf9` | 5.29 | 4.5 | pass |  |
+| tile-selected-fg | tile-selected-bg | `#176b5b` | `#eaf4f0` | 5.68 | 4.5 | pass | selected quick tile |
+| fg | surface-soft | `#182b27` | `#f8faf9` | 14.17 | 4.5 | pass | text on soft/tinted surface |
+| fg | surface-muted | `#182b27` | `#f1f5f3` | 13.51 | 4.5 | pass | text on soft/tinted surface |
+| fg | accent-subtle | `#182b27` | `#eaf4f0` | 13.23 | 4.5 | pass | text on soft/tinted surface |
+| fg | accent-tint | `#182b27` | `#f3f8f5` | 13.83 | 4.5 | pass | text on soft/tinted surface |
+| fg-secondary | surface-soft | `#425650` | `#f8faf9` | 7.48 | 4.5 | pass | text on soft/tinted surface |
+| fg-secondary | surface-muted | `#425650` | `#f1f5f3` | 7.13 | 4.5 | pass | text on soft/tinted surface |
+| fg-secondary | accent-subtle | `#425650` | `#eaf4f0` | 6.98 | 4.5 | pass | text on soft/tinted surface |
+| fg-secondary | accent-tint | `#425650` | `#f3f8f5` | 7.30 | 4.5 | pass | text on soft/tinted surface |
+| fg-muted | surface-soft | `#5c6c66` | `#f8faf9` | 5.28 | 4.5 | pass | text on soft/tinted surface |
+| fg-muted | surface-muted | `#5c6c66` | `#f1f5f3` | 5.04 | 4.5 | pass | text on soft/tinted surface |
+| fg-muted | accent-subtle | `#5c6c66` | `#eaf4f0` | 4.93 | 4.5 | pass | text on soft/tinted surface |
+| fg-muted | accent-tint | `#5c6c66` | `#f3f8f5` | 5.16 | 4.5 | pass | text on soft/tinted surface |
+| accent-fg | surface-soft | `#176b5b` | `#f8faf9` | 6.09 | 4.5 | pass | text on soft/tinted surface |
+| accent-fg | surface-muted | `#176b5b` | `#f1f5f3` | 5.80 | 4.5 | pass | text on soft/tinted surface |
+| accent-fg | accent-subtle | `#176b5b` | `#eaf4f0` | 5.68 | 4.5 | pass | text on soft/tinted surface |
+| accent-fg | accent-tint | `#176b5b` | `#f3f8f5` | 5.94 | 4.5 | pass | text on soft/tinted surface |
+| accent-2-fg | accent-2-bg | `#6d5434` | `#f7f1e8` | 6.30 | 4.5 | pass | To bill pill / brass highlight |
+| fg-icon | surface | `#71817b` | `#ffffff` | 4.09 | 3 | pass | icon-only ink (PO muted ink), never body text |
+| status-with-doctor-fg | surface-soft | `#176b5b` | `#f8faf9` | 6.09 | 4.5 | pass | accent text on the patient column |
+| danger-fg | surface-soft | `#b54848` | `#f8faf9` | 5.03 | 4.5 | pass | allergy line on the patient column |
+| ring | ring-glow | `#2879b8` | `#eaf3fa` | 4.14 | 3 | pass | focus ring on its glow |
+| tile-selected-border | surface | `#176b5b` | `#ffffff` | 6.38 | 3 | pass | selected tile outline |
+| tile-border | surface | `#cdd9d2` | `#ffffff` | 1.45 | — | info | quick tile outline (hairline; adjacent text carries meaning) |
+| button-primary-fg | button-primary-bg | `#ffffff` | `#176b5b` | 6.38 | 4.5 | pass | primary button |
+| surface | fg | `#ffffff` | `#182b27` | 14.85 | 4.5 | pass | section strip: current pill |
+| fg-on-accent | accent | `#ffffff` | `#176b5b` | 6.38 | 4.5 | pass | button / banner label |
+| fg-on-accent | accent-hover | `#ffffff` | `#12584b` | 8.32 | 4.5 | pass | button / banner label |
+| fg-on-accent | accent-pressed | `#ffffff` | `#0d493f` | 10.28 | 4.5 | pass | button / banner label |
+| fg-on-accent | danger-solid | `#ffffff` | `#b54848` | 5.27 | 4.5 | pass | button / banner label |
+| fg-on-accent | alert-allergy-bg | `#ffffff` | `#b54848` | 5.27 | 4.5 | pass | button / banner label |
+| surface | fg | `#ffffff` | `#182b27` | 14.85 | 4.5 | pass | toast (inverted) |
+| border-control | surface | `#7f8e87` | `#ffffff` | 3.43 | 3 | pass | input/checkbox boundary |
+| border-control | canvas | `#7f8e87` | `#ffffff` | 3.43 | 3 | pass | input/checkbox boundary |
+| border-control | sunken | `#7f8e87` | `#f1f5f3` | 3.12 | 3 | pass | input/checkbox boundary |
+| border-strong | surface | `#cdd9d2` | `#ffffff` | 1.45 | — | info | panel/tile hairline: decorative, text carries meaning |
+| status-booked-border | surface | `#356f9b` | `#ffffff` | 5.39 | 3 | pass | token chip border |
+| status-waiting-border | surface | `#8f5e1b` | `#ffffff` | 5.55 | 3 | pass | token chip border |
+| status-with-doctor-border | surface | `#176b5b` | `#ffffff` | 6.38 | 3 | pass | token chip border |
+| status-to-bill-border | surface | `#6d5434` | `#ffffff` | 7.08 | 3 | pass | token chip border |
+| status-done-border | surface | `#26734d` | `#ffffff` | 5.77 | 3 | pass | token chip border |
+| status-no-show-border | surface | `#b54848` | `#ffffff` | 5.27 | 3 | pass | token chip border |
+| status-cancelled-border | surface | `#5c6c66` | `#ffffff` | 5.54 | 3 | pass | token chip border |
+| accent | accent-subtle | `#176b5b` | `#eaf4f0` | 5.68 | 3 | pass | selected-row 3 px indicator |
+| ring | ring-halo | `#2879b8` | `#ffffff` | 4.65 | 3 | pass | BINDING: ring on its halo (any fill) |
+| ring | canvas | `#2879b8` | `#ffffff` | 4.65 | 3 | pass | ring next to page background |
+| ring | surface | `#2879b8` | `#ffffff` | 4.65 | 3 | pass | ring next to page background |
+| ring | sunken | `#2879b8` | `#f1f5f3` | 4.23 | 3 | pass | ring next to page background |
+| ring | selected | `#2879b8` | `#eaf4f0` | 4.14 | 3 | pass | ring next to page background |
+| ring | accent | `#2879b8` | `#176b5b` | 1.37 | — | info | ring vs solid fill: not relied on (halo separates them) |
+| ring | danger-solid | `#2879b8` | `#b54848` | 1.13 | — | info | ring vs solid fill: not relied on (halo separates them) |
+| ring-halo | accent | `#ffffff` | `#176b5b` | 6.38 | — | info | halo vs teal fill: separation only |
+| fg-disabled | surface | `#96a39e` | `#ffffff` | 2.62 | — | exempt | disabled text |
+| button-disabled-fg | button-disabled-bg | `#5c6c66` | `#f1f5f3` | 5.04 | — | exempt | disabled button |
 
 ## Direction B · Graphite + Cobalt
 
 Source: `themes/clinic-paper.css` + `themes/direction-b.css` (var() chains resolved). WCAG 2.x relative luminance. Text ≥ 4.5:1; non-text ≥ 3:1.
 
-**Gated pairs: 119 · pass: 119 · fail: 0** · informational/exempt: 7
+**Gated pairs: 139 · pass: 139 · fail: 0** · informational/exempt: 7
 
 | Foreground token | Background token | FG | BG | Ratio | Needs | Result | Note |
 |---|---|---|---|---|---|---|---|
-| success-fg | success-bg | `#166b43` | `#e8f5ec` | 5.81 | 4.5 | pass |  |
-| success-border | success-bg | `#2f9a62` | `#e8f5ec` | 3.16 | 3 | pass | chip/alert outline |
-| warning-fg | warning-bg | `#8a4b00` | `#fdf3e1` | 6.18 | 4.5 | pass |  |
-| warning-border | warning-bg | `#b7791f` | `#fdf3e1` | 3.31 | 3 | pass | chip/alert outline |
-| danger-fg | danger-bg | `#a81f15` | `#fdeeec` | 6.48 | 4.5 | pass |  |
-| danger-border | danger-bg | `#d9452f` | `#fdeeec` | 3.84 | 3 | pass | chip/alert outline |
-| info-fg | info-bg | `#1d56b0` | `#eaf1fc` | 6.14 | 4.5 | pass |  |
-| info-border | info-bg | `#3b76d6` | `#eaf1fc` | 3.89 | 3 | pass | chip/alert outline |
-| status-booked-fg | status-booked-bg | `#44505c` | `#eef1f4` | 7.27 | 4.5 | pass |  |
-| status-booked-border | status-booked-bg | `#6b7785` | `#eef1f4` | 4.02 | 3 | pass | chip/alert outline |
-| status-waiting-fg | status-waiting-bg | `#8a4b00` | `#fdf3e1` | 6.18 | 4.5 | pass |  |
-| status-waiting-border | status-waiting-bg | `#b7791f` | `#fdf3e1` | 3.31 | 3 | pass | chip/alert outline |
-| status-with-doctor-fg | status-with-doctor-bg | `#253aa6` | `#eceffd` | 8.20 | 4.5 | pass |  |
-| status-with-doctor-border | status-with-doctor-bg | `#4b63d9` | `#eceffd` | 4.49 | 3 | pass | chip/alert outline |
-| status-to-bill-fg | status-to-bill-bg | `#5b3fa8` | `#f1edfa` | 6.70 | 4.5 | pass |  |
-| status-to-bill-border | status-to-bill-bg | `#7a5cc7` | `#f1edfa` | 4.36 | 3 | pass | chip/alert outline |
-| status-done-fg | status-done-bg | `#166b43` | `#e8f5ec` | 5.81 | 4.5 | pass |  |
-| status-done-border | status-done-bg | `#2f9a62` | `#e8f5ec` | 3.16 | 3 | pass | chip/alert outline |
-| status-no-show-fg | status-no-show-bg | `#52524d` | `#f5f5f4` | 7.20 | 4.5 | pass |  |
-| status-no-show-border | status-no-show-bg | `#858580` | `#f5f5f4` | 3.40 | 3 | pass | chip/alert outline |
-| status-cancelled-fg | status-cancelled-bg | `#a81f15` | `#fdeeec` | 6.48 | 4.5 | pass |  |
-| status-cancelled-border | status-cancelled-bg | `#d9452f` | `#fdeeec` | 3.84 | 3 | pass | chip/alert outline |
-| alert-allergy-fg | alert-allergy-bg | `#ffffff` | `#b42318` | 6.57 | 4.5 | pass |  |
-| alert-unrecorded-fg | alert-unrecorded-bg | `#8a4b00` | `#fdf3e1` | 6.18 | 4.5 | pass |  |
-| finding-abnormal-fg | finding-abnormal-bg | `#8a4b00` | `#fdf3e1` | 6.18 | 4.5 | pass |  |
-| finding-abnormal-border | finding-abnormal-bg | `#b7791f` | `#fdf3e1` | 3.31 | 3 | pass | chip/alert outline |
-| ai-fg | ai-bg | `#17171a` | `#ffffff` | 17.89 | 4.5 | pass |  |
-| ai-border | ai-bg | `#858580` | `#ffffff` | 3.71 | 3 | pass | chip/alert outline |
-| preview-fg | preview-bg | `#1d56b0` | `#eaf1fc` | 6.14 | 4.5 | pass |  |
-| preview-border | preview-bg | `#3b76d6` | `#eaf1fc` | 3.89 | 3 | pass | chip/alert outline |
-| fg-placeholder | surface | `#76766f` | `#ffffff` | 4.57 | 4.5 | pass | placeholders only appear inside inputs (input-bg = surface) |
-| fg | canvas | `#17171a` | `#ffffff` | 17.89 | 4.5 | pass |  |
-| fg | surface | `#17171a` | `#ffffff` | 17.89 | 4.5 | pass |  |
-| fg | sunken | `#17171a` | `#f5f5f4` | 16.40 | 4.5 | pass |  |
-| fg | selected | `#17171a` | `#eceffd` | 15.62 | 4.5 | pass |  |
-| fg | hover | `#17171a` | `#fafafa` | 17.14 | 4.5 | pass |  |
-| fg-body-tint | canvas | `#38383a` | `#ffffff` | 11.70 | 4.5 | pass |  |
-| fg-body-tint | surface | `#38383a` | `#ffffff` | 11.70 | 4.5 | pass |  |
-| fg-body-tint | sunken | `#38383a` | `#f5f5f4` | 10.72 | 4.5 | pass |  |
-| fg-body-tint | selected | `#38383a` | `#eceffd` | 10.21 | 4.5 | pass |  |
-| fg-body-tint | hover | `#38383a` | `#fafafa` | 11.21 | 4.5 | pass |  |
-| fg-muted | canvas | `#52524d` | `#ffffff` | 7.86 | 4.5 | pass |  |
-| fg-muted | surface | `#52524d` | `#ffffff` | 7.86 | 4.5 | pass |  |
-| fg-muted | sunken | `#52524d` | `#f5f5f4` | 7.20 | 4.5 | pass |  |
-| fg-muted | selected | `#52524d` | `#eceffd` | 6.86 | 4.5 | pass |  |
-| fg-muted | hover | `#52524d` | `#fafafa` | 7.53 | 4.5 | pass |  |
-| fg-subtle | canvas | `#6a6a64` | `#ffffff` | 5.44 | 4.5 | pass |  |
-| fg-subtle | surface | `#6a6a64` | `#ffffff` | 5.44 | 4.5 | pass |  |
-| fg-subtle | sunken | `#6a6a64` | `#f5f5f4` | 4.99 | 4.5 | pass |  |
-| fg-subtle | selected | `#6a6a64` | `#eceffd` | 4.75 | 4.5 | pass |  |
-| fg-subtle | hover | `#6a6a64` | `#fafafa` | 5.21 | 4.5 | pass |  |
-| accent | canvas | `#2f49c8` | `#ffffff` | 7.22 | 4.5 | pass |  |
-| accent | surface | `#2f49c8` | `#ffffff` | 7.22 | 4.5 | pass |  |
-| accent | sunken | `#2f49c8` | `#f5f5f4` | 6.62 | 4.5 | pass |  |
-| accent | selected | `#2f49c8` | `#eceffd` | 6.30 | 4.5 | pass |  |
-| accent | hover | `#2f49c8` | `#fafafa` | 6.92 | 4.5 | pass |  |
-| accent-fg | canvas | `#253aa6` | `#ffffff` | 9.40 | 4.5 | pass |  |
-| accent-fg | surface | `#253aa6` | `#ffffff` | 9.40 | 4.5 | pass |  |
-| accent-fg | sunken | `#253aa6` | `#f5f5f4` | 8.61 | 4.5 | pass |  |
-| accent-fg | selected | `#253aa6` | `#eceffd` | 8.20 | 4.5 | pass |  |
-| accent-fg | hover | `#253aa6` | `#fafafa` | 9.00 | 4.5 | pass |  |
-| danger-fg | canvas | `#a81f15` | `#ffffff` | 7.31 | 4.5 | pass |  |
-| danger-fg | surface | `#a81f15` | `#ffffff` | 7.31 | 4.5 | pass |  |
-| danger-fg | sunken | `#a81f15` | `#f5f5f4` | 6.70 | 4.5 | pass |  |
-| danger-fg | selected | `#a81f15` | `#eceffd` | 6.38 | 4.5 | pass |  |
-| danger-fg | hover | `#a81f15` | `#fafafa` | 7.01 | 4.5 | pass |  |
-| warning-fg | canvas | `#8a4b00` | `#ffffff` | 6.80 | 4.5 | pass |  |
-| warning-fg | surface | `#8a4b00` | `#ffffff` | 6.80 | 4.5 | pass |  |
-| warning-fg | sunken | `#8a4b00` | `#f5f5f4` | 6.24 | 4.5 | pass |  |
-| warning-fg | selected | `#8a4b00` | `#eceffd` | 5.94 | 4.5 | pass |  |
-| warning-fg | hover | `#8a4b00` | `#fafafa` | 6.52 | 4.5 | pass |  |
-| success-fg | canvas | `#166b43` | `#ffffff` | 6.53 | 4.5 | pass |  |
-| success-fg | surface | `#166b43` | `#ffffff` | 6.53 | 4.5 | pass |  |
-| success-fg | sunken | `#166b43` | `#f5f5f4` | 5.98 | 4.5 | pass |  |
-| success-fg | selected | `#166b43` | `#eceffd` | 5.70 | 4.5 | pass |  |
-| success-fg | hover | `#166b43` | `#fafafa` | 6.25 | 4.5 | pass |  |
-| info-fg | canvas | `#1d56b0` | `#ffffff` | 6.98 | 4.5 | pass |  |
-| info-fg | surface | `#1d56b0` | `#ffffff` | 6.98 | 4.5 | pass |  |
-| info-fg | sunken | `#1d56b0` | `#f5f5f4` | 6.39 | 4.5 | pass |  |
-| info-fg | selected | `#1d56b0` | `#eceffd` | 6.09 | 4.5 | pass |  |
-| info-fg | hover | `#1d56b0` | `#fafafa` | 6.68 | 4.5 | pass |  |
-| smart-fg | canvas | `#52524d` | `#ffffff` | 7.86 | 4.5 | pass |  |
-| smart-fg | surface | `#52524d` | `#ffffff` | 7.86 | 4.5 | pass |  |
-| smart-fg | sunken | `#52524d` | `#f5f5f4` | 7.20 | 4.5 | pass |  |
-| smart-fg | selected | `#52524d` | `#eceffd` | 6.86 | 4.5 | pass |  |
-| smart-fg | hover | `#52524d` | `#fafafa` | 7.53 | 4.5 | pass |  |
-| finding-abnormal-fg | canvas | `#8a4b00` | `#ffffff` | 6.80 | 4.5 | pass |  |
-| finding-abnormal-fg | surface | `#8a4b00` | `#ffffff` | 6.80 | 4.5 | pass |  |
-| finding-abnormal-fg | sunken | `#8a4b00` | `#f5f5f4` | 6.24 | 4.5 | pass |  |
-| finding-abnormal-fg | selected | `#8a4b00` | `#eceffd` | 5.94 | 4.5 | pass |  |
-| finding-abnormal-fg | hover | `#8a4b00` | `#fafafa` | 6.52 | 4.5 | pass |  |
-| tile-selected-fg | tile-selected-bg | `#253aa6` | `#eceffd` | 8.20 | 4.5 | pass | selected quick tile |
-| tile-selected-border | surface | `#2f49c8` | `#ffffff` | 7.22 | 3 | pass | selected tile outline |
-| tile-border | surface | `#d8d8d4` | `#ffffff` | 1.43 | — | info | quick tile outline (hairline; adjacent text carries meaning) |
-| button-primary-fg | button-primary-bg | `#ffffff` | `#17171a` | 17.89 | 4.5 | pass | primary button |
-| surface | fg | `#ffffff` | `#17171a` | 17.89 | 4.5 | pass | section strip: current pill |
-| fg-on-accent | accent | `#ffffff` | `#2f49c8` | 7.22 | 4.5 | pass | button / banner label |
-| fg-on-accent | accent-hover | `#ffffff` | `#253aa6` | 9.40 | 4.5 | pass | button / banner label |
-| fg-on-accent | accent-pressed | `#ffffff` | `#1d2f87` | 11.61 | 4.5 | pass | button / banner label |
-| fg-on-accent | danger-solid | `#ffffff` | `#b42318` | 6.57 | 4.5 | pass | button / banner label |
-| fg-on-accent | alert-allergy-bg | `#ffffff` | `#b42318` | 6.57 | 4.5 | pass | button / banner label |
-| surface | fg | `#ffffff` | `#17171a` | 17.89 | 4.5 | pass | toast (inverted) |
-| border-control | surface | `#858580` | `#ffffff` | 3.71 | 3 | pass | input/checkbox boundary |
-| border-control | canvas | `#858580` | `#ffffff` | 3.71 | 3 | pass | input/checkbox boundary |
-| border-control | sunken | `#858580` | `#f5f5f4` | 3.40 | 3 | pass | input/checkbox boundary |
-| border-strong | surface | `#d8d8d4` | `#ffffff` | 1.43 | — | info | panel/tile hairline: decorative, text carries meaning |
-| status-booked-border | surface | `#6b7785` | `#ffffff` | 4.56 | 3 | pass | token chip border |
-| status-waiting-border | surface | `#b7791f` | `#ffffff` | 3.64 | 3 | pass | token chip border |
-| status-with-doctor-border | surface | `#4b63d9` | `#ffffff` | 5.14 | 3 | pass | token chip border |
-| status-to-bill-border | surface | `#7a5cc7` | `#ffffff` | 5.02 | 3 | pass | token chip border |
-| status-done-border | surface | `#2f9a62` | `#ffffff` | 3.55 | 3 | pass | token chip border |
-| status-no-show-border | surface | `#858580` | `#ffffff` | 3.71 | 3 | pass | token chip border |
-| status-cancelled-border | surface | `#d9452f` | `#ffffff` | 4.34 | 3 | pass | token chip border |
-| accent | accent-subtle | `#2f49c8` | `#eceffd` | 6.30 | 3 | pass | selected-row 3 px indicator |
-| ring | ring-halo | `#1540a8` | `#ffffff` | 9.01 | 3 | pass | BINDING: ring on its halo (any fill) |
-| ring | canvas | `#1540a8` | `#ffffff` | 9.01 | 3 | pass | ring next to page background |
-| ring | surface | `#1540a8` | `#ffffff` | 9.01 | 3 | pass | ring next to page background |
-| ring | sunken | `#1540a8` | `#f5f5f4` | 8.26 | 3 | pass | ring next to page background |
-| ring | selected | `#1540a8` | `#eceffd` | 7.87 | 3 | pass | ring next to page background |
-| ring | accent | `#1540a8` | `#2f49c8` | 1.25 | — | info | ring vs solid fill: not relied on (halo separates them) |
-| ring | danger-solid | `#1540a8` | `#b42318` | 1.37 | — | info | ring vs solid fill: not relied on (halo separates them) |
-| ring-halo | accent | `#ffffff` | `#2f49c8` | 7.22 | — | info | halo vs teal fill: separation only |
-| plum-700 | plum-50 | `#7d2f63` | `#f8edf4` | 7.49 | 4.5 | pass | DX-7 option B |
-| plum-500 | plum-50 | `#a8508a` | `#f8edf4` | 4.41 | 3 | pass | DX-7 option B |
-| fg-disabled | surface | `#a3a39e` | `#ffffff` | 2.53 | — | exempt | disabled text |
-| button-disabled-fg | button-disabled-bg | `#6a6a64` | `#ededeb` | 4.64 | — | exempt | disabled button |
+| accent-2-fg | accent-2-bg | `#6b5739` | `#f7f3ec` | 6.23 | 4.5 | pass |  |
+| success-fg | success-bg | `#26734d` | `#eaf5ee` | 5.16 | 4.5 | pass |  |
+| success-border | success-bg | `#26734d` | `#eaf5ee` | 5.16 | 3 | pass | chip/alert outline |
+| warning-fg | warning-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 4.5 | pass |  |
+| warning-border | warning-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 3 | pass | chip/alert outline |
+| danger-fg | danger-bg | `#b54848` | `#fbeded` | 4.63 | 4.5 | pass |  |
+| danger-border | danger-bg | `#b54848` | `#fbeded` | 4.63 | 3 | pass | chip/alert outline |
+| info-fg | info-bg | `#4c6680` | `#eef2f7` | 5.31 | 4.5 | pass |  |
+| info-border | info-bg | `#4c6680` | `#eef2f7` | 5.31 | 3 | pass | chip/alert outline |
+| status-booked-fg | status-booked-bg | `#4c6680` | `#eef2f7` | 5.31 | 4.5 | pass |  |
+| status-booked-border | status-booked-bg | `#4c6680` | `#eef2f7` | 5.31 | 3 | pass | chip/alert outline |
+| status-waiting-fg | status-waiting-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 4.5 | pass |  |
+| status-waiting-border | status-waiting-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 3 | pass | chip/alert outline |
+| status-with-doctor-fg | status-with-doctor-bg | `#245b8f` | `#eaf2fa` | 6.26 | 4.5 | pass |  |
+| status-with-doctor-border | status-with-doctor-bg | `#245b8f` | `#eaf2fa` | 6.26 | 3 | pass | chip/alert outline |
+| status-to-bill-fg | status-to-bill-bg | `#6b5739` | `#f7f3ec` | 6.23 | 4.5 | pass |  |
+| status-to-bill-border | status-to-bill-bg | `#6b5739` | `#f7f3ec` | 6.23 | 3 | pass | chip/alert outline |
+| status-done-fg | status-done-bg | `#26734d` | `#eaf5ee` | 5.16 | 4.5 | pass |  |
+| status-done-border | status-done-bg | `#26734d` | `#eaf5ee` | 5.16 | 3 | pass | chip/alert outline |
+| status-no-show-fg | status-no-show-bg | `#b54848` | `#fbeded` | 4.63 | 4.5 | pass |  |
+| status-no-show-border | status-no-show-bg | `#b54848` | `#fbeded` | 4.63 | 3 | pass | chip/alert outline |
+| status-cancelled-fg | status-cancelled-bg | `#566a7e` | `#eef2f7` | 4.97 | 4.5 | pass |  |
+| status-cancelled-border | status-cancelled-bg | `#566a7e` | `#eef2f7` | 4.97 | 3 | pass | chip/alert outline |
+| alert-allergy-fg | alert-allergy-bg | `#ffffff` | `#b54848` | 5.27 | 4.5 | pass |  |
+| alert-unrecorded-fg | alert-unrecorded-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 4.5 | pass |  |
+| finding-abnormal-fg | finding-abnormal-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 4.5 | pass |  |
+| finding-abnormal-border | finding-abnormal-bg | `#8f5e1b` | `#fbf3e5` | 5.03 | 3 | pass | chip/alert outline |
+| ai-fg | ai-bg | `#192b3d` | `#ffffff` | 14.44 | 4.5 | pass |  |
+| ai-border | ai-bg | `#7a8b9c` | `#ffffff` | 3.50 | 3 | pass | chip/alert outline |
+| preview-fg | preview-bg | `#4c6680` | `#eef2f7` | 5.31 | 4.5 | pass |  |
+| preview-border | preview-bg | `#4c6680` | `#eef2f7` | 5.31 | 3 | pass | chip/alert outline |
+| fg-placeholder | surface | `#566a7e` | `#ffffff` | 5.59 | 4.5 | pass | placeholders only appear inside inputs (input-bg = surface) |
+| fg | canvas | `#192b3d` | `#ffffff` | 14.44 | 4.5 | pass |  |
+| fg | surface | `#192b3d` | `#ffffff` | 14.44 | 4.5 | pass |  |
+| fg | sunken | `#192b3d` | `#eef2f7` | 12.84 | 4.5 | pass |  |
+| fg | selected | `#192b3d` | `#eaf2fa` | 12.78 | 4.5 | pass |  |
+| fg | hover | `#192b3d` | `#f7f9fc` | 13.69 | 4.5 | pass |  |
+| fg-body-tint | canvas | `#45596d` | `#ffffff` | 7.23 | 4.5 | pass |  |
+| fg-body-tint | surface | `#45596d` | `#ffffff` | 7.23 | 4.5 | pass |  |
+| fg-body-tint | sunken | `#45596d` | `#eef2f7` | 6.43 | 4.5 | pass |  |
+| fg-body-tint | selected | `#45596d` | `#eaf2fa` | 6.40 | 4.5 | pass |  |
+| fg-body-tint | hover | `#45596d` | `#f7f9fc` | 6.86 | 4.5 | pass |  |
+| fg-muted | canvas | `#566a7e` | `#ffffff` | 5.59 | 4.5 | pass |  |
+| fg-muted | surface | `#566a7e` | `#ffffff` | 5.59 | 4.5 | pass |  |
+| fg-muted | sunken | `#566a7e` | `#eef2f7` | 4.97 | 4.5 | pass |  |
+| fg-muted | selected | `#566a7e` | `#eaf2fa` | 4.94 | 4.5 | pass |  |
+| fg-muted | hover | `#566a7e` | `#f7f9fc` | 5.30 | 4.5 | pass |  |
+| fg-subtle | canvas | `#566a7e` | `#ffffff` | 5.59 | 4.5 | pass |  |
+| fg-subtle | surface | `#566a7e` | `#ffffff` | 5.59 | 4.5 | pass |  |
+| fg-subtle | sunken | `#566a7e` | `#eef2f7` | 4.97 | 4.5 | pass |  |
+| fg-subtle | selected | `#566a7e` | `#eaf2fa` | 4.94 | 4.5 | pass |  |
+| fg-subtle | hover | `#566a7e` | `#f7f9fc` | 5.30 | 4.5 | pass |  |
+| accent | canvas | `#245b8f` | `#ffffff` | 7.08 | 4.5 | pass |  |
+| accent | surface | `#245b8f` | `#ffffff` | 7.08 | 4.5 | pass |  |
+| accent | sunken | `#245b8f` | `#eef2f7` | 6.29 | 4.5 | pass |  |
+| accent | selected | `#245b8f` | `#eaf2fa` | 6.26 | 4.5 | pass |  |
+| accent | hover | `#245b8f` | `#f7f9fc` | 6.71 | 4.5 | pass |  |
+| accent-fg | canvas | `#245b8f` | `#ffffff` | 7.08 | 4.5 | pass |  |
+| accent-fg | surface | `#245b8f` | `#ffffff` | 7.08 | 4.5 | pass |  |
+| accent-fg | sunken | `#245b8f` | `#eef2f7` | 6.29 | 4.5 | pass |  |
+| accent-fg | selected | `#245b8f` | `#eaf2fa` | 6.26 | 4.5 | pass |  |
+| accent-fg | hover | `#245b8f` | `#f7f9fc` | 6.71 | 4.5 | pass |  |
+| danger-fg | canvas | `#b54848` | `#ffffff` | 5.27 | 4.5 | pass |  |
+| danger-fg | surface | `#b54848` | `#ffffff` | 5.27 | 4.5 | pass |  |
+| danger-fg | sunken | `#b54848` | `#eef2f7` | 4.69 | 4.5 | pass |  |
+| danger-fg | selected | `#b54848` | `#eaf2fa` | 4.66 | 4.5 | pass |  |
+| danger-fg | hover | `#b54848` | `#f7f9fc` | 5.00 | 4.5 | pass |  |
+| warning-fg | canvas | `#8f5e1b` | `#ffffff` | 5.55 | 4.5 | pass |  |
+| warning-fg | surface | `#8f5e1b` | `#ffffff` | 5.55 | 4.5 | pass |  |
+| warning-fg | sunken | `#8f5e1b` | `#eef2f7` | 4.94 | 4.5 | pass |  |
+| warning-fg | selected | `#8f5e1b` | `#eaf2fa` | 4.91 | 4.5 | pass |  |
+| warning-fg | hover | `#8f5e1b` | `#f7f9fc` | 5.26 | 4.5 | pass |  |
+| success-fg | canvas | `#26734d` | `#ffffff` | 5.77 | 4.5 | pass |  |
+| success-fg | surface | `#26734d` | `#ffffff` | 5.77 | 4.5 | pass |  |
+| success-fg | sunken | `#26734d` | `#eef2f7` | 5.13 | 4.5 | pass |  |
+| success-fg | selected | `#26734d` | `#eaf2fa` | 5.10 | 4.5 | pass |  |
+| success-fg | hover | `#26734d` | `#f7f9fc` | 5.47 | 4.5 | pass |  |
+| info-fg | canvas | `#4c6680` | `#ffffff` | 5.97 | 4.5 | pass |  |
+| info-fg | surface | `#4c6680` | `#ffffff` | 5.97 | 4.5 | pass |  |
+| info-fg | sunken | `#4c6680` | `#eef2f7` | 5.31 | 4.5 | pass |  |
+| info-fg | selected | `#4c6680` | `#eaf2fa` | 5.28 | 4.5 | pass |  |
+| info-fg | hover | `#4c6680` | `#f7f9fc` | 5.66 | 4.5 | pass |  |
+| smart-fg | canvas | `#566a7e` | `#ffffff` | 5.59 | 4.5 | pass |  |
+| smart-fg | surface | `#566a7e` | `#ffffff` | 5.59 | 4.5 | pass |  |
+| smart-fg | sunken | `#566a7e` | `#eef2f7` | 4.97 | 4.5 | pass |  |
+| smart-fg | selected | `#566a7e` | `#eaf2fa` | 4.94 | 4.5 | pass |  |
+| smart-fg | hover | `#566a7e` | `#f7f9fc` | 5.30 | 4.5 | pass |  |
+| finding-abnormal-fg | canvas | `#8f5e1b` | `#ffffff` | 5.55 | 4.5 | pass |  |
+| finding-abnormal-fg | surface | `#8f5e1b` | `#ffffff` | 5.55 | 4.5 | pass |  |
+| finding-abnormal-fg | sunken | `#8f5e1b` | `#eef2f7` | 4.94 | 4.5 | pass |  |
+| finding-abnormal-fg | selected | `#8f5e1b` | `#eaf2fa` | 4.91 | 4.5 | pass |  |
+| finding-abnormal-fg | hover | `#8f5e1b` | `#f7f9fc` | 5.26 | 4.5 | pass |  |
+| tile-selected-fg | tile-selected-bg | `#245b8f` | `#eaf2fa` | 6.26 | 4.5 | pass | selected quick tile |
+| fg | surface-soft | `#192b3d` | `#f7f9fc` | 13.69 | 4.5 | pass | text on soft/tinted surface |
+| fg | surface-muted | `#192b3d` | `#eef2f7` | 12.84 | 4.5 | pass | text on soft/tinted surface |
+| fg | accent-subtle | `#192b3d` | `#eaf2fa` | 12.78 | 4.5 | pass | text on soft/tinted surface |
+| fg | accent-tint | `#192b3d` | `#f3f7fc` | 13.42 | 4.5 | pass | text on soft/tinted surface |
+| fg-secondary | surface-soft | `#45596d` | `#f7f9fc` | 6.86 | 4.5 | pass | text on soft/tinted surface |
+| fg-secondary | surface-muted | `#45596d` | `#eef2f7` | 6.43 | 4.5 | pass | text on soft/tinted surface |
+| fg-secondary | accent-subtle | `#45596d` | `#eaf2fa` | 6.40 | 4.5 | pass | text on soft/tinted surface |
+| fg-secondary | accent-tint | `#45596d` | `#f3f7fc` | 6.72 | 4.5 | pass | text on soft/tinted surface |
+| fg-muted | surface-soft | `#566a7e` | `#f7f9fc` | 5.30 | 4.5 | pass | text on soft/tinted surface |
+| fg-muted | surface-muted | `#566a7e` | `#eef2f7` | 4.97 | 4.5 | pass | text on soft/tinted surface |
+| fg-muted | accent-subtle | `#566a7e` | `#eaf2fa` | 4.94 | 4.5 | pass | text on soft/tinted surface |
+| fg-muted | accent-tint | `#566a7e` | `#f3f7fc` | 5.19 | 4.5 | pass | text on soft/tinted surface |
+| accent-fg | surface-soft | `#245b8f` | `#f7f9fc` | 6.71 | 4.5 | pass | text on soft/tinted surface |
+| accent-fg | surface-muted | `#245b8f` | `#eef2f7` | 6.29 | 4.5 | pass | text on soft/tinted surface |
+| accent-fg | accent-subtle | `#245b8f` | `#eaf2fa` | 6.26 | 4.5 | pass | text on soft/tinted surface |
+| accent-fg | accent-tint | `#245b8f` | `#f3f7fc` | 6.58 | 4.5 | pass | text on soft/tinted surface |
+| accent-2-fg | accent-2-bg | `#6b5739` | `#f7f3ec` | 6.23 | 4.5 | pass | To bill pill / brass highlight |
+| fg-icon | surface | `#718397` | `#ffffff` | 3.89 | 3 | pass | icon-only ink (PO muted ink), never body text |
+| status-with-doctor-fg | surface-soft | `#245b8f` | `#f7f9fc` | 6.71 | 4.5 | pass | accent text on the patient column |
+| danger-fg | surface-soft | `#b54848` | `#f7f9fc` | 5.00 | 4.5 | pass | allergy line on the patient column |
+| ring | ring-glow | `#2879b8` | `#eaf3fa` | 4.14 | 3 | pass | focus ring on its glow |
+| tile-selected-border | surface | `#245b8f` | `#ffffff` | 7.08 | 3 | pass | selected tile outline |
+| tile-border | surface | `#cad5e2` | `#ffffff` | 1.49 | — | info | quick tile outline (hairline; adjacent text carries meaning) |
+| button-primary-fg | button-primary-bg | `#ffffff` | `#245b8f` | 7.08 | 4.5 | pass | primary button |
+| surface | fg | `#ffffff` | `#192b3d` | 14.44 | 4.5 | pass | section strip: current pill |
+| fg-on-accent | accent | `#ffffff` | `#245b8f` | 7.08 | 4.5 | pass | button / banner label |
+| fg-on-accent | accent-hover | `#ffffff` | `#1d4c78` | 8.91 | 4.5 | pass | button / banner label |
+| fg-on-accent | accent-pressed | `#ffffff` | `#163b60` | 11.48 | 4.5 | pass | button / banner label |
+| fg-on-accent | danger-solid | `#ffffff` | `#b54848` | 5.27 | 4.5 | pass | button / banner label |
+| fg-on-accent | alert-allergy-bg | `#ffffff` | `#b54848` | 5.27 | 4.5 | pass | button / banner label |
+| surface | fg | `#ffffff` | `#192b3d` | 14.44 | 4.5 | pass | toast (inverted) |
+| border-control | surface | `#7a8b9c` | `#ffffff` | 3.50 | 3 | pass | input/checkbox boundary |
+| border-control | canvas | `#7a8b9c` | `#ffffff` | 3.50 | 3 | pass | input/checkbox boundary |
+| border-control | sunken | `#7a8b9c` | `#eef2f7` | 3.11 | 3 | pass | input/checkbox boundary |
+| border-strong | surface | `#cad5e2` | `#ffffff` | 1.49 | — | info | panel/tile hairline: decorative, text carries meaning |
+| status-booked-border | surface | `#4c6680` | `#ffffff` | 5.97 | 3 | pass | token chip border |
+| status-waiting-border | surface | `#8f5e1b` | `#ffffff` | 5.55 | 3 | pass | token chip border |
+| status-with-doctor-border | surface | `#245b8f` | `#ffffff` | 7.08 | 3 | pass | token chip border |
+| status-to-bill-border | surface | `#6b5739` | `#ffffff` | 6.89 | 3 | pass | token chip border |
+| status-done-border | surface | `#26734d` | `#ffffff` | 5.77 | 3 | pass | token chip border |
+| status-no-show-border | surface | `#b54848` | `#ffffff` | 5.27 | 3 | pass | token chip border |
+| status-cancelled-border | surface | `#566a7e` | `#ffffff` | 5.59 | 3 | pass | token chip border |
+| accent | accent-subtle | `#245b8f` | `#eaf2fa` | 6.26 | 3 | pass | selected-row 3 px indicator |
+| ring | ring-halo | `#2879b8` | `#ffffff` | 4.65 | 3 | pass | BINDING: ring on its halo (any fill) |
+| ring | canvas | `#2879b8` | `#ffffff` | 4.65 | 3 | pass | ring next to page background |
+| ring | surface | `#2879b8` | `#ffffff` | 4.65 | 3 | pass | ring next to page background |
+| ring | sunken | `#2879b8` | `#eef2f7` | 4.14 | 3 | pass | ring next to page background |
+| ring | selected | `#2879b8` | `#eaf2fa` | 4.11 | 3 | pass | ring next to page background |
+| ring | accent | `#2879b8` | `#245b8f` | 1.52 | — | info | ring vs solid fill: not relied on (halo separates them) |
+| ring | danger-solid | `#2879b8` | `#b54848` | 1.13 | — | info | ring vs solid fill: not relied on (halo separates them) |
+| ring-halo | accent | `#ffffff` | `#245b8f` | 7.08 | — | info | halo vs teal fill: separation only |
+| fg-disabled | surface | `#98a6b6` | `#ffffff` | 2.48 | — | exempt | disabled text |
+| button-disabled-fg | button-disabled-bg | `#566a7e` | `#eef2f7` | 4.97 | — | exempt | disabled button |
