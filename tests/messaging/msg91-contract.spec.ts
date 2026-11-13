@@ -83,7 +83,10 @@ async function within<T>(p: Promise<T>, ms: number): Promise<{ value: T | "hung"
 describe("MSG91 request shape", () => {
   it("SMS goes to the flow API with authkey and the flow body; 200 → externalMessageId", async () => {
     server.use(capture(FLOW, () => HttpResponse.json({ type: "success", request_id: "flow-req-1" })));
-    const result = await provider().sendSms(TO, "flow_template_1", { patient_name: "Synthetic", clinic_name: "Clinic" });
+    const result = await provider().sendSms(TO, "appointment_booked_sms_fallback", {
+      patient_name: "Synthetic",
+      clinic_name: "Clinic",
+    });
 
     expect(result).toEqual({ success: true, channelUsed: "sms", externalMessageId: "flow-req-1", statusCode: 200 });
     expect(captured).toHaveLength(1);
@@ -93,7 +96,7 @@ describe("MSG91 request shape", () => {
       authkey: AUTH,
       contentType: "application/json",
       body: {
-        template_id: "flow_template_1",
+        template_id: "appointment_booked_sms_fallback",
         sender: "synthetic-sender",
         short_url: "0",
         mobiles: TO_DIGITS,
@@ -129,9 +132,50 @@ describe("MSG91 request shape", () => {
       sender: "synthetic-sender",
       short_url: "0",
       mobiles: TO_DIGITS,
-      patient_name: "Synthetic",
+      // 04-07d (L-A): an undeclared SMS template sends no variables at all.
+      ...(template === "flow_template_1" ? {} : { patient_name: "Synthetic" }),
     });
     expect(captured[0].authkey).toBe(AUTH);
+  });
+
+  // V2-04 04-07d (re-verification L-A): the filter for an SMS template with no declared variable set was a deny-list of
+  // control keys, so look-alike keys (dotted capital I, trailing space, other Flow fields such as `schtime`) reached the
+  // Flow body. It is an allow-list now: an undeclared template sends only the fixed control fields.
+  it("SMS with an undeclared template sends no variables: look-alike control keys and extra Flow fields never reach the body", async () => {
+    server.use(capture(FLOW, () => HttpResponse.json({ type: "success", request_id: "flow-req-4" })));
+    await provider().sendSms(TO, "rogue_flow", {
+      "MOB\u0130LES": "917000000001",
+      "mobiles ": "917000000002",
+      schtime: "2026-11-20 10:00:00",
+      Recipients: "[]",
+      flow_id: "ATTACKER_FLOW",
+      unicode: "1",
+      patient_name: "Synthetic",
+    });
+    expect(captured).toHaveLength(1);
+    expect(captured[0].body).toEqual({
+      template_id: "rogue_flow",
+      sender: "synthetic-sender",
+      short_url: "0",
+      mobiles: TO_DIGITS,
+    });
+  });
+
+  it("SMS with a declared template ignores look-alike spellings of its own variables (exact keys only)", async () => {
+    server.use(capture(FLOW, () => HttpResponse.json({ type: "success", request_id: "flow-req-5" })));
+    await provider().sendSms(TO, "appointment_booked_sms_fallback", {
+      "Patient_Name": "Other",
+      "patient_name ": "Other",
+      patient_name: "Synthetic",
+      schtime: "2026-11-20 10:00:00",
+    });
+    expect(captured[0].body).toEqual({
+      template_id: "appointment_booked_sms_fallback",
+      sender: "synthetic-sender",
+      short_url: "0",
+      mobiles: TO_DIGITS,
+      patient_name: "Synthetic",
+    });
   });
 
   it("SMS with a declared template sends only its declared variables", async () => {

@@ -238,13 +238,32 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
  * Generates a 24-hour tokenized self-service appointment reschedule link for `appointmentId`. The tenant is read
  * from the appointment row, never taken from the caller. (Token storage is replaced by 01-04, P0-04.)
  */
+/**
+ * The visit cannot get a reschedule link (missing, not booked/confirmed, or no doctor): `create_reschedule_token`'s
+ * business refusals (SQLSTATE P0002 `not_found`, P0001 `appointment_closed` / `appointment_unassigned`, 000023). The
+ * inbound webhook treats it as "no link" (04-07d, re-verification L-C); every other failure is an ordinary Error the
+ * webhook answers 500 to, so the provider retries.
+ */
+export class RescheduleNotActionableError extends Error {
+  constructor() {
+    super("Appointment cannot get a reschedule link");
+    this.name = "RescheduleNotActionableError";
+  }
+}
+
+const RESCHEDULE_REFUSALS = new Set(["not_found", "appointment_closed", "appointment_unassigned"]);
+
 export async function generateRescheduleToken(sys: AppointmentSystemContext, appointmentId: string): Promise<string> {
-  // create_reschedule_token (000020, service_role only): resource_type 'appointment', created_by NULL (system-issued,
-  // D9), tenant from the visit row, 24 h expiry; refused for a missing, completed or cancelled visit. Errors are
-  // raised, never ignored (the v1 insert used a nil-uuid creator that failed the FK silently).
+  // create_reschedule_token (000020, 000023; service_role only): resource_type 'appointment', created_by NULL
+  // (system-issued, D9), tenant from the visit row, 24 h expiry; refused for a missing, unassigned or not
+  // booked/confirmed visit. Errors are raised, never ignored (the v1 insert used a nil-uuid creator that failed the FK
+  // silently); only the refusals above are RescheduleNotActionableError.
   const { data: token, error } = await sys.db.rpc("create_reschedule_token", { p_visit_id: appointmentId });
+  if (error && (error.code === "P0001" || error.code === "P0002") && RESCHEDULE_REFUSALS.has(error.message)) {
+    throw new RescheduleNotActionableError();
+  }
   if (error || typeof token !== "string" || token.length === 0) {
-    throw new Error("Could not create a reschedule link for this appointment");
+    throw new Error("Could not create a reschedule link for this appointment", { cause: error ?? undefined });
   }
 
   const baseUrl = serverEnv().NEXT_PUBLIC_APP_URL;

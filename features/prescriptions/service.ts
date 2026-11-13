@@ -22,8 +22,10 @@ import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
-// its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01): the only
-// `prescription.issued` webhook is enqueued by `getOrCreateDraftPrescription` under the acting tenant.
+// its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01). Since 04-07a (M-RXEVENT)
+// no use-case here enqueues `prescription.issued`: in the app it is queued only when the prescription is signed
+// (features/consultation/service.ts, key `:signed`), and the public API queues its own (app/api/v1/prescriptions,
+// key `:created`); a draft never sends it.
 
 // Specialty slugs are interpolated into a PostgREST `.or()` filter, so only plain slug characters are accepted.
 const SPECIALTY_SLUG = /^[a-z0-9_]{1,50}$/;

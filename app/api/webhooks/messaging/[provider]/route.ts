@@ -3,6 +3,7 @@ import {
   AppointmentNotCancellableError,
   cancelAppointment,
   generateRescheduleToken,
+  RescheduleNotActionableError,
   type AppointmentSystemContext,
 } from "@/features/appointments/system";
 import { getSystemDb } from "@/lib/supabase/system";
@@ -460,11 +461,14 @@ async function handleRescheduleOrTriage(
   if (action === "reschedule") {
     // Only a booked or confirmed visit gets a link (AR2-L4; create_reschedule_token and consume_reschedule_token refuse
     // the others too, 000023); the front desk is still alerted.
+    // 04-07d (re-verification L-C): only the token RPC's business refusal means "no link"; any other failure (a
+    // transient DB error) throws, so the callback is answered 500 and the provider's retry sends the link.
     let rescheduleUrl: string | null = null;
     if (isPatientActionable(appointment.status)) {
       try {
         rescheduleUrl = await generateRescheduleToken(sys, appointment.id);
-      } catch {
+      } catch (err) {
+        if (!(err instanceof RescheduleNotActionableError)) throw err;
         rescheduleUrl = null;
       }
     }

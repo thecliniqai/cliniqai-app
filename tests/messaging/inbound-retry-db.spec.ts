@@ -1,7 +1,8 @@
 /**
  * V2-04 04-07a, triage M-INBOUND (review B M-3, IND L3/L4) and the inbound Lows (review B L-2, L-6; IND L2): a transient
  * failure inside the MSG91 webhook is retried by the provider instead of being recorded as handled, the retry finishes
- * the work exactly once, and delivery reports are never lost. On the live local stack through the real route; faults
+ * the work exactly once, and delivery reports are never lost. 04-07d (re-verification L-C): a transient failure of the
+ * reschedule-token RPC is retried too (500), while its business refusal stays a handled callback without a link. On the live local stack through the real route; faults
  * are injected into the route's own system client (one failing RPC or UPDATE), never into the database.
  *
  * Each case fails on the 04-03c route: a failed cancel answered 200 `ignored` (slot never released), a failed reply
@@ -66,7 +67,13 @@ const SYNTHETIC_FAILURE = { data: null, error: { code: "57014", message: "synthe
  * `.update(…)` / `.insert(…)` on table `updateOnce` / `insertOnce`, answers a statement-timeout error. Everything else is
  * the real client.
  */
-function faultOnce(fault: { rpcOnce?: string; updateOnce?: string; insertOnce?: string }) {
+function faultOnce(fault: {
+  rpcOnce?: string;
+  updateOnce?: string;
+  insertOnce?: string;
+  /** The error `rpcOnce` answers instead of the statement timeout (e.g. a business refusal). */
+  rpcError?: { code: string; message: string };
+}) {
   const real = systemDb.getSystemDb("webhook.messaging_inbound");
   const pending = { ...fault };
   // A query builder whose every method returns itself and which resolves to the failure when awaited.
@@ -83,7 +90,7 @@ function faultOnce(fault: { rpcOnce?: string; updateOnce?: string; insertOnce?: 
         return (fn: string, args: unknown) => {
           if (pending.rpcOnce === fn) {
             pending.rpcOnce = undefined;
-            return Promise.resolve(SYNTHETIC_FAILURE);
+            return Promise.resolve(pending.rpcError ? { data: null, error: pending.rpcError } : SYNTHETIC_FAILURE);
           }
           return (target.rpc as (f: string, a: unknown) => unknown).call(target, fn, args);
         };
@@ -199,6 +206,32 @@ describe("M-INBOUND: a transient failure answers 500 and the provider's retry co
     expect(await postMsg91(body)).toEqual(OK);
     expect(noteCount(c, "reschedule_requested")).toBe(1);
     expect((await botReplies(c.visitId)).map((r) => r.templateId)).toEqual(["appointment_reschedule_link"]);
+  });
+
+  // 04-07d (re-verification L-C): the route swallowed every reschedule-token failure, so a transient DB error was
+  // recorded as processed with no link sent, and the provider's retry read `duplicate`.
+  it("reschedule: the token RPC fails transiently → 500, no link; the retry sends one link and writes one note", async () => {
+    const c = await seedConversation("retry-token");
+    const body = track(buttonReply(c, "btn_reschedule"));
+    faultOnce({ rpcOnce: "create_reschedule_token" });
+    expect(await postMsg91(body)).toEqual(FAILED);
+    expect(inboundEvent("msg91", keyFor(body))).toMatchObject({ processed: false });
+    expect(await botReplies(c.visitId)).toEqual([]);
+    expect(await postMsg91(body)).toEqual(OK);
+    expect(noteCount(c, "reschedule_requested")).toBe(1);
+    expect((await botReplies(c.visitId)).map((r) => r.templateId)).toEqual(["appointment_reschedule_link"]);
+  });
+
+  it("reschedule: the token RPC's business refusal (the visit closed meanwhile) is handled: 200, one note, no link", async () => {
+    const c = await seedConversation("retry-token-refused");
+    const body = track(buttonReply(c, "btn_reschedule"));
+    // create_reschedule_token's own refusal (000023: P0001 appointment_closed), as when the visit moved on between the
+    // route's read and the RPC.
+    faultOnce({ rpcOnce: "create_reschedule_token", rpcError: { code: "P0001", message: "appointment_closed" } });
+    expect(await postMsg91(body)).toEqual(OK);
+    expect(noteCount(c, "reschedule_requested")).toBe(1);
+    expect(await botReplies(c.visitId)).toEqual([]);
+    expect(inboundEvent("msg91", keyFor(body))).toMatchObject({ outcome: "processed", processed: true });
   });
 
   it("unmatched sender: the reply enqueue fails → 500; the retry queues one reply job", async () => {
