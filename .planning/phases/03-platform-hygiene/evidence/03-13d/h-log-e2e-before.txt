@@ -1,0 +1,57 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 78ms
+[WebServer] ✓ Running next.config.ts took 55ms
+
+Running 7 tests using 1 worker
+
+  ✓  1 [setup] › tests/e2e/auth.setup.ts:10:8 › owner signs in through the login UI (707ms)
+  ✓  2 [setup] › tests/e2e/auth.setup.ts:10:8 › admin signs in through the login UI (415ms)
+  ✓  3 [setup] › tests/e2e/auth.setup.ts:10:8 › doctor signs in through the login UI (541ms)
+  ✓  4 [setup] › tests/e2e/auth.setup.ts:10:8 › nurse signs in through the login UI (362ms)
+  ✓  5 [setup] › tests/e2e/auth.setup.ts:10:8 › receptionist signs in through the login UI (360ms)
+[WebServer] ⨯ Error [DiagnosticError]: Diagnostic error (synthetic): contact diag.synthetic@example.com, mobile 090000 00000, link /r/abc?token=diagSyntheticToken0123456789; duplicate key value violates unique constraint "patients_phone_key" Key (phone)=(+919000000000) already exists.
+[WebServer]     at s (.next/server/chunks/_0702m-vaqspuv._.js:1:858) {
+[WebServer]   code: 'DIAG_SYNTHETIC'
+[WebServer] }
+[WebServer] {"ts":"2026-11-13T02:55:51.767Z","level":"error","event":"request.error","requestId":"22e77268-74d4-4f40-b40d-56f43983e15b","route":"/api/diag/error","code":"DIAG_SYNTHETIC"}
+  ✘  6 [desktop-chrome] › tests/e2e/observability/error-sink.spec.ts:32:5 › a thrown server error lands in ops.error_events once, scrubbed, under the response's request id (142ms)
+  ✓  7 [desktop-chrome] › tests/e2e/observability/error-sink.spec.ts:83:5 › the diagnostic route refuses a missing or wrong bearer (401) and other methods (405) (17ms)
+[e2e teardown] removed run data: 2 tenant(s), 6 auth user(s), 0 storage object(s); verified none remain
+
+
+  1) [desktop-chrome] › tests/e2e/observability/error-sink.spec.ts:32:5 › a thrown server error lands in ops.error_events once, scrubbed, under the response's request id 
+
+    Error: expect(received).toContain(expected) // indexOf
+
+    Expected substring: "Key (phone)=([REDACTED])"
+    Received string:    "⨯ Error [DiagnosticError]: Diagnostic error (synthetic): contact diag.synthetic@example.com, mobile 090000 00000, link /r/abc?token=diagSyntheticToken0123456789; duplicate key value violates unique constraint \"patients_phone_key\" Key (phone)=(+919000000000) already exists.
+        at s (.next/server/chunks/_0702m-vaqspuv._.js:1:858) {
+      code: 'DIAG_SYNTHETIC'
+    }
+    {\"ts\":\"2026-11-13T02:55:51.767Z\",\"level\":\"error\",\"event\":\"request.error\",\"requestId\":\"22e77268-74d4-4f40-b40d-56f43983e15b\",\"route\":\"/api/diag/error\",\"code\":\"DIAG_SYNTHETIC\"}
+    "
+
+      76 |   await expect.poll(() => readLogFrom(SERVER_STDERR_LOG, errOffset), { timeout: 10_000 }).toContain("DiagnosticError");
+      77 |   const printed = readLogFrom(SERVER_STDERR_LOG, errOffset) + readLogFrom(SERVER_STDOUT_LOG, outOffset);
+    > 78 |   expect(printed).toContain("Key (phone)=([REDACTED])");
+         |                   ^
+      79 |   for (const value of SYNTHETIC) expect(printed).not.toContain(value);
+      80 |   expect(printed).not.toContain("Diagnostic error (synthetic): contact diag");
+      81 | });
+        at /Users/sid/Code/clinicOS/tests/e2e/observability/error-sink.spec.ts:78:19
+
+    Error Context: test-results/observability-error-sink-a-67663-r-the-response-s-request-id-desktop-chrome/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/observability-error-sink-a-67663-r-the-response-s-request-id-desktop-chrome/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/observability-error-sink-a-67663-r-the-response-s-request-id-desktop-chrome/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [desktop-chrome] › tests/e2e/observability/error-sink.spec.ts:32:5 › a thrown server error lands in ops.error_events once, scrubbed, under the response's request id 
+  6 passed (6.5s)

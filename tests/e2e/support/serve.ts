@@ -4,6 +4,7 @@
  *   - the environment fails `assertLocalAppServerEnv` (non-loopback URL, hosted key, real credential, …);
  *   - `.next/` is not the output of `npm run e2e:build` (stamp missing, BUILD_ID or public env differ);
  *   - port 3100 is already taken (the lane never reuses a server it did not start).
+ * The child's stdout/stderr are passed through and also captured to `server-log.ts` files (03-13d H-LOG).
  * The `next start` child gets ONLY `buildAppServerEnv()`; this wrapper's own environment is never passed on.
  */
 import { spawn } from "node:child_process";
@@ -19,6 +20,7 @@ import {
   stampProblems,
   type BuildStamp,
 } from "./app-env";
+import { SERVER_LOG_DIR, SERVER_STDERR_LOG, SERVER_STDOUT_LOG } from "./server-log";
 
 function readJson<T>(file: string): T | null {
   try {
@@ -51,10 +53,22 @@ async function main(): Promise<void> {
   }
 
   const nextBin = require.resolve("next/dist/bin/next", { paths: [ROOT] });
+  // stdout/stderr pass through unchanged and are also captured for specs (server-log.ts, 03-13d H-LOG).
+  fs.mkdirSync(SERVER_LOG_DIR, { recursive: true });
+  const stdoutLog = fs.createWriteStream(SERVER_STDOUT_LOG, { flags: "w" });
+  const stderrLog = fs.createWriteStream(SERVER_STDERR_LOG, { flags: "w" });
   const child = spawn(process.execPath, [nextBin, "start", "-H", E2E_HOST, "-p", String(E2E_PORT)], {
     cwd: ROOT,
     env: env as NodeJS.ProcessEnv,
-    stdio: "inherit",
+    stdio: ["inherit", "pipe", "pipe"],
+  });
+  child.stdout?.on("data", (chunk: Buffer) => {
+    process.stdout.write(chunk);
+    stdoutLog.write(chunk);
+  });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    process.stderr.write(chunk);
+    stderrLog.write(chunk);
   });
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, () => child.kill(signal));

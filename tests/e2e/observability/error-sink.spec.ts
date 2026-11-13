@@ -6,6 +6,9 @@
  * the route pattern and none of the synthetic values. `scripts/ops/export-error-events.mjs` exports that row and its
  * check passes (the same check the PO's staging export goes through, E9).
  *
+ * 03-13d H-LOG: Next prints every uncaught server error to the function log (stderr) itself. The server's captured
+ * stdout and stderr for the same request must carry the scrubbed error (proving the capture) and none of the values.
+ *
  * Desktop Chromium only: the sink is server-side and device-independent, and the row is per fingerprint and day, so a
  * second device running the same request in parallel would move the row's latest request id under this test.
  */
@@ -15,6 +18,7 @@ import path from "node:path";
 import { expect, test } from "../fixtures";
 import { E2E_CRON_SECRET, ROOT } from "../support/app-env";
 import { psql } from "../../helpers/sql";
+import { logOffset, readLogFrom, SERVER_STDERR_LOG, SERVER_STDOUT_LOG } from "../support/server-log";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Mirrors lib/observability/diag-error.ts `DIAG_SYNTHETIC` (the values the scrubber must remove). */
@@ -29,6 +33,8 @@ test("a thrown server error lands in ops.error_events once, scrubbed, under the 
   request,
 }, testInfo) => {
   test.skip(testInfo.project.name !== ONE_DEVICE, ONE_DEVICE_REASON);
+  const errOffset = logOffset(SERVER_STDERR_LOG);
+  const outOffset = logOffset(SERVER_STDOUT_LOG);
   const res = await request.post("/api/diag/error", { headers: { authorization: `Bearer ${E2E_CRON_SECRET}` } });
   expect(res.status()).toBe(500);
   const body = await res.text();
@@ -65,6 +71,13 @@ test("a thrown server error lands in ops.error_events once, scrubbed, under the 
   const everything = JSON.stringify(row);
   for (const value of SYNTHETIC) expect(everything).not.toContain(value);
   expect(everything).not.toMatch(/\/(Users|home|runner)\//);
+
+  // H-LOG: what the server printed for this request (Next's own uncaught-error print included).
+  await expect.poll(() => readLogFrom(SERVER_STDERR_LOG, errOffset), { timeout: 10_000 }).toContain("DiagnosticError");
+  const printed = readLogFrom(SERVER_STDERR_LOG, errOffset) + readLogFrom(SERVER_STDOUT_LOG, outOffset);
+  expect(printed).toContain("Key (phone)=([REDACTED])");
+  for (const value of SYNTHETIC) expect(printed).not.toContain(value);
+  expect(printed).not.toContain("Diagnostic error (synthetic): contact diag");
 });
 
 test("the diagnostic route refuses a missing or wrong bearer (401) and other methods (405)", async ({ request }, testInfo) => {
