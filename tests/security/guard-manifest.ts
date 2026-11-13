@@ -240,8 +240,9 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   "app/api/jobs/run/route.ts#DELETE": RUNNER_OTHER_METHOD,
   "app/api/ready/route.ts#GET": {
     kind: "public-health",
-    // 03-13c (M-PROBE): no migration version and no counts reach an anonymous caller.
-    keys: ["status", "checks", "outbox", "providers", "correlationId", "timestamp"],
+    // 03-13c (M-PROBE): no migration version and no counts reach an anonymous caller. 04-04 (R-41): `jobs` holds four
+    // booleans (backlog, dead24h, runnerStale, alertsCriticalOpen).
+    keys: ["status", "checks", "outbox", "jobs", "providers", "correlationId", "timestamp"],
     access: ["rpc:readiness_probe"],
   },
   "app/api/invoices/[id]/receipt-pdf/route.ts#GET": SESSION_RECEIPT,

@@ -34,7 +34,7 @@ const BASELINE = [
 const EVALUATE = "select 'E|' || ops.evaluate_alerts()";
 const ALERTS =
   "select 'A|' || id || '|' || rule || '|' || severity || '|' || status || '|' || count || '|' || clean_evaluations || '|' || " +
-  "(resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, rule";
+  "(resolved_at is not null) || '|' || details::text from ops.alerts order by first_seen, (status = 'open'), rule";
 const NOTIFY_JOBS =
   "select 'J|' || (payload ->> 'alert_id') || '|' || (payload ->> 'seq') || '|' || dedupe_key || '|' || max_attempts || '|' || " +
   "coalesce(tenant_id::text, 'none') from ops.jobs where kind = 'alert.notify' order by created_at, dedupe_key";
@@ -354,10 +354,11 @@ describe("lifecycle: cooldown, resolution, robustness", () => {
       ["dead_letter", "resolved", true],
       ["dead_letter", "open", false],
     ]);
-    expect(out.jobs.map((j) => [j.alertId, j.seq])).toEqual([
-      [out.alerts[0].id, 1],
-      [out.alerts[1].id, 1],
-    ]);
+    // One transaction: both alerts and both jobs share now(), so compare as sets (no tie order).
+    const byId = (a: [string, number], b: [string, number]) => a[0].localeCompare(b[0]);
+    expect(out.jobs.map((j): [string, number] => [j.alertId, j.seq]).sort(byId)).toEqual(
+      out.alerts.map((a): [string, number] => [a.id, 1]).sort(byId),
+    );
   });
 
   it("an expired cooldown enqueues notification n + 1; inside the cooldown, or never notified, nothing new", () => {
