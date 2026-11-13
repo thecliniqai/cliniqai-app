@@ -4,10 +4,12 @@
  * is due.
  *
  * - Batches (04-07b, M-FAIR): each claim asks for `batch` jobs, at most `perTenant` per tenant, round-robin across
- *   tenants (SQL and {@link fairOrder}). The batch is not sized by the slowest kind's bound (that made every claim a
- *   batch of 1, i.e. global FIFO). Instead each job has its own deadline: it starts only if its handler bound plus
- *   margins ({@link jobCostMs}) fits in the remaining budget; claimed jobs that no longer fit are handed back unstarted
- *   (`release_job`, in parallel). Only kinds that fit at all are claimed.
+ *   tenants, and the batch starts in the claim's fair order ({@link fairOrder}: least recently served tenant first,
+ *   04-07e N-1b). The batch is not sized by the slowest kind's bound (that made every claim a batch of 1, i.e. global
+ *   FIFO). Instead each job has its own deadline: it starts only if its handler bound plus margins ({@link jobCostMs})
+ *   fits in the remaining budget; claimed jobs that no longer fit are handed back unstarted (`release_job`, in
+ *   parallel; the hand-back does not count as service for the tenant rotation, migration 000045). Only kinds that fit
+ *   at all are claimed.
  * - Attempts (04-07b, M-ATTEMPT): `start_job` counts the attempt just before the handler runs; a claimed job the pass
  *   never reached costs nothing when its lease expires. If `start_job` refuses (lease lost), the handler never runs.
  * - Outcomes: unknown kind → dead (`unknown_kind`); payload failing the handler's zod schema → dead

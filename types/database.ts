@@ -2345,6 +2345,7 @@ export type Database = {
         };
         Returns: {
           attempts: number;
+          claim_order: number;
           id: string;
           kind: string;
           lease_token: string;

@@ -8,7 +8,9 @@
  *   tenants (04-07d, N-1: migration 000044 rotates through every tenant with due work, so a clinic is served within
  *   ceil(tenants with due work / 10) claims) and at most 5 from one tenant, so one clinic's backlog never fills a batch
  *   while another clinic has due work.
- *   Jobs of a batch that no longer fit the budget are handed back unstarted (no attempt spent).
+ *   Jobs of a batch that no longer fit the budget are handed back unstarted (no attempt spent, and, 04-07e N-1b,
+ *   migration 000045, no turn spent: the tenant stays at the front of the rotation); a batch starts least recently
+ *   served tenant first.
  * - `leaseSeconds` 120: far above the budget, so a live pass never loses a lease, and the time an abandoned handler
  *   (one that ignored its abort) keeps its job away from other runners.
  * - `rpcTimeoutMs` 4 s: hard bound per queue RPC. Worst case for one pass:

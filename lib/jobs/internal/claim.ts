@@ -1,5 +1,5 @@
 /**
- * Typed wrappers over the job queue RPCs (V2-04 04-01, migrations 000031 and 000043). Every RPC is a service-role-only
+ * Typed wrappers over the job queue RPCs (V2-04 04-01, migrations 000031, 000043 and 000045). Every RPC is a service-role-only
  * SECURITY DEFINER function; the caller passes the system client. A failed RPC throws {@link JobsRpcError} carrying the
  * database / PostgREST code only: the message (which can quote row values) is never kept.
  *
@@ -83,28 +83,45 @@ interface ClaimRow {
   max_attempts: number;
   lease_token: string;
   run_at: string;
+  /** 04-07e (migration 000045): the row's position in the claim's fair order, 1 = start first. */
+  claim_order?: number | null;
 }
 
-const byRunAt = (a: ClaimedJob, b: ClaimedJob) =>
-  a.runAt < b.runAt ? -1 : a.runAt > b.runAt ? 1 : a.id < b.id ? -1 : 1;
+/** A claimed job with its position in `claim_jobs`' fair order (`null` from a database before migration 000045). */
+export interface ClaimedInOrder {
+  job: ClaimedJob;
+  claimOrder: number | null;
+}
 
 /**
- * 04-07b (M-FAIR): the claimed jobs in round-robin order across tenants, the same order `claim_jobs` picks them in:
- * every tenant's oldest job first (tenants ordered by their oldest job), then every tenant's second, and so on. A pass
- * that runs out of budget part-way through a batch has then served every tenant in it about equally.
+ * The order in which the runner starts a claimed batch (04-07b M-FAIR; 04-07e N-1b).
+ *
+ * `claim_jobs` (000045) returns each row's position in its fair order: round 1 of the round-robin first (one row per
+ * chosen tenant), and within a round the least recently served tenant first, then the oldest work. The runner starts
+ * the batch in exactly that order. When a pass runs out of budget part-way through a batch, the jobs it hands back are
+ * therefore those of the tenants served most recently, and a tenant that has waited longest for a turn (never served,
+ * or handed back last time) is started first. The 04-07b order re-sorted the batch by each tenant's oldest job, which
+ * always put the tenant with the newest work (typically the one waiting for its first turn) last, i.e. first to be
+ * handed back, pass after pass.
+ *
+ * Without positions (a database before 000045), the rows are taken round-robin across tenants in the order they
+ * arrived.
  */
-export function fairOrder(jobs: ClaimedJob[]): ClaimedJob[] {
+export function fairOrder(claims: ClaimedInOrder[]): ClaimedJob[] {
+  if (claims.every((c) => typeof c.claimOrder === "number" && Number.isInteger(c.claimOrder))) {
+    // Array.prototype.sort is stable: equal positions (never produced by the SQL) keep their arrival order.
+    return [...claims].sort((a, b) => (a.claimOrder as number) - (b.claimOrder as number)).map((c) => c.job);
+  }
   const groups = new Map<string, ClaimedJob[]>();
-  for (const job of [...jobs].sort(byRunAt)) {
+  for (const { job } of claims) {
     const key = job.tenantId ?? "";
     const group = groups.get(key);
     if (group) group.push(job);
     else groups.set(key, [job]);
   }
-  // Map iteration follows insertion order, i.e. each tenant's oldest job in run_at order.
   const queues = [...groups.values()];
   const out: ClaimedJob[] = [];
-  for (let round = 0; out.length < jobs.length; round++) {
+  for (let round = 0; out.length < claims.length; round++) {
     for (const q of queues) if (round < q.length) out.push(q[round]);
   }
   return out;
@@ -129,15 +146,18 @@ export async function claimJobs(
   );
   return fairOrder(
     (rows ?? []).map((r) => ({
-      id: r.id,
-      kind: r.kind,
-      // The generated type says string; tenant-less jobs (unmatched-sender replies, alerts) carry NULL.
-      tenantId: r.tenant_id ?? null,
-      payload: r.payload,
-      attempts: r.attempts,
-      maxAttempts: r.max_attempts,
-      leaseToken: r.lease_token,
-      runAt: r.run_at,
+      job: {
+        id: r.id,
+        kind: r.kind,
+        // The generated type says string; tenant-less jobs (unmatched-sender replies, alerts) carry NULL.
+        tenantId: r.tenant_id ?? null,
+        payload: r.payload,
+        attempts: r.attempts,
+        maxAttempts: r.max_attempts,
+        leaseToken: r.lease_token,
+        runAt: r.run_at,
+      },
+      claimOrder: r.claim_order ?? null,
     }))
   );
 }

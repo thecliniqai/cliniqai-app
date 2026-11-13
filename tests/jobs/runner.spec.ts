@@ -468,18 +468,33 @@ describe("runJobs: 04-07b review fixes", () => {
     expect(ran).toEqual(["a1", "b1", "a2", "b2", "a3", "a4"]);
   });
 
-  it("fairOrder: tenants in order of their oldest job, one job per tenant per round, tenant-less jobs as one tenant", () => {
+  it("fairOrder (04-07e N-1b): the batch starts in claim_jobs' fair order, so the tenant with the newest work is not always last", () => {
     const job = (id: string, tenantId: string | null, runAt: string): ClaimedJob => ({
       id, kind: "k", tenantId, payload: {}, attempts: 0, maxAttempts: 5, leaseToken: id, runAt,
     });
+    // The SQL's order: V (never served, newest work) first, then the tenants served longer ago. The 04-07b order
+    // re-sorted by oldest work and started V last: ["a1", "n1", "b1", "v1", "a2"].
     const out = fairOrder([
-      job("b1", "B", "2026-11-13T00:00:05Z"),
-      job("a2", "A", "2026-11-13T00:00:02Z"),
-      job("n1", null, "2026-11-13T00:00:03Z"),
-      job("a1", "A", "2026-11-13T00:00:01Z"),
-      job("a3", "A", "2026-11-13T00:00:04Z"),
+      { job: job("b1", "B", "2026-11-13T00:00:05Z"), claimOrder: 4 },
+      { job: job("a2", "A", "2026-11-13T00:00:02Z"), claimOrder: 5 },
+      { job: job("n1", null, "2026-11-13T00:00:03Z"), claimOrder: 3 },
+      { job: job("v1", "V", "2026-11-13T00:30:00Z"), claimOrder: 1 },
+      { job: job("a1", "A", "2026-11-13T00:00:01Z"), claimOrder: 2 },
     ]);
-    expect(out.map((j) => j.id)).toEqual(["a1", "n1", "b1", "a2", "a3"]);
+    expect(out.map((j) => j.id)).toEqual(["v1", "a1", "n1", "b1", "a2"]);
+  });
+
+  it("fairOrder without positions (a database before 000045): round-robin across tenants in arrival order", () => {
+    const job = (id: string, tenantId: string | null): ClaimedJob => ({
+      id, kind: "k", tenantId, payload: {}, attempts: 0, maxAttempts: 5, leaseToken: id, runAt: "2026-11-13T00:00:00Z",
+    });
+    const out = fairOrder(
+      [job("v1", "V"), job("a1", "A"), job("a2", "A"), job("n1", null), job("a3", "A")].map((j) => ({
+        job: j,
+        claimOrder: null,
+      }))
+    );
+    expect(out.map((j) => j.id)).toEqual(["v1", "a1", "n1", "a2", "a3"]);
   });
 
   it("M-ATTEMPT: start_job is called under the lease before the handler, and the handler sees the counted attempt", async () => {
