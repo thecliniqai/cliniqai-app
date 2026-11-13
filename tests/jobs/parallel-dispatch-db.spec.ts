@@ -165,7 +165,7 @@ describe("8 parallel runners over 200 queued messages (04-03a, real message.send
     const run = letters(8);
     const ids = psql(
       `select (public.enqueue_message_system('system:jobs', '${patientId}', null, 'whatsapp', 'prescription_ready', ` +
-        `'prescription_ready', jsonb_build_object('n', g::text), null, null, '{}'::jsonb, now(), 'par:${run}:' || g) ->> 'id') ` +
+        `'prescription_ready', jsonb_build_object('patient_name', g::text), null, null, '{}'::jsonb, now(), 'par:${run}:' || g) ->> 'id') ` +
         `from generate_series(1, 200) g`
     );
     expect(new Set(ids).size).toBe(200);
@@ -174,7 +174,7 @@ describe("8 parallel runners over 200 queued messages (04-03a, real message.send
     const provider = recordingProvider();
     await Promise.all(Array.from({ length: 8 }, (_, i) => runMessages(provider, `${WORKER}-msg-${i}`, { batch: 10, perTenant: 10, budgetMs: 60_000 })));
 
-    const ours = provider.calls.filter((c) => c.to === phone && c.templateId === "prescription_ready").map((c) => c.params.n);
+    const ours = provider.calls.filter((c) => c.to === phone && c.templateId === "prescription_ready").map((c) => c.params.patient_name); // 04-07a: a declared parameter carries the number
     expect(ours).toHaveLength(200);
     expect(new Set(ours).size).toBe(200);
     expect(psql(`select status || ':' || count(*) from public.communication_queue where tenant_id = '${t}' group by status`)).toEqual(["sent:200"]);

@@ -99,11 +99,12 @@ describe("members cannot write the queues (42501)", () => {
   });
 
   it("the enqueue RPCs still work for members", async () => {
+    // 04-07a: a template the receptionist's permissions allow (prescription_ready needs consultations:view).
     const queued = await enqueueMessage(ctxFor(receptionist), {
       patientId: patient.patientId,
       channel: "whatsapp",
-      messageType: "prescription_ready",
-      templateId: "prescription_ready",
+      messageType: "lab_report_uploaded",
+      templateId: "lab_report_uploaded",
     });
     expect(queued.status).toBe("pending");
     const ping = await enqueueWebhookEvent(ctxFor(owner), "ping", subscriptionId);

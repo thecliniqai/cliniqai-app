@@ -157,7 +157,8 @@ describe("Webhook SSRF Protection & Signature Engine (Task 1)", () => {
       const p = await seedPatient(tenant.tenantId, tenant.userId);
       const { data, error } = await getAdminClient()
         .from("prescriptions")
-        .insert({ tenant_id: p.tenantId, visit_id: p.visitId, patient_id: p.patientId, doctor_id: tenant.userId, version: 1, status: "active", letterhead_mode: "blank_paper" })
+        // Signed: a request raises prescription.issued only at signing (04-07a M-RXEVENT).
+        .insert({ tenant_id: p.tenantId, visit_id: p.visitId, patient_id: p.patientId, doctor_id: tenant.userId, version: 1, status: "active", letterhead_mode: "blank_paper", signed_at: new Date().toISOString() })
         .select("id, patient_id, visit_id")
         .single();
       if (error || !data) throw new Error(`seed prescription failed: ${error?.code}`);
