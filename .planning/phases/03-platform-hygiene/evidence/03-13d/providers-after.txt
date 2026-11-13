@@ -1,0 +1,26 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/messaging/provider-timeouts-and-synthetic.spec.ts (24 tests) 196ms
+{"ts":"2026-11-13T03:06:04.023Z","level":"info","event":"messaging.dev.recorded","action":"sms","count":1}
+ ✓ tests/messaging/provider-selection.spec.ts (7 tests) 241ms
+{"ts":"2026-11-13T03:06:04.178Z","level":"info","event":"messaging.dev.recorded","action":"sms","count":1}
+{"ts":"2026-11-13T03:06:04.184Z","level":"info","event":"db.system_acquired","reason":"cron.dispatch_communications"}
+ ✓ tests/messaging/outbox-queue.spec.ts (14 tests) 18ms
+ ✓ tests/messaging/msg91-webhook.spec.ts (23 tests) 18ms
+ ✓ tests/ai/prescription-suggestions.spec.ts (6 tests) 11ms
+{"ts":"2026-11-13T03:06:04.843Z","level":"error","event":"sharing.token_create.failed","code":"P0002"}
+ ✓ tests/messaging/tokenized-sharing.spec.ts (6 tests) 6ms
+ ✓ tests/ai/ai-gateway.spec.ts (20 tests) 6ms
+ ✓ tests/messaging/msg91-sync-templates.spec.ts (14 tests) 4ms
+ ✓ tests/messaging/msg91-provider.spec.ts (26 tests) 5ms
+ ✓ tests/messaging/messaging-provider.spec.ts (10 tests) 5ms
+ ✓ tests/ai/gateway-tools.spec.ts (3 tests) 2ms
+ ✓ tests/messaging/two-way-bot.spec.ts (4 tests) 1ms
+
+ Test Files  12 passed (12)
+      Tests  157 passed (157)
+   Start at  08:36:03
+   Duration  2.35s (transform 268ms, setup 67ms, collect 562ms, tests 513ms, environment 1ms, prepare 257ms)
+
+[teardown] removed run data: 1 tenant(s), 1 auth user(s), 0 storage object(s); verified none remain

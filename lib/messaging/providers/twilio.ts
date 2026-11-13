@@ -4,6 +4,7 @@ import {
   MessagingProvider,
   MessagingSendResult,
 } from "../types";
+import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
 
 export class TwilioProvider implements MessagingProvider {
   readonly name = "twilio" as const;
@@ -31,6 +32,8 @@ export class TwilioProvider implements MessagingProvider {
     templateId: string,
     params: Record<string, string>
   ): Promise<MessagingSendResult> {
+    const synthetic = syntheticRecipientRefusal(to, "sms");
+    if (synthetic) return synthetic;
     if (!this.accountSid || !this.authToken) {
       return {
         success: false,
@@ -52,6 +55,7 @@ export class TwilioProvider implements MessagingProvider {
         `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`,
         {
           method: "POST",
+          signal: providerSignal(),
           headers: {
             Authorization: `Basic ${basicAuth}`,
             "Content-Type": "application/x-www-form-urlencoded",
@@ -96,6 +100,8 @@ export class TwilioProvider implements MessagingProvider {
     params: Record<string, string>,
     buttons?: InteractiveButton[]
   ): Promise<MessagingSendResult> {
+    const synthetic = syntheticRecipientRefusal(to, "whatsapp");
+    if (synthetic) return synthetic;
     if (!this.accountSid || !this.authToken) {
       return {
         success: false,
@@ -126,6 +132,7 @@ export class TwilioProvider implements MessagingProvider {
         `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`,
         {
           method: "POST",
+          signal: providerSignal(),
           headers: {
             Authorization: `Basic ${basicAuth}`,
             "Content-Type": "application/x-www-form-urlencoded",

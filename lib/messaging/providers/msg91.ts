@@ -4,6 +4,7 @@ import {
   MessagingProvider,
   MessagingSendResult,
 } from "../types";
+import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
 import { WHATSAPP_TEMPLATES } from "../templates";
 import { buildPositionalComponents } from "../templates/mapping";
 
@@ -35,6 +36,8 @@ export class Msg91Provider implements MessagingProvider {
     templateId: string,
     params: Record<string, string>
   ): Promise<MessagingSendResult> {
+    const synthetic = syntheticRecipientRefusal(to, "sms");
+    if (synthetic) return synthetic;
     if (!this.authKey) {
       return {
         success: false,
@@ -48,6 +51,7 @@ export class Msg91Provider implements MessagingProvider {
       const normalizedPhone = to.replace(/[^0-9]/g, "");
       const res = await fetch("https://control.msg91.com/api/v5/flow/", {
         method: "POST",
+        signal: providerSignal(),
         headers: {
           "Content-Type": "application/json",
           authkey: this.authKey,
@@ -97,6 +101,8 @@ export class Msg91Provider implements MessagingProvider {
     params: Record<string, string>,
     _buttons?: InteractiveButton[]
   ): Promise<MessagingSendResult> {
+    const synthetic = syntheticRecipientRefusal(to, "whatsapp");
+    if (synthetic) return synthetic;
     if (!this.authKey) {
       return {
         success: false,
@@ -118,6 +124,7 @@ export class Msg91Provider implements MessagingProvider {
           "https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
           {
             method: "POST",
+            signal: providerSignal(),
             headers: {
               "Content-Type": "application/json",
               authkey: this.authKey,
@@ -185,6 +192,7 @@ export class Msg91Provider implements MessagingProvider {
           "https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/",
           {
             method: "POST",
+            signal: providerSignal(),
             headers: {
               "Content-Type": "application/json",
               authkey: this.authKey,

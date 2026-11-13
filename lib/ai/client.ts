@@ -1,6 +1,9 @@
 import { serverEnv } from "@/lib/env-server";
 import { AiChatMessage, AiProviderConfig, AiProviderName } from "./types";
 
+/** Upper bound for one AI provider call, response body included (03-13d). */
+export const AI_TIMEOUT_MS = 30_000;
+
 /**
  * AI-01 (AI_STRATEGY.md §4.6, §7): there is no mock provider and no test-only branch. When no provider is
  * configured, every AI feature fails closed with `AiUnavailableError`: no draft, no canned or regex output and
@@ -102,6 +105,8 @@ export class OpenAiGatewayClient implements AiChatClient {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
+        // 03-13d (review E-6): a hung provider must not hold the request until the platform kills it.
+        signal: AbortSignal.timeout(AI_TIMEOUT_MS),
       });
     } catch {
       throw new AiUnavailableError("provider_error");

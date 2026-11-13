@@ -4,6 +4,7 @@ import {
   MessagingProvider,
   MessagingSendResult,
 } from "../types";
+import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
 
 export class GupshupProvider implements MessagingProvider {
   readonly name = "gupshup" as const;
@@ -40,6 +41,8 @@ export class GupshupProvider implements MessagingProvider {
     params: Record<string, string>,
     buttons?: InteractiveButton[]
   ): Promise<MessagingSendResult> {
+    const synthetic = syntheticRecipientRefusal(to, "whatsapp");
+    if (synthetic) return synthetic;
     if (!this.apiKey) {
       return {
         success: false,
@@ -78,6 +81,7 @@ export class GupshupProvider implements MessagingProvider {
 
       const res = await fetch("https://api.gupshup.io/sm/api/v1/msg", {
         method: "POST",
+        signal: providerSignal(),
         headers: {
           apikey: this.apiKey,
           "Content-Type": "application/x-www-form-urlencoded",

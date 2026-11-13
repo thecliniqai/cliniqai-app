@@ -1,0 +1,112 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/messaging/provider-timeouts-and-synthetic.spec.ts (24 tests | 12 failed) 14061ms
+   × provider calls are time-bounded (review E-6) > MSG91 SMS gives up on a hung provider and reports a failure 2012ms
+     → expected 'hung' not to be 'hung' // Object.is equality
+   × provider calls are time-bounded (review E-6) > MSG91 WhatsApp (catalogue) gives up on a hung provider and reports a failure 2004ms
+     → expected 'hung' not to be 'hung' // Object.is equality
+   × provider calls are time-bounded (review E-6) > MSG91 WhatsApp (free-form) gives up on a hung provider and reports a failure 2006ms
+     → expected 'hung' not to be 'hung' // Object.is equality
+   × provider calls are time-bounded (review E-6) > Gupshup WhatsApp gives up on a hung provider and reports a failure 2003ms
+     → expected 'hung' not to be 'hung' // Object.is equality
+   × provider calls are time-bounded (review E-6) > Twilio SMS gives up on a hung provider and reports a failure 2006ms
+     → expected 'hung' not to be 'hung' // Object.is equality
+   × provider calls are time-bounded (review E-6) > Twilio WhatsApp gives up on a hung provider and reports a failure 2005ms
+     → expected 'hung' not to be 'hung' // Object.is equality
+   × provider calls are time-bounded (review E-6) > the AI client gives up on a hung provider with AiUnavailableError 2012ms
+     → expected 'hung' to be an instance of AiUnavailableError
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > +919000000001 is in the synthetic range 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > +91 90000 00042 is in the synthetic range 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > 919000000099 is in the synthetic range 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > 09000000007 is in the synthetic range 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > 9000000063 is in the synthetic range 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > +91-90000-00010 is in the synthetic range 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > +919812300045 is not 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > +919000001000 is not 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > +14155238886 is not 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) >  is not 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > not a phone is not 0ms
+   ✓ synthetic recipients are never sent to (M-SEEDPHONE) > the prefix covers +91 90000 000xx 0ms
+   × synthetic recipients are never sent to (M-SEEDPHONE) > MSG91 SMS refuses a synthetic recipient without any HTTP call, not retryable 6ms
+     → expected { success: true, …(3) } to match object { success: false, …(2) }
+(3 matching properties omitted from actual)
+   × synthetic recipients are never sent to (M-SEEDPHONE) > MSG91 WhatsApp refuses a synthetic recipient without any HTTP call, not retryable 1ms
+     → expected { success: true, …(3) } to match object { success: false, …(2) }
+(3 matching properties omitted from actual)
+   × synthetic recipients are never sent to (M-SEEDPHONE) > Gupshup WhatsApp refuses a synthetic recipient without any HTTP call, not retryable 1ms
+     → expected { success: true, …(3) } to match object { success: false, …(2) }
+(3 matching properties omitted from actual)
+   × synthetic recipients are never sent to (M-SEEDPHONE) > Twilio SMS refuses a synthetic recipient without any HTTP call, not retryable 1ms
+     → expected { success: true, …(3) } to match object { success: false, …(2) }
+(3 matching properties omitted from actual)
+   × synthetic recipients are never sent to (M-SEEDPHONE) > Twilio WhatsApp refuses a synthetic recipient without any HTTP call, not retryable 1ms
+     → expected { success: true, …(3) } to match object { success: false, …(2) }
+(3 matching properties omitted from actual)
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > provider calls are time-bounded (review E-6) > MSG91 SMS gives up on a hung provider and reports a failure
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > provider calls are time-bounded (review E-6) > MSG91 WhatsApp (catalogue) gives up on a hung provider and reports a failure
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > provider calls are time-bounded (review E-6) > MSG91 WhatsApp (free-form) gives up on a hung provider and reports a failure
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > provider calls are time-bounded (review E-6) > Gupshup WhatsApp gives up on a hung provider and reports a failure
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > provider calls are time-bounded (review E-6) > Twilio SMS gives up on a hung provider and reports a failure
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > provider calls are time-bounded (review E-6) > Twilio WhatsApp gives up on a hung provider and reports a failure
+AssertionError: expected 'hung' not to be 'hung' // Object.is equality
+ ❯ tests/messaging/provider-timeouts-and-synthetic.spec.ts:61:24
+     59|     vi.stubGlobal("fetch", fetchStub);
+     60|     const result = await within(call());
+     61|     expect(result).not.toBe("hung");
+       |                        ^
+     62|     expect(result).toMatchObject({ success: false });
+     63|     expect(fetchStub).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > provider calls are time-bounded (review E-6) > the AI client gives up on a hung provider with AiUnavailableError
+AssertionError: expected 'hung' to be an instance of AiUnavailableError
+ ❯ tests/messaging/provider-timeouts-and-synthetic.spec.ts:71:21
+     69|     const client = new OpenAiGatewayClient({ provider: "openai", apiKe…
+     70|     const outcome = await within(client.chatCompletion({ messages: [{ …
+     71|     expect(outcome).toBeInstanceOf(AiUnavailableError);
+       |                     ^
+     72|     expect(requestedTimeouts).toEqual([AI_TIMEOUT_MS]);
+     73|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > synthetic recipients are never sent to (M-SEEDPHONE) > MSG91 SMS refuses a synthetic recipient without any HTTP call, not retryable
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > synthetic recipients are never sent to (M-SEEDPHONE) > MSG91 WhatsApp refuses a synthetic recipient without any HTTP call, not retryable
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > synthetic recipients are never sent to (M-SEEDPHONE) > Gupshup WhatsApp refuses a synthetic recipient without any HTTP call, not retryable
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > synthetic recipients are never sent to (M-SEEDPHONE) > Twilio SMS refuses a synthetic recipient without any HTTP call, not retryable
+ FAIL  tests/messaging/provider-timeouts-and-synthetic.spec.ts > synthetic recipients are never sent to (M-SEEDPHONE) > Twilio WhatsApp refuses a synthetic recipient without any HTTP call, not retryable
+AssertionError: expected { success: true, …(3) } to match object { success: false, …(2) }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "error": "Recipient is a synthetic test number",
+-   "retryable": false,
+-   "success": false,
++   "success": true,
+  }
+
+ ❯ tests/messaging/provider-timeouts-and-synthetic.spec.ts:104:22
+    102|     for (const phone of SYNTHETIC_FORMS) {
+    103|       const result = await send(phone);
+    104|       expect(result).toMatchObject({ success: false, retryable: false,…
+       |                      ^
+    105|     }
+    106|     expect(fetchStub).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  12 failed | 12 passed (24)
+   Start at  08:35:37
+   Duration  14.36s (transform 59ms, setup 8ms, collect 52ms, tests 14.06s, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain
