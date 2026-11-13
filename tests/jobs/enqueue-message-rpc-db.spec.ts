@@ -17,6 +17,8 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { enqueueMessage, EnqueueError } from "@/lib/jobs/enqueue";
+import { hasPerm, type Permission } from "@/lib/permissions";
+import type { UserRole } from "@/lib/db/types";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
 import {
@@ -60,8 +62,9 @@ function args(over: Record<string, unknown> = {}) {
     p_patient_id: patientA.patientId,
     p_visit_id: null,
     p_channel: "whatsapp",
-    p_message_type: "prescription_ready",
-    p_template_id: "prescription_ready",
+    // 04-07a: a template every clinic role may queue (patients:view); prescription_ready needs consultations:view.
+    p_message_type: "lab_report_uploaded",
+    p_template_id: "lab_report_uploaded",
     p_template_params: { patient_name: "Synthetic" },
     p_recipient_phone: null,
     p_recipient_user_id: null,
@@ -171,7 +174,9 @@ describe("public.enqueue_message (request path)", () => {
     const second = await enqueue(receptionistA.client, ownerA.tenantId, { p_dedupe_key: key });
     expect(first.data).toMatchObject({ deduped: false });
     expect(second.data).toEqual({ id: first.data!.id, status: "pending", deduped: true });
-    expect(psql(`select count(*) from public.communication_queue where dedupe_key = '${key}'`)).toEqual(["1"]);
+    // 04-07a M-DEDUPE: stored in the caller's namespace.
+    expect(psql(`select count(*) from public.communication_queue where dedupe_key = 'member:${receptionistA.userId}:${key}'`)).toEqual(["1"]);
+    expect(psql(`select count(*) from public.communication_queue where dedupe_key = '${key}'`)).toEqual(["0"]);
     expect(jobsFor(first.data!.id)).toHaveLength(1);
   });
 
@@ -184,7 +189,7 @@ describe("public.enqueue_message (request path)", () => {
     const ids = new Set(results.map((r) => r.data!.id));
     expect(ids.size).toBe(1);
     expect(results.filter((r) => r.data!.deduped === false)).toHaveLength(1);
-    expect(psql(`select count(*) from public.communication_queue where dedupe_key = '${key}'`)).toEqual(["1"]);
+    expect(psql(`select count(*) from public.communication_queue where dedupe_key = 'member:${receptionistA.userId}:${key}'`)).toEqual(["1"]);
     const [id] = [...ids];
     expect(jobsFor(id)).toHaveLength(1);
     expect(psql(`select count(*) from ops.jobs where dedupe_key = 'msg:${id}'`)).toEqual(["1"]);
@@ -210,7 +215,7 @@ describe("public.enqueue_message (request path)", () => {
     expect(template.error).toMatchObject({ code: "P0001", message: "TEMPLATE_NOT_ALLOWED" });
     const wrongChannel = await enqueue(receptionistA.client, ownerA.tenantId, {
       p_channel: "sms",
-      p_template_id: "prescription_ready",
+      p_template_id: "lab_report_uploaded",
     });
     expect(wrongChannel.error).toMatchObject({ code: "P0001", message: "TEMPLATE_NOT_ALLOWED" });
 
@@ -218,9 +223,12 @@ describe("public.enqueue_message (request path)", () => {
     expect(big.error).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
   });
 
-  it("the caller cannot claim a system actor through metadata", async () => {
-    const { data } = await enqueue(receptionistA.client, ownerA.tenantId, { p_metadata: { system_actor: "system:jobs", note: "x" } });
-    expect(psql(`select metadata::text from public.communication_queue where id = '${data!.id}'`)).toEqual(['{"note": "x"}']);
+  it("the caller cannot claim a system actor through metadata (04-07a: any key outside the allow-list is refused)", async () => {
+    const before = rowsFor(patientA.patientId).length;
+    const { data, error } = await enqueue(receptionistA.client, ownerA.tenantId, { p_metadata: { system_actor: "system:jobs" } });
+    expect(data).toBeNull();
+    expect(error).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
+    expect(rowsFor(patientA.patientId)).toHaveLength(before);
   });
 
   it("lib/jobs/enqueue maps a refusal to EnqueueError with a fixed message", async () => {
@@ -228,8 +236,8 @@ describe("public.enqueue_message (request path)", () => {
     const err = await enqueueMessage(ctx, {
       patientId: patientB.patientId,
       channel: "whatsapp",
-      messageType: "prescription_ready",
-      templateId: "prescription_ready",
+      messageType: "lab_report_uploaded",
+      templateId: "lab_report_uploaded",
     }).catch((e) => e);
     expect(err).toBeInstanceOf(EnqueueError);
     expect(err.code).toBe("SUBJECT_MISMATCH");
@@ -239,10 +247,21 @@ describe("public.enqueue_message (request path)", () => {
     const ok = await enqueueMessage(ctx, {
       patientId: patientA.patientId,
       channel: "whatsapp",
-      messageType: "prescription_ready",
-      templateId: "prescription_ready",
+      messageType: "lab_report_uploaded",
+      templateId: "lab_report_uploaded",
     });
     expect(ok).toEqual({ id: expect.any(String), status: "pending", deduped: false });
+
+    // 04-07a M-ROLE: a role without the call site's permission → FORBIDDEN with the fixed message.
+    const forbidden = await enqueueMessage(ctx, {
+      patientId: patientA.patientId,
+      channel: "whatsapp",
+      messageType: "prescription_ready",
+      templateId: "prescription_ready",
+    }).catch((e) => e);
+    expect(forbidden).toBeInstanceOf(EnqueueError);
+    expect(forbidden.appError).toMatchObject({ code: "FORBIDDEN" });
+    expect(forbidden.message).toBe("You do not have permission to send this message.");
   });
 });
 
@@ -347,5 +366,207 @@ describe("communication_queue contract (members only read status columns)", () =
     expect(defs).toHaveLength(8);
     for (const line of defs) expect(line).toMatch(/\|true\|search_path=""/);
     expect(psql("select count(*) from cron.job where jobname = 'delivery-reap' and command = 'select ops.reap_delivery_rows()'")).toEqual(["1"]);
+  });
+});
+
+/**
+ * V2-04 04-07a (review B M-1 / M-2, IND I3; triage M-ROLE, M-DEDUPE): the request path checks the call site's permission
+ * per template, keeps the bot, lifecycle and fallback templates system-only, bounds every caller-chosen field, and puts a
+ * caller's dedupe key in its own namespace. Each case fails on 000040 (the RPC accepted all of them).
+ */
+describe("04-07a: public.enqueue_message permission per template and bounded input (M-ROLE)", () => {
+  let nurseA: SeededTenant;
+  let doctorA: SeededTenant;
+  let adminA: SeededTenant;
+  beforeAll(async () => {
+    nurseA = await addMemberToTenant(ownerA.tenantId, "nurse");
+    doctorA = await addMemberToTenant(ownerA.tenantId, "doctor");
+    adminA = await addMemberToTenant(ownerA.tenantId, "admin");
+  });
+
+  /** The permission each request-path call site asserts before it enqueues (lib/permissions/matrix.ts names). */
+  const REQUEST_TEMPLATE_PERMISSION: Record<string, Permission> = {
+    appointment_booked: "appointments:edit", // features/visits/scheduling-service.ts bookAppointment
+    prescription_ready: "consultations:view", // features/prescriptions/service.ts sharePrescriptionViaWhatsApp
+    lab_report_uploaded: "patients:view", // features/labs/service.ts (document share)
+    referral_letter_issued: "patients:view", // features/referrals/service.ts (referral share)
+    receipt_issued: "billing:view", // features/billing/service.ts (receipt share)
+    consultation_documents: "consultations:view", // features/billing/service.ts (consolidated share)
+  };
+  const ROLES: UserRole[] = ["owner", "admin", "doctor", "receptionist", "nurse"];
+
+  it("ops.message_templates.request_roles is exactly the roles holding each call site's permission; every other template is system-only", () => {
+    const rows = psql(
+      "select template_id || '|' || array_to_string(array(select unnest(request_roles) order by 1), ',') from ops.message_templates order by 1"
+    );
+    const sqlRoles = Object.fromEntries(rows.map((l) => l.split("|") as [string, string]));
+    for (const [template, roles] of Object.entries(sqlRoles)) {
+      const perm = REQUEST_TEMPLATE_PERMISSION[template];
+      const expected = perm ? ROLES.filter((r) => hasPerm(r, perm)).sort().join(",") : "";
+      expect(roles, template).toBe(expected);
+    }
+    expect(Object.keys(REQUEST_TEMPLATE_PERMISSION).every((t) => t in sqlRoles)).toBe(true);
+  });
+
+  it("a role without the template's permission → 42501 FORBIDDEN, no row (receptionist: prescription, receipt; nurse: receipt)", async () => {
+    const before = rowsFor(patientA.patientId).length;
+    for (const [who, template] of [
+      [receptionistA, "prescription_ready"],
+      [receptionistA, "receipt_issued"],
+      [receptionistA, "consultation_documents"],
+      [nurseA, "receipt_issued"],
+      [adminA, "prescription_ready"],
+    ] as const) {
+      const { error } = await enqueue(who.client, ownerA.tenantId, { p_message_type: template, p_template_id: template });
+      expect(error, `${template}`).toMatchObject({ code: "42501", message: "FORBIDDEN" });
+    }
+    expect(rowsFor(patientA.patientId)).toHaveLength(before);
+    // The roles that hold it may.
+    for (const [who, template] of [
+      [nurseA, "prescription_ready"],
+      [doctorA, "consultation_documents"],
+      [adminA, "receipt_issued"],
+      [nurseA, "appointment_booked"],
+    ] as const) {
+      const { error } = await enqueue(who.client, ownerA.tenantId, { p_message_type: template, p_template_id: template });
+      expect(error, `${template}`).toBeNull();
+    }
+  });
+
+  it("bot replies, lifecycle follow-ups and SMS fallbacks are system-only: TEMPLATE_NOT_ALLOWED even for the owner", async () => {
+    const before = rowsFor(patientA.patientId).length;
+    for (const [channel, template, params] of [
+      ["whatsapp", "conversational_triage", { message: "free text http://phish.invalid" }],
+      ["whatsapp", "appointment_confirmed_ack", { message: "x" }],
+      ["whatsapp", "appointment_cancelled_ack", { message: "x" }],
+      ["whatsapp", "appointment_reschedule_link", { message: "x" }],
+      ["whatsapp", "bot_not_found", {}],
+      ["whatsapp", "appointment_cancelled", { patient_name: "Synthetic" }],
+      ["whatsapp", "appointment_rescheduled", { patient_name: "Synthetic" }],
+      ["sms", "appointment_booked_sms_fallback", { patient_name: "Synthetic" }],
+      ["sms", "appointment_rescheduled_sms_fallback", { patient_name: "Synthetic" }],
+    ] as const) {
+      const { error } = await enqueue(ownerA.client, ownerA.tenantId, {
+        p_channel: channel,
+        p_message_type: template,
+        p_template_id: template,
+        p_template_params: params,
+      });
+      expect(error, template).toMatchObject({ code: "P0001", message: "TEMPLATE_NOT_ALLOWED" });
+    }
+    expect(rowsFor(patientA.patientId)).toHaveLength(before);
+  });
+
+  it("params: only the template's declared keys, scalar values of at most 256 characters; message_type is the template", async () => {
+    const before = rowsFor(patientA.patientId).length;
+    for (const over of [
+      { p_template_params: { patient_name: "Synthetic", mobiles: "917000000001" } },
+      { p_template_params: { template_id: "ATTACKER_FLOW" } },
+      { p_template_params: { sender: "EVILID" } },
+      { p_template_params: { short_url: "1" } },
+      { p_template_params: { message: "free text" } },
+      { p_template_params: { patient_name: { nested: true } } },
+      { p_template_params: { patient_name: ["a"] } },
+      { p_template_params: { patient_name: "x".repeat(257) } },
+      { p_message_type: "appointment_reminder" },
+    ]) {
+      const { error } = await enqueue(nurseA.client, ownerA.tenantId, over);
+      expect(error, JSON.stringify(over).slice(0, 80)).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
+    }
+    expect(rowsFor(patientA.patientId)).toHaveLength(before);
+    const ok = await enqueue(nurseA.client, ownerA.tenantId, {
+      p_template_params: { patient_name: "x".repeat(256), clinic_name: "C", document_url: "https://app.example.test/r/x", test_name: 7 },
+    });
+    expect(ok.error).toBeNull();
+  });
+
+  it("metadata: only subject ids and up to three buttons; visit_id must be the message's visit; run_at at most 90 days ahead", async () => {
+    const before = rowsFor(patientA.patientId).length;
+    for (const over of [
+      { p_metadata: { appointment_id: patientA2.visitId } },
+      { p_metadata: { visit_id: patientA2.visitId } },
+      { p_visit_id: patientA.visitId, p_metadata: { visit_id: patientA2.visitId } },
+      { p_metadata: { is_sms_fallback: true } },
+      { p_metadata: { fallback_of: patientA.visitId } },
+      { p_metadata: { document_id: "not-a-uuid" } },
+      { p_metadata: { buttons: [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }] } },
+      { p_metadata: { buttons: [{ id: "a", onclick: "x" }] } },
+      { p_metadata: { buttons: "btn" } },
+      { p_run_at: new Date(Date.now() + 91 * 86_400_000).toISOString() },
+    ]) {
+      const { error } = await enqueue(receptionistA.client, ownerA.tenantId, over);
+      expect(error, JSON.stringify(over).slice(0, 80)).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
+    }
+    expect(rowsFor(patientA.patientId)).toHaveLength(before);
+    const ok = await enqueue(receptionistA.client, ownerA.tenantId, {
+      p_visit_id: patientA.visitId,
+      p_run_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+      p_metadata: {
+        visit_id: patientA.visitId,
+        document_id: patientA.patientId,
+        invoice_id: null,
+        buttons: [{ id: "btn_view", text: "View", url: "https://app.example.test/r/x" }],
+      },
+    });
+    expect(ok.error).toBeNull();
+  });
+});
+
+describe("04-07a: a caller's dedupe key never pre-empts a system key (M-DEDUPE)", () => {
+  let receptionistA2: SeededTenant;
+  beforeAll(async () => {
+    receptionistA2 = await addMemberToTenant(ownerA.tenantId, "receptionist");
+  });
+
+  const systemCancel = (visitId: string, key: string) =>
+    getAdminClient().rpc("enqueue_message_system", {
+      p_system_actor: "system:messaging_webhook",
+      p_patient_id: null,
+      p_visit_id: visitId,
+      p_channel: "whatsapp",
+      p_message_type: "appointment_cancelled",
+      p_template_id: "appointment_cancelled",
+      p_template_params: { patient_name: "Synthetic", reason: "Schedule conflict" },
+      p_recipient_phone: null,
+      p_recipient_user_id: null,
+      p_metadata: {},
+      p_dedupe_key: key,
+    } as never) as unknown as Promise<{ data: { id: string; deduped: boolean } | null; error: { code: string; message: string } | null }>;
+
+  it("a member who queues the real cancellation key first does not suppress the system's cancellation message", async () => {
+    const realKey = `appointment_cancelled:${patientA.visitId}`;
+    const squat = await enqueue(receptionistA.client, ownerA.tenantId, { p_visit_id: patientA.visitId, p_dedupe_key: realKey });
+    expect(squat.error).toBeNull();
+    expect(psql(`select dedupe_key from public.communication_queue where id = '${squat.data!.id}'`)).toEqual([
+      `member:${receptionistA.userId}:${realKey}`,
+    ]);
+
+    const real = await systemCancel(patientA.visitId, realKey);
+    expect(real.error).toBeNull();
+    expect(real.data).toMatchObject({ deduped: false });
+    expect(real.data!.id).not.toBe(squat.data!.id);
+    expect(psql(`select template_id || '|' || dedupe_key from public.communication_queue where id = '${real.data!.id}'`)).toEqual([
+      `appointment_cancelled|${realKey}`,
+    ]);
+    // The same for the SMS fallback key of a queue row.
+    const fallbackKey = `msg-fallback:${real.data!.id}`;
+    const squatFallback = await enqueue(receptionistA.client, ownerA.tenantId, { p_dedupe_key: fallbackKey });
+    expect(squatFallback.data).toMatchObject({ deduped: false });
+    expect(psql(`select count(*) from public.communication_queue where dedupe_key = '${fallbackKey}'`)).toEqual(["0"]);
+  });
+
+  it("two members' equal keys are two rows; the system path refuses the member namespace; a key over 150 characters is refused", async () => {
+    const key = `share:${letters(10)}`;
+    const a = await enqueue(receptionistA.client, ownerA.tenantId, { p_dedupe_key: key });
+    const b = await enqueue(receptionistA2.client, ownerA.tenantId, { p_dedupe_key: key });
+    expect(a.data).toMatchObject({ deduped: false });
+    expect(b.data).toMatchObject({ deduped: false });
+    expect(a.data!.id).not.toBe(b.data!.id);
+
+    const forged = await systemCancel(patientA.visitId, `member:${receptionistA.userId}:${key}`);
+    expect(forged.error).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
+
+    const long = await enqueue(receptionistA.client, ownerA.tenantId, { p_dedupe_key: "k".repeat(151) });
+    expect(long.error).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
   });
 });

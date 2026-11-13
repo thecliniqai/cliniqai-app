@@ -35,7 +35,8 @@ async function enqueue(template = "prescription_ready"): Promise<string> {
     p_channel: "whatsapp",
     p_message_type: template,
     p_template_id: template,
-    p_template_params: { marker: letters(8) },
+    // 04-07a: a declared parameter of the template carries the marker (undeclared keys are refused).
+    p_template_params: { patient_name: letters(8) },
     p_recipient_phone: null as unknown as string,
     p_recipient_user_id: null as unknown as string,
     p_metadata: {},
@@ -56,7 +57,7 @@ function simulateCrash(queueId: string, ageSeconds: number, attempts = 1): void 
 }
 
 function marker(queueId: string): string {
-  return psql(`select template_params ->> 'marker' from public.communication_queue where id = '${queueId}'`)[0];
+  return psql(`select template_params ->> 'patient_name' from public.communication_queue where id = '${queueId}'`)[0];
 }
 
 describe("delivery-row reaper", () => {
@@ -72,13 +73,13 @@ describe("delivery-row reaper", () => {
 
     const provider = recordingProvider();
     await runMessages(provider, `${WORKER}-after`);
-    expect(provider.calls.filter((c) => c.params.marker === mark)).toHaveLength(1);
+    expect(provider.calls.filter((c) => c.params.patient_name === mark)).toHaveLength(1);
     expect(queueState(queueId).status).toBe("sent");
     expect(jobsFor(queueId)).toEqual([expect.objectContaining({ status: "done", attempts: 2 })]);
 
     // Nothing left to reap or send for this row.
     await runMessages(provider, `${WORKER}-again`);
-    expect(provider.calls.filter((c) => c.params.marker === mark)).toHaveLength(1);
+    expect(provider.calls.filter((c) => c.params.patient_name === mark)).toHaveLength(1);
   });
 
   it("a row in processing for less than 240 s is not reaped", async () => {
@@ -89,7 +90,7 @@ describe("delivery-row reaper", () => {
     // While it is held, a runner that re-claims the job does not send; it retries later (delivery_in_progress).
     const provider = recordingProvider();
     await runMessages(provider, `${WORKER}-held`);
-    expect(provider.calls.filter((c) => c.params.marker === marker(queueId))).toHaveLength(0);
+    expect(provider.calls.filter((c) => c.params.patient_name === marker(queueId))).toHaveLength(0);
     expect(jobsFor(queueId)).toEqual([expect.objectContaining({ status: "pending", lastError: "delivery_in_progress" })]);
     expect(jobsFor(queueId)[0].runInSeconds).toBeGreaterThan(50);
   });
@@ -98,7 +99,7 @@ describe("delivery-row reaper", () => {
     const [queueId] = psql(
       "insert into public.communication_queue (tenant_id, patient_id, channel, message_type, template_id, template_params, " +
         `recipient_phone, status, updated_at) values ('${owner.tenantId}', '${patient.patientId}', 'whatsapp', 'prescription_ready', ` +
-        `'prescription_ready', jsonb_build_object('marker', '${letters(8)}'), '${patient.phone}', 'processing', ` +
+        `'prescription_ready', jsonb_build_object('patient_name', '${letters(8)}'), '${patient.phone}', 'processing', ` +
         "now() - interval '10 minutes') returning id"
     );
     expect(jobsFor(queueId)).toHaveLength(0);
@@ -107,7 +108,7 @@ describe("delivery-row reaper", () => {
 
     const provider = recordingProvider();
     await runMessages(provider, `${WORKER}-legacy`);
-    expect(provider.calls.filter((c) => c.params.marker === marker(queueId))).toHaveLength(1);
+    expect(provider.calls.filter((c) => c.params.patient_name === marker(queueId))).toHaveLength(1);
     expect(queueState(queueId).status).toBe("sent");
   });
 

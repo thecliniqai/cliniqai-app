@@ -9,6 +9,7 @@ import { MESSAGING_PROVIDER_TIMEOUT_MS, providerSignal, syntheticRecipientRefusa
 import { errorTag } from "@/lib/errors/error-tag";
 import { WHATSAPP_TEMPLATES } from "../templates";
 import { buildPositionalComponents } from "../templates/mapping";
+import { smsFlowVariables } from "../templates/sms";
 
 /**
  * MSG91 failure classification (V2-04 04-03a, R-20). A 4xx other than 408/429, or a 2xx body that reports an error, is
@@ -82,12 +83,14 @@ export class Msg91Provider implements MessagingProvider {
           "Content-Type": "application/json",
           authkey: this.authKey,
         },
+        // 04-07a H-SMS (review B H-1): the template's variables first, then the fixed control fields, so a queued
+        // row's params can never change the recipient, the Flow template, the sender id or short_url.
         body: JSON.stringify({
+          ...smsFlowVariables(templateId, params),
           template_id: templateId,
           sender: this.senderId,
           short_url: "0",
           mobiles: normalizedPhone,
-          ...params,
         }),
       });
 

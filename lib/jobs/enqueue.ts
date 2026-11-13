@@ -46,7 +46,12 @@ export interface EnqueueMessageInput {
   metadata?: Record<string, unknown>;
   /** Send no earlier than this (the job's `run_at`). */
   runAt?: Date | string | null;
-  /** Business dedupe key: the same key in the same clinic enqueues once (`deduped: true` the second time). */
+  /**
+   * Business dedupe key: the same key in the same clinic enqueues once (`deduped: true` the second time). On the request
+   * path (`enqueueMessage`) the key is the caller's own: SQL stores it as `member:<user id>:<key>` (at most 150
+   * characters given), so it never collides with a system key or another member's (04-07a M-DEDUPE). The system path
+   * refuses keys starting `member:`.
+   */
   dedupeKey?: string | null;
 }
 

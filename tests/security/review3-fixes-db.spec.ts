@@ -5,7 +5,7 @@ import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../he
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
 import { consultationDraftInput } from "../helpers/fixtures";
-import { enqueueMessage } from "@/lib/jobs/enqueue";
+import { enqueueMessage, enqueueMessageAsSystem, EnqueueError } from "@/lib/jobs/enqueue";
 import type { MessagingProvider } from "@/lib/messaging";
 import { makeDue, onlyFor, recordingProvider, runMessages, syntheticMobile } from "../jobs/message-helpers";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/service";
@@ -263,18 +263,35 @@ describe("01-10 review round 3 fixes (000024)", () => {
     });
 
     it("tokens never stay in metadata, even when a caller writes them", async () => {
-      const queued = await enqueueMessage(ctxFor(A.members.receptionist), {
+      const tokenMetadata = { document_id: "doc-1", share_token: "t".repeat(64), invoice_token: "x", share_url: LINK };
+      // V2-04 04-07a (M-ROLE): the request path refuses metadata outside its allow-list, a token key included.
+      const refused = await enqueueMessage(ctxFor(A.members.receptionist), {
         patientId: A.patientId,
         channel: "whatsapp",
         messageType: "lab_report_uploaded",
         templateId: "lab_report_uploaded",
         templateParams: { document_url: LINK },
-        runAt: new Date(Date.now() + 3_600_000),
-        metadata: { document_id: "doc-1", share_token: "t".repeat(64), invoice_token: "x", share_url: LINK },
-      });
+        metadata: tokenMetadata,
+      }).catch((e) => e);
+      expect(refused).toBeInstanceOf(EnqueueError);
+      expect(refused.appError).toMatchObject({ code: "VALIDATION_FAILED", reason: "INPUT_INVALID" });
+      // On the system path the 000024 trigger strips the token keys.
+      const queued = await enqueueMessageAsSystem(
+        admin,
+        {
+          patientId: A.patientId,
+          channel: "whatsapp",
+          messageType: "lab_report_uploaded",
+          templateId: "lab_report_uploaded",
+          templateParams: { document_url: LINK },
+          runAt: new Date(Date.now() + 3_600_000),
+          metadata: tokenMetadata,
+        },
+        "system:jobs"
+      );
       expect(queued.status).toBe("pending");
       const row = await queueRow(queued.id);
-      expect(row.metadata).toEqual({ document_id: "doc-1", share_url: LINK });
+      expect(row.metadata).toEqual({ document_id: "doc-1", share_url: LINK, system_actor: "system:jobs" });
       // Not final yet: the link the provider needs is still there for the sender.
       expect(row.template_params.document_url).toBe(LINK);
     });
@@ -285,7 +302,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
         channel: "whatsapp",
         messageType: "lab_report_uploaded",
         templateId: "lab_report_uploaded",
-        templateParams: { document_url: LINK, marker: "scrub" },
+        templateParams: { document_url: LINK, patient_name: "scrub" },
         metadata: { buttons: [{ id: "b", text: "View", url: LINK }] },
       });
       expect((await queueRow(queued.id)).status).toBe("pending");

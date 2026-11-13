@@ -103,6 +103,57 @@ describe("MSG91 request shape", () => {
     });
   });
 
+  // V2-04 04-07a (review B H-1, triage H-SMS): before, `...params` was spread after the control fields, so a queued row's
+  // params replaced the recipient, the Flow template and the sender id. The request now never changes.
+  it.each([
+    ["an undeclared template", "flow_template_1"],
+    ["a declared SMS fallback", "appointment_booked_sms_fallback"],
+  ])("SMS (%s): params named mobiles / template_id / sender / short_url (any case) never change the request", async (_label, template) => {
+    server.use(capture(FLOW, () => HttpResponse.json({ type: "success", request_id: "flow-req-2" })));
+    const hostile = {
+      patient_name: "Synthetic",
+      mobiles: "917000000001,917000000002",
+      template_id: "ATTACKER_FLOW",
+      sender: "EVILID",
+      short_url: "1",
+      MOBILES: "917000000003",
+      Template_Id: "ATTACKER_FLOW_2",
+      recipients: "[]",
+      authkey: "stolen",
+    };
+    const result = await provider().sendSms(TO, template, hostile);
+    expect(result).toMatchObject({ success: true, channelUsed: "sms" });
+    expect(captured).toHaveLength(1);
+    expect(captured[0].body).toEqual({
+      template_id: template,
+      sender: "synthetic-sender",
+      short_url: "0",
+      mobiles: TO_DIGITS,
+      patient_name: "Synthetic",
+    });
+    expect(captured[0].authkey).toBe(AUTH);
+  });
+
+  it("SMS with a declared template sends only its declared variables", async () => {
+    server.use(capture(FLOW, () => HttpResponse.json({ type: "success", request_id: "flow-req-3" })));
+    await provider().sendSms(TO, "appointment_rescheduled_sms_fallback", {
+      patient_name: "Synthetic",
+      new_date_time: "20 Nov 2026, 10:30 am",
+      clinic_name: "Clinic",
+      document_url: "https://phish.invalid/x",
+      message: "free text",
+    });
+    expect(captured[0].body).toEqual({
+      template_id: "appointment_rescheduled_sms_fallback",
+      sender: "synthetic-sender",
+      short_url: "0",
+      mobiles: TO_DIGITS,
+      patient_name: "Synthetic",
+      new_date_time: "20 Nov 2026, 10:30 am",
+      clinic_name: "Clinic",
+    });
+  });
+
   it("a catalogue WhatsApp template goes to the bulk endpoint with name, language and positional components", async () => {
     server.use(capture(BULK, () => HttpResponse.json({ status: "success", request_id: "bulk-req-1" })));
     const params = {
