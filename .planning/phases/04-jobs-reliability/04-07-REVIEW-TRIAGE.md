@@ -82,3 +82,11 @@ Source: `reviews/v204-review-n1b-n2b-recheck.md` (isolated adversarial re-checke
 | ID | Source | Decision | Plan |
 |---|---|---|---|
 | I-1 (Info) | re-check, N-2b record | Fixed: the 04-07e record no longer says a login event trigger needs superuser (the local non-superuser `postgres` created one); `sql-guard.ts` refuses `CREATE EVENT TRIGGER … ON login` (`evidence/04-07e/i1-negative-proof.txt`) | 04-07e close |
+
+## Assigned after close (CTO, 2026-11-14)
+
+| Item | Owner |
+|---|---|
+| IND L1 reschedule webhook key A→B→A suppresses the return event | V2-12 |
+| IND L5 `dead_letter` counts transient `outcome_unknown` webhook rows; backlog rules count unregistered `drill.*` kinds | V2-14 |
+| IND L6 test teardown re-activates every inactive cron job (04-02 D7) | V2-05 test harness |

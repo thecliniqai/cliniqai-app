@@ -527,7 +527,7 @@ See `milestones/v1.0-ROADMAP.md`.
 | 01 | V2-01 | G3-partial | Complete, merged (PR #3, 2026-11-12) |
 | 02 | V2-02 | G3-partial | Complete, merged (PR #4, 2026-11-12) |
 | 03 | V2-03 | G3-partial | Complete, merged (PR #5, 2026-11-13). 15 plans + review-fix plans 03-13a–e; 4 High review findings fixed and re-verified; staging live at staging.thecliniqai.com (Mumbai), migrated and seeded |
-| 04 | V2-04 | G3-partial | In progress (PR #6, draft). Done: 04-00, 04-00b, 04-01, 04-02, 04-05a, 04-03a. In progress: 04-03b (webhooks). Remaining: 04-03c, 04-04, 04-06, reviews, close |
+| 04 | V2-04 | G3-partial | Complete, ready for PO gate (PR #6). 11 plans + review fixes 04-07a–e; 1 High and 12 Mediums fixed and re-verified; 4399 tests ×2, e2e 196, 0 retried |
 | 05 | V2-05 | G3 (may be split at plan time into 05a role RLS and integrity, plans 05-01…05-04, 05-06, 05-08; and 05b membership, invites and entitlements, plans 05-05, 05-07, 05-09, 05-10) | Planned (research + plan written, split 05a/05b); not started |
 | 06 | V2-06 | G3 | Planned (research + plan written); visual plans wait for G2-D; starts after V2-05 |
 | 07 | V2-07 | G4 | Not started |
@@ -544,4 +544,4 @@ See `milestones/v1.0-ROADMAP.md`.
 | 14 | V2-14 | G5 | Not started |
 | 15 | V2-15 | G6 (UAT start) | Not started |
 | 16 | V2-16 | G7 (paid launch) | Not started |
-| DX (parallel) | V2-DX | G2-D | In progress (PR #7, draft); round 3 underway after PO feedback; G2-D sign-off pending |
+| DX (parallel) | V2-DX | G2-D | Signed off 2026-11-13/14 (PR #7): CliniQ AI brand theme (Claude Design) + Inter/Manrope; ready to merge |

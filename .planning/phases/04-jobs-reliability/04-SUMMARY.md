@@ -158,7 +158,7 @@ Triage (`04-07-REVIEW-TRIAGE.md`):
   environment (runbook); `service_role` reads `vault.decrypted_secrets` (platform default) → V2-14 review; jobs of an
   unknown kind never claimed → covered by `queue_oldest_due` (04-07b); L-B member free text inside permitted template
   values → V2-12; settings changed by server-side code invisible to the guard → restricted psql (accepted residual).
-- **Open, no triage row (for the PO to assign; proposed owners):** IND L1 (reschedule webhook key `A → B → A`
+- **Assigned by the CTO (PO delegation, 2026-11-14):** IND L1 (reschedule webhook key `A → B → A`
   suppresses the return event) → V2-12; IND L5 (`dead_letter` counts transient `outcome_unknown` webhook rows;
   backlog rules count unregistered `drill.*` kinds) → V2-14; IND L6 (test teardown re-activates every inactive cron job,
   04-02 D7 by design) → V2-05 test harness; the Info items of IND and C (`I1…I5`, `I-1…I-7`) are observations with no
