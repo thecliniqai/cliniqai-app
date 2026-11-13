@@ -5,11 +5,13 @@ import {
   type AppointmentSystemContext,
 } from "@/features/appointments/system";
 import { getSystemDb } from "@/lib/supabase/system";
-import { sendDirectWhatsApp } from "@/lib/messaging";
+import { enqueueMessageAsSystem, enqueueUnmatchedReplyAsSystem } from "@/lib/jobs/enqueue";
 import { toIndianMobileE164FromInternational, toIndianMobileE164Strict } from "@/lib/utils/phone";
 import {
-  verifyMsg91WebhookSecret,
+  inboundDedupeKey,
   parseMsg91Payload,
+  verifyMsg91WebhookSecret,
+  type Msg91WebhookEvent,
 } from "@/lib/messaging/webhook-helpers";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -18,11 +20,24 @@ import { getRequestId } from "@/lib/log/request-id";
  * Inbound messaging webhook (P0-03). Only `msg91` exists: every other provider value (dev, twilio, gupshup, unknown)
  * and every method other than POST answers 404 with an empty body (default deny, D5/D6). A missing or wrong
  * `x-webhook-secret` header answers 401 before any database access. Responses never carry ids, tokens or URLs.
+ *
+ * V2-04 04-03c (P0-12; R-25; T-04-08):
+ * - Exactly-once effect: after the secret check the callback's key (`inboundDedupeKey`: `dlr:<requestId>:<status>`, or
+ *   the inbound message's id / a hash of the raw body) is claimed with `inbound_webhook_begin('msg91', key)`. A provider
+ *   retry of a callback that finished, or one arriving while another instance processes it, answers 200 with no side
+ *   effect. An exception marks the key `failed` and answers 500, so MSG91 retries; a retry is safe because every
+ *   effect is status-guarded or deduplicated (visit updates filter on status, replies carry `bot:<key>:<template>`).
+ * - Delivery reports go through `communication_queue_apply_dlr` (monotonic status + audit row in one transaction).
+ * - No bot reply is sent here: replies are queued (`enqueueMessageAsSystem`, visible in the communication log, or
+ *   `enqueueUnmatchedReplyAsSystem` for a sender no patient matches) and the job runner sends them.
  */
 const ACCEPTED_PROVIDER = "msg91";
 
 const OK = () => NextResponse.json({ ok: true }, { status: 200 });
 const notFound = () => new NextResponse(null, { status: 404 });
+
+type SystemDb = AppointmentSystemContext["db"];
+type Outcome = "processed" | "ignored";
 
 async function handleMsg91Webhook(req: NextRequest) {
   if (!verifyMsg91WebhookSecret(req.headers)) {
@@ -31,166 +46,102 @@ async function handleMsg91Webhook(req: NextRequest) {
 
   const rawBody = await req.text();
   const event = parseMsg91Payload(rawBody);
+  if (event.type === "inbound" && !event.from) {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+  const key = inboundDedupeKey(event, rawBody);
+  // A delivery report without a request id, or with a status nothing acts on, has no effect to protect.
+  if (!key) return OK();
+
   // Allow-listed system path (ADR-0005 D2): opened only after the secret check above.
-  const supabase: AppointmentSystemContext["db"] = getSystemDb("webhook.messaging_inbound");
-  const nowIso = new Date().toISOString();
+  const supabase: SystemDb = getSystemDb("webhook.messaging_inbound");
+  const requestId = await getRequestId();
 
-  // Branch A: Delivery Reports (DLR) (Decision D-06, Peer Review Findings 3, 4, 6)
-  if (event.type === "dlr") {
-    const requestId = event.requestId;
-    if (!requestId) {
-      return OK();
-    }
-
-    const { data: queueItem } = await supabase
-      .from("communication_queue")
-      .select("*")
-      .eq("external_message_id", requestId)
-      .maybeSingle();
-
-    if (!queueItem) {
-      return OK();
-    }
-
-    // Handle Delivered status
-    if (event.status === "delivered") {
-      // Monotonic progression: do not downgrade if already 'read'
-      const targetStatus = queueItem.status === "read" ? "read" : "delivered";
-      await supabase
-        .from("communication_queue")
-        .update({
-          status: targetStatus,
-          metadata: {
-            ...(queueItem.metadata || {}),
-            delivered_at: event.deliveredAt || nowIso,
-          },
-          updated_at: nowIso,
-        })
-        .eq("id", queueItem.id);
-
-      await supabase.from("audit_logs").insert({
-        tenant_id: queueItem.tenant_id,
-        actor_id: null,
-        actor_role: "system",
-        action: "communication_dlr_delivered",
-        entity_type: "communication_queue",
-        entity_id: queueItem.id,
-        occurred_at: nowIso,
-        metadata: {
-          requestId,
-          status: targetStatus,
-          delivered_at: event.deliveredAt || nowIso,
-          // No recipient phone (personal data) in the audit trail (01-10).
-          queue_id: queueItem.id,
-          message_type: queueItem.message_type,
-        },
-      });
-
-      return OK();
-    }
-
-    // Handle Read status
-    if (event.status === "read") {
-      await supabase
-        .from("communication_queue")
-        .update({
-          status: "read",
-          metadata: {
-            ...(queueItem.metadata || {}),
-            read_at: event.readAt || nowIso,
-          },
-          updated_at: nowIso,
-        })
-        .eq("id", queueItem.id);
-
-      await supabase.from("audit_logs").insert({
-        tenant_id: queueItem.tenant_id,
-        actor_id: null,
-        actor_role: "system",
-        action: "communication_dlr_read",
-        entity_type: "communication_queue",
-        entity_id: queueItem.id,
-        occurred_at: nowIso,
-        metadata: {
-          requestId,
-          status: "read",
-          read_at: event.readAt || nowIso,
-          queue_id: queueItem.id,
-          message_type: queueItem.message_type,
-        },
-      });
-
-      return OK();
-    }
-
-    // Handle Failed status (Peer Review Finding 3: Dead-letter prevents infinite retry loops)
-    if (event.status === "failed") {
-      await supabase
-        .from("communication_queue")
-        .update({
-          // next_retry_at is NOT NULL and is left as is: dead_letter is terminal and never claimed again
-          // (communication_queue_claim takes only pending/failed rows), the same as the dispatcher's dead_letter.
-          status: "dead_letter",
-          error_message: event.reason || "Delivery failed",
-          metadata: {
-            ...(queueItem.metadata || {}),
-            failed_at: nowIso,
-            failure_reason: event.reason || "Delivery failed",
-          },
-          updated_at: nowIso,
-        })
-        .eq("id", queueItem.id);
-
-      await supabase.from("audit_logs").insert({
-        tenant_id: queueItem.tenant_id,
-        actor_id: null,
-        actor_role: "system",
-        action: "communication_dlr_failed",
-        entity_type: "communication_queue",
-        entity_id: queueItem.id,
-        occurred_at: nowIso,
-        metadata: {
-          requestId,
-          reason: event.reason || "Delivery failed",
-          status: "dead_letter",
-          queue_id: queueItem.id,
-          message_type: queueItem.message_type,
-        },
-      });
-
-      // Urgent notification alert to receptionist (Peer Review Finding 4: category: 'system')
-      const urgentMessageTypes = [
-        "appointment_booked",
-        "appointment_rescheduled",
-        "appointment_reminder",
-      ];
-      if (urgentMessageTypes.includes(queueItem.message_type)) {
-        await supabase.from("in_app_notifications").insert({
-          tenant_id: queueItem.tenant_id,
-          recipient_role: "receptionist",
-          category: "system", // Constraint check: ('clinical', 'queue', 'billing', 'system')
-          event_type: "whatsapp_delivery_failed",
-          title: "WhatsApp Delivery Failed",
-          message: `Failed to deliver notification to patient (${queueItem.recipient_phone}). Reason: ${event.reason || "Unreachable"}`,
-          link_url: "/calendar",
-        });
-      }
-
-      return OK();
-    }
-
+  const { data: claim, error: beginError } = await supabase.rpc("inbound_webhook_begin", {
+    p_provider: "msg91",
+    p_dedupe_key: key,
+  });
+  if (beginError) {
+    log.error({ event: "messaging.inbound.dedupe_failed", code: errorTag(beginError), requestId });
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+  if (claim !== "process") {
+    log.info({ event: "messaging.inbound.duplicate", reason: claim === "in_flight" ? "in_flight" : "key_seen", requestId });
     return OK();
   }
 
-  // Branch B: Inbound customer interaction
-  return handleInboundAction({
-    from: event.from,
-    body: event.body,
-    action: event.action,
-    replyMsgId: event.replyMsgId,
-    supabase,
-    nowIso,
+  try {
+    const outcome = event.type === "dlr" ? await applyDeliveryReport(supabase, event) : await handleInboundAction(supabase, event, key);
+    await finish(supabase, key, outcome);
+    return OK();
+  } catch (err) {
+    log.error({ event: "messaging.inbound.failed", code: errorTag(err), requestId });
+    try {
+      await finish(supabase, key, "failed");
+    } catch (finishErr) {
+      // The key stays unfinished: the next delivery reprocesses it after 5 minutes.
+      log.error({ event: "messaging.inbound.finish_failed", code: errorTag(finishErr), requestId });
+    }
+    return NextResponse.json({ ok: false }, { status: 500 });
+  }
+}
+
+async function finish(supabase: SystemDb, key: string, outcome: Outcome | "failed") {
+  const { error } = await supabase.rpc("inbound_webhook_finish", {
+    p_provider: "msg91",
+    p_dedupe_key: key,
+    p_outcome: outcome,
   });
+  if (error) throw error;
+}
+
+const URGENT_MESSAGE_TYPES = ["appointment_booked", "appointment_rescheduled", "appointment_reminder"];
+const REASON_CODE = /^[A-Za-z0-9_.:-]{1,64}$/;
+
+/**
+ * Branch A: delivery reports (Decision D-06, Peer Review Findings 3, 4, 6). One RPC applies the monotonic transition
+ * and its audit row; a report that changes nothing (unknown id, a repeat, `delivered` after `read`, `failed` after
+ * `delivered`) is `ignored`. The urgent-failure note is written only when a `failed` report was applied.
+ */
+async function applyDeliveryReport(
+  supabase: SystemDb,
+  event: Extract<Msg91WebhookEvent, { type: "dlr" }>
+): Promise<Outcome> {
+  const status = event.status as "delivered" | "read" | "failed";
+  const at = status === "delivered" ? event.deliveredAt : status === "read" ? event.readAt : undefined;
+  const atMs = at ? Date.parse(at) : Number.NaN;
+  const { data, error } = await supabase.rpc("communication_queue_apply_dlr", {
+    p_external_message_id: event.requestId,
+    p_status: status,
+    p_at: Number.isFinite(atMs) ? new Date(atMs).toISOString() : (null as unknown as string),
+    // The provider's reason is stored only when it is a machine code (error_message holds codes, never free text).
+    p_reason_code: event.reason && REASON_CODE.test(event.reason) ? event.reason : (null as unknown as string),
+  });
+  if (error) throw error;
+  const applied = (data ?? {}) as {
+    applied?: boolean;
+    tenant_id?: string;
+    message_type?: string;
+    recipient_phone?: string | null;
+  };
+  if (!applied.applied) return "ignored";
+
+  // Urgent notification alert to receptionist (Peer Review Finding 4: category: 'system'). Copy unchanged; the phone in
+  // it stays flagged for V2-12 (P1-13).
+  if (status === "failed" && applied.tenant_id && URGENT_MESSAGE_TYPES.includes(applied.message_type ?? "")) {
+    const { error: noteError } = await supabase.from("in_app_notifications").insert({
+      tenant_id: applied.tenant_id,
+      recipient_role: "receptionist",
+      category: "system", // Constraint check: ('clinical', 'queue', 'billing', 'system')
+      event_type: "whatsapp_delivery_failed",
+      title: "WhatsApp Delivery Failed",
+      message: `Failed to deliver notification to patient (${applied.recipient_phone}). Reason: ${event.reason || "Unreachable"}`,
+      link_url: "/calendar",
+    });
+    // Not retried (the transition is applied; a retry would see a repeat): logged.
+    if (noteError) log.warn({ event: "messaging.dlr_note.failed", code: errorTag(noteError) });
+  }
+  return "processed";
 }
 
 /**
@@ -246,61 +197,93 @@ function isPatientActionable(status: string | null | undefined): boolean {
   return (PATIENT_ACTIONABLE_STATUSES as readonly string[]).includes(status ?? "");
 }
 
+type BotReplyTemplate =
+  | "appointment_confirmed_ack"
+  | "appointment_cancelled_ack"
+  | "appointment_reschedule_link"
+  | "conversational_triage";
+
 /**
- * Shared Inbound Action Handler for Two-Way WhatsApp Bot Interactions.
- * Enforces tenant-scoped message correlation (Finding 5), button-gated slot release (D-04),
- * and conversational auto-triage (D-05).
+ * Queues one bot reply to the number the message was sent to (AR-L1) through the system enqueue RPC (R-25: it appears
+ * in the communication log; the runner sends it). `bot:<key>:<template>` makes a reprocessed callback queue it once.
+ * Best effort, as the direct send was: the state change already stands and a retry could not re-run it.
  */
-async function handleInboundAction({
-  from,
-  body,
-  action,
-  replyMsgId,
-  supabase,
-  nowIso,
-}: {
-  from: string;
-  body: string;
-  action: "confirm" | "cancel" | "reschedule" | "unhandled";
-  replyMsgId?: string;
-  supabase: any;
-  nowIso: string;
-}) {
-  if (!from) {
-    return NextResponse.json({ ok: false }, { status: 400 });
+async function queueReply(
+  supabase: SystemDb,
+  key: string,
+  appointment: { id: string; patient_id: string },
+  replyTo: string,
+  templateId: BotReplyTemplate,
+  templateParams: Record<string, string>
+) {
+  try {
+    await enqueueMessageAsSystem(
+      supabase,
+      {
+        patientId: appointment.patient_id,
+        visitId: appointment.id,
+        channel: "whatsapp",
+        messageType: templateId,
+        templateId,
+        templateParams,
+        recipientPhone: replyTo,
+        dedupeKey: `bot:${key}:${templateId}`,
+      },
+      "system:messaging_webhook"
+    );
+  } catch (err) {
+    log.error({ event: "messaging.inbound_reply.enqueue_failed", code: errorTag(err), requestId: await getRequestId() });
   }
+}
+
+/**
+ * Branch B: two-way WhatsApp bot interactions (D-04, D-05, Finding 5): tenant-scoped message correlation,
+ * button-gated slot release and conversational auto-triage. State changes are status-guarded, so a reprocessed
+ * callback changes nothing twice; replies are queued, never sent here.
+ */
+async function handleInboundAction(
+  supabase: SystemDb,
+  event: Extract<Msg91WebhookEvent, { type: "inbound" }>,
+  key: string
+): Promise<Outcome> {
+  const { from, body, action, replyMsgId } = event;
+  const nowIso = new Date().toISOString();
   const sys: AppointmentSystemContext = { db: supabase, reason: "messaging_webhook" };
 
   // 1. Resolve the appointment strictly via replyMsgId message correlation, from the number it was sent to (AR-L1)
   const resolved = await resolveAppointmentByReply(supabase, replyMsgId, from);
 
-  // 2. Unmatched appointment handling
+  // 2. Unmatched sender: one queued "not found" reply (R-25: a tenant-less job whose phone is erased when it finishes).
+  // Only an Indian mobile in E.164 gets one (T-04-16); any other sender gets nothing.
   if (!resolved) {
+    const to = toIndianMobileE164FromInternational(from);
+    if (!to) return "ignored";
     try {
-      await sendDirectWhatsApp(from, "bot_not_found", {
-        message:
-          "We could not find an upcoming scheduled appointment for this phone number. For assistance, please call the clinic directly.",
+      await enqueueUnmatchedReplyAsSystem(supabase, {
+        to,
+        templateId: "bot_not_found",
+        dedupeKey: `bot:${key}:bot_not_found`,
       });
     } catch (err) {
       log.error({ event: "messaging.inbound_bot_not_found.failed", code: errorTag(err), requestId: await getRequestId() });
     }
-
-    return OK();
+    return "processed";
   }
 
   const appointment: any = resolved.visit;
   // Replies (including the reschedule link) go only to the stored number the message was sent to (AR-L1).
   const replyTo = resolved.recipientPhone;
+  const patientName = appointment.patient?.full_name || "Patient";
 
   // 3. Action: [Confirm] Flow (D-04). Only a 'booked' visit becomes 'confirmed' (AR-L1): a late "yes" must not pull a
   // waiting or in-consultation patient out of the queue. An already confirmed visit just gets the acknowledgement.
   if (action === "confirm") {
     if (!isPatientActionable(appointment.status)) {
-      return OK();
+      return "ignored";
     }
 
     if (appointment.status === "booked") {
-      await supabase
+      const { data: confirmed, error: confirmError } = await supabase
         .from("visits")
         .update({
           status: "confirmed",
@@ -313,34 +296,31 @@ async function handleInboundAction({
           updated_at: nowIso,
         })
         .eq("id", appointment.id)
-        .eq("status", "booked");
+        .eq("status", "booked")
+        .select("id");
+      if (confirmError) throw confirmError;
 
-      await supabase.from("audit_logs").insert({
-        tenant_id: appointment.tenant_id,
-        actor_id: null,
-        actor_role: "patient",
-        action: "appointment_confirmed_whatsapp",
-        entity_type: "visits",
-        entity_id: appointment.id,
-        occurred_at: nowIso,
-        metadata: { appointment_id: appointment.id },
-      });
+      // Audited only by the call that changed the visit (a concurrent or repeated confirm changes nothing).
+      if ((confirmed ?? []).length > 0) {
+        const { error: auditError } = await supabase.from("audit_logs").insert({
+          tenant_id: appointment.tenant_id,
+          actor_id: null,
+          actor_role: "patient",
+          action: "appointment_confirmed_whatsapp",
+          entity_type: "visits",
+          entity_id: appointment.id,
+          occurred_at: nowIso,
+          metadata: { appointment_id: appointment.id },
+        });
+        if (auditError) log.warn({ event: "messaging.inbound_confirm_audit.failed", code: errorTag(auditError) });
+      }
     }
 
-    try {
-      await sendDirectWhatsApp(
-        replyTo,
-        "appointment_confirmed_ack",
-        {
-          patient_name: appointment.patient?.full_name || "Patient",
-          message: `Thank you! Your appointment has been confirmed. We look forward to seeing you.`,
-        }
-      );
-    } catch (err) {
-      log.error({ event: "messaging.inbound_confirm_ack.failed", code: errorTag(err), requestId: await getRequestId() });
-    }
-
-    return OK();
+    await queueReply(supabase, key, appointment, replyTo, "appointment_confirmed_ack", {
+      patient_name: patientName,
+      message: `Thank you! Your appointment has been confirmed. We look forward to seeing you.`,
+    });
+    return "processed";
   }
 
   // 4. Action: [Cancel] Flow with Immediate Calendar Slot Release (D-04, Finding 5)
@@ -349,7 +329,7 @@ async function handleInboundAction({
   // already waiting or with the doctor changes nothing.
   if (action === "cancel") {
     if (!isPatientActionable(appointment.status)) {
-      return OK();
+      return "ignored";
     }
     try {
       await cancelAppointment(sys, {
@@ -360,10 +340,10 @@ async function handleInboundAction({
       });
     } catch (err) {
       log.warn({ event: "messaging.inbound_cancel.failed", code: errorTag(err), requestId: await getRequestId() });
-      return OK();
+      return "ignored";
     }
 
-    await supabase.from("audit_logs").insert({
+    const { error: auditError } = await supabase.from("audit_logs").insert({
       tenant_id: appointment.tenant_id,
       actor_id: null,
       actor_role: "patient",
@@ -373,22 +353,13 @@ async function handleInboundAction({
       occurred_at: nowIso,
       metadata: { appointment_id: appointment.id },
     });
+    if (auditError) log.warn({ event: "messaging.inbound_cancel_audit.failed", code: errorTag(auditError) });
 
-    try {
-      await sendDirectWhatsApp(
-        replyTo,
-        "appointment_cancelled_ack",
-        {
-          patient_name: appointment.patient?.full_name || "Patient",
-          message:
-            "Your appointment has been cancelled. If you would like to book again in the future, please contact us.",
-        }
-      );
-    } catch (err) {
-      log.error({ event: "messaging.inbound_cancel_ack.failed", code: errorTag(err), requestId: await getRequestId() });
-    }
-
-    return OK();
+    await queueReply(supabase, key, appointment, replyTo, "appointment_cancelled_ack", {
+      patient_name: patientName,
+      message: "Your appointment has been cancelled. If you would like to book again in the future, please contact us.",
+    });
+    return "processed";
   }
 
   // 5. Action: [Reschedule] Flow (D-04)
@@ -405,7 +376,7 @@ async function handleInboundAction({
     }
 
     // Front-desk alert
-    await supabase.from("in_app_notifications").insert({
+    const { error: noteError } = await supabase.from("in_app_notifications").insert({
       tenant_id: appointment.tenant_id,
       recipient_role: "receptionist",
       category: "system", // Constraint check: ('clinical', 'queue', 'billing', 'system')
@@ -414,27 +385,19 @@ async function handleInboundAction({
       message: `Patient ${appointment.patient?.full_name || from} requested to reschedule via WhatsApp.`,
       link_url: `/calendar`,
     });
+    if (noteError) log.warn({ event: "messaging.inbound_reschedule_note.failed", code: errorTag(noteError) });
 
-    try {
-      if (rescheduleUrl) {
-        await sendDirectWhatsApp(
-          replyTo,
-          "appointment_reschedule_link",
-          {
-            patient_name: appointment.patient?.full_name || "Patient",
-            message: `To pick a new appointment time that works best for you, please tap this link: ${rescheduleUrl}`,
-          }
-        );
-      }
-    } catch (err) {
-      log.error({ event: "messaging.inbound_reschedule_link.failed", code: errorTag(err), requestId: await getRequestId() });
+    if (rescheduleUrl) {
+      await queueReply(supabase, key, appointment, replyTo, "appointment_reschedule_link", {
+        patient_name: patientName,
+        message: `To pick a new appointment time that works best for you, please tap this link: ${rescheduleUrl}`,
+      });
     }
-
-    return OK();
+    return "processed";
   }
 
   // 6. Action: Unhandled / Conversational Auto-Triage (D-05, Event #18)
-  await supabase.from("in_app_notifications").insert({
+  const { error: triageError } = await supabase.from("in_app_notifications").insert({
     tenant_id: appointment.tenant_id,
     recipient_role: "receptionist",
     category: "system", // Constraint check: ('clinical', 'queue', 'billing', 'system')
@@ -443,21 +406,13 @@ async function handleInboundAction({
     message: `Patient message: "${body}"`,
     link_url: `/patients/${appointment.patient_id}`,
   });
+  if (triageError) throw triageError;
 
-  try {
-    await sendDirectWhatsApp(
-      replyTo,
-      "conversational_triage",
-      {
-        message:
-          "Thank you for contacting us. We have received your message and our reception desk will assist you shortly. For urgent care, please call the clinic directly.",
-      }
-    );
-  } catch (err) {
-    log.error({ event: "messaging.inbound_triage.failed", code: errorTag(err), requestId: await getRequestId() });
-  }
-
-  return OK();
+  await queueReply(supabase, key, appointment, replyTo, "conversational_triage", {
+    message:
+      "Thank you for contacting us. We have received your message and our reception desk will assist you shortly. For urgent care, please call the clinic directly.",
+  });
+  return "processed";
 }
 
 export async function POST(

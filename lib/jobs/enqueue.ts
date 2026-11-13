@@ -19,6 +19,10 @@
  * written with the event key `<event>:<subject>` and the row's trigger creates its `webhook.deliver` job. The test ping
  * is `enqueueWebhookEvent(ctx, "ping", subscriptionId)` (owner/admin, 5 per clinic per minute).
  *
+ * Bot replies of the inbound messaging webhook (04-03c; R-25): a matched sender's reply is an ordinary
+ * `enqueueMessageAsSystem(db, …, "system:messaging_webhook")` (it appears in the communication log);
+ * `enqueueUnmatchedReplyAsSystem(db, …)` queues the reply to a sender no patient matches.
+ *
  * No provider import, no deliverer import, no system factory import (ESLint P1-34 and P0-12 zones). Errors are thrown
  * as {@link EnqueueError}: a fixed message, the mapped {@link AppError} and a code-shaped `code` for `errorTag`.
  */
@@ -197,4 +201,33 @@ export async function enqueueWebhookEventAsSystem(
     p_event_type: eventType,
     p_subject_id: subjectId,
   });
+}
+
+/** The bot reply templates an unmatched sender may receive (`ops.message_templates.unmatched_ok`, migration 000035). */
+export type UnmatchedReplyTemplate = "bot_not_found";
+
+export interface UnmatchedReplyInput {
+  /** The sender's number as an Indian mobile in E.164 (`+91…`); anything else is refused (RECIPIENT_NOT_ALLOWED). */
+  to: string;
+  templateId: UnmatchedReplyTemplate;
+  /** The same key queues one reply (the job dedupe key). */
+  dedupeKey: string;
+}
+
+/**
+ * V2-04 04-03c (R-25): queues the bot reply to an inbound sender no patient matches, on the system path
+ * (`public.enqueue_unmatched_reply_system`, service role only, actor `system:messaging_webhook`). It is a tenant-less
+ * `message.reply_unmatched` job `{ to, template_id }` with no delivery row; the database erases its phone when the job
+ * finishes. Returns the job id (the existing one for a repeated key).
+ */
+export async function enqueueUnmatchedReplyAsSystem(db: AnyDb, input: UnmatchedReplyInput): Promise<{ jobId: string }> {
+  const { data, error } = await db.rpc("enqueue_unmatched_reply_system", {
+    p_system_actor: "system:messaging_webhook",
+    p_to: input.to,
+    p_template_id: input.templateId,
+    p_dedupe_key: input.dedupeKey,
+  });
+  if (error) throw new EnqueueError(mapDbError(error as DbErrorLike, MESSAGES));
+  if (typeof data !== "string") throw new EnqueueError(mapDbError(null, MESSAGES));
+  return { jobId: data };
 }

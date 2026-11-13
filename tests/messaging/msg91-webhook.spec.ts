@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from "vitest";
 import { POST } from "@/app/api/webhooks/messaging/[provider]/route";
 import {
+  inboundDedupeKey,
   verifyMsg91WebhookSecret,
   parseInboundAction,
   parseMsg91Payload,
@@ -9,19 +10,38 @@ import * as appointmentsActions from "@/features/appointments/system";
 import * as systemDb from "@/lib/supabase/system";
 import * as messagingModule from "@/lib/messaging";
 import { NextRequest } from "next/server";
+import { getAdminClient } from "../helpers/supabase-admin";
+import {
+  auditCount,
+  botReplies,
+  buttonReply,
+  deleteInboundEvents,
+  keyFor,
+  messageJobCount,
+  postMsg91,
+  seedConversation,
+  seedSentMessage,
+  senderOf,
+  useWebhookSecret,
+  visitStatus,
+} from "./inbound-helpers";
 
-// Unit-level (mocked DB) coverage of the MSG91 webhook. The DB-backed P0-03 regression suite (cross-tenant replies,
-// filter injection, 404/401 with no DB access) lives in tests/security/webhook-lockdown.spec.ts.
+// MSG91 webhook (REQ-reminders-notifications, D-04, D-05, D-06). Section 1 (secret) and section 6 (parsers) are pure
+// unit tests. V2-04 04-03c (P0-12, R-25): sections 2-5 run against the local stack through the real route, because the
+// route now claims each callback in the inbound dedupe store, applies delivery reports in one RPC and QUEUES every bot
+// reply (`communication_queue` rows with a `message.send` job) instead of sending it: the assertions read the rows
+// back and the provider factory is never called by a request (before 04-03c: `sendDirectWhatsApp` spies). The DB-backed
+// P0-03 regression suite (cross-tenant replies, filter injection, 404/401 with no DB access) lives in
+// tests/security/webhook-lockdown.spec.ts; idempotency in tests/messaging/inbound-dedupe-db.spec.ts.
 //
-// P0-03 (V2-01, plan 01-03) changes reflected here: the webhook secret is accepted only from the
-// `x-webhook-secret` header (no `?secret=`, no MSG91 auth key, no dev bypass when unset); replies resolve only via
-// `replyMsgId` (the phone-number fallback is deleted); every response body is `{ ok: true }` / `{ ok: false }`.
+// P0-03 (V2-01, plan 01-03): the webhook secret is accepted only from the `x-webhook-secret` header (no `?secret=`, no
+// MSG91 auth key, no dev bypass when unset); replies resolve only via `replyMsgId` (the phone-number fallback is
+// deleted); every response body is `{ ok: true }` / `{ ok: false }`.
 
 const TEST_SECRET = "msg91-unit-test-secret";
 const SECRET_HEADERS = { "content-type": "application/json", "x-webhook-secret": TEST_SECRET };
 const MSG91_PARAMS = { params: Promise.resolve({ provider: "msg91" }) };
-/** The synthetic recipient every correlated queue row was sent to (replies come from 919876543210). */
-const PATIENT_E164 = "+919876543210";
+const OK = { status: 200, text: JSON.stringify({ ok: true }) };
 
 function msg91Request(payload: unknown, headers: Record<string, string> = SECRET_HEADERS) {
   return new NextRequest("http://localhost:3000/api/webhooks/messaging/msg91", {
@@ -31,23 +51,17 @@ function msg91Request(payload: unknown, headers: Record<string, string> = SECRET
   });
 }
 
-/** Mock of the `communication_queue` → `visits` correlation reads used by the inbound reply path. */
-function correlationTables(queueItem: unknown, visit: unknown) {
-  const queueEq = vi.fn().mockReturnValue({
-    maybeSingle: vi.fn().mockResolvedValue({ data: queueItem, error: null }),
-  });
-  const visitTenantEq = vi.fn().mockReturnValue({
-    maybeSingle: vi.fn().mockResolvedValue({ data: visit, error: null }),
-  });
-  const visitIdEq = vi.fn().mockReturnValue({ eq: visitTenantEq });
-  return {
-    queueEq,
-    visitIdEq,
-    visitTenantEq,
-    queueTable: { select: vi.fn().mockReturnValue({ eq: queueEq }) },
-    visitSelect: vi.fn().mockReturnValue({ eq: visitIdEq }),
-  };
+const keys: string[] = [];
+function track<T>(body: T): T {
+  const raw = JSON.stringify(body);
+  const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+  if (key) keys.push(key);
+  return body;
 }
+
+afterAll(() => {
+  deleteInboundEvents(keys);
+});
 
 describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04, D-05, D-06)", () => {
   const originalEnv = { ...process.env };
@@ -107,574 +121,141 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
     });
   });
 
-  describe("2. Inbound Interactive Button Replies & Slot Release (D-04)", () => {
-    const replyMsgId = "wamid.outbound-confirm-123";
-    const queueItem = {
-      id: "queue-msg-123",
-      tenant_id: "tenant-cardio-1",
-      appointment_id: "visit-confirm-123",
-      recipient_phone: PATIENT_E164,
-      metadata: {},
-    };
-    const mockAppointment = {
-      id: "visit-confirm-123",
-      tenant_id: "tenant-cardio-1",
-      patient_id: "patient-rahul",
-      doctor_id: "doc-aditi",
-      scheduled_at: "2026-10-28T10:30:00.000Z",
-      status: "booked",
-      patient: { id: "patient-rahul", full_name: "Rahul Sharma", phone: "+919876543210" },
-      metadata: {},
-    };
-
-    function buttonPayload(id: string, title: string) {
-      return {
-        eventName: "Inbound",
-        direction: "inbound",
-        customerNumber: "919876543210",
-        replyMsgId,
-        interactive: JSON.stringify({ button_reply: { id, title } }),
-      };
-    }
-
-    it("processes [Confirm] interactive button reply correlated by replyMsgId and sends acknowledgement", async () => {
-      const t = correlationTables(queueItem, mockAppointment);
-      const updateStatusEq = vi.fn().mockResolvedValue({ data: null, error: null });
-      const updateEq = vi.fn().mockReturnValue({ eq: updateStatusEq });
-      const updateVisitSpy = vi.fn().mockReturnValue({ eq: updateEq });
-      const insertAuditSpy = vi.fn().mockResolvedValue({ data: null, error: null });
-      const mockSupabase = {
-        from: vi.fn().mockImplementation((table: string) => {
-          if (table === "communication_queue") return t.queueTable;
-          if (table === "visits") return { select: t.visitSelect, update: updateVisitSpy };
-          if (table === "audit_logs") return { insert: insertAuditSpy };
-          return {};
-        }),
-      };
-      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
-      const sendWaDirectSpy = vi
-        .spyOn(messagingModule, "sendDirectWhatsApp")
-        .mockResolvedValue({ success: true, messageId: "wa-ack-1" } as any);
-
-      const res = await POST(msg91Request(buttonPayload("btn_confirm", "Confirm")), MSG91_PARAMS);
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true });
-
-      expect(t.queueEq).toHaveBeenCalledWith("external_message_id", replyMsgId);
-      expect(t.visitIdEq).toHaveBeenCalledWith("id", "visit-confirm-123");
-      expect(t.visitTenantEq).toHaveBeenCalledWith("tenant_id", "tenant-cardio-1");
-      expect(updateVisitSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: "confirmed",
-          metadata: expect.objectContaining({ patient_confirmed: true, confirmed_via: "whatsapp_bot" }),
-        })
-      );
-      expect(updateEq).toHaveBeenCalledWith("id", "visit-confirm-123");
-      expect(updateStatusEq).toHaveBeenCalledWith("status", "booked");
-      expect(insertAuditSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: "appointment_confirmed_whatsapp",
-          tenant_id: "tenant-cardio-1",
-          entity_id: "visit-confirm-123",
-        })
-      );
-      // AR-L1: acks go to the stored recipient number; the audit row carries no phone number.
-      expect(JSON.stringify(insertAuditSpy.mock.calls)).not.toContain("9876543210");
-      expect(sendWaDirectSpy).toHaveBeenCalledWith(
-        PATIENT_E164,
-        "appointment_confirmed_ack",
-        expect.any(Object)
-      );
+  describe("2-5. Through the route on the local stack (V2-04 04-03c: replies queued, never sent)", () => {
+    let providerFactory: { mock: { calls: unknown[] } };
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+      useWebhookSecret();
+      providerFactory = vi.spyOn(messagingModule, "getMessagingProvider");
+    });
+    afterEach(() => {
+      expect(providerFactory).not.toHaveBeenCalled();
+      vi.unstubAllEnvs();
     });
 
-    it("processes [Cancel] interactive button reply, calls cancelAppointment, frees calendar slot, and sends ack", async () => {
-      const t = correlationTables(queueItem, mockAppointment);
-      const cancelSpy = vi
-        .spyOn(appointmentsActions, "cancelAppointment")
-        .mockResolvedValue({ success: true, appointment: mockAppointment as any });
-      const insertAuditSpy = vi.fn().mockResolvedValue({ data: null, error: null });
-      const mockSupabase = {
-        from: vi.fn().mockImplementation((table: string) => {
-          if (table === "communication_queue") return t.queueTable;
-          if (table === "visits") return { select: t.visitSelect };
-          if (table === "audit_logs") return { insert: insertAuditSpy };
-          return {};
-        }),
-      };
-      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
-      const sendWaDirectSpy = vi
-        .spyOn(messagingModule, "sendDirectWhatsApp")
-        .mockResolvedValue({ success: true, messageId: "wa-ack-cancel" } as any);
+    describe("2. Inbound Interactive Button Replies & Slot Release (D-04)", () => {
+      it("[Confirm] correlated by replyMsgId confirms the visit and queues the acknowledgement to the recipient", async () => {
+        const c = await seedConversation("unit-confirm");
+        expect(await postMsg91(track(buttonReply(c, "btn_confirm")))).toEqual(OK);
+        expect(await visitStatus(c.visitId)).toBe("confirmed");
+        const replies = await botReplies(c.visitId);
+        expect(replies.map((r) => [r.templateId, r.recipient, r.status])).toEqual([["appointment_confirmed_ack", c.phone, "pending"]]);
+        expect(replies[0].params).toMatchObject({ message: expect.stringContaining("confirmed") });
+        expect(messageJobCount(replies[0].id)).toBe(1);
+        // The visit carries the bot's confirmation metadata.
+        const { data } = await getAdminClient().from("visits").select("metadata").eq("id", c.visitId).single();
+        expect(data?.metadata).toMatchObject({ patient_confirmed: true, confirmed_via: "whatsapp_bot" });
+      });
 
-      const res = await POST(msg91Request(buttonPayload("btn_cancel", "Cancel")), MSG91_PARAMS);
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true });
-
-      expect(cancelSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ reason: "messaging_webhook" }),
-        expect.objectContaining({ appointmentId: "visit-confirm-123", reason: "patient_whatsapp_bot" })
-      );
-      expect(insertAuditSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: "appointment_cancelled_whatsapp",
-          tenant_id: "tenant-cardio-1",
-          entity_id: "visit-confirm-123",
-        })
-      );
-      expect(sendWaDirectSpy).toHaveBeenCalledWith(
-        PATIENT_E164,
-        "appointment_cancelled_ack",
-        expect.any(Object)
-      );
-    });
-
-    it("processes [Reschedule] reply: sends the tokenized URL only by WhatsApp, never in the response", async () => {
-      const t = correlationTables(queueItem, mockAppointment);
-      vi.spyOn(appointmentsActions, "generateRescheduleToken").mockResolvedValue(
-        "https://app.thecliniqai.com/reschedule/token-24hr-abc"
-      );
-      const insertNotifSpy = vi.fn().mockResolvedValue({ data: null, error: null });
-      const mockSupabase = {
-        from: vi.fn().mockImplementation((table: string) => {
-          if (table === "communication_queue") return t.queueTable;
-          if (table === "visits") return { select: t.visitSelect };
-          if (table === "in_app_notifications") return { insert: insertNotifSpy };
-          return {};
-        }),
-      };
-      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
-      const sendWaDirectSpy = vi
-        .spyOn(messagingModule, "sendDirectWhatsApp")
-        .mockResolvedValue({ success: true, messageId: "wa-reschedule-link" } as any);
-
-      const res = await POST(msg91Request(buttonPayload("btn_reschedule", "Reschedule")), MSG91_PARAMS);
-      expect(res.status).toBe(200);
-      const text = await res.text();
-      expect(JSON.parse(text)).toEqual({ ok: true });
-      expect(text).not.toContain("reschedule");
-      expect(text).not.toContain("token-24hr-abc");
-
-      expect(insertNotifSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          tenant_id: "tenant-cardio-1",
-          recipient_role: "receptionist",
-          category: "system",
-          event_type: "reschedule_requested",
-        })
-      );
-      expect(sendWaDirectSpy).toHaveBeenCalledWith(
-        PATIENT_E164,
-        "appointment_reschedule_link",
-        expect.objectContaining({
-          message: expect.stringContaining("https://app.thecliniqai.com/reschedule/token-24hr-abc"),
-        })
-      );
-    });
-  });
-
-  describe("3. Cancellation Gating & Multi-Tenant Isolation (Peer Review Finding 5)", () => {
-    it("does NOT cancel appointments or release slots for free-text '2', 'no', or '2 days'", async () => {
-      const mockAppointment = {
-        id: "visit-protected-456",
-        tenant_id: "tenant-1",
-        patient_id: "patient-1",
-        status: "booked",
-        patient: { full_name: "Anita Desai", phone: "+919876543210" },
-      };
-      const t = correlationTables(
-        { id: "q-1", tenant_id: "tenant-1", appointment_id: "visit-protected-456", recipient_phone: PATIENT_E164, metadata: {} },
-        mockAppointment
-      );
-      const cancelSpy = vi.spyOn(appointmentsActions, "cancelAppointment");
-      const insertNotifSpy = vi.fn().mockResolvedValue({ data: null, error: null });
-      const mockSupabase = {
-        from: vi.fn().mockImplementation((table: string) => {
-          if (table === "communication_queue") return t.queueTable;
-          if (table === "visits") return { select: t.visitSelect };
-          if (table === "in_app_notifications") return { insert: insertNotifSpy };
-          return {};
-        }),
-      };
-      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
-      vi.spyOn(messagingModule, "sendDirectWhatsApp").mockResolvedValue({ success: true } as any);
-
-      for (const textInput of ["2", "no", "2 days", "No thanks"]) {
-        cancelSpy.mockClear();
-        insertNotifSpy.mockClear();
-
-        const res = await POST(
-          msg91Request({ customerNumber: "919876543210", replyMsgId: "wamid.q-1", text: textInput }),
-          MSG91_PARAMS
+      it("[Cancel] calls cancelAppointment, frees the slot and queues the cancellation acknowledgement", async () => {
+        const c = await seedConversation("unit-cancel");
+        const cancelSpy = vi.spyOn(appointmentsActions, "cancelAppointment");
+        expect(await postMsg91(track(buttonReply(c, "btn_cancel")))).toEqual(OK);
+        expect(cancelSpy).toHaveBeenCalledWith(
+          expect.objectContaining({ reason: "messaging_webhook" }),
+          expect.objectContaining({ appointmentId: c.visitId, reason: "patient_whatsapp_bot", isClinicInitiated: false })
         );
-        expect(res.status).toBe(200);
-        expect(await res.json()).toEqual({ ok: true });
+        expect(await visitStatus(c.visitId)).toBe("cancelled");
+        expect(await auditCount(c.visitId, "appointment_cancelled_whatsapp")).toBe(1);
+        expect((await botReplies(c.visitId)).map((r) => r.templateId)).toEqual(["appointment_cancelled_ack"]);
+      });
 
-        // Gated: routes to conversational auto-triage instead of cancellation
+      it("[Reschedule] queues the tokenized URL to the recipient only (never in the response) and alerts the front desk", async () => {
+        const c = await seedConversation("unit-reschedule");
+        const res = await postMsg91(track(buttonReply(c, "btn_reschedule")));
+        expect(res).toEqual(OK);
+        expect(res.text).not.toMatch(/reschedule|https?:|token/i);
+        const replies = await botReplies(c.visitId);
+        expect(replies.map((r) => [r.templateId, r.recipient])).toEqual([["appointment_reschedule_link", c.phone]]);
+        expect(String(replies[0].params.message)).toContain("/reschedule/");
+        const { count } = await getAdminClient()
+          .from("in_app_notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", c.tenantId)
+          .eq("event_type", "reschedule_requested")
+          .eq("category", "system");
+        expect(count).toBe(1);
+      });
+    });
+
+    describe("3. Cancellation Gating (Peer Review Finding 5)", () => {
+      it.each(["2", "no", "2 days"])("free text %j does NOT cancel or release the slot (routed to triage)", async (text) => {
+        const c = await seedConversation("unit-gate");
+        const cancelSpy = vi.spyOn(appointmentsActions, "cancelAppointment");
+        expect(
+          await postMsg91(track({ uuid: crypto.randomUUID(), customerNumber: senderOf(c.phone), replyMsgId: c.replyMsgId, text }))
+        ).toEqual(OK);
         expect(cancelSpy).not.toHaveBeenCalled();
-        expect(insertNotifSpy).toHaveBeenCalledWith(
-          expect.objectContaining({ event_type: "inbound_whatsapp_reply", tenant_id: "tenant-1" })
-        );
-      }
-    });
-
-    it("never builds an .or() filter from replyMsgId and scopes the visit read to the queue row's tenant", async () => {
-      const visitClinicA = {
-        id: "visit-clinic-a",
-        tenant_id: "tenant-clinic-a",
-        patient_id: "patient-vikram",
-        status: "booked",
-        patient: { full_name: "Vikram", phone: "+919876543210" },
-      };
-      const t = correlationTables(
-        { id: "queue-msg-a", tenant_id: "tenant-clinic-a", appointment_id: "visit-clinic-a", recipient_phone: PATIENT_E164, metadata: {} },
-        visitClinicA
-      );
-      // Exact-match semantics, like PostgREST `eq`: only the stored id resolves.
-      t.queueEq.mockImplementation((_col: string, value: string) => ({
-        maybeSingle: vi.fn().mockResolvedValue({
-          data:
-            value === "wamid.msg-outbound-clinic-a"
-              ? { id: "queue-msg-a", tenant_id: "tenant-clinic-a", appointment_id: "visit-clinic-a", recipient_phone: PATIENT_E164, metadata: {} }
-              : null,
-          error: null,
-        }),
-      }));
-      const orSpy = vi.fn();
-      (t.queueTable.select as any).mockReturnValue({ eq: t.queueEq, or: orSpy });
-      const cancelSpy = vi
-        .spyOn(appointmentsActions, "cancelAppointment")
-        .mockResolvedValue({ success: true, appointment: visitClinicA as any });
-      const mockSupabase = {
-        from: vi.fn().mockImplementation((table: string) => {
-          if (table === "communication_queue") return t.queueTable;
-          if (table === "visits") return { select: t.visitSelect };
-          if (table === "audit_logs") return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) };
-          return {};
-        }),
-      };
-      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
-      vi.spyOn(messagingModule, "sendDirectWhatsApp").mockResolvedValue({ success: true } as any);
-
-      const cancelButton = JSON.stringify({ button_reply: { id: "btn_cancel", title: "Cancel" } });
-      const injected = "wamid.msg-outbound-clinic-a,metadata->>message_id.neq.x";
-      const injectedRes = await POST(
-        msg91Request({ customerNumber: "919876543210", replyMsgId: injected, interactive: cancelButton }),
-        MSG91_PARAMS
-      );
-      expect(injectedRes.status).toBe(200);
-      expect(await injectedRes.json()).toEqual({ ok: true });
-      // The raw value is bound as a single equality operand; it is never parsed as a filter.
-      expect(t.queueEq).toHaveBeenCalledWith("external_message_id", injected);
-      expect(cancelSpy).not.toHaveBeenCalled();
-
-      const res = await POST(
-        msg91Request({
-          customerNumber: "919876543210",
-          replyMsgId: "wamid.msg-outbound-clinic-a",
-          interactive: cancelButton,
-        }),
-        MSG91_PARAMS
-      );
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true });
-
-      expect(orSpy).not.toHaveBeenCalled();
-      expect(t.visitTenantEq).toHaveBeenCalledWith("tenant_id", "tenant-clinic-a");
-      expect(cancelSpy).toHaveBeenCalledTimes(1);
-      expect(cancelSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ reason: "messaging_webhook" }),
-        expect.objectContaining({ appointmentId: "visit-clinic-a", reason: "patient_whatsapp_bot" })
-      );
-    });
-
-    it("does not fall back to a phone-number lookup when replyMsgId is missing or unknown", async () => {
-      const queueEq = vi.fn().mockReturnValue({
-        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        expect(await visitStatus(c.visitId)).toBe("booked");
+        expect((await botReplies(c.visitId)).map((r) => r.templateId)).toEqual(["conversational_triage"]);
       });
-      const patientsSpy = vi.fn();
-      const visitsSpy = vi.fn();
-      const mockSupabase = {
-        from: vi.fn().mockImplementation((table: string) => {
-          if (table === "communication_queue") return { select: vi.fn().mockReturnValue({ eq: queueEq }) };
-          if (table === "patients") return patientsSpy();
-          if (table === "visits") return visitsSpy();
-          return {};
-        }),
-      };
-      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
-      const cancelSpy = vi.spyOn(appointmentsActions, "cancelAppointment");
-      const sendSpy = vi.spyOn(messagingModule, "sendDirectWhatsApp").mockResolvedValue({ success: true } as any);
+    });
 
-      const button = JSON.stringify({ button_reply: { id: "btn_cancel", title: "Cancel" } });
-      for (const payload of [
-        { customerNumber: "919876543210", interactive: button },
-        { customerNumber: "919876543210", replyMsgId: "wamid.unknown", interactive: button },
-      ]) {
-        const res = await POST(msg91Request(payload), MSG91_PARAMS);
+    describe("4. Conversational Auto-Triage & Receptionist Alerting (D-05)", () => {
+      it("a conversational reply queues the polite triage reply and creates one system-category alert", async () => {
+        const c = await seedConversation("unit-triage");
+        const body = track({ uuid: crypto.randomUUID(), customerNumber: senderOf(c.phone), replyMsgId: c.replyMsgId, text: "Can I come at 4pm?" });
+        expect(await postMsg91(body)).toEqual(OK);
+        expect((await botReplies(c.visitId)).map((r) => [r.templateId, r.recipient])).toEqual([["conversational_triage", c.phone]]);
+        const { data } = await getAdminClient()
+          .from("in_app_notifications")
+          .select("category, recipient_role, title")
+          .eq("tenant_id", c.tenantId)
+          .eq("event_type", "inbound_whatsapp_reply");
+        expect(data).toEqual([expect.objectContaining({ category: "system", recipient_role: "receptionist" })]);
+      });
+    });
+
+    describe("5. Delivery Reports (DLR) Lifecycle Tracking (D-06, Peer Review Findings 3, 4, 6)", () => {
+      const dlr = (requestId: string, status: string, extra: Record<string, unknown> = {}) =>
+        track({ direction: "outbound", status, request_id: requestId, ...extra });
+      async function status(id: string) {
+        const { data } = await getAdminClient().from("communication_queue").select("status, metadata").eq("id", id).single();
+        return data as { status: string; metadata: Record<string, unknown> };
+      }
+
+      it("Delivered → delivered (delivered_at), one audit row; Read → read (read_at)", async () => {
+        const c = await seedConversation("unit-dlr");
+        const m = await seedSentMessage(c);
+        expect(await postMsg91(dlr(m.requestId, "Delivered", { delivered_at: "2026-11-01T10:00:00Z" }))).toEqual(OK);
+        const delivered = await status(m.id);
+        expect(delivered.status).toBe("delivered");
+        expect(delivered.metadata).toHaveProperty("delivered_at");
+        expect(await auditCount(m.id, "communication_dlr_delivered")).toBe(1);
+        expect(await postMsg91(dlr(m.requestId, "Read"))).toEqual(OK);
+        const read = await status(m.id);
+        expect(read.status).toBe("read");
+        expect(read.metadata).toHaveProperty("read_at");
+      });
+
+      it("Failed on an urgent message → dead_letter and one system-category alert to the receptionist", async () => {
+        const c = await seedConversation("unit-dlr-failed");
+        const m = await seedSentMessage(c, "appointment_booked");
+        expect(await postMsg91(dlr(m.requestId, "Failed", { reason: "unreachable" }))).toEqual(OK);
+        expect((await status(m.id)).status).toBe("dead_letter");
+        const { data } = await getAdminClient()
+          .from("in_app_notifications")
+          .select("category, recipient_role, title")
+          .eq("tenant_id", c.tenantId)
+          .eq("event_type", "whatsapp_delivery_failed");
+        expect(data).toEqual([expect.objectContaining({ category: "system", recipient_role: "receptionist", title: "WhatsApp Delivery Failed" })]);
+      });
+
+      it("a DLR without request_id opens no DB client and echoes nothing", async () => {
+        const dbSpy = vi.spyOn(systemDb, "getSystemDb");
+        const res = await POST(msg91Request({ direction: "outbound", status: "Submitted" }, { "content-type": "application/json", "x-webhook-secret": process.env.MSG91_WEBHOOK_SECRET ?? "" }), MSG91_PARAMS);
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({ ok: true });
-      }
-
-      expect(patientsSpy).not.toHaveBeenCalled();
-      expect(visitsSpy).not.toHaveBeenCalled();
-      expect(cancelSpy).not.toHaveBeenCalled();
-      expect(sendSpy).toHaveBeenCalledWith("919876543210", "bot_not_found", expect.any(Object));
-    });
-  });
-
-  describe("4. Conversational Auto-Triage & Receptionist Alerting (D-05)", () => {
-    it("handles a conversational reply, sends polite triage reply, and creates system category alert", async () => {
-      const mockAppointment = {
-        id: "visit-triage-789",
-        tenant_id: "tenant-skin-clinic",
-        patient_id: "patient-priya",
-        status: "booked",
-        patient: { full_name: "Priya Nair", phone: "+919876543210" },
-      };
-      const t = correlationTables(
-        { id: "q-789", tenant_id: "tenant-skin-clinic", appointment_id: "visit-triage-789", recipient_phone: PATIENT_E164, metadata: {} },
-        mockAppointment
-      );
-      const insertNotifSpy = vi.fn().mockResolvedValue({ data: null, error: null });
-      const mockSupabase = {
-        from: vi.fn().mockImplementation((table: string) => {
-          if (table === "communication_queue") return t.queueTable;
-          if (table === "visits") return { select: t.visitSelect };
-          if (table === "in_app_notifications") return { insert: insertNotifSpy };
-          return {};
-        }),
-      };
-      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
-      const sendWaDirectSpy = vi
-        .spyOn(messagingModule, "sendDirectWhatsApp")
-        .mockResolvedValue({ success: true, messageId: "wa-triage-ack" } as any);
-
-      const res = await POST(
-        msg91Request({
-          customerNumber: "919876543210",
-          context: { id: "wamid.q-789" },
-          text: "Is Dr. Rao available earlier on Wednesday?",
-        }),
-        MSG91_PARAMS
-      );
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true });
-      expect(t.queueEq).toHaveBeenCalledWith("external_message_id", "wamid.q-789");
-
-      expect(insertNotifSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          tenant_id: "tenant-skin-clinic",
-          recipient_role: "receptionist",
-          category: "system",
-          event_type: "inbound_whatsapp_reply",
-          message: expect.stringContaining("Is Dr. Rao available earlier on Wednesday?"),
-        })
-      );
-      expect(sendWaDirectSpy).toHaveBeenCalledWith(
-        PATIENT_E164,
-        "conversational_triage",
-        expect.objectContaining({
-          message: expect.stringContaining("received your message and our reception desk will assist you shortly"),
-        })
-      );
-    });
-  });
-
-  describe("5. Delivery Reports (DLR) Lifecycle Tracking (D-06, Peer Review Findings 3, 4, 6)", () => {
-    function dlrSupabase(queueItem: unknown, extra: Record<string, unknown> = {}) {
-      const updateEq = vi.fn().mockResolvedValue({ data: null, error: null });
-      const updateQueueSpy = vi.fn().mockReturnValue({ eq: updateEq });
-      const selectEq = vi.fn().mockReturnValue({
-        maybeSingle: vi.fn().mockResolvedValue({ data: queueItem, error: null }),
-      });
-      const insertAuditSpy = vi.fn().mockResolvedValue({ data: null, error: null });
-      const supabase = {
-        from: vi.fn().mockImplementation((table: string) => {
-          if (table === "communication_queue") {
-            return { select: vi.fn().mockReturnValue({ eq: selectEq }), update: updateQueueSpy };
-          }
-          if (table === "audit_logs") return { insert: insertAuditSpy };
-          if (table in extra) return extra[table];
-          return {};
-        }),
-      };
-      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(supabase as any);
-      return { updateQueueSpy, updateEq, selectEq, insertAuditSpy };
-    }
-
-    it("processes Delivered DLR event, updates queue status, and logs audit event", async () => {
-      const m = dlrSupabase({
-        id: "queue-row-101",
-        tenant_id: "tenant-100",
-        status: "sent",
-        external_message_id: "req-dlr-101",
-        recipient_phone: "+919876543210",
-        metadata: { dispatched_at: "2026-10-28T07:00:00.000Z" },
+        expect(dbSpy).not.toHaveBeenCalled();
       });
 
-      const res = await POST(
-        msg91Request({
-          eventName: "On Delivered Event",
-          direction: "outbound",
-          status: "Delivered",
-          request_id: "req-dlr-101",
-          delivered_at: "1711086185",
-        }),
-        MSG91_PARAMS
-      );
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true });
-
-      expect(m.selectEq).toHaveBeenCalledWith("external_message_id", "req-dlr-101");
-      expect(m.updateQueueSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: "delivered",
-          metadata: expect.objectContaining({ delivered_at: "1711086185" }),
-        })
-      );
-      expect(m.updateEq).toHaveBeenCalledWith("id", "queue-row-101");
-      expect(m.insertAuditSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: "communication_dlr_delivered",
-          tenant_id: "tenant-100",
-          entity_type: "communication_queue",
-          entity_id: "queue-row-101",
-          metadata: expect.objectContaining({ queue_id: "queue-row-101", status: "delivered" }),
-        })
-      );
-      // No recipient phone in the audit trail (01-10).
-      expect(m.insertAuditSpy.mock.calls[0][0].metadata).not.toHaveProperty("recipient_phone");
-      expect(JSON.stringify(m.insertAuditSpy.mock.calls[0][0])).not.toContain("9876543210");
-    });
-
-    it("processes Read DLR event, updates queue status to read, and logs audit event", async () => {
-      const m = dlrSupabase({
-        id: "queue-row-102",
-        tenant_id: "tenant-100",
-        status: "delivered",
-        external_message_id: "req-dlr-102",
-        recipient_phone: "+919876543210",
-        metadata: { delivered_at: "1711086185" },
+      it("does not echo the request id for an unknown DLR", async () => {
+        const requestId = `req-unknown-${crypto.randomUUID()}`;
+        const res = await postMsg91(dlr(requestId, "Delivered"));
+        expect(res).toEqual(OK);
+        expect(res.text).not.toContain(requestId);
+        expect(keyFor({ direction: "outbound", status: "Delivered", request_id: requestId })).toBe(`dlr:${requestId}:delivered`);
       });
-
-      const res = await POST(
-        msg91Request({ direction: "outbound", status: "Read", request_id: "req-dlr-102", read_at: "1711086200" }),
-        MSG91_PARAMS
-      );
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true });
-
-      expect(m.updateQueueSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "read", metadata: expect.objectContaining({ read_at: "1711086200" }) })
-      );
-      expect(m.insertAuditSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: "communication_dlr_read",
-          tenant_id: "tenant-100",
-          entity_type: "communication_queue",
-          metadata: expect.objectContaining({ queue_id: "queue-row-102", status: "read" }),
-        })
-      );
-      expect(JSON.stringify(m.insertAuditSpy.mock.calls[0][0])).not.toContain("9876543210");
-    });
-
-    it("preserves monotonic progression: does NOT regress status from 'read' to 'delivered' on late delivery event", async () => {
-      const m = dlrSupabase({
-        id: "queue-row-103",
-        tenant_id: "tenant-100",
-        status: "read",
-        external_message_id: "req-dlr-103",
-        recipient_phone: "+919876543210",
-        metadata: { read_at: "1711086200" },
-      });
-
-      const res = await POST(
-        msg91Request({
-          direction: "outbound",
-          status: "Delivered",
-          request_id: "req-dlr-103",
-          delivered_at: "1711086185",
-        }),
-        MSG91_PARAMS
-      );
-      expect(res.status).toBe(200);
-      expect(m.updateQueueSpy).toHaveBeenCalledWith(expect.objectContaining({ status: "read" }));
-    });
-
-    it("processes Failed DLR event: transitions to dead_letter, keeps next_retry_at (NOT NULL), and creates system category alert", async () => {
-      const insertNotifSpy = vi.fn().mockResolvedValue({ data: null, error: null });
-      const m = dlrSupabase(
-        {
-          id: "queue-row-104",
-          tenant_id: "tenant-cardio-2",
-          status: "sent",
-          message_type: "appointment_reminder",
-          external_message_id: "req-dlr-104",
-          recipient_phone: "+919876543210",
-          next_retry_at: "2026-10-28T08:00:00.000Z",
-        },
-        { in_app_notifications: { insert: insertNotifSpy } }
-      );
-
-      const res = await POST(
-        msg91Request({ direction: "outbound", status: "Failed", request_id: "req-dlr-104", reason: "Invalid Number" }),
-        MSG91_PARAMS
-      );
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true });
-
-      // Critical: status = 'dead_letter' is terminal (never claimed again). next_retry_at is NOT NULL in the schema, so
-      // the update must not try to null it (that made the whole UPDATE fail before 01-10).
-      expect(m.updateQueueSpy).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "dead_letter", error_message: "Invalid Number" })
-      );
-      expect(m.updateQueueSpy.mock.calls[0][0]).not.toHaveProperty("next_retry_at");
-      expect(m.insertAuditSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: "communication_dlr_failed",
-          tenant_id: "tenant-cardio-2",
-          metadata: expect.objectContaining({
-            queue_id: "queue-row-104",
-            status: "dead_letter",
-            message_type: "appointment_reminder",
-          }),
-        })
-      );
-      // No recipient phone in the audit trail (01-10) ...
-      expect(JSON.stringify(m.insertAuditSpy.mock.calls[0][0])).not.toContain("9876543210");
-      // Critical: Valid notification category 'system' adheres to DB CHECK constraint 000014:97
-      // ... but the in-app alert to reception keeps it: staff need the number to call the patient (PO ruling, 01-10).
-      expect(insertNotifSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          tenant_id: "tenant-cardio-2",
-          recipient_role: "receptionist",
-          category: "system",
-          event_type: "whatsapp_delivery_failed",
-          message: expect.stringContaining("Invalid Number"),
-        })
-      );
-      expect(insertNotifSpy.mock.calls[0][0].message).toContain("+919876543210");
-    });
-
-    it("handles DLR with missing request_id without a DB lookup or echo", async () => {
-      const m = dlrSupabase(null);
-      const res = await POST(msg91Request({ direction: "outbound", status: "Submitted" }), MSG91_PARAMS);
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ ok: true });
-      expect(m.selectEq).not.toHaveBeenCalled();
-    });
-
-    it("does not echo the request id for an unknown DLR", async () => {
-      const m = dlrSupabase(null);
-      const res = await POST(
-        msg91Request({ direction: "outbound", status: "Delivered", request_id: "req-unknown-555" }),
-        MSG91_PARAMS
-      );
-      expect(res.status).toBe(200);
-      const text = await res.text();
-      expect(JSON.parse(text)).toEqual({ ok: true });
-      expect(text).not.toContain("req-unknown-555");
-      expect(m.updateQueueSpy).not.toHaveBeenCalled();
     });
   });
 

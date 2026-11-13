@@ -18,6 +18,8 @@ export type Msg91WebhookEvent =
       body: string;
       buttonId?: string;
       replyMsgId?: string;
+      /** The inbound message's own provider id, when the payload carries a usable one (04-03c dedupe key). */
+      messageId?: string;
       action: "confirm" | "cancel" | "reschedule" | "unhandled";
       rawPayload: unknown;
     };
@@ -50,6 +52,36 @@ export function verifyMsg91WebhookSecret(headers: Headers): boolean {
   const given = headers.get(MSG91_WEBHOOK_SECRET_HEADER);
   if (!given) return false;
   return timingSafeEqual(sha256(given), sha256(expected));
+}
+
+/** A provider id usable in a dedupe key: printable, no spaces, bounded. */
+const PROVIDER_ID = /^[A-Za-z0-9_.:=+\/-]{1,128}$/;
+
+/**
+ * V2-04 04-03c (P0-12 inbound idempotency, T-04-08): the key under which an MSG91 callback is processed at most once
+ * (`public.inbound_webhook_begin('msg91', key)`), or `null` when the callback has no effect to protect.
+ *
+ * - delivery report → `dlr:<requestId>:<status>` (a repeat of the same report is the same key; `delivered` then `read`
+ *   are two keys); `null` without a request id or for a status the route ignores;
+ * - inbound message → `in:<message id>` when the payload carries the message's own id, else `in:sha256:<hex of the raw
+ *   body>` (a provider retry repeats the body byte for byte).
+ *
+ * A key longer than 200 characters (the column limit) is replaced by `<prefix>:sha256:<hex>` of itself.
+ */
+export function inboundDedupeKey(event: Msg91WebhookEvent, rawBody: string): string | null {
+  let key: string;
+  if (event.type === "dlr") {
+    if (!event.requestId || event.status === "other") return null;
+    key = `dlr:${event.requestId}:${event.status}`;
+  } else {
+    key = event.messageId ? `in:${event.messageId}` : `in:sha256:${sha256Hex(rawBody)}`;
+  }
+  if (key.length <= 200) return key;
+  return `${event.type === "dlr" ? "dlr" : "in"}:sha256:${sha256Hex(key)}`;
+}
+
+function sha256Hex(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
 /**
@@ -252,12 +284,18 @@ export function parseMsg91Payload(rawBody: string): Msg91WebhookEvent {
 
   const action = parseInboundAction(body, isButtonClicked);
 
+  // V2-04 04-03c: the inbound message's own id, if MSG91 sends one under a known name (not yet verified against a live
+  // MSG91 payload; the dedupe key falls back to a hash of the raw body without it).
+  const rawMessageId = parsed.uuid ?? parsed.message_uuid ?? parsed.messageId ?? parsed.message_id;
+  const messageId = typeof rawMessageId === "string" && PROVIDER_ID.test(rawMessageId) ? rawMessageId : undefined;
+
   return {
     type: "inbound",
     from,
     body,
     buttonId,
     replyMsgId: typeof replyMsgId === "string" ? replyMsgId : undefined,
+    messageId,
     action,
     rawPayload: parsed,
   };

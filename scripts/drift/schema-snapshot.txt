@@ -31,6 +31,13 @@ column ops.error_events.route_path text not_null=f default=- identity=- generate
 column ops.error_events.route_type text not_null=f default=- identity=- generated=-
 column ops.error_events.tenant_id uuid not_null=f default=- identity=- generated=-
 column ops.error_events.user_id uuid not_null=f default=- identity=- generated=-
+column ops.inbound_webhook_events.attempts integer not_null=t default=1 identity=- generated=-
+column ops.inbound_webhook_events.dedupe_key text not_null=t default=- identity=- generated=-
+column ops.inbound_webhook_events.id bigint not_null=t default=- identity=a generated=-
+column ops.inbound_webhook_events.outcome text not_null=f default=- identity=- generated=-
+column ops.inbound_webhook_events.processed_at timestamp with time zone not_null=f default=- identity=- generated=-
+column ops.inbound_webhook_events.provider text not_null=t default=- identity=- generated=-
+column ops.inbound_webhook_events.received_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column ops.job_runner_runs.claimed integer not_null=f default=- identity=- generated=-
 column ops.job_runner_runs.dead integer not_null=f default=- identity=- generated=-
 column ops.job_runner_runs.done integer not_null=f default=- identity=- generated=-
@@ -558,6 +565,12 @@ constraint ops.error_events.error_events_pkey PRIMARY KEY (id)
 constraint ops.error_events.error_events_release_check CHECK ((release ~ '^[0-9a-f]{7,40}$'::text))
 constraint ops.error_events.error_events_route_path_check CHECK ((route_path ~ '^/[A-Za-z0-9_./()\[\]@~+-]{0,199}$'::text))
 constraint ops.error_events.error_events_route_type_check CHECK ((route_type = ANY (ARRAY['render'::text, 'route'::text, 'action'::text, 'proxy'::text])))
+constraint ops.inbound_webhook_events.inbound_webhook_events_attempts_check CHECK ((attempts >= 1))
+constraint ops.inbound_webhook_events.inbound_webhook_events_dedupe_key_check CHECK (((char_length(dedupe_key) >= 1) AND (char_length(dedupe_key) <= 200)))
+constraint ops.inbound_webhook_events.inbound_webhook_events_outcome_check CHECK ((outcome = ANY (ARRAY['processed'::text, 'ignored'::text, 'failed'::text])))
+constraint ops.inbound_webhook_events.inbound_webhook_events_pkey PRIMARY KEY (id)
+constraint ops.inbound_webhook_events.inbound_webhook_events_provider_check CHECK ((provider = ANY (ARRAY['msg91'::text, 'supabase_auth_hook'::text])))
+constraint ops.inbound_webhook_events.inbound_webhook_events_provider_key UNIQUE (provider, dedupe_key)
 constraint ops.job_runner_runs.job_runner_runs_claimed_check CHECK ((claimed >= 0))
 constraint ops.job_runner_runs.job_runner_runs_dead_check CHECK ((dead >= 0))
 constraint ops.job_runner_runs.job_runner_runs_done_check CHECK ((done >= 0))
@@ -854,6 +867,8 @@ function ops.message_job_dead() returns trigger lang=plpgsql security_definer=t 
 function ops.purge_error_events(p_older_than interval) returns integer lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8438d2fe2e64b4198d3d8a3b164d57cd
 function ops.reap_delivery_rows() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f19964253599685dcce60a350a48b35c
 function ops.reap_jobs() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=ee96223216deec9bcd478172b3d58c1d
+function ops.redact_reply_unmatched_payload() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6b7b3fe38eb4d7642c14787e79b457d2
+function ops.replay_job(p_id uuid) returns void lang=plpgsql security_definer=f volatility=v config=lock_timeout=2s,search_path="" body_md5=f8117378d4df7843eaf978a3aaafeeb0
 function ops.scrub_text(p_text text) returns text lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=0f77a1b8ed4621eeb8f1017a3d70eda6
 function ops.webhook_delivery_enqueue_job() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=38101db227044c6de5ea0b4884431409
 function ops.webhook_job_dead() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9adac804d193ddd2cf90f715841f6c52
@@ -873,6 +888,7 @@ function public.change_member_role(p_membership_id uuid, p_role text) returns me
 function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=fbf7fab633c4c767eb7e4c0856c8085c
 function public.communication_metadata_strip_tokens(p jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=699c303067ef7c6e5ac6a23949259380
 function public.communication_payload_redact(p jsonb) returns jsonb lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=e5a03ebc6b0a124b256fe7c73d684772
+function public.communication_queue_apply_dlr(p_external_message_id text, p_status text, p_at timestamp with time zone, p_reason_code text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=c7b38bed6f219b2326bc723919867a32
 function public.communication_queue_claim(p_id uuid) returns SETOF communication_queue lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=cfadd0d157146e0bf28fbed0fe2f2fc4
 function public.communication_queue_dead_letter(p_id uuid, p_error_code text) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4ab6583a2339ddebe26d9de673ed4287
 function public.communication_queue_finish(p_id uuid, p_success boolean, p_external_message_id text, p_error text) returns TABLE(new_status text, new_retry_count integer) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=657a777fe4f467ac7b2961fa1fd2eebc
@@ -888,6 +904,7 @@ function public.current_user_is_admin_or_owner(p_tenant_id uuid) returns boolean
 function public.current_user_tenant_ids() returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=ef93d24a41f09feca02075856e7c0747
 function public.enqueue_message(p_tenant_id uuid, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=fac521efe5d1b26691da18875d07896a
 function public.enqueue_message_system(p_system_actor text, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=8cc1a43f075d7f2db76e6641b00fe06d
+function public.enqueue_unmatched_reply_system(p_system_actor text, p_to text, p_template_id text, p_dedupe_key text) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a6fedc4c763a7d5fa2ee031f41948cde
 function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_subject_id uuid, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9bb21b1a078971ef55c0176aa1f43e26
 function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9f64efd50a5521effcf80061d1428ae7
 function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=039a9766725b79059d9fe4dc394ecd0d
@@ -895,6 +912,8 @@ function public.generate_daily_queue_token(p_tenant_id uuid, p_date date) return
 function public.generate_tenant_invoice_number(p_tenant_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=d97ddc7140248811e20fc5ab85eeb4ff
 function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=afb9de521bf3ac8044f6e3c001869559
 function public.get_tenant_table_rls_policies() returns TABLE(table_name text, rls_enabled boolean, policy_name text, roles text[], cmd text, qual text, with_check text) lang=sql security_definer=t volatility=v config=search_path=public, pg_catalog body_md5=5693109bf28e5720a7b582d33270fc6b
+function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d9eb45e242d8aa1a81b281a32b433a6e
+function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6e09b6c645bd991920f556c59af2d9bd
 function public.is_safe_storage_key(p_path text) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=7a398bad0569219987cdf11d3c9b2487
 function public.is_valid_weekly_schedule(p_schedule jsonb) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=70d8e5967b9f88ca8cc3926225d8527f
 function public.jobs_runner_begin(p_worker text, p_source text) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=de6a32d34452a6867bf2e9fe1b2a39ba
@@ -957,6 +976,7 @@ grant function public.change_member_role(p_membership_id uuid, p_role text) EXEC
 grant function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) EXECUTE to service_role
 grant function public.communication_metadata_strip_tokens(p jsonb) EXECUTE to service_role
 grant function public.communication_payload_redact(p jsonb) EXECUTE to service_role
+grant function public.communication_queue_apply_dlr(p_external_message_id text, p_status text, p_at timestamp with time zone, p_reason_code text) EXECUTE to service_role
 grant function public.communication_queue_claim(p_id uuid) EXECUTE to service_role
 grant function public.communication_queue_dead_letter(p_id uuid, p_error_code text) EXECUTE to service_role
 grant function public.communication_queue_finish(p_id uuid, p_success boolean, p_external_message_id text, p_error text) EXECUTE to service_role
@@ -980,6 +1000,7 @@ grant function public.current_user_tenant_ids() EXECUTE to authenticated
 grant function public.current_user_tenant_ids() EXECUTE to service_role
 grant function public.enqueue_message(p_tenant_id uuid, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text) EXECUTE to authenticated
 grant function public.enqueue_message_system(p_system_actor text, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text) EXECUTE to service_role
+grant function public.enqueue_unmatched_reply_system(p_system_actor text, p_to text, p_template_id text, p_dedupe_key text) EXECUTE to service_role
 grant function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_subject_id uuid, p_subscription_id uuid) EXECUTE to authenticated
 grant function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) EXECUTE to service_role
 grant function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) EXECUTE to service_role
@@ -991,6 +1012,8 @@ grant function public.get_reschedule_context(p_token text, p_from timestamp with
 grant function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) EXECUTE to authenticated
 grant function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) EXECUTE to service_role
 grant function public.get_tenant_table_rls_policies() EXECUTE to service_role
+grant function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) EXECUTE to service_role
+grant function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) EXECUTE to service_role
 grant function public.is_safe_storage_key(p_path text) EXECUTE to authenticated
 grant function public.is_safe_storage_key(p_path text) EXECUTE to service_role
 grant function public.is_valid_weekly_schedule(p_schedule jsonb) EXECUTE to PUBLIC
@@ -2029,6 +2052,9 @@ index ops.error_events_last_seen CREATE INDEX error_events_last_seen ON ops.erro
 index ops.error_events_occurred_on CREATE INDEX error_events_occurred_on ON ops.error_events USING btree (occurred_on)
 index ops.error_events_pkey CREATE UNIQUE INDEX error_events_pkey ON ops.error_events USING btree (id)
 index ops.error_events_request_id CREATE INDEX error_events_request_id ON ops.error_events USING btree (request_id) WHERE (request_id IS NOT NULL)
+index ops.inbound_webhook_events_pkey CREATE UNIQUE INDEX inbound_webhook_events_pkey ON ops.inbound_webhook_events USING btree (id)
+index ops.inbound_webhook_events_provider_key CREATE UNIQUE INDEX inbound_webhook_events_provider_key ON ops.inbound_webhook_events USING btree (provider, dedupe_key)
+index ops.inbound_webhook_events_received_at CREATE INDEX inbound_webhook_events_received_at ON ops.inbound_webhook_events USING btree (received_at)
 index ops.job_runner_runs_pkey CREATE UNIQUE INDEX job_runner_runs_pkey ON ops.job_runner_runs USING btree (id)
 index ops.job_runner_runs_started_at CREATE INDEX job_runner_runs_started_at ON ops.job_runner_runs USING btree (started_at)
 index ops.jobs_dedupe_key CREATE UNIQUE INDEX jobs_dedupe_key ON ops.jobs USING btree (dedupe_key)
@@ -2274,6 +2300,8 @@ relation ops.backup_runs_id_seq kind=S rls=f force_rls=f
 relation ops.error_event_overflow kind=r rls=t force_rls=f
 relation ops.error_events kind=r rls=t force_rls=f
 relation ops.error_events_id_seq kind=S rls=f force_rls=f
+relation ops.inbound_webhook_events kind=r rls=t force_rls=f
+relation ops.inbound_webhook_events_id_seq kind=S rls=f force_rls=f
 relation ops.job_runner_runs kind=r rls=t force_rls=f
 relation ops.job_runner_runs_id_seq kind=S rls=f force_rls=f
 relation ops.jobs kind=r rls=t force_rls=f
@@ -2323,6 +2351,7 @@ relation public.waitlist_entries kind=r rls=t force_rls=f
 relation public.webhook_delivery_queue kind=r rls=t force_rls=f
 relation public.webhook_subscriptions kind=r rls=t force_rls=f
 trigger ops.jobs.jobs_message_dead CREATE TRIGGER jobs_message_dead AFTER UPDATE OF status ON ops.jobs FOR EACH ROW WHEN (((new.status = 'dead'::text) AND (old.status IS DISTINCT FROM 'dead'::text) AND (new.kind = 'message.send'::text))) EXECUTE FUNCTION ops.message_job_dead()
+trigger ops.jobs.jobs_reply_unmatched_redact CREATE TRIGGER jobs_reply_unmatched_redact BEFORE UPDATE ON ops.jobs FOR EACH ROW WHEN (((new.kind = 'message.reply_unmatched'::text) AND (new.status <> ALL (ARRAY['pending'::text, 'running'::text])))) EXECUTE FUNCTION ops.redact_reply_unmatched_payload()
 trigger ops.jobs.jobs_webhook_dead CREATE TRIGGER jobs_webhook_dead AFTER UPDATE OF status ON ops.jobs FOR EACH ROW WHEN (((new.status = 'dead'::text) AND (old.status IS DISTINCT FROM 'dead'::text) AND (new.kind = 'webhook.deliver'::text))) EXECUTE FUNCTION ops.webhook_job_dead()
 trigger public.audit_logs.audit_logs_actor_guard CREATE TRIGGER audit_logs_actor_guard BEFORE INSERT ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION private.audit_logs_actor_guard()
 trigger public.communication_queue.communication_queue_enqueue_job CREATE TRIGGER communication_queue_enqueue_job AFTER INSERT ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION ops.communication_queue_enqueue_job()

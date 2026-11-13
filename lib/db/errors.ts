@@ -46,6 +46,8 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   // event's state) and the test-ping limit (5 per clinic per 60 s).
   EVENT_NOT_ALLOWED: "VALIDATION_FAILED",
   RATE_LIMITED: "RATE_LIMITED",
+  // V2-04 04-03c (migration 000037): ops.replay_job refuses a job that is missing, not dead, or an erased unmatched reply.
+  JOB_NOT_REPLAYABLE: "CONFLICT",
 };
 
 /** Fixed texts keyed by reason (checked first) or by code. */

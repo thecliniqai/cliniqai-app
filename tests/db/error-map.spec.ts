@@ -39,6 +39,8 @@ describe("mapDbError: SQLSTATE table", () => {
     ["P0001 RECIPIENT_NOT_ALLOWED", { code: "P0001", message: "RECIPIENT_NOT_ALLOWED" }, "VALIDATION_FAILED", "RECIPIENT_NOT_ALLOWED"],
     ["P0001 EVENT_NOT_ALLOWED", { code: "P0001", message: "EVENT_NOT_ALLOWED" }, "VALIDATION_FAILED", "EVENT_NOT_ALLOWED"],
     ["P0001 RATE_LIMITED", { code: "P0001", message: "RATE_LIMITED" }, "RATE_LIMITED", "RATE_LIMITED"],
+    // V2-04 04-03c (000037): ops.replay_job (postgres only; registered so the map stays complete).
+    ["P0001 JOB_NOT_REPLAYABLE", { code: "P0001", message: "JOB_NOT_REPLAYABLE" }, "CONFLICT", "JOB_NOT_REPLAYABLE"],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],

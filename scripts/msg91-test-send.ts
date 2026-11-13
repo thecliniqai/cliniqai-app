@@ -14,7 +14,7 @@ try {
   if (fs.existsSync(".env")) process.loadEnvFile(".env");
 } catch {}
 
-import { sendDirectWhatsApp } from "../lib/messaging";
+import { getMessagingProvider } from "../lib/messaging";
 import { WHATSAPP_TEMPLATES } from "../lib/messaging/templates";
 import { TEMPLATE_POSITIONAL_MAP } from "../lib/messaging/templates/mapping";
 
@@ -89,7 +89,8 @@ async function main() {
   console.log(`Parameters:       `, JSON.stringify(params, null, 2));
   console.log("\nDispatching via MSG91 API...");
 
-  const result = await sendDirectWhatsApp(to, templateName, params, undefined, "msg91");
+  // V2-04 04-03c: sendDirectWhatsApp is deleted; this operator script (never run by agents) uses the provider itself.
+  const result = await getMessagingProvider("msg91").sendWhatsApp(to, templateName, params);
 
   if (result.success) {
     console.log("\n✅ Message successfully sent via MSG91!");

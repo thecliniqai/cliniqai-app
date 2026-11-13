@@ -2356,6 +2356,15 @@ export type Database = {
       };
       communication_metadata_strip_tokens: { Args: { p: Json }; Returns: Json };
       communication_payload_redact: { Args: { p: Json }; Returns: Json };
+      communication_queue_apply_dlr: {
+        Args: {
+          p_at: string;
+          p_external_message_id: string;
+          p_reason_code: string;
+          p_status: string;
+        };
+        Returns: Json;
+      };
       communication_queue_claim: {
         Args: { p_id: string };
         Returns: {
@@ -2472,6 +2481,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      enqueue_unmatched_reply_system: {
+        Args: {
+          p_dedupe_key: string;
+          p_system_actor: string;
+          p_template_id: string;
+          p_to: string;
+        };
+        Returns: string;
+      };
       enqueue_webhook_event: {
         Args: {
           p_event_type: string;
@@ -2522,6 +2540,14 @@ export type Database = {
           table_name: string;
           with_check: string;
         }[];
+      };
+      inbound_webhook_begin: {
+        Args: { p_dedupe_key: string; p_provider: string };
+        Returns: string;
+      };
+      inbound_webhook_finish: {
+        Args: { p_dedupe_key: string; p_outcome: string; p_provider: string };
+        Returns: undefined;
       };
       is_safe_storage_key: { Args: { p_path: string }; Returns: boolean };
       is_valid_weekly_schedule: {

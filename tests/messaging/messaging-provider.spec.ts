@@ -7,9 +7,8 @@ import {
   Msg91Provider,
   TwilioProvider,
   GupshupProvider,
-  sendDirectSms,
-  sendDirectWhatsApp,
 } from "@/lib/messaging";
+import * as messaging from "@/lib/messaging";
 
 describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () => {
   const originalEnv = { ...process.env };
@@ -58,8 +57,15 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
     });
   });
 
+  describe("0. V2-04 04-03c: no direct-send helpers", () => {
+    it("the barrel no longer exports sendDirectSms / sendDirectWhatsApp (R-33: only job handlers send)", () => {
+      expect(Object.keys(messaging)).not.toContain("sendDirectSms");
+      expect(Object.keys(messaging)).not.toContain("sendDirectWhatsApp");
+    });
+  });
+
   describe("2. DevLogger Local Delivery & File Appending (T-05-01)", () => {
-    it("sendDirectSms writes one PHI-free log line and appends the message to .planning/dev-messages.txt", async () => {
+    it("the dev provider's sendSms writes one PHI-free log line and appends the message to .planning/dev-messages.txt", async () => {
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
       const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
       const testPhone = "+919876543210";
@@ -70,7 +76,7 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
         time: "10:30 AM",
       };
 
-      const result = await sendDirectSms(testPhone, templateId, testParams, "dev");
+      const result = await getMessagingProvider("dev").sendSms(testPhone, templateId, testParams);
 
       expect(result.success).toBe(true);
       expect(result.channelUsed).toBe("sms");
@@ -93,7 +99,7 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
       expect(fileContent).toContain("Rahul Sharma");
     });
 
-    it("sendDirectWhatsApp formats buttons without simulated webhook callback URLs", async () => {
+    it("the dev provider's sendWhatsApp formats buttons without simulated webhook callback URLs", async () => {
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
       const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
       const testPhone = "+919876543210";
@@ -108,13 +114,7 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
         { id: "reschedule", text: "Reschedule" },
       ];
 
-      const result = await sendDirectWhatsApp(
-        testPhone,
-        templateId,
-        testParams,
-        buttons,
-        "dev"
-      );
+      const result = await getMessagingProvider("dev").sendWhatsApp(testPhone, templateId, testParams, buttons);
 
       expect(result.success).toBe(true);
       expect(result.channelUsed).toBe("whatsapp");

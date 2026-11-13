@@ -5,11 +5,7 @@ import { GupshupProvider } from "./providers/gupshup";
 import { Msg91Provider } from "./providers/msg91";
 import { SinkProvider } from "./providers/sink";
 import { TwilioProvider } from "./providers/twilio";
-import {
-  InteractiveButton,
-  MessagingProvider,
-  MessagingSendResult,
-} from "./types";
+import type { MessagingProvider } from "./types";
 
 export * from "./types";
 export * from "./dev-logger";
@@ -65,27 +61,5 @@ export function getMessagingProvider(overrideName?: string): MessagingProvider {
   return provider;
 }
 
-/**
- * Direct sends outside the queue. V2-04 04-03a: importable only from `lib/jobs/internal/**`, `lib/messaging/**` and,
- * until 04-03c moves its bot replies to the queue and deletes these two, the inbound messaging webhook (ESLint P0-12).
- */
-export async function sendDirectSms(
-  to: string,
-  templateId: string,
-  params: Record<string, string>,
-  providerName?: string
-): Promise<MessagingSendResult> {
-  const provider = getMessagingProvider(providerName);
-  return provider.sendSms(to, templateId, params);
-}
-
-export async function sendDirectWhatsApp(
-  to: string,
-  templateId: string,
-  params: Record<string, string>,
-  buttons?: InteractiveButton[],
-  providerName?: string
-): Promise<MessagingSendResult> {
-  const provider = getMessagingProvider(providerName);
-  return provider.sendWhatsApp(to, templateId, params, buttons);
-}
+// V2-04 04-03c (R-33): `sendDirectSms` / `sendDirectWhatsApp` are deleted with their last app caller (the inbound
+// messaging webhook now queues its bot replies). Only the job handlers in lib/jobs/internal/** send (ESLint P0-12).

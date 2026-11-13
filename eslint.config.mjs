@@ -135,7 +135,7 @@ const MESSAGING_SEND_NAMES = [
   "SinkProvider",
 ];
 const MESSAGING_SEND_WHERE =
-  "lib/jobs/internal/** (the message.send handler) and lib/messaging/** (until 04-03c, also the inbound messaging webhook)";
+  "lib/jobs/internal/** (the message.send and message.reply_unmatched handlers) and lib/messaging/**";
 // The provider modules themselves, by alias or by any relative spelling (`../messaging/providers/msg91`).
 const MESSAGING_PROVIDER_MODULE = String.raw`^(?:@\/lib\/|(?:\.{1,2}\/)+(?:.*\/)?)messaging\/(?:providers(?:\/.*)?|dev-logger)$|^(?:\.{1,2}\/)+(?:providers(?:\/.*)?|dev-logger)$`;
 // V2-04 04-03b (P0-12, R-33): the webhook deliverer and its pinned transport, by alias or by any relative spelling
@@ -325,7 +325,8 @@ const BOUNDARY_IMPORT_PATTERNS = {
     message: `${P134} import a system module only by its canonical alias (@/lib/supabase/system, @/features/<domain>/system) and only from ${SYSTEM_ALLOWED_WHERE} (ADR-0005 D4).`,
   },
   // V2-04 04-03a (P0-12, R-33): the provider factory, the direct senders and the provider classes, from the barrel or
-  // the provider modules, only in lib/jobs/internal/** and lib/messaging/** (+ one owner-commented allowance below).
+  // the provider modules, only in lib/jobs/internal/** and lib/messaging/** (04-03c deleted the inbound route's allowance;
+  // sendDirectSms/sendDirectWhatsApp are deleted and stay banned by name).
   messagingSend: [
     {
       regex: MESSAGING_BARREL,
@@ -449,9 +450,6 @@ const BOUNDARY_IMPORT_ZONES = [
   // register allowance above (a later zone replaces the option list); 04-03c drops SYSTEM_MODULES here with the
   // register (lib/webhooks/** no longer acquires a system client since 04-03b deleted outbox.ts).
   { files: ["lib/webhooks/**"], allow: [...SYSTEM_MODULES, "webhookDeliver"] },
-  // P0-12 allowance, owner V2-04 04-03c: the inbound messaging webhook still sends its five bot replies with
-  // sendDirectWhatsApp. 04-03c queues them (enqueueMessageAsSystem) and deletes sendDirect* together with this zone.
-  { files: ["app/api/webhooks/messaging/\\[provider\\]/route.ts"], allow: [...SYSTEM_MODULES, "messagingSend"] },
   // ADR-0005 A1: the five public share routes (minimatch escapes the brackets of the dynamic segment).
   {
     files: [
