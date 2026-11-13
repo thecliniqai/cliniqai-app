@@ -108,7 +108,7 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
 - [ ] **03-E3 · Staging Auth settings (applied by you, checked by the drift job)**
   - *Do / where:* Claude gives you the output of `node scripts/ci/check-auth-config.mjs --print staging` (dashboard
     label → value). Apply it in Dashboard → Authentication: signups **off**; confirm email **on**; secure email change
-    **on**; secure password change **off**; email OTP expiry 600 s, length 6; minimum password length 10; **Require
+    **on**; secure password change **off**; email OTP expiry 600 s, **length 8** (ruling R-36; apply before or with the deploy carrying ff38b2b — the reset form accepts only 8 digits); minimum password length 10; **Require
     current password when updating: on**; access-token (JWT) expiry 900 s; rate limits email sent 60/h, sign-ups and
     sign-ins 30, token refreshes 150, token verifications 30; MFA TOTP on; Site URL `https://staging.<domain>`, no
     extra redirect URLs; security notification "password changed" on; email templates pasted from
