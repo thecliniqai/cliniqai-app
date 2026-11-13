@@ -21,6 +21,11 @@ import {
  *
  * Errors are mapped by code through the catalogue (`errors.ts`). The Supabase `error.message` is never shown,
  * returned or logged (AD-7).
+ *
+ * CAPTCHA (03-12c, C43): when the page shows the Turnstile widget it passes `{ required: true, token }`. Without a
+ * token the flow is refused here, before any request (Supabase would answer `captcha_failed`); with one, the token
+ * goes to GoTrue as `options.captchaToken` (sent as `gotrue_meta_security.captcha_token`), and Supabase verifies it
+ * with Cloudflare (no app-side siteverify). Tokens are single-use: the page resets the widget after every attempt.
  */
 
 type AuthClient = Pick<SupabaseClient, "auth">;
@@ -33,6 +38,7 @@ export type AuthFlowErrorCode =
   | "weak_password"
   | "same_password"
   | "captcha_failed"
+  | "captcha_required"
   | "unknown";
 
 export type AuthFlowFailure = { ok: false; code: AuthFlowErrorCode; message: string };
@@ -56,6 +62,7 @@ export const AUTH_MESSAGES = {
   weak_password: AUTH_ERROR_MESSAGES.weak_password,
   same_password: AUTH_ERROR_MESSAGES.same_password,
   captcha_failed: AUTH_ERROR_MESSAGES.captcha_failed,
+  captcha_required: en.auth.captcha.required,
   sign_in_failed: en.auth.flows.sign_in_failed,
   reset_request_failed: en.auth.flows.reset_request_failed,
   reset_failed: en.auth.flows.reset_failed,
@@ -99,13 +106,32 @@ function invalidInput(message: string | undefined): AuthFlowFailure {
   return { ok: false, code: "invalid_input", message: message ?? "Check the form and try again" };
 }
 
+/** The page's CAPTCHA state: `required` when the Turnstile widget is on; `token` from its last success. */
+export interface CaptchaInput {
+  required: boolean;
+  token?: string | null;
+}
+
+const CAPTCHA_REQUIRED: AuthFlowFailure = { ok: false, code: "captcha_required", message: AUTH_MESSAGES.captcha_required };
+
+/** The token to send, `null` for none, or a refusal when the widget is on and gave no token. */
+function captchaToken(captcha: CaptchaInput | undefined): string | null | AuthFlowFailure {
+  const token = typeof captcha?.token === "string" && captcha.token.length > 0 ? captcha.token : null;
+  if (captcha?.required && token === null) return CAPTCHA_REQUIRED;
+  return token;
+}
+
 /** Email + password sign-in. A normal sign-in is a `/token` password grant only, so it sends no email. */
-export async function signIn(client: AuthClient, input: SignInInput): Promise<AuthFlowResult> {
+export async function signIn(client: AuthClient, input: SignInInput, captcha?: CaptchaInput): Promise<AuthFlowResult> {
   const parsed = signInSchema.safeParse(input);
   if (!parsed.success) return invalidInput(parsed.error.issues[0]?.message);
+  const token = captchaToken(captcha);
+  if (token !== null && typeof token === "object") return token;
 
   try {
-    const { data, error } = await client.auth.signInWithPassword(parsed.data);
+    const { data, error } = await client.auth.signInWithPassword(
+      token === null ? parsed.data : { ...parsed.data, options: { captchaToken: token } },
+    );
     if (error) return mapAuthError(error, "sign_in");
     if (!data.session) return mapAuthError(null, "sign_in");
     return { ok: true };
@@ -120,12 +146,21 @@ export async function signIn(client: AuthClient, input: SignInInput): Promise<Au
  * per-address resend limit (`over_email_send_rate_limit`) can only trigger for an address that exists, so it is
  * also reported as success to avoid revealing the account.
  */
-export async function requestReset(client: AuthClient, input: ResetRequestInput): Promise<AuthFlowResult> {
+export async function requestReset(
+  client: AuthClient,
+  input: ResetRequestInput,
+  captcha?: CaptchaInput,
+): Promise<AuthFlowResult> {
   const parsed = resetRequestSchema.safeParse(input);
   if (!parsed.success) return invalidInput(parsed.error.issues[0]?.message);
+  const token = captchaToken(captcha);
+  if (token !== null && typeof token === "object") return token;
 
   try {
-    const { error } = await client.auth.resetPasswordForEmail(parsed.data.email);
+    const { error } =
+      token === null
+        ? await client.auth.resetPasswordForEmail(parsed.data.email)
+        : await client.auth.resetPasswordForEmail(parsed.data.email, { captchaToken: token });
     if (error) {
       if (authErrorCodeOf(error) === "over_email_send_rate_limit") return { ok: true };
       return mapAuthError(error, "reset_request");

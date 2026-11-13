@@ -9,11 +9,13 @@ import { abandonReset, completeReset, requestReset, type SetPasswordResult } fro
 import { setNewPasswordAction } from "@/features/auth/actions";
 import { PASSWORDS_DO_NOT_MATCH_MESSAGE, completeResetFormSchema } from "@/features/auth/schemas";
 import { ClinicShowcasePanel } from "@/components/auth/clinic-showcase-panel";
+import { TurnstileField, type TurnstileFieldHandle } from "@/components/auth/turnstile-field";
 import { AuthMobileBrand, FormMessage, PasswordInput } from "@/components/auth/auth-form-parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
+import { publicEnv } from "@/lib/env";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const SENT_NOTICE = "If an account exists for this email, we've sent a 6-digit code. It can take a minute to arrive.";
@@ -49,6 +51,11 @@ export default function ForgotPasswordPage() {
   const [cooldown, setCooldown] = useState(0);
   // True once the code has been accepted but the new password was not saved yet (a recovery session exists).
   const [codeAccepted, setCodeAccepted] = useState(false);
+  // 03-12c (C43): the reset request (`/recover`) carries a Turnstile token when a site key is configured. The request
+  // step and the "Resend code" row each render their own widget (only one is mounted at a time).
+  const siteKey = publicEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const requestTurnstile = useRef<TurnstileFieldHandle>(null);
+  const resendTurnstile = useRef<TurnstileFieldHandle>(null);
 
   const pendingRecovery = useRef(false);
   useEffect(() => {
@@ -68,11 +75,14 @@ export default function ForgotPasswordPage() {
     };
   }, [supabase]);
 
-  const sendCode = async () => {
+  const sendCode = async (turnstile: React.RefObject<TurnstileFieldHandle | null>) => {
     setError(null);
     setNotice(null);
     setLoading(true);
-    const result = await requestReset(supabase, { email });
+    const captchaToken = siteKey ? ((await turnstile.current?.token()) ?? null) : null;
+    const result = await requestReset(supabase, { email }, { required: Boolean(siteKey), token: captchaToken });
+    // Turnstile tokens are single-use: every attempt that used one needs a new one.
+    if (captchaToken) turnstile.current?.reset();
     setLoading(false);
     if (!result.ok) {
       setError(result.message);
@@ -86,12 +96,12 @@ export default function ForgotPasswordPage() {
   const handleRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
-    if (await sendCode()) setStep("reset");
+    if (await sendCode(requestTurnstile)) setStep("reset");
   };
 
   const handleResend = async () => {
     if (loading || cooldown > 0) return;
-    await sendCode();
+    await sendCode(resendTurnstile);
   };
 
   const handleReset = async (e: React.FormEvent) => {
@@ -217,6 +227,8 @@ export default function ForgotPasswordPage() {
                 />
               </Field>
 
+              <TurnstileField ref={requestTurnstile} siteKey={siteKey} id="reset-request-turnstile" action="password-reset" />
+
               <Button type="submit" variant="primary" loading={loading} disabled={!hydrated} className="w-full h-11 text-sm font-semibold">
                 Send code
               </Button>
@@ -298,6 +310,16 @@ export default function ForgotPasswordPage() {
               <Button type="submit" variant="primary" loading={loading} disabled={!hydrated} className="w-full h-11 text-sm font-semibold">
                 Save new password
               </Button>
+
+              {!codeAccepted && (
+                <TurnstileField
+                  ref={resendTurnstile}
+                  siteKey={siteKey}
+                  id="reset-resend-turnstile"
+                  action="password-reset"
+                  appearance="interaction-only"
+                />
+              )}
 
               {!codeAccepted && (
                 <div className="flex items-center justify-between gap-3 text-sm">

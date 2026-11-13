@@ -33,6 +33,15 @@ export const en = {
       change_failed: "We couldn't change your password, try again",
       reset_session_stale: "This reset has expired. Request a new code and try again.",
     },
+    // 03-12c (C43): the Cloudflare Turnstile check on sign-in and the reset request.
+    captcha: {
+      label: "Security check",
+      loading: "Loading the security check…",
+      required: "Complete the security check, then try again.",
+      failed: "The security check failed. Reload the page and try again.",
+      expired: "The security check expired and is refreshing. Try again in a moment.",
+      unavailable: "The security check could not load. Check your connection and reload the page.",
+    },
     changePassword: {
       success: "Password changed. Other devices were signed out.",
       successOthersRemain: "Password changed, but we could not sign out your other devices.",
