@@ -425,7 +425,9 @@
       '<button type="button" class="icon-btn bell" aria-label="Notifications, 2 unread">' +
       icon("bell") +
       '<span class="dot" aria-hidden="true">2</span></button>' +
-      '<button type="button" class="icon-btn" aria-label="Account menu"><span class="avatar">' +
+      '<button type="button" class="icon-btn" aria-label="' +
+      u.initials +
+      ', account menu"><span class="avatar">' +
       u.initials +
       "</span></button>"
     );

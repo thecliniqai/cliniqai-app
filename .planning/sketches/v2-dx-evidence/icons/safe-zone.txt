@@ -1,0 +1,4 @@
+Maskable safe zone (W3C: circle of radius 40% = 204.8 px on 512)
+Ring outer extent from centre: 158.2 px
+Tail outer extent from centre: 191.6 px
+Farthest painted glyph point: 191.6 px → INSIDE the safe zone

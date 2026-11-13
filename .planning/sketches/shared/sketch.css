@@ -217,7 +217,6 @@ kbd {
   font-weight: 500;
   color: inherit;
   border: 1px solid currentColor;
-  opacity: 0.85;
 }
 .btn-primary kbd {
   border-color: rgb(255 255 255 / 0.6);
@@ -247,6 +246,7 @@ kbd {
 }
 .input {
   width: 100%;
+  min-width: 0;
   min-height: var(--spacing-control);
   padding: 0 12px;
   border: 1px solid var(--input-border);

@@ -829,3 +829,9 @@
 .doctor .lane + .lane {
   margin-top: 12px;
 }
+.picker-results li[data-i="new"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+.today-head > * {
+  min-width: 0;
+}

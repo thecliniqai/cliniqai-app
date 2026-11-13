@@ -600,7 +600,11 @@
         render();
         return P.toast(x.name + " moved to " + DOCTORS[x.doctor]);
       case "consult":
-        window.location.href = "../004-consult/index.html";
+        {
+          const a = document.createElement("a");
+          a.href = "../004-consult/index.html";
+          a.click();
+        }
         return undefined;
       default:
         return undefined;

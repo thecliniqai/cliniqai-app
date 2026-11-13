@@ -1,0 +1,93 @@
+# axe summary (tool-generated)
+
+axe-core via @axe-core/playwright, tags wcag2a, wcag2aa, wcag21a, wcag21aa, wcag22aa. 85 runs (surfaces × widths, plus open sheets/menus at 360 and 1280).
+
+**Violation nodes by impact: critical 0, serious 0, moderate 0, minor 0**
+
+| Surface | Width | Violations (rule: impact × nodes) | Passed rules |
+|---|---|---|---|
+| palette | 360 | none | 17 |
+| palette | 744 | none | 17 |
+| palette | 820 | none | 17 |
+| palette | 1180 | none | 17 |
+| palette | 1280 | none | 17 |
+| icon | 360 | none | 17 |
+| icon | 744 | none | 17 |
+| icon | 820 | none | 17 |
+| icon | 1180 | none | 17 |
+| icon | 1280 | none | 17 |
+| today | 360 | none | 30 |
+| today | 744 | none | 29 |
+| today | 820 | none | 29 |
+| today | 1180 | none | 29 |
+| today | 1280 | none | 29 |
+| today-lanes-variant | 820 | none | 29 |
+| today-lanes-variant | 1180 | none | 29 |
+| today-doctor | 360 | none | 22 |
+| today-doctor | 820 | none | 22 |
+| today-doctor | 1280 | none | 22 |
+| consult | 360 | none | 27 |
+| consult | 744 | none | 27 |
+| consult | 820 | none | 25 |
+| consult | 1180 | none | 27 |
+| consult | 1280 | none | 27 |
+| consult-rx | 360 | none | 30 |
+| consult-rx | 744 | none | 29 |
+| consult-rx | 820 | none | 27 |
+| consult-rx | 1180 | none | 27 |
+| consult-rx | 1280 | none | 27 |
+| install | 360 | none | 19 |
+| install | 744 | none | 19 |
+| install | 820 | none | 19 |
+| install | 1180 | none | 19 |
+| install | 1280 | none | 19 |
+| offline | 360 | none | 10 |
+| offline | 744 | none | 10 |
+| offline | 820 | none | 10 |
+| offline | 1180 | none | 10 |
+| offline | 1280 | none | 10 |
+| signup-trial | 360 | none | 22 |
+| signup-trial | 744 | none | 22 |
+| signup-trial | 820 | none | 22 |
+| signup-trial | 1180 | none | 22 |
+| signup-trial | 1280 | none | 22 |
+| settings-billing | 360 | none | 21 |
+| settings-billing | 744 | none | 21 |
+| settings-billing | 820 | none | 21 |
+| settings-billing | 1180 | none | 21 |
+| settings-billing | 1280 | none | 21 |
+| locked | 360 | none | 13 |
+| locked | 744 | none | 13 |
+| locked | 820 | none | 13 |
+| locked | 1180 | none | 13 |
+| locked | 1280 | none | 13 |
+| locked-staff | 360 | none | 10 |
+| locked-staff | 744 | none | 10 |
+| locked-staff | 820 | none | 10 |
+| locked-staff | 1180 | none | 10 |
+| locked-staff | 1280 | none | 10 |
+| platform | 360 | none | 26 |
+| platform | 744 | none | 26 |
+| platform | 820 | none | 26 |
+| platform | 1180 | none | 26 |
+| platform | 1280 | none | 26 |
+| ai-labels | 360 | none | 17 |
+| ai-labels | 744 | none | 17 |
+| ai-labels | 820 | none | 17 |
+| ai-labels | 1180 | none | 17 |
+| ai-labels | 1280 | none | 17 |
+| price | 360 | none | 13 |
+| price | 744 | none | 13 |
+| price | 820 | none | 13 |
+| price | 1180 | none | 13 |
+| price | 1280 | none | 13 |
+| state:today-walkin-sheet | 360 | none | 33 |
+| state:today-walkin-sheet | 1280 | none | 32 |
+| state:today-book-sheet | 360 | none | 30 |
+| state:today-book-sheet | 1280 | none | 30 |
+| state:today-collect-sheet | 360 | none | 30 |
+| state:today-collect-sheet | 1280 | none | 29 |
+| state:today-row-menu | 360 | none | 30 |
+| state:today-row-menu | 1280 | none | 31 |
+| state:consult-finish-sheet | 360 | none | 27 |
+| state:consult-finish-sheet | 1280 | none | 27 |

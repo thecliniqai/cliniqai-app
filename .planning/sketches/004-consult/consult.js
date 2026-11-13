@@ -50,9 +50,7 @@
       title +
       "</h2>" +
       (extra || "") +
-      '<kbd aria-label="Alt ' +
-      n +
-      '">Alt ' +
+      "<kbd>Alt " +
       n +
       '</kbd></div><div class="blk-body">' +
       body +
@@ -478,7 +476,7 @@
       const ids = ["b-complaints", "b-exam", "b-dx", "b-rx", "b-inv", "b-adv", "b-fu"];
       const sec = document.getElementById(ids[Number(e.code.slice(5)) - 1]);
       sec.scrollIntoView({ block: "start" });
-      const f = sec.querySelector("input, textarea, button.toggle-chip");
+      const f = sec.querySelector("input, textarea") || sec.querySelector("button");
       (f || sec).focus();
     }
   });

@@ -1,0 +1,440 @@
+{
+  "m0Commit": "ade531fe6c7a87c3ee9f440238b359541378de8c",
+  "rules": "click, key press and each typed field = 1 action (M0 rules); 'excluding typing' = clicks + key presses (UX_AUDIT §5: typing is not counted); keystrokes = every key incl. typed characters",
+  "flows": [
+    {
+      "id": "check-in",
+      "label": "Check in a booked patient (filter → Enter)",
+      "target": "1 action + typing once the filter has focus (UX_AUDIT §4.1)",
+      "targetMax": 2,
+      "meetsTarget": true,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 3,
+      "actionsExcludingTyping": 2,
+      "keystrokes": 7,
+      "mouse": 0,
+      "clicks": 0,
+      "presses": 2,
+      "fills": 1,
+      "durationMs": 41,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "press",
+          "target": "focus Today filter",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "filter",
+          "keystrokes": 5
+        },
+        {
+          "kind": "press",
+          "target": "Enter = Check in",
+          "keystrokes": 1
+        }
+      ],
+      "video": "walkthrough/check-in.webm"
+    },
+    {
+      "id": "check-in-next",
+      "label": "Check in the next booked patient (filter keeps focus)",
+      "target": "1 action + typing",
+      "targetMax": 1,
+      "meetsTarget": true,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 2,
+      "actionsExcludingTyping": 1,
+      "keystrokes": 5,
+      "mouse": 0,
+      "clicks": 0,
+      "presses": 1,
+      "fills": 1,
+      "durationMs": 24,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "type",
+          "target": "filter",
+          "keystrokes": 4
+        },
+        {
+          "kind": "press",
+          "target": "Enter = Check in",
+          "keystrokes": 1
+        }
+      ],
+      "video": "walkthrough/check-in-next.webm"
+    },
+    {
+      "id": "walk-in-token",
+      "label": "Walk-in, existing patient → token",
+      "target": "W → phone → Enter → Enter (3 keystrokes besides typing)",
+      "targetMax": 3,
+      "meetsTarget": true,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 4,
+      "actionsExcludingTyping": 3,
+      "keystrokes": 13,
+      "mouse": 0,
+      "clicks": 0,
+      "presses": 3,
+      "fills": 1,
+      "durationMs": 45,
+      "m0": {
+        "id": "walk-in-token",
+        "actions": 4,
+        "keystrokes": 28,
+        "clicks": 2
+      },
+      "steps": [
+        {
+          "kind": "press",
+          "target": "W = walk-in",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "mobile number",
+          "keystrokes": 10
+        },
+        {
+          "kind": "press",
+          "target": "select top match",
+          "keystrokes": 1
+        },
+        {
+          "kind": "press",
+          "target": "Add to queue",
+          "keystrokes": 1
+        }
+      ],
+      "video": "walkthrough/walk-in-token.webm"
+    },
+    {
+      "id": "book-next-free",
+      "label": "Book, existing patient, suggested next free slot",
+      "target": "3 actions with context, 4 without (UX_AUDIT §5.2)",
+      "targetMax": 3,
+      "meetsTarget": true,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 4,
+      "actionsExcludingTyping": 3,
+      "keystrokes": 13,
+      "mouse": 0,
+      "clicks": 0,
+      "presses": 3,
+      "fills": 1,
+      "durationMs": 48,
+      "m0": {
+        "id": "book-appointment",
+        "actions": 6,
+        "keystrokes": 32,
+        "clicks": 3
+      },
+      "steps": [
+        {
+          "kind": "press",
+          "target": "B = book",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "mobile number",
+          "keystrokes": 10
+        },
+        {
+          "kind": "press",
+          "target": "select patient",
+          "keystrokes": 1
+        },
+        {
+          "kind": "press",
+          "target": "Book 11:30 am",
+          "keystrokes": 1
+        }
+      ],
+      "video": "walkthrough/book-next-free.webm"
+    },
+    {
+      "id": "book-chosen-slot",
+      "label": "Book, existing patient, a slot of the caller's choice",
+      "target": "4 actions without context",
+      "targetMax": 4,
+      "meetsTarget": true,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 5,
+      "actionsExcludingTyping": 4,
+      "keystrokes": 12,
+      "mouse": 2,
+      "clicks": 2,
+      "presses": 2,
+      "fills": 1,
+      "durationMs": 107,
+      "m0": {
+        "id": "book-appointment",
+        "actions": 6,
+        "keystrokes": 32,
+        "clicks": 3
+      },
+      "steps": [
+        {
+          "kind": "press",
+          "target": "B = book",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "mobile number",
+          "keystrokes": 10
+        },
+        {
+          "kind": "press",
+          "target": "select patient",
+          "keystrokes": 1
+        },
+        {
+          "kind": "click",
+          "target": "slot 4:30 pm",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Book",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/book-chosen-slot.webm"
+    },
+    {
+      "id": "reschedule",
+      "label": "Reschedule a booked appointment",
+      "target": "⋯ → Reschedule → slot → Confirm = 4 (UX_AUDIT §5.3)",
+      "targetMax": 4,
+      "meetsTarget": true,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 4,
+      "actionsExcludingTyping": 4,
+      "keystrokes": 0,
+      "mouse": 4,
+      "clicks": 4,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 200,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "⋯",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Reschedule",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "slot 12:45 pm",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Confirm",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/reschedule.webm"
+    },
+    {
+      "id": "collect",
+      "label": "Collect payment for a visit in To bill",
+      "target": "≤ 3 (brief); UX_AUDIT §5.9 keeps 4 incl. share",
+      "targetMax": 3,
+      "meetsTarget": true,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 3,
+      "actionsExcludingTyping": 3,
+      "keystrokes": 0,
+      "mouse": 3,
+      "clicks": 3,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 121,
+      "m0": {
+        "id": "checkout-collect",
+        "actions": 9,
+        "keystrokes": 22,
+        "clicks": 6
+      },
+      "steps": [
+        {
+          "kind": "click",
+          "target": "Collect ₹700 (row)",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Collect ₹700 (sheet)",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Done",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/collect.webm"
+    },
+    {
+      "id": "consult-rx-finish",
+      "label": "Consult: note, diagnosis, 2 medicines by keyboard, sign",
+      "target": "0 mouse actions per medicine (UX_AUDIT §4.2)",
+      "targetMax": null,
+      "meetsTarget": true,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 18,
+      "actionsExcludingTyping": 12,
+      "keystrokes": 58,
+      "mouse": 3,
+      "clicks": 3,
+      "presses": 9,
+      "fills": 6,
+      "durationMs": 174,
+      "m0": {
+        "id": "consult-rx-finish",
+        "actions": 12,
+        "keystrokes": 105,
+        "clicks": 8
+      },
+      "steps": [
+        {
+          "kind": "click",
+          "target": "Notes",
+          "keystrokes": 0
+        },
+        {
+          "kind": "type",
+          "target": "notes",
+          "keystrokes": 31
+        },
+        {
+          "kind": "press",
+          "target": "Alt+3 diagnosis",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "diagnosis",
+          "keystrokes": 3
+        },
+        {
+          "kind": "press",
+          "target": "pick Essential hypertension",
+          "keystrokes": 1
+        },
+        {
+          "kind": "press",
+          "target": "Alt+4 prescription",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "medicine",
+          "keystrokes": 5
+        },
+        {
+          "kind": "press",
+          "target": "pick Telmisartan",
+          "keystrokes": 1
+        },
+        {
+          "kind": "press",
+          "target": "preset 2 = 1-0-0",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "duration",
+          "keystrokes": 3
+        },
+        {
+          "kind": "press",
+          "target": "add line",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "medicine",
+          "keystrokes": 4
+        },
+        {
+          "kind": "press",
+          "target": "pick Amlodipine",
+          "keystrokes": 1
+        },
+        {
+          "kind": "press",
+          "target": "preset 3 = 0-0-1",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "duration",
+          "keystrokes": 3
+        },
+        {
+          "kind": "press",
+          "target": "add line",
+          "keystrokes": 1
+        },
+        {
+          "kind": "click",
+          "target": "Finish visit",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Sign and finish",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/consult-rx-finish.webm"
+    },
+    {
+      "id": "repeat-last-rx",
+      "label": "Consult: repeat last prescription",
+      "target": "1 action (UX_AUDIT §4.2)",
+      "targetMax": 1,
+      "meetsTarget": true,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 1,
+      "actionsExcludingTyping": 1,
+      "keystrokes": 0,
+      "mouse": 1,
+      "clicks": 1,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 40,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "Repeat last Rx",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/repeat-last-rx.webm"
+    }
+  ]
+}
