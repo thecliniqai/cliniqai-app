@@ -93,7 +93,7 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/billing/actions.ts#sendConsolidatedConsultationWhatsApp": "consultations:view",
   "features/billing/actions.ts#shareReceiptViaWhatsApp": "billing:view",
   "features/billing/reports-actions.ts#getDailyCollectionReport": "billing:view",
-  "features/billing/subscription.ts#getSubscriptionOverview": "billing:view",
+  "features/billing/subscription.ts#getSubscriptionOverview": "clinic:manage",
   "features/clinics/actions.ts#createClinic":
     { authenticated: "Onboarding: a signed-in user without a clinic creates one; create_clinic_with_owner binds the owner membership to auth.uid()." },
   "features/clinics/profile.ts#getClinicProfile": "clinic:view",

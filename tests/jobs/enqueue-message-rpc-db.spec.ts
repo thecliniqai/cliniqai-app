@@ -408,11 +408,10 @@ describe("04-07a: public.enqueue_message permission per template and bounded inp
     expect(Object.keys(REQUEST_TEMPLATE_PERMISSION).every((t) => t in sqlRoles)).toBe(true);
   });
 
-  it("a role without the template's permission → 42501 FORBIDDEN, no row (receptionist: prescription, receipt; nurse: receipt)", async () => {
+  it("a role without the template's permission → 42501 FORBIDDEN, no row (receptionist: prescription; nurse: receipt)", async () => {
     const before = rowsFor(patientA.patientId).length;
     for (const [who, template] of [
       [receptionistA, "prescription_ready"],
-      [receptionistA, "receipt_issued"],
       [receptionistA, "consultation_documents"],
       [nurseA, "receipt_issued"],
       [adminA, "prescription_ready"],
@@ -426,6 +425,8 @@ describe("04-07a: public.enqueue_message permission per template and bounded inp
       [nurseA, "prescription_ready"],
       [doctorA, "consultation_documents"],
       [adminA, "receipt_issued"],
+      // PO-3 (V2-05 05-01b): receptionists hold billing:view and share receipts.
+      [receptionistA, "receipt_issued"],
       [nurseA, "appointment_booked"],
     ] as const) {
       const { error } = await enqueue(who.client, ownerA.tenantId, { p_message_type: template, p_template_id: template });

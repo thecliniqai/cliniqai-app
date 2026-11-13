@@ -2551,6 +2551,10 @@ export type Database = {
           with_check: string;
         }[];
       };
+      has_permission: {
+        Args: { p_perm: string; p_tenant: string };
+        Returns: boolean;
+      };
       inbound_webhook_begin: {
         Args: { p_dedupe_key: string; p_provider: string };
         Returns: string;
@@ -2596,6 +2600,13 @@ export type Database = {
       ops_ingest_error: {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;
+      };
+      permission_matrix: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          perm: string;
+          role: string;
+        }[];
       };
       readiness_probe: {
         Args: { p_expected_migration?: string };

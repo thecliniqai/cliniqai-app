@@ -1348,8 +1348,14 @@ export async function sendConsolidatedConsultationWhatsApp(
     }
 
     const { data: inv } = await invQuery.maybeSingle();
+    // Only an invoice found in the active clinic is ever linked. A caller-supplied id that is not one is refused, never
+    // passed to create_share_token as given (V2-05 05-01b: that function still binds "any membership" until 05-02c,
+    // so a member of two clinics could otherwise mint a link to the other clinic's receipt).
+    if (input.invoiceId && !inv) {
+      return { success: false, error: "Invoice not found." };
+    }
+    invoiceId = inv?.id;
     if (inv) {
-      invoiceId = inv.id;
       invoiceNumber = inv.invoice_number || "";
       totalAmount = String(inv.total_amount || 0);
     }

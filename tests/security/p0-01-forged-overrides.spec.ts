@@ -198,12 +198,12 @@ describe("P0-01 forged overrides at the action layer", () => {
       expect(await tenantRow(ownerB.tenantId)).toEqual(bBefore);
     });
 
-    it("toggleGlobalConsent is denied (no patients:edit) and writes no consent record", async () => {
+    it("toggleGlobalConsent on tenant B's patient (receptionist holds patients:edit since PO-3) finds nothing and writes no consent record", async () => {
       actAs(receptionistA);
       const [bBefore, aBefore] = [await consentRows(patientB), await consentRows(patientA)];
       const res = await call(toggleGlobalConsent, patientB, "withdrawn", "forged", forgedClient, forgedSession);
       expect(res.success).toBe(false);
-      expect(res.error).toMatch(PERMISSION_DENIED);
+      expect(res.error).toBe("Patient not found or access denied.");
       expect(await consentRows(patientB)).toEqual(bBefore);
       expect(await consentRows(patientA)).toEqual(aBefore);
     });

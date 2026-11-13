@@ -35,6 +35,7 @@ describe("schema snapshot on the local stack (catches what migra and a public-on
     }
     expect(baseline.some((l) => l.startsWith("relation ops.error_events "))).toBe(true);
     expect(baseline.some((l) => l.startsWith("function private.outbox_payment_recorded("))).toBe(true);
+    expect(baseline.some((l) => l.startsWith("function authz.active_tenant_id("))).toBe(true);
     expect(baseline).toContain("grant column public.payments.amount INSERT to authenticated");
     expect(baseline.some((l) => l.startsWith("policy storage.objects."))).toBe(true);
     // One fact per line, sorted, deterministic.
@@ -47,6 +48,11 @@ describe("schema snapshot on the local stack (catches what migra and a public-on
       "EXECUTE on private.outbox_payment_recorded granted to anon",
       ["grant execute on function private.outbox_payment_recorded(uuid) to anon"],
       /^\+ grant function private\.outbox_payment_recorded\(p_payment_id uuid\) EXECUTE to anon$/,
+    ],
+    [
+      "EXECUTE on an authz helper granted to anon (V2-05 05-01b: authz is a snapshot schema)",
+      ["grant usage on schema authz to anon", "grant execute on function authz.active_tenant_id() to anon"],
+      /^\+ grant function authz\.active_tenant_id\(\) EXECUTE to anon$/,
     ],
     ["table-level INSERT on payments re-granted to authenticated", ["grant insert on public.payments to authenticated"], /^\+ grant table public\.payments INSERT to authenticated$/],
     ["a column added to ops.error_events", ["alter table ops.error_events add column drift_probe text"], /^\+ column ops\.error_events\.drift_probe text /],
