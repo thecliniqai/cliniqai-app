@@ -105,8 +105,10 @@ On the PO's machine (Docker running, repo at `feature/v2`, never inside an agent
    row is a record, not an authority).
 3. `ops/restore-drill/run.sh --dump <archive> --identity <primary key> --expect-sha256 <digest> --evidence
    .planning/phases/04-jobs-reliability/evidence/restore-drill-staging.json` (refused before decrypting if the archive
-   is not the recorded one; refused before restoring if any SQL file holds a psql meta-command; the restore itself runs
-   psql in restricted mode, so a meta-command the guard missed is refused by psql)
+   is not the recorded one; refused before restoring if `manifest.json` fails `manifest-guard.ts` (counts must be
+   integers, table keys `schema.table` identifiers, digests hex: the drill uses only the validated copy) or any SQL
+   file holds a psql meta-command; every psql session of the drill (restore, counts, checks) runs in restricted mode
+   with `standard_conforming_strings` forced on, so a meta-command the guards missed is refused by psql; 04-07e, N-2b)
 4. `ops/restore-drill/run.sh --dump <archive> --identity <break-glass key> --expect-sha256 <digest> --decrypt-only`
 5. Delete the archive and key files. Claude verifies with `npx tsx ops/restore-drill/check-evidence.ts <evidence>`
    (all checks green, RPO ≤ 12 h, RTO ≤ 4 h, counts only) and records it in VERIFICATION_LOG.
@@ -142,7 +144,10 @@ drill stack's service versions with staging's by writing them to `ops/restore-dr
    `restore/`: `ops/bin/psql-restricted.sh -X --single-transaction -v ON_ERROR_STOP=1 -f roles.sql -f schema.sql -f
    storage_policies.sql -c 'SET session_replication_role = replica' -f data.sql` (skip the managed-role parameter grants
    as the drill does), then `ops/bin/psql-restricted.sh -X … -f history_schema.sql -f history_data.sql`. Never feed the
-   archive's SQL to a plain `psql`.
+   archive's SQL to a plain `psql`, and run any later check against the restored database through
+   `psql-restricted.sh` too (it forces `standard_conforming_strings` on and client encoding UTF8 whatever a restored
+   role or database setting says; 04-07e, N-2b). Values from the archive's `manifest.json` go in only as `-v` variables
+   used quoted (`:'name'`), after `npx tsx ops/restore-drill/manifest-guard.ts --in manifest.json --out <copy>` PASS.
 3. Objects: `aws s3 sync storage/<bucket> s3://<bucket> --endpoint-url https://<new-ref>.storage.supabase.co/storage/v1/s3`
    per bucket (buckets already exist from `storage.buckets` in `data.sql`).
 4. Re-create the schedules (04-07c, M-RESTORE): `cron.job` is not in the dump and the restored migration history

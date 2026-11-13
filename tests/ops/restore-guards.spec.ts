@@ -176,11 +176,29 @@ describe("run.sh refuses an unauthenticated archive and meta-command SQL before 
   const marker = path.join(tmp, "meta-command-ran");
   const sha256 = (file: string) => createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 
+  /** A manifest of backup.sh's shape (synthetic counts). */
+  const validManifest = () => ({
+    format_version: 1,
+    environment: "local",
+    dump_started_at: "2026-11-14T00:00:00Z",
+    dump_finished_at: "2026-11-14T00:01:00Z",
+    cli_version: "2.120.0",
+    server_version: "17.11",
+    database_bytes: 1000,
+    policies: 1,
+    functions: 1,
+    rls_tables: 1,
+    auth_users: 0,
+    tables: { "public.t": 1 } as Record<string, unknown>,
+    buckets: {},
+    excluded_buckets: [],
+  });
+
   /** A synthetic archive: the six SQL files and a manifest, tar | age to the throwaway key. */
-  function archive(name: string, schemaSql: string): string {
+  function archive(name: string, schemaSql: string, manifest: object = validManifest()): string {
     const stage = path.join(tmp, `${name}-stage`);
     fs.mkdirSync(stage, { recursive: true });
-    fs.writeFileSync(path.join(stage, "manifest.json"), JSON.stringify({ format_version: 1, environment: "local" }));
+    fs.writeFileSync(path.join(stage, "manifest.json"), JSON.stringify(manifest));
     fs.writeFileSync(path.join(stage, "roles.sql"), "-- roles\n");
     fs.writeFileSync(path.join(stage, "schema.sql"), schemaSql);
     fs.writeFileSync(path.join(stage, "storage_policies.sql"), "");
@@ -204,10 +222,18 @@ describe("run.sh refuses an unauthenticated archive and meta-command SQL before 
 
   let clean = "";
   let evil = "";
+  let evilManifest = "";
   beforeAll(() => {
     expect(spawnSync(AGE_KEYGEN, ["-o", key], { encoding: "utf8" }).status).toBe(0);
     clean = archive("clean", "CREATE TABLE public.t (a int);\n");
     evil = archive("evil", `CREATE TABLE public.t (a int);\n\\! touch '${marker}'\n`);
+    // 04-07e (N-2b): the re-checker's two manifest routes (a count with a meta-command, a table key that ends the
+    // counts query's literal when standard_conforming_strings is off).
+    evilManifest = archive("evilmanifest", "CREATE TABLE public.t (a int);\n", {
+      ...validManifest(),
+      policies: `1 \\! touch '${marker}' #`,
+      tables: { "public.t": 1, [`x\\'; \\! touch '${marker}' #.t`]: 1 },
+    });
   });
   afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
@@ -250,6 +276,21 @@ describe("run.sh refuses an unauthenticated archive and meta-command SQL before 
     expect(r.status).toBe(0);
     expect(r.stdout).toContain("restore-drill.digest ok");
     expect(r.stdout).toMatch(/restore-drill\.decrypt_only ok entries=\d+/);
+  });
+
+  it("04-07e (N-2b): refuses an authenticated archive whose manifest holds a meta-command in a count or a table key, before any SQL runs", () => {
+    const r = run(["--dump", evilManifest, "--identity", key, "--expect-sha256", sha256(evilManifest)]);
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain("restore-drill.digest ok");
+    expect(r.stdout).toContain("manifest-guard: REFUSED");
+    expect(r.stdout).toContain("policies: must be an integer");
+    expect(r.stdout).toContain("tables: 1 key(s) not of the form schema.table");
+    expect(r.stderr).toContain("manifest.json failed validation: refused before restore");
+    // The refused values are never printed.
+    expect(r.stdout + r.stderr).not.toContain("touch");
+    expect(r.stdout).not.toContain("restore-drill.sql_guard");
+    expect(r.stdout).not.toContain("restore-drill.stack_start");
+    expect(fs.existsSync(marker)).toBe(false);
   });
 
   it("refuses an authenticated archive whose SQL holds a psql meta-command, before any SQL runs or a stack starts", () => {

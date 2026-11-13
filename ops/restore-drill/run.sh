@@ -17,6 +17,10 @@
 # decrypting, ops/restore-drill/sql-guard.ts refuses SQL that holds a psql meta-command (`\! …`) before any of it runs
 # and writes the restore copies; the restore runs them with psql in restricted mode under a fresh key (04-07d, N-2:
 # ops/bin/psql-restricted.sh, so psql itself refuses every meta-command), and every psql call runs with -X.
+# 04-07e (N-2b): EVERY psql session of this script is restricted (the restore, the counts and checks after it, and the
+# self-test's own queries; steps in ops/restore-drill/drill-lib.sh), with standard_conforming_strings forced on, and
+# manifest.json is validated by ops/restore-drill/manifest-guard.ts before any of it is used: the drill reads only the
+# validated copy, and its values reach SQL only as psql variables used quoted in fixed SQL files.
 # --self-test (local only, synthetic data): seeds the primary local stack (`npm run seed:local`), uploads one synthetic
 # Storage object, generates two throwaway age key pairs in a temp dir, runs ops/backup/backup.sh with BACKUP_ENV=local
 # (the local Storage S3 endpoint stands in for the R2 bucket), downloads the archive from the stand-in, runs the drill with
@@ -34,6 +38,8 @@ DRILL_WORKDIR="$ROOT/ops/restore-drill"
 DRILL_EXCLUDE="studio,edge-runtime,logflare,vector,imgproxy,supavisor,kong,postgrest,mailpit,postgres-meta"
 # shellcheck source=../bin/pins.env
 source "$BIN/pins.env"
+# shellcheck source=drill-lib.sh
+source "$HERE/drill-lib.sh"
 
 log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 die() { echo "restore-drill: $*" >&2; exit "${2:-1}"; }
@@ -111,7 +117,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-json_get() { node -e 'const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const v=process.argv[2].split(".").reduce((o,k)=>o?.[k],m);process.stdout.write(v===undefined?"":String(v))' "$1" "$2"; }
 iso_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 # Local stack facts from `supabase status` (values captured, never printed).
@@ -156,8 +161,14 @@ run_drill() { # <archive> <identity>
   log "restore-drill.decrypt"
   "$AGE" -d -i "$identity" "$archive" | tar -xf - -C "$plain"
   [[ -f "$plain/manifest.json" ]] || die "archive has no manifest.json"
-  [[ "$(json_get "$plain/manifest.json" format_version)" == "1" ]] || die "unsupported manifest format_version"
   CHECK_DECRYPT=true
+
+  # 04-07e (N-2b): the manifest is archive-controlled text. Validate every field the drill reads (counts as integers,
+  # table keys as schema.table identifiers in the dumped schemas, digests as hex, ...) and use only the validated copy.
+  log "restore-drill.manifest_guard"
+  VALID_MANIFEST="$WORK/manifest.validated.json"
+  (cd "$ROOT" && npx tsx ops/restore-drill/manifest-guard.ts --in "$plain/manifest.json" --out "$VALID_MANIFEST") \
+    || die "the archive's manifest.json failed validation: refused before restore"
 
   # 04-07c (M-BACKUPAUTH): no psql meta-command in any SQL file, checked before anything is executed. 04-07d (N-2): the
   # guard writes the restore copies the restore runs (pg_dump's own \restrict lines as comments) to $plain/restore.
@@ -181,9 +192,9 @@ run_drill() { # <archive> <identity>
   DRILL_DB_URL="$(status_value "$DRILL_WORKDIR" DB_URL)"
   [[ "$DRILL_DB_URL" == *"@127.0.0.1:55322/"* ]] || die "drill stack DB is not on 127.0.0.1:55322"
 
-  drill_psql() { PSQL_DB_URL="$DRILL_DB_URL" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=terse "$@"; }
-  # The archive's SQL runs only through this one (04-07d, N-2): psql restricted under a fresh key for the whole session.
-  restore_psql() { PSQL_DB_URL="$DRILL_DB_URL" PSQL_MOUNT="$WORK" "$BIN/psql-restricted.sh" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=terse "$@"; }
+  # The archive's SQL runs through drill_psql (drill-lib.sh): psql restricted under a fresh key for the whole session
+  # (04-07d, N-2), like every other session of the drill (04-07e, N-2b).
+  restore_psql() { drill_psql "$@"; }
 
   log "restore-drill.restore"
   # Parameter privileges granted to Supabase-managed roles are platform state the target already manages (and only a
@@ -201,33 +212,18 @@ run_drill() { # <archive> <identity>
   CHECK_HISTORY=true
 
   log "restore-drill.verify"
-  node - "$plain/manifest.json" "$WORK/counts.sql" <<'JS'
-const fs = require("node:fs");
-const [manifestPath, out] = process.argv.slice(2);
-const m = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-const q = (id) => '"' + id.replace(/"/g, '""') + '"';
-const lit = (s) => "'" + s.replace(/'/g, "''") + "'";
-const parts = Object.keys(m.tables).sort().map((t) => {
-  const [schema, ...rest] = t.split(".");
-  return `select ${lit(t)}, count(*) from ${q(schema)}.${q(rest.join("."))}`;
-});
-fs.writeFileSync(out, (parts.length ? parts.join("\nunion all ") : "select null, null where false") + ";\n");
-JS
-  drill_psql -At -F $'\t' -f "$WORK/counts.sql" -o "$WORK/restored_counts.tsv"
+  # 04-07e (N-2b): a fixed counts.sql; the validated table keys enter as one quoted psql variable.
+  drill_counts "$VALID_MANIFEST" "$WORK/restored_counts.tsv" || die "row counts of the restored tables failed"
   drill_psql -At -F $'\t' -o "$WORK/restored_objects.tsv" \
     -c "select bucket_id, name, coalesce(metadata->>'size', '') from storage.objects order by 1, 2"
-  (cd "$ROOT" && npx tsx ops/restore-drill/compare-manifest.ts --manifest "$plain/manifest.json" \
+  (cd "$ROOT" && npx tsx ops/restore-drill/compare-manifest.ts --manifest "$VALID_MANIFEST" \
     --restored-counts "$WORK/restored_counts.tsv" --restored-objects "$WORK/restored_objects.tsv" \
     --storage-dir "$plain/storage" --out "$WORK/compare.json")
   CHECK_OBJECTS="$(json_get "$WORK/compare.json" ok)"
   CHECK_MANIFEST="$CHECK_OBJECTS"
 
-  cp "$ROOT/supabase/tests/restore_drill_checks.sql" "$WORK/restore_drill_checks.sql"
-  drill_psql -At \
-    -v expected_policies="$(json_get "$plain/manifest.json" policies)" \
-    -v expected_functions="$(json_get "$plain/manifest.json" functions)" \
-    -v expected_users="$(json_get "$plain/manifest.json" auth_users)" \
-    -f "$WORK/restore_drill_checks.sql" > "$WORK/tap.out" 2>&1 \
+  # 04-07e (N-2b): the expected counts from the validated copy, used quoted (`:'name'`) by the checks file.
+  drill_checks "$VALID_MANIFEST" "$WORK/tap.out" \
     || { grep -E "^(not ok|#)|ERROR" "$WORK/tap.out" | head -n 20 >&2; die "restore_drill_checks.sql failed"; }
   PGTAP_TESTS="$(grep -c '^ok ' "$WORK/tap.out" || true)"
   grep -q '^not ok' "$WORK/tap.out" && die "restore_drill_checks.sql reported a failure"
@@ -236,8 +232,7 @@ JS
   CHECKS_GREEN_EPOCH="$(date -u +%s)"
   log "restore-drill.checks_green pgtap=$PGTAP_TESTS"
 
-  MANIFEST_COPY="$WORK/manifest.json"
-  cp "$plain/manifest.json" "$MANIFEST_COPY"
+  MANIFEST_COPY="$VALID_MANIFEST"
   ARCHIVE_BYTES="$(wc -c < "$archive" | tr -d ' ')"
   rm -rf "$plain"
   npx supabase stop --workdir "$DRILL_WORKDIR" --no-backup > /dev/null 2>&1
@@ -361,7 +356,8 @@ self_test() {
 
   log "restore-drill.selftest backup (ops/backup/backup.sh, BACKUP_ENV=local)"
   local backup_rc=0 before_id
-  before_id="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -At -c "select coalesce(max(id), 0) from ops.backup_runs")"
+  before_id="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-restricted.sh" -X -At -c "select coalesce(max(id), 0) from ops.backup_runs")"
+  [[ "$before_id" =~ ^[0-9]+$ ]] || die "could not read ops.backup_runs on the primary stack"
   BACKUP_ENV=local DB_URL="$db_url" BACKUP_AGE_RECIPIENTS="$r1 $r2" AGE_BIN="$AGE" \
     BACKUP_S3_BUCKET="$TARGET_BUCKET_ST" BACKUP_S3_PREFIX="local/" BACKUP_S3_ENDPOINT="$s3_url" \
     BACKUP_S3_ACCESS_KEY_ID="$key_id" BACKUP_S3_SECRET_ACCESS_KEY="$secret" \
@@ -377,7 +373,7 @@ self_test() {
   # ... and the same digest in its ops.backup_runs row (migration 000042; a record cross-check only: a real restore takes
   # the digest from the GitHub run, 04-07d N-2).
   local recorded_sha
-  recorded_sha="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -At \
+  recorded_sha="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-restricted.sh" -X -At \
     -c "select archive_sha256 from ops.backup_runs where id > $before_id and status = 'ok' order by id desc limit 1")"
   [[ "$recorded_sha" == "$expected_sha" ]] || die "the ops.backup_runs row does not hold the archive digest the backup reported"
 
@@ -390,14 +386,15 @@ self_test() {
   # ops.backup_runs row with the machine code `storage_failed` (what the backup_stale alert and the report read).
   log "restore-drill.selftest failed-run leg (wrong Storage S3 secret)"
   local failed_rc=0 failed_row="" failed_recorded=false last_id
-  last_id="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -At -c "select coalesce(max(id), 0) from ops.backup_runs")"
+  last_id="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-restricted.sh" -X -At -c "select coalesce(max(id), 0) from ops.backup_runs")"
+  [[ "$last_id" =~ ^[0-9]+$ ]] || die "could not read ops.backup_runs on the primary stack"
   BACKUP_ENV=local DB_URL="$db_url" BACKUP_AGE_RECIPIENTS="$r1 $r2" AGE_BIN="$AGE" \
     BACKUP_S3_BUCKET="$TARGET_BUCKET_ST" BACKUP_S3_PREFIX="local/" BACKUP_S3_ENDPOINT="$s3_url" \
     BACKUP_S3_ACCESS_KEY_ID="$key_id" BACKUP_S3_SECRET_ACCESS_KEY="$secret" \
     STORAGE_S3_ENDPOINT="$s3_url" STORAGE_S3_REGION="$region" STORAGE_S3_KEY_ID="$key_id" \
     STORAGE_S3_SECRET="wrong-$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')" \
     SUPABASE_WORKDIR="$ROOT" bash "$ROOT/ops/backup/backup.sh" > "$WORK/failed-run.log" 2>&1 || failed_rc=$?
-  failed_row="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -At -F '|' \
+  failed_row="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-restricted.sh" -X -At -F '|' \
     -c "select status, error_code from ops.backup_runs where id > $last_id order by id desc limit 1")"
   if [[ $failed_rc -ne 0 && $failed_rc -ne 2 && "$failed_row" == "failed|storage_failed" ]] \
     && grep -q "backup.failed error_code=storage_failed" "$WORK/failed-run.log"; then

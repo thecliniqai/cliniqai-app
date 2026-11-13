@@ -19,7 +19,7 @@ production the residency and the "not on a shared CI runner" requirements bring 
 | `AWS::KMS::Key` + alias `alias/clinicos-<env>-backup` | customer-managed, rotation on, retained on stack deletion |
 | `AWS::S3::Bucket` `clinicos-<env>-backup-<account>` | versioning on; default SSE-KMS with that key, bucket key on; all four Block Public Access flags; `BucketOwnerEnforced`; lifecycle rule 1 `ExpirationInDays 30` + `NoncurrentVersionExpiration 1 day`, rule 2 `ExpiredObjectDeleteMarker true` (two rules: S3 refuses both in one rule); retained |
 | `AWS::S3::BucketPolicy` | deny `s3:*` when `aws:SecureTransport = false` (bucket and objects) |
-| `AWS::CodeBuild::Project` `clinicos-<env>-backup` | `aws/codebuild/amazonlinux-x86_64-standard:5.0`, privileged (Docker), 60 min; plaintext env `BACKUP_ENV`, bucket, prefix, recipients; `PARAMETER_STORE` for the DB URL and the Storage S3 endpoint/region/key/secret under `/clinicos/<env>/backup/`; buildspec embeds `ops/backup/backup.sh`, `ops/bin/install-age.sh`, `ops/bin/psql-docker.sh`, `ops/bin/pins.env` as base64 lines (comment lines stripped; deterministic) and sets `s3.multipart_threshold 5GB` so the writer needs `kms:GenerateDataKey` only |
+| `AWS::CodeBuild::Project` `clinicos-<env>-backup` | `aws/codebuild/amazonlinux-x86_64-standard:5.0`, privileged (Docker), 60 min; plaintext env `BACKUP_ENV`, bucket, prefix, recipients; `PARAMETER_STORE` for the DB URL and the Storage S3 endpoint/region/key/secret under `/clinicos/<env>/backup/`; buildspec embeds `ops/backup/backup.sh`, `ops/bin/install-age.sh`, `ops/bin/psql-docker.sh`, `ops/bin/psql-restricted.sh`, `ops/bin/pins.env` as base64 lines (comment lines stripped; deterministic) and sets `s3.multipart_threshold 5GB` so the writer needs `kms:GenerateDataKey` only |
 | Writer role (CodeBuild) | `s3:PutObject` on `<bucket>/<env>/*` only (no Get, no Delete, no List), `kms:GenerateDataKey` on the key, `ssm:GetParameters` on the parameter path, logs on its group; trust `codebuild.amazonaws.com` with `aws:SourceAccount` |
 | `AWS::Scheduler::Schedule` | `cron(0 2,14 * * ? *)`, `Asia/Kolkata`, flexible window off, retry 2 attempts / 3600 s, role with `codebuild:StartBuild` on the project only |
 | `AWS::Events::Rule` | `CodeBuild Build State Change` with `FAILED`, `TIMED_OUT`, `STOPPED` for the project → SNS (input transformer: project, build id, status) |
@@ -75,6 +75,8 @@ export interface EmbeddedFiles {
   installAge: string;
   /** ops/bin/psql-docker.sh */
   psqlDocker: string;
+  /** ops/bin/psql-restricted.sh (04-07e: backup.sh runs every psql session through it) */
+  psqlRestricted: string;
   /** ops/backup/backup.sh */
   backupSh: string;
 }
@@ -116,8 +118,9 @@ export function buildspec(files: EmbeddedFiles): string {
     ...embed("ops/bin/pins.env", files.pins),
     ...embed("ops/bin/install-age.sh", files.installAge),
     ...embed("ops/bin/psql-docker.sh", files.psqlDocker),
+    ...embed("ops/bin/psql-restricted.sh", files.psqlRestricted),
     ...embed("ops/backup/backup.sh", files.backupSh),
-    "chmod 0755 ops/bin/install-age.sh ops/bin/psql-docker.sh ops/backup/backup.sh",
+    "chmod 0755 ops/bin/install-age.sh ops/bin/psql-docker.sh ops/bin/psql-restricted.sh ops/backup/backup.sh",
     "OPS_BIN_DIR=\"$PWD/.cache/ops-bin\" bash ops/bin/install-age.sh",
     // Single PUT up to 5 GB: the writer role needs kms:GenerateDataKey only (multipart SSE-KMS would need kms:Decrypt).
     "aws configure set default.s3.multipart_threshold 5GB",

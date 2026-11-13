@@ -164,7 +164,9 @@ DB_REACHED=0
 ROW_WRITTEN=0
 HAS_DIGEST_COLUMN=0
 
-psql_db() { PSQL_DB_URL="$DB_URL" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -v ON_ERROR_STOP=1 -q "$@"; }
+# 04-07e (N-2b): every ops/** psql session is restricted (no meta-command, standard_conforming_strings on); SQL on
+# stdin is passed as `-f -` (the wrapper adds -c, and with any -c psql reads no stdin otherwise).
+psql_db() { PSQL_DB_URL="$DB_URL" PSQL_MOUNT="$WORK" "$BIN/psql-restricted.sh" -X -v ON_ERROR_STOP=1 -q "$@"; }
 
 s3_env() { # common settings for S3-compatible endpoints (R2, Supabase Storage): checksums only when required
   AWS_REQUEST_CHECKSUM_CALCULATION=when_required AWS_RESPONSE_CHECKSUM_VALIDATION=when_required AWS_DOCKER_MOUNT="$WORK" "$@"
@@ -262,7 +264,7 @@ dump -f "$STAGE/data.sql" --data-only --use-copy \
 dump -f "$STAGE/history_schema.sql" --schema supabase_migrations
 dump -f "$STAGE/history_data.sql" --data-only --use-copy --schema supabase_migrations
 
-psql_db -At -o "$STAGE/storage_policies.sql" <<'SQL'
+psql_db -At -o "$STAGE/storage_policies.sql" -f - <<'SQL'
 set search_path = '';
 select format(
   'create policy %I on %I.%I as %s for %s to %s%s%s;',
@@ -275,7 +277,7 @@ where schemaname = 'storage'
 order by tablename, policyname;
 SQL
 
-psql_db -At -F $'\t' -o "$WORK/db_facts.tsv" <<'SQL'
+psql_db -At -F $'\t' -o "$WORK/db_facts.tsv" -f - <<'SQL'
 select 'server_version', current_setting('server_version')
 union all select 'database_bytes', pg_database_size(current_database())::text
 union all select 'policies', count(*)::text from pg_policies where schemaname in ('public', 'storage')
