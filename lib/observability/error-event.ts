@@ -16,7 +16,7 @@ import { routePattern, scrubFrames, scrubMessage } from "./scrub";
 export interface ErrorEvent {
   environment: AppEnv;
   release: string | null;
-  route_path: string | null;
+  route_path: `/${string}` | null;
   route_type: "render" | "route" | "action" | "proxy" | null;
   method: string | null;
   error_name: string;
@@ -55,7 +55,13 @@ export interface ErrorContext {
 }
 
 const NAME_PATTERN = /^[A-Za-z0-9_.$-]{1,80}$/;
-const CODE_PATTERN = /^[A-Za-z0-9_.-]{1,40}$/;
+/**
+ * Stored error codes (03-13d M-SCRUB, review C L-3): a SQLSTATE (`23505`), a PostgREST code (`PGRST116`) or an
+ * upper-snake code (`DIAG_SYNTHETIC`, `ECONNREFUSED`). Free text a third-party error put in `code` is dropped.
+ */
+const CODE_PATTERN = /^(?:[0-9A-Z]{5}|PGRST\d{1,4}|[A-Z][A-Z0-9_]{2,39})$/;
+/** A value that may carry an identifier: 6+ digits or an `@`. Never stored as a name or code. */
+const IDENTIFIER_SHAPED = /\d{6,}|@/;
 const DIGEST_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const METHOD_PATTERN = /^[A-Z]{1,10}$/;
 const RELEASE_PATTERN = /^[0-9a-f]{7,40}$/;
@@ -67,6 +73,19 @@ function field(err: unknown, key: string): unknown {
 
 function shaped(value: unknown, pattern: RegExp): string | null {
   return typeof value === "string" && pattern.test(value) ? value : null;
+}
+
+/** The error's class name, or `null` when it is not name-shaped or could carry an identifier. */
+export function errorNameOf(err: unknown): string | null {
+  const name = shaped(field(err, "name"), NAME_PATTERN);
+  return name && !IDENTIFIER_SHAPED.test(name) ? name : null;
+}
+
+/** The error's code (SQLSTATE, PostgREST or upper-snake), or `null`. */
+export function errorCodeOf(err: unknown): string | null {
+  const raw = field(err, "code");
+  const code = shaped(typeof raw === "number" ? String(raw) : raw, CODE_PATTERN);
+  return code && !IDENTIFIER_SHAPED.test(code) ? code : null;
 }
 
 /** The proxy-assigned request id from the request headers, if it is a UUID. */
@@ -90,8 +109,7 @@ export function buildErrorEvent(
   context: ErrorContext | undefined,
   meta: EventMeta,
 ): ErrorEvent {
-  const name = shaped(field(err, "name"), NAME_PATTERN) ?? (err instanceof Error ? "Error" : "NonError");
-  const code = field(err, "code");
+  const name = errorNameOf(err) ?? (err instanceof Error ? "Error" : "NonError");
   const routeType = context?.routeType;
   return {
     environment: meta.environment,
@@ -100,7 +118,7 @@ export function buildErrorEvent(
     route_type: typeof routeType === "string" && ROUTE_TYPES.has(routeType) ? (routeType as ErrorEvent["route_type"]) : null,
     method: shaped(request?.method?.toUpperCase(), METHOD_PATTERN),
     error_name: name,
-    error_code: shaped(typeof code === "number" ? String(code) : code, CODE_PATTERN),
+    error_code: errorCodeOf(err),
     digest: shaped(field(err, "digest"), DIGEST_PATTERN),
     message: scrubMessage(field(err, "message")),
     frames: scrubFrames(field(err, "stack"), meta.root),

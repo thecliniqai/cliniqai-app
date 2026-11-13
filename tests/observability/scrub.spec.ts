@@ -15,6 +15,8 @@ import {
   scrubMessage,
 } from "@/lib/observability/scrub";
 import { checkErrorExport } from "@/scripts/ops/check-error-export.mjs";
+import { buildErrorEvent } from "@/lib/observability/error-event";
+import VECTORS from "../fixtures/scrub-vectors.json";
 
 /** An unsigned synthetic JWT, assembled at runtime so secret scanners do not read the source line as a credential. */
 const SYNTHETIC_JWT_PAYLOAD = Buffer.from(JSON.stringify({ sub: "synthetic" })).toString("base64url");
@@ -202,5 +204,44 @@ describe("check-error-export (the E9 verification)", () => {
 
   it("accepts the SQL editor's one-cell form of the runbook query", () => {
     expect(checkErrorExport([{ export: [row({ message: "ok" })] }])).toEqual([]);
+  });
+});
+
+/**
+ * 03-13d M-SCRUB: the shared vectors (`tests/fixtures/scrub-vectors.json`), which the DB second line runs too. Each
+ * message vector failed on the 03-09b scrubber (spaced/dashed/dotted mobiles, dashed Aadhaar, `@abdm`, IDN and
+ * `localhost` emails, expression-index and multi-line row details, full-width digits, digit-free tokens, Supabase key
+ * prefixes) or is the 03-09b corpus carried over.
+ */
+describe("shared scrub vectors (app layer)", () => {
+  it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s", (_id, vector) => {
+    const out = scrubMessage(vector.input);
+    for (const value of vector.absent) expect(out).not.toContain(value);
+    for (const value of vector.kept) expect(out).toContain(value);
+    expect(out).not.toContain("\n");
+    expect(out.length).toBeLessThanOrEqual(MAX_MESSAGE);
+  });
+
+  it.each(VECTORS.benign)("benign text is kept unchanged: %s", (text) => {
+    expect(scrubMessage(text)).toBe(text);
+  });
+
+  const meta = { environment: "test" as const, release: null, root: "/srv/clinicos" };
+  it.each(VECTORS.fields.map((v) => [v.id, v] as const))("field %s", (_id, vector) => {
+    const err = Object.assign(new Error("x"), { [vector.field === "error_name" ? "name" : "code"]: vector.input });
+    const event = buildErrorEvent(err, undefined, undefined, meta);
+    if (vector.field === "error_name") {
+      expect(event.error_name).toBe(vector.stored ?? "Error");
+    } else {
+      expect(event.error_code).toBe(vector.stored);
+    }
+  });
+
+  it.each(VECTORS.routes.accept)("route pattern kept: %s", (route) => {
+    expect(routePattern(route)).toBe(route);
+  });
+
+  it.each(VECTORS.routes.reject)("concrete or malformed route refused: %s", (route) => {
+    expect(routePattern(route)).toBeNull();
   });
 });

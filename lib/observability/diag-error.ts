@@ -10,10 +10,14 @@ export const DIAG_SYNTHETIC = {
   queryToken: "diagSyntheticToken0123456789",
 } as const;
 
+/**
+ * The `Key (…)=(…)` detail comes last: the scrubber redacts everything after it (03-13d), so the email, mobile and query
+ * rules are proven on the text before it.
+ */
 export const DIAG_ERROR_MESSAGE =
-  'Diagnostic error (synthetic): duplicate key value violates unique constraint "patients_phone_key" ' +
-  `Key (phone)=(${DIAG_SYNTHETIC.phone}) contact ${DIAG_SYNTHETIC.email}, mobile ${DIAG_SYNTHETIC.spacedPhone}, ` +
-  `link /r/abc?token=${DIAG_SYNTHETIC.queryToken}`;
+  `Diagnostic error (synthetic): contact ${DIAG_SYNTHETIC.email}, mobile ${DIAG_SYNTHETIC.spacedPhone}, ` +
+  `link /r/abc?token=${DIAG_SYNTHETIC.queryToken}; ` +
+  `duplicate key value violates unique constraint "patients_phone_key" Key (phone)=(${DIAG_SYNTHETIC.phone}) already exists.`;
 
 export class DiagnosticError extends Error {
   readonly code = "DIAG_SYNTHETIC";

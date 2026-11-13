@@ -87,10 +87,8 @@ describe("onRequestError → ops.error_events", () => {
     expect(row.digest).toBe("2789455318");
     expect(row.environment).toBe("test");
     expect(row.request_id).toBe(requestId);
-    expect(row.message).toBe(
-      'duplicate key value violates unique constraint "patients_phone_key" Key (phone)=([REDACTED]) ' +
-        "for [EMAIL] patient [UUID]",
-    );
+    // 03-13d M-SCRUB: everything after a `Key (…)=(` detail is redacted to the end of the text.
+    expect(row.message).toBe('duplicate key value violates unique constraint "patients_phone_key" Key (phone)=([REDACTED])');
     expect((row.frames as string[]).length).toBeGreaterThan(0);
     expect((row.frames as string[]).some((f) => f.startsWith("tests/observability/on-request-error.spec.ts:"))).toBe(true);
 

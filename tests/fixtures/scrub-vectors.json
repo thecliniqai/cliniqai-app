@@ -5,7 +5,7 @@
     "second line (ops ingest scrub, 03-13c's DB scrub spec). A layer passes a message vector when its output contains",
     "none of `absent` and every one of `kept`, is a single line, and is at most the layer's own length cap.",
     "`benign` strings carry no identifier: a layer must keep them word-for-word (the app keeps them unchanged).",
-    "`fields`: error_name / error_code handling (stored = the exact value kept, or null when the value must be dropped).",
+    "`fields`: error_name / error_code handling (stored = the exact value kept; null = the input must not be stored: the code is null, the name falls back to a class default).",
     "`routes`: route patterns a layer must keep (`accept`) or refuse (`reject`, stored as null).",
     "Add a vector here, never in one layer's spec only."
   ],
