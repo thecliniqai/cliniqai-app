@@ -1,0 +1,6 @@
+# clean worktree at 6d9d3f7161d08f9da0d1e183133bca7c3a6ff3bf
+npm run typecheck exit=0
+npx eslint . exit=0
+eslint files=506 errors=0 warnings=422
+inventory: 24 "use server" modules, 110 exports; 16/17 D1 non-action modules present; 26 route modules, 46 methods; 0 flagged, 14 noted
+npm run inventory exit=0

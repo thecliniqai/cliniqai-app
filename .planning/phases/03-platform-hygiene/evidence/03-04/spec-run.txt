@@ -1,0 +1,101 @@
+# clean worktree at 6d9d3f7161d08f9da0d1e183133bca7c3a6ff3bf
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a server action importing the system factory
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a dashboard page importing the system factory
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a feature service importing the system factory
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > an A1 share route importing the factory itself
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the cookie-client module importing the factory
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a relative path to the factory
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a re-export of the factory
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a feature service importing features/sharing/system
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a non-A1 route importing features/sharing/system
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a non-A1 page importing features/sharing/system
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > an A1 route importing another domain's system module
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > an action importing its own domain's ./system
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > dynamic import() of the factory
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > dynamic import() of the factory on an allowed path
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > require() of the factory
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > require() of the factory on an allowed path
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a computed import() specifier
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > dynamic import() of @supabase/supabase-js
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a createClient value import and the secret key in a feature
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a namespace import of @supabase/supabase-js
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a createServerClient value import in a feature
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the secret-key names as strings in a feature
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > an action importing a lib/jobs internal
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > a register route importing a lib/jobs internal
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the jobs enqueue surface importing a lib/jobs internal
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the jobs enqueue surface importing ./internal
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > process.env in a feature
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > process.env in the system factory
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > console in a feature
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > console in the server logger
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > console in the env module
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the server logger imported into "use client" code
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > each UTC-date pattern in a feature
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > each UTC-date pattern outside lib/datetime
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/api/r/[token]/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/r/[token]/page.tsx
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/api/reports/view/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/reports/view/page.tsx
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/api/reschedule/[token]/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/webhooks/x/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/jobs/run/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/jobs/x.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/jobs/internal/runner.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at features/x/system.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/v1/x/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/api/x.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/cron/x/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/messaging/dispatcher.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/webhooks/x.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > other-feature-system-import.ts at features/sharing/system.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > other-feature-system-import.ts at app/api/webhooks/messaging/x/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > second-factory.ts at lib/supabase/system.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > ssr-client-import.ts at lib/supabase/server.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > ssr-client-import.ts at lib/supabase/client.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > ssr-client-import.ts at proxy.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > type-imports.ts at features/patients/service.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > secret-key-names.ts at lib/env.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > secret-key-names.ts at lib/env-server.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at lib/env.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at lib/env-server.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at next.config.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at instrumentation.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at lib/log/client.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > console.ts at lib/log/client.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > client-reporter.tsx at components/fixture/widget.tsx
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > utc-date-patterns.ts at lib/datetime/x.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > jobs-internal-import.ts at app/api/jobs/run/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > jobs-internal-import.ts at lib/jobs/internal/registry.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at tests/fixture/x.spec.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > second-factory.ts at scripts/fixture.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > console.ts at scripts/fixture.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at tests/fixture/x.spec.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/v1/x/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/cron/x/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/webhooks/x/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/jobs/run/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/api/x.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/webhooks/x.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/messaging/dispatcher.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/jobs/internal/runner.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at features/x/system.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/supabase/system.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/supabase/server.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at proxy.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/env.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at next.config.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/log/client.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/datetime/x.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/r/[token]/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/r/[token]/page.tsx
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/reports/view/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/reports/view/page.tsx
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/reschedule/[token]/route.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at tests/fixture/x.spec.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at scripts/fixture.ts
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: the real tree > app code carries 0 boundary messages
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed
+ ✓ tests/security/p1-34-lint-gates.spec.ts > P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the counters see the fixtures' second factories, system importers and UTC patterns
+ Test Files  1 passed (1)
+      Tests  98 passed (98)

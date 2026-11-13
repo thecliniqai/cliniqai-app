@@ -1,0 +1,19 @@
+# full Vitest lane, clean worktree at 6d9d3f7 (shared stack carries the 03-09b WIP migration 000028, not in this commit)
+      Tests  3 failed | 2368 passed (2371)
+ FAIL  tests/api/readiness-probe-db.spec.ts > readiness_probe() (migration 000025) > anon can execute no other SECURITY DEFINER function in public
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ Test Files  2 failed | 127 passed (129)
+[teardown] removed run data: 109 tenant(s), 223 auth user(s), 1398 storage object(s); verified none remain
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+# full Vitest lane, main checkout at 851bf3c (same tree as 6d9d3f7; message amended) + uncommitted 03-09b WIP (lib/env.ts, tests/config/env-schema.spec.ts, migration 000028, ...)
+      Tests  5 failed | 2437 passed (2442)
+ FAIL  tests/config/env-boot.spec.ts > boot: next.config.ts (next build / start / dev) > a complete synthetic production profile boots
+ FAIL  tests/config/env-schema.spec.ts > env schema: complete profiles pass > a complete synthetic production profile parses, flags as booleans
+ FAIL  tests/config/env-schema.spec.ts > env schema: complete profiles pass > blank values count as unset
+ FAIL  tests/config/env-schema.spec.ts > env schema: complete profiles pass > production with AI on and a complete provider configuration parses
+ FAIL  tests/config/env-schema.spec.ts > env schema: staging and production are fail-closed > lists every broken rule at once, never a value
+ Test Files  2 failed | 128 passed (130)
+[teardown] removed run data: 109 tenant(s), 223 auth user(s), 1398 storage object(s); verified none remain
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
