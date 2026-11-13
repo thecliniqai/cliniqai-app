@@ -1,0 +1,35 @@
+# Pre-fix H-AUTH proof: 98b7605 + only the 8-digit schema (M-OTP), so the code verifies; the reset leaves the recovery session alive
+# Command: npx vitest run tests/integration/auth/reset-completion.spec.ts -t R-35
+
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-head
+
+{"ts":"2026-11-13T03:03:05.136Z","level":"info","event":"auth.password.changed","userId":"dd85bce7-5deb-4d69-82c8-558bf117fe0b","action":"set_new_password"}
+ ❯ tests/integration/auth/reset-completion.spec.ts (5 tests | 1 failed | 4 skipped) 565ms
+   ↓ setNewPasswordAction after a recovery code (local stack + Mailpit) > a breached password is refused (code already used, retry on the same session); a clear one signs out other sessions
+   × setNewPasswordAction after a recovery code (local stack + Mailpit) > R-35 / H-AUTH: reset completion revokes the recovery session; its tokens then fail on a direct GoTrue PUT /auth/v1/user 405ms
+     → GoTrue refuses the recovery session's access token after the reset: expected 200 not to be 200 // Object.is equality
+   ↓ setNewPasswordAction after a recovery code (local stack + Mailpit) > called from a plain password session it is refused and the password is unchanged
+   ↓ setNewPasswordAction after a recovery code (local stack + Mailpit) > A00-5: a recovery session older than 10 minutes is refused
+   ↓ setNewPasswordAction after a recovery code (local stack + Mailpit) > unauthenticated is refused
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/auth/reset-completion.spec.ts > setNewPasswordAction after a recovery code (local stack + Mailpit) > R-35 / H-AUTH: reset completion revokes the recovery session; its tokens then fail on a direct GoTrue PUT /auth/v1/user
+AssertionError: GoTrue refuses the recovery session's access token after the reset: expected 200 not to be 200 // Object.is equality
+ ❯ tests/integration/auth/reset-completion.spec.ts:119:101
+    117|     // The direct call an attacker holding the recovery tokens would m…
+    118|     const direct = await directPasswordChange(held.access);
+    119|     expect(direct.status, "GoTrue refuses the recovery session's acces…
+       |                                                                                                     ^
+    120|     expect([401, 403]).toContain(direct.status);
+    121|     const { data: refreshed, error } = await browserLikeClient().clien…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 skipped (5)
+   Start at  08:33:04
+   Duration  931ms (transform 70ms, setup 9ms, collect 89ms, tests 565ms, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 1 tenant(s), 2 auth user(s), 0 storage object(s); verified none remain

@@ -1,0 +1,211 @@
+# Post-fix: the 03-13a specs plus tests/auth and tests/integration/auth at 9f91c9f (+ working tree); password-auth.spec was then updated for R-35/8 digits (12/12 pass, see vitest-full.txt)
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/auth/ses-sender.spec.ts (7 tests) 114ms
+ ✓ tests/ci/auth00-recheck-cli.spec.ts (17 tests) 1069ms
+   ✓ the command line refuses before any request > 03-13a: the opt-in probes are bounded (stale wait 601..890 s, email-cap probe 1..70) → usage (exit 2)  646ms
+ ✓ tests/integration/auth/auth00-recheck-kit.spec.ts (14 tests) 4914ms
+stderr | tests/api/proxy-session.spec.ts > 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: a session that cannot be refreshed is redirected and its stale auth cookie deleted
+AuthApiError: Refresh token is not valid
+    at handleError (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:145:9)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _handleRequest (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:239:5)
+    at _request (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:200:16)
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/GoTrueClient.ts:4790:18
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/helpers.ts:242:26 {
+  __isAuthError: true,
+  status: 400,
+  code: 'validation_failed'
+}
+AuthApiError: Refresh token is not valid
+    at handleError (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:145:9)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _handleRequest (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:239:5)
+    at _request (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:200:16)
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/GoTrueClient.ts:4790:18
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/helpers.ts:242:26 {
+  __isAuthError: true,
+  status: 400,
+  code: 'validation_failed'
+}
+
+ ✓ tests/api/proxy-session.spec.ts (9 tests) 976ms
+   ✓ 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a Server Action POST and an /api call on a stale recovery session run signed out (no auth cookie forwarded)  366ms
+{"ts":"2026-11-13T03:03:31.950Z","level":"info","event":"auth.password.rejected","userId":"96d7289a-ef8e-4d6e-93ec-337a5f9f96cd","action":"set_new_password","reason":"pwned_password"}
+{"ts":"2026-11-13T03:03:32.203Z","level":"info","event":"auth.password.changed","userId":"96d7289a-ef8e-4d6e-93ec-337a5f9f96cd","action":"set_new_password"}
+{"ts":"2026-11-13T03:03:32.604Z","level":"info","event":"auth.password.changed","userId":"a92b5445-8ffd-47ba-942c-88c743ae0e45","action":"set_new_password"}
+{"ts":"2026-11-13T03:03:32.854Z","level":"info","event":"auth.password.rejected","userId":"ced510b4-cfb5-4aa3-a31f-c58942fb60ee","action":"set_new_password","reason":"reauth_required"}
+{"ts":"2026-11-13T03:14:33.058Z","level":"info","event":"auth.password.rejected","userId":"e62f082e-107a-4cef-aeb2-0a39099c2f05","action":"set_new_password","reason":"reauth_required"}
+ ✓ tests/integration/auth/reset-completion.spec.ts (5 tests) 1573ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > a breached password is refused (code already used, retry on the same session); a clear one signs out other sessions  623ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > R-35 / H-AUTH: reset completion revokes the recovery session; its tokens then fail on a direct GoTrue PUT /auth/v1/user  347ms
+ ✓ tests/ci/auth-policy.spec.ts (13 tests) 418ms
+ ✓ tests/auth/password-service.spec.ts (23 tests) 7ms
+ ✓ tests/auth/password-schemas-and-errors.spec.ts (48 tests) 6ms
+ ✓ tests/auth/send-email-hook.spec.ts (28 tests) 3583ms
+   ✓ 03-13a: webhook-id dedupe and the SES time budget > a provider that hangs is aborted at the 3500 ms budget: 500 well inside GoTrue's 5000 ms hook timeout  3506ms
+ ✓ tests/auth/password-flows-captcha.spec.ts (14 tests) 3ms
+ ✓ tests/auth/safe-next.spec.ts (85 tests) 3ms
+ ✓ tests/api/proxy-matcher.spec.ts (18 tests) 3ms
+ ✓ tests/auth/session-age.spec.ts (39 tests) 2ms
+{"ts":"2026-11-13T03:03:45.784Z","level":"info","event":"auth.password.changed","userId":"599744dd-7091-4ade-bf10-53c44a2b3e9e","action":"set_new_password"}
+{"ts":"2026-11-13T03:03:46.211Z","level":"info","event":"auth.password.changed","userId":"8d19fc9d-f8a8-42aa-bb3a-c4eb0a2bd893","action":"set_new_password"}
+{"ts":"2026-11-13T03:03:46.423Z","level":"info","event":"auth.password.rejected","userId":"b934a5b3-cbda-4d33-89a5-cb1f87962ab5","action":"set_new_password","reason":"same_password","status":422}
+{"ts":"2026-11-13T03:03:46.548Z","level":"info","event":"auth.password.changed","userId":"b934a5b3-cbda-4d33-89a5-cb1f87962ab5","action":"set_new_password"}
+ ❯ tests/integration/auth/password-auth.spec.ts (12 tests | 4 failed) 8346ms
+   ✓ AUTH-04a password sign-in (local stack) > a seeded owner signs in by password and can read their membership through RLS 66ms
+   ✓ AUTH-04a password sign-in (local stack) > a seeded doctor signs in by password and can read their membership through RLS 63ms
+   ✓ AUTH-04a password sign-in (local stack) > a seeded receptionist signs in by password and can read their membership through RLS 61ms
+   ✓ AUTH-04a password sign-in (local stack) > normalises the email (case and whitespace) before signing in 58ms
+   ✓ AUTH-04a password sign-in (local stack) > a wrong password and an unknown email get the same fixed error 57ms
+   ✓ AUTH-04a password sign-in (local stack) > a normal login, and a failed one, send 0 emails (Mailpit)  1623ms
+   ✓ AUTH-04a password sign-in (local stack) > self-service signup is disabled: no user is created and no email is sent  1534ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > sends exactly one code-only email for an existing account and none for an unknown one  3174ms
+   × AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a recovery code sets a new password, is single-use, and signs out other sessions 387ms
+     → expected { ok: true, …(2) } to deeply equal { ok: true, …(1) }
+   × AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a wrong code is rejected and the password stays unchanged 143ms
+     → expected { ok: false, …(3) } to deeply equal { ok: false, …(3) }
+   × AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a password the policy rejects does not use up the code 276ms
+     → expected { ok: true, …(2) } to deeply equal { ok: true, …(1) }
+   × AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > reusing the current password is mapped, and the update can be retried on the recovery session 336ms
+     → expected { ok: true, …(2) } to deeply equal { ok: true, …(1) }
+{"ts":"2026-11-13T03:03:46.729Z","level":"info","event":"auth.email.sent","action":"recovery","module":"auth.email.mailpit","count":1}
+{"ts":"2026-11-13T03:03:48.243Z","level":"info","event":"auth.email.dropped","action":"magiclink","module":"auth.email","reason":"magiclink"}
+{"ts":"2026-11-13T03:03:49.756Z","level":"info","event":"auth.email.sent","action":"password_changed_notification","module":"auth.email.mailpit","count":1}
+{"ts":"2026-11-13T03:03:51.276Z","level":"warn","event":"auth.email.refused","module":"auth.email","reason":"bad_signature","status":401}
+ ✓ tests/integration/auth/mailpit-sender.spec.ts (7 tests) 6077ms
+   ✓ Send Email hook path → Mailpit (local stack) > recovery: exactly one code email reaches Mailpit for the user, carrying the payload's code and no link  1517ms
+   ✓ Send Email hook path → Mailpit (local stack) > magiclink: 200 and zero emails in Mailpit (A00-1)  1508ms
+   ✓ Send Email hook path → Mailpit (local stack) > password_changed_notification: exactly one code-free notice in Mailpit  1519ms
+   ✓ Send Email hook path → Mailpit (local stack) > a bad signature sends nothing to Mailpit  1518ms
+ ✓ tests/integration/auth/auth-config-applied.spec.ts (6 tests) 2476ms
+   ✓ AUTH-02: the local GoTrue runs the auth policy (local column) > a second recovery request for the same address within 60 s is refused with over_email_send_rate_limit  1663ms
+   ✓ AUTH-02: the local GoTrue runs the auth policy (local column) > a password change sends the code-free 'password changed' security notification  332ms
+{"ts":"2026-11-13T03:03:55.874Z","level":"info","event":"auth.password.rejected","userId":"425fa5b6-0f31-4ad7-80c9-60e1ccaf369c","action":"change_password","reason":"pwned_password"}
+{"ts":"2026-11-13T03:03:56.351Z","level":"info","event":"auth.password.changed","userId":"9f445c3f-3da2-4f3a-804f-f195e43268c5","action":"change_password"}
+{"ts":"2026-11-13T03:14:56.655Z","level":"info","event":"auth.password.rejected","userId":"962fd2c9-fac8-4e6f-b35b-208494459512","action":"change_password","reason":"reauth_required"}
+{"ts":"2026-11-13T03:03:56.989Z","level":"info","event":"auth.password.changed","userId":"ddda3a0c-de59-4d90-91a7-cea86693622e","action":"change_password"}
+{"ts":"2026-11-13T03:03:57.345Z","level":"info","event":"auth.password.changed","userId":"76e26c9c-0f33-4690-b7d3-ed065df06057","action":"change_password"}
+ ✓ tests/integration/auth/change-password.spec.ts (6 tests) 1802ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a breached new password is refused with the catalogue copy and the password is unchanged  306ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a valid change: the new password signs in, the old one fails, another session's refresh fails, this one stays  507ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a fresh recovery session (within 10 minutes) may change the password  331ms
+{"ts":"2026-11-13T03:03:57.636Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T03:03:57.638Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T03:03:57.638Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T03:03:57.638Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T03:03:57.638Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T03:03:57.769Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"invalid_scope","status":400}
+{"ts":"2026-11-13T03:03:57.785Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+{"ts":"2026-11-13T03:03:57.979Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+{"ts":"2026-11-13T03:03:58.229Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"global"}
+{"ts":"2026-11-13T03:03:58.468Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+{"ts":"2026-11-13T03:03:58.486Z","level":"warn","event":"auth.signout.failed","module":"auth.signout","code":"unexpected_failure"}
+{"ts":"2026-11-13T03:03:58.486Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+ ✓ tests/auth/signout-route.spec.ts (21 tests) 996ms
+ ✓ tests/auth/invite.spec.ts (5 tests) 867ms
+ ✓ tests/auth/pwned.spec.ts (13 tests) 90ms
+ ✓ tests/auth/public-paths.spec.ts (61 tests) 3ms
+ ✓ tests/auth/rbac.spec.ts (6 tests) 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/auth/password-auth.spec.ts > AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a recovery code sets a new password, is single-use, and signs out other sessions
+AssertionError: expected { ok: true, …(2) } to deeply equal { ok: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "ok": true,
+    "otherSessionsSignedOut": true,
++   "signedOut": true,
+  }
+
+ ❯ tests/integration/auth/password-auth.spec.ts:236:20
+    234|     const { client } = browserLikeClient();
+    235|     const result = await completeReset(client, { email: user.userEmail…
+    236|     expect(result).toEqual({ ok: true, otherSessionsSignedOut: true });
+       |                    ^
+    237| 
+    238|     // This device holds the recovery session.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/integration/auth/password-auth.spec.ts > AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a wrong code is rejected and the password stays unchanged
+AssertionError: expected { ok: false, …(3) } to deeply equal { ok: false, …(3) }
+
+- Expected
++ Received
+
+  {
+-   "code": "code_invalid",
+-   "message": "Code is wrong or expired",
++   "code": "invalid_input",
++   "message": "Enter the 8-digit code from the email",
+    "ok": false,
+    "stage": "verify",
+  }
+
+ ❯ tests/integration/auth/password-auth.spec.ts:272:20
+    270|     );
+    271| 
+    272|     expect(result).toEqual({ ok: false, code: "code_invalid", message:…
+       |                    ^
+    273|     expect((await client.auth.getSession()).data.session).toBeNull();
+    274|     expect(await canSignIn(user.userEmail, seededUserPassword())).toEq…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/integration/auth/password-auth.spec.ts > AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a password the policy rejects does not use up the code
+AssertionError: expected { ok: true, …(2) } to deeply equal { ok: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "ok": true,
+    "otherSessionsSignedOut": true,
++   "signedOut": true,
+  }
+
+ ❯ tests/integration/auth/password-auth.spec.ts:289:113
+    287| 
+    288|     const fresh = newPassword();
+    289|     expect(await completeReset(client, { email: user.userEmail, code, …
+       |                                                                                                                 ^
+    290|       ok: true,
+    291|       otherSessionsSignedOut: true,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/integration/auth/password-auth.spec.ts > AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > reusing the current password is mapped, and the update can be retried on the recovery session
+AssertionError: expected { ok: true, …(2) } to deeply equal { ok: true, …(1) }
+
+- Expected
++ Received
+
+  {
+    "ok": true,
+    "otherSessionsSignedOut": true,
++   "signedOut": true,
+  }
+
+ ❯ tests/integration/auth/password-auth.spec.ts:305:74
+    303| 
+    304|     const fresh = newPassword();
+    305|     expect(await setNewPassword({ newPassword: fresh }, { db: client }…
+       |                                                                          ^
+    306|     expect(await canSignIn(user.userEmail, fresh)).toEqual({ ok: true …
+    307|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed | 21 passed (22)
+      Tests  4 failed | 453 passed (457)
+   Start at  08:33:23
+   Duration  36.22s (transform 175ms, setup 100ms, collect 757ms, tests 33.33s, environment 1ms, prepare 420ms)
+
+[teardown] removed run data: 7 tenant(s), 41 auth user(s), 0 storage object(s); verified none remain

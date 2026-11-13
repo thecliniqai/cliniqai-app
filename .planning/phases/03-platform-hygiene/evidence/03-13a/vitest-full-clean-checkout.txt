@@ -1,0 +1,179 @@
+# npx vitest run in a CLEAN detached checkout of f4e93a5 (all 03-13a commits; no uncommitted work of any plan). Failing files:
+   1  FAIL  tests/observability/no-raw-error-logging.spec.ts
+   2  FAIL  tests/security/system-db.spec.ts
+# Both come from the 03-13d log-field change (reason must be a lower-case word; module dropped by the system-db line): not 03-13a files. Their failure text:
+ FAIL  tests/observability/no-raw-error-logging.spec.ts > server error branches log the event and code, never the raw error (03-09c) > v1 envelope: a 5xx logs the envelope code and request id, not the message or details
+AssertionError: expected { Object (ts, level, ...) } to match object { level: 'error', …(3) }
+- Expected
++ Received
+ FAIL  tests/security/system-db.spec.ts > getSystemDb(reason): one log line per acquisition > getSystemDb("cron.webhooks") writes exactly one line: ts, level, event, reason, module
+AssertionError: expected [ 'event', 'level', 'reason', 'ts' ] to deeply equal [ 'event', 'level', 'module', …(2) ]
+- Expected
++ Received
+# Summary:
+ Test Files  2 failed | 156 passed (158)
+      Tests  3 failed | 3347 passed (3350)
+   Duration  181.30s (transform 1.11s, setup 722ms, collect 12.10s, tests 155.15s, environment 8ms, prepare 3.13s)
+
+# Per-file results:
+ ❯ tests/security/system-db.spec.ts (12 tests | 2 failed) 201ms
+ ❯ tests/observability/no-raw-error-logging.spec.ts (5 tests | 1 failed) 10ms
+ ✓ tests/security/guard-actions.spec.ts (620 tests) 33619ms
+ ✓ tests/security/p1-34-lint-gates.spec.ts (121 tests) 16304ms
+ ✓ tests/ci/hosted-dump-diff.spec.ts (3 tests) 10712ms
+ ✓ tests/integration/auth/password-auth.spec.ts (12 tests) 8788ms
+ ✓ tests/billing/record-payment-rpc.spec.ts (36 tests) 6983ms
+ ✓ tests/integration/auth/mailpit-sender.spec.ts (7 tests) 6090ms
+ ✓ tests/integration/auth/auth00-recheck-kit.spec.ts (14 tests) 4981ms
+ ✓ tests/auth/send-email-hook.spec.ts (28 tests) 3580ms
+ ✓ tests/ci/migration-immutability.spec.ts (10 tests) 1268ms
+ ✓ tests/security/guard-routes.spec.ts (55 tests) 2803ms
+ ✓ tests/observability/error-sink-scrub-db.spec.ts (79 tests) 2603ms
+ ✓ tests/integration/auth/auth-config-applied.spec.ts (6 tests) 2435ms
+ ✓ tests/ci/ai-l1-greps.spec.ts (16 tests) 2466ms
+ ✓ tests/security/guard-canary.spec.ts (6 tests) 2291ms
+ ✓ tests/integration/auth/change-password.spec.ts (6 tests) 1883ms
+ ✓ tests/security/review2-fixes-db.spec.ts (21 tests) 1771ms
+ ✓ tests/security/review-fixes-db.spec.ts (19 tests) 1787ms
+ ✓ tests/integration/auth/reset-completion.spec.ts (5 tests) 1634ms
+ ✓ tests/ci/inventory-gate.spec.ts (3 tests) 1605ms
+ ✓ tests/security/review3-fixes-db.spec.ts (16 tests) 1321ms
+ ✓ tests/api/v1-doctor-guard.spec.ts (33 tests) 1340ms
+ ✓ tests/security/p0-01-forged-overrides.spec.ts (14 tests) 1243ms
+ ✓ tests/ci/staging-scripts.spec.ts (53 tests) 1154ms
+ ✓ tests/security/dpdp-export-route.spec.ts (5 tests) 1032ms
+ ✓ tests/ci/auth00-recheck-cli.spec.ts (17 tests) 1054ms
+ ✓ tests/auth/signout-route.spec.ts (21 tests) 1007ms
+ ✓ tests/api/proxy-session.spec.ts (9 tests) 975ms
+ ✓ tests/api/v1-crud.spec.ts (17 tests) 664ms
+ ✓ tests/setup/teardown.spec.ts (3 tests) 979ms
+ ✓ tests/ci/inventory-guards.spec.ts (11 tests) 869ms
+ ✓ tests/integration/consultation-service-guards.spec.ts (9 tests) 965ms
+ ✓ tests/integration/demo-clinic-seed.spec.ts (3 tests) 972ms
+ ✓ tests/observability/error-sink-db.spec.ts (27 tests) 992ms
+ ✓ tests/config/env-boot.spec.ts (10 tests) 1021ms
+ ✓ tests/security/membership-guard.spec.ts (26 tests) 925ms
+ ✓ tests/auth/invite.spec.ts (5 tests) 891ms
+ ✓ tests/security/p0-13-lint-gates.spec.ts (7 tests) 767ms
+ ✓ tests/visits/clinic-visits-register.spec.ts (8 tests) 849ms
+ ✓ tests/patients/visit-history.spec.ts (4 tests) 825ms
+ ✓ tests/security/override-lint-gates.spec.ts (19 tests) 538ms
+ ✓ tests/security/cross-tenant-refs.spec.ts (11 tests) 790ms
+ ✓ tests/compliance/dpdp-rights.spec.ts (16 tests) 656ms
+ ✓ tests/security/webhook-lockdown.spec.ts (47 tests) 721ms
+ ✓ tests/security/p0-01-action-sweep.spec.ts (114 tests) 443ms
+ ✓ tests/security/cross-tenant.spec.ts (20 tests) 724ms
+ ✓ tests/integration/prescription-versioning.spec.ts (6 tests) 595ms
+ ✓ tests/security/multi-clinic-tenant-filters.spec.ts (7 tests) 633ms
+ ✓ tests/security/share-tokens.spec.ts (22 tests) 543ms
+ ✓ tests/billing/payment-actor-guards.spec.ts (9 tests) 541ms
+ ✓ tests/api/webhooks-outbox.spec.ts (27 tests) 556ms
+ ✓ tests/scheduling/schedule-block-guards.spec.ts (4 tests) 552ms
+ ✓ tests/integration/multi-tenancy.spec.ts (6 tests) 523ms
+ ✓ tests/api/webhook-dispatch-hardening.spec.ts (7 tests) 515ms
+ ✓ tests/ci/tests-typecheck.spec.ts (3 tests) 502ms
+ ✓ tests/security/pdf-route-guards.spec.ts (5 tests) 549ms
+ ✓ tests/security/auth-lint-gates.spec.ts (6 tests) 651ms
+ ✓ tests/integration/receipt-reports.spec.ts (4 tests) 445ms
+ ✓ tests/referrals/referrals-flow.spec.ts (13 tests) 440ms
+ ✓ tests/integration/consultation-flow.spec.ts (10 tests) 416ms
+ ✓ tests/labs/lab-documents.spec.ts (12 tests) 464ms
+ ✓ tests/ci/auth-policy.spec.ts (13 tests) 455ms
+ ✓ tests/audit/audit-logging.spec.ts (4 tests) 429ms
+ ✓ tests/integration/subscription.spec.ts (3 tests) 408ms
+ ✓ tests/ci/schema-snapshot.spec.ts (13 tests) 384ms
+ ✓ tests/integration/ist-boundaries.spec.ts (4 tests) 375ms
+ ✓ tests/api/v1-performance.spec.ts (5 tests) 336ms
+ ✓ tests/security/review-fixes-app.spec.ts (14 tests) 337ms
+ ✓ tests/api/v1-auth.spec.ts (7 tests) 320ms
+ ✓ tests/integration/cabin-consultation-launch.spec.ts (2 tests) 339ms
+ ✓ tests/api/readiness-probe-db.spec.ts (7 tests) 313ms
+ ✓ tests/integration/cdci-search.spec.ts (6 tests) 318ms
+ ✓ tests/integration/per-visit-billing.spec.ts (5 tests) 313ms
+ ✓ tests/ci/env-example.spec.ts (3 tests) 345ms
+ ✓ tests/compliance/consent.spec.ts (3 tests) 308ms
+ ✓ tests/integration/visits.spec.ts (6 tests) 302ms
+ ✓ tests/observability/on-request-error.spec.ts (5 tests) 265ms
+ ✓ tests/ci/ci-scripts.spec.ts (6 tests) 275ms
+ ✓ tests/referrals/referral-source-clinics.spec.ts (7 tests) 246ms
+ ✓ tests/api/rate-limiting.spec.ts (5 tests) 243ms
+ ✓ tests/scheduling/calendar-waitlist.spec.ts (5 tests) 227ms
+ ✓ tests/integration/queue-flow.spec.ts (4 tests) 205ms
+ ✓ tests/ci/vitest-report-gate.spec.ts (9 tests) 182ms
+ ✓ tests/ci/workflow-policy.spec.ts (33 tests) 203ms
+ ✓ tests/labs/tokenized-sharing.spec.ts (6 tests) 186ms
+ ✓ tests/messaging/provider-selection.spec.ts (7 tests) 166ms
+ ✓ tests/patients/dedup.spec.ts (6 tests) 157ms
+ ✓ tests/messaging/provider-timeouts-and-synthetic.spec.ts (24 tests) 199ms
+ ✓ tests/setup/test-env-guard.spec.ts (67 tests) 173ms
+ ✓ tests/ci/doc-grep-gate.spec.ts (7 tests) 176ms
+ ✓ tests/ci/local-drift.spec.ts (8 tests) 171ms
+ ✓ tests/ci/env-files-gate.spec.ts (5 tests) 151ms
+ ✓ tests/ci/audit-gate.spec.ts (7 tests) 135ms
+ ✓ tests/api/v1-system-client-order.spec.ts (4 tests) 127ms
+ ✓ tests/api/api-v1-switch.spec.ts (57 tests) 138ms
+ ✓ tests/auth/ses-sender.spec.ts (7 tests) 113ms
+ ✓ tests/auth/pwned.spec.ts (13 tests) 90ms
+ ✓ tests/ci/playwright-summary.spec.ts (3 tests) 68ms
+ ✓ tests/setup/next-env-flag.spec.ts (2 tests) 42ms
+ ✓ tests/api/health-probes.spec.ts (13 tests) 69ms
+ ✓ tests/setup/e2e-app-env.spec.ts (13 tests) 33ms
+ ✓ tests/ci/auth-config-hosted.spec.ts (11 tests) 29ms
+ ✓ tests/messaging/outbox-queue.spec.ts (14 tests) 30ms
+ ✓ tests/config/env-schema.spec.ts (178 tests) 20ms
+ ✓ tests/messaging/msg91-webhook.spec.ts (23 tests) 15ms
+ ✓ tests/observability/scrub.spec.ts (146 tests) 13ms
+ ✓ tests/utils/datetime.spec.ts (17 tests) 13ms
+ ✓ tests/scheduling/availability-blocks.spec.ts (24 tests) 12ms
+ ✓ tests/integration/calendar-scheduling-ux.spec.ts (12 tests) 12ms
+ ✓ tests/security/ai-containment.spec.ts (18 tests) 11ms
+ ✓ tests/observability/sink-flood.spec.ts (3 tests) 12ms
+ ✓ tests/patients/phone-search.spec.ts (11 tests) 11ms
+ ✓ tests/visits/visit-service-guards.spec.ts (6 tests) 11ms
+ ✓ tests/ai/prescription-suggestions.spec.ts (6 tests) 10ms
+ ✓ tests/billing/billing-error-messages.spec.ts (5 tests) 9ms
+ ✓ tests/observability/request-id.spec.ts (12 tests) 7ms
+ ✓ tests/api/webhook-ssrf.spec.ts (61 tests) 8ms
+ ✓ tests/components/phone-input.spec.ts (16 tests) 8ms
+ ✓ tests/components/doctor-availability.spec.ts (11 tests) 7ms
+ ✓ tests/auth/password-service.spec.ts (23 tests) 7ms
+ ✓ tests/observability/logger.spec.ts (25 tests) 7ms
+ ✓ tests/observability/diag-route.spec.ts (5 tests) 6ms
+ ✓ tests/auth/password-schemas-and-errors.spec.ts (48 tests) 6ms
+ ✓ tests/messaging/tokenized-sharing.spec.ts (6 tests) 6ms
+ ✓ tests/ai/ai-gateway.spec.ts (20 tests) 5ms
+ ✓ tests/messaging/msg91-provider.spec.ts (26 tests) 5ms
+ ✓ tests/notifications/in-app-notifications.spec.ts (12 tests) 5ms
+ ✓ tests/messaging/messaging-provider.spec.ts (10 tests) 4ms
+ ✓ tests/observability/console-scrub.spec.ts (5 tests) 5ms
+ ✓ tests/messaging/msg91-sync-templates.spec.ts (14 tests) 4ms
+ ✓ tests/api/openapi.spec.ts (3 tests) 4ms
+ ✓ tests/security/share-path-encoding.spec.ts (21 tests) 4ms
+ ✓ tests/storage/storage-provider.spec.ts (14 tests) 4ms
+ ✓ tests/security/invite-token-lockout.spec.ts (4 tests) 4ms
+ ✓ tests/api/proxy-matcher.spec.ts (18 tests) 3ms
+ ✓ tests/auth/password-flows-captcha.spec.ts (14 tests) 4ms
+ ✓ tests/dental/odontogram.spec.ts (7 tests) 3ms
+ ✓ tests/auth/public-paths.spec.ts (61 tests) 3ms
+ ✓ tests/db/error-map.spec.ts (30 tests) 3ms
+ ✓ tests/consultation/schemas.spec.ts (11 tests) 3ms
+ ✓ tests/settings/settings-service-guards.spec.ts (6 tests) 3ms
+ ✓ tests/settings/profile-and-credentials.spec.ts (8 tests) 3ms
+ ✓ tests/auth/safe-next.spec.ts (85 tests) 3ms
+ ✓ tests/prescriptions/dosage.spec.ts (13 tests) 2ms
+ ✓ tests/auth/session-age.spec.ts (39 tests) 2ms
+ ✓ tests/patients/schema.spec.ts (7 tests) 2ms
+ ✓ tests/billing/schemas.spec.ts (4 tests) 2ms
+ ✓ tests/utils/phone.spec.ts (28 tests) 2ms
+ ✓ tests/storage/no-service-role-fallback.spec.ts (5 tests) 2ms
+ ✓ tests/security/pii-scrubber.spec.ts (8 tests) 2ms
+ ✓ tests/auth/rbac.spec.ts (6 tests) 2ms
+ ✓ tests/ai/gateway-tools.spec.ts (3 tests) 2ms
+ ✓ tests/pediatrics/who-growth.spec.ts (7 tests) 1ms
+ ✓ tests/billing/sign-and-bill-outcome.spec.ts (3 tests) 1ms
+ ✓ tests/utils/synthetic-phones.spec.ts (2 tests) 1ms
+ ✓ tests/messaging/two-way-bot.spec.ts (4 tests) 1ms
+ ✓ tests/ci/known-bug-match.spec.ts (3 tests) 1ms
+ ❯ tests/observability/no-raw-error-logging.spec.ts:216:18
+ ❯ tests/security/system-db.spec.ts:42:38
+ ❯ tests/security/system-db.spec.ts:60:61

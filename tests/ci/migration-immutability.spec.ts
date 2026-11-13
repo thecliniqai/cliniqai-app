@@ -146,7 +146,7 @@ describe("migration immutability gate", () => {
 function gate(repo: string, args: string[], env: Record<string, string> = {}) {
   const r = spawnSync(process.execPath, [path.join(ROOT, "scripts/ci/migration-immutability.mjs"), ...args, "--root", repo], {
     encoding: "utf8",
-    env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", ...env },
+    env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", ...env } as unknown as NodeJS.ProcessEnv,
   });
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }

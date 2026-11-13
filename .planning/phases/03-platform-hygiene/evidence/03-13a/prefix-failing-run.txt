@@ -1,0 +1,1275 @@
+# Pre-fix run: the 03-13a tests against 98b7605 (detached worktree; stack already at otp_length 8)
+# Command: npx vitest run <the 14 spec files below>
+
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-head
+
+ ❯ tests/integration/auth/auth00-recheck-kit.spec.ts (14 tests | 2 failed) 4552ms
+   ✓ AUTH-00 re-check kit on the local stack > completes and writes a report with all eleven items, none in error 2ms
+   ✓ AUTH-00 re-check kit on the local stack > 1: the verifyOtp type matrix matches the spike (E1), incl. recovery codes accepted as email/magiclink 1ms
+   ✓ AUTH-00 re-check kit on the local stack > 2: CAPTCHA is off on the CLI stack, recorded as not configurable locally (R-22) 0ms
+   ✓ AUTH-00 re-check kit on the local stack > 3: require-current-password is 'not configurable on the CLI stack'; recovery sessions change without it 0ms
+   ✓ AUTH-00 re-check kit on the local stack > 4: postgres may delete auth.sessions (catalogue read, spike E6) 0ms
+   ✓ AUTH-00 re-check kit on the local stack > 5: signup for an existing address is refused with signup_disabled (A00-1, A00-3) 0ms
+   ✓ AUTH-00 re-check kit on the local stack > 6: one burst of 40 grants, no per-IP limit on the CLI stack (spike E9) 0ms
+   ✓ AUTH-00 re-check kit on the local stack > 7: failed grants leave no auth.audit_log_entries row (spike E11) 0ms
+   ✓ AUTH-00 re-check kit on the local stack > 8: amr of a password session is [password @ iat] and survives a refresh; recovery is otp 0ms
+   ✓ AUTH-00 re-check kit on the local stack > 9: @supabase/ssr is pinned exactly and installed at that version 0ms
+   × AUTH-00 re-check kit on the local stack > 10 (03-13a H-AUTH, R-35, R-36): 8-digit codes; recovery amr is an emailed code; a global sign-out kills the recovery tokens 3ms
+     → Cannot read properties of undefined (reading 'status')
+   × AUTH-00 re-check kit on the local stack > 11 (03-13a M-EMAILCAP): the opt-in invite probe runs; the CLI stack applies no email_sent cap 0ms
+     → Cannot read properties of undefined (reading 'status')
+   ✓ AUTH-00 re-check kit on the local stack > keeps every key and every token out of the report 0ms
+   ✓ AUTH-00 re-check kit on the local stack > leaves no synthetic user behind 7ms
+ ❯ tests/auth/send-email-hook.spec.ts (28 tests | 28 failed) 8ms
+   × Send Email hook: delivery (signature valid) > recovery → 200 after exactly one send to the user, whose text and HTML carry the code and no link 2ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: delivery (signature valid) > signup → one code email to the user 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: delivery (signature valid) > invite → one code email to the user 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: delivery (signature valid) > email_change → `token` to the current address and `token_new` to the new address (secure email change) 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: delivery (signature valid) > password_changed_notification is passed (03-11a): one code-free security notice to the user 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: delivery (signature valid) > accepts the right signature among several (secret rotation: GoTrue signs with every configured secret) 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: drops (A00-1 and default deny) > magiclink → 200 and zero sends, logged as dropped with reason magiclink 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: drops (A00-1 and default deny) > an action the app does not use (reauthentication) → 200 and zero sends 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: drops (A00-1 and default deny) > an unknown action type → 200 and zero sends; an odd action string is not echoed into the log 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: refusals (T-03-05) > a bad signature → 401 in the hook error shape, zero sends, and the body is not even parsed 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: refusals (T-03-05) > missing signature headers, another secret, or a body changed after signing → 401, zero sends 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: refusals (T-03-05) > a stale timestamp (> 5 min old) or one from the future → 401, zero sends 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: refusals (T-03-05) > SEND_EMAIL_HOOK_SECRET unset → every call 401 (fail closed), zero sends 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: refusals (T-03-05) > a body over 64 KiB → 413 before the signature is computed, zero sends 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: refusals (T-03-05) > a signed but malformed payload → 400, zero sends 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: sender failures surface to Supabase Auth > a provider failure → 500 in the hook error shape, logged by error code only 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: sender failures surface to Supabase Auth > EMAIL_PROVIDER=disabled (the real sender) → 503 'Email delivery is disabled', nothing sent 3ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: sender failures surface to Supabase Auth > the default (EMAIL_PROVIDER unset outside staging/production) is disabled too 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × Send Email hook: sender failures surface to Supabase Auth > magiclink is still dropped with 200 when email is disabled (the drop needs no provider) 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × 03-13a: webhook-id dedupe and the SES time budget > a replay (same webhook-id) of a delivered email answers 200 and sends nothing more 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × 03-13a: webhook-id dedupe and the SES time budget > a retry that arrives while the first attempt is still sending waits for it and shares its answer 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × 03-13a: webhook-id dedupe and the SES time budget > after a failed attempt the retry (same webhook-id) sends again 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × 03-13a: webhook-id dedupe and the SES time budget > a provider that hangs is aborted at the undefined ms budget: 500 well inside GoTrue's undefined ms hook timeout 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × code-only templates match supabase/templates (the SMTP fallback's copy) > signup HTML equals confirmation.html with the code in place of {{ .Token }} 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × code-only templates match supabase/templates (the SMTP fallback's copy) > recovery HTML equals recovery.html with the code in place of {{ .Token }} 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × code-only templates match supabase/templates (the SMTP fallback's copy) > email_change HTML equals email_change.html with the code in place of {{ .Token }} 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × code-only templates match supabase/templates (the SMTP fallback's copy) > password_changed HTML equals supabase/templates/password_changed.html (no code) 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+   × code-only templates match supabase/templates (the SMTP fallback's copy) > refuses a code that is not a digit string (no markup or link can be injected) 0ms
+     → resetHookDedupeForTests is not a function
+     → Cannot read properties of undefined (reading 'join')
+{"ts":"2026-11-13T03:02:04.754Z","level":"info","event":"auth.password.rejected","userId":"30b020a2-9b1d-484a-ae16-99e6e13bc34a","action":"set_new_password","reason":"reauth_required"}
+{"ts":"2026-11-13T03:13:04.972Z","level":"info","event":"auth.password.rejected","userId":"3778e31e-9429-47fe-844d-ea1776d4acfe","action":"set_new_password","reason":"reauth_required"}
+ ❯ tests/integration/auth/reset-completion.spec.ts (5 tests | 2 failed) 1007ms
+   × setNewPasswordAction after a recovery code (local stack + Mailpit) > a breached password is refused (code already used, retry on the same session); a clear one signs out other sessions 224ms
+     → expected { ok: false, …(3) } to deeply equal { ok: false, …(3) }
+   × setNewPasswordAction after a recovery code (local stack + Mailpit) > R-35 / H-AUTH: reset completion revokes the recovery session; its tokens then fail on a direct GoTrue PUT /auth/v1/user 150ms
+     → expected { ok: false, …(3) } to deeply equal { ok: true, …(2) }
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > called from a plain password session it is refused and the password is unchanged 247ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > A00-5: a recovery session older than 10 minutes is refused 217ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > unauthenticated is refused 0ms
+ ❯ tests/ci/auth00-recheck-cli.spec.ts (17 tests | 1 failed) 6316ms
+   ✓ stagingRecheckProblems > accepts the approved staging run 1ms
+   ✓ stagingRecheckProblems > refuses outside GitHub Actions 0ms
+   ✓ stagingRecheckProblems > refuses another branch 0ms
+   ✓ stagingRecheckProblems > refuses APP_ENV unset 0ms
+   ✓ stagingRecheckProblems > refuses the local API URL 0ms
+   ✓ stagingRecheckProblems > refuses another project's API 0ms
+   ✓ stagingRecheckProblems > refuses the local database 0ms
+   ✓ stagingRecheckProblems > refuses another project's database 0ms
+   ✓ stagingRecheckProblems > refuses a local JWT secret key 0ms
+   ✓ stagingRecheckProblems > refuses a missing publishable key 0ms
+   ✓ stagingRecheckProblems > refuses a bad browser-check value 0ms
+   ✓ stagingRecheckProblems > refuses a shell-looking retention note 0ms
+   ✓ localRecheckProblems > accepts the CLI stack and refuses anything else 0ms
+   ✓ pgEnvFromUrl > splits the URL into PG* variables (password decoded, TLS required) 0ms
+   ✓ the command line refuses before any request > staging outside the approved workflow run → exit 1, problems listed, no value echoed 154ms
+   ✓ the command line refuses before any request > an unknown target or a burst above 40 → usage (exit 2) 259ms
+   × the command line refuses before any request > 03-13a: the opt-in probes are bounded (stale wait 601..890 s, email-cap probe 1..70) → usage (exit 2) 5901ms
+     → --stale-wait-seconds 600: expected +0 to be 2 // Object.is equality
+{"ts":"2026-11-13T03:02:11.746Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T03:02:11.747Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T03:02:11.747Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T03:02:11.747Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T03:02:11.748Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T03:02:11.880Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"invalid_scope","status":400}
+{"ts":"2026-11-13T03:02:11.910Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+{"ts":"2026-11-13T03:02:12.110Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+{"ts":"2026-11-13T03:02:12.352Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"global"}
+{"ts":"2026-11-13T03:02:12.596Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+{"ts":"2026-11-13T03:02:12.612Z","level":"warn","event":"auth.signout.failed","module":"auth.signout","code":"unexpected_failure"}
+{"ts":"2026-11-13T03:02:12.612Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+ ✓ tests/auth/signout-route.spec.ts (21 tests) 1009ms
+stderr | tests/api/proxy-session.spec.ts > 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: a session that cannot be refreshed is redirected and its stale auth cookie deleted
+AuthApiError: Refresh token is not valid
+    at handleError (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:145:9)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _handleRequest (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:239:5)
+    at _request (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:200:16)
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/GoTrueClient.ts:4790:18
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/helpers.ts:242:26 {
+  __isAuthError: true,
+  status: 400,
+  code: 'validation_failed'
+}
+AuthApiError: Refresh token is not valid
+    at handleError (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:145:9)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _handleRequest (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:239:5)
+    at _request (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:200:16)
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/GoTrueClient.ts:4790:18
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/helpers.ts:242:26 {
+  __isAuthError: true,
+  status: 400,
+  code: 'validation_failed'
+}
+
+ ❯ tests/api/proxy-session.spec.ts (9 tests | 2 failed) 666ms
+   ✓ 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > passes a signed-out request for a public page through with no cookie and no cache headers 3ms
+   ✓ 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: redirects a signed-out GET for a protected page to /login with next (path + query) 1ms
+   ✓ 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: /api and non-GET page requests (Server Actions) are not redirected 0ms
+   ✓ 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: a session that cannot be refreshed is redirected and its stale auth cookie deleted 9ms
+   ✓ 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > does not rewrite cookies for a session that is still valid 4ms
+   ✓ 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > refreshes an expired session and returns the response setAll built (cookie + no-store headers) 27ms
+   × 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a recovery session aged 601 s: page GET → revoked at GoTrue, cookies deleted, /login; direct PUT /auth/v1/user then refused 167ms
+     → expected 200 to be 307 // Object.is equality
+   × 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a Server Action POST and an /api call on a stale recovery session run signed out (no auth cookie forwarded) 159ms
+     → /patients: no auth cookie reaches the handler: expected true to be false // Object.is equality
+   ✓ 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a fresh recovery session (inside 600 s) and a password session of any age pass untouched 152ms
+ ❯ tests/ci/auth-policy.spec.ts (13 tests | 3 failed) 325ms
+   ✓ auth policy check (config.toml vs supabase/auth-policy.json, local column) > passes on the committed config.toml 26ms
+   ✓ auth policy check (config.toml vs supabase/auth-policy.json, local column) > fails naming auth.jwt_expiry when the config is back at 3600 23ms
+   ✓ auth policy check (config.toml vs supabase/auth-policy.json, local column) > fails when signups are turned on (A00-1) 23ms
+   ✓ auth policy check (config.toml vs supabase/auth-policy.json, local column) > fails when email confirmations are turned off 23ms
+   ✓ auth policy check (config.toml vs supabase/auth-policy.json, local column) > fails when a governed key is removed (CLI defaults are not accepted silently) 23ms
+   ✓ auth policy check (config.toml vs supabase/auth-policy.json, local column) > fails on an [auth] key that no policy row governs 22ms
+   ✓ auth policy check (config.toml vs supabase/auth-policy.json, local column) > fails when config.toml sets a key the policy keeps off locally (the Send Email hook URL) 23ms
+   ✓ auth policy check (config.toml vs supabase/auth-policy.json, local column) > fails when a code-only template carries a link instead of the code 23ms
+   ✓ auth policy check (config.toml vs supabase/auth-policy.json, local column) > refuses a policy row without a source, and environments that differ without a reason (exit 2) 43ms
+   ✓ auth policy check (config.toml vs supabase/auth-policy.json, local column) > refuses a policy that maps a secret-bearing hosted field 21ms
+   × auth policy check (config.toml vs supabase/auth-policy.json, local column) > 03-13a (R-36): a 6-digit OTP breaks the length floor in any environment, also for --print (exit 1) 25ms
+     → local : expected +0 to be 1 // Object.is equality
+   × auth policy check (config.toml vs supabase/auth-policy.json, local column) > 03-13a: an OTP expiry above 600 s breaks the expiry floor; the committed policy meets both floors 25ms
+     → expected 'auth-policy: MISMATCH auth.email.otp_…' to contain 'FLOOR email_otp_expiry (production): …'
+   × auth policy check (config.toml vs supabase/auth-policy.json, local column) > --print staging lists the dashboard checklist with the hosted-only require-current-password row 24ms
+     → expected 'Supabase Auth settings for staging (f…' to contain 'mailer_otp_length = 8'
+ ❯ tests/auth/ses-sender.spec.ts (7 tests | 1 failed) 20024ms
+   ✓ SesEmailSender with an injected client > sends exactly one SendEmailCommand: configured From, one recipient, both bodies, the category tag 1ms
+   ✓ SesEmailSender with an injected client > a provider error becomes EmailSendError carrying the SDK error name, never its message 0ms
+   ✓ SesEmailSender with an injected client > a response without a MessageId is a failure (200 only after the provider accepted) 0ms
+   ✓ the real SESv2 client the sender builds (HTTP layer captured, no network) > signs one request for SES in ap-south-1 with the IAM user's key and the message as JSON 7ms
+   × 03-13a: the hook's time budget reaches the SES HTTP layer > send(message, { signal }) hands the abort signal to the real SDK; an abort ends a hung request at once 20011ms
+     → Test timed out in 20000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+   ✓ getEmailSender picks the sender from EMAIL_PROVIDER > ses → the SES sender (credentials from SES_*), mailpit → Mailpit, unset → disabled 4ms
+   ✓ getEmailSender picks the sender from EMAIL_PROVIDER > the disabled sender sends nothing and says so 0ms
+ ❯ tests/auth/password-service.spec.ts (23 tests | 2 failed) 10ms
+   ✓ changePassword > unauthenticated: refused with the sign-in-again message; no range lookup, no update 1ms
+   ✓ changePassword > a valid change sends the current password, then signs out the other sessions 1ms
+   ✓ changePassword > FT-05: a breached new password is refused before anything is written 0ms
+   ✓ changePassword > FT-05 fail-open: with the range API unavailable the change goes ahead 0ms
+   ✓ changePassword > a wrong current password (GoTrue current_password_invalid) is refused with its fixed copy; nobody is signed out 0ms
+   ✓ changePassword > current_password_required maps to its fixed copy 0ms
+   ✓ changePassword > A00-4: a 429 from GoTrue (over_request_rate_limit) maps to the wait-a-minute copy 0ms
+   ✓ changePassword > A00-4: a 429 from GoTrue (over_email_send_rate_limit) maps to the wait-a-minute copy 0ms
+   ✓ changePassword > GoTrue weak_password maps to its fixed copy 0ms
+   ✓ changePassword > GoTrue same_password maps to its fixed copy 0ms
+   ✓ changePassword > GoTrue session_not_found maps to its fixed copy 0ms
+   ✓ changePassword > an unexpected GoTrue code or a thrown error gets the generic change failure 0ms
+   ✓ changePassword > A00-5: an emailed-code session older than 10 minutes must sign in again; at 10 minutes it may change 0ms
+   ✓ changePassword > an unreadable amr claim fails closed 0ms
+   ✓ changePassword > invalid input is refused without a range lookup or an update 0ms
+   ✓ changePassword > reports otherSessionsSignedOut=false when signing out the other sessions fails 0ms
+   × setNewPassword (forgot-password final step) > R-35: a fresh recovery session sets the password, then EVERY session is revoked (the recovery session too) 2ms
+     → expected { ok: true, …(1) } to deeply equal { ok: true, …(2) }
+   × setNewPassword (forgot-password final step) > R-35: when the global sign-out fails, this recovery session alone is still ended (scope local) 1ms
+     → expected { ok: true, …(1) } to deeply equal { ok: true, …(2) }
+   ✓ setNewPassword (forgot-password final step) > FT-05: a breached password is refused before the update 0ms
+   ✓ setNewPassword (forgot-password final step) > A00-5: a recovery session older than 10 minutes, or a plain password session, is refused 0ms
+   ✓ setNewPassword (forgot-password final step) > unauthenticated is refused 0ms
+   ✓ session freshness (A00-5) > classifies sessions by their amr methods 0ms
+   ✓ session freshness (A00-5) > assertFreshOtpSession: 600 s is fresh, 601 s is not; password sessions are never fresh OTP sessions 0ms
+ ❯ tests/auth/password-schemas-and-errors.spec.ts (48 tests | 4 failed) 9ms
+   ✓ newPasswordSchema > rejects 9 characters and accepts 10 1ms
+   ✓ newPasswordSchema > counts characters, not UTF-16 units or bytes, for the minimum 0ms
+   ✓ newPasswordSchema > accepts exactly 72 UTF-8 bytes and rejects 73 0ms
+   ✓ newPasswordSchema > measures multibyte characters in bytes for the maximum 0ms
+   ✓ emailSchema and recoveryCodeSchema > normalises email case and whitespace 0ms
+   × emailSchema and recoveryCodeSchema > accepts exactly eight digits (ruling R-36) 2ms
+     → expected false to be true // Object.is equality
+   × emailSchema and recoveryCodeSchema > requires the confirmation to match 1ms
+     → expected 'Enter the 6-digit code from the email' to be 'Passwords do not match' // Object.is equality
+   ✓ auth error catalogue (03-12a) > covers exactly the AUTH §4.2 codes plus the two app codes 0ms
+   ✓ auth error catalogue (03-12a) > maps invalid_credentials to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps email_not_confirmed to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps over_request_rate_limit to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps over_email_send_rate_limit to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps otp_expired to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps weak_password to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps same_password to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps captcha_failed to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps current_password_required to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps current_password_invalid to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps user_already_exists to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps otp_disabled to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps signup_disabled to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps session_not_found to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps pwned_password to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps reauth_required to its fixed copy 0ms
+   ✓ auth error catalogue (03-12a) > maps an unknown, missing or non-string code to the generic message 0ms
+   ✓ auth error catalogue (03-12a) > A00-4: both GoTrue 429 codes share the one wait-a-minute message 0ms
+   ✓ auth error catalogue (03-12a) > reads only error.code, never the message 0ms
+   ✓ mapAuthError (browser flows) > maps invalid_credentials during sign_in to a fixed message 0ms
+   ✓ mapAuthError (browser flows) > maps email_not_confirmed during sign_in to a fixed message 0ms
+   ✓ mapAuthError (browser flows) > maps over_request_rate_limit during sign_in to a fixed message 0ms
+   ✓ mapAuthError (browser flows) > maps over_request_rate_limit during reset_request to a fixed message 0ms
+   ✓ mapAuthError (browser flows) > maps over_request_rate_limit during verify_code to a fixed message 0ms
+   ✓ mapAuthError (browser flows) > maps over_email_send_rate_limit during reset_request to a fixed message 0ms
+   ✓ mapAuthError (browser flows) > maps otp_expired during verify_code to a fixed message 0ms
+   ✓ mapAuthError (browser flows) > maps captcha_failed during sign_in to a fixed message 0ms
+   ✓ mapAuthError (browser flows) > maps captcha_failed during reset_request to a fixed message 0ms
+   ✓ mapAuthError (browser flows) > the flow messages come from the catalogue 0ms
+   ✓ mapAuthError (browser flows) > maps unknown, missing and non-error values during sign_in to the generic message 0ms
+   ✓ mapAuthError (browser flows) > maps unknown, missing and non-error values during reset_request to the generic message 0ms
+   ✓ mapAuthError (browser flows) > maps unknown, missing and non-error values during verify_code to the generic message 0ms
+   ✓ mapAuthError (browser flows) > never echoes the Supabase error message 1ms
+   ✓ change-password schemas (03-12a) > requires the current password and applies the new-password policy 0ms
+   ✓ change-password schemas (03-12a) > the form requires the confirmation to match 0ms
+   ✓ flows validate input before calling Supabase > completeReset rejects a short or over-long password without using the code 1ms
+   × flows validate input before calling Supabase > completeReset never sets the password in the browser: the server action does, after the code is verified 1ms
+     → expected { ok: false, …(3) } to deeply equal { ok: false, …(3) }
+   × flows validate input before calling Supabase > completeReset maps a thrown server action to the generic reset failure at the update stage 0ms
+     → expected { ok: false, …(3) } to deeply equal { ok: false, code: 'unknown', …(2) }
+   ✓ flows validate input before calling Supabase > signIn and requestReset reject a malformed email without a network call 0ms
+   ✓ flows validate input before calling Supabase > signIn maps a thrown network error to the generic message 0ms
+ ❯ tests/auth/password-flows-captcha.spec.ts (14 tests | 1 failed) 6ms
+   ✓ signIn with Turnstile > refuses a missing token (undefined) without calling Supabase 1ms
+   ✓ signIn with Turnstile > refuses a missing token (null) without calling Supabase 0ms
+   ✓ signIn with Turnstile > refuses a missing token ("") without calling Supabase 0ms
+   ✓ signIn with Turnstile > passes the token as options.captchaToken 0ms
+   ✓ signIn with Turnstile > without the widget (no site key) signs in without a token, exactly as before 0ms
+   ✓ signIn with Turnstile > maps GoTrue's captcha_failed to the catalogue copy (never the Supabase message) 0ms
+   ✓ signIn with Turnstile > validates input before the CAPTCHA check (a malformed email never needs a token) 0ms
+   ✓ requestReset with Turnstile > refuses a missing token (undefined) without calling Supabase 0ms
+   ✓ requestReset with Turnstile > refuses a missing token (null) without calling Supabase 0ms
+   ✓ requestReset with Turnstile > refuses a missing token ("") without calling Supabase 0ms
+   ✓ requestReset with Turnstile > passes the token as captchaToken 0ms
+   ✓ requestReset with Turnstile > without the widget requests the code with the email only 0ms
+   × requestReset with Turnstile > 03-13a M-EMAILCAP: over_email_send_rate_limit (per-address interval or the project email cap) is 'try again later', not success 2ms
+     → expected { ok: true } to deeply equal { ok: false, …(2) }
+   ✓ requestReset with Turnstile > maps GoTrue's captcha_failed to the catalogue copy 0ms
+ ❯ tests/auth/safe-next.spec.ts (85 tests | 13 failed) 6ms
+   ✓ safeNextPath keeps same-origin paths > /patients → /patients 0ms
+   ✓ safeNextPath keeps same-origin paths > / → / 0ms
+   ✓ safeNextPath keeps same-origin paths > /patients/123/edit → /patients/123/edit 0ms
+   ✓ safeNextPath keeps same-origin paths > /patients?tab=visits&page=2 → /patients?tab=visits&page=2 0ms
+   ✓ safeNextPath keeps same-origin paths > /billing#unpaid → /billing#unpaid 0ms
+   ✓ safeNextPath keeps same-origin paths > /patients?q=Asha%20R → /patients?q=Asha%20R 0ms
+   ✓ safeNextPath keeps same-origin paths > /javascript:alert(1) → /javascript:alert(1) 0ms
+   ✓ safeNextPath keeps same-origin paths > /patients/../billing → /billing 0ms
+   ✓ safeNextPath keeps same-origin paths > /patients?x=1 → /patients?x=1 0ms
+   ✓ safeNextPath keeps same-origin paths > /reports?date=2026%2F11%2F13 → /reports?date=2026%2F11%2F13 0ms
+   ✓ safeNextPath keeps same-origin paths > /reports?q=a%5Cb#x%2Fy → /reports?q=a%5Cb#x%2Fy 0ms
+   ✓ safeNextPath keeps same-origin paths > accepts exactly 512 characters 0ms
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /api → null 2ms
+     → expected '/api' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /api/patients/abc/export → null 0ms
+     → expected '/api/patients/abc/export' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /api/v1/patients?x=1 → null 0ms
+     → expected '/api/v1/patients?x=1' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /API/patients/abc/export → null 0ms
+     → expected '/API/patients/abc/export' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /Api/x → null 0ms
+     → expected '/Api/x' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /%61pi/patients/abc/export → null 0ms
+     → expected '/%61pi/patients/abc/export' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /%2561pi/x → null 0ms
+     → expected '/%2561pi/x' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /patients/../api/x → null 0ms
+     → expected '/api/x' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /x/%2e%2e/api/x → null 0ms
+     → expected '/api/x' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /auth → null 0ms
+     → expected '/auth' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /auth/signout → null 0ms
+     → expected '/auth/signout' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /AUTH/signout?scope=global → null 0ms
+     → expected '/AUTH/signout?scope=global' to be null
+   × 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /%61uth/signout → null 0ms
+     → expected '/%61uth/signout' to be null
+   ✓ 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > pages that merely contain the words stay allowed: /apix 0ms
+   ✓ 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > pages that merely contain the words stay allowed: /authority 0ms
+   ✓ 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > pages that merely contain the words stay allowed: /patients/api 0ms
+   ✓ 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > pages that merely contain the words stay allowed: /reports?next=/api/x 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > protocol-relative 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > protocol-relative with path 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > triple slash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > slash-backslash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > backslash-slash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > double backslash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > backslash later in the path 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > https URL 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > http URL 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > scheme-relative with userinfo 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > javascript: URL 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > JavaScript: mixed case 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > data: URL 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > vbscript: URL 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > mailto: URL 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded double slash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded double slash lower case 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded slash after the first 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded backslash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded backslash lower case 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > double-encoded slash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > double-encoded backslash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > fully encoded leading slashes 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded slash in the path before a query 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded question mark hiding a path slash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > raw backslash in the query 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded scheme 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > tab between slashes 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > newline between slashes 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > carriage return 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > NUL 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > DEL 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > C1 control 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded tab between slashes 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded newline 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > encoded NUL 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > malformed escape 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > lone percent 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > deep encoding 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > empty 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > relative path 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > dot relative 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > dot-dot relative 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > leading space 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > question mark only 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > hash only 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > host only 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > dot then double slash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > dot-dot then double slash 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > refuses more than 512 characters (600) 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > non-string null 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > non-string undefined 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > non-string 42 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > non-string ["/patients"] 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > non-string {} 0ms
+   ✓ safeNextPath refuses everything else (the caller lands on its default page) > never returns a value the URL parser resolves off-origin 0ms
+ ❯ tests/api/proxy-matcher.spec.ts (18 tests | 7 failed) 5ms
+   × proxy matcher (03-13a L-4) > runs the proxy for /patients/abc.png 2ms
+     → expected false to be true // Object.is equality
+   × proxy matcher (03-13a L-4) > runs the proxy for /patients/0b9f1c1e-2a5d-4c1b-9d7e-1f2a3b4c5d6e.svg 0ms
+     → expected false to be true // Object.is equality
+   × proxy matcher (03-13a L-4) > runs the proxy for /consultation/x.jpg 0ms
+     → expected false to be true // Object.is equality
+   × proxy matcher (03-13a L-4) > runs the proxy for /settings/logo.jpeg 0ms
+     → expected false to be true // Object.is equality
+   × proxy matcher (03-13a L-4) > runs the proxy for /patients/x.webp 0ms
+     → expected false to be true // Object.is equality
+   × proxy matcher (03-13a L-4) > runs the proxy for /billing/a/b/c.gif 0ms
+     → expected false to be true // Object.is equality
+   ✓ proxy matcher (03-13a L-4) > runs the proxy for /patients 0ms
+   ✓ proxy matcher (03-13a L-4) > runs the proxy for / 0ms
+   ✓ proxy matcher (03-13a L-4) > runs the proxy for /login 0ms
+   × proxy matcher (03-13a L-4) > runs the proxy for /r/token.png 0ms
+     → expected false to be true // Object.is equality
+   ✓ proxy matcher (03-13a L-4) > runs the proxy for /api/patients/abc.png 0ms
+   ✓ proxy matcher (03-13a L-4) > runs the proxy for /api/v%31/x.png 0ms
+   ✓ proxy matcher (03-13a L-4) > skips static asset /logo.png 0ms
+   ✓ proxy matcher (03-13a L-4) > skips static asset /icon.svg 0ms
+   ✓ proxy matcher (03-13a L-4) > skips static asset /og.webp 0ms
+   ✓ proxy matcher (03-13a L-4) > skips static asset /_next/static/chunks/app.js 0ms
+   ✓ proxy matcher (03-13a L-4) > skips static asset /_next/image 0ms
+   ✓ proxy matcher (03-13a L-4) > skips static asset /favicon.ico 0ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/auth/session-age.spec.ts [ tests/auth/session-age.spec.ts ]
+Error: Cannot find module '@/lib/auth/session-age' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-head/tests/auth/session-age.spec.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/auth/session-age.spec.ts:10:1
+      8|  */
+      9| import { describe, expect, it } from "vitest";
+     10| import {
+       | ^
+     11|   FRESH_MAILBOX_SESSION_SECONDS,
+     12|   assertFreshOtpSession,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/95]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 66 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/proxy-matcher.spec.ts > proxy matcher (03-13a L-4) > runs the proxy for /patients/abc.png
+ FAIL  tests/api/proxy-matcher.spec.ts > proxy matcher (03-13a L-4) > runs the proxy for /patients/0b9f1c1e-2a5d-4c1b-9d7e-1f2a3b4c5d6e.svg
+ FAIL  tests/api/proxy-matcher.spec.ts > proxy matcher (03-13a L-4) > runs the proxy for /consultation/x.jpg
+ FAIL  tests/api/proxy-matcher.spec.ts > proxy matcher (03-13a L-4) > runs the proxy for /settings/logo.jpeg
+ FAIL  tests/api/proxy-matcher.spec.ts > proxy matcher (03-13a L-4) > runs the proxy for /patients/x.webp
+ FAIL  tests/api/proxy-matcher.spec.ts > proxy matcher (03-13a L-4) > runs the proxy for /billing/a/b/c.gif
+ FAIL  tests/api/proxy-matcher.spec.ts > proxy matcher (03-13a L-4) > runs the proxy for /r/token.png
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/api/proxy-matcher.spec.ts:23:49
+     23|     "/billing/a/b/c.gif",
+     24|     "/patients",
+     25|     "/",
+       |      ^
+     26|     "/login",
+     27|     "/r/token.png",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/95]⎯
+
+ FAIL  tests/api/proxy-session.spec.ts > 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a recovery session aged 601 s: page GET → revoked at GoTrue, cookies deleted, /login; direct PUT /auth/v1/user then refused
+AssertionError: expected 200 to be 307 // Object.is equality
+
+- Expected
++ Received
+
+- 307
++ 200
+
+ ❯ tests/api/proxy-session.spec.ts:212:24
+    210|     vi.useRealTimers();
+    211| 
+    212|     expect(res.status).toBe(307);
+       |                        ^
+    213|     const location = new URL(res.headers.get("location") ?? "");
+    214|     expect(location.pathname).toBe("/login");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/95]⎯
+
+ FAIL  tests/api/proxy-session.spec.ts > 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a Server Action POST and an /api call on a stale recovery session run signed out (no auth cookie forwarded)
+AssertionError: /patients: no auth cookie reaches the handler: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/api/proxy-session.spec.ts:244:89
+    242|       expect(res.headers.get("x-middleware-next")).toBe("1");
+    243|       const forwarded = res.headers.get("x-middleware-request-cookie")…
+    244|       expect(forwarded.includes(COOKIE), `${path}: no auth cookie reac…
+       |                                                                                         ^
+    245|       expect(deletedAuthCookies(res).length).toBeGreaterThan(0);
+    246|       expect((await directPasswordChange(recovery.access_token)).statu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/95]⎯
+
+ FAIL  tests/auth/password-flows-captcha.spec.ts > requestReset with Turnstile > 03-13a M-EMAILCAP: over_email_send_rate_limit (per-address interval or the project email cap) is 'try again later', not success
+AssertionError: expected { ok: true } to deeply equal { ok: false, …(2) }
+
+- Expected
++ Received
+
+  {
+-   "code": "email_send_limited",
+-   "message": "We can't send a code right now. Try again later.",
+-   "ok": false,
++   "ok": true,
+  }
+
+ ❯ tests/auth/password-flows-captcha.spec.ts:94:92
+     92|     const { client, auth } = fakeClient();
+     93|     auth.resetPasswordForEmail.mockResolvedValue({ data: null, error: …
+     94|     expect(await requestReset(client, { email: EMAIL }, { required: tr…
+       |                                                                                            ^
+     95|       ok: false,
+     96|       code: "email_send_limited",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/95]⎯
+
+ FAIL  tests/auth/password-schemas-and-errors.spec.ts > emailSchema and recoveryCodeSchema > accepts exactly eight digits (ruling R-36)
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/auth/password-schemas-and-errors.spec.ts:74:62
+     72| 
+     73|   it("accepts exactly eight digits (ruling R-36)", () => {
+     74|     expect(recoveryCodeSchema.safeParse("12345678").success).toBe(true…
+       |                                                              ^
+     75|     for (const bad of ["123456", "1234567", "123456789", "1234567a", "…
+     76|       expect(recoveryCodeSchema.safeParse(bad).success).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/95]⎯
+
+ FAIL  tests/auth/password-schemas-and-errors.spec.ts > emailSchema and recoveryCodeSchema > requires the confirmation to match
+AssertionError: expected 'Enter the 6-digit code from the email' to be 'Passwords do not match' // Object.is equality
+
+Expected: "Passwords do not match"
+Received: "Enter the 6-digit code from the email"
+
+ ❯ tests/auth/password-schemas-and-errors.spec.ts:87:32
+     85|       confirmPassword: "correct horse batterY",
+     86|     });
+     87|     expect(firstIssue(result)).toBe(PASSWORDS_DO_NOT_MATCH_MESSAGE);
+       |                                ^
+     88|   });
+     89| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/95]⎯
+
+ FAIL  tests/auth/password-schemas-and-errors.spec.ts > flows validate input before calling Supabase > completeReset never sets the password in the browser: the server action does, after the code is verified
+AssertionError: expected { ok: false, …(3) } to deeply equal { ok: false, …(3) }
+
+- Expected
++ Received
+
+  {
+-   "code": "pwned_password",
+-   "message": "This password has appeared in a data breach. Choose a different one.",
++   "code": "invalid_input",
++   "message": "Enter the 6-digit code from the email",
+    "ok": false,
+-   "stage": "update",
++   "stage": "verify",
+  }
+
+ ❯ tests/auth/password-schemas-and-errors.spec.ts:244:61
+    242|     const input = { email: "a@example.com", code: "12345678", newPassw…
+    243| 
+    244|     expect(await completeReset(client, input, setPassword)).toEqual({ …
+       |                                                             ^
+    245|     expect(auth.verifyOtp).toHaveBeenCalledWith({ email: "a@example.co…
+    246|     expect(setPassword).toHaveBeenCalledWith({ newPassword: SYNTHETIC_…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/95]⎯
+
+ FAIL  tests/auth/password-schemas-and-errors.spec.ts > flows validate input before calling Supabase > completeReset maps a thrown server action to the generic reset failure at the update stage
+AssertionError: expected { ok: false, …(3) } to deeply equal { ok: false, code: 'unknown', …(2) }
+
+- Expected
++ Received
+
+  {
+-   "code": "unknown",
+-   "message": "We couldn't reset your password, try again",
++   "code": "invalid_input",
++   "message": "Enter the 6-digit code from the email",
+    "ok": false,
+-   "stage": "update",
++   "stage": "verify",
+  }
+
+ ❯ tests/auth/password-schemas-and-errors.spec.ts:259:20
+    257|       vi.fn().mockRejectedValue(new Error("network down")),
+    258|     );
+    259|     expect(result).toEqual({ ok: false, code: "unknown", message: AUTH…
+       |                    ^
+    260|   });
+    261| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/95]⎯
+
+ FAIL  tests/auth/password-service.spec.ts > setNewPassword (forgot-password final step) > R-35: a fresh recovery session sets the password, then EVERY session is revoked (the recovery session too)
+AssertionError: expected { ok: true, …(1) } to deeply equal { ok: true, …(2) }
+
+- Expected
++ Received
+
+  {
+    "ok": true,
+    "otherSessionsSignedOut": true,
+-   "signedOut": true,
+  }
+
+ ❯ tests/auth/password-service.spec.ts:199:67
+    197|   it("R-35: a fresh recovery session sets the password, then EVERY ses…
+    198|     const { db, auth } = fakeAuth(otpSession(30));
+    199|     expect(await setNewPassword({ newPassword: NEXT }, deps(db))).toEq…
+       |                                                                   ^
+    200|     expect(auth.updateUser).toHaveBeenCalledWith({ password: NEXT });
+    201|     expect(auth.signOut.mock.calls).toEqual([[{ scope: "global" }]]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/95]⎯
+
+ FAIL  tests/auth/password-service.spec.ts > setNewPassword (forgot-password final step) > R-35: when the global sign-out fails, this recovery session alone is still ended (scope local)
+AssertionError: expected { ok: true, …(1) } to deeply equal { ok: true, …(2) }
+
+- Expected
++ Received
+
+  {
+    "ok": true,
+-   "otherSessionsSignedOut": false,
+-   "signedOut": true,
++   "otherSessionsSignedOut": true,
+  }
+
+ ❯ tests/auth/password-service.spec.ts:209:67
+    207|       error: opts?.scope === "global" ? { code: "unexpected_failure", …
+    208|     }));
+    209|     expect(await setNewPassword({ newPassword: NEXT }, deps(db))).toEq…
+       |                                                                   ^
+    210|     expect(auth.signOut.mock.calls).toEqual([[{ scope: "global" }], [{…
+    211|     expect(logs()).toContain('"event":"auth.password.others_not_signed…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /api → null
+AssertionError: expected '/api' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/api"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /api/patients/abc/export → null
+AssertionError: expected '/api/patients/abc/export' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/api/patients/abc/export"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /api/v1/patients?x=1 → null
+AssertionError: expected '/api/v1/patients?x=1' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/api/v1/patients?x=1"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /API/patients/abc/export → null
+AssertionError: expected '/API/patients/abc/export' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/API/patients/abc/export"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /Api/x → null
+AssertionError: expected '/Api/x' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/Api/x"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /%61pi/patients/abc/export → null
+AssertionError: expected '/%61pi/patients/abc/export' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/%61pi/patients/abc/export"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /%2561pi/x → null
+AssertionError: expected '/%2561pi/x' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/%2561pi/x"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /patients/../api/x → null
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /x/%2e%2e/api/x → null
+AssertionError: expected '/api/x' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/api/x"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /auth → null
+AssertionError: expected '/auth' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/auth"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /auth/signout → null
+AssertionError: expected '/auth/signout' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/auth/signout"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /AUTH/signout?scope=global → null
+AssertionError: expected '/AUTH/signout?scope=global' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/AUTH/signout?scope=global"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/95]⎯
+
+ FAIL  tests/auth/safe-next.spec.ts > 03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt > /%61uth/signout → null
+AssertionError: expected '/%61uth/signout' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/%61uth/signout"
+
+ ❯ tests/auth/safe-next.spec.ts:51:31
+     49|     "/%61uth/signout",
+     50|   ])("%s → null", (raw) => {
+     51|     expect(safeNextPath(raw)).toBeNull();
+       |                               ^
+     52|   });
+     53| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/95]⎯
+
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > recovery → 200 after exactly one send to the user, whose text and HTML carry the code and no link
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > signup → one code email to the user
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > invite → one code email to the user
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > email_change → `token` to the current address and `token_new` to the new address (secure email change)
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > password_changed_notification is passed (03-11a): one code-free security notice to the user
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > accepts the right signature among several (secret rotation: GoTrue signs with every configured secret)
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: drops (A00-1 and default deny) > magiclink → 200 and zero sends, logged as dropped with reason magiclink
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: drops (A00-1 and default deny) > an action the app does not use (reauthentication) → 200 and zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: drops (A00-1 and default deny) > an unknown action type → 200 and zero sends; an odd action string is not echoed into the log
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > a bad signature → 401 in the hook error shape, zero sends, and the body is not even parsed
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > missing signature headers, another secret, or a body changed after signing → 401, zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > a stale timestamp (> 5 min old) or one from the future → 401, zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > SEND_EMAIL_HOOK_SECRET unset → every call 401 (fail closed), zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > a body over 64 KiB → 413 before the signature is computed, zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > a signed but malformed payload → 400, zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: sender failures surface to Supabase Auth > a provider failure → 500 in the hook error shape, logged by error code only
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: sender failures surface to Supabase Auth > EMAIL_PROVIDER=disabled (the real sender) → 503 'Email delivery is disabled', nothing sent
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: sender failures surface to Supabase Auth > the default (EMAIL_PROVIDER unset outside staging/production) is disabled too
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: sender failures surface to Supabase Auth > magiclink is still dropped with 200 when email is disabled (the drop needs no provider)
+ FAIL  tests/auth/send-email-hook.spec.ts > 03-13a: webhook-id dedupe and the SES time budget > a replay (same webhook-id) of a delivered email answers 200 and sends nothing more
+ FAIL  tests/auth/send-email-hook.spec.ts > 03-13a: webhook-id dedupe and the SES time budget > a retry that arrives while the first attempt is still sending waits for it and shares its answer
+ FAIL  tests/auth/send-email-hook.spec.ts > 03-13a: webhook-id dedupe and the SES time budget > after a failed attempt the retry (same webhook-id) sends again
+ FAIL  tests/auth/send-email-hook.spec.ts > 03-13a: webhook-id dedupe and the SES time budget > a provider that hangs is aborted at the undefined ms budget: 500 well inside GoTrue's undefined ms hook timeout
+ FAIL  tests/auth/send-email-hook.spec.ts > code-only templates match supabase/templates (the SMTP fallback's copy) > signup HTML equals confirmation.html with the code in place of {{ .Token }}
+ FAIL  tests/auth/send-email-hook.spec.ts > code-only templates match supabase/templates (the SMTP fallback's copy) > recovery HTML equals recovery.html with the code in place of {{ .Token }}
+ FAIL  tests/auth/send-email-hook.spec.ts > code-only templates match supabase/templates (the SMTP fallback's copy) > email_change HTML equals email_change.html with the code in place of {{ .Token }}
+ FAIL  tests/auth/send-email-hook.spec.ts > code-only templates match supabase/templates (the SMTP fallback's copy) > password_changed HTML equals supabase/templates/password_changed.html (no code)
+ FAIL  tests/auth/send-email-hook.spec.ts > code-only templates match supabase/templates (the SMTP fallback's copy) > refuses a code that is not a digit string (no markup or link can be injected)
+TypeError: resetHookDedupeForTests is not a function
+ ❯ tests/auth/send-email-hook.spec.ts:89:3
+     87| 
+     88| beforeEach(() => {
+     89|   resetHookDedupeForTests();
+       |   ^
+     90|   sent = [];
+     91|   logLines = [];
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/95]⎯
+
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > recovery → 200 after exactly one send to the user, whose text and HTML carry the code and no link
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > signup → one code email to the user
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > invite → one code email to the user
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > email_change → `token` to the current address and `token_new` to the new address (secure email change)
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > password_changed_notification is passed (03-11a): one code-free security notice to the user
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: delivery (signature valid) > accepts the right signature among several (secret rotation: GoTrue signs with every configured secret)
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: drops (A00-1 and default deny) > magiclink → 200 and zero sends, logged as dropped with reason magiclink
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: drops (A00-1 and default deny) > an action the app does not use (reauthentication) → 200 and zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: drops (A00-1 and default deny) > an unknown action type → 200 and zero sends; an odd action string is not echoed into the log
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > a bad signature → 401 in the hook error shape, zero sends, and the body is not even parsed
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > missing signature headers, another secret, or a body changed after signing → 401, zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > a stale timestamp (> 5 min old) or one from the future → 401, zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > SEND_EMAIL_HOOK_SECRET unset → every call 401 (fail closed), zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > a body over 64 KiB → 413 before the signature is computed, zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > a signed but malformed payload → 400, zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: sender failures surface to Supabase Auth > a provider failure → 500 in the hook error shape, logged by error code only
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: sender failures surface to Supabase Auth > EMAIL_PROVIDER=disabled (the real sender) → 503 'Email delivery is disabled', nothing sent
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: sender failures surface to Supabase Auth > the default (EMAIL_PROVIDER unset outside staging/production) is disabled too
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: sender failures surface to Supabase Auth > magiclink is still dropped with 200 when email is disabled (the drop needs no provider)
+ FAIL  tests/auth/send-email-hook.spec.ts > 03-13a: webhook-id dedupe and the SES time budget > a replay (same webhook-id) of a delivered email answers 200 and sends nothing more
+ FAIL  tests/auth/send-email-hook.spec.ts > 03-13a: webhook-id dedupe and the SES time budget > a retry that arrives while the first attempt is still sending waits for it and shares its answer
+ FAIL  tests/auth/send-email-hook.spec.ts > 03-13a: webhook-id dedupe and the SES time budget > after a failed attempt the retry (same webhook-id) sends again
+ FAIL  tests/auth/send-email-hook.spec.ts > 03-13a: webhook-id dedupe and the SES time budget > a provider that hangs is aborted at the undefined ms budget: 500 well inside GoTrue's undefined ms hook timeout
+ FAIL  tests/auth/send-email-hook.spec.ts > code-only templates match supabase/templates (the SMTP fallback's copy) > signup HTML equals confirmation.html with the code in place of {{ .Token }}
+ FAIL  tests/auth/send-email-hook.spec.ts > code-only templates match supabase/templates (the SMTP fallback's copy) > recovery HTML equals recovery.html with the code in place of {{ .Token }}
+ FAIL  tests/auth/send-email-hook.spec.ts > code-only templates match supabase/templates (the SMTP fallback's copy) > email_change HTML equals email_change.html with the code in place of {{ .Token }}
+ FAIL  tests/auth/send-email-hook.spec.ts > code-only templates match supabase/templates (the SMTP fallback's copy) > password_changed HTML equals supabase/templates/password_changed.html (no code)
+ FAIL  tests/auth/send-email-hook.spec.ts > code-only templates match supabase/templates (the SMTP fallback's copy) > refuses a code that is not a digit string (no markup or link can be injected)
+TypeError: Cannot read properties of undefined (reading 'join')
+ ❯ tests/auth/send-email-hook.spec.ts:105:24
+    103| afterEach(() => {
+    104|   // No address, code or token hash in any line the route wrote, whate…
+    105|   const all = logLines.join("\n");
+       |                        ^
+    106|   for (const value of SENSITIVE) expect(all, "a log line carries a fix…
+    107|   vi.restoreAllMocks();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/95]⎯
+
+ FAIL  tests/auth/ses-sender.spec.ts > 03-13a: the hook's time budget reaches the SES HTTP layer > send(message, { signal }) hands the abort signal to the real SDK; an abort ends a hung request at once
+Error: Test timed out in 20000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/auth/ses-sender.spec.ts:120:3
+    118| 
+    119| describe("03-13a: the hook's time budget reaches the SES HTTP layer", …
+    120|   it("send(message, { signal }) hands the abort signal to the real SDK…
+       |   ^
+    121|     const seen: Array<AbortSignal | undefined> = [];
+    122|     const handler = {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/95]⎯
+
+ FAIL  tests/ci/auth-policy.spec.ts > auth policy check (config.toml vs supabase/auth-policy.json, local column) > 03-13a (R-36): a 6-digit OTP breaks the length floor in any environment, also for --print (exit 1)
+AssertionError: local : expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/ci/auth-policy.spec.ts:152:55
+    150|       for (const extra of [[], ["--print", "staging"]]) {
+    151|         const r = runNodeChecker("check-auth-config.mjs", ["--policy",…
+    152|         expect(r.status, `${env} ${extra.join(" ")}`).toBe(1);
+       |                                                       ^
+    153|         expect(r.stderr).toContain(`FLOOR email_otp_length (${env}): 6…
+    154|         expect(r.stdout).toBe("");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/95]⎯
+
+ FAIL  tests/ci/auth-policy.spec.ts > auth policy check (config.toml vs supabase/auth-policy.json, local column) > 03-13a: an OTP expiry above 600 s breaks the expiry floor; the committed policy meets both floors
+AssertionError: expected 'auth-policy: MISMATCH auth.email.otp_…' to contain 'FLOOR email_otp_expiry (production): …'
+
+- Expected
++ Received
+
+- FLOOR email_otp_expiry (production): 3600 breaks the floor <= 600 s (AR-L6)
++ auth-policy: MISMATCH auth.email.otp_expiry: config.toml has 600, policy (local) wants 3600
++ auth-policy: FAIL (1 problem(s); fix config.toml or the policy row and its source)
++
+
+ ❯ tests/ci/auth-policy.spec.ts:164:22
+    162|     });
+    163|     expect(r.status).toBe(1);
+    164|     expect(r.stderr).toContain("FLOOR email_otp_expiry (production): 3…
+       |                      ^
+    165|     const row = POLICY.settings.find((s) => s.id === "email_otp_length…
+    166|     expect([row.local, row.staging, row.production]).toEqual([8, 8, 8]…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/95]⎯
+
+ FAIL  tests/ci/auth-policy.spec.ts > auth policy check (config.toml vs supabase/auth-policy.json, local column) > --print staging lists the dashboard checklist with the hosted-only require-current-password row
+AssertionError: expected 'Supabase Auth settings for staging (f…' to contain 'mailer_otp_length = 8'
+
+- Expected
++ Received
+
+- mailer_otp_length = 8
++ Supabase Auth settings for staging (from supabase/auth-policy.json; apply in the dashboard, R-20):
++ - Authentication > URL Configuration > Site URL
++     site_url = "{{STAGING_ORIGIN}}"   [deviation: Each environment uses its own origin; local is the dev server.]
++     source: AUTH_REDESIGN §4.1 Site URL / redirect allow-list
++ - Authentication > URL Configuration > Redirect URLs (none)
++     uri_allow_list = ""   [deviation: Hosted projects allow no extra redirect URLs; the local entry is the CLI template's https dev origin, kept unchanged (flows are code-only and never redirect).]
++     source: AUTH_REDESIGN §4.1 Site URL / redirect allow-list (prevents redirect abuse)
++ - Project Settings > JWT Keys > Access token expiry time (seconds)
++     jwt_exp = 900
++     source: AUTH_REDESIGN §4.1 JWT expiry 900 s (AUTH-D2)
++ - Authentication > Sessions > Detect and revoke potentially compromised refresh tokens
++     refresh_token_rotation_enabled = true
++     source: AUTH_REDESIGN §3.6 session revocation (Supabase default, made explicit)
++ - Authentication > Sessions > Refresh token reuse interval (seconds)
++     security_refresh_token_reuse_interval = 10
++     source: AUTH_REDESIGN §3.6; AUTH-00 spike config (Supabase default, made explicit)
++ - Authentication > Sign In / Providers > User Signups > Allow new users to sign up: OFF
++     disable_signup = true
++     source: Ruling A00-1 (signups off on every environment until AUTH-07, V2-13b); 01-06 ruling R1
++ - Authentication > Sign In / Providers > Allow anonymous sign-ins: OFF
++     external_anonymous_users_enabled = false
++     source: AUTH_REDESIGN §4.1 Anonymous sign-ins off
++ - Authentication > Sign In / Providers > Email > Minimum password length
++     password_min_length = 10
++     source: AUTH_REDESIGN §4.1 Min password length 10 (§5)
++ - Authentication > Sign In / Providers > Email > Password requirements: No required characters
++     password_required_characters = ""
++     source: AUTH_REDESIGN §4.1 Password requirements none (NIST SP 800-63B-4 §3.1.1.2)
++ - Authentication > Rate Limits > Rate limit for sending emails (per hour)
++     rate_limit_email_sent = 60
++     source: AUTH_REDESIGN §4.1 Rate limits (email sent 60/h); ruling A00-4
++ - Authentication > Rate Limits > Rate limit for sign-ups and sign-ins (per 5 min per IP)
++     rate_limit_otp = 30
++     source: AUTH_REDESIGN §4.1 Rate limits (/signup, /recover, /resend, /otp 30 per 5 min); ruling A00-4; AUTH-00 E9 key mapping
++ - Authentication > Rate Limits > Rate limit for token refreshes (per 5 min per IP; also the password grant)
++     rate_limit_token_refresh = 150
++     source: AUTH_REDESIGN §4.1 Rate limits (/token 150 per 5 min); ruling A00-4; AUTH-00 E9 (governs the password grant)
++ - Authentication > Rate Limits > Rate limit for token verifications (per 5 min per IP)
++     rate_limit_verify = 30
++     source: AUTH_REDESIGN §4.1 Rate limits (/verify 30 per 5 min); ruling A00-4
++ - Authentication > Attack Protection > Enable CAPTCHA protection: ON (secret key: Cloudflare Turnstile secret, PO action E7)
++     security_captcha_enabled = true   [deviation: Local GoTrue would call Cloudflare siteverify over the network; the local lanes stay offline (R-22). Staging/production use Turnstile.]
++     source: AUTH_REDESIGN §4.1 CAPTCHA (C43); ruling R-22
++ - Authentication > Attack Protection > CAPTCHA provider: Cloudflare Turnstile
++     security_captcha_provider = "turnstile"
++     source: AUTH_REDESIGN §4.1 CAPTCHA: Cloudflare Turnstile, Managed mode (C43)
++ - Authentication > Sign In / Providers > Email > Enable Email provider: ON
++     external_email_enabled = true
++     source: AUTH_REDESIGN §4.1 Email provider enabled (password sign-in needs it). User creation is governed by `signup` (A00-1); despite its CLI name this key is the email provider switch.
++ - Authentication > Sign In / Providers > Email > Secure email change: ON
++     mailer_secure_email_change_enabled = true
++     source: AUTH_REDESIGN §3.7 email change confirmed on both addresses
++ - Authentication > Sign In / Providers > Email > Confirm email: ON
++     mailer_autoconfirm = false
++     source: AUTH_REDESIGN §4.1 Confirm email ON
++ - Authentication > Sign In / Providers > Email > Secure password change: OFF
++     security_update_password_require_reauthentication = false
++     source: AUTH_REDESIGN §4.1 / §3.5 Secure password change (reauth nonce) OFF
++ - Authentication > Sign In / Providers > Email > Require current password when updating: ON
++     security_update_password_require_current_password = true
++     source: Ruling A00-5; AUTH_REDESIGN §4.1 Require current password ON; R-34 (no CLI 2.120.0 config.toml key)
++ - Authentication > Attack Protection > Prevent use of leaked passwords: OFF (Pro only; app-side FT-05 check meanwhile)
++     password_hibp_enabled = false
++     source: AUTH_REDESIGN §4.1 Leaked password protection ON after the Pro upgrade; FT-05 / ruling R-5 on Free
++ - Authentication > Rate Limits > Minimum interval per user between emails: 60 seconds
++     smtp_max_frequency = 60
++     source: AUTH_REDESIGN §4.1 Rate limits (1 per 60 s per user)
++ - Authentication > Sign In / Providers > Email > Email OTP length: 6
++     mailer_otp_length = 6
++     source: AUTH_REDESIGN §4.1 Email OTP length 6
++ - Authentication > Sign In / Providers > Email > Email OTP expiration: 600 seconds
++     mailer_otp_exp = 600
++     source: AUTH_REDESIGN §4.1 Email OTP expiration 600 s (AR-L6)
++ - Authentication > Emails > Templates > Reset password > Subject
++     mailer_subjects_recovery = "Your ClinicOS password reset code"
++     source: AUTH-04a code-only reset (01-06 ruling R2)
++ - Authentication > Emails > Templates > Reset password > Body (paste the file)
++     mailer_templates_recovery_content = contents of ./supabase/templates/recovery.html
++     source: AUTH-04a code-only reset (01-06 ruling R2)
++ - Authentication > Emails > Templates > Confirm signup > Subject
++     mailer_subjects_confirmation = "Your ClinicOS confirmation code"
++     source: AUTH_REDESIGN §3.1 signup OTP (code-only templates)
++ - Authentication > Emails > Templates > Confirm signup > Body (paste the file)
++     mailer_templates_confirmation_content = contents of ./supabase/templates/confirmation.html
++     source: AUTH_REDESIGN §3.1 signup OTP (code-only templates)
++ - Authentication > Emails > Templates > Change email address > Subject
++     mailer_subjects_email_change = "Your ClinicOS email change code"
++     source: AUTH_REDESIGN §3.7 email change (code-only templates)
++ - Authentication > Emails > Templates > Change email address > Body (paste the file)
++     mailer_templates_email_change_content = contents of ./supabase/templates/email_change.html
++     source: AUTH_REDESIGN §3.7 email change (code-only templates)
++ - Authentication > Emails > Security notifications > Password changed: ON
++     mailer_notifications_password_changed_enabled = true
++     source: AUTH_REDESIGN §4.1 Security notification emails (password changed)
++ - Authentication > Emails > Security notifications > Password changed > Subject
++     mailer_subjects_password_changed_notification = "Your ClinicOS password was changed"
++     source: AUTH_REDESIGN §4.1 Security notification emails (password changed)
++ - Authentication > Emails > Security notifications > Password changed > Body (paste the file)
++     mailer_templates_password_changed_notification_content = contents of ./supabase/templates/password_changed.html
++     source: AUTH_REDESIGN §4.1 Security notification emails (code-free body)
++ - Authentication > Sign In / Providers > Phone: OFF
++     external_phone_enabled = false
++     source: AUTH_REDESIGN §0 / §4.1 email + password only; no phone sign-in
++ - Authentication > Multi-Factor > TOTP (App Authenticator): Enabled
++     mfa_totp_enroll_enabled = true
++     source: AUTH_REDESIGN §4.1 / §4.6 MFA (TOTP) enabled (free on all plans)
++ - Authentication > Multi-Factor > TOTP (App Authenticator): Enabled
++     mfa_totp_verify_enabled = true
++     source: AUTH_REDESIGN §4.1 / §4.6 MFA (TOTP) enabled (free on all plans)
++ - Authentication > Multi-Factor > Phone: Disabled
++     mfa_phone_enroll_enabled = false
++     source: AUTH_REDESIGN §4.1 Phone MFA disabled
++ - Authentication > Multi-Factor > Phone: Disabled
++     mfa_phone_verify_enabled = false
++     source: AUTH_REDESIGN §4.1 Phone MFA disabled
++ - Authentication > Hooks > Send Email hook (HTTPS): Enabled (secret: generated in the dashboard, PO action E8)
++     hook_send_email_enabled = true   [deviation: Local auth email goes to Mailpit over SMTP: the GoTrue container cannot reach a loopback-only app server on Linux CI.]
++     source: AUTH_REDESIGN §4.1 / §4.3 Email delivery via the Send Email hook (AUTH-03, 03-11b)
++ - Authentication > Hooks > Send Email hook > URL
++     hook_send_email_uri = "{{STAGING_ORIGIN}}/api/auth/send-email"   [deviation: The hook is off locally, so config.toml carries no URL.]
++     source: AUTH_REDESIGN §4.1 / §4.3 Send Email hook route app/api/auth/send-email (03-11b)
++ Secrets (CAPTCHA secret key, Send Email hook secret) are set in the dashboard and never written here.
++ Verify afterwards with the read-only drift workflow (scripts/drift/auth-config-hosted.mjs).
++
+
+ ❯ tests/ci/auth-policy.spec.ts:176:22
+    174|     expect(r.stdout).toContain("disable_signup = true"); // printed as…
+    175|     expect(r.stdout).toContain("smtp_max_frequency = 60");
+    176|     expect(r.stdout).toContain("mailer_otp_length = 8");
+       |                      ^
+    177|     expect(r.stdout).toContain('hook_send_email_uri = "{{STAGING_ORIGI…
+    178|     expect(r.stdout).toContain("mailer_templates_recovery_content = co…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/95]⎯
+
+ FAIL  tests/ci/auth00-recheck-cli.spec.ts > the command line refuses before any request > 03-13a: the opt-in probes are bounded (stale wait 601..890 s, email-cap probe 1..70) → usage (exit 2)
+AssertionError: --stale-wait-seconds 600: expected +0 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ tests/ci/auth00-recheck-cli.spec.ts:124:39
+    122|     ]) {
+    123|       const r = cli(["--target", "local", ...bad], {});
+    124|       expect(r.status, bad.join(" ")).toBe(2);
+       |                                       ^
+    125|       expect(r.stdout).toBe("");
+    126|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/95]⎯
+
+ FAIL  tests/integration/auth/auth00-recheck-kit.spec.ts > AUTH-00 re-check kit on the local stack > 10 (03-13a H-AUTH, R-35, R-36): 8-digit codes; recovery amr is an emailed code; a global sign-out kills the recovery tokens
+TypeError: Cannot read properties of undefined (reading 'status')
+ ❯ tests/integration/auth/auth00-recheck-kit.spec.ts:134:19
+    132| 
+    133|   it("10 (03-13a H-AUTH, R-35, R-36): 8-digit codes; recovery amr is a…
+    134|     expect(item(10).status).toBe("observed");
+       |                   ^
+    135|     expect(obs(10).otp_length).toBe(8);
+    136|     expect(obs(10).recovery_amr_methods).toEqual(["otp"]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/95]⎯
+
+ FAIL  tests/integration/auth/auth00-recheck-kit.spec.ts > AUTH-00 re-check kit on the local stack > 11 (03-13a M-EMAILCAP): the opt-in invite probe runs; the CLI stack applies no email_sent cap
+TypeError: Cannot read properties of undefined (reading 'status')
+ ❯ tests/integration/auth/auth00-recheck-kit.spec.ts:148:19
+    146| 
+    147|   it("11 (03-13a M-EMAILCAP): the opt-in invite probe runs; the CLI st…
+    148|     expect(item(11).status).toBe("not_configurable_locally");
+       |                   ^
+    149|     expect(obs(11)).toEqual({ invites_sent: 3, first_429_at: null, his…
+    150|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/95]⎯
+
+ FAIL  tests/integration/auth/reset-completion.spec.ts > setNewPasswordAction after a recovery code (local stack + Mailpit) > a breached password is refused (code already used, retry on the same session); a clear one signs out other sessions
+AssertionError: expected { ok: false, …(3) } to deeply equal { ok: false, …(3) }
+
+- Expected
++ Received
+
+  {
+-   "code": "pwned_password",
+-   "message": "This password has appeared in a data breach. Choose a different one.",
++   "code": "invalid_input",
++   "message": "Enter the 6-digit code from the email",
+    "ok": false,
+-   "stage": "update",
++   "stage": "verify",
+  }
+
+ ❯ tests/integration/auth/reset-completion.spec.ts:86:21
+     84|       setNewPasswordAction,
+     85|     );
+     86|     expect(refused).toEqual({ ok: false, code: "pwned_password", messa…
+       |                     ^
+     87|     expect(await canSignIn(user.userEmail, seededUserPassword())).toBe…
+     88|     expect(await canSignIn(user.userEmail, BREACHED_FIXTURE_PASSWORDS[…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/95]⎯
+
+ FAIL  tests/integration/auth/reset-completion.spec.ts > setNewPasswordAction after a recovery code (local stack + Mailpit) > R-35 / H-AUTH: reset completion revokes the recovery session; its tokens then fail on a direct GoTrue PUT /auth/v1/user
+AssertionError: expected { ok: false, …(3) } to deeply equal { ok: true, …(2) }
+
+- Expected
++ Received
+
+  {
+-   "ok": true,
+-   "otherSessionsSignedOut": true,
+-   "signedOut": true,
++   "code": "invalid_input",
++   "message": "Enter the 6-digit code from the email",
++   "ok": false,
++   "stage": "verify",
+  }
+
+ ❯ tests/integration/auth/reset-completion.spec.ts:114:18
+    112|       return setNewPasswordAction(input);
+    113|     });
+    114|     expect(done).toEqual({ ok: true, otherSessionsSignedOut: true, sig…
+       |                  ^
+    115|     expect(held.access).not.toBe("");
+    116| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/95]⎯
+
+
+ Test Files  13 failed | 1 passed (14)
+      Tests  66 failed | 236 passed (302)
+   Start at  08:31:58
+   Duration  35.92s (transform 206ms, setup 68ms, collect 563ms, tests 33.94s, environment 1ms, prepare 275ms)
+
+[teardown] removed run data: 1 tenant(s), 14 auth user(s), 0 storage object(s); verified none remain
