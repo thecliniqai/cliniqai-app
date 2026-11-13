@@ -47,6 +47,9 @@ import type {
   RunnerSource,
 } from "./types";
 
+/** The production pass configuration, re-exported so the route imports the runner module only (P1-34 boundary). */
+export { RUN_PASS_CONFIG } from "./run-config";
+
 /** Budget kept free after a handler's own bound: the RPCs that start and finish the job. */
 export const FINISH_MARGIN_MS = 1000;
 /** How long a handler may take to settle after its abort before the runner abandons it (lease kept). */
