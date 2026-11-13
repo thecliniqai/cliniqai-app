@@ -1,0 +1,17 @@
+$ npx vitest run (full lane, 9d15cda + 05-01b uncommitted work in tree) | node scripts/ci/assert-vitest-report.mjs
+vitest-report-gate: files=215 tests=4419 passed=4412 failed=7 skipped/todo=0 floor=4180 required=118
+FAIL file failed: tests/api/readiness-probe-db.spec.ts
+FAIL test failed: tests/api/readiness-probe-db.spec.ts > readiness_probe(p_expected_migration) (migrations 000025, 000029) EXPECTED_MIGRATION is the newest migration file (bump it with every new migration)
+FAIL file failed: tests/auth/rbac.spec.ts
+FAIL test failed: tests/auth/rbac.spec.ts > RBAC Matrix & Pure Permission Verification (REQ-nfr-security) verifies Doctor's permission set is not a superset of Receptionist's
+FAIL file failed: tests/jobs/enqueue-message-rpc-db.spec.ts
+FAIL test failed: tests/jobs/enqueue-message-rpc-db.spec.ts > 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) ops.message_templates.request_roles is exactly the roles holding each call site's permission; every other template is system-only
+FAIL file failed: tests/security/guard-actions.spec.ts
+FAIL test failed: tests/security/guard-actions.spec.ts > P0-13: every server action is in the guard manifest and guarded seeded legs leg 3: tenant B's ids, least-privileged role holding the permission features/billing/actions.ts#shareReceiptViaWhatsApp
+FAIL test failed: tests/security/guard-actions.spec.ts > P0-13: every server action is in the guard manifest and guarded seeded legs leg 3b: a member of A and B acting in A with A's role (AR-M2b) features/billing/actions.ts#shareReceiptViaWhatsApp
+FAIL file failed: tests/security/p0-01-forged-overrides.spec.ts
+FAIL test failed: tests/security/p0-01-forged-overrides.spec.ts > P0-01 forged overrides at the action layer TC-SA-01..06 (b): receptionist in tenant A with forged tenant-B overrides toggleGlobalConsent is denied (no patients:edit) and writes no consent record
+FAIL file failed: tests/security/review-fixes-db.spec.ts
+FAIL test failed: tests/security/review-fixes-db.spec.ts > 01-08 review fixes (000021) IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token invoice: the database allows exactly the roles the app's share permission allows
+FAIL success=false
+exit=1
