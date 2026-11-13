@@ -144,7 +144,15 @@ export function amrShape(token: unknown): Record<string, unknown> | null {
   return {
     present: amr !== null,
     entries: amr?.map((e) => ({ method: e?.method ?? null, timestamp_type: typeof e?.timestamp })) ?? [],
-    timestamps_equal_iat: amr ? amr.every((e) => e?.timestamp === claims.iat) : null,
+    // GoTrue takes the amr time from the session's DB row (transaction time) and `iat` from its own clock a few ms
+    // later, both cut to whole seconds, so a sign-in that straddles a second boundary reads iat = timestamp + 1
+    // (03-13e: seen under full-lane load; the order is fixed before any access-token hook runs).
+    timestamps_at_iat: amr
+      ? amr.every((e) => {
+          const gap = typeof e?.timestamp === "number" && typeof claims.iat === "number" ? claims.iat - e.timestamp : NaN;
+          return gap === 0 || gap === 1;
+        })
+      : null,
     aal: claims.aal ?? null,
     has_session_id: typeof claims.session_id === "string",
   };
@@ -587,7 +595,7 @@ export class Auth00Kit {
       id: 8,
       name: "amr shape",
       status: "observed",
-      expected_hosted: "password session amr [{method: password, timestamp = iat}], kept on refresh; recovery session amr method otp (spike E7)",
+      expected_hosted: "password session amr [{method: password, timestamp = iat (or iat - 1 s across a second boundary)}], kept on refresh; recovery session amr method otp (spike E7)",
       observed: {
         password_session: before,
         after_refresh: after,

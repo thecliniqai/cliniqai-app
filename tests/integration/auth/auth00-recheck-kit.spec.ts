@@ -118,7 +118,7 @@ describe("AUTH-00 re-check kit on the local stack", () => {
     expect(obs(8).password_session).toMatchObject({
       present: true,
       entries: [{ method: "password", timestamp_type: "number" }],
-      timestamps_equal_iat: true,
+      timestamps_at_iat: true,
     });
     expect(obs(8).refresh_keeps_amr_timestamps).toBe(true);
     expect(obs(8).recovery_session.entries).toEqual([{ method: "otp", timestamp_type: "number" }]);
