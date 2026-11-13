@@ -43,3 +43,22 @@ carry a reason and an owner. Migrations: 04-07a = 000041, 04-07c = 000042 (commi
 | Runner token not bound to an environment | Ruled: staging and production must use different runner secrets (runbook + env check that refuses equal values is not possible across deployments) | runbook (04-07c) |
 | `service_role` can read `vault.decrypted_secrets` (Supabase default) | Not reachable through the API; platform default | V2-14 review |
 | Jobs of an unknown kind never claimed | Deploy order covers it; a stale-kind alert is added to 04-07b if cheap, else V2-14 | 04-07b / V2-14 |
+
+## Re-verification follow-ups (04-07d)
+
+Source: `reviews/v204-review-high-reverify.md` (fresh adversarial re-verifier at `635cd5d`): H-SMS and 9 of 11 Mediums
+CLOSED; M-FAIR and M-BACKUPAUTH partially closed (N-1, N-2). Record: `04-07d-REVERIFY-FIXES.md`.
+
+| ID | Source | Decision | Plan |
+|---|---|---|---|
+| N-1 (Medium) | re-verify, M-FAIR | Fixed: `claim_jobs` picks tenants least recently served first (000044, `ops.jobs.last_claimed_at`), so every tenant with due work is served within ceil(tenants / batch) claims; per-tenant cap, round-robin, SKIP LOCKED unchanged | 04-07d |
+| N-2 (Medium) | re-verify, M-BACKUPAUTH | Fixed: guard independent of `standard_conforming_strings` (+ refuses changing it or `client_encoding`, line-start backslashes, non-UTF-8); restore runs psql restricted under a fresh key (`ops/bin/psql-restricted.sh`); restore digest only from the green GitHub `backup.yml` run (runbook §7/§8, PO-ACTIONS 04-P13) | 04-07d |
+| L-A (Low) | re-verify, H-SMS residual | Fixed: SMS Flow variables are an allow-list; an undeclared SMS template sends none | 04-07d |
+| L-C (Low) | re-verify, M-INBOUND | Fixed: only `create_reschedule_token`'s business refusal means "no link"; a transient failure answers 500 and is retried | 04-07d |
+| Info | re-verify, M-RXEVENT | Fixed: stale header comment in `features/prescriptions/service.ts` | 04-07d |
+
+Accepted (reason, owner):
+
+| Item | Reason | Owner |
+|---|---|---|
+| L-B: member-supplied free text inside a permitted template's values / buttons (each value ≤ 256 chars, up to three buttons; Twilio/Gupshup append them to the body) | The M-ROLE design: recipient, template and sender are fixed; only pre-approved templates a role may send are callable, each value is length-capped, and the text goes only to the clinic's own patient. Per-variable shape rules (e.g. names without digits or URLs) belong with the template catalogue rework | V2-12 |
