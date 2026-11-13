@@ -16,6 +16,7 @@ import { publicEnv } from "@/lib/env";
 import { serverEnv } from "@/lib/env-server";
 import { isSameOriginRequest } from "@/lib/auth/same-origin";
 import { createUnlinkedUser, seededUserPassword } from "../helpers/tenants";
+import { browserLikeClient } from "../helpers/auth-flows";
 import type { TestDb } from "../helpers/db";
 
 const slot = vi.hoisted(() => ({ client: null as unknown, created: 0 }));
@@ -183,6 +184,28 @@ describe("03-12b POST /auth/signout", () => {
     expect(await refreshFails(theirs.refresh)).toBe("refresh_token_not_found");
     expect(await accessTokenWorks(mine.access)).toBe(false);
     expect(await accessTokenWorks(theirs.access)).toBe(false);
+  });
+
+  it("03-13a: with an EXPIRED access token the session is still revoked at GoTrue (refreshed first, then signed out)", async () => {
+    const user = await createUnlinkedUser();
+    const { client, store } = browserLikeClient();
+    const { error } = await client.auth.signInWithPassword({ email: user.userEmail, password: seededUserPassword() });
+    expect(error).toBeNull();
+    const key = [...store.keys()].find((k) => /^sb-.*-auth-token$/.test(k));
+    expect(key).toBeDefined();
+    const stored = JSON.parse(store.get(key!)!) as { access_token: string; refresh_token: string; expires_at: number; expires_in: number };
+    // The access token this device holds has expired (as after a laptop sleeps past jwt_expiry).
+    const past = Math.floor(Date.now() / 1000) - 60;
+    store.set(key!, JSON.stringify({ ...stored, expires_at: past, expires_in: -60 }));
+    slot.client = client;
+
+    const res = await route.POST(post({ origin: APP_ORIGIN }, { scope: "local" }));
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("/login");
+    expect(res.headers.get("clear-site-data")).toBe('"cache"');
+    expect(store.has(key!), "the local session is cleared").toBe(false);
+    expect(await refreshFails(stored.refresh_token)).toBe("refresh_token_not_found");
+    expect(await accessTokenWorks(stored.access_token)).toBe(false);
   });
 
   it("when GoTrue cannot revoke, the auth cookies are still deleted and the answer is the same 303", async () => {
