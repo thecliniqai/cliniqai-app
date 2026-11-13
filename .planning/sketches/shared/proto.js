@@ -479,4 +479,13 @@
     document.head.appendChild(l);
     document.documentElement.setAttribute("data-dir", "b");
   }
+  /* Font trial (?font=inter|geist): load the font override after the base tokens. Default = IBM Plex. */
+  const font = param("font");
+  if (font === "inter" || font === "geist") {
+    const f = document.createElement("link");
+    f.rel = "stylesheet";
+    f.href = "../themes/font-" + font + ".css";
+    document.head.appendChild(f);
+    document.documentElement.setAttribute("data-font", font);
+  }
 })();
