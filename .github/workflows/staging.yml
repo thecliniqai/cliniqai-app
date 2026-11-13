@@ -14,6 +14,9 @@
 # - the GITHUB_TOKEN is read-only, checkout does not persist credentials, every `uses:` is pinned to a commit SHA;
 # - migrations go through `supabase db push --db-url` (never link state, never --include-seed); every database URL is
 #   checked by scripts/staging/target-guard.mjs first, which also masks the password for the rest of the job.
+# - the AUTH-00 re-check (03-12c, task `recheck`) runs scripts/staging/auth00-recheck.ts: synthetic users only (created
+#   and deleted by the kit), one burst of at most 40 password grants, read-only catalogue queries; its JSON report is
+#   uploaded as an artifact and holds no key, password, code or token.
 name: Staging
 
 on:
@@ -24,10 +27,20 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "migrate = apply supabase/migrations, then wait for the release; seed = create or refresh the synthetic demo clinic; seed-reset = remove it"
+        description: "migrate = apply supabase/migrations, then wait for the release; seed = create or refresh the synthetic demo clinic; seed-reset = remove it; recheck = AUTH-00 hosted re-check (03-12c)"
         type: choice
-        options: [migrate, seed, seed-reset]
+        options: [migrate, seed, seed-reset, recheck]
         default: migrate
+      captcha_browser_check:
+        description: "recheck only: result of your browser sign-in on staging with the live Turnstile widget (PO action E7)"
+        type: choice
+        options: [not-recorded, passed, failed]
+        default: not-recorded
+      auth_log_retention:
+        description: "recheck only: how long the Auth logs keep failed sign-ins, as the dashboard shows it (e.g. 1 day)"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -107,3 +120,45 @@ jobs:
           else
             npx tsx scripts/seed-staging.ts
           fi
+
+  auth00-recheck:
+    name: auth00-recheck
+    if: ${{ github.ref == 'refs/heads/feature/v2' && github.event_name == 'workflow_dispatch' && inputs.task == 'recheck' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: staging
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: npm ci (no install scripts)
+        run: npm ci --ignore-scripts
+      - name: Target guard (the staging database only; masks the database password)
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+        run: node scripts/staging/target-guard.mjs --var STAGING_DB_URL --mask
+      # scripts/staging/auth00-recheck.ts refuses unless this is GitHub Actions on feature/v2 with APP_ENV=staging, the
+      # API URL and database are the staging project's, and both keys are hosted sb_ keys. It prints statuses only.
+      - name: AUTH-00 re-check (synthetic users, created and deleted by the kit)
+        env:
+          APP_ENV: staging
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+          STAGING_SUPABASE_URL: https://${{ vars.SUPABASE_PROJECT_REF_STAGING }}.supabase.co
+          STAGING_PUBLISHABLE_KEY: ${{ vars.STAGING_PUBLISHABLE_KEY }}
+          STAGING_SECRET_KEY: ${{ secrets.STAGING_SECRET_KEY }}
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+          PO_CAPTCHA_BROWSER_CHECK: ${{ inputs.captcha_browser_check }}
+          PO_AUTH_LOG_RETENTION: ${{ inputs.auth_log_retention }}
+        run: npx tsx scripts/staging/auth00-recheck.ts --target staging --out auth00-recheck-report.json
+      - name: Upload the report (statuses and codes only)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: auth00-recheck-report
+          path: auth00-recheck-report.json
+          if-no-files-found: warn
+          retention-days: 90
