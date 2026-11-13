@@ -4,7 +4,7 @@
  * spike could only measure on the CLI stack, re-measured on one target and written to a JSON report.
  *
  * The kit creates its own synthetic users with the secret key (admin `createUser`; `generateLink` returns codes, so no
- * mailbox is read), runs the nine items, writes the report and deletes every user it created. It reads no `.env*` file
+ * mailbox is read), runs the eleven items, writes the report and deletes every user it created. It reads no `.env*` file
  * and prints no key, password, token or code. Targets:
  *   - `local`: the CLI stack (loopback only; tests/integration/auth/auth00-recheck-kit.spec.ts runs it in the DB lane);
  *   - `staging`: only from `.github/workflows/staging.yml` job `auth00-recheck` after the PO approves the run (R-9).
@@ -25,14 +25,28 @@
  *   7 failed sign-in records: `auth.audit_log_entries` rows for a user that only ever failed (spike E11), plus the
  *     PO's dashboard observation of log retention;
  *   8 `amr` shape of password and recovery sessions, and whether a refresh keeps it (spike E7);
- *   9 the `@supabase/ssr` version (pinned and installed; resolved by 03-06).
+ *   9 the `@supabase/ssr` version (pinned and installed; resolved by 03-06);
+ *  10 (03-13a, H-AUTH, R-35, R-36, L-2) an emailed-code session's lifetime: the code length GoTrue issues (8, R-36),
+ *     the `amr` methods of a recovery session (every one must be one the app treats as an emailed code), what reset
+ *     completion does (`/logout?scope=global`): the recovery session's access token on `PUT /user` and its refresh
+ *     token must then be refused; and, opt-in (`staleWaitSeconds` > 600), whether GoTrue ITSELF still accepts
+ *     `PUT /user {password}` from a recovery session older than 600 s (expected: yes; the app's proxy is the only
+ *     bound, so a stolen token used straight at GoTrue before the browser returns is the hosted residual);
+ *  11 (03-13a, M-EMAILCAP) opt-in (`emailCapProbe` = n): does the project-wide `email_sent` cap bind emails sent
+ *     through the Send Email hook? Sends up to n admin invites to synthetic addresses and records the first
+ *     `over_email_send_rate_limit`. Spends the project's hourly email allowance: staging only, with the PO's approval.
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { NON_MAILBOX_METHODS } from "../../lib/auth/session-age";
 
-export const KIT_VERSION = 1;
+export const KIT_VERSION = 2;
 export const MAX_BURST = 40;
-export const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+/** Item 11's upper bound: the policy cap (60 per hour) plus a margin. */
+export const MAX_EMAIL_CAP_PROBE = 70;
+/** Item 10's opt-in stale-session wait: past the 600 s bound, inside the 900 s access-token lifetime. */
+export const STALE_WAIT_RANGE = { min: 601, max: 890 } as const;
+export const ITEM_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] as const;
 
 export type Target = "local" | "staging";
 export type ItemStatus = "observed" | "not_configurable_locally" | "pending_po" | "blocked" | "error";
@@ -56,6 +70,12 @@ export interface RecheckConfig {
   observations?: Observations;
   /** Burst size for item 6 (default and maximum {@link MAX_BURST}). */
   burst?: number;
+  /** Item 10 opt-in: seconds to age a recovery session before the direct `PUT /user` ({@link STALE_WAIT_RANGE}). */
+  staleWaitSeconds?: number;
+  /** Item 11 opt-in: at most this many invites (≤ {@link MAX_EMAIL_CAP_PROBE}) to find the `email_sent` cap. */
+  emailCapProbe?: number;
+  /** Injectable wait (tests). */
+  sleep?: (ms: number) => Promise<void>;
   /** Address for synthetic user `n` of this run. Default: the SES mailbox simulator on staging, example.com locally. */
   emailFor?: (runTag: string, n: number) => string;
   fetchImpl?: typeof fetch;
@@ -245,7 +265,7 @@ export class Auth00Kit {
     return { id: data.user.id, email, password };
   }
 
-  /** A fresh 6-digit code from `generateLink` (no email is sent). Signup links create the user. */
+  /** A fresh code from `generateLink` (no email is sent; 8 digits since R-36). Signup links create the user. */
   private async code(
     type: "signup" | "recovery" | "magiclink",
     email: string,
@@ -589,6 +609,119 @@ export class Auth00Kit {
     };
   }
 
+  /** A fresh recovery session for a new synthetic user: its tokens and the issued code's length. */
+  private async recoveryTokens(): Promise<{ access: string; refresh: string; codeLength: number } | Reply | { error: string }> {
+    const u = await this.newUser();
+    const rc = await this.code("recovery", u.email);
+    if ("error" in rc) return rc;
+    const v = await this.verify(u.email, rc.code, "recovery");
+    const access = v.body?.access_token;
+    const refresh = v.body?.refresh_token;
+    if (v.status === 200 && typeof access === "string" && typeof refresh === "string") {
+      return { access, refresh, codeLength: rc.code.length };
+    }
+    return v;
+  }
+
+  /** 10: an emailed-code session's lifetime (H-AUTH, R-35, R-36, L-2). */
+  async item10(): Promise<ItemReport> {
+    const name = "emailed-code session lifetime (H-AUTH, R-35, R-36)";
+    const r = await this.recoveryTokens();
+    if (!("access" in r)) return this.blocked(10, name, "recovery session not established", "status" in r ? Auth00Kit.brief(r) : r);
+    const amr = jwtClaims(r.access)?.amr;
+    const methods = Array.isArray(amr) ? (amr as Array<{ method?: unknown }>).map((e) => String(e?.method)) : [];
+    // Reset completion (R-35) signs every session of the user out; then the recovery tokens must be dead at GoTrue.
+    const logout = await this.call("/logout?scope=global", { key: "publishable", bearer: r.access });
+    const put = await this.call("/user", { method: "PUT", key: "publishable", bearer: r.access, body: { password: strongPassword() } });
+    const refresh = await this.call("/token?grant_type=refresh_token", { key: "publishable", body: { refresh_token: r.refresh } });
+    const observed: Record<string, unknown> = {
+      otp_length: r.codeLength,
+      recovery_amr_methods: methods,
+      every_method_treated_as_emailed_code: methods.length > 0 && methods.every((m) => !NON_MAILBOX_METHODS.has(m)),
+      after_global_signout: {
+        logout: Auth00Kit.brief(logout),
+        put_user_with_old_access: Auth00Kit.brief(put),
+        refresh_with_old_refresh: Auth00Kit.brief(refresh),
+        recovery_tokens_dead: put.status !== 200 && refresh.status !== 200,
+      },
+    };
+
+    const wait = this.cfg.staleWaitSeconds;
+    if (wait !== undefined && wait >= STALE_WAIT_RANGE.min && wait <= STALE_WAIT_RANGE.max) {
+      const stale = await this.recoveryTokens();
+      if ("access" in stale) {
+        this.log(`item 10: ageing a recovery session for ${wait} s`);
+        await (this.cfg.sleep ?? ((ms) => new Promise((done) => setTimeout(done, ms))))(wait * 1000);
+        const putStale = await this.call("/user", {
+          method: "PUT",
+          key: "publishable",
+          bearer: stale.access,
+          body: { password: strongPassword() },
+        });
+        observed.stale_recovery_session_put_user = { aged_seconds: wait, ...Auth00Kit.brief(putStale) };
+      } else {
+        observed.stale_recovery_session_put_user = { not_established: true };
+      }
+    } else {
+      observed.stale_recovery_session_put_user = "not-run";
+    }
+    return {
+      id: 10,
+      name,
+      status: "observed",
+      expected_hosted:
+        "otp_length 8; recovery amr [otp] (every method treated as an emailed code); after /logout?scope=global the old access token is refused on PUT /user and the refresh token answers refresh_token_not_found; opt-in stale probe: GoTrue still answers 200 (it has no age bound: the app's proxy ends such a session when the browser next calls the app)",
+      observed,
+      note:
+        observed.stale_recovery_session_put_user === "not-run"
+          ? "stale-session probe not run (opt-in: --stale-wait-seconds 601..890 adds that wait to the run)"
+          : undefined,
+    };
+  }
+
+  /** 11: does the project-wide `email_sent` cap bind hook sends (M-EMAILCAP)? Opt-in. */
+  async item11(): Promise<ItemReport> {
+    const name = "email_sent cap vs the Send Email hook (M-EMAILCAP)";
+    const n = Math.min(Math.max(0, Math.floor(this.cfg.emailCapProbe ?? 0)), MAX_EMAIL_CAP_PROBE);
+    const local = this.cfg.target === "local";
+    if (n === 0) {
+      return {
+        id: 11,
+        name,
+        status: local ? "not_configurable_locally" : "pending_po",
+        expected_hosted: "unknown (review D M-2): a 429 over_email_send_rate_limit near the policy cap means the cap binds hook sends",
+        observed: { probe: "not-run" },
+        note: "opt-in: --email-cap-probe <n ≤ 70> spends the project's hourly email allowance (staging, PO approval)",
+      };
+    }
+    const histogram: Record<string, number> = {};
+    let first429: number | null = null;
+    let sent = 0;
+    for (let i = 1; i <= n; i++) {
+      const email = this.emailFor(this.runTag, ++this.userSeq);
+      const { data, error } = await this.admin.auth.admin.inviteUserByEmail(email);
+      if (data?.user?.id) this.created.add(data.user.id);
+      sent = i;
+      const key = error ? `${error.status ?? "?"} ${error.code ?? ""}`.trim() : "200";
+      histogram[key] = (histogram[key] ?? 0) + 1;
+      if (error?.status === 429 || error?.code === "over_email_send_rate_limit") {
+        first429 = i;
+        break;
+      }
+    }
+    return {
+      id: 11,
+      name,
+      status: local && first429 === null ? "not_configurable_locally" : "observed",
+      expected_hosted:
+        "if the cap binds hook sends: 429 over_email_send_rate_limit at about the policy cap (rate_limit_email_sent); none within the probe means it does not (then the hook and SES carry the cost limits)",
+      observed: { invites_sent: sent, first_429_at: first429, histogram },
+      note: local
+        ? "the CLI stack applies email_sent only with custom SMTP (config.toml [auth.rate_limit]); local mail goes to Mailpit"
+        : "admin invites go through the same mailer as /recover; the hourly allowance is spent for this project until it refills",
+    };
+  }
+
   // --- Run -------------------------------------------------------------------------------------------------------
 
   private blocked(id: ItemReport["id"], name: string, why: string, detail: Record<string, unknown>): ItemReport {
@@ -641,10 +774,13 @@ export class Auth00Kit {
       await guarded(5, "signup for an existing address", () => this.item5(probe));
       await guarded(8, "amr shape", () => this.item8());
       await guarded(9, "@supabase/ssr version", () => this.item9());
+      await guarded(10, "emailed-code session lifetime (H-AUTH, R-35, R-36)", () => this.item10());
       // Last: the burst spends this IP's /token allowance, then item 7 reads what it left behind.
       const burstUser = await this.newUser();
       await guarded(6, `per-IP burst probe (≤ ${MAX_BURST} password grants)`, () => this.item6(burstUser));
       await guarded(7, "failed sign-in records and log retention", () => this.item7(burstUser));
+      // Last of all: the opt-in probe may spend the project's hourly email allowance.
+      await guarded(11, "email_sent cap vs the Send Email hook (M-EMAILCAP)", () => this.item11());
     } finally {
       this.log("cleanup");
       cleanup = await this.cleanup();

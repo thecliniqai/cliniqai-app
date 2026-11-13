@@ -111,4 +111,18 @@ describe("the command line refuses before any request", () => {
     expect(cli(["--target", "production"], {}).status).toBe(2);
     expect(cli(["--target", "local", "--burst", "41"], {}).status).toBe(2);
   }, 60_000);
+
+  it("03-13a: the opt-in probes are bounded (stale wait 601..890 s, email-cap probe 1..70) → usage (exit 2)", () => {
+    for (const bad of [
+      ["--stale-wait-seconds", "600"],
+      ["--stale-wait-seconds", "891"],
+      ["--stale-wait-seconds", "x"],
+      ["--email-cap-probe", "0"],
+      ["--email-cap-probe", "71"],
+    ]) {
+      const r = cli(["--target", "local", ...bad], {});
+      expect(r.status, bad.join(" ")).toBe(2);
+      expect(r.stdout).toBe("");
+    }
+  }, 60_000);
 });

@@ -1,7 +1,7 @@
 /**
  * AUTH-00 re-check kit on the local CLI stack (V2-03 03-12c; A00-1…A00-5, R-9, R-34). The kit is what
  * `.github/workflows/staging.yml` job `auth00-recheck` runs on staging after the PO approves; here it runs end to end
- * against the local stack and must: complete, write a report with all nine items, record the local values (CAPTCHA
+ * against the local stack and must: complete, write a report with all eleven items, record the local values (CAPTCHA
  * off, require-current-password "not configurable on the CLI stack", no per-IP limit), keep every key, password, code
  * and token out of the report, and leave no synthetic user behind.
  */
@@ -36,13 +36,15 @@ describe("AUTH-00 re-check kit on the local stack", () => {
       catalogue: (sql) => psqlAsync(`begin read only; ${sql}; rollback;`).then((rows) => rows.filter((r) => !/^(BEGIN|ROLLBACK)$/.test(r))),
       ssrVersion: ssrVersion(),
       log: (line) => lines.push(line),
+      // 03-13a: a small email-cap probe (item 11) runs the code path; the stale-session wait (item 10) stays off.
+      emailCapProbe: 3,
     });
     const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "auth00-")), "report.json");
     fs.writeFileSync(out, JSON.stringify(report, null, 2));
     written = JSON.parse(fs.readFileSync(out, "utf8")) as RecheckReport;
   }, 180_000);
 
-  it("completes and writes a report with all nine items, none in error", () => {
+  it("completes and writes a report with all eleven items, none in error", () => {
     expect(written.kit).toBe("auth00-recheck");
     expect(written.target).toBe("local");
     expect(written.items.map((i) => i.id)).toEqual([...ITEM_IDS]);
@@ -126,6 +128,25 @@ describe("AUTH-00 re-check kit on the local stack", () => {
     expect(obs(9).exact_pin).toBe(true);
     expect(obs(9).installed).toBe(obs(9).pinned);
     expect(obs(9).pinned).toMatch(/^0\.12\.\d+$/);
+  });
+
+  it("10 (03-13a H-AUTH, R-35, R-36): 8-digit codes; recovery amr is an emailed code; a global sign-out kills the recovery tokens", () => {
+    expect(item(10).status).toBe("observed");
+    expect(obs(10).otp_length).toBe(8);
+    expect(obs(10).recovery_amr_methods).toEqual(["otp"]);
+    expect(obs(10).every_method_treated_as_emailed_code).toBe(true);
+    expect(obs(10).after_global_signout).toEqual({
+      logout: { status: 204, code: null },
+      put_user_with_old_access: { status: 403, code: "session_not_found" },
+      refresh_with_old_refresh: { status: 400, code: "refresh_token_not_found" },
+      recovery_tokens_dead: true,
+    });
+    expect(obs(10).stale_recovery_session_put_user).toBe("not-run");
+  });
+
+  it("11 (03-13a M-EMAILCAP): the opt-in invite probe runs; the CLI stack applies no email_sent cap", () => {
+    expect(item(11).status).toBe("not_configurable_locally");
+    expect(obs(11)).toEqual({ invites_sent: 3, first_429_at: null, histogram: { "200": 3 } });
   });
 
   it("keeps every key and every token out of the report", () => {

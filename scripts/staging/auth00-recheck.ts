@@ -2,6 +2,7 @@
  * AUTH-00 re-check kit, command line (V2-03 03-12c; R-9). The kit itself is `auth00-recheck-lib.ts`.
  *
  *   npx tsx scripts/staging/auth00-recheck.ts --target local   [--out <file>] [--burst <n ≤ 40>]
+ *     [--stale-wait-seconds <601..890>] [--email-cap-probe <n ≤ 70>]   (03-13a opt-in probes, items 10 and 11)
  *   npx tsx scripts/staging/auth00-recheck.ts --target staging  --out <file>
  *
  * `--target local` runs against the CLI stack only: the lane's own loader (`.env.test` + `npx supabase status`, never
@@ -27,7 +28,15 @@ import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import { MAX_BURST, runRecheck, type Observations, type RecheckConfig, type Target } from "./auth00-recheck-lib";
+import {
+  MAX_BURST,
+  MAX_EMAIL_CAP_PROBE,
+  STALE_WAIT_RANGE,
+  runRecheck,
+  type Observations,
+  type RecheckConfig,
+  type Target,
+} from "./auth00-recheck-lib";
 import { REF_VAR, stagingTargetProblems } from "./target-guard.mjs";
 
 const TAG = "[auth00-recheck]";
@@ -143,8 +152,24 @@ async function main(): Promise<number> {
   const target = arg(args, "--target") as Target | undefined;
   const out = arg(args, "--out") ?? path.join(process.cwd(), `auth00-recheck-${target ?? "unknown"}.json`);
   const burst = arg(args, "--burst");
+  const staleWait = arg(args, "--stale-wait-seconds");
+  const emailCap = arg(args, "--email-cap-probe");
   if (target !== "local" && target !== "staging") {
-    console.error(`${TAG} usage: --target local|staging [--out <file>] [--burst <n <= ${MAX_BURST}>]`);
+    console.error(
+      `${TAG} usage: --target local|staging [--out <file>] [--burst <n <= ${MAX_BURST}>] ` +
+        `[--stale-wait-seconds <${STALE_WAIT_RANGE.min}..${STALE_WAIT_RANGE.max}>] [--email-cap-probe <n <= ${MAX_EMAIL_CAP_PROBE}>]`,
+    );
+    return 2;
+  }
+  if (
+    staleWait !== undefined &&
+    !(/^\d+$/.test(staleWait) && Number(staleWait) >= STALE_WAIT_RANGE.min && Number(staleWait) <= STALE_WAIT_RANGE.max)
+  ) {
+    console.error(`${TAG} --stale-wait-seconds must be ${STALE_WAIT_RANGE.min}..${STALE_WAIT_RANGE.max}`);
+    return 2;
+  }
+  if (emailCap !== undefined && !(/^\d+$/.test(emailCap) && Number(emailCap) >= 1 && Number(emailCap) <= MAX_EMAIL_CAP_PROBE)) {
+    console.error(`${TAG} --email-cap-probe must be 1..${MAX_EMAIL_CAP_PROBE}`);
     return 2;
   }
   if (burst !== undefined && !(/^\d+$/.test(burst) && Number(burst) >= 1 && Number(burst) <= MAX_BURST)) {
@@ -198,6 +223,8 @@ async function main(): Promise<number> {
     };
   }
   if (burst !== undefined) cfg.burst = Number(burst);
+  if (staleWait !== undefined) cfg.staleWaitSeconds = Number(staleWait);
+  if (emailCap !== undefined) cfg.emailCapProbe = Number(emailCap);
   cfg.log = (line) => console.log(`${TAG} ${line}`);
 
   const report = await runRecheck(cfg);
