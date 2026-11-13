@@ -5,10 +5,13 @@
  */
 import { serverEnv } from "@/lib/env-server";
 import { DRILL_HANDLERS } from "./handlers/drill";
+import { MESSAGE_SEND_HANDLERS } from "./handlers/message-send";
 import type { HandlerMap } from "./types";
 
-/** The production handlers (none until 04-03a). */
-const PRODUCTION_HANDLERS: HandlerMap = {};
+/** The production handlers. 04-03a: `message.send`. */
+const PRODUCTION_HANDLERS: HandlerMap = {
+  ...MESSAGE_SEND_HANDLERS,
+};
 
 export function getJobHandlers(): HandlerMap {
   return {

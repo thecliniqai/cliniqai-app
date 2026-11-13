@@ -7,10 +7,17 @@
  *   200 distinct, every job `done` with `attempts = 1`, and the runners' claimed counts add up to 200.
  * - Fairness: tenant A has 100 due jobs, all older than tenant B's 5; one claim (batch 10, per tenant 5) returns 5 of A
  *   and all 5 of B, so A's backlog cannot starve B.
+ * - 04-03a (roadmap "the parallel-dispatcher test shows 0 duplicate sends", T-04-07): 200 `communication_queue` rows
+ *   enqueued through `enqueue_message_system` (their trigger creates 200 `message.send` jobs), 8 concurrent `runJobs`
+ *   with the real `message.send` handler and a recording provider → 200 provider calls for those rows, 200 distinct
+ *   rows, every row `sent` once and every job `done` with `attempts = 1`.
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { runJobs } from "@/lib/jobs/internal/runner";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { psql } from "../helpers/sql";
+import { seedTenantWithOwner } from "../helpers/tenants";
+import { recordingProvider, runMessages, seedPatient } from "./message-helpers";
 import {
   deleteJobs,
   deleteRunnerRuns,
@@ -147,4 +154,33 @@ describe("claim_jobs tenant fairness", () => {
     ).toEqual([...bIds].sort());
     expect(claimed.every((r) => r.attempts === 1)).toBe(true);
   });
+});
+
+describe("8 parallel runners over 200 queued messages (04-03a, real message.send handler)", () => {
+  it("send each message exactly once: 200 provider calls, 200 distinct rows, 0 duplicates", async () => {
+    // A signed-up owner (patients need a creator); the global teardown removes the tenant, its rows and jobs.
+    const owner = await seedTenantWithOwner(`Parallel Messages ${letters(6)}`);
+    const t = owner.tenantId;
+    const { patientId, phone } = await seedPatient(t, owner.userId);
+    const run = letters(8);
+    const ids = psql(
+      `select (public.enqueue_message_system('system:jobs', '${patientId}', null, 'whatsapp', 'prescription_ready', ` +
+        `'prescription_ready', jsonb_build_object('n', g::text), null, null, '{}'::jsonb, now(), 'par:${run}:' || g) ->> 'id') ` +
+        `from generate_series(1, 200) g`
+    );
+    expect(new Set(ids).size).toBe(200);
+    expect(psql(`select count(*) from ops.jobs where kind = 'message.send' and tenant_id = '${t}' and status = 'pending'`)).toEqual(["200"]);
+
+    const provider = recordingProvider();
+    await Promise.all(Array.from({ length: 8 }, (_, i) => runMessages(provider, `${WORKER}-msg-${i}`, { batch: 10, perTenant: 10, budgetMs: 60_000 })));
+
+    const ours = provider.calls.filter((c) => c.to === phone && c.templateId === "prescription_ready").map((c) => c.params.n);
+    expect(ours).toHaveLength(200);
+    expect(new Set(ours).size).toBe(200);
+    expect(psql(`select status || ':' || count(*) from public.communication_queue where tenant_id = '${t}' group by status`)).toEqual(["sent:200"]);
+    expect(
+      psql(`select status || ':' || attempts || ':' || count(*) from ops.jobs where kind = 'message.send' and tenant_id = '${t}' group by status, attempts`)
+    ).toEqual(["done:1:200"]);
+    expect(psql(`select count(*) from public.audit_logs where tenant_id = '${t}' and action = 'communication_sent'`)).toEqual(["200"]);
+  }, 90_000);
 });

@@ -37,6 +37,11 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   INVOICE_NOT_PAYABLE: "CONFLICT",
   OVERPAYMENT: "CONFLICT",
   OUTBOX_SUBJECT_INVALID: "INTERNAL",
+  // V2-04 04-03a (migration 000035): the message enqueue RPCs. A subject outside the caller's active clinic is raised
+  // as P0002 (not found); a patient that is not the visit's patient as P0001, mapped to the same code.
+  SUBJECT_MISMATCH: "NOT_FOUND",
+  TEMPLATE_NOT_ALLOWED: "VALIDATION_FAILED",
+  RECIPIENT_NOT_ALLOWED: "VALIDATION_FAILED",
 };
 
 /** Fixed texts keyed by reason (checked first) or by code. */

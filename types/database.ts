@@ -325,6 +325,7 @@ export type Database = {
           channel: string;
           created_at: string;
           created_by: string | null;
+          dedupe_key: string | null;
           error_message: string | null;
           external_message_id: string | null;
           id: string;
@@ -349,6 +350,7 @@ export type Database = {
           channel: string;
           created_at?: string;
           created_by?: string | null;
+          dedupe_key?: string | null;
           error_message?: string | null;
           external_message_id?: string | null;
           id?: string;
@@ -372,6 +374,7 @@ export type Database = {
           channel?: string;
           created_at?: string;
           created_by?: string | null;
+          dedupe_key?: string | null;
           error_message?: string | null;
           external_message_id?: string | null;
           id?: string;
@@ -2354,6 +2357,7 @@ export type Database = {
           channel: string;
           created_at: string;
           created_by: string | null;
+          dedupe_key: string | null;
           error_message: string | null;
           external_message_id: string | null;
           id: string;
@@ -2378,6 +2382,10 @@ export type Database = {
           isOneToOne: false;
           isSetofReturn: true;
         };
+      };
+      communication_queue_dead_letter: {
+        Args: { p_error_code: string; p_id: string };
+        Returns: undefined;
       };
       communication_queue_finish: {
         Args: {
@@ -2423,6 +2431,40 @@ export type Database = {
       current_user_tenant_ids: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
+      };
+      enqueue_message: {
+        Args: {
+          p_channel: string;
+          p_dedupe_key?: string;
+          p_message_type: string;
+          p_metadata: Json;
+          p_patient_id: string;
+          p_recipient_phone: string;
+          p_recipient_user_id: string;
+          p_run_at?: string;
+          p_template_id: string;
+          p_template_params: Json;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
+      enqueue_message_system: {
+        Args: {
+          p_channel: string;
+          p_dedupe_key?: string;
+          p_message_type: string;
+          p_metadata: Json;
+          p_patient_id: string;
+          p_recipient_phone: string;
+          p_recipient_user_id: string;
+          p_run_at?: string;
+          p_system_actor: string;
+          p_template_id: string;
+          p_template_params: Json;
+          p_visit_id: string;
+        };
+        Returns: Json;
       };
       fail_job: {
         Args: {
