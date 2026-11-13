@@ -39,6 +39,19 @@ function seedDrillJob(): string {
 
 const statusOf = (id: string) => psql(`select status from ops.jobs where id = '${id}'`)[0];
 
+/**
+ * 04-04: the route claims every registered kind, now incl. `alert.notify`, which the local stack's 5-minute alert
+ * evaluation (pg_cron between lanes) may have left due; other files can leave `message.send` jobs too. Park every due
+ * non-drill job a day ahead (as tests/jobs/run-route.spec.ts does) and remove other drill kinds, so the counts asserted
+ * here are this test's own.
+ */
+test.beforeEach(() => {
+  psql(
+    "update ops.jobs set run_at = now() + interval '1 day' where status = 'pending' and kind not like 'drill.%' and run_at <= now() + interval '1 hour'",
+  );
+  psql("delete from ops.jobs where kind like 'drill.%' and kind <> 'drill.noop'");
+});
+
 test.afterEach(() => {
   psql("delete from ops.jobs where kind = 'drill.noop'");
 });
