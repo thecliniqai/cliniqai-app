@@ -90,6 +90,9 @@ const FAILING: Array<[string, string, string, Expected]> = [
   ["the cookie-client module importing the factory", "factory-import.ts", "lib/supabase/server.ts", [imp(1)]],
   // 03-13c M-ALLOWLIST: the enqueue surface is not the allow-list (ADR-0005 D2); only lib/jobs/internal/** is.
   ["the lib/jobs enqueue surface wrapping the factory", "factory-import.ts", "lib/jobs/x.ts", [imp(1)]],
+  // V2-04 04-02: the enqueue module itself (04-03a) and the runner auth module never get the system client.
+  ["lib/jobs/enqueue.ts importing the system factory", "factory-import.ts", "lib/jobs/enqueue.ts", [imp(1)]],
+  ["lib/jobs/auth.ts importing the system factory", "factory-import.ts", "lib/jobs/auth.ts", [imp(1)]],
   ["a feature importing a factory wrapper from lint-fixtures/, scripts/, tests/, docs/", "tooling-import.ts", "features/patients/service.ts", TOOLING_LINES],
   ["a register zone importing the tooling trees", "tooling-import.ts", "lib/webhooks/x.ts", TOOLING_LINES],
   ["a relative path to the factory", "traversal-factory-import.ts", "features/patients/service.ts", [imp(1)]],
@@ -210,6 +213,37 @@ describe("P1-34 boundary lint gates: bypass fixtures fail lint", () => {
 describe("P1-34 boundary lint gates: allowed paths stay clean", () => {
   it.each(PASSING)("%s at %s", async (fixture, relPath) => {
     expect(await boundaryAt(fixture, relPath)).toEqual([]);
+  }, 60_000);
+});
+
+/**
+ * V2-04 04-02: the real runner route and registry (they import the system factory and the jobs internals) lint clean
+ * where they live, and the same source fails when it is moved to a request-path zone: the pass comes from the
+ * `app/api/jobs/**` / `lib/jobs/internal/**` zones, not from the content.
+ */
+describe("P1-34 boundary lint gates: the real jobs runner files (04-02)", () => {
+  const real = (rel: string) => fs.readFileSync(path.join(ROOT, rel), "utf8");
+  async function boundaryOfSourceAt(source: string, relPath: string) {
+    const [result] = await eslint.lintText(source, { filePath: path.join(ROOT, relPath) });
+    return boundaryMessages(result.messages).map((m) => [boundaryId(m.message), m.ruleId]);
+  }
+
+  it.each(["app/api/jobs/run/route.ts", "lib/jobs/internal/registry.ts", "lib/jobs/internal/handlers/drill.ts", "lib/jobs/auth.ts"])(
+    "%s lints clean where it lives",
+    async (rel) => {
+      expect(await boundaryOfSourceAt(real(rel), rel)).toEqual([]);
+    },
+    60_000,
+  );
+
+  it.each([
+    ["a server action (the factory and two jobs internals)", "features/patients/actions.ts", 3],
+    ["a register route (the two jobs internals; the register may hold the factory until P1-37)", "app/api/v1/x/route.ts", 2],
+    ["the enqueue surface (the factory and two jobs internals)", "lib/jobs/enqueue.ts", 3],
+  ])("the runner route's source fails as %s", async (_label, relPath, count) => {
+    expect(await boundaryOfSourceAt(real("app/api/jobs/run/route.ts"), relPath)).toEqual(
+      Array.from({ length: count }, () => ["P1-34:", IMPORTS]),
+    );
   }, 60_000);
 });
 

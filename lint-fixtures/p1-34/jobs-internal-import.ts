@@ -1,7 +1,7 @@
-// @ts-nocheck -- imports a module that does not exist at this path (lib/jobs lands in V2-04); linted at a virtual path only.
+// The real runner since V2-04 04-02 (typechecked here); linted at virtual paths only (README).
 "use server";
-import { runDueJobs } from "@/lib/jobs/internal/runner";
+import { runJobs, type RunJobsOptions } from "@/lib/jobs/internal/runner";
 
-export async function kickJobs() {
-  return runDueJobs();
+export async function kickJobs(options: RunJobsOptions) {
+  return runJobs(options);
 }

@@ -43,6 +43,13 @@ export type RouteGuard =
   /** Cron trigger: CRON_SECRET unset 401, wrong or missing bearer 401 (RL-23: the compare itself is V2-04's). */
   | { kind: "cron-secret" }
   /**
+   * V2-04 04-02 (RL-23, R-18): the job runner. `POST`: JOBS_RUNNER_SECRET unset 401, no header 401, wrong bearer 401,
+   * different-length bearer 401, scheme-less secret 401, a signed-in member's session 401, all before any data access;
+   * the control with the right bearer 200 with counts only. Every other method (`post: false`) 405 with `Allow: POST`,
+   * with or without the bearer.
+   */
+  | { kind: "runner-secret"; post: boolean }
+  /**
    * Standard Webhooks signed call (03-11b: the Supabase Auth Send Email hook): secret unset, no signature headers, a
    * wrong signature, another secret's signature and a stale timestamp all answer 401 and send nothing.
    */
@@ -215,6 +222,7 @@ const CRON: RouteGuard = { kind: "cron-secret" };
 const V1_KEY: RouteGuard = { kind: "api-v1", key: true };
 const V1_PUBLIC_DOCS: RouteGuard = { kind: "api-v1", key: false };
 const WEBHOOK_OTHER_METHOD: RouteGuard = { kind: "webhook-secret", acceptsPost: false };
+const RUNNER_OTHER_METHOD: RouteGuard = { kind: "runner-secret", post: false };
 
 export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // V2-03 03-11b (AUTH-03, T-03-05): Supabase Auth calls the Send Email hook server to server; no session exists, the
@@ -229,6 +237,12 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // V2-03 03-09b (R-18, T-03-15): the diagnostic error route authenticates with the cron bearer before its flag.
   "app/api/diag/error/route.ts#POST": CRON,
   "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime", "region", "release"] },
+  // V2-04 04-02 (RL-23, R-18, T-04-01): pg_cron → pg_net → the runner, authenticated by its own constant-time bearer.
+  "app/api/jobs/run/route.ts#POST": { kind: "runner-secret", post: true },
+  "app/api/jobs/run/route.ts#GET": RUNNER_OTHER_METHOD,
+  "app/api/jobs/run/route.ts#PUT": RUNNER_OTHER_METHOD,
+  "app/api/jobs/run/route.ts#PATCH": RUNNER_OTHER_METHOD,
+  "app/api/jobs/run/route.ts#DELETE": RUNNER_OTHER_METHOD,
   "app/api/ready/route.ts#GET": {
     kind: "public-health",
     // 03-13c (M-PROBE): no migration version and no counts reach an anonymous caller.

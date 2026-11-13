@@ -9,6 +9,9 @@
  *   - public-token (P0-04): malformed token 400, random and wrong-type tokens 404; no ids in the body;
  *   - webhook-secret (P0-03): missing or wrong `x-webhook-secret` 401, unknown provider 404, other methods 404;
  *   - cron-secret: CRON_SECRET unset 401, wrong or missing bearer 401 (fail-closed only; the compare is V2-04's, RL-23);
+ *   - runner-secret (V2-04 04-02, RL-23): JOBS_RUNNER_SECRET unset 401; missing, wrong, different-length and
+ *     scheme-less bearers and a member's session 401 with `{"ok":false}` and no data access; the right bearer 200 with
+ *     counts only; other methods 405 `Allow: POST` with or without the bearer;
  *   - api-v1 (PO-16, AR2-H2): switch off → 404 with an empty body at the handler, even with a staff session; switch
  *     on and no key → 401 (docs and openapi.json are public by design when on);
  *   - public-health: JSON keys within the committed allowlist, nothing of tenant B;
@@ -32,6 +35,7 @@ import {
   countRows,
   cronRouteLeg,
   healthRouteLeg,
+  runnerRouteLegs,
   webhookSignatureRouteLegs,
   publicTokenRouteLegs,
   report,
@@ -140,6 +144,17 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
         violations.push(...(await cronRouteLeg(slot, c, "no header", {})));
         violations.push(...(await cronRouteLeg(slot, c, "wrong bearer", { authorization: `Bearer ${secret}x` })));
         violations.push(...(await cronRouteLeg(slot, c, "secret without Bearer", { authorization: secret })));
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("runner-secret"))("runner-secret: %s", async (_k, c, guard) => {
+        const violations = await runnerRouteLegs(
+          slot,
+          c,
+          guard,
+          (value) => vi.stubEnv("JOBS_RUNNER_SECRET", value),
+          world.roles.owner.client,
+        );
         expect(violations, report(violations)).toEqual([]);
       });
 

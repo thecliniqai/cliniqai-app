@@ -15,7 +15,7 @@ Rule ids: **imports** = `@typescript-eslint/no-restricted-imports`; **syntax** =
 |---|---|---|
 | `action-factory-import.ts` | `features/patients/actions.ts` (imports, P1-34) | |
 | `page-factory-import.tsx` | `app/(dashboard)/fixture/page.tsx` (imports, P1-34) | |
-| `factory-import.ts` | `features/patients/service.ts`, `app/api/r/[token]/route.ts`, `lib/supabase/server.ts`, `lib/jobs/x.ts` (03-13c: the enqueue surface is not the allow-list) (imports, P1-34) | `app/api/webhooks/x/route.ts`, `app/api/jobs/run/route.ts`, `lib/jobs/internal/runner.ts`, `features/x/system.ts`; register: `app/api/v1/x/route.ts`, `lib/api/x.ts`, `app/api/cron/x/route.ts`, `lib/messaging/dispatcher.ts`, `lib/webhooks/x.ts`; `tests/fixture/x.spec.ts` |
+| `factory-import.ts` | `features/patients/service.ts`, `app/api/r/[token]/route.ts`, `lib/supabase/server.ts`, `lib/jobs/x.ts` (03-13c: the enqueue surface is not the allow-list), `lib/jobs/enqueue.ts`, `lib/jobs/auth.ts` (04-02) (imports, P1-34) | `app/api/webhooks/x/route.ts`, `app/api/jobs/run/route.ts`, `lib/jobs/internal/runner.ts`, `features/x/system.ts`; register: `app/api/v1/x/route.ts`, `lib/api/x.ts`, `app/api/cron/x/route.ts`, `lib/messaging/dispatcher.ts`, `lib/webhooks/x.ts`; `tests/fixture/x.spec.ts` |
 | `traversal-factory-import.ts` | `features/patients/service.ts` (imports, P1-34) | |
 | `reexport-factory.ts` | `lib/db/system-reexport.ts` (imports, P1-34) | |
 | `sharing-system-import.ts` | `features/patients/service.ts`, `app/api/patients/route.ts`, `app/(dashboard)/patients/page.tsx` (imports, P1-34) | the 5 ADR-0005 A1 routes |
@@ -30,8 +30,9 @@ Rule ids: **imports** = `@typescript-eslint/no-restricted-imports`; **syntax** =
 | `ssr-client-import.ts` | `features/auth/service.ts` (imports, P1-34) | `lib/supabase/server.ts`, `lib/supabase/client.ts`, `proxy.ts` |
 | `type-imports.ts` | | `features/patients/service.ts` (type imports allowed) |
 | `secret-key-names.ts` | `features/settings/service.ts` (syntax, P1-34, 2 lines) | `lib/env.ts`, `lib/env-server.ts` |
-| `jobs-internal-import.ts` | `features/patients/actions.ts`, `app/api/v1/x/route.ts`, `lib/jobs/enqueue.ts` (imports, P1-34) | `app/api/jobs/run/route.ts`, `lib/jobs/internal/registry.ts` |
+| `jobs-internal-import.ts` (04-02: imports the real `runJobs`) | `features/patients/actions.ts`, `app/api/v1/x/route.ts`, `lib/jobs/enqueue.ts` (imports, P1-34) | `app/api/jobs/run/route.ts`, `lib/jobs/internal/registry.ts` |
 | `jobs-internal-relative.ts` | `lib/jobs/enqueue.ts` (imports, P1-34) | |
+| (no fixture, 04-02) the real `app/api/jobs/run/route.ts` source | `features/patients/actions.ts`, `lib/jobs/enqueue.ts` (3 imports), `app/api/v1/x/route.ts` (2 imports: the internals) | where it lives, with `lib/jobs/internal/{registry,handlers/drill}.ts` and `lib/jobs/auth.ts` |
 | `process-env.ts` | `features/patients/service.ts`, `lib/supabase/system.ts` (syntax, P1-15, 4 lines) | `lib/env.ts`, `lib/env-server.ts`, `next.config.ts`, `instrumentation.ts`, `lib/log/client.ts`, `tests/fixture/x.spec.ts` |
 | `console.ts` | `features/billing/service.ts`, `lib/log/index.ts`, `lib/env.ts` (syntax, P1-25, 3 lines) | `lib/log/client.ts`, `scripts/fixture.ts` |
 | `raw-stream.ts` (03-13, High re-verify Low) | `features/billing/service.ts`, `app/api/x/route.ts`, `lib/env.ts`, `instrumentation.ts` (`process.stdout`/`process.stderr` by member, computed, `globalThis`, destructured, `node:process` import and `require`; syntax, P1-25, 6 lines) | `lib/log/index.ts`, `lib/log/client.ts`, `lib/observability/console-scrub.ts`, `scripts/fixture.ts` |
@@ -51,6 +52,8 @@ Rule ids: **imports** = `@typescript-eslint/no-restricted-imports`; **syntax** =
 The five ADR-0005 A1 routes: `app/api/r/[token]/route.ts`, `app/r/[token]/page.tsx`, `app/api/reports/view/route.ts`,
 `app/reports/view/page.tsx`, `app/api/reschedule/[token]/route.ts`.
 
-Five fixtures start with `// @ts-nocheck` because they import modules that do not exist at their real location
-(`lib/jobs` lands in V2-04; the laundering probes of `tooling-import.ts`; untyped package subpaths in
-`supabase-subpath.ts`); `npm run typecheck` covers `lint-fixtures/`.
+Four fixtures start with `// @ts-nocheck` because they import modules that do not resolve at their real location
+(relative paths that resolve only at their virtual path: `jobs-internal-relative.ts`, `relative-system-import.ts`; the
+laundering probes of `tooling-import.ts`; untyped package subpaths in `supabase-subpath.ts`); `npm run typecheck`
+covers `lint-fixtures/`. Since 04-02 `jobs-internal-import.ts` imports the real `lib/jobs/internal/runner` and is
+typechecked.
