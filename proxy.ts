@@ -155,9 +155,13 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public assets
+     * - top-level public assets (`/logo.png`): ONE path segment with an image extension.
+     * 03-13a (review D L-4): the image-extension exclusion used to apply at any depth, so `/patients/abc.png` reached
+     * `app/(dashboard)/patients/[id]` with no default-deny redirect, no session check and no request id. Nested paths
+     * now always run the proxy; `public/` has no nested assets (a new one would be redirected while signed out, which
+     * fails closed and is visible at once).
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|[^/]+\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     // PO-16: the extension exclusion above must not let `/api/v1/<route>/<id>.png` reach a dynamic v1 handler
     // without the API_V1_ENABLED check.
     "/api/v1",

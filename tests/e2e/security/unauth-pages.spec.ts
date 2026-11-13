@@ -89,6 +89,28 @@ test("OA-5: the signed-out sweep left no error in the sink (no 'Unauthenticated'
   expect(Number(touched), "Unauthenticated rows written or bumped since the sweep began").toBe(0);
 });
 
+test("03-13a (review D L-4): a page path ending in an image extension still runs the proxy (default deny + request id)", async ({
+  request,
+}) => {
+  const markers = tenantDataMarkers(readRunData());
+  for (const path of [
+    `/patients/${randomUUID()}.png`,
+    `/patients/${randomUUID()}.svg`,
+    "/patients/x.webp",
+    `/consultation/${randomUUID()}.jpg`,
+    "/settings/logo.jpeg",
+  ]) {
+    const raw = await request.get(path, { maxRedirects: 0 });
+    expect(raw.status(), path).toBe(307);
+    const location = new URL(raw.headers()["location"] ?? "", E2E_BASE_URL);
+    expect(location.pathname, path).toBe("/login");
+    expect(location.searchParams.get("next"), path).toBe(path);
+    expect(raw.headers()["x-request-id"], `${path} carries a request id`).toMatch(UUID);
+    const body = await raw.text();
+    for (const marker of markers) expect(body, path).not.toContain(marker);
+  }
+});
+
 test("public paths stay reachable without a session (never redirected to /login)", async ({ request }) => {
   const token = randomBytes(32).toString("hex");
   const notToLogin = (res: APIResponse, what: string) => {
