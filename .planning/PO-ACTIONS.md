@@ -48,7 +48,7 @@ C-1 (private repo) is deferred to go-live; SES (03-E5/E6) is replaced by Resend 
     record is needed: the root `_dmarc.thecliniqai.com` (p=none) already covers the subdomain. Then click Verify in
     Resend. Next: Resend → API Keys → create `clinicos-staging`, permission **Sending access**, domain
     `auth.thecliniqai.com` → paste it into Vercel staging as `RESEND_API_KEY` (Production scope only). Set
-    `EMAIL_PROVIDER=resend` and `EMAIL_FROM=ClinicQ <no-reply@auth.thecliniqai.com>`. Supabase keeps the Send Email
+    `EMAIL_PROVIDER=resend` and `EMAIL_FROM=no-reply@auth.thecliniqai.com` (plain address — the schema refuses a display name). Supabase keeps the Send Email
     hook (03-E8) pointing at the app; the app sends through Resend.
   - *Why:* AUTH-03 (code-only emails, magiclink dropped, dedupe) using the provider you already have; SES after go-live.
   - *Unblocks:* acceptance 9 (reset email with DKIM pass); 03-E8.
