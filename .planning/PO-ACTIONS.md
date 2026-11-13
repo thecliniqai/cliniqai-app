@@ -146,7 +146,8 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Why:* any CLI call without `--local` can otherwise target the hosted project (R-12, pitfall 2).
   - *Verify (Claude):* `test ! -e supabase/.temp/project-ref && echo unlinked`.
 
-- [ ] **03-E2 · Staging Supabase organisation and project**
+- [x] **03-E2 · Staging Supabase organisation and project**
+  - **Verified 2026-11-13: staging project ref `rzxgkbznyjwrirlufzdw` (Mumbai); `/api/ready` returns `"database":"ok","schema":"current"`.**
   - *Do / where:* supabase.com → New organization `clinicos-staging` (plan **Free**) → New project
     `clinicos-staging`, region **South Asia (Mumbai) ap-south-1**, Postgres 17, a generated database password stored in
     your password manager. Enable MFA on your Supabase account. Enable SSL enforcement / network restrictions if the
@@ -174,7 +175,8 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Verify (Claude):* after merge, `gh run list --workflow drift.yml --limit 1 --json conclusion,url,headSha` → the
     `auth-config` job is green; `gh run view <id> --log --job <auth-config job id>` shows 0 diffs.
 
-- [ ] **03-E4 · Vercel staging project**
+- [x] **03-E4 · Vercel staging project**
+  - **Verified 2026-11-13: `https://staging.thecliniqai.com/api/health` returns `"region":"bom1"`, `"release":"b70cdb4…"` = `origin/feature/v2`, with an `x-request-id` header. Email provider stays `disabled` until PR #6 (Resend) merges.**
   - *Do / where:* Vercel → New Project from `thecliniqai/cliniqai-app`, name `clinicos-staging`; Production Branch
     `feature/v2`; custom domain `staging.thecliniqai.com` (DNS record from Vercel at your DNS host); Functions region `bom1`
     (also set by `vercel.json`); Deployment Protection off for the production domain (the Send Email hook must reach it;
@@ -256,7 +258,8 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Verify (Claude):* `node scripts/ops/check-error-export.mjs <export file>` passes (allowed columns only, no
     scrub pattern); the export is committed under `evidence/`.
 
-- [ ] **03-E10 · GitHub Environments `staging` and `staging-readonly`**
+- [x] **03-E10 · GitHub Environments `staging` and `staging-readonly`**
+  - **Verified 2026-11-13: Environment `staging` has rules `branch_policy` + `required_reviewers`. migrate run 43391525651 is green (000001…000030 applied). seed run 43403553111 is green: "Synthetic Demo Clinic", 3 synthetic patients, 5 logins `*@demo-clinic.example.test`. Still open: `staging-readonly` (drift job) and `staging-backup` (04-R2), both later.**
   - *Do / where:* repo `thecliniqai/cliniqai-app` → Settings → Environments. `staging`: required reviewer = you,
     deployment branches `feature/v2` only; secrets `STAGING_DB_URL` (direct/session URL with the DB password),
     `STAGING_SECRET_KEY`, `STAGING_SEED_PASSWORD`; variables `SUPABASE_PROJECT_REF_STAGING`, `STAGING_ORIGIN`
