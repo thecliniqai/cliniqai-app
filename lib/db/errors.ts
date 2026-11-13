@@ -42,6 +42,10 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   SUBJECT_MISMATCH: "NOT_FOUND",
   TEMPLATE_NOT_ALLOWED: "VALIDATION_FAILED",
   RECIPIENT_NOT_ALLOWED: "VALIDATION_FAILED",
+  // V2-04 04-03b (migration 000036): the webhook enqueue RPCs. An event outside the closed set (or a subject not in the
+  // event's state) and the test-ping limit (5 per clinic per 60 s).
+  EVENT_NOT_ALLOWED: "VALIDATION_FAILED",
+  RATE_LIMITED: "RATE_LIMITED",
 };
 
 /** Fixed texts keyed by reason (checked first) or by code. */

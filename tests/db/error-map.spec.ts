@@ -37,6 +37,8 @@ describe("mapDbError: SQLSTATE table", () => {
     ["P0001 SUBJECT_MISMATCH (patient is not the visit's)", { code: "P0001", message: "SUBJECT_MISMATCH" }, "NOT_FOUND", "SUBJECT_MISMATCH"],
     ["P0001 TEMPLATE_NOT_ALLOWED", { code: "P0001", message: "TEMPLATE_NOT_ALLOWED" }, "VALIDATION_FAILED", "TEMPLATE_NOT_ALLOWED"],
     ["P0001 RECIPIENT_NOT_ALLOWED", { code: "P0001", message: "RECIPIENT_NOT_ALLOWED" }, "VALIDATION_FAILED", "RECIPIENT_NOT_ALLOWED"],
+    ["P0001 EVENT_NOT_ALLOWED", { code: "P0001", message: "EVENT_NOT_ALLOWED" }, "VALIDATION_FAILED", "EVENT_NOT_ALLOWED"],
+    ["P0001 RATE_LIMITED", { code: "P0001", message: "RATE_LIMITED" }, "RATE_LIMITED", "RATE_LIMITED"],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],

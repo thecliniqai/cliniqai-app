@@ -2193,8 +2193,10 @@ export type Database = {
           created_at: string;
           delivered_at: string | null;
           duration_ms: number | null;
+          event_key: string | null;
           event_type: string;
           id: string;
+          last_error: string | null;
           max_retries: number;
           next_retry_at: string;
           payload: string;
@@ -2210,8 +2212,10 @@ export type Database = {
           created_at?: string;
           delivered_at?: string | null;
           duration_ms?: number | null;
+          event_key?: string | null;
           event_type: string;
           id?: string;
+          last_error?: string | null;
           max_retries?: number;
           next_retry_at?: string;
           payload: string;
@@ -2226,8 +2230,10 @@ export type Database = {
           created_at?: string;
           delivered_at?: string | null;
           duration_ms?: number | null;
+          event_key?: string | null;
           event_type?: string;
           id?: string;
+          last_error?: string | null;
           max_retries?: number;
           next_retry_at?: string;
           payload?: string;
@@ -2466,6 +2472,23 @@ export type Database = {
         };
         Returns: Json;
       };
+      enqueue_webhook_event: {
+        Args: {
+          p_event_type: string;
+          p_subject_id: string;
+          p_subscription_id?: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
+      enqueue_webhook_event_system: {
+        Args: {
+          p_event_type: string;
+          p_subject_id: string;
+          p_system_actor: string;
+        };
+        Returns: Json;
+      };
       fail_job: {
         Args: {
           p_error_code: string;
@@ -2608,6 +2631,36 @@ export type Database = {
       share_type_roles: { Args: { p_type: string }; Returns: string[] };
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      webhook_delivery_claim: {
+        Args: { p_id: string };
+        Returns: {
+          endpoint_url: string;
+          event_type: string;
+          id: string;
+          is_active: boolean;
+          max_retries: number;
+          payload: string;
+          retry_count: number;
+          signing_secret: string;
+          subscription_id: string;
+          subscription_tenant_id: string;
+          tenant_id: string;
+        }[];
+      };
+      webhook_delivery_finish: {
+        Args: {
+          p_duration_ms: number;
+          p_error_code: string;
+          p_id: string;
+          p_retryable: boolean;
+          p_status_code: number;
+          p_success: boolean;
+        };
+        Returns: {
+          new_status: string;
+          next_retry_at: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;
