@@ -1,0 +1,329 @@
+/* =====================================================================================================
+   Clinic Paper — clinicOS v2 design tokens (V2-DX proposal, light theme only)
+   -----------------------------------------------------------------------------------------------------
+   Source of values: docs/v2/DESIGN_SYSTEM.md §2–§4 (unchanged unless marked "V2-DX addition").
+   This file is plain CSS so the throw-away prototypes can load it from file://, and so 06-01b can copy it
+   into the app UNCHANGED:
+
+     app/globals.css
+       @import "tailwindcss";
+       @import "./clinic-paper.css";            ← this file, byte-for-byte
+       @import "./clinic-paper.theme.css";      ← generated: `@theme reference { … }` registering every
+                                                   --color-*, --text-*, --radius-*, --shadow-*, --spacing-*,
+                                                   --font-*, --ease-*, --duration-* name below so utilities
+                                                   (bg-canvas, text-fg-muted, h-control, rounded-md …) compile
+                                                   to var(--name) and take their runtime value from here.
+
+   The capture script proves this with @tailwindcss/postcss (evidence/tailwind-consumption.txt).
+
+   Layers (components must only use layers 2 and 3):
+     1. RAW        palette and families. Never referenced by components or the codemod.
+     2. SEMANTIC   what a colour MEANS (canvas, fg-muted, accent, status-waiting-bg …).
+     3. STRUCTURE  type scale, radius, elevation, motion, spacing incl. shell sizes and the 44 px control floor.
+     4. COMPONENT  per-component aliases of semantic tokens (button, token chip, AI chip …).
+
+   Contrast: every text/background and non-text pair is computed by v2-dx-capture.mjs → evidence/contrast.md.
+   No dark theme (DESIGN_SYSTEM §2.4, deferred).
+   ===================================================================================================== */
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("fonts/IBMPlexSans-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+/* Devanagari is loaded only when Devanagari glyphs render (unicode-range). */
+@font-face {
+  font-family: "IBM Plex Sans Devanagari";
+  src: url("fonts/IBMPlexSansDevanagari-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+25CC, U+A830-A839, U+A8E0-A8FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans Devanagari";
+  src: url("fonts/IBMPlexSansDevanagari-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+25CC, U+A830-A839, U+A8E0-A8FF;
+}
+@font-face {
+  font-family: "IBM Plex Sans Devanagari";
+  src: url("fonts/IBMPlexSansDevanagari-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+  unicode-range: U+0900-097F, U+1CD0-1CF9, U+200C-200D, U+20A8, U+25CC, U+A830-A839, U+A8E0-A8FF;
+}
+
+:root {
+  color-scheme: light;
+
+  /* ---------------------------------------------------------------- 1. RAW ---------------------- */
+  --color-white: #ffffff;
+  --color-paper: #f6f5f1;
+  --color-sunken: #efede7;
+  --color-line-subtle: #e7e4dd;
+  --color-line: #d9d6ce;
+  --color-line-strong: #8a867c;
+  --color-ink-400: #a19d93;
+  --color-ink-450: #78746b;
+  --color-ink-500: #6b6860;
+  --color-ink-600: #57544d;
+  --color-ink-700: #3d3b36;
+  --color-ink-900: #1c1b18;
+
+  --color-primary-50: #e8f4f2;
+  --color-primary-100: #cde8e4;
+  --color-primary-200: #9fd2cb;
+  --color-primary-300: #6bb8af;
+  --color-primary-400: #3a9c93;
+  --color-primary-500: #16847c;
+  --color-primary-600: #0e716b;
+  --color-primary-700: #0b5f5a;
+  --color-primary-800: #0a4d49;
+  --color-primary-900: #083d3a;
+
+  --color-success-50: #e7f5ec;
+  --color-success-500: #2f9a62;
+  --color-success-600: #18794e;
+  --color-success-700: #166b43;
+  --color-warning-50: #fdf3e1;
+  --color-warning-500: #b7791f;
+  --color-warning-600: #9a5b00;
+  --color-warning-700: #8a4b00;
+  --color-danger-50: #fdedeb;
+  --color-danger-500: #d9452f;
+  --color-danger-600: #b42318;
+  --color-danger-700: #b42318;
+  --color-info-50: #eaf1fc;
+  --color-info-500: #3b76d6;
+  --color-info-600: #1d56b0;
+  --color-info-700: #1d56b0;
+  --color-violet-50: #f1edfa;
+  --color-violet-500: #7a5cc7;
+  --color-violet-700: #5b3fa8;
+  --color-slate-50: #eef1f4;
+  --color-slate-500: #6b7785;
+  --color-slate-700: #44505c;
+  /* V2-DX addition: "plum" exists only for decision DX-7 option B (a dedicated AI hue). Unused by option A. */
+  --color-plum-50: #f8edf4;
+  --color-plum-500: #a8508a;
+  --color-plum-700: #7d2f63;
+
+  --color-focus: #1f5fd1;
+
+  /* ---------------------------------------------------------------- 2. SEMANTIC ----------------- */
+  /* Surfaces */
+  --color-canvas: var(--color-paper);
+  --color-surface: var(--color-white);
+  /* --color-sunken is both the raw value and the semantic name (DESIGN_SYSTEM §2.3: bg-sunken → sunken). */
+  --color-selected: var(--color-primary-50);
+  --color-scrim: rgb(28 27 24 / 0.4);
+  /* Text */
+  --color-fg: var(--color-ink-900);
+  --color-fg-body-tint: var(--color-ink-700);
+  --color-fg-muted: var(--color-ink-600);
+  --color-fg-subtle: var(--color-ink-500);
+  --color-fg-placeholder: var(--color-ink-450);
+  --color-fg-disabled: var(--color-ink-400);
+  --color-fg-on-accent: var(--color-white);
+  /* Borders */
+  --color-border: var(--color-line);
+  --color-border-subtle: var(--color-line-subtle);
+  --color-border-control: var(--color-line-strong);
+  /* Accent (teal: primary actions, links, active nav, "with doctor") */
+  --color-accent: var(--color-primary-600);
+  --color-accent-hover: var(--color-primary-700);
+  --color-accent-pressed: var(--color-primary-800);
+  --color-accent-subtle: var(--color-primary-50);
+  --color-accent-fg: var(--color-primary-700);
+  --color-accent-disabled: var(--color-primary-200);
+  /* Focus: always drawn OUTSIDE the control with a surface-coloured halo (see --focus-*) */
+  --color-ring: var(--color-focus);
+  --color-ring-halo: var(--color-white);
+  /* Feedback */
+  --color-success-bg: var(--color-success-50);
+  --color-success-fg: var(--color-success-700);
+  --color-success-border: var(--color-success-500);
+  --color-warning-bg: var(--color-warning-50);
+  --color-warning-fg: var(--color-warning-700);
+  --color-warning-border: var(--color-warning-500);
+  --color-danger-bg: var(--color-danger-50);
+  --color-danger-fg: var(--color-danger-700);
+  --color-danger-border: var(--color-danger-500);
+  --color-danger-solid: var(--color-danger-600);
+  --color-info-bg: var(--color-info-50);
+  --color-info-fg: var(--color-info-700);
+  --color-info-border: var(--color-info-500);
+  /* Visit status (one map drives every chip, lane and filter; DESIGN_SYSTEM §7.5) */
+  --color-status-booked-bg: var(--color-slate-50);
+  --color-status-booked-fg: var(--color-slate-700);
+  --color-status-booked-border: var(--color-slate-500);
+  --color-status-waiting-bg: var(--color-warning-50);
+  --color-status-waiting-fg: var(--color-warning-700);
+  --color-status-waiting-border: var(--color-warning-500);
+  --color-status-with-doctor-bg: var(--color-primary-50);
+  --color-status-with-doctor-fg: var(--color-primary-700);
+  --color-status-with-doctor-border: var(--color-primary-500);
+  --color-status-to-bill-bg: var(--color-violet-50);
+  --color-status-to-bill-fg: var(--color-violet-700);
+  --color-status-to-bill-border: var(--color-violet-500);
+  --color-status-done-bg: var(--color-success-50);
+  --color-status-done-fg: var(--color-success-700);
+  --color-status-done-border: var(--color-success-500);
+  --color-status-no-show-bg: var(--color-sunken);
+  --color-status-no-show-fg: var(--color-ink-600);
+  --color-status-no-show-border: var(--color-line-strong);
+  --color-status-cancelled-bg: var(--color-danger-50);
+  --color-status-cancelled-fg: var(--color-danger-700);
+  --color-status-cancelled-border: var(--color-danger-500);
+  /* Safety */
+  --color-alert-allergy-bg: var(--color-danger-600);
+  --color-alert-allergy-fg: var(--color-white);
+  --color-alert-unrecorded-bg: var(--color-warning-50);
+  --color-alert-unrecorded-fg: var(--color-warning-700);
+  /* AI-02 labelling (V2-DX addition). Option A (recommended): neutral chip, the sparkle is the only marker. */
+  --color-ai-bg: var(--color-white);
+  --color-ai-fg: var(--color-ink-900);
+  --color-ai-border: var(--color-line-strong);
+  --color-ai-glyph: var(--color-ink-900);
+  /* Option B (DX-7 B), not active:  ai-bg plum-50 · ai-fg plum-700 · ai-border plum-500 · ai-glyph plum-700 */
+  --color-smart-fg: var(--color-ink-600);
+  --color-preview-bg: var(--color-info-50);
+  --color-preview-fg: var(--color-info-700);
+  --color-preview-border: var(--color-info-500);
+
+  /* ---------------------------------------------------------------- 3. STRUCTURE ---------------- */
+  --font-sans: "IBM Plex Sans", "IBM Plex Sans Devanagari", "Noto Sans", "Noto Sans Devanagari", ui-sans-serif,
+    system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Type scale (size / line-height). Minimum in the product is caption 12 px. */
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.125rem;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.25rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-title-3: 1.125rem;
+  --text-title-3--line-height: 1.625rem;
+  --text-title-2: 1.25rem;
+  --text-title-2--line-height: 1.75rem;
+  --text-title-1: 1.5rem;
+  --text-title-1--line-height: 2rem;
+  --text-display: 1.875rem;
+  --text-display--line-height: 2.375rem;
+  --text-token: 1.75rem;
+  --text-token--line-height: 2rem;
+  /* V2-DX addition: the compact token used inside 40 px desktop rows and the phone list (22/24). */
+  --text-token-sm: 1.375rem;
+  --text-token-sm--line-height: 1.5rem;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  --shadow-popover: 0 1px 2px rgb(28 27 24 / 0.06), 0 4px 12px rgb(28 27 24 / 0.08);
+  --shadow-overlay: 0 16px 40px rgb(28 27 24 / 0.16), 0 2px 6px rgb(28 27 24 / 0.06);
+
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-sheet: 240ms;
+  --duration-flash: 600ms;
+
+  /* Spacing: Tailwind's 4 px base is kept; these are named sizes (h-control, w-rail, pb-bottom-bar …). */
+  --spacing-control: 2.75rem; /* 44 px: the a11y floor for every touch target, not a taste choice */
+  --spacing-control-dense: 2.5rem; /* 40 px: desktop-dense rows (≥ xl, pointer) only */
+  --spacing-bar: 3.5rem; /* top bar 56 */
+  --spacing-bottom-bar: 4rem; /* phone bottom bar 64 + safe area */
+  --spacing-rail: 4rem; /* md–lg icon rail 64 */
+  --spacing-sidebar: 14.5rem; /* ≥ xl sidebar 232 */
+  --spacing-sheet: 30rem; /* side sheet 480 */
+  --spacing-sheet-lg: 40rem; /* side sheet 640 */
+  --spacing-context-pane: 19rem; /* consult context pane 304 */
+
+  /* Focus indicator: 2 px ring, 2 px offset, plus a 2 px surface halo so the ring keeps ≥ 3:1 against
+     the halo on ANY fill (teal, danger, tint). Proven in evidence/contrast.md ("ring on halo"). */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* ---------------------------------------------------------------- 4. COMPONENT ---------------- */
+  --button-primary-bg: var(--color-accent);
+  --button-primary-bg-hover: var(--color-accent-hover);
+  --button-primary-bg-pressed: var(--color-accent-pressed);
+  --button-primary-fg: var(--color-fg-on-accent);
+  --button-secondary-bg: var(--color-surface);
+  --button-secondary-fg: var(--color-fg);
+  --button-secondary-border: var(--color-border-control);
+  --button-danger-bg: var(--color-danger-solid);
+  --button-danger-fg: var(--color-fg-on-accent);
+  --button-disabled-bg: var(--color-accent-disabled);
+  --button-disabled-fg: var(--color-ink-700);
+
+  --input-bg: var(--color-surface);
+  --input-fg: var(--color-fg);
+  --input-border: var(--color-border-control);
+  --input-placeholder: var(--color-fg-placeholder);
+  --input-invalid-border: var(--color-danger-solid);
+
+  --token-chip-bg: var(--color-surface);
+  --token-chip-fg: var(--color-fg);
+  --token-chip-border-width: 2px;
+
+  --nav-active-bg: var(--color-accent-subtle);
+  --nav-active-fg: var(--color-accent-fg);
+  --nav-active-indicator: var(--color-accent);
+  --nav-fg: var(--color-fg-muted);
+
+  --lane-header-bg: var(--color-sunken);
+  --lane-header-fg: var(--color-fg);
+  --row-selected-bg: var(--color-selected);
+  --row-selected-indicator: var(--color-accent);
+  --row-next-bg: var(--color-accent-subtle);
+
+  --wait-normal-fg: var(--color-fg-subtle);
+  --wait-long-fg: var(--color-warning-fg);
+  --wait-critical-fg: var(--color-danger-fg);
+
+  --chip-ai-bg: var(--color-ai-bg);
+  --chip-ai-fg: var(--color-ai-fg);
+  --chip-ai-border: var(--color-ai-border);
+  --chip-preview-bg: var(--color-preview-bg);
+  --chip-preview-fg: var(--color-preview-fg);
+  --chip-smart-fg: var(--color-smart-fg);
+
+  --banner-offline-bg: var(--color-ink-900);
+  --banner-offline-fg: var(--color-white);
+  --banner-trial-bg: var(--color-info-bg);
+  --banner-trial-fg: var(--color-info-fg);
+  --banner-past-due-bg: var(--color-warning-bg);
+  --banner-past-due-fg: var(--color-warning-fg);
+
+  /* PWA (PO-19): read by the manifest/viewport mirror in lib/design/tokens.ts (06-05) */
+  --pwa-theme-color: var(--color-white);
+  --pwa-background-color: var(--color-paper);
+  --pwa-icon-tile: var(--color-primary-600);
+}
