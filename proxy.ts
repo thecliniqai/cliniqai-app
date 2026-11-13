@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { apiRequestBlocked, isApiV1Path, normaliseRequestPath } from "@/lib/api/enabled";
 import { REQUEST_ID_HEADER, newRequestId } from "@/lib/log/request-id";
 import { publicEnv } from "@/lib/env";
+import { loginNextValue, pageNeedsSession } from "@/lib/auth/public-paths";
 
 /**
  * V2-03 03-09a (BACKEND H2, T-03-07): continue to the handler with `x-request-id` forced to this request's id (any
@@ -15,6 +16,28 @@ function continueWithRequestId(request: NextRequest, requestId: string): NextRes
   headers.set(REQUEST_ID_HEADER, requestId);
   const response = NextResponse.next({ request: { headers } });
   response.headers.set(REQUEST_ID_HEADER, requestId);
+  return response;
+}
+
+/** Headers @supabase/ssr hands to `setAll` with refreshed or cleared cookies (never cache such a response). */
+const SESSION_CACHE_HEADERS = ["cache-control", "expires", "pragma"] as const;
+
+/**
+ * V2-03 03-12b (OA-5, R-28): 307 to `/login?next=<path + query>` for a signed-out page request. Carries the request id
+ * and whatever `setAll` put on `carry` (a failed refresh deletes the stale auth cookies; those deletions must reach
+ * the browser) with its no-store headers.
+ */
+function redirectToLogin(request: NextRequest, requestId: string, carry: NextResponse): NextResponse {
+  const target = new URL("/login", request.nextUrl.origin);
+  const next = loginNextValue(request.nextUrl);
+  if (next !== null) target.searchParams.set("next", next);
+  const response = NextResponse.redirect(target, 307);
+  response.headers.set(REQUEST_ID_HEADER, requestId);
+  carry.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+  for (const name of SESSION_CACHE_HEADERS) {
+    const value = carry.headers.get(name);
+    if (value !== null) response.headers.set(name, value);
+  }
   return response;
 }
 
@@ -63,7 +86,21 @@ export async function proxy(request: NextRequest) {
 
   // Refresh the session (the only refresh point; refreshing in two places risks refresh-token reuse sign-outs).
   // getClaims() verifies the JWT and refreshes an expired session through the same cookie path.
-  await supabase.auth.getClaims();
+  let signedIn = false;
+  try {
+    const { data } = await supabase.auth.getClaims();
+    signedIn = Boolean(data?.claims?.sub);
+  } catch {
+    // Treated as signed out: a protected page goes to the login page, a public one renders as it would anyway.
+  }
+
+  // OA-5 default deny (R-28): a signed-out request for any page outside the public prefixes is sent to the login page
+  // here, before any layout or page loader runs (they would only throw "Unauthenticated"). GET/HEAD only: other
+  // methods on a page path are Server Action calls, which authenticate themselves (P0-13 guard manifest), and `/api`
+  // handlers authenticate themselves.
+  if (!signedIn && (request.method === "GET" || request.method === "HEAD") && pageNeedsSession(pathname)) {
+    return redirectToLogin(request, requestId, response);
+  }
 
   return response;
 }

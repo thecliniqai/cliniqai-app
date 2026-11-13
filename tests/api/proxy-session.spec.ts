@@ -6,7 +6,11 @@
  *   so it carries the new auth cookie, forwards the refreshed cookie to the request (Server Components see the new
  *   token), and carries the no-store cache headers 0.12 hands to `setAll` (a response with auth cookies must never be
  *   cached and served to another user).
- * - A valid session and a signed-out request are passed through untouched: no cookie, no cache headers.
+ * - A valid session and a signed-out request for a public page are passed through untouched: no cookie, no cache
+ *   headers.
+ * - 03-12b (OA-5, R-28): a signed-out GET for a protected page is a 307 to `/login?next=<path + query>` with the
+ *   request id; a session the proxy cannot refresh (revoked refresh token) is signed out the same way, and the
+ *   redirect deletes its stale auth cookie. `/api` and non-GET requests are not redirected.
  *
  * Synthetic user only; tokens are compared, never printed.
  */
@@ -61,12 +65,44 @@ beforeAll(async () => {
 });
 
 describe("03-06 proxy session refresh (@supabase/ssr 0.12, getClaims)", () => {
-  it("passes a signed-out request through with no cookie and no cache headers", async () => {
-    const res = await proxy(requestWith(null));
+  it("passes a signed-out request for a public page through with no cookie and no cache headers", async () => {
+    const res = await proxy(requestWith(null, "/login"));
     expect(res.status).toBe(200);
     expect(res.headers.get("x-middleware-next")).toBe("1");
     expect(res.headers.getSetCookie()).toEqual([]);
     expect(res.headers.get("cache-control")).toBeNull();
+  });
+
+  it("03-12b: redirects a signed-out GET for a protected page to /login with next (path + query)", async () => {
+    for (const method of ["GET", "HEAD"]) {
+      const res = await proxy(new NextRequest("http://localhost/patients/abc?tab=visits", { method }));
+      expect(res.status, method).toBe(307);
+      const location = new URL(res.headers.get("location") ?? "");
+      expect(location.origin).toBe("http://localhost");
+      expect(location.pathname).toBe("/login");
+      expect(location.searchParams.get("next")).toBe("/patients/abc?tab=visits");
+      expect(res.headers.get("x-middleware-next")).toBeNull();
+      expect(res.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/);
+      expect(res.headers.getSetCookie()).toEqual([]);
+    }
+  });
+
+  it("03-12b: /api and non-GET page requests (Server Actions) are not redirected", async () => {
+    expect((await proxy(requestWith(null, "/api/patients/abc/export"))).status).toBe(200);
+    const action = await proxy(new NextRequest("http://localhost/patients", { method: "POST", headers: { "next-action": "x" } }));
+    expect(action.status).toBe(200);
+    expect(action.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("03-12b: a session that cannot be refreshed is redirected and its stale auth cookie deleted", async () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const revoked: Session = { ...session, expires_at: nowSec - 60, expires_in: -60, refresh_token: "notarealrefreshtoken" };
+    const res = await proxy(requestWith(revoked, "/queue"));
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location") ?? "").searchParams.get("next")).toBe("/queue");
+    const deletions = res.headers.getSetCookie().filter((h) => h.startsWith(`${COOKIE}=`) || h.startsWith(`${COOKIE}.`));
+    expect(deletions.length, "the redirect deletes the stale auth cookie").toBeGreaterThan(0);
+    for (const h of deletions) expect(h.split(";")[0].split("=")[1]).toBe("");
   });
 
   it("does not rewrite cookies for a session that is still valid", async () => {

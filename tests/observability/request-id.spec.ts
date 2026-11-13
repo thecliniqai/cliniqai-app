@@ -9,11 +9,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const ssr = vi.hoisted(() => ({ refreshCookie: null as null | { name: string; value: string } }));
+const ssr = vi.hoisted(() => ({ refreshCookie: null as null | { name: string; value: string }, signedIn: true }));
 const requestHeaders = vi.hoisted(() => ({ current: null as Headers | null }));
 
 // The session-refresh client is replaced so the page path runs offline; when `refreshCookie` is set, `getClaims()`
-// calls `setAll` the way @supabase/ssr does on a refresh (new cookie + no-store headers).
+// calls `setAll` the way @supabase/ssr does on a refresh (new cookie + no-store headers). `signedIn` decides whether
+// claims come back (03-12b: a signed-out page request is redirected to the login page).
 vi.mock("@supabase/ssr", () => ({
   createServerClient: (
     _url: string,
@@ -25,7 +26,7 @@ vi.mock("@supabase/ssr", () => ({
         if (ssr.refreshCookie) {
           opts.cookies.setAll([{ ...ssr.refreshCookie, options: { path: "/" } }], { "Cache-Control": "private, no-store" });
         }
-        return { data: null, error: null };
+        return ssr.signedIn ? { data: { claims: { sub: "00000000-0000-4000-8000-000000000001" } }, error: null } : { data: null, error: null };
       },
     },
   }),
@@ -55,6 +56,7 @@ function spoofed(url: string): NextRequest {
 
 beforeEach(() => {
   ssr.refreshCookie = null;
+  ssr.signedIn = true;
   requestHeaders.current = null;
 });
 
@@ -112,6 +114,20 @@ describe("proxy assigns and forwards x-request-id", () => {
     expect(res.headers.get(FORWARDED)).toBe(id);
     expect(res.headers.get("x-middleware-request-cookie")).toContain("sb-local-auth-token=synthetic-refreshed");
     expect(res.cookies.get("sb-local-auth-token")?.value).toBe("synthetic-refreshed");
+    expect(res.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("03-12b: a signed-out page redirect (307 to /login) carries a fresh id and the cookies setAll wrote", async () => {
+    ssr.signedIn = false;
+    ssr.refreshCookie = { name: "sb-local-auth-token", value: "" };
+    const res = await proxy(spoofed("/patients"));
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location") ?? "").pathname).toBe("/login");
+    const id = res.headers.get(REQUEST_ID_HEADER);
+    expect(id).toMatch(UUID);
+    expect(id).not.toBe("spoofed");
+    expect(res.headers.get("x-middleware-next")).toBeNull();
+    expect(res.headers.getSetCookie().some((c) => c.startsWith("sb-local-auth-token="))).toBe(true);
     expect(res.headers.get("cache-control")).toBe("private, no-store");
   });
 
