@@ -142,6 +142,7 @@ describe("AUTH-00 re-check kit on the local stack", () => {
       recovery_tokens_dead: true,
     });
     expect(obs(10).stale_recovery_session_put_user).toBe("not-run");
+    expect(obs(10).stale_recovery_session_refresh).toBe("not-run");
   });
 
   it("11 (03-13a M-EMAILCAP): the opt-in invite probe runs; the CLI stack applies no email_sent cap", () => {

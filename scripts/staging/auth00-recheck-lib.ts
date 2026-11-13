@@ -29,9 +29,10 @@
  *  10 (03-13a, H-AUTH, R-35, R-36, L-2) an emailed-code session's lifetime: the code length GoTrue issues (8, R-36),
  *     the `amr` methods of a recovery session (every one must be one the app treats as an emailed code), what reset
  *     completion does (`/logout?scope=global`): the recovery session's access token on `PUT /user` and its refresh
- *     token must then be refused; and, opt-in (`staleWaitSeconds` > 600), whether GoTrue ITSELF still accepts
- *     `PUT /user {password}` from a recovery session older than 600 s (expected: yes; the app's proxy is the only
- *     bound, so a stolen token used straight at GoTrue before the browser returns is the hosted residual);
+ *     token must then be refused; and, opt-in (`staleWaitSeconds` > 600), what GoTrue ITSELF answers for a recovery
+ *     session older than 600 s: `PUT /user {password}` with the access token minted at verification (expected 200:
+ *     that token keeps its 900 s lifetime, the bounded residual) and the refresh grant (03-13e: expected 403 from the
+ *     session-age Custom Access Token hook; a 200 means the hook is off on that project);
  *  11 (03-13a, M-EMAILCAP) opt-in (`emailCapProbe` = n): does the project-wide `email_sent` cap bind emails sent
  *     through the Send Email hook? Sends up to n admin invites to synthetic addresses and records the first
  *     `over_email_send_rate_limit`. Spends the project's hourly email allowance: staging only, with the PO's approval.
@@ -659,18 +660,25 @@ export class Auth00Kit {
           body: { password: strongPassword() },
         });
         observed.stale_recovery_session_put_user = { aged_seconds: wait, ...Auth00Kit.brief(putStale) };
+        const refreshStale = await this.call("/token?grant_type=refresh_token", {
+          key: "publishable",
+          body: { refresh_token: stale.refresh },
+        });
+        observed.stale_recovery_session_refresh = { aged_seconds: wait, ...Auth00Kit.brief(refreshStale) };
       } else {
         observed.stale_recovery_session_put_user = { not_established: true };
+        observed.stale_recovery_session_refresh = { not_established: true };
       }
     } else {
       observed.stale_recovery_session_put_user = "not-run";
+      observed.stale_recovery_session_refresh = "not-run";
     }
     return {
       id: 10,
       name,
       status: "observed",
       expected_hosted:
-        "otp_length 8; recovery amr [otp] (every method treated as an emailed code); after /logout?scope=global the old access token is refused on PUT /user and the refresh token answers refresh_token_not_found; opt-in stale probe: GoTrue still answers 200 (it has no age bound: the app's proxy ends such a session when the browser next calls the app)",
+        "otp_length 8; recovery amr [otp] (every method treated as an emailed code); after /logout?scope=global the old access token is refused on PUT /user and the refresh token answers refresh_token_not_found; opt-in stale probe: PUT /user with the access token minted at verification still 200 (it keeps its 900 s lifetime; the app's proxy ends the session when the browser next calls the app) and the refresh grant refused with 403 (03-13e session-age hook; a 200 means the hook is off on this project)",
       observed,
       note:
         observed.stale_recovery_session_put_user === "not-run"
