@@ -13,7 +13,9 @@
  *    fixed code (never the provider's text); a config error is dead.
  *
  * {@link renderAlertEmail} escapes everything and writes a detail value only when it is a number, a boolean, null, an
- * ISO timestamp or a UUID (or a list of those): anything else is counted as omitted, never printed (T-04-22).
+ * ISO timestamp or a UUID (or a list of those), or, under a key ending in `_level`, one of the four quota level words
+ * (04-06): anything else is counted as omitted, never printed (T-04-22). A rule may carry a fixed note written here
+ * ({@link RULE_NOTES}), never text from the database.
  */
 import { z } from "zod";
 import {
@@ -42,6 +44,20 @@ const DETAIL_KEY = /^[a-z][a-z0-9_]{0,63}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}(?::?\d{2})?)$/;
 const MAX_DETAIL_ITEMS = 10;
+/** 04-06 (FT-04): the closed set of quota levels `ops.quota_level` returns, printed only under a `*_level` key. */
+const QUOTA_LEVELS: ReadonlySet<string> = new Set(["ok", "upgrade_trigger", "critical", "unknown"]);
+const LEVEL_KEY = /_level$/;
+
+/**
+ * Fixed notes per rule (code constants, never database text). 04-06 (R-8, FT-04): the weekly quota summary reminds the
+ * PO that egress is not measured by the quota job.
+ */
+export const RULE_NOTES: Readonly<Record<string, string>> = {
+  quota_weekly_summary:
+    "Egress is not measured here: check Egress in the Supabase dashboard (Organization, Usage) once a month (FT-04).",
+  quota_upgrade_trigger: "A metric reached 60 % of the plan limit: plan the upgrade (roadmap §9.1).",
+  quota_critical: "A metric reached 70 % of the plan limit: upgrade or free space now (roadmap §9.1).",
+};
 const MAX_DETAIL_KEYS = 20;
 
 const ALERT = z.object({
@@ -96,7 +112,8 @@ export function alertDetailLines(details: Record<string, unknown>): { lines: Arr
   const lines: Array<[string, string]> = [];
   let omitted = 0;
   for (const [key, value] of Object.entries(details)) {
-    const text = DETAIL_KEY.test(key) && lines.length < MAX_DETAIL_KEYS ? detailText(value) : null;
+    const levelWord = LEVEL_KEY.test(key) && typeof value === "string" && QUOTA_LEVELS.has(value) ? value : null;
+    const text = DETAIL_KEY.test(key) && lines.length < MAX_DETAIL_KEYS ? (levelWord ?? detailText(value)) : null;
     if (text === null) omitted += 1;
     else lines.push([key, text]);
   }
@@ -130,6 +147,7 @@ export function renderAlertEmail(alert: AlertPayload, opts: { appEnv: AppEnv; se
   const subject = `[clinicos ${opts.appEnv}] ${severity} ${alert.rule}`;
   const { lines: detailLines, omitted } = alertDetailLines(alert.details);
   const runbook = `docs/runbooks/jobs.md#${alert.rule}`;
+  const note = Object.hasOwn(RULE_NOTES, alert.rule) ? RULE_NOTES[alert.rule] : undefined;
   const head: Array<[string, string]> = [
     ["Environment", opts.appEnv],
     ["Rule", alert.rule],
@@ -151,6 +169,7 @@ export function renderAlertEmail(alert: AlertPayload, opts: { appEnv: AppEnv; se
     "Details",
     ...(details.length > 0 ? details.map(([k, v]) => `${k}: ${v}`) : ["none"]),
     "",
+    ...(note ? [`Note: ${note}`, ""] : []),
     `Runbook: ${runbook}`,
     "",
   ].join("\n");
@@ -162,6 +181,7 @@ export function renderAlertEmail(alert: AlertPayload, opts: { appEnv: AppEnv; se
     `<table>${head.map(row).join("")}</table>`,
     "<h2>Details</h2>",
     details.length > 0 ? `<table>${details.map(row).join("")}</table>` : "<p>none</p>",
+    note ? `<p>Note: ${escapeHtml(note)}</p>` : "",
     `<p>Runbook: <code>${escapeHtml(runbook)}</code></p>`,
     "</body></html>",
   ].join("");
