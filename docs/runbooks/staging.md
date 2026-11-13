@@ -107,6 +107,20 @@ job) fails the build if a staging workflow gains any trigger other than `push`, 
 `${{ … }}` inside a `run:` script; and in every workflow if a `uses:` is not pinned to a commit SHA. YAML it cannot
 read completely fails closed (03-13b M-POLICY).
 
+Since V2-04 04-07c (review C M-1, L-2, L-3) it also refuses: an `environment:` that is computed (`${{ vars.X }}`,
+`${{ matrix.e }}`) or not exactly one of `staging`, `staging-readonly`, `staging-backup` in lower case (GitHub matches
+Environment names case-insensitively, so `Staging-Backup` would be the reviewer-free backup Environment); a computed
+index into `secrets` (`secrets[matrix.n]`, `secrets[format(…)]`); and any trigger but push/schedule/dispatch in a
+workflow where **any** job has an Environment. Every job in an Environment must start with the step
+`[ "$GITHUB_REF" = "refs/heads/feature/v2" ] || { echo "…" >&2; exit 1; }`: GitHub's `==` in the job `if:` ignores case
+(a branch `Feature/V2` passes it), bash `=` does not, and the step runs before any step that holds a secret. A
+`workflow_run` workflow (only `backup-alert.yml`) must require the triggering run's path, head repository and a
+schedule/dispatch event in its `if:` (the trigger matches by the copyable workflow `name:`).
+
+**Never share secrets across environments.** Staging and production get separately generated values for every secret
+(runner secret, database passwords, keys); `docs/runbooks/jobs.md` §2 explains why for the runner secret (its tokens are
+not bound to an environment).
+
 ## 6. Deploying (migrations)
 
 **Order: expand, then migrate, then contract.** Vercel deploys a push to `feature/v2` straight away, while

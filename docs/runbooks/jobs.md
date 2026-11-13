@@ -71,8 +71,17 @@ test lanes pause every `cron.job` row for the duration of a run (`tests/setup/cr
 
 **Production (V2-15):** the same three steps on the production project with its own secret.
 
-**After a restore (FT-02):** Vault is not in the dumps. Pause `jobs-kick` (§4), review pending jobs, then re-create both
-Vault secrets as above (docs/runbooks/backup-restore.md).
+**Staging and production never share a runner secret (ruling, 04-07 triage; owner: this runbook).** The runner token
+(`v1.<ts>.<hmac>`, R-49) is not bound to an environment: a token minted with one project's secret is valid for any
+deployment that holds the same secret. Generate each environment's `JOBS_RUNNER_SECRET` separately with
+`openssl rand -hex 32`, never copy one into the other (Vercel or Vault), and rotate both if they were ever equal (§3).
+The env schema cannot compare values across deployments, so this is a setup rule: the go-live checklist (V2-15) and
+every rotation record in `docs/ops/secret-rotation.md` confirm "staging and production runner secrets differ".
+
+**After a restore (FT-02):** Vault and `cron.job` are not in the dumps, and the restored migration history means no
+migration re-creates the schedules. `select ops.ensure_schedules();` (migration 000042, postgres) re-creates the nine
+schedules with `jobs-kick` **inactive**; review pending jobs, re-create both Vault secrets as above, then
+`select ops.ensure_schedules(true);` activates `jobs-kick` (docs/runbooks/backup-restore.md §8).
 
 ## 3. Rotating the runner secret
 
@@ -341,8 +350,12 @@ runner (/api/jobs/run) ──► alert.notify ──► public.ops_alert_payload
 **Channel.** Email only (R-1), through the same `EMAIL_PROVIDER` as auth email (Resend until go-live, SES after;
 Mailpit locally). `OPS_ALERT_EMAIL` is required in production, optional in staging. Without it (or with
 `EMAIL_PROVIDER=disabled`) the `alert.notify` job dies with `alert_channel_unconfigured`; the alert stays open with
-`notified_at` null, the ops report (04-06) shows it, and the next evaluation 15 minutes later tries again (R-51). Backups also alert on their own path (the `backup-alert.yml`
-issue, 04-05a), so a broken app channel never hides a failed backup.
+`notified_at` null and the ops report (04-06) shows it as unsent. That code is terminal (04-07c, review C L-4): the next
+evaluation records `notify_stopped_code = 'alert_channel_unconfigured'` on the alert and stops retrying (instead of a
+dead job every 15 minutes). After configuring the channel, resume with
+`update ops.alerts set notify_stopped_code = null where status = 'open';` (SQL editor): the next evaluation tries
+again. Backups also alert on their own path (the `backup-alert.yml` issue, 04-05a), so a broken app channel never
+hides a failed backup.
 
 **What an alert email contains.** Environment, rule, severity, status, alert id, first and last seen (IST and UTC), the
 number of firing evaluations, the notification number, the details and the runbook anchor below. Details are written
@@ -354,14 +367,19 @@ default 60; `error_sink_overflow` 6 h, `error_sink_size` 24 h, `backup_stale` 3 
 quota rules 24 h, the weekly summary 7 days). The job's dedupe key
 `alert:<id>:<seq>` makes a repeated evaluation unable to enqueue a second email for the same notification, and the
 handler sends nothing when `notify_count` already covers it. A dead `alert.notify` never counts toward `dead_letter`
-(R-36).
+(R-36). The cooldown is **per rule, across episodes** (04-07c, review C L-1, migration 000042): an alert that resolves
+and re-opens (a flapping condition, which a tenant can drive, e.g. a webhook endpoint that fails intermittently) is not
+emailed while the rule's previous notification, sent or only tried, is inside the cooldown; it is emailed at the first
+evaluation after the cooldown if it is still open. Alert email shares `EMAIL_PROVIDER` with auth email, so this also
+protects the provider's daily quota.
 
 **At-least-once (R-51).** A notification that was never recorded as sent (its job died: provider down, channel
 unconfigured) is enqueued again by the next evaluation at least 15 minutes after the previous try, as long as no try of
 it is still pending or running, keyed `alert:<id>:<seq>:r<try>`, until it is sent; a failed re-notification is retried
 as the same `seq` (never skipped). Still one email per successful notification: the handler skips a `seq` already
 recorded and the provider gets the idempotency key `ops-alert/<id>/<seq>`. Watch `notify_tries` on `ops.alerts` for a
-channel that keeps failing.
+channel that keeps failing. Exception: a try that died with `alert_channel_unconfigured` ends the retries (see
+**Channel** above; `notify_stopped_code`).
 
 ### Rules
 

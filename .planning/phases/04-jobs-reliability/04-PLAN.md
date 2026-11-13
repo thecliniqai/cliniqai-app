@@ -28,9 +28,9 @@ must_haves:
     - supabase/migrations/000031_jobs_queue.sql … 000039_ops_heartbeat_quota_report.sql (9 files; next free numbers, see R-39), each with its app/api/ready/expected-migration.ts bump and regenerated scripts/drift/schema-snapshot.txt
     - lib/jobs/enqueue.ts, lib/jobs/auth.ts, lib/jobs/internal/{types,claim,runner,registry}.ts, lib/jobs/internal/handlers/*.ts
     - app/api/jobs/run/route.ts
-    - ops/backup/{backup.sh,stack.template.ts,render.ts,stack.json,evidence.ts}, ops/bin/*, ops/restore-drill/**
+    - ops/backup/{backup.sh,evidence.ts}, ops/bin/*, ops/restore-drill/** (erratum 2026-11-14, 04-07c: no stack.template.ts/render.ts/stack.json; the AWS design moved to docs/ops/backup-aws-golive.md)
     - supabase/tests/restore_drill_checks.sql
-    - .github/workflows/{backup-evidence,ops-report}.yml (+ nightly backup-roundtrip job)
+    - .github/workflows/{backup,backup-alert,ops-report}.yml (+ nightly backup-roundtrip job) (erratum 2026-11-14, 04-07c: backup.yml/backup-alert.yml replace backup-evidence.yml)
     - docs/runbooks/{jobs,backup-restore}.md
   key_links:
     - "cron 'jobs-kick' -> ops.kick_job_runner() -> vault.decrypted_secrets -> net.http_post(timeout 30 s) -> POST /api/jobs/run"
@@ -38,7 +38,7 @@ must_haves:
     - "public.enqueue_message / enqueue_webhook_event (p_tenant_id = ServiceContext.tenantId, matched on the subject row) -> private.enqueue_*_internal (definer writer, 03-07 pattern) -> delivery-table INSERT -> AFTER INSERT trigger -> ops.enqueue_job (dedupe_key NOT NULL UNIQUE)"
     - "webhook.deliver handler -> webhook_delivery_claim -> resolveWebhookTarget + postPinned (lib/webhooks/transport.ts, V2-03 pinned address) -> webhook_delivery_finish"
     - "ops.evaluate_alerts() (pg_cron 5 min) -> ops.enqueue_job('alert.notify') -> handlers/alert-notify.ts -> lib/email EmailSender -> OPS_ALERT_EMAIL"
-    - "EventBridge Scheduler 02:00/14:00 Asia/Kolkata -> CodeBuild -> ops/backup/backup.sh -> age (2 recipients) -> S3 ap-south-1 (SSE-KMS, versioned, 30 d lifecycle)"
+    - "GitHub Actions backup.yml schedule 02:00/14:00 IST (Environment staging-backup, R-48) -> ops/backup/backup.sh -> age (2 recipients) -> Cloudflare R2 bucket (30 d lifecycle) + archive SHA-256 in ops.backup_runs, job summary and artifact (erratum 2026-11-14, 04-07c: was EventBridge -> CodeBuild -> S3 ap-south-1; PO decision 2026-11-13; AWS design kept for production, V2-15)"
 ---
 
 # Phase 04 (V2-04): Jobs reliability — plan
@@ -90,7 +90,9 @@ Written before V2-03 was built (against `03-PLAN.md`); revised against what V2-0
 
 **Acceptance (roadmap, verbatim):** the parallel-dispatcher test shows 0 duplicate sends; a stuck `processing` row is
 reclaimed; queue lag p95 < 2 min in staging (**Assumption (validate)**); an alert fires in the staging drill; an
-encrypted dump of staging lands in the `ap-south-1` bucket twice a day and a deliberately failed run raises an alert;
+encrypted dump of staging lands in the `ap-south-1` bucket twice a day and a deliberately failed run raises an alert
+[erratum 2026-11-14, 04-07c, also applied to the roadmap: staging backups land in the Cloudflare R2 bucket, PO decision
+2026-11-13 / R-48; `ap-south-1` is the production target, V2-15];
 the first restore drill rebuilds staging data in a local stack and passes the pgTAP RLS suite, with RPO and RTO
 recorded; the heartbeat row is written every 6 h; the quota job reports database, Storage and MAU usage against the
 60 %/70 % thresholds.
@@ -606,7 +608,8 @@ delivery rows in 04-03a. "a stuck `processing` row is reclaimed": job-lease leve
 
 ### Acceptance mapping
 "an encrypted dump of staging lands in the `ap-south-1` bucket twice a day and a deliberately failed run raises an
-alert": code, template, policy proofs and evidence workflow full; the hosted result **pending PO (04-P2…P7, P11)**,
+alert" (erratum 2026-11-14, 04-07c: the staging bucket is Cloudflare R2, written by `backup.yml`; no CloudFormation
+template; evidence is `backup.yml`'s `backup-evidence` artifact, not `backup-evidence.yml`): code, template, policy proofs and evidence workflow full; the hosted result **pending PO (04-P2…P7, P11)**,
 closed by 04-05b. "the first restore drill rebuilds staging data in a local stack and passes the pgTAP RLS suite, with
 RPO and RTO recorded": mechanics proven by the self-test (local data); the staging dump drill **pending PO (04-P13)**.
 Evidence "a bucket listing (object names and sizes only)": `backup-evidence.yml` artifact after 04-P6.
@@ -1345,7 +1348,7 @@ No implementer wave and no code. After the phase PR merges, the PO works through
 longest lead), then 04-P11 and 04-P13. Claude verifies each step with the read-only commands in the PO-actions list,
 downloads the `backup-evidence` artifact (`gh run download`), checks it with `npx tsx ops/backup/evidence.ts --check
 <file>`, verifies the drill evidence with `npx tsx ops/restore-drill/check-evidence.ts <file>`, and records results in
-`04-VERIFICATION.md` and VERIFICATION_LOG. If the first CodeBuild run exposes a runtime detail (A4/A5: image packages,
+`04-VERIFICATION.md` and VERIFICATION_LOG. If the first scheduled `backup.yml` run (erratum 2026-11-14, 04-07c: was "CodeBuild run") exposes a runtime detail (A4/A5: image packages,
 Docker mode, pooler), the fix ships on a follow-up branch `v2/phase-04-backup-fixes` with a regression case in
 `tests/ops/`.
 
@@ -1359,7 +1362,7 @@ Docker mode, pooler), the fix ships on a follow-up branch `v2/phase-04-backup-fi
 | 2 | a stuck `processing` row is reclaimed | 04-01, 04-03a | `reaper-db.spec.ts`, `delivery-reap-db.spec.ts` | — | Done |
 | 3 | queue lag p95 < 2 min in staging (**Assumption (validate)**) | 04-02, 04-06 | `evidence/scheduler-local-e2e.json` (macOS, real pg_cron → pg_net → app); lag computed by `ops.report_all` in `ops-report-db.spec.ts` | `ops-report` artifact after 04-P12 lag load (≥ 100 samples) | **Pending PO (04-P1, P8, P9, P10, P12)**, post-merge |
 | 4 | an alert fires in the staging drill | 04-04 | `alert-drill-db.spec.ts` (Mailpit) | SES email + notified `dead_letter` row in the `ops-report` artifact | **Pending PO (04-P7, P8, P9, P10, P12)**, post-merge |
-| 5 | an encrypted dump of staging lands in the `ap-south-1` bucket twice a day and a deliberately failed run raises an alert | 04-05a (+04-05b) | self-test round trip; `backup-stack-policy`, `backup-script-guards`, `backup-evidence` specs | `backup-evidence` artifact: `twice_daily_ok`, `region_ok`, `encryption_ok`, `lifecycle_ok`, failed build + SNS delivery | **Pending PO (04-P2…P7, P11)**, post-merge |
+| 5 | an encrypted dump of staging lands in the ~~`ap-south-1`~~ staging R2 bucket (erratum 2026-11-14, 04-07c) twice a day and a deliberately failed run raises an alert | 04-05a (+04-05b) | self-test round trip; `backup-stack-policy`, `backup-script-guards`, `backup-evidence` specs | `backup-evidence` artifact: `twice_daily_ok`, `region_ok`, `encryption_ok`, `lifecycle_ok`, failed build + SNS delivery | **Pending PO (04-P2…P7, P11)**, post-merge |
 | 6 | the first restore drill rebuilds staging data in a local stack and passes the pgTAP RLS suite, with RPO and RTO recorded | 04-05a (+04-05b) | `restore-drill-selftest.json` (local data); `restore-drill-checks-db.spec.ts` | `restore-drill-staging.json` + VERIFICATION_LOG entry | Mechanics done; staging drill **pending PO (04-P13)** |
 | 7 | the heartbeat row is written every 6 h | 04-06 | `heartbeat-quota-db.spec.ts` (function + schedule) | `ops-report` heartbeat gap ≤ 6 h 15 min over ≥ 24 h | Local done; staging **pending PO (04-P1, P8…P10)** |
 | 8 | the quota job reports database, Storage and MAU usage against the 60 %/70 % thresholds | 04-06 | `quota-level-db.spec.ts`, `heartbeat-quota-db.spec.ts` | `ops-report` quota block | Local done; staging pending the same |
@@ -1381,7 +1384,7 @@ quota-threshold unit test (04-06). Roadmap evidence: CI links (phase close); the
 | REQ P0-12 | remove inline `dispatchPendingQueue` and fire-and-forget webhook dispatch | 04-03a, 04-03b (+ lint guard R-33) |
 | REQ P0-12 | webhook idempotency | 04-03b (outbound event keys), 04-03c (inbound dedupe) |
 | REQ P1-25 (alerts part) | dead-letter and queue-lag alerts | 04-04 |
-| REQ FT-02 | dump + Storage sync twice a day from AWS ap-south-1, age, versioned SSE-KMS bucket, 30-day lifecycle rule, failure alert, on-demand dump, monthly drill, RPO/RTO | 04-05a (code, runbook incl. on-demand and monthly), 04-05b (hosted) |
+| REQ FT-02 | dump + Storage sync twice a day from AWS ap-south-1 (staging: GitHub Actions to Cloudflare R2, unversioned; erratum 2026-11-14, 04-07c, R-48), age, versioned SSE-KMS bucket, 30-day lifecycle rule, failure alert, on-demand dump, monthly drill, RPO/RTO | 04-05a (code, runbook incl. on-demand and monthly), 04-05b (hosted) |
 | REQ FT-03 | heartbeat every 6 h; pause warnings to a monitored inbox | 04-06, 04-P7 |
 | REQ FT-04 | quota job vs 60 %/70 %; PO monthly egress check | 04-06 (daily + weekly summary, R-8); egress stays a PO dashboard check, named in the weekly email |
 | CONTEXT (locked) | C22 pg_cron + pg_net, migration-defined | 04-02 |
@@ -1723,9 +1726,9 @@ local backup self-test and drill, the template and its policy checks, the workfl
 | R-11 | Until V2-05's generated pgTAP matrix exists, the drill runs `supabase/tests/restore_drill_checks.sql` (RLS on every public table, policy/function/user counts, tenant isolation probe, empty cron/net) | The roadmap's "pgTAP RLS suite" does not exist yet; V2-05 swaps it in |
 | R-12 | Kick every minute; no `after()` kick in V2-04 (one dispatch path); revisit for bot replies in V2-12 | p95 < 2 min is met by a 1-minute kick |
 | R-13 | No pgmq | No dedupe key or tenant fairness; needs an exposed schema |
-| R-14 | Backup runs in CodeBuild triggered by EventBridge Scheduler, one CloudFormation stack per environment, deployed by the PO from CloudShell; Claude never holds AWS credentials | Managed, no host or VPC; PO-23(h) |
+| R-14 | ~~Backup runs in CodeBuild triggered by EventBridge Scheduler, one CloudFormation stack per environment, deployed by the PO from CloudShell~~; Claude never holds AWS credentials. **Superseded for staging (erratum 2026-11-14, 04-07c):** PO decision 2026-11-13: staging backups run in GitHub Actions (`backup.yml`, Environment `staging-backup`, R-48) to Cloudflare R2; the CodeBuild/EventBridge/CloudFormation design is kept for production in `docs/ops/backup-aws-golive.md` (V2-15) | Managed, no host or VPC; PO-23(h) |
 | R-15 | `msw` 3.0.3 as an exact devDependency for the MSG91 contract tests; PO confirms the SUS pin before merge (04-P15) | TEST_STRATEGY T-09; older pin resolves the recency flag |
-| R-16 | Revoke `PUBLIC, anon, authenticated` on every `net` object; the scheduler uses a dedicated runner secret, never the service key | pg_net grants API roles by default (local probe); Supabase's queue-exposure warning |
+| R-16 | ~~Revoke `PUBLIC, anon, authenticated` on every `net` object~~ (not buildable: `net` is owned by `supabase_admin`; the revoke clause is superseded by R-49); the scheduler uses a dedicated runner secret, never the service key | pg_net grants API roles by default (local probe); Supabase's queue-exposure warning |
 | R-17 | pg_net `timeout_milliseconds` 30 000; runner budget 25 s; `maxDuration` 60; lease 120 s; provider timeouts 10 s (`MESSAGING_PROVIDER_TIMEOUT_MS`, V2-03) and 5 s (`WEBHOOK_TIMEOUT_MS`, V2-03) | pg_net's 2 s default would time out every call (pitfall 1); lease ≫ budget ≫ handler (pitfall 2) |
 | R-18 | Constant-time bearer compare (SHA-256 + `timingSafeEqual`) with current/next secrets on `/api/jobs/run`; the `!==` cron routes are deleted | Closes RL-23 (re-checked at V2-03 close: both cron routes still compare with `!==`) |
 | R-19 | Fix the silent drop of webhook events for doctor/receptionist actions by reading subscriptions as definer inside the enqueue RPC | Latent defect found in research |
@@ -1739,7 +1742,7 @@ local backup self-test and drill, the template and its policy checks, the workfl
 | R-27 | `CRON_SECRET` stays, only as the bearer of V2-03's diag route (R-18 there); the runner uses `JOBS_RUNNER_SECRET` | Retiring it would reopen V2-03's diag route and PO actions 03-E4/E9 (research had proposed retiring it) |
 | R-28 | Staging evidence comes from a scheduled read-only workflow (`ops-report.yml`, Environment `staging-readonly`) calling a counts-only report function; Claude reads artifacts only | Tool-produced evidence (DoD 5) without agent access to hosted databases |
 | R-29 | The staging restore drill is run by the PO on their machine; Claude verifies the evidence file by tool; the drill verifies Storage objects by size and SHA-256 against restored metadata rather than re-uploading them | Keys and real dumps never enter an agent session; local stacks are not a Storage restore target |
-| R-30 | The CloudFormation template is JSON rendered from TypeScript with the scripts embedded (deterministic base64 lines), checked in CI with `--check`; no `cfn-lint`; the PO runs `validate-template` | No new dependency; one source of truth for the script that runs locally and in AWS |
+| R-30 | **Not built (erratum 2026-11-14, 04-07c; follows R-14's supersession):** ~~The CloudFormation template is JSON rendered from TypeScript with the scripts embedded (deterministic base64 lines), checked in CI with `--check`; no `cfn-lint`; the PO runs `validate-template`~~ (re-decided with the production backup target, V2-15) | No new dependency; one source of truth for the script that runs locally and in AWS |
 | R-31 | Local stand-ins: the local Supabase Storage S3 endpoint as the bucket via a digest-pinned `amazon/aws-cli` image; age from a checksum-verified release; `psql` from a digest-pinned `postgres:17` image | PO direction; no AWS SDK or host tool drift |
 | R-32 | Drill job kinds exist only with `JOBS_DRILL_ENABLED=true` (default false, forbidden in production); `ops.drill_enqueue` executable by `postgres` only | Staging drill without a production surface |
 | R-33 | The messaging provider factory and the webhook deliverer are importable only from `lib/jobs/internal/**` (ESLint, fixtures); `sendDirectSms`/`sendDirectWhatsApp` deleted | "No request path dispatches" becomes a structural property, not a convention |
@@ -1758,6 +1761,7 @@ local backup self-test and drill, the template and its policy checks, the workfl
 | R-46 | **New 2026-11-13.** Error-sink alert rules: `error_sink_overflow` (warn: any dropped events today or yesterday) and `error_sink_size` (warn: > 50 MB); retention purge at 180 days by `ops.cleanup` | 03-09b handover; the 500-fingerprint daily cap silently drops events, and the table counts against the 500 MB Free database |
 | R-47 | **New 2026-11-13 (04-00).** Review A Lows closed as: secrets empty after `trim()` are unset and padded secrets refused; loopback = 127/8, 0.0.0.0, `::1`, `::`, `::ffff:127.*`, `localhost.`/`*.localhost`, and deploy-tier Supabase/app URLs must be bare origins; the CLI's local opaque keys refused by SHA-256 digest (no literal in source) on the server parse path; `STAGING_*` names and `sb_secret_`/`sb_publishable_` values refused in the test lane; `wait-for-release` accepts a descendant release; a `plan` job (script over the RO URL, not `db push`) precedes `migrate`; CLI DB URLs carry no password (`PGPASSWORD`), or L-7 is accepted with local evidence if the CLI ignores it | Triage owner V2-04 (04-00); V2-04 edits the same env schema and staging workflows; agents may not run `db push`, so the plan must be a testable script |
 | R-48 | **New 2026-11-13 (04-05a, orchestrator as CTO).** Scheduled staging backups run in a GitHub Environment `staging-backup` with no required reviewer, deployment branches `feature/v2` only, holding only the backup secrets/vars (`BACKUP_S3_*`, `BACKUP_AGE_RECIPIENTS`, `STAGING_STORAGE_S3_*`, `STAGING_BACKUP_DB_URL`); `workflow-policy.mjs` allows it in `backup.yml` only (`staging-backup-environment-scope`). The DB URL is the `postgres` session pooler URL, not the read-only role (`supabase db dump` sets `ROLE postgres`; the job writes `ops.backup_runs`). Accepted risks, owner V2-15/go-live: no R2 versioning, the R2 token can delete, no India region, a `postgres` staging URL in a reviewer-free Environment (staging data is synthetic) | Scheduled backups must not wait for a human; the job only reads synthetic staging data and writes age-encrypted objects; migrations and seeds stay behind the reviewed `staging` Environment |
+| R-49 | **New 2026-11-13 (04-02, orchestrator as CTO; row added by erratum 2026-11-14, 04-07c, review IND L7: it was cited in code, the runbook and PO-ACTIONS but missing here).** Supersedes R-16's revoke clause, which cannot be built (`net` objects are owned and granted by `supabase_admin`; `postgres` is not superuser, so the revoke is a no-op, `evidence/04-02/pg-net-revoke-probe.txt`). The runner secret never leaves the database: `ops.kick_job_runner()` (migration `000034_jobs_runner_token.sql`) sends `Bearer v1.<unix_ts>.<hex hmac_sha256(secret, 'jobs-run\|v1\|' \|\| unix_ts)>`; `/api/jobs/run` accepts a token within ±120 s signed with the current or next secret and refuses the raw secret. Accepted residual: any database login role can read a queued token (sub-second) and replay it for 120 s, which only triggers an idempotent runner pass. Staging and production use separately generated secrets (the token is not bound to an environment; 04-07 triage, `docs/runbooks/jobs.md` §2) | A leaked token is short-lived and grants nothing but an idempotent pass; the secret itself is never on the wire or in `net` |
 | R-50 | **New 2026-11-13 (04-04 D5, orchestrator as CTO).** `backup_stale` also fires when the latest `ops.backup_runs` row is `failed` (not only when no `ok` run in 13 h), so a deliberately failed run raises the app alert at once; the GitHub-side backup alert stays the independent channel | Roadmap V2-04 "a deliberately failed run raises an alert" |
 | R-51 | **New 2026-11-13 (reverses 04-04 D7, orchestrator as CTO).** Alerts are at-least-once: an open alert whose notification was never recorded as sent (its `alert.notify` job died: provider down, channel unconfigured) is enqueued again by the next evaluation at least 15 minutes after the previous try, while no try of it is pending or running, until `notified_at`/`notify_count` record it (dedupe `alert:<id>:<n>:r<try>`). Still one email per successful notification: the handler sends nothing for an `n` already recorded and passes the provider idempotency key `ops-alert/<id>/<n>` | A provider outage must not silently swallow an alert; the 15-minute floor keeps a broken channel from flooding the queue (R-36) |
 
@@ -1778,6 +1782,17 @@ webhook re-homed (R-40).
 changed); writers in `private` (R-44); readiness flags are booleans (R-41 revised); provider timeouts, SSRF pinning,
 tenant check and jobs lint rules reused rather than built; `sendDirect*` deleted in 04-03c, not 04-03a; Send Email hook
 dedupe added (R-43, ADR A3); error-sink alerts added (R-46).
+
+**Errata 2026-11-14 (04-07c, review IND L7 and C; recorded in `04-07c-OPS-FIXES.md`):** (1) staging backups were built
+on GitHub Actions + Cloudflare R2 (PO decision 2026-11-13, R-48), not EventBridge → CodeBuild → S3 `ap-south-1`: R-14 is
+superseded for staging and R-30 not built, `stack.template.ts`/`render.ts`/`stack.json`/`backup-evidence.yml` do not
+exist (the AWS design is `docs/ops/backup-aws-golive.md`, V2-15), and the roadmap's V2-04 text received the same
+erratum; (2) the R-49 row was missing from the rulings table (added); (3) `backup-alert.yml` uses a `workflow_run`
+trigger, which 04-05a's workflow rule ("never `workflow_run`") excluded for staging workflows: it holds no secret, checks
+out only the issue picker and has `issues: write` only, and since 04-07c it is pinned by path, head repository and
+schedule/dispatch event (workflow-policy `workflow-run-pinned`); (4) the header of the applied migration
+`000032_ops_backup_runs.sql` still says "AWS CodeBuild" and "SNS": applied migrations are never edited, this note is the
+correction; `ops/backup/backup.sh`'s header now names Environment `staging-backup`.
 
 ## Open for the PO (not blocking)
 1. 04-P14: confirm the rulings, especially R-6 (revised; ADR A2), R-26, R-27, R-34, R-38, R-40, R-41 (revised), R-43
