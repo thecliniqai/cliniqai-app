@@ -11,7 +11,7 @@ and never change hosted settings (R-9).
 | App | Vercel project `clinicos-staging`, production branch `feature/v2`, functions in `bom1` (`vercel.json`) | Vercel Git integration on every push to `feature/v2` (R-26) |
 | Database + Auth | Supabase project `clinicos-staging` (organisation `clinicos-staging`, Free plan, `ap-south-1`) | Migrations: `.github/workflows/staging.yml` job `migrate`, run in Environment `staging` after PO approval. Auth settings: applied by the PO from the checklist (R-20) |
 | Demo data | The synthetic demo clinic (`scripts/seed/demo-clinic.ts`) | `staging.yml`, dispatched with task `seed` / `seed-reset` |
-| Nightly checks | `.github/workflows/drift.yml` in Environment `staging-readonly` | Read-only: auth config, `public` schema, function region |
+| Nightly checks | `.github/workflows/drift.yml` in Environment `staging-readonly` | Read-only: auth config, `public`/`ops`/`private` schema and privileges (03-13b), function region |
 
 Staging holds synthetic data only. Never copy production or v1 data into it.
 
@@ -27,7 +27,10 @@ Staging holds synthetic data only. Never copy production or v1 data into it.
    - read-only URL: the same host and port with user `clinicos_drift_ro.<ref>` and that role's password (§3).
    Percent-encode any special characters in a password (the CLI requires it). `scripts/staging/target-guard.mjs`
    accepts only these two forms (or the direct host) for this ref. It refuses loopback addresses, IP literals and
-   other projects.
+   other projects. Paste the URL exactly as shown: no `?…` parameters other than `sslmode=require` (or
+   `verify-full`), no `#…`. The CLI's driver applies `host`, `user`, `port`, `dbname`, `options` and `sslmode`
+   parameters over the address, so the guard refuses them; the workflows then hand the CLI a copy rebuilt from the
+   checked parts with `sslmode=require` (03-13b M-GUARD).
 4. Apply the migrations once, through `staging.yml` (§6). Do not use the CLI from your machine.
 
 ## 3. Read-only database role for the nightly schema check
@@ -45,15 +48,22 @@ alter role clinicos_drift_ro set statement_timeout = '60s';
 
 Then set the password yourself in the SQL editor with a value from your password manager
 (`alter role clinicos_drift_ro with password '…';`). Do not paste it anywhere else. The role gets no table grants, so
-it cannot read rows. `supabase db diff` only needs the catalog, which every role can read. Because every
-transaction is read-only, a write attempt by any tool fails.
+it cannot read rows. `supabase db diff` and the privilege snapshot (`scripts/drift/schema-snapshot.mjs`) only read
+the catalog, which every role can read. `default_transaction_read_only` is only a session default (any role can turn
+it off); the real control is that the role holds no grants beyond `connect` and `usage`.
 
 ## 4. Vercel project (PO action E4)
 
 Follow E4 in `.planning/phases/03-platform-hygiene/03-PLAN.md`. In short: a new project from the repository, named
 `clinicos-staging`, with production branch `feature/v2`, the custom domain `staging.<domain>` and the functions
 region `bom1` (`vercel.json` pins it too). Turn Deployment Protection off for the production domain, because the Send
-Email hook must reach it. Disable preview deployments. Use the environment variables listed in E4. The env schema
+Email hook must reach it. Disable preview deployments. Use the environment variables listed in E4, and scope **every**
+variable to the **Production** environment only (not Preview, not Development): a preview build would otherwise run
+any pushed branch with the staging secrets and no approval. The app refuses to build or boot with `APP_ENV=staging`
+when Vercel reports `VERCEL_ENV` other than `production` or a branch other than `feature/v2` (03-13b M-PREVIEW). Paste
+the publishable key (`sb_publishable_…`) and the secret key (`sb_secret_…`) into the right fields: the schema
+refuses a secret key in `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (Next would inline it into every page) and the
+reverse, in every tier (03-13b H-ENV). The env schema
 rejects `R2_*`, `STORAGE_PROVIDER`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` and
 `MESSAGING_WEBHOOK_SECRET`, and the build fails if any of them is set. On the old v1 Vercel project, stop building
 `v2/**` and `feature/v2` (K-9).
@@ -67,10 +77,21 @@ Repository → Settings → Environments:
 | `staging` | required reviewer: the PO; deployment branches: `feature/v2` only | `STAGING_DB_URL` (owner URL, §2), `STAGING_SECRET_KEY` (`sb_secret_…`), `STAGING_SEED_PASSWORD` (at least 16 characters) | `SUPABASE_PROJECT_REF_STAGING`, `STAGING_ORIGIN` (`https://staging.<domain>`, no trailing slash) |
 | `staging-readonly` | no reviewer; deployment branches: `feature/v2` only | `SUPABASE_ACCESS_TOKEN_STAGING_RO` (E11: fine-grained token, "Auth config: read", organisation `clinicos-staging`, 90-day expiry), `STAGING_DB_URL_RO` (read-only URL, §3) | `SUPABASE_PROJECT_REF_STAGING`, `STAGING_ORIGIN` |
 
+**If Supabase does not offer a scoped read-only token (E11 fallback, 03-13b M-TOKEN):** do **not** create a classic
+personal access token for `staging-readonly`. A classic token carries full Management API rights over every
+organisation of your account (including the future production project), and `staging-readonly` has no reviewer.
+The fallback is: the `auth-config` drift job runs in the **`staging`** Environment (required reviewer: you) with the
+token stored there, so every run waits for your approval. That is a reviewed one-job change to `drift.yml`
+(`environment: staging`, secret read from `staging`) that an agent prepares when you report the token is not offered;
+until it merges, leave the `auth-config` job failing and record "no scoped token available" in
+`docs/v2/VERIFICATION_LOG.md`. Never store an account-wide token in an Environment without a required reviewer.
+
 No repository-level secret is used. `ci.yml` stays secret-free. `scripts/ci/workflow-policy.mjs` (in the `static`
-job) fails the build if a staging workflow gains a `pull_request`, `pull_request_target` or `workflow_run` trigger.
-It also fails if a job uses a staging secret without an `environment`, or if any `uses:` is not pinned to a commit
-SHA.
+job) fails the build if a staging workflow gains any trigger other than `push`, `schedule` or `workflow_dispatch`
+(in any YAML form), a `write` permission or `write-all`, a staging secret outside a step's `env` of a job with an
+`environment`, a cache restore, an install without `--ignore-scripts`, a checkout that persists credentials, or a
+`${{ … }}` inside a `run:` script; and in every workflow if a `uses:` is not pinned to a commit SHA. YAML it cannot
+read completely fails closed (03-13b M-POLICY).
 
 ## 6. Deploying (migrations)
 
@@ -156,7 +177,7 @@ or record the deviation (FT-01) in `docs/v2/VERIFICATION_LOG.md`.
 |---|---|---|---|
 | `auth-config` | 1 | a hosted Auth setting differs from the `staging` column of `supabase/auth-policy.json`, or a field is missing | Fix the dashboard setting (`node scripts/ci/check-auth-config.mjs --print staging` is the checklist). For a MISSING field, pin its real API name in the policy row (A4) |
 | `auth-config` | 2 | refused (token, ref or origin missing or malformed) or an API error (status only) | check `staging-readonly` secrets/variables; renew the token |
-| `schema` | 1 | the staging `public` schema differs from what `supabase/migrations` builds | find who changed staging outside a migration; reverse it, or capture it in a new migration |
+| `schema` | 1 | the staging `public`/`ops`/`private` schema differs from what `supabase/migrations` builds, or a grant, policy or RLS flag differs from `scripts/drift/schema-snapshot.txt` (lines `+` = only on staging, `-` = missing on staging) | find who changed staging outside a migration; reverse it, or capture it in a new migration. A platform-owned difference (e.g. on the first run) is recorded and fixed in a reviewed change; the snapshot has no allowlist |
 | `schema` | 2 | target refused, or the CLI could not connect | check `STAGING_DB_URL_RO`, the role password, the pause state |
 | `region` | 1 | functions are not in `bom1` | §10 |
 
