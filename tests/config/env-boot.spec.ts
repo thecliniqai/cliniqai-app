@@ -45,6 +45,8 @@ const PRODUCTION_WITHOUT_PROVIDERS = {
   CRON_SECRET: "MARKER-boot-cron-secret-0123456789abcdef",
   // 04-02: required in production.
   JOBS_RUNNER_SECRET: "MARKER-boot-jobs-runner-secret-0123456789abcdef",
+  // 04-04 (R-1): required in production.
+  OPS_ALERT_EMAIL: "ops-alerts@synthetic-clinic.example.org",
   MESSAGING_PROVIDER: "dev",
   AI_PROVIDER: "mock",
 };

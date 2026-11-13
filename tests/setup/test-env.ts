@@ -51,6 +51,12 @@ export const LOCAL_SEND_EMAIL_HOOK_SECRET = `v1,whsec_${Buffer.from("not-real-se
  * config leaked in); the rotation slot JOBS_RUNNER_SECRET_NEXT is never set from the shell.
  */
 export const LOCAL_JOBS_RUNNER_SECRET = ["not", "real", "jobs", "runner", "secret", "0123"].join("-").repeat(2);
+/**
+ * V2-04 04-04 (R-1): the synthetic ops alert inbox of every local lane (the reserved `.test` TLD; Mailpit catches it).
+ * The e2e app server runs with it; Vitest leaves the name unset and the alert specs stub it after this guard ran. A test
+ * lane may carry no other value (a real inbox would mean hosted config leaked in).
+ */
+export const LOCAL_OPS_ALERT_EMAIL = "ops-alerts@example.test";
 /** V2-03 03-11b: the local stack's Mailpit API (the CLI default port). */
 export const LOCAL_MAILPIT_API_URL = "http://127.0.0.1:54324";
 
@@ -369,6 +375,10 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
     problems.push("JOBS_RUNNER_SECRET must be unset or the local synthetic secret (LOCAL_JOBS_RUNNER_SECRET) in the test lane");
   }
   if (env.JOBS_RUNNER_SECRET_NEXT) problems.push("JOBS_RUNNER_SECRET_NEXT must not be set in the test lane");
+  // 04-04: the ops alert inbox is unset or the local synthetic one; the value is never echoed.
+  if (env.OPS_ALERT_EMAIL && env.OPS_ALERT_EMAIL !== LOCAL_OPS_ALERT_EMAIL) {
+    problems.push("OPS_ALERT_EMAIL must be unset or the local synthetic inbox (LOCAL_OPS_ALERT_EMAIL) in the test lane");
+  }
   const drillAllowed = options.drillJobs ? ["true", "false"] : ["false"];
   if (env.JOBS_DRILL_ENABLED && !drillAllowed.includes(env.JOBS_DRILL_ENABLED)) {
     problems.push(`JOBS_DRILL_ENABLED must be unset or ${drillAllowed.join(" or ")} in this lane`);

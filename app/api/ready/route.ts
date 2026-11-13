@@ -13,8 +13,9 @@ import { EXPECTED_MIGRATION } from "./expected-migration";
  * One call to `public.readiness_probe(p_expected_migration)` (SECURITY DEFINER, migration 000029) through the
  * cookie-less public client, so always as `anon`, the only role that may execute it. No service role, no bucket check,
  * no provider call. The body carries booleans only: whether the database answered, whether the migration this build
- * expects ({@link EXPECTED_MIGRATION}) is applied, four outbox health flags, and whether AI, messaging and email are
- * configured (read from the env schema). No count, no migration version, no tenant data. Ready means the database
+ * expects ({@link EXPECTED_MIGRATION}) is applied, four outbox health flags, four job-queue flags (04-04, R-41: a due job
+ * waiting over 5 min, a job dead in 24 h, a configured runner with no ok pass in 5 min, an open critical alert), and
+ * whether AI, messaging and email are configured (read from the env schema). No count, no migration version, no tenant data. Ready means the database
  * answered AND the schema is current. A failure is logged with its error code only; the response never carries an error
  * text. `correlationId` is the request id the proxy assigned, so a 503 can be matched to its log line.
  */
@@ -27,9 +28,20 @@ interface ProbeResult {
   messagesFailed24h: boolean;
   webhooksBacklog: boolean;
   webhooksFailed24h: boolean;
+  /** 04-04: null when the database predates migration 000039 (then `schema` is `behind`). */
+  jobs: JobFlags | null;
+}
+
+interface JobFlags {
+  backlog: boolean;
+  dead24h: boolean;
+  runnerStale: boolean;
+  alertsCriticalOpen: boolean;
 }
 
 const FLAG_KEYS = ["messages_backlog", "messages_failed_24h", "webhooks_backlog", "webhooks_failed_24h"] as const;
+/** 04-04 (R-41): booleans only. All four present, or (a database behind 000039) all four absent. */
+const JOB_FLAG_KEYS = ["jobs_backlog", "jobs_dead_24h", "runner_stale", "alerts_critical_open"] as const;
 
 /** Accepts the RPC's JSON only in the expected shape (so nothing unexpected is ever echoed). */
 function parseProbe(data: unknown): ProbeResult | null {
@@ -41,12 +53,26 @@ function parseProbe(data: unknown): ProbeResult | null {
   }
   const schema = row.schema_current;
   if (schema !== null && typeof schema !== "boolean") return null;
+  const present = JOB_FLAG_KEYS.filter((key) => key in row);
+  if (present.length !== 0 && present.length !== JOB_FLAG_KEYS.length) return null;
+  for (const key of present) {
+    if (typeof row[key] !== "boolean") return null;
+  }
   return {
     schemaCurrent: schema,
     messagesBacklog: row.messages_backlog as boolean,
     messagesFailed24h: row.messages_failed_24h as boolean,
     webhooksBacklog: row.webhooks_backlog as boolean,
     webhooksFailed24h: row.webhooks_failed_24h as boolean,
+    jobs:
+      present.length === 0
+        ? null
+        : {
+            backlog: row.jobs_backlog as boolean,
+            dead24h: row.jobs_dead_24h as boolean,
+            runnerStale: row.runner_stale as boolean,
+            alertsCriticalOpen: row.alerts_critical_open as boolean,
+          },
   };
 }
 
@@ -99,6 +125,7 @@ export async function GET() {
             webhooksFailed24h: probe.webhooksFailed24h,
           }
         : null,
+      jobs: probe ? probe.jobs : null,
       providers: providerStates(),
       correlationId,
       timestamp: new Date().toISOString(),

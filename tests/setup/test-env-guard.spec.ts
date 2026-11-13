@@ -12,6 +12,7 @@ import {
   findTestEnvProblems,
   LOCAL_ERROR_INGEST_KEY,
   LOCAL_JOBS_RUNNER_SECRET,
+  LOCAL_OPS_ALERT_EMAIL,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
   TURNSTILE_TEST_SITE_KEYS,
   loadLocalStackKeys,
@@ -221,6 +222,18 @@ describe("test-env guard rules", () => {
     expect(problems.join("\n")).not.toContain(other);
     const next = findTestEnvProblems(safeEnv({ JOBS_RUNNER_SECRET: LOCAL_JOBS_RUNNER_SECRET, JOBS_RUNNER_SECRET_NEXT: other }));
     expect(next).toEqual(["JOBS_RUNNER_SECRET_NEXT must not be set in the test lane"]);
+  });
+
+  it("pins the ops alert inbox to the local synthetic address, never echoing another value (04-04)", () => {
+    expect(LOCAL_OPS_ALERT_EMAIL).toBe("ops-alerts@example.test");
+    expect(findTestEnvProblems(safeEnv({ OPS_ALERT_EMAIL: LOCAL_OPS_ALERT_EMAIL }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ OPS_ALERT_EMAIL: "" }))).toEqual([]);
+    const other = "MARKER-ops-inbox@clinic.example.org";
+    const problems = findTestEnvProblems(safeEnv({ OPS_ALERT_EMAIL: other }));
+    expect(problems).toEqual([
+      "OPS_ALERT_EMAIL must be unset or the local synthetic inbox (LOCAL_OPS_ALERT_EMAIL) in the test lane",
+    ]);
+    expect(problems.join("\n")).not.toContain(other);
   });
 
   it("keeps the drill job kinds off in the Vitest lane; the e2e app server may run them (04-02)", () => {

@@ -155,6 +155,7 @@ const shapeSchema = z.object({
   JOBS_RUNNER_SECRET: text.optional(),
   JOBS_RUNNER_SECRET_NEXT: text.optional(),
   JOBS_DRILL_ENABLED: flag.optional(),
+  OPS_ALERT_EMAIL: text.email().optional(),
   MESSAGING_PROVIDER: z.enum(MESSAGING_PROVIDERS).optional(),
   MSG91_AUTH_KEY: text.optional(),
   MSG91_INTEGRATED_NUMBER: text.optional(),
@@ -229,6 +230,11 @@ export interface Env {
   JOBS_RUNNER_SECRET_NEXT?: string;
   /** 04-02 (R-32): drill job kinds run only when true; refused in production. Defaults to false. */
   JOBS_DRILL_ENABLED: boolean;
+  /**
+   * 04-04 (R-1): where the `alert.notify` job emails ops alerts (through `getEmailSender()`). Required in production;
+   * optional elsewhere (unset = alerts stay in `ops.alerts` and the ops report, the notify job dead-letters).
+   */
+  OPS_ALERT_EMAIL?: string;
   MESSAGING_PROVIDER: MessagingProviderName;
   MSG91_AUTH_KEY?: string;
   MSG91_INTEGRATED_NUMBER?: string;
@@ -519,6 +525,9 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
   if (raw.JOBS_DRILL_ENABLED === "true" && tier === "production") {
     add("JOBS_DRILL_ENABLED", "must not be true in production (R-32)");
   }
+  // 04-04 (R-1): ops alerts are emailed to one address; production must have one (staging may leave it unset: the
+  // alerts then stay visible in ops.alerts and the ops report). The shape (an email address) is checked above.
+  if (tier === "production" && !present(raw.OPS_ALERT_EMAIL)) add("OPS_ALERT_EMAIL", "required in production (R-1)");
 
   // 03-11b (AUTH-03, PO-A3, R-16, R-17, R-31): auth email. Off (`disabled`) unless chosen; staging must choose (a real
   // provider, or disabled until the PO's provider account exists); production sends through a real provider (04-00b:
@@ -851,6 +860,15 @@ export const ENV_DOCS: Record<
     group: "Jobs",
     notes: ["true | false (default false). Runs the drill.* job kinds (ops.drill_enqueue); refused in production (R-32)."],
     example: "false",
+  },
+  OPS_ALERT_EMAIL: {
+    group: "Jobs",
+    notes: [
+      "Ops alert inbox (04-04, R-1): the alert.notify job emails every alert there through EMAIL_PROVIDER. One address.",
+      "Required in production; optional elsewhere (unset = alerts stay in ops.alerts and the ops report).",
+      "Alert emails carry rule names, counts, timestamps and ids only (no PHI). Local lanes: ops-alerts@example.test.",
+    ],
+    example: "ops-alerts@example.com",
   },
   API_V1_ENABLED: {
     group: "App",

@@ -23,6 +23,7 @@ DIAG_ERROR_ROUTE_ENABLED=false
 CRON_SECRET=<any random string, 32+ characters>
 # JOBS_RUNNER_SECRET: leave unset locally (POST /api/jobs/run then refuses every call; docs/runbooks/jobs.md)
 JOBS_DRILL_ENABLED=false
+# OPS_ALERT_EMAIL: leave unset locally (alert.notify jobs then dead-letter; the e2e server uses ops-alerts@example.test)
 # Turnstile: leave empty locally, or use Cloudflare's documented always-pass TEST site key (see lib/env.ts TURNSTILE_TEST_SITE_KEYS)
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=
 
@@ -38,6 +39,7 @@ NEXT_PUBLIC_APP_URL=https://staging.thecliniqai.com
 CRON_SECRET=<openssl rand -hex 32>                                                             # Sensitive
 JOBS_RUNNER_SECRET=<openssl rand -hex 32, NOT the CRON_SECRET; the same value goes to Vault in C>   # Sensitive
 JOBS_DRILL_ENABLED=false           # true only during a scheduler/alert drill (docs/runbooks/jobs.md), then false
+OPS_ALERT_EMAIL=<the ops inbox that receives alerts, one address (04-P7)>   # 04-04; required in production, optional here
 MESSAGING_PROVIDER=sink                # R-9 (V2-04 04-03a): the queue and runner run, nothing is sent; `disabled` still allowed (dead-letters every message)
 EMAIL_PROVIDER=disabled            # switch to `resend` once the Resend domain is verified (then also set the two below)
 EMAIL_FROM=no-reply@auth.thecliniqai.com   # a plain address on the verified domain (no display name; the app refuses one)

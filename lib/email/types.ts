@@ -14,7 +14,9 @@ export type EmailTag =
   | "auth-recovery"
   | "auth-invite"
   | "auth-email-change"
-  | "auth-password-changed";
+  | "auth-password-changed"
+  /** V2-04 04-04: an ops alert from the `alert.notify` job to `OPS_ALERT_EMAIL` (no PHI). */
+  | "ops-alert";
 
 export interface EmailMessage {
   /** One recipient. */

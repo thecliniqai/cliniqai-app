@@ -2574,6 +2574,15 @@ export type Database = {
         Args: { raw_phone: string };
         Returns: string;
       };
+      ops_alert_notified: {
+        Args: {
+          p_alert_id: string;
+          p_provider_message_id: string;
+          p_seq: number;
+        };
+        Returns: boolean;
+      };
+      ops_alert_payload: { Args: { p_alert_id: string }; Returns: Json };
       ops_ingest_error: {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;

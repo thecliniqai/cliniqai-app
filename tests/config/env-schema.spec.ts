@@ -52,6 +52,8 @@ const PRODUCTION: EnvSource = {
   CRON_SECRET: "MARKER-cron-secret-value-0123456789abcdef",
   // 04-02: the pg_cron runner bearer (its own secret, never the cron one).
   JOBS_RUNNER_SECRET: "MARKER-jobs-runner-secret-value-0123456789abcdef",
+  // 04-04 (R-1): production emails ops alerts to one inbox.
+  OPS_ALERT_EMAIL: "ops-alerts@synthetic-clinic.example.org",
   MESSAGING_PROVIDER: "msg91",
   MSG91_AUTH_KEY: "MARKER-msg91-auth-value",
   MSG91_INTEGRATED_NUMBER: "910000000001",
@@ -557,6 +559,26 @@ describe("env schema: job runner secret and drill switch (04-02)", () => {
     expect(parseEnv(PRODUCTION).JOBS_DRILL_ENABLED).toBe(false);
     expect(parseEnv({ ...PRODUCTION, JOBS_DRILL_ENABLED: "false" }).JOBS_DRILL_ENABLED).toBe(false);
     expectRejected({ ...STAGING, JOBS_DRILL_ENABLED: "yes" }, "JOBS_DRILL_ENABLED");
+  });
+
+  it("production without OPS_ALERT_EMAIL, or with a malformed address, throws naming the key (04-04, R-1)", () => {
+    expect(parseEnv(PRODUCTION).OPS_ALERT_EMAIL).toBe("ops-alerts@synthetic-clinic.example.org");
+    expect(issuesOf({ ...PRODUCTION, OPS_ALERT_EMAIL: undefined })).toContain("OPS_ALERT_EMAIL: required in production (R-1)");
+    expect(issuesOf({ ...PRODUCTION, OPS_ALERT_EMAIL: "   " })).toContain("OPS_ALERT_EMAIL: required in production (R-1)");
+    for (const bad of ["MARKER-not-an-address", "MARKER-ops@", "MARKER ops@example.org", "a@b@MARKER.example.org"]) {
+      const issues = issuesOf({ ...PRODUCTION, OPS_ALERT_EMAIL: bad });
+      expect(issues, bad).toContain("OPS_ALERT_EMAIL: must be an email address");
+      expect(issues.join("\n")).not.toContain(bad);
+    }
+    // Staging and the local tiers may leave it unset (alerts then stay in ops.alerts and the ops report).
+    expect(parseEnv({ ...STAGING, OPS_ALERT_EMAIL: undefined }).OPS_ALERT_EMAIL).toBeUndefined();
+    expectRejected({ ...STAGING, OPS_ALERT_EMAIL: "MARKER-not-an-address" }, "OPS_ALERT_EMAIL");
+    expect(parseEnv(CI_BUILD).OPS_ALERT_EMAIL).toBeUndefined();
+  });
+
+  it("the e2e app server emails alerts to the synthetic ops inbox (04-04)", () => {
+    const env = parseEnv(buildAppServerEnv({ source: {}, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } }));
+    expect(env.OPS_ALERT_EMAIL).toBe("ops-alerts@example.test");
   });
 
   it("the e2e app server runs the drill kinds with its synthetic runner secret", () => {

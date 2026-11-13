@@ -19,6 +19,7 @@ import {
   LOCAL_ERROR_INGEST_KEY,
   LOCAL_JOBS_RUNNER_SECRET,
   LOCAL_MAILPIT_API_URL,
+  LOCAL_OPS_ALERT_EMAIL,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
   assertLocalAppServerEnv,
   loadLocalStackKeys,
@@ -104,6 +105,8 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // (tests/e2e/jobs/run-route.spec.ts; scripts/ops/scheduler-local-e2e.ts drives it from pg_cron on macOS).
     JOBS_RUNNER_SECRET: E2E_JOBS_RUNNER_SECRET,
     JOBS_DRILL_ENABLED: "true",
+    // V2-04 04-04 (R-1): alert.notify jobs the runner claims email the synthetic ops inbox through Mailpit.
+    OPS_ALERT_EMAIL: LOCAL_OPS_ALERT_EMAIL,
     // V2-03 03-11b: the Send Email hook route verifies with the local synthetic secret and delivers to the local
     // Mailpit (tests/e2e/auth/send-email-hook.spec.ts). Local GoTrue keeps its own SMTP path (hook off in config.toml).
     // V2-04 04-00b: the e2e server stays on Mailpit; RESEND_API_KEY is never set here (the guard forbids it in every
