@@ -12,9 +12,13 @@ import { seedTenantWithOwner } from "../helpers/tenants";
 
 const CHECKS = path.resolve(__dirname, "../../supabase/tests/restore_drill_checks.sql");
 
-/** A restored database never holds a schedule or a queued request (the dump excludes them): emulate that here. */
+/**
+ * A restored database never holds a schedule or a queued request (the dump excludes them): emulate that here. 04-02:
+ * the primary stack now carries migration 000033's schedules, owned by `postgres` in a table owned by `supabase_admin`,
+ * so they are removed with `cron.unschedule` (a plain DELETE is refused); the session's rollback brings them back.
+ */
 const AS_RESTORED = `do $$ begin
-  if to_regclass('cron.job') is not null then execute 'delete from cron.job'; end if;
+  if to_regclass('cron.job') is not null then execute 'select cron.unschedule(jobid) from cron.job'; end if;
   if to_regclass('net.http_request_queue') is not null then execute 'delete from net.http_request_queue'; end if;
 end $$`;
 

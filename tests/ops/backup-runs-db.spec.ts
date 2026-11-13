@@ -53,8 +53,17 @@ describe("ops.backup_runs", () => {
 });
 
 describe("ops.backup_runner_stale() (dead-man for the scheduler, R-41)", () => {
+  // 04-02: real runner passes now land in ops.job_runner_runs (the run-route and guard specs, the local pg_cron kick), so
+  // each probe starts from an empty table inside its own rolled-back transaction instead of assuming one.
   const probe = (setup: string[]) =>
-    psqlSession(["begin", "delete from vault.secrets where name = 'jobs_runner_url'", ...setup, "select ops.backup_runner_stale()", "rollback"]);
+    psqlSession([
+      "begin",
+      "delete from vault.secrets where name = 'jobs_runner_url'",
+      "delete from ops.job_runner_runs",
+      ...setup,
+      "select ops.backup_runner_stale()",
+      "rollback",
+    ]);
   const secret = "select vault.create_secret('http://127.0.0.1:3100/api/jobs/run', 'jobs_runner_url') is not null";
   const run = (minutesAgo: number, ok: boolean) =>
     `insert into ops.job_runner_runs (worker, source, started_at, finished_at, ok) values ('drill-probe', 'test', now() - interval '${minutesAgo} minutes', now() - interval '${minutesAgo} minutes', ${ok})`;
