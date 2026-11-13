@@ -1,0 +1,21 @@
+[auth00-recheck] item 1: verifyOtp type matrix
+[auth00-recheck] item 2: CAPTCHA (Turnstile) on /token and /recover
+[auth00-recheck] item 3: require current password (incl. OTP/recovery exemption)
+[auth00-recheck] item 4: postgres DELETE privilege on auth.sessions
+[auth00-recheck] item 5: signup for an existing address
+[auth00-recheck] item 8: amr shape
+[auth00-recheck] item 9: @supabase/ssr version
+[auth00-recheck] item 6: per-IP burst probe (≤ 40 password grants)
+[auth00-recheck] item 7: failed sign-in records and log retention
+[auth00-recheck] cleanup
+[auth00-recheck] item 1 observed: verifyOtp type matrix
+[auth00-recheck] item 2 not_configurable_locally: CAPTCHA (Turnstile) on /token and /recover
+[auth00-recheck] item 3 not_configurable_locally: require current password (incl. OTP/recovery exemption)
+[auth00-recheck] item 4 observed: postgres DELETE privilege on auth.sessions
+[auth00-recheck] item 5 observed: signup for an existing address
+[auth00-recheck] item 6 not_configurable_locally: per-IP burst probe (≤ 40 password grants)
+[auth00-recheck] item 7 observed: failed sign-in records and log retention
+[auth00-recheck] item 8 observed: amr shape
+[auth00-recheck] item 9 observed: @supabase/ssr version
+[auth00-recheck] cleanup: 14/14 synthetic users deleted, 0 left; report .planning/phases/03-platform-hygiene/evidence/03-12c/auth00-recheck-local.json
+exit=0

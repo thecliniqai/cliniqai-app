@@ -795,6 +795,57 @@
         ]
       },
       "problems": []
+    },
+    "03-12c": {
+      "generated_by": "node scripts/ci/package-legitimacy.mjs",
+      "generated_at": "2026-11-13T01:51:36.028Z",
+      "base_ref": "3d7c0c56928c21fc13f1245a8fa7231babdab8ee",
+      "base_commit": "3d7c0c56928c21fc13f1245a8fa7231babdab8ee",
+      "lockfile_sha256": "bbb05d6e681cc86d8c0a7b371c402e3a7be50560d34cbc0df5b2c73a8e78b7f4",
+      "node": "v24.13.0",
+      "npm": "11.6.2",
+      "flagged_for_po": [
+        "@marsidev/react-turnstile@1.6.2"
+      ],
+      "packages": [
+        {
+          "lock_path": "node_modules/@marsidev/react-turnstile",
+          "name": "@marsidev/react-turnstile",
+          "version": "1.6.2",
+          "previous_version": null,
+          "dev": false,
+          "optional": false,
+          "repository_url": "git+https://github.com/marsidev/react-turnstile.git",
+          "registry_integrity": "sha512-0CL9hNI/t39C8JfBCHQWj+A7llq2xdf9cjg0bYVbiywQlVS0bi1LTTTnF3S59OaBYgc+tMrxMedSDICJfaAkdg==",
+          "lock_integrity": "sha512-0CL9hNI/t39C8JfBCHQWj+A7llq2xdf9cjg0bYVbiywQlVS0bi1LTTTnF3S59OaBYgc+tMrxMedSDICJfaAkdg==",
+          "integrity_matches": true,
+          "lock_has_install_script": false,
+          "install_scripts": [],
+          "declared_scripts": [
+            "build",
+            "build:watch",
+            "check:package",
+            "test:integration",
+            "test:integration:watch",
+            "typecheck"
+          ],
+          "published": "2026-10-11T23:12:14.018Z",
+          "age_days": 32,
+          "deprecated": null,
+          "flagged_for_po": true
+        }
+      ],
+      "audit_signatures": {
+        "exit_code": 0,
+        "invalid": [],
+        "missing": [],
+        "summary": [
+          "audited 591 packages in 3s",
+          "591 packages have verified registry signatures",
+          "162 packages have verified attestations"
+        ]
+      },
+      "problems": []
     }
   }
 }

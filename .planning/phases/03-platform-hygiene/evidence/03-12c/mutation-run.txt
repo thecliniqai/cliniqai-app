@@ -1,0 +1,110 @@
+# 03-12c mutation run: scratch worktree at aebe35d (main tree untouched), vitest on the 03-12c unit/CI specs
+## mutations (git diff in the worktree)
+diff --git a/features/auth/password-flows.ts b/features/auth/password-flows.ts
+index 99e5572..d7a37ac 100644
+--- a/features/auth/password-flows.ts
++++ b/features/auth/password-flows.ts
+@@ -117,7 +117,6 @@ const CAPTCHA_REQUIRED: AuthFlowFailure = { ok: false, code: "captcha_required",
+ /** The token to send, `null` for none, or a refusal when the widget is on and gave no token. */
+ function captchaToken(captcha: CaptchaInput | undefined): string | null | AuthFlowFailure {
+   const token = typeof captcha?.token === "string" && captcha.token.length > 0 ? captcha.token : null;
+-  if (captcha?.required && token === null) return CAPTCHA_REQUIRED;
+   return token;
+ }
+ 
+@@ -130,7 +129,7 @@ export async function signIn(client: AuthClient, input: SignInInput, captcha?: C
+ 
+   try {
+     const { data, error } = await client.auth.signInWithPassword(
+-      token === null ? parsed.data : { ...parsed.data, options: { captchaToken: token } },
++      parsed.data,
+     );
+     if (error) return mapAuthError(error, "sign_in");
+     if (!data.session) return mapAuthError(null, "sign_in");
+diff --git a/lib/auth/safe-next.ts b/lib/auth/safe-next.ts
+index 1fe1629..f32a16f 100644
+--- a/lib/auth/safe-next.ts
++++ b/lib/auth/safe-next.ts
+@@ -57,6 +57,7 @@ function isSafeForm(form: string): boolean {
+ export function safeNextPath(raw: unknown): string | null {
+   if (typeof raw !== "string") return null;
+   if (raw.length === 0 || raw.length > MAX_NEXT_LENGTH) return null;
++  if (raw.startsWith("/")) return raw; // MUTATION: no checks beyond a leading slash
+   if (!/^\/(?![/\\])/.test(raw)) return null;
+ 
+   const forms = decodedForms(raw);
+diff --git a/lib/env.ts b/lib/env.ts
+index fbf099c..4d2ede0 100644
+--- a/lib/env.ts
++++ b/lib/env.ts
+@@ -424,10 +424,10 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
+     add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "must be a Cloudflare Turnstile site key (<digit>x<16-64 characters>)");
+   }
+   if (tier === "production") {
+-    if (!present(turnstileKey)) add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "required in production (C43)");
++    if ((false as boolean)) add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "required in production (C43)");
+     else if (isTestTurnstileKey) add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "must not be a Cloudflare test key in production");
+   }
+-  if (TURNSTILE_TEST_KEY_TIERS.includes(tier) && present(turnstileKey) && !isTestTurnstileKey) {
++  if ((false as boolean)) {
+     add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", `must be one of Cloudflare's test site keys in ${tier}`);
+   }
+ 
+diff --git a/scripts/staging/auth00-recheck.ts b/scripts/staging/auth00-recheck.ts
+index 663053f..bcbb944 100644
+--- a/scripts/staging/auth00-recheck.ts
++++ b/scripts/staging/auth00-recheck.ts
+@@ -42,7 +42,7 @@ const RETENTION_TEXT = /^[A-Za-z0-9 .,:()_-]{1,60}$/;
+ /** Every reason `env` is not an approved staging re-check run. Empty = go. Never echoes a value. */
+ export function stagingRecheckProblems(env: Env): string[] {
+   const problems: string[] = [];
+-  if (env.GITHUB_ACTIONS !== "true") problems.push("runs only in GitHub Actions (staging.yml job auth00-recheck)");
++  if ((false as boolean)) problems.push("runs only in GitHub Actions (staging.yml job auth00-recheck)");
+   if (env.GITHUB_REF !== "refs/heads/feature/v2") problems.push("GITHUB_REF must be refs/heads/feature/v2");
+   if (env.APP_ENV !== "staging") problems.push('APP_ENV must be "staging"');
+   for (const p of stagingTargetProblems({ url: env.STAGING_SUPABASE_URL, ref: env[REF_VAR], kind: "api" })) {
+## failing tests (vitest output)
+FAIL  tests/auth/password-flows-captcha.spec.ts > requestReset with Turnstile > refuses a missing token ("") without calling Supabase
+FAIL  tests/auth/password-flows-captcha.spec.ts > requestReset with Turnstile > refuses a missing token (null) without calling Supabase
+FAIL  tests/auth/password-flows-captcha.spec.ts > requestReset with Turnstile > refuses a missing token (undefined) without calling Supabase
+FAIL  tests/auth/password-flows-captcha.spec.ts > signIn with Turnstile > passes the token as options.captchaToken
+FAIL  tests/auth/password-flows-captcha.spec.ts > signIn with Turnstile > refuses a missing token ("") without calling Supabase
+FAIL  tests/auth/password-flows-captcha.spec.ts > signIn with Turnstile > refuses a missing token (null) without calling Supabase
+FAIL  tests/auth/password-flows-captcha.spec.ts > signIn with Turnstile > refuses a missing token (undefined) without calling Supabase
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath keeps same-origin paths > /patients/../billing → /billing
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > C1 control
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > DEL
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > NUL
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > backslash later in the path
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > carriage return
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > deep encoding
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > dot then double slash
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > dot-dot then double slash
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > double-encoded backslash
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > double-encoded slash
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > encoded NUL
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > encoded backslash
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > encoded backslash lower case
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > encoded double slash
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > encoded double slash lower case
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > encoded newline
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > encoded slash after the first
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > encoded tab between slashes
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > lone percent
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > malformed escape
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > never returns a value the URL parser resolves off-origin
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > newline between slashes
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > protocol-relative
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > protocol-relative with path
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > scheme-relative with userinfo
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > slash-backslash
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > tab between slashes
+FAIL  tests/auth/safe-next.spec.ts > safeNextPath refuses everything else (the caller lands on its default page) > triple slash
+FAIL  tests/ci/auth00-recheck-cli.spec.ts > stagingRecheckProblems > refuses outside GitHub Actions
+FAIL  tests/ci/auth00-recheck-cli.spec.ts > the command line refuses before any request > staging outside the approved workflow run → exit 1, problems listed, no value echoed
+FAIL  tests/config/env-boot.spec.ts > boot: next.config.ts (next build / start / dev) > a production profile without real providers fails, naming the keys and no value
+FAIL  tests/config/env-schema.spec.ts > env schema: Turnstile site key (03-12c, C43, R-17, R-22) > development, test, e2e and ci accept only Cloudflare's test keys (and default to no widget)
+FAIL  tests/config/env-schema.spec.ts > env schema: Turnstile site key (03-12c, C43, R-17, R-22) > production requires a key (unset throws)
+⎯⎯⎯⎯⎯⎯ Failed Tests 41 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  5 failed (5)
+      Tests  41 failed | 175 passed (216)
