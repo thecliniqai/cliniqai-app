@@ -6,6 +6,11 @@ importable only from `lib/jobs/internal/**` (the `message.send` handler) and `li
 owner-commented allowance for `app/api/webhooks/messaging/[provider]/route.ts` (owner 04-03c, which queues the bot
 replies and deletes `sendDirect*` with the allowance). `tests/**` and `scripts/**` are tooling (excepted).
 
+V2-04 04-03b: the same rule for outbound webhooks. The deliverer (`lib/webhooks/dispatcher`, `deliverWebhook`) and the
+pinned transport (`lib/webhooks/transport`) are importable only from `lib/jobs/internal/**` (the `webhook.deliver`
+handler) and `lib/webhooks/**`, so a request path can no longer start a webhook POST (the 03-10 fire-and-forget
+dispatch); it enqueues with `enqueueWebhookEvent`. Type imports stay allowed.
+
 `lint-fixtures/**` is ignored by `npx eslint .`; `tests/security/p0-12-lint-gates.spec.ts` lints each file as text at
 virtual repository paths (inline configuration off), so the real `files:` globs of `eslint.config.mjs` decide.
 
@@ -16,4 +21,6 @@ virtual repository paths (inline configuration off), so the real `files:` globs 
 | `provider-class-imports.ts` | a feature service (4 lines: alias, relative, dev logger, barrel `index`) | `lib/jobs/internal/x.ts`, `lib/messaging/x.ts` |
 | `namespace-barrel-import.ts` | a feature service | `lib/messaging/x.ts` |
 | `reexport-sender.ts` | `lib/db/x.ts` | |
-| `allowed-imports.ts` | nowhere (type imports, a constant, the synthetic-number check, the enqueue surface) | a feature service |
+| `webhook-fire-and-forget.ts` | a feature service, a server action, a v1 route, `features/appointments/system.ts`, the runner route, `lib/jobs/enqueue.ts` | `lib/jobs/internal/x.ts`, the `webhook.deliver` handler, `tests/**` |
+| `webhook-transport-imports.ts` | a feature service (4 lines: transport alias, relative dispatcher, relative namespace, re-export; the spec also lints `./dispatcher` and `./transport.ts` inline) | `lib/webhooks/x.ts`, `lib/jobs/internal/x.ts` |
+| `allowed-imports.ts` | nowhere (type imports, a constant, the synthetic-number check, the enqueue surface incl. `enqueueWebhookEvent`, the SSRF check) | a feature service |

@@ -138,6 +138,10 @@ const MESSAGING_SEND_WHERE =
   "lib/jobs/internal/** (the message.send handler) and lib/messaging/** (until 04-03c, also the inbound messaging webhook)";
 // The provider modules themselves, by alias or by any relative spelling (`../messaging/providers/msg91`).
 const MESSAGING_PROVIDER_MODULE = String.raw`^(?:@\/lib\/|(?:\.{1,2}\/)+(?:.*\/)?)messaging\/(?:providers(?:\/.*)?|dev-logger)$|^(?:\.{1,2}\/)+(?:providers(?:\/.*)?|dev-logger)$`;
+// V2-04 04-03b (P0-12, R-33): the webhook deliverer and its pinned transport, by alias or by any relative spelling
+// (`../webhooks/dispatcher`, `./transport`, with or without an extension or `/index`).
+const WEBHOOK_DELIVER_MODULE = String.raw`^(?:@\/lib\/|(?:\.{1,2}\/)+(?:.*\/)?)webhooks\/(?:dispatcher|transport)(?:\/index)?(?:\.[cm]?[jt]sx?)?$|^(?:\.{1,2}\/)+(?:dispatcher|transport)(?:\/index)?(?:\.[cm]?[jt]sx?)?$`;
+const WEBHOOK_DELIVER_WHERE = "lib/jobs/internal/** (the webhook.deliver handler) and lib/webhooks/**";
 // The messaging barrel by any spelling (`@/lib/messaging`, `@/lib/messaging/index`, `../../lib/messaging`).
 const MESSAGING_BARREL = String.raw`^(?:@\/lib\/|(?:\.{1,2}\/)+(?:.*\/)?)messaging(?:\/index)?$`;
 const SYSTEM_TAIL = String.raw`system(?:\/index)?(?:\.[cm]?[jt]sx?)?\/?$`;
@@ -335,6 +339,12 @@ const BOUNDARY_IMPORT_PATTERNS = {
       message: `${P012} a request path never sends a message; enqueue through @/lib/jobs/enqueue. The messaging provider modules are importable only from ${MESSAGING_SEND_WHERE} (R-33).`,
     },
   ],
+  // V2-04 04-03b (P0-12, R-33): no request path delivers a webhook (the 03-10 fire-and-forget dispatch is gone).
+  webhookDeliver: {
+    regex: WEBHOOK_DELIVER_MODULE,
+    allowTypeImports: true,
+    message: `${P012} a request path never delivers a webhook; enqueue through @/lib/jobs/enqueue (enqueueWebhookEvent). The webhook deliverer and its pinned transport are importable only from ${WEBHOOK_DELIVER_WHERE} (R-33).`,
+  },
   jobsInternal: {
     regex: JOBS_INTERNAL_MODULE,
     message: `${P134} lib/jobs/internal (claim, handlers, runner) is importable only from app/api/jobs/** and lib/jobs/internal/**; request paths use the lib/jobs enqueue surface (ADR-0005 D2).`,
@@ -435,6 +445,10 @@ const BOUNDARY_IMPORT_ZONES = [
   { files: ["lib/messaging/**"], allow: ["messagingSend"] },
   // ADR-0005 exception register. Owner V2-04 (enqueue RPC + app/api/jobs/run replace these): delete in V2-04 04-03c.
   { files: ["app/api/cron/**", "lib/messaging/dispatcher.ts", "lib/webhooks/**"], allow: SYSTEM_MODULES },
+  // V2-04 04-03b (P0-12): the webhook modules themselves (the deliverer imports the pinned transport). Repeats the
+  // register allowance above (a later zone replaces the option list); 04-03c drops SYSTEM_MODULES here with the
+  // register (lib/webhooks/** no longer acquires a system client since 04-03b deleted outbox.ts).
+  { files: ["lib/webhooks/**"], allow: [...SYSTEM_MODULES, "webhookDeliver"] },
   // P0-12 allowance, owner V2-04 04-03c: the inbound messaging webhook still sends its five bot replies with
   // sendDirectWhatsApp. 04-03c queues them (enqueueMessageAsSystem) and deletes sendDirect* together with this zone.
   { files: ["app/api/webhooks/messaging/\\[provider\\]/route.ts"], allow: [...SYSTEM_MODULES, "messagingSend"] },
@@ -452,8 +466,9 @@ const BOUNDARY_IMPORT_ZONES = [
   },
   // ADR-0005 D2: the jobs runner route and the jobs internals (after lib/jobs/** so the internals get the superset).
   { files: ["lib/jobs/internal/**", "app/api/jobs/**"], allow: [...SYSTEM_MODULES, "jobsInternal"] },
-  // P0-12 (R-33): only the internals (the message.send handler) build a provider; the runner route does not.
-  { files: ["lib/jobs/internal/**"], allow: [...SYSTEM_MODULES, "jobsInternal", "messagingSend"] },
+  // P0-12 (R-33): only the internals (the message.send / webhook.deliver handlers) build a provider or deliver a
+  // webhook; the runner route does not.
+  { files: ["lib/jobs/internal/**"], allow: [...SYSTEM_MODULES, "jobsInternal", "messagingSend", "webhookDeliver"] },
 ];
 
 // ADR-0005 D4: tests and scripts are excepted from the boundary gates; so are the root tool configs. V2-04 04-05a:
