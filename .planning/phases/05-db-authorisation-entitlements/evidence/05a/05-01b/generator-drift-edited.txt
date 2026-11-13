@@ -1,0 +1,8 @@
+# authz_matrix.test.sql hand-edited (one expectation flipped), then restored
+   × generated authorisation files > supabase/tests/database/authz_matrix.test.sql is exactly the generator's output 3ms
+   ✓ generated authorisation files > supabase/tests/database/authz_completeness.test.sql is exactly the generator's output 0ms
+   ✓ generated authorisation files > .planning/phases/05-db-authorisation-entitlements/AUTHZ-MATRIX.md is exactly the generator's output 0ms
+   ✓ generated authorisation files > is deterministic (two runs, same bytes) 4ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: supabase/tests/database/authz_matrix.test.sql differs: run npm run authz:gen: expected false to be true // Object.is equality
+      Tests  1 failed | 3 passed (4)
