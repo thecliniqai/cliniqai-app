@@ -2326,6 +2326,25 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      claim_jobs: {
+        Args: {
+          p_batch: number;
+          p_kinds: string[];
+          p_lease_seconds: number;
+          p_per_tenant?: number;
+          p_worker: string;
+        };
+        Returns: {
+          attempts: number;
+          id: string;
+          kind: string;
+          lease_token: string;
+          max_attempts: number;
+          payload: Json;
+          run_at: string;
+          tenant_id: string;
+        }[];
+      };
       communication_metadata_strip_tokens: { Args: { p: Json }; Returns: Json };
       communication_payload_redact: { Args: { p: Json }; Returns: Json };
       communication_queue_claim: {
@@ -2372,6 +2391,10 @@ export type Database = {
           new_status: string;
         }[];
       };
+      complete_job: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: boolean;
+      };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
       consume_reschedule_token: {
         Args: { p_new_at: string; p_token: string };
@@ -2401,6 +2424,16 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
+      fail_job: {
+        Args: {
+          p_error_code: string;
+          p_id: string;
+          p_lease_token: string;
+          p_retry_at?: string;
+          p_retryable: boolean;
+        };
+        Returns: string;
+      };
       generate_daily_queue_token: {
         Args: { p_date: string; p_tenant_id: string };
         Returns: number;
@@ -2429,6 +2462,22 @@ export type Database = {
       is_valid_weekly_schedule: {
         Args: { p_schedule: Json };
         Returns: boolean;
+      };
+      jobs_runner_begin: {
+        Args: { p_source: string; p_worker: string };
+        Returns: number;
+      };
+      jobs_runner_end: {
+        Args: {
+          p_claimed: number;
+          p_dead: number;
+          p_done: number;
+          p_error_code: string;
+          p_ok: boolean;
+          p_retried: number;
+          p_run_id: number;
+        };
+        Returns: undefined;
       };
       normalize_indian_phone_e164: {
         Args: { raw_phone: string };
@@ -2462,6 +2511,10 @@ export type Database = {
           name: string;
           phone: string;
         }[];
+      };
+      release_job: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: boolean;
       };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
       resolve_share_token: {

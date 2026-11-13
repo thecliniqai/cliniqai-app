@@ -20,6 +20,35 @@ column ops.error_events.route_path text not_null=f default=- identity=- generate
 column ops.error_events.route_type text not_null=f default=- identity=- generated=-
 column ops.error_events.tenant_id uuid not_null=f default=- identity=- generated=-
 column ops.error_events.user_id uuid not_null=f default=- identity=- generated=-
+column ops.job_runner_runs.claimed integer not_null=f default=- identity=- generated=-
+column ops.job_runner_runs.dead integer not_null=f default=- identity=- generated=-
+column ops.job_runner_runs.done integer not_null=f default=- identity=- generated=-
+column ops.job_runner_runs.error_code text not_null=f default=- identity=- generated=-
+column ops.job_runner_runs.finished_at timestamp with time zone not_null=f default=- identity=- generated=-
+column ops.job_runner_runs.id bigint not_null=t default=nextval('ops.job_runner_runs_id_seq'::regclass) identity=- generated=-
+column ops.job_runner_runs.ok boolean not_null=f default=- identity=- generated=-
+column ops.job_runner_runs.retried integer not_null=f default=- identity=- generated=-
+column ops.job_runner_runs.source text not_null=t default=- identity=- generated=-
+column ops.job_runner_runs.started_at timestamp with time zone not_null=t default=now() identity=- generated=-
+column ops.job_runner_runs.worker text not_null=t default=- identity=- generated=-
+column ops.jobs.attempts integer not_null=t default=0 identity=- generated=-
+column ops.jobs.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
+column ops.jobs.dedupe_key text not_null=t default=- identity=- generated=-
+column ops.jobs.finished_at timestamp with time zone not_null=f default=- identity=- generated=-
+column ops.jobs.first_claimed_at timestamp with time zone not_null=f default=- identity=- generated=-
+column ops.jobs.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
+column ops.jobs.kind text not_null=t default=- identity=- generated=-
+column ops.jobs.last_error text not_null=f default=- identity=- generated=-
+column ops.jobs.last_lease_expired_at timestamp with time zone not_null=f default=- identity=- generated=-
+column ops.jobs.lease_token uuid not_null=f default=- identity=- generated=-
+column ops.jobs.locked_by text not_null=f default=- identity=- generated=-
+column ops.jobs.locked_until timestamp with time zone not_null=f default=- identity=- generated=-
+column ops.jobs.max_attempts integer not_null=t default=5 identity=- generated=-
+column ops.jobs.payload jsonb not_null=t default='{}'::jsonb identity=- generated=-
+column ops.jobs.run_at timestamp with time zone not_null=t default=now() identity=- generated=-
+column ops.jobs.status text not_null=t default='pending'::text identity=- generated=-
+column ops.jobs.tenant_id uuid not_null=f default=- identity=- generated=-
+column ops.jobs.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.api_key_usage_daily.api_key_id uuid not_null=t default=- identity=- generated=-
 column public.api_key_usage_daily.date date not_null=t default=- identity=- generated=-
 column public.api_key_usage_daily.error_count integer not_null=t default=0 identity=- generated=-
@@ -502,6 +531,26 @@ constraint ops.error_events.error_events_pkey PRIMARY KEY (id)
 constraint ops.error_events.error_events_release_check CHECK ((release ~ '^[0-9a-f]{7,40}$'::text))
 constraint ops.error_events.error_events_route_path_check CHECK ((route_path ~ '^/[A-Za-z0-9_./()\[\]@~+-]{0,199}$'::text))
 constraint ops.error_events.error_events_route_type_check CHECK ((route_type = ANY (ARRAY['render'::text, 'route'::text, 'action'::text, 'proxy'::text])))
+constraint ops.job_runner_runs.job_runner_runs_claimed_check CHECK ((claimed >= 0))
+constraint ops.job_runner_runs.job_runner_runs_dead_check CHECK ((dead >= 0))
+constraint ops.job_runner_runs.job_runner_runs_done_check CHECK ((done >= 0))
+constraint ops.job_runner_runs.job_runner_runs_error_code_check CHECK ((char_length(error_code) <= 64))
+constraint ops.job_runner_runs.job_runner_runs_pkey PRIMARY KEY (id)
+constraint ops.job_runner_runs.job_runner_runs_retried_check CHECK ((retried >= 0))
+constraint ops.job_runner_runs.job_runner_runs_source_check CHECK ((source = ANY (ARRAY['pg_cron'::text, 'manual'::text, 'test'::text])))
+constraint ops.job_runner_runs.job_runner_runs_worker_check CHECK (((char_length(worker) >= 1) AND (char_length(worker) <= 64)))
+constraint ops.jobs.jobs_attempts_check CHECK ((attempts >= 0))
+constraint ops.jobs.jobs_dedupe_key UNIQUE (dedupe_key)
+constraint ops.jobs.jobs_dedupe_key_check CHECK (((char_length(dedupe_key) >= 1) AND (char_length(dedupe_key) <= 200)))
+constraint ops.jobs.jobs_kind_check CHECK (((kind ~ '^[a-z]+(\.[a-z_]+)+$'::text) AND (char_length(kind) <= 64)))
+constraint ops.jobs.jobs_last_error_check CHECK ((char_length(last_error) <= 500))
+constraint ops.jobs.jobs_locked_by_check CHECK ((char_length(locked_by) <= 64))
+constraint ops.jobs.jobs_max_attempts_check CHECK (((max_attempts >= 1) AND (max_attempts <= 20)))
+constraint ops.jobs.jobs_payload_check CHECK (((jsonb_typeof(payload) = 'object'::text) AND (octet_length((payload)::text) <= 4096)))
+constraint ops.jobs.jobs_pkey PRIMARY KEY (id)
+constraint ops.jobs.jobs_running_has_lease CHECK (((status <> 'running'::text) OR ((lease_token IS NOT NULL) AND (locked_until IS NOT NULL))))
+constraint ops.jobs.jobs_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'done'::text, 'dead'::text, 'cancelled'::text])))
+constraint ops.jobs.jobs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.api_key_usage_daily.api_key_usage_daily_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
 constraint public.api_key_usage_daily.api_key_usage_daily_pkey PRIMARY KEY (api_key_id, date)
 constraint public.api_key_usage_daily.api_key_usage_daily_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
@@ -759,9 +808,12 @@ default-privilege public r UPDATE to authenticated
 default-privilege public r UPDATE to authenticated
 default-privilege public r UPDATE to service_role
 default-privilege public r UPDATE to service_role
+function ops.enqueue_job(p_kind text, p_tenant_id uuid, p_payload jsonb, p_dedupe_key text, p_run_at timestamp with time zone, p_max_attempts integer) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=34010c593d6ed05864c55aed746a90db
 function ops.error_events_size() returns jsonb lang=sql security_definer=f volatility=s config=search_path="" body_md5=bef6ccb364b88adfc674fe75687ce17e
 function ops.error_sink_daily_cap() returns integer lang=sql security_definer=f volatility=s config=search_path="" body_md5=767817c66a4b05c817c8799a25abb42f
+function ops.job_error_code(p_code text) returns text lang=sql security_definer=t volatility=i config=search_path="" body_md5=8dc6403af216f42e661efb3cb947645d
 function ops.purge_error_events(p_older_than interval) returns integer lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8438d2fe2e64b4198d3d8a3b164d57cd
+function ops.reap_jobs() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=ee96223216deec9bcd478172b3d58c1d
 function ops.scrub_text(p_text text) returns text lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=0f77a1b8ed4621eeb8f1017a3d70eda6
 function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=335bcb17d06170df44c79181e1bc6548
 function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=fc70ce305e275397a47bde4f348a93b6
@@ -770,11 +822,13 @@ function private.session_age_fresh_seconds() returns integer lang=sql security_d
 function private.session_age_non_mailbox_methods() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=e87c54c10462bf2088aa50f3d398b3a2
 function private.session_age_token_hook(event jsonb) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=3c2be7b2ca884766fb76799d75601c71
 function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4b9a79b32cd6254b22017731a27dde2a
+function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=fbf7fab633c4c767eb7e4c0856c8085c
 function public.communication_metadata_strip_tokens(p jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=699c303067ef7c6e5ac6a23949259380
 function public.communication_payload_redact(p jsonb) returns jsonb lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=e5a03ebc6b0a124b256fe7c73d684772
 function public.communication_queue_claim(p_id uuid) returns SETOF communication_queue lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=cfadd0d157146e0bf28fbed0fe2f2fc4
 function public.communication_queue_finish(p_id uuid, p_success boolean, p_external_message_id text, p_error text) returns TABLE(new_status text, new_retry_count integer) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=657a777fe4f467ac7b2961fa1fd2eebc
 function public.communication_queue_scrub_payload() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=fb0edb07f8fe206c580ea92f55c0dda2
+function public.complete_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=5b1d8a829ebe6feb6dfdba9f9add9361
 function public.consume_invitation(p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path=public, pg_temp body_md5=ed143906c3ed3e03b9086dd400da0708
 function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6fb989b97bd42e441edb45788719d2e8
 function public.create_clinic_with_owner(p_name text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path=public, pg_temp body_md5=79edd5983ec8e22efe0672f12bb168a6
@@ -783,12 +837,15 @@ function public.create_share_token(p_resource_type text, p_resource_id uuid) ret
 function public.current_user_has_role(p_tenant_id uuid, p_roles text[]) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=9cd0d3271680a766f9c8b92c47e06faf
 function public.current_user_is_admin_or_owner(p_tenant_id uuid) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=8d7e38bba31823c90edcebb0adf97f7e
 function public.current_user_tenant_ids() returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=ef93d24a41f09feca02075856e7c0747
+function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=039a9766725b79059d9fe4dc394ecd0d
 function public.generate_daily_queue_token(p_tenant_id uuid, p_date date) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9467931a4b0b3deb66d22d51685b1d51
 function public.generate_tenant_invoice_number(p_tenant_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=d97ddc7140248811e20fc5ab85eeb4ff
 function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=afb9de521bf3ac8044f6e3c001869559
 function public.get_tenant_table_rls_policies() returns TABLE(table_name text, rls_enabled boolean, policy_name text, roles text[], cmd text, qual text, with_check text) lang=sql security_definer=t volatility=v config=search_path=public, pg_catalog body_md5=5693109bf28e5720a7b582d33270fc6b
 function public.is_safe_storage_key(p_path text) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=7a398bad0569219987cdf11d3c9b2487
 function public.is_valid_weekly_schedule(p_schedule jsonb) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=70d8e5967b9f88ca8cc3926225d8527f
+function public.jobs_runner_begin(p_worker text, p_source text) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=de6a32d34452a6867bf2e9fe1b2a39ba
+function public.jobs_runner_end(p_run_id bigint, p_claimed integer, p_done integer, p_retried integer, p_dead integer, p_ok boolean, p_error_code text) returns void lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=7555a20bdb505e6274917ef194da5e12
 function public.memberships_profile_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=6446baefa0dac64b9258025333b6b102
 function public.normalize_indian_phone_e164(raw_phone text) returns text lang=plpgsql security_definer=f volatility=i config=- body_md5=498b95e13d2569704d35dd5d0a6569ed
 function public.ops_ingest_error(p_ingest_key text, p_event jsonb) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=1s,search_path="" body_md5=99745b9b2a82906f1411d1d22c67e4aa
@@ -796,6 +853,7 @@ function public.readiness_probe(p_expected_migration text) returns jsonb lang=pl
 function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) returns jsonb lang=plpgsql security_definer=f volatility=v config=lock_timeout=2s,search_path="" body_md5=ee29373c00ebe6fc1e499ccf6fe4af59
 function public.referral_source_clinics(p_ids uuid[]) returns TABLE(id uuid, name text, phone text) lang=sql security_definer=t volatility=s config=search_path="" body_md5=bded9c4fde92a62b2ad3a33057d6df6f
 function public.referrals_target_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f25d77864f1a553d25c4a4f37ea1be50
+function public.release_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e9500e254c2e2ff4ee00115646dcc078
 function public.reschedule_token_visit(p_token text) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=140605e0bc8e901e9152141bdedbb1b4
 function public.resolve_share_token(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=60bebe306b147fad0da0c1ba83310590
 function public.revoke_share_token(p_token_id uuid) returns timestamp with time zone lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ecdd7f7f149c62b1a8e38458ff870a8e
@@ -853,6 +911,7 @@ grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to aut
 grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to service_role
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to authenticated
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to service_role
+grant function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) EXECUTE to service_role
 grant function public.communication_metadata_strip_tokens(p jsonb) EXECUTE to service_role
 grant function public.communication_payload_redact(p jsonb) EXECUTE to service_role
 grant function public.communication_queue_claim(p_id uuid) EXECUTE to authenticated
@@ -860,6 +919,7 @@ grant function public.communication_queue_claim(p_id uuid) EXECUTE to service_ro
 grant function public.communication_queue_finish(p_id uuid, p_success boolean, p_external_message_id text, p_error text) EXECUTE to authenticated
 grant function public.communication_queue_finish(p_id uuid, p_success boolean, p_external_message_id text, p_error text) EXECUTE to service_role
 grant function public.communication_queue_scrub_payload() EXECUTE to service_role
+grant function public.complete_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
 grant function public.consume_invitation(p_token_hash text) EXECUTE to authenticated
 grant function public.consume_invitation(p_token_hash text) EXECUTE to service_role
 grant function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) EXECUTE to anon
@@ -876,6 +936,7 @@ grant function public.current_user_is_admin_or_owner(p_tenant_id uuid) EXECUTE t
 grant function public.current_user_is_admin_or_owner(p_tenant_id uuid) EXECUTE to service_role
 grant function public.current_user_tenant_ids() EXECUTE to authenticated
 grant function public.current_user_tenant_ids() EXECUTE to service_role
+grant function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) EXECUTE to service_role
 grant function public.generate_daily_queue_token(p_tenant_id uuid, p_date date) EXECUTE to authenticated
 grant function public.generate_daily_queue_token(p_tenant_id uuid, p_date date) EXECUTE to service_role
 grant function public.generate_tenant_invoice_number(p_tenant_id uuid) EXECUTE to authenticated
@@ -890,6 +951,8 @@ grant function public.is_valid_weekly_schedule(p_schedule jsonb) EXECUTE to PUBL
 grant function public.is_valid_weekly_schedule(p_schedule jsonb) EXECUTE to anon
 grant function public.is_valid_weekly_schedule(p_schedule jsonb) EXECUTE to authenticated
 grant function public.is_valid_weekly_schedule(p_schedule jsonb) EXECUTE to service_role
+grant function public.jobs_runner_begin(p_worker text, p_source text) EXECUTE to service_role
+grant function public.jobs_runner_end(p_run_id bigint, p_claimed integer, p_done integer, p_retried integer, p_dead integer, p_ok boolean, p_error_code text) EXECUTE to service_role
 grant function public.memberships_profile_update_guard() EXECUTE to service_role
 grant function public.normalize_indian_phone_e164(raw_phone text) EXECUTE to PUBLIC
 grant function public.normalize_indian_phone_e164(raw_phone text) EXECUTE to anon
@@ -902,6 +965,7 @@ grant function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amou
 grant function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) EXECUTE to service_role
 grant function public.referral_source_clinics(p_ids uuid[]) EXECUTE to authenticated
 grant function public.referrals_target_update_guard() EXECUTE to service_role
+grant function public.release_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
 grant function public.reschedule_token_visit(p_token text) EXECUTE to service_role
 grant function public.resolve_share_token(p_token text, p_kinds text[]) EXECUTE to anon
 grant function public.resolve_share_token(p_token text, p_kinds text[]) EXECUTE to authenticated
@@ -1929,6 +1993,14 @@ index ops.error_events_last_seen CREATE INDEX error_events_last_seen ON ops.erro
 index ops.error_events_occurred_on CREATE INDEX error_events_occurred_on ON ops.error_events USING btree (occurred_on)
 index ops.error_events_pkey CREATE UNIQUE INDEX error_events_pkey ON ops.error_events USING btree (id)
 index ops.error_events_request_id CREATE INDEX error_events_request_id ON ops.error_events USING btree (request_id) WHERE (request_id IS NOT NULL)
+index ops.job_runner_runs_pkey CREATE UNIQUE INDEX job_runner_runs_pkey ON ops.job_runner_runs USING btree (id)
+index ops.job_runner_runs_started_at CREATE INDEX job_runner_runs_started_at ON ops.job_runner_runs USING btree (started_at)
+index ops.jobs_dedupe_key CREATE UNIQUE INDEX jobs_dedupe_key ON ops.jobs USING btree (dedupe_key)
+index ops.jobs_pending_run_at CREATE INDEX jobs_pending_run_at ON ops.jobs USING btree (run_at) WHERE (status = 'pending'::text)
+index ops.jobs_pkey CREATE UNIQUE INDEX jobs_pkey ON ops.jobs USING btree (id)
+index ops.jobs_running_locked_until CREATE INDEX jobs_running_locked_until ON ops.jobs USING btree (locked_until) WHERE (status = 'running'::text)
+index ops.jobs_status_finished_at CREATE INDEX jobs_status_finished_at ON ops.jobs USING btree (status, finished_at)
+index ops.jobs_tenant_id CREATE INDEX jobs_tenant_id ON ops.jobs USING btree (tenant_id)
 index public.api_key_usage_daily_pkey CREATE UNIQUE INDEX api_key_usage_daily_pkey ON public.api_key_usage_daily USING btree (api_key_id, date)
 index public.api_keys_key_hash_key CREATE UNIQUE INDEX api_keys_key_hash_key ON public.api_keys USING btree (key_hash)
 index public.api_keys_pkey CREATE UNIQUE INDEX api_keys_pkey ON public.api_keys USING btree (id)
@@ -2160,6 +2232,9 @@ policy storage.objects.prescriptions_storage_update_policy cmd=w permissive=t ro
 relation ops.error_event_overflow kind=r rls=t force_rls=f
 relation ops.error_events kind=r rls=t force_rls=f
 relation ops.error_events_id_seq kind=S rls=f force_rls=f
+relation ops.job_runner_runs kind=r rls=t force_rls=f
+relation ops.job_runner_runs_id_seq kind=S rls=f force_rls=f
+relation ops.jobs kind=r rls=t force_rls=f
 relation public.api_key_usage_daily kind=r rls=t force_rls=f
 relation public.api_keys kind=r rls=t force_rls=f
 relation public.audit_logs kind=r rls=t force_rls=f
