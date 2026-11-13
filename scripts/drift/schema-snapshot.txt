@@ -855,6 +855,7 @@ default-privilege public r UPDATE to authenticated
 default-privilege public r UPDATE to authenticated
 default-privilege public r UPDATE to service_role
 default-privilege public r UPDATE to service_role
+function ops.backfill_delivery_jobs() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=ef4f996cd2cb1cc86acedcd710f1a30b
 function ops.backup_runner_stale() returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=9a8d5274788a81a84161ee59019a023f
 function ops.communication_queue_enqueue_job() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=96fd89c9a82aded58b07cbfc8c491453
 function ops.drill_enqueue(p_kind text, p_count integer, p_spread interval, p_max_attempts integer) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4fbe44f1b91bd1952a6352df5a741aea
