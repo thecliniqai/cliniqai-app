@@ -20,6 +20,7 @@ const ROOT = path.resolve(__dirname, "../..");
 const ANON_DEFINER_ALLOWLIST = [
   "consume_reschedule_token", // V2-01 (000020/000023): token-scoped reschedule
   "get_reschedule_context", // V2-01: token-scoped reschedule
+  "ops_ingest_error", // V2-03 03-09b: error sink ingest, refused without the ingest key (vault hash)
   "readiness_probe", // V2-03 03-01: counts only
   "resolve_share_token", // V2-01 (000020/000022): token-scoped share links
 ];

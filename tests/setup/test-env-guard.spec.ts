@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   FORBIDDEN_VARS,
   findTestEnvProblems,
+  LOCAL_ERROR_INGEST_KEY,
   loadLocalStackKeys,
   parseEnvFile,
   TestEnvGuardError,
@@ -161,6 +162,22 @@ describe("test-env guard rules", () => {
     expect(findTestEnvProblems(safeEnv({ NODE_ENV: "development" }), { allowNodeEnv: ["production"] })).toContain(
       'NODE_ENV must be unset or test or production (got "development")',
     );
+  });
+
+  it("pins the error-sink key to the local synthetic key and never echoes another value (03-09b)", () => {
+    expect(findTestEnvProblems(safeEnv({ ERROR_INGEST_KEY: LOCAL_ERROR_INGEST_KEY }))).toEqual([]);
+    const other = "MARKER-a-staging-ingest-key-0123456789";
+    const problems = findTestEnvProblems(safeEnv({ ERROR_INGEST_KEY: other }));
+    expect(problems.some((p) => p.startsWith("ERROR_INGEST_KEY must be unset or the local synthetic key"))).toBe(true);
+    expect(problems.join("\n")).not.toContain(other);
+  });
+
+  it("keeps the diagnostic error route off in the Vitest lane; the e2e app server may turn it on (03-09b)", () => {
+    expect(findTestEnvProblems(safeEnv({ DIAG_ERROR_ROUTE_ENABLED: "false" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ DIAG_ERROR_ROUTE_ENABLED: "true" }))).toContain(
+      "DIAG_ERROR_ROUTE_ENABLED must be unset or false in this lane",
+    );
+    expect(findTestEnvProblems(safeEnv({ DIAG_ERROR_ROUTE_ENABLED: "true" }), { diagRoute: true })).toEqual([]);
   });
 
   it("never echoes secret values in its messages", () => {

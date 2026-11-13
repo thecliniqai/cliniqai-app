@@ -42,3 +42,15 @@ export function psqlAsync(sql: string): Promise<string[]> {
     });
   });
 }
+
+/**
+ * Runs `statements` in order in ONE psql session (each its own `-c`), so a `begin` … `rollback` pair brackets a
+ * temporary change (V2-03 03-09b: lowering the error-sink cap or removing the vault secret for one probe) that no other
+ * session ever sees. Returns the output lines of every statement; command tags are suppressed. Throws on any SQL error.
+ */
+export function psqlSession(statements: string[]): string[] {
+  const args = ["exec", localDbContainer(), "psql", "-U", "postgres", "-v", "ON_ERROR_STOP=1", "-qAt"];
+  for (const s of statements) args.push("-c", s);
+  const out = execFileSync("docker", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  return out.trim().split("\n").filter(Boolean);
+}

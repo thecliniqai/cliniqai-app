@@ -2434,6 +2434,10 @@ export type Database = {
         Args: { raw_phone: string };
         Returns: string;
       };
+      ops_ingest_error: {
+        Args: { p_event: Json; p_ingest_key: string };
+        Returns: undefined;
+      };
       readiness_probe: { Args: Record<PropertyKey, never>; Returns: Json };
       record_payment: {
         Args: {

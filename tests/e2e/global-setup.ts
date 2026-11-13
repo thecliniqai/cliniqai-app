@@ -13,6 +13,7 @@
 import fs from "node:fs";
 import { randomInt, randomUUID } from "node:crypto";
 import { assertLocalTestEnv } from "../setup/test-env";
+import { ensureLocalErrorIngestKey } from "../setup/error-sink-key";
 import { releaseRunLock, startRun, teardownRun, type RunMarker } from "../setup/teardown";
 import { addMemberToTenant, seededUserPassword, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -116,6 +117,8 @@ async function finish(marker: RunMarker): Promise<void> {
 
 export default async function globalSetup(): Promise<() => Promise<void>> {
   assertLocalTestEnv();
+  // V2-03 03-09b: the local vault secret the error sink checks the synthetic ingest key against.
+  ensureLocalErrorIngestKey(ROOT);
   const marker = await startRun(ROOT);
   try {
     const run = await seed(randomUUID().slice(0, 8));

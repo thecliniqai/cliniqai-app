@@ -31,6 +31,13 @@ const PINNED: Record<string, string[]> = {
 export const TEST_APP_ENV = "test";
 export const E2E_APP_ENV = "e2e";
 
+/**
+ * V2-03 03-09b: the synthetic error-sink ingest key of every local lane. Global setup (Vitest and Playwright) installs
+ * its SHA-256 as the local vault secret `ops_error_ingest_key_sha256`; the e2e app server and the sink specs use it.
+ * A test lane may carry no other value (a real staging/production key would mean hosted config leaked in).
+ */
+export const LOCAL_ERROR_INGEST_KEY = "not-real-ingest-key-".repeat(2);
+
 /** Variables that may be unset or must hold one of these values. */
 const PINNED_IF_SET: Record<string, string[]> = {
   STORAGE_PROVIDER: ["supabase"],
@@ -207,6 +214,8 @@ export interface TestEnvRuleOptions {
   allowNodeEnv?: string[];
   /** The `APP_ENV` tier the lane must declare (default `test`; the e2e app server uses `e2e`). */
   appEnv?: string;
+  /** 03-09b (R-18): the e2e app server turns the diagnostic error route on; the Vitest lane keeps it off. */
+  diagRoute?: boolean;
 }
 
 /** Collect every reason the environment is not the local test stack. Empty array = safe. */
@@ -238,6 +247,15 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
     if (value !== undefined && value !== "" && !allowed.includes(value)) {
       problems.push(`${key} must be unset or ${allowed.join(" or ")} (got "${value}")`);
     }
+  }
+
+  // 03-09b: unset or the local synthetic key only; the value is never echoed (it would be a secret if it were real).
+  if (env.ERROR_INGEST_KEY && env.ERROR_INGEST_KEY !== LOCAL_ERROR_INGEST_KEY) {
+    problems.push("ERROR_INGEST_KEY must be unset or the local synthetic key (LOCAL_ERROR_INGEST_KEY) in the test lane");
+  }
+  const diagAllowed = options.diagRoute ? ["true", "false"] : ["false"];
+  if (env.DIAG_ERROR_ROUTE_ENABLED && !diagAllowed.includes(env.DIAG_ERROR_ROUTE_ENABLED)) {
+    problems.push(`DIAG_ERROR_ROUTE_ENABLED must be unset or ${diagAllowed.join(" or ")} in this lane`);
   }
 
   for (const key of PLACEHOLDER_ONLY) {
@@ -297,7 +315,7 @@ export function assertLocalTestEnv(env: EnvMap = process.env): void {
  * `NEXT_TELEMETRY_DISABLED=1` (no outbound telemetry).
  */
 export function findAppServerEnvProblems(env: EnvMap): string[] {
-  const problems = findTestEnvProblems(env, { allowNodeEnv: ["production"], appEnv: E2E_APP_ENV });
+  const problems = findTestEnvProblems(env, { allowNodeEnv: ["production"], appEnv: E2E_APP_ENV, diagRoute: true });
   if (env.__NEXT_PROCESSED_ENV !== "true") {
     problems.push("__NEXT_PROCESSED_ENV must be \"true\" so Next loads no .env file into the e2e server");
   }

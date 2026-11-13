@@ -7,12 +7,15 @@
  */
 import path from "node:path";
 import { assertLocalTestEnv } from "./test-env";
+import { ensureLocalErrorIngestKey } from "./error-sink-key";
 import { releaseRunLock, startRun, teardownRun } from "./teardown";
 
 const ROOT = path.resolve(__dirname, "../..");
 
 export default async function setup(): Promise<() => Promise<void>> {
   assertLocalTestEnv();
+  // V2-03 03-09b: the local vault secret the error sink checks the synthetic ingest key against.
+  ensureLocalErrorIngestKey(ROOT);
   const marker = await startRun(ROOT);
 
   return async () => {
