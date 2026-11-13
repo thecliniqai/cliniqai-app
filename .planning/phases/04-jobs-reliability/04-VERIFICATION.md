@@ -3,7 +3,7 @@ phase: 04
 roadmap_id: V2-04
 status: awaiting PO gate approval (G3-partial)
 verified_commit: 2260c64 (local evidence; evidence/commit.txt)
-ci_run: <filled by orchestrator>
+ci_run: evidence/ci-run.json (run 43520155405 at fd33b63 — five jobs success, Playwright 196 passed, 0 retried, gitleaks clean)
 ---
 
 # Phase 04 (V2-04) — verification
