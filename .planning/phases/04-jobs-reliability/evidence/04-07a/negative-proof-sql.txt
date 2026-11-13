@@ -1,0 +1,74 @@
+# 04-07a negative proof (SQL): the 000041 function bodies replaced by their 000035/000036/000037 versions on the local stack
+# (CREATE OR REPLACE from the committed migration files; trigger communication_queue_apply_early_dlr dropped), then:
+# npx vitest run tests/jobs/enqueue-message-rpc-db.spec.ts tests/messaging/sms-recipient-exploit-db.spec.ts tests/jobs/enqueue-webhook-rpc-db.spec.ts tests/jobs/replay-job-db.spec.ts tests/messaging/inbound-retry-db.spec.ts
+# then the 000041 bodies and trigger restored. Vitest result lines below (tool output, filtered to test lines and totals).
+   ✓ public.enqueue_webhook_event: every role's events are queued (R-19) > the caller's RLS still hides subscriptions from a receptionist and a doctor (the cause of the old silent drop)
+   × public.enqueue_webhook_event: every role's events are queued (R-19) > a receptionist raises prescription.issued → one delivery row for the subscribed endpoint and one webhook.deliver job
+   × public.enqueue_webhook_event: every role's events are queued (R-19) > a doctor raises prescription.issued → one delivery row for the subscribed endpoint and one webhook.deliver job
+   ✓ public.enqueue_webhook_event: every role's events are queued (R-19) > lib/jobs/enqueue: enqueueWebhookEvent(ctx, …) queues for ctx.tenantId and returns the delivery ids
+   ✓ tenant binding (R-6 revised; 03-07 D1 finding 2) > a subject of another clinic → P0002 SUBJECT_MISMATCH, no row
+   × tenant binding (R-6 revised; 03-07 D1 finding 2) > a member of A and B acting in A cannot raise an event about B's prescription; acting in B queues one B row
+   ✓ tenant binding (R-6 revised; 03-07 D1 finding 2) > a non-member tenant, a null tenant and anon are refused
+   ✓ closed event set, subject state and idempotency > an event outside the closed set → EVENT_NOT_ALLOWED; a subscription id on a lifecycle event → INPUT_INVALID
+   ✓ closed event set, subject state and idempotency > visit.completed and appointment.cancelled need the visit in that state; the data comes from the visit row 
+   ✓ closed event set, subject state and idempotency > lab_result.ready carries the document id, patient id and title from the document row
+   × closed event set, subject state and idempotency > the same event twice queues once; five parallel calls queue one row and one job
+   ✓ test ping (R-26; 03-13d limit) > a receptionist → 42501; another clinic's subscription → P0002; no rows
+   ✓ test ping (R-26; 03-13d limit) > an admin's ping queues one row for that subscription only; the sixth inside 60 s → RATE_LIMITED
+   ✓ public.enqueue_webhook_event_system (service role) > authenticated and anon → 42501
+   ✓ public.enqueue_webhook_event_system (service role) > an actor outside the closed set → ACTOR_INVALID; ping → EVENT_NOT_ALLOWED; a missing subject → P0002
+   ✓ public.enqueue_webhook_event_system (service role) > a known actor → the tenant comes from the subject row
+   ✓ contract: members cannot write the delivery table (M-XTENANT-WH, T-04-25) > owner/admin read their clinic's rows; a receptionist reads none
+   ✓ contract: members cannot write the delivery table (M-XTENANT-WH, T-04-25) > owner and admin: INSERT, UPDATE and DELETE are refused (42501), including the review E-1 cross-tenant PoC
+   ✓ contract: members cannot write the delivery table (M-XTENANT-WH, T-04-25) > members cannot claim or finish a delivery (42501)
+   ✓ contract: members cannot write the delivery table (M-XTENANT-WH, T-04-25) > catalogue: writers not executable by API roles; RPC grants as designed; definer + empty search_path 
+   × 04-07a: prescription.issued at signing; lab_result.ready for a consistent document > the app flow: the empty draft queues nothing; signing the consultation queues the one event
+   × 04-07a: prescription.issued at signing; lab_result.ready for a consistent document > from a request an unsigned prescription is refused (empty draft or with items); the API path queues one with items
+   × 04-07a: prescription.issued at signing; lab_result.ready for a consistent document > lab_result.ready: a document whose visit is another patient's, or whose patient is another clinic's, is refused
+   ✓ public.enqueue_message (request path) > a receptionist enqueues for a patient of their clinic: one row by them and one message.send job
+   ✓ public.enqueue_message (request path) > a patient of another clinic → P0002 SUBJECT_MISMATCH, no row
+   ✓ public.enqueue_message (request path) > anon cannot execute it (42501)
+   ✓ public.enqueue_message (request path) > dual-clinic member acting in A cannot enqueue for B's patient; acting in B writes one B row (03-07 finding 2)
+   ✓ public.enqueue_message (request path) > a non-member tenant id narrows nothing: a member of A naming B for A's patient is refused
+   ✓ public.enqueue_message (request path) > patient and visit that do not belong together → SUBJECT_MISMATCH
+   × public.enqueue_message (request path) > the same dedupe key twice → one row; the second answer is deduped
+   × public.enqueue_message (request path) > a user action retried five times at once enqueues exactly one row and one job for its dedupe key
+   ✓ public.enqueue_message (request path) > R-24: only the patient's or guardian's number; the template must be allow-listed for the channel
+   × public.enqueue_message (request path) > the caller cannot claim a system actor through metadata (04-07a: any key outside the allow-list is refused)
+   × public.enqueue_message (request path) > lib/jobs/enqueue maps a refusal to EnqueueError with a fixed message
+   ✓ public.enqueue_message_system > authenticated → 42501; anon → 42501
+   ✓ public.enqueue_message_system > the service role with an actor outside the closed set → ACTOR_INVALID
+   ✓ public.enqueue_message_system > the service role with a known actor: tenant from the subject, no creator, actor recorded
+   ✓ communication_queue contract (members only read status columns) > a member cannot insert, update or delete queue rows
+   ✓ communication_queue contract (members only read status columns) > a member cannot claim, finish or dead-letter a row (42501)
+   ✓ communication_queue contract (members only read status columns) > catalogue: no write privilege for API roles; writers not executable by API roles; definer + empty search_path 
+   ✓ 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > ops.message_templates.request_roles is exactly the roles holding each call site's permission; every other template is system-only
+   × 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > a role without the template's permission → 42501 FORBIDDEN, no row (receptionist: prescription, receipt; nurse: receipt)
+   × 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > bot replies, lifecycle follow-ups and SMS fallbacks are system-only: TEMPLATE_NOT_ALLOWED even for the owner
+   × 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > params: only the template's declared keys, scalar values of at most 256 characters; message_type is the template
+   × 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > metadata: only subject ids and up to three buttons; visit_id must be the message's visit; run_at at most 90 days ahead
+   × 04-07a: a caller's dedupe key never pre-empts a system key (M-DEDUPE) > a member who queues the real cancellation key first does not suppress the system's cancellation message
+   × 04-07a: a caller's dedupe key never pre-empts a system key (M-DEDUPE) > two members' equal keys are two rows; the system path refuses the member namespace; a key over 150 characters is refused
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > cancel: the visit UPDATE fails → 500, still booked, key failed; the retry cancels and acknowledges once 
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > cancel: the acknowledgement enqueue fails after the cancel → 500; the retry queues the acknowledgement once (no 'not found' reply, no second audit)
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > a cancel for a visit that moved on is a business no-op: 200 `ignored`, no retry needed
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > confirm: the acknowledgement enqueue fails → 500; the retry acknowledges once and confirms once
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > triage: the reply enqueue fails after the front-desk note → 500; the retry writes no second note (review IND L4)
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > reschedule: a failed note insert → 500; the retry writes one note and one link reply
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > unmatched sender: the reply enqueue fails → 500; the retry queues one reply job
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > a permanent refusal of the reply (the stored recipient is no longer the patient's number) is handled, not retried
+   ✓ review B L-2: a reply acts only on the queue row's own visit column, never on metadata > a row without appointment_id whose metadata names another visit changes nothing there
+   × delivery reports: an early report is kept; the failure note carries a code (IND L2, B L-6) > a Delivered report that beats the sender's finish write is applied when the id is written (before: lost)
+   ✓ delivery reports: an early report is kept; the failure note carries a code (IND L2, B L-6) > the urgent-failure note prints a reason code, never the provider's free text
+   ✓ ops.replay_job (R-35) > a dead message.send job and its dead-lettered row go back to pending; the runner then sends once 
+   ✓ ops.replay_job (R-35) > a dead webhook.deliver job and its failed row go back to pending
+   ✓ ops.replay_job (R-35) > refuses a job that is not dead, an unknown id and an unmatched reply (JOB_NOT_REPLAYABLE)
+   × ops.replay_job (R-35) > 04-07a: refuses a message whose share link was redacted at dead-letter; a message without a link replays intact
+   ✓ ops.replay_job (R-35) > no API role may run it (postgres only)
+   × H-SMS: a member cannot make the runner send SMS to arbitrary numbers (review B H-1) > the reviewer's exact call (nurse, sms fallback template, crafted params) is refused and writes no row
+   × H-SMS: a member cannot make the runner send SMS to arbitrary numbers (review B H-1) > a template the nurse may queue refuses every control key; the system path and a direct INSERT refuse them too
+   × H-SMS: a member cannot make the runner send SMS to arbitrary numbers (review B H-1) > an existing hostile row is sent only to the patient, with the fixed template, sender and short_url; a hostile WhatsApp row gets no SMS fallback
+   ✓ H-SMS: a member cannot make the runner send SMS to arbitrary numbers (review B H-1) > the provider's declared SMS variables are the SQL allow-list of the same templates
+⎯⎯⎯⎯⎯⎯ Failed Tests 22 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  5 failed (5)
+      Tests  22 failed | 45 passed (67)
