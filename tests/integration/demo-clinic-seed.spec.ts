@@ -5,13 +5,16 @@
  *
  * Proves: one run creates the clinic, five confirmed staff users with the five roles, and three synthetic patients;
  * the password works for sign-in; a second run is idempotent (same clinic, no new patients, password refreshed);
- * reset removes exactly that clinic and those users.
+ * reset removes exactly that clinic and those users. 03-13b (M-SEEDPHONE): every phone the seed writes is in the
+ * synthetic range the messaging layer refuses (`lib/utils/synthetic-phones.ts`), and a refresh moves a pre-03-13b demo
+ * patient off its old, possibly real `+91 90000 0000x` number.
  */
 import { randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { afterAll, describe, expect, it } from "vitest";
 import { publicEnv } from "@/lib/env";
-import { DEMO_PATIENTS, DEMO_ROLES, demoStaff, resetDemoClinic, seedDemoClinic } from "@/scripts/seed/demo-clinic";
+import { isSyntheticPhone } from "@/lib/utils/synthetic-phones";
+import { DEMO_PATIENTS, DEMO_ROLES, LEGACY_DEMO_PHONES, demoStaff, resetDemoClinic, seedDemoClinic } from "@/scripts/seed/demo-clinic";
 import { getAdminClient } from "../helpers/supabase-admin";
 
 const run = randomBytes(4).toString("hex");
@@ -49,6 +52,9 @@ describe("demo clinic seeding core (local stack)", () => {
 
     const { data: patients } = await admin.from("patients").select("phone").eq("tenant_id", clinicId);
     expect((patients ?? []).map((p) => p.phone).sort()).toEqual(DEMO_PATIENTS.map((p) => p.phone).sort());
+    // 03-13b M-SEEDPHONE: every number the seed wrote is in the synthetic range (never a possibly real subscriber's).
+    expect(patients).toHaveLength(3);
+    for (const p of patients ?? []) expect(isSyntheticPhone(p.phone as string), p.phone as string).toBe(true);
 
     const owner = await signIn(`owner@${options.emailDomain}`, firstPassword);
     expect(owner.ok).toBe(true);
@@ -63,6 +69,17 @@ describe("demo clinic seeding core (local stack)", () => {
     expect(count).toBe(DEMO_PATIENTS.length);
     expect((await signIn(`doctor@${options.emailDomain}`, firstPassword)).ok).toBe(false);
     expect((await signIn(`doctor@${options.emailDomain}`, secondPassword)).ok).toBe(true);
+  });
+
+  it("a refresh moves a demo patient still on its pre-03-13b number into the synthetic range (03-13b M-SEEDPHONE)", async () => {
+    // Recreate the old state: patient Two back on its old number, as a seed from before 03-13b left it.
+    const { error } = await admin.from("patients").update({ phone: LEGACY_DEMO_PHONES[1] }).eq("tenant_id", clinicId).eq("phone", DEMO_PATIENTS[1].phone);
+    expect(error).toBeNull();
+    const again = await seedDemoClinic(admin, secondPassword, options);
+    expect(again.patientsCreated).toBe(0);
+    const { data: patients } = await admin.from("patients").select("phone").eq("tenant_id", clinicId);
+    expect((patients ?? []).map((p) => p.phone).sort()).toEqual(DEMO_PATIENTS.map((p) => p.phone).sort());
+    expect((patients ?? []).every((p) => isSyntheticPhone(p.phone as string))).toBe(true);
   });
 
   it("reset removes exactly that clinic and its five users", async () => {
