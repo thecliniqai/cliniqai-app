@@ -6,8 +6,8 @@
  *
  * 1. `webhook_delivery_claim(delivery_id)` on the system client: the claim is the UPDATE to `processing`, so two
  *    handlers never POST one row (the 03-10 double dispatch). No row: a terminal or missing row → done; `processing`
- *    (another handler, or a crash the delivery reaper turns into `outcome_unknown` after 240 s) → retry in 60 s; not
- *    yet due → retry at its time.
+ *    (another handler, or a crash the delivery reaper turns into `outcome_unknown` after 240 s) → defer 60 s; not
+ *    yet due → defer to its time (04-07b: a deferral returns the job attempt, so polling never dead-letters a row).
  * 2. Subscription inactive or gone → finish non-retryable (410) → dead. Subscription of another clinic than the row
  *    (03-13d M-XTENANT-WH, kept as defence in depth until V2-05's composite FK) → finish non-retryable (403), a
  *    `webhooks.queue_item.tenant_mismatch` warning, no POST → dead.
@@ -63,11 +63,11 @@ async function unclaimed(ctx: JobContext, deliveryId: string): Promise<HandlerRe
   const reclaimable = row?.status === "pending" || (row?.status === "failed" && row.last_error === "outcome_unknown");
   if (!row || (!reclaimable && row.status !== "processing")) return { outcome: "done" };
   if (row.status === "processing") {
-    return { outcome: "retry", code: "delivery_in_progress", retryAt: new Date(ctx.now().getTime() + IN_PROGRESS_RETRY_MS) };
+    return { outcome: "defer", code: "delivery_in_progress", retryAt: new Date(ctx.now().getTime() + IN_PROGRESS_RETRY_MS) };
   }
   const due = new Date(row.next_retry_at);
-  if (due.getTime() > ctx.now().getTime()) return { outcome: "retry", code: "not_due", retryAt: due };
-  return { outcome: "retry", code: "claim_missed", retryAt: new Date(ctx.now().getTime() + CLAIM_MISSED_RETRY_MS) };
+  if (due.getTime() > ctx.now().getTime()) return { outcome: "defer", code: "not_due", retryAt: due };
+  return { outcome: "defer", code: "claim_missed", retryAt: new Date(ctx.now().getTime() + CLAIM_MISSED_RETRY_MS) };
 }
 
 interface Attempt {

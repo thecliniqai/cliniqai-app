@@ -5,7 +5,8 @@
  *
  * 1. `communication_queue_claim(queue_id)` on the system client (the claim is the UPDATE to `processing`, so two runners
  *    never send one row). No row: a terminal or missing row → done; `processing` (another sender, or a crash the
- *    delivery reaper will reclaim after 240 s) → retry in 60 s; `pending`/`failed` not yet due → retry at its time.
+ *    delivery reaper will reclaim after 240 s) → defer 60 s; `pending`/`failed` not yet due → defer to its time
+ *    (04-07b, independent review M2: a deferral returns the job attempt, so polling never dead-letters a message).
  * 2. Send with the provider, passing the runner's abort signal.
  * 3. Success → `communication_queue_finish(success)` + one `communication_sent` audit row (no phone) → done.
  *    `retryable: false` (the `disabled` provider, a synthetic recipient, an MSG91 4xx, no recipient) →
@@ -93,11 +94,11 @@ async function unclaimed(ctx: JobContext, queueId: string): Promise<HandlerResul
   const row = data as { status: string; next_retry_at: string } | null;
   if (!row || TERMINAL.has(row.status)) return { outcome: "done" };
   if (row.status === "processing") {
-    return { outcome: "retry", code: "delivery_in_progress", retryAt: new Date(ctx.now().getTime() + IN_PROGRESS_RETRY_MS) };
+    return { outcome: "defer", code: "delivery_in_progress", retryAt: new Date(ctx.now().getTime() + IN_PROGRESS_RETRY_MS) };
   }
   const due = new Date(row.next_retry_at);
-  if (due.getTime() > ctx.now().getTime()) return { outcome: "retry", code: "not_due", retryAt: due };
-  return { outcome: "retry", code: "claim_missed", retryAt: new Date(ctx.now().getTime() + CLAIM_MISSED_RETRY_MS) };
+  if (due.getTime() > ctx.now().getTime()) return { outcome: "defer", code: "not_due", retryAt: due };
+  return { outcome: "defer", code: "claim_missed", retryAt: new Date(ctx.now().getTime() + CLAIM_MISSED_RETRY_MS) };
 }
 
 async function auditSent(ctx: JobContext, row: QueueRow, externalMessageId: string | undefined): Promise<void> {

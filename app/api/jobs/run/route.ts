@@ -8,9 +8,10 @@
  *      R-49); anything else is 401 `{ ok: false }` with no detail, before any body read or database access. No secret
  *      configured (or an environment the schema refuses) authenticates nothing.
  *   2. Body: at most 1 KB of JSON `{ source?: "pg_cron" | "manual" }` (empty = manual); anything else is 400.
- *   3. `runJobs` on the system client (`getSystemDb("jobs.run")`) with a 25 s budget, batches of 25, a 120 s lease and
- *      at most 10 jobs per tenant per claim. Lease 120 s ≫ budget 25 s ≫ provider timeouts (10 s / 5 s); pg_net waits
- *      30 s and the function may run 60 s (Vercel Hobby maximum).
+ *   3. `runJobs` on the system client (`getSystemDb("jobs.run")`) with `RUN_PASS_CONFIG` (`lib/jobs/internal/run-config.ts`,
+ *      04-07b): a 25 s budget, fair batches of 10 (at most 5 per tenant, round-robin), a 120 s lease and a 4 s hard
+ *      bound per queue RPC, so a pass ends within 45 s even when every RPC stalls. Lease 120 s ≫ budget 25 s ≫ provider
+ *      timeouts (10 s / 5 s); pg_net waits 30 s and the function may run 60 s (Vercel Hobby maximum).
  * The response is counts only: `{ ok, claimed, done, retried, dead, durationMs }`. A thrown error is 500 `{ ok: false }`
  * with one `jobs.run.failed` log line carrying the error tag and the request id. Other methods answer 405 with
  * `Allow: POST` and no side effect (no secret in query strings, no GET side effects). `proxy.ts` skips the session
@@ -22,6 +23,7 @@ import { z } from "zod";
 import { deploymentInfo, serverEnv } from "@/lib/env-server";
 import { isAuthorisedRunner } from "@/lib/jobs/auth";
 import { getJobHandlers } from "@/lib/jobs/internal/registry";
+import { RUN_PASS_CONFIG } from "@/lib/jobs/internal/run-config";
 import { runJobs } from "@/lib/jobs/internal/runner";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -31,10 +33,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const BUDGET_MS = 25_000;
-const BATCH = 25;
-const LEASE_SECONDS = 120;
-const PER_TENANT = 10;
 const MAX_BODY_BYTES = 1024;
 
 const Body = z.object({ source: z.enum(["pg_cron", "manual"]).optional() }).strict();
@@ -98,10 +96,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const handlers = getJobHandlers();
     const result = await runJobs({
       db: getSystemDb("jobs.run"),
-      budgetMs: BUDGET_MS,
-      batch: BATCH,
-      leaseSeconds: LEASE_SECONDS,
-      perTenant: PER_TENANT,
+      ...RUN_PASS_CONFIG,
       worker: `${deploymentInfo().region ?? "local"}:${randomBytes(4).toString("hex")}`,
       source,
       kinds: Object.keys(handlers),

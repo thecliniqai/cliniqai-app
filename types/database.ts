@@ -2447,6 +2447,15 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
+      defer_job: {
+        Args: {
+          p_error_code: string;
+          p_id: string;
+          p_lease_token: string;
+          p_retry_at: string;
+        };
+        Returns: string;
+      };
       enqueue_message: {
         Args: {
           p_channel: string;
@@ -2666,6 +2675,10 @@ export type Database = {
       share_type_roles: { Args: { p_type: string }; Returns: string[] };
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      start_job: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: number;
+      };
       webhook_delivery_claim: {
         Args: { p_id: string };
         Returns: {

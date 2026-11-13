@@ -18,10 +18,13 @@ export interface ClaimedJob {
   kind: string;
   tenantId: string | null;
   payload: unknown;
-  /** The attempt this claim counted (1 on the first claim). */
+  /**
+   * Attempts spent so far. `claim_jobs` returns the attempts spent before this claim; the runner replaces it with the
+   * attempt `start_job` counts just before the handler runs (1 on the first run). 04-07b (M-ATTEMPT).
+   */
   attempts: number;
   maxAttempts: number;
-  /** The fencing token: `complete_job` / `fail_job` / `release_job` change the row only under this token. */
+  /** The fencing token: `start_job` / `complete_job` / `fail_job` / `defer_job` / `release_job` act only under it. */
   leaseToken: string;
   runAt: string;
 }
@@ -33,11 +36,20 @@ export interface ClaimedJob {
 export type HandlerResult =
   | { outcome: "done" }
   | { outcome: "retry"; code: string; retryAt?: Date }
-  | { outcome: "dead"; code: string };
+  | { outcome: "dead"; code: string }
+  /**
+   * 04-07b (independent review M2): the handler found nothing to do yet (its delivery row is held by another sender,
+   * not due, or its claim missed). The job goes back to pending at `retryAt` and the attempt is returned (`defer_job`,
+   * at most 20 times per job, then an ordinary retry).
+   */
+  | { outcome: "defer"; code: string; retryAt: Date };
 
 export interface JobContext {
   db: JobsDb;
-  /** Aborts after the handler's `maxDurationMs`; handlers pass it to every network call. */
+  /**
+   * Aborts after the handler's `maxDurationMs`; handlers pass it to every network call and stop when it fires. A handler
+   * that has not settled shortly after the abort is abandoned with its lease kept (04-07b, review A L-2).
+   */
   signal: AbortSignal;
   now(): Date;
 }
@@ -45,7 +57,7 @@ export interface JobContext {
 export interface JobHandler<P> {
   /** The payload contract; a payload that fails it dead-letters the job (`invalid_payload`). */
   schema: ZodType<P>;
-  /** Upper bound for one run; the runner never starts the job with less than this + 1 s of budget left. */
+  /** Upper bound for one run; the runner starts the job only while this + its margins fit in the remaining budget. */
   maxDurationMs: number;
   run(job: ClaimedJob, payload: P, ctx: JobContext): Promise<HandlerResult>;
 }
@@ -61,6 +73,14 @@ export interface RunJobsResult {
   stale: number;
   /** Claimed jobs handed back unstarted because the budget ran out. */
   released: number;
+  /** 04-07b: started jobs handed back with their attempt returned (`defer` outcome). */
+  deferred: number;
+  /**
+   * 04-07b (review A L-2): jobs whose handler outlived `maxDurationMs` and did not settle after the abort. The lease is
+   * kept (no other runner can claim the job until it expires) and the job is finished under it if the handler settles
+   * later while this process lives.
+   */
+  abandoned: number;
   /** 04-02: false when a queue RPC failed and the pass stopped early (`ops.job_runner_runs.ok`, with its code). */
   ok: boolean;
   durationMs: number;
