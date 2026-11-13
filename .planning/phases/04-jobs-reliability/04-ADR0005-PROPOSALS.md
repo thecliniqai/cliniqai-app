@@ -46,3 +46,6 @@ passing cases (03-04 handover). The register is now `app/api/v1/**`, `lib/api/**
 `P134_CENSUS.exceptionRegister`; `scripts/ci/p1-34-counters.mjs` reports `exception_register_entries: 2` (5 at the end
 of V2-03) and `exception_register_importers` (only `app/api/v1/**` files). This is the ADR's own end state and needs no
 amendment; A3 is an allow-list addition, not a register entry.
+
+---
+**CTO acceptance (delegated by the PO 2026-11-13):** A2 and A3 accepted as proposed for V2-04; the ADR text in `docs/adr/` is amended at phase close and listed in 04-SUMMARY for the PO to see.
