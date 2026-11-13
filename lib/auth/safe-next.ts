@@ -17,7 +17,11 @@
  *     query string and fragment may carry them (`/reports?date=2026%2F11`): they cannot change the origin;
  *   - a value that does not decode cleanly (malformed `%` escapes) or keeps decoding after
  *     {@link MAX_DECODE_ROUNDS} rounds;
- *   - a value that the URL parser resolves to another origin (a final, independent check).
+ *   - a value that the URL parser resolves to another origin (a final, independent check);
+ *   - 03-13a (review D L-5): a path under `/api` or `/auth` (route handlers, not pages), checked case-insensitively on
+ *     the URL-normalised path of every decoded form (`/API/x`, `/%61pi/x`, `/x/../api/x`). `/login?next=/api/…/export`
+ *     would otherwise make a freshly signed-in browser fire a GET handler (an export) on the user's behalf. The proxy
+ *     never sets such a `next`: it does not redirect `/api`, and `/auth` is public.
  */
 
 export const MAX_NEXT_LENGTH = 512;
@@ -52,6 +56,22 @@ function pathPart(value: string): string {
   return end === -1 ? value : value.slice(0, end);
 }
 
+/** Route-handler prefixes a post-sign-in redirect may never target (pages only). */
+const HANDLER_PREFIXES = ["/api", "/auth"] as const;
+
+/** True when any decoded form of `path`, URL-normalised and lower-cased, sits under a route-handler prefix. */
+function targetsHandler(forms: string[]): boolean {
+  return forms.some((form) => {
+    let pathname: string;
+    try {
+      pathname = new URL(form, BASE).pathname.toLowerCase();
+    } catch {
+      return true;
+    }
+    return HANDLER_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  });
+}
+
 function isSafeForm(form: string): boolean {
   if (CONTROL.test(form)) return false;
   // The raw path is checked separately (and in every decoded form), so a backslash decoded from the query is harmless.
@@ -72,6 +92,7 @@ export function safeNextPath(raw: unknown): string | null {
   // Encoded slashes are refused in the path (and in every decoded form of it), allowed in the query and fragment.
   const pathForms = decodedForms(pathPart(raw));
   if (pathForms === null || pathForms.some((f) => ENCODED_SLASH_OR_BACKSLASH.test(f) || f.includes("\\"))) return null;
+  if (targetsHandler(pathForms)) return null;
 
   let url: URL;
   try {

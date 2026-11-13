@@ -32,6 +32,35 @@ describe("safeNextPath keeps same-origin paths", () => {
   });
 });
 
+describe("03-13a (review D L-5): safeNextPath refuses route handlers (/api, /auth), however spelt", () => {
+  it.each([
+    "/api",
+    "/api/patients/abc/export",
+    "/api/v1/patients?x=1",
+    "/API/patients/abc/export",
+    "/Api/x",
+    "/%61pi/patients/abc/export",
+    "/%2561pi/x",
+    "/patients/../api/x",
+    "/x/%2e%2e/api/x",
+    "/auth",
+    "/auth/signout",
+    "/AUTH/signout?scope=global",
+    "/%61uth/signout",
+  ])("%s → null", (raw) => {
+    expect(safeNextPath(raw)).toBeNull();
+  });
+
+  it.each([
+    ["/apix", "/apix"],
+    ["/authority", "/authority"],
+    ["/patients/api", "/patients/api"],
+    ["/reports?next=/api/x", "/reports?next=/api/x"],
+  ])("pages that merely contain the words stay allowed: %s", (raw, expected) => {
+    expect(safeNextPath(raw)).toBe(expected);
+  });
+});
+
 describe("safeNextPath refuses everything else (the caller lands on its default page)", () => {
   it.each([
     // Off-origin: protocol-relative and backslash forms.
