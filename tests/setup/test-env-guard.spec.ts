@@ -10,6 +10,7 @@ import {
   FORBIDDEN_VARS,
   findTestEnvProblems,
   LOCAL_ERROR_INGEST_KEY,
+  LOCAL_SEND_EMAIL_HOOK_SECRET,
   loadLocalStackKeys,
   parseEnvFile,
   TestEnvGuardError,
@@ -178,6 +179,25 @@ describe("test-env guard rules", () => {
       "DIAG_ERROR_ROUTE_ENABLED must be unset or false in this lane",
     );
     expect(findTestEnvProblems(safeEnv({ DIAG_ERROR_ROUTE_ENABLED: "true" }), { diagRoute: true })).toEqual([]);
+  });
+
+  it("pins the Send Email hook secret to the local synthetic secret and never echoes another value (03-11b)", () => {
+    expect(findTestEnvProblems(safeEnv({ SEND_EMAIL_HOOK_SECRET: LOCAL_SEND_EMAIL_HOOK_SECRET }))).toEqual([]);
+    const other = `v1,whsec_${Buffer.from("LEAK-another-hook-secret-value-x").toString("base64")}`;
+    const problems = findTestEnvProblems(safeEnv({ SEND_EMAIL_HOOK_SECRET: other }));
+    expect(problems.some((p) => p.startsWith("SEND_EMAIL_HOOK_SECRET must be unset or the local synthetic secret"))).toBe(true);
+    expect(problems.join("\n")).not.toContain(other);
+  });
+
+  it("allows auth email only as disabled or the loopback Mailpit, never SES (03-11b)", () => {
+    expect(findTestEnvProblems(safeEnv({ EMAIL_PROVIDER: "disabled" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ EMAIL_PROVIDER: "mailpit", MAILPIT_API_URL: "http://127.0.0.1:54324" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ EMAIL_PROVIDER: "ses" }))).toContain(
+      'EMAIL_PROVIDER must be unset or disabled or mailpit (got "ses")',
+    );
+    expect(findTestEnvProblems(safeEnv({ MAILPIT_API_URL: "http://mail.example.org:8025" }))).toContain(
+      'MAILPIT_API_URL points at non-local host "mail.example.org"',
+    );
   });
 
   it("never echoes secret values in its messages", () => {

@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
  *
  * One call to `public.readiness_probe()` (SECURITY DEFINER, migration 000025) through the cookie client: the anon role
  * when nobody is signed in. No service role, no bucket check, no provider call. The body carries booleans, counts, the
- * newest applied migration and whether AI and messaging are configured (read from the env schema), nothing else. A
+ * newest applied migration and whether AI, messaging and email are configured (read from the env schema), nothing else. A
  * failure is logged with its error code only; the response never carries an error text. `correlationId` is the
  * request id the proxy assigned, so a 503 can be matched to its log line.
  */
@@ -47,16 +47,18 @@ function parseProbe(data: unknown): ProbeResult | null {
   };
 }
 
-function providerStates(): { ai: ProviderState; messaging: ProviderState } {
+function providerStates(): { ai: ProviderState; messaging: ProviderState; email: ProviderState } {
   try {
     const env = serverEnv();
     const realMessaging = env.MESSAGING_PROVIDER !== "dev" && env.MESSAGING_PROVIDER !== "disabled";
     return {
       ai: resolveAiProviderConfig(env) ? "configured" : "disabled",
       messaging: realMessaging ? "configured" : "disabled",
+      // 03-11b (R-16): only SES delivers real mail; Mailpit is a local catcher and `disabled` sends nothing.
+      email: env.EMAIL_PROVIDER === "ses" ? "configured" : "disabled",
     };
   } catch {
-    return { ai: "disabled", messaging: "disabled" };
+    return { ai: "disabled", messaging: "disabled", email: "disabled" };
   }
 }
 

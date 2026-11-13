@@ -38,6 +38,15 @@ export const E2E_APP_ENV = "e2e";
  */
 export const LOCAL_ERROR_INGEST_KEY = "not-real-ingest-key-".repeat(2);
 
+/**
+ * V2-03 03-11b: the synthetic Send Email hook secret of every local lane (`v1,whsec_<base64>` of a 32-byte placeholder,
+ * assembled at runtime). Specs sign synthetic hook payloads with it; the e2e app server verifies with it. A test lane
+ * may carry no other value; the env schema refuses it in staging and production.
+ */
+export const LOCAL_SEND_EMAIL_HOOK_SECRET = `v1,whsec_${Buffer.from("not-real-send-email-hook-secret!").toString("base64")}`;
+/** V2-03 03-11b: the local stack's Mailpit API (the CLI default port). */
+export const LOCAL_MAILPIT_API_URL = "http://127.0.0.1:54324";
+
 /** Variables that may be unset or must hold one of these values. */
 const PINNED_IF_SET: Record<string, string[]> = {
   STORAGE_PROVIDER: ["supabase"],
@@ -47,6 +56,8 @@ const PINNED_IF_SET: Record<string, string[]> = {
   // V2-02 (02-03a): the AI kill switch stays off in every test lane, Vitest and the e2e app server alike. Specs that
   // exercise the switch stub it per test (`vi.stubEnv`), after this guard has run.
   AI_ENABLED: ["false", "0"],
+  // V2-03 03-11b: auth email never goes to SES from a test lane; specs stub `ses` only with an injected client.
+  EMAIL_PROVIDER: ["disabled", "mailpit"],
 };
 
 /**
@@ -92,10 +103,16 @@ export const FORBIDDEN_VARS = [
   "TWILIO_WHATSAPP_FROM",
   "MSG91_DLT_TE_ID",
   "MSG91_SENDER_ID",
+  // V2-03 03-11b (R-31): no AWS or SES credential in a test lane; the SES sender is tested with an injected client.
+  "AWS_ACCESS_KEY_ID",
+  "AWS_SECRET_ACCESS_KEY",
+  "AWS_SESSION_TOKEN",
+  "SES_ACCESS_KEY_ID",
+  "SES_SECRET_ACCESS_KEY",
 ] as const;
 
 /** Variables whose value is a URL that must be loopback. */
-const URL_VARS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_APP_URL", "PLAYWRIGHT_TEST_BASE_URL"];
+const URL_VARS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_APP_URL", "PLAYWRIGHT_TEST_BASE_URL", "MAILPIT_API_URL"];
 
 /** Fragments that identify hosted services anywhere in any variable's value. */
 export const HOSTED_MARKERS = [".supabase.co", ".supabase.in", ".supabase.net", "r2.cloudflarestorage.com", "pooler.supabase"];
@@ -252,6 +269,10 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
   // 03-09b: unset or the local synthetic key only; the value is never echoed (it would be a secret if it were real).
   if (env.ERROR_INGEST_KEY && env.ERROR_INGEST_KEY !== LOCAL_ERROR_INGEST_KEY) {
     problems.push("ERROR_INGEST_KEY must be unset or the local synthetic key (LOCAL_ERROR_INGEST_KEY) in the test lane");
+  }
+  // 03-11b: same rule for the Send Email hook secret.
+  if (env.SEND_EMAIL_HOOK_SECRET && env.SEND_EMAIL_HOOK_SECRET !== LOCAL_SEND_EMAIL_HOOK_SECRET) {
+    problems.push("SEND_EMAIL_HOOK_SECRET must be unset or the local synthetic secret (LOCAL_SEND_EMAIL_HOOK_SECRET) in the test lane");
   }
   const diagAllowed = options.diagRoute ? ["true", "false"] : ["false"];
   if (env.DIAG_ERROR_ROUTE_ENABLED && !diagAllowed.includes(env.DIAG_ERROR_ROUTE_ENABLED)) {

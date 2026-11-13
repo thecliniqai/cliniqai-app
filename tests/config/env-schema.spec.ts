@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { EnvConfigError, parseEnv, type EnvSource } from "@/lib/env";
 import { buildAppServerEnv } from "../e2e/support/app-env";
+import { LOCAL_SEND_EMAIL_HOOK_SECRET } from "../setup/test-env";
 
 /** Unsigned JWT with the given payload (the schema reads `iss`; it never verifies signatures). */
 function fakeJwt(payload: Record<string, unknown>): string {
@@ -17,6 +18,15 @@ function fakeJwt(payload: Record<string, unknown>): string {
 }
 const LOCAL_ANON = fakeJwt({ iss: "supabase-demo", role: "anon" });
 const LOCAL_SERVICE = fakeJwt({ iss: "supabase-demo", role: "service_role" });
+
+/** `v1,whsec_<base64>` of a synthetic key (assembled at runtime; no secret-shaped literal in the repo). */
+function hookSecret(key: string): string {
+  return `v1,whsec_${Buffer.from(key).toString("base64")}`;
+}
+/** 03-11b: synthetic SES IAM key pair, assembled at runtime. */
+const SES_KEY_ID = ["AKIA", "MARKERSYNTH00000"].join("");
+const SES_SECRET = "MARKER-ses-secret-access-key-value-0123456789";
+const HOOK_SECRET = hookSecret("MARKER-hook-key-for-prod-0123456");
 
 /** Synthetic values; each is a marker that must never appear in an error message. */
 const PRODUCTION: EnvSource = {
@@ -34,6 +44,12 @@ const PRODUCTION: EnvSource = {
   AI_ENABLED: "false",
   // 03-09b: production must report its errors to the sink.
   ERROR_INGEST_KEY: "MARKER-error-ingest-key-value-0123456789",
+  // 03-11b: production sends auth email through SES and verifies the Send Email hook.
+  EMAIL_PROVIDER: "ses",
+  EMAIL_FROM: "no-reply@auth.synthetic-clinic.example.org",
+  SES_ACCESS_KEY_ID: SES_KEY_ID,
+  SES_SECRET_ACCESS_KEY: SES_SECRET,
+  SEND_EMAIL_HOOK_SECRET: HOOK_SECRET,
 };
 
 const STAGING: EnvSource = { ...PRODUCTION, APP_ENV: "staging", MESSAGING_PROVIDER: "disabled" };
@@ -204,6 +220,112 @@ describe("env schema: staging and production are fail-closed", () => {
     expect(issues.map((i) => i.split(":")[0]).sort()).toEqual(
       ["AI_PROVIDER", "CRON_SECRET", "MESSAGING_PROVIDER", "R2_ACCOUNT_ID"].sort(),
     );
+  });
+});
+
+describe("env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31)", () => {
+  const local = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+
+  it("production parses with SES and the hook secret; EMAIL_PROVIDER is required and must be ses", () => {
+    expect(parseEnv(PRODUCTION).EMAIL_PROVIDER).toBe("ses");
+    expect(expectRejected({ ...PRODUCTION, EMAIL_PROVIDER: undefined }, "EMAIL_PROVIDER")).toContain(
+      "EMAIL_PROVIDER: required in production (ses, or disabled in staging)",
+    );
+    expect(issuesOf({ ...PRODUCTION, EMAIL_PROVIDER: "disabled" })).toContain("EMAIL_PROVIDER: must be ses in production");
+    const mailpit = issuesOf({ ...PRODUCTION, EMAIL_PROVIDER: "mailpit", MAILPIT_API_URL: "http://127.0.0.1:54324" });
+    expect(mailpit).toContain("EMAIL_PROVIDER: must not be mailpit in production");
+  });
+
+  it("production requires the hook secret even if the provider were not ses", () => {
+    expect(issuesOf({ ...PRODUCTION, SEND_EMAIL_HOOK_SECRET: undefined })).toEqual(
+      expect.arrayContaining(["SEND_EMAIL_HOOK_SECRET: required in production"]),
+    );
+  });
+
+  it("staging must choose: disabled parses until the SES account exists (R-16), mailpit is refused", () => {
+    const stagingDisabled = { ...STAGING, EMAIL_PROVIDER: "disabled", SES_ACCESS_KEY_ID: undefined, SES_SECRET_ACCESS_KEY: undefined, SEND_EMAIL_HOOK_SECRET: undefined };
+    expect(parseEnv(stagingDisabled).EMAIL_PROVIDER).toBe("disabled");
+    expectRejected({ ...stagingDisabled, EMAIL_PROVIDER: undefined }, "EMAIL_PROVIDER");
+    expect(issuesOf({ ...STAGING, EMAIL_PROVIDER: "mailpit", MAILPIT_API_URL: "http://127.0.0.1:54324" })).toContain(
+      "EMAIL_PROVIDER: must not be mailpit in staging",
+    );
+    expect(parseEnv(STAGING).EMAIL_PROVIDER).toBe("ses");
+  });
+
+  it("ses needs the sender address, the IAM key pair and the hook secret in every tier", () => {
+    const issues = issuesOf({ ...local, EMAIL_PROVIDER: "ses" });
+    expect(issues.map((i) => i.split(":")[0]).sort()).toEqual(
+      ["EMAIL_FROM", "SEND_EMAIL_HOOK_SECRET", "SES_ACCESS_KEY_ID", "SES_SECRET_ACCESS_KEY"].sort(),
+    );
+  });
+
+  it("the SES key pair has the IAM user shape; values are never echoed", () => {
+    expect(issuesOf({ ...PRODUCTION, SES_ACCESS_KEY_ID: "MARKER-not-a-key-id" })).toContain(
+      "SES_ACCESS_KEY_ID: must be an IAM user access key id (AKIA followed by 16 characters)",
+    );
+    // A temporary (ASIA…) key needs a session token the sender never passes.
+    expectRejected({ ...PRODUCTION, SES_ACCESS_KEY_ID: ["ASIA", "MARKERSYNTH00000"].join("") }, "SES_ACCESS_KEY_ID");
+    expect(issuesOf({ ...PRODUCTION, SES_SECRET_ACCESS_KEY: "MARKER-short" })).toContain(
+      "SES_SECRET_ACCESS_KEY: must be at least 40 characters",
+    );
+  });
+
+  it("the hook secret must be v1,whsec_<base64> of at least 24 bytes", () => {
+    for (const bad of ["MARKER-plain-secret-value", `whsec_${Buffer.from("MARKER-no-version-prefix-0000000").toString("base64")}`, "v1,whsec_MARKER!!"]) {
+      expect(issuesOf({ ...PRODUCTION, SEND_EMAIL_HOOK_SECRET: bad })).toContain(
+        "SEND_EMAIL_HOOK_SECRET: must be formatted v1,whsec_<base64> (as Supabase shows it)",
+      );
+    }
+    const short = hookSecret("MARKER-23-bytes-of-key!");
+    expect(issuesOf({ ...PRODUCTION, SEND_EMAIL_HOOK_SECRET: short })).toContain(
+      "SEND_EMAIL_HOOK_SECRET: the decoded key must be at least 24 bytes",
+    );
+  });
+
+  it("the local synthetic hook secret parses in the local tiers and is refused in staging and production", () => {
+    expect(parseEnv({ ...local, SEND_EMAIL_HOOK_SECRET: LOCAL_SEND_EMAIL_HOOK_SECRET }).SEND_EMAIL_HOOK_SECRET).toBe(
+      LOCAL_SEND_EMAIL_HOOK_SECRET,
+    );
+    for (const profile of [PRODUCTION, STAGING]) {
+      const issues = issuesOf({ ...profile, SEND_EMAIL_HOOK_SECRET: LOCAL_SEND_EMAIL_HOOK_SECRET });
+      expect(issues.some((i) => i.startsWith("SEND_EMAIL_HOOK_SECRET: must not be a local placeholder"))).toBe(true);
+      expect(issues.join("\n")).not.toContain(LOCAL_SEND_EMAIL_HOOK_SECRET);
+    }
+  });
+
+  it("mailpit needs a loopback API URL and a sender address; a non-loopback Mailpit URL is refused in every tier", () => {
+    const issues = issuesOf({ ...local, EMAIL_PROVIDER: "mailpit" });
+    expect(issues).toEqual(
+      expect.arrayContaining(["MAILPIT_API_URL: required when EMAIL_PROVIDER=mailpit", "EMAIL_FROM: required when EMAIL_PROVIDER=mailpit"]),
+    );
+    expect(issuesOf({ ...local, MAILPIT_API_URL: "https://mail.synthetic.example.org" })).toContain(
+      "MAILPIT_API_URL: must be a loopback URL",
+    );
+    const env = parseEnv({ ...local, EMAIL_PROVIDER: "mailpit", MAILPIT_API_URL: "http://127.0.0.1:54324", EMAIL_FROM: "no-reply@auth.example.com" });
+    expect(env.EMAIL_PROVIDER).toBe("mailpit");
+  });
+
+  it("EMAIL_FROM must be an address (the message says so, without the value)", () => {
+    const issues = expectRejected({ ...PRODUCTION, EMAIL_FROM: "LEAK-not-an-address" }, "EMAIL_FROM");
+    expect(issues).toContain("EMAIL_FROM: must be an email address");
+  });
+
+  it("defaults to disabled in development, test and ci; the e2e server runs Mailpit with the local secret", () => {
+    expect(parseEnv(local).EMAIL_PROVIDER).toBe("disabled");
+    expect(parseEnv(CI_BUILD).EMAIL_PROVIDER).toBe("disabled");
+    const e2e = parseEnv(buildAppServerEnv({ source: {}, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } }));
+    expect(e2e.EMAIL_PROVIDER).toBe("mailpit");
+    expect(e2e.SEND_EMAIL_HOOK_SECRET).toBe(LOCAL_SEND_EMAIL_HOOK_SECRET);
+  });
+
+  it("names no email value in the Error message", () => {
+    try {
+      parseEnv({ ...PRODUCTION, EMAIL_PROVIDER: "disabled", SES_ACCESS_KEY_ID: "MARKER-bad-id", SEND_EMAIL_HOOK_SECRET: "MARKER-bad" });
+      throw new Error("expected a throw");
+    } catch (e) {
+      const message = (e as Error).message;
+      for (const value of [SES_SECRET, "MARKER-bad-id", "MARKER-bad", PRODUCTION.EMAIL_FROM!]) expect(message).not.toContain(value);
+    }
   });
 });
 

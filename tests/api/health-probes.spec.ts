@@ -99,11 +99,24 @@ describe("GET /api/ready (readiness RPC, no service role)", () => {
     expect(typeof body.correlationId).toBe("string");
   });
 
-  it("reports AI and messaging from the env schema, never by calling a provider", async () => {
+  it("reports AI, messaging and email from the env schema, never by calling a provider", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    // The test lane: messaging dev, AI off.
+    // The test lane: messaging dev, AI off, email disabled (03-11b).
     let body = await (await getReady()).json();
-    expect(body.providers).toEqual({ ai: "disabled", messaging: "disabled" });
+    expect(body.providers).toEqual({ ai: "disabled", messaging: "disabled", email: "disabled" });
+
+    // Mailpit is a local catcher, not a configured provider.
+    vi.stubEnv("EMAIL_PROVIDER", "mailpit");
+    vi.stubEnv("MAILPIT_API_URL", "http://127.0.0.1:54324");
+    vi.stubEnv("EMAIL_FROM", "no-reply@auth.example.com");
+    body = await (await getReady()).json();
+    expect(body.providers.email).toBe("disabled");
+
+    // SES with a complete (synthetic, assembled at runtime) configuration.
+    vi.stubEnv("EMAIL_PROVIDER", "ses");
+    vi.stubEnv("SES_ACCESS_KEY_ID", ["AKIA", "SYNTHETIC0000000"].join(""));
+    vi.stubEnv("SES_SECRET_ACCESS_KEY", "synthetic-not-real-".repeat(3));
+    vi.stubEnv("SEND_EMAIL_HOOK_SECRET", `v1,whsec_${Buffer.from("synthetic-not-real-hook-key-32b!").toString("base64")}`);
 
     vi.stubEnv("MESSAGING_PROVIDER", "msg91");
     vi.stubEnv("MSG91_AUTH_KEY", "x");
@@ -113,7 +126,7 @@ describe("GET /api/ready (readiness RPC, no service role)", () => {
     vi.stubEnv("AI_MODEL_NAME", "m");
     vi.stubEnv("AI_BASE_URL", "http://127.0.0.1:9/v1");
     body = await (await getReady()).json();
-    expect(body.providers).toEqual({ ai: "configured", messaging: "configured" });
+    expect(body.providers).toEqual({ ai: "configured", messaging: "configured", email: "configured" });
 
     const providerCalls = fetchSpy.mock.calls.filter(([url]) => String(url).startsWith("http://127.0.0.1:9"));
     expect(providerCalls).toEqual([]);

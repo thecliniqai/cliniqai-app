@@ -35,6 +35,13 @@ export type MessagingProviderName = (typeof MESSAGING_PROVIDERS)[number];
 /** The AI providers `lib/ai/client.ts` can call. `mock` is accepted only as the offline marker of local lanes. */
 export const AI_PROVIDERS = ["openai", "gemini", "claude", "groq", "ollama", "deepseek"] as const;
 export type AiProviderId = (typeof AI_PROVIDERS)[number];
+/** 03-11b (AUTH-03, PO-A3): who delivers auth email. `mailpit` is the local catcher; `disabled` sends nothing. */
+export const EMAIL_PROVIDERS = ["mailpit", "ses", "disabled"] as const;
+export type EmailProviderName = (typeof EMAIL_PROVIDERS)[number];
+/** Tiers that may use the local Mailpit sender (never staging or production). */
+export const MAILPIT_TIERS: readonly AppEnv[] = ["development", "test", "e2e", "ci"];
+/** PO-A3: SES runs in Mumbai only. A constant, not an env name: Vercel reserves `AWS_REGION` (and sets it per function). */
+export const SES_REGION = "ap-south-1";
 
 export const DEFAULT_LOCAL_APP_URL = "http://localhost:3000";
 /** JWT issuer of the keys every `npx supabase start` stack uses; never valid in staging or production. */
@@ -42,6 +49,14 @@ export const LOCAL_DEMO_KEY_ISSUER = "supabase-demo";
 export const MIN_CRON_SECRET_LENGTH = 32;
 /** 03-09b: the error-sink ingest key (its SHA-256 is the vault secret `ops_error_ingest_key_sha256`). */
 export const MIN_ERROR_INGEST_KEY_LENGTH = 32;
+/**
+ * 03-11b: the Send Email hook secret as Supabase shows it, `v1,whsec_<base64>`. The decoded key must be at least 24
+ * bytes (the Standard Webhooks secret range is 24 to 64 bytes); the Supabase CLI itself refuses a shorter string.
+ */
+export const SEND_EMAIL_HOOK_SECRET_PATTERN = /^v1,whsec_[A-Za-z0-9+/]+={0,2}$/;
+export const MIN_SEND_EMAIL_HOOK_KEY_BYTES = 24;
+/** 03-11b (R-31): long-term access key id of the least-privilege SES IAM user. */
+export const SES_ACCESS_KEY_ID_PATTERN = /^AKIA[A-Z0-9]{16}$/;
 
 /** Names that must not be set in staging or production (stale hosted config fails loudly), with what replaced them. */
 export const RETIRED_NAMES: Readonly<Record<string, string>> = {
@@ -95,6 +110,12 @@ const shapeSchema = z.object({
   AI_BASE_URL: text.url().optional(),
   ERROR_INGEST_KEY: text.optional(),
   DIAG_ERROR_ROUTE_ENABLED: flag.optional(),
+  EMAIL_PROVIDER: z.enum(EMAIL_PROVIDERS).optional(),
+  EMAIL_FROM: text.email().optional(),
+  MAILPIT_API_URL: text.url().optional(),
+  SES_ACCESS_KEY_ID: text.optional(),
+  SES_SECRET_ACCESS_KEY: text.optional(),
+  SEND_EMAIL_HOOK_SECRET: text.optional(),
   VERCEL_REGION: text.optional(),
   VERCEL_GIT_COMMIT_SHA: text.optional(),
 });
@@ -136,6 +157,13 @@ export interface Env {
   AI_BASE_URL?: string;
   ERROR_INGEST_KEY?: string;
   DIAG_ERROR_ROUTE_ENABLED: boolean;
+  /** Defaults to `disabled` outside staging and production; required there. */
+  EMAIL_PROVIDER: EmailProviderName;
+  EMAIL_FROM?: string;
+  MAILPIT_API_URL?: string;
+  SES_ACCESS_KEY_ID?: string;
+  SES_SECRET_ACCESS_KEY?: string;
+  SEND_EMAIL_HOOK_SECRET?: string;
   VERCEL_REGION?: string;
   VERCEL_GIT_COMMIT_SHA?: string;
 }
@@ -162,7 +190,7 @@ const shapeErrorMap: z.ZodErrorMap = (issue) => {
     case z.ZodIssueCode.invalid_enum_value:
       return { message: `must be one of ${issue.options.join(" | ")}` };
     case z.ZodIssueCode.invalid_string:
-      return { message: "must be a valid URL" };
+      return { message: issue.validation === "email" ? "must be an email address" : "must be a valid URL" };
     default:
       return { message: "invalid" };
   }
@@ -207,6 +235,17 @@ function isLocalDemoKey(key: string): boolean {
 
 function present(value: string | undefined): value is string {
   return value !== undefined && value !== "";
+}
+
+/** The decoded key of a `v1,whsec_<base64>` hook secret, or null when the shape is wrong. */
+function hookSecretKey(secret: string): string | null {
+  if (!SEND_EMAIL_HOOK_SECRET_PATTERN.test(secret)) return null;
+  try {
+    // `atob` (not Buffer): this module is also bundled for the browser.
+    return atob(secret.slice("v1,whsec_".length));
+  } catch {
+    return null;
+  }
 }
 
 /** Blank values count as unset; only the schema's own names (and the retired names) are read. */
@@ -296,6 +335,42 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     add("DIAG_ERROR_ROUTE_ENABLED", "must not be true in production (R-18)");
   }
 
+  // 03-11b (AUTH-03, PO-A3, R-16, R-17, R-31): auth email. Off (`disabled`) unless chosen; staging must choose (ses, or
+  // disabled until the PO's SES account exists); production sends through SES. Mailpit is a loopback catcher for local
+  // lanes only. SES needs the sender address, the IAM user's key pair and the hook secret that authenticates the
+  // Send Email hook calls it serves.
+  const emailProvider = raw.EMAIL_PROVIDER ?? (deploy ? undefined : "disabled");
+  if (deploy && !present(raw.EMAIL_PROVIDER)) add("EMAIL_PROVIDER", `required in ${tier} (ses, or disabled in staging)`);
+  if (tier === "production" && present(raw.EMAIL_PROVIDER) && raw.EMAIL_PROVIDER !== "ses") {
+    add("EMAIL_PROVIDER", "must be ses in production");
+  }
+  if (emailProvider === "mailpit") {
+    if (!MAILPIT_TIERS.includes(tier)) add("EMAIL_PROVIDER", `must not be mailpit in ${tier}`);
+    if (!present(raw.MAILPIT_API_URL)) add("MAILPIT_API_URL", "required when EMAIL_PROVIDER=mailpit");
+    if (!present(raw.EMAIL_FROM)) add("EMAIL_FROM", "required when EMAIL_PROVIDER=mailpit");
+  }
+  if (present(raw.MAILPIT_API_URL) && !isLoopbackUrl(raw.MAILPIT_API_URL)) add("MAILPIT_API_URL", "must be a loopback URL");
+  if (emailProvider === "ses") {
+    if (!present(raw.EMAIL_FROM)) add("EMAIL_FROM", "required when EMAIL_PROVIDER=ses");
+    if (!present(raw.SES_ACCESS_KEY_ID)) add("SES_ACCESS_KEY_ID", "required when EMAIL_PROVIDER=ses (R-31)");
+    if (!present(raw.SES_SECRET_ACCESS_KEY)) add("SES_SECRET_ACCESS_KEY", "required when EMAIL_PROVIDER=ses (R-31)");
+    if (!present(raw.SEND_EMAIL_HOOK_SECRET)) add("SEND_EMAIL_HOOK_SECRET", "required when EMAIL_PROVIDER=ses");
+  }
+  if (present(raw.SES_ACCESS_KEY_ID) && !SES_ACCESS_KEY_ID_PATTERN.test(raw.SES_ACCESS_KEY_ID)) {
+    add("SES_ACCESS_KEY_ID", "must be an IAM user access key id (AKIA followed by 16 characters)");
+  }
+  if (present(raw.SES_SECRET_ACCESS_KEY) && raw.SES_SECRET_ACCESS_KEY.length < 40) {
+    add("SES_SECRET_ACCESS_KEY", "must be at least 40 characters");
+  }
+  if (tier === "production" && !present(raw.SEND_EMAIL_HOOK_SECRET)) add("SEND_EMAIL_HOOK_SECRET", "required in production");
+  if (present(raw.SEND_EMAIL_HOOK_SECRET)) {
+    const key = hookSecretKey(raw.SEND_EMAIL_HOOK_SECRET);
+    if (key === null) add("SEND_EMAIL_HOOK_SECRET", "must be formatted v1,whsec_<base64> (as Supabase shows it)");
+    else if (key.length < MIN_SEND_EMAIL_HOOK_KEY_BYTES) {
+      add("SEND_EMAIL_HOOK_SECRET", `the decoded key must be at least ${MIN_SEND_EMAIL_HOOK_KEY_BYTES} bytes`);
+    } else if (deploy && /not-real/i.test(key)) add("SEND_EMAIL_HOOK_SECRET", `must not be a local placeholder in ${tier}`);
+  }
+
   if (LOOPBACK_TIERS.includes(tier)) {
     if (present(supabaseUrl) && !isLoopbackUrl(supabaseUrl)) add("NEXT_PUBLIC_SUPABASE_URL", `must be a loopback URL in ${tier}`);
     if (present(appUrl) && !isLoopbackUrl(appUrl)) add("NEXT_PUBLIC_APP_URL", `must be a loopback URL in ${tier}`);
@@ -370,6 +445,8 @@ export function parseEnv(source: EnvSource): Env {
     API_V1_ENABLED: s.API_V1_ENABLED === "true",
     AI_ENABLED: s.AI_ENABLED === "true",
     DIAG_ERROR_ROUTE_ENABLED: s.DIAG_ERROR_ROUTE_ENABLED === "true",
+    // Checked above: present in staging/production.
+    EMAIL_PROVIDER: s.EMAIL_PROVIDER ?? "disabled",
   };
 }
 
@@ -586,6 +663,49 @@ export const ENV_DOCS: Record<Exclude<EnvName, "NODE_ENV" | "VERCEL_REGION" | "V
       "Refused in production; on staging true only during PO action E9.",
     ],
     example: "false",
+  },
+  EMAIL_PROVIDER: {
+    group: "Email",
+    notes: [
+      "mailpit | ses | disabled. Who delivers auth email for the Send Email hook (03-11b, AUTH-03).",
+      "Defaults to disabled outside staging/production; staging: ses or disabled (R-16); production: ses.",
+      "mailpit (the local stack's catcher, loopback only) is refused in staging and production.",
+    ],
+    example: "disabled",
+  },
+  EMAIL_FROM: {
+    group: "Email",
+    notes: [
+      "Sender address. Required for ses and mailpit; for ses it is the verified identity's address (no-reply@auth.<domain>).",
+    ],
+    example: "no-reply@auth.example.com",
+  },
+  MAILPIT_API_URL: {
+    group: "Email",
+    notes: ["Local Mailpit API base URL (loopback only). Required when EMAIL_PROVIDER=mailpit."],
+    example: "http://127.0.0.1:54324",
+  },
+  SES_ACCESS_KEY_ID: {
+    group: "Email",
+    notes: [
+      "Access key id of the least-privilege SES IAM user (R-31; ses:SendEmail on one identity). Server only.",
+      `Required when EMAIL_PROVIDER=ses. Region is fixed to ${SES_REGION} (PO-A3).`,
+      "Not AWS_ACCESS_KEY_ID: Vercel reserves the AWS_* credential and region names for its own runtime.",
+    ],
+    example: SET_IN_VERCEL,
+  },
+  SES_SECRET_ACCESS_KEY: {
+    group: "Email",
+    notes: ["Secret access key of the same IAM user. Server only. Required when EMAIL_PROVIDER=ses."],
+    example: SET_IN_VERCEL,
+  },
+  SEND_EMAIL_HOOK_SECRET: {
+    group: "Email",
+    notes: [
+      "Supabase Auth Send Email hook secret, v1,whsec_<base64> as the dashboard shows it (PO action E8).",
+      `Decoded key at least ${MIN_SEND_EMAIL_HOOK_KEY_BYTES} bytes. Required in production and with ses; unset means every hook call is refused (401).`,
+    ],
+    example: SET_IN_VERCEL,
   },
 };
 

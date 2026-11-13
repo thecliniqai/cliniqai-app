@@ -15,6 +15,8 @@ import path from "node:path";
 import {
   E2E_APP_ENV,
   LOCAL_ERROR_INGEST_KEY,
+  LOCAL_MAILPIT_API_URL,
+  LOCAL_SEND_EMAIL_HOOK_SECRET,
   assertLocalAppServerEnv,
   loadLocalStackKeys,
   type EnvMap,
@@ -29,6 +31,8 @@ export const E2E_BASE_URL = `http://${E2E_HOST}:${E2E_PORT}`;
 export const LOCAL_SUPABASE_URL = "http://127.0.0.1:54321";
 /** The e2e server's cron bearer (synthetic); `POST /api/diag/error` authenticates with it (03-09b). */
 export const E2E_CRON_SECRET = "e2e-not-real";
+/** The e2e server's auth-email sender address (03-11b; Mailpit accepts any). */
+export const E2E_EMAIL_FROM = "no-reply@auth.example.com";
 
 export const SERVER_NET_GUARD = path.join(ROOT, "tests/e2e/support/server-net-guard.cjs");
 /** Written by `npm run e2e:build` after a guarded build passed the output scan; `serve.ts` refuses without it. */
@@ -90,6 +94,12 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // diagnostic error route that proves it end to end (tests/e2e/observability/error-sink.spec.ts).
     ERROR_INGEST_KEY: LOCAL_ERROR_INGEST_KEY,
     DIAG_ERROR_ROUTE_ENABLED: "true",
+    // V2-03 03-11b: the Send Email hook route verifies with the local synthetic secret and delivers to the local
+    // Mailpit (tests/e2e/auth/send-email-hook.spec.ts). Local GoTrue keeps its own SMTP path (hook off in config.toml).
+    EMAIL_PROVIDER: "mailpit",
+    MAILPIT_API_URL: LOCAL_MAILPIT_API_URL,
+    EMAIL_FROM: E2E_EMAIL_FROM,
+    SEND_EMAIL_HOOK_SECRET: LOCAL_SEND_EMAIL_HOOK_SECRET,
     NODE_OPTIONS: `--require "${SERVER_NET_GUARD}"`,
   } satisfies EnvMap);
   assertLocalAppServerEnv(env);
