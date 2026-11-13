@@ -15,6 +15,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { setupServer } from "msw/node";
+import { isLoopbackRequest, loopbackPassthrough } from "../helpers/msw";
 import { DisabledMessagingProvider, Msg91Provider } from "@/lib/messaging";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
@@ -188,10 +189,11 @@ describe("message.send handler", () => {
   it("a synthetic recipient with the real MSG91 provider dead-letters after one attempt with zero HTTP requests", async () => {
     // MSW sees any request to MSG91 (counted); a socket to that host would dial 127.0.0.1, never MSG91.
     const net = mswFetch(["control.msg91.com"]);
-    const server = setupServer();
+    const server = setupServer(loopbackPassthrough);
     let requests = 0;
-    server.events.on("request:start", () => {
-      requests += 1;
+    // 04-07b: count only MSG91 requests and let the local stack's requests pass (tests/helpers/msw.ts explains why).
+    server.events.on("request:start", ({ request }) => {
+      if (!isLoopbackRequest(request)) requests += 1;
     });
     server.listen({ onUnhandledFrame: "error" });
     try {
