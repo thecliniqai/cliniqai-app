@@ -224,6 +224,24 @@ const BOUNDARY_SYNTAX = {
         "P1-25: log through the typed logger (log from @/lib/log on the server, reportClientError from @/lib/log/client in client code); console is confined to lib/log/client.ts.",
     },
   ],
+  // P1-25 / 03-13 (High re-verify, Low): a raw process.stdout / process.stderr write bypasses both the typed logger and
+  // the console scrubber (lib/observability/console-scrub.ts cannot wrap the streams without breaking the logger).
+  // Any reach of the two streams (member, computed, destructured, through globalThis or imported from node:process) is
+  // confined to lib/log/** and lib/observability/**.
+  rawStream: [
+    {
+      selector: [
+        'MemberExpression[object.name="process"][property.name=/^(stdout|stderr)$/]',
+        'MemberExpression[object.name="process"][property.value=/^(stdout|stderr)$/]',
+        'MemberExpression[object.property.name="process"][property.name=/^(stdout|stderr)$/]',
+        'VariableDeclarator[init.name="process"] > ObjectPattern > Property[key.name=/^(stdout|stderr)$/]',
+        'ImportDeclaration[source.value=/^(node:)?process$/] > ImportSpecifier[imported.name=/^(stdout|stderr)$/]',
+        'MemberExpression[object.callee.name="require"][object.arguments.0.value=/^(node:)?process$/][property.name=/^(stdout|stderr)$/]',
+      ].join(", "),
+      message:
+        "P1-25: write output through the typed logger (log from @/lib/log); process.stdout / process.stderr are confined to lib/log/** and lib/observability/**, where output is scrubbed.",
+    },
+  ],
   // P1-25 / 03-09c handoff: the server logger (and the module that uses it) must not enter client bundles.
   clientLog: [
     {
@@ -343,13 +361,19 @@ const appImports = (allow = [], extraPatterns = [], extraPaths = []) => [
 
 const SYSTEM_MODULES = ["factory", "featureSystem", "otherSystem"];
 
-/** Syntax allowances. Zones are disjoint from each other and from the schema/route zones in the config below. */
+/**
+ * Syntax allowances. Zones are disjoint from each other (except lib/log/client.ts inside lib/log/**, ordered so the
+ * narrower zone wins and repeats the wider allowance) and from the schema/route zones in the config below.
+ */
 const BOUNDARY_SYNTAX_ZONES = [
   { files: ["lib/supabase/system.ts"], allow: ["secretKey"] },
   { files: ["lib/env.ts", "lib/env-server.ts"], allow: ["secretKey", "processEnv"] },
   { files: ["next.config.ts", "instrumentation.ts"], allow: ["processEnv"] },
+  // 03-13 (High re-verify, Low): the typed logger and the scrubber own the raw output streams. Listed before
+  // lib/log/client.ts, which overlaps it and so repeats the allowance (a later zone replaces the option list).
+  { files: ["lib/log/**", "lib/observability/**"], allow: ["rawStream"] },
   // 03-09a: the dev-only client reporter reads NODE_ENV and writes one console.warn (03-09c census: the only site).
-  { files: ["lib/log/client.ts"], allow: ["processEnv", "console"] },
+  { files: ["lib/log/client.ts"], allow: ["processEnv", "console", "rawStream"] },
   { files: ["lib/datetime/**"], allow: ["utcDate"] },
 ];
 

@@ -5,7 +5,12 @@
  * `Key (phone)=(…)`), and on Vercel that is the function log, outside the scrubbed sink.
  *
  * {@link installConsoleScrub} (called first in `instrumentation.ts` `register()`, Node.js runtime) wraps the console's
- * output methods once. Every argument passes through the scrubber before it is printed:
+ * output methods once. `dir` and `table` are wrapped too (03-13 High re-verify, Low): Node's `console.dir` writes
+ * `util.inspect(obj)` straight to the stream without passing through `log`, so a dependency calling it would print
+ * every own property; `dirxml` is wrapped for the same reason on runtimes that do not route it through `log`. Their
+ * second argument (inspect options / table columns) is dropped. Raw `process.stdout/stderr.write` cannot be wrapped
+ * here without breaking the typed logger; ESLint confines it to `lib/log/**` and `lib/observability/**` (P1-25 gate in
+ * `eslint.config.mjs`). Every argument passes through the scrubber before it is printed:
  * - an Error or error-like object becomes one string: class name, code (SQLSTATE / PostgREST / upper-snake), Next digest, the scrubbed
  *   message, scrubbed `details` / `hint`, the `cause` chain (depth {@link MAX_CAUSE_DEPTH}) and the stack as
  *   `file:line` frames only (no function names, no own properties, no raw stack text);
@@ -17,8 +22,10 @@
 import { errorCodeOf, errorNameOf } from "./error-event";
 import { MAX_FRAMES, scrubFrames, scrubMessage, scrubText } from "./scrub";
 
-export const CONSOLE_METHODS = ["error", "warn", "log", "info", "debug", "trace"] as const;
+export const CONSOLE_METHODS = ["error", "warn", "log", "info", "debug", "trace", "dir", "dirxml", "table"] as const;
 export type ConsoleMethod = (typeof CONSOLE_METHODS)[number];
+/** Methods whose later arguments are options, not data: only the scrubbed first argument is passed on. */
+const FIRST_ARG_ONLY: ReadonlySet<ConsoleMethod> = new Set<ConsoleMethod>(["dir", "table"]);
 export const MAX_CONSOLE_STRING = 2000;
 export const MAX_CAUSE_DEPTH = 3;
 const CONSOLE_FRAMES = Math.min(10, MAX_FRAMES);
@@ -94,8 +101,10 @@ export function installConsoleScrub(target: ConsoleLike = console, root: string 
   for (const method of CONSOLE_METHODS) {
     const original = target[method];
     if (typeof original !== "function") continue;
+    const firstOnly = FIRST_ARG_ONLY.has(method);
     const wrapped = function (this: unknown, ...args: unknown[]) {
-      return original.apply(this ?? target, args.map((arg) => scrubArg(arg, root)));
+      const passed = firstOnly ? args.slice(0, 1) : args;
+      return (original as (...a: unknown[]) => unknown).apply(this ?? target, passed.map((arg) => scrubArg(arg, root)));
     };
     Object.defineProperty(wrapped, "name", { value: original.name });
     target[method] = wrapped as Console[typeof method];

@@ -34,6 +34,7 @@ Rule ids: **imports** = `@typescript-eslint/no-restricted-imports`; **syntax** =
 | `jobs-internal-relative.ts` | `lib/jobs/enqueue.ts` (imports, P1-34) | |
 | `process-env.ts` | `features/patients/service.ts`, `lib/supabase/system.ts` (syntax, P1-15, 4 lines) | `lib/env.ts`, `lib/env-server.ts`, `next.config.ts`, `instrumentation.ts`, `lib/log/client.ts`, `tests/fixture/x.spec.ts` |
 | `console.ts` | `features/billing/service.ts`, `lib/log/index.ts`, `lib/env.ts` (syntax, P1-25, 3 lines) | `lib/log/client.ts`, `scripts/fixture.ts` |
+| `raw-stream.ts` (03-13, High re-verify Low) | `features/billing/service.ts`, `app/api/x/route.ts`, `lib/env.ts`, `instrumentation.ts` (`process.stdout`/`process.stderr` by member, computed, `globalThis`, destructured, `node:process` import and `require`; syntax, P1-25, 6 lines) | `lib/log/index.ts`, `lib/log/client.ts`, `lib/observability/console-scrub.ts`, `scripts/fixture.ts` |
 | `client-server-logger.tsx` | `components/fixture/widget.tsx` (syntax, P1-25, 2 lines) | |
 | `client-reporter.tsx` | | `components/fixture/widget.tsx` |
 | `utc-date-patterns.ts` | `features/visits/service.ts`, `lib/log/client.ts` (syntax, P1-21, 7 lines) | `lib/datetime/x.ts` |

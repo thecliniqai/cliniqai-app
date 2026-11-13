@@ -4,9 +4,24 @@
  * `details`, a `cause`). With the scrubber installed, what reaches the underlying console carries none of the
  * synthetic values, while the error class, code and frames stay for debugging. All values are synthetic.
  */
+import { Console } from "node:console";
+import { Writable } from "node:stream";
 import { formatWithOptions } from "node:util";
 import { describe, expect, it } from "vitest";
 import { CONSOLE_METHODS, installConsoleScrub } from "@/lib/observability/console-scrub";
+
+/** A real Node Console writing into a string: `dir` there bypasses `log` and writes `util.inspect` output directly. */
+function realConsole() {
+  let text = "";
+  const sink = new Writable({
+    write(chunk, _enc, done) {
+      text += String(chunk);
+      done();
+    },
+  });
+  const target = new Console({ stdout: sink, stderr: sink, colorMode: false });
+  return { target, printed: () => text };
+}
 
 const PHONE = "+919000000061";
 const EMAIL = "synthetic.console@example.com";
@@ -84,5 +99,25 @@ describe("console scrubber", () => {
     circular.cause = circular;
     expect(() => target.error(hostile, circular, Symbol("s"), () => 1, 10n)).not.toThrow();
     expect(out.join("\n")).not.toContain("9000000061");
+  });
+
+  it("dir, dirxml and table (High re-verify Low): a real Node console prints raw objects without it, nothing with it", () => {
+    const unscrubbed = realConsole();
+    unscrubbed.target.dir({ phone: PHONE, email: EMAIL });
+    unscrubbed.target.dir(postgrestError(), { depth: 5 });
+    for (const value of [PHONE, EMAIL]) expect(unscrubbed.printed()).toContain(value);
+
+    const { target, printed } = realConsole();
+    expect(installConsoleScrub(target, process.cwd())).toBe(true);
+    target.dir({ phone: PHONE, email: EMAIL });
+    target.dir(postgrestError(), { depth: 5 });
+    target.dirxml({ phone: PHONE });
+    target.table([{ phone: PHONE, email: EMAIL }], ["phone", "email"]);
+    target.dir(`string ${PHONE} ${EMAIL}`);
+    const out = printed();
+    for (const value of [...SECRETS, "Key (tenant_id, phone)=(x"]) expect(out).not.toContain(value);
+    expect(out).toContain("[Object]");
+    expect(out).toContain("PostgrestError [23505]");
+    expect(out).toContain("[Array(1)]");
   });
 });

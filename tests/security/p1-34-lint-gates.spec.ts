@@ -78,6 +78,8 @@ const TOOLING_LINES: Expected = [2, 3, 4, 5].map((l) => imp(l));
 const UTC_LINES: Expected = [3, 4, 5, 6, 7, 8, 9].map((l) => syn(l, "P1-21:"));
 const ENV_LINES: Expected = [1, 2, 3, 5].map((l) => syn(l, "P1-15:"));
 const CONSOLE_LINES: Expected = [2, 3, 4].map((l) => syn(l, "P1-25:"));
+// 03-13 (High re-verify, Low): node:process import, member, computed, globalThis, destructured and require forms.
+const RAW_STREAM_LINES: Expected = [1, 4, 5, 6, 7, 10].map((l) => syn(l, "P1-25:"));
 
 const FAILING: Array<[string, string, string, Expected]> = [
   // ADR-0005 D2/D4: the factory outside the allow-list and the register.
@@ -136,6 +138,10 @@ const FAILING: Array<[string, string, string, Expected]> = [
   ["console in a feature", "console.ts", "features/billing/service.ts", CONSOLE_LINES],
   ["console in the server logger", "console.ts", "lib/log/index.ts", CONSOLE_LINES],
   ["console in the env module", "console.ts", "lib/env.ts", CONSOLE_LINES],
+  ["process.stdout/stderr in a feature", "raw-stream.ts", "features/billing/service.ts", RAW_STREAM_LINES],
+  ["process.stdout/stderr in a route handler", "raw-stream.ts", "app/api/x/route.ts", RAW_STREAM_LINES],
+  ["process.stdout/stderr in the env module", "raw-stream.ts", "lib/env.ts", RAW_STREAM_LINES],
+  ["process.stdout/stderr in instrumentation", "raw-stream.ts", "instrumentation.ts", RAW_STREAM_LINES],
   ["the server logger imported into \"use client\" code", "client-server-logger.tsx", "components/fixture/widget.tsx", [syn(2, "P1-25:"), syn(3, "P1-25:")]],
   ["each UTC-date pattern in a feature", "utc-date-patterns.ts", "features/visits/service.ts", UTC_LINES],
   ["each UTC-date pattern outside lib/datetime", "utc-date-patterns.ts", "lib/log/client.ts", UTC_LINES],
@@ -168,6 +174,9 @@ const PASSING: Array<[string, string]> = [
   ["process-env.ts", "instrumentation.ts"],
   ["process-env.ts", "lib/log/client.ts"],
   ["console.ts", "lib/log/client.ts"],
+  ["raw-stream.ts", "lib/log/index.ts"],
+  ["raw-stream.ts", "lib/log/client.ts"],
+  ["raw-stream.ts", "lib/observability/console-scrub.ts"],
   ["client-reporter.tsx", "components/fixture/widget.tsx"],
   ["utc-date-patterns.ts", "lib/datetime/x.ts"],
   ["jobs-internal-import.ts", "app/api/jobs/run/route.ts"],
@@ -176,6 +185,7 @@ const PASSING: Array<[string, string]> = [
   ["factory-import.ts", "tests/fixture/x.spec.ts"],
   ["second-factory.ts", "scripts/fixture.ts"],
   ["console.ts", "scripts/fixture.ts"],
+  ["raw-stream.ts", "scripts/fixture.ts"],
   ["process-env.ts", "tests/fixture/x.spec.ts"],
   // 03-13c: the env modules may build env names; tooling may import its own trees and use require.
   ["computed-secret-key.ts", "lib/env.ts"],
@@ -236,6 +246,8 @@ describe("P1-34 boundary lint gates: zones keep the base gates", () => {
     "lib/env.ts",
     "next.config.ts",
     "lib/log/client.ts",
+    "lib/log/index.ts",
+    "lib/observability/x.ts",
     "lib/datetime/x.ts",
     ...A1_ROUTES,
     "tests/fixture/x.spec.ts",
