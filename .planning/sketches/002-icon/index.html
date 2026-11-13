@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>App icon · V2-DX</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../themes/clinic-paper.css">
+<link rel="stylesheet" href="../shared/sketch.css">
+<style>
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 24px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  .card { padding: 16px; display: grid; gap: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+  .sz { display: grid; gap: 4px; justify-items: center; font-size: var(--text-caption); color: var(--color-fg-muted); }
+  .wall { border-radius: var(--radius-lg); padding: 20px; display: grid; grid-template-columns: repeat(4, 64px); gap: 18px 14px; justify-content: center; }
+  .wall .app { display: grid; justify-items: center; gap: 6px; font-size: var(--text-caption); }
+  .wall img { width: 60px; height: 60px; }
+  .wall-dark { background: #20242b; color: #ffffff; }
+  .wall-light { background: #e9edf1; color: #1c1b18; }
+  .masked { width: 60px; height: 60px; border-radius: 50%; overflow: hidden; }
+  .masked img { width: 60px; height: 60px; }
+  .safe { position: relative; width: 192px; height: 192px; }
+  .safe img { width: 192px; height: 192px; }
+  .safe::after { content: ""; position: absolute; inset: 9.6%; border: 2px dashed #ffffff; border-radius: 50%; }
+  .status { display: flex; align-items: center; justify-content: space-between; height: 28px; padding: 0 12px; font-size: var(--text-caption); font-weight: 600; border-radius: var(--radius-md) var(--radius-md) 0 0; }
+  .chrome { border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; width: 240px; }
+  .chrome .bar { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: var(--color-surface); border-top: 1px solid var(--color-border); font-weight: 600; font-size: var(--text-body-sm); }
+  .chrome .bar img { width: 24px; height: 24px; }
+  .chrome .body { height: 64px; background: var(--color-canvas); }
+</style>
+</head>
+<body>
+<main id="main">
+  <header>
+    <h1 class="title-1">App icon and theme colour (PO-19)</h1>
+    <p class="muted">Working name <b>CliniQ</b> on the home screen (domain thecliniqai.com). A teal tile with a geometric “Q”, drawn as paths so it never depends on a font. Option A is the PO-19 default and the recommendation.</p>
+  </header>
+
+  <section class="grid" aria-label="Options">
+    <article class="panel card"><h2 class="title-3">A · Teal tile (recommended)</h2><img src="icon.svg" width="160" height="160" alt="Option A: teal rounded tile with a white Q"><p class="body-sm muted">Tile = <code>--pwa-icon-tile</code> (primary-600 #0E716B). White on teal is 5.84:1.</p></article>
+    <article class="panel card"><h2 class="title-3">B · Paper tile</h2><img src="icon-alt-b-paper.svg" width="160" height="160" alt="Option B: paper tile with a teal Q"><p class="body-sm muted">Quieter; disappears on light wallpapers and in the Android app drawer.</p></article>
+    <article class="panel card"><h2 class="title-3">C · Ink tile</h2><img src="icon-alt-c-ink.svg" width="160" height="160" alt="Option C: near-black tile with a light teal Q"><p class="body-sm muted">Strong on light wallpapers; loses the teal brand link at small sizes.</p></article>
+  </section>
+
+  <section class="panel card" aria-labelledby="sizes-h">
+    <h2 class="title-3" id="sizes-h">Sizes (A)</h2>
+    <div class="row">
+      <div class="sz"><img src="icon.svg" width="192" height="192" alt="">192</div>
+      <div class="sz"><img src="icon.svg" width="180" height="180" alt="">Apple 180</div>
+      <div class="sz"><img src="icon.svg" width="48" height="48" alt="">48</div>
+      <div class="sz"><img src="icon.svg" width="32" height="32" alt="">32</div>
+      <div class="sz"><img src="icon.svg" width="16" height="16" alt="">favicon 16</div>
+      <div class="sz"><div class="safe"><img src="icon-maskable.svg" alt="Maskable icon with the 80% safe zone drawn as a dashed circle"></div>Maskable 512 · dashed = 80% safe zone</div>
+    </div>
+  </section>
+
+  <section class="grid" aria-label="In context">
+    <div class="wall wall-dark" aria-label="Android home screen, dark wallpaper (circle mask)">
+      <div class="app"><span class="masked"><img src="icon-maskable.svg" alt=""></span>CliniQ</div>
+      <div class="app"><span class="masked" style="background:#3b82f6"></span>Phone</div>
+      <div class="app"><span class="masked" style="background:#22c55e"></span>WhatsApp</div>
+      <div class="app"><span class="masked" style="background:#f59e0b"></span>Files</div>
+    </div>
+    <div class="wall wall-light" aria-label="iPhone home screen, light wallpaper">
+      <div class="app"><img src="icon.svg" alt="">CliniQ</div>
+      <div class="app"><span style="width:60px;height:60px;border-radius:13px;background:#9ca3af"></span>Camera</div>
+      <div class="app"><span style="width:60px;height:60px;border-radius:13px;background:#0ea5e9"></span>Mail</div>
+      <div class="app"><span style="width:60px;height:60px;border-radius:13px;background:#ef4444"></span>Calendar</div>
+    </div>
+    <div class="chrome" aria-label="Installed app, status bar uses theme_color white">
+      <div class="status" style="background:#ffffff;color:#1c1b18"><span>10:42</span><span>4G · 76%</span></div>
+      <div class="bar" style="border-top:0"><img src="icon.svg" alt="">Asha Clinic</div>
+      <div class="body"></div>
+    </div>
+  </section>
+
+  <section class="panel card" aria-labelledby="theme-h">
+    <h2 class="title-3" id="theme-h">Theme colour</h2>
+    <dl class="kv">
+      <dt>theme_color</dt><dd><code>#FFFFFF</code> (the top bar surface; the status bar merges with the app bar)</dd>
+      <dt>background_color</dt><dd><code>#F6F5F1</code> (paper, the splash equals the canvas)</dd>
+      <dt>Alternative</dt><dd><code>#0E716B</code> teal status bar: more branded, but a coloured band above a white bar on every screen and white status icons</dd>
+    </dl>
+  </section>
+</main>
+</body>
+</html>

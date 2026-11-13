@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Platform tenants · V2-DX</title>
+<link rel="stylesheet" href="../themes/clinic-paper.css">
+<link rel="stylesheet" href="../shared/sketch.css">
+<link rel="stylesheet" href="surfaces.css">
+</head>
+<body>
+<header class="adminbar"><span data-mark="28"></span><b>CliniQ platform</b><span class="grow"></span><span class="chip"><i data-icon="shield"></i>2FA verified</span><span class="avatar" aria-label="Platform admin">PA</span></header>
+<main class="lf" id="main">
+  <header class="lf-head"><p class="tag">DX-04 · low fidelity · /platform (platform admins only, aal2)</p><h1 class="title-1">Clinics</h1><p class="body-sm muted">Tenant and subscription metadata only. No patient or clinical data is available here.</p></header>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <div class="input-wrap" style="flex:1 1 260px;max-width:420px"><i data-icon="search"></i><label class="sr-only" for="pq">Search clinics</label><input class="input" id="pq" type="search" placeholder="Clinic or owner email"></div>
+    <div class="doctors" role="radiogroup" aria-label="Status" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="toggle-chip" role="radio" aria-checked="true">All 6</button><button type="button" class="toggle-chip" role="radio" aria-checked="false">Trialing 2</button><button type="button" class="toggle-chip" role="radio" aria-checked="false">Past due 1</button><button type="button" class="toggle-chip" role="radio" aria-checked="false">Expired 1</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden">
+    <table class="dt">
+      <caption class="sr-only">Clinics</caption>
+      <thead><tr><th scope="col">Clinic</th><th scope="col">Status</th><th scope="col">Trial or period ends</th><th scope="col">Plan</th><th scope="col">Owner</th><th scope="col" class="num">Created</th></tr></thead>
+      <tbody>
+        <tr><td><a href="#">Asha Clinic</a><br><span class="caption subtle">Pune · MH</span></td><td><span class="chip" style="background:var(--color-info-bg);color:var(--color-info-fg)">Trialing</span></td><td data-l="Ends">27 Nov 2026</td><td data-l="Plan">Standard</td><td data-l="Owner">s•••@example.test</td><td class="num" data-l="Created">13 Nov 2026</td></tr>
+        <tr><td><a href="#">Sai Child Care</a><br><span class="caption subtle">Nashik · MH</span></td><td><span class="chip chip-done">Active</span></td><td data-l="Renews">4 Dec 2026</td><td data-l="Plan">Standard</td><td data-l="Owner">p•••@example.test</td><td class="num" data-l="Created">4 Oct 2026</td></tr>
+        <tr><td><a href="#">Shree Dental</a><br><span class="caption subtle">Indore · MP</span></td><td><span class="chip chip-waiting">Past due</span></td><td data-l="Grace until">16 Nov 2026</td><td data-l="Plan">Standard</td><td data-l="Owner">r•••@example.test</td><td class="num" data-l="Created">12 Sep 2026</td></tr>
+        <tr><td><a href="#">Care Plus Clinic</a><br><span class="caption subtle">Surat · GJ</span></td><td><span class="chip chip-cancelled">Expired</span></td><td data-l="Archive on">9 Dec 2026</td><td data-l="Plan">Standard</td><td data-l="Owner">m•••@example.test</td><td class="num" data-l="Created">1 Aug 2026</td></tr>
+        <tr><td><a href="#">Nirmal ENT</a><br><span class="caption subtle">Nagpur · MH</span></td><td><span class="chip chip-neutral">Incomplete</span></td><td data-l="Deleted on">18 Nov 2026</td><td data-l="Plan">—</td><td data-l="Owner">k•••@example.test</td><td class="num" data-l="Created">11 Nov 2026</td></tr>
+        <tr><td><a href="#">Pilot Clinic 1</a><br><span class="caption subtle">Pune · MH</span></td><td><span class="chip chip-done">Active · comp</span></td><td data-l="Comp until">31 Jan 2027</td><td data-l="Plan">Standard</td><td data-l="Owner">d•••@example.test</td><td class="num" data-l="Created">2 Jul 2026</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="caption subtle">Row → tenant detail: subscription events, payments, invoices, masked mandate, Extend trial, Grant comp, Reconcile now. Destructive actions need a typed reason.</p>
+</main>
+<script src="../shared/proto.js"></script>
+</body>
+</html>

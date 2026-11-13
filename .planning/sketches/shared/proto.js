@@ -103,9 +103,11 @@
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
+  const inr2 = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
   /* Money is integer paise (DESIGN_SYSTEM §7.7). */
   function formatINR(paise) {
-    const v = inr.format(Math.abs(paise) / 100);
+    const abs = Math.abs(paise);
+    const v = abs % 100 ? inr2.format(abs / 100) : inr.format(abs / 100);
     return paise < 0 ? "−" + v : v;
   }
   function formatWait(min) {
@@ -456,4 +458,15 @@
     param: param,
   };
   document.addEventListener("keydown", trap, true);
+  /* Static pages: <i data-icon="name"></i> becomes the inline SVG; [data-mark] becomes the brand mark. */
+  function hydrate() {
+    document.querySelectorAll("i[data-icon]").forEach(function (el) {
+      el.outerHTML = icon(el.getAttribute("data-icon"), el.className);
+    });
+    document.querySelectorAll("[data-mark]").forEach(function (el) {
+      el.outerHTML = mark(Number(el.getAttribute("data-mark")) || 36);
+    });
+  }
+  window.Proto.hydrate = hydrate;
+  hydrate();
 })();

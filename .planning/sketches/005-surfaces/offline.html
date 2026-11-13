@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Offline · V2-DX</title>
+<link rel="stylesheet" href="../themes/clinic-paper.css">
+<link rel="stylesheet" href="../shared/sketch.css">
+<link rel="stylesheet" href="surfaces.css">
+</head>
+<body>
+<main class="center" id="main">
+  <div class="box">
+    <span data-mark="56"></span>
+    <i data-icon="wifioff" class="icon"></i>
+    <h1 class="title-1">You’re offline</h1>
+    <p class="muted">Patient data isn’t stored on this device. Reconnect to continue.</p>
+    <button type="button" class="btn btn-lg btn-primary" onclick="location.reload()"><i data-icon="refresh"></i>Retry</button>
+    <p class="caption subtle">Static page, precached by the service worker. It contains no clinic name, user or patient data.</p>
+  </div>
+</main>
+<script src="../shared/proto.js"></script>
+</body>
+</html>

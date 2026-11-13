@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Start trial · V2-DX</title>
+<link rel="stylesheet" href="../themes/clinic-paper.css">
+<link rel="stylesheet" href="../shared/sketch.css">
+<link rel="stylesheet" href="surfaces.css">
+</head>
+<body>
+<main class="lf" id="main" style="max-width:960px">
+  <header class="lf-head"><p class="tag">DX-04 · low fidelity · /onboarding/billing, step 2</p>
+    <ol class="stepper" aria-label="Sign-up progress"><li class="done">Account</li><li class="done">Email code</li><li class="done">Clinic</li><li class="done">Billing details</li><li aria-current="step">Start trial</li></ol>
+  </header>
+  <div class="lf-grid">
+    <section class="card" aria-labelledby="t1">
+      <h1 class="display" id="t1">Start your 14-day free trial</h1>
+      <div class="price"><b>₹1,499 + GST</b><span>per month after the trial</span></div>
+      <ul class="ticks">
+        <li><i data-icon="check"></i><span><b>Nothing is charged before 27 Nov 2026, 10:00 am.</b></span></li>
+        <li><i data-icon="check"></i><span>Then ₹1,768.82 per month incl. 18% GST, by UPI AutoPay or card.</span></li>
+        <li><i data-icon="check"></i><span>₹5 is charged to verify AutoPay and refunded automatically.</span></li>
+        <li><i data-icon="check"></i><span>Cancel anytime in one tap from Settings. Reminders 3 days and 1 day before the first debit.</span></li>
+      </ul>
+      <button type="button" class="btn btn-lg btn-primary btn-block">Set up AutoPay and start trial</button>
+      <p class="caption subtle">Asha Clinic · Maharashtra · GSTIN optional. Payments are handled by Razorpay; CliniQ never sees your UPI PIN or card number.</p>
+    </section>
+    <section class="card" aria-labelledby="t2">
+      <p class="tag">Provider checkout (in-page modal; no redirect)</p>
+      <h2 id="t2" class="sr-only">Checkout placeholder</h2>
+      <div class="placeholder">Razorpay Checkout modal placeholder<br>UPI AutoPay (app on phone, QR on desktop) · Card</div>
+      <p class="tag">After returning from the UPI app (resume)</p>
+      <div style="display:flex;gap:12px;align-items:center" role="status"><span class="spin" aria-hidden="true"></span><div><h3>Confirming your AutoPay…</h3><p class="body-sm muted">This page updates automatically. You can leave it open.</p></div></div>
+      <p class="caption subtle">“Start trial” is never shown again while a mandate is being confirmed. “Try again” appears only after 60 minutes.</p>
+    </section>
+  </div>
+</main>
+<script src="../shared/proto.js"></script>
+</body>
+</html>
