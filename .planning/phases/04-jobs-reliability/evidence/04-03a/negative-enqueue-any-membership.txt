@@ -1,0 +1,11 @@
+   ↓ public.enqueue_message (request path) > a patient of another clinic → P0002 SUBJECT_MISMATCH, no row
+   × public.enqueue_message (request path) > dual-clinic member acting in A cannot enqueue for B's patient; acting in B writes one B row (03-07 finding 2) 44ms
+     → expected null to match object { code: 'P0002', …(1) }
+   × public.enqueue_message (request path) > a non-member tenant id narrows nothing: a member of A naming B for A's patient is refused 4ms
+     → expected null to match object { code: 'P0002', …(1) }
+   ↓ public.enqueue_message (request path) > patient and visit that do not belong together → SUBJECT_MISMATCH
+   ↓ public.enqueue_message (request path) > the same dedupe key twice → one row; the second answer is deduped
+   ↓ public.enqueue_message_system > authenticated → 42501; anon → 42501
+   ↓ public.enqueue_message_system > the service role with an actor outside the closed set → ACTOR_INVALID
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 15 skipped (17)

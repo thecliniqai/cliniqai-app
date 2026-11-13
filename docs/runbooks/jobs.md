@@ -190,3 +190,35 @@ select kind, status, count(*), min(run_at) from ops.jobs group by 1, 2 order by 
 
 `cron-history-cleanup` keeps 7 days of `cron.job_run_details` (pitfall 10; about 1 440 rows a day per schedule).
 `net._http_response` is trimmed by pg_net itself. `ops.jobs` and `ops.job_runner_runs` retention arrives with 04-06.
+
+## 9. Patient messages (`message.send`, V2-04 04-03a)
+
+No request path sends a message (P0-12, R-33; ESLint `P0-12` zone). A request enqueues; the runner sends.
+
+```
+server action / system module
+   └─► public.enqueue_message (member)  |  public.enqueue_message_system (service role, closed actor set)
+         tenant = the subject row's (the visit, else the patient); a member's active tenant (ctx.tenantId) must
+         equal it and be a membership, else P0002 SUBJECT_MISMATCH (R-6)
+         └─► private.enqueue_message_internal: template in ops.message_templates for the channel, recipient = the
+             patient's or guardian's number (R-24), params ≤ 4 KB, dedupe key → communication_queue row (pending)
+               └─► AFTER INSERT trigger → ops.enqueue_job('message.send', tenant, {queue_id}, 'msg:<id>',
+                   next_retry_at, max_retries + 2)
+runner → handler message.send → communication_queue_claim → provider (runner's abort signal, 10 s bound)
+   success → communication_queue_finish(sent) + communication_sent audit row (no phone) → job done
+   retryable failure → finish(failed): the row's own backoff (1, 5, 15 min) → job retries at next_retry_at;
+                       a WhatsApp booking/reschedule gets one SMS fallback (dedupe msg-fallback:<queue_id>)
+   not retryable (disabled provider, synthetic recipient, MSG91 4xx, no recipient) → communication_queue_dead_letter
+   last failure / dead job → row dead_letter + one "Message Delivery Failed" in-app note (trigger on ops.jobs)
+pg_cron 'delivery-reap' * * * * * → ops.reap_delivery_rows(): rows in processing > 240 s → failed / outcome_unknown
+```
+
+| Question | Answer |
+|---|---|
+| Which provider sends? | `MESSAGING_PROVIDER`: `sink` on staging until V2-12 (R-9: succeeds, sends nothing, logs a count), `disabled` dead-letters at once, `dev` writes `.planning/dev-messages.txt` (local only), `msg91` real (production; V2-12). The e2e lane runs `sink`. |
+| A message did not arrive | `select status, retry_count, error_message, next_retry_at from public.communication_queue where id = '<id>'` and `select status, attempts, last_error, run_at from ops.jobs where dedupe_key = 'msg:<id>'` (SQL editor, codes only). `error_message` is a code (`msg91_http_400`, `provider_disabled`, `synthetic_recipient`, `outcome_unknown`, `job_dead:<code>`). |
+| Duplicate sends? | Normal operation sends once (job claim + lease fencing + the row claim; `tests/jobs/parallel-dispatch-db.spec.ts`). A crash between the provider call and the finish re-sends after the reaper (at-least-once, R-7; MSG91 has no idempotency key). |
+| Stuck in `processing` | The reaper fixes it within ~5 min (240 s + the next minute); the job retries it. |
+| Dead letters | Replay arrives with 04-03c (`ops.replay_job`). Until then a row can be re-queued only by the PO in the SQL editor. |
+| Templates | Only `ops.message_templates` ids per channel; V2-12 adds templates by migration. A new template id in code fails with `TEMPLATE_NOT_ALLOWED` until its migration lands. |
+| Removed | `/api/cron/dispatch-communications` (404) and its `cron.dispatch_communications` reason; the inbound webhook's five bot replies still send directly until 04-03c. |

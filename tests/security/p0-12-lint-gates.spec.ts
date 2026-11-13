@@ -86,13 +86,13 @@ describe("P0-12: the real tree", () => {
   }, 60_000);
 
   it("app code carries 0 P0-12 messages (census: boundary_messages[P0-12] = 0)", async () => {
-    const counters = (await p134Counters({ cwd: ROOT })) as { boundary_messages: Record<string, number> & { flagged: string[] } };
+    const counters = (await p134Counters({ cwd: ROOT })) as unknown as { boundary_messages: Record<string, number> & { flagged: string[] } };
     expect(counters.boundary_messages["P0-12"]).toBe(0);
     expect(counters.boundary_messages.flagged.filter((f) => f.includes("P0-12"))).toEqual([]);
   }, 300_000);
 
   it("the census counts a P0-12 violation (so 0 above is live)", async () => {
-    const counters = (await p134Counters({ cwd: ROOT, targets: [FIXTURES], ignore: false })) as {
+    const counters = (await p134Counters({ cwd: ROOT, targets: [FIXTURES], ignore: false })) as unknown as {
       boundary_messages: Record<string, number>;
     };
     // At their real paths under lint-fixtures/ the fixtures are app-code paths outside every allowance.
