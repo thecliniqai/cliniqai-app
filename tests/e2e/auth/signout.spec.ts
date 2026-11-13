@@ -87,7 +87,7 @@ test("Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue,
 
   const response = await signOutVia(page, "Sign out");
   expect(response.status()).toBe(303);
-  expect(response.headers()["clear-site-data"]).toBe('"cache"');
+  expect((await response.allHeaders())["clear-site-data"]).toBe('"cache"');
   expect(new URL(response.headers()["location"], E2E_BASE_URL).pathname).toBe("/login");
   expect(response.request().postData()).toBe("scope=local");
 
@@ -124,7 +124,7 @@ test("Sign out of all devices: every session of the user ends", async ({ page, b
 
   const response = await signOutVia(page, "Sign out of all devices");
   expect(response.status()).toBe(303);
-  expect(response.headers()["clear-site-data"]).toBe('"cache"');
+  expect((await response.allHeaders())["clear-site-data"]).toBe('"cache"');
   expect(response.request().postData()).toBe("scope=global");
 
   const refreshed = await gotrue().auth.refreshSession({ refresh_token: theirs.refresh_token });

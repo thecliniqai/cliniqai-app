@@ -42,6 +42,20 @@ function SignOutForm({
   );
 }
 
+/** A navigation item of the menu: the link itself is the menuitem (no button nested in a link). */
+function MenuLink({ href, icon, children }: { href: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      role="menuitem"
+      className="w-full px-4 py-2.5 text-start text-sm flex items-center gap-2.5 transition-colors text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+    >
+      <span className="shrink-0">{icon}</span>
+      <span className="grow">{children}</span>
+    </Link>
+  );
+}
+
 export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps) {
   const [signingOut, setSigningOut] = useState<"local" | "global" | null>(null);
 
@@ -62,14 +76,14 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
       </span>
       <span className="hidden sm:block text-start text-xs">
         <span className="block font-medium text-gray-900 truncate max-w-[120px]">{userEmail}</span>
-        <span className="block text-gray-500 capitalize">{role}</span>
+        <span className="block text-gray-600 capitalize">{role}</span>
       </span>
     </button>
   );
 
   return (
     <Dropdown trigger={trigger} align="right" menuClassName="w-56 p-1.5">
-      <div className="px-3 py-2 border-b border-gray-100 mb-1">
+      <div role="none" className="px-3 py-2 border-b border-gray-100 mb-1">
         <p className="text-xs font-semibold text-gray-900 truncate">{userEmail}</p>
         <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5 capitalize">
           <Shield className="w-3 h-3 text-[#1769E0]" />
@@ -77,21 +91,17 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
         </p>
       </div>
 
-      <Link href="/profile" className="block">
-        <DropdownItem icon={<User className="w-4 h-4 text-gray-500" />}>
-          My Profile
-        </DropdownItem>
-      </Link>
+      <MenuLink href="/profile" icon={<User className="w-4 h-4 text-gray-500" aria-hidden="true" />}>
+        My Profile
+      </MenuLink>
 
       {(role === "owner" || role === "admin") && (
-        <Link href="/settings/clinic" className="block">
-          <DropdownItem icon={<Building className="w-4 h-4 text-gray-500" />}>
-            Clinic Profile
-          </DropdownItem>
-        </Link>
+        <MenuLink href="/settings/clinic" icon={<Building className="w-4 h-4 text-gray-500" aria-hidden="true" />}>
+          Clinic Profile
+        </MenuLink>
       )}
 
-      <div className="my-1 border-t border-gray-100" />
+      <div role="separator" className="my-1 border-t border-gray-100" />
 
       <SignOutForm
         scope="local"
