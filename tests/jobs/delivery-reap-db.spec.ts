@@ -9,6 +9,9 @@
  * - A row stuck in `processing` from before 000035 (no job) gets its job from the reaper and is sent.
  * - A job dead-lettered by `ops.reap_jobs()` (lease expired with no attempts left) dead-letters its open delivery row
  *   and adds exactly one "Message Delivery Failed" notification.
+ * - 04-07b (independent review M2): a crash on attempt 3 of 5 still sends. While the row is held (`processing`, under
+ *   240 s) every re-claim defers (`delivery_in_progress`) and returns its attempt, so polling never dead-letters it;
+ *   once the delivery reaper frees the row, the next pass sends it once (attempt 4).
  * Time moves by SQL, never by sleeping.
  */
 import { beforeAll, describe, expect, it } from "vitest";
@@ -16,7 +19,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { psql } from "../helpers/sql";
 import { letters } from "./helpers";
-import { jobsFor, queueState, recordingProvider, runMessages, seedPatient, type SeededPatient } from "./message-helpers";
+import { jobsFor, makeDue, queueState, recordingProvider, runMessages, seedPatient, type SeededPatient } from "./message-helpers";
 
 const WORKER = `spec-dreap-${letters(8)}`;
 let owner: SeededTenant;
@@ -93,6 +96,38 @@ describe("delivery-row reaper", () => {
     expect(provider.calls.filter((c) => c.params.patient_name === marker(queueId))).toHaveLength(0);
     expect(jobsFor(queueId)).toEqual([expect.objectContaining({ status: "pending", lastError: "delivery_in_progress" })]);
     expect(jobsFor(queueId)[0].runInSeconds).toBeGreaterThan(50);
+  });
+
+  it("04-07b: a crash on attempt 3 of 5 still sends; polling while the row is held spends no attempt", async () => {
+    const queueId = await enqueue();
+    const mark = marker(queueId);
+    const [{ maxAttempts }] = jobsFor(queueId);
+    expect(maxAttempts).toBeGreaterThanOrEqual(4);
+    // Attempts 1 .. max-2 spent (e.g. provider 503s), then the runner died after claiming the delivery row.
+    const spent = maxAttempts - 2;
+    simulateCrash(queueId, 60, spent);
+
+    const provider = recordingProvider();
+    // More polls than the job has attempts left: each one finds the row held and defers with the attempt returned.
+    for (let i = 0; i < maxAttempts; i++) {
+      const result = await runMessages(provider, `${WORKER}-poll-${i}`);
+      expect(result.ok).toBe(true);
+      expect(jobsFor(queueId)).toEqual([
+        expect.objectContaining({ status: "pending", attempts: spent, lastError: "delivery_in_progress" }),
+      ]);
+      expect(queueState(queueId).status).toBe("processing");
+      psql(`update ops.jobs set run_at = now() - interval '1 second' where kind = 'message.send' and payload ->> 'queue_id' = '${queueId}'`);
+    }
+    expect(provider.calls.filter((c) => c.params.patient_name === mark)).toHaveLength(0);
+
+    // The delivery reaper frees the row (processing > 240 s); the next pass sends it exactly once.
+    psql(`update public.communication_queue set updated_at = now() - interval '300 seconds' where id = '${queueId}'`);
+    psql("select ops.reap_delivery_rows()");
+    makeDue(queueId);
+    await runMessages(provider, `${WORKER}-sent`);
+    expect(provider.calls.filter((c) => c.params.patient_name === mark)).toHaveLength(1);
+    expect(queueState(queueId).status).toBe("sent");
+    expect(jobsFor(queueId)).toEqual([expect.objectContaining({ status: "done", attempts: spent + 1 })]);
   });
 
   it("a stuck row from before 000035 (no job) gets its job from the reaper and is sent", async () => {

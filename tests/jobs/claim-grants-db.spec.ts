@@ -30,6 +30,9 @@ const PUBLIC_FUNCTIONS = [
   "public.complete_job(uuid, uuid)",
   "public.fail_job(uuid, uuid, text, boolean, timestamp with time zone)",
   "public.release_job(uuid, uuid)",
+  // 04-07b (migration 000043)
+  "public.start_job(uuid, uuid)",
+  "public.defer_job(uuid, uuid, text, timestamp with time zone)",
   "public.jobs_runner_begin(text, text)",
   "public.jobs_runner_end(bigint, integer, integer, integer, integer, boolean, text)",
 ];
@@ -72,6 +75,13 @@ async function callEveryRpc(
       p_retryable: true,
     }),
     release_job: db.rpc("release_job", { p_id: ZERO, p_lease_token: ZERO }),
+    start_job: db.rpc("start_job", { p_id: ZERO, p_lease_token: ZERO }),
+    defer_job: db.rpc("defer_job", {
+      p_id: ZERO,
+      p_lease_token: ZERO,
+      p_error_code: "x",
+      p_retry_at: "2026-11-14T00:00:00Z",
+    }),
     jobs_runner_begin: db.rpc("jobs_runner_begin", {
       p_worker: WORKER,
       p_source: "test",
@@ -97,6 +107,8 @@ const ALL_DENIED = {
   complete_job: "42501",
   fail_job: "42501",
   release_job: "42501",
+  start_job: "42501",
+  defer_job: "42501",
   jobs_runner_begin: "42501",
   jobs_runner_end: "42501",
 };
@@ -126,6 +138,18 @@ describe("runner RPCs: service role only", () => {
       (await admin.rpc("complete_job", { p_id: ZERO, p_lease_token: ZERO }))
         .data
     ).toBe(false);
+    // 04-07b: a lease nobody holds starts and defers nothing.
+    const started = await admin.rpc("start_job", { p_id: ZERO, p_lease_token: ZERO });
+    expect(started.error).toBeNull();
+    expect(started.data).toBeNull();
+    const deferred = await admin.rpc("defer_job", {
+      p_id: ZERO,
+      p_lease_token: ZERO,
+      p_error_code: "x",
+      p_retry_at: "2026-11-14T00:00:00Z",
+    });
+    expect(deferred.error).toBeNull();
+    expect(deferred.data).toBe("stale");
     const begin = await admin.rpc("jobs_runner_begin", {
       p_worker: WORKER,
       p_source: "test",

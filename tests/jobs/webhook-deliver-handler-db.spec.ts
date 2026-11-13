@@ -233,7 +233,7 @@ describe("concurrency (T-04-07)", () => {
     const results = await Promise.all([runHandlerOnce(id, { request: transport.impl }), runHandlerOnce(id, { request: transport.impl })]);
     expect(transport.calls).toHaveLength(1);
     expect(results).toContainEqual({ outcome: "done" });
-    expect(results).toContainEqual(expect.objectContaining({ outcome: "retry", code: "delivery_in_progress" }));
+    expect(results).toContainEqual(expect.objectContaining({ outcome: "defer", code: "delivery_in_progress" }));
     expect(deliveryRow(id).status).toBe("delivered");
   });
 
@@ -284,7 +284,7 @@ describe("at-least-once (R-7)", () => {
     expect(error).toBeNull();
     psql(`update public.webhook_delivery_queue set updated_at = now() - interval '5 minutes' where id = '${id}'`);
     const transport = recordingRequest(200);
-    expect(await runHandlerOnce(id, { request: transport.impl })).toMatchObject({ outcome: "retry", code: "delivery_in_progress" });
+    expect(await runHandlerOnce(id, { request: transport.impl })).toMatchObject({ outcome: "defer", code: "delivery_in_progress" });
 
     expect(Number(psql("select ops.reap_delivery_rows()")[0])).toBeGreaterThanOrEqual(1);
     expect(deliveryRow(id)).toMatchObject({ status: "failed", lastError: "outcome_unknown" });

@@ -5,14 +5,18 @@
  * - Tracer: one job enqueued in SQL is claimed by `runJobs` and ends `done` with `attempts = 1`.
  * - 200 jobs across 3 tenants, 8 concurrent `runJobs` (batch 10, lease 60 s), a recording handler: 200 handled ids,
  *   200 distinct, every job `done` with `attempts = 1`, and the runners' claimed counts add up to 200.
- * - Fairness: tenant A has 100 due jobs, all older than tenant B's 5; one claim (batch 10, per tenant 5) returns 5 of A
- *   and all 5 of B, so A's backlog cannot starve B.
+ * - Fairness (04-07b M-FAIR, review A M-1 / independent M1): driven through the real runner with the route's
+ *   configuration (`RUN_PASS_CONFIG`) and a 12 s handler bound (message.send's): tenant A has 30 due jobs, all older
+ *   than tenant B's one; B's job is among the first two the pass runs (the 04-01 runner claimed batches of 1, so the
+ *   pass ran only A's oldest jobs). And `claim_jobs` interleaves tenants even when p_per_tenant ≥ the batch.
  * - 04-03a (roadmap "the parallel-dispatcher test shows 0 duplicate sends", T-04-07): 200 `communication_queue` rows
  *   enqueued through `enqueue_message_system` (their trigger creates 200 `message.send` jobs), 8 concurrent `runJobs`
  *   with the real `message.send` handler and a recording provider → 200 provider calls for those rows, 200 distinct
  *   rows, every row `sent` once and every job `done` with `attempts = 1`.
  */
 import { afterAll, describe, expect, it } from "vitest";
+import { z } from "zod";
+import { RUN_PASS_CONFIG } from "@/lib/jobs/internal/run-config";
 import { runJobs } from "@/lib/jobs/internal/runner";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { psql } from "../helpers/sql";
@@ -125,12 +129,53 @@ describe("runJobs over the live queue", () => {
   }, 60_000);
 });
 
-describe("claim_jobs tenant fairness", () => {
-  it("one tenant's older backlog does not starve another: batch 10, per tenant 5 → 5 of A and all 5 of B", async () => {
+describe("tenant fairness (04-07b M-FAIR)", () => {
+  it("review A M-1 repro through the real runner: A's 30 older jobs do not starve B's one", async () => {
     const k = kind("fair");
     const a = tenant("fair a");
     const b = tenant("fair b");
-    // All of A's jobs are older than any of B's: an oldest-first claim without a per-tenant cap returns only A.
+    enqueueMany(k, a, 30, { ageSeconds: 600 });
+    const [bId] = enqueueMany(k, b, 1, { ageSeconds: 60 });
+
+    // Every job "takes" 2 s of the pass's clock; a 12 s handler starts only with ≥ 13.5 s of the 25 s budget left, so
+    // the pass runs 6 jobs. The 04-01 runner claimed batches of 1 (oldest first): all 6 would have been A's.
+    let clock = Date.now();
+    const order: string[] = [];
+    const result = await runJobs({
+      db: getAdminClient(),
+      ...RUN_PASS_CONFIG,
+      worker: `${WORKER}-fair`,
+      source: "test",
+      kinds: [k],
+      handlers: {
+        [k]: {
+          schema: z.object({ n: z.number().int() }),
+          maxDurationMs: 12_000,
+          async run(job) {
+            order.push(job.id === bId ? "B" : job.tenantId === a ? "A" : "?");
+            clock += 2_000;
+            return { outcome: "done" };
+          },
+        },
+      },
+      now: () => new Date(clock),
+    });
+
+    expect(order).toHaveLength(6);
+    expect(order.slice(0, 2)).toContain("B");
+    expect(order.filter((t) => t === "B")).toHaveLength(1);
+    expect(result).toMatchObject({ ok: true, done: 6, released: 0, stale: 0 });
+    const rows = jobRows(k);
+    expect(rows.find((r) => r.id === bId)).toMatchObject({ status: "done", attempts: 1 });
+    // A's remaining jobs were never claimed or started: still pending, no attempt spent.
+    expect(rows.filter((r) => r.status === "pending")).toHaveLength(25);
+    expect(rows.filter((r) => r.status === "pending").every((r) => r.attempts === 0)).toBe(true);
+  });
+
+  it("claim_jobs picks round-robin across tenants even when p_per_tenant is not below the batch", async () => {
+    const k = kind("rr");
+    const a = tenant("rr a");
+    const b = tenant("rr b");
     enqueueMany(k, a, 100, { ageSeconds: 3600 });
     const bIds = enqueueMany(k, b, 5, { ageSeconds: 60 });
 
@@ -138,21 +183,17 @@ describe("claim_jobs tenant fairness", () => {
       p_kinds: [k],
       p_batch: 10,
       p_lease_seconds: 60,
-      p_worker: `${WORKER}-fair`,
-      p_per_tenant: 5,
+      p_worker: `${WORKER}-rr`,
+      p_per_tenant: 10,
     });
 
     expect(error).toBeNull();
     const claimed = data ?? [];
     expect(claimed).toHaveLength(10);
     expect(claimed.filter((r) => r.tenant_id === a)).toHaveLength(5);
-    expect(
-      claimed
-        .filter((r) => r.tenant_id === b)
-        .map((r) => r.id)
-        .sort()
-    ).toEqual([...bIds].sort());
-    expect(claimed.every((r) => r.attempts === 1)).toBe(true);
+    expect(claimed.filter((r) => r.tenant_id === b).map((r) => r.id).sort()).toEqual([...bIds].sort());
+    // 04-07b: the claim counts no attempt (start_job does).
+    expect(claimed.every((r) => r.attempts === 0)).toBe(true);
   });
 });
 

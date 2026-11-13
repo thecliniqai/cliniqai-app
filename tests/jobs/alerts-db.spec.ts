@@ -116,9 +116,10 @@ const leaseExpiries = (n: number, ago = "1 minute") =>
   `select 'test.alerts_lease', 'alerts-spec:' || gen_random_uuid(), 'done', 2, now(), now() - interval '${ago}' from generate_series(1, ${n})`;
 
 const RUNNER_URL = "select 'V|' || vault.create_secret('https://runner.example.invalid/api/jobs/run', 'jobs_runner_url')";
-const runnerRun = (ago: string, ok: boolean) =>
+// 04-07b (review A L-5): only scheduler-triggered passes (`pg_cron`) keep runner_stale quiet.
+const runnerRun = (ago: string, ok: boolean, source = "pg_cron") =>
   `insert into ops.job_runner_runs (worker, source, started_at, finished_at, ok) values ` +
-  `('test:alerts-spec', 'test', now() - interval '${ago}', now() - interval '${ago}' + interval '2 seconds', ${ok})`;
+  `('test:alerts-spec', '${source}', now() - interval '${ago}', now() - interval '${ago}' + interval '2 seconds', ${ok})`;
 
 const errorEvents = (count: number, ago = "1 minute") =>
   `insert into ops.error_events (fingerprint, occurred_on, first_seen, last_seen, count, environment, error_name, message) values ` +
@@ -258,7 +259,12 @@ describe("runner_stale (critical): Vault holds jobs_runner_url and no ok runner 
     expect(String(old.alerts[0].details.last_ok_at)).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
   });
 
-  it("stays quiet with a recent ok pass, and without the Vault secret (local and CI stacks)", () => {
+  it("04-07b: a recent ok pass that pg_cron did not trigger (manual, test) does not keep it quiet", () => {
+    expect(open(run([RUNNER_URL, runnerRun("1 minute", true, "manual")]))).toEqual(["runner_stale"]);
+    expect(open(run([RUNNER_URL, runnerRun("1 minute", true, "test")]))).toEqual(["runner_stale"]);
+  });
+
+  it("stays quiet with a recent ok pg_cron pass, and without the Vault secret (local and CI stacks)", () => {
     expect(run([RUNNER_URL, runnerRun("1 minute", true)]).alerts).toEqual([]);
     expect(run([]).alerts).toEqual([]);
   });

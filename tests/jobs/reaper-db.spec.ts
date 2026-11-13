@@ -2,12 +2,15 @@
  * V2-04 04-01 (P0-12, T-04-07, T-04-09): lease expiry, fencing, backoff, dead letters and the reaper on the live local
  * queue (migration 000031). Time is moved by rewriting `locked_until` in SQL, never by sleeping.
  *
- * - An expired lease is re-claimed: same id, `attempts = 2`, a new token, `last_lease_expired_at` set.
+ * - 04-07b (migration 000043): `claim_jobs` counts no attempt; `start_job` does, once per lease, under the token.
+ * - An expired lease of a started job is re-claimed: same id, the attempt kept, a new token, `last_lease_expired_at` set;
+ *   the second start makes it attempt 2.
  * - Fencing: the first (stale) token's `complete_job` returns false and changes nothing; the second token completes.
  * - The reaper dead-letters an expired lease with no attempts left (`lease_expired`); such a row is never re-claimed.
  * - `fail_job`: retryable on attempt 1 → pending in [15 s, 30 s]; retryable on the last attempt → dead;
  *   non-retryable → dead at once; a handler retry time is honoured; a stale token → `stale`.
- * - `release_job` returns the claim's attempt; a free-text code (synthetic phone) is never stored.
+ * - `release_job` hands back an unstarted job (attempts unchanged) and refuses a started one; a free-text code
+ *   (synthetic phone) is never stored.
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -46,6 +49,15 @@ async function claim(k: string, leaseSeconds = 60) {
   });
   expect(error).toBeNull();
   return data ?? [];
+}
+
+async function start(id: string, token: string): Promise<number | null> {
+  const { data, error } = await getAdminClient().rpc("start_job", {
+    p_id: id,
+    p_lease_token: token,
+  });
+  expect(error).toBeNull();
+  return data;
 }
 
 async function complete(id: string, token: string): Promise<boolean | null> {
@@ -87,19 +99,24 @@ function column(id: string, expr: string): string {
 }
 
 describe("lease expiry and fencing", () => {
-  it("an expired lease is re-claimed with attempts = 2 and a new token; the stale holder cannot complete it", async () => {
+  it("an expired lease of a started job is re-claimed with its attempt kept and a new token; the stale holder cannot complete it", async () => {
     const k = kind("lease");
     const [id] = enqueueMany(k, tenantId, 1);
 
     const [first] = await claim(k, 10);
-    expect(first).toMatchObject({ id, attempts: 1 });
+    expect(first).toMatchObject({ id, attempts: 0 });
+    expect(await start(id, first.lease_token)).toBe(1);
+    expect(await start(id, first.lease_token)).toBeNull(); // one start per lease
     expect(await claim(k)).toEqual([]); // leased: nobody else gets it
     expect(column(id, "last_lease_expired_at is null")).toBe("t");
 
     expireLease(id);
+    expect(await start(id, first.lease_token)).toBeNull(); // nor after its lease expired
     const [second] = await claim(k);
-    expect(second).toMatchObject({ id, attempts: 2 });
+    expect(second).toMatchObject({ id, attempts: 1 });
     expect(second.lease_token).not.toBe(first.lease_token);
+    expect(await start(id, first.lease_token)).toBeNull(); // the stale token starts nothing
+    expect(await start(id, second.lease_token)).toBe(2);
     expect(column(id, "last_lease_expired_at is not null")).toBe("t");
 
     // Fencing: the first runner wakes up and tries to finish. Nothing changes.
@@ -129,7 +146,8 @@ describe("lease expiry and fencing", () => {
     const k = kind("reap");
     const [id] = enqueueMany(k, tenantId, 1, { maxAttempts: 1 });
     const [first] = await claim(k, 10);
-    expect(first).toMatchObject({ id, attempts: 1, max_attempts: 1 });
+    expect(first).toMatchObject({ id, attempts: 0, max_attempts: 1 });
+    expect(await start(id, first.lease_token)).toBe(1);
 
     expireLease(id);
     expect(await claim(k)).toEqual([]); // no attempts left: not claimable
@@ -235,7 +253,8 @@ describe("fail_job: attempts, backoff and dead letters", () => {
         `update ops.jobs set run_at = now() - interval '1 second' where id = '${id}' and status = 'pending'`
       );
       const [job] = await claim(k);
-      expect(job.attempts).toBe(i + 1);
+      expect(job.attempts).toBe(i);
+      expect(await start(id, job.lease_token)).toBe(i + 1);
       outcomes.push((await fail(id, job.lease_token, "boom", true)) ?? "");
     }
     expect(outcomes).toEqual(["pending", "pending", "dead"]);
@@ -258,7 +277,7 @@ describe("fail_job: attempts, backoff and dead letters", () => {
 });
 
 describe("release_job", () => {
-  it("hands an unstarted job back: pending, attempt returned, re-claimable at once; the stale token is refused", async () => {
+  it("hands an unstarted job back: pending, attempts unchanged, re-claimable at once; the stale token is refused", async () => {
     const k = kind("release");
     const [id] = enqueueMany(k, tenantId, 1);
     const [job] = await claim(k);
@@ -283,6 +302,20 @@ describe("release_job", () => {
       ).data
     ).toBe(false);
     const [again] = await claim(k);
-    expect(again).toMatchObject({ id, attempts: 1 });
+    expect(again).toMatchObject({ id, attempts: 0 });
+  });
+
+  it("refuses to hand back a started job (its attempt stays counted)", async () => {
+    const k = kind("relstarted");
+    const [id] = enqueueMany(k, tenantId, 1);
+    const [job] = await claim(k);
+    expect(await start(id, job.lease_token)).toBe(1);
+    const { data, error } = await getAdminClient().rpc("release_job", {
+      p_id: id,
+      p_lease_token: job.lease_token,
+    });
+    expect(error).toBeNull();
+    expect(data).toBe(false);
+    expect(jobRows(k)).toEqual([{ id, status: "running", attempts: 1, lastError: null }]);
   });
 });

@@ -108,7 +108,7 @@ describe("readiness_probe(p_expected_migration) (migrations 000025, 000029)", ()
       // 04-04 (R-41)
       "select 1 from ops.jobs j where j.status = 'pending' and j.run_at < now() - interval '5 minutes'",
       "select 1 from ops.jobs j where j.status = 'dead' and j.finished_at >= now() - interval '24 hours'",
-      "select 1 from ops.job_runner_runs r where r.started_at > now() - interval '5 minutes' and r.ok",
+      "select 1 from ops.job_runner_runs r where r.started_at > now() - interval '5 minutes' and r.ok and r.source = 'pg_cron'",
       "select 1 from vault.secrets v where v.name = 'jobs_runner_url'",
       "select 1 from ops.alerts a where a.status = 'open' and a.severity = 'critical'",
     ];
@@ -155,9 +155,17 @@ describe("readiness_probe(p_expected_migration) (migrations 000025, 000029)", ()
     const vault = "select vault.create_secret('https://runner.example.invalid/api/jobs/run', 'jobs_runner_url')";
     expect(flags([vault]).runner_stale).toBe(true);
     expect(
-      flags([vault, "insert into ops.job_runner_runs (worker, source, started_at, ok) values ('test:ready', 'test', now() - interval '1 minute', true)"])
+      flags([vault, "insert into ops.job_runner_runs (worker, source, started_at, ok) values ('test:ready', 'pg_cron', now() - interval '1 minute', true)"])
         .runner_stale,
     ).toBe(false);
+    // 04-07b (review A L-5): a manual (or test) pass does not hide a broken scheduler.
+    for (const source of ["manual", "test"]) {
+      expect(
+        flags([vault, `insert into ops.job_runner_runs (worker, source, started_at, ok) values ('test:ready', '${source}', now() - interval '1 minute', true)`])
+          .runner_stale,
+        source,
+      ).toBe(true);
+    }
 
     expect(flags(["insert into ops.alerts (rule, severity) values ('backup_stale', 'critical')"]).alerts_critical_open).toBe(true);
     expect(flags(["insert into ops.alerts (rule, severity) values ('dead_letter', 'warn')"]).alerts_critical_open).toBe(false);
