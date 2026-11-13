@@ -16,17 +16,17 @@ Legend: `[ ]` open · `[~]` PO says done, Claude verifying · `[x]` verified (ev
 The PO asked for only the items that need a decision or money; Claude handles the rest.
 
 **Decisions or money (answer these first)**
-- **B-1 · Vercel plan for staging.** v1 is on Vercel. The Hobby plan does not allow commercial use, so a staging
+- **B-1 · Vercel plan for staging.** **Answered (PO, 2026-11-13): Hobby until go-live; staging is a new Hobby project. Upgrade to Pro at go-live (commercial use).** v1 is on Vercel. The Hobby plan does not allow commercial use, so a staging
   project for ClinicQ belongs on a Pro team. Question: is the team that hosts app.thecliniqai.com on Pro? If yes,
   staging costs nothing extra. If no, decide: upgrade (~$20/month per member) or run staging only locally until go-live.
-- **B-2 · Supabase project slots.** Free allows 2 active projects. Question: does app.thecliniqai.com (v1) use the
+- **B-2 · Supabase project slots.** **Answered (PO, 2026-11-13): nobody uses the v1 test project. Create one new staging project. CTO: skip the v1 schema dump (03-E1a) because production is built from migrations (C26); pausing TheCliniQ (03-E1b) is optional; Claude does the local unlink (03-E1c).** Free allows 2 active projects. Question: does app.thecliniqai.com (v1) use the
   "TheCliniQ" project, and do people still use v1? If yes, do not pause it (03-E1b becomes "skip"); staging takes the
   second free slot, provided no other free project is active.
-- **B-3 · Staging backups (FT-02): AWS vs Cloudflare R2.** AWS S3 in Mumbai with a KMS key costs about $1–2/month.
+- **B-3 · Staging backups (FT-02): AWS vs Cloudflare R2.** **Answered (PO, 2026-11-13): Cloudflare R2 for staging; AWS Mumbai decided at go-live.** AWS S3 in Mumbai with a KMS key costs about $1–2/month.
   Cloudflare R2 costs $0 at this size and is already in your Cloudflare account. Staging holds synthetic data only.
   Claude recommends R2 for staging now and AWS Mumbai for production at go-live. The code is S3-compatible, so only
   the endpoint changes.
-- **B-4 · Resend plan and domain.** Question: is auth.thecliniqai.com a free domain slot on your Resend plan? If v1
+- **B-4 · Resend plan and domain.** **Answered (PO, 2026-11-13): auth.thecliniqai.com added in Resend. dig confirms DKIM (`resend._domainkey.auth`) plus SPF/MX via `send.auth` → Resend.** Question: is auth.thecliniqai.com a free domain slot on your Resend plan? If v1
   already uses Resend, which domain does it send from? (If the plan has no free slot, either upgrade or send staging
   mail from the domain v1 already verified.)
 - **D-1 · Design sign-off (G2-D).** Claude will hand you the V2-DX proposal when it is ready (about 45–60 min of review).
@@ -39,12 +39,12 @@ GitHub Environments. Everything else is post-merge drills that Claude runs or as
 **Delegated or deferred:** rulings confirmations (C-2, 03-E13/E14/E15, 04-P14/P15, 05-P1) are delegated to the CTO;
 C-1 (private repo) is deferred to go-live; SES (03-E5/E6) is replaced by Resend until go-live.
 
-- [ ] **03-E6R · Resend sending domain `auth.thecliniqai.com`** — replaces 03-E5/E6 until go-live
+- [~] **03-E6R · Resend sending domain `auth.thecliniqai.com`** — replaces 03-E5/E6 until go-live
   - *Do / where:* resend.com → Domains → Add domain `auth.thecliniqai.com` (region: the one closest to India that
     Resend offers, e.g. Tokyo `ap-northeast-1`). Resend shows 3 records. Add them in Cloudflare → thecliniqai.com →
     DNS → Records, all **DNS only** (grey cloud):
     `TXT resend._domainkey.auth` = the DKIM value Resend shows; `MX send.auth` = the feedback-smtp host Resend shows,
-    priority 10; `TXT send.auth` = `v=spf1 include:amazonses.com ~all` (copy exactly what Resend shows). No DMARC
+    priority 10; the `send.auth` SPF/MX records Resend shows (copy them exactly). No DMARC
     record is needed: the root `_dmarc.thecliniqai.com` (p=none) already covers the subdomain. Then click Verify in
     Resend. Next: Resend → API Keys → create `clinicos-staging`, permission **Sending access**, domain
     `auth.thecliniqai.com` → paste it into Vercel staging as `RESEND_API_KEY` (Production scope only). Set
@@ -121,7 +121,7 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Unblocks:* 03-E4, 03-E5, 03-E6, 03-E7, 03-E8; the `{{STAGING_ORIGIN}}` value in `supabase/auth-policy.json`.
   - *Verify (Claude, read-only):* `dig +short NS <domain>`; record the domain in `docs/v2/VERIFICATION_LOG.md`.
 
-- [ ] **03-E1a · Schema-only snapshot of the v1 test project (before pausing it)**
+- [d] **03-E1a · Schema-only snapshot of the v1 test project (before pausing it)**
   - *Do / where:* on your machine, outside any agent session:
     `npx supabase db dump --schema-only --db-url "<v1 database URL from Dashboard → Connect>" -f <path outside the repo>/clinicq-v1-schema.sql`.
     Schema only, no data. Tell Claude the file path. Do not commit it.
@@ -132,7 +132,7 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
     `.planning/phases/03-platform-hygiene/evidence/b1/hosted-drift.{txt,json}`; drift is documented, not reconciled
     (production is built from migrations, C26).
 
-- [ ] **03-E1b · Pause the v1 test project "TheCliniQ"**
+- [d] **03-E1b · Pause the v1 test project "TheCliniQ"**
   - *Do / where:* Supabase Dashboard → project "TheCliniQ" → Project Settings → General → Pause project (or delete it
     if nothing else needs it).
   - *Why:* FT-01; the Free plan allows two active projects.
@@ -324,8 +324,8 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     conclusion,jobs` → success (its `wait-for-release` step requires `checks.schema: "current"`); recorded in
     VERIFICATION_LOG.
 
-- [ ] **04-P2 · AWS account baseline in `ap-south-1` (shared with SES, 03-E6)**
-  - **Waiting on PO decision B-3 (AWS vs Cloudflare R2 for staging backups). Do not start.**
+- [d] **04-P2 · AWS account baseline in `ap-south-1` (shared with SES, 03-E6)**
+  - **Superseded by B-3 (R2 for staging): see environment.txt.example §E. The R2 steps replace this item when 04-05a is switched to R2.**
   - *Do / where:* AWS console: root user MFA; an admin role or IAM Identity Center user for yourself (do not use root);
     default region **Asia Pacific (Mumbai) `ap-south-1`**; Billing → Budgets → monthly cost budget US$10 with an email
     alert to the ops inbox (04-P7).
@@ -335,8 +335,8 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     a root ARN) and `aws budgets describe-budgets --account-id $(aws sts get-caller-identity --query Account --output
     text) --query 'Budgets[].BudgetName'`.
 
-- [ ] **04-P3 · Two age key pairs for staging backups**
-  - **Waiting on PO decision B-3 (AWS vs Cloudflare R2 for staging backups). Do not start.**
+- [d] **04-P3 · Two age key pairs for staging backups**
+  - **Superseded by B-3 (R2 for staging): see environment.txt.example §E. The R2 steps replace this item when 04-05a is switched to R2.**
   - *Do / where:* on your machine: install age v1.3.2 (`brew install age`, or the release in `ops/bin/pins.env`); run
     `age-keygen -o clinicos-staging-primary.agekey` and `age-keygen -o clinicos-staging-breakglass.agekey`; store the
     primary file in your password manager and the break-glass file sealed offline; delete the local files.
@@ -347,8 +347,8 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
   - *Verify (Claude):* `npx tsx ops/backup/render.ts --check-recipients <r1>,<r2>` (format, two distinct keys); the
     final proof is 04-P13 (decrypt with each key).
 
-- [ ] **04-P4 · Staging backup credentials in SSM Parameter Store (+ S3 protocol check)**
-  - **Waiting on PO decision B-3 (AWS vs Cloudflare R2 for staging backups). Do not start.**
+- [d] **04-P4 · Staging backup credentials in SSM Parameter Store (+ S3 protocol check)**
+  - **Superseded by B-3 (R2 for staging): see environment.txt.example §E. The R2 steps replace this item when 04-05a is switched to R2.**
   - *Do / where:* Supabase staging → Connect → **Session pooler** URI (port 5432, includes the DB password) and Storage →
     Settings → S3 connection (enable the S3 protocol, create an access key; note the endpoint and region). AWS console
     (Mumbai) → Systems Manager → Parameter Store → create, Standard tier: SecureString
@@ -360,8 +360,8 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
   - *Verify (you paste):* `aws ssm describe-parameters --parameter-filters Key=Name,Option=BeginsWith,Values=/clinicos/staging/backup/ --query 'Parameters[].[Name,Type]' --output text`
     → five names, no values. If Storage offers no S3 protocol on Free, say so (risk K-5).
 
-- [ ] **04-P5 · Deploy the staging backup stack**
-  - **Waiting on PO decision B-3 (AWS vs Cloudflare R2 for staging backups). Do not start.**
+- [d] **04-P5 · Deploy the staging backup stack**
+  - **Superseded by B-3 (R2 for staging): see environment.txt.example §E. The R2 steps replace this item when 04-05a is switched to R2.**
   - *Do / where:* CloudShell (Mumbai): upload `ops/backup/stack.json` from `feature/v2`; `aws cloudformation
     validate-template --template-body file://stack.json`; `aws cloudformation deploy --stack-name
     clinicos-staging-backup --template-file stack.json --capabilities CAPABILITY_NAMED_IAM --parameter-overrides
@@ -381,8 +381,8 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     batch-get-builds --ids <id> --query 'builds[0].buildStatus'` → `SUCCEEDED`. From 04-P6 on Claude reads the same
     through the `backup-evidence` artifact.
 
-- [ ] **04-P6 · GitHub variables for backup evidence**
-  - **Waiting on PO decision B-3 (AWS vs Cloudflare R2 for staging backups). Do not start.**
+- [d] **04-P6 · GitHub variables for backup evidence**
+  - **Superseded by B-3 (R2 for staging): see environment.txt.example §E. The R2 steps replace this item when 04-05a is switched to R2.**
   - *Do / where:* repo `thecliniqai/cliniqai-app` → Settings → Environments → `staging-readonly` (03-E10) → Variables
     (not secrets): `AWS_BACKUP_EVIDENCE_ROLE_ARN` = output `EvidenceRoleArn`, `AWS_REGION=ap-south-1`, `BACKUP_BUCKET` =
     output `BucketName`, `BACKUP_PROJECT=clinicos-staging-backup`, `BACKUP_TOPIC_ARN` = output `TopicArn`.
