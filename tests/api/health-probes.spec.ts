@@ -44,8 +44,10 @@ function anonClient() {
   });
 }
 
-const READY_KEYS = ["checks", "correlationId", "outbox", "providers", "status", "timestamp"];
+const READY_KEYS = ["checks", "correlationId", "jobs", "outbox", "providers", "status", "timestamp"];
 const OUTBOX_KEYS = ["messagesBacklog", "messagesFailed24h", "webhooksBacklog", "webhooksFailed24h"];
+/** 04-04 (R-41): the job-queue flags, booleans only. */
+const JOBS_KEYS = ["alertsCriticalOpen", "backlog", "dead24h", "runnerStale"];
 const { EXPECTED_MIGRATION } = await import("@/app/api/ready/expected-migration");
 
 /** A probe client answering `data` and recording the arguments it was called with. */
@@ -54,6 +56,7 @@ function fakeProbe(data: unknown) {
   return { calls, client: { rpc: async (...args: unknown[]) => (calls.push(args), { data, error: null }) } };
 }
 const FLAGS = { messages_backlog: false, messages_failed_24h: true, webhooks_backlog: false, webhooks_failed_24h: false };
+const JOB_FLAGS = { jobs_backlog: true, jobs_dead_24h: false, runner_stale: true, alerts_critical_open: false };
 
 describe("GET /api/health (liveness)", () => {
   afterEach(() => {
@@ -109,18 +112,40 @@ describe("GET /api/ready (readiness RPC, no service role)", () => {
     expect(body.checks).toEqual({ database: "ok", schema: "current" });
     expect(Object.keys(body.outbox).sort()).toEqual(OUTBOX_KEYS);
     for (const value of Object.values(body.outbox)) expect(typeof value).toBe("boolean");
+    expect(Object.keys(body.jobs).sort()).toEqual(JOBS_KEYS);
+    for (const value of Object.values(body.jobs)) expect(typeof value).toBe("boolean");
     expect(JSON.stringify(body)).not.toMatch(/"\d{6}"|latestMigration|Pending/);
     expect(typeof body.correlationId).toBe("string");
   });
 
   it("asks for the build's expected migration through the cookie-less client, never the cookie session", async () => {
-    const probe = fakeProbe({ db: true, schema_current: true, ...FLAGS });
+    const probe = fakeProbe({ db: true, schema_current: true, ...FLAGS, ...JOB_FLAGS });
     state.client = probe.client;
     state.cookieClientCalls = 0;
     const body = await (await getReady()).json();
     expect(probe.calls).toEqual([["readiness_probe", { p_expected_migration: EXPECTED_MIGRATION }]]);
     expect(state.cookieClientCalls).toBe(0);
     expect(body.outbox).toEqual({ messagesBacklog: false, messagesFailed24h: true, webhooksBacklog: false, webhooksFailed24h: false });
+    expect(body.jobs).toEqual({ backlog: true, dead24h: false, runnerStale: true, alertsCriticalOpen: false });
+  });
+
+  it("04-04: job flags only as booleans; all four or none (a database behind 000039 answers jobs: null, schema behind)", async () => {
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    for (const bad of [
+      { ...JOB_FLAGS, jobs_backlog: 1 },
+      { ...JOB_FLAGS, runner_stale: "true" },
+      { ...JOB_FLAGS, alerts_critical_open: null },
+      { jobs_backlog: true },
+    ]) {
+      state.client = fakeProbe({ db: true, schema_current: true, ...FLAGS, ...bad }).client;
+      const res = await getReady();
+      expect(res.status, JSON.stringify(bad)).toBe(503);
+      expect((await res.json()).jobs).toBeNull();
+    }
+    state.client = fakeProbe({ db: true, schema_current: false, ...FLAGS }).client;
+    const res = await getReady();
+    expect(res.status).toBe(503);
+    expect(await res.json()).toMatchObject({ checks: { database: "ok", schema: "behind" }, jobs: null });
   });
 
   it("is not ready (503, schema behind) when the expected migration is not applied", async () => {
@@ -208,7 +233,7 @@ describe("GET /api/ready (readiness RPC, no service role)", () => {
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(Object.keys(body).sort()).toEqual(READY_KEYS);
-    expect(body).toMatchObject({ status: "not_ready", checks: { database: "error", schema: "unknown" }, outbox: null });
+    expect(body).toMatchObject({ status: "not_ready", checks: { database: "error", schema: "unknown" }, outbox: null, jobs: null });
     expect(JSON.stringify(body)).not.toContain("LEAK-password");
     expect(JSON.stringify(body)).not.toContain("internal-db");
 
