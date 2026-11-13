@@ -23,6 +23,20 @@
  * (`ops/bin/psql-restricted.sh`), so psql itself refuses every meta-command even where a client-encoding switch made
  * by server-side code could still make its lexer part from this one.
  *
+ * 04-07e (adversarial re-check L-D, L-E, L-F), also refused:
+ *   - a dollar quote directly after a digit (`1$a$…`: psql ends the number and opens a dollar quote; whether a digit
+ *     ends a number or continues an identifier is a distinction this guard does not make, so it refuses the shape);
+ *   - Unicode-escape quoted text `U&'…'` / `U&"…"` (it can spell a setting name with escapes; pg_dump never writes it),
+ *     any `set_config(…)` call outside a function body other than pg_dump's own
+ *     `SELECT pg_catalog.set_config('search_path', '', false);` (its arguments can build a setting name from pieces;
+ *     quoted spellings of the function name included), and `SET NAMES` (another spelling of client_encoding);
+ *   - `COPY … PROGRAM` however the words are separated (`COPY(…) TO PROGRAM`, `COPY/**\/t FROM PROGRAM`: a comment
+ *     now separates words as psql's lexer does).
+ * Settings changed by server-side code (a function body, `EXECUTE` of a built string) stay invisible to any text scan:
+ * restricted psql and its forced `standard_conforming_strings` / `client_encoding` (ops/bin/psql-restricted.sh) are
+ * the controls there, and `COPY … PROGRAM` needs superuser or pg_execute_server_program, which the restore role
+ * (`postgres` on Supabase) does not hold and cannot grant itself (tests/ops/restore-psql-restricted-db.spec.ts).
+ *
  * Allowed, because pg_dump (17.6+, CVE-2025-8714) writes them to *disable* meta-commands: a whole line
  * `\restrict <key>` and `\unrestrict <key>` (key = letters and digits) between statements. With `--emit-dir` the guard
  * writes restore copies in which exactly those lines are comments (the restore's own restricted mode refuses a second
@@ -53,6 +67,7 @@ export interface GuardScan {
 const RESTRICT_LINE = /^\\(?:un)?restrict [A-Za-z0-9]+\r?$/;
 const LINE_STARTS_WITH_BACKSLASH = /^\s*\\/;
 const IDENT_CHAR = /[A-Za-z0-9_$\u0080-\uffff]/;
+const DIGIT = /[0-9]/;
 const DOLLAR_TAG = /^\$(?:[A-Za-z_\u0080-\uffff][A-Za-z0-9_\u0080-\uffff]*)?\$/;
 
 /** pg_dump's own lines for the two settings psql's lexer depends on; any other statement naming them is refused. */
@@ -63,15 +78,22 @@ const SETTING_ALLOWED: ReadonlyArray<[setting: string, onlyForm: string]> = [
 
 const REASON_META = "psql meta-command (unquoted backslash outside COPY data)";
 const REASON_LINE_START = "line starts with a backslash outside COPY data (psql meta-command shape)";
+const REASON_DOLLAR_AFTER_DIGIT = "dollar quote directly after a digit (psql may open a quote the guard would not)";
+const REASON_UNICODE_QUOTE = "Unicode-escape quoted text U&'…' or U&\"…\" (can spell a setting name; pg_dump never writes it)";
+/** pg_dump's own set_config line; any other set_config call outside a function body is refused (04-07e, L-E). */
+const SET_CONFIG_ALLOWED = "select pg_catalog.set_config('search_path', '', false)";
 const REASON_SCS_AMBIGUOUS =
   "backslash before a quote inside a standard string (read differently when standard_conforming_strings is off)";
 
-/** Statement text with comments and quoted contents removed (for the COPY checks). */
+/**
+ * COPY checks on the statement text with quoted contents removed and each comment replaced by a space (04-07e, L-F:
+ * `COPY(…)` and `COPY/**\/t` are COPY statements too).
+ */
 function isCopyFromStdin(stmt: string): boolean {
-  return /^\s*copy\s[\s\S]*\bfrom\s+stdin\b/i.test(stmt);
+  return /^\s*copy\b[\s\S]*\bfrom\s+stdin\b/i.test(stmt);
 }
 function isCopyProgram(stmt: string): boolean {
-  return /^\s*copy\s[\s\S]*\b(?:from|to)\s+program\b/i.test(stmt);
+  return /^\s*copy\b[\s\S]*\b(?:from|to)\s+program\b/i.test(stmt);
 }
 
 /** Every place psql could run a meta-command (or a refused COPY form or setting) in `text`, plus the allowed lines. */
@@ -82,12 +104,20 @@ export function scanSql(text: string): GuardScan {
     // One finding per line is enough to refuse; a second one on the same line would only repeat it.
     if (!findings.some((f) => f.line === line)) findings.push({ line, reason });
   };
-  const checkSettings = (raw: string, line: number) => {
+  const checkSettings = (raw: string, bare: string, line: number) => {
     const norm = raw.replace(/\s+/g, " ").trim().toLowerCase();
     for (const [setting, onlyForm] of SETTING_ALLOWED) {
       if (norm.includes(setting) && norm !== onlyForm) {
         flag(line, `statement changes or names ${setting} (only pg_dump's own SET line is allowed)`);
       }
+    }
+    // 04-07e (L-E): outside function bodies and strings, with quoted identifiers spelled out.
+    const bareNorm = bare.replace(/\s+/g, " ").trim().toLowerCase();
+    if (/\bset_config\b/.test(bareNorm) && norm !== SET_CONFIG_ALLOWED) {
+      flag(line, "set_config call (only pg_dump's own search_path line is allowed outside a function body)");
+    }
+    if (/^set (?:session |local )?names\b/.test(bareNorm)) {
+      flag(line, "SET NAMES changes client_encoding (only pg_dump's own SET line is allowed)");
     }
   };
 
@@ -98,6 +128,7 @@ export function scanSql(text: string): GuardScan {
   let blockDepth = 0;
   let stmt = ""; // the current statement, quoted contents and comments dropped
   let raw = ""; // the current statement with quoted contents, comments dropped (for the setting checks)
+  let bare = ""; // the current statement outside strings, dollar quotes and comments, quoted identifiers spelled out
   let rawLine = 0; // where the current statement began
   let copyData = false;
   let copyStartLine = 0;
@@ -162,13 +193,18 @@ export function scanSql(text: string): GuardScan {
           continue;
         case "dquote":
           if (c === '"') {
-            if (next === '"') i += 2;
-            else {
+            if (next === '"') {
+              bare += '"';
+              i += 2;
+            } else {
               mode = "normal";
               stmt += '""';
               i++;
             }
-          } else i++;
+          } else {
+            bare += c;
+            i++;
+          }
           continue;
         case "dollar":
           if (c === "$" && line.startsWith(dollarTag, i)) {
@@ -186,6 +222,9 @@ export function scanSql(text: string): GuardScan {
             if (blockDepth === 0) {
               mode = "normal";
               seg = i;
+              // 04-07e (L-F): a comment separates words, as in psql's lexer.
+              stmt += " ";
+              bare += " ";
             }
           } else i++;
           continue;
@@ -212,6 +251,11 @@ export function scanSql(text: string): GuardScan {
         flag(lineNo, REASON_META);
         break; // psql would treat the rest of the line as the command's arguments
       }
+      if ((c === "'" || c === '"') && line[i - 1] === "&" && (line[i - 2] === "U" || line[i - 2] === "u") &&
+          (line[i - 3] === undefined || !IDENT_CHAR.test(line[i - 3]))) {
+        // 04-07e (L-E): flagged; lexing goes on as a plain string / identifier (the archive is refused either way).
+        flag(lineNo, REASON_UNICODE_QUOTE);
+      }
       if (c === "'") {
         const prev = line[i - 1];
         const before = line[i - 2];
@@ -228,6 +272,10 @@ export function scanSql(text: string): GuardScan {
         i++;
         continue;
       }
+      if (c === "$" && i > 0 && DIGIT.test(line[i - 1]) && DOLLAR_TAG.test(line.slice(i))) {
+        // 04-07e (L-D): psql ends a number at `$` and opens a dollar quote (`1$a$`); after an identifier it does not.
+        flag(lineNo, REASON_DOLLAR_AFTER_DIGIT);
+      }
       if (c === "$" && !(i > 0 && IDENT_CHAR.test(line[i - 1]))) {
         const m = DOLLAR_TAG.exec(line.slice(i));
         if (m) {
@@ -241,8 +289,9 @@ export function scanSql(text: string): GuardScan {
       }
       if (c === ";") {
         raw += line.slice(seg, i);
-        checkSettings(raw, rawLine);
+        checkSettings(raw, bare, rawLine);
         raw = "";
+        bare = "";
         seg = i + 1;
         rawLine = lineNo;
         if (isCopyProgram(stmt)) flag(lineNo, "COPY … PROGRAM (server-side command)");
@@ -256,6 +305,7 @@ export function scanSql(text: string): GuardScan {
         continue;
       }
       stmt += c;
+      bare += c;
       i++;
     }
     // Lexer-independent (04-07d N-2): no line of a pg_dump file outside COPY data starts with a backslash, whatever this
@@ -263,10 +313,13 @@ export function scanSql(text: string): GuardScan {
     if (LINE_STARTS_WITH_BACKSLASH.test(line)) flag(lineNo, REASON_LINE_START);
     if (seg >= 0 && !copyPendingRest) raw += line.slice(seg);
     if (!copyPendingRest) raw += "\n";
-    if (mode === "normal" && !copyPendingRest) stmt += "\n";
+    if (mode === "normal" && !copyPendingRest) {
+      stmt += "\n";
+      bare += "\n";
+    }
     // A string, identifier or dollar quote that spans lines keeps its mode; a line comment ends here.
   }
-  if (raw.trim() !== "") checkSettings(raw, rawLine);
+  if (raw.trim() !== "") checkSettings(raw, bare, rawLine);
   if (copyData) flag(copyStartLine, "COPY … FROM stdin without its \\. terminator");
   if (mode !== "normal") flag(quoteStartLine, `unterminated ${mode === "block" ? "comment" : "quoted text"} at end of file`);
   return { findings: findings.sort((a, b) => a.line - b.line), restrictLines };

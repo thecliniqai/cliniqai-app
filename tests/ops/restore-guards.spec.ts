@@ -168,6 +168,59 @@ describe("sql-guard.ts does not depend on standard_conforming_strings or the cli
   });
 });
 
+// 04-07e (adversarial re-check L-D, L-E, L-F): three spellings the 04-07d guard passed. Restricted psql (and, for COPY
+// … PROGRAM, the restore role's missing privilege) already stopped each at runtime; the guard now refuses them too.
+describe("sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e)", () => {
+  const DOLLAR_DIGIT = "dollar quote directly after a digit (psql may open a quote the guard would not)";
+  const UNICODE = "Unicode-escape quoted text U&'…' or U&\"…\" (can spell a setting name; pg_dump never writes it)";
+  const SET_CONFIG = "set_config call (only pg_dump's own search_path line is allowed outside a function body)";
+  const NAMES = "SET NAMES changes client_encoding (only pg_dump's own SET line is allowed)";
+  const PROGRAM = "COPY … PROGRAM (server-side command)";
+
+  it.each([
+    // L-D: psql ends the number at `$` and opens a dollar quote; the 04-07d guard did not, and passed the live `\!`.
+    ["the re-checker's 1$a$ file", "select 1$a$'$a$ \\! echo DOLLAR_BYPASS_EXECUTED #';\n", [`1:${DOLLAR_DIGIT}`]],
+    ["a digit then an empty-tag dollar quote", "select 2$$ \\! id $$;\n", [`1:${DOLLAR_DIGIT}`]],
+    // L-E: setting names spelled with Unicode escapes or built from pieces.
+    ["SET U&\"…\\005f…\"", 'SET U&"standard\\005fconforming_strings" = off;\n', [`1:${UNICODE}`]],
+    ["ALTER ROLE … SET U&\"…\"", 'ALTER ROLE postgres SET U&"standard\\005fconforming_strings" = off;\n', [`1:${UNICODE}`]],
+    ["SET U&\"client…\" encoding", "SET U&\"client\\005fencoding\" = 'SJIS';\n", [`1:${UNICODE}`]],
+    ["a U&'…' string", "SELECT u&'\\0041';\n", [`1:${UNICODE}`]],
+    ["set_config with a concatenated name", "SELECT set_config('client_' || 'encoding', 'SJIS', false);\n", [`1:${SET_CONFIG}`]],
+    ["set_config by a quoted name", "SELECT pg_catalog.\"set_config\"('standard_' || 'conforming_strings', 'off', false);\n", [`1:${SET_CONFIG}`]],
+    ["set_config across lines", "SELECT\n  set_config(\n'search_' || 'path', '', false);\n", [`1:${SET_CONFIG}`]],
+    ["SET NAMES", "SET NAMES 'SJIS';\n", [`1:${NAMES}`]],
+    ["SET SESSION NAMES", "set session names 'GBK';\n", [`1:${NAMES}`]],
+    // L-F: COPY … PROGRAM however the words are separated.
+    ["COPY(…) TO PROGRAM", "COPY(SELECT 1) TO PROGRAM 'echo x';\n", [`1:${PROGRAM}`]],
+    ["COPY/**/t FROM PROGRAM", "COPY/**/t FROM PROGRAM 'echo x';\n", [`1:${PROGRAM}`]],
+    ["TO/* c */PROGRAM", "copy t to/* c */program 'echo x';\n", [`1:${PROGRAM}`]],
+    ["COPY on one line, PROGRAM on the next after a comment", "COPY t TO -- c\nPROGRAM 'echo x';\n", [`2:${PROGRAM}`]],
+  ])("refuses %s", (_label, sql, expected) => {
+    expect(reasons(sql)).toEqual(expected);
+  });
+
+  it("still passes pg_dump's shapes: its set_config line, set_config inside a function body, $1 parameters, identifiers with $, COPY/**/ FROM stdin data", () => {
+    const sql = [
+      "SELECT pg_catalog.set_config('search_path', '', false);",
+      "CREATE FUNCTION f(p int) RETURNS int LANGUAGE plpgsql AS $$ BEGIN PERFORM set_config('app.x', 'y', true); RETURN $1 + 1; END $$;",
+      "CREATE FUNCTION g(int) RETURNS int LANGUAGE sql AS $_$ SELECT $1 $_$;",
+      "SELECT a$b, c1$ FROM t1;",
+      "COPY/**/t (a) FROM stdin;",
+      "\\N",
+      "\\.",
+      "",
+    ].join("\n");
+    expect(reasons(sql)).toEqual([]);
+  });
+
+  it("residual (documented): a setting changed by server-side code passes the guard; restricted psql is the control there", () => {
+    const sql =
+      "DO $$ BEGIN EXECUTE format('ALTER ROLE postgres SET %I = off', 'standard_' || 'conforming_strings'); END $$;\n";
+    expect(reasons(sql)).toEqual([]);
+  });
+});
+
 describe("run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts", () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "restore-guards-"));
   const AGE = findAge();
