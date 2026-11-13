@@ -2,8 +2,8 @@
  * J-A4 forgot password with FT-05 (V2-03 03-12a; AUTH-04b reset completion, R-5, A00-5). Runs on desktop-chrome and
  * pixel-7. A fresh member is signed in on a second browser context ("another device"); on the first, the member
  * requests a code, reads it from the local Mailpit, and tries a password the loopback fake range API lists as breached
- * (the catalogue copy is shown and the code stays used), then a clear one. The member lands signed in, and the other
- * device is signed out. No network beyond loopback (fixture block + server guard).
+ * (the catalogue copy is shown and the code stays used), then a clear one. The reset ends signed out on both devices
+ * (ruling R-35): the member signs in again with the new password. No network beyond loopback (fixture block + server guard).
  */
 import { expect, test } from "../fixtures";
 import {
@@ -51,7 +51,16 @@ test("J-A4: reset refuses a breached password with the catalogue copy, accepts a
   await page.getByLabel(/^New password/).fill(fresh);
   await page.getByLabel(/^Confirm new password/).fill(fresh);
   await page.getByRole("button", { name: "Save new password" }).click();
-  await page.waitForURL((url) => url.pathname === "/", { timeout: 30_000 });
+
+  // Ruling R-35 (03-13a, H-AUTH): the reset ends signed out on THIS device too; the user signs in with the new password.
+  await expect(page.getByRole("heading", { name: "Password changed" })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Your password was changed. Sign in with your new password.")).toBeVisible();
+  const authCookies = (await page.context().cookies()).filter((c) => /^sb-.*-auth-token/.test(c.name) && c.value !== "");
+  expect(authCookies, "no session cookie survives the reset").toEqual([]);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(page).toHaveURL((url) => url.pathname === "/login");
+  await expectSignedOut(page);
+  await uiSignIn(page, { email: user.email, password: fresh });
 
   // The other device is signed out; the new password signs in, the old one does not.
   await expectSignedOut(device2.page);

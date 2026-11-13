@@ -194,11 +194,21 @@ describe("changePassword", () => {
 });
 
 describe("setNewPassword (forgot-password final step)", () => {
-  it("a fresh recovery session sets the password without a current password and signs out the others", async () => {
+  it("R-35: a fresh recovery session sets the password, then EVERY session is revoked (the recovery session too)", async () => {
     const { db, auth } = fakeAuth(otpSession(30));
-    expect(await setNewPassword({ newPassword: NEXT }, deps(db))).toEqual({ ok: true, otherSessionsSignedOut: true });
+    expect(await setNewPassword({ newPassword: NEXT }, deps(db))).toEqual({ ok: true, otherSessionsSignedOut: true, signedOut: true });
     expect(auth.updateUser).toHaveBeenCalledWith({ password: NEXT });
-    expect(auth.signOut).toHaveBeenCalledWith({ scope: "others" });
+    expect(auth.signOut.mock.calls).toEqual([[{ scope: "global" }]]);
+  });
+
+  it("R-35: when the global sign-out fails, this recovery session alone is still ended (scope local)", async () => {
+    const { db, auth } = fakeAuth(otpSession(30));
+    auth.signOut.mockImplementation(async (opts?: { scope?: string }) => ({
+      error: opts?.scope === "global" ? { code: "unexpected_failure", status: 500 } : null,
+    }));
+    expect(await setNewPassword({ newPassword: NEXT }, deps(db))).toEqual({ ok: true, otherSessionsSignedOut: false, signedOut: true });
+    expect(auth.signOut.mock.calls).toEqual([[{ scope: "global" }], [{ scope: "local" }]]);
+    expect(logs()).toContain('"event":"auth.password.others_not_signed_out"');
   });
 
   it("FT-05: a breached password is refused before the update", async () => {

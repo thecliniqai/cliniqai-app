@@ -46,12 +46,13 @@ export type AuthFlowResult = { ok: true } | AuthFlowFailure;
 
 /** What the server action that sets the password answers (features/auth/actions.ts). */
 export type SetPasswordResult =
-  | { ok: true; otherSessionsSignedOut: boolean }
+  /** `signedOut`: this session was ended too (the reset, ruling R-35): the user signs in with the new password. */
+  | { ok: true; otherSessionsSignedOut: boolean; signedOut?: boolean }
   | { ok: false; code: AuthErrorCode | "invalid_input" | "unknown"; message: string };
 
 /** Outcome of the final reset step. `stage` says whether the recovery code was already used. */
 export type CompleteResetResult =
-  | { ok: true; otherSessionsSignedOut: boolean }
+  | { ok: true; otherSessionsSignedOut: boolean; signedOut?: boolean }
   | ((AuthFlowFailure | Extract<SetPasswordResult, { ok: false }>) & { stage: "verify" | "update" });
 
 /** Fixed messages of these flows, all from the catalogue (`messages/en.ts`). */
@@ -176,7 +177,7 @@ export async function requestReset(
  * weak password does not burn the code. The code is verified in the browser with type `recovery` only (R-5; Supabase
  * would also accept a recovery code as `email`/`magiclink`, AUTH-00 E1, so the type is pinned here). That leaves a
  * fresh recovery session; `setPassword` (the `setNewPasswordAction` server action) then sets the password on it and
- * signs out every other session. After a failure at the `update` stage the page retries `setPassword` alone.
+ * ends every session of the user, this one included (R-35: the user signs in with the new password). After a failure at the `update` stage the page retries `setPassword` alone.
  */
 export async function completeReset(
   client: AuthClient,

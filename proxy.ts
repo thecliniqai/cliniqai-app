@@ -4,6 +4,7 @@ import { apiRequestBlocked, isApiV1Path, normaliseRequestPath } from "@/lib/api/
 import { REQUEST_ID_HEADER, newRequestId } from "@/lib/log/request-id";
 import { publicEnv } from "@/lib/env";
 import { loginNextValue, pageNeedsSession } from "@/lib/auth/public-paths";
+import { isSupabaseAuthCookie, sessionMustEnd } from "@/lib/auth/session-age";
 
 /**
  * V2-03 03-09a (BACKEND H2, T-03-07): continue to the handler with `x-request-id` forced to this request's id (any
@@ -38,6 +39,29 @@ function redirectToLogin(request: NextRequest, requestId: string, carry: NextRes
     const value = carry.headers.get(name);
     if (value !== null) response.headers.set(name, value);
   }
+  return response;
+}
+
+/** The no-store headers for a response that deletes the session cookies (it must never be cached). */
+const ENDED_SESSION_CACHE_HEADERS: Record<(typeof SESSION_CACHE_HEADERS)[number], string> = {
+  "cache-control": "private, no-cache, no-store, must-revalidate, max-age=0",
+  expires: "0",
+  pragma: "no-cache",
+};
+
+/**
+ * V2-03 03-13a (H-AUTH): the request continues as a signed-out request. Every Supabase auth cookie is removed from the
+ * request (so no layout, page, Server Action or route handler on this request sees the session) and deleted in the
+ * browser, whether or not GoTrue confirmed the revocation (fail closed).
+ */
+function continueSignedOut(request: NextRequest, requestId: string, previous: NextResponse): NextResponse {
+  const names = new Set<string>();
+  for (const { name } of request.cookies.getAll()) if (isSupabaseAuthCookie(name)) names.add(name);
+  for (const { name } of previous.cookies.getAll()) if (isSupabaseAuthCookie(name)) names.add(name);
+  for (const name of names) request.cookies.delete(name);
+  const response = continueWithRequestId(request, requestId);
+  for (const name of names) response.cookies.set(name, "", { path: "/", maxAge: 0 });
+  for (const [key, value] of Object.entries(ENDED_SESSION_CACHE_HEADERS)) response.headers.set(key, value);
   return response;
 }
 
@@ -87,11 +111,30 @@ export async function proxy(request: NextRequest) {
   // Refresh the session (the only refresh point; refreshing in two places risks refresh-token reuse sign-outs).
   // getClaims() verifies the JWT and refreshes an expired session through the same cookie path.
   let signedIn = false;
+  let amr: unknown;
   try {
     const { data } = await supabase.auth.getClaims();
     signedIn = Boolean(data?.claims?.sub);
+    amr = data?.claims?.amr;
   } catch {
     // Treated as signed out: a protected page goes to the login page, a public one renders as it would anyway.
+  }
+
+  // H-AUTH (03-13a; A00-5, ruling R-35): a session established with an emailed code (recovery, invite, OTP, signup,
+  // magic link; any `amr` method not known to be a password or MFA factor counts as one, and an unreadable `amr`
+  // fails closed) lives at most FRESH_MAILBOX_SESSION_SECONDS after the code was used, unless a later password
+  // sign-in superseded it. Such a session is exempt from hosted "require current password" (AUTH-00 E5), so left alive
+  // it could change the password straight through GoTrue `PUT /auth/v1/user`, skipping the app's checks. Here it is
+  // revoked at GoTrue (`signOut({ scope: "local" })` ends this session and its refresh token) and the request goes on
+  // signed out, before any page, Server Action or route handler runs.
+  if (signedIn && sessionMustEnd(amr)) {
+    try {
+      await supabase.auth.signOut({ scope: "local" });
+    } catch {
+      // Fail closed: the cookies are deleted below whatever GoTrue answered.
+    }
+    response = continueSignedOut(request, requestId, response);
+    signedIn = false;
   }
 
   // OA-5 default deny (R-28): a signed-out request for any page outside the public prefixes is sent to the login page

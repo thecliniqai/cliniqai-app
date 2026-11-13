@@ -32,6 +32,8 @@ export const en = {
       reset_failed: "We couldn't reset your password, try again",
       change_failed: "We couldn't change your password, try again",
       reset_session_stale: "This reset has expired. Request a new code and try again.",
+      // 03-13a (ruling R-35): a reset ends signed out.
+      reset_done: "Your password was changed. Sign in with your new password.",
     },
     // 03-12c (C43): the Cloudflare Turnstile check on sign-in and the reset request.
     captcha: {

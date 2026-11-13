@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { isPwnedPassword, type PwnedResult } from "@/lib/auth/pwned";
+import { FRESH_MAILBOX_SESSION_SECONDS, assertFreshOtpSession, sessionAuthFrom } from "@/lib/auth/session-age";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { en } from "@/messages/en";
@@ -15,7 +16,8 @@ import { changePasswordSchema, setNewPasswordSchema } from "./schemas";
  *
  * Both entry points read the caller from the request's cookie session (`getClaims()` on the request client); no user
  * id is ever taken from input and no service-role client is used. Order: authenticate → validate → session freshness
- * (A00-5) → breached-password check (FT-05) → `updateUser` → `signOut({ scope: "others" })`. Nothing is called on
+ * (A00-5) → breached-password check (FT-05) → `updateUser` → sign-out: `others` after a change of password, `global` after
+ * a reset (ruling R-35: the recovery session ends too and the user signs in with the new password). Nothing is called on
  * Pwned Passwords for an unauthenticated caller, and nothing is written when any step refuses.
  *
  * A00-5: Supabase exempts sessions established through the mailbox (an emailed code: OTP sign-in, recovery, signup or
@@ -26,48 +28,9 @@ import { changePasswordSchema, setNewPasswordSchema } from "./schemas";
  * CLI stack cannot enable it (R-34), so locally a wrong current password is only rejected when GoTrue says so.
  */
 
-/** A00-5 / AUTH §3.5: the window, in seconds, in which an emailed-code session may set a password. */
-export const FRESH_MAILBOX_SESSION_SECONDS = 600;
-
-/** `amr` methods that prove control of the mailbox rather than knowledge of the password (GoTrue models/amr.go). */
-const MAILBOX_METHODS = new Set(["otp", "recovery", "magiclink", "invite", "email/signup", "email_change"]);
+export { FRESH_MAILBOX_SESSION_SECONDS, assertFreshOtpSession, sessionAuthFrom, type SessionAuth } from "@/lib/auth/session-age";
 
 type AuthDb = Pick<SupabaseClient, "auth">;
-
-export type SessionAuth =
-  /** No emailed-code factor in the session: it was established with the password (or another non-mailbox factor). */
-  | { kind: "password" }
-  /** Established (or stepped up) with an emailed code; `ageSeconds` since the newest such factor. */
-  | { kind: "mailbox"; ageSeconds: number }
-  /** No readable `amr`: treated as stale (fail closed). */
-  | { kind: "unknown" };
-
-/** Classifies the session from its JWT `amr` claim. `nowMs` is injectable for tests. */
-export function sessionAuthFrom(amr: unknown, nowMs: number = Date.now()): SessionAuth {
-  if (!Array.isArray(amr) || amr.length === 0) return { kind: "unknown" };
-  const entries = amr.filter(
-    (e): e is { method: string; timestamp: number } =>
-      !!e && typeof e === "object" && typeof e.method === "string" && Number.isFinite(e.timestamp),
-  );
-  if (entries.length !== amr.length) return { kind: "unknown" };
-  const mailbox = entries.filter((e) => MAILBOX_METHODS.has(e.method));
-  if (mailbox.length === 0) return { kind: "password" };
-  const newest = Math.max(...mailbox.map((e) => e.timestamp));
-  return { kind: "mailbox", ageSeconds: Math.floor(nowMs / 1000) - newest };
-}
-
-/**
- * A00-5 bound: true only for a session established with an emailed code at most `maxAgeSeconds` ago (a clock skew of
- * a few seconds into the future is tolerated). Password sessions and unreadable `amr` claims are not fresh OTP sessions.
- */
-export function assertFreshOtpSession(
-  amr: unknown,
-  maxAgeSeconds: number = FRESH_MAILBOX_SESSION_SECONDS,
-  nowMs: number = Date.now(),
-): boolean {
-  const auth = sessionAuthFrom(amr, nowMs);
-  return auth.kind === "mailbox" && auth.ageSeconds >= -30 && auth.ageSeconds <= maxAgeSeconds;
-}
 
 type Failure = Extract<SetPasswordResult, { ok: false }>;
 
@@ -152,6 +115,8 @@ async function updatePassword(
     return fail("unknown");
   }
 
+  if (op === "set_new_password") return endRecoverySession(db, userId);
+
   let otherSessionsSignedOut = false;
   try {
     const { error } = await db.auth.signOut({ scope: "others" });
@@ -164,6 +129,35 @@ async function updatePassword(
   }
   log.info({ event: "auth.password.changed", action: op, userId, requestId: await getRequestId() });
   return { ok: true, otherSessionsSignedOut };
+}
+
+async function signOutScope(db: AuthDb, scope: "global" | "local"): Promise<boolean> {
+  try {
+    const { error } = await db.auth.signOut({ scope });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Ruling R-35 (03-13a, H-AUTH): a reset ends SIGNED OUT. After the new password is set, every session of the user is
+ * revoked at GoTrue, the recovery session included (`signOut({ scope: "global" })`; supabase-js then deletes the
+ * auth cookies through the request client), and the user signs in with the new password. The recovery session's
+ * access and refresh tokens stop working at once, so it cannot be kept and used later (for example to call GoTrue
+ * `PUT /auth/v1/user` directly, which skips this action). If the global sign-out fails, this session alone is ended
+ * (`local`); the result says whether the other sessions were ended.
+ */
+async function endRecoverySession(db: AuthDb, userId: string): Promise<SetPasswordResult> {
+  const everyone = await signOutScope(db, "global");
+  const thisSession = everyone || (await signOutScope(db, "local"));
+  const requestId = await getRequestId();
+  if (!everyone) log.warn({ event: "auth.password.others_not_signed_out", action: "set_new_password", userId, requestId });
+  if (!thisSession) {
+    log.warn({ event: "auth.password.recovery_session_not_ended", action: "set_new_password", userId, requestId });
+  }
+  log.info({ event: "auth.password.changed", action: "set_new_password", userId, requestId });
+  return { ok: true, otherSessionsSignedOut: everyone, signedOut: true };
 }
 
 /**
@@ -198,7 +192,8 @@ export async function changePassword(input: unknown, deps: PasswordServiceDeps =
 
 /**
  * Forgot-password final step: only on a session established with an emailed code at most 10 minutes ago (the browser
- * has just verified the recovery code, R-5). A plain password session is refused: it must use change password.
+ * has just verified the recovery code, R-5). A plain password session is refused: it must use change password. On
+ * success every session of the user, this recovery session included, is revoked (R-35, H-AUTH).
  */
 export async function setNewPassword(input: unknown, deps: PasswordServiceDeps = {}): Promise<SetPasswordResult> {
   const db = deps.db ?? (await createClient());

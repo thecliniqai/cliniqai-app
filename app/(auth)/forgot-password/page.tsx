@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { publicEnv } from "@/lib/env";
+import { en } from "@/messages/en";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const SENT_NOTICE = `If an account exists for this email, we've sent a ${RECOVERY_CODE_LENGTH}-digit code. It can take a minute to arrive.`;
@@ -124,7 +125,7 @@ export default function ForgotPasswordPage() {
         else setError(retried.message);
         return;
       }
-      finish(retried.otherSessionsSignedOut);
+      await finish(retried.otherSessionsSignedOut);
       return;
     }
 
@@ -147,7 +148,7 @@ export default function ForgotPasswordPage() {
       setError(result.message);
       return;
     }
-    finish(result.otherSessionsSignedOut);
+    await finish(result.otherSessionsSignedOut);
   };
 
   // The recovery session is older than the 10-minute bound (A00-5): end it here and start again with a new code.
@@ -162,14 +163,13 @@ export default function ForgotPasswordPage() {
     setError(message);
   };
 
-  const finish = (otherSessionsSignedOut: boolean) => {
+  // Ruling R-35 (H-AUTH): the reset ends signed out. The server action has already revoked every session, the
+  // recovery session included; clearing this device's copy as well covers a revocation that did not reach GoTrue.
+  const finish = async (otherSessionsSignedOut: boolean) => {
+    setCodeAccepted(false);
+    await abandonReset(supabase);
     setStep("done");
-    if (otherSessionsSignedOut) {
-      router.replace("/");
-      router.refresh();
-      return;
-    }
-    setNotice("Your password was changed, but we could not sign out your other devices.");
+    setNotice(otherSessionsSignedOut ? null : "We could not sign out your other devices. Sign out on them too.");
   };
 
   const handleCancel = async () => {
@@ -200,7 +200,7 @@ export default function ForgotPasswordPage() {
                 ? `Enter your clinic email and we'll send you a ${RECOVERY_CODE_LENGTH}-digit code.`
                 : step === "reset"
                   ? "Enter the code from the email and choose a new password."
-                  : "You are signed in with your new password."}
+                  : en.auth.flows.reset_done}
             </p>
           </div>
 
@@ -343,11 +343,10 @@ export default function ForgotPasswordPage() {
               variant="primary"
               className="w-full h-11 text-sm font-semibold"
               onClick={() => {
-                router.replace("/");
-                router.refresh();
+                router.replace("/login");
               }}
             >
-              Continue
+              Sign in
             </Button>
           )}
 

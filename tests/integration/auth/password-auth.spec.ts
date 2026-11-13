@@ -232,13 +232,17 @@ describe("AUTH-04a forgot password with a recovery code (PKCE client, local stac
 
     const code = await requestCode(user.userEmail);
     const { client } = browserLikeClient();
-    const result = await completeReset(client, { email: user.userEmail, code, newPassword: fresh }, viaAction(client));
-    expect(result).toEqual({ ok: true, otherSessionsSignedOut: true });
-
-    // This device holds the recovery session.
-    const { data } = await client.auth.getSession();
-    expect(data.session).not.toBeNull();
-    expect(amrMethods(data.session!.access_token)).toContain("otp");
+    let recoveryAmr: string[] = [];
+    const result = await completeReset(client, { email: user.userEmail, code, newPassword: fresh }, async (input) => {
+      // The code was accepted: this device holds a recovery session (amr otp) while the action runs.
+      const { data } = await client.auth.getSession();
+      recoveryAmr = data.session ? amrMethods(data.session.access_token) : [];
+      return viaAction(client)(input);
+    });
+    expect(result).toEqual({ ok: true, otherSessionsSignedOut: true, signedOut: true });
+    expect(recoveryAmr).toContain("otp");
+    // Ruling R-35 (03-13a): the reset ends signed out; this device holds no session afterwards.
+    expect((await client.auth.getSession()).data.session).toBeNull();
 
     // Old password no longer works; the new one does.
     expect(await canSignIn(user.userEmail, oldPassword)).toMatchObject({ ok: false, code: "invalid_credentials" });
@@ -289,6 +293,7 @@ describe("AUTH-04a forgot password with a recovery code (PKCE client, local stac
     expect(await completeReset(client, { email: user.userEmail, code, newPassword: fresh }, viaAction(client))).toEqual({
       ok: true,
       otherSessionsSignedOut: true,
+      signedOut: true,
     });
     expect(await canSignIn(user.userEmail, fresh)).toEqual({ ok: true });
   });
@@ -302,7 +307,7 @@ describe("AUTH-04a forgot password with a recovery code (PKCE client, local stac
     expect(same).toEqual({ ok: false, code: "same_password", message: AUTH_MESSAGES.same_password, stage: "update" });
 
     const fresh = newPassword();
-    expect(await setNewPassword({ newPassword: fresh }, { db: client })).toEqual({ ok: true, otherSessionsSignedOut: true });
+    expect(await setNewPassword({ newPassword: fresh }, { db: client })).toEqual({ ok: true, otherSessionsSignedOut: true, signedOut: true });
     expect(await canSignIn(user.userEmail, fresh)).toEqual({ ok: true });
   });
 });
