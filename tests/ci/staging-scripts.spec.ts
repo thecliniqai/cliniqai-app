@@ -313,15 +313,30 @@ describe("wait-for-release", () => {
     expect(odd.lines.join("\n")).not.toContain("LEAK");
   });
 
-  it("04-00 L-6: gitIsAncestor answers from this repository's real history (git merge-base --is-ancestor)", () => {
-    const git = (...args: string[]) => spawnSync("git", args, { cwd: ROOT, encoding: "utf8" }).stdout.trim();
-    const head = git("rev-parse", "HEAD");
-    const parent = git("rev-parse", "HEAD~1");
-    expect(gitIsAncestor(parent, head)).toBe(true);
-    expect(gitIsAncestor(head, parent)).toBe(false);
-    // A commit the checkout does not hold is not a descendant; non-SHA input never reaches git.
-    expect(gitIsAncestor(parent, "0".repeat(40))).toBe(false);
-    expect(gitIsAncestor(parent, "--all")).toBe(false);
+  it("04-00 L-6: gitIsAncestor answers from real git history (git merge-base --is-ancestor)", () => {
+    // Own two-commit repository: CI checks out at depth 1, so the checkout's HEAD~1 may not exist.
+    const repo = fs.mkdtempSync(path.join(os.tmpdir(), "l6-git-"));
+    try {
+      const git = (...args: string[]) =>
+        spawnSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false", ...args], {
+          cwd: repo,
+          encoding: "utf8",
+        }).stdout.trim();
+      git("init", "-q");
+      git("commit", "-q", "--allow-empty", "-m", "one");
+      const parent = git("rev-parse", "HEAD");
+      git("commit", "-q", "--allow-empty", "-m", "two");
+      const head = git("rev-parse", "HEAD");
+      const inRepo: typeof spawnSync = ((cmd: string, args: string[], opts: object) =>
+        spawnSync(cmd, args, { ...opts, cwd: repo })) as typeof spawnSync;
+      expect(gitIsAncestor(parent, head, inRepo)).toBe(true);
+      expect(gitIsAncestor(head, parent, inRepo)).toBe(false);
+      // A commit the repository does not hold is not a descendant; non-SHA input never reaches git.
+      expect(gitIsAncestor(parent, "0".repeat(40), inRepo)).toBe(false);
+      expect(gitIsAncestor(parent, "--all", inRepo)).toBe(false);
+    } finally {
+      fs.rmSync(repo, { recursive: true, force: true });
+    }
   });
 
   it("exits 2 for a non-https or non-bare origin and a short SHA, before any request", async () => {
