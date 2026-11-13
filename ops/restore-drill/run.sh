@@ -4,12 +4,17 @@
 # counts, verdicts, RPO and RTO only. The drill stack is stopped with --no-backup and the plaintext deleted on every exit.
 #
 # Usage:
-#   ops/restore-drill/run.sh --dump <file.tar.age> --identity <age key file> [--evidence <out.json>]
-#   ops/restore-drill/run.sh --dump <file.tar.age> --identity <age key file> --decrypt-only
+#   ops/restore-drill/run.sh --dump <file.tar.age> --identity <age key file> --expect-sha256 <hex> [--evidence <out.json>]
+#   ops/restore-drill/run.sh --dump <file.tar.age> --identity <age key file> --expect-sha256 <hex> --decrypt-only
 #   ops/restore-drill/run.sh --self-test [--evidence <out.json>]
 #
 # --dump/--identity paths must be OUTSIDE this repository (real dumps and keys never enter the repo or an agent
 # session, R-29). --decrypt-only proves a key (e.g. the break-glass key) without restoring or writing plaintext.
+# --expect-sha256 (04-07c, M-BACKUPAUTH): the archive's SHA-256 as the backup run recorded it OUTSIDE the bucket (the
+# backup.yml run's job summary or its `backup-evidence` artifact `archive-digest.json`, or `ops.backup_runs`). The
+# archive is refused before `age -d` when it differs: age gives confidentiality only, and the R2 token can replace an
+# object. After decrypting, ops/restore-drill/sql-guard.ts refuses SQL that holds a psql meta-command (`\! …`) before
+# any of it runs, and every psql call runs with -X.
 # --self-test (local only, synthetic data): seeds the primary local stack (`npm run seed:local`), uploads one synthetic
 # Storage object, generates two throwaway age key pairs in a temp dir, runs ops/backup/backup.sh with BACKUP_ENV=local
 # (the local Storage S3 endpoint stands in for the R2 bucket), downloads the archive from the stand-in, runs the drill with
@@ -32,12 +37,13 @@ log() { printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 die() { echo "restore-drill: $*" >&2; exit "${2:-1}"; }
 usage() { sed -n '6,9p' "$0" | sed 's/^# //' >&2; exit 2; }
 
-DUMP="" IDENTITY="" EVIDENCE="" MODE=""
+DUMP="" IDENTITY="" EVIDENCE="" MODE="" EXPECT_SHA=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dump) DUMP="${2:-}"; shift 2 ;;
     --identity) IDENTITY="${2:-}"; shift 2 ;;
     --evidence) EVIDENCE="${2:-}"; shift 2 ;;
+    --expect-sha256) EXPECT_SHA="$(printf '%s' "${2:-}" | tr '[:upper:]' '[:lower:]')"; shift 2 ;;
     --decrypt-only) MODE=decrypt-only; shift ;;
     --self-test) MODE=self-test; shift ;;
     *) usage ;;
@@ -45,9 +51,11 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -z "$MODE" ]] && MODE=archive
 if [[ "$MODE" == "self-test" ]]; then
-  [[ -z "$DUMP" && -z "$IDENTITY" ]] || usage
+  [[ -z "$DUMP" && -z "$IDENTITY" && -z "$EXPECT_SHA" ]] || usage
 else
-  [[ -n "$DUMP" && -n "$IDENTITY" ]] || usage
+  [[ -n "$DUMP" && -n "$IDENTITY" && -n "$EXPECT_SHA" ]] || usage
+  [[ "$EXPECT_SHA" =~ ^[0-9a-f]{64}$ ]] \
+    || die "--expect-sha256 must be the 64 hex characters the backup run recorded (job summary or archive-digest.json)" 2
 fi
 
 abs_path() { # absolute, symlinks resolved for the directory part
@@ -87,6 +95,7 @@ WORK="$(mktemp -d)"
 DRILL_STARTED=0
 SELFTEST_BUCKETS=0
 CHECK_DECRYPT=false CHECK_WRONG_KEY=false CHECK_RESTORE=false CHECK_HISTORY=false CHECK_SQL=false
+CHECK_DIGEST=false CHECK_SQL_GUARD=false
 PGTAP_TESTS=0 MIGRATIONS=0 ARCHIVE_BYTES=0
 cleanup() {
   local code=$?
@@ -106,6 +115,21 @@ iso_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 # Local stack facts from `supabase status` (values captured, never printed).
 status_value() { # <workdir> <NAME>
   npx supabase status --workdir "$1" -o env 2> /dev/null | sed -n "s/^$2=\"\(.*\)\"\$/\1/p"
+}
+
+sha256_of() {
+  if command -v sha256sum > /dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
+}
+
+# 04-07c (M-BACKUPAUTH): the archive must be the one the backup run recorded, before age ever reads it.
+verify_digest() { # <archive> <expected sha256>
+  local got
+  got="$(sha256_of "$1")"
+  if [[ "$got" != "$2" ]]; then
+    die "archive SHA-256 does not match the recorded digest: refused before decrypt (tampered, planted or wrong archive)"
+  fi
+  CHECK_DIGEST=true
+  log "restore-drill.digest ok"
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -132,6 +156,13 @@ run_drill() { # <archive> <identity>
   [[ -f "$plain/manifest.json" ]] || die "archive has no manifest.json"
   [[ "$(json_get "$plain/manifest.json" format_version)" == "1" ]] || die "unsupported manifest format_version"
   CHECK_DECRYPT=true
+
+  # 04-07c (M-BACKUPAUTH): no psql meta-command in any SQL file, checked before anything is executed.
+  log "restore-drill.sql_guard"
+  (cd "$ROOT" && npx tsx ops/restore-drill/sql-guard.ts "$plain/roles.sql" "$plain/schema.sql" "$plain/storage_policies.sql" \
+    "$plain/data.sql" "$plain/history_schema.sql" "$plain/history_data.sql") \
+    || die "the archive's SQL holds a psql meta-command or a refused COPY form: refused before restore"
+  CHECK_SQL_GUARD=true
 
   # A key that is not a recipient must not open the archive.
   "$AGE_KEYGEN" -o "$WORK/unrelated.key" 2> /dev/null
@@ -209,11 +240,11 @@ JS
   log "restore-drill.stack_stopped (data volumes removed)"
 }
 
-write_evidence() { # <out> <mode> [breakglass] [failed_recorded]
-  local out="$1" mode="$2" breakglass="${3:-}" failed_recorded="${4:-}"
-  node - "$out" "$mode" "$breakglass" "$MANIFEST_COPY" "$WORK/compare.json" "$failed_recorded" <<JS
+write_evidence() { # <out> <mode> [breakglass] [failed_recorded] [tampered_refused]
+  local out="$1" mode="$2" breakglass="${3:-}" failed_recorded="${4:-}" tampered_refused="${5:-}"
+  node - "$out" "$mode" "$breakglass" "$MANIFEST_COPY" "$WORK/compare.json" "$failed_recorded" "$tampered_refused" <<JS
 const fs = require("node:fs");
-const [out, mode, breakglass, manifestPath, comparePath, failedRecorded] = process.argv.slice(2);
+const [out, mode, breakglass, manifestPath, comparePath, failedRecorded, tamperedRefused] = process.argv.slice(2);
 const m = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 const c = JSON.parse(fs.readFileSync(comparePath, "utf8"));
 const drillStarted = "$DRILL_STARTED_AT";
@@ -221,6 +252,8 @@ const green = "$CHECKS_GREEN_AT";
 const rto = $CHECKS_GREEN_EPOCH - $DRILL_STARTED_EPOCH;
 const rpo = Math.round((Date.parse(drillStarted) - Date.parse(m.dump_started_at)) / 1000);
 const checks = {
+  archive_digest: $CHECK_DIGEST,
+  sql_guard: $CHECK_SQL_GUARD,
   decrypt: $CHECK_DECRYPT,
   wrong_key_refused: $CHECK_WRONG_KEY,
   restore: $CHECK_RESTORE,
@@ -232,6 +265,7 @@ const checks = {
 if (mode === "self-test") {
   checks.breakglass_decrypt = breakglass === "true";
   checks.failed_run_recorded = failedRecorded === "true";
+  checks.tampered_archive_refused = tamperedRefused === "true";
 }
 const evidence = {
   format_version: 1,
@@ -326,9 +360,14 @@ self_test() {
     BACKUP_S3_BUCKET="$TARGET_BUCKET_ST" BACKUP_S3_PREFIX="local/" BACKUP_S3_ENDPOINT="$s3_url" \
     BACKUP_S3_ACCESS_KEY_ID="$key_id" BACKUP_S3_SECRET_ACCESS_KEY="$secret" \
     STORAGE_S3_ENDPOINT="$s3_url" STORAGE_S3_REGION="$region" STORAGE_S3_KEY_ID="$key_id" STORAGE_S3_SECRET="$secret" \
-    SUPABASE_WORKDIR="$ROOT" bash "$ROOT/ops/backup/backup.sh" || backup_rc=$?
+    SUPABASE_WORKDIR="$ROOT" bash "$ROOT/ops/backup/backup.sh" > "$WORK/backup-run.log" 2>&1 || backup_rc=$?
+  cat "$WORK/backup-run.log"
   # Exit 3 = uploaded, but the local runner is stale (dead-man): the archive is still valid for the drill.
   [[ $backup_rc -eq 0 || $backup_rc -eq 3 ]] || die "backup.sh failed (exit $backup_rc)"
+  # 04-07c (M-BACKUPAUTH): the digest the backup recorded, from its own log (not from the bucket).
+  local expected_sha
+  expected_sha="$(sed -n 's/.*backup\.encrypted .*sha256=\([0-9a-f]\{64\}\).*/\1/p' "$WORK/backup-run.log" | tail -n 1)"
+  [[ -n "$expected_sha" ]] || die "backup.sh did not report the archive digest"
 
   local key
   key="$(s3 s3 ls "s3://$TARGET_BUCKET_ST/local/" | awk '{print $4}' | grep -E '\.tar\.age$' | sort | tail -n 1)"
@@ -354,6 +393,17 @@ self_test() {
   fi
   log "restore-drill.selftest failed-run exit=$failed_rc recorded=$failed_recorded"
 
+  # 04-07c (M-BACKUPAUTH): a tampered copy (one byte changed) is refused before decrypting; then the real archive is
+  # checked against the recorded digest.
+  local tampered_refused=false
+  cp "$WORK/archive.tar.age" "$WORK/tampered.tar.age"
+  node -e 'const fs = require("node:fs"); const b = fs.readFileSync(process.argv[1]); b[100] ^= 1; fs.writeFileSync(process.argv[1], b);' \
+    "$WORK/tampered.tar.age"
+  if ! (verify_digest "$WORK/tampered.tar.age" "$expected_sha") 2> /dev/null; then tampered_refused=true; fi
+  rm -f "$WORK/tampered.tar.age"
+  log "restore-drill.selftest tampered_archive_refused=$tampered_refused"
+  verify_digest "$WORK/archive.tar.age" "$expected_sha"
+
   run_drill "$WORK/archive.tar.age" "$keys/primary.key"
   local breakglass=false
   decrypt_only "$WORK/archive.tar.age" "$keys/breakglass.key" && breakglass=true
@@ -363,16 +413,18 @@ self_test() {
   rm -rf "$keys" "$WORK/archive.tar.age"
 
   local out="${EVIDENCE:-$WORK/restore-drill-selftest.json}"
-  write_evidence "$out" self-test "$breakglass" "$failed_recorded"
+  write_evidence "$out" self-test "$breakglass" "$failed_recorded" "$tampered_refused"
   if [[ -z "$EVIDENCE" ]]; then cat "$out"; fi
   log "restore-drill.selftest done"
 }
 
 case "$MODE" in
   decrypt-only)
+    verify_digest "$DUMP" "$EXPECT_SHA"
     decrypt_only "$DUMP" "$IDENTITY" || die "the key did not open the archive"
     ;;
   archive)
+    verify_digest "$DUMP" "$EXPECT_SHA"
     run_drill "$DUMP" "$IDENTITY"
     out="${EVIDENCE:-$WORK/restore-drill.json}"
     write_evidence "$out" archive

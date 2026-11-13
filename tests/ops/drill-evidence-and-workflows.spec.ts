@@ -26,6 +26,8 @@ function evidence(): Record<string, unknown> {
     dump_age_h: 0.1,
     targets: { rpo_seconds_max: 43200, rto_seconds_max: 14400 },
     checks: {
+      archive_digest: true,
+      sql_guard: true,
       decrypt: true,
       wrong_key_refused: true,
       restore: true,
@@ -35,6 +37,7 @@ function evidence(): Record<string, unknown> {
       drill_checks_sql: true,
       breakglass_decrypt: true,
       failed_run_recorded: true,
+      tampered_archive_refused: true,
     },
     counts: { tables: 60, rows: 900, buckets: 3, objects: 1, object_bytes: 4096, policies: 99, functions: 56, auth_users: 5, pgtap_tests: 10, migrations: 32 },
     versions: { server: "17.11", cli: "2.120.0", age: "v1.3.2" },
@@ -61,7 +64,23 @@ describe("check-evidence.ts (restore drill)", () => {
     const archive: Record<string, unknown> = { ...evidence(), mode: "archive" };
     delete (archive.checks as Record<string, boolean>).breakglass_decrypt;
     delete (archive.checks as Record<string, boolean>).failed_run_recorded;
+    delete (archive.checks as Record<string, boolean>).tampered_archive_refused;
     expect(checkDrillEvidence(archive).ok).toBe(true);
+  });
+
+  it("04-07c (M-BACKUPAUTH): a drill without the digest check or the SQL guard fails, in either mode", () => {
+    for (const mode of ["self-test", "archive"]) {
+      for (const check of ["archive_digest", "sql_guard"]) {
+        const e: Record<string, unknown> = { ...evidence(), mode };
+        const checks = { ...(e.checks as Record<string, boolean>) };
+        delete checks[check];
+        e.checks = checks;
+        expect(checkDrillEvidence(e).problems, `${mode} ${check}`).toContain(`check ${check} missing`);
+      }
+    }
+    const noTamper = evidence();
+    delete (noTamper.checks as Record<string, boolean>).tampered_archive_refused;
+    expect(checkDrillEvidence(noTamper).problems).toContain("check tampered_archive_refused missing (self-test)");
   });
 
   it("refuses anything but counts and verdicts: an unknown key, a name in counts, a free-text version", () => {

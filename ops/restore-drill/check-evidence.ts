@@ -18,6 +18,10 @@ const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 const VERSION = /^v?\d+(\.\d+){1,3}(-[A-Za-z0-9.]+)?$/;
 
 const REQUIRED_CHECKS = [
+  // 04-07c (M-BACKUPAUTH): the archive's SHA-256 matched the digest recorded outside the bucket before decrypting, and
+  // no SQL file held a psql meta-command.
+  "archive_digest",
+  "sql_guard",
   "decrypt",
   "wrong_key_refused",
   "restore",
@@ -26,7 +30,7 @@ const REQUIRED_CHECKS = [
   "manifest_compare",
   "drill_checks_sql",
 ] as const;
-const SELF_TEST_CHECKS = ["breakglass_decrypt", "failed_run_recorded"] as const;
+const SELF_TEST_CHECKS = ["breakglass_decrypt", "failed_run_recorded", "tampered_archive_refused"] as const;
 const ALL_CHECKS = new Set<string>([...REQUIRED_CHECKS, ...SELF_TEST_CHECKS]);
 
 const COUNT_KEYS = new Set([
