@@ -305,13 +305,17 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
 
 ## V2-04 Jobs reliability
 
-Source: `.planning/phases/04-jobs-reliability/04-PLAN.md` §PO actions (verbatim, revised 2026-11-13 post V2-03). Phase in progress.
+Source: `.planning/phases/04-jobs-reliability/04-PLAN.md` §PO actions, updated at the V2-04 close (2026-11-14) from
+the plan records (04-00b, 04-04, 04-05a, 04-06, 04-07c). Phase code-complete; PR #6 awaits the gate. No secret value
+appears here; secrets go only into the named store. Values in angle brackets are filled by the PO.
 
-The orchestrator copies these into `.planning/PO-ACTIONS.md` under "V2-04 Jobs reliability". No secret value appears
-here; secrets go only into the named store. Values in angle brackets are filled by the PO. **Order (lead times):** the
-AWS track first — 04-P2 → P3 → P7 → P4 → P5 → P6 (can start before the merge; nothing in the repo waits on it); at the
-gate 04-P14, P15; 04-P16 any time before the merge (else right after it); after the merge 04-P1 (before approving
-the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, P12, P13. None of these blocks local work or the gate except P15 (merge) — R-19 pattern from V2-03.
+**Right after PR #6 merges (in this order):** 04-P16 (if not done before) → 04-P1 (then approve the staging `migrate`
+run at once) → 04-P8 (Vercel env incl. `MESSAGING_PROVIDER=sink`, Resend, `OPS_ALERT_EMAIL`) → 04-P9 (Vault) → 04-P10
+(report grants) → 04-P7 (inbox; clear `notify_stopped_code`) → 04-P17 (Send Email hook, once Resend is live).
+**Later (after ≥ 24 h of runner traffic, ≥ 2 days of scheduled backups):** 04-R2 (backup Environment) → 04-P11
+(failed-run drill) → 04-P12 (alert drill, lag load) → 04-P13 (first restore drill).
+**At go-live (V2-15):** a separately generated production `JOBS_RUNNER_SECRET`; `OPS_ALERT_EMAIL` set (production refuses
+to boot without it). **Done/delegated:** 04-P14, 04-P15. **Superseded by B-3:** 04-P2…P6.
 
 - [ ] **04-P1 · Confirm pg_cron, pg_net and Vault on the staging Free project**
   - *Do / where:* Supabase Dashboard → project `clinicos-staging` (03-E2) → SQL Editor → run
@@ -415,29 +419,37 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
   - *Accepted risks until go-live (owner V2-15):* no R2 versioning, the token can delete, no India region, a
     `postgres` URL in an Environment with no reviewer. Staging data is synthetic.
 
-- [ ] **04-P7 · Monitored ops inbox**
-  - *Do / where:* choose an address you read daily (e.g. `ops@<domain>` from 03-E0). (a) Supabase organisation
-    `clinicos-staging` → Settings → billing/notification email = this address (pause and quota warnings, FT-03);
-    (b) SES (03-E6): while in the sandbox, verify it as a recipient; (c) use it for `AlertEmail` (04-P5) and
-    `OPS_ALERT_EMAIL` (04-P8).
+- [ ] **04-P7 · Monitored ops inbox** (right after merge)
+  - *Do / where:* choose an address you read daily (e.g. `ops@<domain>`). (a) Supabase organisation → Settings →
+    billing/notification email = this address (pause and quota warnings, FT-03); (b) Vercel `clinicos-staging` →
+    `OPS_ALERT_EMAIL` = this address (04-P8); (c) GitHub → watch the repository's Issues ("Staging backup failing",
+    `backup-alert.yml`); (d) if the app ran on staging without `OPS_ALERT_EMAIL`, after setting it run in the staging
+    SQL editor `update ops.alerts set notify_stopped_code = null where status = 'open';` so the stopped notifications
+    resume (04-07c, C L-4).
   - *Why:* R-1 (email only); FT-03 pause warnings.
-  - *Unblocks:* acceptance 4; backup failure emails.
-  - *Verify (you paste):* `aws sesv2 get-email-identity --email-identity <address> --region ap-south-1 --query
-    VerifiedForSendingStatus` → `true` (sandbox); receipt of the SNS confirmation (04-P5) and the drill email (04-P12).
+  - *Unblocks:* acceptance 4; backup failure notices.
+  - *Verify (Claude):* the drill email in 04-P12 arrives (you forward its subject line); `ops-report` shows the alert
+    `notified` with no `unsent` notification.
 
-- [ ] **04-P8 · Vercel staging environment for jobs**
-  - *Do / where:* Vercel → `clinicos-staging` → Settings → Environment Variables (the environment that serves
-    `feature/v2`): `JOBS_RUNNER_SECRET` = output of `openssl rand -hex 32` (sensitive; a new value, never the
-    `CRON_SECRET`: the app refuses to boot when they are equal; the same value goes to Vault in 04-P9; it is never sent
-    over the wire, the scheduler sends a 2-minute HMAC token derived from it, R-49); `OPS_ALERT_EMAIL=<04-P7 address>`; `MESSAGING_PROVIDER=sink` (replaces `disabled`, R-9);
-    `JOBS_DRILL_ENABLED=false`; `EMAIL_PROVIDER=ses` once 03-E6/E8 are done (until then alerts stay visible in the
-    report only). Keep `CRON_SECRET` (diag route, R-27). Redeploy.
-  - *Why:* R-9, R-17, R-32.
-  - *Unblocks:* 04-P9, P12; acceptance 3, 4.
+- [ ] **04-P8 · Vercel staging environment for jobs** (right after merge; Production scope of `clinicos-staging`)
+  - *Do / where:* Vercel → `clinicos-staging` → Settings → Environment Variables, **Production** scope:
+    - `JOBS_RUNNER_SECRET` = output of `openssl rand -hex 32` (Sensitive; a new value, never the `CRON_SECRET`: the
+      app refuses to boot when they are equal; the same value goes to Vault in 04-P9; it never goes over the wire,
+      the scheduler sends a 2-minute HMAC token derived from it, R-49). Production (V2-15) gets its own, separately
+      generated value; never copy the staging one (04-07c).
+    - `OPS_ALERT_EMAIL` = the 04-P7 address (one address, not Sensitive). Staging boots without it, but then every
+      alert notification stops at `alert_channel_unconfigured`; production refuses to boot without it.
+    - `MESSAGING_PROVIDER=sink` (replaces `disabled`, R-9: the queue runs, nothing is sent).
+    - Resend (04-00b; after 03-E6R is verified): `RESEND_API_KEY` (Sensitive; key "clinicos-staging", Sending access,
+      domain `auth.thecliniqai.com`; never a `NEXT_PUBLIC_` name), `EMAIL_FROM=no-reply@auth.thecliniqai.com` (a plain
+      address), then `EMAIL_PROVIDER=resend` (needs `SEND_EMAIL_HOOK_SECRET` set, 04-P17).
+    - `JOBS_DRILL_ENABLED=false`. Keep `CRON_SECRET` (diag route, R-27). Redeploy.
+  - *Why:* R-9, R-17, R-32, R-49; alerts and auth email through Resend until go-live.
+  - *Unblocks:* 04-P9, P12, P17; acceptance 3, 4.
   - *Verify (Claude, read-only):* `curl -s -o /dev/null -w "%{http_code}\n" -X POST https://staging.thecliniqai.com/api/jobs/run`
-    → `401` (no secret, no side effect); `curl -s https://staging.thecliniqai.com/api/ready` → `"status":"ready"`,
-    `checks.schema` `"current"`, `providers.messaging` `"disabled"` (sink) and a `jobs` block of four booleans (no
-    counts: V2-03 M-PROBE).
+    → `401` (no token, no side effect); `curl -s https://staging.thecliniqai.com/api/ready` → `"status":"ready"`,
+    `checks.schema` `"current"`, `providers.email` `"configured"` and a `jobs` block of four booleans (no counts:
+    V2-03 M-PROBE).
 
 - [ ] **04-P9 · Scheduler secrets in staging Vault + answer OI-3**
   - *Do / where:* after the approved migrate run with `000033` and `000034`: staging SQL Editor:
@@ -450,9 +462,10 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
   - *Verify (you paste, read-only):* `select name, created_at, updated_at from vault.secrets where name like 'jobs_runner_%';`
     → 2 rows, no values. Claude, after 04-P10: `ops-report` artifact shows ≥ 50 ok runner runs in the last hour.
 
-- [ ] **04-P10 · Read-only grants for the ops report**
-  - *Do / where:* staging SQL Editor: the two statements in `docs/runbooks/jobs.md` §"Ops report" (`grant usage on schema
-    ops to clinicos_drift_ro; grant execute on function ops.report_all(integer) to clinicos_drift_ro;` — the read-only
+- [ ] **04-P10 · Read-only grants for the ops report** (right after merge, after the migrate run that applies 000040)
+  - *Do / where:* staging SQL Editor, exactly these two statements (`docs/runbooks/jobs.md` §13):
+    `grant usage on schema ops to clinicos_drift_ro;` and
+    `grant execute on function ops.report_all(integer) to clinicos_drift_ro;` (nothing else for the role; the read-only
     role from `docs/runbooks/staging.md` §3, already used by `STAGING_DB_URL_RO` in Environment `staging-readonly`).
     Then GitHub → Actions → `ops-report` → Run workflow (or wait for the daily run; schedules fire only once the
     default branch is `feature/v2`, RL-3).
@@ -461,29 +474,33 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
   - *Verify (Claude):* `gh run list --workflow ops-report.yml --limit 1 --json conclusion,url,headSha`; `gh run download
     <id> -n ops-report`; `npx tsx scripts/ops/check-ops-report.ts <file> --require heartbeat,quota`.
 
-- [ ] **04-P11 · Backup failed-run drill**
-  - *Do / where:* after ≥ 2 days of scheduled runs, CloudShell: `aws codebuild start-build --project-name
-    clinicos-staging-backup --environment-variables-override name=FORCE_FAIL,value=1,type=PLAINTEXT`; confirm the SNS
-    "FAILED" email arrives (forward its subject line).
+- [ ] **04-P11 · Backup failed-run drill** (later: after 04-R2 and ≥ 2 days of scheduled runs)
+  - *Do / where:* GitHub → Actions → "Staging backup" (`backup.yml`) → Run workflow on `feature/v2` with `force_fail`
+    ticked. The run fails on purpose before any connection (exit 64); `backup-alert.yml` opens (or comments on) the
+    "Staging backup failing" issue, which GitHub emails to watchers (04-P7). Forward that email's subject line.
   - *Why:* acceptance 5 ("a deliberately failed run raises an alert").
   - *Unblocks:* acceptance 5.
-  - *Verify (Claude):* the next `backup-evidence` artifact shows that build `FAILED` with the `FORCE_FAIL` override name,
-    `failed_run_alerted = true` (SNS delivered count in that window) and `twice_daily_ok = true`.
+  - *Verify (Claude, read-only):* `gh run list --workflow backup.yml --json …` and `gh run list --workflow
+    backup-alert.yml --json …` passed as `--runs` / `--alert-runs` to `npx tsx ops/backup/evidence.ts` with the next
+    `backup-evidence` listing, then `--check <file>`: `failed_run_alerted` and `twice_daily_ok` true (runbook
+    `docs/runbooks/backup-restore.md`).
 
-- [ ] **04-P12 · Staging alert drill and lag load**
-  - *Do / where:* after 04-P8…P10 and ≥ 24 h of runner traffic: (1) Vercel `JOBS_DRILL_ENABLED=true`, redeploy; (2) SQL
-    Editor: `select ops.drill_enqueue('drill.noop', 300, interval '6 hours');` and `select
-    ops.drill_enqueue('drill.always_fail', 1, interval '0', 2);`; (3) within about 15 min an email
-    "[clinicos staging] WARN dead_letter" arrives; (4) after 6 h set `JOBS_DRILL_ENABLED=false`, redeploy, run
-    `ops-report`.
+- [ ] **04-P12 · Staging alert drill and lag load** (later: after 04-P7…P10 and ≥ 24 h of runner traffic)
+  - *Do / where (runbook `docs/runbooks/jobs.md` §12):* (1) Vercel `JOBS_DRILL_ENABLED=true`, redeploy; (2) staging
+    SQL editor: `select ops.drill_enqueue('drill.noop', 300, interval '6 hours');` (lag load) and
+    `select ops.drill_enqueue('drill.always_fail', 1, interval '0', 2);`; (3) after about 3 minutes
+    `select ops.evaluate_alerts();` — within a minute one "[clinicos staging] WARN dead_letter" email arrives;
+    (4) check `select notified_at, notify_count from ops.alerts where rule = 'dead_letter' and status = 'open';`
+    → one row, notified; (5) `delete from ops.jobs where kind = 'drill.always_fail';`; (6) after 6 h set
+    `JOBS_DRILL_ENABLED=false`, redeploy, run the `ops-report` workflow.
   - *Why:* acceptance 3 and 4.
   - *Unblocks:* acceptance 3, 4; evidence "the staging alert-drill record".
   - *Verify (Claude):* `npx tsx scripts/ops/check-ops-report.ts <ops-report file> --require lag,alert-drill` passes (lag
     p95 < 120 s with ≥ 100 samples; a notified `dead_letter` alert with a provider id); recorded in VERIFICATION_LOG.
 
-- [ ] **04-P13 · First restore drill from a staging backup**
-  - *Do / where:* on your machine (Docker running, repo at `feature/v2`): S3 console → backup bucket → `staging/` →
-    download the newest `.tar.age` to a folder outside the repo; export the primary key from your password manager to
+- [ ] **04-P13 · First restore drill from a staging backup** (later: after the first green scheduled backups)
+  - *Do / where:* on your machine (Docker running, repo at `feature/v2`): Cloudflare R2 → bucket `clinicos-staging-backups` → `staging/`
+    → download the newest `.tar.age` to a folder outside the repo; export the primary key from your password manager to
     a file outside the repo; take the archive's SHA-256 **only** from GitHub: the green "Staging backup" run
     (`.github/workflows/backup.yml` on `feature/v2`) whose job summary names that object key (Summary → "Backup
     archive"), or its `backup-evidence` artifact `archive-digest.json` (never from the bucket, never from
@@ -496,7 +513,7 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
   - *Verify (Claude):* `npx tsx ops/restore-drill/check-evidence.ts .planning/phases/04-jobs-reliability/evidence/restore-drill-staging.json`
     → pass (all checks green, RPO ≤ 12 h, RTO ≤ 4 h, counts only); VERIFICATION_LOG entry written from the file.
 
-- [d] **04-P14 · Confirm the V2-04 rulings** — the rulings table below (R-1…R-47), in particular R-6 (revised: the
+- [d] **04-P14 · Confirm the V2-04 rulings** — the rulings table in `04-PLAN.md` (R-1…R-51), in particular R-6 (revised: the
   - **Delegated to CTO by the PO on 2026-11-13 ("for the rest, I trust your judgement"); the rulings stand as written. Revisit at go-live if needed.**
   enqueue RPCs take the session's active tenant as a constraint; ADR-0005 amendment A2 in `04-ADR0005-PROPOSALS.md`
   replaces D3's "accepts no tenant argument"), R-7 (TARGET §8 erratum: `dedupe_key` NOT NULL), R-26 (test ping
@@ -522,6 +539,18 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     `migrate` (which `needs: plan`) does not start.
   - *Verify (Claude, read-only):* `gh run view <staging.yml run id> --json jobs` → `plan` success; its summary lists
     migration file names and a count only; recorded in VERIFICATION_LOG.
+
+- [ ] **04-P17 · Send Email hook on staging once Resend is live** (right after merge, when 03-E6R is verified and
+  04-P8's Resend values are set)
+  - *Do / where:* this is 03-E8 with Resend in place of SES: Supabase staging → Authentication → Hooks → Send Email →
+    HTTPS `https://staging.thecliniqai.com/api/auth/send-email` → generate the secret → Vercel `SEND_EMAIL_HOOK_SECRET`
+    (Sensitive, Production scope); `EMAIL_PROVIDER=resend`; redeploy. Then request a password reset on staging for
+    your own address.
+  - *Why:* AUTH-03; since V2-04 the hook dedupes deliveries across instances (R-43, ADR-0005 A3) and Resend gets one
+    idempotency key per message.
+  - *Unblocks:* V2-03 acceptance 9 (03-E8); alert emails share the same sender.
+  - *Verify:* the `drift.yml` `auth-config` job shows the hook enabled with that URI; you paste the received mail's
+    `Authentication-Results` line (expect `dkim=pass header.d=auth.thecliniqai.com`).
 
 **No PO action needed for:** the queue, scheduler and alert code and their local tests, the MSG91 MSW contracts, the
 local backup self-test and drill, the template and its policy checks, the workflows' code.
