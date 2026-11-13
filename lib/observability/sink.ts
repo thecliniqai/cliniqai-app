@@ -14,7 +14,50 @@ import { buildErrorEvent, type ErrorContext, type ErrorEvent, type ErrorRequest 
 export const SINK_TIMEOUT_MS = 2000;
 export const INGEST_RPC_PATH = "/rest/v1/rpc/ops_ingest_error";
 
-export type SinkOutcome = "sent" | "disabled" | "refused" | "failed";
+export type SinkOutcome = "sent" | "disabled" | "refused" | "failed" | "dropped";
+
+/**
+ * Flood bound (03-13d; review C L-1). The sink's row key (fingerprint) includes the scrubbed message, so one bug whose
+ * text varies per request (positions, counts, ports) makes a new row per request and can use up the database's daily
+ * cap of new fingerprints, blinding the sink for every other error that day. Per server instance and UTC day, one
+ * (route, error name, code) may send at most {@link FLOOD_DISTINCT_PER_KEY} distinct messages; repeats of a message
+ * already sent still go through (they only count). At most {@link FLOOD_MAX_KEYS} keys are tracked per day.
+ */
+export const FLOOD_DISTINCT_PER_KEY = 25;
+export const FLOOD_MAX_KEYS = 1000;
+const DAY_MS = 86_400_000;
+let floodDay = -1;
+const floodSeen = new Map<string, Set<string>>();
+const floodLogged = new Set<string>();
+
+/** Clears the per-instance flood state (tests). */
+export function resetSinkFloodState(): void {
+  floodDay = -1;
+  floodSeen.clear();
+  floodLogged.clear();
+}
+
+/** Whether `event` may be sent under the flood bound; records it when it may. */
+export function admitToSink(event: ErrorEvent, now: number = Date.now()): boolean {
+  const day = Math.floor(now / DAY_MS);
+  if (day !== floodDay) {
+    floodDay = day;
+    floodSeen.clear();
+    floodLogged.clear();
+  }
+  const key = `${event.route_path ?? "-"}|${event.error_name}|${event.error_code ?? "-"}`;
+  const fingerprint = `${event.message}|${event.frames[0] ?? ""}`;
+  let seen = floodSeen.get(key);
+  if (!seen) {
+    if (floodSeen.size >= FLOOD_MAX_KEYS) return false;
+    seen = new Set();
+    floodSeen.set(key, seen);
+  }
+  if (seen.has(fingerprint)) return true;
+  if (seen.size >= FLOOD_DISTINCT_PER_KEY) return false;
+  seen.add(fingerprint);
+  return true;
+}
 
 /** Writes one event to the sink. Never throws. */
 export async function sendErrorEvent(event: ErrorEvent, fetchImpl: typeof fetch = fetch): Promise<SinkOutcome> {
@@ -82,6 +125,19 @@ export async function reportRequestError(
     route: event.route_path ?? undefined,
     code: event.error_code ?? event.error_name,
   });
+  if (!admitToSink(event)) {
+    const key = `${event.route_path ?? "-"}|${event.error_name}|${event.error_code ?? "-"}`;
+    if (!floodLogged.has(key)) {
+      floodLogged.add(key);
+      log.warn({
+        event: "observability.sink.flood_dropped",
+        requestId: event.request_id ?? undefined,
+        route: event.route_path ?? undefined,
+        code: event.error_code ?? event.error_name,
+      });
+    }
+    return { event, outcome: "dropped" };
+  }
   const outcome = await sendErrorEvent(event, options.fetchImpl);
   return { event, outcome };
 }

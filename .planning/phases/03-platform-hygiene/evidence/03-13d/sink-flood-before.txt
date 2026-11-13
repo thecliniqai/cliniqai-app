@@ -1,0 +1,50 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/observability/sink-flood.spec.ts (3 tests | 2 failed) 15ms
+   × error sink flood bound > one route's varying messages send at most 25 events; the rest are dropped 9ms
+     → expected "spy" to be called 25 times, but got 65 times
+   ✓ error sink flood bound > repeats of an admitted message and errors on other routes still go through 2ms
+   × error sink flood bound > logs the drop once per key, without the message 4ms
+     → expected [] to have a length of 1 but got +0
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/observability/sink-flood.spec.ts > error sink flood bound > one route's varying messages send at most 25 events; the rest are dropped
+AssertionError: expected "spy" to be called 25 times, but got 65 times
+ ❯ tests/observability/sink-flood.spec.ts:36:18
+     34|       outcomes.push((await reportRequestError(err, { method: "POST" },…
+     35|     }
+     36|     expect(sink).toHaveBeenCalledTimes(FLOOD_DISTINCT_PER_KEY);
+       |                  ^
+     37|     expect(outcomes.filter((o) => o === "dropped")).toHaveLength(40);
+     38|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/observability/sink-flood.spec.ts > error sink flood bound > logs the drop once per key, without the message
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/observability/sink-flood.spec.ts:64:19
+     62|     }
+     63|     const drops = lines.filter((l) => l.includes("observability.sink.f…
+     64|     expect(drops).toHaveLength(1);
+       |                   ^
+     65|     expect(lines.join("")).not.toContain("synthetic.flood@example.com"…
+     66|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  08:41:08
+   Duration  293ms (transform 71ms, setup 8ms, collect 37ms, tests 15ms, environment 0ms, prepare 20ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

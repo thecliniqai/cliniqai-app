@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/observability/sink-flood.spec.ts (3 tests) 12ms
+ ✓ tests/observability/on-request-error.spec.ts (5 tests) 303ms
+
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+   Start at  08:41:06
+   Duration  755ms (transform 60ms, setup 14ms, collect 74ms, tests 315ms, environment 0ms, prepare 43ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain
