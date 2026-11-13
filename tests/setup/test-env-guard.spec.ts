@@ -189,6 +189,22 @@ describe("test-env guard rules", () => {
     expect(problems.join("\n")).not.toContain(other);
   });
 
+  it("keeps the breached-password check off in the Vitest lane; the e2e server may turn it on, loopback only (03-12a)", () => {
+    expect(findTestEnvProblems(safeEnv({ PWNED_CHECK: "off" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ PWNED_CHECK: "on", PWNED_API_BASE_URL: "http://127.0.0.1:3101" }))).toContain(
+      "PWNED_CHECK must be unset or off in this lane",
+    );
+    expect(
+      findTestEnvProblems(safeEnv({ PWNED_CHECK: "on", PWNED_API_BASE_URL: "http://127.0.0.1:3101" }), { pwnedCheck: true }),
+    ).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ PWNED_CHECK: "on" }), { pwnedCheck: true })).toContain(
+      "PWNED_CHECK=on needs PWNED_API_BASE_URL (the loopback fake range API) in this lane",
+    );
+    expect(findTestEnvProblems(safeEnv({ PWNED_API_BASE_URL: "https://api.pwnedpasswords.com" }))).toContain(
+      'PWNED_API_BASE_URL points at non-local host "api.pwnedpasswords.com"',
+    );
+  });
+
   it("allows auth email only as disabled or the loopback Mailpit, never SES (03-11b)", () => {
     expect(findTestEnvProblems(safeEnv({ EMAIL_PROVIDER: "disabled" }))).toEqual([]);
     expect(findTestEnvProblems(safeEnv({ EMAIL_PROVIDER: "mailpit", MAILPIT_API_URL: "http://127.0.0.1:54324" }))).toEqual([]);

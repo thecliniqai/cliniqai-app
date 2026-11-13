@@ -47,6 +47,13 @@ export const LOCAL_SEND_EMAIL_HOOK_SECRET = `v1,whsec_${Buffer.from("not-real-se
 /** V2-03 03-11b: the local stack's Mailpit API (the CLI default port). */
 export const LOCAL_MAILPIT_API_URL = "http://127.0.0.1:54324";
 
+/**
+ * V2-03 03-12a (FT-05): the e2e app server's breached-password check points at the loopback fake range API that
+ * Playwright's global setup starts (tests/e2e/support/pwned-range-server.ts). Fixed port, next to the e2e server.
+ */
+export const E2E_PWNED_RANGE_PORT = 3101;
+export const E2E_PWNED_API_BASE_URL = `http://127.0.0.1:${E2E_PWNED_RANGE_PORT}`;
+
 /** Variables that may be unset or must hold one of these values. */
 const PINNED_IF_SET: Record<string, string[]> = {
   STORAGE_PROVIDER: ["supabase"],
@@ -112,7 +119,15 @@ export const FORBIDDEN_VARS = [
 ] as const;
 
 /** Variables whose value is a URL that must be loopback. */
-const URL_VARS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_APP_URL", "PLAYWRIGHT_TEST_BASE_URL", "MAILPIT_API_URL"];
+const URL_VARS = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "SUPABASE_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "PLAYWRIGHT_TEST_BASE_URL",
+  "MAILPIT_API_URL",
+  // 03-12a: the range API of the breached-password check is a loopback fake in every test lane.
+  "PWNED_API_BASE_URL",
+];
 
 /** Fragments that identify hosted services anywhere in any variable's value. */
 export const HOSTED_MARKERS = [".supabase.co", ".supabase.in", ".supabase.net", "r2.cloudflarestorage.com", "pooler.supabase"];
@@ -233,6 +248,11 @@ export interface TestEnvRuleOptions {
   appEnv?: string;
   /** 03-09b (R-18): the e2e app server turns the diagnostic error route on; the Vitest lane keeps it off. */
   diagRoute?: boolean;
+  /**
+   * 03-12a (FT-05): the e2e app server turns the breached-password check on (against the loopback fake); the Vitest
+   * lane keeps it off and specs stub it per test (`vi.stubEnv`) after this guard has run.
+   */
+  pwnedCheck?: boolean;
 }
 
 /** Collect every reason the environment is not the local test stack. Empty array = safe. */
@@ -277,6 +297,14 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
   const diagAllowed = options.diagRoute ? ["true", "false"] : ["false"];
   if (env.DIAG_ERROR_ROUTE_ENABLED && !diagAllowed.includes(env.DIAG_ERROR_ROUTE_ENABLED)) {
     problems.push(`DIAG_ERROR_ROUTE_ENABLED must be unset or ${diagAllowed.join(" or ")} in this lane`);
+  }
+
+  const pwnedAllowed = options.pwnedCheck ? ["on", "off"] : ["off"];
+  if (env.PWNED_CHECK && !pwnedAllowed.includes(env.PWNED_CHECK)) {
+    problems.push(`PWNED_CHECK must be unset or ${pwnedAllowed.join(" or ")} in this lane`);
+  }
+  if (env.PWNED_CHECK === "on" && !env.PWNED_API_BASE_URL) {
+    problems.push("PWNED_CHECK=on needs PWNED_API_BASE_URL (the loopback fake range API) in this lane");
   }
 
   for (const key of PLACEHOLDER_ONLY) {
@@ -336,7 +364,12 @@ export function assertLocalTestEnv(env: EnvMap = process.env): void {
  * `NEXT_TELEMETRY_DISABLED=1` (no outbound telemetry).
  */
 export function findAppServerEnvProblems(env: EnvMap): string[] {
-  const problems = findTestEnvProblems(env, { allowNodeEnv: ["production"], appEnv: E2E_APP_ENV, diagRoute: true });
+  const problems = findTestEnvProblems(env, {
+    allowNodeEnv: ["production"],
+    appEnv: E2E_APP_ENV,
+    diagRoute: true,
+    pwnedCheck: true,
+  });
   if (env.__NEXT_PROCESSED_ENV !== "true") {
     problems.push("__NEXT_PROCESSED_ENV must be \"true\" so Next loads no .env file into the e2e server");
   }

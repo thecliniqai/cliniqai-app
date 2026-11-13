@@ -62,6 +62,8 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
     // 03-11b: production must send auth email through SES and verify the Send Email hook.
     expect(res.stderr).toContain("EMAIL_PROVIDER: required in production");
     expect(res.stderr).toContain("SEND_EMAIL_HOOK_SECRET: required in production");
+    // 03-12a: production must reject breached passwords (FT-05).
+    expect(res.stderr).toContain("PWNED_CHECK: must be on in production");
     for (const value of Object.values(PRODUCTION_WITHOUT_PROVIDERS).filter((v) => v.startsWith("MARKER"))) {
       expect(res.stderr).not.toContain(value);
       expect(res.stdout).not.toContain(value);
@@ -112,6 +114,7 @@ describe("boot: next.config.ts (next build / start / dev)", () => {
       SES_ACCESS_KEY_ID: ["AKIA", "MARKERBOOT000000"].join(""),
       SES_SECRET_ACCESS_KEY: "MARKER-boot-ses-secret-access-key-0123456789",
       SEND_EMAIL_HOOK_SECRET: `v1,whsec_${Buffer.from("MARKER-boot-hook-key-0123456789ab").toString("base64")}`,
+      PWNED_CHECK: "on",
     });
     expect(res.stderr).toBe("");
     expect(res.status).toBe(0);

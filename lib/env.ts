@@ -40,6 +40,12 @@ export const EMAIL_PROVIDERS = ["mailpit", "ses", "disabled"] as const;
 export type EmailProviderName = (typeof EMAIL_PROVIDERS)[number];
 /** Tiers that may use the local Mailpit sender (never staging or production). */
 export const MAILPIT_TIERS: readonly AppEnv[] = ["development", "test", "e2e", "ci"];
+
+/** 03-12a (FT-05): breached-password check switch, and the tiers that may point it at another range API. */
+export const PWNED_CHECK_VALUES = ["on", "off"] as const;
+export type PwnedCheck = (typeof PWNED_CHECK_VALUES)[number];
+export const PWNED_API_PUBLIC_BASE_URL = "https://api.pwnedpasswords.com";
+export const PWNED_OVERRIDE_TIERS: readonly AppEnv[] = ["development", "test", "e2e"];
 /** PO-A3: SES runs in Mumbai only. A constant, not an env name: Vercel reserves `AWS_REGION` (and sets it per function). */
 export const SES_REGION = "ap-south-1";
 
@@ -116,6 +122,8 @@ const shapeSchema = z.object({
   SES_ACCESS_KEY_ID: text.optional(),
   SES_SECRET_ACCESS_KEY: text.optional(),
   SEND_EMAIL_HOOK_SECRET: text.optional(),
+  PWNED_CHECK: z.enum(PWNED_CHECK_VALUES).optional(),
+  PWNED_API_BASE_URL: text.url().optional(),
   VERCEL_REGION: text.optional(),
   VERCEL_GIT_COMMIT_SHA: text.optional(),
 });
@@ -164,6 +172,10 @@ export interface Env {
   SES_ACCESS_KEY_ID?: string;
   SES_SECRET_ACCESS_KEY?: string;
   SEND_EMAIL_HOOK_SECRET?: string;
+  /** Defaults to `off`; required `on` in production (FT-05, R-17). */
+  PWNED_CHECK: PwnedCheck;
+  /** Defaults to the public API; another value only in development/test/e2e (loopback in test/e2e). */
+  PWNED_API_BASE_URL: string;
   VERCEL_REGION?: string;
   VERCEL_GIT_COMMIT_SHA?: string;
 }
@@ -371,6 +383,20 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     } else if (deploy && /not-real/i.test(key)) add("SEND_EMAIL_HOOK_SECRET", `must not be a local placeholder in ${tier}`);
   }
 
+  // 03-12a (FT-05, R-17): the breached-password check is off unless chosen and must be on in production. Only local
+  // tiers may point it at another range API; test and e2e only at a loopback fake, and with the check on they must
+  // (a test lane never reaches the public API). ci cannot override, so it cannot turn the check on.
+  if (tier === "production" && raw.PWNED_CHECK !== "on") add("PWNED_CHECK", "must be on in production (FT-05)");
+  if (present(raw.PWNED_API_BASE_URL)) {
+    if (!PWNED_OVERRIDE_TIERS.includes(tier)) add("PWNED_API_BASE_URL", `must not be set in ${tier} (the public API is fixed)`);
+    else if (tier !== "development" && !isLoopbackUrl(raw.PWNED_API_BASE_URL)) {
+      add("PWNED_API_BASE_URL", `must be a loopback URL in ${tier}`);
+    }
+  }
+  if (raw.PWNED_CHECK === "on" && LOOPBACK_TIERS.includes(tier) && !present(raw.PWNED_API_BASE_URL)) {
+    add("PWNED_CHECK", `on in ${tier} needs a loopback PWNED_API_BASE_URL (no public network from a test lane)`);
+  }
+
   if (LOOPBACK_TIERS.includes(tier)) {
     if (present(supabaseUrl) && !isLoopbackUrl(supabaseUrl)) add("NEXT_PUBLIC_SUPABASE_URL", `must be a loopback URL in ${tier}`);
     if (present(appUrl) && !isLoopbackUrl(appUrl)) add("NEXT_PUBLIC_APP_URL", `must be a loopback URL in ${tier}`);
@@ -447,6 +473,8 @@ export function parseEnv(source: EnvSource): Env {
     DIAG_ERROR_ROUTE_ENABLED: s.DIAG_ERROR_ROUTE_ENABLED === "true",
     // Checked above: present in staging/production.
     EMAIL_PROVIDER: s.EMAIL_PROVIDER ?? "disabled",
+    PWNED_CHECK: s.PWNED_CHECK ?? "off",
+    PWNED_API_BASE_URL: s.PWNED_API_BASE_URL ?? PWNED_API_PUBLIC_BASE_URL,
   };
 }
 
@@ -706,6 +734,23 @@ export const ENV_DOCS: Record<Exclude<EnvName, "NODE_ENV" | "VERCEL_REGION" | "V
       `Decoded key at least ${MIN_SEND_EMAIL_HOOK_KEY_BYTES} bytes. Required in production and with ses; unset means every hook call is refused (401).`,
     ],
     example: SET_IN_VERCEL,
+  },
+  PWNED_CHECK: {
+    group: "Passwords",
+    notes: [
+      "on | off (default off). FT-05: change-password and reset reject passwords listed by Pwned Passwords (03-12a).",
+      "Only the 5-character SHA-1 prefix leaves the server (k-anonymity). Must be on in production; set on in staging.",
+      "If the API is down the password is allowed and a pwned.unavailable warning is logged (fail-open, FT-05).",
+    ],
+    example: "off",
+  },
+  PWNED_API_BASE_URL: {
+    group: "Passwords",
+    notes: [
+      `Range API base URL; default ${PWNED_API_PUBLIC_BASE_URL}. Settable only in development, test and e2e`,
+      "(loopback only in test/e2e, where PWNED_CHECK=on requires it). Leave unset in ci, staging and production.",
+    ],
+    example: "",
   },
 };
 

@@ -50,6 +50,8 @@ const PRODUCTION: EnvSource = {
   SES_ACCESS_KEY_ID: SES_KEY_ID,
   SES_SECRET_ACCESS_KEY: SES_SECRET,
   SEND_EMAIL_HOOK_SECRET: HOOK_SECRET,
+  // 03-12a: production rejects breached passwords (FT-05).
+  PWNED_CHECK: "on",
 };
 
 const STAGING: EnvSource = { ...PRODUCTION, APP_ENV: "staging", MESSAGING_PROVIDER: "disabled" };
@@ -125,6 +127,9 @@ describe("env schema: complete profiles pass", () => {
     // 03-09b: the e2e server writes to the local sink and serves the diagnostic route.
     expect(parsed.ERROR_INGEST_KEY).toBeDefined();
     expect(parsed.DIAG_ERROR_ROUTE_ENABLED).toBe(true);
+    // 03-12a: the e2e server checks passwords against the loopback fake range API.
+    expect(parsed.PWNED_CHECK).toBe("on");
+    expect(new URL(parsed.PWNED_API_BASE_URL).hostname).toBe("127.0.0.1");
   });
 
   it("development and test default the app URL and the offline messaging provider", () => {
@@ -363,6 +368,56 @@ describe("env schema: error sink and diagnostic route (03-09b, R-7, R-18)", () =
 
   it("a non-boolean DIAG_ERROR_ROUTE_ENABLED throws", () => {
     expectRejected({ ...STAGING, DIAG_ERROR_ROUTE_ENABLED: "yes" }, "DIAG_ERROR_ROUTE_ENABLED");
+  });
+});
+
+describe("env schema: breached-password check (03-12a, FT-05, R-17)", () => {
+  const local = { NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+  const LOOPBACK_RANGE = "http://127.0.0.1:3101";
+
+  it("production must have PWNED_CHECK=on (unset and off throw)", () => {
+    expect(parseEnv(PRODUCTION).PWNED_CHECK).toBe("on");
+    expect(issuesOf({ ...PRODUCTION, PWNED_CHECK: undefined })).toContain("PWNED_CHECK: must be on in production (FT-05)");
+    expect(issuesOf({ ...PRODUCTION, PWNED_CHECK: "off" })).toContain("PWNED_CHECK: must be on in production (FT-05)");
+  });
+
+  it("defaults to off with the public API everywhere else; staging may run either way until the PO sets it", () => {
+    for (const env of [parseEnv(local), parseEnv({ ...local, NODE_ENV: "test" }), parseEnv(CI_BUILD)]) {
+      expect(env.PWNED_CHECK).toBe("off");
+      expect(env.PWNED_API_BASE_URL).toBe("https://api.pwnedpasswords.com");
+    }
+    expect(parseEnv({ ...STAGING, PWNED_CHECK: "off" }).PWNED_CHECK).toBe("off");
+    expect(parseEnv(STAGING).PWNED_CHECK).toBe("on");
+  });
+
+  it("a value other than on|off throws", () => {
+    expectRejected({ ...STAGING, PWNED_CHECK: "true" }, "PWNED_CHECK");
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+    ["ci", CI_BUILD],
+  ])("PWNED_API_BASE_URL cannot be overridden in %s", (_tier, profile) => {
+    expectRejected({ ...profile, PWNED_API_BASE_URL: LOOPBACK_RANGE }, "PWNED_API_BASE_URL");
+    expectRejected({ ...profile, PWNED_API_BASE_URL: "https://range.synthetic.example.org" }, "PWNED_API_BASE_URL");
+  });
+
+  it("test and e2e accept only a loopback override; development accepts any URL", () => {
+    expect(parseEnv({ ...local, NODE_ENV: "test", PWNED_API_BASE_URL: LOOPBACK_RANGE }).PWNED_API_BASE_URL).toBe(LOOPBACK_RANGE);
+    expectRejected({ ...local, NODE_ENV: "test", PWNED_API_BASE_URL: "https://range.synthetic.example.org" }, "PWNED_API_BASE_URL");
+    expectRejected({ ...CI_BUILD, APP_ENV: "e2e", PWNED_API_BASE_URL: "https://range.synthetic.example.org" }, "PWNED_API_BASE_URL");
+    expect(parseEnv({ ...local, PWNED_API_BASE_URL: "https://range.synthetic.example.org" }).PWNED_API_BASE_URL).toBe(
+      "https://range.synthetic.example.org",
+    );
+  });
+
+  it("on in a loopback tier needs the loopback override (a test lane never reaches the public API)", () => {
+    expect(issuesOf({ ...local, NODE_ENV: "test", PWNED_CHECK: "on" })).toContain(
+      "PWNED_CHECK: on in test needs a loopback PWNED_API_BASE_URL (no public network from a test lane)",
+    );
+    expectRejected({ ...CI_BUILD, PWNED_CHECK: "on" }, "PWNED_CHECK");
+    expect(parseEnv({ ...local, NODE_ENV: "test", PWNED_CHECK: "on", PWNED_API_BASE_URL: LOOPBACK_RANGE }).PWNED_CHECK).toBe("on");
   });
 });
 

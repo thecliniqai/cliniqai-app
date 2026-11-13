@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   E2E_APP_ENV,
+  E2E_PWNED_API_BASE_URL,
   LOCAL_ERROR_INGEST_KEY,
   LOCAL_MAILPIT_API_URL,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
@@ -100,6 +101,10 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     MAILPIT_API_URL: LOCAL_MAILPIT_API_URL,
     EMAIL_FROM: E2E_EMAIL_FROM,
     SEND_EMAIL_HOOK_SECRET: LOCAL_SEND_EMAIL_HOOK_SECRET,
+    // V2-03 03-12a (FT-05): the breached-password check is on, against the loopback fake range API that global setup
+    // starts (tests/e2e/support/pwned-range-server.ts); J-A4/J-A5 prove a listed password is refused.
+    PWNED_CHECK: "on",
+    PWNED_API_BASE_URL: E2E_PWNED_API_BASE_URL,
     NODE_OPTIONS: `--require "${SERVER_NET_GUARD}"`,
   } satisfies EnvMap);
   assertLocalAppServerEnv(env);
