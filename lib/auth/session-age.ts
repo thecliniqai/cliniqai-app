@@ -22,6 +22,11 @@ export const CLOCK_SKEW_SECONDS = 30;
 /**
  * `amr` methods that do not prove only mailbox control (GoTrue models/amr.go): the password grant and the MFA factors
  * stepped up on top of a session. Everything else is treated as an emailed code.
+ *
+ * 03-13e: GoTrue applies the same list and bound before it mints any token, through the Custom Access Token hook
+ * `private.session_age_token_hook` (migration 000030: `private.session_age_non_mailbox_methods()`,
+ * `private.session_age_fresh_seconds()`). Change both together: tests/auth/session-age-token-hook-db.spec.ts fails
+ * when they differ.
  */
 export const NON_MAILBOX_METHODS: ReadonlySet<string> = new Set(["password", "totp", "mfa/totp", "mfa/phone", "mfa/webauthn"]);
 

@@ -492,6 +492,30 @@
       "dashboard": "Authentication > Hooks > Send Email hook > URL",
       "source": "AUTH_REDESIGN §4.1 / §4.3 Send Email hook route app/api/auth/send-email (03-11b)",
       "deviation_reason": "The hook is off locally, so config.toml carries no URL."
+    },
+    {
+      "id": "hook_custom_access_token_enabled",
+      "toml": "auth.hook.custom_access_token.enabled",
+      "hosted": "hook_custom_access_token_enabled",
+      "transform": "same",
+      "local": true,
+      "staging": true,
+      "production": true,
+      "dashboard": "Authentication > Hooks > Customize Access Token (JWT) Claims hook: Enabled (Postgres function)",
+      "source": "03-13e H-AUTH (review IND H-1, D H-1): GoTrue refuses to mint a token for an emailed-code session older than 600 s (A00-5, AUTH_REDESIGN §3.5); required in every environment (security floor)",
+      "deviation_reason": null
+    },
+    {
+      "id": "hook_custom_access_token_uri",
+      "toml": "auth.hook.custom_access_token.uri",
+      "hosted": "hook_custom_access_token_uri",
+      "transform": "same",
+      "local": "pg-functions://postgres/private/session_age_token_hook",
+      "staging": "pg-functions://postgres/private/session_age_token_hook",
+      "production": "pg-functions://postgres/private/session_age_token_hook",
+      "dashboard": "Authentication > Hooks > Customize Access Token (JWT) Claims hook > Postgres function: schema private, function session_age_token_hook",
+      "source": "03-13e H-AUTH: migration 000030 private.session_age_token_hook (EXECUTE for supabase_auth_admin only)",
+      "deviation_reason": null
     }
   ]
 }

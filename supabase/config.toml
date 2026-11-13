@@ -88,3 +88,9 @@ verify_enabled = false
 # Off locally: auth email goes to Mailpit over SMTP. Staging/production call app/api/auth/send-email (03-11b).
 [auth.hook.send_email]
 enabled = false
+
+# 03-13e H-AUTH: GoTrue refuses to mint an access token (sign-in or refresh) for an emailed-code session older than
+# 600 s. Postgres function, migration 000030. On in every environment (auth-policy.json floor).
+[auth.hook.custom_access_token]
+enabled = true
+uri = "pg-functions://postgres/private/session_age_token_hook"

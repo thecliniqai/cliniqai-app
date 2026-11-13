@@ -167,6 +167,39 @@ describe("auth policy check (config.toml vs supabase/auth-policy.json, local col
     expect(CONFIG).toMatch(/^otp_length = 8$/m);
   });
 
+  it("03-13e (H-AUTH): the session-age Custom Access Token hook is a floor in every environment (off, elsewhere or missing fails)", () => {
+    const HOOK = "pg-functions://postgres/private/session_age_token_hook";
+    for (const env of ["local", "staging", "production"] as const) {
+      const off = checkPolicy((p) => {
+        const row = p.settings.find((s) => s.id === "hook_custom_access_token_enabled")!;
+        row[env] = false;
+        row.deviation_reason = "test";
+      });
+      expect(off.status, env).toBe(1);
+      expect(off.stderr).toContain(`FLOOR hook_custom_access_token_enabled (${env}): false breaks the floor = true (03-13e H-AUTH)`);
+      const elsewhere = checkPolicy((p) => {
+        const row = p.settings.find((s) => s.id === "hook_custom_access_token_uri")!;
+        row[env] = "pg-functions://postgres/public/custom_access_token_hook";
+        row.deviation_reason = "test";
+      });
+      expect(elsewhere.status, env).toBe(1);
+      expect(elsewhere.stderr).toContain(`FLOOR hook_custom_access_token_uri (${env}): "pg-functions://postgres/public/custom_access_token_hook"`);
+    }
+    const dropped = checkPolicy((p) => {
+      p.settings = p.settings.filter((s) => s.id !== "hook_custom_access_token_enabled");
+    });
+    expect(dropped.status).toBe(1);
+    expect(dropped.stderr).toContain("FLOOR hook_custom_access_token_enabled: policy row missing");
+    // config.toml must carry it too (the local stack runs the hook).
+    const noToml = checkConfig((t) => t.replace(/^\[auth\.hook\.custom_access_token\]\nenabled = true$/m, "[auth.hook.custom_access_token]\nenabled = false"));
+    expect(noToml.status).toBe(1);
+    expect(noToml.stderr).toContain("MISMATCH auth.hook.custom_access_token.enabled: config.toml has false, policy (local) wants true");
+    expect(CONFIG).toContain(`[auth.hook.custom_access_token]\nenabled = true\nuri = "${HOOK}"`);
+    const staging = runNodeChecker("check-auth-config.mjs", ["--print", "staging"]);
+    expect(staging.stdout).toContain("hook_custom_access_token_enabled = true");
+    expect(staging.stdout).toContain(`hook_custom_access_token_uri = "${HOOK}"`);
+  });
+
   it("--print staging lists the dashboard checklist with the hosted-only require-current-password row", () => {
     const r = runNodeChecker("check-auth-config.mjs", ["--print", "staging"]);
     expect(r.status).toBe(0);

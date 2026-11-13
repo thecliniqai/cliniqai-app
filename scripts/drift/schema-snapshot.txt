@@ -766,6 +766,9 @@ function ops.scrub_text(p_text text) returns text lang=plpgsql security_definer=
 function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=335bcb17d06170df44c79181e1bc6548
 function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=fc70ce305e275397a47bde4f348a93b6
 function private.payments_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9d07a669cf91ce75b6839f73f1d5c6b0
+function private.session_age_fresh_seconds() returns integer lang=sql security_definer=f volatility=i config=search_path="" body_md5=c24ae58647ff07129cfb1f22e8a2d93d
+function private.session_age_non_mailbox_methods() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=e87c54c10462bf2088aa50f3d398b3a2
+function private.session_age_token_hook(event jsonb) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=3c2be7b2ca884766fb76799d75601c71
 function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4b9a79b32cd6254b22017731a27dde2a
 function public.communication_metadata_strip_tokens(p jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=699c303067ef7c6e5ac6a23949259380
 function public.communication_payload_redact(p jsonb) returns jsonb lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=e5a03ebc6b0a124b256fe7c73d684772

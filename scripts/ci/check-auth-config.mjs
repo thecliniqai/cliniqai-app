@@ -82,14 +82,25 @@ function printChecklist(policy, env) {
   return lines;
 }
 
+/** 03-13e: the Custom Access Token hook (migration 000030) that bounds emailed-code sessions at GoTrue. */
+export const SESSION_AGE_HOOK_URI = "pg-functions://postgres/private/session_age_token_hook";
+
 /**
  * Security floors every environment must meet (03-13a). `email_otp_length` >= 8 (ruling R-36, review D M-1: a 10^6
  * code space is within reach of a distributed guesser while `/verify` is limited per IP only); `email_otp_expiry` <=
- * 600 s (AR-L6, the window the 8-digit arithmetic assumes).
+ * 600 s (AR-L6, the window the 8-digit arithmetic assumes). 03-13e (H-AUTH): the session-age Custom Access Token hook
+ * is enabled and points at `private.session_age_token_hook` everywhere, so the policy (and with it config.toml and the
+ * hosted drift check of the staging column) can never drop it.
  */
 export const FLOORS = [
   { id: "email_otp_length", test: (v) => Number.isInteger(v) && v >= 8, rule: ">= 8 (R-36)" },
   { id: "email_otp_expiry", test: (v) => Number.isInteger(v) && v > 0 && v <= 600, rule: "<= 600 s (AR-L6)" },
+  { id: "hook_custom_access_token_enabled", test: (v) => v === true, rule: "= true (03-13e H-AUTH)" },
+  {
+    id: "hook_custom_access_token_uri",
+    test: (v) => v === SESSION_AGE_HOOK_URI,
+    rule: `= ${JSON.stringify(SESSION_AGE_HOOK_URI)} (03-13e H-AUTH)`,
+  },
 ];
 
 /** Problem lines for every floor broken in any environment column (a missing row is a problem too). */
