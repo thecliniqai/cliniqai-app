@@ -22,7 +22,7 @@ import { describe, expect, it } from "vitest";
 import { checkRegion, pinnedRegion } from "@/scripts/staging/check-region.mjs";
 import { diffArgs, runSchemaDrift } from "@/scripts/staging/schema-drift.mjs";
 import { canonicalDbUrl, redactUrl, stagingTargetProblems } from "@/scripts/staging/target-guard.mjs";
-import { newestMigration, waitForRelease } from "@/scripts/staging/wait-for-release.mjs";
+import { waitForRelease } from "@/scripts/staging/wait-for-release.mjs";
 import { ROOT } from "./run-checker";
 
 const REF = "abcdefghijklmnopqrst";
@@ -190,51 +190,51 @@ function fakeStaging(releases: (string | null)[], ready: { status: number; body:
   };
 }
 
-const READY = { status: 200, body: { status: "ready", latestMigration: "000027" } };
+/** The /api/ready body since 03-13c M-PROBE: booleans and states only, no migration version. */
+const READY = { status: 200, body: { status: "ready", checks: { database: "ok", schema: "current" } } };
 
 describe("wait-for-release", () => {
-  it("exits 0 once /api/health reports the SHA and /api/ready is ready at the newest migration", async () => {
+  it("exits 0 once /api/health reports the SHA and /api/ready is ready with the schema current", async () => {
     const s = fakeStaging(["fedcba9876543210fedcba9876543210fedcba98", null, SHA], READY);
-    const r = await waitForRelease({ origin: ORIGIN, sha: SHA, expectedMigration: "000027", ...s.options });
-    expect(r.lines.at(-1)).toBe(`wait-for-release: PASS release ${SHA} is live and ready at migration 000027`);
+    const r = await waitForRelease({ origin: ORIGIN, sha: SHA, ...s.options });
+    expect(r.lines.at(-1)).toBe(`wait-for-release: PASS release ${SHA} is live and ready with the schema current`);
     expect(r.exitCode).toBe(0);
     expect(s.urls).toEqual([...Array(3).fill(`${ORIGIN}/api/health`), `${ORIGIN}/api/ready`]);
   });
 
   it("exits 1 on timeout when the release never appears, without calling /api/ready", async () => {
     const s = fakeStaging(["fedcba9876543210fedcba9876543210fedcba98"], READY);
-    const r = await waitForRelease({ origin: ORIGIN, sha: SHA, expectedMigration: "000027", ...s.options });
+    const r = await waitForRelease({ origin: ORIGIN, sha: SHA, ...s.options });
     expect(r.exitCode).toBe(1);
     expect(r.lines.at(-1)).toMatch(/TIMEOUT after 5 attempt\(s\).*never reported release/);
     expect(s.urls.some((u) => u.endsWith("/api/ready"))).toBe(false);
   });
 
-  it("exits 1 when /api/ready answers 503, or is ready at an older migration", async () => {
-    const notReady = await waitForRelease({ origin: ORIGIN, sha: SHA, expectedMigration: "000027", ...fakeStaging([SHA], { status: 503, body: { status: "not_ready" } }).options });
+  it("exits 1 when /api/ready answers 503, or does not report the schema current", async () => {
+    const notReady = await waitForRelease({ origin: ORIGIN, sha: SHA, ...fakeStaging([SHA], { status: 503, body: { status: "not_ready" } }).options });
     expect(notReady.exitCode).toBe(1);
     expect(notReady.lines.at(-1)).toContain("/api/ready answered HTTP 503");
-    const stale = await waitForRelease({ origin: ORIGIN, sha: SHA, expectedMigration: "000028", ...fakeStaging([SHA], READY).options });
+    const behind = { status: 200, body: { status: "ready", checks: { database: "ok", schema: "behind" } } };
+    const stale = await waitForRelease({ origin: ORIGIN, sha: SHA, ...fakeStaging([SHA], behind).options });
     expect(stale.exitCode).toBe(1);
-    expect(stale.lines.at(-1)).toContain('latestMigration "000027", the repository\'s newest is 000028');
+    expect(stale.lines.at(-1)).toContain("checks.schema is behind, not current");
+    // The pre-03-13c body (a version number, no checks.schema) is not accepted, and an odd value is not echoed.
+    for (const body of [{ status: "ready", latestMigration: "000029" }, { status: "ready", checks: { schema: "<script>LEAK" } }]) {
+      const r = await waitForRelease({ origin: ORIGIN, sha: SHA, ...fakeStaging([SHA], { status: 200, body }).options });
+      expect(r.exitCode).toBe(1);
+      expect(r.lines.at(-1)).toContain("checks.schema is missing, not current");
+    }
   });
 
   it("exits 2 for a non-https or non-bare origin and a short SHA, before any request", async () => {
     for (const [origin, sha] of [["http://127.0.0.1:3000", SHA], [`${ORIGIN}/`, SHA], [ORIGIN, "0123abc"]]) {
       const s = fakeStaging([SHA], READY);
-      const r = await waitForRelease({ origin, sha, expectedMigration: "000027", ...s.options });
+      const r = await waitForRelease({ origin, sha, ...s.options });
       expect(r.exitCode).toBe(2);
       expect(s.urls).toEqual([]);
     }
   });
 
-  it("newestMigration picks the highest NNNNNN_ file and ignores anything else", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "migrations-"));
-    for (const f of ["000001_init.sql", "000027_record_payment_rpc.sql", "000009_x.sql", "README.md", "20250101_ts.sql"]) {
-      fs.writeFileSync(path.join(dir, f), "");
-    }
-    expect(newestMigration(dir)).toBe("000027");
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
 });
 
 describe("check-region (FT-01)", () => {

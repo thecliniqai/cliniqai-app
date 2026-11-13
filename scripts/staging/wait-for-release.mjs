@@ -6,25 +6,23 @@
  * and then proves the two halves meet:
  *   1. polls `GET <origin>/api/health` until its `release` (the deployed commit, `VERCEL_GIT_COMMIT_SHA`, 03-01) equals
  *      the workflow's commit, for at most `--timeout-ms` (default 10 minutes);
- *   2. then `GET <origin>/api/ready` must answer 200 with `status: "ready"` and `latestMigration` equal to the newest
- *      file in `supabase/migrations` (its zero-padded number).
+ *   2. then `GET <origin>/api/ready` must answer 200 with `status: "ready"` and `checks.schema: "current"`. Since
+ *      03-13c (M-PROBE) the probe returns booleans only: the build asks the database whether its own
+ *      `EXPECTED_MIGRATION` (`app/api/ready/expected-migration.ts`, which a spec pins to the newest file in
+ *      `supabase/migrations`) is applied. Step 1 proved the deployed build is this commit, so "current" means the
+ *      staging database carries this commit's newest migration. No version number leaves the server.
  * Only origins that are bare https origins are accepted (no loopback http, no path). Nothing is printed beyond
- * statuses, the release SHA and the migration numbers; the readiness body is never echoed.
+ * statuses and the release SHA; the readiness body is never echoed.
  *
  * Usage: node scripts/staging/wait-for-release.mjs <origin> <sha> [--timeout-ms N] [--interval-ms N]
- *                                                  [--migrations-dir <dir>]
- * Exit 0 = released and ready, 1 = timeout / not ready / wrong migration, 2 = usage.
+ * Exit 0 = released and ready, 1 = timeout / not ready / schema behind, 2 = usage.
  */
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 export const DEFAULT_TIMEOUT_MS = 10 * 60_000;
 export const DEFAULT_INTERVAL_MS = 15_000;
 const REQUEST_TIMEOUT_MS = 15_000;
 const SHA = /^[0-9a-f]{40}$/;
-const MIGRATION_FILE = /^([0-9]{6})_[a-z0-9_]+\.sql$/;
 
 /** Problems with `origin` as a staging origin (bare https origin), or null. */
 export function originProblem(origin) {
@@ -36,16 +34,6 @@ export function originProblem(origin) {
   } catch {
     return "is not a URL";
   }
-}
-
-/** The newest migration number in `dir` (e.g. "000027"), or null when there is none. */
-export function newestMigration(dir = path.join(REPO_ROOT, "supabase/migrations")) {
-  const versions = fs
-    .readdirSync(dir)
-    .map((f) => MIGRATION_FILE.exec(f)?.[1])
-    .filter((v) => v !== undefined)
-    .sort();
-  return versions.at(-1) ?? null;
 }
 
 async function getJson(fetchImpl, url) {
@@ -65,14 +53,13 @@ async function getJson(fetchImpl, url) {
 }
 
 /**
- * @param {{ origin: string, sha: string, expectedMigration: string | null, fetchImpl?: typeof fetch,
+ * @param {{ origin: string, sha: string, fetchImpl?: typeof fetch,
  *   sleep?: (ms: number) => Promise<void>, now?: () => number, timeoutMs?: number, intervalMs?: number }} options
  * @returns {Promise<{ exitCode: number, lines: string[] }>}
  */
 export async function waitForRelease({
   origin,
   sha,
-  expectedMigration,
   fetchImpl = globalThis.fetch,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   now = () => Date.now(),
@@ -84,7 +71,6 @@ export async function waitForRelease({
   const bad = originProblem(origin);
   if (bad) return done(2, `wait-for-release: REFUSED origin ${bad}`);
   if (!SHA.test(sha)) return done(2, "wait-for-release: REFUSED the release must be a 40-character lowercase commit SHA");
-  if (!expectedMigration) return done(2, "wait-for-release: REFUSED no migration file found to compare with");
 
   const deadline = now() + timeoutMs;
   let attempts = 0;
@@ -117,21 +103,21 @@ export async function waitForRelease({
   if (ready.status !== 200 || ready.body?.status !== "ready") {
     return done(1, `wait-for-release: FAIL /api/ready answered HTTP ${ready.status} (status ${JSON.stringify(ready.body?.status ?? null)})`);
   }
-  const latest = typeof ready.body.latestMigration === "string" ? ready.body.latestMigration : null;
-  if (latest !== expectedMigration) {
-    return done(1, `wait-for-release: FAIL /api/ready latestMigration ${JSON.stringify(latest)}, the repository's newest is ${expectedMigration}`);
+  const schema = ready.body.checks && typeof ready.body.checks === "object" ? ready.body.checks.schema : undefined;
+  if (schema !== "current") {
+    const shown = typeof schema === "string" && /^[a-z_]{1,20}$/.test(schema) ? schema : "missing";
+    return done(1, `wait-for-release: FAIL /api/ready checks.schema is ${shown}, not current (staging lacks this commit's newest migration)`);
   }
-  return done(0, `wait-for-release: PASS release ${sha} is live and ready at migration ${expectedMigration}`);
+  return done(0, `wait-for-release: PASS release ${sha} is live and ready with the schema current`);
 }
 
 function parseArgs(argv) {
   const positional = [];
-  const opts = { timeoutMs: DEFAULT_TIMEOUT_MS, intervalMs: DEFAULT_INTERVAL_MS, migrationsDir: undefined };
+  const opts = { timeoutMs: DEFAULT_TIMEOUT_MS, intervalMs: DEFAULT_INTERVAL_MS };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--timeout-ms") opts.timeoutMs = Number(argv[++i]);
     else if (a === "--interval-ms") opts.intervalMs = Number(argv[++i]);
-    else if (a === "--migrations-dir") opts.migrationsDir = argv[++i];
     else if (a.startsWith("--")) return null;
     else positional.push(a);
   }
@@ -142,13 +128,12 @@ function parseArgs(argv) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args) {
-    console.error("usage: node scripts/staging/wait-for-release.mjs <origin> <sha> [--timeout-ms N] [--interval-ms N] [--migrations-dir <dir>]");
+    console.error("usage: node scripts/staging/wait-for-release.mjs <origin> <sha> [--timeout-ms N] [--interval-ms N]");
     return 2;
   }
   const { exitCode, lines } = await waitForRelease({
     origin: args.origin,
     sha: args.sha,
-    expectedMigration: newestMigration(args.migrationsDir),
     timeoutMs: args.timeoutMs,
     intervalMs: args.intervalMs,
   });

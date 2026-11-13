@@ -113,8 +113,10 @@ The `migrate` job then:
 2. `supabase db push --db-url … --dry-run` (lists what would be applied), then the same without `--dry-run`. It never
    uses `--include-seed`;
 3. `scripts/staging/wait-for-release.mjs`: polls `/api/health` until `release` equals the commit (10 minutes at
-   most), then requires `/api/ready` to answer 200, `status: "ready"`, with `latestMigration` equal to the newest file
-   in `supabase/migrations`.
+   most), then requires `/api/ready` to answer 200, `status: "ready"`, with `checks.schema: "current"`. The probe
+   returns no version number (03-13c M-PROBE): the build asks the database whether its own `EXPECTED_MIGRATION`
+   (`app/api/ready/expected-migration.ts`, bumped with every new migration and pinned to the newest file by a spec)
+   is applied, and step 1 proved the deployed build is this commit.
 
 A green run, together with the Vercel deployment link for the same commit, is the evidence for "staging deploys from
 CI" (acceptance item 7). Record both in `docs/v2/VERIFICATION_LOG.md`.
