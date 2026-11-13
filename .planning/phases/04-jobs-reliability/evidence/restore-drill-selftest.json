@@ -1,0 +1,49 @@
+{
+  "format_version": 1,
+  "kind": "restore-drill",
+  "mode": "self-test",
+  "environment": "local",
+  "result": "pass",
+  "dump_started_at": "2026-11-13T08:27:57Z",
+  "drill_started_at": "2026-11-13T08:28:13Z",
+  "checks_green_at": "2026-11-13T08:28:45Z",
+  "rpo_seconds": 16,
+  "rto_seconds": 32,
+  "dump_age_h": 0,
+  "targets": {
+    "rpo_seconds_max": 43200,
+    "rto_seconds_max": 14400
+  },
+  "checks": {
+    "decrypt": true,
+    "wrong_key_refused": true,
+    "restore": true,
+    "migration_history": true,
+    "objects_verified": true,
+    "manifest_compare": true,
+    "drill_checks_sql": true,
+    "breakglass_decrypt": true,
+    "failed_run_recorded": true
+  },
+  "counts": {
+    "tables": 82,
+    "rows": 2247,
+    "buckets": 3,
+    "objects": 1,
+    "object_bytes": 4096,
+    "objects_excluded": 0,
+    "files_without_row": 0,
+    "policies": 99,
+    "functions": 57,
+    "rls_tables": 43,
+    "auth_users": 5,
+    "pgtap_tests": 10,
+    "migrations": 32,
+    "archive_bytes": 1383034
+  },
+  "versions": {
+    "server": "17.11",
+    "cli": "2.120.0",
+    "age": "v1.3.2"
+  }
+}

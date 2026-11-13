@@ -1,0 +1,33 @@
+2026-11-13T08:27:53Z restore-drill.selftest seed (npm run seed:local, synthetic)
+2026-11-13T08:27:55Z restore-drill.selftest storage (one synthetic object)
+2026-11-13T08:27:56Z restore-drill.selftest keys (two throwaway age key pairs)
+2026-11-13T08:27:57Z restore-drill.selftest backup (ops/backup/backup.sh, BACKUP_ENV=local)
+2026-11-13T08:27:57Z backup.start env=local recipients=2 cli=2.120.0
+Dumping roles from local database...
+Dumped schema to /var/folders/2r/g_p_dqv56xs61p8mxywgdhbc0000gn/T/tmp.fxr7cIibBr/stage/roles.sql.
+Dumping schemas from local database...
+Dumped schema to /var/folders/2r/g_p_dqv56xs61p8mxywgdhbc0000gn/T/tmp.fxr7cIibBr/stage/schema.sql.
+Dumping data from local database...
+Dumped schema to /var/folders/2r/g_p_dqv56xs61p8mxywgdhbc0000gn/T/tmp.fxr7cIibBr/stage/data.sql.
+Dumping schemas from local database...
+Dumped schema to /var/folders/2r/g_p_dqv56xs61p8mxywgdhbc0000gn/T/tmp.fxr7cIibBr/stage/history_schema.sql.
+Dumping data from local database...
+Dumped schema to /var/folders/2r/g_p_dqv56xs61p8mxywgdhbc0000gn/T/tmp.fxr7cIibBr/stage/history_data.sql.
+2026-11-13T08:28:02Z backup.dumped tables=82 data_bytes=775991
+buckets=3 objects=1 object_bytes=4096 rows=2247
+2026-11-13T08:28:04Z backup.manifest written
+2026-11-13T08:28:04Z backup.encrypted age_header=ok bytes=1383034 sha256=e400fc4562eccee5cc430527f58910d72b2328e8479259a04767dc78c71f8a64
+2026-11-13T08:28:05Z backup.uploaded key=local/2026-11-13T082804Z.tar.age
+2026-11-13T08:28:05Z backup.done env=local key=local/2026-11-13T082804Z.tar.age bytes=1383034 duration_s=8
+2026-11-13T08:28:06Z restore-drill.selftest failed-run leg (wrong Storage S3 secret)
+2026-11-13T08:28:13Z restore-drill.selftest failed-run exit=1 recorded=true
+2026-11-13T08:28:13Z restore-drill.decrypt
+2026-11-13T08:28:14Z restore-drill.stack_start project=clinicos-drill
+2026-11-13T08:28:42Z restore-drill.restore
+2026-11-13T08:28:44Z restore-drill.verify
+compare-manifest: PASS tables=82 rows=2247 buckets=3 objects_verified=1 objects_excluded=0 files_without_row=0
+2026-11-13T08:28:45Z restore-drill.checks_green pgtap=10
+2026-11-13T08:28:47Z restore-drill.stack_stopped (data volumes removed)
+2026-11-13T08:28:47Z restore-drill.decrypt_only ok entries=14
+check-evidence: PASS
+2026-11-13T08:28:49Z restore-drill.selftest done
