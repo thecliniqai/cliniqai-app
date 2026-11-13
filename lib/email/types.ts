@@ -30,10 +30,15 @@ export interface SendResult {
   providerMessageId: string;
 }
 
+/** Per-call options. `signal` aborts the provider call (the Send Email hook's time budget, 03-13a). */
+export interface SendOptions {
+  signal?: AbortSignal;
+}
+
 export interface EmailSender {
   readonly provider: EmailProviderName;
-  /** Resolves only once the provider has accepted the message; rejects otherwise. */
-  send(message: EmailMessage): Promise<SendResult>;
+  /** Resolves only once the provider has accepted the message; rejects otherwise (also when `signal` aborts). */
+  send(message: EmailMessage, options?: SendOptions): Promise<SendResult>;
 }
 
 /** `EMAIL_PROVIDER=disabled`: nothing is sent, and the caller is told so. */

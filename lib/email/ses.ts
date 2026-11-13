@@ -1,10 +1,18 @@
 import { SESv2Client, SendEmailCommand, type SESv2ClientConfig } from "@aws-sdk/client-sesv2";
 import { SES_REGION } from "@/lib/env";
-import { EmailConfigError, EmailSendError, safeCode, type EmailMessage, type EmailSender, type SendResult } from "./types";
+import {
+  EmailConfigError,
+  EmailSendError,
+  safeCode,
+  type EmailMessage,
+  type EmailSender,
+  type SendOptions,
+  type SendResult,
+} from "./types";
 
 /** The one call the sender makes; tests inject a client with the same `send`. */
 export interface SesClientLike {
-  send(command: SendEmailCommand): Promise<{ MessageId?: string }>;
+  send(command: SendEmailCommand, options?: { abortSignal?: AbortSignal }): Promise<{ MessageId?: string }>;
 }
 
 export interface SesEmailSenderOptions {
@@ -15,6 +23,13 @@ export interface SesEmailSenderOptions {
   /** Injected client (tests); otherwise {@link createSesClient}. */
   client?: SesClientLike;
 }
+
+/**
+ * SES HTTP timeouts (ms). With one retry the worst case is 2 × (1 000 + 1 500) = 5 000 ms, so the Send Email hook also
+ * aborts the call at its own budget (`HOOK_SEND_BUDGET_MS`, below GoTrue's 5 s hook timeout; 03-13a).
+ */
+export const SES_CONNECTION_TIMEOUT_MS = 1_000;
+export const SES_REQUEST_TIMEOUT_MS = 1_500;
 
 /**
  * The SESv2 client the sender uses: {@link SES_REGION}, explicit credentials, short timeouts, one retry.
@@ -28,7 +43,7 @@ export function createSesClient(
     region: SES_REGION,
     credentials,
     maxAttempts: 2,
-    requestHandler: requestHandler ?? { connectionTimeout: 1_500, requestTimeout: 3_000 },
+    requestHandler: requestHandler ?? { connectionTimeout: SES_CONNECTION_TIMEOUT_MS, requestTimeout: SES_REQUEST_TIMEOUT_MS },
   });
 }
 
@@ -74,10 +89,10 @@ export class SesEmailSender implements EmailSender {
     });
   }
 
-  async send(message: EmailMessage): Promise<SendResult> {
+  async send(message: EmailMessage, options: SendOptions = {}): Promise<SendResult> {
     let out: { MessageId?: string };
     try {
-      out = await this.client.send(this.buildCommand(message));
+      out = await this.client.send(this.buildCommand(message), options.signal ? { abortSignal: options.signal } : undefined);
     } catch (err) {
       throw new EmailSendError(safeCode(err instanceof Error ? err.name : undefined, "ses_error"));
     }

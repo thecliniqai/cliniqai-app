@@ -12,7 +12,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { EmailSendError, type EmailMessage } from "@/lib/email";
 import { renderAuthEmail } from "@/lib/email/templates/auth";
-import { POST } from "@/app/api/auth/send-email/route";
+import {
+  GOTRUE_HOOK_TIMEOUT_MS,
+  HOOK_SEND_BUDGET_MS,
+  POST,
+  resetHookDedupeForTests,
+} from "@/app/api/auth/send-email/route";
 import { LOCAL_SEND_EMAIL_HOOK_SECRET } from "../setup/test-env";
 import { signedWebhookHeaders } from "../security/guard/engine";
 
@@ -81,6 +86,7 @@ function logged(): Array<Record<string, unknown>> {
 }
 
 beforeEach(() => {
+  resetHookDedupeForTests();
   sent = [];
   logLines = [];
   fake.sender = recordingSender();
@@ -290,6 +296,94 @@ describe("Send Email hook: sender failures surface to Supabase Auth", () => {
     vi.stubEnv("EMAIL_PROVIDER", "disabled");
     expect((await call(fixture("magiclink"))).status).toBe(200);
   });
+});
+
+describe("03-13a: webhook-id dedupe and the SES time budget", () => {
+  /** One signed delivery (fixed body and headers) that can be sent to the route more than once. */
+  function signedDelivery(name: string) {
+    const body = JSON.stringify(fixture(name));
+    const headers = signedWebhookHeaders(LOCAL_SEND_EMAIL_HOOK_SECRET, body);
+    return () => call(body, { headers });
+  }
+
+  it("a replay (same webhook-id) of a delivered email answers 200 and sends nothing more", async () => {
+    const deliver = signedDelivery("recovery");
+    expect(await deliver()).toEqual({ status: 200, json: {} });
+    expect(await deliver()).toEqual({ status: 200, json: {} });
+    expect(await deliver()).toEqual({ status: 200, json: {} });
+    expect(sent).toHaveLength(1);
+    expect(logged().filter((l) => l.event === "auth.email.duplicate")).toHaveLength(2);
+    // A different delivery (new webhook-id) is sent normally.
+    expect((await signedDelivery("recovery")()).status).toBe(200);
+    expect(sent).toHaveLength(2);
+  });
+
+  it("a retry that arrives while the first attempt is still sending waits for it and shares its answer", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let calls = 0;
+    fake.sender = {
+      provider: "mailpit",
+      send: async (m: EmailMessage) => {
+        calls += 1;
+        await gate;
+        sent.push(m);
+        return { providerMessageId: "x" };
+      },
+    };
+    const deliver = signedDelivery("recovery");
+    const first = deliver();
+    const second = deliver();
+    await new Promise((r) => setTimeout(r, 50));
+    release();
+    expect(await Promise.all([first, second])).toEqual([
+      { status: 200, json: {} },
+      { status: 200, json: {} },
+    ]);
+    expect(calls).toBe(1);
+    expect(sent).toHaveLength(1);
+  });
+
+  it("after a failed attempt the retry (same webhook-id) sends again", async () => {
+    let attempts = 0;
+    fake.sender = {
+      provider: "mailpit",
+      send: async (m: EmailMessage) => {
+        attempts += 1;
+        if (attempts === 1) throw new EmailSendError("Throttling");
+        sent.push(m);
+        return { providerMessageId: "x" };
+      },
+    };
+    const deliver = signedDelivery("recovery");
+    expect((await deliver()).status).toBe(500);
+    expect(await deliver()).toEqual({ status: 200, json: {} });
+    expect(attempts).toBe(2);
+    expect(sent).toHaveLength(1);
+  });
+
+  it(`a provider that hangs is aborted at the ${HOOK_SEND_BUDGET_MS} ms budget: 500 well inside GoTrue's ${GOTRUE_HOOK_TIMEOUT_MS} ms hook timeout`, async () => {
+    expect(HOOK_SEND_BUDGET_MS).toBeLessThan(GOTRUE_HOOK_TIMEOUT_MS);
+    const signals: AbortSignal[] = [];
+    fake.sender = {
+      provider: "mailpit",
+      // Never resolves on its own: it only notices the abort (as the SES SDK does with `abortSignal`).
+      send: (_m: EmailMessage, options?: { signal?: AbortSignal }) => {
+        if (options?.signal) signals.push(options.signal);
+        return new Promise<{ providerMessageId: string }>(() => undefined);
+      },
+    };
+    const started = performance.now();
+    const res = await call(fixture("email_change"));
+    const elapsed = performance.now() - started;
+    expect(res).toEqual({ status: 500, json: { error: { http_code: 500, message: "Email could not be sent" } } });
+    expect(elapsed).toBeGreaterThanOrEqual(HOOK_SEND_BUDGET_MS - 50);
+    expect(elapsed).toBeLessThan(GOTRUE_HOOK_TIMEOUT_MS - 1_000);
+    // Both email_change messages were started at once (in parallel) and both calls were aborted.
+    expect(signals).toHaveLength(2);
+    expect(signals.every((sig) => sig.aborted)).toBe(true);
+    expect(logged()).toEqual([expect.objectContaining({ event: "auth.email.failed", code: "hook_budget_exceeded", status: 500 })]);
+  }, 10_000);
 });
 
 describe("code-only templates match supabase/templates (the SMTP fallback's copy)", () => {

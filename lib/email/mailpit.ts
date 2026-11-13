@@ -1,5 +1,5 @@
 import { MAILPIT_TIERS, type AppEnv } from "@/lib/env";
-import { EmailConfigError, EmailSendError, type EmailMessage, type EmailSender, type SendResult } from "./types";
+import { EmailConfigError, EmailSendError, type EmailMessage, type EmailSender, type SendOptions, type SendResult } from "./types";
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
@@ -46,7 +46,7 @@ export class MailpitEmailSender implements EmailSender {
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
-  async send(message: EmailMessage): Promise<SendResult> {
+  async send(message: EmailMessage, options: SendOptions = {}): Promise<SendResult> {
     let res: Response;
     try {
       res = await this.fetchImpl(this.endpoint, {
@@ -60,7 +60,7 @@ export class MailpitEmailSender implements EmailSender {
           Text: message.text,
           Tags: [message.tag],
         }),
-        signal: AbortSignal.timeout(5_000),
+        signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(5_000)]) : AbortSignal.timeout(5_000),
       });
     } catch (err) {
       throw new EmailSendError(err instanceof Error && err.name === "TimeoutError" ? "mailpit_timeout" : "mailpit_unreachable");

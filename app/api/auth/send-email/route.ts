@@ -17,6 +17,18 @@
  *   4. 200 only after the provider accepted every message; `EMAIL_PROVIDER=disabled` → 503, a provider failure → 500,
  *      both in the hook error shape `{ error: { http_code, message } }` so Supabase Auth surfaces the failure.
  *
+ * 03-13a (review D Lows, I-2):
+ *   - Time budget: the messages are sent in parallel and the provider calls are aborted after
+ *     {@link HOOK_SEND_BUDGET_MS}, below GoTrue's hook timeout ({@link GOTRUE_HOOK_TIMEOUT_MS}). Past the budget the
+ *     answer is 500 "Email could not be sent", so GoTrue gets a failure it can report instead of timing out on its
+ *     own while the email may still go out.
+ *   - `webhook-id` dedupe: a verified delivery is remembered by its `webhook-id` for {@link DEDUPE_TTL_MS} (longer
+ *     than the 5-minute signature tolerance). A replay or a GoTrue retry of a delivery that succeeded answers 200 and
+ *     sends nothing; one that arrives while the first is still sending waits for it and shares its answer; after a
+ *     failure the next attempt sends again. The memory is per server instance (at most {@link DEDUPE_MAX_ENTRIES}),
+ *     so a retry that lands on another instance can still re-send the same code: harmless (the same code to the same
+ *     address); a shared store arrives with the V2-04 outbox.
+ *
  * Logs carry the event, the action type, the provider, a count and the request id; never an address, a code, a token
  * hash or a provider message.
  */
@@ -33,6 +45,75 @@ export const dynamic = "force-dynamic";
 
 const MAX_BODY_BYTES = 64 * 1024;
 const MODULE = "auth.email";
+
+/**
+ * GoTrue's HTTP hook timeout (v2.197.0 `hookshttp`: 5 s; the local binary's error reads "Failed to reach hook within
+ * maximum time of %f seconds"). Not measurable on the CLI stack (the hook is off locally); a hosted change would
+ * surface as hook timeouts in the Auth logs.
+ */
+export const GOTRUE_HOOK_TIMEOUT_MS = 5_000;
+/** Time the provider calls may take in total, leaving room for the request itself under GoTrue's timeout. */
+export const HOOK_SEND_BUDGET_MS = 3_500;
+export const DEDUPE_TTL_MS = 10 * 60_000;
+export const DEDUPE_MAX_ENTRIES = 1_000;
+
+type Outcome = { status: 200 } | { status: 500 | 503; message: string };
+
+/** `webhook-id` → the outcome of that delivery (pending while it is being sent). Per instance; see the header. */
+const deliveries = new Map<string, { expires: number; outcome: Promise<Outcome> }>();
+
+function remembered(id: string, now: number): Promise<Outcome> | null {
+  const entry = deliveries.get(id);
+  if (!entry) return null;
+  if (entry.expires <= now) {
+    deliveries.delete(id);
+    return null;
+  }
+  return entry.outcome;
+}
+
+function remember(id: string, outcome: Promise<Outcome>, now: number): void {
+  for (const [key, entry] of deliveries) if (entry.expires <= now) deliveries.delete(key);
+  while (deliveries.size >= DEDUPE_MAX_ENTRIES) {
+    const oldest = deliveries.keys().next();
+    if (oldest.done) break;
+    deliveries.delete(oldest.value);
+  }
+  deliveries.set(id, { expires: now + DEDUPE_TTL_MS, outcome });
+}
+
+/** Test seam: forgets every remembered delivery. */
+export function resetHookDedupeForTests(): void {
+  deliveries.clear();
+}
+
+class BudgetExceededError extends Error {
+  readonly code = "hook_budget_exceeded";
+  constructor() {
+    super("The email provider did not answer within the hook budget");
+    this.name = "BudgetExceededError";
+  }
+}
+
+/** Sends every message in parallel; rejects once the budget is spent, aborting the provider calls. */
+async function sendWithinBudget(
+  send: (message: EmailMessage, signal: AbortSignal) => Promise<unknown>,
+  messages: EmailMessage[],
+): Promise<void> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort(new BudgetExceededError());
+      reject(new BudgetExceededError());
+    }, HOOK_SEND_BUDGET_MS);
+  });
+  try {
+    await Promise.race([Promise.all(messages.map((m) => send(m, controller.signal))), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 const email = z.string().email().max(320);
 
@@ -71,7 +152,7 @@ function actionLabel(action: string): LogWord {
 type Delivery = { kind: AuthEmailKind; to: string; code?: string };
 
 /** What to send for a verified payload: deliveries, `drop` (200, nothing sent) or `invalid` (400). */
-function deliveriesFor(payload: HookPayload): Delivery[] | "drop" | "invalid" {
+function deliveriesForPayload(payload: HookPayload): Delivery[] | "drop" | "invalid" {
   const { user, email_data: data } = payload;
   switch (data.email_action_type) {
     case "magiclink":
@@ -151,8 +232,8 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 
   const action = actionLabel(payload.email_data.email_action_type);
-  const deliveries = deliveriesFor(payload);
-  if (deliveries === "drop") {
+  const planned = deliveriesForPayload(payload);
+  if (planned === "drop") {
     log.info({
       event: "auth.email.dropped",
       requestId,
@@ -162,24 +243,48 @@ export async function POST(request: NextRequest): Promise<Response> {
     });
     return ok();
   }
-  if (deliveries === "invalid") {
+  if (planned === "invalid") {
     log.warn({ event: "auth.email.refused", requestId, module: MODULE, action, reason: "invalid_payload", status: 400 });
     return hookError(400, "Invalid payload");
   }
 
+  // The signature covers `webhook-id`, so only a holder of the hook secret can choose it.
+  const webhookId = request.headers.get("webhook-id") ?? "";
+  const earlier = remembered(webhookId, Date.now());
+  if (earlier) {
+    const previous = await earlier;
+    if (previous.status === 200) {
+      log.info({ event: "auth.email.duplicate", requestId, module: MODULE, action, reason: "webhook_id_seen" });
+      return ok();
+    }
+    // The earlier attempt failed: this one sends again, unless another retry has already started.
+    const current = remembered(webhookId, Date.now());
+    if (current && current !== earlier) {
+      const shared = await current;
+      return shared.status === 200 ? ok() : hookError(shared.status, shared.message);
+    }
+  }
+
+  const outcome = deliver(planned, action, requestId);
+  remember(webhookId, outcome, Date.now());
+  const result = await outcome;
+  if (result.status !== 200 && deliveries.get(webhookId)?.outcome === outcome) deliveries.delete(webhookId);
+  return result.status === 200 ? ok() : hookError(result.status, result.message);
+}
+
+async function deliver(planned: Delivery[], action: LogWord, requestId: string | undefined): Promise<Outcome> {
   let provider = "unknown";
   try {
-    const messages: EmailMessage[] = deliveries.map((d) => ({ to: d.to, ...renderAuthEmail(d.kind, d.code) }));
+    const messages: EmailMessage[] = planned.map((d) => ({ to: d.to, ...renderAuthEmail(d.kind, d.code) }));
     const sender = getEmailSender();
     provider = sender.provider;
-    for (const message of messages) await sender.send(message);
+    await sendWithinBudget((message, signal) => sender.send(message, { signal }), messages);
   } catch (err) {
     const disabled = err instanceof EmailDisabledError;
     const status = disabled ? 503 : 500;
     log.error({ event: "auth.email.failed", requestId, module: logWord(`${MODULE}.${provider}`), action, code: errorTag(err), status });
-    return hookError(status, disabled ? "Email delivery is disabled" : "Email could not be sent");
+    return { status, message: disabled ? "Email delivery is disabled" : "Email could not be sent" };
   }
-
-  log.info({ event: "auth.email.sent", requestId, module: logWord(`${MODULE}.${provider}`), action, count: deliveries.length });
-  return ok();
+  log.info({ event: "auth.email.sent", requestId, module: logWord(`${MODULE}.${provider}`), action, count: planned.length });
+  return { status: 200 };
 }

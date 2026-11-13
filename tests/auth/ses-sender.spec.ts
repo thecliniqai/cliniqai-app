@@ -116,6 +116,37 @@ describe("the real SESv2 client the sender builds (HTTP layer captured, no netwo
   });
 });
 
+describe("03-13a: the hook's time budget reaches the SES HTTP layer", () => {
+  it("send(message, { signal }) hands the abort signal to the real SDK; an abort ends a hung request at once", async () => {
+    const seen: Array<AbortSignal | undefined> = [];
+    const handler = {
+      handle(_request: unknown, options?: { abortSignal?: AbortSignal }) {
+        seen.push(options?.abortSignal);
+        // A request SES never answers: it ends only when the signal aborts.
+        return new Promise((_, reject) => {
+          options?.abortSignal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+        });
+      },
+      updateHttpClientConfig() {},
+      httpHandlerConfigs() {
+        return {};
+      },
+    };
+    const client = createSesClient({ accessKeyId: KEY_ID, secretAccessKey: SECRET }, handler as never);
+    const sender = new SesEmailSender({ from: FROM, client });
+    const controller = new AbortController();
+    setTimeout(() => controller.abort(), 100);
+    const started = performance.now();
+    const outcome = await sender.send(MESSAGE, { signal: controller.signal }).catch((e: unknown) => e);
+    expect(outcome).toBeInstanceOf(EmailSendError);
+    expect((outcome as EmailSendError).code).toBe("AbortError");
+    expect(performance.now() - started).toBeLessThan(1_500);
+    expect(seen.length).toBeGreaterThanOrEqual(1);
+    expect(seen[0]).toBeDefined();
+    expect(seen.every((sig) => sig?.aborted)).toBe(true);
+  });
+});
+
 describe("getEmailSender picks the sender from EMAIL_PROVIDER", () => {
   const base = {
     NODE_ENV: "test",
