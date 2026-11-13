@@ -42,8 +42,8 @@
 }
 .today-head {
   display: grid;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 14px;
+  padding: 16px 16px 14px;
   background: var(--color-canvas);
 }
 .today-head .phone-title {
@@ -113,10 +113,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 44px;
-  padding: 0 12px 0 14px;
+  min-height: 48px;
+  padding: 0 12px 0 16px;
   background: var(--lane-header-bg);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-subtle);
   position: sticky;
   top: 0;
   z-index: 1;
@@ -125,9 +125,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: var(--text-body);
+  font-size: var(--text-body-sm);
   line-height: 1.25;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 .lane-head .icon {
   width: 18px;
@@ -168,7 +169,7 @@
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr);
   gap: 2px 12px;
-  padding: 12px 12px 12px 12px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-surface);
 }
@@ -205,7 +206,7 @@
   border: 0;
   background: none;
   text-align: left;
-  font-size: var(--text-body);
+  font-size: var(--text-body-md);
   line-height: 1.375;
   font-weight: 500;
   color: var(--color-fg);
@@ -400,13 +401,12 @@
 }
 .third-switch {
   display: none;
-  padding: 6px 8px;
+  padding: 8px 8px;
   background: var(--lane-header-bg);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 .third-switch .seg {
   flex: 1;
-  background: var(--color-canvas);
 }
 
 /* ≥ 1280: lanes */
@@ -417,16 +417,16 @@
     height: calc(100dvh - var(--spacing-bar));
   }
   .today-head {
-    padding: 12px 24px;
+    padding: 20px var(--spacing-gutter-lg) 16px;
   }
   .board {
-    padding: 0 24px 20px;
+    padding: 0 var(--spacing-gutter-lg) 24px;
     overflow: hidden;
   }
   .list-pane {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) 64px;
-    gap: 12px;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) 56px;
+    gap: 16px;
     height: 100%;
   }
   .list-pane.done-open {
@@ -663,11 +663,11 @@
 .next-card {
   display: grid;
   gap: 12px;
-  padding: 16px;
-  margin-bottom: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-left: 3px solid var(--color-accent);
+  box-shadow: inset 3px 0 0 var(--color-accent);
   border-radius: var(--radius-lg);
 }
 .next-card .nc-top {
@@ -834,4 +834,30 @@
 }
 .today-head > * {
   min-width: 0;
+}
+
+/* ---------------------------------------------------------------- round 2: airier lanes */
+@media (max-width: 767px) {
+  .board {
+    padding: 0;
+  }
+  .lane {
+    border: 0;
+    border-radius: 0;
+  }
+  .lane-head {
+    padding: 0 16px;
+  }
+}
+.row .meta {
+  word-break: keep-all;
+}
+@media (min-width: 1280px) {
+  .row {
+    padding: 14px 14px;
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+  .row .token {
+    min-width: 42px;
+  }
 }

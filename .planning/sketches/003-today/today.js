@@ -41,17 +41,17 @@
     v({ status: "booked", name: "Neha Shinde", age: "26 y", sex: "F", phone: "9000000107", doctor: "iyer", appt: "11:45", allergy: "none" }),
     v({ status: "booked", name: "Omkar Salunkhe", age: "19 y", sex: "M", phone: "9000000108", doctor: "rao", appt: "12:00", allergy: "none" }),
     v({ status: "booked", name: "Fatima Ansari", age: "33 y", sex: "F", phone: "9000000109", doctor: "iyer", appt: "12:30", allergy: "none" }),
-    v({ status: "waiting", token: 14, name: "Suresh Patil", age: "54 y", sex: "M", phone: "9000000114", doctor: "rao", origin: "Walk-in", wait: 38, vitals: "BP 150/95 · P 88", allergy: "Penicillin" }),
+    v({ status: "waiting", token: 14, name: "Suresh Patil", age: "54 y", sex: "M", phone: "9000000114", doctor: "rao", origin: "Walk\u2011in", wait: 38, vitals: "BP 150/95 · P 88", allergy: "Penicillin" }),
     v({ status: "waiting", token: 15, name: "Farah Shaikh", age: "29 y", sex: "F", phone: "9000000115", doctor: "iyer", origin: "Appt 10:15", wait: 27, allergy: "none" }),
-    v({ status: "waiting", token: 16, name: "Vikram Joshi", age: "61 y", sex: "M", phone: "9000000116", doctor: "rao", origin: "Walk-in", wait: 21, vitals: "BP 138/88 · P 82", allergy: "none" }),
+    v({ status: "waiting", token: 16, name: "Vikram Joshi", age: "61 y", sex: "M", phone: "9000000116", doctor: "rao", origin: "Walk\u2011in", wait: 21, vitals: "BP 138/88 · P 82", allergy: "none" }),
     v({ status: "waiting", token: 17, name: "Baby of Kavita More", age: "8 m", sex: "F", phone: "9000000117", doctor: "iyer", origin: "Appt 10:30", wait: 15, allergy: "unknown" }),
-    v({ status: "waiting", token: 18, name: "Anand Kulkarni", age: "47 y", sex: "M", phone: "9000000118", doctor: "rao", origin: "Walk-in", wait: 9, vitals: "BP 124/80 · 98.4°F", allergy: "none" }),
+    v({ status: "waiting", token: 18, name: "Anand Kulkarni", age: "47 y", sex: "M", phone: "9000000118", doctor: "rao", origin: "Walk\u2011in", wait: 9, vitals: "BP 124/80 · 98.4°F", allergy: "none" }),
     v({ status: "waiting", token: 19, name: "Lakshmi Venkataraman Narayanan", age: "72 y", sex: "F", phone: "9000000119", doctor: "rao", origin: "Appt 10:40", wait: 4, allergy: "Aspirin" }),
-    v({ status: "with-doctor", token: 12, name: "Rohit Deshmukh", age: "35 y", sex: "M", phone: "9000000112", doctor: "rao", origin: "Walk-in", wait: 7, vitals: "BP 128/84", allergy: "none" }),
+    v({ status: "with-doctor", token: 12, name: "Rohit Deshmukh", age: "35 y", sex: "M", phone: "9000000112", doctor: "rao", origin: "Walk\u2011in", wait: 7, vitals: "BP 128/84", allergy: "none" }),
     v({ status: "with-doctor", token: 13, name: "Sana Qureshi", age: "6 y", sex: "F", phone: "9000000113", doctor: "iyer", origin: "Appt 10:00", wait: 2, vitals: "18.5 kg · 99.1°F", allergy: "none" }),
-    v({ status: "to-bill", token: 9, name: "Arjun Mehta", age: "35 y", sex: "M", phone: "9000000121", doctor: "rao", origin: "Walk-in", due: 70000, allergy: "none", lines: [["Consultation fee", 50000], ["ECG", 20000]] }),
+    v({ status: "to-bill", token: 9, name: "Arjun Mehta", age: "35 y", sex: "M", phone: "9000000121", doctor: "rao", origin: "Walk\u2011in", due: 70000, allergy: "none", lines: [["Consultation fee", 50000], ["ECG", 20000]] }),
     v({ status: "to-bill", token: 10, name: "Priya Kale", age: "41 y", sex: "F", phone: "9000000110", doctor: "iyer", origin: "Appt 9:45", due: 50000, allergy: "none", lines: [["Consultation fee", 50000]] }),
-    v({ status: "to-bill", token: 11, name: "Nikhil Gaikwad", age: "28 y", sex: "M", phone: "9000000111", doctor: "rao", origin: "Walk-in", due: 125000, allergy: "none", lines: [["Consultation fee", 50000], ["Dressing", 15000], ["Injection", 10000], ["Nebulisation", 50000]] }),
+    v({ status: "to-bill", token: 11, name: "Nikhil Gaikwad", age: "28 y", sex: "M", phone: "9000000111", doctor: "rao", origin: "Walk\u2011in", due: 125000, allergy: "none", lines: [["Consultation fee", 50000], ["Dressing", 15000], ["Injection", 10000], ["Nebulisation", 50000]] }),
   ];
   const doneNames = [
     ["Sunil Kamble", "rao"], ["Pallavi Dixit", "iyer"], ["Harish Nair", "rao"], ["Asha Gokhale", "rao"],
@@ -409,7 +409,7 @@
     const pa = primaryAction(x);
     const timeline = [];
     if (x.appt) timeline.push(["Booked", "by phone · " + fmtTime(x.appt) + " slot"]);
-    if (x.status !== "booked") timeline.push([x.origin === "Walk-in" ? "Walk-in" : "Arrived", "token " + (x.token || "—") + " issued"]);
+    if (x.status !== "booked") timeline.push([/^Walk/.test(x.origin) ? "Walk-in" : "Arrived", "token " + (x.token || "—") + " issued"]);
     if (x.vitals) timeline.push(["Vitals", x.vitals]);
     if (x.status === "with-doctor" || x.status === "to-bill" || x.status === "done") timeline.push(["Consult", DOCTORS[x.doctor]]);
     const times = ["9:58 am", "10:21 am", "10:30 am", "10:35 am"];
@@ -816,7 +816,7 @@
       });
       const add = sheet.querySelector("#wi-add");
       add.addEventListener("click", function () {
-        const nv = v({ status: "waiting", token: state.nextToken++, name: p.name, age: p.age, sex: p.sex, phone: p.phone, doctor: chosen, origin: "Walk-in", wait: 0, allergy: "unknown" });
+        const nv = v({ status: "waiting", token: state.nextToken++, name: p.name, age: p.age, sex: p.sex, phone: p.phone, doctor: chosen, origin: "Walk\u2011in", wait: 0, allergy: "unknown" });
         visits.push(nv);
         state.selected = nv.id;
         P.closeSheet();

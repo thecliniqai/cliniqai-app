@@ -1,0 +1,22 @@
+/* Direction B — "Graphite + Cobalt". Loaded AFTER clinic-paper.css (prototypes: ?dir=b).
+   Overrides ONLY the semantic layer. Primary actions are graphite (near-black) as in Linear / Notion;
+   cobalt is the accent for links, active navigation, selection and the "with doctor" state.
+   Not recommended (see V2-DX-PROPOSAL.md §4): cobalt sits next to the info tone and the blue focus ring. */
+:root {
+  --color-accent: var(--color-cobalt-600);
+  --color-accent-hover: var(--color-cobalt-700);
+  --color-accent-pressed: var(--color-cobalt-800);
+  --color-accent-subtle: var(--color-cobalt-50);
+  --color-accent-fg: var(--color-cobalt-700);
+  --color-accent-border: var(--color-cobalt-500);
+  --color-accent-disabled: #b9c3ef;
+  --color-selected: var(--color-cobalt-50);
+
+  --button-primary-bg: var(--color-grey-900);
+  --button-primary-bg-hover: #000000;
+  --button-primary-bg-pressed: var(--color-grey-700);
+  --pwa-icon-tile: var(--color-grey-900);
+
+  /* The focus ring must stay visible next to cobalt selection, so B moves it to a darker blue. */
+  --color-focus: #1540a8;
+}

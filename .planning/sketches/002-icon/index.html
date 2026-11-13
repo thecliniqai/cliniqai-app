@@ -34,14 +34,14 @@
 <body>
 <main id="main">
   <header>
-    <h1 class="title-1">App icon and theme colour (PO-19)</h1>
-    <p class="muted">Working name <b>CliniQ</b> on the home screen (domain thecliniqai.com). A teal tile with a geometric “Q”, drawn as paths so it never depends on a font. Option A is the PO-19 default and the recommendation.</p>
+    <h1 class="title-1">App icon and theme colour (PO-19) · round 2</h1>
+    <p class="muted">Working name <b>CliniQ</b> on the home screen (domain thecliniqai.com). A tile with a geometric “Q” drawn as paths, so it never depends on a font. Round 2 thins the stroke (50 of 512) and rounds the tile (120) to sit with the white canvas. A follows colour direction A, B follows direction B.</p>
   </header>
 
   <section class="grid" aria-label="Options">
-    <article class="panel card"><h2 class="title-3">A · Teal tile (recommended)</h2><img src="icon.svg" width="160" height="160" alt="Option A: teal rounded tile with a white Q"><p class="body-sm muted">Tile = <code>--pwa-icon-tile</code> (primary-600 #0E716B). White on teal is 5.84:1.</p></article>
-    <article class="panel card"><h2 class="title-3">B · Paper tile</h2><img src="icon-alt-b-paper.svg" width="160" height="160" alt="Option B: paper tile with a teal Q"><p class="body-sm muted">Quieter; disappears on light wallpapers and in the Android app drawer.</p></article>
-    <article class="panel card"><h2 class="title-3">C · Ink tile</h2><img src="icon-alt-c-ink.svg" width="160" height="160" alt="Option C: near-black tile with a light teal Q"><p class="body-sm muted">Strong on light wallpapers; loses the teal brand link at small sizes.</p></article>
+    <article class="panel card"><h2 class="title-3">A · Teal tile (recommended)</h2><img src="icon.svg" width="160" height="160" alt="Option A: teal rounded tile with a white Q"><p class="body-sm muted">Tile = <code>--pwa-icon-tile</code> (the accent, #0E716B in direction A). White on teal is 5.84:1. Reads as a clinic on any wallpaper.</p></article>
+    <article class="panel card"><h2 class="title-3">B · Graphite tile (direction B)</h2><img src="icon-alt-b-paper.svg" width="160" height="160" alt="Option B: graphite tile with a white Q"><p class="body-sm muted">Pairs with the graphite buttons of direction B. Strong on light wallpapers; indistinguishable from utility apps on dark ones.</p></article>
+    <article class="panel card"><h2 class="title-3">C · White tile</h2><img src="icon-alt-c-ink.svg" width="160" height="160" alt="Option C: white tile with a teal Q"><p class="body-sm muted">Matches the white canvas, but a white tile vanishes on light wallpapers and in the Android drawer.</p></article>
   </section>
 
   <section class="panel card" aria-labelledby="sizes-h">
@@ -70,7 +70,7 @@
       <div class="app"><span style="width:60px;height:60px;border-radius:13px;background:#ef4444"></span>Calendar</div>
     </div>
     <div class="chrome" aria-label="Installed app, status bar uses theme_color white">
-      <div class="status" style="background:#ffffff;color:#1c1b18"><span>10:42</span><span>4G · 76%</span></div>
+      <div class="status" style="background:#ffffff;color:#17171a"><span>10:42</span><span>4G · 76%</span></div>
       <div class="bar" style="border-top:0"><img src="icon.svg" alt="">Asha Clinic</div>
       <div class="body"></div>
     </div>
@@ -80,7 +80,7 @@
     <h2 class="title-3" id="theme-h">Theme colour</h2>
     <dl class="kv">
       <dt>theme_color</dt><dd><code>#FFFFFF</code> (the top bar surface; the status bar merges with the app bar)</dd>
-      <dt>background_color</dt><dd><code>#F6F5F1</code> (paper, the splash equals the canvas)</dd>
+      <dt>background_color</dt><dd><code>#FFFFFF</code> (round 2: the splash equals the white canvas)</dd>
       <dt>Alternative</dt><dd><code>#0E716B</code> teal status bar: more branded, but a coloured band above a white bar on every screen and white status icons</dd>
     </dl>
   </section>

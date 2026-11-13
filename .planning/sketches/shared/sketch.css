@@ -1,6 +1,7 @@
-/* V2-DX throw-away prototype styles. Uses ONLY semantic, structural and component tokens from
+/* V2-DX throw-away prototype styles (round 2). Uses ONLY semantic, structural and component tokens from
    themes/clinic-paper.css (never raw palette names). Not product code: 06-02/06-03 rebuild these as
-   primitives on Radix; this file shows the intended look and behaviour. */
+   primitives on Radix; this file shows the intended look and behaviour.
+   Round-2 look: white canvas, hairlines, generous spacing, one accent, depth only on popovers/overlays. */
 
 *,
 *::before,
@@ -10,8 +11,8 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  scroll-padding-top: calc(var(--spacing-bar) + 8px);
-  scroll-padding-bottom: calc(var(--spacing-bottom-bar) + 8px);
+  scroll-padding-top: calc(var(--spacing-bar) + 16px);
+  scroll-padding-bottom: calc(var(--spacing-bottom-bar) + 16px);
 }
 body {
   margin: 0;
@@ -22,12 +23,15 @@ body {
   line-height: var(--text-body--line-height);
   -webkit-font-smoothing: antialiased;
   font-synthesis: none;
+  font-feature-settings: "kern", "liga", "calt";
 }
 h1,
 h2,
 h3,
 h4,
-p {
+p,
+ul,
+ol {
   margin: 0;
 }
 button,
@@ -37,8 +41,12 @@ textarea {
   font: inherit;
   color: inherit;
 }
+button {
+  touch-action: manipulation;
+}
 a {
   color: var(--color-accent);
+  text-underline-offset: 2px;
 }
 :focus-visible {
   outline: var(--focus-ring-width) solid var(--color-ring);
@@ -100,15 +108,21 @@ a {
   font-size: var(--text-body-sm);
   line-height: var(--text-body-sm--line-height);
 }
+.body-md {
+  font-size: var(--text-body-md);
+  line-height: var(--text-body-md--line-height);
+}
 .title-1 {
   font-size: var(--text-title-1);
   line-height: var(--text-title-1--line-height);
   font-weight: 600;
+  letter-spacing: var(--tracking-title);
 }
 .title-2 {
   font-size: var(--text-title-2);
   line-height: var(--text-title-2--line-height);
   font-weight: 600;
+  letter-spacing: var(--tracking-title);
 }
 .title-3 {
   font-size: var(--text-title-3);
@@ -119,6 +133,15 @@ a {
   font-size: var(--text-display);
   line-height: var(--text-display--line-height);
   font-weight: 600;
+  letter-spacing: -0.015em;
+}
+.eyebrow {
+  font-size: var(--text-caption);
+  line-height: var(--text-caption--line-height);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
 }
 .sep {
   color: var(--color-fg-subtle);
@@ -132,7 +155,7 @@ a {
   justify-content: center;
   gap: 8px;
   min-height: var(--spacing-control);
-  padding: 0 14px;
+  padding: 0 16px;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
   font-size: var(--text-body-sm);
@@ -141,7 +164,11 @@ a {
   cursor: pointer;
   white-space: nowrap;
   text-decoration: none;
-  transition: background-color var(--duration-fast) var(--ease-out);
+  transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+.btn .icon {
+  width: 18px;
+  height: 18px;
 }
 .btn-primary {
   background: var(--button-primary-bg);
@@ -158,13 +185,17 @@ a {
   color: var(--button-secondary-fg);
   border-color: var(--button-secondary-border);
 }
-.btn-secondary:hover,
-.btn-ghost:hover {
-  background: var(--color-sunken);
+.btn-secondary:hover {
+  background: var(--color-hover);
+  border-color: var(--color-border-control);
 }
 .btn-ghost {
   background: transparent;
   color: var(--color-fg-muted);
+}
+.btn-ghost:hover {
+  background: var(--color-sunken);
+  color: var(--color-fg);
 }
 .btn-danger {
   background: var(--button-danger-bg);
@@ -173,14 +204,21 @@ a {
 .btn-lg {
   min-height: 48px;
   font-size: var(--text-body);
-  padding: 0 20px;
+  padding: 0 22px;
+}
+.btn-sm {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: var(--text-label);
 }
 .btn-block {
   width: 100%;
 }
-.btn[aria-disabled="true"] {
+.btn[aria-disabled="true"],
+.btn:disabled {
   background: var(--button-disabled-bg);
   color: var(--button-disabled-fg);
+  border-color: transparent;
   cursor: not-allowed;
 }
 .icon-btn {
@@ -198,9 +236,10 @@ a {
 }
 .icon-btn:hover {
   background: var(--color-sunken);
+  color: var(--color-fg);
 }
 .icon-btn.bordered {
-  border-color: var(--color-border);
+  border-color: var(--color-border-strong);
   background: var(--color-surface);
 }
 kbd {
@@ -215,15 +254,25 @@ kbd {
   font-size: var(--text-caption);
   line-height: 1;
   font-weight: 500;
-  color: inherit;
-  border: 1px solid currentColor;
+  color: var(--color-fg-muted);
+  background: var(--color-sunken);
+  border: 1px solid var(--color-border);
+  box-shadow: inset 0 -1px 0 var(--color-border);
 }
 .btn-primary kbd {
-  border-color: rgb(255 255 255 / 0.6);
+  color: inherit;
+  background: rgb(255 255 255 / 0.14);
+  border-color: rgb(255 255 255 / 0.35);
+  box-shadow: none;
 }
 @media (max-width: 1023px) {
   .kbd-lg {
     display: none;
+  }
+}
+@media (min-width: 1280px) and (pointer: fine) {
+  .btn:not(.btn-lg) {
+    min-height: var(--spacing-control-dense);
   }
 }
 
@@ -237,7 +286,7 @@ kbd {
   font-size: var(--text-label);
   line-height: var(--text-label--line-height);
   font-weight: 500;
-  color: var(--color-fg);
+  color: var(--color-fg-muted);
 }
 .hint {
   font-size: var(--text-caption);
@@ -254,6 +303,10 @@ kbd {
   background: var(--input-bg);
   color: var(--input-fg);
   font-size: var(--text-body);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+.input:hover {
+  border-color: var(--color-fg-subtle);
 }
 .input::placeholder {
   color: var(--input-placeholder);
@@ -273,7 +326,7 @@ textarea.input {
 .input-wrap > .icon {
   position: absolute;
   left: 12px;
-  color: var(--color-fg-muted);
+  color: var(--color-fg-subtle);
   pointer-events: none;
 }
 .input-wrap > .input {
@@ -282,7 +335,6 @@ textarea.input {
 .input-wrap > kbd {
   position: absolute;
   right: 10px;
-  color: var(--color-fg-subtle);
 }
 .adorn {
   display: flex;
@@ -295,7 +347,7 @@ textarea.input {
 .adorn > span {
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  padding: 0 12px;
   background: var(--color-sunken);
   color: var(--color-fg-muted);
   border-right: 1px solid var(--color-border);
@@ -310,9 +362,9 @@ textarea.input {
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   height: 24px;
-  padding: 0 8px;
+  padding: 0 9px;
   border-radius: 999px;
   font-size: var(--text-label);
   line-height: 1;
@@ -356,6 +408,11 @@ textarea.input {
   background: var(--color-sunken);
   color: var(--color-fg-muted);
 }
+.chip-outline {
+  background: var(--color-surface);
+  color: var(--color-fg-muted);
+  border-color: var(--color-border-strong);
+}
 .chip-outline-warning {
   background: var(--color-surface);
   color: var(--color-warning-fg);
@@ -365,6 +422,11 @@ textarea.input {
   background: var(--color-danger-bg);
   color: var(--color-danger-fg);
   border-color: var(--color-danger-border);
+}
+.chip-abnormal {
+  background: var(--color-finding-abnormal-bg);
+  color: var(--color-finding-abnormal-fg);
+  border-color: var(--color-finding-abnormal-border);
 }
 .chip-vitals {
   background: transparent;
@@ -392,7 +454,7 @@ textarea.input {
 .smart {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   color: var(--chip-smart-fg);
   font-size: var(--text-label);
   font-weight: 500;
@@ -409,20 +471,36 @@ button.chip {
   align-items: center;
   gap: 6px;
   min-height: 36px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid var(--color-border-control);
+  border: 1px solid var(--color-border-strong);
   background: var(--color-surface);
   color: var(--color-fg);
   font-size: var(--text-body-sm);
+  font-weight: 500;
   cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+.toggle-chip:hover {
+  background: var(--color-hover);
+  border-color: var(--color-border-control);
 }
 .toggle-chip[aria-pressed="true"],
 .toggle-chip[aria-checked="true"] {
-  background: var(--color-selected);
-  border-color: var(--color-accent);
-  color: var(--color-accent-fg);
-  font-weight: 500;
+  background: var(--tile-selected-bg);
+  border-color: var(--tile-selected-border);
+  color: var(--tile-selected-fg);
+}
+.toggle-chip[aria-pressed="true"]::before,
+.toggle-chip[aria-checked="true"]::before {
+  content: "";
+  width: 6px;
+  height: 10px;
+  margin: 0 3px 2px 0;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  flex: none;
 }
 @media (pointer: coarse), (max-width: 1279px) {
   .toggle-chip {
@@ -468,6 +546,7 @@ button.chip {
 }
 .token.s-booked {
   border-style: dashed;
+  border-width: 1px;
   border-color: var(--color-status-booked-border);
   color: var(--color-fg-muted);
   font-size: var(--text-body-sm);
@@ -498,7 +577,7 @@ button.chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 8px 0 16px;
+  padding: 0 8px 0 var(--spacing-gutter);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
 }
@@ -525,6 +604,7 @@ button.chip {
   font-size: var(--text-label);
   font-weight: 600;
   flex: none;
+  border: 1px solid var(--color-border);
 }
 .palette-field {
   display: none;
@@ -534,8 +614,8 @@ button.chip {
 }
 .bell .dot {
   position: absolute;
-  top: 9px;
-  right: 9px;
+  top: 8px;
+  right: 8px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -571,7 +651,7 @@ button.chip {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   height: 100%;
   min-height: var(--spacing-control);
   color: var(--nav-fg);
@@ -623,16 +703,16 @@ button.chip {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     position: sticky;
     top: 0;
     height: 100dvh;
-    padding: 8px 0;
+    padding: 10px 0;
     background: var(--color-surface);
     border-right: 1px solid var(--color-border);
   }
   .nav-rail .mark {
-    margin: 4px 0 12px;
+    margin: 2px 0 14px;
   }
   .nav-rail a,
   .nav-rail button {
@@ -641,8 +721,8 @@ button.chip {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 52px;
-    height: 52px;
+    width: 48px;
+    height: 48px;
     gap: 2px;
     border-radius: var(--radius-md);
     color: var(--nav-fg);
@@ -652,6 +732,9 @@ button.chip {
     border: 0;
     cursor: pointer;
   }
+  .nav-rail a:hover {
+    background: var(--color-sunken);
+  }
   .nav-rail a[aria-current="page"] {
     background: var(--nav-active-bg);
     color: var(--nav-active-fg);
@@ -659,9 +742,9 @@ button.chip {
   .nav-rail a[aria-current="page"]::before {
     content: "";
     position: absolute;
-    left: -6px;
-    top: 10px;
-    bottom: 10px;
+    left: -8px;
+    top: 12px;
+    bottom: 12px;
     width: 3px;
     border-radius: 2px;
     background: var(--nav-active-indicator);
@@ -669,9 +752,9 @@ button.chip {
   .nav-rail .plus {
     background: var(--button-primary-bg);
     color: var(--button-primary-fg);
-    width: 44px;
-    height: 44px;
-    margin: 8px 0;
+    width: 40px;
+    height: 40px;
+    margin: 10px 0;
   }
   .nav-rail .spacer {
     flex: 1;
@@ -704,7 +787,7 @@ button.chip {
   position: sticky;
   top: 0;
   height: 100dvh;
-  padding: 12px;
+  padding: 14px 12px;
   gap: 2px;
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
@@ -713,12 +796,13 @@ button.chip {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 4px 16px;
+  padding: 2px 6px 18px;
 }
 .nav-side .clinic-block b {
   display: block;
-  font-size: var(--text-body);
+  font-size: var(--text-body-md);
   line-height: 1.25;
+  letter-spacing: var(--tracking-title);
 }
 .nav-side .clinic-block span {
   font-size: var(--text-caption);
@@ -729,16 +813,21 @@ button.chip {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 40px;
-  padding: 0 12px;
+  min-height: 38px;
+  padding: 0 10px;
   border-radius: var(--radius-md);
   color: var(--nav-fg);
   text-decoration: none;
   font-size: var(--text-body-sm);
   font-weight: 500;
 }
+.nav-side a .icon {
+  width: 18px;
+  height: 18px;
+}
 .nav-side a:hover {
   background: var(--color-sunken);
+  color: var(--color-fg);
 }
 .nav-side a[aria-current="page"] {
   background: var(--nav-active-bg);
@@ -748,8 +837,8 @@ button.chip {
   content: "";
   position: absolute;
   left: -12px;
-  top: 8px;
-  bottom: 8px;
+  top: 9px;
+  bottom: 9px;
   width: 3px;
   border-radius: 0 2px 2px 0;
   background: var(--nav-active-indicator);
@@ -762,7 +851,7 @@ button.chip {
 .nav-side hr {
   border: 0;
   border-top: 1px solid var(--color-border-subtle);
-  margin: 10px 4px;
+  margin: 10px 6px;
   width: auto;
 }
 .nav-side .grow {
@@ -772,7 +861,7 @@ button.chip {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 4px 2px;
+  padding: 12px 4px 2px;
   border-top: 1px solid var(--color-border-subtle);
   font-size: var(--text-body-sm);
 }
@@ -814,7 +903,7 @@ button.chip {
   width: 36px;
   height: 4px;
   border-radius: 2px;
-  background: var(--color-border);
+  background: var(--color-border-strong);
   margin: 8px auto 0;
 }
 @media (min-width: 768px) {
@@ -823,7 +912,11 @@ button.chip {
     top: 0;
     width: var(--spacing-sheet);
     max-height: none;
-    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    border-radius: 0;
+    border-left: 1px solid var(--color-border);
+  }
+  .sheet-wide {
+    width: var(--spacing-sheet-lg);
   }
   .sheet::before {
     display: none;
@@ -833,28 +926,28 @@ button.chip {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 12px 16px 12px 20px;
+  padding: 16px 16px 14px 24px;
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .sheet-head .grow {
   flex: 1;
   min-width: 0;
-  padding-top: 8px;
+  padding-top: 6px;
 }
 .sheet-body {
   flex: 1;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 16px 20px;
+  padding: 20px 24px;
   display: grid;
-  gap: 16px;
+  gap: 20px;
   align-content: start;
 }
 .sheet-foot {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+  padding: 14px 24px calc(14px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--color-border-subtle);
   background: var(--color-surface);
 }
@@ -869,8 +962,8 @@ button.chip {
 .menu {
   position: absolute;
   z-index: 30;
-  min-width: 200px;
-  padding: 4px;
+  min-width: 208px;
+  padding: 6px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -881,7 +974,7 @@ button.chip {
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: var(--spacing-control);
+  min-height: 40px;
   padding: 0 12px;
   border: 0;
   background: none;
@@ -900,7 +993,7 @@ button.chip {
 .menu hr {
   border: 0;
   border-top: 1px solid var(--color-border-subtle);
-  margin: 4px 0;
+  margin: 6px 0;
 }
 .toasts {
   position: fixed;
@@ -963,7 +1056,7 @@ button.chip {
 /* ------------------------------------------------------------------ Segmented */
 .seg {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   padding: 3px;
   background: var(--color-sunken);
   border-radius: var(--radius-lg);
@@ -976,8 +1069,8 @@ button.chip {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 38px;
-  padding: 0 12px;
+  min-height: 36px;
+  padding: 0 14px;
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
@@ -991,7 +1084,7 @@ button.chip {
 .seg button[aria-selected="true"] {
   background: var(--color-surface);
   color: var(--color-fg);
-  box-shadow: 0 0 0 1px var(--color-border);
+  box-shadow: 0 1px 2px rgb(23 23 26 / 0.08), 0 0 0 1px var(--color-border);
 }
 .seg .n {
   font-variant-numeric: tabular-nums;
@@ -1012,7 +1105,7 @@ button.chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .allergy {
@@ -1063,7 +1156,7 @@ button.chip {
 dl.kv {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 6px 16px;
+  gap: 8px 20px;
   margin: 0;
   font-size: var(--text-body-sm);
 }
@@ -1073,4 +1166,63 @@ dl.kv dt {
 dl.kv dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ Quick tiles (shared by consult) */
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tile {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--spacing-control);
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--tile-border);
+  background: var(--tile-bg);
+  color: var(--tile-fg);
+  font-size: var(--text-body-md);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+.tile:hover {
+  background: var(--tile-hover-bg);
+  border-color: var(--color-border-control);
+}
+.tile[aria-pressed="true"] {
+  background: var(--tile-selected-bg);
+  border-color: var(--tile-selected-border);
+  color: var(--tile-selected-fg);
+}
+.tile small {
+  font-size: var(--text-caption);
+  font-weight: 400;
+  color: var(--color-fg-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.tile[aria-pressed="true"] small {
+  color: inherit;
+}
+.tile .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--color-fg-subtle);
+}
+.tile[aria-pressed="true"] .icon {
+  color: inherit;
+}
+.tile.ghost {
+  border-style: dashed;
+  color: var(--color-fg-muted);
+  font-weight: 500;
+}
+@media (min-width: 1280px) and (pointer: fine) {
+  .tile {
+    min-height: var(--spacing-control-dense);
+  }
 }

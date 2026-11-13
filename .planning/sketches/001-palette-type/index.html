@@ -4,99 +4,178 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>Clinic Paper palette · V2-DX</title>
+<title>Clinic Paper R2 · colour directions and type · V2-DX</title>
 <link rel="stylesheet" href="../themes/clinic-paper.css">
 <link rel="stylesheet" href="../shared/sketch.css">
 <style>
-  main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 24px; }
-  section.panel { padding: 16px; display: grid; gap: 14px; }
-  .sw { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-  .sw div { border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; background: var(--color-surface); }
-  .sw i { display: block; height: 44px; }
-  .sw p { padding: 6px 8px; font-size: var(--text-caption); line-height: 1.3; }
-  .sw code { font-size: var(--text-caption); color: var(--color-fg-muted); }
-  .type-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--color-border-subtle); }
-  .type-row > span:first-child { font-size: var(--text-caption); color: var(--color-fg-subtle); }
-  .nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
-  .nums div { padding: 10px 12px; background: var(--color-sunken); border-radius: var(--radius-md); display: grid; gap: 2px; }
-  .nums b { font-size: var(--text-title-3); font-variant-numeric: tabular-nums; }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px var(--spacing-gutter) 64px; display: grid; gap: 40px; }
+  @media (min-width: 768px) { main { padding: 48px var(--spacing-gutter-lg) 80px; } }
+  header p { max-width: 70ch; }
+  section { display: grid; gap: 16px; }
+  section > h2 { font-size: var(--text-title-2); font-weight: 600; letter-spacing: var(--tracking-title); }
+  .dirs { display: grid; gap: 20px; }
+  @media (min-width: 900px) { .dirs { grid-template-columns: 1fr 1fr; } }
+  .dir { border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: 24px; display: grid; gap: 18px; background: var(--color-surface); }
+  .dir h3 { font-size: var(--text-title-3); font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .dir .rec { font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-success-fg); border: 1px solid var(--color-success-border); border-radius: 999px; padding: 2px 8px; }
+  .sw { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  .sw div { display: grid; gap: 6px; }
+  .sw i { display: block; height: 40px; border-radius: var(--radius-md); border: 1px solid var(--color-border); }
+  .sw p { font-size: var(--text-caption); line-height: 1.3; color: var(--color-fg-muted); }
+  .sw p b { display: block; color: var(--color-fg); font-weight: 500; }
+  .demo { display: grid; gap: 14px; }
+  .demo .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .mini-nav { display: grid; gap: 2px; width: 200px; }
+  .mini-nav a { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; border-radius: var(--radius-md); color: var(--nav-fg); text-decoration: none; font-size: var(--text-body-sm); font-weight: 500; position: relative; }
+  .mini-nav a[aria-current="page"] { background: var(--nav-active-bg); color: var(--nav-active-fg); }
+  .mini-nav a[aria-current="page"]::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--nav-active-indicator); }
+  .type-row { display: grid; grid-template-columns: 140px 1fr; gap: 16px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--color-border-subtle); }
+  .type-row > span:first-child { font-size: var(--text-caption); color: var(--color-fg-subtle); font-variant-numeric: tabular-nums; }
+  .nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .nums div { padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); display: grid; gap: 2px; }
+  .nums b { font-size: var(--text-title-3); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: var(--tracking-title); }
   .nums span { font-size: var(--text-caption); color: var(--color-fg-muted); }
-  .pairs { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-  .pairs div { padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--color-border-subtle); font-size: var(--text-body-sm); }
-  .focus-demo { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  .focus-demo { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
   .focus-demo .fake-focus { outline: 2px solid var(--color-ring); outline-offset: 2px; box-shadow: 0 0 0 2px var(--color-ring-halo); }
-  .dis { font-size: 1.75rem; letter-spacing: 0.04em; }
+  .dis { font-size: 1.75rem; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+  .neutrals { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+  .neutrals div { display: grid; gap: 4px; font-size: var(--text-caption); color: var(--color-fg-muted); }
+  .neutrals i { display: block; height: 56px; border-radius: var(--radius-md); border: 1px solid var(--color-border); }
+  .card-demo { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 14px 16px; display: grid; gap: 8px; font-size: var(--text-body-sm); }
+  .card-demo .t { font-weight: 600; font-size: var(--text-body-md); }
+  /* Direction B, scoped to one column of this page (the same values as themes/direction-b.css,
+     repeated on the component layer because component aliases resolve at :root). */
+  .dir-b {
+    --color-accent: var(--color-cobalt-600);
+    --color-accent-hover: var(--color-cobalt-700);
+    --color-accent-pressed: var(--color-cobalt-800);
+    --color-accent-subtle: var(--color-cobalt-50);
+    --color-accent-fg: var(--color-cobalt-700);
+    --color-accent-border: var(--color-cobalt-500);
+    --color-selected: var(--color-cobalt-50);
+    --color-focus: #1540a8;
+    --color-ring: #1540a8;
+    --button-primary-bg: var(--color-grey-900);
+    --button-primary-bg-hover: #000000;
+    --button-primary-bg-pressed: var(--color-grey-700);
+    --nav-active-bg: var(--color-cobalt-50);
+    --nav-active-fg: var(--color-cobalt-700);
+    --nav-active-indicator: var(--color-cobalt-600);
+    --tile-selected-bg: var(--color-cobalt-50);
+    --tile-selected-fg: var(--color-cobalt-700);
+    --tile-selected-border: var(--color-cobalt-600);
+    --color-status-with-doctor-bg: var(--color-cobalt-50);
+    --color-status-with-doctor-fg: var(--color-cobalt-700);
+    --color-status-with-doctor-border: var(--color-cobalt-500);
+    --pwa-icon-tile: var(--color-grey-900);
+  }
 </style>
 </head>
 <body>
 <main id="main">
-  <header>
-    <h1 class="title-1">Clinic Paper</h1>
-    <p class="muted">Warm paper canvas, white working surfaces, hairlines, one teal accent. Every colour beyond teal means a status or a safety state. Values from <code>themes/clinic-paper.css</code>; ratios in <code>v2-dx-evidence/contrast.md</code> (tool-generated).</p>
+  <header style="display:grid;gap:10px">
+    <p class="eyebrow">V2-DX round 2</p>
+    <h1 class="display">Clinic Paper on a white canvas</h1>
+    <p class="muted">Round 1 tinted the page. Round 2 removes the tint: the canvas and every working surface are white, structure comes from hairlines and spacing, and colour is spent on one accent and on meaning (queue state, allergy, money due). Two accent directions are shown below with the same neutrals, type and status colours. Values live in <code>themes/clinic-paper.css</code> (A) and <code>themes/direction-b.css</code> (B); every ratio is in <code>v2-dx-evidence/contrast.md</code>.</p>
   </header>
 
-  <section class="panel" aria-labelledby="s1"><h2 class="title-3" id="s1">Surfaces, ink and accent</h2><div class="sw" id="sw-core"></div></section>
-  <section class="panel" aria-labelledby="s2"><h2 class="title-3" id="s2">Status and safety</h2><div class="sw" id="sw-status"></div>
-    <div class="chips" style="display:flex;flex-wrap:wrap;gap:8px">
-      <span class="chip chip-booked">Booked</span><span class="chip chip-waiting">Waiting</span><span class="chip chip-with-doctor">With doctor</span><span class="chip chip-to-bill">To bill</span><span class="chip chip-done">Done</span><span class="chip chip-no-show">No-show</span><span class="chip chip-cancelled">Cancelled</span><span class="chip chip-allergy">Penicillin</span><span class="chip chip-outline-warning">Allergies not recorded</span>
-    </div>
-    <div class="allergy" style="border-radius:var(--radius-md)">Allergies: Penicillin, Sulfa</div>
+  <section aria-labelledby="s0">
+    <h2 id="s0">Shared neutrals</h2>
+    <div class="neutrals" id="neutrals"></div>
+    <p class="body-sm muted">Ink <code>#17171A</code> for text, three greys for secondary text (all ≥ 4.5:1 on white), two hairlines (<code>#EDEDEB</code>, <code>#E5E5E2</code>) and one control border (<code>#858580</code>, 3.5:1). The only tinted surface is <code>#F5F5F4</code> for wells such as keyboard hints and the segmented track.</p>
   </section>
 
-  <section class="panel" aria-labelledby="s3"><h2 class="title-3" id="s3">Type: IBM Plex Sans 400 / 500 / 600 (vendored, OFL)</h2>
+  <section aria-labelledby="s1">
+    <h2 id="s1">Two accent directions</h2>
+    <div class="dirs">
+      <article class="dir" aria-labelledby="da">
+        <h3 id="da">A · Clinic Teal <span class="rec">Recommended</span></h3>
+        <div class="sw" id="sw-a"></div>
+        <div class="demo">
+          <div class="row"><button type="button" class="btn btn-primary">Finish visit</button><button type="button" class="btn btn-secondary">Reschedule</button><button type="button" class="btn btn-ghost">Cancel</button><a href="#">Prescription PDF</a></div>
+          <div class="row"><button type="button" class="tile" aria-pressed="true">Fever</button><button type="button" class="tile" aria-pressed="false">Cough</button><span class="token s-waiting">14</span><span class="token s-with-doctor">12</span><span class="token s-to-bill">9</span><span class="token s-booked">10:30</span></div>
+          <div class="row"><span class="chip chip-booked">Booked</span><span class="chip chip-waiting">Waiting</span><span class="chip chip-with-doctor">With doctor</span><span class="chip chip-to-bill">To bill</span><span class="chip chip-done">Done</span><span class="chip chip-allergy">Penicillin</span><span class="chip chip-abnormal">Crepts · right</span></div>
+          <div class="row" style="align-items:flex-start;gap:24px"><nav class="mini-nav" aria-label="Example"><a href="#" aria-current="page">Today</a><a href="#">Schedule</a><a href="#">Patients</a></nav><div class="card-demo" style="flex:1;min-width:220px"><span class="t">Arjun Mehta</span><span class="muted">35 y · M · Dr Rao</span><span><b class="tnum">₹700</b> due</span></div></div>
+        </div>
+        <p class="body-sm muted">Teal is clinical without being hospital-blue, keeps clear of the info tone and the focus ring, and is already the approved brand colour (DESIGN_SYSTEM §2.1). Primary buttons stay discoverable for front-desk staff who scan for "the green button".</p>
+      </article>
+      <article class="dir dir-b" aria-labelledby="db">
+        <h3 id="db">B · Graphite + Cobalt</h3>
+        <div class="sw" id="sw-b"></div>
+        <div class="demo">
+          <div class="row"><button type="button" class="btn btn-primary">Finish visit</button><button type="button" class="btn btn-secondary">Reschedule</button><button type="button" class="btn btn-ghost">Cancel</button><a href="#">Prescription PDF</a></div>
+          <div class="row"><button type="button" class="tile" aria-pressed="true">Fever</button><button type="button" class="tile" aria-pressed="false">Cough</button><span class="token s-waiting">14</span><span class="token s-with-doctor">12</span><span class="token s-to-bill">9</span><span class="token s-booked">10:30</span></div>
+          <div class="row"><span class="chip chip-booked">Booked</span><span class="chip chip-waiting">Waiting</span><span class="chip chip-with-doctor">With doctor</span><span class="chip chip-to-bill">To bill</span><span class="chip chip-done">Done</span><span class="chip chip-allergy">Penicillin</span><span class="chip chip-abnormal">Crepts · right</span></div>
+          <div class="row" style="align-items:flex-start;gap:24px"><nav class="mini-nav" aria-label="Example B"><a href="#" aria-current="page">Today</a><a href="#">Schedule</a><a href="#">Patients</a></nav><div class="card-demo" style="flex:1;min-width:220px"><span class="t">Arjun Mehta</span><span class="muted">35 y · M · Dr Rao</span><span><b class="tnum">₹700</b> due</span></div></div>
+        </div>
+        <p class="body-sm muted">Graphite primary buttons with a cobalt accent read as Linear or Notion. The cost: cobalt sits next to the info tone and the "To bill" violet, the focus ring has to move to a darker blue to stay distinct from selection, and "the green button" habit from v1 is lost. Shown so the choice is explicit.</p>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="s3">
+    <h2 id="s3">Type · IBM Plex Sans 400 / 500 / 600, vendored (OFL)</h2>
     <div>
       <div class="type-row"><span>display 30/38</span><span class="display">Start your 14-day trial</span></div>
       <div class="type-row"><span>title-1 24/32</span><span class="title-1">Today</span></div>
-      <div class="type-row"><span>title-2 20/28</span><span class="title-2">Lakshmi Venkataraman Narayanan</span></div>
-      <div class="type-row"><span>title-3 18/26</span><span class="title-3">Prescription</span></div>
-      <div class="type-row"><span>body 16/24</span><span>Headache for 3 days, worse in the morning. All inputs are 16 px.</span></div>
+      <div class="type-row"><span>title-2 20/28</span><span class="title-2">Prescription</span></div>
+      <div class="type-row"><span>title-3 18/26</span><span class="title-3">Lakshmi Venkataraman Narayanan</span></div>
+      <div class="type-row"><span>body 16/24</span><span>Inputs and running text are 16 px, so iOS never zooms a field.</span></div>
+      <div class="type-row"><span>body-md 15/22</span><span class="body-md">Tiles, list rows and prescription lines are 15 px (new in round 2).</span></div>
       <div class="type-row"><span>body-sm 14/20</span><span class="body-sm">54 y · M · Dr A Rao · Walk-in</span></div>
       <div class="type-row"><span>label 13/18</span><span class="label">Amount received</span></div>
-      <div class="type-row"><span>caption 12/16 (minimum)</span><span class="caption">Recorded 10:21 am by the front desk</span></div>
+      <div class="type-row"><span>caption 12/16 (min)</span><span class="caption">Recorded 10:21 am by the front desk</span></div>
+      <div class="type-row"><span>eyebrow 12 caps</span><span class="eyebrow">Likely from the complaints</span></div>
       <div class="type-row"><span>token 28/32</span><span><span class="token token-lg s-waiting">14</span> <span class="token s-with-doctor">7</span> <span class="token s-to-bill">108</span></span></div>
     </div>
+    <p class="body-sm muted">Titles ≥ 20 px are tracked −1%. Plex separates <span class="dis">I l 1 · O 0 · 1-0-1 · 10 mg</span> and gives tabular figures for tokens, doses and money.</p>
   </section>
 
-  <section class="panel" aria-labelledby="s4"><h2 class="title-3" id="s4">Numbers, money and dates (en-IN)</h2>
+  <section aria-labelledby="s4">
+    <h2 id="s4">Numbers, money and dates (en-IN)</h2>
     <div class="nums" id="nums"></div>
-    <p class="dis">I l 1 | O 0 | 1-0-1 · 10 mg</p>
     <p lang="hi" class="title-3" id="deva">पेरासिटामोल 650 mg · खाने के बाद · दिन में 2 बार</p>
     <p class="caption subtle">Devanagari renders in IBM Plex Sans Devanagari (vendored; loaded only by unicode-range). Only patient-facing print uses it in v2.0.</p>
   </section>
 
-  <section class="panel" aria-labelledby="s5"><h2 class="title-3" id="s5">Focus: ring + surface halo, visible on every fill</h2>
+  <section aria-labelledby="s5">
+    <h2 id="s5">Focus · ring on a white halo, visible on every fill</h2>
     <div class="focus-demo">
       <span class="btn btn-primary fake-focus">Collect ₹700</span>
       <span class="btn btn-secondary fake-focus">Reschedule</span>
       <span class="btn btn-danger fake-focus">Cancel visit</span>
-      <button type="button" class="toggle-chip fake-focus" aria-pressed="true">HbA1c</button>
+      <button type="button" class="tile fake-focus" aria-pressed="true">HbA1c</button>
       <span class="allergy fake-focus" style="border-radius:var(--radius-md)">Allergies: Penicillin</span>
     </div>
-    <p class="body-sm muted">The 2 px blue ring always sits 2 px outside the control on a 2 px white halo, so the ring is measured against white (5.81:1), never against teal (1.01:1).</p>
-  </section>
-
-  <section class="panel" aria-labelledby="s6"><h2 class="title-3" id="s6">Accent alternatives considered (not recommended)</h2>
-    <div class="sw">
-      <div><i style="background:#0E716B"></i><p><b>Clinic Teal (rec.)</b><br><code>#0E716B</code> · white 5.84:1</p></div>
-      <div><i style="background:#1D5C8C"></i><p><b>Harbour blue</b><br><code>#1D5C8C</code> · collides with info + focus</p></div>
-      <div><i style="background:#3D5A3C"></i><p><b>Neem green</b><br><code>#3D5A3C</code> · reads as “success”</p></div>
-    </div>
+    <p class="body-sm muted">The 2 px ring sits 2 px outside the control on a 2 px white halo, so it is measured against white (A: 5.81:1), never against the fill.</p>
   </section>
 </main>
+<script src="../shared/proto.js"></script>
 <script>
   (function () {
     "use strict";
     const cs = getComputedStyle(document.documentElement);
-    function sw(host, names) {
+    const hex = (el, n) => getComputedStyle(el).getPropertyValue("--color-" + n).trim();
+    function sw(host, names, el) {
       document.getElementById(host).innerHTML = names
         .map(function (n) {
-          const v = cs.getPropertyValue("--color-" + n).trim();
-          return '<div><i style="background:var(--color-' + n + ')"></i><p><b>' + n + "</b><br><code>" + v + "</code></p></div>";
+          return '<div><i style="background:var(--color-' + n[0] + ')"></i><p><b>' + n[1] + "</b>" + hex(el, n[0]) + "</p></div>";
         })
         .join("");
     }
-    sw("sw-core", ["canvas", "surface", "sunken", "border-subtle", "border", "border-control", "fg", "fg-muted", "fg-subtle", "fg-placeholder", "accent", "accent-hover", "accent-pressed", "accent-subtle", "ring"]);
-    sw("sw-status", ["status-booked-fg", "status-waiting-fg", "status-with-doctor-fg", "status-to-bill-fg", "status-done-fg", "status-cancelled-fg", "info-fg", "alert-allergy-bg", "preview-fg"]);
+    const a = document.getElementById("sw-a");
+    const b = document.getElementById("sw-b");
+    const acc = [["accent", "accent"], ["accent-hover", "hover"], ["accent-pressed", "pressed"], ["accent-subtle", "subtle"], ["accent-fg", "accent text"], ["ring", "focus ring"]];
+    sw("sw-a", acc, a);
+    sw("sw-b", [["grey-900", "button"], ["accent", "accent"], ["accent-pressed", "pressed"], ["accent-subtle", "subtle"], ["accent-fg", "accent text"], ["ring", "focus ring"]], b);
+    document.getElementById("neutrals").innerHTML = [["canvas", "canvas"], ["sunken", "well"], ["border-subtle", "hairline"], ["border", "border"], ["border-strong", "tile border"], ["border-control", "control"], ["fg-subtle", "subtle"], ["fg-muted", "muted"], ["fg", "ink"], ["danger-solid", "allergy"], ["warning-fg", "waiting"], ["violet-700", "to bill"], ["success-fg", "done"]]
+      .map((n) => '<div><i style="background:var(--color-' + n[0] + ')"></i><span>' + n[1] + "<br>" + cs.getPropertyValue("--color-" + n[0]).trim() + "</span></div>")
+      .join("");
+    // resolve var() chains for display
+    document.querySelectorAll(".neutrals span, .sw p").forEach((p) => {
+      const m = /var\((--[a-z0-9-]+)\)/i.exec(p.textContent);
+      if (m) p.innerHTML = p.innerHTML.replace(/var\((--[a-z0-9-]+)\)/i, cs.getPropertyValue(m[1]).trim());
+    });
     const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 0, maximumFractionDigits: 2 });
     const t = new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
     const d = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
@@ -108,18 +187,14 @@
       ["₹1,499 + GST", "plan price, everywhere (PO-20)"],
       [inr.format(1768.82) + " per month incl. 18% GST", "checkout and debit notices"],
       ["−" + inr.format(50), "discount, true minus"],
-      [t.format(at).replace(/\s?(AM|PM)$/i, function (m) { return m.toLowerCase(); }), "time, 12-hour lowercase"],
+      [t.format(at).replace(/\s?(AM|PM)$/i, (m) => m.toLowerCase()), "time, 12-hour lowercase"],
       [d.format(at), "date"],
       ["42 y · M  ·  8 m · F", "age and sex"],
       ["+91 90000 00114", "phone"],
       ["CQ/26-27/00123", "receipt number, FY"],
-      ["BP 150/95 · 98.4°F", "vitals"],
+      ["BP 150/95 · 100.8°F", "vitals"],
     ];
-    document.getElementById("nums").innerHTML = items
-      .map(function (i) {
-        return "<div><b>" + i[0] + "</b><span>" + i[1] + "</span></div>";
-      })
-      .join("");
+    document.getElementById("nums").innerHTML = items.map((i) => "<div><b>" + i[0] + "</b><span>" + i[1] + "</span></div>").join("");
   })();
 </script>
 </body>

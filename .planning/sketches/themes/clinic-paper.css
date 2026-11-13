@@ -1,7 +1,11 @@
 /* =====================================================================================================
-   Clinic Paper — clinicOS v2 design tokens (V2-DX proposal, light theme only)
+   Clinic Paper, round 2 — clinicOS v2 design tokens (V2-DX proposal R2, light theme only)
    -----------------------------------------------------------------------------------------------------
-   Source of values: docs/v2/DESIGN_SYSTEM.md §2–§4 (unchanged unless marked "V2-DX addition").
+   Round-2 change (PO feedback on round 1): the canvas is WHITE. There is no tinted page background.
+   Hierarchy comes from hairlines, whitespace and type weight, not from surface tints. One accent colour
+   (direction A: Clinic Teal — recommended; direction B: Graphite + Cobalt lives in direction-b.css and
+   overrides only the semantic layer). Every other hue means a status or a safety state.
+
    This file is plain CSS so the throw-away prototypes can load it from file://, and so 06-01b can copy it
    into the app UNCHANGED:
 
@@ -14,13 +18,11 @@
                                                    (bg-canvas, text-fg-muted, h-control, rounded-md …) compile
                                                    to var(--name) and take their runtime value from here.
 
-   The capture script proves this with @tailwindcss/postcss (evidence/tailwind-consumption.txt).
-
-   Layers (components must only use layers 2 and 3):
+   Layers (components must only use layers 2 to 4):
      1. RAW        palette and families. Never referenced by components or the codemod.
      2. SEMANTIC   what a colour MEANS (canvas, fg-muted, accent, status-waiting-bg …).
      3. STRUCTURE  type scale, radius, elevation, motion, spacing incl. shell sizes and the 44 px control floor.
-     4. COMPONENT  per-component aliases of semantic tokens (button, token chip, AI chip …).
+     4. COMPONENT  per-component aliases of semantic tokens (button, token chip, tile, AI chip …).
 
    Contrast: every text/background and non-text pair is computed by v2-dx-capture.mjs → evidence/contrast.md.
    No dark theme (DESIGN_SYSTEM §2.4, deferred).
@@ -74,20 +76,23 @@
   color-scheme: light;
 
   /* ---------------------------------------------------------------- 1. RAW ---------------------- */
+  /* Neutrals: a near-black ink and cool-neutral greys. No warm tint (round-2 change). */
   --color-white: #ffffff;
-  --color-paper: #f6f5f1;
-  --color-sunken: #efede7;
-  --color-line-subtle: #e7e4dd;
-  --color-line: #d9d6ce;
-  --color-line-strong: #8a867c;
-  --color-ink-400: #a19d93;
-  --color-ink-450: #78746b;
-  --color-ink-500: #6b6860;
-  --color-ink-600: #57544d;
-  --color-ink-700: #3d3b36;
-  --color-ink-900: #1c1b18;
+  --color-grey-25: #fafafa;
+  --color-grey-50: #f5f5f4;
+  --color-grey-100: #ededeb;
+  --color-grey-150: #e5e5e2;
+  --color-grey-200: #d8d8d4;
+  --color-grey-400: #a3a39e;
+  --color-grey-450: #76766f;
+  --color-grey-500: #6a6a64;
+  --color-grey-550: #858580;
+  --color-grey-600: #52524d;
+  --color-grey-700: #38383a;
+  --color-grey-900: #17171a;
 
-  --color-primary-50: #e8f4f2;
+  /* Direction A accent: Clinic Teal (DESIGN_SYSTEM §2.1, unchanged values) */
+  --color-primary-50: #e9f4f2;
   --color-primary-100: #cde8e4;
   --color-primary-200: #9fd2cb;
   --color-primary-300: #6bb8af;
@@ -98,7 +103,7 @@
   --color-primary-800: #0a4d49;
   --color-primary-900: #083d3a;
 
-  --color-success-50: #e7f5ec;
+  --color-success-50: #e8f5ec;
   --color-success-500: #2f9a62;
   --color-success-600: #18794e;
   --color-success-700: #166b43;
@@ -106,10 +111,10 @@
   --color-warning-500: #b7791f;
   --color-warning-600: #9a5b00;
   --color-warning-700: #8a4b00;
-  --color-danger-50: #fdedeb;
+  --color-danger-50: #fdeeec;
   --color-danger-500: #d9452f;
   --color-danger-600: #b42318;
-  --color-danger-700: #b42318;
+  --color-danger-700: #a81f15;
   --color-info-50: #eaf1fc;
   --color-info-500: #3b76d6;
   --color-info-600: #1d56b0;
@@ -120,7 +125,13 @@
   --color-slate-50: #eef1f4;
   --color-slate-500: #6b7785;
   --color-slate-700: #44505c;
-  /* V2-DX addition: "plum" exists only for decision DX-7 option B (a dedicated AI hue). Unused by option A. */
+  /* Direction B accent family (cobalt) and graphite action colour; used only by direction-b.css. */
+  --color-cobalt-50: #eceffd;
+  --color-cobalt-500: #4b63d9;
+  --color-cobalt-600: #2f49c8;
+  --color-cobalt-700: #253aa6;
+  --color-cobalt-800: #1d2f87;
+  /* "plum" exists only for the AI-chip option B of round 1 (DX-10 B). Unused by the recommendation. */
   --color-plum-50: #f8edf4;
   --color-plum-500: #a8508a;
   --color-plum-700: #7d2f63;
@@ -128,30 +139,34 @@
   --color-focus: #1f5fd1;
 
   /* ---------------------------------------------------------------- 2. SEMANTIC ----------------- */
-  /* Surfaces */
-  --color-canvas: var(--color-paper);
+  /* Surfaces: canvas and surface are both white; panels are hairline-separated, not tinted. */
+  --color-canvas: var(--color-white);
   --color-surface: var(--color-white);
-  /* --color-sunken is both the raw value and the semantic name (DESIGN_SYSTEM §2.3: bg-sunken → sunken). */
+  --color-surface-raised: var(--color-white);
+  --color-sunken: var(--color-grey-50); /* wells: read-only fields, keyboard hints, segmented track */
+  --color-hover: var(--color-grey-25);
   --color-selected: var(--color-primary-50);
-  --color-scrim: rgb(28 27 24 / 0.4);
+  --color-scrim: rgb(23 23 26 / 0.32);
   /* Text */
-  --color-fg: var(--color-ink-900);
-  --color-fg-body-tint: var(--color-ink-700);
-  --color-fg-muted: var(--color-ink-600);
-  --color-fg-subtle: var(--color-ink-500);
-  --color-fg-placeholder: var(--color-ink-450);
-  --color-fg-disabled: var(--color-ink-400);
+  --color-fg: var(--color-grey-900);
+  --color-fg-body-tint: var(--color-grey-700);
+  --color-fg-muted: var(--color-grey-600);
+  --color-fg-subtle: var(--color-grey-500);
+  --color-fg-placeholder: var(--color-grey-450);
+  --color-fg-disabled: var(--color-grey-400);
   --color-fg-on-accent: var(--color-white);
-  /* Borders */
-  --color-border: var(--color-line);
-  --color-border-subtle: var(--color-line-subtle);
-  --color-border-control: var(--color-line-strong);
-  /* Accent (teal: primary actions, links, active nav, "with doctor") */
+  /* Borders: hairlines carry the structure on a white canvas */
+  --color-border: var(--color-grey-150);
+  --color-border-subtle: var(--color-grey-100);
+  --color-border-strong: var(--color-grey-200);
+  --color-border-control: var(--color-grey-550);
+  /* Accent (direction A: teal) — primary actions, links, active nav, selection, "with doctor" */
   --color-accent: var(--color-primary-600);
   --color-accent-hover: var(--color-primary-700);
   --color-accent-pressed: var(--color-primary-800);
   --color-accent-subtle: var(--color-primary-50);
   --color-accent-fg: var(--color-primary-700);
+  --color-accent-border: var(--color-primary-500);
   --color-accent-disabled: var(--color-primary-200);
   /* Focus: always drawn OUTSIDE the control with a surface-coloured halo (see --focus-*) */
   --color-ring: var(--color-focus);
@@ -177,9 +192,9 @@
   --color-status-waiting-bg: var(--color-warning-50);
   --color-status-waiting-fg: var(--color-warning-700);
   --color-status-waiting-border: var(--color-warning-500);
-  --color-status-with-doctor-bg: var(--color-primary-50);
-  --color-status-with-doctor-fg: var(--color-primary-700);
-  --color-status-with-doctor-border: var(--color-primary-500);
+  --color-status-with-doctor-bg: var(--color-accent-subtle);
+  --color-status-with-doctor-fg: var(--color-accent-fg);
+  --color-status-with-doctor-border: var(--color-accent-border);
   --color-status-to-bill-bg: var(--color-violet-50);
   --color-status-to-bill-fg: var(--color-violet-700);
   --color-status-to-bill-border: var(--color-violet-500);
@@ -187,8 +202,8 @@
   --color-status-done-fg: var(--color-success-700);
   --color-status-done-border: var(--color-success-500);
   --color-status-no-show-bg: var(--color-sunken);
-  --color-status-no-show-fg: var(--color-ink-600);
-  --color-status-no-show-border: var(--color-line-strong);
+  --color-status-no-show-fg: var(--color-fg-muted);
+  --color-status-no-show-border: var(--color-border-control);
   --color-status-cancelled-bg: var(--color-danger-50);
   --color-status-cancelled-fg: var(--color-danger-700);
   --color-status-cancelled-border: var(--color-danger-500);
@@ -197,13 +212,17 @@
   --color-alert-allergy-fg: var(--color-white);
   --color-alert-unrecorded-bg: var(--color-warning-50);
   --color-alert-unrecorded-fg: var(--color-warning-700);
-  /* AI-02 labelling (V2-DX addition). Option A (recommended): neutral chip, the sparkle is the only marker. */
+  /* Clinical findings (consult): normal is quiet, abnormal is warning-toned and always labelled in text */
+  --color-finding-normal-fg: var(--color-fg-muted);
+  --color-finding-abnormal-bg: var(--color-warning-50);
+  --color-finding-abnormal-fg: var(--color-warning-700);
+  --color-finding-abnormal-border: var(--color-warning-500);
+  /* AI-02 labelling. Neutral chip, the sparkle is the only marker (round-1 DX-10 A, kept). */
   --color-ai-bg: var(--color-white);
-  --color-ai-fg: var(--color-ink-900);
-  --color-ai-border: var(--color-line-strong);
-  --color-ai-glyph: var(--color-ink-900);
-  /* Option B (DX-7 B), not active:  ai-bg plum-50 · ai-fg plum-700 · ai-border plum-500 · ai-glyph plum-700 */
-  --color-smart-fg: var(--color-ink-600);
+  --color-ai-fg: var(--color-grey-900);
+  --color-ai-border: var(--color-border-control);
+  --color-ai-glyph: var(--color-grey-900);
+  --color-smart-fg: var(--color-fg-muted);
   --color-preview-bg: var(--color-info-50);
   --color-preview-fg: var(--color-info-700);
   --color-preview-border: var(--color-info-500);
@@ -213,13 +232,15 @@
     system-ui, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
 
-  /* Type scale (size / line-height). Minimum in the product is caption 12 px. */
+  /* Type scale (size / line-height). Minimum in the product is caption 12 px; running text is ≥ 14 px. */
   --text-caption: 0.75rem;
   --text-caption--line-height: 1rem;
   --text-label: 0.8125rem;
   --text-label--line-height: 1.125rem;
   --text-body-sm: 0.875rem;
   --text-body-sm--line-height: 1.25rem;
+  --text-body-md: 0.9375rem; /* round-2 addition: 15 px list and tile text */
+  --text-body-md--line-height: 1.375rem;
   --text-body: 1rem;
   --text-body--line-height: 1.5rem;
   --text-title-3: 1.125rem;
@@ -232,21 +253,23 @@
   --text-display--line-height: 2.375rem;
   --text-token: 1.75rem;
   --text-token--line-height: 2rem;
-  /* V2-DX addition: the compact token used inside 40 px desktop rows and the phone list (22/24). */
   --text-token-sm: 1.375rem;
   --text-token-sm--line-height: 1.5rem;
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
+  --tracking-title: -0.01em; /* round-2 addition: titles ≥ 20 px are tracked slightly tighter */
 
   --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
-  --shadow-popover: 0 1px 2px rgb(28 27 24 / 0.06), 0 4px 12px rgb(28 27 24 / 0.08);
-  --shadow-overlay: 0 16px 40px rgb(28 27 24 / 0.16), 0 2px 6px rgb(28 27 24 / 0.06);
+  /* Depth is used only where it aids hierarchy: popovers and overlays. Panels on the canvas have none. */
+  --shadow-hairline: 0 0 0 1px var(--color-border);
+  --shadow-popover: 0 1px 2px rgb(23 23 26 / 0.05), 0 8px 24px rgb(23 23 26 / 0.08);
+  --shadow-overlay: 0 24px 48px rgb(23 23 26 / 0.14), 0 2px 8px rgb(23 23 26 / 0.06);
 
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --duration-fast: 120ms;
@@ -255,18 +278,23 @@
   --duration-flash: 600ms;
 
   /* Spacing: Tailwind's 4 px base is kept; these are named sizes (h-control, w-rail, pb-bottom-bar …). */
-  --spacing-control: 2.75rem; /* 44 px: the a11y floor for every touch target, not a taste choice */
-  --spacing-control-dense: 2.5rem; /* 40 px: desktop-dense rows (≥ xl, pointer) only */
+  --spacing-control: 2.75rem; /* 44 px: the a11y floor for every touch target */
+  --spacing-control-dense: 2.5rem; /* 40 px: desktop-dense rows (≥ xl, fine pointer) only */
+  --spacing-tile: 3.25rem; /* 52 px: consult quick tiles */
   --spacing-bar: 3.5rem; /* top bar 56 */
   --spacing-bottom-bar: 4rem; /* phone bottom bar 64 + safe area */
   --spacing-rail: 4rem; /* md–lg icon rail 64 */
   --spacing-sidebar: 14.5rem; /* ≥ xl sidebar 232 */
   --spacing-sheet: 30rem; /* side sheet 480 */
   --spacing-sheet-lg: 40rem; /* side sheet 640 */
-  --spacing-context-pane: 19rem; /* consult context pane 304 */
+  --spacing-context-pane: 18rem; /* consult patient rail 288 */
+  --spacing-assist-pane: 19rem; /* consult suggestions pane 304 */
+  --spacing-note-max: 52rem; /* consult note column max 832 */
+  --spacing-gutter: 1rem; /* phone side gutter 16 */
+  --spacing-gutter-lg: 2rem; /* ≥ lg side gutter 32 */
 
   /* Focus indicator: 2 px ring, 2 px offset, plus a 2 px surface halo so the ring keeps ≥ 3:1 against
-     the halo on ANY fill (teal, danger, tint). Proven in evidence/contrast.md ("ring on halo"). */
+     the halo on ANY fill (teal, graphite, danger, tint). */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 
@@ -277,17 +305,26 @@
   --button-primary-fg: var(--color-fg-on-accent);
   --button-secondary-bg: var(--color-surface);
   --button-secondary-fg: var(--color-fg);
-  --button-secondary-border: var(--color-border-control);
+  --button-secondary-border: var(--color-border-strong);
   --button-danger-bg: var(--color-danger-solid);
   --button-danger-fg: var(--color-fg-on-accent);
-  --button-disabled-bg: var(--color-accent-disabled);
-  --button-disabled-fg: var(--color-ink-700);
+  --button-disabled-bg: var(--color-grey-100);
+  --button-disabled-fg: var(--color-fg-subtle);
 
   --input-bg: var(--color-surface);
   --input-fg: var(--color-fg);
   --input-border: var(--color-border-control);
   --input-placeholder: var(--color-fg-placeholder);
   --input-invalid-border: var(--color-danger-solid);
+
+  /* Quick tiles (consult): hairline rest state, accent-outlined when selected, warning-toned when abnormal */
+  --tile-bg: var(--color-surface);
+  --tile-fg: var(--color-fg);
+  --tile-border: var(--color-border-strong);
+  --tile-hover-bg: var(--color-hover);
+  --tile-selected-bg: var(--color-accent-subtle);
+  --tile-selected-fg: var(--color-accent-fg);
+  --tile-selected-border: var(--color-accent);
 
   --token-chip-bg: var(--color-surface);
   --token-chip-fg: var(--color-fg);
@@ -298,7 +335,7 @@
   --nav-active-indicator: var(--color-accent);
   --nav-fg: var(--color-fg-muted);
 
-  --lane-header-bg: var(--color-sunken);
+  --lane-header-bg: var(--color-surface);
   --lane-header-fg: var(--color-fg);
   --row-selected-bg: var(--color-selected);
   --row-selected-indicator: var(--color-accent);
@@ -315,7 +352,7 @@
   --chip-preview-fg: var(--color-preview-fg);
   --chip-smart-fg: var(--color-smart-fg);
 
-  --banner-offline-bg: var(--color-ink-900);
+  --banner-offline-bg: var(--color-grey-900);
   --banner-offline-fg: var(--color-white);
   --banner-trial-bg: var(--color-info-bg);
   --banner-trial-fg: var(--color-info-fg);
@@ -324,6 +361,6 @@
 
   /* PWA (PO-19): read by the manifest/viewport mirror in lib/design/tokens.ts (06-05) */
   --pwa-theme-color: var(--color-white);
-  --pwa-background-color: var(--color-paper);
-  --pwa-icon-tile: var(--color-primary-600);
+  --pwa-background-color: var(--color-white);
+  --pwa-icon-tile: var(--color-accent);
 }

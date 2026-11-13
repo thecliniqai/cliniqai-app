@@ -471,4 +471,12 @@
   }
   window.Proto.hydrate = hydrate;
   hydrate();
+  /* Colour direction B (?dir=b): load the semantic override after the base tokens. */
+  if (param("dir") === "b") {
+    const l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = "../themes/direction-b.css";
+    document.head.appendChild(l);
+    document.documentElement.setAttribute("data-dir", "b");
+  }
 })();

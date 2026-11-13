@@ -19,18 +19,23 @@ const REPO = path.resolve(HERE, "..", "..");
 const OUT = path.join(HERE, "v2-dx-evidence");
 const M0_COUNTS = path.join(REPO, ".planning/phases/02-ci-e2e-foundations/evidence/m0-baseline/counts.json");
 const WIDTHS = [360, 744, 820, 1180, 1280];
-const HEIGHT = { 360: 780, 390: 844, 744: 1133, 820: 1180, 1180: 820, 1280: 800 };
+const CONSULT_WIDTHS = [360, 820, 1180, 1280, 1440];
+const HEIGHT = { 360: 780, 390: 844, 744: 1133, 820: 1180, 1180: 820, 1280: 800, 1440: 900 };
 const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 /* surface id → [file, query, widths, fullPage] */
 const SURFACES = [
-  ["palette", "001-palette-type/index.html", "", WIDTHS, true],
-  ["icon", "002-icon/index.html", "", WIDTHS, true],
+  ["palette", "001-palette-type/index.html", "", [360, 1280], true],
+  ["icon", "002-icon/index.html", "", [360, 1280], true],
   ["today", "003-today/index.html", "", WIDTHS, false],
+  ["today-b", "003-today/index.html", "?dir=b", [1280], false],
   ["today-lanes-variant", "003-today/index.html", "?layout=lanes", [820, 1180], false],
   ["today-doctor", "003-today/index.html", "?mode=doctor", [360, 820, 1280], false],
-  ["consult", "004-consult/index.html", "", WIDTHS, false],
-  ["consult-rx", "004-consult/index.html", "?demo=rx&tab=rx", WIDTHS, false],
+  ["consult", "004-consult/index.html", "", CONSULT_WIDTHS, false],
+  ["consult-mid", "004-consult/index.html", "?demo=mid&tab=exam", CONSULT_WIDTHS, false],
+  ["consult-rx", "004-consult/index.html", "?demo=rx&tab=rx", CONSULT_WIDTHS, false],
+  ["consult-full", "004-consult/index.html", "?demo=rx", [360, 1280], true],
+  ["consult-b", "004-consult/index.html", "?demo=rx&tab=rx&dir=b", [1280], false],
   ["install", "005-surfaces/install.html", "", WIDTHS, true],
   ["offline", "005-surfaces/offline.html", "", WIDTHS, false],
   ["signup-trial", "005-surfaces/signup-trial.html", "", WIDTHS, true],
@@ -95,13 +100,13 @@ function ratio(a, b) {
   const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
   return (x + 0.05) / (y + 0.05);
 }
-function contrastReport() {
-  const css = fs.readFileSync(path.join(HERE, "themes/clinic-paper.css"), "utf8");
-  const map = parseTokens(css);
+function contrastReportFor(label, files) {
+  const map = {};
+  for (const f of files) Object.assign(map, parseTokens(fs.readFileSync(path.join(HERE, f), "utf8")));
   const names = Object.keys(map);
-  const hex = (n) => resolve(map, "--color-" + n);
+  const hex = (n) => resolve(map, map["--color-" + n] !== undefined ? "--color-" + n : "--" + n);
   const pairs = [];
-  const add = (fg, bg, min, kind, note = "") => pairs.push({ fg, bg, min, kind, note });
+  const add = (fg, bg, min, kind, note = "", info = false) => pairs.push({ fg, bg, min: info ? 0 : min, kind: info ? "info" : kind, note });
   // 1. Every semantic *-fg / *-bg family pair (status, feedback, safety, preview, ai)
   for (const n of names) {
     const m = /^--color-(.+)-bg$/.exec(n);
@@ -110,13 +115,19 @@ function contrastReport() {
   }
   // 2. Core text tokens on every working background
   add("fg-placeholder", "surface", 4.5, "text", "placeholders only appear inside inputs (input-bg = surface)");
-  const texts = ["fg", "fg-body-tint", "fg-muted", "fg-subtle", "accent", "accent-fg", "danger-fg", "warning-fg", "success-fg", "info-fg", "smart-fg"];
-  for (const t of texts) for (const b of ["canvas", "surface", "sunken", "selected"]) add(t, b, 4.5, "text");
+  const texts = ["fg", "fg-body-tint", "fg-muted", "fg-subtle", "accent", "accent-fg", "danger-fg", "warning-fg", "success-fg", "info-fg", "smart-fg", "finding-abnormal-fg"];
+  for (const t of texts) for (const b of ["canvas", "surface", "sunken", "selected", "hover"]) add(t, b, 4.5, "text");
+  add("tile-selected-fg", "tile-selected-bg", 4.5, "text", "selected quick tile");
+  add("tile-selected-border", "surface", 3, "non-text", "selected tile outline");
+  add("tile-border", "surface", 3, "non-text", "quick tile outline (hairline; adjacent text carries meaning)", true);
+  add("button-primary-fg", "button-primary-bg", 4.5, "text", "primary button");
+  add("surface", "fg", 4.5, "text", "section strip: current pill");
   // 3. Text on solid fills
   for (const b of ["accent", "accent-hover", "accent-pressed", "danger-solid", "alert-allergy-bg"]) add("fg-on-accent", b, 4.5, "text", "button / banner label");
   add("surface", "fg", 4.5, "text", "toast (inverted)");
   // 4. Non-text: control borders, token-chip status borders, wait time
   for (const b of ["surface", "canvas", "sunken"]) add("border-control", b, 3, "non-text", "input/checkbox boundary");
+  add("border-strong", "surface", 0, "info", "panel/tile hairline: decorative, text carries meaning");
   for (const s of ["booked", "waiting", "with-doctor", "to-bill", "done", "no-show", "cancelled"]) add("status-" + s + "-border", "surface", 3, "non-text", "token chip border");
   add("accent", "accent-subtle", 3, "non-text", "selected-row 3 px indicator");
   // 5. Focus: the ring is drawn on a surface halo, so ring-vs-halo is the binding pair; others informational
@@ -129,7 +140,7 @@ function contrastReport() {
   add("plum-500", "plum-50", 3, "non-text", "DX-7 option B");
   // 7. Exempt (WCAG 1.4.3 exempts disabled), reported only
   add("fg-disabled", "surface", 0, "exempt", "disabled text");
-  add("ink-700", "primary-200", 0, "exempt", "disabled primary button");
+  add("button-disabled-fg", "button-disabled-bg", 0, "exempt", "disabled button");
   const rows = pairs.map((p) => {
     const a = hex(p.fg);
     const b = hex(p.bg);
@@ -139,15 +150,19 @@ function contrastReport() {
   });
   const gated = rows.filter((r) => r.pass !== null);
   const failed = gated.filter((r) => !r.pass);
-  let md = "# Contrast report (tool-generated by v2-dx-capture.mjs)\n\n";
-  md += `Source: \`themes/clinic-paper.css\` (var() chains resolved). WCAG 2.x relative luminance. Text ≥ 4.5:1; non-text ≥ 3:1.\n\n`;
+  let md = `## ${label}\n\nSource: ${files.map((f) => "`" + f + "`").join(" + ")} (var() chains resolved). WCAG 2.x relative luminance. Text ≥ 4.5:1; non-text ≥ 3:1.\n\n`;
   md += `**Gated pairs: ${gated.length} · pass: ${gated.length - failed.length} · fail: ${failed.length}** · informational/exempt: ${rows.length - gated.length}\n\n`;
   md += "| Foreground token | Background token | FG | BG | Ratio | Needs | Result | Note |\n|---|---|---|---|---|---|---|---|\n";
   for (const r of rows)
     md += `| ${r.fg} | ${r.bg} | \`${r.fgHex}\` | \`${r.bgHex}\` | ${r.ratio.toFixed(2)} | ${r.min || "—"} | ${r.pass === null ? r.kind : r.pass ? "pass" : "**FAIL**"} | ${r.note} |\n`;
-  write("contrast.md", md);
-  write("contrast.json", JSON.stringify(rows, null, 2));
-  return { gated: gated.length, failed: failed.length, rows };
+  return { gated: gated.length, failed: failed.length, rows, md };
+}
+function contrastReport() {
+  const a = contrastReportFor("Direction A · Clinic Teal (recommended)", ["themes/clinic-paper.css"]);
+  const b = contrastReportFor("Direction B · Graphite + Cobalt", ["themes/clinic-paper.css", "themes/direction-b.css"]);
+  write("contrast.md", "# Contrast report (tool-generated by v2-dx-capture.mjs)\n\n" + a.md + "\n" + b.md);
+  write("contrast.json", JSON.stringify({ a: a.rows, b: b.rows }, null, 2));
+  return { gated: a.gated, failed: a.failed, b: { gated: b.gated, failed: b.failed } };
 }
 
 /* ------------------------------------------------------------------ tailwind consumption proof */
@@ -155,13 +170,13 @@ async function tailwindProof() {
   const css = fs.readFileSync(path.join(HERE, "themes/clinic-paper.css"), "utf8");
   const map = parseTokens(css);
   const ns = /^--(color|text|radius|shadow|spacing|font|ease|font-weight)-/;
-  const reg = Object.keys(map).filter((n) => ns.test(n) && !n.startsWith("--color-plum"));
+  const reg = Object.keys(map).filter((n) => ns.test(n) && !n.startsWith("--color-plum") && !n.startsWith("--color-cobalt"));
   const theme =
     "/* GENERATED by v2-dx-capture.mjs from clinic-paper.css. Do not edit.\n   Registers token names with Tailwind v4 without emitting them; values come from clinic-paper.css at runtime. */\n@theme reference {\n" +
     reg.map((n) => `  ${n}: ${resolve(map, n)};`).join("\n") +
     "\n}\n";
   fs.writeFileSync(path.join(HERE, "themes/clinic-paper.theme.css"), theme);
-  const probe = ["bg-canvas", "bg-surface", "text-fg-muted", "border-border-control", "bg-status-waiting-bg", "text-status-waiting-fg", "h-control", "w-sidebar", "rounded-lg", "shadow-popover", "text-title-1", "text-token", "bg-accent", "text-fg-on-accent", "bg-ai-bg", "font-sans", "ease-out"];
+  const probe = ["bg-canvas", "bg-surface", "text-fg-muted", "border-border-control", "bg-status-waiting-bg", "text-status-waiting-fg", "h-control", "w-sidebar", "rounded-lg", "shadow-popover", "text-title-1", "text-token", "bg-accent", "text-fg-on-accent", "bg-ai-bg", "font-sans", "ease-out", "text-body-md", "h-tile", "max-w-note-max", "bg-finding-abnormal-bg"];
   const { default: postcss } = await import("postcss");
   const { default: tw } = await import("@tailwindcss/postcss");
   const tmp = path.join(HERE, "themes");
@@ -177,7 +192,7 @@ async function tailwindProof() {
     if (good) ok += 1;
     lines.push(`${good ? "OK  " : "FAIL"} .${cls} { ${body} }`);
   }
-  const rootHasToken = /--color-canvas:\s*var\(--color-paper\)/.test(res.css);
+  const rootHasToken = /--color-canvas:\s*var\(--color-white\)/.test(res.css);
   const header = `Tailwind ${JSON.parse(fs.readFileSync(path.join(REPO, "node_modules/tailwindcss/package.json"), "utf8")).version} via @tailwindcss/postcss\nInput: @import clinic-paper.css (unchanged) + generated clinic-paper.theme.css (@theme reference, ${reg.length} names)\nUtilities resolving to var(--token): ${ok}/${probe.length}\nRuntime values emitted from clinic-paper.css: ${rootHasToken ? "yes" : "NO"}\n\n`;
   write("tailwind-consumption.txt", header + lines.join("\n") + "\n");
   return { ok, total: probe.length, names: reg.length, rootHasToken };
@@ -250,9 +265,15 @@ async function sheetStates(browser) {
     ["today-collect-sheet", "003-today/index.html?lane=to-bill", async (p) => { await p.getByRole("button", { name: "Collect ₹700" }).first().click(); }],
     ["today-row-menu", "003-today/index.html?lane=booked", async (p) => { await p.getByRole("button", { name: "More actions for Aditya Rane" }).first().click(); }],
     ["consult-finish-sheet", "004-consult/index.html?demo=rx", async (p) => { await p.getByRole("button", { name: "Finish visit" }).first().click(); }],
+    ["consult-dose-builder", "004-consult/index.html?demo=mid&tab=rx", async (p) => { await p.getByRole("combobox", { name: "Medicine" }).click(); await p.keyboard.type("para"); await p.keyboard.press("Enter"); }],
+    ["consult-command-bar", "004-consult/index.html?demo=mid", async (p) => { await p.keyboard.press("/"); await p.keyboard.type("cet"); }],
+    ["consult-patient-sheet", "004-consult/index.html?demo=mid", async (p) => { await p.getByRole("button", { name: "Patient" }).first().click(); }],
+    ["consult-ai-sheet", "004-consult/index.html?demo=mid", async (p) => { await p.getByRole("button", { name: "AI Assist, preview" }).click(); }],
+    ["consult-complaint-detail", "004-consult/index.html?demo=mid", async (p) => { await p.getByRole("button", { name: "Detail" }).first().click(); }],
   ];
   for (const [id, file, act] of states) {
     for (const w of [360, 1280]) {
+      if (id === "consult-patient-sheet" && w === 1280) continue;
       const ctx = await browser.newContext({ viewport: { width: w, height: HEIGHT[w] }, reducedMotion: "reduce" });
       const page = await ctx.newPage();
       await guard(page);
@@ -326,6 +347,7 @@ class Counter {
       actionsM0Rules: clicks + presses + types,
       actionsExcludingTyping: clicks + presses,
       keystrokes: this.steps.reduce((a, s) => a + s.keystrokes, 0),
+      typedChars: this.steps.filter((s) => s.kind === "type").reduce((a, s) => a + s.keystrokes, 0),
       mouse: clicks,
       clicks,
       presses,
@@ -444,48 +466,171 @@ const FLOWS = [
       return p.locator('.lane[data-lane="done"] .row', { hasText: "Arjun Mehta" }).count().then((n) => n === 1);
     },
   },
+  /* ---- consult, round 2. v1 reference per step comes from V2-DX-R2-V1-CONSULT-ANALYSIS.md §4 (code-derived),
+          except the whole-flow M0 measurement. "taps" = clicks; "typed" = characters typed into a field. */
   {
-    id: "consult-rx-finish",
-    label: "Consult: note, diagnosis, 2 medicines by keyboard, sign",
-    target: "0 mouse actions per medicine (UX_AUDIT §4.2)",
-    targetMax: null,
-    m0: "consult-rx-finish",
+    id: "consult-complaints-3",
+    label: "A. Add 3 complaints (durations set)",
+    target: "≤ 3 taps, 0 typed (v1: 3 taps, 0 typed)",
+    targetMax: 3,
+    v1: { taps: 3, typed: 0, how: "3 quick chips, default 3 days" },
     file: "004-consult/index.html",
     run: async (c, p) => {
-      await c.click(p.getByLabel("Notes"), "Notes");
-      await c.type("Headache 3 days, worse mornings", "notes");
-      await c.press("Alt+3", "Alt+3 diagnosis");
-      await c.type("htn", "diagnosis");
-      await c.press("Enter", "pick Essential hypertension");
-      await c.press("Alt+4", "Alt+4 prescription");
-      await c.type("telmi", "medicine");
-      await c.press("Enter", "pick Telmisartan");
-      await c.press("2", "preset 2 = 1-0-0");
-      await c.type("30d", "duration");
-      await c.press("Enter", "add line");
-      await c.type("amlo", "medicine");
-      await c.press("Enter", "pick Amlodipine");
-      await c.press("3", "preset 3 = 0-0-1");
-      await c.type("30d", "duration");
-      await c.press("Enter", "add line");
-      await c.click(p.getByRole("button", { name: "Finish visit" }).first(), "Finish visit");
-      await c.click(p.getByRole("button", { name: "Sign and finish" }), "Sign and finish");
-      await p.getByText("Visit finished · Rx v1 signed").waitFor();
-      const lines = await p.locator(".rx-line").count();
-      const txt = await p.locator("#rx-lines").innerText();
-      return lines === 2 && /1-0-0/.test(txt) && /0-0-1/.test(txt) && /30 days/.test(txt);
+      await c.click(p.getByRole("button", { name: "Fever", exact: true }), "tile Fever");
+      await c.click(p.getByRole("button", { name: "Body ache", exact: true }), "tile Body ache");
+      await c.click(p.getByRole("button", { name: "Cough", exact: true }), "tile Cough");
+      const t = await p.locator("#c-items").innerText();
+      return (await p.locator("#c-items .item").count()) === 3 && (await p.locator('#c-items [role="radio"][aria-checked="true"]', { hasText: "3d" }).count()) === 3 && /Fever/.test(t);
     },
   },
   {
-    id: "repeat-last-rx",
-    label: "Consult: repeat last prescription",
-    target: "1 action (UX_AUDIT §4.2)",
+    id: "consult-exam-template",
+    label: "B. Apply an exam template with one abnormal finding",
+    target: "≤ 3 taps, 0 typed (v1: ≈ 170 typed characters)",
+    targetMax: 3,
+    v1: { taps: 0, typed: 170, how: "no template; CVS/RS/PA/CNS typed (≈150) plus the finding (≈20)" },
+    file: "004-consult/index.html",
+    setup: async (p) => {
+      for (const n of ["Fever", "Body ache", "Cough"]) await p.getByRole("button", { name: n, exact: true }).click();
+    },
+    run: async (c, p) => {
+      await c.click(p.getByRole("button", { name: /^Fever workup/ }), "template Fever workup (suggested)");
+      await c.click(p.getByRole("radiogroup", { name: "RS finding" }).getByRole("radio", { name: "Abnormal" }), "RS → Abnormal");
+      await c.click(p.getByRole("button", { name: "Crepts", exact: true }), "finding Crepts");
+      const sum = await p.locator("#sum-exam").innerText();
+      const rs = await p.locator(".sys.abn .sv").innerText();
+      return /1 abnormal/.test(sum) && /Crepts/.test(rs) && (await p.locator(".sys").count()) === 4;
+    },
+  },
+  {
+    id: "consult-diagnosis",
+    label: "C. Add a diagnosis",
+    target: "1 tap, 0 typed (v1: 1 tap if in the fixed 8, else typing)",
     targetMax: 1,
-    m0: null,
+    v1: { taps: 1, typed: 0, how: "quick chip (fixed list of 8 per specialty)" },
+    file: "004-consult/index.html",
+    setup: async (p) => {
+      for (const n of ["Fever", "Body ache", "Cough"]) await p.getByRole("button", { name: n, exact: true }).click();
+    },
+    run: async (c, p) => {
+      await c.click(p.getByRole("button", { name: /^Viral fever/ }), "tile Viral fever (likely from complaints)");
+      return (await p.locator("#dx-items .item", { hasText: "Viral fever" }).count()) === 1 && /MG26/.test(await p.locator("#dx-items").innerText());
+    },
+  },
+  {
+    id: "consult-rx-bundle",
+    label: "D1. 3-drug Rx, standard dosing: your usual for the diagnosis",
+    target: "1 tap, 0 typed (v1: 6 taps + ≈ 27 typed)",
+    targetMax: 1,
+    v1: { taps: 6, typed: 27, how: "per drug: type ≈ 9, pick, Add (M0 measured 78 typed as custom entries)" },
+    file: "004-consult/index.html",
+    setup: async (p) => {
+      for (const n of ["Fever", "Body ache", "Cough"]) await p.getByRole("button", { name: n, exact: true }).click();
+      await p.getByRole("button", { name: /^Viral fever/ }).click();
+    },
+    run: async (c, p) => {
+      await c.click(p.getByRole("button", { name: /^Your usual for Viral fever/ }), "bundle: Your usual for Viral fever");
+      const txt = await p.locator("#rx-lines").innerText();
+      return (await p.locator(".rx-line").count()) === 3 && /Paracetamol 650 mg/.test(txt) && /1-0-1/.test(txt) && /0-0-1/.test(txt) && /5 days/.test(txt);
+    },
+  },
+  {
+    id: "consult-rx-favourites",
+    label: "D2. 3-drug Rx from favourite tiles (each with the doctor's usual dose)",
+    target: "3 taps, 0 typed",
+    targetMax: 3,
+    v1: { taps: 6, typed: 27, how: "as D1" },
     file: "004-consult/index.html",
     run: async (c, p) => {
-      await c.click(p.getByRole("button", { name: "Repeat last Rx (2)" }), "Repeat last Rx");
-      return p.locator(".rx-line").count().then((n) => n === 2);
+      await c.click(p.getByRole("button", { name: /^Paracetamol 650 mg/ }), "favourite Paracetamol");
+      await c.click(p.getByRole("button", { name: /^Cetirizine 10 mg/ }), "favourite Cetirizine");
+      await c.click(p.getByRole("button", { name: /^Pantoprazole 40 mg/ }), "favourite Pantoprazole");
+      const txt = await p.locator("#rx-lines").innerText();
+      return (await p.locator(".rx-line").count()) === 3 && /Before food/.test(txt) && /0-0-1/.test(txt);
+    },
+  },
+  {
+    id: "consult-rx-keyboard",
+    label: "D3. 3-drug Rx by keyboard (defaults accepted)",
+    target: "0 taps after focusing the field; ≈ 4 typed per drug",
+    targetMax: 1,
+    v1: { taps: 6, typed: 27, how: "as D1" },
+    file: "004-consult/index.html",
+    run: async (c, p) => {
+      await c.click(p.getByRole("combobox", { name: "Medicine" }), "focus Medicine");
+      for (const q of ["para", "ceti", "pant"]) {
+        await c.type(q, "medicine");
+        await c.press("Enter", "pick top match → dose builder with usual dose");
+        await c.press("Enter", "accept usual dose");
+      }
+      return (await p.locator(".rx-line").count()) === 3 && /Pantoprazole/.test(await p.locator("#rx-lines").innerText());
+    },
+  },
+  {
+    id: "consult-rx-edit-line",
+    label: "D4. Change a committed line's duration (v1: remove + re-add)",
+    target: "≤ 3 taps",
+    targetMax: 3,
+    v1: { taps: 5, typed: 9, how: "trash, confirm, retype, pick, change chip, Add" },
+    file: "004-consult/index.html",
+    setup: async (p) => {
+      await p.getByRole("button", { name: /^Paracetamol 650 mg/ }).click();
+    },
+    run: async (c, p) => {
+      await c.click(p.locator(".rx-line").first().getByRole("button", { name: "5 days" }), "tap duration on the line");
+      await c.click(p.locator("#dose").getByRole("button", { name: "3 days", exact: true }), "3 days");
+      await c.click(p.getByRole("button", { name: /^Update line/ }), "Update line");
+      return /3 days/.test(await p.locator(".rx-line").first().innerText());
+    },
+  },
+  {
+    id: "consult-same-last",
+    label: "Repeat last visit (diagnosis + prescription)",
+    target: "1 tap (UX_AUDIT §4.2)",
+    targetMax: 1,
+    v1: { taps: 1, typed: 0, how: "Repeat Last Rx (Rx only; diagnosis separate)" },
+    file: "004-consult/index.html",
+    run: async (c, p) => {
+      await c.click(p.getByRole("button", { name: "Same as last visit" }).first(), "Same as last visit");
+      return (await p.locator(".rx-line.repeat").count()) === 2 && (await p.locator("#dx-items .item", { hasText: "Essential hypertension" }).count()) === 1;
+    },
+  },
+  {
+    id: "consult-finish",
+    label: "E. Finish the consult (WhatsApp + front-desk billing defaulted)",
+    target: "2 taps (v1: 2, M0 measured 3)",
+    targetMax: 2,
+    v1: { taps: 3, typed: 0, how: "Complete & Sign, untick collect, Sign (M0)" },
+    file: "004-consult/index.html?demo=rx",
+    run: async (c, p) => {
+      await c.click(p.getByRole("button", { name: "Finish visit" }).first(), "Finish visit");
+      await c.click(p.getByRole("button", { name: "Sign and finish" }), "Sign and finish");
+      await p.getByText("Visit finished · Rx v1 signed").waitFor();
+      return true;
+    },
+  },
+  {
+    id: "consult-whole",
+    label: "Whole consult A–E by tap (3 complaints, template + 1 abnormal, diagnosis, 3-drug Rx, finish)",
+    target: "≤ 10 taps, 0 typed (v1 code-derived: 12 taps + ≈ 197 typed; M0 measured 12 actions / 105 keystrokes with a shorter note)",
+    targetMax: 10,
+    m0: "consult-rx-finish",
+    v1: { taps: 12, typed: 197, how: "sum of A–E in the analysis §4" },
+    file: "004-consult/index.html",
+    run: async (c, p) => {
+      await c.click(p.getByRole("button", { name: "Fever", exact: true }), "tile Fever");
+      await c.click(p.getByRole("button", { name: "Body ache", exact: true }), "tile Body ache");
+      await c.click(p.getByRole("button", { name: "Cough", exact: true }), "tile Cough");
+      await c.click(p.getByRole("button", { name: /^Fever workup/ }), "template Fever workup");
+      await c.click(p.getByRole("radiogroup", { name: "RS finding" }).getByRole("radio", { name: "Abnormal" }), "RS → Abnormal");
+      await c.click(p.getByRole("button", { name: "Crepts", exact: true }), "finding Crepts");
+      await c.click(p.getByRole("button", { name: /^Viral fever/ }), "tile Viral fever");
+      await c.click(p.getByRole("button", { name: /^Your usual for Viral fever/ }), "bundle Rx (3)");
+      await c.click(p.getByRole("button", { name: "Finish visit" }).first(), "Finish visit");
+      const sum = await p.locator(".sheet .sum-doc").innerText();
+      await c.click(p.getByRole("button", { name: "Sign and finish" }), "Sign and finish");
+      await p.getByText("Visit finished · Rx v1 signed").waitFor();
+      return /Fever · 3 days/.test(sum) && /Crepts/.test(sum) && /Viral fever/.test(sum) && /Pantoprazole/.test(sum) && /Review Mon, 16 Nov/.test(sum);
     },
   },
 ];
@@ -499,7 +644,8 @@ async function counts(browser) {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, recordVideo: { dir: vidDir, size: { width: 1280, height: 800 } } });
     const page = await ctx.newPage();
     await guard(page);
-    await page.goto(url(flow.file));
+    const [ff, fq] = flow.file.split("?");
+    await page.goto(url(ff, fq ? "?" + fq : ""));
     await page.waitForTimeout(500);
     if (flow.setup) await flow.setup(page);
     const c = new Counter(page);
@@ -525,7 +671,8 @@ async function counts(browser) {
       label: flow.label,
       target: flow.target,
       targetMax: flow.targetMax,
-      meetsTarget: flow.targetMax === null ? (flow.id === "consult-rx-finish" ? c.steps.filter((s) => s.kind === "click").length <= 3 : null) : t.actionsExcludingTyping <= flow.targetMax,
+      meetsTarget: flow.targetMax === null ? null : flow.id.startsWith("consult") ? t.clicks <= flow.targetMax && (flow.id === "consult-rx-keyboard" || t.typedChars === 0) : t.actionsExcludingTyping <= flow.targetMax,
+      v1: flow.v1 || null,
       outcomeAsserted: outcome === true,
       error,
       ...t,
@@ -535,14 +682,17 @@ async function counts(browser) {
       video: "walkthrough/" + flow.id + ".webm",
     });
   }
-  write("counts.json", JSON.stringify({ m0Commit: m0.commit, rules: "click, key press and each typed field = 1 action (M0 rules); 'excluding typing' = clicks + key presses (UX_AUDIT §5: typing is not counted); keystrokes = every key incl. typed characters", flows: results }, null, 2));
-  let md = "# Interaction counts vs M0 and the UX_AUDIT §4/§5 targets (tool-generated)\n\n";
+  write("counts.json", JSON.stringify({ m0Commit: m0.commit, rules: "click = 1 tap; key press = 1 press; typed characters counted separately; 'actions (M0 rules)' = clicks + presses + typed fields; v1 per-step references are code-derived (V2-DX-R2-V1-CONSULT-ANALYSIS.md §4) unless marked M0", flows: results }, null, 2));
+  let md = "# Interaction counts vs v1 and the targets (tool-generated)\n\n";
   md += "Desktop Chromium 1280×800 on the file:// prototypes. Each flow asserts its visible outcome; a video of every flow is in `walkthrough/`.\n";
-  md += "Counting: click, key press and each typed field = 1 action (the M0 rules in `tests/e2e/support/ux-counter.ts`); *excluding typing* = clicks + key presses (UX_AUDIT §5 counts \"a click, tap or Enter; typing is not counted\").\n\n";
-  md += "| Flow | Outcome | Actions (M0 rules) | Actions excl. typing | Keystrokes | Mouse clicks | Target | Meets | M0 v1 actions / keystrokes |\n|---|---|---|---|---|---|---|---|---|\n";
-  for (const r of results)
+  md += "Counting: **taps** = clicks; **presses** = single key presses (Enter, shortcuts); **typed** = characters typed into a field. v1 per-step figures are derived from the v1 code (analysis §4); the whole-consult row also shows the M0 measurement.\n\n";
+  md += "## Consult (round 2)\n\n| Step | Outcome | v2 taps | v2 presses | v2 typed | v1 taps | v1 typed | v1 path | Target | Meets |\n|---|---|---|---|---|---|---|---|---|---|\n";
+  for (const r of results.filter((x) => x.id.startsWith("consult")))
+    md += `| ${r.label} | ${r.outcomeAsserted ? "asserted" : "**FAILED** " + (r.error || "")} | ${r.clicks} | ${r.presses} | ${r.typedChars} | ${r.v1 ? r.v1.taps : "—"} | ${r.v1 ? r.v1.typed : "—"} | ${r.v1 ? r.v1.how : ""} | ${r.target} | ${r.meetsTarget === null ? "—" : r.meetsTarget ? "yes" : "**no**"} |\n`;
+  md += "\n## Today (unchanged from round 1, re-run on the round-2 styling)\n\n| Flow | Outcome | Actions (M0 rules) | Actions excl. typing | Keystrokes | Mouse clicks | Target | Meets | M0 v1 actions / keystrokes |\n|---|---|---|---|---|---|---|---|---|\n";
+  for (const r of results.filter((x) => !x.id.startsWith("consult")))
     md += `| ${r.label} | ${r.outcomeAsserted ? "asserted" : "**FAILED** " + (r.error || "")} | ${r.actionsM0Rules} | ${r.actionsExcludingTyping} | ${r.keystrokes} | ${r.mouse} | ${r.target} | ${r.meetsTarget === null ? "—" : r.meetsTarget ? "yes" : "**no**"} | ${r.m0 ? r.m0.actions + " / " + r.m0.keystrokes + " (" + r.m0.id + ")" : "not measured in M0"} |\n`;
-  md += "\nNotes: M0 `checkout-collect` collected two payments (cash then UPI); the prototype flow collects one full cash payment, so that row is indicative only. M0 `consult-rx-finish` typed more free text (105 keystrokes); compare actions, not keystrokes.\n\n## Steps\n\n";
+  md += "\nNotes: M0 `checkout-collect` collected two payments (cash then UPI); the prototype flow collects one full cash payment, so that row is indicative only. M0 `consult-rx-finish` (12 actions, 105 keystrokes, 8 clicks) typed a 53-character note and two custom medicines and recorded no examination; the v1 column for the whole consult is the code-derived cost of the same five steps the v2 flow performs.\n\n## Steps\n\n";
   for (const r of results) md += `**${r.label}**: ` + r.steps.map((s) => `${s.kind} ${s.target}${s.keystrokes > 1 ? " (" + s.keystrokes + ")" : ""}`).join(" → ") + "\n\n";
   write("counts.md", md);
   return results;
@@ -655,6 +805,7 @@ for (const r of axeRuns) axeMd += `| ${r.id} | ${r.w} | ${r.v.length ? r.v.map((
 write("axe/SUMMARY.md", axeMd);
 
 const flowsMet = cnt.filter((r) => r.meetsTarget === true).length;
+const whole = cnt.find((r) => r.id === "consult-whole");
 const flowsTargeted = cnt.filter((r) => r.meetsTarget !== null).length;
 const outcomes = cnt.filter((r) => r.outcomeAsserted).length;
 const screens = fs.readdirSync(path.join(OUT, "screens"), { recursive: true }).filter((f) => String(f).endsWith(".png")).length;
@@ -666,10 +817,12 @@ Generated: ${new Date().toISOString()} · Playwright ${JSON.parse(fs.readFileSyn
 |---|---|
 | Network requests from the prototypes (all aborted) | ${blocked}${blocked ? " (" + [...blockedUrls].join(", ") + ")" : ""} |
 | Page errors | ${pageErrors.length}${pageErrors.length ? ": " + [...new Set(pageErrors)].join("; ") : ""} |
-| Screenshots | ${screens} PNG (Chromium 360/744/820/1180/1280; WebKit iPhone 15 390 for ${wk.join(", ")}) |
+| Screenshots | ${screens} PNG (Chromium 360/744/820/1180/1280, consult also 1440; WebKit iPhone 15 390 for ${wk.join(", ")}) |
 | axe runs | ${axeRuns.length}; violation nodes: critical ${byImpact.critical}, serious ${byImpact.serious}, moderate ${byImpact.moderate}, minor ${byImpact.minor} → [axe/SUMMARY.md](axe/SUMMARY.md) |
-| Contrast (gated token pairs) | ${contrast.gated - contrast.failed}/${contrast.gated} pass, ${contrast.failed} fail → [contrast.md](contrast.md) |
-| Interaction flows | ${outcomes}/${cnt.length} outcomes asserted; ${flowsMet}/${flowsTargeted} meet their §4/§5 target → [counts.md](counts.md), videos in \`walkthrough/\` |
+| Contrast, direction A (gated token pairs) | ${contrast.gated - contrast.failed}/${contrast.gated} pass, ${contrast.failed} fail → [contrast.md](contrast.md) |
+| Contrast, direction B | ${contrast.b.gated - contrast.b.failed}/${contrast.b.gated} pass, ${contrast.b.failed} fail |
+| Interaction flows | ${outcomes}/${cnt.length} outcomes asserted; ${flowsMet}/${flowsTargeted} meet their target → [counts.md](counts.md), videos in \`walkthrough/\` |
+| Whole consult by tap (A–E) | ${whole ? whole.clicks + " taps, " + whole.presses + " presses, " + whole.typedChars + " typed characters" : "n/a"} vs v1 ${whole && whole.v1 ? whole.v1.taps + " taps, ≈ " + whole.v1.typed + " typed (code-derived)" : ""}; M0 measured 12 actions / 105 keystrokes |
 | AI-02 copy check | ${copyViolations} violations → [copy-check.txt](copy-check.txt) |
 | ₹ glyph in IBM Plex Sans | ${gl.rupeeGlyphOnly.inFont ? "rendered by Plex (no fallback face needed)" : "FALLBACK needed"} → [glyphs.txt](glyphs.txt) |
 | Devanagari | Plex Sans Latin: ${gl.devanagariInPlexSans.inFont ? "has it" : "does not have it (expected)"}; Plex Sans Devanagari draws it: ${gl.devanagariInPlexDeva.inFont && gl.devanagariInPlexDeva.differsFromSystem ? "yes" : "NO"} |
