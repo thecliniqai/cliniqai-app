@@ -25,6 +25,8 @@ vi.mock("@/lib/supabase/system", () => ({
 const V1_ROOT = path.resolve(__dirname, "../../app/api/v1");
 const SAMPLE_ID = "00000000-0000-4000-8000-000000000123";
 const METHODS = ["GET", "POST", "PATCH", "PUT", "DELETE"] as const;
+// A well-formed but unknown key, assembled at run time (gitleaks' clinicos-api-key rule matches the literal shape).
+const WELL_FORMED_KEY = `Bearer ${["clq", "live", "0".repeat(48)].join("_")}`;
 
 function v1RouteFiles(): string[] {
   return (fs.readdirSync(V1_ROOT, { recursive: true }) as string[])
@@ -72,7 +74,7 @@ describe("/api/v1: no system client before authentication (review B L-5)", () =>
   it("switch off: every handler answers 404 without acquiring the system client", async () => {
     vi.stubEnv("API_V1_ENABLED", "false");
     for (const [file, method, handler] of await keyHandlers()) {
-      const res = await handler(request(file, method, "Bearer clq_live_000000000000000000000000000000000000000000000000"), ctx);
+      const res = await handler(request(file, method, WELL_FORMED_KEY), ctx);
       expect(res.status, `${method} ${file}`).toBe(404);
     }
     expect(acquired.calls).toEqual([]);
@@ -95,7 +97,7 @@ describe("/api/v1: no system client before authentication (review B L-5)", () =>
     vi.stubEnv("API_V1_ENABLED", "true");
     const [[file, method, handler]] = await keyHandlers();
     await expect(
-      handler(request(file, method, "Bearer clq_live_000000000000000000000000000000000000000000000000"), ctx),
+      handler(request(file, method, WELL_FORMED_KEY), ctx),
     ).rejects.toThrow(/system client acquired/);
     expect(acquired.calls).toEqual(["api_v1"]);
   });

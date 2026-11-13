@@ -23,3 +23,6 @@ ea34a3eef152476025471b5b959ad955e6b4a12e:tests/auth/password-schemas-and-errors.
 ea34a3eef152476025471b5b959ad955e6b4a12e:tests/auth/password-schemas-and-errors.spec.ts:generic-api-key:253
 # V2-03 03-12c: false positive, a synthetic JWT-shaped fixture the AUTH-00 kit CLI must refuse as STAGING_SECRET_KEY (now built at runtime)
 aebe35d03d1f54210e4cec3b1e3f52fb0c2c0111:tests/ci/auth00-recheck-cli.spec.ts:generic-api-key:58
+# V2-03 03-13c: false positive, a synthetic all-zero clq_live_ key in the /api/v1 system-client order spec (now built at runtime)
+39695e8292c325de957a3fb3a77fcbd7438d3e37:tests/api/v1-system-client-order.spec.ts:clinicos-api-key:75
+39695e8292c325de957a3fb3a77fcbd7438d3e37:tests/api/v1-system-client-order.spec.ts:clinicos-api-key:98
