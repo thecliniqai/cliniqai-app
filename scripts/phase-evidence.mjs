@@ -5,7 +5,8 @@
  *
  * Usage: node scripts/phase-evidence.mjs <evidence-dir> [runs=2]
  * Writes: commit.txt, full-run-<n>.json (Vitest JSON reporter), summary.json (per-run counts + per-file status +
- * teardown line), static-checks.json (typecheck, eslint, acceptance greps, inventory, dependency versions).
+ * teardown line), static-checks.json (typecheck, eslint, acceptance greps, inventory, dependency versions, and the
+ * V2-03 ESLint-computed acceptance counters from scripts/ci/p1-34-counters.mjs).
  *
  * Usage: node scripts/phase-evidence.mjs <evidence-dir> --ci-run <run-id>
  * Writes only ci-run.json: the GitHub Actions run (URL, head SHA, branch, event, conclusion, per-job conclusions)
@@ -16,6 +17,7 @@
 import { execFileSync, execSync, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { p134Counters } from "./ci/p1-34-counters.mjs";
 
 const dir = resolve(process.argv[2] ?? "");
 if (!process.argv[2] || process.argv[2].startsWith("--")) {
@@ -115,6 +117,9 @@ const checks = {
   ]),
   grep_override_params_in_app_code: grepCount("[A-Za-z]+Override[,:)? ]|actorSession", ["features", "lib", "app"]),
   inventory: { exit_code: inventory.status, tail: inventory.stdout.trim().split("\n").slice(-6) },
+  // V2-03 acceptance 2 and 5 (03-04): computed by ESLint over app code. Expected: p1_34_boundary_messages 0,
+  // service_role_factories ["lib/supabase/system.ts"], utc_today_messages 0.
+  ...(await p134Counters()),
   dependencies: { next_declared: pkg.dependencies?.next, next_installed: installedNext },
 };
 writeFileSync(join(dir, "static-checks.json"), `${JSON.stringify(checks, null, 1)}\n`);
@@ -125,3 +130,6 @@ for (const r of summary.runs) {
   );
 }
 console.log(`typecheck exit=${checks.typecheck.exit_code} eslint exit=${checks.eslint.exit_code} inventory exit=${checks.inventory.exit_code}`);
+console.log(
+  `p1_34_boundary_messages=${checks.p1_34_boundary_messages} utc_today_messages=${checks.utc_today_messages} service_role_factories=${JSON.stringify(checks.service_role_factories)}`,
+);
