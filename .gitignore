@@ -74,6 +74,9 @@ pnpm-debug.log*
 # Planning research cache
 .planning/**/.cache
 
+# Pinned ops tools downloaded by ops/bin/install-age.sh (V2-04 04-05a); checksum-verified, never committed
+/.cache/
+
 # Supabase CLI local state (V2-01a)
 supabase/.branches/
 

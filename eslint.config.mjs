@@ -414,10 +414,13 @@ const BOUNDARY_IMPORT_ZONES = [
   { files: ["lib/jobs/internal/**", "app/api/jobs/**"], allow: [...SYSTEM_MODULES, "jobsInternal"] },
 ];
 
-// ADR-0005 D4: tests and scripts are excepted from the boundary gates; so are the root tool configs.
+// ADR-0005 D4: tests and scripts are excepted from the boundary gates; so are the root tool configs. V2-04 04-05a:
+// `ops/**` (backup, restore drill and backup evidence: operator tooling run with tsx/bash, never imported by the app)
+// joins with the same exceptions as `scripts/**`.
 const TOOLING_FILES = [
   "tests/**",
   "scripts/**",
+  "ops/**",
   "eslint.config.mjs",
   "playwright.config.ts",
   "vitest.config.ts",

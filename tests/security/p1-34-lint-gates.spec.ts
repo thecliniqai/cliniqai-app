@@ -135,6 +135,8 @@ const FAILING: Array<[string, string, string, Expected]> = [
   // P1-15 / P1-25 / P1-21.
   ["process.env in a feature", "process-env.ts", "features/patients/service.ts", ENV_LINES],
   ["process.env in the system factory", "process-env.ts", "lib/supabase/system.ts", ENV_LINES],
+  // V2-04 04-05a: the ops/** tooling allowance does not leak into lib/.
+  ["process.env in lib (outside the ops/** tooling zone)", "process-env.ts", "lib/x.ts", ENV_LINES],
   ["console in a feature", "console.ts", "features/billing/service.ts", CONSOLE_LINES],
   ["console in the server logger", "console.ts", "lib/log/index.ts", CONSOLE_LINES],
   ["console in the env module", "console.ts", "lib/env.ts", CONSOLE_LINES],
@@ -187,6 +189,9 @@ const PASSING: Array<[string, string]> = [
   ["console.ts", "scripts/fixture.ts"],
   ["raw-stream.ts", "scripts/fixture.ts"],
   ["process-env.ts", "tests/fixture/x.spec.ts"],
+  // V2-04 04-05a: ops/** (backup and restore-drill tooling) has the scripts/** exceptions.
+  ["process-env.ts", "ops/x.ts"],
+  ["console.ts", "ops/x.ts"],
   // 03-13c: the env modules may build env names; tooling may import its own trees and use require.
   ["computed-secret-key.ts", "lib/env.ts"],
   ["computed-secret-key.ts", "lib/env-server.ts"],

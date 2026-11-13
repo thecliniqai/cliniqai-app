@@ -1,0 +1,113 @@
+-- Restore-drill checks (V2-04 04-05a, FT-02, ruling R-11): run against a database just restored from a backup archive
+-- by ops/restore-drill/run.sh, and against the primary local stack by tests/ops/restore-drill-checks-db.spec.ts.
+-- V2-05 (05-01) replaces this file with its generated pgTAP RLS matrix.
+--
+-- psql variables (manifest-derived; the drill passes them, the spec computes them live):
+--   expected_policies   count of pg_policies in public + storage
+--   expected_functions  count of non-extension functions in public, private, ops
+--   expected_users      count of auth.users rows
+--
+-- Everything runs inside BEGIN … ROLLBACK: the probe clinic and patient inserted below never persist. finish(true)
+-- raises when any test failed, so psql (ON_ERROR_STOP) exits non-zero and the drill fails. Output is TAP with counts
+-- and table names only (no row data).
+\set ON_ERROR_STOP 1
+\set VERBOSITY terse
+
+begin;
+create extension if not exists pgtap with schema extensions;
+set local search_path = extensions, public;
+
+select plan(10);
+
+-- 1. RLS is on for every public table (the failing table names are listed in the diagnostics).
+select is_empty(
+  $$ select c.relname::text
+       from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind in ('r', 'p') and not c.relrowsecurity
+      order by 1 $$,
+  'RLS is enabled on every public table'
+);
+
+-- 2-4. The restored policy, function and user counts equal the manifest.
+select is(
+  (select count(*)::int from pg_policies where schemaname in ('public', 'storage')),
+  :expected_policies::int,
+  'policy count (public, storage) equals the manifest'
+);
+select is(
+  (select count(*)::int
+     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname in ('public', 'private', 'ops')
+      and not exists (select 1 from pg_depend d
+                       where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')),
+  :expected_functions::int,
+  'function count (public, private, ops) equals the manifest'
+);
+select is((select count(*)::int from auth.users), :expected_users::int, 'auth.users count equals the manifest');
+
+-- 5-6. No schedule and no queued outbound HTTP request came back with the data (research pitfall 8, T-04-13): a drill
+-- stack must never call the environment the dump came from.
+select is(
+  case when to_regclass('cron.job') is null then 0
+       else (xpath('/row/c/text()', query_to_xml('select count(*) as c from cron.job', false, true, '')))[1]::text::int
+  end,
+  0,
+  'cron.job is empty'
+);
+select is(
+  case when to_regclass('net.http_request_queue') is null then 0
+       else (xpath('/row/c/text()', query_to_xml('select count(*) as c from net.http_request_queue', false, true, '')))[1]::text::int
+  end,
+  0,
+  'net.http_request_queue is empty'
+);
+
+-- 7-10. Tenant isolation probe: a restored member U of clinic A must see none of a second clinic B's rows.
+select isnt_empty(
+  $$ select 1 from public.memberships m join auth.users u on u.id = m.user_id $$,
+  'a restored membership exists to probe tenant isolation'
+);
+select m.user_id as probe_user, m.tenant_id as probe_tenant
+  from public.memberships m join auth.users u on u.id = m.user_id
+ order by m.created_at, m.id
+ limit 1 \gset
+select gen_random_uuid() as probe_tenant_b \gset
+
+insert into public.tenants (id, name) values (:'probe_tenant_b', 'Restore drill probe clinic');
+insert into public.patients (tenant_id, full_name, phone, created_by)
+values (:'probe_tenant_b', 'Restore Drill Probe', '+910000000000', :'probe_user');
+
+select is(
+  (select count(*)::int from public.patients where tenant_id = :'probe_tenant_b'),
+  1,
+  'the probe clinic holds one synthetic patient (seen as postgres)'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', :'probe_user', 'role', 'authenticated')::text, true);
+
+select isnt_empty(
+  format('select 1 from public.tenants where id = %L', :'probe_tenant'),
+  'the probe member sees its own clinic (claims applied)'
+);
+select is_empty(
+  format(
+    $$ with tenant_tables as materialized (
+         select c.oid::regclass as rel
+           from pg_class c
+           join pg_namespace n on n.oid = c.relnamespace
+           join pg_attribute a on a.attrelid = c.oid and a.attname = 'tenant_id' and not a.attisdropped
+          where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm')
+            and has_table_privilege(c.oid, 'SELECT'))
+       select rel::text
+         from tenant_tables
+        where (xpath('/row/c/text()',
+                     query_to_xml(format('select count(*) as c from %%s where tenant_id = %%L', rel, %L::uuid),
+                                  false, true, '')))[1]::text::int > 0
+        order by 1 $$,
+    :'probe_tenant_b'),
+  'no table with a tenant_id shows the probe member a row of another clinic'
+);
+
+select * from finish(true);
+rollback;
