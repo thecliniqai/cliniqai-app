@@ -42,6 +42,8 @@ import {
   report,
   ROOT,
   rolesLacking,
+  selfActionLeg,
+  selfParamViolations,
   staticGuardViolations,
   tenantSnapshot,
   unauthenticatedActionLeg,
@@ -88,7 +90,9 @@ async function load(c: ActionCase) {
   return mod[c.name];
 }
 
-const isAuthenticatedOnly = (g: ActionGuard | undefined) => typeof g === "object" && "authenticated" in g;
+/** No membership needed: onboarding/invitation (`authenticated`) and own-account actions (`self`, 03-12a). */
+const isAuthenticatedOnly = (g: ActionGuard | undefined) => typeof g === "object" && ("authenticated" in g || "self" in g);
+const isSelf = (g: ActionGuard | undefined) => typeof g === "object" && "self" in g;
 const leg3Role = (g: ActionGuard) => leastPrivilegedHolding(typeof g === "string" ? g : null);
 
 /** Otherwise-valid tenant-A inputs for `c` over the row set `a` (valid-inputs.ts, else the generic id filler). */
@@ -210,7 +214,7 @@ describe("P0-13: every server action is in the guard manifest and guarded", () =
     describe("leg 4: signed in with no clinic membership", () => {
       const needsMembership = cases.filter((c) => {
         const g = ACTION_GUARDS[c.key];
-        return g !== undefined && !(typeof g === "object" && "authenticated" in g);
+        return g !== undefined && !isAuthenticatedOnly(g);
       });
       let before: Record<string, number>;
       beforeAll(async () => {
@@ -227,8 +231,37 @@ describe("P0-13: every server action is in the guard manifest and guarded", () =
       });
     });
 
+    describe("self leg: own-account actions take no id and touch nothing but auth (03-12a)", () => {
+      const selfCases = cases.filter((c) => isSelf(ACTION_GUARDS[c.key]));
+      let before: Record<string, number>;
+      beforeAll(async () => {
+        before = await countRows(admin);
+      });
+
+      it("the change-password and reset actions are self actions (the leg is not vacuous)", () => {
+        expect(selfCases.map((c) => c.key).sort()).toEqual([
+          "features/auth/actions.ts#changePasswordAction",
+          "features/auth/actions.ts#setNewPasswordAction",
+        ]);
+      });
+
+      it.each(selfCases.map(label))("%s", async (_k, c) => {
+        const violations = [...selfParamViolations(c)];
+        for (const caller of [world.outsider, world.roles.receptionist, world.roles.owner]) {
+          violations.push(...(await selfActionLeg(slot, c, await load(c), caller.client, world)));
+        }
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it("wrote nothing", async () => {
+        expect(await countRows(admin)).toEqual(before);
+      });
+    });
+
     describe("leg 3: tenant B's ids, least-privileged role holding the permission", () => {
-      const manifested = cases.filter((c) => ACTION_GUARDS[c.key] !== undefined);
+      // `self` actions take no reference to forge (password fields only, checked statically) and have no tenant
+      // inputs that could succeed as a control; the self leg above runs their forged-id call instead.
+      const manifested = cases.filter((c) => ACTION_GUARDS[c.key] !== undefined && !isSelf(ACTION_GUARDS[c.key]));
       let before: Record<string, string>;
       beforeAll(async () => {
         before = await tenantSnapshot(admin, world.b.tenant);

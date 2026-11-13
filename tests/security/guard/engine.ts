@@ -137,8 +137,57 @@ export function staticGuardViolations(c: ActionCase, guard: ActionGuard | undefi
     if (g.permission !== null) return v(`manifest says membership-only but ${g.call} checks ${g.permission}`);
     return [];
   }
-  if (g) return v(`manifest says authenticated-only but the body reaches ${g.call}(${g.permission ?? ""})`);
+  const kind = "self" in guard ? "self-only" : "authenticated-only";
+  if (g) return v(`manifest says ${kind} but the body reaches ${g.call}(${g.permission ?? ""})`);
   return [];
+}
+
+/** Auth-account actions (`{ self }`, 03-12a): the input may carry password fields only. */
+const SELF_FIELD = /password/i;
+
+/**
+ * `self` leg, static half: no parameter or field names a user, tenant, row or address. A `self` action that took an
+ * id could be pointed at another account; its input must be the caller's secrets only.
+ */
+export function selfParamViolations(c: ActionCase): Violation[] {
+  const out: Violation[] = [];
+  for (const p of c.params) {
+    const fields = [...p.typeFields, ...p.destructuredFields];
+    const leaves = fields.length > 0 ? fields : [p.name];
+    for (const f of leaves) {
+      const leaf = f.split(".").pop() ?? f;
+      if (!SELF_FIELD.test(leaf)) {
+        out.push({ key: c.key, leg: "self input", detail: `field "${f}" of param ${p.name} is not a password field` });
+      }
+    }
+    if (fields.length === 0 && p.typeText !== "string") {
+      out.push({ key: c.key, leg: "self input", detail: `param ${p.name} has no declared fields (${p.typeText})` });
+    }
+  }
+  return out;
+}
+
+/**
+ * `self` leg, runtime half: a signed-in caller with forged ids (tenant B's, in every id-shaped field the forger knows)
+ * is answered without any data access beyond `auth`, and nothing of tenant B comes back. The forged object carries no
+ * password fields, so the call is refused by validation and never reaches `updateUser`.
+ */
+export async function selfActionLeg(
+  slot: RequestSlot,
+  c: ActionCase,
+  fn: (...args: unknown[]) => unknown,
+  client: object,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const o = await invokeAction(slot, client, fn, argsFor(c, world.b));
+  const out: Violation[] = [];
+  const leg = "self";
+  if (o.access.length > 0) out.push({ key: c.key, leg, detail: `data access beyond auth: ${o.access.join(", ")}` });
+  if (!o.threw && !isFailureShape(o.value)) out.push({ key: c.key, leg, detail: `forged input accepted: ${brief(serialise(o.value))}` });
+  const text = o.threw ? messageOf(o) ?? "" : serialise(o.value);
+  const leaked = world.bSecrets.filter((s) => text.includes(s));
+  if (leaked.length > 0) out.push({ key: c.key, leg, detail: `returned tenant B data (${leaked.length} B values)` });
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------------------------

@@ -60,6 +60,34 @@ export const completeResetSchema = z.object({
   newPassword: newPasswordSchema,
 });
 
+/**
+ * The password the user signs in with today, for change-password (03-12a, A00-5). Presence and the 72-byte bcrypt
+ * bound only: the auth server decides whether it is right (hosted "require current password").
+ */
+export const currentPasswordSchema = z
+  .string()
+  .min(1, "Enter your current password")
+  .refine((v) => utf8ByteLength(v) <= PASSWORD_MAX_BYTES, PASSWORD_TOO_LONG_MESSAGE);
+
+/** `changePasswordAction` input (03-12a). No user id: the action only ever changes the session user's password. */
+export const changePasswordSchema = z.object({
+  currentPassword: currentPasswordSchema,
+  newPassword: newPasswordSchema,
+});
+
+/** `setNewPasswordAction` input (03-12a): the forgot-password final step, on a fresh recovery session. */
+export const setNewPasswordSchema = z.object({
+  newPassword: newPasswordSchema,
+});
+
+/** The profile form adds a confirmation field. */
+export const changePasswordFormSchema = changePasswordSchema
+  .extend({ confirmPassword: z.string() })
+  .refine((v) => v.newPassword === v.confirmPassword, {
+    message: PASSWORDS_DO_NOT_MATCH_MESSAGE,
+    path: ["confirmPassword"],
+  });
+
 /** The forgot-password form adds a confirmation field. */
 export const completeResetFormSchema = completeResetSchema
   .extend({ confirmPassword: z.string() })
@@ -71,3 +99,5 @@ export const completeResetFormSchema = completeResetSchema
 export type SignInInput = z.infer<typeof signInSchema>;
 export type ResetRequestInput = z.infer<typeof resetRequestSchema>;
 export type CompleteResetInput = z.infer<typeof completeResetSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type SetNewPasswordInput = z.infer<typeof setNewPasswordSchema>;

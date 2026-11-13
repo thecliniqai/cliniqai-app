@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { en } from "@/messages/en";
+import { AUTH_ERROR_MESSAGES, authErrorCodeOf, isRateLimitCode, type AuthErrorCode } from "./errors";
 import {
   completeResetSchema,
-  newPasswordSchema,
   resetRequestSchema,
   signInSchema,
   type CompleteResetInput,
@@ -10,13 +11,16 @@ import {
 } from "./schemas";
 
 /**
- * Password sign-in and forgot-password flows (AUTH-04a, AUTH_REDESIGN §3.3, §3.4).
+ * Password sign-in and forgot-password flows (AUTH-04a, AUTH_REDESIGN §3.3, §3.4; 03-12a).
  *
- * These run in the browser through `lib/supabase/client.ts` so Supabase's per-IP limits see the user's IP
- * (AUTH §2.4). They must never be given a service-role client: that skips CAPTCHA on `/token` (AUTH-00 E10).
+ * Sign-in, the reset request and the recovery-code check run in the browser through `lib/supabase/client.ts` so
+ * Supabase's per-IP limits see the user's IP (AUTH §2.4, R-5). They must never be given a service-role client: that
+ * skips CAPTCHA on `/token` (AUTH-00 E10). Setting the new password is NOT done here: it is the server action
+ * `setNewPasswordAction` (features/auth/actions.ts), which checks the password against Pwned Passwords (FT-05) and the
+ * recovery session's age (A00-5) before it calls `updateUser`; `completeReset` takes it as `setPassword`.
  *
- * Errors are mapped to fixed strings. The Supabase `error.message` is never shown, returned or logged (AD-7).
- * The full error catalogue (`errors.ts`) arrives with AUTH-04b.
+ * Errors are mapped by code through the catalogue (`errors.ts`). The Supabase `error.message` is never shown,
+ * returned or logged (AD-7).
  */
 
 type AuthClient = Pick<SupabaseClient, "auth">;
@@ -28,50 +32,51 @@ export type AuthFlowErrorCode =
   | "code_invalid"
   | "weak_password"
   | "same_password"
+  | "captcha_failed"
   | "unknown";
 
 export type AuthFlowFailure = { ok: false; code: AuthFlowErrorCode; message: string };
 export type AuthFlowResult = { ok: true } | AuthFlowFailure;
 
-/** Outcome of setting the new password. `stage` says whether the recovery code was already used. */
+/** What the server action that sets the password answers (features/auth/actions.ts). */
+export type SetPasswordResult =
+  | { ok: true; otherSessionsSignedOut: boolean }
+  | { ok: false; code: AuthErrorCode | "invalid_input" | "unknown"; message: string };
+
+/** Outcome of the final reset step. `stage` says whether the recovery code was already used. */
 export type CompleteResetResult =
   | { ok: true; otherSessionsSignedOut: boolean }
-  | (AuthFlowFailure & { stage: "verify" | "update" });
+  | ((AuthFlowFailure | Extract<SetPasswordResult, { ok: false }>) & { stage: "verify" | "update" });
 
+/** Fixed messages of these flows, all from the catalogue (`messages/en.ts`). */
 export const AUTH_MESSAGES = {
-  invalid_credentials: "Email or password is incorrect",
-  rate_limited: "Too many attempts, please wait a minute",
-  sign_in_failed: "Sign-in failed, try again",
-  code_invalid: "Code is wrong or expired",
-  weak_password: "Choose a stronger password of at least 10 characters",
-  same_password: "Choose a different password",
-  reset_request_failed: "We couldn't send the code, try again",
-  reset_failed: "We couldn't reset your password, try again",
+  invalid_credentials: AUTH_ERROR_MESSAGES.invalid_credentials,
+  rate_limited: AUTH_ERROR_MESSAGES.over_request_rate_limit,
+  code_invalid: AUTH_ERROR_MESSAGES.otp_expired,
+  weak_password: AUTH_ERROR_MESSAGES.weak_password,
+  same_password: AUTH_ERROR_MESSAGES.same_password,
+  captcha_failed: AUTH_ERROR_MESSAGES.captcha_failed,
+  sign_in_failed: en.auth.flows.sign_in_failed,
+  reset_request_failed: en.auth.flows.reset_request_failed,
+  reset_failed: en.auth.flows.reset_failed,
 } as const;
 
-type Flow = "sign_in" | "reset_request" | "verify_code" | "update_password";
+type Flow = "sign_in" | "reset_request" | "verify_code";
 
 const GENERIC_BY_FLOW: Record<Flow, string> = {
   sign_in: AUTH_MESSAGES.sign_in_failed,
   reset_request: AUTH_MESSAGES.reset_request_failed,
   verify_code: AUTH_MESSAGES.reset_failed,
-  update_password: AUTH_MESSAGES.reset_failed,
 };
-
-function errorCodeOf(error: unknown): string | undefined {
-  if (error && typeof error === "object" && "code" in error) {
-    const code = (error as { code?: unknown }).code;
-    return typeof code === "string" ? code : undefined;
-  }
-  return undefined;
-}
 
 /**
  * Maps a Supabase Auth error to a fixed result. Only `error.code` is read; the message is ignored.
  * `email_not_confirmed` gets the same text as `invalid_credentials` so sign-in does not reveal which accounts exist.
+ * Both rate-limit codes (HTTP 429) share one message (A00-4).
  */
 export function mapAuthError(error: unknown, flow: Flow): AuthFlowFailure {
-  const code = errorCodeOf(error);
+  const code = authErrorCodeOf(error);
+  if (isRateLimitCode(code)) return { ok: false, code: "rate_limited", message: AUTH_MESSAGES.rate_limited };
   switch (code) {
     case "invalid_credentials":
     case "email_not_confirmed":
@@ -79,22 +84,11 @@ export function mapAuthError(error: unknown, flow: Flow): AuthFlowFailure {
         return { ok: false, code: "invalid_credentials", message: AUTH_MESSAGES.invalid_credentials };
       }
       break;
-    case "over_request_rate_limit":
-    case "over_email_send_rate_limit":
-      return { ok: false, code: "rate_limited", message: AUTH_MESSAGES.rate_limited };
+    case "captcha_failed":
+      return { ok: false, code: "captcha_failed", message: AUTH_MESSAGES.captcha_failed };
     case "otp_expired":
       if (flow === "verify_code") {
         return { ok: false, code: "code_invalid", message: AUTH_MESSAGES.code_invalid };
-      }
-      break;
-    case "weak_password":
-      if (flow === "update_password") {
-        return { ok: false, code: "weak_password", message: AUTH_MESSAGES.weak_password };
-      }
-      break;
-    case "same_password":
-      if (flow === "update_password") {
-        return { ok: false, code: "same_password", message: AUTH_MESSAGES.same_password };
       }
       break;
   }
@@ -133,7 +127,7 @@ export async function requestReset(client: AuthClient, input: ResetRequestInput)
   try {
     const { error } = await client.auth.resetPasswordForEmail(parsed.data.email);
     if (error) {
-      if (errorCodeOf(error) === "over_email_send_rate_limit") return { ok: true };
+      if (authErrorCodeOf(error) === "over_email_send_rate_limit") return { ok: true };
       return mapAuthError(error, "reset_request");
     }
     return { ok: true };
@@ -143,37 +137,17 @@ export async function requestReset(client: AuthClient, input: ResetRequestInput)
 }
 
 /**
- * Sets the new password on a session that has just been established with a recovery code, then signs out every
- * other session for the user. Also used to retry after `completeReset` failed at the `update` stage.
- */
-export async function setNewPassword(
-  client: AuthClient,
-  newPassword: string,
-): Promise<{ ok: true; otherSessionsSignedOut: boolean } | AuthFlowFailure> {
-  const parsed = newPasswordSchema.safeParse(newPassword);
-  if (!parsed.success) return invalidInput(parsed.error.issues[0]?.message);
-
-  try {
-    const { error } = await client.auth.updateUser({ password: parsed.data });
-    if (error) return mapAuthError(error, "update_password");
-  } catch {
-    return mapAuthError(null, "update_password");
-  }
-
-  try {
-    const { error } = await client.auth.signOut({ scope: "others" });
-    return { ok: true, otherSessionsSignedOut: !error };
-  } catch {
-    return { ok: true, otherSessionsSignedOut: false };
-  }
-}
-
-/**
  * Step 2 of forgot password. The input (including the new password) is validated before the code is used, so a
- * weak password does not burn the code. The code is verified with type `recovery` only: Supabase would also accept
- * a recovery code as `email`/`magiclink` (AUTH-00 E1), so the type is pinned here.
+ * weak password does not burn the code. The code is verified in the browser with type `recovery` only (R-5; Supabase
+ * would also accept a recovery code as `email`/`magiclink`, AUTH-00 E1, so the type is pinned here). That leaves a
+ * fresh recovery session; `setPassword` (the `setNewPasswordAction` server action) then sets the password on it and
+ * signs out every other session. After a failure at the `update` stage the page retries `setPassword` alone.
  */
-export async function completeReset(client: AuthClient, input: CompleteResetInput): Promise<CompleteResetResult> {
+export async function completeReset(
+  client: AuthClient,
+  input: CompleteResetInput,
+  setPassword: (input: { newPassword: string }) => Promise<SetPasswordResult>,
+): Promise<CompleteResetResult> {
   const parsed = completeResetSchema.safeParse(input);
   if (!parsed.success) return { ...invalidInput(parsed.error.issues[0]?.message), stage: "verify" };
 
@@ -187,7 +161,12 @@ export async function completeReset(client: AuthClient, input: CompleteResetInpu
     return { ...mapAuthError(null, "verify_code"), stage: "verify" };
   }
 
-  const updated = await setNewPassword(client, newPassword);
+  let updated: SetPasswordResult;
+  try {
+    updated = await setPassword({ newPassword });
+  } catch {
+    updated = { ok: false, code: "unknown", message: AUTH_MESSAGES.reset_failed };
+  }
   if (!updated.ok) return { ...updated, stage: "update" };
   return updated;
 }

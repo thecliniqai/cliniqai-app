@@ -14,13 +14,18 @@
  *     no membership is denied; the cross-tenant leg runs as the least-privileged role (receptionist).
  *   - `{ authenticated: reason }`: deliberately callable by a signed-in user with no membership (onboarding,
  *     invitation acceptance). Only the unauthenticated and cross-tenant legs apply.
+ *   - `{ self: reason }` (03-12a): acts only on the signed-in caller's own auth account (change password, reset
+ *     completion), with or without a clinic membership. No tenant data and no static membership guard: the action
+ *     authenticates from the cookie session itself. Legs: unauthenticated; cross-tenant (as the outsider); and the
+ *     `self` leg: the input names no user, tenant or row (password fields only) and a signed-in call with forged ids
+ *     touches nothing but `auth` and returns nothing of tenant B.
  *
  * Routes (`"file#METHOD"`), by category (see `RouteGuard`). Adding an entry is a security decision: say why in the
  * PR and get the adversarial second review (CLAUDE.md DoD 6).
  */
 import type { Permission } from "@/lib/permissions";
 
-export type ActionGuard = Permission | { member: string } | { authenticated: string };
+export type ActionGuard = Permission | { member: string } | { authenticated: string } | { self: string };
 
 /** Which of tenant B's seeded rows a session route's `[id]` gets in the cross-tenant leg. */
 export type BResource = "invoice" | "patient" | "visit";
@@ -60,6 +65,10 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/api-keys/actions.ts#createApiKey": "clinic:manage",
   "features/api-keys/actions.ts#listApiKeys": "clinic:manage",
   "features/api-keys/actions.ts#revokeApiKey": "clinic:manage",
+  "features/auth/actions.ts#changePasswordAction":
+    { self: "Changes the session user's own password (current + new); FT-05 and the A00-5 10-minute bound apply." },
+  "features/auth/actions.ts#setNewPasswordAction":
+    { self: "Forgot-password final step on the session user's own fresh recovery session (A00-5); FT-05 applies." },
   "features/billing/actions.ts#addInvoiceItem": "appointments:edit",
   "features/billing/actions.ts#completeAndBillConsultation": "consultations:edit",
   "features/billing/actions.ts#createVisitInvoice": "appointments:edit",

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { abandonReset, completeReset, requestReset, setNewPassword } from "@/features/auth/password-flows";
+import { abandonReset, completeReset, requestReset, type SetPasswordResult } from "@/features/auth/password-flows";
+import { setNewPasswordAction } from "@/features/auth/actions";
 import { PASSWORDS_DO_NOT_MATCH_MESSAGE, completeResetFormSchema } from "@/features/auth/schemas";
 import { ClinicShowcasePanel } from "@/components/auth/clinic-showcase-panel";
 import { AuthMobileBrand, FormMessage, PasswordInput } from "@/components/auth/auth-form-parts";
@@ -16,6 +17,19 @@ import { useHydrated } from "@/lib/hooks/use-hydrated";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 const SENT_NOTICE = "If an account exists for this email, we've sent a 6-digit code. It can take a minute to arrive.";
+const RESET_FAILED = "We couldn't reset your password, try again";
+
+/**
+ * Sets the password through the server action (FT-05 breached-password check + 10-minute recovery-session bound,
+ * 03-12a). A network failure is a failed attempt, not a thrown error.
+ */
+async function saveNewPassword(input: { newPassword: string }): Promise<SetPasswordResult> {
+  try {
+    return await setNewPasswordAction(input);
+  } catch {
+    return { ok: false, code: "unknown", message: RESET_FAILED };
+  }
+}
 
 type Step = "request" | "reset" | "done";
 
@@ -93,10 +107,11 @@ export default function ForgotPasswordPage() {
         return;
       }
       setLoading(true);
-      const retried = await setNewPassword(supabase, newPassword);
+      const retried = await saveNewPassword({ newPassword });
       setLoading(false);
       if (!retried.ok) {
-        setError(retried.message);
+        if (retried.code === "reauth_required") await restartAfterStaleSession(retried.message);
+        else setError(retried.message);
         return;
       }
       finish(retried.otherSessionsSignedOut);
@@ -111,14 +126,30 @@ export default function ForgotPasswordPage() {
     }
 
     setLoading(true);
-    const result = await completeReset(supabase, parsed.data);
+    const result = await completeReset(supabase, parsed.data, saveNewPassword);
     setLoading(false);
     if (!result.ok) {
+      if (result.stage === "update" && result.code === "reauth_required") {
+        await restartAfterStaleSession(result.message);
+        return;
+      }
       if (result.stage === "update") setCodeAccepted(true);
       setError(result.message);
       return;
     }
     finish(result.otherSessionsSignedOut);
+  };
+
+  // The recovery session is older than the 10-minute bound (A00-5): end it here and start again with a new code.
+  const restartAfterStaleSession = async (message: string) => {
+    setCodeAccepted(false);
+    await abandonReset(supabase);
+    setCode("");
+    setNewPasswordValue("");
+    setConfirmPassword("");
+    setCooldown(0);
+    setStep("request");
+    setError(message);
   };
 
   const finish = (otherSessionsSignedOut: boolean) => {
