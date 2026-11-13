@@ -50,7 +50,7 @@
   <header style="display:grid;gap:10px">
     <p class="eyebrow">V2-DX round 3</p>
     <h1 class="title-1" id="dir-title">Direction A · Calm Confidence (Botanical Teal)</h1>
-    <p class="muted">White-first, light only. This page renders one direction at a time from the live tokens: open it plainly for A, add <code>?dir=b</code> for B (Calm Azure). Both share the type scale, spacing, components and the four status colours; they differ in the primary, the soft surfaces (mineral vs azure-tinted greys) and the secondary accent. Ratios for every pair are in <code>v2-dx-evidence/contrast.md</code>.</p>
+    <p class="muted">White-first, light only. This page renders one direction at a time from the live tokens: open it plainly for the CliniQ AI brand theme (CliniQ Blue actions, Midnight ink, Care Teal for "with doctor", slate neutrals); add <code>?dir=a</code> or <code>?dir=b</code> for the round-3 directions. Both share the type scale, spacing, components and the four status colours; they differ in the primary, the soft surfaces (mineral vs azure-tinted greys) and the secondary accent. Ratios for every pair are in <code>v2-dx-evidence/contrast.md</code>.</p>
   </header>
 
   <section aria-labelledby="s0">
@@ -123,7 +123,9 @@
     const a = document.getElementById("sw-a");
     const acc = [["accent", "primary"], ["accent-hover", "hover"], ["accent-pressed", "pressed"], ["accent-subtle", "soft"], ["accent-tint", "tint"], ["accent-2", "accent 2"], ["accent-2-bg", "accent 2 bg"], ["ring", "focus ring"]];
     sw("sw-a", acc, a);
-    if (document.documentElement.getAttribute("data-dir") === "b") document.getElementById("dir-title").textContent = "Direction B · Calm Azure (Deep Blue)";
+    var dirAttr = document.documentElement.getAttribute("data-dir");
+    if (dirAttr === "b") document.getElementById("dir-title").textContent = "Direction B · Calm Azure (Deep Blue)";
+    if (dirAttr === "cliniq") document.getElementById("dir-title").textContent = "CliniQ AI · CliniQ Blue and Care Teal";
     document.getElementById("neutrals").innerHTML = [["canvas", "canvas"], ["surface-soft", "soft"], ["surface-muted", "muted"], ["border", "hairline"], ["border-strong", "strong"], ["border-control", "control"], ["fg-icon", "icon"], ["fg-muted", "muted text"], ["fg-secondary", "secondary"], ["fg", "ink"], ["danger-fg", "critical"], ["warning-fg", "waiting"], ["info-fg", "information"], ["success-fg", "done"]]
       .map((n) => '<div><i style="background:var(--color-' + n[0] + ')"></i><span>' + n[1] + "<br>" + cs.getPropertyValue("--color-" + n[0]).trim() + "</span></div>")
       .join("");

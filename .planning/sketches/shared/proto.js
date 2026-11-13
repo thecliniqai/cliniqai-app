@@ -84,16 +84,29 @@
   }
 
   /* Brand mark (PO-19 default: teal tile, white "Q"). Same geometry as 002-icon/icon.svg. */
+  /* CliniQ AI mark: a blue-to-teal ring (the Q) with a stethoscope whose tube is the tail.
+     Below 32 px the small-size version (no earpieces, heavier strokes) keeps it legible. */
+  let markId = 0;
   function mark(size) {
     const s = size || 36;
+    const id = "cq-ring-" + ++markId;
+    const small = s < 32;
+    const grad =
+      '<defs><linearGradient id="' + id + '" x1="0" y1="1" x2="1" y2="0">' +
+      '<stop offset="0" stop-color="#246BCE"/><stop offset="1" stop-color="#2CBDAF"/></linearGradient></defs>';
+    const body = small
+      ? '<path d="M32.51 79.38A36 36 0 1 1 81.65 51.01" fill="none" stroke="url(#' + id + ')" stroke-width="13" stroke-linecap="round"/>' +
+        '<path d="M34 28V42C34 53 40 58 46 58C52 58 58 53 58 42V28" fill="none" stroke="#0B1A42" stroke-width="7.5" stroke-linecap="round"/>' +
+        '<path d="M46 58V64C46 75 53 82 63 82H70" fill="none" stroke="#0B1A42" stroke-width="7.5" stroke-linecap="round"/>' +
+        '<circle cx="78" cy="82" r="7" fill="none" stroke="#0B1A42" stroke-width="6.5"/>'
+      : '<path d="M34.88 80.24A36 36 0 1 1 81.21 53.48" fill="none" stroke="url(#' + id + ')" stroke-width="10" stroke-linecap="round"/>' +
+        '<path d="M35 30V43C35 52.5 40.5 58 46 58C51.5 58 57 52.5 57 43V30" fill="none" stroke="#0B1A42" stroke-width="4.6" stroke-linecap="round"/>' +
+        '<circle cx="35" cy="28.5" r="3.9" fill="#0B1A42"/><circle cx="57" cy="28.5" r="3.9" fill="#0B1A42"/>' +
+        '<path d="M46 58V65C46 75.5 53 82 63 82H71" fill="none" stroke="#0B1A42" stroke-width="4.6" stroke-linecap="round"/>' +
+        '<circle cx="78.5" cy="82" r="6.6" fill="none" stroke="#0B1A42" stroke-width="4.4"/>';
     return (
-      '<svg class="mark" width="' +
-      s +
-      '" height="' +
-      s +
-      '" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="var(--pwa-icon-tile)"/>' +
-      '<circle cx="246" cy="242" r="112" fill="none" stroke="#fff" stroke-width="58"/>' +
-      '<path d="M300 298 372 370" stroke="#fff" stroke-width="58" stroke-linecap="round"/></svg>'
+      '<svg class="mark" width="' + s + '" height="' + s + '" viewBox="4 4 86 86" role="img" aria-label="CliniQ AI">' +
+      grad + body + "</svg>"
     );
   }
 
@@ -471,8 +484,17 @@
   }
   window.Proto.hydrate = hydrate;
   hydrate();
+  /* CliniQ AI brand theme is the default; ?dir=a shows round-3 direction A, ?dir=b direction B. */
+  const dir = param("dir");
+  if (dir !== "a" && dir !== "b") {
+    const c = document.createElement("link");
+    c.rel = "stylesheet";
+    c.href = "../themes/cliniq-ai.css";
+    document.head.appendChild(c);
+    document.documentElement.setAttribute("data-dir", "cliniq");
+  }
   /* Colour direction B (?dir=b): load the semantic override after the base tokens. */
-  if (param("dir") === "b") {
+  if (dir === "b") {
     const l = document.createElement("link");
     l.rel = "stylesheet";
     l.href = "../themes/direction-b.css";

@@ -1,0 +1,152 @@
+/* =====================================================================================================
+   CliniQ AI brand theme — loaded AFTER clinic-paper.css (prototypes load it by default; ?dir=a and
+   ?dir=b still show the earlier directions). Source of truth: the "CliniQ AI Design System"
+   (tokens.json) and the CliniQ AI brand kit.
+
+   Same token names as clinic-paper.css, so every semantic and component alias follows. What changes:
+     - Palette: CliniQ Blue (#246BCE) is the action colour; Midnight (#0B1A42) is the ink;
+       cool slate neutrals replace the mineral greens.
+     - Care Teal (#12A396 / text #0D6962) now means "patient moving forward": the With-doctor status,
+       the next-up row and the With-doctor token chip.
+     - Status hues: Booked violet, Waiting amber, With doctor teal, To bill green, Done slate,
+       No-show red. None of them shares the primary blue. Information stays soft blue.
+     - Type: Inter stays for reading; Manrope (the logo face) is added for titles, display text and
+       token numbers via --font-display.
+     - Radii follow the design system: 6 · 10 · 14 · 20.
+   The type SCALE and control sizes from round 3 are unchanged (dense desktop, 44 px touch floor).
+   Every text pair below was checked for WCAG AA (ratios in comments).
+   ===================================================================================================== */
+
+@font-face {
+  font-family: "Manrope";
+  src: url("fonts/Manrope-latin-wght.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20B9, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Manrope";
+  src: url("fonts/Manrope-latin-ext-wght.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+:root {
+  /* ---------------------------------------------------------------- 1. RAW ---------------------- */
+  /* Slate neutrals (design system slate-*) under the old "mineral" names */
+  --color-mineral-50: #f7f9fc; /* slate-25 Cloud: soft surface */
+  --color-mineral-100: #f1f4f9; /* slate-50: muted surface, wells, table heads */
+  --color-mineral-200: #e4e9f1; /* slate-100: hairline */
+  --color-mineral-300: #cdd5e1; /* slate-200: strong border (decorative) */
+  --color-mineral-400: #a9b4c6; /* slate-300: disabled, decorative only */
+  --color-mineral-450: #7e8ba2; /* slate-400: control border, 3.4:1 on white, 3.1:1 on slate-50 */
+  --color-mineral-500: #5c6981; /* slate-500: icons */
+  --color-mineral-550: #5c6981; /* slate-500: muted text, 5.5:1 on white, 5.0:1 on slate-50 */
+  --color-mineral-600: #465268; /* slate-600: secondary ink, 7.9:1 */
+  --color-mineral-900: #0b1a42; /* blue-950 Midnight: primary ink, 16.9:1 */
+
+  /* CliniQ Blue */
+  --color-primary-50: #f5f9fe; /* tint */
+  --color-primary-100: #eef5fd; /* blue-50: soft / selected */
+  --color-primary-200: #b9d4f5; /* blue-200 */
+  --color-primary-500: #3a80d9; /* blue-500 */
+  --color-primary-600: #246bce; /* blue-600 CliniQ Blue: primary, white text 5.2:1 */
+  --color-primary-700: #1d58ab; /* blue-700: hover (white 6.9:1), blue text on soft 6.3:1 */
+  --color-primary-800: #1b4a8c; /* blue-800: pressed */
+
+  /* Care Teal (new raw ramp; used by the With-doctor status and the next-up row) */
+  --color-teal-50: #eafbf8;
+  --color-teal-100: #c9f4ee;
+  --color-teal-500: #12a396; /* Care Teal: borders, graphics (3.1:1 on white, not for text) */
+  --color-teal-700: #0d6962; /* teal text on teal-50, 6.1:1 */
+
+  /* "To bill" brass: kept from round 3 */
+  --color-brass-50: #f7f1e8;
+  --color-brass-500: #b58a55;
+  --color-brass-700: #6d5434;
+
+  --color-success-50: #e8f5ee;
+  --color-success-600: #177a45; /* 4.8:1 on success-50 */
+  --color-warning-50: #fdf3e2;
+  --color-warning-600: #8a5710; /* 5.5:1 on warning-50 */
+  --color-danger-50: #fdecec;
+  --color-danger-600: #b42828; /* 5.6:1 on danger-50, white on it 6.3:1 */
+  --color-info-50: #eef5fd;
+  --color-info-600: #1d58ab; /* 6.3:1 on info-50 */
+
+  --color-focus: #3a80d9; /* 4.0:1 on white (3:1 needed for a focus ring) */
+  --color-focus-halo: #eef5fd;
+
+  /* ---------------------------------------------------------------- 2. SEMANTIC ----------------- */
+  --color-scrim: rgb(11 26 66 / 0.36);
+
+  /* Visit status: every state has its own hue, and none shares the primary blue.
+     Booked violet · Waiting amber · With doctor teal · To bill green · Done slate · No-show red. */
+  --color-status-booked-bg: #f3effd;
+  --color-status-booked-fg: #5b34b5; /* 7.1:1 on its wash */
+  --color-status-booked-border: #7c5cd6; /* 4.8:1 on white */
+  --color-status-with-doctor-bg: var(--color-teal-50);
+  --color-status-with-doctor-fg: var(--color-teal-700); /* 6.1:1 */
+  --color-status-with-doctor-border: var(--color-teal-500);
+  --color-status-to-bill-bg: var(--color-success-50);
+  --color-status-to-bill-fg: var(--color-success-600); /* 4.8:1 */
+  --color-status-to-bill-border: var(--color-success-600);
+  --color-status-done-bg: var(--color-mineral-100);
+  --color-status-done-fg: var(--color-mineral-600); /* 7.1:1: finished visits step back */
+  --color-status-done-border: var(--color-mineral-450);
+  --color-status-cancelled-bg: var(--color-white); /* outlined (rule below), so it never reads as Done */
+  --color-status-cancelled-fg: var(--color-mineral-550);
+
+  /* ---------------------------------------------------------------- 3. STRUCTURE ---------------- */
+  --font-sans: "Inter", "IBM Plex Sans Devanagari", "Noto Sans Devanagari", ui-sans-serif, system-ui,
+    "Segoe UI", Roboto, sans-serif;
+  --font-display: "Manrope", "Inter", "IBM Plex Sans Devanagari", "Noto Sans Devanagari", ui-sans-serif,
+    system-ui, sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --shadow-card: 0 1px 2px rgb(11 26 66 / 0.05), 0 8px 28px rgb(11 26 66 / 0.06);
+  --shadow-popover: 0 2px 6px rgb(11 26 66 / 0.06), 0 12px 32px rgb(11 26 66 / 0.1);
+  --shadow-overlay: 0 24px 56px rgb(11 26 66 / 0.16), 0 2px 8px rgb(11 26 66 / 0.06);
+
+  /* ---------------------------------------------------------------- 4. COMPONENT ---------------- */
+  --row-next-bg: #f2fcfa; /* teal tint: the patient called next */
+  --banner-offline-bg: var(--color-mineral-900);
+  --pwa-theme-color: #ffffff;
+  --pwa-icon-tile: #ffffff;
+}
+
+/* Cancelled is an outlined pill: Done is a filled slate pill, so the two greys stay apart. */
+.chip-cancelled {
+  box-shadow: inset 0 0 0 1px var(--color-border-control);
+}
+
+/* Manrope for headings, display text, prices and token numbers (the logo face).
+   Body, rows, labels, tiles, pills and inputs stay Inter. */
+.title-1,
+.title-2,
+.display,
+.token,
+.tb-title h1,
+.today-head .phone-title h1,
+.card h2,
+.price b,
+.lf-head h1,
+.sheet-mock h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+.title-1,
+.display {
+  font-weight: 800;
+}
+.token {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}

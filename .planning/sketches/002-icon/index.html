@@ -7,6 +7,7 @@
 <title>App icon · V2-DX</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="../themes/clinic-paper.css">
+<link rel="stylesheet" href="../themes/cliniq-ai.css">
 <link rel="stylesheet" href="../shared/sketch.css">
 <style>
   main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 24px; }
@@ -34,14 +35,14 @@
 <body>
 <main id="main">
   <header>
-    <h1 class="title-1">App icon and theme colour (PO-19) · round 2</h1>
-    <p class="muted">Working name <b>CliniQ</b> on the home screen (domain thecliniqai.com). A tile with a geometric “Q” drawn as paths, so it never depends on a font. Round 2 thins the stroke (50 of 512) and rounds the tile (120) to sit with the white canvas. A follows colour direction A, B follows direction B.</p>
+    <h1 class="title-1">App icon and theme colour (PO-19) · CliniQ AI brand</h1>
+    <p class="muted">Home-screen name <b>CliniQ AI</b> (domain thecliniqai.com). The final brand mark: a blue-to-teal ring forming the Q, with a stethoscope whose tube slips out as the tail. Drawn as paths, so it never depends on a font. Production PNGs for every platform are in the CliniQ AI brand kit.</p>
   </header>
 
   <section class="grid" aria-label="Options">
-    <article class="panel card"><h2 class="title-3">A · Teal tile (recommended)</h2><img src="icon.svg" width="160" height="160" alt="Option A: teal rounded tile with a white Q"><p class="body-sm muted">Tile = <code>--pwa-icon-tile</code> (the accent, #0E716B in direction A). White on teal is 5.84:1. Reads as a clinic on any wallpaper.</p></article>
-    <article class="panel card"><h2 class="title-3">B · Graphite tile (direction B)</h2><img src="icon-alt-b-paper.svg" width="160" height="160" alt="Option B: graphite tile with a white Q"><p class="body-sm muted">Pairs with the graphite buttons of direction B. Strong on light wallpapers; indistinguishable from utility apps on dark ones.</p></article>
-    <article class="panel card"><h2 class="title-3">C · White tile</h2><img src="icon-alt-c-ink.svg" width="160" height="160" alt="Option C: white tile with a teal Q"><p class="body-sm muted">Matches the white canvas, but a white tile vanishes on light wallpapers and in the Android drawer.</p></article>
+    <article class="panel card"><h2 class="title-3">A · White tile (default)</h2><img src="icon.svg" width="160" height="160" alt="Option A: white tile with the CliniQ AI mark"><p class="body-sm muted">Matches the white app canvas and keeps the full-colour mark. The ring and Midnight stethoscope separate it from wallpaper. This is the store icon.</p></article>
+    <article class="panel card"><h2 class="title-3">B · Midnight tile (iOS dark)</h2><img src="icon-alt-b-paper.svg" width="160" height="160" alt="Option B: Midnight tile with the reversed mark"><p class="body-sm muted">The reversed mark on Midnight (#0B1A42), used for the iOS dark appearance.</p></article>
+    <article class="panel card"><h2 class="title-3">C · CliniQ Blue tile</h2><img src="icon-alt-c-ink.svg" width="160" height="160" alt="Option C: CliniQ Blue tile with a light mark"><p class="body-sm muted">Alternative for marketing and campaigns. Strongest on light wallpapers.</p></article>
   </section>
 
   <section class="panel card" aria-labelledby="sizes-h">
@@ -58,13 +59,13 @@
 
   <section class="grid" aria-label="In context">
     <div class="wall wall-dark" aria-label="Android home screen, dark wallpaper (circle mask)">
-      <div class="app"><span class="masked"><img src="icon-maskable.svg" alt=""></span>CliniQ</div>
+      <div class="app"><span class="masked"><img src="icon-maskable.svg" alt=""></span>CliniQ AI</div>
       <div class="app"><span class="masked" style="background:#3b82f6"></span>Phone</div>
       <div class="app"><span class="masked" style="background:#22c55e"></span>WhatsApp</div>
       <div class="app"><span class="masked" style="background:#f59e0b"></span>Files</div>
     </div>
     <div class="wall wall-light" aria-label="iPhone home screen, light wallpaper">
-      <div class="app"><img src="icon.svg" alt="">CliniQ</div>
+      <div class="app"><img src="icon.svg" alt="">CliniQ AI</div>
       <div class="app"><span style="width:60px;height:60px;border-radius:13px;background:#9ca3af"></span>Camera</div>
       <div class="app"><span style="width:60px;height:60px;border-radius:13px;background:#0ea5e9"></span>Mail</div>
       <div class="app"><span style="width:60px;height:60px;border-radius:13px;background:#ef4444"></span>Calendar</div>
@@ -81,7 +82,7 @@
     <dl class="kv">
       <dt>theme_color</dt><dd><code>#FFFFFF</code> (the top bar surface; the status bar merges with the app bar)</dd>
       <dt>background_color</dt><dd><code>#FFFFFF</code> (round 2: the splash equals the white canvas)</dd>
-      <dt>Alternative</dt><dd><code>#0E716B</code> teal status bar: more branded, but a coloured band above a white bar on every screen and white status icons</dd>
+      <dt>Alternative</dt><dd><code>#246BCE</code> CliniQ Blue status bar: more branded, but a coloured band above a white bar on every screen and white status icons</dd>
     </dl>
   </section>
 </main>

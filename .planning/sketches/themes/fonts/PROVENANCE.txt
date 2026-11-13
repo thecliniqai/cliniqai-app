@@ -10,3 +10,9 @@ Files (fonts/complete/woff2/, unmodified):
   sha256 2b39f69997b1de44cfef6f6f6ef899a4f434a84af1dbc21886558e0f4d8d29b9  IBMPlexSansDevanagari-Medium.woff2
   sha256 9414954cbb343be6c8fa97b716a93eb7cd5501043356cdbb704e233db5f8ca85  IBMPlexSansDevanagari-Regular.woff2
   sha256 adbd61f32837a5b83b51f5a201305e4163f73505bf02262b3d30965fa96f948a  IBMPlexSansDevanagari-SemiBold.woff2
+
+Manrope (CliniQ AI brand theme, themes/cliniq-ai.css). Licence: SIL Open Font License 1.1 (Manrope-OFL.txt, no Reserved Font Name).
+Source: google/fonts repository, ofl/manrope/Manrope[wght].ttf (variable, wght 200-800), fetched 2026-11-14.
+Subset to woff2 with fontTools (latin and latin-ext ranges, all layout features kept):
+  sha256 69379a4a2e4bc31a7e3e3db66951692fef0c8c00ca0aba63668331004559a886  Manrope-latin-wght.woff2
+  sha256 78e9f6cf3867ffb2daa80d211eea9ecaacff15c715ff27bc5c24b26d621a9ea3  Manrope-latin-ext-wght.woff2
