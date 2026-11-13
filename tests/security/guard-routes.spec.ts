@@ -26,6 +26,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildInventory } from "@/scripts/inventory-server-actions";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { createUnlinkedUser } from "../helpers/tenants";
+import { psql } from "../helpers/sql";
 import { serverEnv } from "@/lib/env-server";
 import { ROUTE_GUARDS, type RouteGuard } from "./guard-manifest";
 import {
@@ -148,6 +149,13 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
       });
 
       it.each(ofKind("runner-secret"))("runner-secret: %s", async (_k, c, guard) => {
+        // 04-03b: the control leg runs a real runner pass over every registered kind. Jobs other files left due (a
+        // guard-actions control's message.send or webhook.deliver job) would be sent by it and write rows (audit
+        // `communication_sent`) inside this "wrote nothing" block, depending on file order. Park them a day ahead.
+        psql(
+          "update ops.jobs set run_at = now() + interval '1 day' where status = 'pending' and kind not like 'drill.%' " +
+            "and run_at <= now() + interval '1 hour'"
+        );
         const violations = await runnerRouteLegs(
           slot,
           c,
