@@ -1,0 +1,12 @@
+# static checks at 4093ff84d1a147d20f93d39dcb114d3dade24d2e (clean detached worktree of the commit; node_modules linked)
+## npm run typecheck
+exit 0
+## npx eslint . (summary)
+exit 0
+errors 0, warnings 422
+03-12b files with findings: 0
+## npm run inventory
+exit 0
+## node scripts/ci/env-example.mjs --check
+env-example: .env.example matches lib/env.ts
+exit 0

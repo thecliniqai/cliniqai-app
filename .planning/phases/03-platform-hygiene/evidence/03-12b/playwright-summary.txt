@@ -1,0 +1,75 @@
+# npm run e2e:build && npm run e2e:pr at b0a0ac4ed2c57e426afe6f9c8f06a579b32cc72b (tree also held 03-12c's uncommitted files, listed at the end)
+### Playwright run
+
+| project | passed | flaky (retried) | failed | skipped |
+|---|---|---|---|---|
+| desktop-chrome | 102 | 0 | 0 | 0 |
+| iphone-15 | 9 | 0 | 0 | 0 |
+| pixel-7 | 65 | 0 | 0 | 7 |
+| setup | 5 | 0 | 0 | 0 |
+
+**Retried to pass (flaky): 0** — quarantine within 24 h behind an issue; never retry-to-green.
+
+**Expected failures (known bugs): 10** — each must fail with its KNOWN-BUG assertion.
+- [desktop-chrome] journeys/journey-08-role-restrictions.spec.ts › receptionist › direct URL to a consultation is not served (known v1 gap P1-07) — P1-07: v1 renders /consultation/[id] for roles without consultations:view; the gate lands in V2-08
+  - failed with: `Error: KNOWN-BUG P1-07: the consultation URL is refused for a receptionist`
+- [pixel-7] journeys/journey-08-role-restrictions.spec.ts › receptionist › direct URL to a consultation is not served (known v1 gap P1-07) — P1-07: v1 renders /consultation/[id] for roles without consultations:view; the gate lands in V2-08
+  - failed with: `Error: KNOWN-BUG P1-07: the consultation URL is refused for a receptionist`
+- [desktop-chrome] m0/book-appointment.spec.ts › owner › overbook path with a new patient creates exactly one patient (known v1 bug F-04) — F-04: the overbook confirm re-runs createPatient, duplicating the new patient (P1, owner V2-08)
+  - failed with: `Error: KNOWN-BUG F-04: exactly one patient row for the new patient`
+- [pixel-7] m0/book-appointment.spec.ts › owner › overbook path with a new patient creates exactly one patient (known v1 bug F-04) — F-04: the overbook confirm re-runs createPatient, duplicating the new patient (P1, owner V2-08)
+  - failed with: `Error: KNOWN-BUG F-04: exactly one patient row for the new patient`
+- [desktop-chrome] m0/consult-rx-finish.spec.ts › a signed prescription is read-only in the workspace (known v1 gap P1-03) — P1-03: v1 keeps the prescription builder editable after sign-off; clinical immutability lands in V2-09a
+  - failed with: `Error: KNOWN-BUG P1-03: medicine search is disabled`
+- [pixel-7] m0/consult-rx-finish.spec.ts › a signed prescription is read-only in the workspace (known v1 gap P1-03) — P1-03: v1 keeps the prescription builder editable after sign-off; clinical immutability lands in V2-09a
+  - failed with: `Error: KNOWN-BUG P1-03: medicine search is disabled`
+- [desktop-chrome] m0/register-patient.spec.ts › M0 flow: register patient › receptionist › receptionist registers a patient (known v1 bug F-01) — F-01: receptionists cannot register patients in v1 (no patients:edit); fixed by PO-3 in V2-05/V2-08
+  - failed with: `Error: KNOWN-BUG F-01: the new patient's record opens`
+- [pixel-7] m0/register-patient.spec.ts › M0 flow: register patient › receptionist › receptionist registers a patient (known v1 bug F-01) — F-01: receptionists cannot register patients in v1 (no patients:edit); fixed by PO-3 in V2-05/V2-08
+  - failed with: `Error: KNOWN-BUG F-01: the new patient's record opens`
+- [desktop-chrome] security/network-block.spec.ts › a test whose page reached for a non-loopback host fails
+  - failed with: `Error: the page tried to reach non-loopback hosts (V2-02: the e2e browser never leaves 127.0.0.1)`
+- [pixel-7] security/network-block.spec.ts › a test whose page reached for a non-loopback host fails
+  - failed with: `Error: the page tried to reach non-loopback hosts (V2-02: the e2e browser never leaves 127.0.0.1)`
+
+## playwright exit
+exit=0
+
+## git status at the run
+ M .env.example
+ M .github/workflows/staging.yml
+ M .planning/phases/03-platform-hygiene/03-WAVE-NOTES.md
+ M .planning/phases/03-platform-hygiene/evidence/package-legitimacy.json
+ M app/(auth)/forgot-password/page.tsx
+ M app/(auth)/login/page.tsx
+ M features/auth/password-flows.ts
+ M lib/env.ts
+ M messages/en.ts
+ M package-lock.json
+ M package.json
+ M tests/config/env-boot.spec.ts
+ M tests/config/env-schema.spec.ts
+ M tests/e2e/fixtures.ts
+ M tests/e2e/support/app-env.ts
+ M tests/e2e/support/password-journeys.ts
+ M tests/setup/test-env-guard.spec.ts
+ M tests/setup/test-env.ts
+?? .planning/phases/03-platform-hygiene/03-12b-SIGNOUT-OA5.md
+?? .planning/phases/03-platform-hygiene/evidence/03-12b/
+?? .planning/phases/03-platform-hygiene/evidence/03-12c/
+?? .planning/phases/04-jobs-reliability/04-PLAN.md
+?? .planning/phases/04-jobs-reliability/04-RESEARCH.md
+?? .planning/phases/05-db-authorisation-entitlements/05-PLAN.md
+?? .planning/phases/05-db-authorisation-entitlements/05-RESEARCH.md
+?? components/auth/turnstile-field.tsx
+?? lib/auth/safe-next.ts
+?? scripts/staging/auth00-recheck-lib.ts
+?? scripts/staging/auth00-recheck.ts
+?? tests/auth/password-flows-captcha.spec.ts
+?? tests/auth/safe-next.spec.ts
+?? tests/ci/auth00-recheck-cli.spec.ts
+?? tests/e2e/a11y/turnstile-screens.spec.ts
+?? tests/e2e/auth/j-a3-login.spec.ts
+?? tests/e2e/auth/turnstile.spec.ts
+?? tests/e2e/support/turnstile-stub.js
+?? tests/integration/auth/auth00-recheck-kit.spec.ts

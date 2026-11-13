@@ -1,0 +1,49 @@
+# mutation run at b0a0ac4ed2c57e426afe6f9c8f06a579b32cc72b: (1) proxy.ts redirect disabled ('if (false && !signedIn ...)'); (2) lib/auth/same-origin.ts returns true; each restored with git checkout right after
+## (1) npx vitest run tests/api/proxy-session.spec.ts tests/observability/request-id.spec.ts
+   ✓ 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > passes a signed-out request for a public page through with no cookie and no cache headers 3ms
+   × 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: redirects a signed-out GET for a protected page to /login with next (path + query) 3ms
+   ✓ 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: /api and non-GET page requests (Server Actions) are not redirected 1ms
+   × 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: a session that cannot be refreshed is redirected and its stale auth cookie deleted 11ms
+   ✓ 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > does not rewrite cookies for a session that is still valid 5ms
+   ✓ 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > refreshes an expired session and returns the response setAll built (cookie + no-store headers) 30ms
+   ✓ proxy assigns and forwards x-request-id > /api/health: a fresh UUID replaces the spoofed inbound id and is forwarded to the handler 2ms
+   ✓ proxy assigns and forwards x-request-id > /api/ready: a fresh UUID replaces the spoofed inbound id and is forwarded to the handler 0ms
+   ✓ proxy assigns and forwards x-request-id > /dashboard: a fresh UUID replaces the spoofed inbound id and is forwarded to the handler 0ms
+   ✓ proxy assigns and forwards x-request-id > a blocked encoded /api path (404) still carries a fresh id 1ms
+   ✓ proxy assigns and forwards x-request-id > /api/v1 with the switch off (404) still carries a fresh id 0ms
+   ✓ proxy assigns and forwards x-request-id > /api/v1 with the switch on: forwarded with a fresh id 0ms
+   ✓ proxy assigns and forwards x-request-id > a session refresh (setAll) keeps the id and forwards the refreshed cookie with it 0ms
+   × proxy assigns and forwards x-request-id > 03-12b: a signed-out page redirect (307 to /login) carries a fresh id and the cookies setAll wrote 2ms
+   ✓ proxy assigns and forwards x-request-id > two requests get two different ids 0ms
+   ✓ getRequestId and the v1 envelope > returns the forwarded id when it is a UUID, otherwise undefined 0ms
+   ✓ getRequestId and the v1 envelope > the 5xx envelope's correlation_id is the request id 1ms
+   ✓ getRequestId and the v1 envelope > outside a request scope the envelope still gets a fresh UUID 0ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  2 failed (2)
+      Tests  3 failed | 15 passed (18)
+## (2) npx vitest run tests/auth/signout-route.spec.ts tests/security/guard-routes.spec.ts -t 'signout|POST /auth/signout|isSameOriginRequest'
+   × P0-13: every route handler is in the guard manifest and guarded > seeded legs > denial legs (no writes) > signout: app/auth/signout/route.ts#POST 193ms
+   ✓ 03-12b POST /auth/signout > exports POST only, so Next answers GET (and every other method) 405 1ms
+   × 03-12b POST /auth/signout > refuses a cross-origin POST with 403 before creating a client; the session survives 179ms
+   ✓ 03-12b POST /auth/signout > refuses an unknown scope with 400 and signs nobody out 139ms
+   ✓ 03-12b POST /auth/signout > with no session: 303 to /login with Clear-Site-Data and no body 2ms
+   ✓ 03-12b POST /auth/signout > scope local (the default) revokes this session at GoTrue and leaves the user's other device signed in 254ms
+   ✓ 03-12b POST /auth/signout > scope global revokes every session of the user 225ms
+   ✓ 03-12b POST /auth/signout > when GoTrue cannot revoke, the auth cookies are still deleted and the answer is the same 303 1ms
+   ✓ 03-12b isSameOriginRequest > {"origin":"http://app.test"} → true 0ms
+   ✓ 03-12b isSameOriginRequest > {"origin":"http://app.test","sec-fetch-site":"same-origin"} → true 0ms
+   ✓ 03-12b isSameOriginRequest > {"sec-fetch-site":"same-origin"} → true 0ms
+   ✓ 03-12b isSameOriginRequest > {"origin":"http://preview.test","sec-fetch-site":"same-origin"} → true 0ms
+   × 03-12b isSameOriginRequest > {"origin":"https://evil.example"} → false 1ms
+   × 03-12b isSameOriginRequest > {"origin":"http://app.test:8080"} → false 1ms
+   × 03-12b isSameOriginRequest > {"origin":"https://app.test"} → false 0ms
+   × 03-12b isSameOriginRequest > {"origin":"http://app.test","sec-fetch-site":"cross-site"} → false 1ms
+   × 03-12b isSameOriginRequest > {"origin":"http://app.test","sec-fetch-site":"same-site"} → false 0ms
+   × 03-12b isSameOriginRequest > {"sec-fetch-site":"none"} → false 0ms
+   × 03-12b isSameOriginRequest > {"origin":"null"} → false 0ms
+   × 03-12b isSameOriginRequest > {} → false 0ms
+   × 03-12b isSameOriginRequest > with no trusted app origin only Sec-Fetch-Site: same-origin passes 0ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 11 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  2 failed (2)
+      Tests  11 failed | 10 passed | 54 skipped (75)
+## restored
