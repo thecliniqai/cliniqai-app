@@ -18,7 +18,9 @@ part of `evidence/package-legitimacy.json`.
 | `41f26f6` | feat: local Turnstile stub in the e2e network block; J-A3, Turnstile and a11y specs |
 | `aebe35d` | feat: AUTH-00 re-check kit and the `staging.yml` `auth00-recheck` job |
 | `407d47a` | feat: safe `next` keeps the proxy's path + query; J-A3 round trip through the 03-12b redirect |
-| (next) | docs: this record, the evidence and the wave-note rows |
+| `0bf9e16` | docs: this record, the evidence and the wave-note rows |
+| `096116b` | fix: the kit CLI spec's JWT-shaped fixture built at runtime; its exact historic fingerprint in `.gitleaksignore` (repo convention; the spec re-ran 16/16) |
+| (next) | docs: gitleaks evidence |
 
 ## What shipped
 
@@ -104,7 +106,7 @@ fail.
 | Full Vitest lane (`npm run test:db`) | 146 files, 2842 passed, **0 failed**, 0 skipped. Report gate PASS (floor 1805) | `vitest-full.json`, `vitest-full-tail.txt`, `vitest-report-gate.txt` |
 | `npm run e2e:build && npm run e2e:pr` | 183 expected, **0 unexpected, 0 flaky / retried**, 7 skipped (by design), 10 known-bug expected failures | `playwright-results.json`, `playwright-summary.txt` |
 | AUTH-00 kit CLI, `--target local` | 9 items, 14/14 synthetic users deleted, 0 left | `auth00-recheck-local.{json,txt}` |
-| gitleaks (full history) | see `gitleaks.txt` | `gitleaks.txt` |
+| gitleaks v8.30.1 (full history, after the fix commit) | no leaks found (the first scan flagged one synthetic JWT-shaped fixture, fixed as above) | `gitleaks.txt` |
 
 **Flake check.** One a11y run during the work had one failure ("forgot-password at 1280px"). At that moment the
 parallel 03-12b implementer had rebuilt `.next/` under the running server (the e2e build stamp changed to 02:10:28
