@@ -117,8 +117,9 @@
   --color-preview-bg: #eaf2f8;
   --color-preview-fg: #356f9b;
   --color-preview-border: #356f9b;
-  --font-sans: "IBM Plex Sans", "IBM Plex Sans Devanagari", "Noto Sans", "Noto Sans Devanagari", ui-sans-serif,
+  --font-sans: "Inter", "IBM Plex Sans Devanagari", "Noto Sans Devanagari", ui-sans-serif,
     system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-features: "cv11", "ss01";
   --font-mono: ui-monospace, "SFMono-Regular", Menlo, monospace;
   --text-caption: 0.6875rem;
   --text-caption--line-height: 0.875rem;

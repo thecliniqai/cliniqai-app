@@ -147,3 +147,19 @@ Tap targets: 44 px for every control on touch and below 1024 px; 36/32 px with a
 | `references/po-calm-palette-option-a.html` | The PO's reference page for direction A |
 | `V2-DX-R2-V1-CONSULT-ANALYSIS.md` | v1 consult capability inventory (the functional floor) |
 | `v2-dx-capture.mjs`, `v2-dx-evidence/` | Evidence generator and output |
+
+---
+
+## PO decision — G2-D sign-off (2026-11-13)
+
+- **Approved:** direction **A "Calm Confidence — Botanical Teal"** with the round-3 component system and consult structure.
+- **Typeface:** **Inter** (variable, OFL, vendored — `themes/fonts/Inter-*.woff2`), replacing IBM Plex Sans as the default
+  `--font-sans`; IBM Plex Sans Devanagari / Noto Sans Devanagari remain the Devanagari fallback. Font trial page:
+  `007-font-compare/`.
+- **Keep it tokenised:** colours, type and font must stay swappable through tokens only (`themes/clinic-paper.css`
+  raw → semantic → structure → component; `--font-sans`, `--font-features`). Direction B stays available as
+  `themes/direction-b.css` for a quick switch.
+- **Open to change:** the PO will refine from real usage after the app is built; no further design round blocks V2-06.
+- **Follow-ups for 06-01b:** load Inter with `next/font/local` from the vendored files; tune numeric contexts (doses
+  like "1-0-1" use proportional figures, tables and amounts use tabular figures); re-run axe and contrast on the
+  real app.
