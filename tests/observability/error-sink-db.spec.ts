@@ -106,17 +106,19 @@ describe("ops_ingest_error: rows", () => {
     expect(psql(`select request_id from ops.error_events where message = '${TAG} twice'`)).toEqual([second]);
   });
 
-  it("re-scrubs the message (emails, query strings, digit runs) as a second line of defence", async () => {
+  it("re-scrubs the message as a second line of defence (the shared rules: tests/observability/error-sink-scrub-db.spec.ts)", async () => {
     const raw = `${TAG} rescrub synthetic.person@example.com /r/x?phone=9000000031 id 9000000032`;
     expect((await ingest(LOCAL_ERROR_INGEST_KEY, event("x", { message: raw }))).error).toBeNull();
     const rows = psql(`select message from ops.error_events where message like '${TAG} rescrub%'`);
-    expect(rows).toEqual([`${TAG} rescrub [EMAIL] /r/x?[QUERY] id [NUMBER]`]);
+    // 03-13c: the database runs the app's rule list (path token, mobile), not only emails / queries / digit runs.
+    expect(rows).toEqual([`${TAG} rescrub [EMAIL] /r/[TOKEN]?[QUERY] id [PHONE REDACTED]`]);
   });
 });
 
 describe("ops_ingest_error: refuses malformed or oversize input", () => {
   it.each<[string, Record<string, unknown> | unknown]>([
-    ["a message over 500 characters", event("oversize", { message: `${TAG} oversize ${"m".repeat(500)}` })],
+    // 03-13c: up to 2000 characters are accepted (scrubbed, then cut to 500); beyond that the event is refused.
+    ["a message over 2000 characters", event("oversize", { message: `${TAG} oversize ${"m".repeat(2000)}` })],
     ["more than 20 frames", event("oversize", { frames: Array.from({ length: 21 }, (_, i) => `lib/a.ts:${i + 1}`) })],
     ["a frame that is not file:line", event("oversize", { frames: ["at handler (/srv/a.ts:1:2)"] })],
     ["an unknown key", { ...event("oversize"), headers: "cookie: x" }],

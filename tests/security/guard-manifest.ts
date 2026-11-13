@@ -59,7 +59,7 @@ export type RouteGuard =
   | {
       kind: "public-health";
       keys: readonly string[];
-      /** Request-client calls the probe may make (03-01: `/api/ready` runs the counts-only readiness RPC as anon). */
+      /** Request-client calls the probe may make (03-01/03-13c: `/api/ready` runs the booleans-only readiness RPC as anon). */
       access?: readonly string[];
     };
 
@@ -231,7 +231,8 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime", "region", "release"] },
   "app/api/ready/route.ts#GET": {
     kind: "public-health",
-    keys: ["status", "checks", "outbox", "providers", "latestMigration", "correlationId", "timestamp"],
+    // 03-13c (M-PROBE): no migration version and no counts reach an anonymous caller.
+    keys: ["status", "checks", "outbox", "providers", "correlationId", "timestamp"],
     access: ["rpc:readiness_probe"],
   },
   "app/api/invoices/[id]/receipt-pdf/route.ts#GET": SESSION_RECEIPT,

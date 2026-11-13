@@ -2438,7 +2438,10 @@ export type Database = {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;
       };
-      readiness_probe: { Args: Record<PropertyKey, never>; Returns: Json };
+      readiness_probe: {
+        Args: { p_expected_migration?: string };
+        Returns: Json;
+      };
       record_payment: {
         Args: {
           p_amount: number;

@@ -3,9 +3,11 @@
  * stack through an anon client (what the cookie client is for a signed-out caller).
  *
  * - `/api/health`: liveness only, plus `region` and `release` from the platform names (null locally, shape-checked).
- * - `/api/ready`: one `readiness_probe()` RPC; the body holds only the allow-listed keys with booleans and counts; no
- *   service role (it still answers 200 when `@/lib/supabase/system` throws on import); providers reported from the env
- *   schema; a failure is a 503 carrying no error text, logged with an error code only.
+ * - `/api/ready`: one `readiness_probe(p_expected_migration)` RPC through the cookie-less public client; the body holds
+ *   only the allow-listed keys, all booleans (no count, no migration version: 03-13c M-PROBE); ready only when the
+ *   build's EXPECTED_MIGRATION is applied; no service role (it still answers 200 when `@/lib/supabase/system` throws on
+ *   import); providers reported from the env schema; a failure is a 503 carrying no error text, logged with an error
+ *   code only.
  * - The proxy passes both probes through without a session refresh.
  */
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
@@ -13,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { publicEnv } from "@/lib/env";
 
-const state = vi.hoisted(() => ({ client: null as unknown }));
+const state = vi.hoisted(() => ({ client: null as unknown, cookieClientCalls: 0 }));
 
 // The service-role factory must not be reachable from the readiness route at all.
 vi.mock("@/lib/supabase/system", () => {
@@ -22,7 +24,14 @@ vi.mock("@/lib/supabase/system", () => {
 
 vi.mock("@/lib/supabase/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/supabase/server")>();
-  return { ...actual, createClient: async () => state.client };
+  return {
+    ...actual,
+    createPublicClient: () => state.client,
+    createClient: async () => {
+      state.cookieClientCalls += 1;
+      return state.client;
+    },
+  };
 });
 
 const { GET: getHealth } = await import("@/app/api/health/route");
@@ -35,7 +44,16 @@ function anonClient() {
   });
 }
 
-const READY_KEYS = ["checks", "correlationId", "latestMigration", "outbox", "providers", "status", "timestamp"];
+const READY_KEYS = ["checks", "correlationId", "outbox", "providers", "status", "timestamp"];
+const OUTBOX_KEYS = ["messagesBacklog", "messagesFailed24h", "webhooksBacklog", "webhooksFailed24h"];
+const { EXPECTED_MIGRATION } = await import("@/app/api/ready/expected-migration");
+
+/** A probe client answering `data` and recording the arguments it was called with. */
+function fakeProbe(data: unknown) {
+  const calls: unknown[][] = [];
+  return { calls, client: { rpc: async (...args: unknown[]) => (calls.push(args), { data, error: null }) } };
+}
+const FLAGS = { messages_backlog: false, messages_failed_24h: true, webhooks_backlog: false, webhooks_failed_24h: false };
 
 describe("GET /api/health (liveness)", () => {
   afterEach(() => {
@@ -81,22 +99,46 @@ describe("GET /api/ready (readiness RPC, no service role)", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns 200 with only the allow-listed keys, booleans and counts (admin import throws)", async () => {
+  it("returns 200 with only the allow-listed keys, all booleans, no count and no version (admin import throws)", async () => {
     const res = await getReady();
     expect(res.status).toBe(200);
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     const body = await res.json();
     expect(Object.keys(body).sort()).toEqual(READY_KEYS);
     expect(body.status).toBe("ready");
-    expect(body.checks).toEqual({ database: "ok" });
-    expect(Object.keys(body.outbox).sort()).toEqual(["messagesFailed24h", "messagesPending", "webhooksFailed24h", "webhooksPending"]);
-    for (const value of Object.values(body.outbox)) {
-      expect(Number.isInteger(value)).toBe(true);
-      expect(value as number).toBeGreaterThanOrEqual(0);
-    }
-    expect(body.latestMigration).toMatch(/^\d{6}$/);
-    expect(Number(body.latestMigration)).toBeGreaterThanOrEqual(25);
+    expect(body.checks).toEqual({ database: "ok", schema: "current" });
+    expect(Object.keys(body.outbox).sort()).toEqual(OUTBOX_KEYS);
+    for (const value of Object.values(body.outbox)) expect(typeof value).toBe("boolean");
+    expect(JSON.stringify(body)).not.toMatch(/"\d{6}"|latestMigration|Pending/);
     expect(typeof body.correlationId).toBe("string");
+  });
+
+  it("asks for the build's expected migration through the cookie-less client, never the cookie session", async () => {
+    const probe = fakeProbe({ db: true, schema_current: true, ...FLAGS });
+    state.client = probe.client;
+    state.cookieClientCalls = 0;
+    const body = await (await getReady()).json();
+    expect(probe.calls).toEqual([["readiness_probe", { p_expected_migration: EXPECTED_MIGRATION }]]);
+    expect(state.cookieClientCalls).toBe(0);
+    expect(body.outbox).toEqual({ messagesBacklog: false, messagesFailed24h: true, webhooksBacklog: false, webhooksFailed24h: false });
+  });
+
+  it("is not ready (503, schema behind) when the expected migration is not applied", async () => {
+    state.client = fakeProbe({ db: true, schema_current: false, ...FLAGS }).client;
+    const res = await getReady();
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body).toMatchObject({ status: "not_ready", checks: { database: "ok", schema: "behind" } });
+  });
+
+  it("refuses an answer carrying counts instead of booleans (the 000025 shape)", async () => {
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    state.client = fakeProbe({
+      db: true, schema_current: true, messages_backlog: 3, messages_failed_24h: 0, webhooks_backlog: 0, webhooks_failed_24h: 0,
+    }).client;
+    const res = await getReady();
+    expect(res.status).toBe(503);
+    expect(await res.text()).not.toMatch(/"messagesBacklog":3/);
   });
 
   it("reports AI, messaging and email from the env schema, never by calling a provider", async () => {
@@ -141,7 +183,7 @@ describe("GET /api/ready (readiness RPC, no service role)", () => {
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(Object.keys(body).sort()).toEqual(READY_KEYS);
-    expect(body).toMatchObject({ status: "not_ready", checks: { database: "error" }, outbox: null, latestMigration: null });
+    expect(body).toMatchObject({ status: "not_ready", checks: { database: "error", schema: "unknown" }, outbox: null });
     expect(JSON.stringify(body)).not.toContain("LEAK-password");
     expect(JSON.stringify(body)).not.toContain("internal-db");
 
