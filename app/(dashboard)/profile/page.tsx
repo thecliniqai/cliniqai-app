@@ -1,5 +1,6 @@
 import { getMyProfile } from "@/features/settings/actions";
 import { UserProfileForm } from "@/components/profile/user-profile-form";
+import { ChangePasswordForm } from "@/components/profile/change-password-form";
 
 export const metadata = {
   title: "My Profile · ClinicOS",
@@ -26,6 +27,9 @@ export default async function ProfilePage() {
         membership={membership}
         clinicName={tenant.name}
       />
+
+      {/* 03-12a (AUTH-04b): change password; FT-05 and other-device sign-out run in the server action. */}
+      <ChangePasswordForm email={user.email} />
     </div>
   );
 }

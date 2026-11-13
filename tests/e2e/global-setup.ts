@@ -6,18 +6,22 @@
  * - Seeds tenant A (owner, admin, doctor, nurse, receptionist; one patient with an in-consultation visit) and tenant
  *   B (owner; one patient and visit) with synthetic data and a per-run random password; writes ids/emails/names to
  *   `playwright/.auth/run.json` and the password to `E2E_RUN_PASSWORD` (inherited by workers, never on disk).
+ * - (03-12a, FT-05) Starts the loopback fake Pwned Passwords range API on 127.0.0.1:3101, which the e2e app server's
+ *   `PWNED_API_BASE_URL` names (tests/e2e/support/app-env.ts); it lists `BREACHED_FIXTURE_PASSWORDS` as breached.
  * - Returns the teardown: `teardownRun` removes every tenant, user and storage object created during the run (and
- *   `.planning/dev-messages.txt` if the run created it), then the storage states and run file are deleted.
+ *   `.planning/dev-messages.txt` if the run created it), then the storage states and run file are deleted, and the
+ *   fake range API is stopped.
  * Set TEST_KEEP_DATA=1 to keep the run's data for debugging.
  */
 import fs from "node:fs";
 import { randomInt, randomUUID } from "node:crypto";
-import { assertLocalTestEnv } from "../setup/test-env";
+import { E2E_PWNED_RANGE_PORT, assertLocalTestEnv } from "../setup/test-env";
 import { ensureLocalErrorIngestKey } from "../setup/error-sink-key";
 import { releaseRunLock, startRun, teardownRun, type RunMarker } from "../setup/teardown";
 import { addMemberToTenant, seededUserPassword, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ROOT } from "./support/app-env";
+import { startPwnedRangeServer, type PwnedRangeServer } from "./support/pwned-range-server";
 import { AUTH_DIR, RUN_FILE, RUN_PASSWORD_VAR, type RunData, type RunTenant } from "./support/run-data";
 
 /**
@@ -120,14 +124,24 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   // V2-03 03-09b: the local vault secret the error sink checks the synthetic ingest key against.
   ensureLocalErrorIngestKey(ROOT);
   const marker = await startRun(ROOT);
+  let range: PwnedRangeServer | null = null;
+  const stop = async () => {
+    try {
+      await finish(marker);
+    } finally {
+      await range?.close();
+    }
+  };
   try {
+    // V2-03 03-12a (FT-05): the e2e server's range API (PWNED_API_BASE_URL); fixed port, loopback only.
+    range = await startPwnedRangeServer({ port: E2E_PWNED_RANGE_PORT });
     const run = await seed(randomUUID().slice(0, 8));
     fs.mkdirSync(AUTH_DIR, { recursive: true });
     fs.writeFileSync(RUN_FILE, `${JSON.stringify(run, null, 2)}\n`);
     process.env[RUN_PASSWORD_VAR] = seededUserPassword();
   } catch (error) {
-    await finish(marker);
+    await stop();
     throw error;
   }
-  return () => finish(marker);
+  return stop;
 }
