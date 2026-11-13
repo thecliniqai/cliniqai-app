@@ -6,7 +6,7 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { PrescriptionItem } from "@/lib/db/types";
-import { enqueueMessage, enqueueWebhookEvent } from "@/lib/jobs/enqueue";
+import { enqueueMessage } from "@/lib/jobs/enqueue";
 import {
   prescriptionItemSchema,
   PrescriptionItemInput,
@@ -137,12 +137,8 @@ export async function getOrCreateDraftPrescription(
       return { success: false, error: "Failed to create prescription draft." };
     }
 
-    try {
-      // 04-03b: queued through the RPC; one event per prescription (event key), data built in SQL.
-      await enqueueWebhookEvent(ctx, "prescription.issued", created.id);
-    } catch (webhookErr) {
-      log.warn({ event: "prescriptions.draft_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    }
+    // 04-07a M-RXEVENT: the empty draft raises no `prescription.issued`; the event is queued when the consultation is
+    // signed (features/consultation/service.ts), and SQL refuses it from a request before then.
 
     return { success: true, prescriptionId: created.id };
   } catch (err: unknown) {

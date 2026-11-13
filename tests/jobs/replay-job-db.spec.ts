@@ -102,6 +102,55 @@ describe("ops.replay_job (R-35)", () => {
     psql(`delete from ops.jobs where id = '${String(replyJobId)}'`);
   });
 
+  // V2-04 04-07a (review IND M3, triage M-REPLAY): the dead-letter scrub (000024) replaced the share link with
+  // "[redacted]"; before, replay re-sent it and the patient received a broken link. Now replay refuses it, and a message
+  // without a link still replays with its parameters intact.
+  it("04-07a: refuses a message whose share link was redacted at dead-letter; a message without a link replays intact", async () => {
+    const link = `https://app.example.test/r/${"a".repeat(64)}`;
+    const share = await enqueueMessageAsSystem(
+      getAdminClient(),
+      {
+        patientId: patient.patientId,
+        channel: "whatsapp",
+        messageType: "prescription_ready",
+        templateId: "prescription_ready",
+        templateParams: { patient_name: "Synthetic", document_url: link },
+        metadata: { buttons: [{ id: "btn_view_rx", text: "View", url: link }] },
+        dedupeKey: `replay:${randomUUID()}`,
+      },
+      "system:jobs"
+    );
+    const [shareJob] = jobsFor(share.id);
+    kill(shareJob.id);
+    expect(psql(`select template_params ->> 'document_url' from public.communication_queue where id = '${share.id}'`)).toEqual([
+      "[redacted]",
+    ]);
+    expect(() => replay(shareJob.id)).toThrow(/JOB_NOT_REPLAYABLE/);
+    expect(job(shareJob.id).status).toBe("dead");
+    expect(queueState(share.id).status).toBe("dead_letter");
+
+    const plain = await enqueueMessageAsSystem(
+      getAdminClient(),
+      {
+        patientId: patient.patientId,
+        channel: "whatsapp",
+        messageType: "appointment_cancelled",
+        templateId: "appointment_cancelled",
+        templateParams: { patient_name: "Synthetic", reason: "Schedule conflict" },
+        dedupeKey: `replay:${randomUUID()}`,
+      },
+      "system:jobs"
+    );
+    const [plainJob] = jobsFor(plain.id);
+    kill(plainJob.id);
+    replay(plainJob.id);
+    const provider = recordingProvider();
+    await runMessages(onlyFor(patient.phone, provider), "replay-spec-2");
+    expect(provider.calls.filter((c) => c.templateId === "appointment_cancelled").map((c) => c.params)).toEqual([
+      { patient_name: "Synthetic", reason: "Schedule conflict", clinic_name: "Clinic" },
+    ]);
+  });
+
   it("no API role may run it (postgres only)", () => {
     for (const role of ["service_role", "authenticated", "anon"]) {
       expect(psql(`select has_function_privilege('${role}', 'ops.replay_job(uuid)', 'execute')`)).toEqual(["f"]);

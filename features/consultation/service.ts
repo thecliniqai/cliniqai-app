@@ -738,8 +738,8 @@ export async function completeAndSignConsultation(
         .eq("tenant_id", ctx.tenantId)
         .maybeSingle();
 
-      // The draft's creation already queued prescription.issued for this prescription: the event key
-      // (`prescription.issued:<id>`) makes this a no-op then, so each prescription is announced once.
+      // 04-07a M-RXEVENT: the one `prescription.issued` of a prescription made in the app, queued now that it is signed
+      // (event key `prescription.issued:<id>:signed`; the draft raises none, and SQL refuses an unsigned one).
       if (signedRx) {
         await enqueueWebhookEvent(ctx, "prescription.issued", signedRx.id);
       }

@@ -28,6 +28,9 @@ import {
   type SeededTenant,
 } from "../helpers/tenants";
 import { psql } from "../helpers/sql";
+import { consultationDraftInput } from "../helpers/fixtures";
+import { getOrCreateDraftPrescription } from "@/features/prescriptions/service";
+import { completeAndSignConsultation, saveConsultationDraft } from "@/features/consultation/service";
 import { anonClient, letters } from "./helpers";
 import { seedPatient, type SeededPatient } from "./message-helpers";
 import { deliveriesFor, deliveryPayload, subscribe, webhookJobsFor, type Subscription } from "./webhook-helpers";
@@ -44,9 +47,13 @@ let subInactive: Subscription;
 let subVisits: Subscription;
 let subB: Subscription;
 
-/** A prescription row on a fresh visit of `owner`'s clinic (as `getOrCreateDraftPrescription` writes it). */
+/**
+ * A prescription row on a fresh visit of `owner`'s clinic (as `getOrCreateDraftPrescription` writes it), signed as
+ * `completeAndSignConsultation` leaves it unless `signed: false` (04-07a M-RXEVENT: a request raises
+ * `prescription.issued` only for a signed prescription; its event key is `prescription.issued:<id>:signed`).
+ */
 const rxSubjects = new Map<string, SeededPatient>();
-async function prescriptionFor(owner: SeededTenant, doctorId: string): Promise<string> {
+async function prescriptionFor(owner: SeededTenant, doctorId: string, opts: { signed?: boolean } = {}): Promise<string> {
   const p = await seedPatient(owner.tenantId, owner.userId, doctorId);
   const { data, error } = await getAdminClient()
     .from("prescriptions")
@@ -58,6 +65,7 @@ async function prescriptionFor(owner: SeededTenant, doctorId: string): Promise<s
       version: 1,
       status: "active",
       letterhead_mode: "blank_paper",
+      ...(opts.signed === false ? {} : { signed_at: new Date().toISOString() }),
     })
     .select("id")
     .single();
@@ -125,11 +133,11 @@ describe("public.enqueue_webhook_event: every role's events are queued (R-19)", 
     expect(error).toBeNull();
     expect(data).toEqual({ queued: 1, delivery_ids: [expect.any(String)] });
 
-    const rows = deliveriesFor(subRx.id).filter((r) => r.eventKey === `prescription.issued:${rx}`);
+    const rows = deliveriesFor(subRx.id).filter((r) => r.eventKey === `prescription.issued:${rx}:signed`);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ id: data!.delivery_ids[0], status: "pending", retryCount: 0 });
-    expect(deliveriesFor(subInactive.id).filter((r) => r.eventKey === `prescription.issued:${rx}`)).toEqual([]);
-    expect(deliveriesFor(subVisits.id).filter((r) => r.eventKey === `prescription.issued:${rx}`)).toEqual([]);
+    expect(deliveriesFor(subInactive.id).filter((r) => r.eventKey === `prescription.issued:${rx}:signed`)).toEqual([]);
+    expect(deliveriesFor(subVisits.id).filter((r) => r.eventKey === `prescription.issued:${rx}:signed`)).toEqual([]);
 
     const jobs = webhookJobsFor(rows[0].id);
     expect(jobs).toHaveLength(1);
@@ -160,7 +168,7 @@ describe("tenant binding (R-6 revised; 03-07 D1 finding 2)", () => {
     }
     const missing = await enqueue(receptionistA.client, receptionistA.tenantId, "prescription.issued", "00000000-0000-4000-8000-00000000dead");
     expect(missing.error).toMatchObject({ code: "P0002", message: "SUBJECT_MISMATCH" });
-    expect(deliveriesFor(subB.id).filter((r) => r.eventKey === `prescription.issued:${rxB}`)).toEqual([]);
+    expect(deliveriesFor(subB.id).filter((r) => r.eventKey === `prescription.issued:${rxB}:signed`)).toEqual([]);
 
     await expect(enqueueWebhookEvent(ctxFor(receptionistA), "prescription.issued", rxB)).rejects.toSatisfy(
       (e: unknown) => e instanceof EnqueueError && e.appError.code === "NOT_FOUND" && !e.message.includes(rxB)
@@ -171,12 +179,12 @@ describe("tenant binding (R-6 revised; 03-07 D1 finding 2)", () => {
     const rxB = await prescriptionFor(ownerB, ownerB.userId);
     const refused = await enqueue(dual.client, ownerA.tenantId, "prescription.issued", rxB);
     expect(refused.error).toMatchObject({ code: "P0002", message: "SUBJECT_MISMATCH" });
-    expect(deliveriesFor(subB.id).filter((r) => r.eventKey === `prescription.issued:${rxB}`)).toEqual([]);
+    expect(deliveriesFor(subB.id).filter((r) => r.eventKey === `prescription.issued:${rxB}:signed`)).toEqual([]);
 
     const allowed = await enqueue(dual.client, ownerB.tenantId, "prescription.issued", rxB);
     expect(allowed.error).toBeNull();
     expect(allowed.data?.queued).toBe(1);
-    const rows = deliveriesFor(subB.id).filter((r) => r.eventKey === `prescription.issued:${rxB}`);
+    const rows = deliveriesFor(subB.id).filter((r) => r.eventKey === `prescription.issued:${rxB}:signed`);
     expect(rows).toHaveLength(1);
     expect(psql(`select tenant_id from public.webhook_delivery_queue where id = '${rows[0].id}'`)).toEqual([ownerB.tenantId]);
   });
@@ -186,7 +194,7 @@ describe("tenant binding (R-6 revised; 03-07 D1 finding 2)", () => {
     expect((await enqueue(receptionistA.client, ownerB.tenantId, "prescription.issued", rx)).error).toMatchObject({ code: "P0002" });
     expect((await enqueue(receptionistA.client, null, "prescription.issued", rx)).error).toMatchObject({ code: "P0002" });
     expect((await enqueue(anonClient(), ownerA.tenantId, "prescription.issued", rx)).error?.code).toBe("42501");
-    expect(deliveriesFor(subRx.id).filter((r) => r.eventKey === `prescription.issued:${rx}`)).toEqual([]);
+    expect(deliveriesFor(subRx.id).filter((r) => r.eventKey === `prescription.issued:${rx}:signed`)).toEqual([]);
   });
 });
 
@@ -265,7 +273,7 @@ describe("closed event set, subject state and idempotency", () => {
     );
     expect(results.map((r) => r.error)).toEqual([null, null, null, null, null]);
     expect(results.reduce((n, r) => n + (r.data?.queued ?? 0), 0)).toBe(1);
-    const rows = deliveriesFor(subRx.id).filter((r) => r.eventKey === `prescription.issued:${rx2}`);
+    const rows = deliveriesFor(subRx.id).filter((r) => r.eventKey === `prescription.issued:${rx2}:signed`);
     expect(rows).toHaveLength(1);
     expect(webhookJobsFor(rows[0].id)).toHaveLength(1);
   });
@@ -417,5 +425,95 @@ describe("contract: members cannot write the delivery table (M-XTENANT-WH, T-04-
         `and table_name = 'webhook_delivery_queue' and grantee in ('anon', 'authenticated') order by 1`
     );
     expect(tableGrants).toEqual(["authenticated:SELECT"]);
+  });
+});
+
+/**
+ * V2-04 04-07a (review IND M5, triage M-RXEVENT; review B L-3): `prescription.issued` is the sign-time event, not the
+ * empty draft's; `lab_result.ready` needs a document whose patient and visit belong to its clinic and to each other.
+ * Each case fails on 000040 (the draft queued the event and suppressed the sign-time one; any document qualified).
+ */
+describe("04-07a: prescription.issued at signing; lab_result.ready for a consistent document", () => {
+  const rxRows = (rx: string) => deliveriesFor(subRx.id).filter((r) => (r.eventKey ?? "").startsWith(`prescription.issued:${rx}`));
+
+  it("the app flow: the empty draft queues nothing; signing the consultation queues the one event", async () => {
+    const p = await seedPatient(ownerA.tenantId, ownerA.userId, doctorA.userId);
+    const doctorCtx = ctxFor(doctorA);
+    const saved = await saveConsultationDraft(doctorCtx, consultationDraftInput({ visit_id: p.visitId, clinical_notes: "Synthetic note." }));
+    expect(saved.success).toBe(true);
+    const draft = await getOrCreateDraftPrescription(doctorCtx, p.visitId);
+    if (!draft.success) throw new Error("draft prescription failed");
+    const rx = draft.prescriptionId;
+    expect(rxRows(rx)).toEqual([]);
+
+    expect((await completeAndSignConsultation(doctorCtx, p.visitId)).success).toBe(true);
+    const rows = rxRows(rx);
+    expect(rows.map((r) => r.eventKey)).toEqual([`prescription.issued:${rx}:signed`]);
+    expect(JSON.parse(deliveryPayload(rows[0].id)).data).toEqual({ prescription_id: rx, patient_id: p.patientId, visit_id: p.visitId });
+  });
+
+  it("from a request an unsigned prescription is refused (empty draft or with items); the API path queues one with items", async () => {
+    const draft = await prescriptionFor(ownerA, doctorA.userId, { signed: false });
+    for (const who of [doctorA, receptionistA]) {
+      expect((await enqueue(who.client, who.tenantId, "prescription.issued", draft)).error).toMatchObject({
+        code: "P0001",
+        message: "EVENT_NOT_ALLOWED",
+      });
+    }
+    expect((await system(getAdminClient(), "system:api_v1", "prescription.issued", draft)).error).toMatchObject({
+      message: "EVENT_NOT_ALLOWED",
+    });
+    expect(rxRows(draft)).toEqual([]);
+
+    // With items (what POST /api/v1/prescriptions creates): still refused from a request, queued on the API path.
+    psql(
+      `insert into public.prescription_items (prescription_id, medicine_name, dosage, duration) ` +
+        `values ('${draft}', 'Synthetic tablet', '1-0-1', '5 days')`
+    );
+    expect((await enqueue(doctorA.client, doctorA.tenantId, "prescription.issued", draft)).error).toMatchObject({
+      message: "EVENT_NOT_ALLOWED",
+    });
+    expect((await system(getAdminClient(), "system:api_v1", "prescription.issued", draft)).data?.queued).toBe(1);
+    expect(rxRows(draft).map((r) => r.eventKey)).toEqual([`prescription.issued:${draft}:created`]);
+
+    // Signing later is a new state: the sign-time event is not suppressed by the earlier one.
+    psql(`update public.prescriptions set signed_at = now() where id = '${draft}'`);
+    expect((await enqueue(doctorA.client, doctorA.tenantId, "prescription.issued", draft)).data?.queued).toBe(1);
+    expect(rxRows(draft).map((r) => r.eventKey).sort()).toEqual([
+      `prescription.issued:${draft}:created`,
+      `prescription.issued:${draft}:signed`,
+    ]);
+    // An amended (no longer active) prescription is not issued.
+    const amended = await prescriptionFor(ownerA, doctorA.userId);
+    psql(`update public.prescriptions set status = 'amended' where id = '${amended}'`);
+    expect((await enqueue(doctorA.client, doctorA.tenantId, "prescription.issued", amended)).error).toMatchObject({
+      message: "EVENT_NOT_ALLOWED",
+    });
+  });
+
+  it("lab_result.ready: a document whose visit is another patient's, or whose patient is another clinic's, is refused", async () => {
+    const other = await seedPatient(ownerA.tenantId, ownerA.userId);
+    const foreign = await seedPatient(ownerB.tenantId, ownerB.userId);
+    const doc = (tenant: string, patient: string, visit: string | null) =>
+      psql(
+        `insert into public.patient_documents (tenant_id, patient_id, visit_id, title, storage_path, original_filename, mime_type, ` +
+          `file_size_bytes, uploaded_by) values ('${tenant}', '${patient}', ${visit ? `'${visit}'` : "null"}, 'Synthetic CBC', ` +
+          `'tenants/${tenant}/patients/${patient}/labs/synthetic-${letters(6)}.pdf', 'synthetic.pdf', 'application/pdf', 10, '${ownerA.userId}') returning id`
+      )[0];
+    const mismatchedVisit = doc(ownerA.tenantId, patientA.patientId, other.visitId);
+    const foreignPatient = doc(ownerA.tenantId, foreign.patientId, null);
+    for (const id of [mismatchedVisit, foreignPatient]) {
+      expect((await enqueue(receptionistA.client, receptionistA.tenantId, "lab_result.ready", id)).error).toMatchObject({
+        code: "P0001",
+        message: "EVENT_NOT_ALLOWED",
+      });
+      expect((await system(getAdminClient(), "system:api_v1", "lab_result.ready", id)).error).toMatchObject({
+        message: "EVENT_NOT_ALLOWED",
+      });
+      expect(deliveriesFor(subVisits.id).filter((r) => r.eventKey === `lab_result.ready:${id}`)).toEqual([]);
+    }
+    // The patient's own visit qualifies.
+    const own = doc(ownerA.tenantId, patientA.patientId, patientA.visitId);
+    expect((await enqueue(receptionistA.client, receptionistA.tenantId, "lab_result.ready", own)).data?.queued).toBe(1);
   });
 });
