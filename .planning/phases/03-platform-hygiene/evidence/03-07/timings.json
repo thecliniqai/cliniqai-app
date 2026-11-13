@@ -1,0 +1,26 @@
+{
+  "note": "local CLI stack (Docker, aarch64), HTTP round trip through Kong + PostgREST, nurse session (RLS + definer outbox fan-out to 1 subscription)",
+  "sequential_calls": 30,
+  "sequential_ms": {
+    "p50": 1.8,
+    "p95": 2.8,
+    "max": 2.9
+  },
+  "same_invoice_parallel": {
+    "calls": 10,
+    "all_succeeded": true,
+    "wall_ms": 47.6
+  },
+  "overpayment_race_10x300_on_1000": {
+    "succeeded": 3,
+    "refused": [
+      "OVERPAYMENT",
+      "OVERPAYMENT",
+      "OVERPAYMENT",
+      "OVERPAYMENT",
+      "OVERPAYMENT",
+      "OVERPAYMENT",
+      "OVERPAYMENT"
+    ]
+  }
+}

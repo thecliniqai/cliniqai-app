@@ -1,0 +1,17 @@
+# Function-level SET statement_timeout vs lock_timeout on the local stack (PostgreSQL 17.11)
+# 1. statement_timeout = '1s' set on the function; the body sleeps 2s. Returns 1 (not cancelled): the SET is not enforced for the calling statement.
+$ begin; create function pg_temp.slow() returns int language plpgsql set statement_timeout = '1s' as $$ begin perform pg_sleep(2); return 1; end $$; select pg_temp.slow(); rollback;
+BEGIN
+CREATE FUNCTION
+1
+ROLLBACK
+elapsed_s=2
+
+# 2. Role-level statement_timeout (what bounds an RPC call in practice):
+anon|statement_timeout=3s
+authenticated|statement_timeout=8s
+authenticator|session_preload_libraries=supautils, safeupdate,statement_timeout=8s,lock_timeout=8s
+service_role|
+
+# 3. record_payment proconfig (lock_timeout is enforced per lock wait; see the LOCK_TIMEOUT case in tests/billing/record-payment-rpc.spec.ts):
+record_payment(uuid,uuid,numeric,text,text,uuid,text,text)|search_path="",lock_timeout=2s
