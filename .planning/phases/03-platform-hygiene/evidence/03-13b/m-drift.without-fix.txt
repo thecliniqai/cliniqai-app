@@ -1,0 +1,9 @@
+# without-fix run: files reverted to HEAD 85e5e9e: scripts/staging/schema-drift.mjs scripts/drift/schema-snapshot.mjs
+# command: /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/vt.sh tests/ci/schema-snapshot.spec.ts tests/ci/staging-scripts.spec.ts --reporter=dot 2>&1 | grep -E ' FAIL |Tests |Test Files|Cannot find|Failed to load' | head -30
+ FAIL  tests/ci/schema-snapshot.spec.ts [ tests/ci/schema-snapshot.spec.ts ]
+Error: Cannot find module '@/scripts/drift/schema-snapshot.mjs' imported from '/Users/sid/Code/clinicOS/tests/ci/schema-snapshot.spec.ts'.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ci/staging-scripts.spec.ts > schema-drift (staging, read-only) > runs the read-only diff against the given URL with --schema public,ops,private and passes on no drift
+ Test Files  2 failed (2)
+      Tests  1 failed | 52 passed (53)
+# exit: 0

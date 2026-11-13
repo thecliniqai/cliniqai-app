@@ -135,10 +135,15 @@ jobs:
       # V2-03 03-03 (B4): types/database.ts is what `npm run db:types` generates from the freshly migrated stack.
       - name: Generated types are fresh (npm run db:types, then no diff)
         run: npm run db:types && git diff --exit-code -- types/database.ts
-      # V2-03 03-03 (B1 local half): the migrated stack matches a shadow built from supabase/migrations
-      # (only the documented pg_net CLI false positive is allowed).
-      - name: Local schema drift (supabase db diff --local)
+      # V2-03 03-03: migrations are deterministic: the migrated stack equals a shadow built from supabase/migrations
+      # (migra; only the documented pg_net CLI false positive is allowed). This compares the migrations with themselves.
+      - name: Migrations are deterministic (supabase db diff --local)
         run: node scripts/ci/local-drift.mjs
+      # V2-03 03-13b (M-DRIFT; B1 local half): the freshly migrated stack equals the committed schema + privilege
+      # snapshot (scripts/drift/schema-snapshot.txt: public/ops/private, policies, RLS, grants to anon/authenticated/
+      # service_role/PUBLIC). A migration ships its regenerated snapshot, so every grant/policy change is reviewed.
+      - name: Schema and privileges match the committed snapshot
+        run: node scripts/drift/schema-snapshot.mjs --local --check
       # One run produces both the JSON report and v8 coverage (02-05); coverage is report-only until V2-14.
       - name: Vitest (full unit + DB lane, with coverage)
         run: npx vitest run --reporter=dot --reporter=json --outputFile.json=vitest-report.json --coverage.enabled

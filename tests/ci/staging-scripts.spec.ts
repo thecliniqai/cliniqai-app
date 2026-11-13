@@ -275,12 +275,16 @@ describe("schema-drift (staging, read-only)", () => {
 
   type SpawnImpl = NonNullable<NonNullable<Parameters<typeof runSchemaDrift>[0]>["spawnImpl"]>;
 
-  /** Fakes only the `npx supabase db diff` call; the judging `node scripts/ci/local-drift.mjs` call runs for real. */
+  /**
+   * Fakes the `npx supabase db diff` call and (03-13b) the privilege-snapshot `psql` call, which answers with the
+   * committed snapshot (no privilege drift); the judging `node scripts/ci/local-drift.mjs` call runs for real.
+   */
   function fakeCli(result: { status: number; stdout?: string; stderr?: string }) {
     const calls: string[][] = [];
     const spawnImpl: SpawnImpl = (cmd, args, opts) => {
       calls.push([cmd, ...args]);
       if (cmd === "npx") return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
+      if (cmd === "psql") return { status: 0, stdout: fs.readFileSync(path.join(ROOT, "scripts/drift/schema-snapshot.txt"), "utf8"), stderr: "" };
       const r = spawnSync(cmd, args, { ...(opts as object), encoding: "utf8" });
       return { status: r.status, stdout: r.stdout, stderr: r.stderr };
     };
@@ -303,12 +307,12 @@ describe("schema-drift (staging, read-only)", () => {
     expect(cli.calls).toEqual([]);
   });
 
-  it("runs the read-only diff against the given URL with --schema public and passes on no drift", () => {
+  it("runs the read-only diff against the given URL with --schema public,ops,private and passes on no drift", () => {
     const cli = fakeCli({ status: 0, stdout: JSON.stringify({ diff: "" }) });
     const r = runSchemaDrift({ vars, spawnImpl: cli.spawnImpl });
     // 03-13 M-GUARD: the CLI gets the re-serialised URL (TLS required), not the raw secret.
     expect(cli.calls[0]).toEqual(["npx", ...diffArgs(`${roUrl}?sslmode=require`)]);
-    expect(cli.calls[0]).toEqual(expect.arrayContaining(["--db-url", "--schema", "public"]));
+    expect(cli.calls[0]).toEqual(expect.arrayContaining(["--db-url", "--schema", "public,ops,private"]));
     expect(cli.calls[0]).not.toContain("-f");
     expect(r.lines.join("\n")).toContain("local-drift: PASS");
     expect(r.exitCode).toBe(0);

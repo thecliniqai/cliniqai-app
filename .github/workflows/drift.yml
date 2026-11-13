@@ -5,8 +5,9 @@
 #
 #   auth-config  hosted Auth settings vs the `staging` column of supabase/auth-policy.json
 #                (scripts/drift/auth-config-hosted.mjs, 03-11a); report uploaded as an artifact
-#   schema       staging `public` schema vs a shadow built from supabase/migrations (scripts/staging/schema-drift.mjs,
-#                same allowlist as the local gate)
+#   schema       staging `public`, `ops`, `private` vs a shadow built from supabase/migrations, plus grants, policies
+#                and RLS flags vs the committed snapshot scripts/drift/schema-snapshot.txt (read-only psql; 03-13b
+#                M-DRIFT) (scripts/staging/schema-drift.mjs, same allowlist as the local gate)
 #   region       /api/health `region` equals the function region pinned in vercel.json (bom1), else
 #                "record the deviation (FT-01)"
 #
@@ -78,8 +79,9 @@ jobs:
           STAGING_DB_URL_RO: ${{ secrets.STAGING_DB_URL_RO }}
           SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
         run: node scripts/staging/target-guard.mjs --var STAGING_DB_URL_RO --mask
-      # The CLI builds the shadow database from supabase/migrations in the runner's Docker and only reads staging.
-      - name: Staging public schema vs supabase/migrations
+      # The CLI builds the shadow database from supabase/migrations in the runner's Docker and only reads staging;
+      # the privilege snapshot runs through the runner's psql in one read-only transaction.
+      - name: Staging schema (public, ops, private) and privileges vs supabase/migrations
         env:
           STAGING_DB_URL_RO: ${{ secrets.STAGING_DB_URL_RO }}
           SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}

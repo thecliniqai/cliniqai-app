@@ -4,7 +4,9 @@
  *
  * Runs `supabase db diff --local` (migra engine): the CLI builds a shadow database from `supabase/migrations` and
  * prints the SQL that would turn it into the running local database. After a fresh `db reset` that must be empty,
- * apart from one documented exception:
+ * apart from one documented exception. In CI this proves the migrations are deterministic (it compares them with
+ * themselves); the "fresh reset matches the target schema" half, including privileges, is
+ * `scripts/drift/schema-snapshot.mjs --local --check` against the committed snapshot (03-13b M-DRIFT).
  *
  *   drop extension if exists "pg_net";
  *     CLI 2.120.0 shadow-DB false positive (03-RESEARCH §03-03): the shadow image enables pg_net, the migrated
