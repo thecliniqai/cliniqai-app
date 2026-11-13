@@ -106,10 +106,9 @@ Approve the deployment. `scripts/seed-staging.ts` refuses to run unless `APP_ENV
 "Synthetic Demo Clinic" with five logins (`owner@`, `admin@`, `doctor@`, `nurse@`, `reception@demo-clinic.example.test`),
 all with password `STAGING_SEED_PASSWORD`, and three synthetic patients. It prints emails and counts only.
 
-The patients' numbers come from the project's synthetic block `+91 60000 000NN` (`lib/utils/synthetic-phones.ts`).
-The messaging layer refuses to send to that block on every tier, so the seed cannot message a stranger even after
-staging switches from `MESSAGING_PROVIDER=disabled` to a real provider (03-13b M-SEEDPHONE). A seed made before 03-13b
-used `+91 90000 0000x`; dispatching `seed` once moves those three patients onto the synthetic numbers. To test real
+The patients' numbers come from the project's synthetic block `+91 90000 000xx` (`lib/messaging/synthetic-numbers.ts`).
+Every real messaging provider refuses to send to that block on every tier, so the seed cannot message a stranger even
+after staging switches from `MESSAGING_PROVIDER=disabled` to a real provider (03-13b/03-13d M-SEEDPHONE). To test real
 delivery, add a patient with your own handset's number; never reuse a seeded patient for it.
 
 **Full reset** (schema and data): there is no link-based `db reset` (R-9, R-12). Create a fresh project (§2),

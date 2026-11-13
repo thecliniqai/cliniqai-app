@@ -6,17 +6,17 @@
  * (`scripts/staging/target-guard.mjs`).
  *
  * All data is synthetic. Phone numbers (03-13b M-SEEDPHONE): India has no reserved fictional mobile range, so every
- * seeded number comes from the project's synthetic block `+91 60000 000NN` (`lib/utils/synthetic-phones.ts`), which
- * the messaging layer refuses to send to on every tier. A seeded environment therefore cannot message a stranger even
- * after a real provider is switched on. Seeds written before 03-13b used `+91 90000 0000x`; a refresh moves those
- * three demo patients onto the synthetic numbers.
+ * seeded number is built from `SYNTHETIC_PHONE_PREFIX` (`+91 90000 000xx`, `lib/messaging/synthetic-numbers.ts`), the
+ * range every real messaging provider refuses to send to on every tier (03-13d guard). A seeded environment therefore
+ * cannot message a stranger even after a real provider is switched on.
  *
  * Idempotent: users are matched by their fixed emails, the clinic by name + its owner's membership, memberships and
  * patients by natural keys. Every run sets the given password on all five users.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-// Relative import: tsx runs the seeds without the `@/` alias.
-import { syntheticPhone } from "../../lib/utils/synthetic-phones";
+// Relative import: tsx runs the seeds without the `@/` alias. The messaging guard's own constant, so the seed cannot
+// drift out of the range the providers refuse.
+import { SYNTHETIC_PHONE_PREFIX } from "../../lib/messaging/synthetic-numbers";
 
 export const DEMO_CLINIC_NAME = "Synthetic Demo Clinic";
 export const DEMO_EMAIL_DOMAIN = "demo-clinic.example.test";
@@ -32,16 +32,10 @@ const STAFF_TEMPLATE = [
 ] as const;
 
 export const DEMO_PATIENTS = [
-  { full_name: "Synthetic Patient One", phone: syntheticPhone(1), sex: "female" },
-  { full_name: "Synthetic Patient Two", phone: syntheticPhone(2), sex: "male" },
-  { full_name: "Synthetic Patient Three", phone: syntheticPhone(3), sex: "other" },
+  { full_name: "Synthetic Patient One", phone: `${SYNTHETIC_PHONE_PREFIX}01`, sex: "female" },
+  { full_name: "Synthetic Patient Two", phone: `${SYNTHETIC_PHONE_PREFIX}02`, sex: "male" },
+  { full_name: "Synthetic Patient Three", phone: `${SYNTHETIC_PHONE_PREFIX}03`, sex: "other" },
 ] as const;
-
-/**
- * The numbers the demo patients had before 03-13b (`+91 90000 0000x`, possibly real subscribers), in DEMO_PATIENTS
- * order. A refresh moves a demo-clinic patient still on one of these onto its synthetic number.
- */
-export const LEGACY_DEMO_PHONES = ["+919000000001", "+919000000002", "+919000000003"] as const;
 
 export interface DemoClinicOptions {
   /** Clinic (tenant) name; default "Synthetic Demo Clinic". */
@@ -131,12 +125,6 @@ export async function seedDemoClinic(
     { onConflict: "user_id,tenant_id" },
   );
   if (memError) throw new Error(`upserting memberships failed: ${memError.message}`);
-
-  // Seeds from before 03-13b: move the three demo patients off their old, possibly real numbers (this clinic only).
-  for (const [i, legacy] of LEGACY_DEMO_PHONES.entries()) {
-    const { error } = await admin.from("patients").update({ phone: DEMO_PATIENTS[i].phone }).eq("tenant_id", clinicId).eq("phone", legacy);
-    if (error) throw new Error(`moving a demo patient to the synthetic range failed: ${error.message}`);
-  }
 
   const { data: existingPatients, error: pErr } = await admin
     .from("patients")

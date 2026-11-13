@@ -1,10 +1,7 @@
-# without-fix run: files reverted to HEAD a7e3b51: scripts/seed/demo-clinic.ts
-# command: /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/vt.sh tests/utils/synthetic-phones.spec.ts tests/integration/demo-clinic-seed.spec.ts --reporter=dot 2>&1 | grep -E ' FAIL |Tests |Test Files|lock never' | head -30
-⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+# mutation run: scripts/seed/demo-clinic.ts with Synthetic Patient Two on +919800000002 (outside the guarded +91 90000 000xx range)
+# the pre-alignment seed range +91 60000 000NN (commit 7c44dfe) is outside the guarded range too and fails the same way
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
  FAIL  tests/integration/demo-clinic-seed.spec.ts > demo clinic seeding core (local stack) > creates the clinic, five staff with the five roles and three synthetic patients
- FAIL  tests/integration/demo-clinic-seed.spec.ts > demo clinic seeding core (local stack) > a refresh moves a demo patient still on its pre-03-13b number into the synthetic range (03-13b M-SEEDPHONE)
- FAIL  tests/utils/synthetic-phones.spec.ts > the demo-clinic seed (local stack and staging) uses only synthetic numbers > every DEMO_PATIENTS phone is in the synthetic range
- FAIL  tests/utils/synthetic-phones.spec.ts > the demo-clinic seed (local stack and staging) uses only synthetic numbers > the legacy numbers it migrates away from are outside the range (so the guard does not hide them)
+ FAIL  tests/utils/synthetic-phones.spec.ts > the demo-clinic seed uses only the guarded synthetic range > every DEMO_PATIENTS phone is in the range every real provider refuses
  Test Files  2 failed (2)
-      Tests  4 failed | 22 passed (26)
-# exit: 0
+      Tests  2 failed | 3 passed (5)
