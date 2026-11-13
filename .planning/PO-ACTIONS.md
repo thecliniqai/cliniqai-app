@@ -7,13 +7,61 @@ Never put a secret value in this file. Secrets go into the named secret store on
 **How an item closes:** the PO does the step and says so → Claude verifies it (read-only API/CLI check or a test run)
 → ticks it with the evidence (command + result, date, commit SHA or CI link).
 
-Legend: `[ ]` open · `[~]` PO says done, Claude verifying · `[x]` verified (evidence inline)
+Legend: `[ ]` open · `[~]` PO says done, Claude verifying · `[x]` verified (evidence inline) · `[d]` delegated to CTO, deferred or superseded (reason inline)
+
+---
+
+## ▶ NEEDS YOU: shortlist (2026-11-13)
+
+The PO asked for only the items that need a decision or money; Claude handles the rest.
+
+**Decisions or money (answer these first)**
+- **B-1 · Vercel plan for staging.** v1 is on Vercel. The Hobby plan does not allow commercial use, so a staging
+  project for ClinicQ belongs on a Pro team. Question: is the team that hosts app.thecliniqai.com on Pro? If yes,
+  staging costs nothing extra. If no, decide: upgrade (~$20/month per member) or run staging only locally until go-live.
+- **B-2 · Supabase project slots.** Free allows 2 active projects. Question: does app.thecliniqai.com (v1) use the
+  "TheCliniQ" project, and do people still use v1? If yes, do not pause it (03-E1b becomes "skip"); staging takes the
+  second free slot, provided no other free project is active.
+- **B-3 · Staging backups (FT-02): AWS vs Cloudflare R2.** AWS S3 in Mumbai with a KMS key costs about $1–2/month.
+  Cloudflare R2 costs $0 at this size and is already in your Cloudflare account. Staging holds synthetic data only.
+  Claude recommends R2 for staging now and AWS Mumbai for production at go-live. The code is S3-compatible, so only
+  the endpoint changes.
+- **B-4 · Resend plan and domain.** Question: is auth.thecliniqai.com a free domain slot on your Resend plan? If v1
+  already uses Resend, which domain does it send from? (If the plan has no free slot, either upgrade or send staging
+  mail from the domain v1 already verified.)
+- **D-1 · Design sign-off (G2-D).** Claude will hand you the V2-DX proposal when it is ready (about 45–60 min of review).
+
+**Clicks only, after B-1…B-4 (exact steps are in each item below):**
+03-E1a dump the v1 schema → 03-E2 staging Supabase project (Mumbai) → 03-E6R Resend domain auth.thecliniqai.com →
+03-E4 Vercel staging + staging.thecliniqai.com → 03-E7 Turnstile widget → 03-E3 auth settings + hooks → 03-E10/E11
+GitHub Environments. Everything else is post-merge drills that Claude runs or asks for when ready.
+
+**Delegated or deferred:** rulings confirmations (C-2, 03-E13/E14/E15, 04-P14/P15, 05-P1) are delegated to the CTO;
+C-1 (private repo) is deferred to go-live; SES (03-E5/E6) is replaced by Resend until go-live.
+
+- [ ] **03-E6R · Resend sending domain `auth.thecliniqai.com`** — replaces 03-E5/E6 until go-live
+  - *Do / where:* resend.com → Domains → Add domain `auth.thecliniqai.com` (region: the one closest to India that
+    Resend offers, e.g. Tokyo `ap-northeast-1`). Resend shows 3 records. Add them in Cloudflare → thecliniqai.com →
+    DNS → Records, all **DNS only** (grey cloud):
+    `TXT resend._domainkey.auth` = the DKIM value Resend shows; `MX send.auth` = the feedback-smtp host Resend shows,
+    priority 10; `TXT send.auth` = `v=spf1 include:amazonses.com ~all` (copy exactly what Resend shows). No DMARC
+    record is needed: the root `_dmarc.thecliniqai.com` (p=none) already covers the subdomain. Then click Verify in
+    Resend. Next: Resend → API Keys → create `clinicos-staging`, permission **Sending access**, domain
+    `auth.thecliniqai.com` → paste it into Vercel staging as `RESEND_API_KEY` (Production scope only). Set
+    `EMAIL_PROVIDER=resend` and `EMAIL_FROM=ClinicQ <no-reply@auth.thecliniqai.com>`. Supabase keeps the Send Email
+    hook (03-E8) pointing at the app; the app sends through Resend.
+  - *Why:* AUTH-03 (code-only emails, magiclink dropped, dedupe) using the provider you already have; SES after go-live.
+  - *Unblocks:* acceptance 9 (reset email with DKIM pass); 03-E8.
+  - *Verify (Claude):* `dig +short TXT resend._domainkey.auth.thecliniqai.com`; `dig +short MX send.auth.thecliniqai.com`;
+    after 03-E8, you paste the reset mail's `Authentication-Results` line (expect `dkim=pass header.d=auth.thecliniqai.com`).
+  - *Code:* the Resend sender is added in V2-04 plan 04-00b (HTTP API, no SDK, timeout, idempotency key).
 
 ---
 
 ## Carried over from V2-01 / V2-02
 
-- [ ] **C-1 · Make the GitHub repo private (after upgrading the org to GitHub Team)** — phase V2-01/V2-02
+- [d] **C-1 · Make the GitHub repo private (after upgrading the org to GitHub Team)** — phase V2-01/V2-02
+  - **Deferred by the PO on 2026-11-13: the repo stays public until go-live or after UAT (no paid GitHub plan now). Keep it free of secrets and PHI (gitleaks and push protection enforce this).**
   - *Do:* github.com/organizations/thecliniqai/settings/billing → upgrade to **Team**; then repo
     `thecliniqai/cliniqai-app` → Settings → General → Danger zone → Change visibility → Private.
   - *Why:* the repo is PUBLIC (checked 2026-11-13: `visibility: PUBLIC`, org plan `free`). Security docs and review
@@ -23,7 +71,8 @@ Legend: `[ ]` open · `[~]` PO says done, Claude verifying · `[x]` verified (ev
   - *Verify:* `gh repo view thecliniqai/cliniqai-app --json visibility` → `PRIVATE`; `gh api orgs/thecliniqai -q .plan.name`
     → `team`; `gh api repos/thecliniqai/cliniqai-app/rulesets/27150224 -q .enforcement` → `active`.
 
-- [ ] **C-2 · Confirm delegated rulings for V2-01 and V2-02** — phase V2-01/V2-02
+- [d] **C-2 · Confirm delegated rulings for V2-01 and V2-02** — phase V2-01/V2-02
+  - **Delegated to CTO by the PO on 2026-11-13 ("for the rest, I trust your judgement"); the rulings stand as written. Revisit at go-live if needed.**
   - *Do:* read and confirm (or overturn) D1–D12, R1–R17, F-rulings in `.planning/phases/01-security-containment/01-PLAN.md`
     and RL-1…RL-23, OA-1…OA-6 in `.planning/phases/02-ci-e2e-foundations/02-PLAN.md`; ADR-0005 amendment A1.
   - *Why:* the PO delegated these to Claude as CTO; the PO approves every gate.
@@ -63,10 +112,11 @@ here; secrets go only into the named store. **Order (lead times):** 03-E0 → 03
 DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9 → 03-E10, 03-E11 → 03-E3. Hosted verifications that use
 `staging.yml`/`drift.yml` run after the phase PR merges into `feature/v2` (R-19); none blocks the gate.
 
-- [ ] **03-E0 · Decide the final domain**
+- [x] **03-E0 · Decide the final domain**
+  - **Done on 2026-11-13: the PO chose thecliniqai.com. Verified with `dig +short NS thecliniqai.com`, which returns Cloudflare (venus/viddy.ns.cloudflare.com). v1 runs at app.thecliniqai.com (Vercel). Staging will be staging.thecliniqai.com; auth email will send from auth.thecliniqai.com.**
   - *Do / where:* choose the product domain for "ClinicQ" (PO-19) at your registrar; note whether DNS is hosted at the
     registrar or Cloudflare.
-  - *Values:* `<domain>`; derived names `auth.<domain>` (email), `staging.<domain>` (staging app).
+  - *Values:* `<domain>`; derived names `auth.thecliniqai.com` (email), `staging.thecliniqai.com` (staging app).
   - *Why:* PO-19 fixed the name and the `auth.` pattern but no domain is recorded (R-13).
   - *Unblocks:* 03-E4, 03-E5, 03-E6, 03-E7, 03-E8; the `{{STAGING_ORIGIN}}` value in `supabase/auth-policy.json`.
   - *Verify (Claude, read-only):* `dig +short NS <domain>`; record the domain in `docs/v2/VERIFICATION_LOG.md`.
@@ -110,7 +160,7 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
     label → value). Apply it in Dashboard → Authentication: signups **off**; confirm email **on**; secure email change
     **on**; secure password change **off**; email OTP expiry 600 s, **length 8** (ruling R-36; apply before or with the deploy carrying ff38b2b — the reset form accepts only 8 digits); minimum password length 10; **Require
     current password when updating: on**; access-token (JWT) expiry 900 s; rate limits email sent 60/h, sign-ups and
-    sign-ins 30, token refreshes 150, token verifications 30; MFA TOTP on; Site URL `https://staging.<domain>`, no
+    sign-ins 30, token refreshes 150, token verifications 30; MFA TOTP on; Site URL `https://staging.thecliniqai.com`, no
     extra redirect URLs; security notification "password changed" on; email templates pasted from
     `supabase/templates/*.html` (used only by the SMTP fallback); CAPTCHA after 03-E7; Send Email hook after 03-E8.
   - *Access-token hook (03-13e, H-AUTH):* **only after migration 000030 is applied on staging** (a hook pointing at a
@@ -125,14 +175,14 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
 
 - [ ] **03-E4 · Vercel staging project**
   - *Do / where:* Vercel → New Project from `thecliniqai/cliniqai-app`, name `clinicos-staging`; Production Branch
-    `feature/v2`; custom domain `staging.<domain>` (DNS record from Vercel at your DNS host); Functions region `bom1`
+    `feature/v2`; custom domain `staging.thecliniqai.com` (DNS record from Vercel at your DNS host); Functions region `bom1`
     (also set by `vercel.json`); Deployment Protection off for the production domain (the Send Email hook must reach it;
     assumption A2) and preview deployments disabled. Environment variables (names; values from your secret stores):
     `APP_ENV=staging`, `NEXT_PUBLIC_SUPABASE_URL=https://<staging-ref>.supabase.co`,
-    `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` (sensitive), `NEXT_PUBLIC_APP_URL=https://staging.<domain>`,
+    `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` (sensitive), `NEXT_PUBLIC_APP_URL=https://staging.thecliniqai.com`,
     `CRON_SECRET` (random, ≥ 32 chars), `MESSAGING_PROVIDER=disabled` (until MSG91 staging credentials exist),
     `AI_ENABLED=false`, `API_V1_ENABLED=false`, `EMAIL_PROVIDER=disabled` (switch to `ses` after 03-E6/03-E8),
-    `EMAIL_FROM=no-reply@auth.<domain>`, `SES_ACCESS_KEY_ID`/`SES_SECRET_ACCESS_KEY` of the 03-E6 IAM user (region is
+    `EMAIL_FROM=no-reply@auth.thecliniqai.com`, `SES_ACCESS_KEY_ID`/`SES_SECRET_ACCESS_KEY` of the 03-E6 IAM user (region is
     fixed to ap-south-1 in code; **corrected by 03-11b: Vercel reserves the `AWS_*` names**), `SEND_EMAIL_HOOK_SECRET` (03-E8), `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (03-E7), `ERROR_INGEST_KEY` (03-E9),
     `PWNED_CHECK=on`, `DIAG_ERROR_ROUTE_ENABLED=false` (true only during 03-E9). Do **not** set `R2_*`,
     `STORAGE_PROVIDER`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (the schema rejects them). On the
@@ -142,41 +192,43 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
     build refuses `APP_ENV=staging` on a preview or a non-`feature/v2` branch, and refuses swapped or legacy JWT keys.
   - *Why:* P1-35a, FT-01 `bom1`, acceptance 1, 7, 13, 14.
   - *Unblocks:* 03-E8, 03-E9; acceptance 7, 8, 13, 14.
-  - *Verify (Claude):* `curl -sI https://staging.<domain>/api/health` → 200 with `x-request-id`;
-    `curl -s https://staging.<domain>/api/health` → `"region":"bom1"` and `"release"` equal to
-    `git rev-parse origin/feature/v2`; `curl -s https://staging.<domain>/api/ready` → `"status":"ok"`.
+  - *Verify (Claude):* `curl -sI https://staging.thecliniqai.com/api/health` → 200 with `x-request-id`;
+    `curl -s https://staging.thecliniqai.com/api/health` → `"region":"bom1"` and `"release"` equal to
+    `git rev-parse origin/feature/v2`; `curl -s https://staging.thecliniqai.com/api/ready` → `"status":"ok"`.
 
-- [ ] **03-E5 · DNS records for `auth.<domain>`**
-  - *Do / where:* at your DNS host: the 3 SES Easy-DKIM CNAMEs `<token>._domainkey.auth.<domain>` (values from 03-E6);
-    custom MAIL FROM `mail.auth.<domain>`: MX `10 feedback-smtp.ap-south-1.amazonses.com` and TXT
-    `v=spf1 include:amazonses.com ~all`; DMARC TXT at `_dmarc.auth.<domain>`:
+- [d] **03-E5 · DNS records for `auth.thecliniqai.com`**
+  - **Superseded on 2026-11-13: the PO chose Resend for now, with SES after go-live. See 03-E6R. Kept for the post-go-live SES switch.**
+  - *Do / where:* at your DNS host: the 3 SES Easy-DKIM CNAMEs `<token>._domainkey.auth.thecliniqai.com` (values from 03-E6);
+    custom MAIL FROM `mail.auth.thecliniqai.com`: MX `10 feedback-smtp.ap-south-1.amazonses.com` and TXT
+    `v=spf1 include:amazonses.com ~all`; DMARC TXT at `_dmarc.auth.thecliniqai.com`:
     `v=DMARC1; p=none; rua=mailto:<your inbox>` (tighten to `quarantine` after a clean week); the `staging` CNAME Vercel
     gives you.
   - *Why:* AUTH-03 DKIM pass.
   - *Unblocks:* acceptance 9.
-  - *Verify (Claude):* `dig +short CNAME <token>._domainkey.auth.<domain>`; `dig +short MX mail.auth.<domain>`;
-    `dig +short TXT mail.auth.<domain>`; `dig +short TXT _dmarc.auth.<domain>`.
+  - *Verify (Claude):* `dig +short CNAME <token>._domainkey.auth.thecliniqai.com`; `dig +short MX mail.auth.thecliniqai.com`;
+    `dig +short TXT mail.auth.thecliniqai.com`; `dig +short TXT _dmarc.auth.thecliniqai.com`.
 
-- [ ] **03-E6 · Amazon SES in ap-south-1**
-  - *Do / where:* AWS console, region Mumbai → SES → Identities → Create identity → Domain `auth.<domain>`, Easy DKIM
-    RSA 2048, custom MAIL FROM `mail.auth.<domain>`; Account dashboard → **Request production access** (transactional,
+- [d] **03-E6 · Amazon SES in ap-south-1**
+  - **Superseded on 2026-11-13: the PO chose Resend for now, with SES after go-live. See 03-E6R. Kept for the post-go-live SES switch.**
+  - *Do / where:* AWS console, region Mumbai → SES → Identities → Create identity → Domain `auth.thecliniqai.com`, Easy DKIM
+    RSA 2048, custom MAIL FROM `mail.auth.thecliniqai.com`; Account dashboard → **Request production access** (transactional,
     low volume, authentication codes); while in the sandbox, verify your own test recipient address; account-level
     suppression list on for bounces and complaints (R-10); IAM user `clinicos-staging-ses` with only `ses:SendEmail` on
-    the identity ARN and condition `ses:FromAddress = no-reply@auth.<domain>`; its access key goes to Vercel (03-E4) only.
+    the identity ARN and condition `ses:FromAddress = no-reply@auth.thecliniqai.com`; its access key goes to Vercel (03-E4) only.
   - *Why:* AUTH-03, PO-A3; production access has lead time (AR-4).
   - *Unblocks:* acceptance 9; `EMAIL_PROVIDER=ses` on staging.
-  - *Verify:* you paste the output of the read-only `aws sesv2 get-email-identity --email-identity auth.<domain>
+  - *Verify:* you paste the output of the read-only `aws sesv2 get-email-identity --email-identity auth.thecliniqai.com
     --region ap-south-1 --query "{verified:VerifiedForSendingStatus,dkim:DkimAttributes.Status}"` and
     `aws sesv2 get-account --region ap-south-1 --query ProductionAccessEnabled`; Claude checks the 03-E5 records with `dig`.
 
 - [ ] **03-E7 · Cloudflare Turnstile widget**
-  - *Do / where:* Cloudflare dashboard → Turnstile → Add widget `clinicos-staging`, hostname `staging.<domain>`, mode
+  - *Do / where:* Cloudflare dashboard → Turnstile → Add widget `clinicos-staging`, hostname `staging.thecliniqai.com`, mode
     **Managed**, no pre-clearance. Site key → Vercel `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (03-E4). Secret key → Supabase
     staging → Authentication → Bot and Abuse Protection → Enable CAPTCHA → Turnstile → secret.
   - *Why:* C43; acceptance 10.
   - *Unblocks:* AUTH-00 re-check item 2.
   - *Verify (Claude):* the `drift.yml` `auth-config` job confirms CAPTCHA enabled with provider Turnstile;
-    `curl -s -o /dev/null -w "%{http_code}\n" https://staging.<domain>/login` → 200. You confirm one browser sign-in on
+    `curl -s -o /dev/null -w "%{http_code}\n" https://staging.thecliniqai.com/login` → 200. You confirm one browser sign-in on
     staging succeeds with the widget (recorded with re-check item 2).
     Then dispatch `staging.yml` (Actions → staging → Run workflow) with task `recheck`, inputs
     `captcha_browser_check` and `auth_log_retention` (AUTH-00 staging re-check kit, 03-12c); approve the `staging`
@@ -185,19 +237,19 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
 
 - [ ] **03-E8 · Send Email hook on staging**
   - *Do / where:* Supabase staging → Authentication → Hooks → Send Email → HTTPS
-    `https://staging.<domain>/api/auth/send-email` → generate the secret → Vercel `SEND_EMAIL_HOOK_SECRET`; set
+    `https://staging.thecliniqai.com/api/auth/send-email` → generate the secret → Vercel `SEND_EMAIL_HOOK_SECRET`; set
     `EMAIL_PROVIDER=ses` in Vercel and redeploy. Then request a password reset on staging for your SES-verified address.
   - *Why:* AUTH-03; the magiclink drop (A00-1).
   - *Unblocks:* acceptance 9.
   - *Verify:* the `drift.yml` `auth-config` job shows the hook enabled with that URI; you paste the received mail's
-    `Authentication-Results` line (expect `dkim=pass header.d=auth.<domain>`; the message holds only a synthetic code).
+    `Authentication-Results` line (expect `dkim=pass header.d=auth.thecliniqai.com`; the message holds only a synthetic code).
 
 - [ ] **03-E9 · Error-sink ingest key on staging + one diag error**
   - *Do / where:* generate a key locally (`openssl rand -hex 32`) → Vercel `ERROR_INGEST_KEY`; compute its hash locally
     (`printf %s "<key>" | shasum -a 256`) and run in the staging SQL editor
     `select vault.create_secret('<sha256 hex>', 'ops_error_ingest_key_sha256');` (hash only). Set
     `DIAG_ERROR_ROUTE_ENABLED=true`, redeploy, run `curl -s -X POST -H "authorization: Bearer <CRON_SECRET>"
-    -D - https://staging.<domain>/api/diag/error` (note `x-request-id`), run the export query from
+    -D - https://staging.thecliniqai.com/api/diag/error` (note `x-request-id`), run the export query from
     `docs/runbooks/error-sink.md` for that request id, save it as JSON, then set the flag back to `false`.
   - *Why:* acceptance 8 on staging; evidence "an `ops.error_events` row export with scrubbed fields".
   - *Verify (Claude):* `node scripts/ops/check-error-export.mjs <export file>` passes (allowed columns only, no
@@ -207,7 +259,7 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Do / where:* repo `thecliniqai/cliniqai-app` → Settings → Environments. `staging`: required reviewer = you,
     deployment branches `feature/v2` only; secrets `STAGING_DB_URL` (direct/session URL with the DB password),
     `STAGING_SECRET_KEY`, `STAGING_SEED_PASSWORD`; variables `SUPABASE_PROJECT_REF_STAGING`, `STAGING_ORIGIN`
-    (`https://staging.<domain>`), `STAGING_PUBLISHABLE_KEY` (the staging `sb_publishable_…` key; added by 03-12c). `staging-readonly`: no reviewer, branch `feature/v2`; secrets
+    (`https://staging.thecliniqai.com`), `STAGING_PUBLISHABLE_KEY` (the staging `sb_publishable_…` key; added by 03-12c). `staging-readonly`: no reviewer, branch `feature/v2`; secrets
     `SUPABASE_ACCESS_TOKEN_STAGING_RO` (03-E11), `STAGING_DB_URL_RO` (the read-only role from `docs/runbooks/staging.md`,
     password set by you); same variables.
   - *Values (correction from 03-08):* `STAGING_DB_URL` must be the **Session pooler** URL (Dashboard → Connect → Session
@@ -232,14 +284,17 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Unblocks:* acceptance 12.
   - *Verify (Claude):* the `drift.yml` `auth-config` job runs green after merge (`gh run view <id> --json jobs`).
 
-- [ ] **03-E13 · Confirm the V2-03 rulings** — also the review rulings in `.planning/phases/03-platform-hygiene/03-13-REVIEW-TRIAGE.md`: **R-35** password reset ends signed out (deviates from AUTH_REDESIGN), **R-36** email OTP length 8, and the accepted-risk table; read the rulings table at the end of this plan (A00-1…A00-5, R-1…R-34,
+- [d] **03-E13 · Confirm the V2-03 rulings** — also the review rulings in `.planning/phases/03-platform-hygiene/03-13-REVIEW-TRIAGE.md`: **R-35** password reset ends signed out (deviates from AUTH_REDESIGN), **R-36** email OTP length 8, and the accepted-risk table; read the rulings table at the end of this plan (A00-1…A00-5, R-1…R-34,
+  - **Delegated to CTO by the PO on 2026-11-13 ("for the rest, I trust your judgement"); the rulings stand as written. Revisit at go-live if needed.**
   R-K) and confirm or overturn them; in particular **R-9** (CLAUDE.md says "never `db push`"; staging migrations would run
   only in the PO-approved `staging` Environment workflow that agents never dispatch) and the proposed CLAUDE.md Commands
   update (phase close step 6). *Verify:* your confirmation recorded in VERIFICATION_LOG's gate section.
-- [ ] **03-E14 · Confirm two flagged packages** — `@aws-sdk/client-sesv2@3.1155.0` and `@marsidev/react-turnstile@1.6.2`
+- [d] **03-E14 · Confirm two flagged packages** — `@aws-sdk/client-sesv2@3.1155.0` and `@marsidev/react-turnstile@1.6.2`
+  - **Delegated to CTO by the PO on 2026-11-13 ("for the rest, I trust your judgement"); the rulings stand as written. Revisit at go-live if needed.**
   (research verdict SUS "too-new", older pins taken). Review `evidence/package-legitimacy.json` (registry metadata,
   integrity, `npm audit signatures`). Blocks the merge, not local work (R-23). *Verify:* confirmation recorded.
-- [ ] **03-E15 · Confirm the Next 16 outcome** — the upgrade record `03-06-NEXT16.md`, or, if the fallback ran, the
+- [d] **03-E15 · Confirm the Next 16 outcome** — the upgrade record `03-06-NEXT16.md`, or, if the fallback ran, the
+  - **Delegated to CTO by the PO on 2026-11-13 ("for the rest, I trust your judgement"); the rulings stand as written. Revisit at go-live if needed.**
   deferral `03-06-NEXT16-DEFERRAL.md` with its 2026-12-14 re-check. *Verify:* confirmation recorded.
 - (03-E12 = existing C-1, repo visibility; no new action.)
 
@@ -270,6 +325,7 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     VERIFICATION_LOG.
 
 - [ ] **04-P2 · AWS account baseline in `ap-south-1` (shared with SES, 03-E6)**
+  - **Waiting on PO decision B-3 (AWS vs Cloudflare R2 for staging backups). Do not start.**
   - *Do / where:* AWS console: root user MFA; an admin role or IAM Identity Center user for yourself (do not use root);
     default region **Asia Pacific (Mumbai) `ap-south-1`**; Billing → Budgets → monthly cost budget US$10 with an email
     alert to the ops inbox (04-P7).
@@ -280,6 +336,7 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     text) --query 'Budgets[].BudgetName'`.
 
 - [ ] **04-P3 · Two age key pairs for staging backups**
+  - **Waiting on PO decision B-3 (AWS vs Cloudflare R2 for staging backups). Do not start.**
   - *Do / where:* on your machine: install age v1.3.2 (`brew install age`, or the release in `ops/bin/pins.env`); run
     `age-keygen -o clinicos-staging-primary.agekey` and `age-keygen -o clinicos-staging-breakglass.agekey`; store the
     primary file in your password manager and the break-glass file sealed offline; delete the local files.
@@ -291,6 +348,7 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     final proof is 04-P13 (decrypt with each key).
 
 - [ ] **04-P4 · Staging backup credentials in SSM Parameter Store (+ S3 protocol check)**
+  - **Waiting on PO decision B-3 (AWS vs Cloudflare R2 for staging backups). Do not start.**
   - *Do / where:* Supabase staging → Connect → **Session pooler** URI (port 5432, includes the DB password) and Storage →
     Settings → S3 connection (enable the S3 protocol, create an access key; note the endpoint and region). AWS console
     (Mumbai) → Systems Manager → Parameter Store → create, Standard tier: SecureString
@@ -303,6 +361,7 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     → five names, no values. If Storage offers no S3 protocol on Free, say so (risk K-5).
 
 - [ ] **04-P5 · Deploy the staging backup stack**
+  - **Waiting on PO decision B-3 (AWS vs Cloudflare R2 for staging backups). Do not start.**
   - *Do / where:* CloudShell (Mumbai): upload `ops/backup/stack.json` from `feature/v2`; `aws cloudformation
     validate-template --template-body file://stack.json`; `aws cloudformation deploy --stack-name
     clinicos-staging-backup --template-file stack.json --capabilities CAPABILITY_NAMED_IAM --parameter-overrides
@@ -323,6 +382,7 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     through the `backup-evidence` artifact.
 
 - [ ] **04-P6 · GitHub variables for backup evidence**
+  - **Waiting on PO decision B-3 (AWS vs Cloudflare R2 for staging backups). Do not start.**
   - *Do / where:* repo `thecliniqai/cliniqai-app` → Settings → Environments → `staging-readonly` (03-E10) → Variables
     (not secrets): `AWS_BACKUP_EVIDENCE_ROLE_ARN` = output `EvidenceRoleArn`, `AWS_REGION=ap-south-1`, `BACKUP_BUCKET` =
     output `BucketName`, `BACKUP_PROJECT=clinicos-staging-backup`, `BACKUP_TOPIC_ARN` = output `TopicArn`.
@@ -350,15 +410,15 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     report only). Keep `CRON_SECRET` (diag route, R-27). Redeploy.
   - *Why:* R-9, R-17, R-32.
   - *Unblocks:* 04-P9, P12; acceptance 3, 4.
-  - *Verify (Claude, read-only):* `curl -s -o /dev/null -w "%{http_code}\n" -X POST https://staging.<domain>/api/jobs/run`
-    → `401` (no secret, no side effect); `curl -s https://staging.<domain>/api/ready` → `"status":"ready"`,
+  - *Verify (Claude, read-only):* `curl -s -o /dev/null -w "%{http_code}\n" -X POST https://staging.thecliniqai.com/api/jobs/run`
+    → `401` (no secret, no side effect); `curl -s https://staging.thecliniqai.com/api/ready` → `"status":"ready"`,
     `checks.schema` `"current"`, `providers.messaging` `"disabled"` (sink) and a `jobs` block of four booleans (no
     counts: V2-03 M-PROBE).
 
 - [ ] **04-P9 · Scheduler secrets in staging Vault + answer OI-3**
   - *Do / where:* after the approved migrate run with `000033`: staging SQL Editor:
     `select vault.create_secret('<the 04-P8 JOBS_RUNNER_SECRET value>', 'jobs_runner_secret');` and
-    `select vault.create_secret('https://staging.<domain>/api/jobs/run', 'jobs_runner_url');`. OI-3: Vercel (v1 and
+    `select vault.create_secret('https://staging.thecliniqai.com/api/jobs/run', 'jobs_runner_url');`. OI-3: Vercel (v1 and
     staging projects) → Settings → Cron Jobs — any entries? any external pinger calling `/api/cron/*`? (those routes
     now answer 404).
   - *Why:* C22; secrets never in migrations or git.
@@ -408,14 +468,16 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
   - *Verify (Claude):* `npx tsx ops/restore-drill/check-evidence.ts .planning/phases/04-jobs-reliability/evidence/restore-drill-staging.json`
     → pass (all checks green, RPO ≤ 12 h, RTO ≤ 4 h, counts only); VERIFICATION_LOG entry written from the file.
 
-- [ ] **04-P14 · Confirm the V2-04 rulings** — the rulings table below (R-1…R-47), in particular R-6 (revised: the
+- [d] **04-P14 · Confirm the V2-04 rulings** — the rulings table below (R-1…R-47), in particular R-6 (revised: the
+  - **Delegated to CTO by the PO on 2026-11-13 ("for the rest, I trust your judgement"); the rulings stand as written. Revisit at go-live if needed.**
   enqueue RPCs take the session's active tenant as a constraint; ADR-0005 amendment A2 in `04-ADR0005-PROPOSALS.md`
   replaces D3's "accepts no tenant argument"), R-7 (TARGET §8 erratum: `dedupe_key` NOT NULL), R-26 (test ping
   becomes queued; event data built in SQL), R-27 (CRON_SECRET kept), R-34 (pg_cron confirmation at the staging apply),
   R-38 (contract in the same PR), R-40 (SES bounce webhook moves to V2-12), R-41 (revised: `/api/ready` gains four
   booleans, no counts), R-43 (Send Email hook dedupe through the system client; ADR-0005 amendment A3), R-44 (`private`
   definer writers), R-47 (04-00 hardening choices). *Verify:* your confirmation recorded in VERIFICATION_LOG's gate section.
-- [ ] **04-P15 · Confirm the pinned artefacts** — `msw@3.0.3` (research verdict SUS "too-new", older pin taken),
+- [d] **04-P15 · Confirm the pinned artefacts** — `msw@3.0.3` (research verdict SUS "too-new", older pin taken),
+  - **Delegated to CTO by the PO on 2026-11-13 ("for the rest, I trust your judgement"); the rulings stand as written. Revisit at go-live if needed.**
   age v1.3.2 SHA-256 values, the `postgres:17` and `amazon/aws-cli` digests, the `configure-aws-credentials` SHA.
   Review `evidence/package-legitimacy.json` and `evidence/pins.json`. Blocks the **merge**, not local work (V2-03
   R-23 pattern). *Verify:* confirmation recorded.
@@ -445,7 +507,8 @@ entitlements". No secret value appears here. Nothing below blocks local work; 05
 and 05-P7 are hosted steps that run after a merge (V2-03 R-19 pattern). They assume V2-03's staging items (E2, E4, E10) are done; if
 staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up applies every migration).
 
-- [ ] **05-P1 · Confirm the V2-05 rulings**
+- [d] **05-P1 · Confirm the V2-05 rulings**
+  - **Delegated to CTO by the PO on 2026-11-13 ("for the rest, I trust your judgement"); the rulings stand as written. Revisit at go-live if needed.**
   - *Do / where:* read the rulings table at the end of this plan and confirm or overturn them in chat. In particular:
     **R-1** (stacked PRs: 05a's PR targets the V2-04 branch and 05b's targets 05a, a deviation from CLAUDE.md's "branches
     off `feature/v2`"); **R-2/R-3** (schema change: clinical notes **and vitals** move from `visits` to a new
@@ -476,7 +539,7 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
   - *Unblocks:* merging 05b (05-b0 precondition).
   - *Verify (Claude, read-only):* `gh run list --workflow staging.yml --branch feature/v2 --limit 1 --json
     conclusion,headSha,url` → `success` at the 05a merge SHA (its `plan` job lists the 05a files; its `wait-for-release`
-    step requires `checks.schema: "current"`); `curl -s https://staging.<domain>/api/ready` → `"status":"ready"` and
+    step requires `checks.schema: "current"`); `curl -s https://staging.thecliniqai.com/api/ready` → `"status":"ready"` and
     `checks.schema` `"current"` (since V2-03 03-13c the probe returns no migration version: the deployed build reports
     whether its own `EXPECTED_MIGRATION`, the newest 05a file, is applied).
 
@@ -521,5 +584,5 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
   - *Why:* invite acceptance creates the account through the Auth admin API, which skips Supabase's CAPTCHA, so the
     app verifies the Turnstile token itself (AUTH §3.2). Without the value staging refuses every invite acceptance.
   - *Unblocks:* 05-P5 (the optional staging invite) and any invite acceptance on staging after the 05b merge.
-  - *Verify (Claude, read-only):* `curl -s https://staging.<domain>/api/health` → 200 (the env schema accepted the
+  - *Verify (Claude, read-only):* `curl -s https://staging.thecliniqai.com/api/health` → 200 (the env schema accepted the
     value at boot); the acceptance itself is checked in 05-P5.
