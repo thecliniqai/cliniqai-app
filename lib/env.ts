@@ -168,6 +168,16 @@ export type EnvName = keyof Shape;
 export const ENV_NAMES = Object.keys(shapeSchema.shape) as EnvName[];
 export const ENV_SOURCE_NAMES: readonly string[] = [...ENV_NAMES, ...Object.keys(RETIRED_NAMES)];
 
+/**
+ * 04-00 (review A L-1, R-47): credential-shaped names (`*_SECRET`, `*_SECRET_KEY`, `*_KEY`, `*_TOKEN`, `*_PASSWORD`;
+ * never `NEXT_PUBLIC_*`, which are public by definition). A copy-paste that carries a space or a newline yields a
+ * secret that boots but never matches its other half, so a leading or trailing whitespace is refused in every tier.
+ */
+export function isSecretEnvName(name: string): boolean {
+  return !name.startsWith("NEXT_PUBLIC_") && /(?:_SECRET|_KEY|_TOKEN|_PASSWORD)$/.test(name);
+}
+export const SECRET_ENV_NAMES: readonly EnvName[] = ENV_NAMES.filter(isSecretEnvName);
+
 /** The parsed environment: tier resolved, defaults applied, flags as booleans. */
 export interface Env {
   NODE_ENV: "development" | "test" | "production";
@@ -247,8 +257,6 @@ const shapeErrorMap: z.ZodErrorMap = (issue) => {
   }
 };
 
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
-
 function hostOf(url: string): string | null {
   try {
     return new URL(url).hostname;
@@ -257,9 +265,42 @@ function hostOf(url: string): string | null {
   }
 }
 
-function isLoopbackUrl(url: string): boolean {
+/** IPv4 `127.0.0.0/8` in the WHATWG-canonical dotted form (`127.1`, `0x7f.1` and `2130706433` all arrive as this). */
+const IPV4_LOOPBACK = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+/**
+ * IPv6 as the WHATWG parser serialises it (bracketed, compressed, lower case): `::1`, the unspecified `::`, the
+ * IPv4-mapped loopback range `::ffff:7f00:0/104` (`[::ffff:127.0.0.1]` arrives as `[::ffff:7f00:1]`) and `::ffff:0:0`.
+ */
+const IPV6_LOOPBACK = /^\[(?:::1|::|::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}|::ffff:0:0)\]$/;
+
+/**
+ * 04-00 (review A L-2, R-47): a host that reaches this machine. Classified on the canonical hostname of `new URL()`,
+ * so odd spellings are folded first; `localhost` and its subdomains count with or without the trailing root dot.
+ * Isomorphic on purpose (this module is bundled for the browser): no `node:net`, no `lib/webhooks/ssrf.ts`.
+ */
+export function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (IPV4_LOOPBACK.test(host) || host === "0.0.0.0" || IPV6_LOOPBACK.test(host)) return true;
+  const name = host.endsWith(".") ? host.slice(0, -1) : host;
+  return name === "localhost" || name.endsWith(".localhost");
+}
+
+export function isLoopbackUrl(url: string): boolean {
   const host = hostOf(url);
-  return host !== null && (LOOPBACK_HOSTS.has(host) || host.endsWith(".localhost"));
+  return host !== null && isLoopbackHost(host);
+}
+
+/**
+ * 04-00 (review A L-2): a bare origin, `scheme://host[:port]` with at most a `/` path: no credentials, path, query or
+ * fragment (a lone `?` or `#` counts too, since `href` keeps it).
+ */
+export function isBareOrigin(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.username === "" && u.password === "" && u.href === `${u.origin}/`;
+  } catch {
+    return false;
+  }
 }
 
 function isHttpsUrl(url: string): boolean {
@@ -306,8 +347,9 @@ function supabaseKeyKind(key: string): SupabaseKeyKind {
   return "other-jwt";
 }
 
+/** 04-00 (review A L-1, R-47): a value that is empty after `trim()` counts as unset (a pasted blank is not a secret). */
 function present(value: string | undefined): value is string {
-  return value !== undefined && value !== "";
+  return value !== undefined && value.trim() !== "";
 }
 
 /** The decoded key of a `v1,whsec_<base64>` hook secret, or null when the shape is wrong. */
@@ -321,7 +363,11 @@ function hookSecretKey(secret: string): string | null {
   }
 }
 
-/** Blank values count as unset; only the schema's own names (and the retired names) are read. */
+/**
+ * Blank values (empty after `trim()`, 04-00 L-1) count as unset; every other value is kept exactly as given, so a padded
+ * secret is refused by name (below) rather than silently trimmed. Only the schema's own names (and the retired names)
+ * are read.
+ */
 function normalise(source: EnvSource): EnvSource {
   const out: EnvSource = {};
   for (const name of ENV_SOURCE_NAMES) {
@@ -349,6 +395,12 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
   const add = (key: string, rule: string) => issues.push(`${key}: ${rule}`);
   const deploy = DEPLOY_TIERS.includes(tier);
   const nodeProduction = raw.NODE_ENV === "production";
+
+  // 04-00 (review A L-1): a padded secret is refused by name in every tier; the value is never echoed.
+  for (const name of SECRET_ENV_NAMES) {
+    const value = raw[name];
+    if (present(value) && value !== value.trim()) add(name, "must not have leading or trailing whitespace");
+  }
 
   // A production build can claim only a build/deploy tier; `development`/`test` would switch the fail-closed rules off.
   if (nodeProduction && (tier === "development" || tier === "test")) {
@@ -519,6 +571,13 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
 
     if (present(supabaseUrl) && (!isHttpsUrl(supabaseUrl) || isLoopbackUrl(supabaseUrl))) {
       add("NEXT_PUBLIC_SUPABASE_URL", `must be a non-loopback https URL in ${tier}`);
+    }
+    // 04-00 (review A L-2): the project URL and the app URL are origins; credentials, a path, a query or a fragment
+    // there are a paste error at best (every client call and patient link is built by appending to them).
+    for (const [key, value] of [["NEXT_PUBLIC_SUPABASE_URL", supabaseUrl], ["NEXT_PUBLIC_APP_URL", appUrl]] as const) {
+      if (present(value) && !isBareOrigin(value)) {
+        add(key, `must be a bare https origin in ${tier} (no credentials, path, query or fragment)`);
+      }
     }
     // R-K: hosted projects issue only `sb_publishable_` / `sb_secret_` keys; anything else in a deploy tier is a
     // local-stack key, a legacy JWT or a paste error (a swapped key is refused below, in every tier).

@@ -7,7 +7,7 @@
  * (`buildAppServerEnv`) pass in their own tiers (K-6). No value here is real.
  */
 import { describe, expect, it } from "vitest";
-import { EnvConfigError, parseEnv, type EnvSource } from "@/lib/env";
+import { EnvConfigError, isLoopbackHost, parseEnv, SECRET_ENV_NAMES, type EnvSource } from "@/lib/env";
 import { buildAppServerEnv } from "../e2e/support/app-env";
 import { LOCAL_SEND_EMAIL_HOOK_SECRET } from "../setup/test-env";
 
@@ -674,5 +674,146 @@ describe("env schema: deploy tiers only in a Vercel production deployment (03-13
 
   it("the build and local tiers ignore VERCEL_ENV (the tier is never inferred from it, R-11)", () => {
     expect(parseEnv({ ...CI_BUILD, VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "any-branch" }).APP_ENV).toBe("ci");
+  });
+});
+
+/**
+ * V2-04 04-00 (review A L-1, R-47): a value that is blank after `trim()` is unset, and a credential-shaped name with
+ * leading or trailing whitespace is refused in every tier, naming the key and never the value. Before 04-00 all of
+ * these booted in production.
+ */
+describe("env schema: blank and padded secrets (04-00, review A L-1)", () => {
+  const spaces = (n: number) => " ".repeat(n);
+
+  it("a CRON_SECRET of 32 spaces is unset (refused as missing in production), never echoed", () => {
+    const issues = expectRejected({ ...PRODUCTION, CRON_SECRET: spaces(32) }, "CRON_SECRET");
+    expect(issues).toContain("CRON_SECRET: required in production, at least 32 characters");
+  });
+
+  it.each(["SUPABASE_SECRET_KEY", "MSG91_AUTH_KEY", "MSG91_WEBHOOK_SECRET"])("%s=\" \" is refused as missing in production", (key) => {
+    const issues = expectRejected({ ...PRODUCTION, [key]: " " }, key);
+    expect(issues.find((i) => i.startsWith(`${key}:`))).toMatch(/required/);
+  });
+
+  it.each([
+    ["CRON_SECRET", `${PRODUCTION.CRON_SECRET}\n`],
+    ["SUPABASE_SECRET_KEY", `${SECRET} `],
+    ["MSG91_AUTH_KEY", `\t${PRODUCTION.MSG91_AUTH_KEY}`],
+    ["MSG91_WEBHOOK_SECRET", `${PRODUCTION.MSG91_WEBHOOK_SECRET}\r\n`],
+    ["SEND_EMAIL_HOOK_SECRET", `${HOOK_SECRET}\n`],
+    ["ERROR_INGEST_KEY", ` ${PRODUCTION.ERROR_INGEST_KEY}`],
+    ["SES_SECRET_ACCESS_KEY", `${SES_SECRET} `],
+  ])("a valid %s with surrounding whitespace is refused naming the key, never the value", (key, padded) => {
+    const issues = issuesOf({ ...PRODUCTION, [key]: padded });
+    expect(issues).toContain(`${key}: must not have leading or trailing whitespace`);
+    expect(issues.join("\n")).not.toContain(padded.trim());
+  });
+
+  it("the padding rule holds in every tier (a padded secret in the test tier is refused too)", () => {
+    const local = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+    expect(issuesOf({ ...local, CRON_SECRET: "MARKER-local-cron-secret " })).toEqual(["CRON_SECRET: must not have leading or trailing whitespace"]);
+    expect(parseEnv({ ...local, CRON_SECRET: "  " }).CRON_SECRET).toBeUndefined();
+  });
+
+  it("the rule covers every credential-shaped schema name and no public or non-secret one", () => {
+    for (const key of [
+      "CRON_SECRET",
+      "SUPABASE_SECRET_KEY",
+      "MSG91_AUTH_KEY",
+      "MSG91_WEBHOOK_SECRET",
+      "SEND_EMAIL_HOOK_SECRET",
+      "ERROR_INGEST_KEY",
+      "SES_SECRET_ACCESS_KEY",
+      "TWILIO_AUTH_TOKEN",
+      "GUPSHUP_API_KEY",
+      "AI_API_KEY",
+    ]) {
+      expect(SECRET_ENV_NAMES).toContain(key);
+    }
+    for (const key of ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_TURNSTILE_SITE_KEY", "SES_ACCESS_KEY_ID", "MSG91_INTEGRATED_NUMBER"]) {
+      expect(SECRET_ENV_NAMES).not.toContain(key);
+    }
+  });
+});
+
+/**
+ * V2-04 04-00 (review A L-2, R-47): loopback is classified on the WHATWG-canonical host (127/8, 0.0.0.0, ::1, ::,
+ * ::ffff:127.*, localhost. and *.localhost), and the deploy tiers' Supabase and app URLs must be bare https origins.
+ * Before 04-00 every refused case below booted in production.
+ */
+describe("env schema: loopback forms and bare origins (04-00, review A L-2)", () => {
+  /** A synthetic 20-character project ref (not a real project). */
+  const REF = "abcdefghijklmnopqrst";
+
+  it.each(["https://localhost./", "https://0.0.0.0", "https://[::ffff:127.0.0.1]", "https://127.0.0.2", "https://127.1", "https://[::]", "https://app.localhost."])(
+    "production refuses NEXT_PUBLIC_APP_URL=%s as loopback",
+    (url) => {
+      expect(issuesOf({ ...PRODUCTION, NEXT_PUBLIC_APP_URL: url })).toContain("NEXT_PUBLIC_APP_URL: must be a non-loopback https URL in production");
+    },
+  );
+
+  it.each(["https://localhost./", "https://0.0.0.0", "https://[::ffff:127.0.0.1]", "https://127.0.0.2"])(
+    "staging refuses NEXT_PUBLIC_SUPABASE_URL=%s as loopback",
+    (url) => {
+      expect(issuesOf({ ...STAGING, NEXT_PUBLIC_SUPABASE_URL: url })).toContain("NEXT_PUBLIC_SUPABASE_URL: must be a non-loopback https URL in staging");
+    },
+  );
+
+  it.each([
+    ["userinfo, a path and a query", `https://u:p@${REF}.supabase.co/x?y`],
+    ["userinfo only", `https://u:p@${REF}.supabase.co`],
+    ["a path", `https://${REF}.supabase.co/rest/v1`],
+    ["a query", `https://${REF}.supabase.co/?apikey=MARKER-query-value`],
+    ["a lone ?", `https://${REF}.supabase.co?`],
+    ["a fragment", `https://${REF}.supabase.co/#x`],
+  ])("production refuses a Supabase URL with %s as not a bare origin, never echoing it", (_label, url) => {
+    const issues = issuesOf({ ...PRODUCTION, NEXT_PUBLIC_SUPABASE_URL: url });
+    expect(issues).toContain("NEXT_PUBLIC_SUPABASE_URL: must be a bare https origin in production (no credentials, path, query or fragment)");
+    expect(issues.join("\n")).not.toContain(url);
+  });
+
+  it("the app URL must be a bare origin too (staging)", () => {
+    expect(issuesOf({ ...STAGING, NEXT_PUBLIC_APP_URL: "https://app.synthetic-clinic.example.org/clinic" })).toEqual([
+      "NEXT_PUBLIC_APP_URL: must be a bare https origin in staging (no credentials, path, query or fragment)",
+    ]);
+  });
+
+  it("a bare hosted origin passes, with or without the trailing slash", () => {
+    for (const url of [`https://${REF}.supabase.co`, `https://${REF}.supabase.co/`]) {
+      expect(parseEnv({ ...PRODUCTION, NEXT_PUBLIC_SUPABASE_URL: url }).NEXT_PUBLIC_SUPABASE_URL).toBe(url);
+    }
+    expect(parseEnv({ ...STAGING, NEXT_PUBLIC_APP_URL: "https://staging.synthetic-clinic.example.org" }).APP_ENV).toBe("staging");
+  });
+
+  it("the test, e2e and ci tiers still accept the local stack (and refuse a non-loopback host)", () => {
+    for (const APP_ENV of ["ci", "e2e"]) {
+      expect(parseEnv({ ...CI_BUILD, APP_ENV, NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321" }).APP_ENV).toBe(APP_ENV);
+    }
+    const test = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+    expect(parseEnv(test).APP_ENV).toBe("test");
+    expect(parseEnv({ ...test, NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321" }).APP_ENV).toBe("test");
+    expectRejected({ ...test, NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1.nip.io:54321" }, "NEXT_PUBLIC_SUPABASE_URL");
+  });
+
+  it.each([
+    ["127.0.0.1", true],
+    ["127.255.255.254", true],
+    ["0.0.0.0", true],
+    ["[::1]", true],
+    ["[::]", true],
+    ["[::ffff:7f00:1]", true],
+    ["[::ffff:7fff:ffff]", true],
+    ["[::ffff:0:0]", true],
+    ["localhost", true],
+    ["localhost.", true],
+    ["db.localhost", true],
+    ["db.localhost.", true],
+    ["128.0.0.1", false],
+    ["[::2]", false],
+    ["[::ffff:8000:1]", false],
+    ["localhost.example.org", false],
+    ["notlocalhost", false],
+  ])("isLoopbackHost(%s) = %s", (host, expected) => {
+    expect(isLoopbackHost(host)).toBe(expected);
   });
 });

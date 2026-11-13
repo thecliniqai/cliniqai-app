@@ -6,10 +6,12 @@
  * keys (never the values); the ci profile of `.github/workflows/ci.yml` and the e2e app server's environment boot.
  * `instrumentation.ts` `register()` (once per server instance) refuses a bad environment on the Node.js runtime.
  */
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ENV_SOURCE_NAMES } from "@/lib/env";
 import { buildAppServerEnv } from "../e2e/support/app-env";
+import { parseEnvFile } from "../setup/test-env";
 
 const ROOT = path.resolve(__dirname, "../..");
 const TSX = path.join(ROOT, "node_modules/.bin/tsx");
@@ -173,6 +175,73 @@ describe("boot: instrumentation.ts register() (every server instance)", () => {
   it("passes on the Node.js runtime with a valid environment", async () => {
     stubAll({ ...CI_BUILD, NEXT_RUNTIME: "nodejs" });
     const { register } = await import("@/instrumentation");
+    await expect(register()).resolves.toBeUndefined();
+  });
+
+  /**
+   * V2-04 04-00 (review A L-3, R-47): the pinned CLI's fixed opaque local keys carry the hosted prefixes, so only their
+   * digest identifies them. Read from the running local stack here (never committed, never printed); the Vitest lane
+   * itself loads the JWT keys, so these exist only inside this test's stubbed environment.
+   */
+  /** Exactly `env` for the schema's names: the lane's own values (e.g. its local-only names) are unset first. */
+  function stubOnly(env: Record<string, string | undefined>) {
+    stubAll({ ...Object.fromEntries(ENV_SOURCE_NAMES.map((name) => [name, undefined])), ...env });
+  }
+
+  function liveLocalOpaqueKeys(): { publishable: string; secret: string } {
+    const status = parseEnvFile(
+      execFileSync("npx", ["supabase", "status", "-o", "env"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 60_000 }),
+    );
+    const publishable = status.PUBLISHABLE_KEY;
+    const secret = status.SECRET_KEY;
+    expect(publishable, "the local stack reports PUBLISHABLE_KEY").toBeTruthy();
+    expect(secret, "the local stack reports SECRET_KEY").toBeTruthy();
+    // They pass every prefix rule of lib/env.ts; that is why the digest check exists.
+    expect(publishable.startsWith(["sb", "publishable", ""].join("_"))).toBe(true);
+    expect(secret.startsWith(["sb", "secret", ""].join("_"))).toBe(true);
+    return { publishable, secret };
+  }
+
+  it("refuses a staging profile carrying the local stack's opaque keys, naming both and no value (04-00 L-3)", async () => {
+    const local = liveLocalOpaqueKeys();
+    stubOnly({
+      ...COMPLETE_PRODUCTION,
+      APP_ENV: "staging",
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.publishable,
+      SUPABASE_SECRET_KEY: local.secret,
+      NEXT_RUNTIME: "nodejs",
+    });
+    const { register } = await import("@/instrumentation");
+    const err = await register().then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(Error);
+    const message = (err as Error).message;
+    expect(message).toContain("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: must not be a local-stack key in staging");
+    expect(message).toContain("SUPABASE_SECRET_KEY: must not be a local-stack key in staging");
+    expect(message).not.toContain(local.publishable);
+    expect(message).not.toContain(local.secret);
+
+    // Every server read goes through the same parse.
+    const { serverEnv } = await import("@/lib/env-server");
+    expect(() => serverEnv()).toThrow(/SUPABASE_SECRET_KEY: must not be a local-stack key in staging/);
+
+    // One local key is enough to refuse; production refuses them as well.
+    vi.unstubAllEnvs();
+    stubOnly({ ...COMPLETE_PRODUCTION, SUPABASE_SECRET_KEY: local.secret, NEXT_RUNTIME: "nodejs" });
+    await expect(register()).rejects.toThrow(/^(?![\s\S]*NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)[\s\S]*SUPABASE_SECRET_KEY: must not be a local-stack key in production/);
+  });
+
+  it("the same staging profile with run-time-built hosted keys boots; the local tiers keep their keys (04-00 L-3)", async () => {
+    stubOnly({ ...COMPLETE_PRODUCTION, APP_ENV: "staging", NEXT_RUNTIME: "nodejs" });
+    const { register } = await import("@/instrumentation");
+    await expect(register()).resolves.toBeUndefined();
+
+    // Outside the deploy tiers the opaque local keys are not refused (a developer may run against them locally).
+    const local = liveLocalOpaqueKeys();
+    vi.unstubAllEnvs();
+    stubOnly({ ...CI_BUILD, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.publishable, SUPABASE_SECRET_KEY: local.secret, NEXT_RUNTIME: "nodejs" });
     await expect(register()).resolves.toBeUndefined();
   });
 });

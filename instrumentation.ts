@@ -12,8 +12,10 @@ export async function register(): Promise<void> {
   // function log unscrubbed.
   const { installConsoleScrub } = await import("./lib/observability/console-scrub");
   installConsoleScrub();
-  const { assertDeployEnv } = await import("./lib/env");
-  assertDeployEnv(process.env);
+  // V2-04 04-00 (review A L-3): the server parse, which also refuses the local stack's opaque keys in staging and
+  // production (a digest check that needs `node:crypto`, so it cannot live in the isomorphic `lib/env.ts`).
+  const { assertServerEnv } = await import("./lib/env-server");
+  assertServerEnv(process.env);
 }
 
 /**
