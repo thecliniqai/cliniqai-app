@@ -2,7 +2,7 @@
 #
 # Copy the lines you need into the destination named in each section. Never put a real value in this file
 # or in any committed file. `.env*` files are git-ignored; Vercel, GitHub and Supabase hold the hosted values.
-# Generated from the env schema in lib/env.ts (2026-11-13; Resend names from V2-04 plan 04-00b).
+# Generated from the env schema in lib/env.ts (2026-11-13; Resend names from V2-04 plan 04-00b, job runner names from 04-02).
 
 ########################################################################################################
 # A. YOUR LAPTOP — file: .env.local   (for `npm run dev` against the LOCAL Supabase stack)
@@ -21,6 +21,8 @@ AI_ENABLED=false
 API_V1_ENABLED=false
 DIAG_ERROR_ROUTE_ENABLED=false
 CRON_SECRET=<any random string, 32+ characters>
+# JOBS_RUNNER_SECRET: leave unset locally (POST /api/jobs/run then refuses every call; docs/runbooks/jobs.md)
+JOBS_DRILL_ENABLED=false
 # Turnstile: leave empty locally, or use Cloudflare's documented always-pass TEST site key (see lib/env.ts TURNSTILE_TEST_SITE_KEYS)
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=
 
@@ -34,6 +36,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<Supabase staging → Project Settings → 
 SUPABASE_SECRET_KEY=<Supabase staging → Project Settings → API Keys → Secret key>            # Sensitive
 NEXT_PUBLIC_APP_URL=https://staging.thecliniqai.com
 CRON_SECRET=<openssl rand -hex 32>                                                             # Sensitive
+JOBS_RUNNER_SECRET=<openssl rand -hex 32, NOT the CRON_SECRET; the same value goes to Vault in C>   # Sensitive
+JOBS_DRILL_ENABLED=false           # true only during a scheduler/alert drill (docs/runbooks/jobs.md), then false
 MESSAGING_PROVIDER=disabled
 EMAIL_PROVIDER=disabled            # switch to `resend` once the Resend domain is verified (then also set the two below)
 EMAIL_FROM=no-reply@auth.thecliniqai.com   # a plain address on the verified domain (no display name; the app refuses one)
@@ -60,6 +64,9 @@ API_V1_ENABLED=false
 #                  (ONLY after migration 000030 is applied on staging — otherwise every sign-in fails)
 # SQL editor (once): select vault.create_secret('<sha256 hex of ERROR_INGEST_KEY>', 'ops_error_ingest_key_sha256');
 #                    compute with:  printf %s "<ERROR_INGEST_KEY>" | shasum -a 256
+# SQL editor (V2-04 04-P9, AFTER the migrate run with 000033_jobs_scheduler.sql; docs/runbooks/jobs.md §2):
+#                    select vault.create_secret('<the JOBS_RUNNER_SECRET value from B>', 'jobs_runner_secret');
+#                    select vault.create_secret('https://staging.thecliniqai.com/api/jobs/run', 'jobs_runner_url');
 
 ########################################################################################################
 # D. GITHUB — repo → Settings → Environments

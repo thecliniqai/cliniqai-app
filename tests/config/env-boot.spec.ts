@@ -43,6 +43,8 @@ const PRODUCTION_WITHOUT_PROVIDERS = {
   SUPABASE_SECRET_KEY: BOOT_SECRET,
   NEXT_PUBLIC_APP_URL: "https://app.synthetic-clinic.example.org",
   CRON_SECRET: "MARKER-boot-cron-secret-0123456789abcdef",
+  // 04-02: required in production.
+  JOBS_RUNNER_SECRET: "MARKER-boot-jobs-runner-secret-0123456789abcdef",
   MESSAGING_PROVIDER: "dev",
   AI_PROVIDER: "mock",
 };

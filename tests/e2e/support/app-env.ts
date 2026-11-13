@@ -17,6 +17,7 @@ import {
   E2E_PWNED_API_BASE_URL,
   E2E_TURNSTILE_SITE_KEY,
   LOCAL_ERROR_INGEST_KEY,
+  LOCAL_JOBS_RUNNER_SECRET,
   LOCAL_MAILPIT_API_URL,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
   assertLocalAppServerEnv,
@@ -33,6 +34,8 @@ export const E2E_BASE_URL = `http://${E2E_HOST}:${E2E_PORT}`;
 export const LOCAL_SUPABASE_URL = "http://127.0.0.1:54321";
 /** The e2e server's cron bearer (synthetic); `POST /api/diag/error` authenticates with it (03-09b). */
 export const E2E_CRON_SECRET = "e2e-not-real";
+/** V2-04 04-02: the e2e server's `/api/jobs/run` bearer (the lane's synthetic one; the guard allows no other). */
+export const E2E_JOBS_RUNNER_SECRET = LOCAL_JOBS_RUNNER_SECRET;
 /** The e2e server's auth-email sender address (03-11b; Mailpit accepts any). */
 export const E2E_EMAIL_FROM = "no-reply@auth.example.com";
 
@@ -96,6 +99,10 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // diagnostic error route that proves it end to end (tests/e2e/observability/error-sink.spec.ts).
     ERROR_INGEST_KEY: LOCAL_ERROR_INGEST_KEY,
     DIAG_ERROR_ROUTE_ENABLED: "true",
+    // V2-04 04-02: the job runner route answers the synthetic bearer and runs the drill kinds
+    // (tests/e2e/jobs/run-route.spec.ts; scripts/ops/scheduler-local-e2e.ts drives it from pg_cron on macOS).
+    JOBS_RUNNER_SECRET: E2E_JOBS_RUNNER_SECRET,
+    JOBS_DRILL_ENABLED: "true",
     // V2-03 03-11b: the Send Email hook route verifies with the local synthetic secret and delivers to the local
     // Mailpit (tests/e2e/auth/send-email-hook.spec.ts). Local GoTrue keeps its own SMTP path (hook off in config.toml).
     // V2-04 04-00b: the e2e server stays on Mailpit; RESEND_API_KEY is never set here (the guard forbids it in every

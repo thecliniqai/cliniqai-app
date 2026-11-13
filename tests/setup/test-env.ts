@@ -44,6 +44,13 @@ export const LOCAL_ERROR_INGEST_KEY = "not-real-ingest-key-".repeat(2);
  * may carry no other value; the env schema refuses it in staging and production.
  */
 export const LOCAL_SEND_EMAIL_HOOK_SECRET = `v1,whsec_${Buffer.from("not-real-send-email-hook-secret!").toString("base64")}`;
+/**
+ * V2-04 04-02 (RL-23, R-18): the synthetic `/api/jobs/run` bearer of every local lane (64 printable characters, built
+ * at run time). The e2e app server runs with it; Vitest leaves the name unset (the route then refuses every call) and
+ * specs stub random secrets after this guard ran. A test lane may carry no other value (a real one would mean hosted
+ * config leaked in); the rotation slot JOBS_RUNNER_SECRET_NEXT is never set from the shell.
+ */
+export const LOCAL_JOBS_RUNNER_SECRET = ["not", "real", "jobs", "runner", "secret", "0123"].join("-").repeat(2);
 /** V2-03 03-11b: the local stack's Mailpit API (the CLI default port). */
 export const LOCAL_MAILPIT_API_URL = "http://127.0.0.1:54324";
 
@@ -300,6 +307,8 @@ export interface TestEnvRuleOptions {
    * lane keeps it off and specs stub it per test (`vi.stubEnv`) after this guard has run.
    */
   pwnedCheck?: boolean;
+  /** 04-02 (R-32): the e2e app server runs the drill job kinds; the Vitest lane keeps them off (specs stub them). */
+  drillJobs?: boolean;
 }
 
 /** Collect every reason the environment is not the local test stack. Empty array = safe. */
@@ -344,6 +353,16 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
   const diagAllowed = options.diagRoute ? ["true", "false"] : ["false"];
   if (env.DIAG_ERROR_ROUTE_ENABLED && !diagAllowed.includes(env.DIAG_ERROR_ROUTE_ENABLED)) {
     problems.push(`DIAG_ERROR_ROUTE_ENABLED must be unset or ${diagAllowed.join(" or ")} in this lane`);
+  }
+
+  // 04-02: the runner bearer is unset or the local synthetic one; the rotation slot is never set from the shell.
+  if (env.JOBS_RUNNER_SECRET && env.JOBS_RUNNER_SECRET !== LOCAL_JOBS_RUNNER_SECRET) {
+    problems.push("JOBS_RUNNER_SECRET must be unset or the local synthetic secret (LOCAL_JOBS_RUNNER_SECRET) in the test lane");
+  }
+  if (env.JOBS_RUNNER_SECRET_NEXT) problems.push("JOBS_RUNNER_SECRET_NEXT must not be set in the test lane");
+  const drillAllowed = options.drillJobs ? ["true", "false"] : ["false"];
+  if (env.JOBS_DRILL_ENABLED && !drillAllowed.includes(env.JOBS_DRILL_ENABLED)) {
+    problems.push(`JOBS_DRILL_ENABLED must be unset or ${drillAllowed.join(" or ")} in this lane`);
   }
 
   const pwnedAllowed = options.pwnedCheck ? ["on", "off"] : ["off"];
@@ -421,6 +440,7 @@ export function findAppServerEnvProblems(env: EnvMap): string[] {
     appEnv: E2E_APP_ENV,
     diagRoute: true,
     pwnedCheck: true,
+    drillJobs: true,
   });
   if (env.__NEXT_PROCESSED_ENV !== "true") {
     problems.push("__NEXT_PROCESSED_ENV must be \"true\" so Next loads no .env file into the e2e server");

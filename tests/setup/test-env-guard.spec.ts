@@ -11,6 +11,7 @@ import {
   FORBIDDEN_VARS,
   findTestEnvProblems,
   LOCAL_ERROR_INGEST_KEY,
+  LOCAL_JOBS_RUNNER_SECRET,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
   TURNSTILE_TEST_SITE_KEYS,
   loadLocalStackKeys,
@@ -207,6 +208,25 @@ describe("test-env guard rules", () => {
       "DIAG_ERROR_ROUTE_ENABLED must be unset or false in this lane",
     );
     expect(findTestEnvProblems(safeEnv({ DIAG_ERROR_ROUTE_ENABLED: "true" }), { diagRoute: true })).toEqual([]);
+  });
+
+  it("pins the job runner bearer to the local synthetic secret, never echoing another value; no rotation slot (04-02)", () => {
+    expect(LOCAL_JOBS_RUNNER_SECRET).toHaveLength(64);
+    expect(findTestEnvProblems(safeEnv({ JOBS_RUNNER_SECRET: LOCAL_JOBS_RUNNER_SECRET }))).toEqual([]);
+    const other = "MARKER-a-staging-runner-secret-0123456789abcdef";
+    const problems = findTestEnvProblems(safeEnv({ JOBS_RUNNER_SECRET: other }));
+    expect(problems).toContain(
+      "JOBS_RUNNER_SECRET must be unset or the local synthetic secret (LOCAL_JOBS_RUNNER_SECRET) in the test lane",
+    );
+    expect(problems.join("\n")).not.toContain(other);
+    const next = findTestEnvProblems(safeEnv({ JOBS_RUNNER_SECRET: LOCAL_JOBS_RUNNER_SECRET, JOBS_RUNNER_SECRET_NEXT: other }));
+    expect(next).toEqual(["JOBS_RUNNER_SECRET_NEXT must not be set in the test lane"]);
+  });
+
+  it("keeps the drill job kinds off in the Vitest lane; the e2e app server may run them (04-02)", () => {
+    expect(findTestEnvProblems(safeEnv({ JOBS_DRILL_ENABLED: "false" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ JOBS_DRILL_ENABLED: "true" }))).toContain("JOBS_DRILL_ENABLED must be unset or false in this lane");
+    expect(findTestEnvProblems(safeEnv({ JOBS_DRILL_ENABLED: "true" }), { drillJobs: true })).toEqual([]);
   });
 
   it("pins the Send Email hook secret to the local synthetic secret and never echoes another value (03-11b)", () => {

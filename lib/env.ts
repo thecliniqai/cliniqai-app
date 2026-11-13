@@ -88,6 +88,13 @@ export const DEPLOY_VERCEL_ENV = "production";
 /** 03-13 M-PREVIEW: staging deploys only from this branch (the Vercel staging project's production branch, PO E4). */
 export const STAGING_GIT_BRANCH = "feature/v2";
 export const MIN_CRON_SECRET_LENGTH = 32;
+/**
+ * V2-04 04-02 (R-17, R-18, RL-23): the bearer pg_cron sends to `/api/jobs/run` (the same value sits in Supabase Vault as
+ * `jobs_runner_secret`). At least 32 printable ASCII characters without spaces (`ops.kick_job_runner()` refuses anything
+ * else, so both halves accept the same values); 64 hex characters from `openssl rand -hex 32` in practice.
+ */
+export const MIN_JOBS_RUNNER_SECRET_LENGTH = 32;
+export const JOBS_RUNNER_SECRET_PATTERN = /^[!-~]{32,512}$/;
 /** 03-09b: the error-sink ingest key (its SHA-256 is the vault secret `ops_error_ingest_key_sha256`). */
 export const MIN_ERROR_INGEST_KEY_LENGTH = 32;
 /**
@@ -144,6 +151,9 @@ const shapeSchema = z.object({
   NEXT_PUBLIC_APP_URL: text.url().optional(),
   API_V1_ENABLED: flag.optional(),
   CRON_SECRET: text.optional(),
+  JOBS_RUNNER_SECRET: text.optional(),
+  JOBS_RUNNER_SECRET_NEXT: text.optional(),
+  JOBS_DRILL_ENABLED: flag.optional(),
   MESSAGING_PROVIDER: z.enum(MESSAGING_PROVIDERS).optional(),
   MSG91_AUTH_KEY: text.optional(),
   MSG91_INTEGRATED_NUMBER: text.optional(),
@@ -197,7 +207,8 @@ export const ENV_SOURCE_NAMES: readonly string[] = [
  * secret that boots but never matches its other half, so a leading or trailing whitespace is refused in every tier.
  */
 export function isSecretEnvName(name: string): boolean {
-  return !name.startsWith("NEXT_PUBLIC_") && /(?:_SECRET|_KEY|_TOKEN|_PASSWORD)$/.test(name);
+  // 04-02: a rotation slot (`<NAME>_NEXT`, e.g. JOBS_RUNNER_SECRET_NEXT) is as secret as the name it rotates.
+  return !name.startsWith("NEXT_PUBLIC_") && /(?:_SECRET|_KEY|_TOKEN|_PASSWORD)(?:_NEXT)?$/.test(name);
 }
 export const SECRET_ENV_NAMES: readonly EnvName[] = ENV_NAMES.filter(isSecretEnvName);
 
@@ -211,6 +222,12 @@ export interface Env {
   NEXT_PUBLIC_APP_URL: string;
   API_V1_ENABLED: boolean;
   CRON_SECRET?: string;
+  /** 04-02: the `/api/jobs/run` bearer; required in staging/production. Unset = every runner call is refused. */
+  JOBS_RUNNER_SECRET?: string;
+  /** 04-02: the rotation slot, accepted next to {@link Env.JOBS_RUNNER_SECRET} while Vault moves to it. */
+  JOBS_RUNNER_SECRET_NEXT?: string;
+  /** 04-02 (R-32): drill job kinds run only when true; refused in production. Defaults to false. */
+  JOBS_DRILL_ENABLED: boolean;
   MESSAGING_PROVIDER: MessagingProviderName;
   MSG91_AUTH_KEY?: string;
   MSG91_INTEGRATED_NUMBER?: string;
@@ -485,6 +502,23 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     add("DIAG_ERROR_ROUTE_ENABLED", "must not be true in production (R-18)");
   }
 
+  // 04-02 (RL-23, R-16, R-18, R-32): the job runner's bearer. Its own secret (never the cron or service key), long and
+  // printable wherever it is set; the rotation slot needs a current secret and must differ from it. Drill kinds never
+  // run in production.
+  const runnerSecret = raw.JOBS_RUNNER_SECRET;
+  const runnerNext = raw.JOBS_RUNNER_SECRET_NEXT;
+  const runnerRule = `at least ${MIN_JOBS_RUNNER_SECRET_LENGTH} printable ASCII characters without spaces`;
+  if (present(runnerSecret) && !JOBS_RUNNER_SECRET_PATTERN.test(runnerSecret)) add("JOBS_RUNNER_SECRET", runnerRule);
+  if (present(runnerNext) && !JOBS_RUNNER_SECRET_PATTERN.test(runnerNext)) add("JOBS_RUNNER_SECRET_NEXT", runnerRule);
+  if (present(runnerNext) && !present(runnerSecret)) add("JOBS_RUNNER_SECRET_NEXT", "requires JOBS_RUNNER_SECRET");
+  if (present(runnerNext) && runnerNext === runnerSecret) add("JOBS_RUNNER_SECRET_NEXT", "must differ from JOBS_RUNNER_SECRET");
+  if (present(runnerSecret) && runnerSecret === raw.CRON_SECRET) {
+    add("JOBS_RUNNER_SECRET", "must differ from CRON_SECRET (a dedicated runner secret, R-16)");
+  }
+  if (raw.JOBS_DRILL_ENABLED === "true" && tier === "production") {
+    add("JOBS_DRILL_ENABLED", "must not be true in production (R-32)");
+  }
+
   // 03-11b (AUTH-03, PO-A3, R-16, R-17, R-31): auth email. Off (`disabled`) unless chosen; staging must choose (a real
   // provider, or disabled until the PO's provider account exists); production sends through a real provider (04-00b:
   // resend until go-live, ses after it). Mailpit is a loopback catcher for local lanes only. SES and Resend need the
@@ -642,6 +676,7 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     if (!present(raw.CRON_SECRET) || raw.CRON_SECRET.length < MIN_CRON_SECRET_LENGTH) {
       add("CRON_SECRET", `required in ${tier}, at least ${MIN_CRON_SECRET_LENGTH} characters`);
     }
+    if (!present(runnerSecret)) add("JOBS_RUNNER_SECRET", `required in ${tier} (the pg_cron runner bearer, 04-P8)`);
     for (const [name, why] of Object.entries(RETIRED_NAMES)) {
       if (present(raw[name])) add(name, `must not be set in ${tier}: ${why}`);
     }
@@ -683,6 +718,7 @@ export function parseEnv(source: EnvSource): Env {
     API_V1_ENABLED: s.API_V1_ENABLED === "true",
     AI_ENABLED: s.AI_ENABLED === "true",
     DIAG_ERROR_ROUTE_ENABLED: s.DIAG_ERROR_ROUTE_ENABLED === "true",
+    JOBS_DRILL_ENABLED: s.JOBS_DRILL_ENABLED === "true",
     // Checked above: present in staging/production.
     EMAIL_PROVIDER: s.EMAIL_PROVIDER ?? "disabled",
     PWNED_CHECK: s.PWNED_CHECK ?? "off",
@@ -788,10 +824,31 @@ export const ENV_DOCS: Record<
   CRON_SECRET: {
     group: "App",
     notes: [
-      `Bearer secret for /api/cron/*. Required in staging/production, at least ${MIN_CRON_SECRET_LENGTH} characters (I-07).`,
-      "Unset locally means every cron call is refused.",
+      `Bearer secret for /api/cron/* (until 04-03a/b delete them) and /api/diag/error. Required in staging/production, at least ${MIN_CRON_SECRET_LENGTH} characters (I-07).`,
+      "Never the job runner's bearer (JOBS_RUNNER_SECRET, R-27). Unset locally means every cron call is refused.",
     ],
     example: SET_IN_VERCEL,
+  },
+  JOBS_RUNNER_SECRET: {
+    group: "Jobs",
+    notes: [
+      `Bearer pg_cron sends to POST /api/jobs/run (04-02, RL-23); the same value is the Vault secret jobs_runner_secret.`,
+      `Required in staging/production; ${MIN_JOBS_RUNNER_SECRET_LENGTH}+ printable characters, no spaces (openssl rand -hex 32). Unset = every runner call is refused.`,
+    ],
+    example: SET_IN_VERCEL,
+  },
+  JOBS_RUNNER_SECRET_NEXT: {
+    group: "Jobs",
+    notes: [
+      "Rotation slot: also accepted by /api/jobs/run while Vault moves to the new value; must differ from JOBS_RUNNER_SECRET.",
+      "Unset outside a rotation (docs/runbooks/jobs.md).",
+    ],
+    example: SET_IN_VERCEL,
+  },
+  JOBS_DRILL_ENABLED: {
+    group: "Jobs",
+    notes: ["true | false (default false). Runs the drill.* job kinds (ops.drill_enqueue); refused in production (R-32)."],
+    example: "false",
   },
   API_V1_ENABLED: {
     group: "App",

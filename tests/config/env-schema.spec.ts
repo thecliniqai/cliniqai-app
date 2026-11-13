@@ -50,6 +50,8 @@ const PRODUCTION: EnvSource = {
   SUPABASE_SECRET_KEY: SECRET,
   NEXT_PUBLIC_APP_URL: "https://app.synthetic-clinic.example.org",
   CRON_SECRET: "MARKER-cron-secret-value-0123456789abcdef",
+  // 04-02: the pg_cron runner bearer (its own secret, never the cron one).
+  JOBS_RUNNER_SECRET: "MARKER-jobs-runner-secret-value-0123456789abcdef",
   MESSAGING_PROVIDER: "msg91",
   MSG91_AUTH_KEY: "MARKER-msg91-auth-value",
   MSG91_INTEGRATED_NUMBER: "910000000001",
@@ -471,6 +473,83 @@ describe("env schema: error sink and diagnostic route (03-09b, R-7, R-18)", () =
 
   it("a non-boolean DIAG_ERROR_ROUTE_ENABLED throws", () => {
     expectRejected({ ...STAGING, DIAG_ERROR_ROUTE_ENABLED: "yes" }, "DIAG_ERROR_ROUTE_ENABLED");
+  });
+});
+
+/**
+ * V2-04 04-02 (RL-23, R-16, R-18, R-32; T-04-01, T-04-20): the job runner's bearer and the drill switch. Each refusal
+ * names the key and never the value.
+ */
+describe("env schema: job runner secret and drill switch (04-02)", () => {
+  const local = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+  const RUNNER_NEXT = "MARKER-jobs-runner-next-value-0123456789abcdef";
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s without JOBS_RUNNER_SECRET throws naming it", (tier, profile) => {
+    const issues = expectRejected({ ...profile, JOBS_RUNNER_SECRET: undefined }, "JOBS_RUNNER_SECRET");
+    expect(issues).toContain(`JOBS_RUNNER_SECRET: required in ${tier} (the pg_cron runner bearer, 04-P8)`);
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+    ["test", local],
+  ])("a 20-character or spaced JOBS_RUNNER_SECRET throws in %s, never echoed", (_tier, profile) => {
+    for (const value of ["MARKER-twenty-chars0", "MARKER-jobs-runner secret-with-a-space-0123"]) {
+      expect(issuesOf({ ...profile, JOBS_RUNNER_SECRET: value })).toContain(
+        "JOBS_RUNNER_SECRET: at least 32 printable ASCII characters without spaces",
+      );
+    }
+  });
+
+  it("JOBS_RUNNER_SECRET_NEXT equal to the current secret throws naming the key", () => {
+    const issues = expectRejected({ ...PRODUCTION, JOBS_RUNNER_SECRET_NEXT: PRODUCTION.JOBS_RUNNER_SECRET }, "JOBS_RUNNER_SECRET_NEXT");
+    expect(issues).toEqual(["JOBS_RUNNER_SECRET_NEXT: must differ from JOBS_RUNNER_SECRET"]);
+  });
+
+  it("JOBS_RUNNER_SECRET_NEXT needs a current secret and the same shape", () => {
+    expect(issuesOf({ ...local, JOBS_RUNNER_SECRET_NEXT: RUNNER_NEXT })).toEqual(["JOBS_RUNNER_SECRET_NEXT: requires JOBS_RUNNER_SECRET"]);
+    expect(issuesOf({ ...PRODUCTION, JOBS_RUNNER_SECRET_NEXT: "MARKER-short-next" })).toEqual([
+      "JOBS_RUNNER_SECRET_NEXT: at least 32 printable ASCII characters without spaces",
+    ]);
+    const env = parseEnv({ ...PRODUCTION, JOBS_RUNNER_SECRET_NEXT: RUNNER_NEXT });
+    expect(env.JOBS_RUNNER_SECRET_NEXT).toBe(RUNNER_NEXT);
+  });
+
+  it("the runner secret must not be the cron secret (a dedicated secret, R-16)", () => {
+    const issues = expectRejected({ ...PRODUCTION, JOBS_RUNNER_SECRET: PRODUCTION.CRON_SECRET }, "JOBS_RUNNER_SECRET");
+    expect(issues).toEqual(["JOBS_RUNNER_SECRET: must differ from CRON_SECRET (a dedicated runner secret, R-16)"]);
+  });
+
+  it("a padded runner secret or rotation slot is refused in every tier (both are secret names)", () => {
+    expect(SECRET_ENV_NAMES).toEqual(expect.arrayContaining(["JOBS_RUNNER_SECRET", "JOBS_RUNNER_SECRET_NEXT"]));
+    expect(issuesOf({ ...PRODUCTION, JOBS_RUNNER_SECRET: `${PRODUCTION.JOBS_RUNNER_SECRET}\n` })).toContain(
+      "JOBS_RUNNER_SECRET: must not have leading or trailing whitespace",
+    );
+    expect(issuesOf({ ...PRODUCTION, JOBS_RUNNER_SECRET_NEXT: ` ${RUNNER_NEXT}` })).toContain(
+      "JOBS_RUNNER_SECRET_NEXT: must not have leading or trailing whitespace",
+    );
+  });
+
+  it("the local tiers may leave the runner secret unset (the route then refuses every call)", () => {
+    expect(parseEnv(local).JOBS_RUNNER_SECRET).toBeUndefined();
+    expect(parseEnv(CI_BUILD).JOBS_RUNNER_SECRET).toBeUndefined();
+  });
+
+  it("production with JOBS_DRILL_ENABLED=true throws (R-32); staging may drill; it defaults to false", () => {
+    expectRejected({ ...PRODUCTION, JOBS_DRILL_ENABLED: "true" }, "JOBS_DRILL_ENABLED");
+    expect(parseEnv({ ...STAGING, JOBS_DRILL_ENABLED: "true" }).JOBS_DRILL_ENABLED).toBe(true);
+    expect(parseEnv(PRODUCTION).JOBS_DRILL_ENABLED).toBe(false);
+    expect(parseEnv({ ...PRODUCTION, JOBS_DRILL_ENABLED: "false" }).JOBS_DRILL_ENABLED).toBe(false);
+    expectRejected({ ...STAGING, JOBS_DRILL_ENABLED: "yes" }, "JOBS_DRILL_ENABLED");
+  });
+
+  it("the e2e app server runs the drill kinds with its synthetic runner secret", () => {
+    const env = parseEnv(buildAppServerEnv({ source: {}, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } }));
+    expect(env.JOBS_DRILL_ENABLED).toBe(true);
+    expect(env.JOBS_RUNNER_SECRET?.length).toBeGreaterThanOrEqual(32);
   });
 });
 
