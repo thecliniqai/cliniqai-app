@@ -1,0 +1,22 @@
+/repo/supabase/tests/database/memberships_bounds_cleanup.test.sql ......... 
+1..7
+ok 1 - control: the slot-length CHECK fails on the planted rows without the clean-up
+ok 2 - slot length 180 is clamped to 120
+ok 3 - a valid schedule is not changed
+ok 4 - slot length 3 is clamped to 5
+ok 5 - a malformed schedule is reset to the column default
+ok 6 - an in-range slot length is not changed
+ok 7 - memberships_slot_duration_bounds and memberships_availability_schedule_shape are present and validated
+ok
+/repo/supabase/tests/database/search_medicines_extension_schema.test.sql .. 
+1..6
+ok 1 - pg_trgm is installed
+ok 2 - precondition: the probe matches only through similarity()
+ok 3 # SKIP pg_trgm already lived in extensions
+ok 4 - search_medicines calls extensions.similarity after re-resolution
+ok 5 - search_medicines keeps search_path = ''
+ok 6 - search_medicines returns the trigram-only match with pg_trgm in extensions
+ok
+All tests successful.
+Files=2, Tests=13,  0 wallclock secs ( 0.00 usr +  0.01 sys =  0.01 CPU)
+Result: PASS

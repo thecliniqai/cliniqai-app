@@ -20,6 +20,8 @@
     "test:coverage": "vitest run --coverage.enabled",
     "test:db": "supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor && vitest run",
     "test:watch": "vitest",
+    "test:pgtap": "node --import tsx scripts/test-pgtap.mjs",
+    "authz:gen": "tsx scripts/gen-authz-pgtap.ts",
     "test:ai": "vitest run tests/ai tests/security/ai-rbac.spec.ts tests/security/pii-scrubber.spec.ts",
     "test:e2e": "npm run e2e:pr",
     "e2e:build": "tsx tests/e2e/support/build.ts",
