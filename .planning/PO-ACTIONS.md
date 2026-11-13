@@ -133,6 +133,8 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
     `STORAGE_PROVIDER`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (the schema rejects them). On the
     existing v1 Vercel project, stop building `v2/**` and `feature/v2` previews (or set `APP_ENV` there), because v2
     builds now fail without `APP_ENV`.
+  - *Scope (03-13b, M-PREVIEW):* scope **every** Vercel variable to **Production only** (never Preview/Development). The
+    build refuses `APP_ENV=staging` on a preview or a non-`feature/v2` branch, and refuses swapped or legacy JWT keys.
   - *Why:* P1-35a, FT-01 `bom1`, acceptance 1, 7, 13, 14.
   - *Unblocks:* 03-E8, 03-E9; acceptance 7, 8, 13, 14.
   - *Verify (Claude):* `curl -sI https://staging.<domain>/api/health` → 200 with `x-request-id`;
@@ -204,7 +206,7 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
     `SUPABASE_ACCESS_TOKEN_STAGING_RO` (03-E11), `STAGING_DB_URL_RO` (the read-only role from `docs/runbooks/staging.md`,
     password set by you); same variables.
   - *Values (correction from 03-08):* `STAGING_DB_URL` must be the **Session pooler** URL (Dashboard → Connect → Session
-    pooler: user `postgres.<ref>`, port 5432, password percent-encoded) — GitHub runners have no IPv6 and the Free-plan
+    pooler: user `postgres.<ref>`, port 5432, password percent-encoded; no `?…` parameter except `sslmode=require` — the target guard refuses others) — GitHub runners have no IPv6 and the Free-plan
     direct host is IPv6-only. `STAGING_DB_URL_RO` = same host, user `clinicos_drift_ro.<ref>` (create the role with the
     SQL in `docs/runbooks/staging.md` §3, after the first migrate). `STAGING_SECRET_KEY` must be an `sb_secret_…` key;
     `STAGING_SEED_PASSWORD` ≥ 16 characters.
@@ -218,6 +220,9 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Do / where:* Supabase → Account → Access Tokens → fine-grained token `clinicos-staging-drift-ro`, permission
     **Auth config: read** (plus project metadata read if offered), scoped to organisation `clinicos-staging`, 90-day
     expiry → GitHub Environment `staging-readonly` secret `SUPABASE_ACCESS_TOKEN_STAGING_RO`.
+  - *If no scoped read-only token is offered:* do **not** create a classic (account-wide) token. Tell Claude; the
+    `auth-config` drift job moves to the approved `staging` Environment in a reviewed change, and until then it stays
+    failing and is recorded in VERIFICATION_LOG.
   - *Why:* AUTH-02 hosted drift without a write-capable token.
   - *Unblocks:* acceptance 12.
   - *Verify (Claude):* the `drift.yml` `auth-config` job runs green after merge (`gh run view <id> --json jobs`).
