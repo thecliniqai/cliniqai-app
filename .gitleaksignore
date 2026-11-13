@@ -17,3 +17,7 @@ ade37e1a59a03039dee1b525310d2724dfd0e1d9:.planning/phases/03-platform-hygiene/03
 cbdbdfcaed4ce97f4b60aa9707927a60bbc10333:tests/ci/staging-scripts.spec.ts:generic-api-key:292
 # V2-03 03-09c: false positive, a synthetic low-entropy cron token stubbed into CRON_SECRET in the logging spec (now built at runtime)
 6b8fad5649500da955fcd5cccd402b7557447b95:tests/observability/no-raw-error-logging.spec.ts:generic-api-key:212
+# V2-03 03-12a: false positive, a synthetic new-password literal in the reset-flow unit spec (now built at runtime)
+ea34a3eef152476025471b5b959ad955e6b4a12e:tests/auth/password-schemas-and-errors.spec.ts:generic-api-key:239
+ea34a3eef152476025471b5b959ad955e6b4a12e:tests/auth/password-schemas-and-errors.spec.ts:generic-api-key:243
+ea34a3eef152476025471b5b959ad955e6b4a12e:tests/auth/password-schemas-and-errors.spec.ts:generic-api-key:253
