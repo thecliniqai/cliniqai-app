@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Check, Copy, AlertTriangle, ShieldCheck } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { reportClientError } from "@/lib/log/client";
 
 export interface SingleRevealKeyModalProps {
   isOpen: boolean;
@@ -32,7 +33,7 @@ export function SingleRevealKeyModal({
         setCopied(false);
       }, 2000);
     } catch (err) {
-      console.error("Failed to copy key:", err);
+      reportClientError("apikeys.copy.failed", err);
     }
   };
 

@@ -13,6 +13,10 @@ import {
 import { generateAndArchivePrescriptionPdf } from "../prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "../prescriptions/pdf/prescription-document";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { resolveTimeZone, ymdOf } from "@/lib/datetime";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Consultation use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move, and service->service calls (saveConsultationDraft -> recordFollowUp)
@@ -86,7 +90,7 @@ export async function saveConsultationDraft(
   try {
     assertPerm(ctx.role, "consultations:edit");
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "An unexpected error occurred saving draft." };
+    return { success: false, error: clientErrorMessage(err, "An unexpected error occurred saving draft.", "consultation.save_consultation_draft.failed") };
   }
 
   const parseResult = saveConsultationDraftSchema.safeParse(input);
@@ -167,7 +171,7 @@ export async function saveConsultationDraft(
       .select("id");
 
     if (updateErr) {
-      console.error("[saveConsultationDraft] update failed:", updateErr.code ?? "unknown");
+      log.error({ event: "consultation.draft_save.failed", code: errorTag(updateErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to save draft. Please try again." };
     }
     if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
@@ -207,7 +211,7 @@ export async function saveConsultationDraft(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "An unexpected error occurred saving draft.",
+      error: clientErrorMessage(err, "An unexpected error occurred saving draft.", "consultation.save_consultation_draft.failed"),
     };
   }
 }
@@ -265,7 +269,7 @@ export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpI
         .eq("id", followUpId)
         .eq("tenant_id", ctx.tenantId);
 
-      if (updateErr) throw new Error(updateErr.message);
+      if (updateErr) throw updateErr;
     } else {
       // Insert new follow-up
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -282,7 +286,7 @@ export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpI
         .select("id")
         .single();
 
-      if (insertErr || !inserted) throw new Error(insertErr?.message || "Failed to create follow-up");
+      if (insertErr || !inserted) throw insertErr ?? new Error("Failed to create follow-up");
       followUpId = inserted.id;
     }
 
@@ -299,7 +303,7 @@ export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpI
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to record follow-up.",
+      error: clientErrorMessage(err, "Failed to record follow-up.", "consultation.record_follow_up.failed"),
     };
   }
 }
@@ -368,7 +372,7 @@ export async function getPatientConsultationHistory(
     }
 
     const { data: visits, error: visitsErr } = await visitQuery;
-    if (visitsErr) throw new Error(visitsErr.message);
+    if (visitsErr) throw visitsErr;
 
     if (!visits || visits.length === 0) {
       return { success: true, encounters: [] };
@@ -384,7 +388,7 @@ export async function getPatientConsultationHistory(
       .in("visit_id", visitIds)
       .eq("tenant_id", ctx.tenantId);
 
-    if (diagErr) throw new Error(diagErr.message);
+    if (diagErr) throw diagErr;
 
     // 3. Fetch prescriptions for these visits
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -395,7 +399,7 @@ export async function getPatientConsultationHistory(
       .eq("tenant_id", ctx.tenantId)
       .eq("status", "active");
 
-    if (rxErr) throw new Error(rxErr.message);
+    if (rxErr) throw rxErr;
 
     const rxIds = (rxList || []).map((rx: { id: string }) => rx.id);
     let itemsByRx: Record<string, unknown[]> = {};
@@ -408,7 +412,7 @@ export async function getPatientConsultationHistory(
         .in("prescription_id", rxIds)
         .order("sort_order", { ascending: true });
 
-      if (itemsErr) throw new Error(itemsErr.message);
+      if (itemsErr) throw itemsErr;
 
       itemsByRx = (items || []).reduce((acc: Record<string, unknown[]>, item: { prescription_id: string }) => {
         acc[item.prescription_id] = acc[item.prescription_id] || [];
@@ -462,7 +466,7 @@ export async function getPatientConsultationHistory(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to load patient consultation history.",
+      error: clientErrorMessage(err, "Failed to load patient consultation history.", "consultation.get_patient_consultation_history.failed"),
     };
   }
 }
@@ -491,7 +495,7 @@ async function buildVisitPdfPayload(
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("name, address, phone, registration_number, logo_url")
+    .select("name, address, phone, registration_number, logo_url, timezone")
     .eq("id", tenantId)
     .single();
 
@@ -576,7 +580,7 @@ async function buildVisitPdfPayload(
       uhid: visit.patient_id.slice(0, 8).toUpperCase(),
     },
     visit: {
-      visit_date: (visit.scheduled_at || visit.created_at || new Date().toISOString()).split("T")[0],
+      visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
       vitals: visit.vitals || null,
       chief_complaints: visit.chief_complaints || [],
       clinical_notes: visit.clinical_notes || null,
@@ -677,7 +681,7 @@ export async function completeAndSignConsultation(
       .select("id");
 
     if (claimErr) {
-      console.error("[completeAndSignConsultation] Visit update error:", claimErr.code);
+      log.error({ event: "consultation.sign_visit_update.failed", code: errorTag(claimErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to sign off the consultation." };
     }
     if (!Array.isArray(claimedVisits) || claimedVisits.length !== 1) {
@@ -696,7 +700,7 @@ export async function completeAndSignConsultation(
       .eq("status", "active");
 
     if (rxErr) {
-      console.error("[completeAndSignConsultation] Prescription update error:", rxErr.code);
+      log.error({ event: "consultation.sign_prescription_update.failed", code: errorTag(rxErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "The visit was signed, but the prescription could not be sealed." };
     }
 
@@ -709,7 +713,7 @@ export async function completeAndSignConsultation(
         await generateAndArchivePrescriptionPdf(ctx, payload);
       }
     } catch (pdfErr) {
-      console.warn("[completeAndSignConsultation] Archival PDF warning:", pdfErr);
+      log.warn({ event: "consultation.sign_pdf_archive.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     // 7. Compliance audit log
@@ -747,15 +751,15 @@ export async function completeAndSignConsultation(
         });
       }
     } catch (webhookErr) {
-      console.warn("[completeAndSignConsultation] Webhook dispatch warning:", webhookErr);
+      log.warn({ event: "consultation.sign_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     return { success: true, visitId };
   } catch (err: unknown) {
-    console.error("[completeAndSignConsultation] Error:", err);
+    log.error({ event: "consultation.sign.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to complete and sign consultation.",
+      error: clientErrorMessage(err, "Failed to complete and sign consultation."),
     };
   }
 }
@@ -777,7 +781,7 @@ export async function reopenVisitForAmendment(
   try {
     assertPerm(ctx.role, "consultations:edit");
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Failed to reopen visit for amendment." };
+    return { success: false, error: clientErrorMessage(err, "Failed to reopen visit for amendment.", "consultation.reopen_visit_for_amendment.failed") };
   }
 
   const cleanReason = (reason || "").trim();
@@ -881,8 +885,8 @@ export async function reopenVisitForAmendment(
       });
 
     if (revErr) {
-      console.error("[reopenVisitForAmendment] Revision insert error:", revErr);
-      return { success: false, error: "Failed to create audit revision record: " + revErr.message };
+      log.error({ event: "consultation.amend_revision_insert.failed", code: errorTag(revErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to create audit revision record." };
     }
 
     // 7. Transition visit back to 'in_consultation'
@@ -908,10 +912,10 @@ export async function reopenVisitForAmendment(
 
     return { success: true, visitId, revisionNumber: nextRevNum };
   } catch (err: unknown) {
-    console.error("[reopenVisitForAmendment] Error:", err);
+    log.error({ event: "consultation.amend_reopen.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to reopen visit for amendment.",
+      error: clientErrorMessage(err, "Failed to reopen visit for amendment."),
     };
   }
 }
@@ -1003,7 +1007,7 @@ export async function finalizeVisitAmendment(
         await generateAndArchivePrescriptionPdf(ctx, payload);
       }
     } catch (pdfErr) {
-      console.warn("[finalizeVisitAmendment] PDF regeneration warning:", pdfErr);
+      log.warn({ event: "consultation.amend_pdf_regenerate.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     // 6. Record audit log
@@ -1019,10 +1023,10 @@ export async function finalizeVisitAmendment(
 
     return { success: true, visitId, version: newVersion };
   } catch (err: unknown) {
-    console.error("[finalizeVisitAmendment] Error:", err);
+    log.error({ event: "consultation.amend_finalize.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to finalize amendment.",
+      error: clientErrorMessage(err, "Failed to finalize amendment."),
     };
   }
 }

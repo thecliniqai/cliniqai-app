@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { createVisit } from "@/features/visits/service";
 import { ctxFor } from "../helpers/context";
@@ -193,7 +194,8 @@ describe("Queue Progression & Reception Flow (REQ-appointment-booking, REQ-multi
     expect(tokenRow?.completed_at).not.toBeNull();
 
     // Verify live queue query has 1 waiting patient (patient B), 0 with doctor, 1 completed
-    const today = new Date().toISOString().split("T")[0];
+    // The clinic date in the tenant zone (default Asia/Kolkata), as the service computes it (V2-03 03-05).
+    const today = todayInTz(DEFAULT_CLINIC_TZ);
     const queueRes = await getQueueForDate(ctxFor(tenant), today);
     expect(queueRes.success).toBe(true);
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { serverEnv } from "@/lib/env-server";
 
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
@@ -11,8 +12,11 @@ import { ReferralItem, CreateReferralInput, CloseReferralLoopInput, ConsentedHis
 import { generateAndArchiveReferralPdf } from "./pdf/generator";
 import { createShareToken } from "@/features/sharing/tokens";
 import { referralLetterPath } from "@/lib/storage/tenant-path";
-import { clientErrorMessage, errorTag } from "@/lib/errors/client-message";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 
 /**
  * Creates a clinical referral (either out-of-network specialist or in-network partner clinic).
@@ -60,7 +64,7 @@ export async function createReferral(
     // 2. Fetch clinic info
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: clinic } = await (supabase.from("tenants") as any)
-      .select("name, address, phone, email, registration_number")
+      .select("name, address, phone, email, registration_number, timezone")
       .eq("id", session.tenantId)
       .maybeSingle();
 
@@ -115,7 +119,7 @@ export async function createReferral(
 
           encounterList.push({
             visit_id: v.id,
-            visit_date: v.created_at ? v.created_at.split("T")[0] : "",
+            visit_date: v.created_at ? ymdOf(v.created_at, resolveTimeZone(clinic?.timezone)) : "",
             chief_complaints: v.chief_complaints || [],
             diagnoses: (diagList || []).map((d: any) => d.diagnosis_name),
             vitals: v.vitals || null,
@@ -180,7 +184,7 @@ export async function createReferral(
       .single();
 
     if (insertErr || !referral) {
-      console.error("[features/referrals/service] insert referral failed:", errorTag(insertErr));
+      log.error({ event: "referrals.create_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to create referral." };
     }
 
@@ -230,7 +234,7 @@ export async function createReferral(
       signedUrl = pdfRes.signedUrl;
       referral.pdf_storage_path = pdfRes.storagePath;
     } catch (pdfErr) {
-      console.error("[features/referrals/actions] PDF compilation error:", pdfErr);
+      log.error({ event: "referrals.pdf_compile.failed", code: errorTag(pdfErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     // 7. Audit log
@@ -254,7 +258,7 @@ export async function createReferral(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to create referral.", "features/referrals/service createReferral"),
+      error: clientErrorMessage(err, "Failed to create referral.", "referrals.create.failed"),
     };
   }
 }
@@ -282,7 +286,7 @@ export async function getOutboundReferrals(
       .order("sent_at", { ascending: false });
 
     if (error) {
-      console.error("[features/referrals/service] getOutboundReferrals failed:", errorTag(error));
+      log.error({ event: "referrals.outbound_list_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, referrals: [], error: "Failed to fetch outbound referrals." };
     }
 
@@ -291,7 +295,7 @@ export async function getOutboundReferrals(
     return {
       success: false,
       referrals: [],
-      error: clientErrorMessage(err, "Failed to fetch outbound referrals.", "features/referrals/service getOutboundReferrals"),
+      error: clientErrorMessage(err, "Failed to fetch outbound referrals.", "referrals.outbound_list.failed"),
     };
   }
 }
@@ -319,42 +323,25 @@ export async function getInboundReferrals(
       .order("sent_at", { ascending: false });
 
     if (error) {
-      console.error("[features/referrals/service] getInboundReferrals failed:", errorTag(error));
+      log.error({ event: "referrals.inbound_list_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, referrals: [], error: "Failed to fetch inbound referrals." };
     }
 
-    // Hydrate originating clinic names using admin client to bypass tenant RLS.
-    // ADR-0005 register (R15): stays until V2-03 (P1-34) replaces it with a SECURITY DEFINER lookup. The ids come
-    // from rows RLS already returned to the acting tenant, never from caller input.
-    const originatingIds = Array.from(new Set((data || []).map((r: any) => r.tenant_id)));
+    // Originating clinic names (ADR-0005 R15, V2-03 03-02): the receiving clinic cannot read the sender's tenant row
+    // under RLS, so `referral_source_clinics` (000026, SECURITY DEFINER) returns id, name and phone only for tenants
+    // that sent an RLS-visible referral to the caller's tenant. Called with the caller's own client; no service role.
+    const originatingIds = Array.from(new Set((data || []).map((r: any) => r.tenant_id as string)));
     const clinicMap: Record<string, { id: string; name: string; phone: string | null }> = {};
 
     if (originatingIds.length > 0) {
-      try {
-        const { getAdminClient } = await import("@/lib/supabase/admin");
-        const adminSupabase = getAdminClient();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: clinics } = await (adminSupabase.from("tenants") as any)
-          .select("id, name, phone")
-          .in("id", originatingIds);
-
-        if (clinics) {
-          for (const c of clinics) {
-            clinicMap[c.id] = c;
-          }
-        }
-      } catch {
-        // Fallback to client if admin client cannot be created
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: clinics } = await (supabase.from("tenants") as any)
-          .select("id, name, phone")
-          .in("id", originatingIds);
-
-        if (clinics) {
-          for (const c of clinics) {
-            clinicMap[c.id] = c;
-          }
-        }
+      const { data: clinics, error: clinicsError } = await supabase.rpc("referral_source_clinics", {
+        p_ids: originatingIds,
+      });
+      if (clinicsError) {
+        log.error({ event: "referrals.source_clinics.failed", code: errorTag(clinicsError), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      }
+      for (const c of clinics || []) {
+        clinicMap[c.id] = c;
       }
     }
 
@@ -368,7 +355,7 @@ export async function getInboundReferrals(
     return {
       success: false,
       referrals: [],
-      error: clientErrorMessage(err, "Failed to fetch inbound referrals.", "features/referrals/service getInboundReferrals"),
+      error: clientErrorMessage(err, "Failed to fetch inbound referrals.", "referrals.inbound_list.failed"),
     };
   }
 }
@@ -404,7 +391,7 @@ export async function acknowledgeReferral(
       .single();
 
     if (error || !updated) {
-      if (error) console.error("[features/referrals/service] acknowledgeReferral failed:", errorTag(error));
+      if (error) log.error({ event: "referrals.acknowledge_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Referral not found or update failed." };
     }
 
@@ -418,7 +405,7 @@ export async function acknowledgeReferral(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to acknowledge referral.", "features/referrals/service acknowledgeReferral"),
+      error: clientErrorMessage(err, "Failed to acknowledge referral.", "referrals.acknowledge.failed"),
     };
   }
 }
@@ -477,7 +464,7 @@ export async function closeReferralLoop(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to close referral loop.", "features/referrals/service closeReferralLoop"),
+      error: clientErrorMessage(err, "Failed to close referral loop.", "referrals.close_loop.failed"),
     };
   }
 }
@@ -525,7 +512,7 @@ export async function getReferralSignedUrl(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to generate signed URL.", "features/referrals/service getReferralSignedUrl"),
+      error: clientErrorMessage(err, "Failed to generate signed URL.", "referrals.signed_url.failed"),
     };
   }
 }
@@ -550,7 +537,7 @@ export async function getPatientReferrals(
       .order("sent_at", { ascending: false });
 
     if (error) {
-      console.error("[features/referrals/service] getPatientReferrals failed:", errorTag(error));
+      log.error({ event: "referrals.patient_list_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, referrals: [], error: "Failed to fetch patient referrals." };
     }
 
@@ -559,7 +546,7 @@ export async function getPatientReferrals(
     return {
       success: false,
       referrals: [],
-      error: clientErrorMessage(err, "Failed to fetch patient referrals.", "features/referrals/service getPatientReferrals"),
+      error: clientErrorMessage(err, "Failed to fetch patient referrals.", "referrals.patient_list.failed"),
     };
   }
 }
@@ -603,7 +590,7 @@ export async function shareReferralLetterViaWhatsApp(
     }
     const { token } = created;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = serverEnv().NEXT_PUBLIC_APP_URL;
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #8 (referral_letter_issued)
@@ -641,7 +628,7 @@ export async function shareReferralLetterViaWhatsApp(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to share referral letter.", "features/referrals/service shareReferralLetterViaWhatsApp"),
+      error: clientErrorMessage(err, "Failed to share referral letter.", "referrals.whatsapp_share.failed"),
     };
   }
 }

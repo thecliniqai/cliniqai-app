@@ -2,6 +2,8 @@ import "server-only";
 
 import type { ServiceContext } from "@/lib/auth/context";
 import { PrescriptionSuggestion } from "./types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export interface GetFrequentPrescriptionsInput {
   /** Target doctor whose past prescriptions are ranked. */
@@ -127,7 +129,7 @@ export async function getDoctorFrequentPrescriptions(
 
     return sortedSuggestions;
   } catch (err) {
-    console.error("[getDoctorFrequentPrescriptions] Exception in suggestions query:", err);
+    log.error({ event: "ai.frequent_prescriptions_query.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 }

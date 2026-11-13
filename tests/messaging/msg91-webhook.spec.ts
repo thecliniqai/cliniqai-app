@@ -6,7 +6,7 @@ import {
   parseMsg91Payload,
 } from "@/lib/messaging/webhook-helpers";
 import * as appointmentsActions from "@/features/appointments/system";
-import * as adminSupabase from "@/lib/supabase/admin";
+import * as systemDb from "@/lib/supabase/system";
 import * as messagingModule from "@/lib/messaging";
 import { NextRequest } from "next/server";
 
@@ -96,7 +96,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
     );
 
     it("returns 401 { ok: false } for a wrong secret and never opens a DB client", async () => {
-      const dbSpy = vi.spyOn(adminSupabase, "getAdminClient");
+      const dbSpy = vi.spyOn(systemDb, "getSystemDb");
       const res = await POST(
         msg91Request({ eventName: "Inbound" }, { "content-type": "application/json", "x-webhook-secret": "nope" }),
         MSG91_PARAMS
@@ -151,7 +151,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           return {};
         }),
       };
-      vi.spyOn(adminSupabase, "getAdminClient").mockReturnValue(mockSupabase as any);
+      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
       const sendWaDirectSpy = vi
         .spyOn(messagingModule, "sendDirectWhatsApp")
         .mockResolvedValue({ success: true, messageId: "wa-ack-1" } as any);
@@ -201,7 +201,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           return {};
         }),
       };
-      vi.spyOn(adminSupabase, "getAdminClient").mockReturnValue(mockSupabase as any);
+      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
       const sendWaDirectSpy = vi
         .spyOn(messagingModule, "sendDirectWhatsApp")
         .mockResolvedValue({ success: true, messageId: "wa-ack-cancel" } as any);
@@ -242,7 +242,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           return {};
         }),
       };
-      vi.spyOn(adminSupabase, "getAdminClient").mockReturnValue(mockSupabase as any);
+      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
       const sendWaDirectSpy = vi
         .spyOn(messagingModule, "sendDirectWhatsApp")
         .mockResolvedValue({ success: true, messageId: "wa-reschedule-link" } as any);
@@ -295,7 +295,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           return {};
         }),
       };
-      vi.spyOn(adminSupabase, "getAdminClient").mockReturnValue(mockSupabase as any);
+      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
       vi.spyOn(messagingModule, "sendDirectWhatsApp").mockResolvedValue({ success: true } as any);
 
       for (const textInput of ["2", "no", "2 days", "No thanks"]) {
@@ -352,7 +352,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           return {};
         }),
       };
-      vi.spyOn(adminSupabase, "getAdminClient").mockReturnValue(mockSupabase as any);
+      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
       vi.spyOn(messagingModule, "sendDirectWhatsApp").mockResolvedValue({ success: true } as any);
 
       const cancelButton = JSON.stringify({ button_reply: { id: "btn_cancel", title: "Cancel" } });
@@ -401,7 +401,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           return {};
         }),
       };
-      vi.spyOn(adminSupabase, "getAdminClient").mockReturnValue(mockSupabase as any);
+      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
       const cancelSpy = vi.spyOn(appointmentsActions, "cancelAppointment");
       const sendSpy = vi.spyOn(messagingModule, "sendDirectWhatsApp").mockResolvedValue({ success: true } as any);
 
@@ -444,7 +444,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           return {};
         }),
       };
-      vi.spyOn(adminSupabase, "getAdminClient").mockReturnValue(mockSupabase as any);
+      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(mockSupabase as any);
       const sendWaDirectSpy = vi
         .spyOn(messagingModule, "sendDirectWhatsApp")
         .mockResolvedValue({ success: true, messageId: "wa-triage-ack" } as any);
@@ -498,7 +498,7 @@ describe("MSG91 Inbound Webhook & DLR Engine (REQ-reminders-notifications, D-04,
           return {};
         }),
       };
-      vi.spyOn(adminSupabase, "getAdminClient").mockReturnValue(supabase as any);
+      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(supabase as any);
       return { updateQueueSpy, updateEq, selectEq, insertAuditSpy };
     }
 

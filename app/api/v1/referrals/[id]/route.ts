@@ -2,8 +2,10 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -14,10 +16,11 @@ interface RouteParams {
  * Retrieve detailed referral record scoped strictly to active clinic tenant.
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -37,8 +40,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   if (!id) {
     return apiError("VALIDATION_ERROR", "Referral ID is required.", 400, undefined, rateHeaders);
   }
-
-  const admin = getAdminClient();
 
   try {
     const { data: referral, error } = await (admin.from("referrals") as any)
@@ -67,10 +68,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  * Update referral status (acknowledged, completed, cancelled) and closure notes.
  */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -110,8 +112,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       rateHeaders
     );
   }
-
-  const admin = getAdminClient();
 
   try {
     const { data: existingReferral, error: fetchErr } = await (admin.from("referrals") as any)
@@ -172,7 +172,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           },
       });
     } catch (auditErr) {
-      console.error("[api/v1/referrals/[id]] Audit logging failed:", auditErr);
+      log.error({ event: "api.referral_update_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
 
     return apiSuccess(updatedReferral, undefined, 200, rateHeaders);

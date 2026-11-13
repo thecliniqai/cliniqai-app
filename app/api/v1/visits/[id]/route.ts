@@ -3,8 +3,10 @@ import { z } from "zod";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -43,10 +45,11 @@ function visitLocked(rateHeaders: Record<string, string>) {
  * Retrieve detailed clinical visit record scoped strictly to active tenant.
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -66,8 +69,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   if (!id) {
     return apiError("VALIDATION_ERROR", "Visit ID is required.", 400, undefined, rateHeaders);
   }
-
-  const admin = getAdminClient();
 
   try {
     const { data: visit, error } = await (admin.from("visits") as any)
@@ -98,10 +99,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  * is requested, at least one diagnosis or clinical note must exist.
  */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -136,8 +138,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   }
 
   const { status, clinical_notes, chief_complaints, vitals, advice, investigations_advised } = parsed.data;
-
-  const admin = getAdminClient();
 
   try {
     // 1. Fetch existing encounter
@@ -235,7 +235,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     if (updateErr) {
       // AR2-Info (I2): a fixed message; the database text is neither returned nor logged (only its code).
-      console.error("[api/v1/visits/[id]] update failed:", updateErr.code ?? "unknown");
+      log.error({ event: "api.visit_update.failed", code: errorTag(updateErr), requestId: await getRequestId() });
       return apiError("DATABASE_ERROR", "Failed to update visit.", 500, undefined, rateHeaders);
     }
 
@@ -256,7 +256,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           },
       });
     } catch (auditErr) {
-      console.error("[api/v1/visits/[id]] Audit logging failed:", auditErr);
+      log.error({ event: "api.visit_update_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
 
     return apiSuccess(updatedVisit, undefined, 200, rateHeaders);

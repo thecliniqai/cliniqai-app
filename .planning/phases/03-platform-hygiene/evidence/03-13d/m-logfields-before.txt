@@ -1,0 +1,189 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/observability/logger.spec.ts (25 tests | 14 failed) 14ms
+   ✓ log: closed field set > drops a free-form message and unknown keys (row values, an email) from an any-typed call 2ms
+   ✓ log: closed field set > drops ids that are not UUIDs 2ms
+   ✓ log: closed field set > rejects an invalid event: the value is not written, the line says so 1ms
+   ✓ log: closed field set > keeps every known field when valid, in a single line, ts and level first 0ms
+   × log: closed field set > drops an over-long word, a malformed code and non-finite or non-numeric numbers 2ms
+     → expected { Object (ts, level, ...) } to not have property "reason"
+   ✓ log: closed field set > errorTag puts only an error's code or class name into a line, never its message 0ms
+   ✓ log: closed field set > writes exactly one line per call: info to stdout, warn and error to stderr, nothing through console 0ms
+   ✓ log: closed field set > never throws, even for a non-object argument 0ms
+   ✓ reportClientError (R-29) > development: one console.warn with the event and the error tag, never the message 0ms
+   ✓ reportClientError (R-29) > production build: a no-op 0ms
+   × closed field values (03-13d) > reason/action/module carrying "Key (phone)=(+919000000051) synthetic.patient@example.com" are dropped 1ms
+     → expected { event: 'a.b', …(3) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > reason/action/module carrying "Synthetic Patientname" are dropped 1ms
+     → expected { event: 'a.b', …(3) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > reason/action/module carrying "9000000052" are dropped 0ms
+     → expected { event: 'a.b', …(3) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > reason/action/module carrying "synthetic.patient@example.com" are dropped 0ms
+     → expected { event: 'a.b', …(3) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > reason/action/module carrying "visit_for_9000000053" are dropped 0ms
+     → expected { event: 'a.b', …(3) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > reason/action/module carrying "Recordpayment" are dropped 0ms
+     → expected { event: 'a.b', …(3) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > a route "/r/abcDEF1234567890token" that is not a plain pattern is dropped 0ms
+     → expected { event: 'a.b', …(1) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > a route "/patients/9000000054" that is not a plain pattern is dropped 0ms
+     → expected { event: 'a.b', …(1) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > a route "/r/secrettoken123?phone=98" that is not a plain pattern is dropped 0ms
+     → expected { event: 'a.b', …(1) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > a route "Key (phone)=(x)" that is not a plain pattern is dropped 0ms
+     → expected { event: 'a.b', …(1) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > a route "patients" that is not a plain pattern is dropped 0ms
+     → expected { event: 'a.b', route: 'patients' } to deeply equal { event: 'a.b' }
+   ✓ closed field values (03-13d) > keeps machine words and route patterns 0ms
+   × closed field values (03-13d) > status must be an HTTP status; count and durationMs bounded non-negative integers 0ms
+     → expected { event: 'a.b', …(3) } to deeply equal { event: 'a.b' }
+   × closed field values (03-13d) > a code carrying a phone-sized digit run is dropped 0ms
+     → expected { event: 'a.b', code: 'x_9000000057' } to deeply equal { event: 'a.b' }
+   ✓ closed field values (03-13d) > the types refuse free text: an error message does not compile as reason, action, module or route 0ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/observability/logger.spec.ts > log: closed field set > drops an over-long word, a malformed code and non-finite or non-numeric numbers
+AssertionError: expected { Object (ts, level, ...) } to not have property "reason"
+
+- Expected: 
+undefined
+
++ Received: 
+"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+ ❯ tests/observability/logger.spec.ts:135:22
+    133|     });
+    134|     const line = onlyLine(stderr);
+    135|     expect(line).not.toHaveProperty("reason");
+       |                      ^
+    136|     expect(line).not.toHaveProperty("code");
+    137|     expect(line).not.toHaveProperty("status");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/14]⎯
+
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > reason/action/module carrying "Key (phone)=(+919000000051) synthetic.patient@example.com" are dropped
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > reason/action/module carrying "Synthetic Patientname" are dropped
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > reason/action/module carrying "9000000052" are dropped
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > reason/action/module carrying "synthetic.patient@example.com" are dropped
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > reason/action/module carrying "visit_for_9000000053" are dropped
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > reason/action/module carrying "Recordpayment" are dropped
+AssertionError: expected { event: 'a.b', …(3) } to deeply equal { event: 'a.b' }
+
+- Expected
++ Received
+
+  {
++   "action": "Key (phone)=(+919000000051) synthetic.patient@example.com",
+    "event": "a.b",
++   "module": "Key (phone)=(+919000000051) synthetic.patient@example.com",
++   "reason": "Key (phone)=(+919000000051) synthetic.patient@example.com",
+  }
+
+ ❯ tests/observability/logger.spec.ts:199:18
+    197|   it.each(PHI)("reason/action/module carrying %j are dropped", (value)…
+    198|     const line = sanitiseFields({ event: "a.b", reason: value, action:…
+    199|     expect(line).toEqual({ event: "a.b" });
+       |                  ^
+    200|   });
+    201| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/14]⎯
+
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > a route "/r/abcDEF1234567890token" that is not a plain pattern is dropped
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > a route "/patients/9000000054" that is not a plain pattern is dropped
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > a route "/r/secrettoken123?phone=98" that is not a plain pattern is dropped
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > a route "Key (phone)=(x)" that is not a plain pattern is dropped
+AssertionError: expected { event: 'a.b', …(1) } to deeply equal { event: 'a.b' }
+
+- Expected
++ Received
+
+  {
+    "event": "a.b",
++   "route": "/r/abcDEF1234567890token",
+  }
+
+ ❯ tests/observability/logger.spec.ts:205:55
+    203|     "a route %j that is not a plain pattern is dropped",
+    204|     (route) => {
+    205|       expect(sanitiseFields({ event: "a.b", route })).toEqual({ event:…
+       |                                                       ^
+    206|     },
+    207|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/14]⎯
+
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > a route "patients" that is not a plain pattern is dropped
+AssertionError: expected { event: 'a.b', route: 'patients' } to deeply equal { event: 'a.b' }
+
+- Expected
++ Received
+
+  {
+    "event": "a.b",
++   "route": "patients",
+  }
+
+ ❯ tests/observability/logger.spec.ts:205:55
+    203|     "a route %j that is not a plain pattern is dropped",
+    204|     (route) => {
+    205|       expect(sanitiseFields({ event: "a.b", route })).toEqual({ event:…
+       |                                                       ^
+    206|     },
+    207|   );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/14]⎯
+
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > status must be an HTTP status; count and durationMs bounded non-negative integers
+AssertionError: expected { event: 'a.b', …(3) } to deeply equal { event: 'a.b' }
+
+- Expected
++ Received
+
+  {
++   "count": 9000000056,
++   "durationMs": -1,
+    "event": "a.b",
++   "status": 919000000055,
+  }
+
+ ❯ tests/observability/logger.spec.ts:216:103
+    214| 
+    215|   it("status must be an HTTP status; count and durationMs bounded non-…
+    216|     expect(sanitiseFields({ event: "a.b", status: 919000000055, count:…
+       |                                                                                                       ^
+    217|     expect(sanitiseFields({ event: "a.b", status: 99 })).toEqual({ eve…
+    218|     expect(sanitiseFields({ event: "a.b", status: 404.5, count: 1.5 })…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/14]⎯
+
+ FAIL  tests/observability/logger.spec.ts > closed field values (03-13d) > a code carrying a phone-sized digit run is dropped
+AssertionError: expected { event: 'a.b', code: 'x_9000000057' } to deeply equal { event: 'a.b' }
+
+- Expected
++ Received
+
+  {
++   "code": "x_9000000057",
+    "event": "a.b",
+  }
+
+ ❯ tests/observability/logger.spec.ts:228:68
+    226| 
+    227|   it("a code carrying a phone-sized digit run is dropped", () => {
+    228|     expect(sanitiseFields({ event: "a.b", code: "x_9000000057" })).toE…
+       |                                                                    ^
+    229|   });
+    230| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/14]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  14 failed | 11 passed (25)
+   Start at  08:22:50
+   Duration  264ms (transform 41ms, setup 8ms, collect 22ms, tests 14ms, environment 0ms, prepare 19ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

@@ -21,12 +21,15 @@ import {
 } from "@/features/billing/reports-actions";
 import { formatCollectionReportCsv } from "@/features/billing/csv-utils";
 import { ReceiptModal } from "./receipt-modal";
+import { addDaysYmd, startOfMonthYmd, todayInTz } from "@/lib/datetime";
+import { useClinicTimeZone } from "@/lib/datetime/client";
 
 export interface CollectionReportsViewProps {
   initialData: CollectionReportData;
 }
 
 export function CollectionReportsView({ initialData }: CollectionReportsViewProps) {
+  const timeZone = useClinicTimeZone();
   const [data, setData] = useState<CollectionReportData>(initialData);
   const [startDate, setStartDate] = useState<string>(initialData.dateRange.start);
   const [endDate, setEndDate] = useState<string>(initialData.dateRange.end);
@@ -37,24 +40,19 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
   const [error, setError] = useState<string | null>(null);
 
   const handleDatePreset = (preset: "today" | "yesterday" | "7days" | "month") => {
-    const today = new Date();
-    const toYmd = (d: Date) => d.toISOString().split("T")[0];
+    // Clinic dates in the clinic's zone (V2-03 03-05); the server turns them into clinic-day windows.
+    const today = todayInTz(timeZone);
 
-    let start = toYmd(today);
-    let end = toYmd(today);
+    let start = today;
+    let end = today;
 
     if (preset === "yesterday") {
-      const y = new Date();
-      y.setDate(y.getDate() - 1);
-      start = toYmd(y);
-      end = toYmd(y);
+      start = addDaysYmd(today, -1);
+      end = start;
     } else if (preset === "7days") {
-      const d7 = new Date();
-      d7.setDate(d7.getDate() - 6);
-      start = toYmd(d7);
+      start = addDaysYmd(today, -6);
     } else if (preset === "month") {
-      const first = new Date(today.getFullYear(), today.getMonth(), 1);
-      start = toYmd(first);
+      start = startOfMonthYmd(today);
     }
 
     setStartDate(start);
@@ -147,7 +145,7 @@ export function CollectionReportsView({ initialData }: CollectionReportsViewProp
               type="button"
               onClick={() => handleDatePreset("today")}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                startDate === endDate && startDate === new Date().toISOString().split("T")[0]
+                startDate === endDate && startDate === todayInTz(timeZone)
                   ? "bg-blue-50 text-blue-700 border border-blue-200 font-semibold"
                   : "bg-slate-100 text-slate-700 hover:bg-slate-200"
               }`}

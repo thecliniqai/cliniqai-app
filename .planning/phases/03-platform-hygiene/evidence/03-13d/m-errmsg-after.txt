@@ -1,0 +1,35 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-13T03:28:42.111Z","level":"error","event":"consultation.get_patient_consultation_history.failed","code":"22P02"}
+{"ts":"2026-11-13T03:28:42.121Z","level":"error","event":"labs.signed_url.failed","tenantId":"c5a01740-0e06-4317-8f33-48aa20080f9a","code":"Error"}
+{"ts":"2026-11-13T03:28:42.123Z","level":"error","event":"consultation.get_patient_consultation_history.failed","code":"Error"}
+{"ts":"2026-11-13T03:28:42.123Z","level":"error","event":"labs.documents_list.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.123Z","level":"error","event":"labs.signed_url.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.124Z","level":"error","event":"labs.share_token.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.124Z","level":"error","event":"labs.delete.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.124Z","level":"error","event":"prescriptions.get_visit_prescription.failed","code":"Error"}
+{"ts":"2026-11-13T03:28:42.124Z","level":"error","event":"prescriptions.search_medicines.failed","code":"Error"}
+{"ts":"2026-11-13T03:28:42.124Z","level":"error","event":"visits.confirm_appointment.failed","code":"Error"}
+{"ts":"2026-11-13T03:28:42.124Z","level":"error","event":"visits.cancel_visit.failed","code":"Error"}
+{"ts":"2026-11-13T03:28:42.124Z","level":"error","event":"visits.schedule_block_delete.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.124Z","level":"error","event":"terminology.get_visit_diagnoses.failed","code":"Error"}
+{"ts":"2026-11-13T03:28:42.125Z","level":"error","event":"terminology.search_diagnoses.failed","code":"Error"}
+{"ts":"2026-11-13T03:28:42.125Z","level":"warn","event":"datetime.tenant_tz.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.132Z","level":"error","event":"apikeys.list.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.132Z","level":"error","event":"apikeys.revoke.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.132Z","level":"error","event":"webhooks.subscriptions_list.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.132Z","level":"error","event":"webhooks.subscription_delete.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.133Z","level":"error","event":"webhooks.test_ping.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.133Z","level":"error","event":"webhooks.delivery_logs.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T03:28:42.133Z","level":"error","event":"patients.grant_consent.failed","code":"Error"}
+{"ts":"2026-11-13T03:28:42.133Z","level":"error","event":"patients.withdraw_consent.failed","code":"Error"}
+{"ts":"2026-11-13T03:28:42.133Z","level":"error","event":"apikeys.list.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"PermissionDeniedError"}
+ ✓ tests/security/no-raw-error-responses.spec.ts (23 tests) 206ms
+
+ Test Files  1 passed (1)
+      Tests  23 passed (23)
+   Start at  08:58:41
+   Duration  774ms (transform 131ms, setup 8ms, collect 268ms, tests 206ms, environment 0ms, prepare 25ms)
+
+[teardown] removed run data: 1 tenant(s), 1 auth user(s), 0 storage object(s); verified none remain

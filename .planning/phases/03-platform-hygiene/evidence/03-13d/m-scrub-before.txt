@@ -1,0 +1,637 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/observability/scrub.spec.ts (146 tests | 27 failed) 16ms
+   ✓ scrubMessage: no synthetic identifier survives > +91 mobile 2ms
+   ✓ scrubMessage: no synthetic identifier survives > +91 spaced mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > +91 dashed mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > 0-prefixed mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > 0-prefixed spaced mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > bare 10-digit mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > 3-3-4 mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > Aadhaar with spaces 0ms
+   ✓ scrubMessage: no synthetic identifier survives > Aadhaar unspaced 0ms
+   ✓ scrubMessage: no synthetic identifier survives > ABHA 0ms
+   ✓ scrubMessage: no synthetic identifier survives > PAN 0ms
+   ✓ scrubMessage: no synthetic identifier survives > email 0ms
+   ✓ scrubMessage: no synthetic identifier survives > Postgres Key detail 0ms
+   ✓ scrubMessage: no synthetic identifier survives > Postgres Key detail with a name 0ms
+   ✓ scrubMessage: no synthetic identifier survives > Failing row 0ms
+   ✓ scrubMessage: no synthetic identifier survives > quoted input value 0ms
+   ✓ scrubMessage: no synthetic identifier survives > long digit run 0ms
+   ✓ scrubMessage: no synthetic identifier survives > six-digit run 0ms
+   ✓ scrubMessage: no synthetic identifier survives > UUID 0ms
+   ✓ scrubMessage: no synthetic identifier survives > JWT 0ms
+   ✓ scrubMessage: no synthetic identifier survives > bearer credential 0ms
+   ✓ scrubMessage: no synthetic identifier survives > share token in a path 0ms
+   ✓ scrubMessage: no synthetic identifier survives > query string 0ms
+   ✓ scrubMessage: no synthetic identifier survives > query string phone 0ms
+   ✓ scrubMessage: no synthetic identifier survives > JSON payload 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw +91 mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw +91 spaced mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw +91 dashed mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw 0-prefixed mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw 0-prefixed spaced mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw bare 10-digit mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw 3-3-4 mobile 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw Aadhaar with spaces 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw Aadhaar unspaced 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw ABHA 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw PAN 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw email 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw Postgres Key detail 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw Postgres Key detail with a name 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw Failing row 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw quoted input value 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw long digit run 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw six-digit run 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw UUID 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw JWT 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw bearer credential 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw share token in a path 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw query string 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw query string phone 0ms
+   ✓ scrubMessage: no synthetic identifier survives > the export checker flags the raw JSON payload 0ms
+   ✓ scrubMessage: no synthetic identifier survives > an Error's message is scrubbed the same way as a string 0ms
+   ✓ scrubMessage: no synthetic identifier survives > non-string, non-Error input yields an empty message 0ms
+   ✓ scrubMessage: benign diagnostic text is kept > relation "public.patients" does not exist 0ms
+   ✓ scrubMessage: benign diagnostic text is kept > column patients.full_name does not exist 0ms
+   ✓ scrubMessage: benign diagnostic text is kept > TypeError: Cannot read properties of undefined (reading 'id') 0ms
+   ✓ scrubMessage: benign diagnostic text is kept > PGRST116 JSON object requested, multiple (or no) rows returned 0ms
+   ✓ scrubMessage: benign diagnostic text is kept > fetch failed with status 503 0ms
+   ✓ scrubMessage: benign diagnostic text is kept > ERR_INVALID_ARG_TYPE 0ms
+   ✓ scrubMessage: benign diagnostic text is kept > keeps the column names of a Postgres Key detail and the constraint name 0ms
+   ✓ scrubMessage: shape > is one line of at most 500 characters 0ms
+   ✓ scrubMessage: shape > scrubs before truncating (an identifier straddling the cut does not survive in part) 0ms
+   ✓ scrubMessage: shape > bounds the work on hostile input 0ms
+   ✓ scrubFrames > keeps file:line relative to the repo, drops function names, columns and the message line 0ms
+   ✓ scrubFrames > keeps at most 20 frames 0ms
+   ✓ scrubFrames > returns [] for a missing stack 0ms
+   ✓ routePattern > keeps a route pattern and drops any query or fragment 0ms
+   ✓ routePattern > refuses anything that is not a plain pattern 0ms
+   ✓ check-error-export (the E9 verification) > refuses an extra column, a missing column and an empty export 0ms
+   ✓ check-error-export (the E9 verification) > refuses a concrete path or a query string in route_path 0ms
+   ✓ check-error-export (the E9 verification) > accepts the SQL editor's one-cell form of the runbook query 0ms
+   ✓ shared scrub vectors (app layer) > message mobile-plus91 0ms
+   ✓ shared scrub vectors (app layer) > message mobile-plus91-spaced 0ms
+   ✓ shared scrub vectors (app layer) > message mobile-plus91-dashed 0ms
+   ✓ shared scrub vectors (app layer) > message mobile-0-prefixed 0ms
+   ✓ shared scrub vectors (app layer) > message mobile-0-prefixed-spaced 0ms
+   ✓ shared scrub vectors (app layer) > message mobile-bare 0ms
+   ✓ shared scrub vectors (app layer) > message mobile-3-3-4 0ms
+   × shared scrub vectors (app layer) > message mobile-4-3-3 2ms
+     → expected 'sms to 9000 000 021 failed' not to contain '9000 000'
+   × shared scrub vectors (app layer) > message mobile-3-2-2-3 0ms
+     → expected 'sms to 900 00 00 022 failed' not to contain '00 022'
+   × shared scrub vectors (app layer) > message mobile-2-dashed-pairs 0ms
+     → expected 'sms to 90-00-00-00-23 failed' not to contain '00-23'
+   × shared scrub vectors (app layer) > message mobile-dotted 0ms
+     → expected 'sms to 90000.00024 failed' not to contain '00024'
+   × shared scrub vectors (app layer) > message mobile-underscored 0ms
+     → expected 'sms to 90000_00025 failed' not to contain '00025'
+   × shared scrub vectors (app layer) > message mobile-plus91-parens 0ms
+     → expected 'sms to +91 (900) 000-0026 failed' not to contain '0026'
+   × shared scrub vectors (app layer) > message mobile-fullwidth-digits 0ms
+     → expected 'phone ９０００００００３１ rejected' not to contain '９０００'
+   ✓ shared scrub vectors (app layer) > message aadhaar-spaced 0ms
+   ✓ shared scrub vectors (app layer) > message aadhaar-unspaced 0ms
+   × shared scrub vectors (app layer) > message aadhaar-dashed 0ms
+     → expected 'aadhaar 2000-0000-0027 invalid' not to contain '0027'
+   × shared scrub vectors (app layer) > message aadhaar-dotted 0ms
+     → expected 'aadhaar 2000.0000.0028 invalid' not to contain '0028'
+   ✓ shared scrub vectors (app layer) > message abha-number 0ms
+   × shared scrub vectors (app layer) > message abha-address 0ms
+     → expected 'abha address synthetic.patient29@abdm…' not to contain 'synthetic.patient29'
+   ✓ shared scrub vectors (app layer) > message pan 0ms
+   ✓ shared scrub vectors (app layer) > message email-ascii 0ms
+   × shared scrub vectors (app layer) > message email-unicode 0ms
+     → expected 'invite to sÿnthetic.pätient@exämple.i…' not to contain 'sÿnthetic'
+   × shared scrub vectors (app layer) > message email-no-tld 0ms
+     → expected 'invite to synthetic30@localhost bounc…' not to contain 'synthetic30'
+   ✓ shared scrub vectors (app layer) > message pg-key-detail 0ms
+   ✓ shared scrub vectors (app layer) > message pg-key-detail-name 0ms
+   × shared scrub vectors (app layer) > message pg-key-expression-index 0ms
+     → expected 'Key (lower(full_name::text))=(synthet…' not to contain 'synthetic rowname'
+   ✓ shared scrub vectors (app layer) > message pg-key-value-with-paren 0ms
+   × shared scrub vectors (app layer) > message pg-key-multiline-value 0ms
+     → expected 'Key (notes)=(Synthetic first line Syn…' not to contain 'Synthetic first line'
+   ✓ shared scrub vectors (app layer) > message pg-failing-row 0ms
+   × shared scrub vectors (app layer) > message pg-failing-row-multiline 0ms
+     → expected 'Failing row contains (abc, Synthetic …' not to contain 'Synthetic Rowname'
+   ✓ shared scrub vectors (app layer) > message pg-quoted-input 0ms
+   ✓ shared scrub vectors (app layer) > message digit-run-long 0ms
+   ✓ shared scrub vectors (app layer) > message digit-run-six 0ms
+   ✓ shared scrub vectors (app layer) > message uuid 0ms
+   ✓ shared scrub vectors (app layer) > message bearer 0ms
+   × shared scrub vectors (app layer) > message sb-secret-letters 0ms
+     → expected 'leaked sb_secret_aaaabbbbccccddddeeee…' not to contain 'aaaabbbbccccddddeeee'
+   × shared scrub vectors (app layer) > message sb-publishable-letters 0ms
+     → expected 'leaked sb_publishable_ffffgggghhhhiii…' not to contain 'ffffgggghhhhiiiijjjjkkkk'
+   ✓ shared scrub vectors (app layer) > message share-token-path 0ms
+   × shared scrub vectors (app layer) > message share-token-path-letters 0ms
+     → expected 'fetch /r/abcdefghijklmnopqrstuvwxyzAB…' not to contain 'abcdefghijklmnopqrstuvwxyzABCDEF'
+   × shared scrub vectors (app layer) > message reschedule-token-path 0ms
+     → expected 'fetch /reschedule/Zq_-abcdefghijklmno…' not to contain 'abcdefghijklmnopqrst'
+   × shared scrub vectors (app layer) > message letter-token-mixed-case 0ms
+     → expected 'token QwErTyUiOpAsDfGhJkLzXcVbNm reje…' not to contain 'QwErTyUiOpAsDfGhJkLzXcVbNm'
+   ✓ shared scrub vectors (app layer) > message query-string 0ms
+   ✓ shared scrub vectors (app layer) > message json-payload 0ms
+   ✓ shared scrub vectors (app layer) > message storage-key-name 0ms
+   ✓ shared scrub vectors (app layer) > message scrub-before-truncate 0ms
+   ✓ shared scrub vectors (app layer) > benign text is kept unchanged: relation "public.patients" does not exist 0ms
+   ✓ shared scrub vectors (app layer) > benign text is kept unchanged: column patients.full_name does not exist 0ms
+   ✓ shared scrub vectors (app layer) > benign text is kept unchanged: TypeError: Cannot read properties of undefined (reading 'id') 0ms
+   ✓ shared scrub vectors (app layer) > benign text is kept unchanged: PGRST116 JSON object requested, multiple (or no) rows returned 0ms
+   ✓ shared scrub vectors (app layer) > benign text is kept unchanged: fetch failed with status 503 0ms
+   ✓ shared scrub vectors (app layer) > benign text is kept unchanged: ERR_INVALID_ARG_TYPE 0ms
+   ✓ shared scrub vectors (app layer) > benign text is kept unchanged: duplicate key value violates unique constraint "patients_phone_key" 0ms
+   ✓ shared scrub vectors (app layer) > field name-class 0ms
+   × shared scrub vectors (app layer) > field name-digits 0ms
+     → expected '9000000032' to be 'Error' // Object.is equality
+   ✓ shared scrub vectors (app layer) > field name-email 0ms
+   ✓ shared scrub vectors (app layer) > field code-sqlstate 0ms
+   ✓ shared scrub vectors (app layer) > field code-postgrest 0ms
+   ✓ shared scrub vectors (app layer) > field code-upper-snake 0ms
+   ✓ shared scrub vectors (app layer) > field code-node 0ms
+   × shared scrub vectors (app layer) > field code-name-and-phone 0ms
+     → expected 'synthetic.patient_9000000033' to be null // Object.is equality
+   × shared scrub vectors (app layer) > field code-digits 0ms
+     → expected '9000000034' to be null // Object.is equality
+   × shared scrub vectors (app layer) > field code-lower-free-text 0ms
+     → expected 'ramesh' to be null // Object.is equality
+   ✓ shared scrub vectors (app layer) > route pattern kept: /r/[token] 0ms
+   ✓ shared scrub vectors (app layer) > route pattern kept: /(dashboard)/patients/[id] 0ms
+   ✓ shared scrub vectors (app layer) > route pattern kept: /api/diag/error 0ms
+   ✓ shared scrub vectors (app layer) > route pattern kept: /api/v1/patients/[id] 0ms
+   ✓ shared scrub vectors (app layer) > route pattern kept: /[...slug] 0ms
+   ✓ shared scrub vectors (app layer) > route pattern kept: /_not-found 0ms
+   ✓ shared scrub vectors (app layer) > route pattern kept: /proxy 0ms
+   × shared scrub vectors (app layer) > concrete or malformed route refused: /r/abcDEF1234567890token 0ms
+     → expected '/r/abcDEF1234567890token' to be null
+   × shared scrub vectors (app layer) > concrete or malformed route refused: /patients/9000000035 0ms
+     → expected '/patients/9000000035' to be null
+   × shared scrub vectors (app layer) > concrete or malformed route refused: /r/k7Qp2xZ9mN4vB8sL1tR6 0ms
+     → expected '/r/k7Qp2xZ9mN4vB8sL1tR6' to be null
+   ✓ shared scrub vectors (app layer) > concrete or malformed route refused: /a b 0ms
+   ✓ shared scrub vectors (app layer) > concrete or malformed route refused: /a%40b 0ms
+   ✓ shared scrub vectors (app layer) > concrete or malformed route refused: r/[token] 0ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 27 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message mobile-4-3-3
+AssertionError: expected 'sms to 9000 000 021 failed' not to contain '9000 000'
+
+Expected: "9000 000"
+Received: "sms to 9000 000 021 failed"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message mobile-3-2-2-3
+AssertionError: expected 'sms to 900 00 00 022 failed' not to contain '00 022'
+
+Expected: "00 022"
+Received: "sms to 900 00 00 022 failed"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message mobile-2-dashed-pairs
+AssertionError: expected 'sms to 90-00-00-00-23 failed' not to contain '00-23'
+
+Expected: "00-23"
+Received: "sms to 90-00-00-00-23 failed"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message mobile-dotted
+AssertionError: expected 'sms to 90000.00024 failed' not to contain '00024'
+
+Expected: "00024"
+Received: "sms to 90000.00024 failed"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message mobile-underscored
+AssertionError: expected 'sms to 90000_00025 failed' not to contain '00025'
+
+Expected: "00025"
+Received: "sms to 90000_00025 failed"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message mobile-plus91-parens
+AssertionError: expected 'sms to +91 (900) 000-0026 failed' not to contain '0026'
+
+Expected: "0026"
+Received: "sms to +91 (900) 000-0026 failed"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message mobile-fullwidth-digits
+AssertionError: expected 'phone ９０００００００３１ rejected' not to contain '９０００'
+
+Expected: "９０００"
+Received: "phone ９０００００００３１ rejected"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message aadhaar-dashed
+AssertionError: expected 'aadhaar 2000-0000-0027 invalid' not to contain '0027'
+
+Expected: "0027"
+Received: "aadhaar 2000-0000-0027 invalid"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message aadhaar-dotted
+AssertionError: expected 'aadhaar 2000.0000.0028 invalid' not to contain '0028'
+
+Expected: "0028"
+Received: "aadhaar 2000.0000.0028 invalid"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message abha-address
+AssertionError: expected 'abha address synthetic.patient29@abdm…' not to contain 'synthetic.patient29'
+
+Expected: "synthetic.patient29"
+Received: "abha address synthetic.patient29@abdm not linked"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message email-unicode
+AssertionError: expected 'invite to sÿnthetic.pätient@exämple.i…' not to contain 'sÿnthetic'
+
+Expected: "sÿnthetic"
+Received: "invite to sÿnthetic.pätient@exämple.in bounced"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message email-no-tld
+AssertionError: expected 'invite to synthetic30@localhost bounc…' not to contain 'synthetic30'
+
+Expected: "synthetic30"
+Received: "invite to synthetic30@localhost bounced"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message pg-key-expression-index
+AssertionError: expected 'Key (lower(full_name::text))=(synthet…' not to contain 'synthetic rowname'
+
+Expected: "synthetic rowname"
+Received: "Key (lower(full_name::text))=(synthetic rowname) already exists."
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message pg-key-multiline-value
+AssertionError: expected 'Key (notes)=(Synthetic first line Syn…' not to contain 'Synthetic first line'
+
+Expected: "Synthetic first line"
+Received: "Key (notes)=(Synthetic first line Synthetic diabetic history) already exists."
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message pg-failing-row-multiline
+AssertionError: expected 'Failing row contains (abc, Synthetic …' not to contain 'Synthetic Rowname'
+
+Expected: "Synthetic Rowname"
+Received: "Failing row contains (abc, Synthetic Rowname next line diabetic)."
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message sb-secret-letters
+AssertionError: expected 'leaked sb_secret_aaaabbbbccccddddeeee…' not to contain 'aaaabbbbccccddddeeee'
+
+Expected: "aaaabbbbccccddddeeee"
+Received: "leaked sb_secret_aaaabbbbccccddddeeee in a header"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message sb-publishable-letters
+AssertionError: expected 'leaked sb_publishable_ffffgggghhhhiii…' not to contain 'ffffgggghhhhiiiijjjjkkkk'
+
+Expected: "ffffgggghhhhiiiijjjjkkkk"
+Received: "leaked sb_publishable_ffffgggghhhhiiiijjjjkkkk in a header"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message share-token-path-letters
+AssertionError: expected 'fetch /r/abcdefghijklmnopqrstuvwxyzAB…' not to contain 'abcdefghijklmnopqrstuvwxyzABCDEF'
+
+Expected: "abcdefghijklmnopqrstuvwxyzABCDEF"
+Received: "fetch /r/abcdefghijklmnopqrstuvwxyzABCDEF failed"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message reschedule-token-path
+AssertionError: expected 'fetch /reschedule/Zq_-abcdefghijklmno…' not to contain 'abcdefghijklmnopqrst'
+
+Expected: "abcdefghijklmnopqrst"
+Received: "fetch /reschedule/Zq_-abcdefghijklmnopqrst failed"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > message letter-token-mixed-case
+AssertionError: expected 'token QwErTyUiOpAsDfGhJkLzXcVbNm reje…' not to contain 'QwErTyUiOpAsDfGhJkLzXcVbNm'
+
+Expected: "QwErTyUiOpAsDfGhJkLzXcVbNm"
+Received: "token QwErTyUiOpAsDfGhJkLzXcVbNm rejected"
+
+ ❯ tests/observability/scrub.spec.ts:219:56
+    217|   it.each(VECTORS.messages.map((v) => [v.id, v] as const))("message %s…
+    218|     const out = scrubMessage(vector.input);
+    219|     for (const value of vector.absent) expect(out).not.toContain(value…
+       |                                                        ^
+    220|     for (const value of vector.kept) expect(out).toContain(value);
+    221|     expect(out).not.toContain("\n");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > field name-digits
+AssertionError: expected '9000000032' to be 'Error' // Object.is equality
+
+Expected: "Error"
+Received: "9000000032"
+
+ ❯ tests/observability/scrub.spec.ts:234:32
+    232|     const event = buildErrorEvent(err, undefined, undefined, meta);
+    233|     if (vector.field === "error_name") {
+    234|       expect(event.error_name).toBe(vector.stored ?? "Error");
+       |                                ^
+    235|     } else {
+    236|       expect(event.error_code).toBe(vector.stored);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > field code-name-and-phone
+AssertionError: expected 'synthetic.patient_9000000033' to be null // Object.is equality
+
+- Expected: 
+null
+
++ Received: 
+"synthetic.patient_9000000033"
+
+ ❯ tests/observability/scrub.spec.ts:236:32
+    234|       expect(event.error_name).toBe(vector.stored ?? "Error");
+    235|     } else {
+    236|       expect(event.error_code).toBe(vector.stored);
+       |                                ^
+    237|     }
+    238|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > field code-digits
+AssertionError: expected '9000000034' to be null // Object.is equality
+
+- Expected: 
+null
+
++ Received: 
+"9000000034"
+
+ ❯ tests/observability/scrub.spec.ts:236:32
+    234|       expect(event.error_name).toBe(vector.stored ?? "Error");
+    235|     } else {
+    236|       expect(event.error_code).toBe(vector.stored);
+       |                                ^
+    237|     }
+    238|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > field code-lower-free-text
+AssertionError: expected 'ramesh' to be null // Object.is equality
+
+- Expected: 
+null
+
++ Received: 
+"ramesh"
+
+ ❯ tests/observability/scrub.spec.ts:236:32
+    234|       expect(event.error_name).toBe(vector.stored ?? "Error");
+    235|     } else {
+    236|       expect(event.error_code).toBe(vector.stored);
+       |                                ^
+    237|     }
+    238|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > concrete or malformed route refused: /r/abcDEF1234567890token
+AssertionError: expected '/r/abcDEF1234567890token' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/r/abcDEF1234567890token"
+
+ ❯ tests/observability/scrub.spec.ts:245:33
+    243| 
+    244|   it.each(VECTORS.routes.reject)("concrete or malformed route refused:…
+    245|     expect(routePattern(route)).toBeNull();
+       |                                 ^
+    246|   });
+    247| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > concrete or malformed route refused: /patients/9000000035
+AssertionError: expected '/patients/9000000035' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/patients/9000000035"
+
+ ❯ tests/observability/scrub.spec.ts:245:33
+    243| 
+    244|   it.each(VECTORS.routes.reject)("concrete or malformed route refused:…
+    245|     expect(routePattern(route)).toBeNull();
+       |                                 ^
+    246|   });
+    247| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/27]⎯
+
+ FAIL  tests/observability/scrub.spec.ts > shared scrub vectors (app layer) > concrete or malformed route refused: /r/k7Qp2xZ9mN4vB8sL1tR6
+AssertionError: expected '/r/k7Qp2xZ9mN4vB8sL1tR6' to be null
+
+- Expected: 
+null
+
++ Received: 
+"/r/k7Qp2xZ9mN4vB8sL1tR6"
+
+ ❯ tests/observability/scrub.spec.ts:245:33
+    243| 
+    244|   it.each(VECTORS.routes.reject)("concrete or malformed route refused:…
+    245|     expect(routePattern(route)).toBeNull();
+       |                                 ^
+    246|   });
+    247| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/27]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  27 failed | 119 passed (146)
+   Start at  08:20:20
+   Duration  289ms (transform 38ms, setup 8ms, collect 29ms, tests 16ms, environment 0ms, prepare 26ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

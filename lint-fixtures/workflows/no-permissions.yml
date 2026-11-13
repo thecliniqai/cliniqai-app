@@ -1,0 +1,9 @@
+# Fixture (V2-03 03-08): no top-level permissions block -> top-level-permissions.
+name: Fixture no permissions
+on:
+  push:
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "fixture"

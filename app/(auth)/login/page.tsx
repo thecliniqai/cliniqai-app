@@ -1,17 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogIn } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { signIn } from "@/features/auth/password-flows";
 import { ClinicShowcasePanel } from "@/components/auth/clinic-showcase-panel";
+import { TurnstileField, type TurnstileFieldHandle } from "@/components/auth/turnstile-field";
 import { AuthMobileBrand, FormMessage, PasswordInput } from "@/components/auth/auth-form-parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
+import { safeNextPath } from "@/lib/auth/safe-next";
+import { publicEnv } from "@/lib/env";
+
+/** Where to go after sign-in: the `next` the proxy set if it is a same-origin path (03-12c, T-03-04), else `/`. */
+function afterSignInPath(): string {
+  return safeNextPath(new URLSearchParams(window.location.search).get("next")) ?? "/";
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,6 +28,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hydrated = useHydrated();
+  // 03-12c (C43): Turnstile on sign-in when a site key is configured; Supabase verifies the token.
+  const siteKey = publicEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const turnstile = useRef<TurnstileFieldHandle>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,16 +38,21 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const result = await signIn(createClient(), { email, password });
+    const captchaToken = siteKey ? ((await turnstile.current?.token()) ?? null) : null;
+    const result = await signIn(createClient(), { email, password }, { required: Boolean(siteKey), token: captchaToken });
+    // Turnstile tokens are single-use: every attempt that used one needs a new one.
+    if (captchaToken) turnstile.current?.reset();
     if (!result.ok) {
       setError(result.message);
-      setPassword("");
+      // A missing security check keeps the typed password; a refused sign-in clears it.
+      if (result.code !== "captcha_required") setPassword("");
       setLoading(false);
       return;
     }
 
-    // The dashboard layout decides where the user lands (membership checks).
-    router.replace("/");
+    // `/` lets the dashboard layout pick the role's page (membership checks); a safe `next` goes back where the
+    // proxy sent the user from.
+    router.replace(afterSignInPath());
     router.refresh();
   };
 
@@ -98,6 +114,8 @@ export default function LoginPage() {
                 Forgot password?
               </Link>
             </div>
+
+            <TurnstileField ref={turnstile} siteKey={siteKey} id="login-turnstile" action="sign-in" />
 
             <Button type="submit" variant="primary" loading={loading} disabled={!hydrated} className="w-full h-11 text-sm font-semibold">
               Sign in

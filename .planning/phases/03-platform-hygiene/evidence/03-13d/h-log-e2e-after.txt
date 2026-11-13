@@ -1,0 +1,30 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 58ms
+[WebServer] ✓ Running next.config.ts took 24ms
+
+Running 7 tests using 1 worker
+
+  ✓  1 [setup] › tests/e2e/auth.setup.ts:10:8 › owner signs in through the login UI (524ms)
+  ✓  2 [setup] › tests/e2e/auth.setup.ts:10:8 › admin signs in through the login UI (366ms)
+  ✓  3 [setup] › tests/e2e/auth.setup.ts:10:8 › doctor signs in through the login UI (539ms)
+  ✓  4 [setup] › tests/e2e/auth.setup.ts:10:8 › nurse signs in through the login UI (364ms)
+  ✓  5 [setup] › tests/e2e/auth.setup.ts:10:8 › receptionist signs in through the login UI (345ms)
+[WebServer] ⨯ DiagnosticError [DIAG_SYNTHETIC]: Diagnostic error (synthetic): contact [EMAIL], mobile [PHONE REDACTED], link /r/[TOKEN]?[QUERY] duplicate key value violates unique constraint "patients_phone_key" Key (phone)=([REDACTED])
+[WebServer]     at .next/server/chunks/_0702m-vaqspuv._.js:1
+[WebServer]     at node:internal/async_local_storage/async_context_frame:59
+[WebServer]     at node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5
+[WebServer]     at node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5
+[WebServer]     at node_modules/next/dist/server/lib/trace/tracer.js:196
+[WebServer]     at node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5
+[WebServer]     at node:internal/async_local_storage/async_context_frame:63
+[WebServer]     at node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5
+[WebServer]     at node:internal/async_local_storage/async_context_frame:63
+[WebServer]     at node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5
+[WebServer] {"ts":"2026-11-13T02:56:16.670Z","level":"error","event":"request.error","requestId":"271fcfc8-eb26-4b49-abe7-ba65c1565ffd","route":"/api/diag/error","code":"DIAG_SYNTHETIC"}
+  ✓  6 [desktop-chrome] › tests/e2e/observability/error-sink.spec.ts:32:5 › a thrown server error lands in ops.error_events once, scrubbed, under the response's request id (115ms)
+  ✓  7 [desktop-chrome] › tests/e2e/observability/error-sink.spec.ts:83:5 › the diagnostic route refuses a missing or wrong bearer (401) and other methods (405) (9ms)
+[e2e teardown] removed run data: 2 tenant(s), 6 auth user(s), 0 storage object(s); verified none remain
+
+  7 passed (5.8s)

@@ -1,0 +1,12 @@
+# Fixture (V2-03 03-08): pull_request_target trigger -> no-pull-request-target.
+name: Fixture pull_request_target
+on:
+  pull_request_target:
+    types: [opened]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "fixture"

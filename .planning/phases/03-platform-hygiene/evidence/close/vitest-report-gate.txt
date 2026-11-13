@@ -1,0 +1,6 @@
+vitest-report-gate: files=162 tests=3465 passed=3465 failed=0 skipped/todo=0 floor=3292 required=69
+vitest-report-gate: PASS
+exit=0
+vitest-report-gate: files=162 tests=3465 passed=3465 failed=0 skipped/todo=0 floor=3292 required=69
+vitest-report-gate: PASS
+exit=0

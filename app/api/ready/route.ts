@@ -1,123 +1,107 @@
 import { NextResponse } from "next/server";
-import { getAdminClient } from "@/lib/supabase/admin";
-import { getStorageProvider } from "@/lib/storage";
+import { resolveAiProviderConfig } from "@/lib/ai/client";
+import { serverEnv } from "@/lib/env-server";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { createPublicClient } from "@/lib/supabase/server";
+import { EXPECTED_MIGRATION } from "./expected-migration";
 
 /**
- * Operational readiness probe per D-18 and review recommendations.
- * Verifies Supabase Postgres, active storage provider (Supabase/R2),
- * and webhook outbox table connectivity. Sanitizes error responses to
- * generic status: 'not_ready' with correlationId to prevent internal
- * information disclosure (AGENTS.md §34).
+ * Readiness probe (D-18; V2-03 03-01, P1-15, ADR-0005 "Readiness", C50 g; 03-13c M-PROBE).
+ *
+ * One call to `public.readiness_probe(p_expected_migration)` (SECURITY DEFINER, migration 000029) through the
+ * cookie-less public client, so always as `anon`, the only role that may execute it. No service role, no bucket check,
+ * no provider call. The body carries booleans only: whether the database answered, whether the migration this build
+ * expects ({@link EXPECTED_MIGRATION}) is applied, four outbox health flags, and whether AI, messaging and email are
+ * configured (read from the env schema). No count, no migration version, no tenant data. Ready means the database
+ * answered AND the schema is current. A failure is logged with its error code only; the response never carries an error
+ * text. `correlationId` is the request id the proxy assigned, so a 503 can be matched to its log line.
  */
+
+type ProviderState = "configured" | "disabled";
+
+interface ProbeResult {
+  schemaCurrent: boolean | null;
+  messagesBacklog: boolean;
+  messagesFailed24h: boolean;
+  webhooksBacklog: boolean;
+  webhooksFailed24h: boolean;
+}
+
+const FLAG_KEYS = ["messages_backlog", "messages_failed_24h", "webhooks_backlog", "webhooks_failed_24h"] as const;
+
+/** Accepts the RPC's JSON only in the expected shape (so nothing unexpected is ever echoed). */
+function parseProbe(data: unknown): ProbeResult | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const row = data as Record<string, unknown>;
+  if (row.db !== true) return null;
+  for (const key of FLAG_KEYS) {
+    if (typeof row[key] !== "boolean") return null;
+  }
+  const schema = row.schema_current;
+  if (schema !== null && typeof schema !== "boolean") return null;
+  return {
+    schemaCurrent: schema,
+    messagesBacklog: row.messages_backlog as boolean,
+    messagesFailed24h: row.messages_failed_24h as boolean,
+    webhooksBacklog: row.webhooks_backlog as boolean,
+    webhooksFailed24h: row.webhooks_failed_24h as boolean,
+  };
+}
+
+function providerStates(): { ai: ProviderState; messaging: ProviderState; email: ProviderState } {
+  try {
+    const env = serverEnv();
+    const realMessaging = env.MESSAGING_PROVIDER !== "dev" && env.MESSAGING_PROVIDER !== "disabled";
+    return {
+      ai: resolveAiProviderConfig(env) ? "configured" : "disabled",
+      messaging: realMessaging ? "configured" : "disabled",
+      // 03-11b (R-16): only SES delivers real mail; Mailpit is a local catcher and `disabled` sends nothing.
+      email: env.EMAIL_PROVIDER === "ses" ? "configured" : "disabled",
+    };
+  } catch {
+    return { ai: "disabled", messaging: "disabled", email: "disabled" };
+  }
+}
+
 export async function GET() {
-  const correlationId = crypto.randomUUID();
-  let dbOk = false;
-  let storageOk = false;
-  let outboxOk = false;
-  const errors: Record<string, unknown> = {};
+  const requestId = await getRequestId();
+  const correlationId = requestId ?? crypto.randomUUID();
 
-  // 1. Database connectivity check
+  let probe: ProbeResult | null = null;
   try {
-    const admin = getAdminClient();
-    const { error: dbError } = await (admin.from("tenants") as any)
-      .select("count", { count: "exact", head: true });
-
-    if (dbError) {
-      errors.database = dbError;
+    const db = createPublicClient();
+    const { data, error } = await db.rpc("readiness_probe", { p_expected_migration: EXPECTED_MIGRATION });
+    if (error) {
+      log.error({ event: "ready.probe_failed", requestId, code: errorTag(error) });
     } else {
-      dbOk = true;
+      probe = parseProbe(data);
+      if (!probe) log.error({ event: "ready.probe_failed", requestId, reason: "unexpected_shape" });
     }
   } catch (err) {
-    errors.database = err;
+    log.error({ event: "ready.probe_failed", requestId, code: errorTag(err) });
   }
 
-  // 2. Storage provider check (Supabase or R2)
-  try {
-    const provider = getStorageProvider();
-    if (provider.name === "supabase") {
-      const admin = getAdminClient();
-      const { data: bucket, error: bucketError } = await admin.storage.getBucket("clinic-records");
-      if (bucketError || !bucket) {
-        // Fallback: verify storage service reachability via listBuckets
-        const { error: listError } = await admin.storage.listBuckets();
-        if (listError) {
-          errors.storage = bucketError || listError;
-        } else {
-          storageOk = true;
-        }
-      } else {
-        storageOk = true;
-      }
-    } else if (provider.name === "r2") {
-      const accountId = process.env.R2_ACCOUNT_ID;
-      const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-      const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-      if (!accountId || !accessKeyId || !secretAccessKey) {
-        errors.storage = "Missing R2 storage credentials";
-      } else {
-        storageOk = true;
-      }
-    } else {
-      storageOk = true;
-    }
-  } catch (err) {
-    errors.storage = err;
-  }
-
-  // 3. Webhook outbox infrastructure check
-  try {
-    const admin = getAdminClient();
-    const { error: outboxError } = await (admin.from("webhook_delivery_queue") as any)
-      .select("id")
-      .limit(1);
-
-    if (outboxError) {
-      errors.outbox = outboxError;
-    } else {
-      outboxOk = true;
-    }
-  } catch (err) {
-    errors.outbox = err;
-  }
-
-  const allReady = dbOk && storageOk && outboxOk;
-
-  if (allReady) {
-    return NextResponse.json(
-      {
-        status: "ready",
-        checks: {
-          database: "ok",
-          storage: "ok",
-          outbox: "ok",
-        },
-        timestamp: new Date().toISOString(),
-      },
-      {
-        status: 200,
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      }
-    );
-  }
-
-  // Log full error diagnostics server-side with correlation ID
-  console.error(`[ReadinessProbe] Failure [${correlationId}]:`, errors);
-
+  const schema = probe === null ? "unknown" : probe.schemaCurrent ? "current" : "behind";
+  const ready = probe !== null && schema === "current";
   return NextResponse.json(
     {
-      status: "not_ready",
-      checks: {
-        database: dbOk ? "ok" : "error",
-        storage: storageOk ? "ok" : "error",
-        outbox: outboxOk ? "ok" : "error",
-      },
+      status: ready ? "ready" : "not_ready",
+      checks: { database: probe ? "ok" : "error", schema },
+      outbox: probe
+        ? {
+            messagesBacklog: probe.messagesBacklog,
+            messagesFailed24h: probe.messagesFailed24h,
+            webhooksBacklog: probe.webhooksBacklog,
+            webhooksFailed24h: probe.webhooksFailed24h,
+          }
+        : null,
+      providers: providerStates(),
       correlationId,
       timestamp: new Date().toISOString(),
     },
     {
-      status: 503,
+      status: ready ? 200 : 503,
       headers: {
         "Cache-Control": "no-store",
       },

@@ -1,0 +1,8 @@
+rev: 2629b1c
+== A: toISOString() date split/slice
+== B: other timestamp .split("T")[0] (not A)
+== C: UTC day-window / fixed-offset literals
+== counts
+A lines: 0
+B lines: 0
+C lines: 0

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { shareTokenHash } from "../helpers/share-tokens";
@@ -132,7 +132,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
   beforeAll(async () => {
     A = await seedClinic("A");
     B = await seedClinic("B");
-    anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    anon = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
   }, 120_000);
@@ -647,6 +647,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
         });
         const visitId = await freshVisit(A, "in_consultation");
         const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+        const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 
         // investigations_advised is text[]; a number is not an array literal, so PostgREST returns a 22P02 error.
         const res = await patchV1Visit(
@@ -660,8 +661,11 @@ describe("01-09 review round 2 fixes (000022)", () => {
         expect(res.status).toBe(500);
         const body = await res.text();
         expect(body).not.toMatch(/malformed|array literal|12345/i);
-        const logged = JSON.stringify(errSpy.mock.calls);
+        // V2-03 03-09c: the server log is lib/log on stderr; it names the event and the code, never the message.
+        const logged = JSON.stringify([...errSpy.mock.calls, ...stderrSpy.mock.calls]);
         expect(logged).not.toMatch(/malformed|array literal/i);
+        expect(logged).toContain('\\"event\\":\\"api.visit_update.failed\\"');
+        expect(logged).toContain('\\"code\\":\\"22P02\\"');
       } finally {
         vi.unstubAllEnvs();
       }

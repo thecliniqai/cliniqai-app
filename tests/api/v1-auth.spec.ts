@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 import { NextRequest } from "next/server";
 import { authenticateApiKey, createApiKeySecret } from "@/lib/api/auth";
 import { GET, POST } from "@/app/api/v1/patients/route";
@@ -155,7 +156,7 @@ describe("API v1 Authentication & Tenant Isolation (REQ-api-access, D-01, D-02)"
         },
       });
 
-      const authResult = await authenticateApiKey(getAdminClient(), req);
+      const authResult = await authenticateApiKey(req, () => getAdminClient());
       expect(authResult.success).toBe(true);
       if (!authResult.success) return;
 
@@ -173,7 +174,8 @@ describe("API v1 Authentication & Tenant Isolation (REQ-api-access, D-01, D-02)"
       expect(updatedKey?.last_used_at).not.toBeNull();
 
       // Verify daily usage record
-      const today = new Date().toISOString().split("T")[0];
+      // The clinic date in the tenant zone (default Asia/Kolkata), as the service computes it (V2-03 03-05).
+      const today = todayInTz(DEFAULT_CLINIC_TZ);
       const { data: dailyUsage } = await admin
         .from("api_key_usage_daily")
         .select("request_count")

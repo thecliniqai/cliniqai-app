@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership, NoClinicMembershipError } from "@/lib/auth/tenant";
 import { AppLayoutShell } from "@/components/layout/app-layout-shell";
+import { resolveTimeZone } from "@/lib/datetime";
+import { ClinicTimeZoneProvider } from "@/lib/datetime/client";
 
 export default async function DashboardLayout({
   children,
@@ -28,22 +30,25 @@ export default async function DashboardLayout({
     throw error;
   }
 
-  // Fetch tenant name
+  // Fetch tenant name and zone
   const { data: tenant } = await (
     (supabase
       .from("tenants")
-      .select("name")
+      .select("name, timezone")
       .eq("id", membership.tenantId)
-      .single() as unknown) as Promise<{ data: { name: string } | null; error: unknown }>
+      .single() as unknown) as Promise<{ data: { name: string; timezone: string | null } | null; error: unknown }>
   );
 
+  // Every client component below reads the clinic's zone from here (V2-03 03-05); the browser zone is never used.
   return (
-    <AppLayoutShell
-      tenantName={tenant?.name || "Clinic"}
-      role={membership.role}
-      userEmail={user.email || "staff@clinic.com"}
-    >
-      {children}
-    </AppLayoutShell>
+    <ClinicTimeZoneProvider timeZone={resolveTimeZone(tenant?.timezone)}>
+      <AppLayoutShell
+        tenantName={tenant?.name || "Clinic"}
+        role={membership.role}
+        userEmail={user.email || "staff@clinic.com"}
+      >
+        {children}
+      </AppLayoutShell>
+    </ClinicTimeZoneProvider>
   );
 }

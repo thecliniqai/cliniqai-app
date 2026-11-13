@@ -1,10 +1,13 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "@/lib/db/types";
 import { apiError, ApiErrorResponse } from "@/lib/api/envelope";
 import type { ServiceContext } from "@/lib/auth/context";
 import { apiV1Enabled } from "@/lib/api/enabled";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { getTenantToday } from "@/lib/datetime/server";
 
 /**
  * The plain 404 the `/api/v1` switch answers with (same as the middleware: empty body, nothing that reveals the API).
@@ -22,8 +25,11 @@ export interface AuthenticatedApiKeySession {
   role: "admin"; // D-02: All-or-nothing clinic admin scope
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ApiDb = SupabaseClient<Database, any, any>;
+
 export type ApiKeyAuthResult =
-  | { success: true; session: AuthenticatedApiKeySession }
+  | { success: true; session: AuthenticatedApiKeySession; db: ApiDb }
   | { success: false; response: NextResponse<ApiErrorResponse> };
 
 /**
@@ -44,17 +50,19 @@ export function createApiKeySecret(): {
 
 /**
  * Validates incoming Bearer tokens for /api/v1/* routes.
- * 1. Checks Authorization header for Bearer clq_live_...
- * 2. Hashes token via SHA-256 and retrieves key record where revoked_at IS NULL
+ * 1. Checks the `/api/v1` switch and the Authorization header (Bearer clq_live_...) BEFORE any client exists
+ *    (V2-03 03-13c, review B L-5): an unauthenticated or switched-off request never acquires the system client, so it
+ *    writes no `db.system_acquired` line and a missing secret cannot turn the 404/401 into a 500.
+ * 2. Only then calls `acquireDb` (the register route's `() => getSystemDb("api_v1")`), hashes the token via SHA-256
+ *    and retrieves the key record where revoked_at IS NULL
  * 3. Compares digests in constant time via crypto.timingSafeEqual
  * 4. Records last_used_at and increments daily usage counter
- * 5. Returns AuthenticatedApiKeySession with tenant context and creator userId
+ * 5. Returns AuthenticatedApiKeySession with tenant context and creator userId, plus the acquired client
  */
 export async function authenticateApiKey(
-  // Required, never defaulted (V2-01 R13): the `/api/v1` register route builds the client and passes it in.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db: SupabaseClient<Database, any, any>,
-  req: NextRequest
+  req: NextRequest,
+  // Required, never defaulted (V2-01 R13): the `/api/v1` register route supplies the client factory.
+  acquireDb: () => ApiDb
 ): Promise<ApiKeyAuthResult> {
   // AR2-H2 defence in depth: every key-authenticated v1 handler is off with the switch, even if the middleware is
   // bypassed. Checked before the key is looked up, so no usage counter moves either.
@@ -67,7 +75,7 @@ export async function authenticateApiKey(
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return {
       success: false,
-      response: apiError(
+      response: await apiError(
         "UNAUTHORIZED",
         "Missing or invalid Authorization header. Expected Bearer clq_live_...",
         401
@@ -80,7 +88,7 @@ export async function authenticateApiKey(
   if (!rawToken.startsWith("clq_live_") || rawToken.length < 20) {
     return {
       success: false,
-      response: apiError(
+      response: await apiError(
         "UNAUTHORIZED",
         "Invalid API key format. Expected Bearer clq_live_...",
         401
@@ -89,7 +97,7 @@ export async function authenticateApiKey(
   }
 
   const computedHash = crypto.createHash("sha256").update(rawToken).digest("hex");
-  const supabase = db;
+  const supabase = acquireDb();
 
   const { data: keyRecord, error } = await (supabase.from("api_keys") as any)
     .select("id, tenant_id, name, key_hash, created_by, revoked_at")
@@ -100,7 +108,7 @@ export async function authenticateApiKey(
   if (error || !keyRecord) {
     return {
       success: false,
-      response: apiError("UNAUTHORIZED", "Invalid or revoked API key", 401),
+      response: await apiError("UNAUTHORIZED", "Invalid or revoked API key", 401),
     };
   }
 
@@ -114,15 +122,15 @@ export async function authenticateApiKey(
   ) {
     return {
       success: false,
-      response: apiError("UNAUTHORIZED", "Invalid or revoked API key", 401),
+      response: await apiError("UNAUTHORIZED", "Invalid or revoked API key", 401),
     };
   }
 
   const now = new Date().toISOString();
-  const today = now.split("T")[0];
 
-  // Update last_used_at and daily usage counter
+  // Update last_used_at and daily usage counter, bucketed by the clinic date in the tenant's zone (V2-03 03-05)
   try {
+    const { today } = await getTenantToday(supabase, keyRecord.tenant_id, Date.parse(now));
     await (supabase.from("api_keys") as any)
       .update({ last_used_at: now, updated_at: now })
       .eq("id", keyRecord.id);
@@ -153,7 +161,7 @@ export async function authenticateApiKey(
         });
     }
   } catch (usageErr) {
-    console.error("[lib/api/auth] Failed to record usage counter:", usageErr);
+    log.error({ event: "api.usage_counter.failed", code: errorTag(usageErr), requestId: await getRequestId(), tenantId: keyRecord.tenant_id });
   }
 
   return {
@@ -165,6 +173,7 @@ export async function authenticateApiKey(
       name: keyRecord.name,
       role: "admin",
     },
+    db: supabase,
   };
 }
 
@@ -172,11 +181,7 @@ export async function authenticateApiKey(
  * Builds the explicit service context for an authenticated API key (ADR-0005 Phasing: `/api/v1/**` stays on the
  * register until P1-37). Tenant and actor come only from the verified key; `db` is the register route's client.
  */
-export function apiKeyServiceContext(
-  session: AuthenticatedApiKeySession,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db: SupabaseClient<Database, any, any>
-): ServiceContext {
+export function apiKeyServiceContext(session: AuthenticatedApiKeySession, db: ApiDb): ServiceContext {
   return {
     userId: session.userId,
     tenantId: session.tenantId,

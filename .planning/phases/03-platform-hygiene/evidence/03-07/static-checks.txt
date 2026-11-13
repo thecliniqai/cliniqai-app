@@ -1,0 +1,15 @@
+# static checks for 03-07 from a clean worktree of 353610e
+$ npm run typecheck
+exit=0
+$ npx eslint . (summary)
+exit=0
+errors=0 warnings=422
+$ npm run inventory
+exit=0
+$ node scripts/ci/migration-immutability.mjs --base origin/feature/v2
+migration-immutability: PASS (base origin/feature/v2 @ e66edf9; 24 applied unchanged; 3 new above 24)
+$ npm run db:types && git diff --exit-code -- types/database.ts
+exit=0
+$ node scripts/ci/local-drift.mjs
+local-drift: PASS (1 statement(s), 1 allowlisted: drop extension if exists "pg_net";)
+exit=0

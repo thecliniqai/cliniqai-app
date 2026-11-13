@@ -5,6 +5,10 @@ import { requireServiceContext } from "@/lib/auth/context";
 import { hasPerm } from "@/lib/permissions";
 import { DoctorCabinView, DoctorOption } from "@/components/cabin/doctor-cabin-view";
 import { CabinVisitItem } from "@/components/cabin/my-queue-card";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { dayWindowUtc, isYmd, todayInTz } from "@/lib/datetime";
+import { getTenantTimeZone } from "@/lib/datetime/server";
 
 interface CabinPageProps {
   searchParams: Promise<{
@@ -30,8 +34,10 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
   }
 
   const isOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
-  const today = new Date().toISOString().split("T")[0];
-  const currentDate = searchParams.date || today;
+  // The clinic's day in its own zone (V2-03 03-05); an unusable ?date= falls back to it.
+  const timeZone = await getTenantTimeZone(supabase, membership.tenantId);
+  const today = todayInTz(timeZone);
+  const currentDate = isYmd(searchParams.date) ? searchParams.date : today;
 
   // Fetch doctors and practicing owners for the tenant
   const doctorDirectory = await getTenantDoctorDirectory(membership);
@@ -61,8 +67,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
     currentDoctorId = searchParams.doctor;
   }
 
-  const startOfDay = `${currentDate}T00:00:00.000Z`;
-  const endOfDay = `${currentDate}T23:59:59.999Z`;
+  const { startIso: startOfDay, endIsoExclusive: endOfDay } = dayWindowUtc(currentDate, timeZone);
 
   // Fetch visits for today
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -104,7 +109,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
     `)
     .eq("tenant_id", membership.tenantId)
     .or(`scheduled_at.gte.${startOfDay},created_at.gte.${startOfDay}`)
-    .or(`scheduled_at.lte.${endOfDay},created_at.lte.${endOfDay}`);
+    .or(`scheduled_at.lt.${endOfDay},created_at.lt.${endOfDay}`);
 
   if (currentDoctorId !== "all") {
     visitQuery = visitQuery.eq("doctor_id", currentDoctorId);
@@ -113,7 +118,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
   const { data: rawVisits, error: visitsError } = await visitQuery;
 
   if (visitsError) {
-    console.error("[DoctorCabinPage] Error loading cabin visits:", visitsError.message, visitsError.details);
+    log.error({ event: "visits.cabin_list.failed", code: errorTag(visitsError), requestId: await getRequestId() });
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

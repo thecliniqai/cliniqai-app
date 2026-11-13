@@ -59,8 +59,9 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
   });
 
   describe("2. DevLogger Local Delivery & File Appending (T-05-01)", () => {
-    it("sendDirectSms outputs to console and appends to .planning/dev-messages.txt", async () => {
+    it("sendDirectSms writes one PHI-free log line and appends the message to .planning/dev-messages.txt", async () => {
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
       const testPhone = "+919876543210";
       const templateId = "appointment_reminder";
       const testParams = {
@@ -74,7 +75,15 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
       expect(result.success).toBe(true);
       expect(result.channelUsed).toBe("sms");
       expect(result.externalMessageId).toMatch(/^dev-sms-/);
-      expect(consoleSpy).toHaveBeenCalled();
+      // V2-03 03-09c: the log carries the event and a count only; recipient, template and parameters stay in the file.
+      expect(consoleSpy).not.toHaveBeenCalled();
+      const out = stdoutSpy.mock.calls.map((call) => String(call[0]));
+      const lines = out.filter((chunk) => chunk.includes("messaging.dev.recorded")).map((chunk) => JSON.parse(chunk));
+      expect(lines).toEqual([expect.objectContaining({ level: "info", event: "messaging.dev.recorded", action: "sms", count: 1 })]);
+      const logged = out.join("\n");
+      for (const value of [testPhone, "9876543210", templateId, "Rahul Sharma", "Dr. Ananya Rao"]) {
+        expect(logged).not.toContain(value);
+      }
 
       // Verify file appending
       expect(fs.existsSync(devMessagesPath)).toBe(true);
@@ -86,6 +95,7 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
 
     it("sendDirectWhatsApp formats buttons without simulated webhook callback URLs", async () => {
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
       const testPhone = "+919876543210";
       const templateId = "appointment_booked";
       const testParams = {
@@ -109,7 +119,7 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
       expect(result.success).toBe(true);
       expect(result.channelUsed).toBe("whatsapp");
       expect(result.externalMessageId).toMatch(/^dev-wa-/);
-      expect(consoleSpy).toHaveBeenCalled();
+      expect(consoleSpy).not.toHaveBeenCalled();
 
       // Verify file content has button actions
       const fileContent = fs.readFileSync(devMessagesPath, "utf8");
@@ -118,9 +128,14 @@ describe("Messaging Provider Layer (REQ-reminders-notifications, T-05-01)", () =
       expect(fileContent).toContain("(confirm)");
       expect(fileContent).toContain("(cancel)");
       // P0-03: the dev webhook is gone, so the logger must not advertise a simulator URL.
-      const logged = consoleSpy.mock.calls.flat().join("\n");
-      expect(logged).toContain("appointment_booked");
-      expect(logged).not.toContain("/api/webhooks/messaging/");
+      expect(fileContent).toContain("appointment_booked");
+      expect(fileContent).not.toContain("/api/webhooks/messaging/");
+      // V2-03 03-09c: stdout gets one closed-field line, no recipient, template, parameters or buttons.
+      const logged = stdoutSpy.mock.calls.map((call) => String(call[0])).join("\n");
+      expect(logged).toContain('"event":"messaging.dev.recorded"');
+      for (const value of [testPhone, templateId, "Aarav Patel", "[Confirm]", "/api/webhooks/messaging/"]) {
+        expect(logged).not.toContain(value);
+      }
     });
   });
 

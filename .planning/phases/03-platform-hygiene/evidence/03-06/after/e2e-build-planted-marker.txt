@@ -1,0 +1,85 @@
+
+> clinicos@0.1.0 e2e:build
+> tsx tests/e2e/support/build.ts
+
+[e2e:build] next build with the guarded e2e environment (no .env, loopback only)
+▲ Next.js 16.4.6 (Turbopack)
+- Environments: .env
+✓ Running next.config.ts took 38ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 868ms
+  Running TypeScript ...
+  Finished TypeScript in 1308ms ...
+  Collecting page data using 9 workers ...
+  Generating static pages using 9 workers (0/34) ...
+  Generating static pages using 9 workers (8/34) 
+  Generating static pages using 9 workers (16/34) 
+  Generating static pages using 9 workers (25/34) 
+✓ Generating static pages using 9 workers (34/34) in 130ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ƒ /api/cron/dispatch-communications
+├ ƒ /api/cron/webhooks
+├ ƒ /api/health
+├ ƒ /api/invoices/[id]/receipt-pdf
+├ ƒ /api/patients/[id]/export
+├ ƒ /api/r/[token]
+├ ƒ /api/ready
+├ ƒ /api/reports/view
+├ ƒ /api/reschedule/[token]
+├ ƒ /api/v1/appointments
+├ ƒ /api/v1/appointments/[id]
+├ ƒ /api/v1/docs
+├ ƒ /api/v1/lab-orders
+├ ƒ /api/v1/lab-orders/[id]
+├ ƒ /api/v1/openapi.json
+├ ƒ /api/v1/patients
+├ ƒ /api/v1/patients/[id]
+├ ƒ /api/v1/patients/[id]/export
+├ ƒ /api/v1/prescriptions
+├ ƒ /api/v1/prescriptions/[id]
+├ ƒ /api/v1/referrals
+├ ƒ /api/v1/referrals/[id]
+├ ƒ /api/v1/visits
+├ ƒ /api/v1/visits/[id]
+├ ƒ /api/visits/[id]/prescription-pdf
+├ ƒ /api/webhooks/messaging/[provider]
+├ ƒ /billing/register
+├ ƒ /billing/reports
+├ ƒ /cabin
+├ ƒ /calendar
+├ ○ /clinic/new
+├ ƒ /consultation/[id]
+├ ○ /forgot-password
+├ ○ /join
+├ ○ /login
+├ ƒ /patients
+├ ƒ /patients/[id]
+├ ƒ /patients/new
+├ ƒ /profile
+├ ƒ /queue
+├ ƒ /r/[token]
+├ ƒ /referrals
+├ ƒ /reports/view
+├ ƒ /reschedule/[token]
+├ ƒ /settings/billing
+├ ƒ /settings/clinic
+├ ƒ /settings/developer
+├ ƒ /staff
+└ ƒ /visits
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[e2e:build] REFUSED: the build output references hosted services (4 finding(s)):
+  - .next/static/chunks/2de4sg2x0kwjf.js: hosted host *.supabase.co
+  - .next/server/chunks/_0061c2q1_b2kh._.js: hosted host *.supabase.co
+  - .next/server/chunks/_0061c2q1_b2kh._.js.map: hosted host *.supabase.co
+  - .next/server/chunks/ssr/app_(auth)_login_page_tsx_1jx1-twwaje0g._.js.map: hosted host *.supabase.co

@@ -7,6 +7,9 @@ import { recordAudit } from "@/lib/audit/audit";
 import { memberOfTenant, patientInTenant } from "@/lib/auth/tenant-refs";
 import { Patient, WaitlistEntry } from "@/lib/db/types";
 import { createVisit } from "@/features/visits/service";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Waitlist use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
 // server action checked before the move. Promotion creates the visit through the visits service with the same ctx.
@@ -77,7 +80,7 @@ export async function addToWaitlist(ctx: ServiceContext, input: AddToWaitlistInp
       .single();
 
     if (error || !newEntry) {
-      console.error("[features/waitlist/service] Failed to insert waitlist entry:", error);
+      log.error({ event: "waitlist.insert.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to add patient to waitlist." };
     }
 
@@ -95,7 +98,7 @@ export async function addToWaitlist(ctx: ServiceContext, input: AddToWaitlistInp
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to add to waitlist.",
+      error: clientErrorMessage(err, "Failed to add to waitlist.", "waitlist.add_to_waitlist.failed"),
     };
   }
 }
@@ -160,7 +163,7 @@ export async function getWaitlistForDate(
     }
 
     if (entriesError) {
-      console.error("[features/waitlist/service] Failed to fetch waitlist:", entriesError);
+      log.error({ event: "waitlist.list_query.failed", code: errorTag(entriesError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to load waitlist entries." };
     }
 
@@ -176,7 +179,7 @@ export async function getWaitlistForDate(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to fetch waitlist.",
+      error: clientErrorMessage(err, "Failed to fetch waitlist.", "waitlist.get_waitlist_for_date.failed"),
     };
   }
 }
@@ -267,7 +270,7 @@ export async function promoteWaitlistEntry(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to promote waitlist entry.",
+      error: clientErrorMessage(err, "Failed to promote waitlist entry.", "waitlist.promote_waitlist_entry.failed"),
     };
   }
 }

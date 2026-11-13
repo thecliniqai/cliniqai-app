@@ -6,6 +6,8 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { memberOfTenant, patientInTenant } from "@/lib/auth/tenant-refs";
 import { isDateOnly } from "@/lib/utils/filter-values";
+import { dayWindowUtc, ymdOf } from "@/lib/datetime";
+import { getTenantTimeZone } from "@/lib/datetime/server";
 import { Visit, VisitStatus } from "@/lib/db/types";
 import {
   visitsFilterSchema,
@@ -16,6 +18,9 @@ import {
   ActiveDoctorOption,
 } from "./schema";
 import { recordVitalsInputSchema, type RecordVitalsInput, type Vitals } from "@/features/consultation/schema";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Visit use-cases. The acting tenant and user come only from `ctx` (ADR-0005 D1); each use-case checks the same
 // permission its server action checked before the move, so service→service chains are checked too.
@@ -93,7 +98,7 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
       .single();
 
     if (insertError || !newVisit) {
-      console.error("[features/visits/service] Failed to insert visit:", insertError);
+      log.error({ event: "visits.create_insert.failed", code: errorTag(insertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to schedule visit in database." };
     }
 
@@ -111,7 +116,7 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to create visit.",
+      error: clientErrorMessage(err, "Failed to create visit.", "visits.create_visit.failed"),
     };
   }
 }
@@ -136,15 +141,17 @@ export async function getVisitsForDate(
       return { success: false, error: "Failed to load visits for the selected date." };
     }
 
-    // Compute start and end of day in UTC for boundary filtering
-    const startOfDay = `${dateStr}T00:00:00.000Z`;
-    const endOfDay = `${dateStr}T23:59:59.999Z`;
+    // The clinic day in the tenant's zone, half-open (V2-03 03-05): a 02:00 IST visit belongs to its IST date.
+    const { startIso: startOfDay, endIsoExclusive: endOfDay } = dayWindowUtc(
+      dateStr,
+      await getTenantTimeZone(supabase, session.tenantId)
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const query = (supabase.from("visits") as any)
       .select("*, patients(full_name, phone, age, date_of_birth)")
       .eq("tenant_id", session.tenantId)
-      .or(`and(scheduled_at.gte.${startOfDay},scheduled_at.lte.${endOfDay}),and(scheduled_at.is.null,created_at.gte.${startOfDay},created_at.lte.${endOfDay})`);
+      .or(`and(scheduled_at.gte.${startOfDay},scheduled_at.lt.${endOfDay}),and(scheduled_at.is.null,created_at.gte.${startOfDay},created_at.lt.${endOfDay})`);
 
     let data: Visit[] | null = null;
     let error: { message: string } | null = null;
@@ -160,7 +167,7 @@ export async function getVisitsForDate(
     }
 
     if (error) {
-      console.error("[features/visits/service] Failed to fetch visits:", error);
+      log.error({ event: "visits.list_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to load visits for the selected date." };
     }
 
@@ -168,7 +175,7 @@ export async function getVisitsForDate(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to fetch visits.",
+      error: clientErrorMessage(err, "Failed to fetch visits.", "visits.get_visits_for_date.failed"),
     };
   }
 }
@@ -214,7 +221,7 @@ export async function updateVisitStatus(
       .eq("tenant_id", ctx.tenantId);
 
     if (updateError) {
-      console.error("[features/visits/service] Failed to update visit status:", updateError);
+      log.error({ event: "visits.status_update.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to update visit status." };
     }
 
@@ -233,7 +240,7 @@ export async function updateVisitStatus(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update visit status.",
+      error: clientErrorMessage(err, "Failed to update visit status.", "visits.update_visit_status.failed"),
     };
   }
 }
@@ -258,7 +265,7 @@ export async function confirmAppointment(ctx: ServiceContext, visitId: string): 
       .single();
 
     if (readError || !existing) {
-      console.error("[confirmAppointment] Failed to fetch visit:", { visitId, readError });
+      log.error({ event: "visits.confirm_read.failed", code: errorTag(readError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Appointment not found or inaccessible." };
     }
 
@@ -287,7 +294,7 @@ export async function confirmAppointment(ctx: ServiceContext, visitId: string): 
       .eq("tenant_id", session.tenantId);
 
     if (updateError) {
-      console.error("[confirmAppointment] Failed to update visit status:", updateError);
+      log.error({ event: "visits.confirm_update.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to confirm appointment." };
     }
 
@@ -306,7 +313,7 @@ export async function confirmAppointment(ctx: ServiceContext, visitId: string): 
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to confirm appointment.",
+      error: clientErrorMessage(err, "Failed to confirm appointment.", "visits.confirm_appointment.failed"),
     };
   }
 }
@@ -368,7 +375,7 @@ export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise
     let promotedPatientId: string | undefined;
 
     if (existing.scheduled_at) {
-      const targetDate = existing.scheduled_at.split("T")[0];
+      const targetDate = ymdOf(existing.scheduled_at, await getTenantTimeZone(supabase, session.tenantId));
 
       // Query eligible waitlist entries for this tenant, target_date, status='waiting', and matching doctor
       interface WaitlistRow {
@@ -409,7 +416,7 @@ export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise
         .limit(1);
 
       if (candidateErr) {
-        console.error("[cancelVisit] candidates query error:", candidateErr);
+        log.error({ event: "visits.cancel_candidates.failed", code: errorTag(candidateErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       }
 
       if (candidates && candidates.length > 0) {
@@ -463,7 +470,7 @@ export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to cancel visit.",
+      error: clientErrorMessage(err, "Failed to cancel visit.", "visits.cancel_visit.failed"),
     };
   }
 }
@@ -486,7 +493,7 @@ export async function getActiveClinicDoctors(ctx: ServiceContext): Promise<Activ
       .order("created_at", { ascending: true });
 
     if (error || !rows) {
-      console.error("[getActiveClinicDoctors] Error querying doctors:", error);
+      log.error({ event: "visits.doctors_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
 
@@ -499,7 +506,7 @@ export async function getActiveClinicDoctors(ctx: ServiceContext): Promise<Activ
       specialty: r.default_specialty || null,
     }));
   } catch (err: unknown) {
-    console.error("[getActiveClinicDoctors] Unexpected error:", err);
+    log.error({ event: "visits.doctors.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 }
@@ -538,10 +545,11 @@ export async function getClinicVisitsRegister(
     const session = ctx;
 
     // 1. Compute date range
-    const { startIso, endIso } = computeDateRange(
+    const { startIso, endIsoExclusive } = computeDateRange(
       parsed.datePreset,
       parsed.startDate,
-      parsed.endDate
+      parsed.endDate,
+      await getTenantTimeZone(supabase, session.tenantId)
     );
 
     // 2. Build base query with tenant isolation
@@ -552,7 +560,7 @@ export async function getClinicVisitsRegister(
       )
       .eq("tenant_id", session.tenantId)
       .gte("created_at", startIso)
-      .lte("created_at", endIso);
+      .lt("created_at", endIsoExclusive);
 
     if (parsed.doctorId && parsed.doctorId !== "all") {
       query = query.eq("doctor_id", parsed.doctorId);
@@ -612,7 +620,7 @@ export async function getClinicVisitsRegister(
     });
 
     if (visitsErr || !allVisits) {
-      console.error("[getClinicVisitsRegister] Error fetching visits:", visitsErr);
+      log.error({ event: "visits.register_query.failed", code: errorTag(visitsErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return emptyVisitsRegister(parsed.page, parsed.pageSize);
     }
 
@@ -888,7 +896,7 @@ export async function getClinicVisitsRegister(
       totalPages,
     };
   } catch (err: unknown) {
-    console.error("[getClinicVisitsRegister] Unexpected error:", err);
+    log.error({ event: "visits.register.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return emptyVisitsRegister(parsed.page, parsed.pageSize);
   }
 }
@@ -944,7 +952,7 @@ export async function recordVisitVitals(
       .eq("tenant_id", session.tenantId);
 
     if (updateError) {
-      console.error("[recordVisitVitals] Failed to update vitals:", updateError);
+      log.error({ event: "visits.vitals_update.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record patient vitals." };
     }
 
@@ -959,10 +967,10 @@ export async function recordVisitVitals(
 
     return { success: true, vitals: vitalsToSave };
   } catch (err: unknown) {
-    console.error("[recordVisitVitals] Unexpected error:", err);
+    log.error({ event: "visits.vitals.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to record patient vitals.",
+      error: clientErrorMessage(err, "Failed to record patient vitals."),
     };
   }
 }

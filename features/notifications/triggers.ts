@@ -2,6 +2,8 @@ import "server-only";
 
 import type { ServiceContext } from "@/lib/auth/context";
 import { NotificationCategory, NotificationRecipientRole } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * Where a notification is written: the acting tenant and its client. A request path passes its `ServiceContext`;
@@ -108,7 +110,7 @@ async function insertNotification(
     .single();
 
   if (error) {
-    console.error(`[features/notifications/triggers] Failed to insert ${payload.eventType}:`, error);
+    log.error({ event: "notifications.insert.failed", code: errorTag(error), requestId: await getRequestId() });
     throw error;
   }
 

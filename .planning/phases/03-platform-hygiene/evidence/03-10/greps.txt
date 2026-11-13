@@ -1,0 +1,11 @@
+lib/api/enabled.ts:9:  return process.env.API_V1_ENABLED === "true" && process.env.NODE_ENV !== "production";
+lib/env.ts:5:    NODE_ENV: z.string().optional(),
+lib/env.ts:18:    if (value.API_V1_ENABLED === "true" && value.NODE_ENV === "production") {
+lib/env.ts:32:    NODE_ENV: source.NODE_ENV,
+lib/env.ts:51:  NODE_ENV: process.env.NODE_ENV,
+lib/log/client.ts:6: * Production build: a no-op. `NODE_ENV` is inlined by the bundler at build time; it is the only environment value read.
+lib/log/client.ts:11:  if (process.env.NODE_ENV !== "development") return;
+lib/messaging/webhook-helpers.ts:38: * request in every NODE_ENV.
+---
+app/api/ready/route.ts:52:      const accountId = process.env.R2_ACCOUNT_ID;
+exit=0

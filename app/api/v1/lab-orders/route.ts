@@ -3,11 +3,14 @@ import { z } from "zod";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { isDateOnly } from "@/lib/utils/filter-values";
+import { getTenantToday } from "@/lib/datetime/server";
 import { isPatientStoragePath } from "@/lib/storage/tenant-path";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 const LAB_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
 
@@ -31,10 +34,11 @@ const labOrderCreateSchema = z.object({
  * Filters: patient_id, visit_id. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -60,8 +64,6 @@ export async function GET(req: NextRequest) {
 
   const patientId = searchParams.get("patient_id");
   const visitId = searchParams.get("visit_id");
-
-  const admin = getAdminClient();
 
   try {
     let query = (admin.from("patient_documents") as any)
@@ -113,10 +115,11 @@ export async function GET(req: NextRequest) {
  * Requires title, storage_path, patient_id; sets uploaded_by = session.userId.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -171,8 +174,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const admin = getAdminClient();
-
   try {
     // 1. Verify patient exists and belongs to active tenant
     const { data: patient, error: patientErr } = await (admin.from("patients") as any)
@@ -211,7 +212,8 @@ export async function POST(req: NextRequest) {
         storage_path,
         file_size_bytes: file_size_bytes ?? 0,
         mime_type: mime_type ?? "application/pdf",
-        report_date: report_date ?? new Date().toISOString().slice(0, 10),
+        // The clinic date in the tenant's zone when the caller sends none (V2-03 03-05; R-33).
+        report_date: report_date ?? (await getTenantToday(admin, session.tenantId)).today,
         notes: notes || null,
         is_abnormal: Boolean(is_abnormal),
         uploaded_by: session.userId,
@@ -235,7 +237,7 @@ export async function POST(req: NextRequest) {
           },
       });
     } catch (auditErr) {
-      console.error("[api/v1/lab-orders] Audit logging failed:", auditErr);
+      log.error({ event: "api.lab_orders_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
 
     // 5. Enqueue webhook event: lab_result.ready
@@ -251,7 +253,7 @@ export async function POST(req: NextRequest) {
         }
       );
     } catch (webhookErr) {
-      console.warn("[api/v1/lab-orders] Webhook enqueue error:", webhookErr);
+      log.warn({ event: "api.lab_orders_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
     }
 
     return apiSuccess(doc, undefined, 201, rateHeaders);

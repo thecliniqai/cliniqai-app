@@ -1,0 +1,4 @@
+add @ai-sdk/google 1.2.22
+
+added 568 packages in 259ms
+lock-linux-check: PASS (npm ci accepts the lockfile on Linux)

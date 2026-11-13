@@ -8,7 +8,7 @@
 /lib/permissions/       @skarkhanis95
 /lib/auth/              @skarkhanis95
 /lib/supabase/          @skarkhanis95
-/middleware.ts          @skarkhanis95
+/proxy.ts               @skarkhanis95
 /eslint.config.mjs      @skarkhanis95
 /.github/               @skarkhanis95
 /.gitleaks.toml         @skarkhanis95

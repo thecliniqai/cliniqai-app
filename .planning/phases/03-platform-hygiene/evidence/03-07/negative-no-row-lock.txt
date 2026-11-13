@@ -1,0 +1,14 @@
+# Negative: record_payment without the invoice row lock (FOR UPDATE removed in the local DB function, then restored). Commit 353610e.
+# FOR UPDATE occurrences: original=1 mutated=0
+mutation applied
+$ npx vitest run tests/billing/record-payment-rpc.spec.ts -t "race"   (mutated)
+   × record_payment: invariants > concurrent overpayment race: of two 600 payments on a 1000 invoice exactly one succeeds (3 rounds) 158ms
+   × record_payment: invariants > concurrent full-balance race: one payment, the invoice paid once 8ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [ { success: true, …(5) }, …(1) ] to have a length of 1 but got 2
+AssertionError: expected [ { success: true, …(5) }, …(1) ] to have a length of 1 but got 2
+      Tests  2 failed | 34 skipped (36)
+restored: live function has FOR UPDATE = 1
+$ npx vitest run tests/billing/record-payment-rpc.spec.ts -t "race"   (restored)
+ ✓ tests/billing/record-payment-rpc.spec.ts (36 tests | 34 skipped) 544ms
+      Tests  2 passed | 34 skipped (36)

@@ -1,0 +1,8 @@
+# npx vitest run at 34d52b2 in a throwaway worktree (shared local stack; DB at 03-01's uncommitted 000025)
+   × Phase 06-05 Task 2: Health & Readiness Probes (D-18, T-06-18, T-06-19) > 2. Operational Readiness Probe (GET /api/ready) > verifies Cloudflare R2 storage provider when STORAGE_PROVIDER=r2 3ms
+   × hosted dump drift tool > reports no drift for a schema-only dump of the local database 9812ms
+   × hosted dump drift tool > names a column the dump has and the migrations do not 4917ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  2 failed | 107 passed (109)
+      Tests  3 failed | 1961 passed (1964)
+   Start at  03:48:06

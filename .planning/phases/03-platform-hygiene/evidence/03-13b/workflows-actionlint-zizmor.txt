@@ -1,0 +1,9 @@
+# actionlint 1.7.7 (docker, --network none)
+.github/workflows/nightly.yml:114:9: shellcheck reported issue in this script: SC2016:info:2:9: Expressions don't expand in single quotes, use double quotes for that [shellcheck]
+    |
+114 |         run: |
+    |         ^~~~
+# exit: 1
+# zizmor 1.32.0 --offline (docker, --network none)
+No findings to report. Good job! (1 suppressed)
+# exit: 

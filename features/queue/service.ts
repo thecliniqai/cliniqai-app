@@ -4,9 +4,14 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { isDateOnly } from "@/lib/utils/filter-values";
+import { dayWindowUtc } from "@/lib/datetime";
+import { getTenantTimeZone, getTenantToday } from "@/lib/datetime/server";
 import { QueuePriority, QueueToken, Visit, Patient } from "@/lib/db/types";
 import type { QueueItem } from "@/components/queue/queue-card";
 import { getTenantDoctorMap } from "@/features/staff/service";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Queue use-cases (check-in, state transitions, day board). Tenant and actor come only from `ctx` (ADR-0005 D1);
 // each use-case checks the permission its server action checked before the move.
@@ -25,7 +30,9 @@ export async function checkInVisit(
   try {
     assertPerm(ctx.role, "appointments:edit");
     const session = ctx;
-    const today = new Date().toISOString().split("T")[0];
+    // The token's day is the clinic date in the tenant's zone (V2-03 03-05); the SQL `DEFAULT CURRENT_DATE` is
+    // never relied on (R-33; V2-05 05-08 owns the counter rework).
+    const { today } = await getTenantToday(supabase, session.tenantId);
 
     // 1. Verify visit belongs to tenant and get current state
     // By id AND the active clinic: RLS admits every clinic the user belongs to, so a member of two clinics acting in
@@ -72,7 +79,7 @@ export async function checkInVisit(
     });
 
     if (rpcError || tokenNumber == null) {
-      console.error("[features/queue/service] Token generation RPC failed:", rpcError);
+      log.error({ event: "queue.token_generate.failed", code: errorTag(rpcError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to generate queue token." };
     }
 
@@ -97,7 +104,7 @@ export async function checkInVisit(
       .single();
 
     if (tokenInsertError || !newToken) {
-      console.error("[features/queue/service] Failed to insert queue token:", tokenInsertError);
+      log.error({ event: "queue.token_insert.failed", code: errorTag(tokenInsertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to register queue entry." };
     }
 
@@ -130,7 +137,7 @@ export async function checkInVisit(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to check in visit.",
+      error: clientErrorMessage(err, "Failed to check in visit.", "queue.check_in_visit.failed"),
     };
   }
 }
@@ -182,7 +189,7 @@ export async function transitionQueueState(
       .select("id");
 
     if (moveErr) {
-      console.error("[features/queue/service] transition failed:", moveErr.code ?? "unknown");
+      log.error({ event: "queue.transition.failed", code: errorTag(moveErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to transition queue state." };
     }
 
@@ -224,7 +231,7 @@ export async function transitionQueueState(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to transition queue state.",
+      error: clientErrorMessage(err, "Failed to transition queue state.", "queue.transition_queue_state.failed"),
     };
   }
 }
@@ -252,8 +259,11 @@ export async function getQueueForDate(
       return { success: false, error: "Failed to load queue for date." };
     }
 
-    const startOfDay = `${dateStr}T00:00:00.000Z`;
-    const endOfDay = `${dateStr}T23:59:59.999Z`;
+    // The clinic day in the tenant's zone, half-open (V2-03 03-05).
+    const { startIso: startOfDay, endIsoExclusive: endOfDay } = dayWindowUtc(
+      dateStr,
+      await getTenantTimeZone(supabase, session.tenantId)
+    );
 
     const query = (supabase.from("visits") as unknown as {
       select: (cols: string) => {
@@ -269,7 +279,7 @@ export async function getQueueForDate(
       .select("*, patients(*), queue_tokens(*)")
       .eq("tenant_id", session.tenantId)
       .or(`scheduled_at.gte.${startOfDay},created_at.gte.${startOfDay}`)
-      .or(`scheduled_at.lte.${endOfDay},created_at.lte.${endOfDay}`);
+      .or(`scheduled_at.lt.${endOfDay},created_at.lt.${endOfDay}`);
 
     let data: QueueRow[] | null = null;
     let error: { message: string } | null = null;
@@ -285,7 +295,7 @@ export async function getQueueForDate(
     }
 
     if (error) {
-      console.error("[features/queue/service] Failed to fetch queue visits:", error);
+      log.error({ event: "queue.list.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to load queue for date." };
     }
 
@@ -340,7 +350,7 @@ export async function getQueueForDate(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to fetch queue.",
+      error: clientErrorMessage(err, "Failed to fetch queue.", "queue.get_queue_for_date.failed"),
     };
   }
 }

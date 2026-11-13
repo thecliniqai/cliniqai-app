@@ -1,0 +1,13 @@
+# without-fix run: files reverted to HEAD 84c7477: scripts/ci/migration-immutability.mjs
+# command: /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/vt.sh tests/ci/migration-immutability.spec.ts --reporter=dot 2>&1 | grep -E ' FAIL |Tests |Test Files|lock never' | head -30
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ci/migration-immutability.spec.ts > migration immutability on pushes to feature/v2 (03-13b, review IND L-4) > --base auto on a push compares with the commit before the push and fails naming the edited migration
+ FAIL  tests/ci/migration-immutability.spec.ts > migration immutability on pushes to feature/v2 (03-13b, review IND L-4) > --base auto on a push with an unknown before-commit (new branch / force-push) falls back to HEAD~1
+ FAIL  tests/ci/migration-immutability.spec.ts > migration immutability on pushes to feature/v2 (03-13b, review IND L-4) > --base auto on a pull request compares with origin/<base branch>
+ FAIL  tests/ci/migration-immutability.spec.ts > migration number collisions against origin/feature/v2 (03-13b, review IND Low) > passes when the integration branch has not used the number (and reports the check)
+ FAIL  tests/ci/migration-immutability.spec.ts > migration number collisions against origin/feature/v2 (03-13b, review IND Low) > fails when another branch already merged the same number under another name
+ FAIL  tests/ci/migration-immutability.spec.ts > migration number collisions against origin/feature/v2 (03-13b, review IND Low) > fails when the integration branch has moved past the number (out-of-order once merged)
+ FAIL  tests/ci/migration-immutability.spec.ts > migration number collisions against origin/feature/v2 (03-13b, review IND Low) > exits 2 when --against cannot be resolved
+ Test Files  1 failed (1)
+      Tests  7 failed | 13 passed (20)
+# exit: 0

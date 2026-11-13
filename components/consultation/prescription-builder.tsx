@@ -34,6 +34,7 @@ import {
   Pill,
   BookOpen,
 } from "lucide-react";
+import { reportClientError } from "@/lib/log/client";
 
 interface PrescriptionBuilderProps {
   visitId: string;
@@ -132,7 +133,7 @@ export function PrescriptionBuilder({
           setIsDropdownOpen(true);
         }
       } catch (err) {
-        console.error("Medicine search error:", err);
+        reportClientError("prescriptions.medicine_search.failed", err);
       } finally {
         setIsSearching(false);
       }
@@ -149,7 +150,7 @@ export function PrescriptionBuilder({
         setSavedTemplates(res.templates);
       }
     } catch (err) {
-      console.error("Failed to load templates:", err);
+      reportClientError("prescriptions.templates_load.failed", err);
     }
   };
 
@@ -370,7 +371,7 @@ export function PrescriptionBuilder({
         setErrorMsg(res.error || "Failed to save template.");
       }
     } catch (err) {
-      console.error(err);
+      reportClientError("prescriptions.template_save.failed", err);
     } finally {
       setIsSavingTemplate(false);
     }
@@ -385,7 +386,7 @@ export function PrescriptionBuilder({
       try {
         await addPrescriptionItem(visitId, item);
       } catch (err) {
-        console.error("Failed to add template item:", err);
+        reportClientError("prescriptions.template_item_add.failed", err);
       }
     }
 

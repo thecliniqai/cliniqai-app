@@ -1,8 +1,11 @@
+import { serverEnv } from "@/lib/env-server";
 import {
   InteractiveButton,
   MessagingProvider,
   MessagingSendResult,
 } from "../types";
+import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
+import { errorTag } from "@/lib/errors/error-tag";
 
 export class GupshupProvider implements MessagingProvider {
   readonly name = "gupshup" as const;
@@ -15,9 +18,10 @@ export class GupshupProvider implements MessagingProvider {
     appName?: string;
     srcPhone?: string;
   }) {
-    this.apiKey = options?.apiKey || process.env.GUPSHUP_API_KEY || "";
-    this.appName = options?.appName || process.env.GUPSHUP_APP_NAME || "";
-    this.srcPhone = options?.srcPhone || process.env.GUPSHUP_SRC_PHONE || "";
+    const env = serverEnv();
+    this.apiKey = options?.apiKey || env.GUPSHUP_API_KEY || "";
+    this.appName = options?.appName || env.GUPSHUP_APP_NAME || "";
+    this.srcPhone = options?.srcPhone || env.GUPSHUP_SRC_PHONE || "";
   }
 
   async sendSms(
@@ -38,6 +42,8 @@ export class GupshupProvider implements MessagingProvider {
     params: Record<string, string>,
     buttons?: InteractiveButton[]
   ): Promise<MessagingSendResult> {
+    const synthetic = syntheticRecipientRefusal(to, "whatsapp");
+    if (synthetic) return synthetic;
     if (!this.apiKey) {
       return {
         success: false,
@@ -76,6 +82,7 @@ export class GupshupProvider implements MessagingProvider {
 
       const res = await fetch("https://api.gupshup.io/sm/api/v1/msg", {
         method: "POST",
+        signal: providerSignal(),
         headers: {
           apikey: this.apiKey,
           "Content-Type": "application/x-www-form-urlencoded",
@@ -108,7 +115,7 @@ export class GupshupProvider implements MessagingProvider {
       return {
         success: false,
         channelUsed: "whatsapp",
-        error: err instanceof Error ? err.message : "Unknown Gupshup WhatsApp error",
+        error: `Gupshup WhatsApp request failed (${errorTag(err)})`,
       };
     }
   }

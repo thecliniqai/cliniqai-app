@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/db/types";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import type { TestDb } from "./db";
 import { getAdminClient } from "./supabase-admin";
 import { randomBytes } from "node:crypto";
@@ -85,8 +85,8 @@ export async function seedTenantWithOwner(tenantName: string): Promise<SeededTen
 
   // 4. Create authenticated anon client with user session
   const userClient = createClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
       auth: {
         autoRefreshToken: false,
@@ -130,8 +130,8 @@ export async function createUnlinkedUser(): Promise<{
   }
 
   const userClient = createClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
       auth: {
         autoRefreshToken: false,
@@ -183,8 +183,8 @@ export async function addMemberToTenant(
   }
 
   const userClient = createClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
       auth: {
         autoRefreshToken: false,
@@ -221,7 +221,7 @@ export interface DualTenantEcosystem {
     doctor: SeededTenant;
     patientId: string;
     consentId: string;
-    auditLogId: string;
+    auditLogId: number;
     invitationId: string;
     invitationToken: string;
     subscriptionId: string;
@@ -234,7 +234,7 @@ export interface DualTenantEcosystem {
     doctor: SeededTenant;
     patientId: string;
     consentId: string;
-    auditLogId: string;
+    auditLogId: number;
     invitationId: string;
     invitationToken: string;
     subscriptionId: string;
@@ -285,8 +285,8 @@ export async function createDualMembershipUser(
   if (memBError) throw new Error(`Failed to bind dual user to tenant B: ${memBError.message}`);
 
   const userClient = createClient(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+    publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
       auth: {
         autoRefreshToken: false,

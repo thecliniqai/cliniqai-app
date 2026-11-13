@@ -13,6 +13,10 @@ import type {
   WebhookDeliveryLogItem,
   AllowedWebhookEvent,
 } from "./constants";
+import { errorTag, log } from "@/lib/log";
+import { DEFAULT_APP_ERROR_MESSAGES } from "@/lib/errors/app-error";
+import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 export type {
   WebhookSubscriptionItem,
@@ -21,6 +25,10 @@ export type {
 };
 
 // Webhook subscription use-cases (clinic:manage, as before). Tenant and creator come only from `ctx` (ADR-0005 D1).
+
+/** Test pings per tenant per {@link TEST_PING_WINDOW_MS} (03-13d; review E-8). */
+export const TEST_PING_LIMIT = 5;
+export const TEST_PING_WINDOW_MS = 60_000;
 
 /**
  * Lists all active and inactive webhook subscriptions for the clinic tenant.
@@ -46,7 +54,7 @@ export async function listWebhookSubscriptions(ctx: ServiceContext): Promise<{
       .order("created_at", { ascending: false });
 
     if (fetchErr) {
-      console.error("[listWebhookSubscriptions] Query error:", fetchErr);
+      log.error({ event: "webhooks.subscriptions_list_query.failed", code: errorTag(fetchErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return {
         success: false,
         subscriptions: [],
@@ -65,11 +73,11 @@ export async function listWebhookSubscriptions(ctx: ServiceContext): Promise<{
 
     return { success: true, subscriptions: items };
   } catch (err: unknown) {
-    console.error("[listWebhookSubscriptions] Exception:", err);
+    log.error({ event: "webhooks.subscriptions_list.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       subscriptions: [],
-      error: err instanceof Error ? err.message : "Access denied.",
+      error: clientErrorMessage(err, "Access denied."),
     };
   }
 }
@@ -135,7 +143,7 @@ export async function createWebhookSubscription(
       .single();
 
     if (insertErr || !created) {
-      console.error("[createWebhookSubscription] Insert error:", insertErr);
+      log.error({ event: "webhooks.subscription_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to save webhook subscription." };
     }
 
@@ -146,11 +154,12 @@ export async function createWebhookSubscription(
         entityType: "webhook",
         entityId: created.id,
         metadata: {
-          reason: `Webhook subscription registered for ${cleanUrl}`,
+          // Origin only (03-13d; review E-7): a receiver's path or query often carries its own token.
+          reason: `Webhook subscription registered for ${new URL(cleanUrl).origin}`,
         },
       });
     } catch (auditErr) {
-      console.warn("[createWebhookSubscription] Audit warning:", auditErr);
+      log.warn({ event: "webhooks.subscription_create_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     return {
@@ -165,13 +174,11 @@ export async function createWebhookSubscription(
       },
     };
   } catch (err: unknown) {
-    console.error("[createWebhookSubscription] Exception:", err);
+    log.error({ event: "webhooks.subscription_create.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       error:
-        err instanceof Error
-          ? err.message
-          : "Unable to register webhook endpoint.",
+        clientErrorMessage(err, "Unable to register webhook endpoint."),
     };
   }
 }
@@ -196,7 +203,7 @@ export async function deleteWebhookSubscription(
       .eq("tenant_id", session.tenantId);
 
     if (deleteErr) {
-      console.error("[deleteWebhookSubscription] Delete error:", deleteErr);
+      log.error({ event: "webhooks.subscription_delete_query.failed", code: errorTag(deleteErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return {
         success: false,
         error: "Failed to delete webhook subscription.",
@@ -213,18 +220,16 @@ export async function deleteWebhookSubscription(
         },
       });
     } catch (auditErr) {
-      console.warn("[deleteWebhookSubscription] Audit warning:", auditErr);
+      log.warn({ event: "webhooks.subscription_delete_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     return { success: true };
   } catch (err: unknown) {
-    console.error("[deleteWebhookSubscription] Exception:", err);
+    log.error({ event: "webhooks.subscription_delete.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       error:
-        err instanceof Error
-          ? err.message
-          : "Unable to delete webhook endpoint.",
+        clientErrorMessage(err, "Unable to delete webhook endpoint."),
     };
   }
 }
@@ -259,6 +264,23 @@ export async function testPingWebhook(
       return { success: false, error: "Webhook subscription not found." };
     }
 
+    // Rate limit (03-13d M-SSRF-DNS; review E-8): each ping is a synchronous outbound connect whose status and timing
+    // the caller sees. Counted from the tenant's own ping rows, so it holds across server instances.
+    const since = new Date(Date.now() - TEST_PING_WINDOW_MS).toISOString();
+    const { count: recentPings, error: countErr } = await (supabase.from("webhook_delivery_queue") as any)
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", session.tenantId)
+      .eq("event_type", "ping")
+      .gte("created_at", since);
+    if (countErr) {
+      log.error({ event: "webhooks.test_ping_count.failed", code: errorTag(countErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Test ping failed." };
+    }
+    if ((recentPings ?? 0) >= TEST_PING_LIMIT) {
+      log.warn({ event: "webhooks.test_ping.rate_limited", requestId: await getRequestId(), tenantId: ctx.tenantId, count: recentPings ?? 0 });
+      return { success: false, error: DEFAULT_APP_ERROR_MESSAGES.RATE_LIMITED };
+    }
+
     // Enqueue ping item targeting this subscription
     const enqueued = await enqueueWebhookEvent(
       supabase,
@@ -286,10 +308,10 @@ export async function testPingWebhook(
       error: result.error,
     };
   } catch (err: unknown) {
-    console.error("[testPingWebhook] Exception:", err);
+    log.error({ event: "webhooks.test_ping.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Test ping failed.",
+      error: clientErrorMessage(err, "Test ping failed."),
     };
   }
 }
@@ -320,7 +342,7 @@ export async function listDeliveryLogs(
       .limit(50);
 
     if (fetchErr) {
-      console.error("[listDeliveryLogs] Query error:", fetchErr);
+      log.error({ event: "webhooks.delivery_logs_query.failed", code: errorTag(fetchErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return {
         success: false,
         logs: [],
@@ -344,11 +366,11 @@ export async function listDeliveryLogs(
 
     return { success: true, logs: items };
   } catch (err: unknown) {
-    console.error("[listDeliveryLogs] Exception:", err);
+    log.error({ event: "webhooks.delivery_logs.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       logs: [],
-      error: err instanceof Error ? err.message : "Access denied.",
+      error: clientErrorMessage(err, "Access denied."),
     };
   }
 }

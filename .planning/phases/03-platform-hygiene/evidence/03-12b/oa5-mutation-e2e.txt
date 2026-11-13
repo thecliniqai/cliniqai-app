@@ -1,0 +1,154 @@
+# OA-5 mutation run: proxy.ts redirect disabled ('if (false && !signedIn ...)'), npm run e2e:build, proxy.ts restored at once (git checkout), then
+# npx playwright test --project=desktop-chrome tests/e2e/security/unauth-pages.spec.ts (spec as committed in the docs commit) on that build
+  1) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, / is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/"
+    Received: null
+  2) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /billing/register is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/billing/register"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/billing/register"
+    Received: null
+  3) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /billing/reports is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/billing/reports"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/billing/reports"
+    Received: null
+  4) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /cabin is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/cabin"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/cabin"
+    Received: null
+  5) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /calendar is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/calendar"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/calendar"
+    Received: null
+  6) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /consultation/[id] is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/consultation/ab49a59f-5c25-438c-b0e8-c3b30554df74"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/consultation/ab49a59f-5c25-438c-b0e8-c3b30554df74"
+    Received: null
+  7) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /patients is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/patients"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/patients"
+    Received: null
+    Error: error-sink rows for the requests of /patients
+    Expected: 0
+    Received: 1
+  8) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /patients/[id] is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/patients/6e3507e2-23ab-425c-9b50-74ac3aa4ee09"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/patients/6e3507e2-23ab-425c-9b50-74ac3aa4ee09"
+    Received: null
+  9) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /patients/new is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/patients/new"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/patients/new"
+    Received: null
+  10) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /profile is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/profile"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/profile"
+    Received: null
+    Error: error-sink rows for the requests of /profile
+    Expected: 0
+    Received: 1
+  11) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /queue is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/queue"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/queue"
+    Received: null
+  12) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /referrals is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/referrals"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/referrals"
+    Received: null
+    Error: error-sink rows for the requests of /referrals
+    Expected: 0
+    Received: 1
+  13) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /settings/billing is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/settings/billing"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/settings/billing"
+    Received: null
+  14) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /settings/clinic is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/settings/clinic"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/settings/clinic"
+    Received: null
+    Error: error-sink rows for the requests of /settings/clinic
+    Expected: 0
+    Received: 1
+  15) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /settings/developer is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/settings/developer"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/settings/developer"
+    Received: null
+  16) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /staff is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/staff"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/staff"
+    Received: null
+    Error: error-sink rows for the requests of /staff
+    Expected: 0
+    Received: 1
+  17) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /visits is redirected by the proxy to /login?next=… with no tenant data 
+    Error: the proxy's next parameter
+    Expected: "/visits"
+    Received: null
+    Error: next survives to the login page
+    Expected: "/visits"
+    Received: null
+    Error: error-sink rows for the requests of /visits
+    Expected: 0
+    Received: 1
+  18) [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:83:5 › OA-5: the signed-out sweep left no error in the sink (no 'Unauthenticated' render errors) 
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+    Expected: >= 34
+    Received:    0
+  18 failed
+  7 passed (15.8s)
+exit 1
+
+## sink rows bumped by the mutated run (route, count)
+/patients|41
+/profile|7
+/referrals|11
+/settings/clinic|15
+/staff|15
+/visits|11

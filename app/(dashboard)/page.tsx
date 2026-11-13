@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership, NoClinicMembershipError } from "@/lib/auth/tenant";
 import { getVisitsForDate } from "@/features/visits/actions";
+import { resolveTimeZone, todayInTz } from "@/lib/datetime";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/badge";
@@ -45,9 +46,11 @@ export default async function DashboardPage() {
 
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("name, id")
+    .select("name, id, timezone")
     .eq("id", membership.tenantId)
-    .maybeSingle<{ name: string; id: string }>();
+    .maybeSingle<{ name: string; id: string; timezone: string | null }>();
+  // The clinic's day in its own zone (V2-03 03-05), never the server's UTC date.
+  const timeZone = resolveTimeZone(tenant?.timezone);
 
   // Fetch metrics: Total patients
   const { count: patientCount } = await supabase
@@ -55,8 +58,8 @@ export default async function DashboardPage() {
     .select("id", { count: "exact", head: true })
     .eq("tenant_id", membership.tenantId);
 
-  // Today's date
-  const today = new Date().toISOString().split("T")[0];
+  // Today's clinic date
+  const today = todayInTz(timeZone);
   const visitsRes = await getVisitsForDate(today);
   const visits = visitsRes.success ? visitsRes.visits : [];
 
@@ -65,6 +68,7 @@ export default async function DashboardPage() {
   const completedCount = visits.filter((v) => v.status === "completed").length;
 
   const formattedDate = new Date().toLocaleDateString("en-US", {
+    timeZone,
     weekday: "long",
     year: "numeric",
     month: "long",

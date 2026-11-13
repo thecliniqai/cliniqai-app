@@ -8,3 +8,24 @@
 4cbb151d86e4a18de20043c4af7b44677046c516:tests/api/webhooks-outbox.spec.ts:generic-api-key:78
 3d424ca020863b7e4d640d1835064ebf67731f3b:.planning/phases/06-api-launch-readiness/06-UI-SPEC.md:generic-api-key:245
 018fa53a52d3470bcbc0eeb39890d37028232bf7:tests/setup/next-env-flag.spec.ts:generic-api-key:19
+# V2-03 03-01: false positive, `API_V1_ENABLED: s.API_V1_ENABLED === "true"` is a boolean flag parse, not a key
+c97476c9fa749890575a29198dd90f5934cff079:lib/env.ts:generic-api-key:351
+# V2-03: the two lines above in ade37e1 quoted the same boolean-flag false positive (comment and wave note); never quote a flagged string
+ade37e1a59a03039dee1b525310d2724dfd0e1d9:.gitleaksignore:generic-api-key:11
+ade37e1a59a03039dee1b525310d2724dfd0e1d9:.planning/phases/03-platform-hygiene/03-WAVE-NOTES.md:generic-api-key:27
+# V2-03 03-08: false positive, a synthetic JWT-shaped fixture (no real claims, no signature) that seed-staging must refuse as STAGING_SECRET_KEY
+cbdbdfcaed4ce97f4b60aa9707927a60bbc10333:tests/ci/staging-scripts.spec.ts:generic-api-key:292
+# V2-03 03-09c: false positive, a synthetic low-entropy cron token stubbed into CRON_SECRET in the logging spec (now built at runtime)
+6b8fad5649500da955fcd5cccd402b7557447b95:tests/observability/no-raw-error-logging.spec.ts:generic-api-key:212
+# V2-03 03-12a: false positive, a synthetic new-password literal in the reset-flow unit spec (now built at runtime)
+ea34a3eef152476025471b5b959ad955e6b4a12e:tests/auth/password-schemas-and-errors.spec.ts:generic-api-key:239
+ea34a3eef152476025471b5b959ad955e6b4a12e:tests/auth/password-schemas-and-errors.spec.ts:generic-api-key:243
+ea34a3eef152476025471b5b959ad955e6b4a12e:tests/auth/password-schemas-and-errors.spec.ts:generic-api-key:253
+# V2-03 03-12c: false positive, a synthetic JWT-shaped fixture the AUTH-00 kit CLI must refuse as STAGING_SECRET_KEY (now built at runtime)
+aebe35d03d1f54210e4cec3b1e3f52fb0c2c0111:tests/ci/auth00-recheck-cli.spec.ts:generic-api-key:58
+# V2-03 03-13c: false positive, a synthetic all-zero clq_live_ key in the /api/v1 system-client order spec (now built at runtime)
+15bb1615ea7bda56d9f931505412e7200c98ceae:tests/api/v1-system-client-order.spec.ts:clinicos-api-key:75
+15bb1615ea7bda56d9f931505412e7200c98ceae:tests/api/v1-system-client-order.spec.ts:clinicos-api-key:98
+# same two synthetic lines in the pre-rebuild local backup branch (local scans only)
+39695e8292c325de957a3fb3a77fcbd7438d3e37:tests/api/v1-system-client-order.spec.ts:clinicos-api-key:75
+39695e8292c325de957a3fb3a77fcbd7438d3e37:tests/api/v1-system-client-order.spec.ts:clinicos-api-key:98

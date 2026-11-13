@@ -1,0 +1,2 @@
+$ npm run inventory
+exit=0

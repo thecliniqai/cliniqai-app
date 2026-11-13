@@ -1,0 +1,117 @@
+
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-base
+
+ ❯ tests/integration/ist-boundaries.spec.ts (4 tests | 3 failed) 383ms
+   × IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC date > check-in at 00:30 IST issues a queue token dated the IST day (13 Nov), listed on that day's queue 31ms
+     → expected '2026-11-12' to be '2026-11-13' // Object.is equality
+   ✓ IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC date > the tenant's own zone decides: the same instant is still 12 Nov for an America/New_York clinic 15ms
+   × IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC date > a visit at 02:00 IST on 13 Nov is in the 13 Nov list and not in the 12 Nov list 16ms
+     → expected [] to include '2364d285-d1c0-4338-b7ae-e279f4b82f58'
+   × IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC date > a lab document uploaded at 00:30 IST without a report date is dated 13 Nov 16ms
+     → expected '2026-11-12' to be '2026-11-13' // Object.is equality
+ ❯ tests/utils/datetime.spec.ts (17 tests | 2 failed) 15ms
+   ✓ lib/datetime: clinic today across the IST midnight (00:00-05:30 IST) > 18:29:59Z is still 12 Nov in IST (23:59:59 IST) 7ms
+   ✓ lib/datetime: clinic today across the IST midnight (00:00-05:30 IST) > 18:30:00Z is already 13 Nov in IST (00:00 IST), while the UTC date is still 12 Nov 0ms
+   ✓ lib/datetime: clinic today across the IST midnight (00:00-05:30 IST) > every instant from 00:00 to 05:29:59 IST names the IST date 3ms
+   ✓ lib/datetime: clinic today across the IST midnight (00:00-05:30 IST) > defaults `now` to the current instant (fake clock at 00:30 IST on 2 Mar) 0ms
+   ✓ lib/datetime: clinic today across the IST midnight (00:00-05:30 IST) > ymdOf reads database timestamps (offset forms) in the clinic zone 0ms
+   ✓ lib/datetime: day windows are half-open in the clinic zone > dayWindowUtc('2026-11-13', Asia/Kolkata) is [12 Nov 18:30Z, 13 Nov 18:30Z) 0ms
+   ✓ lib/datetime: day windows are half-open in the clinic zone > a visit at 02:00 IST on 13 Nov falls inside 13 Nov and outside 12 Nov 0ms
+   ✓ lib/datetime: day windows are half-open in the clinic zone > rangeWindowUtc covers whole clinic days and rejects bad dates 0ms
+   ✓ lib/datetime: day windows are half-open in the clinic zone > follows the zone's own offset, including DST days 0ms
+   ✓ lib/datetime: day windows are half-open in the clinic zone > zonedDateTimeToUtcIso converts clinic wall-clock time to an instant 0ms
+   ✓ lib/datetime: calendar arithmetic > addDaysYmd rolls months, years and leap days 0ms
+   ✓ lib/datetime: calendar arithmetic > nextNDays lists the clinic dates after today, tomorrow first 0ms
+   ✓ lib/datetime: calendar arithmetic > startOfMonthYmd and weekdayOfYmd are zone-free 0ms
+   ✓ lib/datetime: calendar arithmetic > isYmd accepts only real calendar dates 0ms
+   ✓ lib/datetime: calendar arithmetic > an unusable tenant zone resolves to the clinic default 0ms
+   × date consumers use the clinic date > age turns over on the IST birthday, not the UTC one 2ms
+     → expected 35 to be 36 // Object.is equality
+   × date consumers use the clinic date > visit register 'today' is the IST day at 00:30 IST 0ms
+     → Invalid time value
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/ist-boundaries.spec.ts > IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC date > check-in at 00:30 IST issues a queue token dated the IST day (13 Nov), listed on that day's queue
+AssertionError: expected '2026-11-12' to be '2026-11-13' // Object.is equality
+
+Expected: [32m"2026-11-1[7m3[27m"[39m
+Received: [31m"2026-11-1[7m2[27m"[39m
+
+ ❯ tests/integration/ist-boundaries.spec.ts:86:45
+     84| 
+     85|     expect(res).toMatchObject({ success: true, tokenNumber: 1 });
+     86|     expect(await tokenDateOf(ist, visitId)).toBe("2026-11-13");
+       |                                             ^
+     87|   });
+     88| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/integration/ist-boundaries.spec.ts > IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC date > a visit at 02:00 IST on 13 Nov is in the 13 Nov list and not in the 12 Nov list
+AssertionError: expected [] to include '2364d285-d1c0-4338-b7ae-e279f4b82f58'
+ ❯ tests/integration/ist-boundaries.spec.ts:124:42
+    122| 
+    123|     if (!on13.success || !on12.success) throw new Error("getVisitsForD…
+    124|     expect(on13.visits.map((v) => v.id)).toContain(visit.id);
+       |                                          ^
+    125|     expect(on12.visits.map((v) => v.id)).not.toContain(visit.id);
+    126| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/integration/ist-boundaries.spec.ts > IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC date > a lab document uploaded at 00:30 IST without a report date is dated 13 Nov
+AssertionError: expected '2026-11-12' to be '2026-11-13' // Object.is equality
+
+Expected: [32m"2026-11-1[7m3[27m"[39m
+Received: [31m"2026-11-1[7m2[27m"[39m
+
+ ❯ tests/integration/ist-boundaries.spec.ts:145:38
+    143| 
+    144|     if (!res.success) throw new Error(`Upload failed: ${res.error}`);
+    145|     expect(res.document.report_date).toBe("2026-11-13");
+       |                                      ^
+    146|     expect(res.document.storage_path).toContain("_2026-11-13.pdf");
+    147|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/utils/datetime.spec.ts > date consumers use the clinic date > age turns over on the IST birthday, not the UTC one
+AssertionError: expected 35 to be 36 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 36[39m
+[31m+ 35[39m
+
+ ❯ tests/utils/datetime.spec.ts:174:47
+    172|     vi.useFakeTimers({ toFake: ["Date"] });
+    173|     vi.setSystemTime(new Date("2026-11-12T19:00:00Z")); // 00:30 IST o…
+    174|     expect(calculateAgeFromDob("1990-11-13")).toBe(36);
+       |                                               ^
+    175|     expect(calculateDobFromAge(36)).toBe("1990-01-01");
+    176|     vi.setSystemTime(new Date("2026-12-31T19:00:00Z")); // 00:30 IST o…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/utils/datetime.spec.ts > date consumers use the clinic date > visit register 'today' is the IST day at 00:30 IST
+RangeError: Invalid time value
+ ❯ computeDateRange features/visits/schema.ts:41:30
+     39|     const start = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMo…
+     40|     const end = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMont…
+     41|     return { startIso: start.toISOString(), endIso: end.toISOString() …
+       |                              ^
+     42|   }
+     43| 
+ ❯ tests/utils/datetime.spec.ts:182:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  5 failed | 16 passed (21)
+   Start at  23:51:11
+   Duration  790ms (transform 121ms, setup 13ms, collect 131ms, tests 398ms, environment 0ms, prepare 37ms)
+
+[teardown] removed run data: 2 tenant(s), 2 auth user(s), 1 storage object(s); verified none remain

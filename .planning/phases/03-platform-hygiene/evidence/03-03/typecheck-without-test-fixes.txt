@@ -1,0 +1,25 @@
+# worktree at a01ffd4 (generated Database, TestDb = SupabaseClient<Database>) with these test files reverted to a01ffd4^ (pre-fix):
+# tests/helpers/rls.ts tests/helpers/supabase-admin.ts tests/helpers/tenants.ts tests/integration/cdci-search.spec.ts tests/compliance/dpdp-rights.spec.ts tests/patients/visit-history.spec.ts tests/security/cross-tenant-refs.spec.ts tests/security/cross-tenant.spec.ts tests/security/guard/engine.ts tests/security/guard/world.ts tests/security/multi-clinic-tenant-filters.spec.ts tests/security/review-fixes-db.spec.ts tests/security/share-tokens.spec.ts tests/visits/clinic-visits-register.spec.ts
+$ npx tsc --noEmit -p tsconfig.json
+exit=0
+$ npx tsc --noEmit -p tsconfig.tests.json
+exit=2
+error count: 32
+   7 tests/compliance/dpdp-rights.spec.ts
+   2 tests/helpers/tenants.ts
+   3 tests/patients/visit-history.spec.ts
+   3 tests/security/cross-tenant-refs.spec.ts
+   1 tests/security/cross-tenant.spec.ts
+   1 tests/security/guard/engine.ts
+   4 tests/security/guard/world.ts
+   5 tests/security/multi-clinic-tenant-filters.spec.ts
+   2 tests/security/review-fixes-db.spec.ts
+   1 tests/security/share-tokens.spec.ts
+   3 tests/visits/clinic-visits-register.spec.ts
+# by code:
+   4 error TS18047
+   2 error TS2322
+   5 error TS2339
+   8 error TS2345
+   3 error TS2352
+  10 error TS2769

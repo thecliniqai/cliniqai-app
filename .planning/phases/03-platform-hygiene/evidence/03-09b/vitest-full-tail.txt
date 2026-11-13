@@ -1,0 +1,15 @@
+ ✓ tests/utils/phone.spec.ts (28 tests) 2ms
+ ✓ tests/security/pii-scrubber.spec.ts (8 tests) 2ms
+ ✓ tests/auth/rbac.spec.ts (6 tests) 2ms
+ ✓ tests/ai/gateway-tools.spec.ts (3 tests) 2ms
+ ✓ tests/pediatrics/who-growth.spec.ts (7 tests) 1ms
+ ✓ tests/billing/sign-and-bill-outcome.spec.ts (3 tests) 1ms
+ ✓ tests/ci/known-bug-match.spec.ts (3 tests) 1ms
+ ✓ tests/messaging/two-way-bot.spec.ts (4 tests) 1ms
+
+ Test Files  133 passed (133)
+      Tests  2490 passed (2490)
+   Start at  05:56:09
+   Duration  141.92s (transform 781ms, setup 553ms, collect 9.44s, tests 120.93s, environment 7ms, prepare 2.53s)
+
+[teardown] removed run data: 109 tenant(s), 223 auth user(s), 1398 storage object(s); verified none remain

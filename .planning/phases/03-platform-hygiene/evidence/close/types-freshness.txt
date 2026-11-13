@@ -1,0 +1,10 @@
+
+> clinicos@0.1.0 db:types
+> supabase gen types typescript --local --schema public > types/database.ts && prettier --log-level warn --write types/database.ts
+
+Connecting to 127.0.0.1 54322
+Generated TypeScript is unformatted. Format it with:
+  npx oxfmt <generated-file.ts>
+A new version of Supabase CLI is available: v3.1.0 (currently installed v2.120.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+exit=0

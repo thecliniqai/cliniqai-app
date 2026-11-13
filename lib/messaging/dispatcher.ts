@@ -6,6 +6,8 @@ import {
 } from "@/lib/db/types";
 import { getMessagingProvider } from "./index";
 import { InteractiveButton, MessagingProvider } from "./types";
+import { errorTag, log } from "@/lib/log";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 export interface EnqueueMessageInput {
   tenantId: string;
@@ -98,7 +100,7 @@ export async function enqueueMessage(
     .single();
 
   if (error || !data) {
-    throw new Error(`Failed to enqueue communication: ${error?.message || "Unknown error"}`);
+    throw new Error("Failed to enqueue communication.", { cause: error });
   }
 
   const enqueued = data as EnqueuedMessage;
@@ -116,7 +118,7 @@ export async function enqueueMessage(
 }
 
 type ClaimedItem = CommunicationQueueItem;
-type SendResult = { success: boolean; externalMessageId?: string; error?: string };
+type SendResult = { success: boolean; externalMessageId?: string; error?: string; retryable?: boolean };
 
 function firstRow<T>(data: unknown): T | null {
   if (Array.isArray(data)) return (data[0] as T) ?? null;
@@ -169,7 +171,7 @@ export async function dispatchQueuedMessage(
   } catch (err: unknown) {
     sendResult = {
       success: false,
-      error: err instanceof Error ? err.message : "Unexpected dispatcher error",
+      error: clientErrorMessage(err, "Unexpected dispatcher error", "messaging.dispatch_queued_message.failed"),
     };
   }
 
@@ -207,7 +209,7 @@ export async function dispatchQueuedMessage(
         },
       });
     } catch (auditErr) {
-      console.warn("[dispatchQueuedMessage] Failed to record audit log:", auditErr);
+      log.warn({ event: "messaging.dispatch_audit.failed", code: errorTag(auditErr), tenantId: item.tenant_id });
     }
     return outcome;
   }
@@ -238,7 +240,8 @@ export async function dispatchQueuedMessage(
     (item.message_type === "appointment_booked" || item.message_type === "appointment_rescheduled") &&
     item.recipient_phone;
 
-  if (isEligibleForSmsFallback && !item.metadata?.is_sms_fallback) {
+  // A non-retryable refusal (the `disabled` provider, R-16) would refuse the SMS too: no fallback row is queued.
+  if (isEligibleForSmsFallback && !item.metadata?.is_sms_fallback && sendResult.retryable !== false) {
     await enqueueMessage(db, {
       tenantId: item.tenant_id,
       patientId: item.patient_id,

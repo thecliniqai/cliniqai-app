@@ -11,13 +11,19 @@
  *   - cron-secret: CRON_SECRET unset 401, wrong or missing bearer 401 (fail-closed only; the compare is V2-04's, RL-23);
  *   - api-v1 (PO-16, AR2-H2): switch off → 404 with an empty body at the handler, even with a staff session; switch
  *     on and no key → 401 (docs and openapi.json are public by design when on);
- *   - public-health: JSON keys within the committed allowlist, nothing of tenant B.
+ *   - public-health: JSON keys within the committed allowlist, nothing of tenant B;
+ *   - signout (03-12b, T-03-13): cross-origin / cross-site / signal-less 403 and an unknown scope 400 with no
+ *     `auth.signOut` call (a throwaway user's session survives); signed out 303 → `/login` with `Clear-Site-Data`.
  * None of the denial legs writes anything (row counts); the cross-tenant leg leaves every tenant B row unchanged.
  */
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildInventory } from "@/scripts/inventory-server-actions";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { createUnlinkedUser } from "../helpers/tenants";
+import { serverEnv } from "@/lib/env-server";
 import { ROUTE_GUARDS, type RouteGuard } from "./guard-manifest";
 import {
   anonClient,
@@ -26,8 +32,10 @@ import {
   countRows,
   cronRouteLeg,
   healthRouteLeg,
+  webhookSignatureRouteLegs,
   publicTokenRouteLegs,
   report,
+  signoutRouteLegs,
   routeCases,
   sessionRouteCrossTenantLeg,
   sessionRouteDenialLegs,
@@ -40,6 +48,22 @@ import {
 import { seedGuardWorld, type GuardWorld } from "./guard/world";
 
 const slot = vi.hoisted((): RequestSlot => ({ client: null }));
+/** 03-11b: every message the Send Email hook route hands to a sender (none may be sent by a refused call). */
+const emailSends = vi.hoisted((): unknown[] => []);
+
+vi.mock("@/lib/email", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/email")>();
+  return {
+    ...actual,
+    getEmailSender: () => ({
+      provider: "mailpit" as const,
+      send: async (message: unknown) => {
+        emailSends.push(message);
+        return { providerMessageId: "guard-recorded" };
+      },
+    }),
+  };
+});
 
 vi.mock("@/lib/supabase/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/supabase/server")>();
@@ -119,6 +143,25 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
         expect(violations, report(violations)).toEqual([]);
       });
 
+      it.each(ofKind("webhook-signature"))("webhook-signature: %s", async (_k, c) => {
+        const payload = JSON.parse(readFileSync(path.join(process.cwd(), "lint-fixtures/auth-hook/recovery.json"), "utf8"));
+        const secrets = {
+          secret: `v1,whsec_${randomBytes(32).toString("base64")}`,
+          other: `v1,whsec_${randomBytes(32).toString("base64")}`,
+        };
+        // The schema refuses a non-local hook secret in this lane only through the guard (run before the tests); the
+        // route reads it through serverEnv(), which accepts any well-formed secret in the test tier.
+        const violations = await webhookSignatureRouteLegs(
+          slot,
+          c,
+          payload,
+          secrets,
+          (value) => vi.stubEnv("SEND_EMAIL_HOOK_SECRET", value),
+          () => emailSends.length
+        );
+        expect(violations, report(violations)).toEqual([]);
+      });
+
       it.each(ofKind("api-v1"))("api-v1: %s", async (_k, c, guard) => {
         const violations: Violation[] = [];
         vi.stubEnv("API_V1_ENABLED", undefined);
@@ -128,6 +171,13 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
         violations.push(...(await apiV1RouteLeg(slot, c, guard, false, world.roles.owner.client, world)));
         vi.stubEnv("API_V1_ENABLED", "true");
         violations.push(...(await apiV1RouteLeg(slot, c, guard, true, anonClient(), world)));
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("signout"))("signout: %s", async (_k, c) => {
+        // A throwaway user, so a broken refusal can only sign out a session no other leg uses.
+        const user = await createUnlinkedUser();
+        const violations = await signoutRouteLegs(slot, c, user.client, new URL(serverEnv().NEXT_PUBLIC_APP_URL).origin);
         expect(violations, report(violations)).toEqual([]);
       });
 

@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { requirePermission } from "@/lib/permissions/guards";
 import { getDailyCollectionReport } from "@/features/billing/reports-actions";
 import { CollectionReportsView } from "@/components/billing/collection-reports-view";
+import { createClient } from "@/lib/supabase/server";
+import { getTenantToday } from "@/lib/datetime/server";
 
 export const metadata: Metadata = {
   title: "Billing & Financial Reports | ClinicOS",
@@ -11,13 +13,15 @@ export const metadata: Metadata = {
 };
 
 export default async function BillingReportsPage() {
+  let session;
   try {
-    await requirePermission("billing:view");
+    session = await requirePermission("billing:view");
   } catch {
     redirect("/");
   }
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  // The clinic's day in its own zone (V2-03 03-05); the view reads the same zone from the layout.
+  const { today: todayStr } = await getTenantToday(await createClient(), session.tenantId);
   const reportResult = await getDailyCollectionReport(todayStr, todayStr);
 
   const initialData = reportResult.success

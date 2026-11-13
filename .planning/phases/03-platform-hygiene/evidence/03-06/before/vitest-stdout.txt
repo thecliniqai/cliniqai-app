@@ -1,0 +1,3 @@
+JSON report written to /Users/sid/Code/clinicOS/.planning/phases/03-platform-hygiene/evidence/03-06/before/vitest.json
+[teardown] removed run data: 98 tenant(s), 201 auth user(s), 1397 storage object(s); verified none remain
+exit=0

@@ -1,0 +1,19 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-13T03:04:07.366Z","level":"warn","event":"webhooks.queue_item.tenant_mismatch","tenantId":"2a0cea38-d0d6-445d-99fe-55d47ed1a3c0","reason":"subscription_tenant_mismatch"}
+{"ts":"2026-11-13T03:04:07.371Z","level":"warn","event":"webhooks.queue_item.tenant_mismatch","tenantId":"2a0cea38-d0d6-445d-99fe-55d47ed1a3c0","reason":"subscription_tenant_mismatch"}
+{"ts":"2026-11-13T03:04:07.553Z","level":"warn","event":"webhooks.test_ping.rate_limited","tenantId":"068879b8-5f95-477d-9f1f-300cf5726702","count":5}
+{"ts":"2026-11-13T03:04:07.556Z","level":"warn","event":"webhooks.test_ping.rate_limited","tenantId":"068879b8-5f95-477d-9f1f-300cf5726702","count":5}
+ ✓ tests/api/webhook-dispatch-hardening.spec.ts (7 tests) 525ms
+ ✓ tests/api/webhook-ssrf.spec.ts (61 tests) 7ms
+{"ts":"2026-11-13T03:04:08.097Z","level":"error","event":"webhooks.enqueue_subscriptions.failed","code":"Error"}
+{"ts":"2026-11-13T03:04:08.432Z","level":"info","event":"db.system_acquired","reason":"cron.webhooks"}
+ ✓ tests/api/webhooks-outbox.spec.ts (27 tests) 528ms
+
+ Test Files  3 passed (3)
+      Tests  95 passed (95)
+   Start at  08:34:06
+   Duration  1.56s (transform 79ms, setup 16ms, collect 104ms, tests 1.06s, environment 0ms, prepare 55ms)
+
+[teardown] removed run data: 7 tenant(s), 7 auth user(s), 0 storage object(s); verified none remain

@@ -1,0 +1,1170 @@
+
+/Users/sid/Code/clinicOS/app/(dashboard)/patients/[id]/consent-section.tsx
+  6:16  warning  'CardHeader' is defined but never used  @typescript-eslint/no-unused-vars
+  6:28  warning  'CardTitle' is defined but never used   @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/app/(dashboard)/patients/new/page.tsx
+  57:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/app/(dashboard)/patients/new/page.tsx:57:7
+  55 |
+  56 |     if (!hasSearchableInput) {
+> 57 |       setDuplicates([]);
+     |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  58 |       return;
+  59 |     }
+  60 |  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/app/(dashboard)/staff/page.tsx
+   3:10  warning  'inviteStaff' is defined but never used  @typescript-eslint/no-unused-vars
+   4:10  warning  'Button' is defined but never used       @typescript-eslint/no-unused-vars
+   5:10  warning  'Input' is defined but never used        @typescript-eslint/no-unused-vars
+   6:10  warning  'Field' is defined but never used        @typescript-eslint/no-unused-vars
+  12:27  warning  'Mail' is defined but never used         @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/app/api/v1/appointments/[id]/route.ts
+   42:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   91:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  111:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  176:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  236:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  250:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/appointments/route.ts
+   49:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  123:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  148:83  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  160:84  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  229:78  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/lab-orders/[id]/route.ts
+  42:76  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/lab-orders/route.ts
+   69:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  179:83  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  192:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  204:87  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/patients/[id]/route.ts
+   70:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  140:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  161:89  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/patients/route.ts
+   46:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  133:71  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/prescriptions/[id]/route.ts
+  43:81  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/prescriptions/route.ts
+   51:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:83  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  197:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  210:93  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  228:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  242:96  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  248:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/referrals/[id]/route.ts
+   45:73  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  117:91  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  151:91  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/referrals/route.ts
+   50:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  119:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:83  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  187:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  211:87  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/visits/[id]/route.ts
+   74:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  144:85  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  171:82  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  191:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  228:84  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/v1/visits/route.ts
+   52:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  137:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  167:83  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  191:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  199:81  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/api/webhooks/messaging/[provider]/route.ts
+  201:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  266:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  291:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/app/reschedule/[token]/page.tsx
+  12:3  warning  'ChevronRight' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+  46:7  warning  Error: Cannot access variable before it is declared
+
+`loadSlots` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/sid/Code/clinicOS/app/reschedule/[token]/page.tsx:46:7
+  44 |     params.then((p) => {
+  45 |       setToken(p.token);
+> 46 |       loadSlots(p.token);
+     |       ^^^^^^^^^ `loadSlots` accessed before it is declared
+  47 |     });
+  48 |   }, [params]);
+  49 |
+
+/Users/sid/Code/clinicOS/app/reschedule/[token]/page.tsx:50:3
+  48 |   }, [params]);
+  49 |
+> 50 |   const loadSlots = async (tok: string, date?: string) => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 51 |     try {
+     | ^^^^^^^^^
+> 52 |       setLoading(true);
+     …
+     | ^^^^^^^^^
+> 70 |     }
+     | ^^^^^^^^^
+> 71 |   };
+     | ^^^^^ `loadSlots` is declared here
+  72 |
+  73 |   const handleDateChange = (dateStr: string) => {
+  74 |     setSelectedSlot(null);  react-hooks/immutability
+
+/Users/sid/Code/clinicOS/components/cabin/doctor-cabin-view.tsx
+   8:10  warning  'EmptyState' is defined but never used   @typescript-eslint/no-unused-vars
+  11:3   warning  'Users' is defined but never used        @typescript-eslint/no-unused-vars
+  14:3   warning  'Calendar' is defined but never used     @typescript-eslint/no-unused-vars
+  15:3   warning  'AlertCircle' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/cabin/my-queue-card.tsx
+  10:3  warning  'HeartPulse' is defined but never used   @typescript-eslint/no-unused-vars
+  12:3  warning  'Thermometer' is defined but never used  @typescript-eslint/no-unused-vars
+  13:3  warning  'Weight' is defined but never used       @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/calendar/block-time-modal.tsx
+  29:3  warning  'doctorName' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/calendar/booking-drawer.tsx
+   98:7   warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/calendar/booking-drawer.tsx:98:7
+   96 |   useEffect(() => {
+   97 |     if (isOpen) {
+>  98 |       resetPatientState();
+      |       ^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+   99 |     }
+  100 |   }, [isOpen]);
+  101 |                                                                                                                                            react-hooks/set-state-in-effect
+  103:26  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/calendar/booking-drawer.tsx:103:26
+  101 |
+  102 |   useEffect(() => {
+> 103 |     if (defaultDoctorId) setDoctorId(defaultDoctorId);
+      |                          ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  104 |     if (defaultDate) setDate(defaultDate);
+  105 |     if (defaultTime) setTime(defaultTime);
+  106 |     if (defaultReason) setReason(defaultReason);  react-hooks/set-state-in-effect
+  114:9   warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/calendar/booking-drawer.tsx:114:9
+  112 |       const doc = doctors.find((d) => d.id === doctorId);
+  113 |       if (doc?.default_slot_duration_minutes) {
+> 114 |         setDuration(doc.default_slot_duration_minutes);
+      |         ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  115 |       }
+  116 |     }
+  117 |   }, [doctorId, doctors]);                           react-hooks/set-state-in-effect
+  123:7   warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/calendar/booking-drawer.tsx:123:7
+  121 |     if (tab !== "search") return;
+  122 |     if (searchQuery.trim().length < 2) {
+> 123 |       setSearchResults([]);
+      |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  124 |       return;
+  125 |     }
+  126 |                                                                                                        react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/calendar/calendar-view.tsx
+  208:5  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/calendar/calendar-view.tsx:208:5
+  206 |
+  207 |   useEffect(() => {
+> 208 |     setLocalVisits(visits);
+      |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  209 |   }, [visits]);
+  210 |
+  211 |   const [confirmingId, setConfirmingId] = useState<string | null>(null);  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/calendar/soft-block-override-dialog.tsx
+  26:3  warning  'isOffDuty' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/calendar/waitlist-drawer.tsx
+  55:22  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/calendar/waitlist-drawer.tsx:55:22
+  53 |
+  54 |   useEffect(() => {
+> 55 |     if (defaultDate) setTargetDate(defaultDate);
+     |                      ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  56 |   }, [defaultDate, isOpen]);
+  57 |
+  58 |   // Debounced Search  react-hooks/set-state-in-effect
+  62:7   warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/calendar/waitlist-drawer.tsx:62:7
+  60 |     if (tab !== "search") return;
+  61 |     if (searchQuery.trim().length < 2) {
+> 62 |       setSearchResults([]);
+     |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  63 |       return;
+  64 |     }
+  65 |            react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/consultation/ai-scribe-modal.tsx
+  10:3   warning  'Stethoscope' is defined but never used  @typescript-eslint/no-unused-vars
+  12:3   warning  'HelpCircle' is defined but never used   @typescript-eslint/no-unused-vars
+  59:14  warning  'err' is defined but never used          @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/consultation/amendment-modal.tsx
+  32:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/consultation/amendment-modal.tsx:32:7
+  30 |   useEffect(() => {
+  31 |     if (isOpen) {
+> 32 |       setReason("");
+     |       ^^^^^^^^^ Avoid calling setState() directly within an effect
+  33 |       setError(null);
+  34 |       setSubmitting(false);
+  35 |     }  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/consultation/chief-complaints-section.tsx
+  57:11  warning  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/Users/sid/Code/clinicOS/components/consultation/chief-complaints-section.tsx:57:11
+  55 |
+  56 |     const newItem: ChiefComplaintItem = {
+> 57 |       id: Math.random().toString(36).substring(2, 9),
+     |           ^^^^^^^^^^^^^ Cannot call impure function
+  58 |       symptom: symptom.trim(),
+  59 |       duration_val: 3,
+  60 |       duration_unit: "days",  react-hooks/purity
+
+/Users/sid/Code/clinicOS/components/consultation/consultation-workspace.tsx
+  272:12  warning  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/Users/sid/Code/clinicOS/components/consultation/consultation-workspace.tsx:272:12
+  270 |         0,
+  271 |         Math.floor(
+> 272 |           (Date.now() - new Date(patient.date_of_birth).getTime()) /
+      |            ^^^^^^^^^^ Cannot call impure function
+  273 |             (1000 * 60 * 60 * 24 * 30.4375)
+  274 |         )
+  275 |       )  react-hooks/purity
+
+/Users/sid/Code/clinicOS/components/consultation/diagnosis-section.tsx
+   23:3   warning  'ChevronRight' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+   25:3   warning  'Sparkles' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-unused-vars
+   85:10  warning  'isSearching' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+   96:5   warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/consultation/diagnosis-section.tsx:96:5
+  94 |   // Sync internal diagnoses when initialDiagnoses changes
+  95 |   useEffect(() => {
+> 96 |     setDiagnoses(initialDiagnoses);
+     |     ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  97 |   }, [initialDiagnoses]);
+  98 |
+  99 |   // Click outside listener for autocomplete dropdown  react-hooks/set-state-in-effect
+  118:7   warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/consultation/diagnosis-section.tsx:118:7
+  116 |   useEffect(() => {
+  117 |     if (!query.trim()) {
+> 118 |       setSearchResults([]);
+      |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  119 |       setIsDropdownOpen(false);
+  120 |       return;
+  121 |     }                                                          react-hooks/set-state-in-effect
+  157:28  warning  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/Users/sid/Code/clinicOS/components/consultation/diagnosis-section.tsx:157:28
+  155 |
+  156 |     // Optimistic UI update
+> 157 |     const tempId = `temp-${Date.now()}`;
+      |                            ^^^^^^^^^^ Cannot call impure function
+  158 |     const newDiagnosis: ConsultationDiagnosisItem = {
+  159 |       id: tempId,
+  160 |       visit_id: visitId,                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/purity
+
+/Users/sid/Code/clinicOS/components/consultation/frequent-rx-chips.tsx
+   4:10  warning  'Pill' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     @typescript-eslint/no-unused-vars
+  23:10  warning  'isLoading' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       @typescript-eslint/no-unused-vars
+  29:7   warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/consultation/frequent-rx-chips.tsx:29:7
+  27 |     const cleanDiag = (diagnosis || "").trim();
+  28 |     if (!cleanDiag || cleanDiag.length < 2) {
+> 29 |       setSuggestions([]);
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  30 |       return;
+  31 |     }
+  32 |  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/consultation/patient-history-drawer.tsx
+   4:23  warning  'Clock' is defined but never used  @typescript-eslint/no-unused-vars
+  70:36  warning  'idx' is defined but never used    @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/consultation/prescription-builder.tsx
+   27:3   warning  'Bookmark' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+   29:3   warning  'Clock' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+   33:3   warning  'FileCheck' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+   34:3   warning  'Pill' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+   65:10  warning  'isSearching' is assigned a value but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+  100:5   warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/consultation/prescription-builder.tsx:100:5
+   98 |   // Sync initialItems
+   99 |   useEffect(() => {
+> 100 |     setItems(initialItems);
+      |     ^^^^^^^^ Avoid calling setState() directly within an effect
+  101 |   }, [initialItems]);
+  102 |
+  103 |   // Click outside listener for dropdown   react-hooks/set-state-in-effect
+  122:7   warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/consultation/prescription-builder.tsx:122:7
+  120 |   useEffect(() => {
+  121 |     if (!query.trim()) {
+> 122 |       setSearchResults([]);
+      |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  123 |       setIsDropdownOpen(false);
+  124 |       return;
+  125 |     }  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/consultation/returning-patient-catchup.tsx
+   4:44  warning  'Clock' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              @typescript-eslint/no-unused-vars
+  41:12  warning  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/Users/sid/Code/clinicOS/components/consultation/returning-patient-catchup.tsx:41:12
+  39 |         0,
+  40 |         Math.floor(
+> 41 |           (Date.now() - new Date(latestEncounter.date).getTime()) /
+     |            ^^^^^^^^^^ Cannot call impure function
+  42 |             (1000 * 60 * 60 * 24)
+  43 |         )
+  44 |       )  react-hooks/purity
+
+/Users/sid/Code/clinicOS/components/consultation/sign-and-bill-modal.tsx
+  83:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/consultation/sign-and-bill-modal.tsx:83:7
+  81 |   useEffect(() => {
+  82 |     if (isOpen) {
+> 83 |       setCompletedResult(null);
+     |       ^^^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  84 |       setError(null);
+  85 |       setRxWaStatus("idle");
+  86 |       setRxWaError(null);  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/consultation/specialty/dental-odontogram.tsx
+   8:3   warning  'VALID_FDI_TEETH' is defined but never used  @typescript-eslint/no-unused-vars
+  10:10  warning  'Badge' is defined but never used            @typescript-eslint/no-unused-vars
+  11:18  warning  'Plus' is defined but never used             @typescript-eslint/no-unused-vars
+  11:24  warning  'Info' is defined but never used             @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/consultation/specialty/pediatrics-tools.tsx
+  11:30  warning  'CheckCircle2' is defined but never used   @typescript-eslint/no-unused-vars
+  11:44  warning  'AlertTriangle' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/layout/global-search-modal.tsx
+  36:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/layout/global-search-modal.tsx:36:7
+  34 |   useEffect(() => {
+  35 |     if (isOpen) {
+> 36 |       setQuery("");
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  37 |       setResults([]);
+  38 |       setSelectedIndex(0);
+  39 |       setLoading(false);  react-hooks/set-state-in-effect
+  69:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/layout/global-search-modal.tsx:69:7
+  67 |     const trimmed = query.trim();
+  68 |     if (!trimmed) {
+> 69 |       setResults([]);
+     |       ^^^^^^^^^^ Avoid calling setState() directly within an effect
+  70 |       setLoading(false);
+  71 |       return;
+  72 |     }           react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/layout/sidebar-context.tsx
+  31:5  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/layout/sidebar-context.tsx:31:5
+  29 |   // Close mobile sidebar on route change
+  30 |   useEffect(() => {
+> 31 |     setIsMobileOpen(false);
+     |     ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  32 |   }, [pathname]);
+  33 |
+  34 |   // Handle responsive window resize  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/notifications/notification-drawer.tsx
+  14:3  warning  'ExternalLink' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/notifications/use-notifications.ts
+  55:5  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/notifications/use-notifications.ts:55:5
+  53 |   // Initial load
+  54 |   useEffect(() => {
+> 55 |     refresh();
+     |     ^^^^^^^ Avoid calling setState() directly within an effect
+  56 |   }, [refresh]);
+  57 |
+  58 |   // Periodic polling for unread count  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/patients/age-dob-input.tsx
+  35:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/patients/age-dob-input.tsx:35:7
+  33 |   useEffect(() => {
+  34 |     if (dobValue !== undefined) {
+> 35 |       setInternalDob(dobValue || "");
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  36 |     }
+  37 |   }, [dobValue]);
+  38 |                             react-hooks/set-state-in-effect
+  41:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/patients/age-dob-input.tsx:41:7
+  39 |   useEffect(() => {
+  40 |     if (ageValue !== undefined) {
+> 41 |       setInternalAge(ageValue !== null ? String(ageValue) : "");
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  42 |     }
+  43 |   }, [ageValue]);
+  44 |  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/patients/edit-patient-modal.tsx
+  15:39  warning  'AlertTriangle' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  60:7   warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/patients/edit-patient-modal.tsx:60:7
+  58 |   useEffect(() => {
+  59 |     if (patient) {
+> 60 |       setFullName(patient.full_name || "");
+     |       ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  61 |       setPhone(patient.phone || "");
+  62 |       setDob(patient.date_of_birth || null);
+  63 |       setAge(patient.age ?? null);  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/patients/patient-detail-view.tsx
+  15:3  warning  'AlertCircle' is defined but never used  @typescript-eslint/no-unused-vars
+  18:3  warning  'Activity' is defined but never used     @typescript-eslint/no-unused-vars
+  19:3  warning  'PlusCircle' is defined but never used   @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/patients/patient-directory-table.tsx
+  56:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/patients/patient-directory-table.tsx:56:7
+  54 |     const trimmed = searchQuery.trim();
+  55 |     if (trimmed.length < 2) {
+> 56 |       setRemoteResults(null);
+     |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  57 |       setIsSearchingRemote(false);
+  58 |       return;
+  59 |     }  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/patients/patient-lab-documents.tsx
+  107:5  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/patients/patient-lab-documents.tsx:107:5
+  105 |
+  106 |   useEffect(() => {
+> 107 |     loadDocuments();
+      |     ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  108 |   }, [loadDocuments]);
+  109 |
+  110 |   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/patients/patient-visit-history.tsx
+  152:29  warning  'index' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/profile/doctor-availability-card.tsx
+  24:3  warning  'Calendar' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/profile/user-profile-form.tsx
+  16:3  warning  'Phone' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/queue/checkout-drawer.tsx
+  115:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/queue/checkout-drawer.tsx:115:7
+  113 |     if (isOpen && visit?.id) {
+  114 |       paymentCommandId.current = null;
+> 115 |       setError(null);
+      |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  116 |       setSuccessNotice(null);
+  117 |       setWhatsAppStatus(null);
+  118 |       setIsCompleted(false);  react-hooks/set-state-in-effect
+  161:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/queue/checkout-drawer.tsx:161:7
+  159 |   useEffect(() => {
+  160 |     if (!invoice) {
+> 161 |       setAmountToPay(draftNetPayable);
+      |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  162 |     }
+  163 |   }, [invoice, draftNetPayable]);
+  164 |                                                           react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/queue/triage-vitals-modal.tsx
+  49:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/queue/triage-vitals-modal.tsx:49:7
+  47 |   useEffect(() => {
+  48 |     if (isOpen) {
+> 49 |       setError(null);
+     |       ^^^^^^^^ Avoid calling setState() directly within an effect
+  50 |       if (existingVitals) {
+  51 |         setVitals({
+  52 |           systolic: existingVitals.systolic ?? null,  react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/queue/walk-in-drawer.tsx
+  72:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/queue/walk-in-drawer.tsx:72:7
+  70 |   useEffect(() => {
+  71 |     if (isOpen) {
+> 72 |       resetForm();
+     |       ^^^^^^^^^ Avoid calling setState() directly within an effect
+  73 |     }
+  74 |   }, [isOpen]);
+  75 |                                                       react-hooks/set-state-in-effect
+  79:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/queue/walk-in-drawer.tsx:79:7
+  77 |   useEffect(() => {
+  78 |     if (!doctorId && doctors.length > 0) {
+> 79 |       setDoctorId(doctors[0].id);
+     |       ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  80 |     }
+  81 |   }, [doctors, doctorId]);
+  82 |  react-hooks/set-state-in-effect
+  86:7  warning  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/sid/Code/clinicOS/components/queue/walk-in-drawer.tsx:86:7
+  84 |   useEffect(() => {
+  85 |     if (tab !== "search" || !searchQuery.trim()) {
+> 86 |       setSearchResults([]);
+     |       ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  87 |       return;
+  88 |     }
+  89 |        react-hooks/set-state-in-effect
+
+/Users/sid/Code/clinicOS/components/settings/clinic-profile-form.tsx
+  18:3  warning  'IndianRupee' is defined but never used  @typescript-eslint/no-unused-vars
+  28:3  warning  'Phone' is defined but never used        @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/settings/developer/api-key-table.tsx
+  50:3  warning  'isLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/settings/developer/single-reveal-key-modal.tsx
+  4:38  warning  'ShieldCheck' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/staff/edit-staff-modal.tsx
+  14:3  warning  'Phone' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/staff/staff-list.tsx
+   9:3  warning  'Users' is defined but never used        @typescript-eslint/no-unused-vars
+  14:3  warning  'Stethoscope' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/visits/read-only-encounter-modal.tsx
+  16:3  warning  'Clock' is defined but never used     @typescript-eslint/no-unused-vars
+  17:3  warning  'Calendar' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/components/visits/visits-register-view.tsx
+  10:3  warning  'Printer' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/features/billing/service.ts
+   154:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+   156:36  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+   197:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+   199:41  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+   406:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+   408:36  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+   499:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+   501:36  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+   518:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+   520:41  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+   626:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+   628:41  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+   950:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+   952:36  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+   990:9   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+   992:43  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+  1258:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  1260:34  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/features/clinics/profile.ts
+   9:10  warning  'ALLOWED_SPECIALTIES' is defined but never used  @typescript-eslint/no-unused-vars
+  49:15  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  91:64  warning  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/features/dpdp/pdf/medical-summary-doc.tsx
+  365:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  368:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  440:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  477:47  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  508:38  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/features/labs/service.ts
+  215:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/features/patients/consent-service.ts
+  207:5  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+/Users/sid/Code/clinicOS/features/patients/service.ts
+  298:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  322:11  warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  328:7   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  333:7   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  338:7   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  344:7   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  377:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  387:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  398:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  401:7   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  419:7   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  429:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  445:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+
+/Users/sid/Code/clinicOS/features/prescriptions/pdf/generator.ts
+  62:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/features/referrals/service.ts
+  124:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  230:65  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  333:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  348:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/features/referrals/types.ts
+  5:3  warning  'ReferralStatus' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/features/staff/actions.ts
+  61:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/features/staff/invite.ts
+  2:10  warning  'UserRole' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/features/webhooks/service.ts
+   48:49   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   65:67   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  130:49   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  199:49   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  256:49   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  270:103  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  336:50   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  353:66   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/lib/api/auth.ts
+  102:74  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  134:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:76  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  145:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  153:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/lib/api/doctor-guard.ts
+  43:78  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/lib/api/openapi-spec.ts
+  26:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  28:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  31:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/lib/messaging/providers/gupshup.ts
+  28:5  warning  '_to' is defined but never used          @typescript-eslint/no-unused-vars
+  29:5  warning  '_templateId' is defined but never used  @typescript-eslint/no-unused-vars
+  30:5  warning  '_params' is defined but never used      @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/lib/messaging/providers/msg91.ts
+  103:5  warning  '_buttons' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/lib/messaging/webhook-helpers.ts
+  105:15  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/lib/webhooks/dispatcher.ts
+   79:3   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+   81:40  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+  297:3   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  299:40  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/lib/webhooks/outbox.ts
+  86:5   warning  Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any')
+  88:42  warning  Unexpected any. Specify a different type                                                               @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/postcss.config.mjs
+  1:1  warning  Assign object to a variable before exporting as module default  import/no-anonymous-default-export
+
+/Users/sid/Code/clinicOS/scripts/seed-cdci.ts
+  17:15  warning  'Database' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/ai/gateway-tools.spec.ts
+  36:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  37:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  39:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  40:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  43:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/api/v1-auth.spec.ts
+  5:15  warning  'POST' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/api/v1-crud.spec.ts
+   24:7   warning  'keyB' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  118:70  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  132:40  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  170:57  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  224:65  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  243:57  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  361:65  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  386:62  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  402:61  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  413:61  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  497:61  warning  Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/api/v1-performance.spec.ts
+   22:83  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   37:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   93:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  130:78  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  164:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/api/webhooks-outbox.spec.ts
+  152:80   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  167:80   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  181:87   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  233:86   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  243:53   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  296:79   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  362:80   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  387:80   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  403:100  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  427:80   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  440:95   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  463:80   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/audit/audit-logging.spec.ts
+    8:9   warning  'admin' is assigned a value but never used     @typescript-eslint/no-unused-vars
+   17:91  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   31:75  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   44:77  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   54:76  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   63:99  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   73:76  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   80:99  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   91:79  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  101:35  warning  'docError' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  101:92  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/auth/invite.spec.ts
+   4:31  warning  'hashInviteToken' is defined but never used    @typescript-eslint/no-unused-vars
+   8:7   warning  'tenantB' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  17:13  warning  'rawToken' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  58:13  warning  'rawToken' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/auth/rbac.spec.ts
+  2:28  warning  'Permission' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/compliance/consent.spec.ts
+    9:9    warning  'admin' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   16:67   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   31:96   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   47:104  warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   57:82   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   69:99   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   85:80   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+   99:88   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+  106:91   warning  Unexpected any. Specify a different type    @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/compliance/dpdp-rights.spec.ts
+  259:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  261:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/components/doctor-availability.spec.ts
+    1:32  warning  'vi' is defined but never used            @typescript-eslint/no-unused-vars
+   72:16  warning  'table' is defined but never used         @typescript-eslint/no-unused-vars
+   87:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  100:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:16  warning  'table' is defined but never used         @typescript-eslint/no-unused-vars
+  136:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  155:16  warning  'table' is defined but never used         @typescript-eslint/no-unused-vars
+  185:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  198:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  235:16  warning  'table' is defined but never used         @typescript-eslint/no-unused-vars
+  250:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  262:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/integration/cabin-consultation-launch.spec.ts
+   38:11  warning  'sessionA' is assigned a value but never used                @typescript-eslint/no-unused-vars
+  118:11  warning  'unauthorizedTransition' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/integration/calendar-scheduling-ux.spec.ts
+    1:32  warning  'vi' is defined but never used            @typescript-eslint/no-unused-vars
+   25:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   26:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   27:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  131:8   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  286:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  321:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/integration/cdci-search.spec.ts
+  14:7  warning  'customMedAId' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/integration/consultation-flow.spec.ts
+  16:7  warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  17:7  warning  'sessionB' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/integration/per-visit-billing.spec.ts
+   53:11  warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   91:11  warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  105:11  warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  135:11  warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  184:11  warning  'sessionB' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/integration/prescription-versioning.spec.ts
+  24:7  warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  25:7  warning  'sessionB' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/integration/receipt-reports.spec.ts
+   49:11  warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  227:11  warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  240:11  warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  251:11  warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  280:11  warning  'sessionB' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/labs/lab-documents.spec.ts
+   12:7   warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   13:7   warning  'sessionB' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   24:80  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  150:82  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  164:80  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  178:78  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  211:78  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/labs/tokenized-sharing.spec.ts
+   11:7   warning  'sessionA' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   21:73  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   33:78  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   82:79  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   90:53  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+   97:79  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  110:53  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  116:84  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  129:53  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  137:86  warning  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/messaging/msg91-provider.spec.ts
+  5:3  warning  'buildPositionalComponents' is defined but never used  @typescript-eslint/no-unused-vars
+  7:3  warning  'sanitizeTemplateParameter' is defined but never used  @typescript-eslint/no-unused-vars
+  9:3  warning  'extractUrlToken' is defined but never used            @typescript-eslint/no-unused-vars
+
+/Users/sid/Code/clinicOS/tests/messaging/msg91-sync-templates.spec.ts
+   7:3   warning  'StatusMap' is defined but never used     @typescript-eslint/no-unused-vars
+  64:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  65:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  67:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/messaging/msg91-webhook.spec.ts
+  154:73   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  157:72   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  194:77   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  204:73   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  207:77   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  245:73   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  248:82   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  298:73   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  299:94   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  343:31   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  346:74   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  355:73   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  356:94   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  404:73   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  406:110  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  447:73   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  450:77   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  501:69   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/notifications/in-app-notifications.spec.ts
+   11:3   warning  'notifyDoctorVitalsRecorded' is defined but never used    @typescript-eslint/no-unused-vars
+   12:3   warning  'notifyDoctorLabReportReady' is defined but never used    @typescript-eslint/no-unused-vars
+   14:3   warning  'notifyFrontDeskWhatsAppReply' is defined but never used  @typescript-eslint/no-unused-vars
+   16:3   warning  'notifyOutboxFailure' is defined but never used           @typescript-eslint/no-unused-vars
+  284:53  warning  Unexpected any. Specify a different type                  @typescript-eslint/no-explicit-any
+  316:53  warning  Unexpected any. Specify a different type                  @typescript-eslint/no-explicit-any
+  345:53  warning  Unexpected any. Specify a different type                  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/patients/phone-search.spec.ts
+   72:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   98:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/referrals/referrals-flow.spec.ts
+    3:32  warning  'closeReferralLoopSchema' is defined but never used  @typescript-eslint/no-unused-vars
+   10:7   warning  'sessionA' is assigned a value but never used        @typescript-eslint/no-unused-vars
+   11:7   warning  'sessionB' is assigned a value but never used        @typescript-eslint/no-unused-vars
+   24:80  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+   42:45  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  177:69  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  183:88  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  210:75  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+  233:81  warning  Unexpected any. Specify a different type             @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/scheduling/availability-blocks.spec.ts
+   13:32  warning  'DayAvailability' is defined but never used  @typescript-eslint/no-unused-vars
+  209:12  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  278:12  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  337:12  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+  407:12  warning  Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/security/cross-tenant.spec.ts
+    9:3   warning  'getActiveMembership' is defined but never used                    @typescript-eslint/no-unused-vars
+   10:3   warning  'MultipleClinicsSelectionRequiredError' is defined but never used  @typescript-eslint/no-unused-vars
+  151:83  warning  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+  167:86  warning  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+  271:69  warning  Unexpected any. Specify a different type                           @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/security/pii-scrubber.spec.ts
+  44:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  45:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  46:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  47:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  49:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  51:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/sid/Code/clinicOS/tests/security/webhook-lockdown.spec.ts
+   69:77  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   81:73  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:73  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  120:60  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  126:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  139:92  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  325:69  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  458:92  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  474:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  497:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 422 problems (0 errors, 422 warnings)
+  0 errors and 26 warnings potentially fixable with the `--fix` option.
+
+exit=0

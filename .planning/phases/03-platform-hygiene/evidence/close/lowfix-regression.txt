@@ -1,0 +1,17 @@
+# Phase-close Low (High re-verify): regression tests with the fix's source files swapped back to e4eb4c1^ (tests from HEAD), then restored.
+## without fix: lib/observability/console-scrub.ts and eslint.config.mjs at e4eb4c1^
+   × P1-34 boundary lint gates: bypass fixtures fail lint > process.stdout/stderr in a feature 5ms
+   × P1-34 boundary lint gates: bypass fixtures fail lint > process.stdout/stderr in a route handler 2ms
+   × P1-34 boundary lint gates: bypass fixtures fail lint > process.stdout/stderr in the env module 2ms
+   × P1-34 boundary lint gates: bypass fixtures fail lint > process.stdout/stderr in instrumentation 8ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > raw-stream.ts at lib/log/index.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > raw-stream.ts at lib/log/client.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > raw-stream.ts at lib/observability/console-scrub.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > raw-stream.ts at scripts/fixture.ts 1ms
+   × console scrubber > dir, dirxml and table (High re-verify Low): a real Node console prints raw objects without it, nothing with it 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  2 failed (2)
+      Tests  5 failed | 132 passed (137)
+## with fix (HEAD)
+ Test Files  2 passed (2)
+      Tests  137 passed (137)

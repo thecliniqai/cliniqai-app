@@ -6,9 +6,13 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { TURNSTILE_TEST_SITE_KEYS as SCHEMA_TURNSTILE_TEST_SITE_KEYS } from "@/lib/env";
 import {
   FORBIDDEN_VARS,
   findTestEnvProblems,
+  LOCAL_ERROR_INGEST_KEY,
+  LOCAL_SEND_EMAIL_HOOK_SECRET,
+  TURNSTILE_TEST_SITE_KEYS,
   loadLocalStackKeys,
   parseEnvFile,
   TestEnvGuardError,
@@ -29,8 +33,9 @@ const LOCAL_SERVICE = fakeJwt({ iss: "supabase-demo", role: "service_role" });
 function safeEnv(overrides: Record<string, string | undefined> = {}): EnvMap {
   const env: EnvMap = {
     NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: LOCAL_ANON,
-    SUPABASE_SERVICE_ROLE_KEY: LOCAL_SERVICE,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON,
+    SUPABASE_SECRET_KEY: LOCAL_SERVICE,
+    APP_ENV: "test",
     NEXT_PUBLIC_APP_URL: "http://localhost:3000",
     MESSAGING_PROVIDER: "dev",
     AI_PROVIDER: "mock",
@@ -76,11 +81,11 @@ describe("test-env guard rules", () => {
 
   it("rejects keys that were not issued by the local stack", () => {
     const hostedService = fakeJwt({ iss: "supabase", ref: "abcd", role: "service_role" });
-    expect(findTestEnvProblems(safeEnv({ SUPABASE_SERVICE_ROLE_KEY: hostedService }))).toContain(
-      'SUPABASE_SERVICE_ROLE_KEY is not a local-stack key (issuer must be "supabase-demo")',
+    expect(findTestEnvProblems(safeEnv({ SUPABASE_SECRET_KEY: hostedService }))).toContain(
+      'SUPABASE_SECRET_KEY is not a local-stack key (issuer must be "supabase-demo")',
     );
-    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_abc" }))).toContain(
-      'NEXT_PUBLIC_SUPABASE_ANON_KEY is not a local-stack key (issuer must be "supabase-demo")',
+    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_abc" }))).toContain(
+      'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is not a local-stack key (issuer must be "supabase-demo")',
     );
   });
 
@@ -102,11 +107,11 @@ describe("test-env guard rules", () => {
   });
 
   it("rejects a key with the wrong role claim (anon key in the service-role slot)", () => {
-    expect(findTestEnvProblems(safeEnv({ SUPABASE_SERVICE_ROLE_KEY: LOCAL_ANON }))).toContain(
-      'SUPABASE_SERVICE_ROLE_KEY has the wrong role claim (must be "service_role")',
+    expect(findTestEnvProblems(safeEnv({ SUPABASE_SECRET_KEY: LOCAL_ANON }))).toContain(
+      'SUPABASE_SECRET_KEY has the wrong role claim (must be "service_role")',
     );
-    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_SUPABASE_ANON_KEY: LOCAL_SERVICE }))).toContain(
-      'NEXT_PUBLIC_SUPABASE_ANON_KEY has the wrong role claim (must be "anon")',
+    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_SERVICE }))).toContain(
+      'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY has the wrong role claim (must be "anon")',
     );
   });
 
@@ -124,6 +129,15 @@ describe("test-env guard rules", () => {
   it.each(["HTTPS_PROXY", "http_proxy", "NODE_USE_ENV_PROXY"])("refuses proxy variable %s", (key) => {
     expect(findTestEnvProblems(safeEnv({ [key]: "1" }))).toContain(
       `${key} must not be set in the test lane (unset proxies before running tests)`,
+    );
+  });
+
+  it("pins the env-schema tier: APP_ENV=test for the lane, e2e for the app server (03-01, R-11)", () => {
+    expect(findTestEnvProblems(safeEnv({ APP_ENV: undefined }))).toContain('APP_ENV must be test (got unset)');
+    expect(findTestEnvProblems(safeEnv({ APP_ENV: "production" }))).toContain('APP_ENV must be test (got "production")');
+    expect(findTestEnvProblems(safeEnv({ APP_ENV: "e2e" }), { appEnv: "e2e" })).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ APP_ENV: "staging" }), { appEnv: "e2e" })).toContain(
+      'APP_ENV must be e2e (got "staging")',
     );
   });
 
@@ -153,6 +167,67 @@ describe("test-env guard rules", () => {
     );
   });
 
+  it("pins the error-sink key to the local synthetic key and never echoes another value (03-09b)", () => {
+    expect(findTestEnvProblems(safeEnv({ ERROR_INGEST_KEY: LOCAL_ERROR_INGEST_KEY }))).toEqual([]);
+    const other = "MARKER-a-staging-ingest-key-0123456789";
+    const problems = findTestEnvProblems(safeEnv({ ERROR_INGEST_KEY: other }));
+    expect(problems.some((p) => p.startsWith("ERROR_INGEST_KEY must be unset or the local synthetic key"))).toBe(true);
+    expect(problems.join("\n")).not.toContain(other);
+  });
+
+  it("keeps the diagnostic error route off in the Vitest lane; the e2e app server may turn it on (03-09b)", () => {
+    expect(findTestEnvProblems(safeEnv({ DIAG_ERROR_ROUTE_ENABLED: "false" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ DIAG_ERROR_ROUTE_ENABLED: "true" }))).toContain(
+      "DIAG_ERROR_ROUTE_ENABLED must be unset or false in this lane",
+    );
+    expect(findTestEnvProblems(safeEnv({ DIAG_ERROR_ROUTE_ENABLED: "true" }), { diagRoute: true })).toEqual([]);
+  });
+
+  it("pins the Send Email hook secret to the local synthetic secret and never echoes another value (03-11b)", () => {
+    expect(findTestEnvProblems(safeEnv({ SEND_EMAIL_HOOK_SECRET: LOCAL_SEND_EMAIL_HOOK_SECRET }))).toEqual([]);
+    const other = `v1,whsec_${Buffer.from("LEAK-another-hook-secret-value-x").toString("base64")}`;
+    const problems = findTestEnvProblems(safeEnv({ SEND_EMAIL_HOOK_SECRET: other }));
+    expect(problems.some((p) => p.startsWith("SEND_EMAIL_HOOK_SECRET must be unset or the local synthetic secret"))).toBe(true);
+    expect(problems.join("\n")).not.toContain(other);
+  });
+
+  it("keeps the breached-password check off in the Vitest lane; the e2e server may turn it on, loopback only (03-12a)", () => {
+    expect(findTestEnvProblems(safeEnv({ PWNED_CHECK: "off" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ PWNED_CHECK: "on", PWNED_API_BASE_URL: "http://127.0.0.1:3101" }))).toContain(
+      "PWNED_CHECK must be unset or off in this lane",
+    );
+    expect(
+      findTestEnvProblems(safeEnv({ PWNED_CHECK: "on", PWNED_API_BASE_URL: "http://127.0.0.1:3101" }), { pwnedCheck: true }),
+    ).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ PWNED_CHECK: "on" }), { pwnedCheck: true })).toContain(
+      "PWNED_CHECK=on needs PWNED_API_BASE_URL (the loopback fake range API) in this lane",
+    );
+    expect(findTestEnvProblems(safeEnv({ PWNED_API_BASE_URL: "https://api.pwnedpasswords.com" }))).toContain(
+      'PWNED_API_BASE_URL points at non-local host "api.pwnedpasswords.com"',
+    );
+  });
+
+  it("allows auth email only as disabled or the loopback Mailpit, never SES (03-11b)", () => {
+    expect(findTestEnvProblems(safeEnv({ EMAIL_PROVIDER: "disabled" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ EMAIL_PROVIDER: "mailpit", MAILPIT_API_URL: "http://127.0.0.1:54324" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ EMAIL_PROVIDER: "ses" }))).toContain(
+      'EMAIL_PROVIDER must be unset or disabled or mailpit (got "ses")',
+    );
+    expect(findTestEnvProblems(safeEnv({ MAILPIT_API_URL: "http://mail.example.org:8025" }))).toContain(
+      'MAILPIT_API_URL points at non-local host "mail.example.org"',
+    );
+  });
+
+  it("allows only Cloudflare's Turnstile test site keys in a test lane (03-12c, R-22)", () => {
+    expect([...TURNSTILE_TEST_SITE_KEYS]).toEqual([...SCHEMA_TURNSTILE_TEST_SITE_KEYS]);
+    for (const key of TURNSTILE_TEST_SITE_KEYS) {
+      expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: key }))).toEqual([]);
+    }
+    expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAAsyntheticRealKey" }))[0]).toMatch(
+      /^NEXT_PUBLIC_TURNSTILE_SITE_KEY must be unset or 1x00000000000000000000AA/,
+    );
+  });
+
   it("never echoes secret values in its messages", () => {
     const secret = "sk-live-THIS-MUST-NOT-APPEAR";
     const problems = findTestEnvProblems(safeEnv({ OPENAI_API_KEY: secret, SUPABASE_ACCESS_TOKEN: secret }));
@@ -164,8 +239,8 @@ describe("local stack key loading", () => {
   it("fills keys from `supabase status` output and nothing else", () => {
     const env: EnvMap = {};
     loadLocalStackKeys(ROOT, env, () => `ANON_KEY="${LOCAL_ANON}"\nSERVICE_ROLE_KEY="${LOCAL_SERVICE}"\nAPI_URL="x"\n`);
-    expect(env.NEXT_PUBLIC_SUPABASE_ANON_KEY).toBe(LOCAL_ANON);
-    expect(env.SUPABASE_SERVICE_ROLE_KEY).toBe(LOCAL_SERVICE);
+    expect(env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY).toBe(LOCAL_ANON);
+    expect(env.SUPABASE_SECRET_KEY).toBe(LOCAL_SERVICE);
     expect(env.API_URL).toBeUndefined();
   });
 
@@ -261,7 +336,7 @@ describe("worker network block", () => {
 
   it("still allows the local stack", async () => {
     const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/health`, {
-      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "" },
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "" },
     });
     expect(res.status).toBe(200);
   });

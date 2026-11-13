@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { serverEnv } from "@/lib/env-server";
 
 export type Msg91WebhookEvent =
   | {
@@ -38,7 +39,13 @@ function sha256(value: string): Buffer {
  * request in every NODE_ENV.
  */
 export function verifyMsg91WebhookSecret(headers: Headers): boolean {
-  const expected = process.env.MSG91_WEBHOOK_SECRET;
+  let expected: string | undefined;
+  try {
+    expected = serverEnv().MSG91_WEBHOOK_SECRET;
+  } catch {
+    // An environment the schema refuses authenticates nothing (fail closed).
+    return false;
+  }
   if (!expected) return false;
   const given = headers.get(MSG91_WEBHOOK_SECRET_HEADER);
   if (!given) return false;

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { createReferral, getReferralSignedUrl } from "@/features/referrals/actions";
 import { Referral, ReferralType, ReferralUrgency, LetterheadMode } from "@/lib/db/types";
+import { reportClientError } from "@/lib/log/client";
 
 export interface CreateReferralModalProps {
   patientId: string;
@@ -173,7 +174,7 @@ export function CreateReferralModal({
         try {
           window.open(res.signedUrl, "_blank", "noopener,noreferrer");
         } catch (e) {
-          console.warn("Popup blocked by browser:", e);
+          reportClientError("referrals.letter_popup.failed", e);
         }
       }
 

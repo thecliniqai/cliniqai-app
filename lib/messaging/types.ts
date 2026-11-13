@@ -26,10 +26,15 @@ export interface MessagingSendResult {
   channelUsed: "whatsapp" | "sms";
   error?: string;
   statusCode?: number;
+  /**
+   * `false` when trying again cannot succeed (the `disabled` provider, R-16): the dispatcher records the failure with
+   * the existing statuses but queues no SMS fallback.
+   */
+  retryable?: boolean;
 }
 
 export interface MessagingProvider {
-  readonly name: "dev" | "msg91" | "twilio" | "gupshup";
+  readonly name: "dev" | "disabled" | "msg91" | "twilio" | "gupshup";
   sendSms(
     to: string,
     templateId: string,

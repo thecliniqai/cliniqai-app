@@ -1,0 +1,312 @@
+{
+  "kit": "auth00-recheck",
+  "kit_version": 1,
+  "target": "local",
+  "api_host": "127.0.0.1:54321",
+  "run_tag": "b1bc1e70",
+  "started_at": "2026-11-13T02:15:17.662Z",
+  "finished_at": "2026-11-13T02:15:24.109Z",
+  "items": [
+    {
+      "id": 1,
+      "name": "verifyOtp type matrix",
+      "status": "observed",
+      "expected_hosted": "as the local spike (E1): recovery codes also verify as email/magiclink; the app pins type 'recovery' (R-5)",
+      "observed": {
+        "matrix": {
+          "signup": {
+            "email": {
+              "accepted": true,
+              "status": 200,
+              "code": null,
+              "spike_local": true
+            },
+            "signup": {
+              "accepted": true,
+              "status": 200,
+              "code": null,
+              "spike_local": true
+            },
+            "recovery": {
+              "accepted": false,
+              "status": 403,
+              "code": "otp_expired",
+              "spike_local": false
+            },
+            "magiclink": {
+              "accepted": false,
+              "status": 403,
+              "code": "otp_expired",
+              "spike_local": false
+            },
+            "invite": {
+              "accepted": true,
+              "status": 200,
+              "code": null,
+              "spike_local": true
+            }
+          },
+          "recovery": {
+            "email": {
+              "accepted": true,
+              "status": 200,
+              "code": null,
+              "spike_local": true
+            },
+            "signup": {
+              "accepted": false,
+              "status": 403,
+              "code": "otp_expired",
+              "spike_local": false
+            },
+            "recovery": {
+              "accepted": true,
+              "status": 200,
+              "code": null,
+              "spike_local": true
+            },
+            "magiclink": {
+              "accepted": true,
+              "status": 200,
+              "code": null,
+              "spike_local": true
+            },
+            "invite": {
+              "accepted": false,
+              "status": 403,
+              "code": "otp_expired",
+              "spike_local": false
+            }
+          },
+          "magiclink": {
+            "email": {
+              "accepted": true,
+              "status": 200,
+              "code": null,
+              "spike_local": true
+            },
+            "signup": {
+              "accepted": false,
+              "status": 403,
+              "code": "otp_expired",
+              "spike_local": null
+            },
+            "recovery": {
+              "accepted": true,
+              "status": 200,
+              "code": null,
+              "spike_local": null
+            },
+            "magiclink": {
+              "accepted": true,
+              "status": 200,
+              "code": null,
+              "spike_local": true
+            },
+            "invite": {
+              "accepted": false,
+              "status": 403,
+              "code": "otp_expired",
+              "spike_local": null
+            }
+          }
+        },
+        "cells_differing_from_spike": 0
+      }
+    },
+    {
+      "id": 2,
+      "name": "CAPTCHA (Turnstile) on /token and /recover",
+      "status": "not_configurable_locally",
+      "expected_hosted": "400 captcha_failed on the password grant and /recover without a token; the PO's browser sign-in with the widget succeeds (E7)",
+      "observed": {
+        "token_grant_without_token": {
+          "status": 200,
+          "code": null
+        },
+        "recover_without_token": {
+          "status": 200,
+          "code": null
+        },
+        "captcha_enforced": false,
+        "secret_key_grant_without_token": {
+          "status": 200,
+          "code": null
+        },
+        "secret_key_skips_captcha": null,
+        "po_browser_check_with_widget": "not-recorded"
+      },
+      "note": "CAPTCHA is off on the CLI stack ([auth.captcha] enabled = false, R-22): the local run records that it is not enforced"
+    },
+    {
+      "id": 3,
+      "name": "require current password (incl. OTP/recovery exemption)",
+      "status": "not_configurable_locally",
+      "expected_hosted": "no current → 400 current_password_required; wrong → 400 current_password_invalid; right → 200; recovery session without current → 200 (exempt; the app's 10-minute bound covers it, A00-5); after sign-out /user and refresh refuse the old tokens",
+      "observed": {
+        "password_session_without_current": {
+          "status": 200,
+          "code": null
+        },
+        "password_session_wrong_current": {
+          "status": 200,
+          "code": null
+        },
+        "password_session_right_current": {
+          "status": 200,
+          "code": null
+        },
+        "other_session_after_change": {
+          "get_user": {
+            "status": 403,
+            "code": "session_not_found"
+          },
+          "refresh": {
+            "status": 400,
+            "code": "refresh_token_not_found"
+          },
+          "ended_by_gotrue": true
+        },
+        "signout_local": {
+          "logout": {
+            "status": 204,
+            "code": null
+          },
+          "get_user_with_old_access": {
+            "status": 403,
+            "code": "session_not_found"
+          },
+          "refresh_with_old_refresh": {
+            "status": 400,
+            "code": "refresh_token_not_found"
+          },
+          "access_claims_still_unexpired": true
+        },
+        "recovery_session_without_current": {
+          "status": 200,
+          "code": null
+        },
+        "require_current_password_enforced": false
+      },
+      "note": "not configurable on the CLI stack (no config.toml key, R-34): GoTrue ignores current_password locally"
+    },
+    {
+      "id": 4,
+      "name": "postgres DELETE privilege on auth.sessions",
+      "status": "observed",
+      "expected_hosted": "postgres: not superuser, bypassrls, DELETE on auth.sessions (spike E6)",
+      "observed": {
+        "postgres_superuser": false,
+        "postgres_bypassrls": true,
+        "postgres_can_delete_auth_sessions": true,
+        "auth_sessions_rls_enabled": true
+      }
+    },
+    {
+      "id": 5,
+      "name": "signup for an existing address",
+      "status": "observed",
+      "expected_hosted": "422 signup_disabled while signups are off (A00-1, A00-3); 400 captcha_failed first when CAPTCHA is on",
+      "observed": {
+        "signup_publishable": {
+          "status": 422,
+          "code": "signup_disabled"
+        },
+        "signup_secret_key": {
+          "status": 422,
+          "code": "signup_disabled"
+        },
+        "existing_user_unchanged": true
+      }
+    },
+    {
+      "id": 6,
+      "name": "per-IP burst probe (≤ 40 password grants)",
+      "status": "not_configurable_locally",
+      "expected_hosted": "429 over_request_rate_limit after roughly 30 grants (spike E9); the app shows the 'wait a minute' copy (A00-4)",
+      "observed": {
+        "requests_sent": 40,
+        "first_429_at": null,
+        "histogram": {
+          "400 invalid_credentials": 40
+        }
+      },
+      "note": "the CLI stack enforces no per-IP limit (no rate-limit header, spike E9)"
+    },
+    {
+      "id": 7,
+      "name": "failed sign-in records and log retention",
+      "status": "observed",
+      "expected_hosted": "no auth.audit_log_entries row for failed grants (spike E11); Auth logs keep them for the plan's retention (PO dashboard observation)",
+      "observed": {
+        "audit_rows_for_user_with_only_failed_grants": 0,
+        "po_dashboard_retention": "n/a (local: GoTrue container log)"
+      }
+    },
+    {
+      "id": 8,
+      "name": "amr shape",
+      "status": "observed",
+      "expected_hosted": "password session amr [{method: password, timestamp = iat}], kept on refresh; recovery session amr method otp (spike E7)",
+      "observed": {
+        "password_session": {
+          "present": true,
+          "entries": [
+            {
+              "method": "password",
+              "timestamp_type": "number"
+            }
+          ],
+          "timestamps_equal_iat": true,
+          "aal": "aal1",
+          "has_session_id": true
+        },
+        "after_refresh": {
+          "present": true,
+          "entries": [
+            {
+              "method": "password",
+              "timestamp_type": "number"
+            }
+          ],
+          "timestamps_equal_iat": true,
+          "aal": "aal1",
+          "has_session_id": true
+        },
+        "refresh_keeps_amr_timestamps": true,
+        "refresh": {
+          "status": 200,
+          "code": null
+        },
+        "recovery_session": {
+          "present": true,
+          "entries": [
+            {
+              "method": "otp",
+              "timestamp_type": "number"
+            }
+          ],
+          "timestamps_equal_iat": true,
+          "aal": "aal1",
+          "has_session_id": true
+        }
+      }
+    },
+    {
+      "id": 9,
+      "name": "@supabase/ssr version",
+      "status": "observed",
+      "expected_hosted": "0.12.x (03-06, AUTH-00 item 12)",
+      "observed": {
+        "pinned": "0.12.7",
+        "installed": "0.12.7",
+        "exact_pin": true
+      }
+    }
+  ],
+  "cleanup": {
+    "users_created": 14,
+    "users_deleted": 14,
+    "leftover_user_ids": []
+  }
+}

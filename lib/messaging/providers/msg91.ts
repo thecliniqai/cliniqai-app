@@ -1,8 +1,11 @@
+import { serverEnv } from "@/lib/env-server";
 import {
   InteractiveButton,
   MessagingProvider,
   MessagingSendResult,
 } from "../types";
+import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
+import { errorTag } from "@/lib/errors/error-tag";
 import { WHATSAPP_TEMPLATES } from "../templates";
 import { buildPositionalComponents } from "../templates/mapping";
 
@@ -18,14 +21,15 @@ export class Msg91Provider implements MessagingProvider {
     integratedNumber?: string;
     dltTeId?: string;
   }) {
-    this.authKey = options?.authKey || process.env.MSG91_AUTH_KEY || "";
+    const env = serverEnv();
+    this.authKey = options?.authKey || env.MSG91_AUTH_KEY || "";
     this.senderId =
       options?.integratedNumber ||
       options?.senderId ||
-      process.env.MSG91_INTEGRATED_NUMBER ||
-      process.env.MSG91_SENDER_ID ||
+      env.MSG91_INTEGRATED_NUMBER ||
+      env.MSG91_SENDER_ID ||
       "";
-    this.dltTeId = options?.dltTeId || process.env.MSG91_DLT_TE_ID || "";
+    this.dltTeId = options?.dltTeId || env.MSG91_DLT_TE_ID || "";
   }
 
   async sendSms(
@@ -33,6 +37,8 @@ export class Msg91Provider implements MessagingProvider {
     templateId: string,
     params: Record<string, string>
   ): Promise<MessagingSendResult> {
+    const synthetic = syntheticRecipientRefusal(to, "sms");
+    if (synthetic) return synthetic;
     if (!this.authKey) {
       return {
         success: false,
@@ -46,6 +52,7 @@ export class Msg91Provider implements MessagingProvider {
       const normalizedPhone = to.replace(/[^0-9]/g, "");
       const res = await fetch("https://control.msg91.com/api/v5/flow/", {
         method: "POST",
+        signal: providerSignal(),
         headers: {
           "Content-Type": "application/json",
           authkey: this.authKey,
@@ -84,7 +91,7 @@ export class Msg91Provider implements MessagingProvider {
       return {
         success: false,
         channelUsed: "sms",
-        error: err instanceof Error ? err.message : "Unknown MSG91 SMS error",
+        error: `MSG91 SMS request failed (${errorTag(err)})`,
       };
     }
   }
@@ -95,6 +102,8 @@ export class Msg91Provider implements MessagingProvider {
     params: Record<string, string>,
     _buttons?: InteractiveButton[]
   ): Promise<MessagingSendResult> {
+    const synthetic = syntheticRecipientRefusal(to, "whatsapp");
+    if (synthetic) return synthetic;
     if (!this.authKey) {
       return {
         success: false,
@@ -116,6 +125,7 @@ export class Msg91Provider implements MessagingProvider {
           "https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
           {
             method: "POST",
+            signal: providerSignal(),
             headers: {
               "Content-Type": "application/json",
               authkey: this.authKey,
@@ -183,6 +193,7 @@ export class Msg91Provider implements MessagingProvider {
           "https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/",
           {
             method: "POST",
+            signal: providerSignal(),
             headers: {
               "Content-Type": "application/json",
               authkey: this.authKey,
@@ -235,7 +246,7 @@ export class Msg91Provider implements MessagingProvider {
       return {
         success: false,
         channelUsed: "whatsapp",
-        error: err instanceof Error ? err.message : "Unknown MSG91 WhatsApp error",
+        error: `MSG91 WhatsApp request failed (${errorTag(err)})`,
       };
     }
   }

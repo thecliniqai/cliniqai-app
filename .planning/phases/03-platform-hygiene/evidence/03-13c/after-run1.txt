@@ -1,0 +1,111 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/api/api-v1-switch.spec.ts (57 tests | 1 failed) 218ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > finds the v1 route files, including docs and openapi.json 1ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/appointments 3ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/appointments/00000000-0000-4000-8000-000000000123 1ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/docs 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/lab-orders 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/lab-orders/00000000-0000-4000-8000-000000000123 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/openapi.json 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/patients 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/patients/00000000-0000-4000-8000-000000000123 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/patients/00000000-0000-4000-8000-000000000123/export 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/prescriptions 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/prescriptions/00000000-0000-4000-8000-000000000123 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/referrals 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/referrals/00000000-0000-4000-8000-000000000123 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/visits 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > flag unset (default) → plain 404 for every route and method > /api/v1/visits/00000000-0000-4000-8000-000000000123 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > returns 404 for the bare prefix, a trailing slash and non-'true' values 1ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > passes every route through when API_V1_ENABLED=true outside production 1ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > stays off in production even when API_V1_ENABLED=true 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > does not treat look-alike paths as /api/v1 0ms
+   ✓ /api/v1 switch (API_V1_ENABLED) > the proxy matcher covers every v1 route, including ids with an image extension 2ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v%31/patients → 404 with the flag off 1ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v%31/openapi.json → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v%31/docs → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v%31/lab-orders → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v%31/visits/00000000-0000-4000-8000-000000000123 → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api%2Fv1/appointments → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api%2fv1/patients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v1%2Fpatients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /%61pi/v1/patients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v%2531/patients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v%25%33%31/patients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api%252Fv1/patients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /API/v1/patients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /Api/V1 → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/V1/openapi.json → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v1/ → 404 with the flag off 1ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v%31/ → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api%5Cv1/patients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api%5cv1%5cpatients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/x/%2e%2e/v1/patients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v1/%2e/patients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v% → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/v%E0%A4/patients → 404 with the flag off 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > /api/% → 404 with the flag off 0ms
+   × AR2-H2: encoded and look-alike paths cannot get past the switch > the proxy runs for the encoded forms (matcher) 2ms
+     → /images/hero.webp: expected true to be false // Object.is equality
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > normaliseRequestPath decodes repeatedly and resolves separators and dot segments 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > ordinary /api routes and pages are not blocked, with the flag off or on 0ms
+   ✓ AR2-H2: encoded and look-alike paths cannot get past the switch > with the flag on, encoded forms of v1 pass through (the API behaves the same either way) 0ms
+   ✓ AR2-H2: the v1 handlers enforce the switch themselves (proxy bypassed) > every exported method of every v1 route returns a bare 404 when the flag is off 193ms
+   ✓ AR2-H2: the v1 handlers enforce the switch themselves (proxy bypassed) > authenticateApiKey answers 404 before touching the database when the flag is off 0ms
+   ✓ AR2-H2: the v1 handlers enforce the switch themselves (proxy bypassed) > docs and openapi.json are 404 when off and served when on 1ms
+   ✓ AR2-H2: the v1 handlers enforce the switch themselves (proxy bypassed) > the handlers stay off in production even with API_V1_ENABLED=true 0ms
+   ✓ env schema: API_V1_ENABLED > defaults to off 0ms
+   ✓ env schema: API_V1_ENABLED > accepts 'true' outside production 0ms
+   ✓ env schema: API_V1_ENABLED > refuses 'true' in production 0ms
+   ✓ env schema: API_V1_ENABLED > refuses values other than 'true' and 'false' 0ms
+ ✓ tests/security/p1-34-lint-gates.spec.ts (121 tests) 15801ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a server action importing the system factory  645ms
+   ✓ P1-34 boundary lint gates: the real tree > app code carries 0 boundary messages  4173ms
+   ✓ P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed  10536ms
+{"ts":"2026-11-13T03:10:04.210Z","level":"error","event":"billing.payment_record.failed","tenantId":"dd868aee-9bda-4c53-b5e0-11222c4ff8bd","code":"XX000"}
+{"ts":"2026-11-13T03:10:10.485Z","level":"info","event":"db.system_acquired","reason":"billing.record_payment_system"}
+{"ts":"2026-11-13T03:10:10.501Z","level":"info","event":"db.system_acquired","reason":"billing.record_payment_system"}
+ ✓ tests/billing/record-payment-rpc.spec.ts (36 tests) 7031ms
+   ✓ record_payment: invariants > a held invoice lock makes the call fail fast with CONFLICT/LOCK_TIMEOUT (lock_timeout 2s), not hang  5065ms
+ ✓ tests/observability/error-sink-scrub-db.spec.ts (79 tests) 2640ms
+ ✓ tests/observability/error-sink-db.spec.ts (27 tests) 944ms
+ ✓ tests/billing/payment-actor-guards.spec.ts (9 tests) 579ms
+{"ts":"2026-11-13T03:10:15.707Z","level":"info","event":"db.system_acquired","reason":"api_v1"}
+{"ts":"2026-11-13T03:10:15.715Z","level":"info","event":"db.system_acquired","reason":"api_v1"}
+{"ts":"2026-11-13T03:10:15.764Z","level":"info","event":"db.system_acquired","reason":"api_v1"}
+{"ts":"2026-11-13T03:10:15.774Z","level":"info","event":"db.system_acquired","reason":"api_v1"}
+ ✓ tests/api/v1-auth.spec.ts (7 tests) 363ms
+ ✓ tests/api/readiness-probe-db.spec.ts (7 tests) 282ms
+ ✓ tests/api/health-probes.spec.ts (13 tests) 23ms
+ ✓ tests/api/v1-system-client-order.spec.ts (4 tests) 130ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/api-v1-switch.spec.ts > AR2-H2: encoded and look-alike paths cannot get past the switch > the proxy runs for the encoded forms (matcher)
+AssertionError: /images/hero.webp: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ tests/api/api-v1-switch.spec.ts:151:148
+    156|     for (const url of [
+    157|       "/api/v%31/patients",
+    158|       "/api%2Fv1/appointments",
+       |            ^
+    159|       "/api/v%31/patients/x.png",
+    160|       "/api/v%31/visits/x.svg",
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 9 passed (10)
+      Tests  1 failed | 359 passed (360)
+   Start at  08:39:46
+   Duration  29.71s (transform 280ms, setup 48ms, collect 642ms, tests 28.01s, environment 1ms, prepare 198ms)
+
+[teardown] removed run data: 6 tenant(s), 14 auth user(s), 0 storage object(s); verified none remain

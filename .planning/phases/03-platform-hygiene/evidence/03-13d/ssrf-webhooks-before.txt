@@ -1,0 +1,391 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/api/webhook-dispatch-hardening.spec.ts (7 tests | 7 failed) 454ms
+   × webhook dispatch hardening (03-13d) > M-SSRF-DNS: the delivery connects to the checked address > resolves once and pins host to the vetted address; SNI and Host stay the endpoint name 13ms
+     → expected [] to have a length of 1 but got +0
+   × webhook dispatch hardening (03-13d) > M-SSRF-DNS: the delivery connects to the checked address > with the real transport, the socket is opened to the vetted address, never to the name 5ms
+     → expected [] to include '93.184.216.34'
+   × webhook dispatch hardening (03-13d) > M-XTENANT-WH: a queue row may only use its own tenant's subscription > tenant A's owner can insert a row naming B's subscription, and the dispatcher refuses it without sending 7ms
+     → expected { success: false, …(5) } to match object { success: false, …(2) }
+(3 matching properties omitted from actual)
+   × webhook dispatch hardening (03-13d) > retry cap (review E-8) > an owner-written max_retries cannot extend attempts beyond MAX_WEBHOOK_RETRIES 3ms
+     → expected { code: '23502', …(3) } to be null
+   × webhook dispatch hardening (03-13d) > retry cap (review E-8) > a negative retry_count is treated as zero 5ms
+     → expected { success: false, …(5) } to match object { status: 'pending', retryCount: 1 }
+(4 matching properties omitted from actual)
+   × webhook dispatch hardening (03-13d) > test ping and audit (03-13d Lows) > allows at most undefined test pings per tenant per minute 123ms
+     → expected +0 to be undefined // Object.is equality
+   × webhook dispatch hardening (03-13d) > test ping and audit (03-13d Lows) > the subscription audit row records the endpoint origin, never its path or query 127ms
+     → expected '[{"metadata":{"reason":"Webhook subsc…' not to contain 'receiverPathSecret'
+ ❯ tests/api/webhook-ssrf.spec.ts (61 tests | 44 failed) 11ms
+   ✓ validateWebhookEndpoint: DNS always resolved (no test bypass) > rejects a .test host whose resolver answers a private address (before: accepted, DNS skipped under Vitest) 2ms
+   ✓ validateWebhookEndpoint: DNS always resolved (no test bypass) > rejects an .example.com host whose resolver answers the metadata address (before: accepted) 1ms
+   ✓ validateWebhookEndpoint: DNS always resolved (no test bypass) > accepts a host whose resolver answers only public addresses 0ms
+   ✓ validateWebhookEndpoint: DNS always resolved (no test bypass) > rejects mixed public and private answers 0ms
+   ✓ validateWebhookEndpoint: DNS always resolved (no test bypass) > fails closed when the resolver throws 0ms
+   ✓ validateWebhookEndpoint: DNS always resolved (no test bypass) > fails closed on an empty or malformed answer 0ms
+   ✓ validateWebhookEndpoint: DNS always resolved (no test bypass) > uses the system resolver when none is injected (before: skipped for .test hosts under Vitest) 1ms
+   ✓ validateWebhookEndpoint: scheme and literals > rejects http:// without allowHttp, even inside Vitest 0ms
+   ✓ validateWebhookEndpoint: scheme and literals > accepts http:// only when the caller passes allowHttp, and still resolves the host 0ms
+   ✓ validateWebhookEndpoint: scheme and literals > range-checks IP literals (incl. bracketed IPv6) without calling the resolver 0ms
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::127.0.0.1 (IPv4-compatible ::/96 (127.0.0.1)) as an address 2ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::7f00:1 (IPv4-compatible, hex tail) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::127.0.0.1 (NAT64 well-known /96 (127.0.0.1)) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::a9fe:a9fe (NAT64 well-known /96 (169.254.169.254)) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b:1::a00:1 (local-use NAT64 64:ff9b:1::/48) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:7f00:1:: (6to4 (127.0.0.1)) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:a9fe:a9fe:: (6to4 (169.254.169.254)) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:0:4136:e378:8000:63bf:3fff:fdd2 (Teredo 2001::/32) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks fec0::1 (deprecated site-local fec0::/10) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 100::1 (discard-only 100::/64) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:db8::1 (documentation 2001:db8::/32) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 0:0:0:0:0:ffff:7f00:1 (IPv4-mapped, uncompressed (E-5)) as an address 0ms
+     → expected false to be true // Object.is equality
+   ✓ isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::FFFF:A9FE:A9FE (IPv4-mapped, upper case) as an address 0ms
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 198.18.0.1 (benchmarking 198.18.0.0/15) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 198.19.255.1 (benchmarking 198.18.0.0/15 (upper half)) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 192.0.0.170 (IETF protocol assignments 192.0.0.0/24) as an address 0ms
+     → expected false to be true // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 192.88.99.1 (6to4 relay anycast 192.88.99.0/24) as an address 0ms
+     → expected false to be true // Object.is equality
+   ✓ isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 255.255.255.255 (broadcast) as an address 0ms
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::127.0.0.1 (IPv4-compatible ::/96 (127.0.0.1)) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::7f00:1 (IPv4-compatible, hex tail) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::127.0.0.1 (NAT64 well-known /96 (127.0.0.1)) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::a9fe:a9fe (NAT64 well-known /96 (169.254.169.254)) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b:1::a00:1 (local-use NAT64 64:ff9b:1::/48) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:7f00:1:: (6to4 (127.0.0.1)) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:a9fe:a9fe:: (6to4 (169.254.169.254)) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:0:4136:e378:8000:63bf:3fff:fdd2 (Teredo 2001::/32) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks fec0::1 (deprecated site-local fec0::/10) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 100::1 (discard-only 100::/64) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:db8::1 (documentation 2001:db8::/32) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 0:0:0:0:0:ffff:7f00:1 (IPv4-mapped, uncompressed (E-5)) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   ✓ isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::FFFF:A9FE:A9FE (IPv4-mapped, upper case) as a DNS answer 0ms
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 198.18.0.1 (benchmarking 198.18.0.0/15) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 198.19.255.1 (benchmarking 198.18.0.0/15 (upper half)) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 192.0.0.170 (IETF protocol assignments 192.0.0.0/24) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 192.88.99.1 (6to4 relay anycast 192.88.99.0/24) as a DNS answer 0ms
+     → expected true to be false // Object.is equality
+   ✓ isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 255.255.255.255 (broadcast) as a DNS answer 0ms
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::127.0.0.1 (IPv4-compatible ::/96 (127.0.0.1)) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::7f00:1 (IPv4-compatible, hex tail) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::127.0.0.1 (NAT64 well-known /96 (127.0.0.1)) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::a9fe:a9fe (NAT64 well-known /96 (169.254.169.254)) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b:1::a00:1 (local-use NAT64 64:ff9b:1::/48) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:7f00:1:: (6to4 (127.0.0.1)) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:a9fe:a9fe:: (6to4 (169.254.169.254)) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:0:4136:e378:8000:63bf:3fff:fdd2 (Teredo 2001::/32) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks fec0::1 (deprecated site-local fec0::/10) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 100::1 (discard-only 100::/64) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:db8::1 (documentation 2001:db8::/32) as a bracketed URL literal 0ms
+     → expected true to be false // Object.is equality
+   ✓ isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 0:0:0:0:0:ffff:7f00:1 (IPv4-mapped, uncompressed (E-5)) as a bracketed URL literal 0ms
+   ✓ isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::FFFF:A9FE:A9FE (IPv4-mapped, upper case) as a bracketed URL literal 0ms
+   ✓ isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > still allows public addresses, including NAT64 and 6to4 forms of a public IPv4 0ms
+   × isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > refuses an endpoint URL carrying a user name or password (review E-7) 0ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 51 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/webhook-dispatch-hardening.spec.ts > webhook dispatch hardening (03-13d) > M-SSRF-DNS: the delivery connects to the checked address > resolves once and pins host to the vetted address; SNI and Host stay the endpoint name
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/api/webhook-dispatch-hardening.spec.ts:111:31
+    109| 
+    110|       expect(resolve).toHaveBeenCalledTimes(1);
+    111|       expect(transport.calls).toHaveLength(1);
+       |                               ^
+    112|       expect(transport.calls[0]).toMatchObject({
+    113|         host: PUBLIC_IP,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/51]⎯
+
+ FAIL  tests/api/webhook-dispatch-hardening.spec.ts > webhook dispatch hardening (03-13d) > M-SSRF-DNS: the delivery connects to the checked address > with the real transport, the socket is opened to the vetted address, never to the name
+AssertionError: expected [] to include '93.184.216.34'
+ ❯ tests/api/webhook-dispatch-hardening.spec.ts:138:21
+    136|       });
+    137|       connect.mockRestore();
+    138|       expect(hosts).toContain(PUBLIC_IP);
+       |                     ^
+    139|       expect(hosts).not.toContain("rebind-real.example.test");
+    140|       expect(result).toMatchObject({ success: false, status: "pending"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/51]⎯
+
+ FAIL  tests/api/webhook-dispatch-hardening.spec.ts > webhook dispatch hardening (03-13d) > M-XTENANT-WH: a queue row may only use its own tenant's subscription > tenant A's owner can insert a row naming B's subscription, and the dispatcher refuses it without sending
+AssertionError: expected { success: false, …(5) } to match object { success: false, …(2) }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "responseStatus": 403,
+-   "status": "failed",
++   "responseStatus": 500,
++   "status": "pending",
+    "success": false,
+  }
+
+ ❯ tests/api/webhook-dispatch-hardening.spec.ts:169:25
+    167|       expect(transport.calls).toHaveLength(0);
+    168|       expect(send).not.toHaveBeenCalled();
+    169|       expect(viaPinned).toMatchObject({ success: false, status: "faile…
+       |                         ^
+    170|       expect(await rowOf(forged!.id)).toMatchObject({ status: "failed"…
+    171| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/51]⎯
+
+ FAIL  tests/api/webhook-dispatch-hardening.spec.ts > webhook dispatch hardening (03-13d) > retry cap (review E-8) > an owner-written max_retries cannot extend attempts beyond MAX_WEBHOOK_RETRIES
+AssertionError: expected { code: '23502', …(3) } to be null
+
+- Expected: 
+null
+
++ Received: 
+{
+  "code": "23502",
+  "details": "Failing row contains (29857076-ce57-4bfd-9d26-50197d22a36c, 5128b4f2-b890-45e9-a331-d4546c40db56, 8c3b3c0f-1c23-4251-85c8-da4e22951370, appointment.booked, {\"synthetic\":true}, pending, null, 1000, 2026-11-13 03:03:07.249447+00, null, null, null, 2026-11-13 03:03:07.249447+00, 2026-11-13 03:03:07.249447+00).",
+  "hint": null,
+  "message": "null value in column \"retry_count\" of relation \"webhook_delivery_queue\" violates not-null constraint",
+}
+
+ ❯ queueRow tests/api/webhook-dispatch-hardening.spec.ts:78:17
+     76|     .select("id")
+     77|     .single();
+     78|   expect(error).toBeNull();
+       |                 ^
+     79|   return data!.id;
+     80| }
+ ❯ tests/api/webhook-dispatch-hardening.spec.ts:183:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/51]⎯
+
+ FAIL  tests/api/webhook-dispatch-hardening.spec.ts > webhook dispatch hardening (03-13d) > retry cap (review E-8) > a negative retry_count is treated as zero
+AssertionError: expected { success: false, …(5) } to match object { status: 'pending', retryCount: 1 }
+(4 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "retryCount": 1,
++   "retryCount": -999,
+    "status": "pending",
+  }
+
+ ❯ tests/api/webhook-dispatch-hardening.spec.ts:199:22
+    197|         request: recordingRequest(503).impl,
+    198|       });
+    199|       expect(result).toMatchObject({ status: "pending", retryCount: 1 …
+       |                      ^
+    200|     });
+    201|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/51]⎯
+
+ FAIL  tests/api/webhook-dispatch-hardening.spec.ts > webhook dispatch hardening (03-13d) > test ping and audit (03-13d Lows) > allows at most undefined test pings per tenant per minute
+AssertionError: expected +0 to be undefined // Object.is equality
+
+- Expected: 
+undefined
+
++ Received: 
+0
+
+ ❯ tests/api/webhook-dispatch-hardening.spec.ts:219:21
+    217|         .eq("tenant_id", owner.tenantId)
+    218|         .eq("event_type", "ping");
+    219|       expect(count).toBe(TEST_PING_LIMIT);
+       |                     ^
+    220|     });
+    221| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/51]⎯
+
+ FAIL  tests/api/webhook-dispatch-hardening.spec.ts > webhook dispatch hardening (03-13d) > test ping and audit (03-13d Lows) > the subscription audit row records the endpoint origin, never its path or query
+AssertionError: expected '[{"metadata":{"reason":"Webhook subsc…' not to contain 'receiverPathSecret'
+
+Expected: "receiverPathSecret"
+Received: "[{"metadata":{"reason":"Webhook subscription registered for https://93.184.216.34/hooks/receiverPathSecret?token=receiverQuerySecret"}}]"
+
+ ❯ tests/api/webhook-dispatch-hardening.spec.ts:238:24
+    236|       const text = JSON.stringify(rows);
+    237|       expect(text).toContain(`https://${PUBLIC_IP}`);
+    238|       expect(text).not.toContain("receiverPathSecret");
+       |                        ^
+    239|       expect(text).not.toContain("receiverQuerySecret");
+    240|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/51]⎯
+
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::127.0.0.1 (IPv4-compatible ::/96 (127.0.0.1)) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::7f00:1 (IPv4-compatible, hex tail) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::127.0.0.1 (NAT64 well-known /96 (127.0.0.1)) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::a9fe:a9fe (NAT64 well-known /96 (169.254.169.254)) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b:1::a00:1 (local-use NAT64 64:ff9b:1::/48) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:7f00:1:: (6to4 (127.0.0.1)) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:a9fe:a9fe:: (6to4 (169.254.169.254)) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:0:4136:e378:8000:63bf:3fff:fdd2 (Teredo 2001::/32) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks fec0::1 (deprecated site-local fec0::/10) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 100::1 (discard-only 100::/64) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:db8::1 (documentation 2001:db8::/32) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 0:0:0:0:0:ffff:7f00:1 (IPv4-mapped, uncompressed (E-5)) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 198.18.0.1 (benchmarking 198.18.0.0/15) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 198.19.255.1 (benchmarking 198.18.0.0/15 (upper half)) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 192.0.0.170 (IETF protocol assignments 192.0.0.0/24) as an address
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 192.88.99.1 (6to4 relay anycast 192.88.99.0/24) as an address
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/api/webhook-ssrf.spec.ts:142:29
+    140| 
+    141|   it.each(BLOCKED_ROWS)("blocks %s (%s) as an address", (ip) => {
+    142|     expect(isPrivateIp(ip)).toBe(true);
+       |                             ^
+    143|   });
+    144| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/51]⎯
+
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::127.0.0.1 (IPv4-compatible ::/96 (127.0.0.1)) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::7f00:1 (IPv4-compatible, hex tail) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::127.0.0.1 (NAT64 well-known /96 (127.0.0.1)) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::a9fe:a9fe (NAT64 well-known /96 (169.254.169.254)) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b:1::a00:1 (local-use NAT64 64:ff9b:1::/48) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:7f00:1:: (6to4 (127.0.0.1)) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:a9fe:a9fe:: (6to4 (169.254.169.254)) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:0:4136:e378:8000:63bf:3fff:fdd2 (Teredo 2001::/32) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks fec0::1 (deprecated site-local fec0::/10) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 100::1 (discard-only 100::/64) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:db8::1 (documentation 2001:db8::/32) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 0:0:0:0:0:ffff:7f00:1 (IPv4-mapped, uncompressed (E-5)) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 198.18.0.1 (benchmarking 198.18.0.0/15) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 198.19.255.1 (benchmarking 198.18.0.0/15 (upper half)) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 192.0.0.170 (IETF protocol assignments 192.0.0.0/24) as a DNS answer
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 192.88.99.1 (6to4 relay anycast 192.88.99.0/24) as a DNS answer
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/api/webhook-ssrf.spec.ts:147:21
+    145|   it.each(BLOCKED_ROWS)("blocks %s (%s) as a DNS answer", async (ip) =…
+    146|     const r = await validateWebhookEndpoint("https://hooks.example.tes…
+    147|     expect(r.valid).toBe(false);
+       |                     ^
+    148|     expect(r.error).toContain(BLOCKED);
+    149|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/51]⎯
+
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::127.0.0.1 (IPv4-compatible ::/96 (127.0.0.1)) as a bracketed URL literal
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks ::7f00:1 (IPv4-compatible, hex tail) as a bracketed URL literal
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::127.0.0.1 (NAT64 well-known /96 (127.0.0.1)) as a bracketed URL literal
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b::a9fe:a9fe (NAT64 well-known /96 (169.254.169.254)) as a bracketed URL literal
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 64:ff9b:1::a00:1 (local-use NAT64 64:ff9b:1::/48) as a bracketed URL literal
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:7f00:1:: (6to4 (127.0.0.1)) as a bracketed URL literal
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2002:a9fe:a9fe:: (6to4 (169.254.169.254)) as a bracketed URL literal
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:0:4136:e378:8000:63bf:3fff:fdd2 (Teredo 2001::/32) as a bracketed URL literal
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks fec0::1 (deprecated site-local fec0::/10) as a bracketed URL literal
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 100::1 (discard-only 100::/64) as a bracketed URL literal
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > blocks 2001:db8::1 (documentation 2001:db8::/32) as a bracketed URL literal
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/api/webhook-ssrf.spec.ts:153:21
+    151|   it.each(BLOCKED_ROWS.filter(([ip]) => ip.includes(":")))("blocks %s …
+    152|     const r = await validateWebhookEndpoint(`https://[${ip}]/x`, { res…
+    153|     expect(r.valid).toBe(false);
+       |                     ^
+    154|   });
+    155| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/51]⎯
+
+ FAIL  tests/api/webhook-ssrf.spec.ts > isPrivateIp / validateWebhookEndpoint: IPv4-embedding IPv6, transition prefixes, special-purpose IPv4 > refuses an endpoint URL carrying a user name or password (review E-7)
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/api/webhook-ssrf.spec.ts:164:21
+    162|   it("refuses an endpoint URL carrying a user name or password (review…
+    163|     const r = await validateWebhookEndpoint("https://user:pass@hooks.e…
+    164|     expect(r.valid).toBe(false);
+       |                     ^
+    165|     expect(r.error).toContain("user name or password");
+    166|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/51]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  51 failed | 17 passed (68)
+   Start at  08:33:06
+   Duration  883ms (transform 86ms, setup 12ms, collect 69ms, tests 466ms, environment 0ms, prepare 38ms)
+
+[teardown] removed run data: 4 tenant(s), 4 auth user(s), 0 storage object(s); verified none remain

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useRef, useTransition } from "react";
 import { QueueItem } from "./queue-card";
 import {
   createVisitInvoice,
@@ -33,6 +33,19 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { reportClientError } from "@/lib/log/client";
+
+/**
+ * A UUID v4 for the payment command (V2-03 03-07). `randomUUID` needs a secure context; `getRandomValues` does not.
+ */
+function newCommandId(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
 
 interface CheckoutDrawerProps {
   isOpen: boolean;
@@ -81,6 +94,10 @@ export function CheckoutDrawer({
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card">("cash");
   const [referenceNumber, setReferenceNumber] = useState("");
   const [paymentNotes, setPaymentNotes] = useState("");
+  // Idempotency key of the payment being collected: created on the first submit attempt, resent when that attempt is
+  // retried after an error (a lost response replays the recorded payment instead of paying twice), cleared once the
+  // checkout completes or the drawer opens again.
+  const paymentCommandId = useRef<string | null>(null);
 
   // WhatsApp receipt dispatch state
   const [whatsAppSending, setWhatsAppSending] = useState(false);
@@ -94,6 +111,7 @@ export function CheckoutDrawer({
   // Load existing billing details whenever drawer opens
   useEffect(() => {
     if (isOpen && visit?.id) {
+      paymentCommandId.current = null;
       setError(null);
       setSuccessNotice(null);
       setWhatsAppStatus(null);
@@ -113,7 +131,7 @@ export function CheckoutDrawer({
           }
         })
         .catch((err) => {
-          console.error("Failed to load visit billing:", err);
+          reportClientError("billing.visit_billing_load.failed", err);
           setError("Failed to load visit billing details.");
         })
         .finally(() => {
@@ -266,12 +284,14 @@ export function CheckoutDrawer({
 
         // 2. Record payment if amount > 0
         if (amountToPay > 0 && activeInvoiceId) {
+          paymentCommandId.current ??= newCommandId();
           const payRes = await recordPayment({
             invoice_id: activeInvoiceId,
             amount: amountToPay,
             payment_method: paymentMethod,
             reference_number: referenceNumber.trim() || undefined,
             notes: paymentNotes.trim() || undefined,
+            commandId: paymentCommandId.current,
           });
 
           if (!payRes.success) {
@@ -283,12 +303,13 @@ export function CheckoutDrawer({
         // 3. Complete queue encounter
         const queueRes = await transitionQueueState(visit.id, "completed");
         if (!queueRes.success) {
-          console.warn("[CheckoutDrawer] Queue transition warning:", queueRes.error);
+          reportClientError("queue.checkout_transition.failed", null);
         }
 
         // 4. Reload updated billing details
         const updated = await getVisitBillingDetails(visit.id);
         setBillingData(updated);
+        paymentCommandId.current = null;
         setIsCompleted(true);
         setSuccessNotice(
           `Payment of ₹${amountToPay} recorded successfully (${paymentMethod.toUpperCase()}) & Patient visit completed.`

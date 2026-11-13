@@ -1,4 +1,8 @@
+import { serverEnv } from "@/lib/env-server";
 import { AiChatMessage, AiProviderConfig, AiProviderName } from "./types";
+
+/** Upper bound for one AI provider call, response body included (03-13d). */
+export const AI_TIMEOUT_MS = 30_000;
 
 /**
  * AI-01 (AI_STRATEGY.md §4.6, §7): there is no mock provider and no test-only branch. When no provider is
@@ -31,16 +35,24 @@ const SUPPORTED_PROVIDERS: readonly AiProviderName[] = [
   "deepseek",
 ];
 
+/** The AI names of the environment: the typed `serverEnv()` (flag as a boolean) or a raw string map in tests. */
+export interface AiEnvSource {
+  AI_ENABLED?: boolean | string;
+  AI_PROVIDER?: string;
+  AI_API_KEY?: string;
+  AI_MODEL_NAME?: string;
+  AI_BASE_URL?: string;
+}
+
 /**
  * Resolves the provider configuration from the environment, or `null` when AI is not enabled and fully
  * configured. Nothing is defaulted: `AI_ENABLED=true` (deploy-level kill switch, §4.6) plus an explicit
  * supported `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL_NAME` and `AI_BASE_URL` are all required. Any other value of
- * `AI_PROVIDER` (including the former `mock`) means "no provider".
+ * `AI_PROVIDER` (including `mock`) means "no provider". In a production build the env schema refuses
+ * `AI_ENABLED=true` with an incomplete configuration at boot (AI-06 L1, 03-01).
  */
-export function resolveAiProviderConfig(
-  env: Record<string, string | undefined> = process.env
-): AiProviderConfig | null {
-  if (env.AI_ENABLED !== "true") return null;
+export function resolveAiProviderConfig(env: AiEnvSource = serverEnv()): AiProviderConfig | null {
+  if (env.AI_ENABLED !== true && env.AI_ENABLED !== "true") return null;
 
   const provider = (env.AI_PROVIDER ?? "").trim().toLowerCase() as AiProviderName;
   if (!SUPPORTED_PROVIDERS.includes(provider)) return null;
@@ -54,9 +66,7 @@ export function resolveAiProviderConfig(
 }
 
 /** Returns a chat client for the configured provider, or `null` when AI is unavailable. */
-export function getAiChatClient(
-  env: Record<string, string | undefined> = process.env
-): AiChatClient | null {
+export function getAiChatClient(env: AiEnvSource = serverEnv()): AiChatClient | null {
   const config = resolveAiProviderConfig(env);
   return config ? new OpenAiGatewayClient(config) : null;
 }
@@ -95,6 +105,8 @@ export class OpenAiGatewayClient implements AiChatClient {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
+        // 03-13d (review E-6): a hung provider must not hold the request until the platform kills it.
+        signal: AbortSignal.timeout(AI_TIMEOUT_MS),
       });
     } catch {
       throw new AiUnavailableError("provider_error");

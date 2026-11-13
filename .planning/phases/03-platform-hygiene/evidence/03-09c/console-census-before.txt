@@ -1,0 +1,226 @@
+# before 03-09c at 87e6839
+$ git grep -nE "console\.(log|info|warn|error|debug)" -- app components features lib | wc -l
+     216
+$ ... | files
+      78
+app 28
+components 24
+features 145
+lib 19
+
+app/(dashboard)/cabin/page.tsx:116:    console.error("[DoctorCabinPage] Error loading cabin visits:", visitsError.message, visitsError.details);
+app/(dashboard)/patients/[id]/page.tsx:34:    console.error("[PatientDetailPage] Error loading patient:", err);
+app/(dashboard)/patients/new/page.tsx:70:        console.error("Duplicate check failed:", err);
+app/api/invoices/[id]/receipt-pdf/route.ts:186:    console.error("[app/api/invoices/[id]/receipt-pdf] Error:", err instanceof Error ? err.name : "error");
+app/api/patients/[id]/export/route.ts:52:    console.error("[app/api/patients/[id]/export] export failed:", err instanceof Error ? err.name : "error");
+app/api/patients/[id]/export/route.ts:61:      console.error("[app/api/patients/[id]/export] PDF render failed:", err instanceof Error ? err.name : "error");
+app/api/patients/[id]/export/route.ts:72:      console.warn("[app/api/patients/[id]/export] PDF audit warning:", auditErr instanceof Error ? auditErr.name : "error");
+app/api/r/[token]/route.ts:92:    console.error("[app/api/r/[token]/route] Error resolving document share token:", err instanceof Error ? err.name : "error");
+app/api/reports/view/route.ts:75:    console.error("[app/api/reports/view/route] Error resolving token:", err instanceof Error ? err.name : "error");
+app/api/reschedule/[token]/route.ts:130:    console.error("[app/api/reschedule/[token]/route] GET error:", err instanceof Error ? err.name : "error");
+app/api/reschedule/[token]/route.ts:195:    console.error("[app/api/reschedule/[token]/route] POST error:", err instanceof Error ? err.name : "error");
+app/api/v1/lab-orders/route.ts:236:      console.error("[api/v1/lab-orders] Audit logging failed:", auditErr);
+app/api/v1/lab-orders/route.ts:252:      console.warn("[api/v1/lab-orders] Webhook enqueue error:", webhookErr);
+app/api/v1/patients/[id]/export/route.ts:92:        console.warn("[app/api/v1/patients/[id]/export] PDF audit warning:", auditErr);
+app/api/v1/prescriptions/route.ts:262:      console.error("[api/v1/prescriptions] Audit logging failed:", auditErr);
+app/api/v1/prescriptions/route.ts:278:      console.warn("[api/v1/prescriptions] Webhook enqueue error:", webhookErr);
+app/api/v1/referrals/[id]/route.ts:173:      console.error("[api/v1/referrals/[id]] Audit logging failed:", auditErr);
+app/api/v1/referrals/route.ts:250:      console.error("[api/v1/referrals] Audit logging failed:", auditErr);
+app/api/v1/visits/[id]/route.ts:236:      console.error("[api/v1/visits/[id]] update failed:", updateErr.code ?? "unknown");
+app/api/v1/visits/[id]/route.ts:257:      console.error("[api/v1/visits/[id]] Audit logging failed:", auditErr);
+app/api/v1/visits/route.ts:232:      console.error("[api/v1/visits] Audit logging failed:", auditErr);
+app/api/visits/[id]/prescription-pdf/route.ts:192:    console.error("[app/api/visits/[id]/prescription-pdf] Error:", err instanceof Error ? err.name : "error");
+app/api/webhooks/messaging/[provider]/route.ts:283:      console.error("[Webhook] Failed to dispatch bot_not_found message:", err);
+app/api/webhooks/messaging/[provider]/route.ts:338:      console.error("[Webhook] Failed to dispatch appointment_confirmed_ack:", err);
+app/api/webhooks/messaging/[provider]/route.ts:360:      console.warn("[Webhook] cancel refused:", err instanceof Error ? err.name : "error");
+app/api/webhooks/messaging/[provider]/route.ts:386:      console.error("[Webhook] Failed to dispatch appointment_cancelled_ack:", err);
+app/api/webhooks/messaging/[provider]/route.ts:428:      console.error("[Webhook] Failed to dispatch appointment_reschedule_link:", err);
+app/api/webhooks/messaging/[provider]/route.ts:455:    console.error("[Webhook] Failed to dispatch conversational_triage:", err);
+components/cabin/my-queue-card.tsx:83:      console.error("Failed to transition queue status:", err);
+components/calendar/booking-drawer.tsx:129:        console.error("Patient search failed:", err);
+components/calendar/waitlist-drawer.tsx:70:        console.error("Patient search failed:", err);
+components/consultation/consultation-workspace.tsx:257:      console.error("Failed to open referral letter PDF:", err);
+components/consultation/consultation-workspace.tsx:445:        console.error("Failed to repeat medication:", err);
+components/consultation/diagnosis-section.tsx:135:        console.error("Diagnosis search error:", err);
+components/consultation/diagnosis-section.tsx:245:      console.error("Failed to update diagnosis note:", err);
+components/consultation/frequent-rx-chips.tsx:48:        console.error("Failed to fetch frequent prescriptions:", err);
+components/consultation/prescription-builder.tsx:135:        console.error("Medicine search error:", err);
+components/consultation/prescription-builder.tsx:152:      console.error("Failed to load templates:", err);
+components/consultation/prescription-builder.tsx:373:      console.error(err);
+components/consultation/prescription-builder.tsx:388:        console.error("Failed to add template item:", err);
+components/layout/global-search-modal.tsx:80:        console.error("Global search failed:", err);
+components/layout/user-dropdown.tsx:28:      console.error("Sign out error:", err);
+components/patients/dpdp-export-actions.tsx:41:      console.error("[components/patients/dpdp-export-actions] Export failed:", err);
+components/patients/patient-directory-table.tsx:75:        console.error("Remote patient search failed:", err);
+components/queue/checkout-drawer.tsx:116:          console.error("Failed to load visit billing:", err);
+components/queue/checkout-drawer.tsx:286:          console.warn("[CheckoutDrawer] Queue transition warning:", queueRes.error);
+components/queue/walk-in-drawer.tsx:94:        console.error("Patient search failed:", err);
+components/referrals/create-referral-modal.tsx:176:          console.warn("Popup blocked by browser:", e);
+components/referrals/referrals-register.tsx:57:      console.error("Failed to refresh referrals:", err);
+components/settings/developer/developer-settings-view.tsx:133:      console.error("Delete webhook failed:", err);
+components/settings/developer/single-reveal-key-modal.tsx:35:      console.error("Failed to copy key:", err);
+components/settings/developer/webhook-subscription-list.tsx:52:      console.error("Failed to copy signing secret:", err);
+features/ai/actions.ts:55:    console.error("[generateSoapAction] failed");
+features/ai/actions.ts:78:    console.error("[getPatientCatchUpSummaryAction] failed");
+features/ai/actions.ts:104:    console.error("[getFrequentPrescriptionsAction] Error:", err);
+features/api-keys/service.ts:52:      console.error("[listApiKeys] Error fetching keys:", keysErr);
+features/api-keys/service.ts:82:    console.error("[listApiKeys] Exception:", err);
+features/api-keys/service.ts:126:      console.error("[createApiKey] Insert error:", insertErr);
+features/api-keys/service.ts:141:      console.warn("[createApiKey] Audit logging warning:", auditErr);
+features/api-keys/service.ts:154:    console.error("[createApiKey] Exception:", err);
+features/api-keys/service.ts:186:      console.error("[revokeApiKey] Update error:", updateErr);
+features/api-keys/service.ts:201:      console.warn("[revokeApiKey] Audit warning:", auditErr);
+features/api-keys/service.ts:206:    console.error("[revokeApiKey] Exception:", err);
+features/appointments/system.ts:98:    console.warn("[notifyAppointmentRescheduled] Failed to enqueue webhook event:", webhookErr);
+features/appointments/system.ts:155:    console.warn("[cancelAppointment] Failed to enqueue webhook event:", webhookErr);
+features/appointments/system.ts:179:    console.warn("[cancelAppointment] Waitlist check error:", err);
+features/billing/pdf/generator.ts:66:    console.warn("[features/billing/pdf/generator] Audit log warning:", auditErr);
+features/billing/pdf/generator.ts:104:    console.error("[features/billing/pdf/generator] Upload failed:", uploadErr);
+features/billing/reports-service.ts:93:      console.error("[features/billing/reports-actions] Payments query error:", payErr);
+features/billing/service.ts:175:      console.error(
+features/billing/service.ts:201:      console.error(
+features/billing/service.ts:296:      console.error(
+features/billing/service.ts:397:      console.error("[getVisitBillingDetails] Error loading invoice:", invErr);
+features/billing/service.ts:515:      console.error("[addInvoiceItem] Insert error:", itemErr);
+features/billing/service.ts:858:      console.warn(
+features/billing/service.ts:892:      console.warn(
+features/billing/service.ts:1215:    console.error(
+features/billing/service.ts:1440:    console.error(
+features/billing/subscription.ts:27:    console.error("[features/billing/subscription] Error fetching subscription:", subError);
+features/billing/subscription.ts:39:    console.error("[features/billing/subscription] Error fetching payments:", paymentsError);
+features/clinics/profile.ts:102:      console.error("[features/clinics/profile] Failed to update profile:", error);
+features/consultation/service.ts:170:      console.error("[saveConsultationDraft] update failed:", updateErr.code ?? "unknown");
+features/consultation/service.ts:680:      console.error("[completeAndSignConsultation] Visit update error:", claimErr.code);
+features/consultation/service.ts:699:      console.error("[completeAndSignConsultation] Prescription update error:", rxErr.code);
+features/consultation/service.ts:712:      console.warn("[completeAndSignConsultation] Archival PDF warning:", pdfErr);
+features/consultation/service.ts:750:      console.warn("[completeAndSignConsultation] Webhook dispatch warning:", webhookErr);
+features/consultation/service.ts:755:    console.error("[completeAndSignConsultation] Error:", err);
+features/consultation/service.ts:884:      console.error("[reopenVisitForAmendment] Revision insert error:", revErr);
+features/consultation/service.ts:911:    console.error("[reopenVisitForAmendment] Error:", err);
+features/consultation/service.ts:1006:      console.warn("[finalizeVisitAmendment] PDF regeneration warning:", pdfErr);
+features/consultation/service.ts:1022:    console.error("[finalizeVisitAmendment] Error:", err);
+features/dpdp/export.ts:178:      console.warn("[features/dpdp/export] Audit log warning:", auditErr);
+features/labs/service.ts:140:      console.error("[features/labs/actions] Failed to insert patient_document row:", insertErr);
+features/labs/service.ts:171:      console.warn("[uploadLabDocument] Failed to enqueue webhook event:", webhookErr);
+features/labs/service.ts:176:    console.error("[features/labs/actions] uploadLabDocument exception:", err);
+features/labs/service.ts:206:      console.error("[features/labs/actions] getPatientDocuments error:", error);
+features/labs/service.ts:217:    console.error("[features/labs/actions] getPatientDocuments exception:", err);
+features/labs/service.ts:269:    console.error("[features/labs/actions] getDocumentSignedUrl exception:", err);
+features/labs/service.ts:329:    console.error("[features/labs/actions] generateDocumentShareToken exception:", err);
+features/labs/service.ts:374:        console.warn(
+features/labs/service.ts:380:      console.warn("[features/labs/actions] Stored key outside the patient prefix; storage object not deleted.");
+features/labs/service.ts:391:      console.error("[features/labs/actions] Failed to delete document row:", deleteErr);
+features/labs/service.ts:409:    console.error("[features/labs/actions] deleteLabDocument exception:", err);
+features/labs/service.ts:490:    console.error("[features/labs/actions] shareLabReportViaWhatsApp error:", err);
+features/notifications/service.ts:69:      console.error("[features/notifications/service] getInAppNotifications error:", errorTag(error));
+features/notifications/service.ts:115:      console.error("[features/notifications/service] getUnreadNotificationCount error:", errorTag(error));
+features/notifications/service.ts:151:      console.error("[features/notifications/service] markNotificationRead error:", errorTag(error));
+features/notifications/service.ts:206:      console.error("[features/notifications/service] markAllNotificationsRead error:", errorTag(error));
+features/notifications/triggers.ts:111:    console.error(`[features/notifications/triggers] Failed to insert ${payload.eventType}:`, error);
+features/patients/consent-service.ts:88:      console.error("[features/patients/consent] Failed to record consent grant:", error);
+features/patients/consent-service.ts:141:      console.error("[features/patients/consent] Failed to record consent withdrawal:", error);
+features/patients/consent-service.ts:208:      console.error("[features/patients/consent] Failed to record global consent toggle:", error);
+features/patients/service.ts:57:      console.error("[features/patients/actions] Failed to insert patient:", insertError);
+features/patients/service.ts:254:    console.error("[searchPatients] Query error:", error);
+features/patients/service.ts:273:    console.error("[getPatients] Query error:", error);
+features/patients/service.ts:305:      console.error("[getPatientVisitHistory] Failed to fetch visits:", visitsErr);
+features/patients/service.ts:490:    console.error("[getPatientVisitHistory] Unexpected error:", err);
+features/prescriptions/pdf/generator.ts:102:    console.error("[features/prescriptions/pdf/generator] Upload failed:", uploadErr);
+features/prescriptions/pdf/generator.ts:144:    console.warn("[features/prescriptions/pdf/generator] Audit log warning:", auditErr);
+features/prescriptions/service.ts:52:      console.error("[features/prescriptions/service] search_medicines RPC error:", error);
+features/prescriptions/service.ts:144:      console.warn("[getOrCreateDraftPrescription] Webhook enqueue error:", webhookErr);
+features/prescriptions/service.ts:233:      console.error("[features/prescriptions/service] Insert item error:", insertErr);
+features/prescriptions/service.ts:367:      console.error("[features/prescriptions/service] Save template error:", error);
+features/prescriptions/service.ts:493:      console.error("[features/prescriptions/service] Fetch prescription error:", rxErr);
+features/prescriptions/service.ts:676:    console.error("[features/prescriptions/service] getPrescriptionPdfSignedUrl error:", err);
+features/prescriptions/service.ts:782:    console.error("[features/prescriptions/service] sharePrescriptionViaWhatsApp error:", err);
+features/queue/service.ts:75:      console.error("[features/queue/service] Token generation RPC failed:", rpcError);
+features/queue/service.ts:100:      console.error("[features/queue/service] Failed to insert queue token:", tokenInsertError);
+features/queue/service.ts:185:      console.error("[features/queue/service] transition failed:", moveErr.code ?? "unknown");
+features/queue/service.ts:288:      console.error("[features/queue/service] Failed to fetch queue visits:", error);
+features/referrals/pdf/generator.ts:80:    console.error("[features/referrals/pdf/generator] Upload failed:", uploadErr);
+features/referrals/service.ts:184:      console.error("[features/referrals/service] insert referral failed:", errorTag(insertErr));
+features/referrals/service.ts:234:      console.error("[features/referrals/actions] PDF compilation error:", pdfErr);
+features/referrals/service.ts:286:      console.error("[features/referrals/service] getOutboundReferrals failed:", errorTag(error));
+features/referrals/service.ts:323:      console.error("[features/referrals/service] getInboundReferrals failed:", errorTag(error));
+features/referrals/service.ts:338:        console.error("[features/referrals/service] referral_source_clinics failed:", errorTag(clinicsError));
+features/referrals/service.ts:391:      if (error) console.error("[features/referrals/service] acknowledgeReferral failed:", errorTag(error));
+features/referrals/service.ts:537:      console.error("[features/referrals/service] getPatientReferrals failed:", errorTag(error));
+features/settings/service.ts:116:      console.error("[features/settings/service] Failed to update clinic settings:", updateError);
+features/settings/service.ts:142:        console.warn("[updateClinicSettings] Could not sync user metadata:", authSyncErr);
+features/settings/service.ts:219:      console.error("[features/settings/service] Failed to update statutory settings:", updateError);
+features/settings/service.ts:287:      console.error("[updateUserProfile] Error updating membership:", updateError);
+features/settings/service.ts:299:      console.warn("[updateUserProfile] Could not sync auth user metadata:", authErr);
+features/settings/service.ts:427:      console.error("[updateStaffMember] Error updating staff member:", updateErr?.code ?? "no_row");
+features/settings/service.ts:528:      console.error("[updateDoctorAvailability] Update error:", updateErr);
+features/settings/service.ts:607:      console.error("[updateDoctorSlotDuration] Update error:", updateErr);
+features/settings/service.ts:649:      console.error("[getDoctorScheduleBlocks] Error:", error);
+features/settings/service.ts:655:    console.error("[getDoctorScheduleBlocks] Unexpected error:", err);
+features/sharing/public-links.ts:65:    if (error) console.error("[features/sharing/public-links] resolve_share_token failed:", error.code ?? "unknown");
+features/sharing/public-links.ts:107:    if (error) console.error("[features/sharing/public-links] get_reschedule_context failed:", error.code ?? "unknown");
+features/sharing/public-links.ts:151:    if (error) console.error("[features/sharing/public-links] consume_reschedule_token failed:", error.code ?? "unknown");
+features/sharing/system.ts:125:    console.warn("[features/sharing/system] reschedule follow-up failed:", err instanceof Error ? err.name : "error");
+features/sharing/tokens.ts:42:    console.error("[features/sharing/tokens] revoke_share_token refused:", error.code ?? "unknown");
+features/sharing/tokens.ts:70:      console.error("[features/sharing/tokens] create_share_token refused:", error.code ?? "unknown");
+features/staff/actions.ts:72:      console.error("[features/staff/actions] Failed to create invitation:", error?.code ?? "no_row");
+features/staff/service.ts:36:      console.error(
+features/staff/service.ts:66:    console.error("[getTenantDoctorDirectory] Unexpected error:", err);
+features/staff/service.ts:90:      console.error(
+features/staff/service.ts:108:    console.error("[getTenantStaffDirectory] Unexpected error:", err);
+features/terminology/service.ts:63:      console.error("[features/terminology/actions] Central diagnosis search error:", centralErr);
+features/terminology/service.ts:184:      console.error("[features/terminology/actions] Insert error:", insertErr);
+features/visits/scheduling-service.ts:94:      console.error("[createScheduleBlock] Insert error:", insertError);
+features/visits/scheduling-service.ts:113:    console.error("[createScheduleBlock] Unexpected error:", err);
+features/visits/scheduling-service.ts:163:      console.error("[deleteScheduleBlock] Delete error:", delError);
+features/visits/scheduling-service.ts:179:    console.error("[deleteScheduleBlock] Unexpected error:", err);
+features/visits/scheduling-service.ts:224:      console.error("[getScheduleBlocksForDate] Error fetching blocks:", error ? { message: error.message, code: error.code } : "No data returned");
+features/visits/scheduling-service.ts:230:    console.error("[getScheduleBlocksForDate] Unexpected error:", err);
+features/visits/scheduling-service.ts:283:      console.error("[features/visits/scheduling-service] Availability check failed (shifts):", memberErr.message);
+features/visits/scheduling-service.ts:311:      console.error("[features/visits/scheduling-service] Availability check failed (blocks):", blocksErr.message);
+features/visits/scheduling-service.ts:354:      console.error("[features/visits/scheduling-service] Availability check failed (visits):", error?.message);
+features/visits/scheduling-service.ts:374:    console.error("[features/visits/scheduling-service] Slot availability error:", err instanceof Error ? err.message : err);
+features/visits/scheduling-service.ts:526:    console.error("[bookAppointment] Failed to queue/dispatch appointment notification:", commErr);
+features/visits/service.ts:96:      console.error("[features/visits/service] Failed to insert visit:", insertError);
+features/visits/service.ts:163:      console.error("[features/visits/service] Failed to fetch visits:", error);
+features/visits/service.ts:217:      console.error("[features/visits/service] Failed to update visit status:", updateError);
+features/visits/service.ts:261:      console.error("[confirmAppointment] Failed to fetch visit:", { visitId, readError });
+features/visits/service.ts:290:      console.error("[confirmAppointment] Failed to update visit status:", updateError);
+features/visits/service.ts:412:        console.error("[cancelVisit] candidates query error:", candidateErr);
+features/visits/service.ts:489:      console.error("[getActiveClinicDoctors] Error querying doctors:", error);
+features/visits/service.ts:502:    console.error("[getActiveClinicDoctors] Unexpected error:", err);
+features/visits/service.ts:615:      console.error("[getClinicVisitsRegister] Error fetching visits:", visitsErr);
+features/visits/service.ts:891:    console.error("[getClinicVisitsRegister] Unexpected error:", err);
+features/visits/service.ts:947:      console.error("[recordVisitVitals] Failed to update vitals:", updateError);
+features/visits/service.ts:962:    console.error("[recordVisitVitals] Unexpected error:", err);
+features/waitlist/service.ts:80:      console.error("[features/waitlist/service] Failed to insert waitlist entry:", error);
+features/waitlist/service.ts:163:      console.error("[features/waitlist/service] Failed to fetch waitlist:", entriesError);
+features/webhooks/service.ts:49:      console.error("[listWebhookSubscriptions] Query error:", fetchErr);
+features/webhooks/service.ts:68:    console.error("[listWebhookSubscriptions] Exception:", err);
+features/webhooks/service.ts:138:      console.error("[createWebhookSubscription] Insert error:", insertErr);
+features/webhooks/service.ts:153:      console.warn("[createWebhookSubscription] Audit warning:", auditErr);
+features/webhooks/service.ts:168:    console.error("[createWebhookSubscription] Exception:", err);
+features/webhooks/service.ts:199:      console.error("[deleteWebhookSubscription] Delete error:", deleteErr);
+features/webhooks/service.ts:216:      console.warn("[deleteWebhookSubscription] Audit warning:", auditErr);
+features/webhooks/service.ts:221:    console.error("[deleteWebhookSubscription] Exception:", err);
+features/webhooks/service.ts:289:    console.error("[testPingWebhook] Exception:", err);
+features/webhooks/service.ts:323:      console.error("[listDeliveryLogs] Query error:", fetchErr);
+features/webhooks/service.ts:347:    console.error("[listDeliveryLogs] Exception:", err);
+lib/ai/prescription-suggestions.ts:130:    console.error("[getDoctorFrequentPrescriptions] Exception in suggestions query:", err);
+lib/api/auth.ts:156:    console.error("[lib/api/auth] Failed to record usage counter:", usageErr);
+lib/api/envelope.ts:56:    console.error(`[api-v1] Error ${correlationId} [${code}]:`, message, details);
+lib/audit/audit.ts:187:    console.error("[lib/audit/audit] Failed to record audit log:", error);
+lib/auth/context.ts:77:    console.error("[lib/auth/context] resolveServiceContext failed:", err instanceof Error ? err.name : "error");
+lib/auth/tenant.ts:49:    console.error("[lib/auth/tenant] membership lookup failed:", memError.code ?? "unknown");
+lib/errors/client-message.ts:10:  if (logTag) console.error(`[${logTag}]`, errorTag(err));
+lib/log/client.ts:5: * Development: one `console.warn` with the event and the error's log-safe tag (code or class name, never its message).
+lib/log/client.ts:12:  console.warn(`[${event}]`, errorTag(err));
+lib/messaging/dev-logger.ts:31:    console.log(lines);
+lib/messaging/dev-logger.ts:68:    console.log(lines);
+lib/messaging/dev-logger.ts:87:      console.warn("[DevLoggerProvider] Failed to write to .planning/dev-messages.txt:", err);
+lib/messaging/dispatcher.ts:210:      console.warn("[dispatchQueuedMessage] Failed to record audit log:", auditErr);
+lib/webhooks/dispatcher.ts:272:    console.error("[dispatchPendingWebhookQueue] Query error:", error);
+lib/webhooks/dispatcher.ts:295:      console.error(`[dispatchPendingWebhookQueue] Error processing item ${item.id}:`, itemErr);
+lib/webhooks/outbox.ts:56:      console.error("[enqueueWebhookEvent] Error querying subscriptions:", subError);
+lib/webhooks/outbox.ts:92:      console.error("[enqueueWebhookEvent] Error inserting into webhook_delivery_queue:", insertError);
+lib/webhooks/outbox.ts:104:              console.warn(`[enqueueWebhookEvent] Background dispatch error for ${item.id}:`, err);
+lib/webhooks/outbox.ts:117:    console.error("[enqueueWebhookEvent] Unexpected exception:", err);

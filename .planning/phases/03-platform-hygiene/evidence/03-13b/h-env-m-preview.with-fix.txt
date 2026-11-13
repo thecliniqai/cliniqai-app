@@ -1,0 +1,9 @@
+# with-fix run at working tree
+····························································································································································································
+
+ Test Files  2 passed (2)
+      Tests  188 passed (188)
+   Start at  08:23:41
+   Duration  1.29s (transform 73ms, setup 13ms, collect 24ms, tests 928ms, environment 0ms, prepare 39ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

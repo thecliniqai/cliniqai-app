@@ -2,7 +2,9 @@
  * R8 accessibility checks for the screens V2-01 changed (V2-02 plan 02-03a, ruling RL-17; CLAUDE.md DoD 3).
  *
  * BLOCKING — the three new V2-01 auth pages (login, forgot-password, join) at 360, 820 and 1280 px: 0 serious or
- * critical axe violations (WCAG 2.0/2.1/2.2 A+AA tags) and no horizontal scroll at 360 px.
+ * critical axe violations (WCAG 2.0/2.1/2.2 A+AA tags) and no horizontal scroll at 360 px. V2-03 03-12a adds the
+ * forgot-password "set a new password" step and the /profile change-password form (scoped to the form; the rest of
+ * /profile is v1 and FMP-owned) under the same rules.
  * REPORT-ONLY — the four V2-01-touched v1 components (staff edit, invite form, Sign & Bill modal, DPDP export
  * control) at 360 px: the axe result is attached as JSON and summarised (with horizontal overflow) in an annotation
  * naming the owning FMP milestone; the test fails only if the component cannot be reached. Their a11y debt is
@@ -93,6 +95,59 @@ test.describe("R8 blocking: V2-01 auth pages", () => {
       });
     }
   }
+});
+
+async function settle(page: Page): Promise<void> {
+  const submits = page.locator('button[type="submit"]');
+  if (await submits.count()) {
+    await expect(submits.first()).toBeEnabled();
+    await expect.poll(() => submits.first().evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+  }
+}
+
+// --- Blocking: 03-12a password screens ---------------------------------------------------------------------------
+test.describe("R8 blocking: 03-12a password screens", () => {
+  for (const size of WIDTHS) {
+    test(`forgot-password set-a-new-password step at ${size.width}px: 0 serious/critical`, async ({ page }, testInfo) => {
+      await page.setViewportSize(size);
+      // The step is reached for any address (the answer never reveals whether the account exists); no email is sent
+      // for an unknown one.
+      await page.goto("/forgot-password");
+      await settle(page);
+      await page.getByLabel(/^Email/).fill(`a11y-nobody-${size.width}-${Date.now()}@example.com`);
+      await page.getByRole("button", { name: "Send code" }).click();
+      await expect(page.getByRole("heading", { name: "Set a new password" })).toBeVisible();
+      await settle(page);
+
+      const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
+      await attach(testInfo, `forgot-password-reset-step-${size.width}`, results);
+      expect(seriousOrCritical(results), "serious/critical axe violations").toEqual([]);
+      if (size.width === 360) expect(await hasHorizontalScroll(page), "horizontal scroll at 360px").toBe(false);
+    });
+  }
+
+  test.describe("profile change-password form (nurse)", () => {
+    test.use({ storageState: storageStatePath("nurse") });
+
+    for (const size of WIDTHS) {
+      test(`change-password form at ${size.width}px: 0 serious/critical`, async ({ page }, testInfo) => {
+        await page.setViewportSize(size);
+        await page.goto("/profile");
+        const form = page.locator('form[aria-labelledby="change-password-title"]');
+        await expect(form.getByRole("button", { name: "Change password" })).toBeEnabled();
+        await expect.poll(() => form.getByRole("button", { name: "Change password" }).evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+
+        const results = await new AxeBuilder({ page }).withTags(TAGS).include('form[aria-labelledby="change-password-title"]').analyze();
+        await attach(testInfo, `profile-change-password-${size.width}`, results);
+        expect(seriousOrCritical(results), "serious/critical axe violations").toEqual([]);
+        if (size.width === 360) {
+          // The form itself must fit the viewport (the rest of /profile is v1 and FMP-owned).
+          const overflow = await form.evaluate((el) => el.scrollWidth > el.clientWidth || el.getBoundingClientRect().right > window.innerWidth);
+          expect(overflow, "change-password form overflows at 360px").toBe(false);
+        }
+      });
+    }
+  });
 });
 
 // --- Report-only: V2-01-touched v1 components ---------------------------------------------------------------------

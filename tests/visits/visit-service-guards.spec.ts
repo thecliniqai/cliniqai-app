@@ -85,7 +85,9 @@ describe("date and doctor values never reach PostgREST filter syntax unvalidated
     const res = await getVisitsForDate(mockCtx(db.client), "2026-10-15");
     expect(res.success).toBe(true);
     expect(db.orFilters).toHaveLength(1);
-    expect(db.orFilters[0]).toContain("scheduled_at.gte.2026-10-15T00:00:00.000Z");
+    // The clinic day in the tenant zone (the mock has no tenants row, so the default Asia/Kolkata), half-open.
+    expect(db.orFilters[0]).toContain("scheduled_at.gte.2026-10-14T18:30:00.000Z");
+    expect(db.orFilters[0]).toContain("scheduled_at.lt.2026-10-15T18:30:00.000Z");
   });
 
   it("getQueueForDate rejects a date that is not YYYY-MM-DD", async () => {

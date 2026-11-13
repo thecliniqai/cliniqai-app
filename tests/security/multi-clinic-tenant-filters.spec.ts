@@ -20,19 +20,17 @@ import { promoteWaitlistEntry } from "@/features/waitlist/service";
 import { acknowledgeReferral } from "@/features/referrals/service";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
+import { insertReturningId, rowById, type IdTable } from "../helpers/db";
+import type { Tables, TablesInsert } from "@/types/database";
 
 const admin = getAdminClient();
 
-async function insertRow(table: string, row: Record<string, unknown>): Promise<string> {
-  const { data, error } = await admin.from(table).insert(row).select("id").single();
-  if (error || !data) throw new Error(`seed ${table} failed: ${error?.message}`);
-  return (data as { id: string }).id;
+function insertRow<T extends IdTable>(table: T, row: TablesInsert<T>): Promise<string> {
+  return insertReturningId(admin, table, row);
 }
 
-async function rowOf(table: string, id: string): Promise<Record<string, unknown>> {
-  const { data, error } = await admin.from(table).select("*").eq("id", id).single();
-  if (error || !data) throw new Error(`read ${table} failed: ${error?.message}`);
-  return data as Record<string, unknown>;
+function rowOf<T extends IdTable>(table: T, id: string): Promise<Tables<T>> {
+  return rowById(admin, table, id);
 }
 
 interface ClinicRows {

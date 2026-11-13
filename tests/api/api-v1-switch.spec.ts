@@ -10,7 +10,7 @@ import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
-import { middleware, config } from "@/middleware";
+import { proxy, config } from "@/proxy";
 import { apiRequestBlocked, apiV1Enabled, isApiV1Path, normaliseRequestPath } from "@/lib/api/enabled";
 import { authenticateApiKey } from "@/lib/api/auth";
 import { GET as getOpenApi } from "@/app/api/v1/openapi.json/route";
@@ -53,7 +53,7 @@ describe("/api/v1 switch (API_V1_ENABLED)", () => {
       it(`${route}`, async () => {
         vi.stubEnv("API_V1_ENABLED", undefined);
         for (const method of METHODS) {
-          const res = await middleware(new NextRequest(`http://localhost${route}`, { method }));
+          const res = await proxy(new NextRequest(`http://localhost${route}`, { method }));
           expect(res.status, `${method} ${route}`).toBe(404);
           expect(res.headers.get("x-middleware-next")).toBeNull();
           expect(await res.text()).toBe("");
@@ -66,7 +66,7 @@ describe("/api/v1 switch (API_V1_ENABLED)", () => {
     for (const value of [undefined, "false", "TRUE", "1", "yes", ""]) {
       vi.stubEnv("API_V1_ENABLED", value);
       for (const p of ["/api/v1", "/api/v1/", "/api/v1/patients"]) {
-        const res = await middleware(new NextRequest(`http://localhost${p}`));
+        const res = await proxy(new NextRequest(`http://localhost${p}`));
         expect(res.status, `${String(value)} ${p}`).toBe(404);
       }
     }
@@ -76,7 +76,7 @@ describe("/api/v1 switch (API_V1_ENABLED)", () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("API_V1_ENABLED", "true");
     for (const route of ROUTES) {
-      const res = await middleware(new NextRequest(`http://localhost${route}`, { method: "POST" }));
+      const res = await proxy(new NextRequest(`http://localhost${route}`, { method: "POST" }));
       expect(res.status, route).toBe(200);
       expect(res.headers.get("x-middleware-next")).toBe("1");
     }
@@ -86,7 +86,7 @@ describe("/api/v1 switch (API_V1_ENABLED)", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("API_V1_ENABLED", "true");
     expect(apiV1Enabled()).toBe(false);
-    const res = await middleware(new NextRequest("http://localhost/api/v1/patients"));
+    const res = await proxy(new NextRequest("http://localhost/api/v1/patients"));
     expect(res.status).toBe(404);
   });
 
@@ -97,7 +97,7 @@ describe("/api/v1 switch (API_V1_ENABLED)", () => {
     expect(isApiV1Path("/api/v1x")).toBe(false);
   });
 
-  it("the middleware matcher covers every v1 route, including ids with an image extension", () => {
+  it("the proxy matcher covers every v1 route, including ids with an image extension", () => {
     for (const route of ROUTES) {
       expect(unstable_doesMiddlewareMatch({ config, url: route }), route).toBe(true);
     }
@@ -113,7 +113,7 @@ describe("AR2-H2: encoded and look-alike paths cannot get past the switch", () =
   });
 
   // Next decodes the pathname when it matches an app route (`/api/v%31/patients` reaches `/api/v1/patients`), while the
-  // middleware sees the raw path. Every one of these must be a 404 while the API is off.
+  // proxy sees the raw path. Every one of these must be a 404 while the API is off.
   const ENCODED = [
     "/api/v%31/patients",
     "/api/v%31/openapi.json",
@@ -145,14 +145,14 @@ describe("AR2-H2: encoded and look-alike paths cannot get past the switch", () =
     for (const value of [undefined, "false"]) {
       vi.stubEnv("API_V1_ENABLED", value);
       for (const method of METHODS) {
-        const res = await middleware(new NextRequest(`http://localhost${p}`, { method }));
+        const res = await proxy(new NextRequest(`http://localhost${p}`, { method }));
         expect(res.status, `${method} ${p} (${String(value)})`).toBe(404);
         expect(res.headers.get("x-middleware-next")).toBeNull();
       }
     }
   });
 
-  it("the middleware runs for the encoded forms (matcher)", () => {
+  it("the proxy runs for the encoded forms (matcher)", () => {
     for (const url of [
       "/api/v%31/patients",
       "/api%2Fv1/appointments",
@@ -164,8 +164,9 @@ describe("AR2-H2: encoded and look-alike paths cannot get past the switch", () =
     ]) {
       expect(unstable_doesMiddlewareMatch({ config, url }), url).toBe(true);
     }
-    // Static assets outside /api stay excluded.
-    for (const url of ["/logo.png", "/images/hero.webp", "/_next/static/chunk.js"]) {
+    // Static assets outside /api stay excluded: top-level image files only since 03-13a (review D L-4), so a nested
+    // `/images/hero.webp` runs the proxy like any page path.
+    for (const url of ["/logo.png", "/hero.webp", "/_next/static/chunk.js"]) {
       expect(unstable_doesMiddlewareMatch({ config, url }), url).toBe(false);
     }
   });
@@ -198,16 +199,16 @@ describe("AR2-H2: encoded and look-alike paths cannot get past the switch", () =
   it("with the flag on, encoded forms of v1 pass through (the API behaves the same either way)", async () => {
     vi.stubEnv("NODE_ENV", "test");
     vi.stubEnv("API_V1_ENABLED", "true");
-    const res = await middleware(new NextRequest("http://localhost/api/v%31/patients"));
+    const res = await proxy(new NextRequest("http://localhost/api/v%31/patients"));
     expect(res.status).toBe(200);
     expect(res.headers.get("x-middleware-next")).toBe("1");
     // `%` or a backslash left after decoding is refused for every /api path, on or off.
-    expect((await middleware(new NextRequest("http://localhost/api/v%/patients"))).status).toBe(404);
-    expect((await middleware(new NextRequest("http://localhost/api%5Cv1/patients"))).status).toBe(404);
+    expect((await proxy(new NextRequest("http://localhost/api/v%/patients"))).status).toBe(404);
+    expect((await proxy(new NextRequest("http://localhost/api%5Cv1/patients"))).status).toBe(404);
   });
 });
 
-describe("AR2-H2: the v1 handlers enforce the switch themselves (middleware bypassed)", () => {
+describe("AR2-H2: the v1 handlers enforce the switch themselves (proxy bypassed)", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.restoreAllMocks();
@@ -247,14 +248,16 @@ describe("AR2-H2: the v1 handlers enforce the switch themselves (middleware bypa
   it("authenticateApiKey answers 404 before touching the database when the flag is off", async () => {
     vi.stubEnv("API_V1_ENABLED", "false");
     const from = vi.fn();
+    const acquire = vi.fn(() => ({ from }) as never);
     const res = await authenticateApiKey(
-      { from } as never,
       new NextRequest("http://localhost/api/v1/patients", {
         headers: { authorization: "Bearer clq_live_000000000000000000000000000000000000000000000000" },
-      })
+      }),
+      acquire
     );
     expect(res.success).toBe(false);
     if (!res.success) expect(res.response.status).toBe(404);
+    expect(acquire).not.toHaveBeenCalled();
     expect(from).not.toHaveBeenCalled();
   });
 
@@ -278,24 +281,33 @@ describe("AR2-H2: the v1 handlers enforce the switch themselves (middleware bypa
 describe("env schema: API_V1_ENABLED", () => {
   const base = {
     NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-test-key",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "anon-test-key",
+  };
+  // A production build (here the e2e tier: offline providers, loopback URLs) per V2-03 03-01.
+  const productionBuild = {
+    ...base,
+    NODE_ENV: "production",
+    APP_ENV: "e2e",
+    NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3100",
+    MESSAGING_PROVIDER: "dev",
   };
 
-  it("defaults to 'false'", () => {
-    expect(parseEnv({ ...base, NODE_ENV: "production" }).API_V1_ENABLED).toBe("false");
-    expect(parseEnv({ ...base, NODE_ENV: "test", API_V1_ENABLED: "" }).API_V1_ENABLED).toBe("false");
+  it("defaults to off", () => {
+    expect(parseEnv(productionBuild).API_V1_ENABLED).toBe(false);
+    expect(parseEnv({ ...base, NODE_ENV: "test", API_V1_ENABLED: "" }).API_V1_ENABLED).toBe(false);
   });
 
   it("accepts 'true' outside production", () => {
-    expect(parseEnv({ ...base, NODE_ENV: "development", API_V1_ENABLED: "true" }).API_V1_ENABLED).toBe("true");
-    expect(parseEnv({ ...base, NODE_ENV: "test", API_V1_ENABLED: "true" }).API_V1_ENABLED).toBe("true");
+    expect(parseEnv({ ...base, NODE_ENV: "development", API_V1_ENABLED: "true" }).API_V1_ENABLED).toBe(true);
+    expect(parseEnv({ ...base, NODE_ENV: "test", API_V1_ENABLED: "true" }).API_V1_ENABLED).toBe(true);
   });
 
   it("refuses 'true' in production", () => {
-    expect(() => parseEnv({ ...base, NODE_ENV: "production", API_V1_ENABLED: "true" })).toThrow(/API_V1_ENABLED/);
+    expect(() => parseEnv({ ...productionBuild, API_V1_ENABLED: "true" })).toThrow(/API_V1_ENABLED/);
   });
 
   it("refuses values other than 'true' and 'false'", () => {
     expect(() => parseEnv({ ...base, NODE_ENV: "test", API_V1_ENABLED: "1" })).toThrow(/API_V1_ENABLED/);
   });
 });
+

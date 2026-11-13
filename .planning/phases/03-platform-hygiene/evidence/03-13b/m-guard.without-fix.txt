@@ -1,0 +1,20 @@
+# without-fix run: files reverted to HEAD 0492938: scripts/staging/target-guard.mjs scripts/staging/schema-drift.mjs
+# command: npx vitest run tests/ci/staging-scripts.spec.ts --reporter=dot 2>&1 | grep -v '^\[teardown\]' | grep -E 'FAIL|SyntaxError|does not provide|Tests |Test Files' | head -30
+⎯⎯⎯⎯⎯⎯ Failed Tests 14 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > refuses a database URL with ?host= pointing at loopback
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > refuses a database URL with ?host= pointing at another project
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > refuses a database URL with ?user= naming another project's pooler tenant
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > refuses a database URL with sslmode=disable
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > refuses a database URL with sslmode=prefer
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > refuses a database URL with sslmode twice
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > refuses a database URL with port, dbname and options overrides
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > refuses a database URL with an upper-case HOST parameter
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > refuses a database URL with a fragment
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > refuses a database URL with a multi-segment path
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > accepts sslmode=require / verify-full and re-serialises the URL with TLS required (the CLI never sees the raw secret)
+ FAIL  tests/ci/staging-scripts.spec.ts > target-guard > CLI --print-db-url prints only the canonical URL on stdout; refuses a re-targeting URL with nothing on stdout
+ FAIL  tests/ci/staging-scripts.spec.ts > schema-drift (staging, read-only) > refuses a re-targeting query parameter without running the CLI (03-13 M-GUARD)
+ FAIL  tests/ci/staging-scripts.spec.ts > schema-drift (staging, read-only) > runs the read-only diff against the given URL with --schema public and passes on no drift
+ Test Files  1 failed (1)
+      Tests  14 failed | 39 passed (53)
+# exit: 0

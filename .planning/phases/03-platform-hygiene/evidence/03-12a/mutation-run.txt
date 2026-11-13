@@ -1,0 +1,36 @@
+# mutation run at 1c91c25ff138b710043ffd26717f9172e24a12a3: features/auth/service.ts with FT-05 skipped, the 10-minute bound removed,
+# signOut(others) removed, the 429/current_password_invalid mapping removed and current_password not sent; file restored after
+   × changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a breached new password is refused with the catalogue copy and the password is unchanged 320ms
+   × changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a valid change: the new password signs in, the old one fails, another session's refresh fails, this one stays 362ms
+   × changePasswordAction (local stack, FT-05 on against the loopback fake range API) > A00-5: a recovery session older than 10 minutes must sign in again; the password is unchanged 288ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a fresh recovery session (within 10 minutes) may change the password  338ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > unauthenticated: refused with the sign-in-again copy, no range lookup 1ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > with the check off (the lane default) a fixture password is not looked up 294ms
+   × setNewPasswordAction after a recovery code (local stack + Mailpit) > a breached password is refused (code already used, retry on the same session); a clear one signs out other sessions 356ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > called from a plain password session it is refused and the password is unchanged 242ms
+   × setNewPasswordAction after a recovery code (local stack + Mailpit) > A00-5: a recovery session older than 10 minutes is refused 279ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > unauthenticated is refused 1ms
+   ✓ changePassword > unauthenticated: refused with the sign-in-again message; no range lookup, no update 1ms
+   × changePassword > a valid change sends the current password, then signs out the other sessions 3ms
+   × changePassword > FT-05: a breached new password is refused before anything is written 2ms
+   ✓ changePassword > FT-05 fail-open: with the range API unavailable the change goes ahead 0ms
+   × changePassword > a wrong current password (GoTrue current_password_invalid) is refused with its fixed copy; nobody is signed out 1ms
+   ✓ changePassword > current_password_required maps to its fixed copy 0ms
+   × changePassword > A00-4: a 429 from GoTrue (over_request_rate_limit) maps to the wait-a-minute copy 0ms
+   × changePassword > A00-4: a 429 from GoTrue (over_email_send_rate_limit) maps to the wait-a-minute copy 0ms
+   ✓ changePassword > GoTrue weak_password maps to its fixed copy 0ms
+   ✓ changePassword > GoTrue same_password maps to its fixed copy 0ms
+   ✓ changePassword > GoTrue session_not_found maps to its fixed copy 0ms
+   ✓ changePassword > an unexpected GoTrue code or a thrown error gets the generic change failure 0ms
+   × changePassword > A00-5: an emailed-code session older than 10 minutes must sign in again; at 10 minutes it may change 0ms
+   ✓ changePassword > an unreadable amr claim fails closed 0ms
+   ✓ changePassword > invalid input is refused without a range lookup or an update 0ms
+   × changePassword > reports otherSessionsSignedOut=false when signing out the other sessions fails 0ms
+   × setNewPassword (forgot-password final step) > a fresh recovery session sets the password without a current password and signs out the others 0ms
+   × setNewPassword (forgot-password final step) > FT-05: a breached password is refused before the update 0ms
+   × setNewPassword (forgot-password final step) > A00-5: a recovery session older than 10 minutes, or a plain password session, is refused 0ms
+   ✓ setNewPassword (forgot-password final step) > unauthenticated is refused 0ms
+   ✓ session freshness (A00-5) > classifies sessions by their amr methods 0ms
+   × session freshness (A00-5) > assertFreshOtpSession: 600 s is fresh, 601 s is not; password sessions are never fresh OTP sessions 0ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 16 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  16 failed | 16 passed (32)

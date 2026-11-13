@@ -45,10 +45,13 @@ export const signInSchema = z.object({
   password: z.string().min(1, "Enter your password"),
 });
 
+/** Ruling R-36 (03-13a, M-OTP): emailed codes are 8 digits (`auth.email.otp_length`, supabase/auth-policy.json). */
+export const RECOVERY_CODE_LENGTH = 8;
+
 export const recoveryCodeSchema = z
   .string()
   .trim()
-  .regex(/^\d{6}$/, "Enter the 6-digit code from the email");
+  .regex(/^\d{8}$/, "Enter the 8-digit code from the email");
 
 export const resetRequestSchema = z.object({
   email: emailSchema,
@@ -59,6 +62,34 @@ export const completeResetSchema = z.object({
   code: recoveryCodeSchema,
   newPassword: newPasswordSchema,
 });
+
+/**
+ * The password the user signs in with today, for change-password (03-12a, A00-5). Presence and the 72-byte bcrypt
+ * bound only: the auth server decides whether it is right (hosted "require current password").
+ */
+export const currentPasswordSchema = z
+  .string()
+  .min(1, "Enter your current password")
+  .refine((v) => utf8ByteLength(v) <= PASSWORD_MAX_BYTES, PASSWORD_TOO_LONG_MESSAGE);
+
+/** `changePasswordAction` input (03-12a). No user id: the action only ever changes the session user's password. */
+export const changePasswordSchema = z.object({
+  currentPassword: currentPasswordSchema,
+  newPassword: newPasswordSchema,
+});
+
+/** `setNewPasswordAction` input (03-12a): the forgot-password final step, on a fresh recovery session. */
+export const setNewPasswordSchema = z.object({
+  newPassword: newPasswordSchema,
+});
+
+/** The profile form adds a confirmation field. */
+export const changePasswordFormSchema = changePasswordSchema
+  .extend({ confirmPassword: z.string() })
+  .refine((v) => v.newPassword === v.confirmPassword, {
+    message: PASSWORDS_DO_NOT_MATCH_MESSAGE,
+    path: ["confirmPassword"],
+  });
 
 /** The forgot-password form adds a confirmation field. */
 export const completeResetFormSchema = completeResetSchema
@@ -71,3 +102,5 @@ export const completeResetFormSchema = completeResetSchema
 export type SignInInput = z.infer<typeof signInSchema>;
 export type ResetRequestInput = z.infer<typeof resetRequestSchema>;
 export type CompleteResetInput = z.infer<typeof completeResetSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type SetNewPasswordInput = z.infer<typeof setNewPasswordSchema>;

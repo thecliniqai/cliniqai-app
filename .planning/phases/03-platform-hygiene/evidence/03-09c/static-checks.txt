@@ -1,0 +1,11 @@
+# static checks for 03-09c from a clean worktree of f140a1d
+$ npm run typecheck
+exit=0
+$ npx eslint . (summary)
+exit=0
+errors=0 warnings=427
+$ npm run inventory
+exit=0
+$ console census (app components features lib)
+lib/log/client.ts:5: * Development: one `console.warn` with the event and the error's log-safe tag (code or class name, never its message).
+lib/log/client.ts:12:  console.warn(`[${event}]`, errorTag(err));

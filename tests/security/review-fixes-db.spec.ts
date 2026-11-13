@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import type { UserRole } from "@/lib/db/types";
 import {
   seedTenantWithOwner,
@@ -20,6 +20,7 @@ import { updateStaffMember } from "@/features/settings/service";
 import { acknowledgeReferral, getReferralSignedUrl } from "@/features/referrals/service";
 import * as dispatcher from "@/lib/messaging/dispatcher";
 import { shareTokenHash } from "../helpers/share-tokens";
+import { jsonObject } from "../helpers/db";
 
 // V2-01 plan 01-08 (review fixes, migration 000021). Local stack, real clients; the admin client only seeds rows and
 // reads results. Each case fails on the 000020 schema.
@@ -199,7 +200,7 @@ describe("01-08 review fixes (000021)", () => {
   beforeAll(async () => {
     A = await seedClinic("A");
     B = await seedClinic("B");
-    anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    anon = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
   }, 120_000);
@@ -252,9 +253,7 @@ describe("01-08 review fixes (000021)", () => {
         .eq("tenant_id", A.owner.tenantId)
         .eq("action", "share_token.create")
         .eq("entity_id", A.documentId);
-      const mine = (audits ?? []).filter(
-        (a: { metadata: { token_id?: string } | null }) => a.metadata?.token_id === row.id
-      );
+      const mine = (audits ?? []).filter((a) => jsonObject(a.metadata).token_id === row.id);
       expect(mine).toHaveLength(1);
       expect(mine[0]).toMatchObject({
         actor_id: A.members.nurse.userId,
@@ -293,7 +292,7 @@ describe("01-08 review fixes (000021)", () => {
         .eq("tenant_id", A.owner.tenantId)
         .eq("action", "share_token.revoke")
         .eq("entity_id", A.prescriptionId);
-      const mine = (audits ?? []).filter((a: { metadata: { token_id?: string } | null }) => a.metadata?.token_id === id);
+      const mine = (audits ?? []).filter((a) => jsonObject(a.metadata).token_id === id);
       expect(mine).toHaveLength(1);
       expect(mine[0].actor_id).toBe(A.members.nurse.userId);
     });

@@ -7,8 +7,9 @@
  *   L1-R1 routes          no file under app/api/ai/**; no route/page file under app/ whose path contains "copilot".
  *   L1-R2 removed AI      no MockAiProvider, CopilotDrawer, operations-copilot, clinical-copilot,
  *                         parseShorthandLocally in app/ features/ lib/ components/.
- *   L1-R3 test branches   no VITEST, test-api-key, AI_EVAL_LIVE in lib/ai/** or features/ai/** (whole lib/ with P2-03,
- *                         V2-03; RL-12).
+ *   L1-R3 test branches   no VITEST, test-api-key, AI_EVAL_LIVE in app/ components/ features/ lib/ or proxy.ts
+ *                         (widened from lib/ai + features/ai in V2-03 03-10 once the two lib/webhooks branches were gone;
+ *                         P2-03, RL-12). Tests, scripts and config files are out of scope.
  *   L1-R4 AI glyph        a Sparkles icon in JSX or the ✦ glyph in UI copy only in LLM-feature files.
  *   L1-R5 "AI" in copy    the word AI (case-sensitive, word boundary) in JSX text or string literals of .tsx files under
  *                         app/ components/ features/ only in LLM-feature files and features/ai/**.
@@ -39,7 +40,7 @@ const LLM_FEATURE_FILES = new Set([
 ]);
 const MAX_WAIVER_DAYS = 90;
 const SOURCE_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
-const APP_CODE = /^(app|features|lib|components)\//;
+const APP_CODE = /^(app|features|lib|components)\/|^proxy\.ts$/;
 const SPARKLE_NAME = /^(Sparkles?|Sparkles?Icon|LucideSparkles?)$/;
 const PURCHASE_CASED = /₹|\bRs\b|\bINR\b/;
 const PURCHASE_ANYCASE = /\/\s?month|\bper month\b|\bbuy\b|\bupgrade\b|\bsubscribe\b|\badd to plan\b/i;
@@ -135,14 +136,14 @@ function check(root, files) {
     const text = read(file);
     const lines = text.split("\n");
 
-    // L1-R2 removed AI surfaces, L1-R3 test branches in AI code (raw text: identifiers and strings alike)
+    // L1-R2 removed AI surfaces, L1-R3 test branches in app code (raw text: identifiers and strings alike)
     const raw = (rule, re) =>
       lines.forEach((l, i) => {
         const m = re.exec(l);
         if (m) add(rule, file, i + 1, m[0]);
       });
     raw("L1-R2", /\b(MockAiProvider|CopilotDrawer|parseShorthandLocally)\b|operations-copilot|clinical-copilot/);
-    if (/^(lib\/ai|features\/ai)\//.test(file)) raw("L1-R3", /\bVITEST\b|test-api-key|\bAI_EVAL_LIVE\b/);
+    raw("L1-R3", /\bVITEST\b|test-api-key|\bAI_EVAL_LIVE\b/);
 
     if (!SOURCE_RE.test(file)) continue;
     const { segments, sparkles } = copySegments(file, text);

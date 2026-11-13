@@ -1,0 +1,11 @@
+# negative: signature check removed (verified() returns true), at dba2bf1 + working tree
+# mutation: python replace in app/api/auth/send-email/route.ts
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > a bad signature → 401 in the hook error shape, zero sends, and the body is not even parsed
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > missing signature headers, another secret, or a body changed after signing → 401, zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > a stale timestamp (> 5 min old) or one from the future → 401, zero sends
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: refusals (T-03-05) > SEND_EMAIL_HOOK_SECRET unset → every call 401 (fail closed), zero sends
+ FAIL  tests/security/guard-routes.spec.ts > P0-13: every route handler is in the guard manifest and guarded > seeded legs > denial legs (no writes) > webhook-signature: app/api/auth/send-email/route.ts#POST
+ FAIL  tests/integration/auth/mailpit-sender.spec.ts > Send Email hook path → Mailpit (local stack) > a bad signature sends nothing to Mailpit
+ Test Files  3 failed (3)
+      Tests  6 failed | 79 passed (85)

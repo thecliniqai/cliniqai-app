@@ -1,0 +1,22 @@
+## BEFORE (HEAD eslint.config.mjs, inline config on as in `npx eslint .`)
+supabase-client-class.ts @ features/patients/service.ts: 0 boundary error(s)  <-- BYPASS
+gotrue-admin.ts @ features/patients/service.ts: 0 boundary error(s)  <-- BYPASS
+postgrest-client.ts @ features/patients/service.ts: 0 boundary error(s)  <-- BYPASS
+supabase-subpath.ts @ features/auth/service.ts: 0 boundary error(s)  <-- BYPASS
+supabase-subpath.ts @ lib/supabase/server.ts: 0 boundary error(s)  <-- BYPASS
+require-forms.ts @ features/patients/service.ts: 0 boundary error(s)  <-- BYPASS
+computed-secret-key.ts @ features/settings/service.ts: 0 boundary error(s)  <-- BYPASS
+inline-disable.ts @ features/patients/service.ts: 0 boundary error(s)  <-- BYPASS
+tooling-import.ts @ features/patients/service.ts: 0 boundary error(s)  <-- BYPASS
+factory-import.ts @ lib/jobs/x.ts: 0 boundary error(s)  <-- BYPASS
+## AFTER (03-13c eslint.config.mjs, inline config on)
+supabase-client-class.ts @ features/patients/service.ts: 1 boundary error(s) at lines 1
+gotrue-admin.ts @ features/patients/service.ts: 2 boundary error(s) at lines 1,2
+postgrest-client.ts @ features/patients/service.ts: 1 boundary error(s) at lines 1
+supabase-subpath.ts @ features/auth/service.ts: 2 boundary error(s) at lines 2,3
+supabase-subpath.ts @ lib/supabase/server.ts: 2 boundary error(s) at lines 2,3
+require-forms.ts @ features/patients/service.ts: 7 boundary error(s) at lines 1,1,2,4,4,6,7
+computed-secret-key.ts @ features/settings/service.ts: 11 boundary error(s) at lines 2,2,2,2,3,3,3,6,7,8,9
+inline-disable.ts @ features/patients/service.ts: 2 boundary error(s) at lines 1,3
+tooling-import.ts @ features/patients/service.ts: 4 boundary error(s) at lines 2,3,4,5
+factory-import.ts @ lib/jobs/x.ts: 1 boundary error(s) at lines 1

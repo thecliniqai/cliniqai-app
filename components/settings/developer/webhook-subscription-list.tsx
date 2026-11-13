@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { WebhookSubscriptionItem } from "@/features/webhooks/actions";
+import { reportClientError } from "@/lib/log/client";
 
 export interface WebhookSubscriptionListProps {
   subscriptions: WebhookSubscriptionItem[];
@@ -49,7 +50,7 @@ export function WebhookSubscriptionList({
       setCopiedSecretId(id);
       setTimeout(() => setCopiedSecretId(null), 2000);
     } catch (err) {
-      console.error("Failed to copy signing secret:", err);
+      reportClientError("webhooks.secret_copy.failed", err);
     }
   };
 

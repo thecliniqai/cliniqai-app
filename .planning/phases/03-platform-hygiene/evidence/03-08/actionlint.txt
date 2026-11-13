@@ -1,0 +1,2 @@
+$ docker run --rm rhysd/actionlint:1.7.7 .github/workflows/staging.yml .github/workflows/drift.yml .github/workflows/ci.yml
+exit=0

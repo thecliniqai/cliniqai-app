@@ -1,0 +1,13 @@
+# gitleaks v8.30.1 git --redact --config .gitleaks.toml at 51bcdf0ceccfeb56f643b15d1b5dfc1b02f3052a
+1:09AM INF 433 commits scanned.
+1:09AM INF scanned ~47645544 bytes (47.65 MB) in 15.9s
+1:09AM INF no leaks found
+exit 0
+# gitleaks dir scan of .planning/phases/03-platform-hygiene/evidence/03-11b (uncommitted evidence)
+1:09AM INF scanned ~1375170 bytes (1.38 MB) in 385ms
+1:09AM INF no leaks found
+exit 0
+# gitleaks dir scan of .planning/phases/03-platform-hygiene/evidence/package-legitimacy.json (uncommitted evidence)
+1:09AM INF scanned ~30655 bytes (30.66 KB) in 10.6ms
+1:09AM INF no leaks found
+exit 0

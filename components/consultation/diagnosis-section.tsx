@@ -24,6 +24,7 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
+import { reportClientError } from "@/lib/log/client";
 
 interface DiagnosisSectionProps {
   visitId: string;
@@ -132,7 +133,7 @@ export function DiagnosisSection({
           setIsDropdownOpen(true);
         }
       } catch (err) {
-        console.error("Diagnosis search error:", err);
+        reportClientError("terminology.diagnosis_search.failed", err);
       } finally {
         setIsSearching(false);
       }
@@ -242,7 +243,7 @@ export function DiagnosisSection({
     try {
       await updateDiagnosisNote(id, visitId, cleaned);
     } catch (err) {
-      console.error("Failed to update diagnosis note:", err);
+      reportClientError("terminology.diagnosis_note_update.failed", err);
     }
   };
 

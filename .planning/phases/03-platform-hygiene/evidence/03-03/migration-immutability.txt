@@ -1,0 +1,15 @@
+# HEAD c447ae7; base origin/feature/v2
+$ node scripts/ci/migration-immutability.mjs --base origin/feature/v2
+migration-immutability: PASS (base origin/feature/v2 @ e66edf9; 24 applied unchanged; 0 new above 24)
+exit=0
+
+# negative: append one line to the applied supabase/migrations/000007_consultation_prescriptions_cdci.sql (uncommitted), then rerun
+$ node scripts/ci/migration-immutability.mjs --base origin/feature/v2
+FAIL applied migration modified (M): supabase/migrations/000007_consultation_prescriptions_cdci.sql
+Applied migrations are immutable: add a new, higher-numbered migration instead (CLAUDE.md, R-4).
+exit=1
+
+# restored with git checkout -- supabase/migrations/000007_consultation_prescriptions_cdci.sql
+$ node scripts/ci/migration-immutability.mjs --base origin/feature/v2
+migration-immutability: PASS (base origin/feature/v2 @ e66edf9; 24 applied unchanged; 0 new above 24)
+exit=0

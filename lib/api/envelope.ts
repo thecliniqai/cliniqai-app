@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
+import { log, logWord } from "@/lib/log";
+import { getRequestId, newRequestId } from "@/lib/log/request-id";
 
 export interface ApiSuccessResponse<T> {
   data: T;
@@ -35,21 +36,26 @@ export function apiSuccess<T>(
 /**
  * Uniform error response envelope: { error: { code, message, details?, correlation_id? } }
  * Sanitises internal database errors per AGENTS.md §12.
+ *
+ * V2-03 03-09a (BACKEND H2): `correlation_id` is the request id `proxy.ts` assigned (`x-request-id`), so a client's
+ * error report, the response header and the server log line share one id. Async because the id is read through
+ * `headers()`. Outside a request scope (a handler called directly) a fresh id is used.
  */
-export function apiError(
+export async function apiError(
   code: string,
   message: string,
   status: number = 400,
   details?: unknown,
   headers?: HeadersInit
-): NextResponse<ApiErrorResponse> {
-  const correlationId = crypto.randomUUID();
+): Promise<NextResponse<ApiErrorResponse>> {
+  const correlationId = (await getRequestId()) ?? newRequestId();
   let sanitizedMessage = message;
   let sanitizedDetails = details;
 
   // Sanitize 5xx and internal database errors to prevent leaking schema or SQL errors
   if (status >= 500 || code === "DATABASE_ERROR" || code === "INTERNAL_ERROR") {
-    console.error(`[api-v1] Error ${correlationId} [${code}]:`, message, details);
+    // The message and details can carry row values (e.g. "Key (phone)=(...)"): the log gets the envelope code only.
+    log.error({ event: "api.v1.failed", requestId: correlationId, reason: logWord(code), status });
     sanitizedMessage = "An internal database error occurred.";
     sanitizedDetails = undefined;
   }

@@ -11,6 +11,8 @@
  *   (d) (02-06) lint-fixtures/p0-13-leg3/: an action that checks its first reference and stores the second unchecked
  *       passes the all-B-ids forgery but is caught by one-reference-at-a-time forging, and an action whose inputs
  *       never reach a reference check is caught by the positive control.
+ *   (e) (03-12a) claimed as a `{ self }` own-account action, the same fixture fails the self leg (data access beyond
+ *       auth, a non-failure answer), and a `self` action whose input names a user id fails the static half.
  * The CI canary step (scripts/ci/guard-canary.mjs) additionally proves guard-actions.spec.ts itself fails when the
  * fixture is copied into features/.
  */
@@ -34,6 +36,8 @@ import {
   report,
   ROOT,
   routeCases,
+  selfActionLeg,
+  selfParamViolations,
   sessionRouteDenialLegs,
   staticGuardViolations,
   unauthenticatedActionLeg,
@@ -161,6 +165,36 @@ describe("P0-13 canary: an unguarded action and route are caught", () => {
       expect(control).toContain("Validation failed.");
       expect(await positiveControlLeg(slot, strictCase, fn, caller.client, [{ patient_id: rows.patient, code: "synthetic-code" }])).toEqual([]);
     }, 120_000);
+  });
+
+  it("(e) a `self` claim does not hide it: the self leg reports data access; an id-shaped self input fails statically", async () => {
+    if (!actionCase) throw new Error("fixture action not inventoried");
+    const mod = (await import(path.join(ROOT, actionCase.file))) as Record<string, (...a: unknown[]) => unknown>;
+    const world = { b: NO_TENANT_B, bSecrets: [] as string[] } as unknown as GuardWorld;
+    const self = report(await selfActionLeg(slot, actionCase, mod[actionCase.name], receptionist.client, world));
+    expect(self).toContain(`${ACTION_KEY} [self] data access beyond auth: from:patients`);
+    expect(self).toContain(`${ACTION_KEY} [self] forged input accepted`);
+
+    const withUserId: ActionCase = {
+      key: "canary#changeSomeonesPassword",
+      file: "canary.ts",
+      name: "changeSomeonesPassword",
+      staticGuard: null,
+      params: [
+        {
+          index: 0,
+          name: "input",
+          optional: false,
+          hasDefault: false,
+          rest: false,
+          typeText: "{ userId: string; newPassword: string }",
+          typeFields: ["userId", "newPassword"],
+          destructuredFields: [],
+        },
+      ],
+    };
+    expect(report(selfParamViolations(withUserId))).toContain('field "userId" of param input is not a password field');
+    expect(selfParamViolations({ ...withUserId, params: [{ ...withUserId.params[0], typeFields: ["newPassword"] }] })).toEqual([]);
   });
 
   it("(c) the route engine reports 200 without a session and the lacking role reaching patients", async () => {

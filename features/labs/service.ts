@@ -1,4 +1,5 @@
 import "server-only";
+import { serverEnv } from "@/lib/env-server";
 
 import { createShareToken } from "@/features/sharing/tokens";
 import { assertPerm } from "@/lib/permissions";
@@ -13,6 +14,10 @@ import { LabDocumentItem, ShareTokenResult, DeleteLabDocumentResult } from "./ty
 import { formatAmendedFilename } from "./utils";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { getTenantToday } from "@/lib/datetime/server";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
@@ -58,7 +63,8 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
       visit_id: formData.get("visit_id") || undefined,
       title: formData.get("title"),
       document_type: formData.get("document_type") || "lab_report",
-      report_date: formData.get("report_date") || new Date().toISOString().split("T")[0],
+      // The clinic date in the tenant's zone, passed explicitly (V2-03 03-05; R-33: never the SQL CURRENT_DATE).
+      report_date: formData.get("report_date") || (await getTenantToday(supabase, session.tenantId)).today,
       notes: formData.get("notes") || undefined,
       is_abnormal: formData.get("is_abnormal"),
     };
@@ -136,7 +142,7 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
       .single();
 
     if (insertErr || !newDoc) {
-      console.error("[features/labs/actions] Failed to insert patient_document row:", insertErr);
+      log.error({ event: "labs.document_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to save document metadata in clinic database." };
     }
 
@@ -167,15 +173,15 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
         }
       );
     } catch (webhookErr) {
-      console.warn("[uploadLabDocument] Failed to enqueue webhook event:", webhookErr);
+      log.warn({ event: "labs.upload_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     return { success: true, document: newDoc };
   } catch (err: unknown) {
-    console.error("[features/labs/actions] uploadLabDocument exception:", err);
+    log.error({ event: "labs.upload.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "An unexpected error occurred during upload.",
+      error: clientErrorMessage(err, "An unexpected error occurred during upload."),
     };
   }
 }
@@ -202,7 +208,7 @@ export async function getPatientDocuments(
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("[features/labs/actions] getPatientDocuments error:", error);
+      log.error({ event: "labs.documents_list_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, documents: [], error: "Failed to retrieve patient documents." };
     }
 
@@ -213,11 +219,11 @@ export async function getPatientDocuments(
 
     return { success: true, documents };
   } catch (err: unknown) {
-    console.error("[features/labs/actions] getPatientDocuments exception:", err);
+    log.error({ event: "labs.documents_list.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       documents: [],
-      error: err instanceof Error ? err.message : "Failed to load documents.",
+      error: clientErrorMessage(err, "Failed to load documents."),
     };
   }
 }
@@ -265,10 +271,10 @@ export async function getDocumentSignedUrl(
 
     return { success: true, signedUrl };
   } catch (err: unknown) {
-    console.error("[features/labs/actions] getDocumentSignedUrl exception:", err);
+    log.error({ event: "labs.signed_url.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to generate download URL.",
+      error: clientErrorMessage(err, "Failed to generate download URL."),
     };
   }
 }
@@ -325,10 +331,10 @@ export async function generateDocumentShareToken(ctx: ServiceContext, documentId
       expiresAt,
     };
   } catch (err: unknown) {
-    console.error("[features/labs/actions] generateDocumentShareToken exception:", err);
+    log.error({ event: "labs.share_token.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to create share link.",
+      error: clientErrorMessage(err, "Failed to create share link."),
     };
   }
 }
@@ -370,13 +376,10 @@ export async function deleteLabDocument(ctx: ServiceContext, documentId: string)
           storageProvider
         );
       } catch (storageErr) {
-        console.warn(
-          "[features/labs/actions] Storage file deletion warning:",
-          storageErr instanceof Error ? storageErr.name : "error"
-        );
+        log.warn({ event: "labs.delete_storage.failed", code: errorTag(storageErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       }
     } else {
-      console.warn("[features/labs/actions] Stored key outside the patient prefix; storage object not deleted.");
+      log.warn({ event: "labs.delete_storage.skipped", requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     // 3. Delete database record
@@ -387,7 +390,7 @@ export async function deleteLabDocument(ctx: ServiceContext, documentId: string)
       .eq("tenant_id", session.tenantId);
 
     if (deleteErr) {
-      console.error("[features/labs/actions] Failed to delete document row:", deleteErr);
+      log.error({ event: "labs.document_delete.failed", code: errorTag(deleteErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to delete document from database." };
     }
 
@@ -405,10 +408,10 @@ export async function deleteLabDocument(ctx: ServiceContext, documentId: string)
 
     return { success: true };
   } catch (err: unknown) {
-    console.error("[features/labs/actions] deleteLabDocument exception:", err);
+    log.error({ event: "labs.delete.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to delete document.",
+      error: clientErrorMessage(err, "Failed to delete document."),
     };
   }
 }
@@ -450,7 +453,7 @@ export async function shareLabReportViaWhatsApp(
     }
     const { token } = created;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = serverEnv().NEXT_PUBLIC_APP_URL;
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #7 (lab_report_uploaded)
@@ -486,10 +489,10 @@ export async function shareLabReportViaWhatsApp(
 
     return { success: true, shareUrl, token };
   } catch (err: unknown) {
-    console.error("[features/labs/actions] shareLabReportViaWhatsApp error:", err);
+    log.error({ event: "labs.whatsapp_share.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to share lab report.",
+      error: clientErrorMessage(err, "Failed to share lab report."),
     };
   }
 }

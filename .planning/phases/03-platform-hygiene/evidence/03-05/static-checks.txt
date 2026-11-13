@@ -1,0 +1,10 @@
+commit: a84b6a1
+== npm run typecheck
+exit 0
+== npx eslint .
+exit 0
+✖ 422 problems (0 errors, 422 warnings)
+== npm run inventory
+exit 0
+== node scripts/ci/workflow-policy.mjs
+workflow-policy: PASS (4 workflow(s))

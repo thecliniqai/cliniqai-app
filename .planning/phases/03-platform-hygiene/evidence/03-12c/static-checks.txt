@@ -1,0 +1,28 @@
+# static checks at 407d47a
+## npm run typecheck
+exit=0
+## npx eslint .
+  0 errors and 26 warnings potentially fixable with the `--fix` option.
+
+## npm run inventory
+    "flagged": 0,
+  "flagged": [],
+exit=
+## env-example --check
+env-example: .env.example matches lib/env.ts
+## check-auth-config
+auth-policy: PASS (39 config.toml settings match the local policy column)
+## workflow-policy
+workflow-policy: PASS (4 workflow(s))
+## actionlint (docker rhysd/actionlint)
+.github/workflows/nightly.yml:114:9: shellcheck reported issue in this script: SC2016:info:2:9: Expressions don't expand in single quotes, use double quotes for that [shellcheck]
+    |
+114 |         run: |
+    |         ^~~~
+exit=1
+## lock-linux-check
+lock-linux-check: PASS (npm ci accepts the lockfile on Linux)
+## npx eslint . (problem line)
+✖ 422 problems (0 errors, 422 warnings)
+## actionlint staging.yml only (nightly.yml SC2016 info above is pre-existing, not 03-12c)
+exit=0

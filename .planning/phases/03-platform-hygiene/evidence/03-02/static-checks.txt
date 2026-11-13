@@ -1,0 +1,45 @@
+# clean worktree of the commit below (parallel 03-11a work in the main checkout excluded)
+$ git rev-parse HEAD
+f37f917f1907fb24bbf73176dd02aa4e9ad014de
+exit 0
+$ npm run typecheck
+
+exit 0
+$ npx eslint .
+  0 errors and 28 warnings potentially fixable with the `--fix` option.
+
+exit 0
+$ npm run inventory
+inventory: 24 "use server" modules, 110 exports; 16/17 D1 non-action modules present; 26 route modules, 46 methods; 0 flagged, 14 noted
+exit 0
+$ npm run ci:ai-l1
+ai-l1: 1375 files, 4 finding(s), 4 waived (time-boxed)
+ai-l1: PASS
+exit 0
+$ node scripts/ci/migration-immutability.mjs --base origin/feature/v2
+migration-immutability: PASS (base origin/feature/v2 @ e66edf9; 24 applied unchanged; 2 new above 24)
+exit 0
+$ git grep -n -e "lib/supabase/admin" -e getAdminClient -- app lib features components proxy.ts
+exit 1
+# DB-backed checks (same worktree, local stack at migration 000026)
+$ npm run db:types >/dev/null 2>&1 && git diff --exit-code -- types/database.ts
+exit 0
+$ node scripts/ci/local-drift.mjs
+local-drift: PASS (1 statement(s), 1 allowlisted: drop extension if exists "pg_net";)
+exit 0
+$ node scripts/ci/assert-vitest-report.mjs /Users/sid/Code/clinicOS/.planning/phases/03-platform-hygiene/evidence/03-02/vitest-full.json   # full lane run in the same worktree (npx vitest run, stack up)
+vitest-report-gate: files=117 tests=2095 passed=2095 failed=0 skipped/todo=0 floor=1805 required=9
+vitest-report-gate: PASS
+exit 0
+# main checkout at 4ab5643 (03-02 commits + 03-11a commits on top; the e2e build cannot run from a worktree with symlinked node_modules)
+$ npm run e2e:build && npm run e2e:pr
+$ node scripts/ci/playwright-summary.mjs .planning/phases/03-platform-hygiene/evidence/03-02/playwright-pr.json
+### Playwright run
+
+| project | passed | flaky (retried) | failed | skipped |
+|---|---|---|---|---|
+| desktop-chrome | 65 | 0 | 0 | 0 |
+| iphone-15 | 9 | 0 | 0 | 0 |
+| pixel-7 | 49 | 0 | 0 | 0 |
+| setup | 5 | 0 | 0 | 0 |
+

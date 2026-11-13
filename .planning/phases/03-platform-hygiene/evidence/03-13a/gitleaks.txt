@@ -1,0 +1,16 @@
+# gitleaks v8.30.1 git --redact --no-color --verbose --config .gitleaks.toml --log-opts='--no-walk <the 03-13a commits>'
+
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+3:14AM INF 9 commits scanned.
+3:14AM INF scanned ~68000 bytes (68 KB) in 219ms
+3:14AM INF no leaks found
+
+# Full history at 332992f: 2 findings, both rule clinicos-api-key in tests/api/v1-system-client-order.spec.ts (commit 39695e8, plan 03-13c), none in a 03-13a commit:
+3:13AM INF 480 commits scanned.
+3:13AM INF scanned ~55904064 bytes (55.90 MB) in 25.5s
+3:13AM WRN leaks found: 2

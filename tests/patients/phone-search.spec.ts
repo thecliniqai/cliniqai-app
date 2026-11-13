@@ -158,7 +158,7 @@ describe("Flexible Phone Search Normalization (D-06, D-07 / Plan 05.2-03)", () =
                 return visitsQuery;
               }),
               gte: vi.fn().mockReturnThis(),
-              lte: vi.fn().mockReturnThis(),
+              lt: vi.fn().mockReturnThis(),
               in: vi.fn().mockReturnThis(),
               order: vi.fn().mockResolvedValue({
                 data: [],

@@ -1,0 +1,15 @@
+# static checks at 1c91c25ff138b710043ffd26717f9172e24a12a3
+## npm run typecheck
+exit 0
+## npx eslint . (summary)
+exit 0
+errors 0, warnings 422
+03-12a files with findings: 0
+## npm run inventory
+exit 0
+## node scripts/ci/env-example.mjs --check
+env-example: .env.example matches lib/env.ts
+exit 0
+## node scripts/ci/check-auth-config.mjs
+auth-policy: PASS (39 config.toml settings match the local policy column)
+exit 0

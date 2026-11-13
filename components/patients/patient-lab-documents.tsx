@@ -24,6 +24,8 @@ import {
   deleteLabDocument,
 } from "@/features/labs/actions";
 import { LabDocumentItem, ShareTokenResult } from "@/features/labs/types";
+import { todayInTz } from "@/lib/datetime";
+import { useClinicTimeZone } from "@/lib/datetime/client";
 
 interface PatientLabDocumentsProps {
   patientId: string;
@@ -60,7 +62,9 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [documentType, setDocumentType] = useState<"lab_report" | "imaging" | "prescription_scan" | "other">("lab_report");
-  const [reportDate, setReportDate] = useState(() => new Date().toISOString().split("T")[0]);
+  // The report date defaults to the clinic's date in its zone (V2-03 03-05)
+  const timeZone = useClinicTimeZone();
+  const [reportDate, setReportDate] = useState(() => todayInTz(timeZone));
   const [notes, setNotes] = useState("");
   const [isAbnormal, setIsAbnormal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -167,7 +171,7 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
     setSelectedFile(null);
     setTitle("");
     setDocumentType("lab_report");
-    setReportDate(new Date().toISOString().split("T")[0]);
+    setReportDate(todayInTz(timeZone));
     setNotes("");
     setIsAbnormal(false);
     setUploadError(null);

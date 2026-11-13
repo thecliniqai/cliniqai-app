@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { serverEnv } from "@/lib/env-server";
 import { dispatchPendingQueue } from "@/lib/messaging/dispatcher";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 async function handleCronDispatch(req: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = serverEnv().CRON_SECRET;
   const authHeader = req.headers.get("authorization");
 
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
@@ -15,7 +18,7 @@ async function handleCronDispatch(req: NextRequest) {
 
   try {
     // Register entry point (ADR-0005, until V2-04): the cron route owns the service-role client it dispatches with.
-    const summary = await dispatchPendingQueue(getAdminClient(), { limit: 50 });
+    const summary = await dispatchPendingQueue(getSystemDb("cron.dispatch_communications"), { limit: 50 });
     return NextResponse.json(
       {
         success: true,
@@ -25,9 +28,10 @@ async function handleCronDispatch(req: NextRequest) {
       { status: 200 }
     );
   } catch (err: unknown) {
-    const errorMsg = err instanceof Error ? err.message : "Internal Cron Error";
+    // The error text can carry row values: the body is fixed and the log gets the error's code or class name only.
+    log.error({ event: "jobs.cron_dispatch_communications.failed", code: errorTag(err), requestId: await getRequestId() });
     return NextResponse.json(
-      { success: false, error: errorMsg },
+      { success: false, error: "Internal Cron Error" },
       { status: 500 }
     );
   }

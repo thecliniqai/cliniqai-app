@@ -1,0 +1,103 @@
+# tests/observability/no-raw-error-logging.spec.ts run against the pre-sweep tree (detached worktree at 87e6839, spec copied in)
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/base
+ ❯ tests/observability/no-raw-error-logging.spec.ts (5 tests | 5 failed) 10ms
+   × server error branches log the event and code, never the raw error (03-09c) > patients write: createPatient insert failure 4ms
+     → expected '["[features/patients/actions] Failed …' not to contain '+919000000001'
+   × server error branches log the event and code, never the raw error (03-09c) > labs write: deleteLabDocument row delete failure 1ms
+     → expected '["[features/labs/actions] Stored key …' not to contain '+919000000001'
+   × server error branches log the event and code, never the raw error (03-09c) > prescription PDF route: an exception becomes a fixed 500 and one line 2ms
+     → expected "error" to not be called at all, but actually been called 1 times
+Received: 
+  1st error call:
+    Array [
+      "[app/api/visits/[id]/prescription-pdf] Error:",
+      "Error",
+    ]
+Number of calls: 1
+   × server error branches log the event and code, never the raw error (03-09c) > v1 envelope: a 5xx logs the envelope code and request id, not the message or details 1ms
+     → expected '["[api-v1] Error 3b0e6b8a-1c2d-4e5f-8…' not to contain '+919000000001'
+   × server error branches log the event and code, never the raw error (03-09c) > cron route: a dispatcher exception becomes a fixed 500 body and one line 2ms
+     → expected { success: false, …(1) } to deeply equal { success: false, …(1) }
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/observability/no-raw-error-logging.spec.ts > server error branches log the event and code, never the raw error (03-09c) > patients write: createPatient insert failure
+AssertionError: expected '["[features/patients/actions] Failed …' not to contain '+919000000001'
+Expected: "+919000000001"
+Received: "["[features/patients/actions] Failed to insert patient:",{"code":"23505","message":"duplicate key value violates unique constraint \"patients_phone_key\" Key (phone)=(+919000000001) contact synthetic.user@example.test","details":"Key (phone)=(+919000000001)","hint":null}]"
+ ❯ expectNoRawError tests/observability/no-raw-error-logging.spec.ts:129:19
+    127| function expectNoRawError(): void {
+    128|   const out = captured();
+    129|   expect(out).not.toContain(PHONE);
+       |                   ^
+    130|   expect(out).not.toContain("9000000001");
+    131|   expect(out).not.toContain(EMAIL);
+ ❯ tests/observability/no-raw-error-logging.spec.ts:147:5
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+ FAIL  tests/observability/no-raw-error-logging.spec.ts > server error branches log the event and code, never the raw error (03-09c) > labs write: deleteLabDocument row delete failure
+AssertionError: expected '["[features/labs/actions] Stored key …' not to contain '+919000000001'
+- Expected
++ Received
+- +919000000001
++ ["[features/labs/actions] Stored key outside the patient prefix; storage object not deleted."]
++ ["[features/labs/actions] Failed to delete document row:",{"code":"23505","message":"duplicate key value violates unique constraint \"patients_phone_key\" Key (phone)=(+919000000001) contact synthetic.user@example.test","details":"Key (phone)=(+919000000001)","hint":null}]
+ ❯ expectNoRawError tests/observability/no-raw-error-logging.spec.ts:129:19
+    127| function expectNoRawError(): void {
+    128|   const out = captured();
+    129|   expect(out).not.toContain(PHONE);
+       |                   ^
+    130|   expect(out).not.toContain("9000000001");
+    131|   expect(out).not.toContain(EMAIL);
+ ❯ tests/observability/no-raw-error-logging.spec.ts:171:5
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+ FAIL  tests/observability/no-raw-error-logging.spec.ts > server error branches log the event and code, never the raw error (03-09c) > prescription PDF route: an exception becomes a fixed 500 and one line
+AssertionError: expected "error" to not be called at all, but actually been called 1 times
+Received: 
+  1st error call:
+    Array [
+      "[app/api/visits/[id]/prescription-pdf] Error:",
+      "Error",
+    ]
+Number of calls: 1
+ ❯ expectNoRawError tests/observability/no-raw-error-logging.spec.ts:134:51
+    132|   expect(out).not.toContain("duplicate key value");
+    133|   expect(out).not.toContain("Key (phone)");
+    134|   for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
+       |                                                   ^
+    135| }
+    136| 
+ ❯ tests/observability/no-raw-error-logging.spec.ts:191:5
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+ FAIL  tests/observability/no-raw-error-logging.spec.ts > server error branches log the event and code, never the raw error (03-09c) > v1 envelope: a 5xx logs the envelope code and request id, not the message or details
+AssertionError: expected '["[api-v1] Error 3b0e6b8a-1c2d-4e5f-8…' not to contain '+919000000001'
+Expected: "+919000000001"
+Received: "["[api-v1] Error 3b0e6b8a-1c2d-4e5f-8a9b-0c1d2e3f4a5b [DATABASE_ERROR]:","duplicate key value violates unique constraint \"patients_phone_key\" Key (phone)=(+919000000001) contact synthetic.user@example.test",{"detail":"Key (phone)=(+919000000001)"}]"
+ ❯ expectNoRawError tests/observability/no-raw-error-logging.spec.ts:129:19
+    127| function expectNoRawError(): void {
+    128|   const out = captured();
+    129|   expect(out).not.toContain(PHONE);
+       |                   ^
+    130|   expect(out).not.toContain("9000000001");
+    131|   expect(out).not.toContain(EMAIL);
+ ❯ tests/observability/no-raw-error-logging.spec.ts:206:5
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+ FAIL  tests/observability/no-raw-error-logging.spec.ts > server error branches log the event and code, never the raw error (03-09c) > cron route: a dispatcher exception becomes a fixed 500 body and one line
+AssertionError: expected { success: false, …(1) } to deeply equal { success: false, …(1) }
+- Expected
++ Received
+  {
+-   "error": "Internal Cron Error",
++   "error": "duplicate key value violates unique constraint \"patients_phone_key\" Key (phone)=(+919000000001) contact synthetic.user@example.test",
+    "success": false,
+  }
+ ❯ tests/observability/no-raw-error-logging.spec.ts:226:32
+    224| 
+    225|       expect(res.status).toBe(500);
+    226|       expect(await res.json()).toEqual({ success: false, error: "Inter…
+       |                                ^
+    227|       // The PHI check first: before the sweep it fails on the raw tex…
+    228|       expectNoRawError();
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  04:37:40
+   Duration  346ms (transform 124ms, setup 8ms, collect 183ms, tests 10ms, environment 0ms, prepare 19ms)
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

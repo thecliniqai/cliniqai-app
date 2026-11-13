@@ -1,0 +1,12 @@
+ ✓ tests/pediatrics/who-growth.spec.ts (7 tests) 1ms
+ ✓ tests/billing/sign-and-bill-outcome.spec.ts (3 tests) 1ms
+ ✓ tests/messaging/two-way-bot.spec.ts (4 tests) 1ms
+ ✓ tests/ci/known-bug-match.spec.ts (3 tests) 1ms
+
+ Test Files  146 passed (146)
+      Tests  2842 passed (2842)
+   Start at  07:47:49
+   Duration  162.01s (transform 993ms, setup 634ms, collect 10.85s, tests 138.10s, environment 7ms, prepare 2.85s)
+
+JSON report written to /Users/sid/Code/clinicOS/.planning/phases/03-platform-hygiene/evidence/03-12c/vitest-full.json
+[teardown] removed run data: 111 tenant(s), 238 auth user(s), 1398 storage object(s); verified none remain

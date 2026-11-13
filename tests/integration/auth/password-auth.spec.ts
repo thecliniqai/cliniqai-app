@@ -2,7 +2,8 @@
  * AUTH-01 + AUTH-04a integration tests (01-06) against the local stack and Mailpit.
  *
  * - Seeded users sign in by password through the app's `signIn` flow; a normal login sends 0 emails.
- * - Forgot password: one code-only email per request, `verifyOtp` type `recovery`, `updateUser`, then
+ * - Forgot password: one code-only email per request, `verifyOtp` type `recovery` in the browser-like client, then the
+ *   reset server action's service (`setNewPassword`, 03-12a) on that client's session: `updateUser`, then
  *   `signOut({ scope: 'others' })`. All reset calls use a PKCE client, as the app's `@supabase/ssr` browser client does.
  * - Self-service signup is off until AUTH-07 (01-06 ruling R1).
  *
@@ -11,9 +12,10 @@
 import { randomBytes } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { Database } from "@/lib/db/types";
-import { AUTH_MESSAGES, completeReset, requestReset, setNewPassword, signIn } from "@/features/auth/password-flows";
+import { AUTH_MESSAGES, completeReset, requestReset, signIn } from "@/features/auth/password-flows";
+import { setNewPassword } from "@/features/auth/service";
 import { addMemberToTenant, seedTenantWithOwner, seededUserPassword, type SeededTenant } from "../../helpers/tenants";
 import { getAdminClient } from "../../helpers/supabase-admin";
 
@@ -32,7 +34,7 @@ function browserLikeClient() {
     setItem: (k: string, v: string) => void store.set(k, v),
     removeItem: (k: string) => void store.delete(k),
   };
-  const client = createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+  const client = createClient<Database>(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
     auth: { flowType: "pkce", persistSession: true, autoRefreshToken: false, detectSessionInUrl: false, storage },
   });
   return { client, store };
@@ -90,7 +92,7 @@ async function waitForNewMail(address: string, previous: number, timeoutMs = 10_
 }
 
 function extractCode(text: string): string | null {
-  return /\b(\d{6})\b/.exec(text)?.[1] ?? null;
+  return /\b(\d{8})\b/.exec(text)?.[1] ?? null;
 }
 
 /** Requests a reset for `email` and returns the emailed code (never printed). */
@@ -104,8 +106,13 @@ async function requestCode(email: string): Promise<string> {
   return code as string;
 }
 
+/** The reset server action's service, bound to `client`'s session (what `setNewPasswordAction` does per request). */
+function viaAction(client: ReturnType<typeof browserLikeClient>["client"]) {
+  return (input: { newPassword: string }) => setNewPassword(input, { db: client });
+}
+
 function otherCode(code: string): string {
-  return String((Number(code) + 1) % 1_000_000).padStart(6, "0");
+  return String((Number(code) + 1) % 100_000_000).padStart(8, "0");
 }
 
 async function canSignIn(email: string, password: string) {
@@ -225,13 +232,17 @@ describe("AUTH-04a forgot password with a recovery code (PKCE client, local stac
 
     const code = await requestCode(user.userEmail);
     const { client } = browserLikeClient();
-    const result = await completeReset(client, { email: user.userEmail, code, newPassword: fresh });
-    expect(result).toEqual({ ok: true, otherSessionsSignedOut: true });
-
-    // This device holds the recovery session.
-    const { data } = await client.auth.getSession();
-    expect(data.session).not.toBeNull();
-    expect(amrMethods(data.session!.access_token)).toContain("otp");
+    let recoveryAmr: string[] = [];
+    const result = await completeReset(client, { email: user.userEmail, code, newPassword: fresh }, async (input) => {
+      // The code was accepted: this device holds a recovery session (amr otp) while the action runs.
+      const { data } = await client.auth.getSession();
+      recoveryAmr = data.session ? amrMethods(data.session.access_token) : [];
+      return viaAction(client)(input);
+    });
+    expect(result).toEqual({ ok: true, otherSessionsSignedOut: true, signedOut: true });
+    expect(recoveryAmr).toContain("otp");
+    // Ruling R-35 (03-13a): the reset ends signed out; this device holds no session afterwards.
+    expect((await client.auth.getSession()).data.session).toBeNull();
 
     // Old password no longer works; the new one does.
     expect(await canSignIn(user.userEmail, oldPassword)).toMatchObject({ ok: false, code: "invalid_credentials" });
@@ -239,7 +250,7 @@ describe("AUTH-04a forgot password with a recovery code (PKCE client, local stac
 
     // The code is single-use.
     const { client: replay } = browserLikeClient();
-    expect(await completeReset(replay, { email: user.userEmail, code, newPassword: newPassword() })).toEqual({
+    expect(await completeReset(replay, { email: user.userEmail, code, newPassword: newPassword() }, viaAction(replay))).toEqual({
       ok: false,
       code: "code_invalid",
       message: AUTH_MESSAGES.code_invalid,
@@ -256,11 +267,11 @@ describe("AUTH-04a forgot password with a recovery code (PKCE client, local stac
     const code = await requestCode(user.userEmail);
 
     const { client } = browserLikeClient();
-    const result = await completeReset(client, {
-      email: user.userEmail,
-      code: otherCode(code),
-      newPassword: newPassword(),
-    });
+    const result = await completeReset(
+      client,
+      { email: user.userEmail, code: otherCode(code), newPassword: newPassword() },
+      viaAction(client),
+    );
 
     expect(result).toEqual({ ok: false, code: "code_invalid", message: AUTH_MESSAGES.code_invalid, stage: "verify" });
     expect((await client.auth.getSession()).data.session).toBeNull();
@@ -273,15 +284,16 @@ describe("AUTH-04a forgot password with a recovery code (PKCE client, local stac
     const { client } = browserLikeClient();
 
     for (const rejected of ["short-pw", "a".repeat(73)]) {
-      const result = await completeReset(client, { email: user.userEmail, code, newPassword: rejected });
+      const result = await completeReset(client, { email: user.userEmail, code, newPassword: rejected }, viaAction(client));
       expect(result).toMatchObject({ ok: false, code: "invalid_input", stage: "verify" });
     }
     expect((await client.auth.getSession()).data.session).toBeNull();
 
     const fresh = newPassword();
-    expect(await completeReset(client, { email: user.userEmail, code, newPassword: fresh })).toEqual({
+    expect(await completeReset(client, { email: user.userEmail, code, newPassword: fresh }, viaAction(client))).toEqual({
       ok: true,
       otherSessionsSignedOut: true,
+      signedOut: true,
     });
     expect(await canSignIn(user.userEmail, fresh)).toEqual({ ok: true });
   });
@@ -291,11 +303,11 @@ describe("AUTH-04a forgot password with a recovery code (PKCE client, local stac
     const code = await requestCode(user.userEmail);
     const { client } = browserLikeClient();
 
-    const same = await completeReset(client, { email: user.userEmail, code, newPassword: seededUserPassword() });
+    const same = await completeReset(client, { email: user.userEmail, code, newPassword: seededUserPassword() }, viaAction(client));
     expect(same).toEqual({ ok: false, code: "same_password", message: AUTH_MESSAGES.same_password, stage: "update" });
 
     const fresh = newPassword();
-    expect(await setNewPassword(client, fresh)).toEqual({ ok: true, otherSessionsSignedOut: true });
+    expect(await setNewPassword({ newPassword: fresh }, { db: client })).toEqual({ ok: true, otherSessionsSignedOut: true, signedOut: true });
     expect(await canSignIn(user.userEmail, fresh)).toEqual({ ok: true });
   });
 });

@@ -1,0 +1,58 @@
+# toml path -> Management API field, as Supabase CLI 2.120.0 maps them (strings of node_modules/@supabase/cli-darwin-arm64/bin/supabase), [auth] subset used by supabase/auth-policy.json
+["auth","site_url"],"site_url"
+uri_allow_list: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+["auth","jwt_expiry"],"jwt_exp"
+["auth","enable_refresh_token_rotation"],"refresh_token_rotation_enabled"
+["auth","refresh_token_reuse_interval"],"security_refresh_token_reuse_interval"
+["auth","enable_signup"],"disable_signup"
+["auth","enable_anonymous_sign_ins"],"external_anonymous_users_enabled"
+["auth","minimum_password_length"],"password_min_length"
+password_required_characters: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+["auth","rate_limit","email_sent"],"rate_limit_email_sent"
+["auth","rate_limit","sign_in_sign_ups"],"rate_limit_otp"
+["auth","rate_limit","token_refresh"],"rate_limit_token_refresh"
+["auth","rate_limit","token_verifications"],"rate_limit_verify"
+["auth","captcha","enabled"],"security_captcha_enabled"
+security_captcha_provider: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+["auth","email","enable_signup"],"external_email_enabled"
+["auth","email","double_confirm_changes"],"mailer_secure_email_change_enabled"
+["auth","email","enable_confirmations"],"mailer_autoconfirm"
+["auth","email","secure_password_change"],"security_update_password_require_reauthentication"
+security_update_password_require_current_password: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+password_hibp_enabled: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+["auth","email","max_frequency"],"smtp_max_frequency"
+["auth","email","otp_length"],"mailer_otp_length"
+["auth","email","otp_expiry"],"mailer_otp_exp"
+mailer_subjects_recovery: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+mailer_templates_recovery_content: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+mailer_subjects_confirmation: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+mailer_templates_confirmation_content: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+mailer_subjects_email_change: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+mailer_templates_email_change_content: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+mailer_notifications_password_changed_enabled: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+mailer_subjects_password_changed_notification: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+mailer_templates_password_changed_notification_content: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+["auth","sms","enable_signup"],"external_phone_enabled"
+["auth","mfa","totp","enroll_enabled"],"mfa_totp_enroll_enabled"
+["auth","mfa","totp","verify_enabled"],"mfa_totp_verify_enabled"
+["auth","mfa","phone","enroll_enabled"],"mfa_phone_enroll_enabled"
+["auth","mfa","phone","verify_enabled"],"mfa_phone_verify_enabled"
+hook_send_email_enabled: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+hook_send_email_uri: no config.toml mapping (hosted-only or templated name); occurrences as a bare API field name: 2
+
+# templated / object mappings in the same CLI table (covers the rows above without a literal pair)
+configPath:["auth","additional_redirect_urls"],apiPath:["auth","uri_allow_list"]
+configPath:["auth","captcha","provider"],apiPath:["auth","security_captcha_provider"]
+["auth","email","template",e,"subject"],`mailer_subjects_${e}`
+["auth","email","notification",e,"enabled"],`mailer_notifications_${e}_enabled`
+["auth","email","notification",e,"subject"],`mailer_subjects_${e}_notification`
+["auth","hook",e,"enabled"],`hook_${e}_enabled`
+["auth","hook",e,"uri"],`hook_${e}_uri`
+mailer_templates_confirmation_content
+mailer_templates_email_change_content
+mailer_templates_email_changed_notification_content
+mailer_templates_password_changed_notification_content
+mailer_templates_recovery_content
+security_update_password_require_current_password:_(P([X.annotate({description:"Require the user's current password when updating their password."
+password_hibp_enabled:P([X,L])
+password_required_characters:P([je(["abcdefghijklmnopqrstuvwxyzABCDEF

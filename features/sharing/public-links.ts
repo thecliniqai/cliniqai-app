@@ -2,6 +2,8 @@ import "server-only";
 
 import { createPublicClient } from "@/lib/supabase/server";
 import type { DocumentShareResourceType } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * Public share-link resolution (P0-04, ADR-0005 D3). Every lookup goes through a token-scoped SECURITY DEFINER RPC
@@ -62,7 +64,7 @@ export async function resolveShareToken(
 
   const { data, error } = await publicRpc("resolve_share_token", { p_token: token, p_kinds: kinds });
   if (error || !data || typeof data !== "object" || Array.isArray(data)) {
-    if (error) console.error("[features/sharing/public-links] resolve_share_token failed:", error.code ?? "unknown");
+    if (error) log.error({ event: "sharing.token_resolve.failed", code: errorTag(error), requestId: await getRequestId() });
     return { status: "not_found" };
   }
 
@@ -104,7 +106,7 @@ export async function getRescheduleContext(token: string, fromIso: string, toIso
     p_to: toIso,
   });
   if (error || !data || typeof data !== "object" || Array.isArray(data)) {
-    if (error) console.error("[features/sharing/public-links] get_reschedule_context failed:", error.code ?? "unknown");
+    if (error) log.error({ event: "sharing.reschedule_context.failed", code: errorTag(error), requestId: await getRequestId() });
     return { status: "not_found" };
   }
 
@@ -148,7 +150,7 @@ export async function consumeRescheduleToken(token: string, newScheduledAt: stri
     p_new_at: newScheduledAt,
   });
   if (error || !data || typeof data !== "object" || Array.isArray(data)) {
-    if (error) console.error("[features/sharing/public-links] consume_reschedule_token failed:", error.code ?? "unknown");
+    if (error) log.error({ event: "sharing.reschedule_consume.failed", code: errorTag(error), requestId: await getRequestId() });
     return { status: "not_found" };
   }
 

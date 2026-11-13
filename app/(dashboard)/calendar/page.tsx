@@ -6,6 +6,8 @@ import { requireServiceContext } from "@/lib/auth/context";
 import { getScheduleBlocksForDate } from "@/features/visits/scheduling-service";
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { TimelineVisit } from "@/components/calendar/doctor-timeline";
+import { isYmd } from "@/lib/datetime";
+import { getTenantToday } from "@/lib/datetime/server";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +27,9 @@ export default async function CalendarPage(props: CalendarPageProps) {
     redirect("/login");
   }
 
-  // Today's date YYYY-MM-DD default
-  const today = new Date().toISOString().split("T")[0];
-  const currentDate = searchParams.date || today;
+  // The clinic's day in its own zone (V2-03 03-05); an unusable ?date= falls back to it.
+  const { today } = await getTenantToday(membership.db, membership.tenantId);
+  const currentDate = isYmd(searchParams.date) ? searchParams.date : today;
 
   // Fetch resolved doctor directory for tenant
   const doctorDirectory = await getTenantDoctorDirectory(membership);

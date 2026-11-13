@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextRequest } from "next/server";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { GET as getDocumentRoute } from "@/app/api/r/[token]/route";
@@ -11,6 +11,7 @@ import { GET as getRescheduleRoute, POST as postRescheduleRoute } from "@/app/ap
 import { generateRescheduleToken } from "@/features/appointments/system";
 import * as dispatcher from "@/lib/messaging/dispatcher";
 import { shareTokenHash } from "../helpers/share-tokens";
+import { jsonObject } from "../helpers/db";
 
 // V2-01 plan 01-04 (P0-04; SEC-05, ARC-05, F7(a)); SECURITY_VERIFICATION_PLAN TC-TOK-01..06. Local stack, real
 // clients; the admin client only seeds rows (including deliberately mis-bound tokens) and reads results.
@@ -166,7 +167,7 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
   beforeAll(async () => {
     A = await seedClinic("A");
     B = await seedClinic("B");
-    anon = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    anon = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     // A real object for tenant A's lab document so the signing path is exercised.
@@ -515,10 +516,10 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
         .select("id, metadata")
         .eq("tenant_id", A.owner.tenantId)
         .eq("event_type", "appointment_rescheduled");
-      const forToken = (notes ?? []).filter(
-        (n: { metadata: { new_scheduled_at?: string } | null }) =>
-          n.metadata?.new_scheduled_at && new Date(n.metadata.new_scheduled_at).getTime() === winner.getTime()
-      );
+      const forToken = (notes ?? []).filter((n) => {
+        const at = jsonObject(n.metadata).new_scheduled_at;
+        return typeof at === "string" && new Date(at).getTime() === winner.getTime();
+      });
       expect(forToken).toHaveLength(1);
 
       // A third attempt after the race is also refused.

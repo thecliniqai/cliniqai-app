@@ -4,6 +4,9 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { patientInTenant } from "@/lib/auth/tenant-refs";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -85,7 +88,7 @@ export async function grantConsent(
       .single();
 
     if (error || !data) {
-      console.error("[features/patients/consent] Failed to record consent grant:", error);
+      log.error({ event: "patients.consent_grant.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record consent." };
     }
 
@@ -102,7 +105,7 @@ export async function grantConsent(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to record consent.",
+      error: clientErrorMessage(err, "Failed to record consent.", "patients.grant_consent.failed"),
     };
   }
 }
@@ -138,7 +141,7 @@ export async function withdrawConsent(
       .single();
 
     if (error || !data) {
-      console.error("[features/patients/consent] Failed to record consent withdrawal:", error);
+      log.error({ event: "patients.consent_withdraw.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record consent withdrawal." };
     }
 
@@ -155,7 +158,7 @@ export async function withdrawConsent(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to withdraw consent.",
+      error: clientErrorMessage(err, "Failed to withdraw consent.", "patients.withdraw_consent.failed"),
     };
   }
 }
@@ -205,7 +208,7 @@ export async function toggleGlobalConsent(
     const { data, error } = await (supabase.from("consent_records") as any).insert(rows).select("id, consent_type");
 
     if (error || !data) {
-      console.error("[features/patients/consent] Failed to record global consent toggle:", error);
+      log.error({ event: "patients.consent_toggle.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record global consent update." };
     }
 
@@ -228,7 +231,7 @@ export async function toggleGlobalConsent(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to toggle global consent.",
+      error: clientErrorMessage(err, "Failed to toggle global consent.", "patients.toggle_global_consent.failed"),
     };
   }
 }

@@ -88,7 +88,7 @@ function createMockSupabase(overrides?: {
                 eq: () => ({
                   single: byId,
                   gte: () => ({
-                    lte: () => ({
+                    lt: () => ({
                       not: async () => ({ data: existingVisits, error: null }),
                     }),
                   }),

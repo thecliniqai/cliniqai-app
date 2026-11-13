@@ -14,13 +14,18 @@
  *     no membership is denied; the cross-tenant leg runs as the least-privileged role (receptionist).
  *   - `{ authenticated: reason }`: deliberately callable by a signed-in user with no membership (onboarding,
  *     invitation acceptance). Only the unauthenticated and cross-tenant legs apply.
+ *   - `{ self: reason }` (03-12a): acts only on the signed-in caller's own auth account (change password, reset
+ *     completion), with or without a clinic membership. No tenant data and no static membership guard: the action
+ *     authenticates from the cookie session itself. Legs: unauthenticated; cross-tenant (as the outsider); and the
+ *     `self` leg: the input names no user, tenant or row (password fields only) and a signed-in call with forged ids
+ *     touches nothing but `auth` and returns nothing of tenant B.
  *
  * Routes (`"file#METHOD"`), by category (see `RouteGuard`). Adding an entry is a security decision: say why in the
  * PR and get the adversarial second review (CLAUDE.md DoD 6).
  */
 import type { Permission } from "@/lib/permissions";
 
-export type ActionGuard = Permission | { member: string } | { authenticated: string };
+export type ActionGuard = Permission | { member: string } | { authenticated: string } | { self: string };
 
 /** Which of tenant B's seeded rows a session route's `[id]` gets in the cross-tenant leg. */
 export type BResource = "invoice" | "patient" | "visit";
@@ -37,10 +42,26 @@ export type RouteGuard =
   | { kind: "webhook-secret"; acceptsPost: boolean }
   /** Cron trigger: CRON_SECRET unset 401, wrong or missing bearer 401 (RL-23: the compare itself is V2-04's). */
   | { kind: "cron-secret" }
+  /**
+   * Standard Webhooks signed call (03-11b: the Supabase Auth Send Email hook): secret unset, no signature headers, a
+   * wrong signature, another secret's signature and a stale timestamp all answer 401 and send nothing.
+   */
+  | { kind: "webhook-signature" }
+  /**
+   * Session-ending form POST (03-12b, T-03-13): a cross-origin, cross-site, `Origin: null` or signal-less call 403 and
+   * an unknown `scope` 400, all without calling `auth.signOut` (the caller's session still works); signed out it is
+   * 303 → `/login` with `Clear-Site-Data: "cache"`. No data access in any leg. GET is not exported (Next answers 405).
+   */
+  | { kind: "signout" }
   /** `/api/v1` (PO-16, AR2-H2): switch off → 404 at the handler; switch on and no key → 401 (or the public docs). */
   | { kind: "api-v1"; key: boolean }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
-  | { kind: "public-health"; keys: readonly string[] };
+  | {
+      kind: "public-health";
+      keys: readonly string[];
+      /** Request-client calls the probe may make (03-01/03-13c: `/api/ready` runs the booleans-only readiness RPC as anon). */
+      access?: readonly string[];
+    };
 
 export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "app/(dashboard)/settings/clinic/actions.ts#updateClinicProfileAction": "clinic:manage",
@@ -50,6 +71,10 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/api-keys/actions.ts#createApiKey": "clinic:manage",
   "features/api-keys/actions.ts#listApiKeys": "clinic:manage",
   "features/api-keys/actions.ts#revokeApiKey": "clinic:manage",
+  "features/auth/actions.ts#changePasswordAction":
+    { self: "Changes the session user's own password (current + new); FT-05 and the A00-5 10-minute bound apply." },
+  "features/auth/actions.ts#setNewPasswordAction":
+    { self: "Forgot-password final step on the session user's own fresh recovery session (A00-5); FT-05 applies." },
   "features/billing/actions.ts#addInvoiceItem": "appointments:edit",
   "features/billing/actions.ts#completeAndBillConsultation": "consultations:edit",
   "features/billing/actions.ts#createVisitInvoice": "appointments:edit",
@@ -192,12 +217,24 @@ const V1_PUBLIC_DOCS: RouteGuard = { kind: "api-v1", key: false };
 const WEBHOOK_OTHER_METHOD: RouteGuard = { kind: "webhook-secret", acceptsPost: false };
 
 export const ROUTE_GUARDS: Record<string, RouteGuard> = {
+  // V2-03 03-11b (AUTH-03, T-03-05): Supabase Auth calls the Send Email hook server to server; no session exists, the
+  // Standard Webhooks signature with SEND_EMAIL_HOOK_SECRET is the authentication.
+  "app/api/auth/send-email/route.ts#POST": { kind: "webhook-signature" },
+  // V2-03 03-12b (AUTH-04b, T-03-13): server-side sign-out; same-origin form POST, works with or without a session.
+  "app/auth/signout/route.ts#POST": { kind: "signout" },
   "app/api/cron/dispatch-communications/route.ts#GET": CRON,
   "app/api/cron/dispatch-communications/route.ts#POST": CRON,
   "app/api/cron/webhooks/route.ts#GET": CRON,
   "app/api/cron/webhooks/route.ts#POST": CRON,
-  "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime"] },
-  "app/api/ready/route.ts#GET": { kind: "public-health", keys: ["status", "checks", "timestamp", "correlationId"] },
+  // V2-03 03-09b (R-18, T-03-15): the diagnostic error route authenticates with the cron bearer before its flag.
+  "app/api/diag/error/route.ts#POST": CRON,
+  "app/api/health/route.ts#GET": { kind: "public-health", keys: ["status", "timestamp", "uptime", "region", "release"] },
+  "app/api/ready/route.ts#GET": {
+    kind: "public-health",
+    // 03-13c (M-PROBE): no migration version and no counts reach an anonymous caller.
+    keys: ["status", "checks", "outbox", "providers", "correlationId", "timestamp"],
+    access: ["rpc:readiness_probe"],
+  },
   "app/api/invoices/[id]/receipt-pdf/route.ts#GET": SESSION_RECEIPT,
   "app/api/patients/[id]/export/route.ts#GET": { kind: "session", permission: "exports:create", resource: "patient" },
   "app/api/visits/[id]/prescription-pdf/route.ts#GET": {

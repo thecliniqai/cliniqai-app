@@ -1,0 +1,4 @@
+# with-fix run at working tree
+ Test Files  2 passed (2)
+      Tests  66 passed (66)
+schema-snapshot: PASS (local: 2207 lines equal the committed snapshot)

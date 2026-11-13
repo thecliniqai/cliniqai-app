@@ -15,6 +15,7 @@ import { AgeDobInput } from "@/components/patients/age-dob-input";
 import { DuplicateWarningBanner } from "@/components/patients/duplicate-warning-banner";
 import { ArrowLeft, UserPlus, Shield, MapPin, User } from "lucide-react";
 import Link from "next/link";
+import { reportClientError } from "@/lib/log/client";
 
 export default function NewPatientPage() {
   const router = useRouter();
@@ -67,7 +68,7 @@ export default function NewPatientPage() {
         });
         setDuplicates(matches);
       } catch (err) {
-        console.error("Duplicate check failed:", err);
+        reportClientError("patients.duplicate_check.failed", err);
       }
     }, 400);
 

@@ -42,7 +42,7 @@ export async function erasePatientRecord(
     .maybeSingle();
 
   if (fetchErr || !existing) {
-    throw new Error(`Patient not found or unauthorized: ${fetchErr?.message || "Not found"}`);
+    throw new Error("Patient not found or unauthorized.", { cause: fetchErr });
   }
 
   const erasedAt = new Date().toISOString();
@@ -62,7 +62,7 @@ export async function erasePatientRecord(
     .eq("tenant_id", ctx.tenantId);
 
   if (updateErr) {
-    throw new Error(`Failed to soft-delete patient: ${updateErr.message}`);
+    throw new Error("Failed to soft-delete patient.", { cause: updateErr });
   }
 
   // 3. Record compliance audit entry (the free-text reason stays on the patient row, not in the audit trail)

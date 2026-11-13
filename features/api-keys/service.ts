@@ -4,6 +4,10 @@ import crypto from "crypto";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { getTenantToday } from "@/lib/datetime/server";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // API key management use-cases (clinic:manage, as before). Tenant and creator come only from `ctx` (ADR-0005 D1).
 
@@ -39,7 +43,8 @@ export async function listApiKeys(ctx: ServiceContext): Promise<ListApiKeysResul
     assertPerm(ctx.role, "clinic:manage");
     const supabase = ctx.db;
 
-    const todayDate = new Date().toISOString().slice(0, 10);
+    // Usage is bucketed by the clinic date in the tenant's zone (same rule as `authenticateApiKey`, V2-03 03-05).
+    const { today: todayDate } = await getTenantToday(supabase, ctx.tenantId);
 
     // 1. Fetch keys
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -49,7 +54,7 @@ export async function listApiKeys(ctx: ServiceContext): Promise<ListApiKeysResul
       .order("created_at", { ascending: false });
 
     if (keysErr) {
-      console.error("[listApiKeys] Error fetching keys:", keysErr);
+      log.error({ event: "apikeys.list_query.failed", code: errorTag(keysErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, keys: [], error: "Failed to load API keys." };
     }
 
@@ -79,11 +84,11 @@ export async function listApiKeys(ctx: ServiceContext): Promise<ListApiKeysResul
 
     return { success: true, keys: items };
   } catch (err: unknown) {
-    console.error("[listApiKeys] Exception:", err);
+    log.error({ event: "apikeys.list.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
       keys: [],
-      error: err instanceof Error ? err.message : "Access denied or session invalid.",
+      error: clientErrorMessage(err, "Access denied or session invalid."),
     };
   }
 }
@@ -123,7 +128,7 @@ export async function createApiKey(ctx: ServiceContext, name: string): Promise<C
       .single();
 
     if (insertErr || !newKey) {
-      console.error("[createApiKey] Insert error:", insertErr);
+      log.error({ event: "apikeys.create_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to persist API key record." };
     }
 
@@ -138,7 +143,7 @@ export async function createApiKey(ctx: ServiceContext, name: string): Promise<C
         },
       });
     } catch (auditErr) {
-      console.warn("[createApiKey] Audit logging warning:", auditErr);
+      log.warn({ event: "apikeys.create_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     return {
@@ -151,10 +156,10 @@ export async function createApiKey(ctx: ServiceContext, name: string): Promise<C
       },
     };
   } catch (err: unknown) {
-    console.error("[createApiKey] Exception:", err);
+    log.error({ event: "apikeys.create.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Unable to generate API key.",
+      error: clientErrorMessage(err, "Unable to generate API key."),
     };
   }
 }
@@ -183,7 +188,7 @@ export async function revokeApiKey(ctx: ServiceContext, keyId: string): Promise<
       .eq("tenant_id", ctx.tenantId);
 
     if (updateErr) {
-      console.error("[revokeApiKey] Update error:", updateErr);
+      log.error({ event: "apikeys.revoke_update.failed", code: errorTag(updateErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to revoke API key." };
     }
 
@@ -198,15 +203,15 @@ export async function revokeApiKey(ctx: ServiceContext, keyId: string): Promise<
         },
       });
     } catch (auditErr) {
-      console.warn("[revokeApiKey] Audit warning:", auditErr);
+      log.warn({ event: "apikeys.revoke_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     return { success: true };
   } catch (err: unknown) {
-    console.error("[revokeApiKey] Exception:", err);
+    log.error({ event: "apikeys.revoke.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Unable to revoke API key.",
+      error: clientErrorMessage(err, "Unable to revoke API key."),
     };
   }
 }

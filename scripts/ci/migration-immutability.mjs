@@ -1,0 +1,167 @@
+#!/usr/bin/env node
+/**
+ * Migration immutability gate (V2-03 plan 03-03; BACKEND_MIGRATION_PLAN B2, roadmap P1-34, ruling R-4).
+ *
+ * An applied migration is never edited: schema changes land as new files (expand -> migrate -> contract). Compared
+ * with the merge base of `--base` (CI: the PR's base branch), the gate fails when
+ *   - a migration that exists on the base is modified, deleted, renamed, copied or changes type (any status but A);
+ *   - a new migration is not named `NNNNNN_snake_case.sql` (zero-padded sequence, R-4; this also catches the CLI's
+ *     timestamped `db diff -f` output);
+ *   - a new migration's number is not above the highest number on the base;
+ *   - two migrations share a number.
+ * The comparison runs against the working tree (tracked changes and untracked files under the directory), so an
+ * uncommitted local edit fails too; a CI checkout is clean, so there it equals `<base>...HEAD`.
+ *
+ * 03-13b (review IND L-4): `--base auto` picks the base from the GitHub event: a pull request compares with
+ * `origin/<base branch>`; a push compares with the push's `before` commit (from `GITHUB_EVENT_PATH`), falling back to
+ * `HEAD~1` when that commit is unknown (new branch, force-push). Before, a push to feature/v2 compared
+ * `origin/feature/v2` with itself, so an edited applied migration landed unchecked on the branch staging migrates from.
+ *
+ * 03-13b (review IND Low): `--against <ref>` (CI: `origin/feature/v2`) also fails when a migration this change adds
+ * would collide once both land there: its number is already used on `<ref>` by a different file, or is not above the
+ * highest number on `<ref>` (two branches, or a branch that fell behind, picking the same or a lower number). A file
+ * that `<ref>` already has under the same name (a stacked branch whose parent merged) is fine.
+ *
+ * Reads only git metadata and file names. Usage:
+ *   node scripts/ci/migration-immutability.mjs --base <ref|auto> [--against <ref>] [--root <repo>] [--dir supabase/migrations]
+ * Exit 0 = pass, 1 = violation, 2 = usage or git error (for example a shallow clone without the base).
+ */
+import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const arg = (name, fallback) => {
+  const i = process.argv.indexOf(name);
+  return i > -1 ? process.argv[i + 1] : fallback;
+};
+const baseArg = arg("--base");
+const against = arg("--against");
+const root = resolve(arg("--root", "."));
+const dir = arg("--dir", "supabase/migrations").replace(/\/+$/, "");
+
+if (!baseArg || (process.argv.includes("--against") && !against)) {
+  console.error("usage: migration-immutability.mjs --base <ref|auto> [--against <ref>] [--root <repo>] [--dir supabase/migrations]");
+  process.exit(2);
+}
+
+const git = (...args) => execFileSync("git", args, { cwd: root, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+const isCommit = (ref) => {
+  try {
+    git("rev-parse", "--verify", "--quiet", `${ref}^{commit}`);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** `--base auto`: the PR base branch, or the push's `before` commit (HEAD~1 when unknown). */
+function autoBase(env) {
+  if (env.GITHUB_EVENT_NAME === "pull_request" && env.GITHUB_BASE_REF) return { ref: `origin/${env.GITHUB_BASE_REF}`, how: "pull request base" };
+  if (env.GITHUB_EVENT_NAME === "push") {
+    let before = "";
+    try {
+      before = String(JSON.parse(readFileSync(env.GITHUB_EVENT_PATH ?? "", "utf8")).before ?? "");
+    } catch {
+      before = "";
+    }
+    if (/^[0-9a-f]{40}$/.test(before) && !/^0+$/.test(before) && isCommit(before)) return { ref: before, how: "push: the commit before the push" };
+    return { ref: "HEAD~1", how: "push: before-commit unknown, HEAD~1" };
+  }
+  return { ref: "origin/feature/v2", how: "no GitHub event: origin/feature/v2" };
+}
+
+const { ref: base, how } = baseArg === "auto" ? autoBase(process.env) : { ref: baseArg, how: "--base" };
+
+let mergeBase;
+try {
+  mergeBase = git("merge-base", base, "HEAD").trim();
+} catch {
+  console.error(`migration-immutability: cannot resolve the merge base of '${base}' and HEAD (shallow clone? fetch the base)`);
+  process.exit(2);
+}
+
+const NAME = /^(\d{6})_[a-z0-9_]+\.sql$/;
+const fileName = (p) => p.slice(p.lastIndexOf("/") + 1);
+const numberOf = (p) => {
+  const m = /^(\d+)_/.exec(fileName(p));
+  return m ? Number(m[1]) : null;
+};
+const lines = (out) => out.split("\n").filter(Boolean);
+
+const baseFiles = lines(git("ls-tree", "-r", "--name-only", mergeBase, "--", `${dir}/`));
+const baseNumbers = baseFiles.map(numberOf).filter((n) => n !== null);
+const highest = baseNumbers.length ? Math.max(...baseNumbers) : 0;
+
+// Tracked changes: merge base vs the working tree (renames detected so they are named, not seen as delete + add).
+const changes = lines(git("diff", "--name-status", "--find-renames", mergeBase, "--", `${dir}/`)).map((l) => {
+  const [status, ...paths] = l.split("\t");
+  return { status, paths };
+});
+for (const p of lines(git("ls-files", "--others", "--exclude-standard", "--", `${dir}/`))) {
+  changes.push({ status: "A", paths: [p] });
+}
+
+const problems = [];
+const added = [];
+for (const { status, paths } of changes) {
+  if (status === "A") {
+    added.push(paths[0]);
+    continue;
+  }
+  const what = { M: "modified", D: "deleted", T: "type changed" }[status[0]];
+  if (status[0] === "R") problems.push(`applied migration renamed (${status}): ${paths[0]} -> ${paths[1]}`);
+  else if (status[0] === "C") problems.push(`applied migration copied (${status}): ${paths[0]} -> ${paths[1]}`);
+  else problems.push(`applied migration ${what ?? "changed"} (${status}): ${paths[0]}`);
+}
+
+for (const p of added) {
+  const n = numberOf(p);
+  if (!NAME.test(fileName(p))) {
+    problems.push(`new migration ${p} is not named NNNNNN_snake_case.sql (zero-padded sequence, R-4)`);
+  } else if (n <= highest) {
+    problems.push(`new migration ${p} has number ${n}, not above the highest on the base (${highest})`);
+  }
+}
+
+// Duplicate numbers across the resulting directory: base files still present, plus added, renamed-to and copied-to.
+const gone = new Set(changes.filter((c) => c.status[0] === "D" || c.status[0] === "R").map((c) => c.paths[0]));
+const arrived = changes.filter((c) => c.status === "A" || c.paths.length > 1).map((c) => c.paths.at(-1));
+const byNumber = new Map();
+for (const p of [...baseFiles.filter((f) => !gone.has(f)), ...arrived]) {
+  const n = numberOf(p);
+  if (n === null) continue;
+  byNumber.set(n, [...(byNumber.get(n) ?? []), p]);
+}
+for (const [n, files] of byNumber) {
+  if (files.length > 1) problems.push(`migration number ${n} is used by ${files.length} files: ${files.sort().join(", ")}`);
+}
+
+// Collisions with the integration branch (another branch, or this one before a rebase, took the number).
+let againstNote = "";
+if (against) {
+  if (!isCommit(against)) {
+    console.error(`migration-immutability: cannot resolve --against '${against}' (fetch it: the checkout needs fetch-depth: 0)`);
+    process.exit(2);
+  }
+  const theirs = lines(git("ls-tree", "-r", "--name-only", against, "--", `${dir}/`));
+  const theirNames = new Set(theirs.map(fileName));
+  const theirHighest = Math.max(0, ...theirs.map(numberOf).filter((n) => n !== null));
+  for (const p of arrived) {
+    const n = numberOf(p);
+    if (n === null || theirNames.has(fileName(p))) continue;
+    const clash = theirs.filter((t) => numberOf(t) === n);
+    if (clash.length) problems.push(`new migration ${p} reuses number ${n}, already taken on ${against} by ${clash.map(fileName).join(", ")}: renumber after rebasing`);
+    else if (n <= theirHighest) problems.push(`new migration ${p} has number ${n}, not above the highest on ${against} (${theirHighest}): renumber after rebasing`);
+  }
+  againstNote = `; no collision with ${against} (highest ${theirHighest})`;
+}
+
+if (problems.length) {
+  for (const p of problems) console.error(`FAIL ${p}`);
+  console.error("Applied migrations are immutable: add a new, higher-numbered migration instead (CLAUDE.md, R-4).");
+  process.exit(1);
+}
+console.log(
+  `migration-immutability: PASS (base ${base} @ ${mergeBase.slice(0, 7)} [${how}]; ${baseFiles.length} applied unchanged; ` +
+    `${added.length} new above ${highest}${againstNote})`,
+);

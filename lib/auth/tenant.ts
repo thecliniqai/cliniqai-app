@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { UserRole } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export class NoClinicMembershipError extends Error {
   constructor(message = "Your account is not linked to a clinic yet") {
@@ -46,7 +48,7 @@ export async function getActiveMembership(explicitTenantId?: string): Promise<Ac
 
   if (memError) {
     // Database text never leaves the server (IR-L1); only the error code is logged.
-    console.error("[lib/auth/tenant] membership lookup failed:", memError.code ?? "unknown");
+    log.error({ event: "auth.membership_lookup.failed", code: errorTag(memError), requestId: await getRequestId(), userId: user.id });
     throw new Error("Failed to resolve clinic membership.");
   }
 

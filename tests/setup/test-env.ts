@@ -24,6 +24,54 @@ const PINNED: Record<string, string[]> = {
   AI_PROVIDER: ["mock"],
 };
 
+/**
+ * V2-03 03-01 (R-11): the env-schema tier of each lane. Vitest (and the seed/Playwright runner processes that share
+ * this loader) run as `test`; the e2e app server as `e2e`. `loadTestEnv` fills `APP_ENV=test` when unset.
+ */
+export const TEST_APP_ENV = "test";
+export const E2E_APP_ENV = "e2e";
+
+/**
+ * V2-03 03-09b: the synthetic error-sink ingest key of every local lane. Global setup (Vitest and Playwright) installs
+ * its SHA-256 as the local vault secret `ops_error_ingest_key_sha256`; the e2e app server and the sink specs use it.
+ * A test lane may carry no other value (a real staging/production key would mean hosted config leaked in).
+ */
+export const LOCAL_ERROR_INGEST_KEY = "not-real-ingest-key-".repeat(2);
+
+/**
+ * V2-03 03-11b: the synthetic Send Email hook secret of every local lane (`v1,whsec_<base64>` of a 32-byte placeholder,
+ * assembled at runtime). Specs sign synthetic hook payloads with it; the e2e app server verifies with it. A test lane
+ * may carry no other value; the env schema refuses it in staging and production.
+ */
+export const LOCAL_SEND_EMAIL_HOOK_SECRET = `v1,whsec_${Buffer.from("not-real-send-email-hook-secret!").toString("base64")}`;
+/** V2-03 03-11b: the local stack's Mailpit API (the CLI default port). */
+export const LOCAL_MAILPIT_API_URL = "http://127.0.0.1:54324";
+
+/**
+ * V2-03 03-12a (FT-05): the e2e app server's breached-password check points at the loopback fake range API that
+ * Playwright's global setup starts (tests/e2e/support/pwned-range-server.ts). Fixed port, next to the e2e server.
+ */
+export const E2E_PWNED_RANGE_PORT = 3101;
+export const E2E_PWNED_API_BASE_URL = `http://127.0.0.1:${E2E_PWNED_RANGE_PORT}`;
+
+/**
+ * V2-03 03-12c (C43, R-22): Cloudflare's documented Turnstile test site keys (the same list as
+ * `TURNSTILE_TEST_SITE_KEYS` in lib/env.ts; tests/setup/test-env-guard.spec.ts keeps them equal). A test lane may set
+ * only these; the e2e app server builds with the always-pass key and the browser gets the script from a local stub
+ * (tests/e2e/support/turnstile-stub.js). Local GoTrue keeps CAPTCHA off (supabase/config.toml).
+ */
+export const TURNSTILE_TEST_SITE_KEYS = [
+  "1x00000000000000000000AA",
+  "2x00000000000000000000AB",
+  "1x00000000000000000000BB",
+  "2x00000000000000000000BB",
+  "3x00000000000000000000FF",
+] as const;
+/** The e2e build's site key: visible widget, always passes. */
+export const E2E_TURNSTILE_SITE_KEY = "1x00000000000000000000AA";
+/** Cloudflare's visible always-blocks test key (the stub fails the widget and issues no token, as Cloudflare does). */
+export const TURNSTILE_ALWAYS_FAIL_SITE_KEY = "2x00000000000000000000AB";
+
 /** Variables that may be unset or must hold one of these values. */
 const PINNED_IF_SET: Record<string, string[]> = {
   STORAGE_PROVIDER: ["supabase"],
@@ -33,6 +81,10 @@ const PINNED_IF_SET: Record<string, string[]> = {
   // V2-02 (02-03a): the AI kill switch stays off in every test lane, Vitest and the e2e app server alike. Specs that
   // exercise the switch stub it per test (`vi.stubEnv`), after this guard has run.
   AI_ENABLED: ["false", "0"],
+  // V2-03 03-11b: auth email never goes to SES from a test lane; specs stub `ses` only with an injected client.
+  EMAIL_PROVIDER: ["disabled", "mailpit"],
+  // V2-03 03-12c: no real Turnstile widget from a test lane (a real key would load Cloudflare's challenge).
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: [...TURNSTILE_TEST_SITE_KEYS],
 };
 
 /**
@@ -50,7 +102,14 @@ const PROXY_VARS = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "htt
  * the shell (or a stray file) carries production/hosted config into the test lane.
  */
 export const FORBIDDEN_VARS = [
+  // V2-03 03-01 (R-K, R-32): retired names. The lane uses NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY / SUPABASE_SECRET_KEY.
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "MESSAGING_WEBHOOK_SECRET",
   "SUPABASE_ACCESS_TOKEN",
+  // V2-03 03-11a (AUTH-02): the read-only Management API token for the hosted auth-config drift check lives only in
+  // the `staging-readonly` GitHub Environment; scripts/drift/auth-config-hosted.mjs refuses to run without it.
+  "SUPABASE_ACCESS_TOKEN_STAGING_RO",
   "SUPABASE_DB_PASSWORD",
   "DATABASE_URL",
   "R2_ACCOUNT_ID",
@@ -71,10 +130,24 @@ export const FORBIDDEN_VARS = [
   "TWILIO_WHATSAPP_FROM",
   "MSG91_DLT_TE_ID",
   "MSG91_SENDER_ID",
+  // V2-03 03-11b (R-31): no AWS or SES credential in a test lane; the SES sender is tested with an injected client.
+  "AWS_ACCESS_KEY_ID",
+  "AWS_SECRET_ACCESS_KEY",
+  "AWS_SESSION_TOKEN",
+  "SES_ACCESS_KEY_ID",
+  "SES_SECRET_ACCESS_KEY",
 ] as const;
 
 /** Variables whose value is a URL that must be loopback. */
-const URL_VARS = ["NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_URL", "NEXT_PUBLIC_APP_URL", "PLAYWRIGHT_TEST_BASE_URL"];
+const URL_VARS = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "SUPABASE_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "PLAYWRIGHT_TEST_BASE_URL",
+  "MAILPIT_API_URL",
+  // 03-12a: the range API of the breached-password check is a loopback fake in every test lane.
+  "PWNED_API_BASE_URL",
+];
 
 /** Fragments that identify hosted services anywhere in any variable's value. */
 export const HOSTED_MARKERS = [".supabase.co", ".supabase.in", ".supabase.net", "r2.cloudflarestorage.com", "pooler.supabase"];
@@ -124,6 +197,7 @@ export function loadTestEnv(rootDir: string, env: EnvMap = process.env): Record<
   for (const [key, value] of Object.entries(parsed)) {
     if (env[key] === undefined || env[key] === "") env[key] = value;
   }
+  if (env.APP_ENV === undefined || env.APP_ENV === "") env.APP_ENV = TEST_APP_ENV;
   return parsed;
 }
 
@@ -142,7 +216,8 @@ export function decodeJwtPayload(token: string): Record<string, unknown> | null 
 }
 
 /**
- * Read the local stack's anon and service-role keys from `npx supabase status -o env` and fill them if unset.
+ * Read the local stack's anon and service-role keys from `npx supabase status -o env` and fill them, under the R-K
+ * names `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_SECRET_KEY` (legacy JWT values), if unset.
  * Keys are never written to disk or printed. Throws a guard error if the local stack is not running.
  */
 export function loadLocalStackKeys(
@@ -150,7 +225,7 @@ export function loadLocalStackKeys(
   env: EnvMap = process.env,
   readStatus: (cwd: string) => string = defaultReadStatus,
 ): void {
-  if (env.NEXT_PUBLIC_SUPABASE_ANON_KEY && env.SUPABASE_SERVICE_ROLE_KEY) return;
+  if (env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY && env.SUPABASE_SECRET_KEY) return;
   let status: string;
   try {
     status = readStatus(rootDir);
@@ -165,8 +240,8 @@ export function loadLocalStackKeys(
   if (!anon || !service) {
     throw new TestEnvGuardError(["`npx supabase status -o env` did not report ANON_KEY and SERVICE_ROLE_KEY"]);
   }
-  if (!env.NEXT_PUBLIC_SUPABASE_ANON_KEY) env.NEXT_PUBLIC_SUPABASE_ANON_KEY = anon;
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) env.SUPABASE_SERVICE_ROLE_KEY = service;
+  if (!env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = anon;
+  if (!env.SUPABASE_SECRET_KEY) env.SUPABASE_SECRET_KEY = service;
 }
 
 function defaultReadStatus(cwd: string): string {
@@ -189,6 +264,15 @@ function hostOf(value: string): string | null {
 export interface TestEnvRuleOptions {
   /** Extra `NODE_ENV` values allowed on top of `test` (the e2e app server runs `next start`, i.e. `production`). */
   allowNodeEnv?: string[];
+  /** The `APP_ENV` tier the lane must declare (default `test`; the e2e app server uses `e2e`). */
+  appEnv?: string;
+  /** 03-09b (R-18): the e2e app server turns the diagnostic error route on; the Vitest lane keeps it off. */
+  diagRoute?: boolean;
+  /**
+   * 03-12a (FT-05): the e2e app server turns the breached-password check on (against the loopback fake); the Vitest
+   * lane keeps it off and specs stub it per test (`vi.stubEnv`) after this guard has run.
+   */
+  pwnedCheck?: boolean;
 }
 
 /** Collect every reason the environment is not the local test stack. Empty array = safe. */
@@ -198,6 +282,7 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
     ...PINNED_IF_SET,
     NODE_ENV: [...PINNED_IF_SET.NODE_ENV, ...(options.allowNodeEnv ?? [])],
   };
+  const pinned: Record<string, string[]> = { ...PINNED, APP_ENV: [options.appEnv ?? TEST_APP_ENV] };
 
   if (!env.NEXT_PUBLIC_SUPABASE_URL) problems.push("NEXT_PUBLIC_SUPABASE_URL is not set");
 
@@ -209,7 +294,7 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
     else if (!LOOPBACK_HOSTS.has(host)) problems.push(`${key} points at non-local host "${host}"`);
   }
 
-  for (const [key, allowed] of Object.entries(PINNED)) {
+  for (const [key, allowed] of Object.entries(pinned)) {
     if (!allowed.includes(env[key] ?? "")) {
       problems.push(`${key} must be ${allowed.join(" or ")} (got ${env[key] ? `"${env[key]}"` : "unset"})`);
     }
@@ -219,6 +304,27 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
     if (value !== undefined && value !== "" && !allowed.includes(value)) {
       problems.push(`${key} must be unset or ${allowed.join(" or ")} (got "${value}")`);
     }
+  }
+
+  // 03-09b: unset or the local synthetic key only; the value is never echoed (it would be a secret if it were real).
+  if (env.ERROR_INGEST_KEY && env.ERROR_INGEST_KEY !== LOCAL_ERROR_INGEST_KEY) {
+    problems.push("ERROR_INGEST_KEY must be unset or the local synthetic key (LOCAL_ERROR_INGEST_KEY) in the test lane");
+  }
+  // 03-11b: same rule for the Send Email hook secret.
+  if (env.SEND_EMAIL_HOOK_SECRET && env.SEND_EMAIL_HOOK_SECRET !== LOCAL_SEND_EMAIL_HOOK_SECRET) {
+    problems.push("SEND_EMAIL_HOOK_SECRET must be unset or the local synthetic secret (LOCAL_SEND_EMAIL_HOOK_SECRET) in the test lane");
+  }
+  const diagAllowed = options.diagRoute ? ["true", "false"] : ["false"];
+  if (env.DIAG_ERROR_ROUTE_ENABLED && !diagAllowed.includes(env.DIAG_ERROR_ROUTE_ENABLED)) {
+    problems.push(`DIAG_ERROR_ROUTE_ENABLED must be unset or ${diagAllowed.join(" or ")} in this lane`);
+  }
+
+  const pwnedAllowed = options.pwnedCheck ? ["on", "off"] : ["off"];
+  if (env.PWNED_CHECK && !pwnedAllowed.includes(env.PWNED_CHECK)) {
+    problems.push(`PWNED_CHECK must be unset or ${pwnedAllowed.join(" or ")} in this lane`);
+  }
+  if (env.PWNED_CHECK === "on" && !env.PWNED_API_BASE_URL) {
+    problems.push("PWNED_CHECK=on needs PWNED_API_BASE_URL (the loopback fake range API) in this lane");
   }
 
   for (const key of PLACEHOLDER_ONLY) {
@@ -237,8 +343,8 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
   }
 
   for (const [key, role] of [
-    ["NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon"],
-    ["SUPABASE_SERVICE_ROLE_KEY", "service_role"],
+    ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "anon"],
+    ["SUPABASE_SECRET_KEY", "service_role"],
   ] as const) {
     const value = env[key];
     if (!value) {
@@ -278,7 +384,12 @@ export function assertLocalTestEnv(env: EnvMap = process.env): void {
  * `NEXT_TELEMETRY_DISABLED=1` (no outbound telemetry).
  */
 export function findAppServerEnvProblems(env: EnvMap): string[] {
-  const problems = findTestEnvProblems(env, { allowNodeEnv: ["production"] });
+  const problems = findTestEnvProblems(env, {
+    allowNodeEnv: ["production"],
+    appEnv: E2E_APP_ENV,
+    diagRoute: true,
+    pwnedCheck: true,
+  });
   if (env.__NEXT_PROCESSED_ENV !== "true") {
     problems.push("__NEXT_PROCESSED_ENV must be \"true\" so Next loads no .env file into the e2e server");
   }

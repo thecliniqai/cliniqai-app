@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createSupabaseClient, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "@/lib/db/types";
-import { env } from "@/lib/env";
 import {
   StorageDeleteOptions,
   StorageDownloadOptions,
@@ -12,6 +11,15 @@ import {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<Database, any, any>;
+
+/**
+ * A storage failure with a fixed message (03-13d M-ERRMSG; review C M-3, IND L-8): never the object key, which can
+ * carry a patient's name (`…/labs/<Patient_Name>_…pdf`), and never the Storage API's text. The original error stays
+ * on `cause` (server-side only; `clientErrorMessage` and the logger never print it).
+ */
+function storageError(operation: string, bucket: string, cause: unknown): Error {
+  return new Error(`Storage ${operation} failed (bucket ${bucket}).`, { cause });
+}
 
 export class SupabaseStorageProvider implements StorageProvider {
   readonly name = "supabase";
@@ -24,6 +32,11 @@ export class SupabaseStorageProvider implements StorageProvider {
     this.client = options?.client;
   }
 
+  /**
+   * The injected client, else the caller's cookie (user-JWT) client. If that cannot be created (no request scope),
+   * this throws: request-path code never falls back to the service role (ADR-0005 D2, V2-03 03-02). Privileged
+   * callers (`features/<domain>/system.ts`) inject a `getSystemDb` client explicitly.
+   */
   private async getClient(): Promise<AnySupabaseClient> {
     if (this.client) {
       return this.client;
@@ -31,16 +44,6 @@ export class SupabaseStorageProvider implements StorageProvider {
     try {
       return await createClient();
     } catch {
-      // Fallback for non-cookie contexts (tests/scripts) if service role key is present
-      if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        return createSupabaseClient<Database>(
-          env.NEXT_PUBLIC_SUPABASE_URL,
-          process.env.SUPABASE_SERVICE_ROLE_KEY,
-          {
-            auth: { autoRefreshToken: false, persistSession: false },
-          }
-        );
-      }
       throw new Error("Could not initialize Supabase client for storage");
     }
   }
@@ -54,7 +57,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     });
 
     if (error) {
-      throw new Error(`Failed to upload to Supabase storage [${bucket}/${options.path}]: ${error.message}`);
+      throw storageError("upload", bucket, error);
     }
 
     return { path: options.path, bucket };
@@ -72,9 +75,7 @@ export class SupabaseStorageProvider implements StorageProvider {
       });
 
     if (error || !data?.signedUrl) {
-      throw new Error(
-        `Failed to create signed URL from Supabase storage [${bucket}/${options.path}]: ${error?.message}`
-      );
+      throw storageError("signed URL", bucket, error);
     }
 
     return { signedUrl: data.signedUrl };
@@ -86,7 +87,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     const { error } = await client.storage.from(bucket).remove([options.path]);
 
     if (error) {
-      throw new Error(`Failed to delete from Supabase storage [${bucket}/${options.path}]: ${error.message}`);
+      throw storageError("delete", bucket, error);
     }
 
     return { success: true };
@@ -98,7 +99,7 @@ export class SupabaseStorageProvider implements StorageProvider {
     const { data, error } = await client.storage.from(bucket).download(options.path);
 
     if (error || !data) {
-      throw new Error(`Failed to download from Supabase storage [${bucket}/${options.path}]: ${error?.message}`);
+      throw storageError("download", bucket, error);
     }
 
     const arrayBuffer = await data.arrayBuffer();

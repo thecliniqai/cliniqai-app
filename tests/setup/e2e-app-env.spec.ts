@@ -4,6 +4,8 @@
  * guard (run in a child Node process exactly as `NODE_OPTIONS=--require` loads it into Next).
  */
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { assertLocalAppServerEnv, findAppServerEnvProblems, TestEnvGuardError } from "./test-env";
@@ -15,7 +17,7 @@ import {
   stampProblems,
   type LocalStackKeys,
 } from "../e2e/support/app-env";
-import { scanText } from "../e2e/support/build-scan";
+import { REQUIRED_CHUNK_DIRS, scanBuildOutput, scanText } from "../e2e/support/build-scan";
 
 function fakeJwt(payload: Record<string, unknown>): string {
   const enc = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
@@ -128,6 +130,54 @@ describe("build output scan", () => {
   it("never echoes a key value in a finding", () => {
     const hosted = fakeJwt({ iss: "supabase", ref: "abcdefghijklmnop", role: "service_role" });
     expect(JSON.stringify(scanText(hosted, "k.js", true))).not.toContain(hosted);
+  });
+});
+
+describe("build output scan over the Next 16 Turbopack layout (V2-03 03-06)", () => {
+  /** A synthetic `.next/` with one chunk per REQUIRED_CHUNK_DIRS entry (plus a nested `ssr/` server chunk). */
+  function fakeBuild(files: Record<string, string>): string {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "build-scan-"));
+    for (const [rel, text] of Object.entries(files)) {
+      const full = path.join(root, ".next", rel);
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, text);
+    }
+    return root;
+  }
+  const clean = {
+    "static/chunks/0abc._.js": "console.log(1)",
+    "server/chunks/ssr/[root-of-the-server]__0x._.js": "module.exports={}",
+    "server/app/login/page.js": "module.exports={}",
+  };
+  const marker = 'fetch("https://abcdefghijklmnop.supabase.co/rest/v1")';
+
+  it("finds a hosted marker in a Turbopack browser chunk and in a nested server chunk", () => {
+    const root = fakeBuild({
+      ...clean,
+      "static/chunks/0abc._.js": marker,
+      "server/chunks/ssr/[root-of-the-server]__0x._.js": marker,
+    });
+    try {
+      const { files, findings } = scanBuildOutput(root);
+      expect(files).toBe(3);
+      expect(findings.map((f) => f.file).sort()).toEqual([
+        path.join(".next", "server", "chunks", "ssr", "[root-of-the-server]__0x._.js"),
+        path.join(".next", "static", "chunks", "0abc._.js"),
+      ]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each(REQUIRED_CHUNK_DIRS.map((d) => d.dir))("refuses a build whose .next/%s holds no JavaScript", (dir) => {
+    const files = Object.fromEntries(Object.entries(clean).filter(([rel]) => !rel.startsWith(`${dir}/`)));
+    files[`${dir}/stats.json`] = "{}";
+    const root = fakeBuild(files);
+    try {
+      expect(() => scanBuildOutput(root)).toThrow(`no JavaScript under .next/${dir}`);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
   });
 });
 

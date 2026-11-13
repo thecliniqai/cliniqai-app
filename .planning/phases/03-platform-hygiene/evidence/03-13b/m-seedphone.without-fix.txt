@@ -1,0 +1,7 @@
+# mutation run: scripts/seed/demo-clinic.ts with Synthetic Patient Two on +919800000002 (outside the guarded +91 90000 000xx range)
+# the pre-alignment seed range +91 60000 000NN (commit 7c44dfe) is outside the guarded range too and fails the same way
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/integration/demo-clinic-seed.spec.ts > demo clinic seeding core (local stack) > creates the clinic, five staff with the five roles and three synthetic patients
+ FAIL  tests/utils/synthetic-phones.spec.ts > the demo-clinic seed uses only the guarded synthetic range > every DEMO_PATIENTS phone is in the range every real provider refuses
+ Test Files  2 failed (2)
+      Tests  2 failed | 3 passed (5)

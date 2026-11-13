@@ -22,6 +22,7 @@ import {
   getInboundReferrals,
 } from "@/features/referrals/actions";
 import { CloseLoopModal } from "./close-loop-modal";
+import { reportClientError } from "@/lib/log/client";
 
 export interface ReferralsRegisterProps {
   initialOutbound: ReferralItem[];
@@ -54,7 +55,7 @@ export function ReferralsRegister({
       if (outRes.success) setOutboundList(outRes.referrals);
       if (inRes.success) setInboundList(inRes.referrals);
     } catch (err) {
-      console.error("Failed to refresh referrals:", err);
+      reportClientError("referrals.list_refresh.failed", err);
     }
   };
 

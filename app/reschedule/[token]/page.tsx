@@ -12,6 +12,7 @@ import {
   ChevronRight,
   ArrowRight,
 } from "lucide-react";
+import { DEFAULT_CLINIC_TZ, nextNDays } from "@/lib/datetime";
 
 interface ReschedulePageProps {
   params: Promise<{ token: string }>;
@@ -104,14 +105,14 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
     }
   };
 
-  // Generate next 5 days for date selector
-  const dateOptions = Array.from({ length: 5 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i + 1);
+  // The next 5 clinic dates (V2-03 03-05). The link carries no tenant zone yet (P1-20), so the clinic default zone
+  // names them; each label formats noon UTC of that calendar date in UTC, so it names the same date in any browser.
+  const dateOptions = nextNDays(DEFAULT_CLINIC_TZ, 5).map((isoDate) => {
+    const d = new Date(`${isoDate}T12:00:00Z`);
     return {
-      isoDate: d.toISOString().split("T")[0],
-      displayDay: d.toLocaleDateString("en-IN", { weekday: "short" }),
-      displayDate: d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+      isoDate,
+      displayDay: d.toLocaleDateString("en-IN", { weekday: "short", timeZone: "UTC" }),
+      displayDate: d.toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" }),
     };
   });
 

@@ -1,0 +1,26 @@
+[
+  {
+    "screen": "reset-code-360",
+    "violations": []
+  },
+  {
+    "screen": "reset-done-360",
+    "violations": []
+  },
+  {
+    "screen": "reset-code-820",
+    "violations": []
+  },
+  {
+    "screen": "reset-done-820",
+    "violations": []
+  },
+  {
+    "screen": "reset-code-1280",
+    "violations": []
+  },
+  {
+    "screen": "reset-done-1280",
+    "violations": []
+  }
+]

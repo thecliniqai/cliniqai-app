@@ -33,8 +33,15 @@ test("walk-in for an existing patient → waiting visit + next queue token, visi
 
   await ux.select(drawer.getByRole("combobox"), doctorId, "Consulting Doctor");
   await ux.fill(drawer.getByLabel("Search by Name or Phone"), patientName, "Search by Name or Phone");
-  await expect(drawer.getByRole("heading", { name: patientName })).toBeVisible();
-  await ux.click(drawer.getByRole("button", { name: "Issue Token" }), "Issue Token");
+  // The results can list other patients: tenant A is shared by every spec and device project, and the search also
+  // matches phones containing all the query's digits run together ("E2E … eab1a8" searched phones for "218", which
+  // another synthetic patient's random number contained, in CI run 43324692904). Issue the token from this patient's
+  // own row, as the front desk would.
+  const result = drawer
+    .getByRole("heading", { name: patientName, exact: true })
+    .locator("xpath=ancestor::div[contains(@class,'rounded-xl')][1]");
+  await expect(result).toBeVisible();
+  await ux.click(result.getByRole("button", { name: "Issue Token" }), "Issue Token");
 
   // The drawer closes and the patient's card shows the issued token.
   await expect(page.getByRole("heading", { name: "Quick Walk-In Registration" })).toHaveCount(0);

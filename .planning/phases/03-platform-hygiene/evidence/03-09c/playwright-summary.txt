@@ -1,0 +1,10 @@
+### Playwright run (npm run e2e:build && npm run e2e:pr)
+
+| project | passed | flaky (retried) | failed | skipped |
+|---|---|---|---|---|
+| setup | 5 | 0 | 0 | 0 |
+| desktop-chrome | 65 | 0 | 0 | 0 |
+| pixel-7 | 49 | 0 | 0 | 0 |
+| iphone-15 | 9 | 0 | 0 | 0 |
+
+stats: {"startTime":"2026-11-12T23:11:36.234Z","duration":98332.862,"expected":128,"skipped":0,"unexpected":0,"flaky":0}

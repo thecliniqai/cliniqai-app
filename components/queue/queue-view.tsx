@@ -7,6 +7,8 @@ import { WalkInDrawer, DoctorOption } from "./walk-in-drawer";
 import { CheckoutDrawer } from "./checkout-drawer";
 import { TriageVitalsModal } from "./triage-vitals-modal";
 import { Vitals } from "@/features/consultation/schema";
+import { addDaysYmd, todayInTz } from "@/lib/datetime";
+import { useClinicTimeZone } from "@/lib/datetime/client";
 import { Button } from "@/components/ui/button";
 import { UserPlus, Calendar, ChevronLeft, ChevronRight, Users, Clock, Stethoscope, CheckCircle2 } from "lucide-react";
 
@@ -26,6 +28,7 @@ export function QueueView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
+  const timeZone = useClinicTimeZone();
 
   const [isWalkInOpen, setIsWalkInOpen] = useState(false);
   const [checkoutItem, setCheckoutItem] = useState<QueueItem | null>(null);
@@ -44,9 +47,7 @@ export function QueueView({
     : initialItems.filter((i) => i.visit.doctor_id === doctorFilter);
 
   const navigateDate = (deltaDays: number) => {
-    const current = new Date(currentDate);
-    current.setDate(current.getDate() + deltaDays);
-    const nextDate = current.toISOString().split("T")[0];
+    const nextDate = addDaysYmd(currentDate, deltaDays);
     
     const params = new URLSearchParams(searchParams.toString());
     params.set("date", nextDate);
@@ -59,7 +60,7 @@ export function QueueView({
   };
 
   const setToday = () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayInTz(timeZone);
     const params = new URLSearchParams(searchParams.toString());
     params.set("date", today);
     if (doctorFilter !== "all") {
@@ -90,11 +91,12 @@ export function QueueView({
   };
 
   const formatDisplayDate = (dateStr: string) => {
-    const d = new Date(dateStr + "T00:00:00");
-    const today = new Date().toISOString().split("T")[0];
-    const isToday = dateStr === today;
+    // Noon UTC of the calendar date, formatted in UTC: the label names that date in any zone.
+    const d = new Date(`${dateStr}T12:00:00Z`);
+    const isToday = dateStr === todayInTz(timeZone);
 
     const formatted = d.toLocaleDateString("en-US", {
+      timeZone: "UTC",
       weekday: "short",
       month: "short",
       day: "numeric",

@@ -1,0 +1,4 @@
+# docker run --rm -v $PWD:/repo -w /repo zricethezav/gitleaks:v8.30.1 git --redact --no-banner --config .gitleaks.toml . (HEAD e0a53fa, exit 0)
+12:31AM INF 426 commits scanned.
+12:31AM INF scanned ~47134308 bytes (47.13 MB) in 18.4s
+12:31AM INF no leaks found

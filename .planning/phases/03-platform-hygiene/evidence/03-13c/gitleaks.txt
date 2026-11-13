@@ -1,0 +1,11 @@
+# gitleaks v8.30.1 git --redact --no-color --config .gitleaks.toml at 25a84b8bed46c92f875c0193d7eacaae361b4a2c
+
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+3:17AM INF 484 commits scanned.
+3:17AM INF scanned ~56140301 bytes (56.14 MB) in 19.4s
+3:17AM INF no leaks found

@@ -1,0 +1,43 @@
+# repo config.toml
+auth-policy: PASS (39 config.toml settings match the local policy column)
+exit=0
+# jwt_expiry = 3600
+auth-policy: MISMATCH auth.jwt_expiry: config.toml has 3600, policy (local) wants 900
+auth-policy: FAIL (1 problem(s); fix config.toml or the policy row and its source)
+exit=1
+# [auth] enable_signup = true
+auth-policy: MISMATCH auth.enable_signup: config.toml has true, policy (local) wants false
+auth-policy: MISMATCH auth.sms.enable_signup: config.toml has true, policy (local) wants false
+auth-policy: FAIL (2 problem(s); fix config.toml or the policy row and its source)
+exit=1
+# config.toml before 03-11a (bc30ef5)
+auth-policy: MISMATCH auth.jwt_expiry: config.toml has 3600, policy (local) wants 900
+auth-policy: MISMATCH auth.enable_refresh_token_rotation: missing from config.toml, policy (local) wants true
+auth-policy: MISMATCH auth.refresh_token_reuse_interval: missing from config.toml, policy (local) wants 10
+auth-policy: MISMATCH auth.enable_anonymous_sign_ins: missing from config.toml, policy (local) wants false
+auth-policy: MISMATCH auth.password_requirements: missing from config.toml, policy (local) wants ""
+auth-policy: MISMATCH auth.rate_limit.email_sent: missing from config.toml, policy (local) wants 60
+auth-policy: MISMATCH auth.rate_limit.sign_in_sign_ups: missing from config.toml, policy (local) wants 30
+auth-policy: MISMATCH auth.rate_limit.token_refresh: missing from config.toml, policy (local) wants 150
+auth-policy: MISMATCH auth.rate_limit.token_verifications: missing from config.toml, policy (local) wants 30
+auth-policy: MISMATCH auth.captcha.enabled: missing from config.toml, policy (local) wants false
+auth-policy: MISMATCH auth.captcha.provider: missing from config.toml, policy (local) wants "turnstile"
+auth-policy: MISMATCH auth.email.enable_confirmations: config.toml has false, policy (local) wants true
+auth-policy: MISMATCH auth.email.secure_password_change: missing from config.toml, policy (local) wants false
+auth-policy: MISMATCH auth.email.max_frequency: missing from config.toml, policy (local) wants "60s"
+auth-policy: MISMATCH auth.email.otp_length: missing from config.toml, policy (local) wants 6
+auth-policy: MISMATCH auth.email.template.confirmation.subject: missing from config.toml, policy (local) wants "Your ClinicOS confirmation code"
+auth-policy: MISMATCH auth.email.template.confirmation.content_path: missing from config.toml, policy (local) wants "./supabase/templates/confirmation.html"
+auth-policy: MISMATCH auth.email.template.email_change.subject: missing from config.toml, policy (local) wants "Your ClinicOS email change code"
+auth-policy: MISMATCH auth.email.template.email_change.content_path: missing from config.toml, policy (local) wants "./supabase/templates/email_change.html"
+auth-policy: MISMATCH auth.email.notification.password_changed.enabled: missing from config.toml, policy (local) wants true
+auth-policy: MISMATCH auth.email.notification.password_changed.subject: missing from config.toml, policy (local) wants "Your ClinicOS password was changed"
+auth-policy: MISMATCH auth.email.notification.password_changed.content_path: missing from config.toml, policy (local) wants "./supabase/templates/password_changed.html"
+auth-policy: MISMATCH auth.sms.enable_signup: missing from config.toml, policy (local) wants false
+auth-policy: MISMATCH auth.mfa.totp.enroll_enabled: missing from config.toml, policy (local) wants true
+auth-policy: MISMATCH auth.mfa.totp.verify_enabled: missing from config.toml, policy (local) wants true
+auth-policy: MISMATCH auth.mfa.phone.enroll_enabled: missing from config.toml, policy (local) wants false
+auth-policy: MISMATCH auth.mfa.phone.verify_enabled: missing from config.toml, policy (local) wants false
+auth-policy: MISMATCH auth.hook.send_email.enabled: missing from config.toml, policy (local) wants false
+auth-policy: FAIL (28 problem(s); fix config.toml or the policy row and its source)
+exit=1

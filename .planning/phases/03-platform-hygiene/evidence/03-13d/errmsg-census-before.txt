@@ -1,0 +1,91 @@
+# git 332992f (before the sweep)
+app/api/patients/[id]/export/route.ts:50:    const message = err instanceof Error ? err.message : "";
+features/ai/actions.ts:110:      error: err instanceof Error ? err.message : "Failed to retrieve frequent prescriptions.",
+features/api-keys/service.ts:161:      error: err instanceof Error ? err.message : "Unable to generate API key.",
+features/api-keys/service.ts:213:      error: err instanceof Error ? err.message : "Unable to revoke API key.",
+features/api-keys/service.ts:90:      error: err instanceof Error ? err.message : "Access denied or session invalid.",
+features/appointments/system.ts:147:    throw new Error(`Failed to cancel appointment: ${updateError?.message || "Unknown error"}`);
+features/clinics/actions.ts:58:      error: dbError.message.includes("unique")
+features/clinics/actions.ts:60:        : dbError.message,
+features/clinics/profile.ts:122:      error: err instanceof Error ? err.message : "Failed to update profile.",
+features/consultation/service.ts:1028:      error: err instanceof Error ? err.message : "Failed to finalize amendment.",
+features/consultation/service.ts:213:      error: err instanceof Error ? err.message : "An unexpected error occurred saving draft.",
+features/consultation/service.ts:271:      if (updateErr) throw new Error(updateErr.message);
+features/consultation/service.ts:288:      if (insertErr || !inserted) throw new Error(insertErr?.message || "Failed to create follow-up");
+features/consultation/service.ts:305:      error: err instanceof Error ? err.message : "Failed to record follow-up.",
+features/consultation/service.ts:374:    if (visitsErr) throw new Error(visitsErr.message);
+features/consultation/service.ts:390:    if (diagErr) throw new Error(diagErr.message);
+features/consultation/service.ts:401:    if (rxErr) throw new Error(rxErr.message);
+features/consultation/service.ts:414:      if (itemsErr) throw new Error(itemsErr.message);
+features/consultation/service.ts:468:      error: err instanceof Error ? err.message : "Failed to load patient consultation history.",
+features/consultation/service.ts:761:      error: err instanceof Error ? err.message : "Failed to complete and sign consultation.",
+features/consultation/service.ts:783:    return { success: false, error: err instanceof Error ? err.message : "Failed to reopen visit for amendment." };
+features/consultation/service.ts:888:      return { success: false, error: "Failed to create audit revision record: " + revErr.message };
+features/consultation/service.ts:917:      error: err instanceof Error ? err.message : "Failed to reopen visit for amendment.",
+features/consultation/service.ts:92:    return { success: false, error: err instanceof Error ? err.message : "An unexpected error occurred saving draft." };
+features/dpdp/erasure.ts:45:    throw new Error(`Patient not found or unauthorized: ${fetchErr?.message || "Not found"}`);
+features/dpdp/erasure.ts:65:    throw new Error(`Failed to soft-delete patient: ${updateErr.message}`);
+features/dpdp/export.ts:76:    throw new Error(`Patient not found or unauthorized: ${patientError?.message || "Not found"}`);
+features/labs/service.ts:183:      error: err instanceof Error ? err.message : "An unexpected error occurred during upload.",
+features/labs/service.ts:225:      error: err instanceof Error ? err.message : "Failed to load documents.",
+features/labs/service.ts:276:      error: err instanceof Error ? err.message : "Failed to generate download URL.",
+features/labs/service.ts:336:      error: err instanceof Error ? err.message : "Failed to create share link.",
+features/labs/service.ts:413:      error: err instanceof Error ? err.message : "Failed to delete document.",
+features/labs/service.ts:494:      error: err instanceof Error ? err.message : "Failed to share lab report.",
+features/patients/consent-service.ts:107:      error: err instanceof Error ? err.message : "Failed to record consent.",
+features/patients/consent-service.ts:160:      error: err instanceof Error ? err.message : "Failed to withdraw consent.",
+features/patients/consent-service.ts:233:      error: err instanceof Error ? err.message : "Failed to toggle global consent.",
+features/patients/service.ts:162:      error: err instanceof Error ? err.message : "Failed to update patient.",
+features/patients/service.ts:77:      error: err instanceof Error ? err.message : "Failed to register patient.",
+features/prescriptions/pdf/generator.ts:106:      `Failed to upload prescription PDF to storage: ${uploadErr instanceof Error ? uploadErr.message : "Unknown error"}`
+features/prescriptions/service.ts:154:      error: err instanceof Error ? err.message : "Failed to initialize prescription.",
+features/prescriptions/service.ts:175:    return { success: false, error: err instanceof Error ? err.message : "Failed to record medication." };
+features/prescriptions/service.ts:273:      error: err instanceof Error ? err.message : "Failed to record medication.",
+features/prescriptions/service.ts:325:      error: err instanceof Error ? err.message : "Failed to remove medication.",
+features/prescriptions/service.ts:344:    return { success: false, error: err instanceof Error ? err.message : "Failed to save protocol template." };
+features/prescriptions/service.ts:388:      error: err instanceof Error ? err.message : "Failed to save protocol template.",
+features/prescriptions/service.ts:441:      error: err instanceof Error ? err.message : "Failed to load protocol templates.",
+features/prescriptions/service.ts:521:      error: err instanceof Error ? err.message : "Failed to load prescription.",
+features/prescriptions/service.ts:682:      error: err instanceof Error ? err.message : "Failed to generate prescription preview.",
+features/prescriptions/service.ts:75:      error: err instanceof Error ? err.message : "Failed to search medicines.",
+features/prescriptions/service.ts:788:      error: err instanceof Error ? err.message : "Failed to share prescription.",
+features/queue/service.ts:139:      error: err instanceof Error ? err.message : "Failed to check in visit.",
+features/queue/service.ts:233:      error: err instanceof Error ? err.message : "Failed to transition queue state.",
+features/queue/service.ts:352:      error: err instanceof Error ? err.message : "Failed to fetch queue.",
+features/referrals/pdf/generator.ts:84:      `Failed to upload referral letter PDF to storage: ${uploadErr instanceof Error ? uploadErr.message : "Unknown error"}`
+features/settings/service.ts:41:  const msg = err.message ?? "";
+features/staff/actions.ts:141:      const msg = error?.message || "";
+features/staff/actions.ts:91:      (err instanceof Error && err.message === "Unauthenticated");
+features/terminology/service.ts:115:      error: err instanceof Error ? err.message : "Failed to search diagnoses.",
+features/terminology/service.ts:241:      error: err instanceof Error ? err.message : "Failed to add diagnosis.",
+features/terminology/service.ts:320:      error: err instanceof Error ? err.message : "Failed to remove diagnosis.",
+features/terminology/service.ts:368:      error: err instanceof Error ? err.message : "Failed to update diagnosis note.",
+features/terminology/service.ts:403:      error: err instanceof Error ? err.message : "Failed to load diagnoses.",
+features/visits/scheduling-service.ts:120:      error: err instanceof Error ? err.message : "Failed to create schedule block.",
+features/visits/scheduling-service.ts:186:      error: err instanceof Error ? err.message : "Failed to delete schedule block.",
+features/visits/scheduling-service.ts:408:    return { success: false, error: err instanceof Error ? err.message : "Failed to book appointment." };
+features/visits/service.ts:118:      error: err instanceof Error ? err.message : "Failed to create visit.",
+features/visits/service.ts:177:      error: err instanceof Error ? err.message : "Failed to fetch visits.",
+features/visits/service.ts:242:      error: err instanceof Error ? err.message : "Failed to update visit status.",
+features/visits/service.ts:315:      error: err instanceof Error ? err.message : "Failed to confirm appointment.",
+features/visits/service.ts:472:      error: err instanceof Error ? err.message : "Failed to cancel visit.",
+features/visits/service.ts:972:      error: err instanceof Error ? err.message : "Failed to record patient vitals.",
+features/waitlist/service.ts:100:      error: err instanceof Error ? err.message : "Failed to add to waitlist.",
+features/waitlist/service.ts:181:      error: err instanceof Error ? err.message : "Failed to fetch waitlist.",
+features/waitlist/service.ts:272:      error: err instanceof Error ? err.message : "Failed to promote waitlist entry.",
+features/webhooks/service.ts:181:          ? err.message
+features/webhooks/service.ts:234:          ? err.message
+features/webhooks/service.ts:317:      error: err instanceof Error ? err.message : "Test ping failed.",
+features/webhooks/service.ts:376:      error: err instanceof Error ? err.message : "Access denied.",
+features/webhooks/service.ts:79:      error: err instanceof Error ? err.message : "Access denied.",
+lib/messaging/dispatcher.ts:102:    throw new Error(`Failed to enqueue communication: ${error?.message || "Unknown error"}`);
+lib/messaging/dispatcher.ts:173:      error: err instanceof Error ? err.message : "Unexpected dispatcher error",
+lib/messaging/providers/gupshup.ts:117:        error: err instanceof Error ? err.message : "Unknown Gupshup WhatsApp error",
+lib/messaging/providers/msg91.ts:248:        error: err instanceof Error ? err.message : "Unknown MSG91 WhatsApp error",
+lib/messaging/providers/msg91.ts:93:        error: err instanceof Error ? err.message : "Unknown MSG91 SMS error",
+lib/messaging/providers/twilio.ts:169:        error: err instanceof Error ? err.message : "Unknown Twilio WhatsApp error",
+lib/messaging/providers/twilio.ts:92:        error: err instanceof Error ? err.message : "Unknown Twilio SMS error",
+lib/storage/supabase-provider.ts:51:      throw new Error(`Failed to upload to Supabase storage [${bucket}/${options.path}]: ${error.message}`);
+lib/storage/supabase-provider.ts:70:        `Failed to create signed URL from Supabase storage [${bucket}/${options.path}]: ${error?.message}`
+lib/storage/supabase-provider.ts:83:      throw new Error(`Failed to delete from Supabase storage [${bucket}/${options.path}]: ${error.message}`);
+lib/storage/supabase-provider.ts:95:      throw new Error(`Failed to download from Supabase storage [${bucket}/${options.path}]: ${error?.message}`);

@@ -2,10 +2,12 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * GET /api/v1/prescriptions
@@ -13,10 +15,11 @@ import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
  * Filters: patient_id, doctor_id, visit_id. Standard page/limit pagination.
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -43,8 +46,6 @@ export async function GET(req: NextRequest) {
   const patientId = searchParams.get("patient_id");
   const doctorId = searchParams.get("doctor_id");
   const visitId = searchParams.get("visit_id");
-
-  const admin = getAdminClient();
 
   try {
     let query = (admin.from("prescriptions") as any)
@@ -100,10 +101,11 @@ export async function GET(req: NextRequest) {
  * Accurately inserts timing and special_instructions (no nonexistent frequency/instructions or tenant_id on items).
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -154,8 +156,6 @@ export async function POST(req: NextRequest) {
       return apiError("VALIDATION_ERROR", `Item at index ${i} is missing required 'duration'.`, 422, undefined, rateHeaders);
     }
   }
-
-  const admin = getAdminClient();
 
   try {
     // 1. Verify patient exists and belongs to active tenant
@@ -261,7 +261,7 @@ export async function POST(req: NextRequest) {
           },
       });
     } catch (auditErr) {
-      console.error("[api/v1/prescriptions] Audit logging failed:", auditErr);
+      log.error({ event: "api.prescriptions_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
     }
 
     // 8. Enqueue webhook event: prescription.issued
@@ -277,7 +277,7 @@ export async function POST(req: NextRequest) {
         }
       );
     } catch (webhookErr) {
-      console.warn("[api/v1/prescriptions] Webhook enqueue error:", webhookErr);
+      log.warn({ event: "api.prescriptions_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
     }
 
     return apiSuccess(

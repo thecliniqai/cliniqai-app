@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
 import { Subscription, PaymentRecord } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export interface SubscriptionOverview {
   subscription: Subscription | null;
@@ -24,7 +26,7 @@ export async function getSubscriptionOverview(): Promise<SubscriptionOverview> {
     .maybeSingle();
 
   if (subError) {
-    console.error("[features/billing/subscription] Error fetching subscription:", subError);
+    log.error({ event: "billing.subscription_load.failed", code: errorTag(subError), requestId: await getRequestId() });
   }
 
   // 3. Fetch payment history under RLS
@@ -36,7 +38,7 @@ export async function getSubscriptionOverview(): Promise<SubscriptionOverview> {
     .returns<PaymentRecord[]>();
 
   if (paymentsError) {
-    console.error("[features/billing/subscription] Error fetching payments:", paymentsError);
+    log.error({ event: "billing.subscription_payments_load.failed", code: errorTag(paymentsError), requestId: await getRequestId() });
   }
 
   return {

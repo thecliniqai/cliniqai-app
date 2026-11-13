@@ -2,21 +2,10 @@
  * V2-01a plan 01a-03: run-scoped teardown. Checks the parts of tests/setup/teardown.ts that a green run cannot
  * prove on its own. Everything created here is itself run data and is removed by the global teardown.
  */
-import { execFileSync } from "node:child_process";
-import fs from "node:fs";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { psql } from "../helpers/sql";
 import { acquireRunLock, findLeakedReferences, localAdminClient, NO_ACTION_USER_REFS } from "./teardown";
-
-const ROOT = path.resolve(__dirname, "../..");
-
-function localDbContainer(): string {
-  const toml = fs.readFileSync(path.join(ROOT, "supabase/config.toml"), "utf8");
-  const projectId = /^project_id\s*=\s*"([^"]+)"/m.exec(toml)?.[1];
-  if (!projectId) throw new Error("project_id not found in supabase/config.toml");
-  return `supabase_db_${projectId}`;
-}
 
 describe("teardown FK coverage", () => {
   it("lists exactly the public columns that reference auth.users with NO ACTION (live catalog)", () => {
@@ -25,10 +14,7 @@ describe("teardown FK coverage", () => {
       "join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1] " +
       "where c.contype = 'f' and c.confrelid = 'auth.users'::regclass and c.confdeltype = 'a' " +
       "and c.connamespace = 'public'::regnamespace order by 1";
-    const out = execFileSync("docker", ["exec", localDbContainer(), "psql", "-U", "postgres", "-Atc", sql], {
-      encoding: "utf8",
-    });
-    const live = out.trim().split("\n").filter(Boolean).sort();
+    const live = psql(sql).sort();
     const listed = NO_ACTION_USER_REFS.map(([t, c]) => `${t}.${c}`).sort();
     expect(listed).toEqual(live);
   });
@@ -64,6 +50,11 @@ describe("teardown leak check", () => {
 
     expect(await findLeakedReferences(admin, [userId], [inside])).toEqual(["schedule_blocks.created_by: 1 row(s)"]);
     expect(await findLeakedReferences(admin, [userId], [inside, outside])).toEqual([]);
+
+    // A full run creates hundreds of tenants: the check must still work (one unbounded `not in` list was HTTP 414).
+    const many = Array.from({ length: 400 }, () => randomUUID());
+    expect(await findLeakedReferences(admin, [userId], [...many, inside])).toEqual(["schedule_blocks.created_by: 1 row(s)"]);
+    expect(await findLeakedReferences(admin, [userId], [...many, inside, outside])).toEqual([]);
   });
 });
 

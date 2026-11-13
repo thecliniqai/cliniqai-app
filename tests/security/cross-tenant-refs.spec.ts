@@ -24,15 +24,15 @@ import { uploadLabDocument } from "@/features/labs/service";
 import { ctxFor } from "../helpers/context";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
+import { insertReturningId, type IdTable } from "../helpers/db";
+import type { TablesInsert } from "@/types/database";
 
 const admin = getAdminClient();
 const TABLES = ["visits", "waitlist_entries", "consent_records", "follow_ups", "consultation_diagnoses", "referrals",
   "invoices", "schedule_blocks", "patient_documents"] as const;
 
-async function insertRow(table: string, row: Record<string, unknown>): Promise<string> {
-  const { data, error } = await admin.from(table).insert(row).select("id").single();
-  if (error || !data) throw new Error(`seed ${table} failed: ${error?.message}`);
-  return (data as { id: string }).id;
+function insertRow<T extends IdTable>(table: T, row: TablesInsert<T>): Promise<string> {
+  return insertReturningId(admin, table, row);
 }
 
 async function seedPatientAndVisit(owner: SeededTenant, label: string) {

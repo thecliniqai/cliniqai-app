@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
 import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
-import { getAdminClient } from "@/lib/supabase/admin";
+import { getSystemDb } from "@/lib/supabase/system";
 import { buildPatientSearchFilter } from "@/features/patients/service";
 import { patientSchema } from "@/features/patients/schema";
 import { recordAudit } from "@/lib/audit/audit";
@@ -13,10 +13,11 @@ import { recordAudit } from "@/lib/audit/audit";
  * Filters out soft-deleted / erased patients (is_deleted = false).
  */
 export async function GET(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -40,8 +41,6 @@ export async function GET(req: NextRequest) {
   const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 20;
   const offset = (page - 1) * limit;
   const search = searchParams.get("search") || "";
-
-  const admin = getAdminClient();
 
   try {
     let query = (admin.from("patients") as any)
@@ -90,10 +89,11 @@ export async function GET(req: NextRequest) {
  * Uses creator's auth.users UUID for created_by FK compliance.
  */
 export async function POST(req: NextRequest) {
-  const auth = await authenticateApiKey(getAdminClient(), req);
+  const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
   if (!auth.success) {
     return auth.response;
   }
+  const admin = auth.db;
 
   const { session } = auth;
   const rateLimit = checkRateLimit(session.apiKeyId);
@@ -128,7 +128,6 @@ export async function POST(req: NextRequest) {
   }
 
   const input = parseResult.data;
-  const admin = getAdminClient();
 
   try {
     const { data: patient, error } = await (admin.from("patients") as any)

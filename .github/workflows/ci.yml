@@ -38,8 +38,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0 # the migration gate needs the base branch and the merge base
       - name: No env files besides the template and the local-stack test defaults
         run: node scripts/ci/assert-no-env-files.mjs
+      # V2-03 03-03 (B2, R-4): applied migrations are immutable; new ones continue the zero-padded sequence.
+      # 03-13b: `--base auto` = the PR base, or on a push the commit before the push (so a push to feature/v2 is
+      # checked too); `--against` fails when a new migration's number is taken on (or not above) feature/v2.
+      - name: Migration immutability (vs the PR base or the pre-push commit; no number collision with feature/v2)
+        run: node scripts/ci/migration-immutability.mjs --base auto --against origin/feature/v2
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
@@ -55,6 +61,19 @@ jobs:
         run: npm run inventory -- --out inventory.json
       - name: AI-06 L1 policy checks
         run: npm run ci:ai-l1
+      # V2-03 03-01 (I-07, R-15): .env.example is generated from lib/env.ts; this compares without printing it.
+      - name: .env.example matches the env schema
+        run: node scripts/ci/env-example.mjs --check
+      # V2-03 03-11a (AUTH-02): supabase/config.toml [auth] matches the local column of supabase/auth-policy.json;
+      # templates are code-only. The hosted (staging) half is scripts/drift/auth-config-hosted.mjs in drift.yml (03-08).
+      - name: Auth config matches the auth policy
+        run: node scripts/ci/check-auth-config.mjs
+      # V2-03 03-08 (R-9, R-19, R-21; T-03-09), hardened 03-13b: SHA-pinned actions, top-level permissions, no
+      # write-all; staging workflows: push/schedule/dispatch triggers only, read-only token, staging secrets only in a
+      # step's env of a job with an `environment`; privileged jobs: no cache, `--ignore-scripts`, checkout without
+      # persisted credentials; no untrusted `${{ }}` in run:; no secrets dump; non-block YAML fails closed.
+      - name: Workflow policy (.github/workflows)
+        run: node scripts/ci/workflow-policy.mjs
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
@@ -113,6 +132,18 @@ jobs:
         run: >-
           node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
           -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+      # V2-03 03-03 (B4): types/database.ts is what `npm run db:types` generates from the freshly migrated stack.
+      - name: Generated types are fresh (npm run db:types, then no diff)
+        run: npm run db:types && git diff --exit-code -- types/database.ts
+      # V2-03 03-03: migrations are deterministic: the migrated stack equals a shadow built from supabase/migrations
+      # (migra; only the documented pg_net CLI false positive is allowed). This compares the migrations with themselves.
+      - name: Migrations are deterministic (supabase db diff --local)
+        run: node scripts/ci/local-drift.mjs
+      # V2-03 03-13b (M-DRIFT; B1 local half): the freshly migrated stack equals the committed schema + privilege
+      # snapshot (scripts/drift/schema-snapshot.txt: public/ops/private, policies, RLS, grants to anon/authenticated/
+      # service_role/PUBLIC). A migration ships its regenerated snapshot, so every grant/policy change is reviewed.
+      - name: Schema and privileges match the committed snapshot
+        run: node scripts/drift/schema-snapshot.mjs --local --check
       # One run produces both the JSON report and v8 coverage (02-05); coverage is report-only until V2-14.
       - name: Vitest (full unit + DB lane, with coverage)
         run: npx vitest run --reporter=dot --reporter=json --outputFile.json=vitest-report.json --coverage.enabled
@@ -122,6 +153,11 @@ jobs:
       - name: Coverage summary (report only, never fails)
         if: ${{ !cancelled() }}
         run: node scripts/ci/coverage-summary.mjs coverage/coverage-summary.json
+      # V2-03 03-05 (P1-21): the clinic-date helpers must not depend on the process zone. The runner is UTC, so the
+      # main run cannot catch a local-zone use; this re-runs the spec in a zone that is neither UTC nor IST.
+      - name: Clinic-date spec under TZ=America/New_York
+        if: ${{ !cancelled() }}
+        run: TZ=America/New_York npx vitest run tests/utils/datetime.spec.ts
       # P0-13 (02-02 step 5): copies lint-fixtures/p0-13/unguarded-action.ts into features/, requires
       # tests/security/guard-actions.spec.ts to FAIL naming it, and always deletes the copy.
       - name: P0-13 canary (an unguarded server action must fail the guard spec)
@@ -161,15 +197,19 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'middleware.ts', 'next.config.ts', 'postcss.config.mjs') }}
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'proxy.ts', 'instrumentation.ts', 'next.config.ts', 'postcss.config.mjs') }}
           restore-keys: |
             nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
-      - name: next build (production, loopback Supabase URL, placeholder anon key, offline messaging)
+      # V2-03 03-01 (R-11, K-6): a production build with offline providers is the `ci` tier of the env schema
+      # (loopback URLs only); next.config.ts refuses the build if any tier rule breaks.
+      - name: next build (production, APP_ENV=ci, loopback Supabase URL, placeholder key, offline messaging)
         run: npm run build
         env:
           NODE_ENV: production
+          APP_ENV: ci
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-build-placeholder-not-a-key
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ci-build-placeholder-not-a-key
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
           MESSAGING_PROVIDER: dev
 
   # Playwright PR lane (02-03a; RL-16, RL-20): desktop-chrome (all specs), pixel-7 (all but the viewport-owning a11y
@@ -207,7 +247,7 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .next/cache
-          key: nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'middleware.ts', 'next.config.ts', 'postcss.config.mjs') }}
+          key: nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/**', 'components/**', 'features/**', 'lib/**', 'proxy.ts', 'instrumentation.ts', 'next.config.ts', 'postcss.config.mjs') }}
           restore-keys: |
             nextjs-e2e-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - name: Start the local Supabase stack (same services as npm run test:db)

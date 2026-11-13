@@ -6,6 +6,8 @@ import { recordAudit } from "@/lib/audit/audit";
 import { memberOfTenant } from "@/lib/auth/tenant-refs";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import { isDateOnly, isUuid } from "@/lib/utils/filter-values";
+import { dayWindowUtc, ymdOf } from "@/lib/datetime";
+import { getTenantTimeZone } from "@/lib/datetime/server";
 import { formatDoctorDisplayName } from "@/features/staff/formatters";
 import { Visit, DoctorWeeklySchedule, ScheduleBlock } from "@/lib/db/types";
 import {
@@ -16,6 +18,9 @@ import {
 } from "./schema";
 import { isSlotWithinShifts, getTimePartsFromISO } from "./scheduling-utils";
 import { createVisit } from "./service";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Scheduling use-cases (blocks, slot checks, booking). Tenant and actor come only from `ctx` (ADR-0005 D1); each
 // use-case checks the permission its server action checked before the move.
@@ -91,7 +96,7 @@ export async function createScheduleBlock(
       .single();
 
     if (insertError || !newBlock) {
-      console.error("[createScheduleBlock] Insert error:", insertError);
+      log.error({ event: "visits.schedule_block_insert.failed", code: errorTag(insertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to create schedule block." };
     }
 
@@ -110,10 +115,10 @@ export async function createScheduleBlock(
 
     return { success: true, block: newBlock as ScheduleBlock };
   } catch (err: unknown) {
-    console.error("[createScheduleBlock] Unexpected error:", err);
+    log.error({ event: "visits.schedule_block_create.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to create schedule block.",
+      error: clientErrorMessage(err, "Failed to create schedule block."),
     };
   }
 }
@@ -160,7 +165,7 @@ export async function deleteScheduleBlock(ctx: ServiceContext, blockId: string):
       .eq("tenant_id", session.tenantId);
 
     if (delError) {
-      console.error("[deleteScheduleBlock] Delete error:", delError);
+      log.error({ event: "visits.schedule_block_delete_query.failed", code: errorTag(delError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to delete schedule block." };
     }
 
@@ -176,10 +181,10 @@ export async function deleteScheduleBlock(ctx: ServiceContext, blockId: string):
 
     return { success: true };
   } catch (err: unknown) {
-    console.error("[deleteScheduleBlock] Unexpected error:", err);
+    log.error({ event: "visits.schedule_block_delete.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to delete schedule block.",
+      error: clientErrorMessage(err, "Failed to delete schedule block."),
     };
   }
 }
@@ -204,14 +209,17 @@ export async function getScheduleBlocksForDate(
       return [];
     }
 
-    const startOfDay = `${dateStr}T00:00:00.000Z`;
-    const endOfDay = `${dateStr}T23:59:59.999Z`;
+    // Blocks that overlap the clinic day in the tenant's zone, half-open (V2-03 03-05).
+    const { startIso: startOfDay, endIsoExclusive: endOfDay } = dayWindowUtc(
+      dateStr,
+      await getTenantTimeZone(supabase, session.tenantId)
+    );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query = (supabase.from("schedule_blocks") as any)
       .select("*")
       .eq("tenant_id", session.tenantId)
-      .lte("start_time", endOfDay)
+      .lt("start_time", endOfDay)
       .gte("end_time", startOfDay);
 
     if (filterByDoctor) {
@@ -221,13 +229,13 @@ export async function getScheduleBlocksForDate(
 
     const { data, error } = await query;
     if (error || !data) {
-      console.error("[getScheduleBlocksForDate] Error fetching blocks:", error ? { message: error.message, code: error.code } : "No data returned");
+      log.error({ event: "visits.schedule_blocks_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
 
     return data as ScheduleBlock[];
   } catch (err) {
-    console.error("[getScheduleBlocksForDate] Unexpected error:", err);
+    log.error({ event: "visits.schedule_blocks.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return [];
   }
 }
@@ -267,9 +275,9 @@ export async function checkSlotAvailability(
     const targetStartISO = new Date(targetStart).toISOString();
     const targetEndISO = new Date(targetEnd).toISOString();
 
-    const targetDate = scheduledAt.split("T")[0];
-    const startOfDay = `${targetDate}T00:00:00.000Z`;
-    const endOfDay = `${targetDate}T23:59:59.999Z`;
+    // The slot's clinic day and wall-clock time in the tenant's zone (V2-03 03-05).
+    const timeZone = await getTenantTimeZone(supabase, session.tenantId);
+    const { startIso: startOfDay, endIsoExclusive: endOfDay } = dayWindowUtc(ymdOf(scheduledAt, timeZone), timeZone);
 
     // 1. Check Doctor Working Shifts (availability_schedule)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -280,13 +288,13 @@ export async function checkSlotAvailability(
       .maybeSingle();
 
     if (memberErr) {
-      console.error("[features/visits/scheduling-service] Availability check failed (shifts):", memberErr.message);
+      log.error({ event: "visits.availability_shifts.failed", code: errorTag(memberErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return failed;
     }
 
     if (member?.availability_schedule) {
       const schedule = member.availability_schedule as DoctorWeeklySchedule;
-      const { timeHHMM, dayOfWeek } = getTimePartsFromISO(scheduledAt);
+      const { timeHHMM, dayOfWeek } = getTimePartsFromISO(scheduledAt, timeZone);
       const dayAvailability = schedule[dayOfWeek];
 
       const isWithinShift = isSlotWithinShifts(timeHHMM, durationMinutes, dayAvailability);
@@ -308,7 +316,7 @@ export async function checkSlotAvailability(
       .gte("end_time", targetStartISO);
 
     if (blocksErr) {
-      console.error("[features/visits/scheduling-service] Availability check failed (blocks):", blocksErr.message);
+      log.error({ event: "visits.availability_blocks.failed", code: errorTag(blocksErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return failed;
     }
 
@@ -334,7 +342,7 @@ export async function checkSlotAvailability(
           eq: (col: string, val: string) => {
             eq: (col: string, val: string) => {
               gte: (col: string, val: string) => {
-                lte: (col: string, val: string) => {
+                lt: (col: string, val: string) => {
                   not: (col: string, op: string, val: string) => Promise<{ data: Visit[] | null; error: { message: string } | null }>;
                 };
               };
@@ -347,11 +355,11 @@ export async function checkSlotAvailability(
       .eq("tenant_id", session.tenantId)
       .eq("doctor_id", doctorId)
       .gte("scheduled_at", startOfDay)
-      .lte("scheduled_at", endOfDay)
+      .lt("scheduled_at", endOfDay)
       .not("status", "in", '("cancelled")');
 
     if (error || !visits) {
-      console.error("[features/visits/scheduling-service] Availability check failed (visits):", error?.message);
+      log.error({ event: "visits.availability_visits.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return failed;
     }
 
@@ -371,7 +379,7 @@ export async function checkSlotAvailability(
 
     return { available: true };
   } catch (err: unknown) {
-    console.error("[features/visits/scheduling-service] Slot availability error:", err instanceof Error ? err.message : err);
+    log.error({ event: "visits.availability.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return failed;
   }
 }
@@ -398,7 +406,7 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
   try {
     assertPerm(ctx.role, "appointments:edit");
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Failed to book appointment." };
+    return { success: false, error: clientErrorMessage(err, "Failed to book appointment.", "visits.book_appointment.failed") };
   }
 
   const parseResult = bookAppointmentSchema.safeParse(input);
@@ -523,7 +531,7 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
       );
     }
   } catch (commErr) {
-    console.error("[bookAppointment] Failed to queue/dispatch appointment notification:", commErr);
+    log.error({ event: "visits.booking_notification.failed", code: errorTag(commErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     // Booking itself still succeeded
   }
 

@@ -1,4 +1,5 @@
 import "server-only";
+import { serverEnv } from "@/lib/env-server";
 
 import { createShareToken } from "@/features/sharing/tokens";
 import { assertPerm } from "@/lib/permissions";
@@ -16,6 +17,10 @@ import {
 } from "./schema";
 import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
 import { PrescriptionPdfPayload } from "./pdf/prescription-document";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { resolveTimeZone, ymdOf } from "@/lib/datetime";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01): the only
@@ -48,7 +53,7 @@ export async function searchMedicines(ctx: ServiceContext, query: string, limit 
     });
 
     if (error) {
-      console.error("[features/prescriptions/service] search_medicines RPC error:", error);
+      log.error({ event: "prescriptions.medicine_search.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to search medicines." };
     }
 
@@ -68,7 +73,7 @@ export async function searchMedicines(ctx: ServiceContext, query: string, limit 
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to search medicines.",
+      error: clientErrorMessage(err, "Failed to search medicines.", "prescriptions.search_medicines.failed"),
     };
   }
 }
@@ -140,14 +145,14 @@ export async function getOrCreateDraftPrescription(
         visit_id: visitId,
       });
     } catch (webhookErr) {
-      console.warn("[getOrCreateDraftPrescription] Webhook enqueue error:", webhookErr);
+      log.warn({ event: "prescriptions.draft_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
 
     return { success: true, prescriptionId: created.id };
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to initialize prescription.",
+      error: clientErrorMessage(err, "Failed to initialize prescription.", "prescriptions.get_or_create_draft_prescription.failed"),
     };
   }
 }
@@ -168,7 +173,7 @@ export async function addPrescriptionItem(
   try {
     assertPerm(ctx.role, "consultations:edit");
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Failed to record medication." };
+    return { success: false, error: clientErrorMessage(err, "Failed to record medication.", "prescriptions.add_prescription_item.failed") };
   }
 
   const parseResult = prescriptionItemSchema.safeParse(input);
@@ -229,7 +234,7 @@ export async function addPrescriptionItem(
       .single();
 
     if (insertErr || !inserted) {
-      console.error("[features/prescriptions/service] Insert item error:", insertErr);
+      log.error({ event: "prescriptions.item_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to add prescription item." };
     }
 
@@ -266,7 +271,7 @@ export async function addPrescriptionItem(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to record medication.",
+      error: clientErrorMessage(err, "Failed to record medication.", "prescriptions.add_prescription_item.failed"),
     };
   }
 }
@@ -318,7 +323,7 @@ export async function removePrescriptionItem(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to remove medication.",
+      error: clientErrorMessage(err, "Failed to remove medication.", "prescriptions.remove_prescription_item.failed"),
     };
   }
 }
@@ -337,7 +342,7 @@ export async function saveDoctorProtocolTemplate(
   try {
     assertPerm(ctx.role, "consultations:edit");
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Failed to save protocol template." };
+    return { success: false, error: clientErrorMessage(err, "Failed to save protocol template.", "prescriptions.save_doctor_protocol_template.failed") };
   }
 
   const parseResult = protocolTemplateSchema.safeParse(input);
@@ -363,7 +368,7 @@ export async function saveDoctorProtocolTemplate(
       .single();
 
     if (error || !inserted) {
-      console.error("[features/prescriptions/service] Save template error:", error);
+      log.error({ event: "prescriptions.template_save.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to save protocol template." };
     }
 
@@ -381,7 +386,7 @@ export async function saveDoctorProtocolTemplate(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to save protocol template.",
+      error: clientErrorMessage(err, "Failed to save protocol template.", "prescriptions.save_doctor_protocol_template.failed"),
     };
   }
 }
@@ -434,7 +439,7 @@ export async function getDoctorProtocolTemplates(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to load protocol templates.",
+      error: clientErrorMessage(err, "Failed to load protocol templates.", "prescriptions.get_doctor_protocol_templates.failed"),
     };
   }
 }
@@ -489,7 +494,7 @@ export async function getVisitPrescription(ctx: ServiceContext, visitId: string)
       .maybeSingle();
 
     if (rxErr) {
-      console.error("[features/prescriptions/service] Fetch prescription error:", rxErr);
+      log.error({ event: "prescriptions.fetch.failed", code: errorTag(rxErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to load prescription." };
     }
 
@@ -514,7 +519,7 @@ export async function getVisitPrescription(ctx: ServiceContext, visitId: string)
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to load prescription.",
+      error: clientErrorMessage(err, "Failed to load prescription.", "prescriptions.get_visit_prescription.failed"),
     };
   }
 }
@@ -564,7 +569,7 @@ export async function getPrescriptionPdfSignedUrl(
     // 3. Fetch clinic tenant details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: tenant } = await (supabase.from("tenants") as any)
-      .select("name, address, phone, registration_number, logo_url")
+      .select("name, address, phone, registration_number, logo_url, timezone")
       .eq("id", ctx.tenantId)
       .single();
 
@@ -638,7 +643,7 @@ export async function getPrescriptionPdfSignedUrl(
         uhid: rx.patient_id.slice(0, 8).toUpperCase(),
       },
       visit: {
-        visit_date: (visit.scheduled_at || visit.created_at || new Date().toISOString()).split("T")[0],
+        visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
         vitals: visit.vitals || null,
         chief_complaints: visit.chief_complaints || [],
         clinical_notes: visit.clinical_notes || null,
@@ -672,10 +677,10 @@ export async function getPrescriptionPdfSignedUrl(
       version: rx.version,
     };
   } catch (err: unknown) {
-    console.error("[features/prescriptions/service] getPrescriptionPdfSignedUrl error:", err);
+    log.error({ event: "prescriptions.pdf_signed_url.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to generate prescription preview.",
+      error: clientErrorMessage(err, "Failed to generate prescription preview."),
     };
   }
 }
@@ -740,7 +745,7 @@ export async function sharePrescriptionViaWhatsApp(
     }
     const { token } = created;
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const baseUrl = serverEnv().NEXT_PUBLIC_APP_URL;
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #6 (prescription_ready)
@@ -778,10 +783,10 @@ export async function sharePrescriptionViaWhatsApp(
 
     return { success: true, shareUrl, token };
   } catch (err: unknown) {
-    console.error("[features/prescriptions/service] sharePrescriptionViaWhatsApp error:", err);
+    log.error({ event: "prescriptions.whatsapp_share.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to share prescription.",
+      error: clientErrorMessage(err, "Failed to share prescription."),
     };
   }
 }

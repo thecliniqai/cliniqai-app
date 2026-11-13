@@ -21,12 +21,14 @@
 import path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { NextRequest } from "next/server";
+import { Webhook } from "standardwebhooks";
 import { createClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/db/types";
-import { env } from "@/lib/env";
+import { publicEnv } from "@/lib/env";
 import { hasPerm, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import type { buildInventory } from "@/scripts/inventory-server-actions";
-import type { TestDb } from "../../helpers/db";
+import { rowsWhereIn, type PublicTable, type TestDb } from "../../helpers/db";
+import type { Tables } from "@/types/database";
 import type { ActionGuard, RouteGuard } from "../guard-manifest";
 import type { GuardWorld, TenantRowIds } from "./world";
 
@@ -135,8 +137,57 @@ export function staticGuardViolations(c: ActionCase, guard: ActionGuard | undefi
     if (g.permission !== null) return v(`manifest says membership-only but ${g.call} checks ${g.permission}`);
     return [];
   }
-  if (g) return v(`manifest says authenticated-only but the body reaches ${g.call}(${g.permission ?? ""})`);
+  const kind = "self" in guard ? "self-only" : "authenticated-only";
+  if (g) return v(`manifest says ${kind} but the body reaches ${g.call}(${g.permission ?? ""})`);
   return [];
+}
+
+/** Auth-account actions (`{ self }`, 03-12a): the input may carry password fields only. */
+const SELF_FIELD = /password/i;
+
+/**
+ * `self` leg, static half: no parameter or field names a user, tenant, row or address. A `self` action that took an
+ * id could be pointed at another account; its input must be the caller's secrets only.
+ */
+export function selfParamViolations(c: ActionCase): Violation[] {
+  const out: Violation[] = [];
+  for (const p of c.params) {
+    const fields = [...p.typeFields, ...p.destructuredFields];
+    const leaves = fields.length > 0 ? fields : [p.name];
+    for (const f of leaves) {
+      const leaf = f.split(".").pop() ?? f;
+      if (!SELF_FIELD.test(leaf)) {
+        out.push({ key: c.key, leg: "self input", detail: `field "${f}" of param ${p.name} is not a password field` });
+      }
+    }
+    if (fields.length === 0 && p.typeText !== "string") {
+      out.push({ key: c.key, leg: "self input", detail: `param ${p.name} has no declared fields (${p.typeText})` });
+    }
+  }
+  return out;
+}
+
+/**
+ * `self` leg, runtime half: a signed-in caller with forged ids (tenant B's, in every id-shaped field the forger knows)
+ * is answered without any data access beyond `auth`, and nothing of tenant B comes back. The forged object carries no
+ * password fields, so the call is refused by validation and never reaches `updateUser`.
+ */
+export async function selfActionLeg(
+  slot: RequestSlot,
+  c: ActionCase,
+  fn: (...args: unknown[]) => unknown,
+  client: object,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const o = await invokeAction(slot, client, fn, argsFor(c, world.b));
+  const out: Violation[] = [];
+  const leg = "self";
+  if (o.access.length > 0) out.push({ key: c.key, leg, detail: `data access beyond auth: ${o.access.join(", ")}` });
+  if (!o.threw && !isFailureShape(o.value)) out.push({ key: c.key, leg, detail: `forged input accepted: ${brief(serialise(o.value))}` });
+  const text = o.threw ? messageOf(o) ?? "" : serialise(o.value);
+  const leaked = world.bSecrets.filter((s) => text.includes(s));
+  if (leaked.length > 0) out.push({ key: c.key, leg, detail: `returned tenant B data (${leaked.length} B values)` });
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -144,7 +195,7 @@ export function staticGuardViolations(c: ActionCase, guard: ActionGuard | undefi
 // ---------------------------------------------------------------------------------------------------------------
 
 export function anonClient(): TestDb {
-  return createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+  return createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
@@ -500,11 +551,13 @@ export async function countRows(admin: TestDb): Promise<Record<string, number>> 
   return counts;
 }
 
-async function rowsOf(admin: TestDb, table: string, column: string, values: string[]): Promise<string[]> {
-  if (values.length === 0) return [];
-  const { data, error } = await admin.from(table).select("*").in(column, values).limit(10_000);
-  if (error) throw new Error(`read ${table}: ${error.message}`);
-  return (data ?? []).map((r) => JSON.stringify(r)).sort();
+async function rowsOf<T extends PublicTable>(
+  admin: TestDb,
+  table: T,
+  column: keyof Tables<T> & string,
+  values: string[],
+): Promise<string[]> {
+  return (await rowsWhereIn(admin, table, column, values)).map((r) => JSON.stringify(r)).sort();
 }
 
 /** A hash per table of every row tenant B owns (plus its tenant row and prescription items). */
@@ -548,12 +601,16 @@ export interface RouteCall {
   query?: Record<string, string>;
   headers?: Record<string, string>;
   body?: unknown;
+  /** Sent as `application/x-www-form-urlencoded` instead of a JSON `body` (03-12b sign-out form). */
+  form?: Record<string, string>;
 }
 
 export interface RouteResult {
   status: number;
   body: string;
   access: string[];
+  /** Response headers (lower-case names). */
+  headers: Headers;
 }
 
 /** `app/api/x/[id]/route.ts` → `/api/x/<params.id>` (fixtures outside app/ map to `/__fixture__/<name>`). */
@@ -583,16 +640,23 @@ export async function callRoute(
   const handler = await loadRouteHandler(c.file, c.method);
   const access: string[] = [];
   slot.client = recordingClient(client, access);
-  const hasBody = call.body !== undefined && !["GET", "HEAD"].includes(c.method);
+  const canHaveBody = !["GET", "HEAD"].includes(c.method);
+  const hasForm = call.form !== undefined && canHaveBody;
+  const hasBody = !hasForm && call.body !== undefined && canHaveBody;
+  const contentType: Record<string, string> = hasForm
+    ? { "content-type": "application/x-www-form-urlencoded" }
+    : hasBody
+      ? { "content-type": "application/json" }
+      : {};
   const req = new NextRequest(routeUrl(c.file, call.params, call.query), {
     method: c.method,
-    headers: { ...(hasBody ? { "content-type": "application/json" } : {}), ...(call.headers ?? {}) },
-    body: hasBody ? JSON.stringify(call.body) : undefined,
+    headers: { ...contentType, ...(call.headers ?? {}) },
+    body: hasForm ? new URLSearchParams(call.form).toString() : hasBody ? JSON.stringify(call.body) : undefined,
   });
   try {
     const res = await handler(req, { params: Promise.resolve(call.params ?? {}) });
     const body = res.body ? Buffer.from(await res.arrayBuffer()).toString("latin1") : "";
-    return { status: res.status, body, access };
+    return { status: res.status, body, access, headers: res.headers };
   } finally {
     slot.client = null;
   }
@@ -718,6 +782,122 @@ export async function webhookRouteLegs(
   return out;
 }
 
+/** Standard Webhooks headers for `body` signed with a `v1,whsec_…` secret at `at` (default now). */
+export function signedWebhookHeaders(secret: string, body: string, at: Date = new Date()): Record<string, string> {
+  const id = `msg_${randomBytes(12).toString("hex")}`;
+  return {
+    "webhook-id": id,
+    "webhook-timestamp": String(Math.floor(at.getTime() / 1000)),
+    "webhook-signature": new Webhook(secret.slice("v1,".length)).sign(id, at, body),
+  };
+}
+
+/**
+ * `webhook-signature` route (03-11b): every leg must answer 401 with no ids, read nothing through the request client
+ * and send nothing (`sent()` counts the sends of the spec's recording sender). `setSecret` sets or clears
+ * SEND_EMAIL_HOOK_SECRET; `secret` and `other` are two valid `v1,whsec_…` secrets.
+ */
+export async function webhookSignatureRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  payload: Record<string, unknown>,
+  secrets: { secret: string; other: string },
+  setSecret: (value: string | undefined) => void,
+  sent: () => number
+): Promise<Violation[]> {
+  const body = JSON.stringify(payload);
+  const before = sent();
+  const out: Violation[] = [];
+  const leg = async (name: string, headers: Record<string, string>) => {
+    const r = await callRoute(slot, anonClient(), c, { headers, body: payload });
+    out.push(...expectStatus(c, name, r, [401]), ...expectNoIds(c, name, r), ...expectNoAccess(c, name, r));
+  };
+  setSecret(undefined);
+  await leg("secret unset, validly signed", signedWebhookHeaders(secrets.secret, body));
+  setSecret(secrets.secret);
+  await leg("no signature headers", {});
+  const valid = signedWebhookHeaders(secrets.secret, body);
+  await leg("wrong signature", { ...valid, "webhook-signature": `v1,${Buffer.alloc(32, 7).toString("base64")}` });
+  await leg("signed with another secret", signedWebhookHeaders(secrets.other, body));
+  await leg("stale timestamp (10 minutes old)", signedWebhookHeaders(secrets.secret, body, new Date(Date.now() - 600_000)));
+  await leg("signature over a different body", signedWebhookHeaders(secrets.secret, `${body} `));
+  if (sent() !== before) out.push(routeV(c, "sends", `${sent() - before} message(s) sent by refused calls`));
+  return out;
+}
+
+/**
+ * Wraps a signed-in client so every `auth.signOut` call is recorded in `calls` (with its options) and still made.
+ * The `signout` legs hand this to the route through the request slot.
+ */
+export function signOutSpy<T extends { auth: object }>(client: T, calls: unknown[]): T {
+  const auth = new Proxy(client.auth, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target) as unknown;
+      if (prop === "signOut" && typeof value === "function") {
+        return (...args: unknown[]) => {
+          calls.push(args[0] ?? null);
+          return (value as (...a: unknown[]) => unknown).apply(target, args);
+        };
+      }
+      return typeof value === "function" ? (value as (...a: unknown[]) => unknown).bind(target) : value;
+    },
+  });
+  return new Proxy(client, {
+    get(target, prop) {
+      return prop === "auth" ? auth : (Reflect.get(target, prop, target) as unknown);
+    },
+  });
+}
+
+/**
+ * `signout` route (03-12b, T-03-13). `signedIn` is a live session of a throwaway user; `appOrigin` the
+ * `NEXT_PUBLIC_APP_URL` origin the route trusts. Every refused leg must answer 403 (or 400 for a bad scope) with an
+ * empty body, make no `auth.signOut` call and touch no data, and the session must still work afterwards; the
+ * signed-out leg must answer 303 → `/login` with `Clear-Site-Data: "cache"` and no body.
+ */
+export async function signoutRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  signedIn: TestDb,
+  appOrigin: string
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const calls: unknown[] = [];
+  const spied = signOutSpy(signedIn, calls);
+  const refusedLegs: Array<[string, Record<string, string>, Record<string, string>, number]> = [
+    ["cross-origin Origin", { origin: "https://evil.example" }, {}, 403],
+    ["cross-origin Origin, browser says cross-site", { origin: "https://evil.example", "sec-fetch-site": "cross-site" }, {}, 403],
+    ["app Origin but the browser says cross-site", { origin: appOrigin, "sec-fetch-site": "cross-site" }, {}, 403],
+    ["sibling site (same-site)", { origin: "https://other.example", "sec-fetch-site": "same-site" }, {}, 403],
+    ["typed into the address bar (none)", { "sec-fetch-site": "none" }, {}, 403],
+    ["Origin: null", { origin: "null" }, {}, 403],
+    ["no Origin, no Sec-Fetch-Site", {}, {}, 403],
+    ["Origin differs only by port", { origin: `${new URL(appOrigin).protocol}//${new URL(appOrigin).hostname}:1` }, {}, 403],
+    ["unknown scope", { origin: appOrigin }, { scope: "everyone" }, 400],
+  ];
+  for (const [leg, headers, form, status] of refusedLegs) {
+    const before = calls.length;
+    const r = await callRoute(slot, spied, c, { headers, form });
+    out.push(...expectStatus(c, leg, r, [status]), ...expectNoAccess(c, leg, r));
+    if (r.body !== "") out.push(routeV(c, leg, `refusal has a body: ${brief(r.body)}`));
+    if (calls.length !== before) out.push(routeV(c, leg, "auth.signOut was called"));
+  }
+  const { data, error } = await signedIn.auth.getUser();
+  if (error || !data.user) out.push(routeV(c, "refused legs", "the caller's session no longer works after refused calls"));
+
+  for (const [leg, headers] of [
+    ["signed out, Origin matches", { origin: appOrigin }],
+    ["signed out, Sec-Fetch-Site same-origin", { "sec-fetch-site": "same-origin" }],
+  ] as Array<[string, Record<string, string>]>) {
+    const r = await callRoute(slot, anonClient(), c, { headers, form: { scope: "local" } });
+    out.push(...expectStatus(c, leg, r, [303]), ...expectNoAccess(c, leg, r), ...expectNoIds(c, leg, r));
+    if (r.headers.get("location") !== "/login") out.push(routeV(c, leg, `location ${r.headers.get("location")}`));
+    if (r.headers.get("clear-site-data") !== '"cache"') out.push(routeV(c, leg, "no Clear-Site-Data: \"cache\""));
+    if (r.body !== "") out.push(routeV(c, leg, `303 has a body: ${brief(r.body)}`));
+  }
+  return out;
+}
+
 /** Cron trigger with the given CRON_SECRET state: every call here must be 401. */
 export async function cronRouteLeg(
   slot: RequestSlot,
@@ -759,7 +939,11 @@ export async function healthRouteLeg(
   world: GuardWorld
 ): Promise<Violation[]> {
   const r = await callRoute(slot, anonClient(), c);
-  const out = [...expectStatus(c, "probe", r, [200, 503]), ...expectNoB(c, "probe", r, world), ...expectNoAccess(c, "probe", r)];
+  const out = [
+    ...expectStatus(c, "probe", r, [200, 503]),
+    ...expectNoB(c, "probe", r, world),
+    ...expectNoAccess(c, "probe", r, [...(guard.access ?? [])]),
+  ];
   let keys: string[] = [];
   try {
     keys = Object.keys(JSON.parse(r.body) as Record<string, unknown>);

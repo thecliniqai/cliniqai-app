@@ -1,0 +1,5 @@
+# e2e server log: log.invalid_event lines
+0
+# e2e server log: lib/log events seen
+  10 "event":"messaging.dev.recorded"
+   4 "event":"patients.detail_load.failed"

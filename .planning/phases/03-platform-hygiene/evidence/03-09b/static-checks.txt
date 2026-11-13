@@ -1,0 +1,10 @@
+# HEAD 3ca1627
+## npm run typecheck
+exit 0
+## npx eslint . (summary line)
+✖ 422 problems (0 errors, 422 warnings)
+## npm run inventory
+exit 0
+## node scripts/ci/env-example.mjs --check
+env-example: .env.example matches lib/env.ts
+exit 0

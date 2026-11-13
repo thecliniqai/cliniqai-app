@@ -1,0 +1,23 @@
+$ find app -type d -name "@*"
+(count: 0)
+$ grep -rlE "from \"next/image\"|next/legacy/image" app components features lib
+       0
+$ grep -rnE "revalidateTag|unstable_[a-zA-Z]+|cacheLife|cacheTag" app components features lib
+       0
+$ grep -rnE "experimental|skipMiddlewareUrlNormalize|serverRuntimeConfig|publicRuntimeConfig|amp|devIndicators" next.config.ts
+       0
+$ grep -rnE "next lint" package.json .github
+       0
+$ grep -rnE "(^|[^a-zA-Z_.])(cookies|headers|draftMode)\(\)\." app components features lib (sync request API member access)
+       0
+$ grep -rnE "next/amp|useAmp|config = \{ *amp" app components features lib
+       0
+$ grep -rn "runtime = .edge." app middleware.ts
+       0
+$ grep -rnE "opengraph-image|twitter-image|icon\.(t|j)sx?|sitemap\.(t|j)s" app (file list)
+       0
+$ grep -rn "scroll-behavior" app components
+       0
+$ node -v; cat .nvmrc
+v24.13.0
+24

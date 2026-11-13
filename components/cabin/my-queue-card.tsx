@@ -17,6 +17,7 @@ import {
   FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { reportClientError } from "@/lib/log/client";
 
 export interface CabinPatient {
   id: string;
@@ -80,7 +81,7 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
       }
       router.push(`/consultation/${visit.id}`);
     } catch (err) {
-      console.error("Failed to transition queue status:", err);
+      reportClientError("queue.transition.failed", err);
       // Fallback navigation
       router.push(`/consultation/${visit.id}`);
     } finally {

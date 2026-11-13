@@ -6,7 +6,7 @@
  * (The database side is in tests/security/review2-fixes-db.spec.ts.)
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import * as adminModule from "@/lib/supabase/admin";
+import * as systemDb from "@/lib/supabase/system";
 import { isTenantStoragePath, signSharedObject } from "@/features/sharing/system";
 import { getSignedUrl, validateStoragePath, type StorageProvider } from "@/lib/storage";
 import { isPatientStoragePath, isWellFormedStorageKey } from "@/lib/storage/tenant-path";
@@ -61,7 +61,7 @@ describe("AR2-H1: encoded dot segments never reach the storage signer", () => {
 
   it("control: a well-formed key under the token's tenant is signed", async () => {
     const { client, createSignedUrl } = fakeAdmin(`tenants/${TENANT_A}/patients/${PATIENT_P}/labs/report_2026-10-22.pdf`);
-    vi.spyOn(adminModule, "getAdminClient").mockReturnValue(client as never);
+    vi.spyOn(systemDb, "getSystemDb").mockReturnValue(client as never);
     const res = await signSharedObject(TOKEN, ["patient_document"]);
     expect(res?.signedUrl).toContain("signed");
     expect(createSignedUrl).toHaveBeenCalledTimes(1);
@@ -69,7 +69,7 @@ describe("AR2-H1: encoded dot segments never reach the storage signer", () => {
 
   it.each(VARIANTS)("signSharedObject refuses %s without calling storage", async (path) => {
     const { client, createSignedUrl } = fakeAdmin(path);
-    vi.spyOn(adminModule, "getAdminClient").mockReturnValue(client as never);
+    vi.spyOn(systemDb, "getSystemDb").mockReturnValue(client as never);
     expect(await signSharedObject(TOKEN, ["patient_document"])).toBeNull();
     expect(createSignedUrl).not.toHaveBeenCalled();
   });

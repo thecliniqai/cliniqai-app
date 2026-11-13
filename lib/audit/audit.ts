@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/db/types";
 import type { ServiceContext } from "@/lib/auth/context";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export type AuditAction =
   | "patient.create"
@@ -184,7 +186,7 @@ async function insertAuditRow(
   });
 
   if (error) {
-    console.error("[lib/audit/audit] Failed to record audit log:", error);
+    log.error({ event: "audit.record.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: membership.tenantId });
     // Mandatory audit guarantee: fail the transaction/action if audit cannot be recorded
     throw new Error("Audit log recording failed. Action was aborted to preserve compliance trail.");
   }

@@ -1,0 +1,119 @@
+# Nightly staging drift (V2-03 plan 03-08; AUTH-02, B1, FT-01; rulings R-19, R-21, R-30). Runbook:
+# docs/runbooks/staging.md. Read-only: every job runs in the GitHub Environment `staging-readonly` (no reviewer,
+# deployment branch feature/v2, read-only credentials only: a fine-grained "Auth config: read" token and the
+# `clinicos_drift_ro` database role).
+#
+#   auth-config  hosted Auth settings vs the `staging` column of supabase/auth-policy.json
+#                (scripts/drift/auth-config-hosted.mjs, 03-11a); report uploaded as an artifact
+#   schema       staging `public`, `ops`, `private` vs a shadow built from supabase/migrations, plus grants, policies
+#                and RLS flags vs the committed snapshot scripts/drift/schema-snapshot.txt (read-only psql; 03-13b
+#                M-DRIFT) (scripts/staging/schema-drift.mjs, same allowlist as the local gate)
+#   region       /api/health `region` equals the function region pinned in vercel.json (bom1), else
+#                "record the deviation (FT-01)"
+#
+# Same rules as staging.yml (scripts/ci/workflow-policy.mjs): no PR triggers, environment on every job, secrets only in
+# the step that needs them, `npm ci --ignore-scripts` without a cache restore, read-only token, SHA-pinned actions.
+# Schedules run only from the default branch, so the nightly fires once the default branch is feature/v2 (RL-3).
+name: Staging drift
+
+on:
+  schedule:
+    - cron: "0 21 * * *" # 02:30 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-drift
+  cancel-in-progress: false
+
+jobs:
+  auth-config:
+    name: auth-config
+    if: ${{ github.ref == 'refs/heads/feature/v2' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging-readonly
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: npm ci (no install scripts)
+        run: npm ci --ignore-scripts
+      # Exit 0 no drift, 1 drift or a missing field, 2 refused / API error. Prints mapped, non-secret fields only.
+      - name: Hosted auth config vs the staging policy column
+        env:
+          SUPABASE_ACCESS_TOKEN_STAGING_RO: ${{ secrets.SUPABASE_ACCESS_TOKEN_STAGING_RO }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+          STAGING_ORIGIN: ${{ vars.STAGING_ORIGIN }}
+        run: node scripts/drift/auth-config-hosted.mjs --out drift-report/auth-config-drift.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: auth-config-drift
+          path: drift-report/auth-config-drift.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  schema:
+    name: schema
+    if: ${{ github.ref == 'refs/heads/feature/v2' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: staging-readonly
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: npm ci (no install scripts; the Supabase CLI comes from its platform package)
+        run: npm ci --ignore-scripts
+      - name: Target guard (the staging project only; masks the database password)
+        env:
+          STAGING_DB_URL_RO: ${{ secrets.STAGING_DB_URL_RO }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+        run: node scripts/staging/target-guard.mjs --var STAGING_DB_URL_RO --mask
+      # The CLI builds the shadow database from supabase/migrations in the runner's Docker and only reads staging;
+      # the privilege snapshot runs through the runner's psql in one read-only transaction.
+      - name: Staging schema (public, ops, private) and privileges vs supabase/migrations
+        env:
+          STAGING_DB_URL_RO: ${{ secrets.STAGING_DB_URL_RO }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+        run: node scripts/staging/schema-drift.mjs --out drift-report
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: schema-drift
+          path: drift-report/
+          if-no-files-found: warn
+          retention-days: 30
+
+  region:
+    name: region
+    if: ${{ github.ref == 'refs/heads/feature/v2' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    environment: staging-readonly
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .nvmrc
+            vercel.json
+            scripts/staging/check-region.mjs
+            scripts/staging/wait-for-release.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Functions run in the region vercel.json pins (FT-01)
+        env:
+          STAGING_ORIGIN: ${{ vars.STAGING_ORIGIN }}
+        run: node scripts/staging/check-region.mjs "$STAGING_ORIGIN"

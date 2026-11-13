@@ -5,8 +5,11 @@ import {
   isPlausibleToken,
 } from "@/features/sharing/public-links";
 import { notifySelfServiceReschedule } from "@/features/sharing/system";
-import { timeToMinutes, DAY_OF_WEEK_NAMES } from "@/features/visits/scheduling-utils";
+import { timeToMinutes } from "@/features/visits/scheduling-utils";
+import { DEFAULT_CLINIC_TZ, addDaysYmd, dayWindowUtc, isYmd, todayInTz, weekdayOfYmd } from "@/lib/datetime";
 import type { DayAvailability, DoctorWeeklySchedule } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 // Public self-service reschedule link (P0-04, ADR-0005 D3). Only `appointment` tokens resolve here, bound to the
 // token's tenant (`get_reschedule_context`); a POST is single-use (`consume_reschedule_token` revokes the token in
@@ -24,6 +27,11 @@ function closedMessage(visitStatus: string): string {
   }
   return "Your visit has already started at the clinic, so it can no longer be rescheduled online. Please contact the clinic.";
 }
+
+// The public link carries no tenant zone yet (`get_reschedule_context` returns none; P1-20 adds it), so the clinic
+// default zone names "tomorrow"; the slot zone is UTC until P1-20 (V2-08) moves slot generation to the clinic zone.
+const RESCHEDULE_CLINIC_TZ = DEFAULT_CLINIC_TZ;
+const RESCHEDULE_SLOT_TZ = "UTC";
 
 // Same bounds as consume_reschedule_token and the memberships CHECKs (000021).
 const RESCHEDULE_HORIZON_DAYS = 90;
@@ -54,19 +62,14 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
       return NextResponse.json({ error: "Invalid or missing reschedule token." }, { status: 400 });
     }
 
-    // Target date for available slots (defaults to tomorrow). Slots stay in UTC as before (UTC/IST fix is P1, C10).
+    // Target date for available slots (defaults to the clinic's tomorrow, V2-03 03-05).
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get("date");
-    let targetDate: string;
-    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) && !Number.isNaN(Date.parse(dateParam))) {
-      targetDate = dateParam;
-    } else {
-      const d = new Date();
-      d.setDate(d.getDate() + 1);
-      targetDate = d.toISOString().split("T")[0];
-    }
-    const startOfDay = `${targetDate}T00:00:00.000Z`;
-    const endOfDay = `${targetDate}T23:59:59.999Z`;
+    const targetDate = isYmd(dateParam) ? dateParam : addDaysYmd(todayInTz(RESCHEDULE_CLINIC_TZ), 1);
+    // The booked-slot window is the day the slots below are generated in: until P1-20 (V2-08, "IST slots") the
+    // slots are wall-clock times in UTC, so the window is that UTC day, half-open. Both move to the token tenant's
+    // zone together in P1-20; moving only the window would offer booked evening slots as free.
+    const { startIso: startOfDay, endIsoExclusive: endOfDay } = dayWindowUtc(targetDate, RESCHEDULE_SLOT_TZ);
 
     const res = await getRescheduleContext(token, startOfDay, endOfDay);
 
@@ -88,7 +91,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
     const rawDuration = Number(doctor.default_slot_duration_minutes) || 15;
     const slotDuration = Math.min(Math.max(Math.trunc(rawDuration), MIN_SLOT_MINUTES), MAX_SLOT_MINUTES);
     const schedule = (doctor.availability_schedule as DoctorWeeklySchedule | null) || DEFAULT_SCHEDULE;
-    const dayName = DAY_OF_WEEK_NAMES[new Date(targetDate).getDay()];
+    const dayName = weekdayOfYmd(targetDate);
     const dayAvailability = schedule[dayName] as DayAvailability | undefined;
 
     const generatedSlots: string[] = [];
@@ -127,7 +130,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (err: unknown) {
-    console.error("[app/api/reschedule/[token]/route] GET error:", err instanceof Error ? err.name : "error");
+    log.error({ event: "sharing.reschedule_route_get.failed", code: errorTag(err), requestId: await getRequestId() });
     return NextResponse.json(
       { error: "An unexpected error occurred while loading reschedule options." },
       { status: 500 }
@@ -192,7 +195,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
       new_scheduled_at: res.newScheduledAt,
     });
   } catch (err: unknown) {
-    console.error("[app/api/reschedule/[token]/route] POST error:", err instanceof Error ? err.name : "error");
+    log.error({ event: "sharing.reschedule_route_post.failed", code: errorTag(err), requestId: await getRequestId() });
     return NextResponse.json({ error: "Failed to reschedule appointment." }, { status: 500 });
   }
 }

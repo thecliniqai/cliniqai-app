@@ -12,7 +12,17 @@
  */
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { assertLocalAppServerEnv, loadLocalStackKeys, type EnvMap } from "../../setup/test-env";
+import {
+  E2E_APP_ENV,
+  E2E_PWNED_API_BASE_URL,
+  E2E_TURNSTILE_SITE_KEY,
+  LOCAL_ERROR_INGEST_KEY,
+  LOCAL_MAILPIT_API_URL,
+  LOCAL_SEND_EMAIL_HOOK_SECRET,
+  assertLocalAppServerEnv,
+  loadLocalStackKeys,
+  type EnvMap,
+} from "../../setup/test-env";
 
 export const ROOT = path.resolve(__dirname, "../../..");
 
@@ -21,6 +31,10 @@ export const E2E_HOST = "127.0.0.1";
 export const E2E_PORT = 3100;
 export const E2E_BASE_URL = `http://${E2E_HOST}:${E2E_PORT}`;
 export const LOCAL_SUPABASE_URL = "http://127.0.0.1:54321";
+/** The e2e server's cron bearer (synthetic); `POST /api/diag/error` authenticates with it (03-09b). */
+export const E2E_CRON_SECRET = "e2e-not-real";
+/** The e2e server's auth-email sender address (03-11b; Mailpit accepts any). */
+export const E2E_EMAIL_FROM = "no-reply@auth.example.com";
 
 export const SERVER_NET_GUARD = path.join(ROOT, "tests/e2e/support/server-net-guard.cjs");
 /** Written by `npm run e2e:build` after a guarded build passed the output scan; `serve.ts` refuses without it. */
@@ -42,7 +56,7 @@ export function readLocalStackKeys(
 ): LocalStackKeys {
   const keys: EnvMap = {};
   loadLocalStackKeys(root, keys, readStatus);
-  return { anonKey: keys.NEXT_PUBLIC_SUPABASE_ANON_KEY!, serviceRoleKey: keys.SUPABASE_SERVICE_ROLE_KEY! };
+  return { anonKey: keys.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, serviceRoleKey: keys.SUPABASE_SECRET_KEY! };
 }
 
 export interface AppServerEnvOptions {
@@ -63,20 +77,39 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
   }
   Object.assign(env, {
     NODE_ENV: "production",
+    // V2-03 03-01 (R-11, K-6): a production build with offline providers and loopback URLs is the `e2e` tier.
+    APP_ENV: E2E_APP_ENV,
     __NEXT_PROCESSED_ENV: "true",
     NEXT_TELEMETRY_DISABLED: "1",
     NEXT_PUBLIC_SUPABASE_URL: LOCAL_SUPABASE_URL,
     SUPABASE_URL: LOCAL_SUPABASE_URL,
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: keys.anonKey,
-    SUPABASE_SERVICE_ROLE_KEY: keys.serviceRoleKey,
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: keys.anonKey,
+    SUPABASE_SECRET_KEY: keys.serviceRoleKey,
     NEXT_PUBLIC_APP_URL: E2E_BASE_URL,
     MESSAGING_PROVIDER: "dev",
     MSG91_AUTH_KEY: "x",
     AI_ENABLED: "false",
     AI_PROVIDER: "mock",
-    STORAGE_PROVIDER: "supabase",
     API_V1_ENABLED: "false",
-    CRON_SECRET: "e2e-not-real",
+    CRON_SECRET: E2E_CRON_SECRET,
+    // V2-03 03-09b (R-18): the sink is on (synthetic key, its hash installed by global setup) and so is the
+    // diagnostic error route that proves it end to end (tests/e2e/observability/error-sink.spec.ts).
+    ERROR_INGEST_KEY: LOCAL_ERROR_INGEST_KEY,
+    DIAG_ERROR_ROUTE_ENABLED: "true",
+    // V2-03 03-11b: the Send Email hook route verifies with the local synthetic secret and delivers to the local
+    // Mailpit (tests/e2e/auth/send-email-hook.spec.ts). Local GoTrue keeps its own SMTP path (hook off in config.toml).
+    EMAIL_PROVIDER: "mailpit",
+    MAILPIT_API_URL: LOCAL_MAILPIT_API_URL,
+    EMAIL_FROM: E2E_EMAIL_FROM,
+    SEND_EMAIL_HOOK_SECRET: LOCAL_SEND_EMAIL_HOOK_SECRET,
+    // V2-03 03-12a (FT-05): the breached-password check is on, against the loopback fake range API that global setup
+    // starts (tests/e2e/support/pwned-range-server.ts); J-A4/J-A5 prove a listed password is refused.
+    PWNED_CHECK: "on",
+    PWNED_API_BASE_URL: E2E_PWNED_API_BASE_URL,
+    // V2-03 03-12c (C43, R-22): sign-in and the reset request render the Turnstile widget with Cloudflare's always-pass
+    // test key. The browser never reaches Cloudflare: tests/e2e/fixtures.ts fulfils the widget script with
+    // tests/e2e/support/turnstile-stub.js, and local GoTrue has CAPTCHA off, so the lane proves the token wiring.
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: E2E_TURNSTILE_SITE_KEY,
     NODE_OPTIONS: `--require "${SERVER_NET_GUARD}"`,
   } satisfies EnvMap);
   assertLocalAppServerEnv(env);

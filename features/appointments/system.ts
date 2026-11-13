@@ -1,8 +1,11 @@
 import "server-only";
+import { serverEnv } from "@/lib/env-server";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { enqueueMessage } from "@/lib/messaging/dispatcher";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * Appointment use-cases that run without a signed-in user (ADR-0005 D2): the inbound messaging webhook
@@ -94,7 +97,7 @@ export async function notifyAppointmentRescheduled(sys: AppointmentSystemContext
       scheduled_at: input.newScheduledAt,
     });
   } catch (webhookErr) {
-    console.warn("[notifyAppointmentRescheduled] Failed to enqueue webhook event:", webhookErr);
+    log.warn({ event: "appointments.reschedule_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
   }
 }
 
@@ -141,7 +144,7 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
     throw new Error("Appointment not cancellable");
   }
   if (updateError || !updated) {
-    throw new Error(`Failed to cancel appointment: ${updateError?.message || "Unknown error"}`);
+    throw new Error("Failed to cancel appointment.", { cause: updateError });
   }
 
   // Enqueue webhook event: appointment.cancelled
@@ -151,7 +154,7 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
       reason: input.reason || "clinic_cancelled",
     });
   } catch (webhookErr) {
-    console.warn("[cancelAppointment] Failed to enqueue webhook event:", webhookErr);
+    log.warn({ event: "appointments.cancel_webhook.failed", code: errorTag(webhookErr), requestId: await getRequestId() });
   }
 
   // Check waitlist for opening and alert front desk (Event #17: waitlist_slot_freed)
@@ -175,7 +178,7 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
       });
     }
   } catch (err) {
-    console.warn("[cancelAppointment] Waitlist check error:", err);
+    log.warn({ event: "appointments.cancel_waitlist_check.failed", code: errorTag(err), requestId: await getRequestId() });
   }
 
   // Queue Event #3 (appointment_cancelled) if clinic-initiated
@@ -211,6 +214,6 @@ export async function generateRescheduleToken(sys: AppointmentSystemContext, app
     throw new Error("Could not create a reschedule link for this appointment");
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const baseUrl = serverEnv().NEXT_PUBLIC_APP_URL;
   return `${baseUrl}/reschedule/${token}`;
 }

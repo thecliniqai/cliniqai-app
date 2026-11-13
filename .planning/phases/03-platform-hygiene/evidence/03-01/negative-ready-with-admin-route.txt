@@ -1,0 +1,29 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/health-probes.spec.ts [ tests/api/health-probes.spec.ts ]
+Error: [vitest] There was an error when mocking a module. If you are using "vi.mock" factory, make sure there are no top level variables inside, since this call is hoisted to top of the file. Read more: https://vitest.dev/api/vi.html#vi-mock
+ ❯ app/api/ready/route.ts:2:1
+      1| import { NextResponse } from "next/server";
+      2| import { getAdminClient } from "@/lib/supabase/admin";
+       | ^
+      3| import { getStorageProvider } from "@/lib/storage";
+      4| 
+
+Caused by: Error: readiness must not import the service-role client
+ ❯ tests/api/health-probes.spec.ts:20:9
+ ❯ app/api/ready/route.ts:2:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  03:56:08
+   Duration  202ms (transform 63ms, setup 8ms, collect 0ms, tests 0ms, environment 0ms, prepare 19ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

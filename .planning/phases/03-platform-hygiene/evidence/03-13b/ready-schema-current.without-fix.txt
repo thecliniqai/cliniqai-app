@@ -1,0 +1,9 @@
+# without-fix run: files reverted to HEAD d4a8eeb: scripts/staging/wait-for-release.mjs
+# command: /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/vt.sh tests/ci/staging-scripts.spec.ts --reporter=dot 2>&1 | grep -E ' FAIL |Tests |Test Files' | head -20
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ci/staging-scripts.spec.ts > wait-for-release > exits 0 once /api/health reports the SHA and /api/ready is ready with the schema current
+ FAIL  tests/ci/staging-scripts.spec.ts > wait-for-release > exits 1 on timeout when the release never appears, without calling /api/ready
+ FAIL  tests/ci/staging-scripts.spec.ts > wait-for-release > exits 1 when /api/ready answers 503, or does not report the schema current
+ Test Files  1 failed (1)
+      Tests  3 failed | 49 passed (52)
+# exit: 0

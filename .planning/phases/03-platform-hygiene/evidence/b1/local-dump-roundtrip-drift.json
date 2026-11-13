@@ -1,0 +1,12 @@
+{
+  "tool": "scripts/drift/hosted-dump-diff.mjs",
+  "label": "local-dump-roundtrip",
+  "dump_sha256": "ed1d6880cebefde5c272b08d5a8ab3d6f064f37730e0bba8fe03e6864b48b2bd",
+  "compared": "schema dump (loaded into a local scratch DB) vs shadow DB built from supabase/migrations",
+  "engine": "supabase db diff --schema public (migra), CLI 2.120.0",
+  "statements": 0,
+  "allowlisted": [],
+  "drift_count": 0,
+  "drift": [],
+  "result": "no drift"
+}

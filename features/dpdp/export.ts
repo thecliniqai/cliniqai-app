@@ -3,6 +3,8 @@ import "server-only";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export interface DpdpArchiveMetadata {
   standard: "DPDP_ACT_2023_RIGHT_TO_ACCESS";
@@ -71,7 +73,7 @@ export async function exportPatientDpdpArchive(
     .single();
 
   if (patientError || !patient) {
-    throw new Error(`Patient not found or unauthorized: ${patientError?.message || "Not found"}`);
+    throw new Error("Patient not found or unauthorized.", { cause: patientError });
   }
 
   // 2. Fetch Tenant / Clinic info
@@ -175,7 +177,7 @@ export async function exportPatientDpdpArchive(
         },
       });
     } catch (auditErr) {
-      console.warn("[features/dpdp/export] Audit log warning:", auditErr);
+      log.warn({ event: "dpdp.export_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
     }
   }
 

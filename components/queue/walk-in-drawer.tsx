@@ -11,6 +11,7 @@ import { createVisit } from "@/features/visits/actions";
 import { checkInVisit } from "@/features/queue/actions";
 import { X, Search, UserPlus, UserCheck } from "lucide-react";
 import { Patient } from "@/lib/db/types";
+import { reportClientError } from "@/lib/log/client";
 
 export interface DoctorOption {
   id: string;
@@ -91,7 +92,7 @@ export function WalkInDrawer({
         const patients = await searchPatients(searchQuery.trim());
         setSearchResults(patients);
       } catch (err) {
-        console.error("Patient search failed:", err);
+        reportClientError("patients.search.failed", err);
       }
     }, 300);
 

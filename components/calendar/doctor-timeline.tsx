@@ -3,6 +3,8 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { Visit, Patient, DoctorWeeklySchedule, ScheduleBlock, DayOfWeek } from "@/lib/db/types";
+import { isYmd, weekdayOfYmd, ymdOf } from "@/lib/datetime";
+import { useClinicTimeZone } from "@/lib/datetime/client";
 import { Clock, Plus, AlertCircle, XCircle, Stethoscope, Ban, Coffee, Check, CheckCircle2, Loader2 } from "lucide-react";
 
 export interface TimelineVisit extends Visit {
@@ -34,16 +36,6 @@ export interface DoctorTimelineProps {
   confirmingId?: string | null;
 }
 
-const DAY_NAMES: DayOfWeek[] = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-];
-
 export function DoctorTimeline({
   doctors,
   visits,
@@ -54,11 +46,13 @@ export function DoctorTimeline({
   onConfirmVisit,
   confirmingId,
 }: DoctorTimelineProps) {
+  const timeZone = useClinicTimeZone();
+
   // Day of week for currentDate
-  const dayKey = useMemo<DayOfWeek>(() => {
-    const d = new Date(`${currentDate}T00:00:00`);
-    return DAY_NAMES[d.getDay()] || "monday";
-  }, [currentDate]);
+  const dayKey = useMemo<DayOfWeek>(
+    () => (isYmd(currentDate) ? weekdayOfYmd(currentDate) : "monday"),
+    [currentDate]
+  );
 
   // Compute dynamic start and end hours based on active doctor shifts
   const { startHour, endHour } = useMemo(() => {
@@ -167,8 +161,9 @@ export function DoctorTimeline({
       if (block.doctor_id && block.doctor_id !== doc.id) continue;
 
       if (block.all_day) {
-        const sDate = block.start_time.split("T")[0];
-        const eDate = block.end_time.split("T")[0];
+        // An all-day block's dates are clinic dates: 00:00 IST is 18:30Z of the previous UTC day (V2-03 03-05).
+        const sDate = ymdOf(block.start_time, timeZone);
+        const eDate = ymdOf(block.end_time, timeZone);
         if (currentDate >= sDate && currentDate <= eDate) {
           return {
             isBlocked: true,

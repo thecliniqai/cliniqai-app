@@ -1,0 +1,51 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/billing/billing-error-messages.spec.ts (5 tests) 10ms
+{"ts":"2026-11-13T03:15:34.103Z","level":"error","event":"billing.payment_record.failed","tenantId":"02a036e3-9410-4ad0-9f58-060d06c2cf12","code":"XX000"}
+{"ts":"2026-11-13T03:15:40.403Z","level":"info","event":"db.system_acquired","reason":"billing.record_payment_system"}
+{"ts":"2026-11-13T03:15:40.416Z","level":"info","event":"db.system_acquired","reason":"billing.record_payment_system"}
+ ✓ tests/billing/record-payment-rpc.spec.ts (36 tests) 7147ms
+   ✓ record_payment: invariants > a held invoice lock makes the call fail fast with CONFLICT/LOCK_TIMEOUT (lock_timeout 2s), not hang  5075ms
+{"ts":"2026-11-13T03:15:41.831Z","level":"info","event":"db.system_acquired","reason":"share.sign"}
+{"ts":"2026-11-13T03:15:41.860Z","level":"info","event":"db.system_acquired","reason":"share.sign"}
+{"ts":"2026-11-13T03:15:41.873Z","level":"info","event":"db.system_acquired","reason":"share.sign"}
+{"ts":"2026-11-13T03:15:41.882Z","level":"info","event":"db.system_acquired","reason":"share.reschedule_notify"}
+{"ts":"2026-11-13T03:15:41.977Z","level":"warn","event":"labs.delete_storage.skipped","tenantId":"d6b11eb5-19ea-4941-b0a9-5b7befa68098"}
+{"ts":"2026-11-13T03:15:42.108Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+{"ts":"2026-11-13T03:15:42.809Z","level":"error","event":"settings.staff_update_query.failed","tenantId":"d6b11eb5-19ea-4941-b0a9-5b7befa68098","code":"23514"}
+{"ts":"2026-11-13T03:15:42.812Z","level":"info","event":"db.system_acquired","reason":"api_v1"}
+ ✓ tests/security/review2-fixes-db.spec.ts (21 tests) 1833ms
+{"ts":"2026-11-13T03:15:43.772Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+{"ts":"2026-11-13T03:15:43.804Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+{"ts":"2026-11-13T03:15:43.823Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+{"ts":"2026-11-13T03:15:43.851Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+{"ts":"2026-11-13T03:15:44.014Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+{"ts":"2026-11-13T03:15:44.072Z","level":"error","event":"billing.invoice_insert.failed","tenantId":"dfdeed78-4415-4565-bf9d-bb672040cf14","code":"23505"}
+{"ts":"2026-11-13T03:15:44.144Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+{"ts":"2026-11-13T03:15:44.236Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+{"ts":"2026-11-13T03:15:44.339Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+{"ts":"2026-11-13T03:15:44.389Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+ ✓ tests/security/review3-fixes-db.spec.ts (16 tests) 1377ms
+{"ts":"2026-11-13T03:15:45.240Z","level":"error","event":"consultation.sign.failed","tenantId":"d72556a3-0ca2-4336-a033-5ed81427371f","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T03:15:45.242Z","level":"error","event":"consultation.amend_finalize.failed","tenantId":"d72556a3-0ca2-4336-a033-5ed81427371f","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T03:15:45.242Z","level":"error","event":"consultation.sign.failed","tenantId":"d72556a3-0ca2-4336-a033-5ed81427371f","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T03:15:45.242Z","level":"error","event":"consultation.amend_finalize.failed","tenantId":"d72556a3-0ca2-4336-a033-5ed81427371f","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T03:15:45.414Z","level":"info","event":"messaging.dev.recorded","action":"whatsapp","count":1}
+ ✓ tests/integration/consultation-service-guards.spec.ts (9 tests) 974ms
+ ✓ tests/security/cross-tenant-refs.spec.ts (11 tests) 805ms
+ ✓ tests/billing/payment-actor-guards.spec.ts (9 tests) 550ms
+ ✓ tests/integration/receipt-reports.spec.ts (4 tests) 443ms
+ ✓ tests/integration/per-visit-billing.spec.ts (5 tests) 336ms
+{"ts":"2026-11-13T03:15:48.680Z","level":"error","event":"sharing.token_create.failed","code":"P0002"}
+ ✓ tests/messaging/tokenized-sharing.spec.ts (6 tests) 6ms
+ ✓ tests/messaging/msg91-provider.spec.ts (26 tests) 5ms
+ ✓ tests/billing/schemas.spec.ts (4 tests) 2ms
+ ✓ tests/billing/sign-and-bill-outcome.spec.ts (3 tests) 1ms
+
+ Test Files  13 passed (13)
+      Tests  155 passed (155)
+   Start at  08:45:32
+   Duration  16.10s (transform 272ms, setup 60ms, collect 1.25s, tests 13.49s, environment 1ms, prepare 253ms)
+
+[teardown] removed run data: 14 tenant(s), 41 auth user(s), 21 storage object(s); verified none remain

@@ -1,0 +1,2 @@
+inventory: 24 "use server" modules, 110 exports; 16/17 D1 non-action modules present; 26 route modules, 46 methods; 0 flagged, 14 noted
+exit=0

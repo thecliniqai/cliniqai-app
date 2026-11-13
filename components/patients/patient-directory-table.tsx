@@ -26,6 +26,7 @@ import {
   X,
   Loader2,
 } from "lucide-react";
+import { reportClientError } from "@/lib/log/client";
 
 export interface PatientRecord {
   id: string;
@@ -72,7 +73,7 @@ export function PatientDirectoryTable({
         }));
         setRemoteResults(mapped);
       } catch (err) {
-        console.error("Remote patient search failed:", err);
+        reportClientError("patients.search.failed", err);
       } finally {
         setIsSearchingRemote(false);
       }

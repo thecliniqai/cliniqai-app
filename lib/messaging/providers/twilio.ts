@@ -1,8 +1,11 @@
+import { serverEnv } from "@/lib/env-server";
 import {
   InteractiveButton,
   MessagingProvider,
   MessagingSendResult,
 } from "../types";
+import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
+import { errorTag } from "@/lib/errors/error-tag";
 
 export class TwilioProvider implements MessagingProvider {
   readonly name = "twilio" as const;
@@ -17,10 +20,12 @@ export class TwilioProvider implements MessagingProvider {
     fromPhone?: string;
     whatsappFrom?: string;
   }) {
-    this.accountSid = options?.accountSid || process.env.TWILIO_ACCOUNT_SID || "";
-    this.authToken = options?.authToken || process.env.TWILIO_AUTH_TOKEN || "";
-    this.fromPhone = options?.fromPhone || process.env.TWILIO_FROM_PHONE || "";
-    this.whatsappFrom = options?.whatsappFrom || process.env.TWILIO_WHATSAPP_FROM || "+14155238886";
+    const env = serverEnv();
+    this.accountSid = options?.accountSid || env.TWILIO_ACCOUNT_SID || "";
+    this.authToken = options?.authToken || env.TWILIO_AUTH_TOKEN || "";
+    this.fromPhone = options?.fromPhone || env.TWILIO_FROM_PHONE || "";
+    // Twilio sandbox sender for local use only: the env schema requires TWILIO_WHATSAPP_FROM in staging/production.
+    this.whatsappFrom = options?.whatsappFrom || env.TWILIO_WHATSAPP_FROM || "+14155238886";
   }
 
   async sendSms(
@@ -28,6 +33,8 @@ export class TwilioProvider implements MessagingProvider {
     templateId: string,
     params: Record<string, string>
   ): Promise<MessagingSendResult> {
+    const synthetic = syntheticRecipientRefusal(to, "sms");
+    if (synthetic) return synthetic;
     if (!this.accountSid || !this.authToken) {
       return {
         success: false,
@@ -49,6 +56,7 @@ export class TwilioProvider implements MessagingProvider {
         `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`,
         {
           method: "POST",
+          signal: providerSignal(),
           headers: {
             Authorization: `Basic ${basicAuth}`,
             "Content-Type": "application/x-www-form-urlencoded",
@@ -82,7 +90,7 @@ export class TwilioProvider implements MessagingProvider {
       return {
         success: false,
         channelUsed: "sms",
-        error: err instanceof Error ? err.message : "Unknown Twilio SMS error",
+        error: `Twilio SMS request failed (${errorTag(err)})`,
       };
     }
   }
@@ -93,6 +101,8 @@ export class TwilioProvider implements MessagingProvider {
     params: Record<string, string>,
     buttons?: InteractiveButton[]
   ): Promise<MessagingSendResult> {
+    const synthetic = syntheticRecipientRefusal(to, "whatsapp");
+    if (synthetic) return synthetic;
     if (!this.accountSid || !this.authToken) {
       return {
         success: false,
@@ -123,6 +133,7 @@ export class TwilioProvider implements MessagingProvider {
         `https://api.twilio.com/2010-04-01/Accounts/${this.accountSid}/Messages.json`,
         {
           method: "POST",
+          signal: providerSignal(),
           headers: {
             Authorization: `Basic ${basicAuth}`,
             "Content-Type": "application/x-www-form-urlencoded",
@@ -156,7 +167,7 @@ export class TwilioProvider implements MessagingProvider {
       return {
         success: false,
         channelUsed: "whatsapp",
-        error: err instanceof Error ? err.message : "Unknown Twilio WhatsApp error",
+        error: `Twilio WhatsApp request failed (${errorTag(err)})`,
       };
     }
   }

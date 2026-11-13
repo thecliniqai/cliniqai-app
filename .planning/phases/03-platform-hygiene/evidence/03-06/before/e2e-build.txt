@@ -1,0 +1,329 @@
+
+> clinicos@0.1.0 e2e:build
+> tsx tests/e2e/support/build.ts
+
+[e2e:build] next build with the guarded e2e environment (no .env, loopback only)
+   ▲ Next.js 15.5.28
+   - Environments: .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 2.3s
+   Linting and checking validity of types ...
+
+./app/(dashboard)/patients/[id]/consent-section.tsx
+6:16  Warning: 'CardHeader' is defined but never used.  @typescript-eslint/no-unused-vars
+6:28  Warning: 'CardTitle' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./app/(dashboard)/queue/page.tsx
+18:9  Warning: 'supabase' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./app/(dashboard)/staff/page.tsx
+3:10  Warning: 'inviteStaff' is defined but never used.  @typescript-eslint/no-unused-vars
+4:10  Warning: 'Button' is defined but never used.  @typescript-eslint/no-unused-vars
+5:10  Warning: 'Input' is defined but never used.  @typescript-eslint/no-unused-vars
+6:10  Warning: 'Field' is defined but never used.  @typescript-eslint/no-unused-vars
+12:27  Warning: 'Mail' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./app/api/ready/route.ts
+22:64  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+70:83  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/appointments/[id]/route.ts
+42:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+90:13  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+112:80  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+177:80  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+237:80  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+251:82  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/appointments/route.ts
+50:42  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+123:13  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+150:83  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+162:84  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+231:78  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/lab-orders/[id]/route.ts
+43:76  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/lab-orders/route.ts
+67:53  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+178:83  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+191:79  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+203:87  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/patients/[id]/route.ts
+70:71  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+140:82  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+161:89  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/patients/route.ts
+47:44  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+134:71  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/prescriptions/[id]/route.ts
+44:81  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/prescriptions/route.ts
+50:49  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+122:13  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+162:83  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+174:77  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+197:80  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+210:93  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+228:44  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+242:96  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+248:45  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/referrals/[id]/route.ts
+44:73  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+94:13  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+117:91  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+132:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+151:91  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/referrals/route.ts
+49:45  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+117:13  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+174:83  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+187:79  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+211:87  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/visits/[id]/route.ts
+73:67  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+144:85  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+171:82  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+191:38  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+228:84  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/v1/visits/route.ts
+51:42  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+135:13  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+167:83  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+191:30  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+199:81  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/api/webhooks/messaging/[provider]/route.ts
+199:52  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+264:13  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+289:22  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/reschedule/[token]/page.tsx
+12:3  Warning: 'ChevronRight' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/cabin/doctor-cabin-view.tsx
+8:10  Warning: 'EmptyState' is defined but never used.  @typescript-eslint/no-unused-vars
+11:3  Warning: 'Users' is defined but never used.  @typescript-eslint/no-unused-vars
+14:3  Warning: 'Calendar' is defined but never used.  @typescript-eslint/no-unused-vars
+15:3  Warning: 'AlertCircle' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/cabin/my-queue-card.tsx
+10:3  Warning: 'HeartPulse' is defined but never used.  @typescript-eslint/no-unused-vars
+12:3  Warning: 'Thermometer' is defined but never used.  @typescript-eslint/no-unused-vars
+13:3  Warning: 'Weight' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/calendar/block-time-modal.tsx
+27:3  Warning: 'doctorName' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/calendar/soft-block-override-dialog.tsx
+26:3  Warning: 'isOffDuty' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/consultation/ai-scribe-modal.tsx
+10:3  Warning: 'Stethoscope' is defined but never used.  @typescript-eslint/no-unused-vars
+12:3  Warning: 'HelpCircle' is defined but never used.  @typescript-eslint/no-unused-vars
+59:14  Warning: 'err' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/consultation/diagnosis-section.tsx
+23:3  Warning: 'ChevronRight' is defined but never used.  @typescript-eslint/no-unused-vars
+25:3  Warning: 'Sparkles' is defined but never used.  @typescript-eslint/no-unused-vars
+84:10  Warning: 'isSearching' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./components/consultation/frequent-rx-chips.tsx
+4:10  Warning: 'Pill' is defined but never used.  @typescript-eslint/no-unused-vars
+22:10  Warning: 'isLoading' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./components/consultation/patient-history-drawer.tsx
+4:23  Warning: 'Clock' is defined but never used.  @typescript-eslint/no-unused-vars
+70:36  Warning: 'idx' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/consultation/prescription-builder.tsx
+27:3  Warning: 'Bookmark' is defined but never used.  @typescript-eslint/no-unused-vars
+29:3  Warning: 'Clock' is defined but never used.  @typescript-eslint/no-unused-vars
+33:3  Warning: 'FileCheck' is defined but never used.  @typescript-eslint/no-unused-vars
+34:3  Warning: 'Pill' is defined but never used.  @typescript-eslint/no-unused-vars
+64:10  Warning: 'isSearching' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./components/consultation/returning-patient-catchup.tsx
+4:44  Warning: 'Clock' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/consultation/specialty/dental-odontogram.tsx
+8:3  Warning: 'VALID_FDI_TEETH' is defined but never used.  @typescript-eslint/no-unused-vars
+10:10  Warning: 'Badge' is defined but never used.  @typescript-eslint/no-unused-vars
+11:18  Warning: 'Plus' is defined but never used.  @typescript-eslint/no-unused-vars
+11:24  Warning: 'Info' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/consultation/specialty/pediatrics-tools.tsx
+11:30  Warning: 'CheckCircle2' is defined but never used.  @typescript-eslint/no-unused-vars
+11:44  Warning: 'AlertTriangle' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/notifications/notification-drawer.tsx
+14:3  Warning: 'ExternalLink' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/patients/edit-patient-modal.tsx
+15:39  Warning: 'AlertTriangle' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/patients/patient-detail-view.tsx
+15:3  Warning: 'AlertCircle' is defined but never used.  @typescript-eslint/no-unused-vars
+18:3  Warning: 'Activity' is defined but never used.  @typescript-eslint/no-unused-vars
+19:3  Warning: 'PlusCircle' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/patients/patient-visit-history.tsx
+152:29  Warning: 'index' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/profile/doctor-availability-card.tsx
+24:3  Warning: 'Calendar' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/profile/user-profile-form.tsx
+16:3  Warning: 'Phone' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/settings/clinic-profile-form.tsx
+18:3  Warning: 'IndianRupee' is defined but never used.  @typescript-eslint/no-unused-vars
+28:3  Warning: 'Phone' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/settings/developer/api-key-table.tsx
+50:3  Warning: 'isLoading' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./components/settings/developer/single-reveal-key-modal.tsx
+4:38  Warning: 'ShieldCheck' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/staff/edit-staff-modal.tsx
+14:3  Warning: 'Phone' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/staff/staff-list.tsx
+9:3  Warning: 'Users' is defined but never used.  @typescript-eslint/no-unused-vars
+14:3  Warning: 'Stethoscope' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/visits/read-only-encounter-modal.tsx
+16:3  Warning: 'Clock' is defined but never used.  @typescript-eslint/no-unused-vars
+17:3  Warning: 'Calendar' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/visits/visits-register-view.tsx
+10:3  Warning: 'Printer' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./lib/api/auth.ts
+94:74  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+126:41  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+130:76  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+137:54  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+145:54  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./lib/api/doctor-guard.ts
+43:78  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./lib/api/openapi-spec.ts
+26:25  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+28:37  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+29:29  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+30:33  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+31:32  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./lib/messaging/providers/gupshup.ts
+24:5  Warning: '_to' is defined but never used.  @typescript-eslint/no-unused-vars
+25:5  Warning: '_templateId' is defined but never used.  @typescript-eslint/no-unused-vars
+26:5  Warning: '_params' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./lib/messaging/providers/msg91.ts
+96:5  Warning: '_buttons' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./lib/messaging/webhook-helpers.ts
+98:15  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./lib/webhooks/dispatcher.ts
+53:3  Warning: Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any').
+55:40  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+147:12  Warning: 'err' is defined but never used.  @typescript-eslint/no-unused-vars
+243:3  Warning: Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any').
+245:40  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./lib/webhooks/outbox.ts
+85:5  Warning: Unused eslint-disable directive (no problems were reported from '@typescript-eslint/no-explicit-any').
+87:42  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./lib/webhooks/ssrf.ts
+166:12  Warning: 'dnsErr' is defined but never used.  @typescript-eslint/no-unused-vars
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+   Collecting page data ...
+   Generating static pages (0/35) ...
+   Generating static pages (8/35) 
+   Generating static pages (17/35) 
+   Generating static pages (26/35) 
+ ✓ Generating static pages (35/35)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ƒ /                                    1.49 kB         108 kB
+├ ○ /_not-found                             1 kB         104 kB
+├ ƒ /api/cron/dispatch-communications      200 B         103 kB
+├ ƒ /api/cron/webhooks                     200 B         103 kB
+├ ƒ /api/health                            200 B         103 kB
+├ ƒ /api/invoices/[id]/receipt-pdf         200 B         103 kB
+├ ƒ /api/patients/[id]/export              200 B         103 kB
+├ ƒ /api/r/[token]                         200 B         103 kB
+├ ƒ /api/ready                             200 B         103 kB
+├ ƒ /api/reports/view                      200 B         103 kB
+├ ƒ /api/reschedule/[token]                200 B         103 kB
+├ ƒ /api/v1/appointments                   200 B         103 kB
+├ ƒ /api/v1/appointments/[id]              200 B         103 kB
+├ ƒ /api/v1/docs                           200 B         103 kB
+├ ƒ /api/v1/lab-orders                     200 B         103 kB
+├ ƒ /api/v1/lab-orders/[id]                200 B         103 kB
+├ ƒ /api/v1/openapi.json                   200 B         103 kB
+├ ƒ /api/v1/patients                       200 B         103 kB
+├ ƒ /api/v1/patients/[id]                  200 B         103 kB
+├ ƒ /api/v1/patients/[id]/export           200 B         103 kB
+├ ƒ /api/v1/prescriptions                  200 B         103 kB
+├ ƒ /api/v1/prescriptions/[id]             200 B         103 kB
+├ ƒ /api/v1/referrals                      200 B         103 kB
+├ ƒ /api/v1/referrals/[id]                 200 B         103 kB
+├ ƒ /api/v1/visits                         200 B         103 kB
+├ ƒ /api/v1/visits/[id]                    200 B         103 kB
+├ ƒ /api/visits/[id]/prescription-pdf      200 B         103 kB
+├ ƒ /api/webhooks/messaging/[provider]     200 B         103 kB
+├ ƒ /billing/register                      200 B         103 kB
+├ ƒ /billing/reports                     7.07 kB         120 kB
+├ ƒ /cabin                               7.39 kB         124 kB
+├ ƒ /calendar                            12.9 kB         147 kB
+├ ○ /clinic/new                          2.83 kB         116 kB
+├ ƒ /consultation/[id]                   36.7 kB         175 kB
+├ ○ /forgot-password                     2.82 kB         206 kB
+├ ○ /join                                4.03 kB         201 kB
+├ ○ /login                               1.46 kB         204 kB
+├ ƒ /patients                            4.63 kB         121 kB
+├ ƒ /patients/[id]                       16.2 kB         158 kB
+├ ƒ /patients/new                        5.02 kB         138 kB
+├ ƒ /profile                             4.31 kB         126 kB
+├ ƒ /queue                               19.4 kB         149 kB
+├ ƒ /r/[token]                           1.48 kB         104 kB
+├ ƒ /referrals                           8.58 kB         115 kB
+├ ƒ /reports/view                        1.48 kB         104 kB
+├ ƒ /reschedule/[token]                  5.05 kB         108 kB
+├ ƒ /settings/billing                    1.48 kB         104 kB
+├ ƒ /settings/clinic                     6.89 kB         128 kB
+├ ƒ /settings/developer                  11.5 kB         124 kB
+├ ƒ /staff                               5.85 kB         127 kB
+└ ƒ /visits                              10.6 kB         127 kB
++ First Load JS shared by all             103 kB
+  ├ chunks/1255-dc3ddf72a1dc71a7.js      46.6 kB
+  ├ chunks/4bd1b696-f785427dddbba9fb.js  54.2 kB
+  └ other shared chunks (total)          1.93 kB
+
+
+ƒ Middleware                             93.2 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[e2e:build] output scan clean (313 files); stamp written for build jJtBfxfzpqXuAVIs6hIe-
+exit=0

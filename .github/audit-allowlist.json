@@ -1,23 +1,5 @@
 [
   {
-    "id": "GHSA-6g55-p6wh-862q",
-    "package": "postcss",
-    "severity": "high",
-    "reason": "postcss bundled by next 15.5.28 (sourceMappingURL file read). Build-time CSS processing of our own sources only; fixed by the Next upgrade.",
-    "owner": "V2-03 plan 03-06 / V2-14",
-    "ruling": "F20",
-    "expires": "2027-02-10"
-  },
-  {
-    "id": "GHSA-r28c-9q8g-f849",
-    "package": "postcss",
-    "severity": "high",
-    "reason": "postcss bundled by next 15.5.28 (source-map auto-loading path traversal). Build-time CSS processing of our own sources only; fixed by the Next upgrade.",
-    "owner": "V2-03 plan 03-06 / V2-14",
-    "ruling": "F20",
-    "expires": "2027-02-10"
-  },
-  {
     "id": "GHSA-j4fx-xxwh-2485",
     "package": "jsondiffpatch",
     "severity": "high",

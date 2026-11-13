@@ -7,6 +7,9 @@ import { recordAudit } from "@/lib/audit/audit";
 import { Tenant } from "@/lib/db/types";
 
 import { ALLOWED_SPECIALTIES } from "./constants";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, "Clinic name must be at least 2 characters."),
@@ -99,7 +102,7 @@ export async function updateClinicProfile(input: UpdateProfileInput): Promise<Up
       .single();
 
     if (error || !data) {
-      console.error("[features/clinics/profile] Failed to update profile:", error);
+      log.error({ event: "clinics.profile_update.failed", code: errorTag(error), requestId: await getRequestId() });
       return { success: false, error: "Unable to update clinic profile." };
     }
 
@@ -117,7 +120,7 @@ export async function updateClinicProfile(input: UpdateProfileInput): Promise<Up
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update profile.",
+      error: clientErrorMessage(err, "Failed to update profile.", "clinics.update_clinic_profile.failed"),
     };
   }
 }

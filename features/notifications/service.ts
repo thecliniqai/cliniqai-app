@@ -1,8 +1,10 @@
 import "server-only";
 
 import type { ServiceContext } from "@/lib/auth/context";
-import { clientErrorMessage, errorTag } from "@/lib/errors/client-message";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 import { InAppNotificationItem, NotificationCategory } from "@/lib/db/types";
+import { errorTag, log } from "@/lib/log";
+import { getRequestId } from "@/lib/log/request-id";
 
 export interface GetNotificationsOptions {
   category?: NotificationCategory;
@@ -66,7 +68,7 @@ export async function getInAppNotifications(
     const { data, error } = await query;
 
     if (error) {
-      console.error("[features/notifications/service] getInAppNotifications error:", errorTag(error));
+      log.error({ event: "notifications.list_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, notifications: [], error: "Failed to load notifications." };
     }
 
@@ -75,7 +77,7 @@ export async function getInAppNotifications(
     return {
       success: false,
       notifications: [],
-      error: clientErrorMessage(err, "Failed to load notifications.", "features/notifications/service getInAppNotifications"),
+      error: clientErrorMessage(err, "Failed to load notifications.", "notifications.list.failed"),
     };
   }
 }
@@ -112,7 +114,7 @@ export async function getUnreadNotificationCount(ctx: ServiceContext): Promise<U
     const { count, error } = await query;
 
     if (error) {
-      console.error("[features/notifications/service] getUnreadNotificationCount error:", errorTag(error));
+      log.error({ event: "notifications.unread_count_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, count: 0, error: "Failed to get unread count." };
     }
 
@@ -121,7 +123,7 @@ export async function getUnreadNotificationCount(ctx: ServiceContext): Promise<U
     return {
       success: false,
       count: 0,
-      error: clientErrorMessage(err, "Failed to get unread count.", "features/notifications/service getUnreadNotificationCount"),
+      error: clientErrorMessage(err, "Failed to get unread count.", "notifications.unread_count.failed"),
     };
   }
 }
@@ -148,7 +150,7 @@ export async function markNotificationRead(
       .eq("tenant_id", session.tenantId);
 
     if (error) {
-      console.error("[features/notifications/service] markNotificationRead error:", errorTag(error));
+      log.error({ event: "notifications.mark_read_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to mark notification read." };
     }
 
@@ -156,7 +158,7 @@ export async function markNotificationRead(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to mark notification read.", "features/notifications/service markNotificationRead"),
+      error: clientErrorMessage(err, "Failed to mark notification read.", "notifications.mark_read.failed"),
     };
   }
 }
@@ -203,7 +205,7 @@ export async function markAllNotificationsRead(
     const { error, count } = await query;
 
     if (error) {
-      console.error("[features/notifications/service] markAllNotificationsRead error:", errorTag(error));
+      log.error({ event: "notifications.mark_all_read_query.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to mark all read." };
     }
 
@@ -211,7 +213,7 @@ export async function markAllNotificationsRead(
   } catch (err: unknown) {
     return {
       success: false,
-      error: clientErrorMessage(err, "Failed to mark all read.", "features/notifications/service markAllNotificationsRead"),
+      error: clientErrorMessage(err, "Failed to mark all read.", "notifications.mark_all_read.failed"),
     };
   }
 }
