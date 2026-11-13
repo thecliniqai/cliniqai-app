@@ -759,3 +759,9 @@ Evidence, reviews and triage: `.planning/phases/03-platform-hygiene/` (`03-SUMMA
 `03-13-REVIEW-TRIAGE.md`, `evidence/`, `reviews/`). Rulings A00-1…5, R-1…R-36 and R-K were taken by the agent as CTO
 under PO delegation. Doc errata (R-24) are proposed in `03-SUMMARY.md`, not applied. Merge waits on 03-E13 (rulings,
 incl. R-9, R-35, R-36 and the proposed CLAUDE.md change), 03-E14 (two flagged packages) and 03-E15 (Next 16 outcome).
+
+### G2-D design sign-off (2026-11-13)
+
+| Item | Result | Evidence |
+|---|---|---|
+| V2-DX direction | **Approved by the PO**: direction A "Calm Confidence — Botanical Teal", typeface Inter, round-3 component system and consult structure; kept tokenised for later change | PR #7, branch `v2/phase-dx-design-exploration` at `e95b8b5`; `.planning/sketches/V2-DX-PROPOSAL.md` (round 3 + PO decision); evidence `.planning/sketches/v2-dx-evidence/` (axe 107 runs 0 serious/critical; contrast 139/139) |

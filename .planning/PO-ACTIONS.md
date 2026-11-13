@@ -29,7 +29,7 @@ The PO asked for only the items that need a decision or money; Claude handles th
 - **B-4 · Resend plan and domain.** **Answered (PO, 2026-11-13): auth.thecliniqai.com added in Resend. dig confirms DKIM (`resend._domainkey.auth`) plus SPF/MX via `send.auth` → Resend.** Question: is auth.thecliniqai.com a free domain slot on your Resend plan? If v1
   already uses Resend, which domain does it send from? (If the plan has no free slot, either upgrade or send staging
   mail from the domain v1 already verified.)
-- **D-1 · Design sign-off (G2-D).** Claude will hand you the V2-DX proposal when it is ready (about 45–60 min of review).
+- **D-1 · Design sign-off (G2-D).** **Done on 2026-11-13: theme A + Inter.**
 
 **Clicks only, after B-1…B-4 (exact steps are in each item below):**
 03-E1a dump the v1 schema → 03-E2 staging Supabase project (Mumbai) → 03-E6R Resend domain auth.thecliniqai.com →
@@ -98,7 +98,8 @@ C-1 (private repo) is deferred to go-live; SES (03-E5/E6) is replaced by Resend 
 
 ## V2-06 Design system & PWA shell (flagged early)
 
-- [ ] **D-1 · G2-D design sign-off (V2-DX has not run)** — phase V2-06 (blocks plans 06-01…06-04 being final)
+- [x] **D-1 · G2-D design sign-off (V2-DX has not run)** — phase V2-06 (blocks plans 06-01…06-04 being final)
+  - **Signed off by the PO on 2026-11-13 (G2-D): direction A "Calm Confidence — Botanical Teal" + Inter, after three rounds (PR #7, commit e95b8b5). Keep it tokenised; the PO will refine from real usage.**
   - *Do:* review the palette, icon/theme colour and Today/Consult mock-ups Claude will produce as a V2-DX proposal
     (location recorded here when ready) and approve or request changes.
   - *Why:* roadmap R5: no primitives are built before the design direction is approved from rendered evidence.
