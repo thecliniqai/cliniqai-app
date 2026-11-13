@@ -1,0 +1,79 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/auth/session-age-token-hook-db.spec.ts (53 tests) 1983ms
+ ✓ tests/integration/auth/session-age-token-hook.spec.ts (4 tests) 1248ms
+   ✓ Custom Access Token hook on the local GoTrue (03-13e) > an unknown amr method fails closed: allowed while fresh, refused past 600 s  311ms
+stderr | tests/api/proxy-session.spec.ts > 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: a session that cannot be refreshed is redirected and its stale auth cookie deleted
+AuthApiError: Refresh token is not valid
+    at handleError (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:145:9)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _handleRequest (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:239:5)
+    at _request (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:200:16)
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/GoTrueClient.ts:4790:18
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/helpers.ts:242:26 {
+  __isAuthError: true,
+  status: 400,
+  code: 'validation_failed'
+}
+AuthApiError: Refresh token is not valid
+    at handleError (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:145:9)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _handleRequest (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:239:5)
+    at _request (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:200:16)
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/GoTrueClient.ts:4790:18
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/helpers.ts:242:26 {
+  __isAuthError: true,
+  status: 400,
+  code: 'validation_failed'
+}
+
+ ✓ tests/api/proxy-session.spec.ts (9 tests) 962ms
+   ✓ 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a Server Action POST and an /api call on a stale recovery session run signed out (no auth cookie forwarded)  359ms
+{"ts":"2026-11-13T03:55:02.863Z","level":"info","event":"auth.password.changed","userId":"4348459b-6da5-47da-af5d-9503761a38ab","action":"set_new_password"}
+{"ts":"2026-11-13T03:55:03.468Z","level":"info","event":"auth.password.changed","userId":"c530ef0d-4bfb-4dc4-b8e4-c05c26da2bf8","action":"set_new_password"}
+{"ts":"2026-11-13T03:55:03.734Z","level":"info","event":"auth.password.rejected","userId":"a7151626-c7a7-4a49-befe-aee5e09d8a21","action":"set_new_password","reason":"same_password","status":422}
+{"ts":"2026-11-13T03:55:03.860Z","level":"info","event":"auth.password.changed","userId":"a7151626-c7a7-4a49-befe-aee5e09d8a21","action":"set_new_password"}
+ ✓ tests/integration/auth/password-auth.spec.ts (12 tests) 8649ms
+   ✓ AUTH-04a password sign-in (local stack) > a normal login, and a failed one, send 0 emails (Mailpit)  1629ms
+   ✓ AUTH-04a password sign-in (local stack) > self-service signup is disabled: no user is created and no email is sent  1538ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > sends exactly one code-only email for an existing account and none for an unknown one  3177ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a recovery code sets a new password, is single-use, and signs out other sessions  516ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a password the policy rejects does not use up the code  332ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > reusing the current password is mapped, and the update can be retried on the recovery session  393ms
+ ✓ tests/integration/auth/auth00-recheck-kit.spec.ts (14 tests) 4716ms
+ ✓ tests/integration/auth/auth-config-applied.spec.ts (6 tests) 2386ms
+   ✓ AUTH-02: the local GoTrue runs the auth policy (local column) > a second recovery request for the same address within 60 s is refused with over_email_send_rate_limit  1656ms
+{"ts":"2026-11-13T03:55:11.803Z","level":"info","event":"auth.password.rejected","userId":"5d3c439e-2b92-4499-8542-af4267c2613e","action":"change_password","reason":"pwned_password"}
+{"ts":"2026-11-13T03:55:12.285Z","level":"info","event":"auth.password.changed","userId":"01e723ef-66e8-44fd-9c52-c3baadebc60d","action":"change_password"}
+{"ts":"2026-11-13T04:06:12.584Z","level":"info","event":"auth.password.rejected","userId":"4aa043db-74d1-438a-9713-6a40ba287caf","action":"change_password","reason":"reauth_required"}
+{"ts":"2026-11-13T03:55:12.934Z","level":"info","event":"auth.password.changed","userId":"a3c10a78-dcf4-4c2f-bdaa-f729648a5616","action":"change_password"}
+{"ts":"2026-11-13T03:55:13.302Z","level":"info","event":"auth.password.changed","userId":"8c2a979e-be1e-44dc-9033-2151b86f0b1d","action":"change_password"}
+ ✓ tests/integration/auth/change-password.spec.ts (6 tests) 1859ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a breached new password is refused with the catalogue copy and the password is unchanged  316ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a valid change: the new password signs in, the old one fails, another session's refresh fails, this one stays  509ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a fresh recovery session (within 10 minutes) may change the password  341ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > with the check off (the lane default) a fixture password is not looked up  308ms
+{"ts":"2026-11-13T03:55:13.836Z","level":"info","event":"auth.password.rejected","userId":"dd6004bc-b57f-414a-9e38-96a48df26ee8","action":"set_new_password","reason":"pwned_password"}
+{"ts":"2026-11-13T03:55:14.077Z","level":"info","event":"auth.password.changed","userId":"dd6004bc-b57f-414a-9e38-96a48df26ee8","action":"set_new_password"}
+{"ts":"2026-11-13T03:55:14.485Z","level":"info","event":"auth.password.changed","userId":"ca5a7b78-d235-401f-9269-88d78bf126c6","action":"set_new_password"}
+{"ts":"2026-11-13T03:55:14.734Z","level":"info","event":"auth.password.rejected","userId":"6ac69a18-b026-4b88-8dcb-2744d4b8555f","action":"set_new_password","reason":"reauth_required"}
+{"ts":"2026-11-13T04:06:14.945Z","level":"info","event":"auth.password.rejected","userId":"c6083166-2232-491f-a3f5-c7593a508013","action":"set_new_password","reason":"reauth_required"}
+ ✓ tests/integration/auth/reset-completion.spec.ts (5 tests) 1561ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > a breached password is refused (code already used, retry on the same session); a clear one signs out other sessions  603ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > R-35 / H-AUTH: reset completion revokes the recovery session; its tokens then fail on a direct GoTrue PUT /auth/v1/user  356ms
+ ✓ tests/ci/auth00-recheck-cli.spec.ts (17 tests) 1067ms
+   ✓ the command line refuses before any request > 03-13a: the opt-in probes are bounded (stale wait 601..890 s, email-cap probe 1..70) → usage (exit 2)  648ms
+ ✓ tests/ci/auth-policy.spec.ts (14 tests) 617ms
+ ✓ tests/ci/schema-snapshot.spec.ts (13 tests) 634ms
+ ✓ tests/api/readiness-probe-db.spec.ts (7 tests) 317ms
+ ✓ tests/ci/auth-config-hosted.spec.ts (11 tests) 27ms
+ ✓ tests/auth/password-service.spec.ts (23 tests) 7ms
+ ✓ tests/auth/session-age.spec.ts (39 tests) 2ms
+
+ Test Files  15 passed (15)
+      Tests  233 passed (233)
+   Start at  09:24:50
+   Duration  28.10s (transform 150ms, setup 69ms, collect 511ms, tests 26.04s, environment 1ms, prepare 296ms)
+
+[teardown] removed run data: 6 tenant(s), 34 auth user(s), 0 storage object(s); verified none remain

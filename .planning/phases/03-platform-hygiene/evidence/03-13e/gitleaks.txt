@@ -1,0 +1,8 @@
+# gitleaks v8.30.1 git --redact --no-color --config .gitleaks.toml --log-opts='--no-walk 28f5dd2 8cb366b d1a3fd0' (03-13e fix commits)
+4:07AM INF 3 commits scanned.
+4:07AM INF scanned ~31278 bytes (31.28 KB) in 79.8ms
+4:07AM INF no leaks found
+exit 0
+# full history
+4:08AM INF 505 commits scanned.
+4:08AM INF no leaks found

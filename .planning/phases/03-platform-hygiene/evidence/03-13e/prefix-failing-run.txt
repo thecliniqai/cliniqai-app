@@ -1,0 +1,373 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/integration/auth/session-age-token-hook.spec.ts (4 tests | 2 failed) 1280ms
+   ✓ Custom Access Token hook on the local GoTrue (03-13e) > a recovery session refreshed straight at GoTrue within 600 s succeeds (also at 590 s); claims unchanged 272ms
+   × Custom Access Token hook on the local GoTrue (03-13e) > past 600 s the refresh is refused (403, no token): no fresh token for PUT /user; supabase-js gets the 403 225ms
+     → expected 200 to be 403 // Object.is equality
+   ✓ Custom Access Token hook on the local GoTrue (03-13e) > a password session is unaffected at any age (refresh 200, the normal 900 s token) 274ms
+   × Custom Access Token hook on the local GoTrue (03-13e) > an unknown amr method fails closed: allowed while fresh, refused past 600 s 323ms
+     → expected 200 to be 403 // Object.is equality
+ ❯ tests/auth/session-age-token-hook-db.spec.ts (53 tests | 31 failed) 1666ms
+   ✓ session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > otp at 30 s is allowed: the event is returned unchanged 34ms
+   ✓ session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > recovery at 30 s is allowed: the event is returned unchanged 32ms
+   ✓ session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > invite at 30 s is allowed: the event is returned unchanged 30ms
+   ✓ session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > magiclink at 30 s is allowed: the event is returned unchanged 29ms
+   ✓ session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > email/signup at 30 s is allowed: the event is returned unchanged 29ms
+   ✓ session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > email_change at 30 s is allowed: the event is returned unchanged 33ms
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > otp at 601 s is refused with a 403 error and no claims (GoTrue mints nothing) 31ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > recovery at 601 s is refused with a 403 error and no claims (GoTrue mints nothing) 28ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > invite at 601 s is refused with a 403 error and no claims (GoTrue mints nothing) 27ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > magiclink at 601 s is refused with a 403 error and no claims (GoTrue mints nothing) 28ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > email/signup at 601 s is refused with a 403 error and no claims (GoTrue mints nothing) 29ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > email_change at 601 s is refused with a 403 error and no claims (GoTrue mints nothing) 29ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > the bound is 600 s: 599 s allowed, 601 s refused 63ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "carrier/pigeon" counts as an emailed code (fail closed): refused at 601 s 32ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "oauth" counts as an emailed code (fail closed): refused at 601 s 28ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "sso/saml" counts as an emailed code (fail closed): refused at 601 s 28ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "anonymous" counts as an emailed code (fail closed): refused at 601 s 28ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "token_refresh" counts as an emailed code (fail closed): refused at 601 s 29ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "" counts as an emailed code (fail closed): refused at 601 s 30ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > the newest emailed-code factor counts; a stale one stepped up with TOTP (no password) is still refused 30ms
+     → expected false to be true // Object.is equality
+   ✓ session_age_token_hook: password sessions are unaffected > a password session at 0 s is returned unchanged 32ms
+   ✓ session_age_token_hook: password sessions are unaffected > a password session at 601 s is returned unchanged 28ms
+   ✓ session_age_token_hook: password sessions are unaffected > a password session at 3600 s is returned unchanged 28ms
+   ✓ session_age_token_hook: password sessions are unaffected > a password session at 2592000 s is returned unchanged 29ms
+   ✓ session_age_token_hook: password sessions are unaffected > password + MFA factors at any age are unchanged 29ms
+   × session_age_token_hook: password sessions are unaffected > a password sign-in LATER than the emailed code makes it a password session; an earlier one does not 60ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: unreadable amr fails closed > no amr: refused 28ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: unreadable amr fails closed > empty amr: refused 29ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: unreadable amr fails closed > amr not an array: refused 31ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: unreadable amr fails closed > entry without timestamp: refused 29ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: unreadable amr fails closed > string timestamp: refused 29ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: unreadable amr fails closed > method not a string: refused 31ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: unreadable amr fails closed > entry not an object: refused 41ms
+     → expected false to be true // Object.is equality
+   × session_age_token_hook: unreadable amr fails closed > no claims object at all: refused 28ms
+     → expected false to be true // Object.is equality
+   × one classification: SQL equals lib/auth/session-age.ts > the non-mailbox list and the 600 s bound are the same values 32ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select array_to_json(private.session_age_non_mailbox_methods())::text
+ERROR:  function private.session_age_non_mailbox_methods() does not exist
+LINE 1: select array_to_json(private.session_age_non_mailbox_methods...
+                             ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+   ✓ one classification: SQL equals lib/auth/session-age.ts > [{"method":"password","age":10}]: refused by the hook iff the proxy ends it 29ms
+   ✓ one classification: SQL equals lib/auth/session-age.ts > [{"method":"password","age":90000}]: refused by the hook iff the proxy ends it 28ms
+   ✓ one classification: SQL equals lib/auth/session-age.ts > [{"method":"otp","age":10}]: refused by the hook iff the proxy ends it 28ms
+   × one classification: SQL equals lib/auth/session-age.ts > [{"method":"otp","age":900}]: refused by the hook iff the proxy ends it 29ms
+     → expected false to be true // Object.is equality
+   ✓ one classification: SQL equals lib/auth/session-age.ts > [{"method":"invite","age":300}]: refused by the hook iff the proxy ends it 31ms
+   × one classification: SQL equals lib/auth/session-age.ts > [{"method":"magiclink","age":1200}]: refused by the hook iff the proxy ends it 30ms
+     → expected false to be true // Object.is equality
+   ✓ one classification: SQL equals lib/auth/session-age.ts > [{"method":"brand/new","age":30}]: refused by the hook iff the proxy ends it 29ms
+   × one classification: SQL equals lib/auth/session-age.ts > [{"method":"brand/new","age":3000}]: refused by the hook iff the proxy ends it 30ms
+     → expected false to be true // Object.is equality
+   ✓ one classification: SQL equals lib/auth/session-age.ts > [{"method":"otp","age":3000},{"method":"password","age":2000}]: refused by the hook iff the proxy ends it 28ms
+   × one classification: SQL equals lib/auth/session-age.ts > [{"method":"password","age":3000},{"method":"otp","age":2000}]: refused by the hook iff the proxy ends it 30ms
+     → expected false to be true // Object.is equality
+   ✓ one classification: SQL equals lib/auth/session-age.ts > [{"method":"password","age":3000},{"method":"mfa/totp","age":2000}]: refused by the hook iff the proxy ends it 30ms
+   × one classification: SQL equals lib/auth/session-age.ts > [{"method":"otp","age":3000},{"method":"mfa/phone","age":20}]: refused by the hook iff the proxy ends it 29ms
+     → expected false to be true // Object.is equality
+   ✓ privileges (Supabase Auth hooks guidance) > private.session_age_token_hook(jsonb): EXECUTE for supabase_auth_admin only 55ms
+   × privileges (Supabase Auth hooks guidance) > private.session_age_non_mailbox_methods(): EXECUTE for supabase_auth_admin only 30ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select string_agg(r || '=' || has_function_privilege(r, 'private.session_age_non_mailbox_methods()', 'EXECUTE')::text, ',' order by r) from unnest(array['anon','authenticated','authenticator','service_role','supabase_auth_admin']) r
+ERROR:  function "private.session_age_non_mailbox_methods()" does not exist
+
+   × privileges (Supabase Auth hooks guidance) > private.session_age_fresh_seconds(): EXECUTE for supabase_auth_admin only 35ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select string_agg(r || '=' || has_function_privilege(r, 'private.session_age_fresh_seconds()', 'EXECUTE')::text, ',' order by r) from unnest(array['anon','authenticated','authenticator','service_role','supabase_auth_admin']) r
+ERROR:  function "private.session_age_fresh_seconds()" does not exist
+
+   ✓ privileges (Supabase Auth hooks guidance) > the hook is SECURITY INVOKER with search_path pinned to '' 29ms
+   ✓ privileges (Supabase Auth hooks guidance) > anon cannot call the hook (permission denied) 28ms
+   ✓ privileges (Supabase Auth hooks guidance) > authenticated cannot call the hook (permission denied) 28ms
+ ✓ tests/ci/auth-policy.spec.ts (14 tests) 616ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 33 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > otp at 601 s is refused with a 403 error and no claims (GoTrue mints nothing)
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > recovery at 601 s is refused with a 403 error and no claims (GoTrue mints nothing)
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > invite at 601 s is refused with a 403 error and no claims (GoTrue mints nothing)
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > magiclink at 601 s is refused with a 403 error and no claims (GoTrue mints nothing)
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > email/signup at 601 s is refused with a 403 error and no claims (GoTrue mints nothing)
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > email_change at 601 s is refused with a 403 error and no claims (GoTrue mints nothing)
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:65:24
+     63|   it.each(EMAILED)("%s at 601 s is refused with a 403 error and no cla…
+     64|     const r = callHook(eventSql(amrSql([{ method, age: 601 }])));
+     65|     expect(refused(r)).toBe(true);
+       |                        ^
+     66|     expect(r.out.error).toEqual({ http_code: 403, message: "Session ex…
+     67|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/33]⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > the bound is 600 s: 599 s allowed, 601 s refused
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:71:80
+     69|   it("the bound is 600 s: 599 s allowed, 601 s refused", () => {
+     70|     expect(refused(callHook(eventSql(amrSql([{ method: "otp", age: 599…
+     71|     expect(refused(callHook(eventSql(amrSql([{ method: "otp", age: 601…
+       |                                                                                ^
+     72|   });
+     73| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/33]⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "carrier/pigeon" counts as an emailed code (fail closed): refused at 601 s
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "oauth" counts as an emailed code (fail closed): refused at 601 s
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "sso/saml" counts as an emailed code (fail closed): refused at 601 s
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "anonymous" counts as an emailed code (fail closed): refused at 601 s
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "token_refresh" counts as an emailed code (fail closed): refused at 601 s
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > unknown or non-password method "" counts as an emailed code (fail closed): refused at 601 s
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:77:75
+     75|     "unknown or non-password method %j counts as an emailed code (fail…
+     76|     (method) => {
+     77|       expect(refused(callHook(eventSql(amrSql([{ method, age: 601 }]))…
+       |                                                                           ^
+     78|       expect(refused(callHook(eventSql(amrSql([{ method, age: 10 }])))…
+     79|     },
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/33]⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: emailed-code sessions (A00-5 bound at the token issuer) > the newest emailed-code factor counts; a stale one stepped up with TOTP (no password) is still refused
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:83:110
+     81| 
+     82|   it("the newest emailed-code factor counts; a stale one stepped up wi…
+     83|     expect(refused(callHook(eventSql(amrSql([{ method: "otp", age: 500…
+       |                                                                                                              ^
+     84|     expect(refused(callHook(eventSql(amrSql([{ method: "otp", age: 500…
+     85|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/33]⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: password sessions are unaffected > a password sign-in LATER than the emailed code makes it a password session; an earlier one does not
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:102:116
+    100|     const later = callHook(eventSql(amrSql([{ method: "otp", age: 5000…
+    101|     expect(later.out).toEqual(later.event);
+    102|     expect(refused(callHook(eventSql(amrSql([{ method: "password", age…
+       |                                                                                                                    ^
+    103|   });
+    104| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/33]⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: unreadable amr fails closed > no amr: refused
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: unreadable amr fails closed > empty amr: refused
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: unreadable amr fails closed > amr not an array: refused
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: unreadable amr fails closed > entry without timestamp: refused
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: unreadable amr fails closed > string timestamp: refused
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: unreadable amr fails closed > method not a string: refused
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: unreadable amr fails closed > entry not an object: refused
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:116:46
+    114|     ["entry not an object", `'["password"]'::jsonb`],
+    115|   ])("%s: refused", (_name, amr) => {
+    116|     expect(refused(callHook(eventSql(amr)))).toBe(true);
+       |                                              ^
+    117|   });
+    118| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/33]⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > session_age_token_hook: unreadable amr fails closed > no claims object at all: refused
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:120:94
+    118| 
+    119|   it("no claims object at all: refused", () => {
+    120|     expect(refused(callHook(`'{"user_id":"x","authentication_method":"…
+       |                                                                                              ^
+    121|   });
+    122| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/33]⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > one classification: SQL equals lib/auth/session-age.ts > the non-mailbox list and the 600 s bound are the same values
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select array_to_json(private.session_age_non_mailbox_methods())::text
+ERROR:  function private.session_age_non_mailbox_methods() does not exist
+LINE 1: select array_to_json(private.session_age_non_mailbox_methods...
+                             ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:126:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/33]⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > one classification: SQL equals lib/auth/session-age.ts > [{"method":"otp","age":900}]: refused by the hook iff the proxy ends it
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > one classification: SQL equals lib/auth/session-age.ts > [{"method":"magiclink","age":1200}]: refused by the hook iff the proxy ends it
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > one classification: SQL equals lib/auth/session-age.ts > [{"method":"brand/new","age":3000}]: refused by the hook iff the proxy ends it
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > one classification: SQL equals lib/auth/session-age.ts > [{"method":"password","age":3000},{"method":"otp","age":2000}]: refused by the hook iff the proxy ends it
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > one classification: SQL equals lib/auth/session-age.ts > [{"method":"otp","age":3000},{"method":"mfa/phone","age":20}]: refused by the hook iff the proxy ends it
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:148:24
+    146|     const r = callHook(eventSql(amrSql(amr)));
+    147|     const claimsAmr = (r.event.claims as { amr: unknown }).amr;
+    148|     expect(refused(r)).toBe(sessionMustEnd(claimsAmr, r.now * 1000));
+       |                        ^
+    149|   });
+    150| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/33]⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > privileges (Supabase Auth hooks guidance) > private.session_age_non_mailbox_methods(): EXECUTE for supabase_auth_admin only
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select string_agg(r || '=' || has_function_privilege(r, 'private.session_age_non_mailbox_methods()', 'EXECUTE')::text, ',' order by r) from unnest(array['anon','authenticated','authenticator','service_role','supabase_auth_admin']) r
+ERROR:  function "private.session_age_non_mailbox_methods()" does not exist
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:160:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/33]⎯
+
+ FAIL  tests/auth/session-age-token-hook-db.spec.ts > privileges (Supabase Auth hooks guidance) > private.session_age_fresh_seconds(): EXECUTE for supabase_auth_admin only
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select string_agg(r || '=' || has_function_privilege(r, 'private.session_age_fresh_seconds()', 'EXECUTE')::text, ',' order by r) from unnest(array['anon','authenticated','authenticator','service_role','supabase_auth_admin']) r
+ERROR:  function "private.session_age_fresh_seconds()" does not exist
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/auth/session-age-token-hook-db.spec.ts:160:19
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/33]⎯
+
+ FAIL  tests/integration/auth/session-age-token-hook.spec.ts > Custom Access Token hook on the local GoTrue (03-13e) > past 600 s the refresh is refused (403, no token): no fresh token for PUT /user; supabase-js gets the 403
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ tests/integration/auth/session-age-token-hook.spec.ts:89:22
+     87| 
+     88|     const r = await directRefresh(t.refresh);
+     89|     expect(r.status).toBe(403);
+       |                      ^
+     90|     expect(r.access).toBeUndefined();
+     91|     expect(r.refresh).toBeUndefined();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/33]⎯
+
+ FAIL  tests/integration/auth/session-age-token-hook.spec.ts > Custom Access Token hook on the local GoTrue (03-13e) > an unknown amr method fails closed: allowed while fresh, refused past 600 s
+AssertionError: expected 200 to be 403 // Object.is equality
+
+- Expected
++ Received
+
+- 403
++ 200
+
+ ❯ tests/integration/auth/session-age-token-hook.spec.ts:127:58
+    125| 
+    126|     ageSession(sid, 601, "carrier/pigeon");
+    127|     expect((await directRefresh(fresh.refresh!)).status).toBe(403);
+       |                                                          ^
+    128|   });
+    129| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/33]⎯
+
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  33 failed | 38 passed (71)
+   Start at  09:24:29
+   Duration  4.07s (transform 61ms, setup 16ms, collect 65ms, tests 3.56s, environment 0ms, prepare 62ms)
+
+[teardown] removed run data: 1 tenant(s), 5 auth user(s), 0 storage object(s); verified none remain
