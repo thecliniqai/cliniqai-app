@@ -8,6 +8,7 @@
  *   `playwright/.auth/run.json` and the password to `E2E_RUN_PASSWORD` (inherited by workers, never on disk).
  * - (03-12a, FT-05) Starts the loopback fake Pwned Passwords range API on 127.0.0.1:3101, which the e2e app server's
  *   `PWNED_API_BASE_URL` names (tests/e2e/support/app-env.ts); it lists `BREACHED_FIXTURE_PASSWORDS` as breached.
+ * - (V2-04 04-02) Sets every pg_cron job inactive for the run; the teardown sets them active again.
  * - Returns the teardown: `teardownRun` removes every tenant, user and storage object created during the run (and
  *   `.planning/dev-messages.txt` if the run created it), then the storage states and run file are deleted, and the
  *   fake range API is stopped.
@@ -17,6 +18,7 @@ import fs from "node:fs";
 import { randomInt, randomUUID } from "node:crypto";
 import { E2E_PWNED_RANGE_PORT, assertLocalTestEnv } from "../setup/test-env";
 import { ensureLocalErrorIngestKey } from "../setup/error-sink-key";
+import { pauseCronJobs, resumeCronJobs } from "../setup/cron-pause";
 import { releaseRunLock, startRun, teardownRun, type RunMarker } from "../setup/teardown";
 import { addMemberToTenant, seededUserPassword, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -26,7 +28,7 @@ import { AUTH_DIR, RUN_FILE, RUN_PASSWORD_VAR, type RunData, type RunTenant } fr
 
 /**
  * A random +91 90000 0xxxx number: valid-looking, NOT a reserved range (India has none), so it may be a real
- * subscriber's. Safe only because the e2e lane's messaging is pinned offline (MESSAGING_PROVIDER=dev).
+ * subscriber's. Safe only because the e2e lane's messaging is pinned offline (MESSAGING_PROVIDER=sink, 04-03a).
  */
 function syntheticPhone(): string {
   return `+9190000${String(randomInt(0, 100_000)).padStart(5, "0")}`;
@@ -115,7 +117,11 @@ async function finish(marker: RunMarker): Promise<void> {
         `${report.storageObjects} storage object(s); verified none remain`,
     );
   } finally {
-    releaseRunLock(marker.lockFile);
+    try {
+      resumeCronJobs(ROOT);
+    } finally {
+      releaseRunLock(marker.lockFile);
+    }
   }
 }
 
@@ -133,6 +139,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     }
   };
   try {
+    // V2-04 04-02: no pg_cron reap or kick races a test (resumed in `finish`).
+    pauseCronJobs(ROOT);
     // V2-03 03-12a (FT-05): the e2e server's range API (PWNED_API_BASE_URL); fixed port, loopback only.
     range = await startPwnedRangeServer({ port: E2E_PWNED_RANGE_PORT });
     const run = await seed(randomUUID().slice(0, 8));

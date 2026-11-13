@@ -4,7 +4,7 @@
  *
  * - `boundary_messages`: the real eslint.config.mjs over app code with inline configuration OFF (03-13c M-LINT: an
  *   `eslint-disable` or `/* eslint … *\/` comment cannot hide a gate from the census); count of messages per backlog
- *   id (P1-34, P1-21, P1-25, P1-15) and the file:line of each (expected all 0, so the list is empty).
+ *   id (P1-34, P1-21, P1-25, P1-15, P0-12) and the file:line of each (expected all 0, so the list is empty).
  * - `boundary_directives`: boundary messages that an inline directive suppresses when inline configuration is ON,
  *   as file:line (expected empty; the `clinicos/no-boundary-directive` rule also fails `npx eslint .` on them).
  * - `service_role_factories`: files flagged when a value-import restriction on every Supabase package (other than the
@@ -12,6 +12,10 @@
  *   `lib/supabase/system.ts`).
  * - `system_module_importers`: files flagged when the system-module import patterns are applied to every app-code
  *   file the same way; each is inside the allow-list or the exception register when `boundary_messages` is 0.
+ * - `exception_register` (V2-04 04-03c): the ADR-0005 exception register exactly as eslint.config.mjs builds its zone
+ *   from (`P134_CENSUS.exceptionRegister`), with `exception_register_entries` (its length) and
+ *   `exception_register_importers` (the system-module importers inside it). V2-03 ended with 5 entries; from 04-03c the
+ *   register holds only the `/api/v1` entry (`app/api/v1/**`, `lib/api/**`; owner P1-37).
  *
  * Reads source only: no env values, no test data.
  */
@@ -29,9 +33,10 @@ export const APP_CODE = [
   "instrumentation.ts",
   "next.config.ts",
 ];
-const IDS = ["P1-34", "P1-21", "P1-25", "P1-15"];
+// V2-04 04-03a: P0-12 (no request path sends a message, R-33) joins the per-backlog-id census.
+const IDS = ["P1-34", "P1-21", "P1-25", "P1-15", "P0-12"];
 // no-restricted-syntax messages start with the id; typescript-eslint's no-restricted-imports prepends a sentence.
-const BOUNDARY_ID = /(?:^|\s)(P1-(?:34|21|25|15)):/;
+const BOUNDARY_ID = /(?:^|\s)(P1-(?:34|21|25|15)|P0-12):/;
 const CENSUS = "census:";
 
 /** `targets`/`ignore` exist for the spec, which points the counters at lint-fixtures/p1-34 (ignored by default). */
@@ -93,6 +98,15 @@ export async function p134Counters({ cwd = process.cwd(), targets = APP_CODE, ig
     }
   }
   const sorted = (set) => [...set].sort();
+  const register = [...(P134_CENSUS.exceptionRegister ?? [])];
+  // Register entries are `<dir>/**` globs or exact paths (no dependency on a glob library for two shapes).
+  const inRegister = (file) =>
+    register.some((glob) => {
+      if (glob.endsWith("/**") && !/[*?[\]{}]/.test(glob.slice(0, -3))) return file.startsWith(glob.slice(0, -2));
+      if (/[*?[\]{}]/.test(glob)) throw new Error(`p1-34-counters: unsupported register glob ${glob}`);
+      return file === glob;
+    });
+  const allImporters = new Set([...importers.factory, ...importers.featureSystem, ...importers.otherSystem]);
 
   return {
     files_linted: real.length,
@@ -106,5 +120,8 @@ export async function p134Counters({ cwd = process.cwd(), targets = APP_CODE, ig
       feature_system: sorted(importers.featureSystem),
       non_canonical: sorted(importers.otherSystem),
     },
+    exception_register: register,
+    exception_register_entries: register.length,
+    exception_register_importers: sorted(new Set([...allImporters].filter(inRegister))),
   };
 }

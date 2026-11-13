@@ -9,8 +9,12 @@ import { log } from "@/lib/log";
 /**
  * The one service-role client factory (V2-03 03-02, P1-34, ADR-0005 D2). The service role bypasses RLS, so it is
  * reachable only from the paths ADR-0005 allows (`lib/jobs/**` internals, `features/<domain>/system.ts`,
- * `app/api/{jobs,webhooks}/**`) and the exception register (`app/api/v1/**` + `lib/api/**` until P1-37;
- * `lib/messaging/dispatcher.ts`, `lib/webhooks/**`, `app/api/cron/**` until V2-04). 03-04 enforces that list in ESLint.
+ * `app/api/{jobs,webhooks}/**`) and the exception register, which since V2-04 04-03c holds only `app/api/v1/**` +
+ * `lib/api/**` (until P1-37). V2-04 04-03a deleted `lib/messaging/dispatcher.ts` and the `cron.dispatch_communications`
+ * reason with its route; 04-03b deleted `lib/webhooks/outbox.ts`, the `/api/cron/webhooks` route and the `cron.webhooks`
+ * reason; 04-03c dropped the `app/api/cron/**`, `lib/messaging/dispatcher.ts`, `lib/webhooks/**` register entries.
+ * `app/api/auth/send-email/route.ts` reaches the service role only through `features/auth/system` (proposed A3).
+ * 03-04 enforces that list in ESLint.
  *
  * Every call names a closed {@link SystemDbReason} and writes exactly one log line
  * `{ event: "db.system_acquired", reason, module }`: the reason and its owning module only, never tenant data or PHI.
@@ -21,13 +25,15 @@ import { log } from "@/lib/log";
 /** Each reason a system client may be acquired for, mapped to the module that owns the call site. */
 export const REASON_OWNER = {
   api_v1: "app/api/v1",
-  "cron.dispatch_communications": "app/api/cron/dispatch-communications",
-  "cron.webhooks": "app/api/cron/webhooks",
   "webhook.messaging_inbound": "app/api/webhooks/messaging",
+  // V2-04 04-02: the job runner pass (`runJobs` in lib/jobs/internal/runner.ts claims and finishes jobs through it).
+  "jobs.run": "app/api/jobs/run",
   "share.sign": "features/sharing/system",
   "share.receipt_pdf": "features/sharing/system",
   "share.reschedule_notify": "features/sharing/system",
   "billing.record_payment_system": "features/billing/system",
+  // V2-04 04-03c (R-43, proposed ADR-0005 A3): the Send Email hook's shared webhook-id record, after the signature check.
+  "auth.send_email_hook": "features/auth/system",
 } as const satisfies Record<string, string>;
 
 export type SystemDbReason = keyof typeof REASON_OWNER;

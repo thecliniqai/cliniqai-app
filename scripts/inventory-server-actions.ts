@@ -53,8 +53,6 @@ const D1_NON_ACTION_MODULES = [
   "lib/api/auth.ts",
   "lib/api/doctor-guard.ts",
   "lib/audit/audit.ts",
-  "lib/messaging/dispatcher.ts",
-  "lib/webhooks/outbox.ts",
   "lib/webhooks/dispatcher.ts",
 ];
 
@@ -68,8 +66,9 @@ const BANNED_ACTION_NAME =
 
 /**
  * Banned on the D1 non-action modules: the override seams themselves. These modules take a required, typed
- * context (`ctx: ServiceContext`, `sys: { db }`) or, on the ADR-0005 exception register (`lib/api/**`,
- * `lib/messaging/dispatcher.ts`, `lib/webhooks/**`), a required `db`; such names are reported, not flagged.
+ * context (`ctx: ServiceContext`, `sys: { db }`) or, on the ADR-0005 exception register (`lib/api/**`; V2-04 04-03c
+ * removed `lib/webhooks/**`, `lib/messaging/dispatcher.ts` and `app/api/cron/**` from it), a required `db`; such names
+ * are reported, not flagged.
  */
 const BANNED_NON_ACTION_NAME = /Override$|^actorSession$/;
 const NOTED_NON_ACTION_NAME = /^(session|client|db|supabase|tenantId|actorId|createdBy|recordedBy|signedBy)$/;

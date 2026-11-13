@@ -11,6 +11,8 @@ import {
   FORBIDDEN_VARS,
   findTestEnvProblems,
   LOCAL_ERROR_INGEST_KEY,
+  LOCAL_JOBS_RUNNER_SECRET,
+  LOCAL_OPS_ALERT_EMAIL,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
   TURNSTILE_TEST_SITE_KEYS,
   loadLocalStackKeys,
@@ -106,6 +108,32 @@ describe("test-env guard rules", () => {
     expect(findTestEnvProblems(safeEnv({ [key]: "anything" }))).toContain(`${key} must not be set in the test lane`);
   });
 
+  // V2-04 04-00 (review A L-8, R-47): the staging lane's names are refused by prefix, whatever the value looks like.
+  it.each(["STAGING_SECRET_KEY", "STAGING_SEED_PASSWORD", "STAGING_PUBLISHABLE_KEY", "STAGING_DB_URL_RO", "STAGING_ANY_LATER_NAME"])(
+    "rejects the staging name %s, never echoing its value (04-00 L-8)",
+    (key) => {
+      const value = "MARKER-staging-value-not-hosted-shaped";
+      const problems = findTestEnvProblems(safeEnv({ [key]: value }));
+      expect(problems).toContain(`${key} must not be set in the test lane (staging names never reach a test lane)`);
+      expect(problems.join("\n")).not.toContain(value);
+    },
+  );
+
+  it("an empty staging name is not a value (the shell may export it blank); a name merely containing STAGING passes", () => {
+    expect(findTestEnvProblems(safeEnv({ STAGING_SECRET_KEY: "" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ MY_STAGING_NOTE: "x" }))).toEqual([]);
+  });
+
+  it.each([
+    ["an sb_secret_ value", ["sb", "secret", "MARKER0123456789abcdefghij"].join("_"), "sb_secret_"],
+    ["an sb_publishable_ value", ["sb", "publishable", "MARKER0123456789abcdefghij"].join("_"), "sb_publishable_"],
+    ["an upper-case SB_SECRET_ value", ["SB", "SECRET", "MARKER0123456789abcdefghij"].join("_"), "sb_secret_"],
+  ])("rejects %s in an unrelated variable as hosted, never echoing it (04-00 L-8)", (_label, value, marker) => {
+    const problems = findTestEnvProblems(safeEnv({ SOME_UNRELATED_VAR: value }));
+    expect(problems).toContain(`SOME_UNRELATED_VAR references a hosted service ("${marker}")`);
+    expect(problems.join("\n")).not.toContain(value);
+  });
+
   it("rejects a key with the wrong role claim (anon key in the service-role slot)", () => {
     expect(findTestEnvProblems(safeEnv({ SUPABASE_SECRET_KEY: LOCAL_ANON }))).toContain(
       'SUPABASE_SECRET_KEY has the wrong role claim (must be "service_role")',
@@ -183,6 +211,46 @@ describe("test-env guard rules", () => {
     expect(findTestEnvProblems(safeEnv({ DIAG_ERROR_ROUTE_ENABLED: "true" }), { diagRoute: true })).toEqual([]);
   });
 
+  it("pins the job runner bearer to the local synthetic secret, never echoing another value; no rotation slot (04-02)", () => {
+    expect(LOCAL_JOBS_RUNNER_SECRET).toHaveLength(64);
+    expect(findTestEnvProblems(safeEnv({ JOBS_RUNNER_SECRET: LOCAL_JOBS_RUNNER_SECRET }))).toEqual([]);
+    const other = "MARKER-a-staging-runner-secret-0123456789abcdef";
+    const problems = findTestEnvProblems(safeEnv({ JOBS_RUNNER_SECRET: other }));
+    expect(problems).toContain(
+      "JOBS_RUNNER_SECRET must be unset or the local synthetic secret (LOCAL_JOBS_RUNNER_SECRET) in the test lane",
+    );
+    expect(problems.join("\n")).not.toContain(other);
+    const next = findTestEnvProblems(safeEnv({ JOBS_RUNNER_SECRET: LOCAL_JOBS_RUNNER_SECRET, JOBS_RUNNER_SECRET_NEXT: other }));
+    expect(next).toEqual(["JOBS_RUNNER_SECRET_NEXT must not be set in the test lane"]);
+  });
+
+  it("pins the ops alert inbox to the local synthetic address, never echoing another value (04-04)", () => {
+    expect(LOCAL_OPS_ALERT_EMAIL).toBe("ops-alerts@example.test");
+    expect(findTestEnvProblems(safeEnv({ OPS_ALERT_EMAIL: LOCAL_OPS_ALERT_EMAIL }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ OPS_ALERT_EMAIL: "" }))).toEqual([]);
+    const other = "MARKER-ops-inbox@clinic.example.org";
+    const problems = findTestEnvProblems(safeEnv({ OPS_ALERT_EMAIL: other }));
+    expect(problems).toEqual([
+      "OPS_ALERT_EMAIL must be unset or the local synthetic inbox (LOCAL_OPS_ALERT_EMAIL) in the test lane",
+    ]);
+    expect(problems.join("\n")).not.toContain(other);
+  });
+
+  it("keeps the drill job kinds off in the Vitest lane; the e2e app server may run them (04-02)", () => {
+    expect(findTestEnvProblems(safeEnv({ JOBS_DRILL_ENABLED: "false" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ JOBS_DRILL_ENABLED: "true" }))).toContain("JOBS_DRILL_ENABLED must be unset or false in this lane");
+    expect(findTestEnvProblems(safeEnv({ JOBS_DRILL_ENABLED: "true" }), { drillJobs: true })).toEqual([]);
+  });
+
+  it("pins messaging to dev in the Vitest lane and to sink for the e2e app server; never a real provider (04-03a)", () => {
+    expect(findTestEnvProblems(safeEnv({ MESSAGING_PROVIDER: "sink" }))).toContain('MESSAGING_PROVIDER must be dev (got "sink")');
+    expect(findTestEnvProblems(safeEnv({ MESSAGING_PROVIDER: "sink" }), { sinkMessaging: true })).toEqual([]);
+    expect(findTestEnvProblems(safeEnv(), { sinkMessaging: true })).toContain('MESSAGING_PROVIDER must be sink (got "dev")');
+    expect(findTestEnvProblems(safeEnv({ MESSAGING_PROVIDER: "msg91" }), { sinkMessaging: true })).toContain(
+      'MESSAGING_PROVIDER must be sink (got "msg91")',
+    );
+  });
+
   it("pins the Send Email hook secret to the local synthetic secret and never echoes another value (03-11b)", () => {
     expect(findTestEnvProblems(safeEnv({ SEND_EMAIL_HOOK_SECRET: LOCAL_SEND_EMAIL_HOOK_SECRET }))).toEqual([]);
     const other = `v1,whsec_${Buffer.from("LEAK-another-hook-secret-value-x").toString("base64")}`;
@@ -215,6 +283,22 @@ describe("test-env guard rules", () => {
     );
     expect(findTestEnvProblems(safeEnv({ MAILPIT_API_URL: "http://mail.example.org:8025" }))).toContain(
       'MAILPIT_API_URL points at non-local host "mail.example.org"',
+    );
+  });
+
+  it("never lets a test lane select Resend or carry a Resend key, by any name (04-00b)", () => {
+    // Built at run time: no key-shaped literal in the repo.
+    const key = ["re", "MARKERguard0000000000000"].join("_");
+    expect(findTestEnvProblems(safeEnv({ EMAIL_PROVIDER: "resend" }))).toContain(
+      'EMAIL_PROVIDER must be unset or disabled or mailpit (got "resend")',
+    );
+    for (const name of ["RESEND_API_KEY", "NEXT_PUBLIC_RESEND_API_KEY"]) {
+      const problems = findTestEnvProblems(safeEnv({ [name]: key }));
+      expect(problems).toContain(`${name} must not be set in the test lane`);
+      expect(problems.join("\n")).not.toContain(key);
+    }
+    expect(findTestEnvProblems(safeEnv({ SOME_URL: "https://api.resend.com/emails" }))).toContain(
+      'SOME_URL references a hosted service ("api.resend.com")',
     );
   });
 

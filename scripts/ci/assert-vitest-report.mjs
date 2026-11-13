@@ -23,6 +23,10 @@
  *          test-env-guard 1) = 1899; 1899 × 0.95 = 1804.05 → 1805.
  *   3292 — V2-03 phase close: the full suite at 570a82d (code at e4eb4c1) had 3465 tests in 162 files, 0 skipped;
  *          3465 × 0.95 = 3291.75 → 3292. REQUIRED_FILES gains every spec V2-03 added outside tests/e2e (60 files; 69 in total).
+ *   4180 — V2-04 phase close: the full suite at fceeda2 (I-1 fix included) had 4399 tests in 211 files, 0 skipped;
+ *          4399 × 0.95 = 4179.05 → 4180. No test was removed by a V2-04 rewrite without its replacement in the same run
+ *          (the count is the measured total). REQUIRED_FILES gains every spec V2-04 added outside tests/e2e (49 files;
+ *          118 in total).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -31,9 +35,9 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 3292;
+const FLOOR = 4180;
 
-/** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 phase close). */
+/** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
   "tests/security/guard-actions.spec.ts",
   "tests/security/guard-routes.spec.ts",
@@ -120,6 +124,66 @@ const REQUIRED_FILES = [
   "tests/security/no-raw-error-responses.spec.ts",
   "tests/auth/session-age-token-hook-db.spec.ts",
   "tests/integration/auth/session-age-token-hook.spec.ts",
+  // V2-04 (04-PLAN.md "Phase close" step 1 plus each plan record's close note): every spec V2-04 added outside tests/e2e.
+  // 04-00b Resend sender and the hook's Resend path.
+  "tests/auth/resend-sender.spec.ts",
+  "tests/auth/send-email-hook-resend.spec.ts",
+  // 04-01 queue core: claim, grants, 8-runner exactly-once, reaper, runner library.
+  "tests/jobs/claim-grants-db.spec.ts",
+  "tests/jobs/parallel-dispatch-db.spec.ts",
+  "tests/jobs/reaper-db.spec.ts",
+  "tests/jobs/runner.spec.ts",
+  // 04-02 scheduler, runner route and token auth.
+  "tests/jobs/scheduler-migration-db.spec.ts",
+  "tests/jobs/run-route.spec.ts",
+  "tests/jobs/runner-auth.spec.ts",
+  // 04-03a messages: enqueue RPC, handler, delivery reaper, MSG91 contract (MSW), sink, P0-12 lint gates.
+  "tests/jobs/enqueue-message-rpc-db.spec.ts",
+  "tests/jobs/message-send-handler-db.spec.ts",
+  "tests/jobs/delivery-reap-db.spec.ts",
+  "tests/messaging/msg91-contract.spec.ts",
+  "tests/messaging/sink-provider.spec.ts",
+  "tests/security/p0-12-lint-gates.spec.ts",
+  "tests/setup/msw-loopback.spec.ts",
+  // 04-03b webhooks: enqueue RPC and delivery handler.
+  "tests/jobs/enqueue-webhook-rpc-db.spec.ts",
+  "tests/jobs/webhook-deliver-handler-db.spec.ts",
+  // 04-03c inbound idempotency, hook dedupe (ADR-0005 A3), contract grants, replay, backfill.
+  "tests/messaging/inbound-dedupe-db.spec.ts",
+  "tests/integration/auth/send-email-hook-dedupe-db.spec.ts",
+  "tests/jobs/replay-job-db.spec.ts",
+  "tests/jobs/queue-grants-db.spec.ts",
+  "tests/jobs/backfill-db.spec.ts",
+  // 04-04 alerts.
+  "tests/jobs/alerts-db.spec.ts",
+  "tests/jobs/alert-notify-db.spec.ts",
+  "tests/jobs/alert-drill-db.spec.ts",
+  "tests/jobs/alert-email.spec.ts",
+  // 04-05a backup and restore drill.
+  "tests/ops/backup-evidence.spec.ts",
+  "tests/ops/backup-roundtrip-db.spec.ts",
+  "tests/ops/backup-runs-db.spec.ts",
+  "tests/ops/backup-script-guards.spec.ts",
+  "tests/ops/drill-evidence-and-workflows.spec.ts",
+  "tests/ops/drill-lib-db.spec.ts",
+  "tests/ops/manifest-compare.spec.ts",
+  "tests/ops/restore-drill-checks-db.spec.ts",
+  // 04-06 heartbeat, quota, retention, ops report.
+  "tests/ops/quota-level-db.spec.ts",
+  "tests/ops/heartbeat-quota-db.spec.ts",
+  "tests/ops/ops-cleanup-db.spec.ts",
+  "tests/ops/ops-report-db.spec.ts",
+  "tests/ops/check-ops-report.spec.ts",
+  "tests/ops/quota-alert-email.spec.ts",
+  // 04-07a…e review fixes (H-SMS, M-*, N-1/N-1b, N-2/N-2b, Lows, I-1).
+  "tests/messaging/sms-recipient-exploit-db.spec.ts",
+  "tests/messaging/inbound-retry-db.spec.ts",
+  "tests/jobs/runner-review-fixes-db.spec.ts",
+  "tests/jobs/alert-review-fixes-db.spec.ts",
+  "tests/ops/ensure-schedules-db.spec.ts",
+  "tests/ops/restore-guards.spec.ts",
+  "tests/ops/manifest-guard.spec.ts",
+  "tests/ops/restore-psql-restricted-db.spec.ts",
 ];
 
 const file = process.argv[2];

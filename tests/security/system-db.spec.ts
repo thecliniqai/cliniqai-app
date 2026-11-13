@@ -30,8 +30,8 @@ afterEach(() => {
 });
 
 describe("getSystemDb(reason): one log line per acquisition", () => {
-  it('getSystemDb("cron.webhooks") writes exactly one line: ts, level, event, reason, module', () => {
-    const db = getSystemDb("cron.webhooks");
+  it('getSystemDb("jobs.run") writes exactly one line: ts, level, event, reason, module', () => {
+    const db = getSystemDb("jobs.run");
     const out = written(stdout);
     stdout.mockRestore();
 
@@ -43,8 +43,8 @@ describe("getSystemDb(reason): one log line per acquisition", () => {
     expect(line).toMatchObject({
       level: "info",
       event: SYSTEM_DB_EVENT,
-      reason: "cron.webhooks",
-      module: "app/api/cron/webhooks",
+      reason: "jobs.run",
+      module: "app/api/jobs/run",
     });
     expect(Number.isNaN(Date.parse(String(line.ts)))).toBe(false);
     expect(written(stderr)).toEqual([]);

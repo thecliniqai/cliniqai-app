@@ -91,11 +91,23 @@ const psql = (db, sql, what) => {
   if (r.error || r.status !== 0) throw new Error(`${what} failed (psql exit ${r.status}): ${(r.stderr ?? "").trim()}`);
 };
 
+/**
+ * V2-04 04-02: pg_cron can be created only in the database named by `cron.database_name` (`postgres`), never in the
+ * scratch database, so its `CREATE EXTENSION` / `COMMENT ON EXTENSION` lines are not loaded. Nothing pg_cron owns is in
+ * `public`, which is all this report compares.
+ */
+const SCRATCH_UNLOADABLE = /^\s*(?:CREATE\s+EXTENSION\s+IF\s+NOT\s+EXISTS|COMMENT\s+ON\s+EXTENSION)\s+"pg_cron"/i;
+
 /** Ownership and session settings the local server may not accept; everything else in the dump is loaded as is. */
 function stripForLoad(sql) {
   return sql
     .split("\n")
-    .filter((l) => !/^\s*ALTER\s+.+\s+OWNER\s+TO\s+.+;\s*$/i.test(l) && !/^\s*SET\s+transaction_timeout\b/i.test(l))
+    .filter(
+      (l) =>
+        !/^\s*ALTER\s+.+\s+OWNER\s+TO\s+.+;\s*$/i.test(l) &&
+        !/^\s*SET\s+transaction_timeout\b/i.test(l) &&
+        !SCRATCH_UNLOADABLE.test(l),
+    )
     .join("\n");
 }
 
@@ -111,9 +123,10 @@ try {
   created = true;
 
   // 3. Supabase base the dump assumes: schemas named by its extensions, then the local auth schema.
+  // 04-02: system schemas (`pg_catalog`, where pg_cron lives) always exist and cannot be created.
   const extSchemas = [...dump.matchAll(/CREATE EXTENSION IF NOT EXISTS "[^"]+" WITH SCHEMA "([^"]+)"/gi)]
     .map((m) => m[1])
-    .filter((s) => s !== "public");
+    .filter((s) => s !== "public" && !s.startsWith("pg_"));
   const base = [...new Set(["extensions", "vault", ...extSchemas])]
     .map((s) => `create schema if not exists "${s.replace(/"/g, '""')}";`)
     .join("\n");

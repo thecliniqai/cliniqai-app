@@ -144,6 +144,13 @@ jobs:
       # service_role/PUBLIC). A migration ships its regenerated snapshot, so every grant/policy change is reviewed.
       - name: Schema and privileges match the committed snapshot
         run: node scripts/drift/schema-snapshot.mjs --local --check
+      # V2-04 04-05a: tests/ops/backup-roundtrip-db.spec.ts runs ops/backup/backup.sh with the pinned age release and
+      # the digest-pinned postgres/aws-cli images (ops/bin/pins.env); install and pull them before the lane.
+      - name: Backup tools (pinned age release, pinned images)
+        run: |
+          ops/bin/install-age.sh
+          # shellcheck disable=SC2016 # the variables expand in the inner `bash -c`, after pins.env is sourced
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 -- bash -c '. ops/bin/pins.env && docker pull -q "$POSTGRES_IMAGE" && docker pull -q "$AWS_CLI_IMAGE"'
       # One run produces both the JSON report and v8 coverage (02-05); coverage is report-only until V2-14.
       - name: Vitest (full unit + DB lane, with coverage)
         run: npx vitest run --reporter=dot --reporter=json --outputFile.json=vitest-report.json --coverage.enabled

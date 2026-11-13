@@ -5,7 +5,11 @@
  * The staging app deploys through the Vercel Git integration on `feature/v2`; `staging.yml` applies the migrations
  * and then proves the two halves meet:
  *   1. polls `GET <origin>/api/health` until its `release` (the deployed commit, `VERCEL_GIT_COMMIT_SHA`, 03-01) equals
- *      the workflow's commit, for at most `--timeout-ms` (default 10 minutes);
+ *      the workflow's commit, for at most `--timeout-ms` (default 10 minutes). V2-04 04-00 (review A L-6): a release
+ *      that **descends** from the workflow's commit is accepted too (`git merge-base --is-ancestor <sha> <release>` in
+ *      the job's full-history checkout), so a later commit that deployed while this run waited for approval does not
+ *      fail it. A release that does not descend from it (a rollback, another branch) keeps the wait going until the
+ *      timeout, as before; so does a newer commit the checkout does not hold;
  *   2. then `GET <origin>/api/ready` must answer 200 with `status: "ready"` and `checks.schema: "current"`. Since
  *      03-13c (M-PROBE) the probe returns booleans only: the build asks the database whether its own
  *      `EXPECTED_MIGRATION` (`app/api/ready/expected-migration.ts`, which a spec pins to the newest file in
@@ -17,7 +21,11 @@
  * Usage: node scripts/staging/wait-for-release.mjs <origin> <sha> [--timeout-ms N] [--interval-ms N]
  * Exit 0 = released and ready, 1 = timeout / not ready / schema behind, 2 = usage.
  */
-import { pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 export const DEFAULT_TIMEOUT_MS = 10 * 60_000;
 export const DEFAULT_INTERVAL_MS = 15_000;
@@ -34,6 +42,24 @@ export function originProblem(origin) {
   } catch {
     return "is not a URL";
   }
+}
+
+/**
+ * True when `ancestor` is an ancestor of (or equal to) `descendant` in the repository's history. Both are 40-hex SHAs
+ * checked by the caller and passed as an argument array (no shell). A commit the checkout lacks answers false.
+ * @param {string} ancestor
+ * @param {string} descendant
+ * @param {typeof spawnSync} [spawnImpl]
+ */
+export function gitIsAncestor(ancestor, descendant, spawnImpl = spawnSync) {
+  if (!SHA.test(ancestor) || !SHA.test(descendant)) return false;
+  const r = spawnImpl("git", ["merge-base", "--is-ancestor", ancestor, descendant], {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+    stdio: ["ignore", "ignore", "ignore"],
+    timeout: 30_000,
+  });
+  return r.status === 0;
 }
 
 async function getJson(fetchImpl, url) {
@@ -53,7 +79,7 @@ async function getJson(fetchImpl, url) {
 }
 
 /**
- * @param {{ origin: string, sha: string, fetchImpl?: typeof fetch,
+ * @param {{ origin: string, sha: string, fetchImpl?: typeof fetch, isAncestor?: (ancestor: string, descendant: string) => boolean,
  *   sleep?: (ms: number) => Promise<void>, now?: () => number, timeoutMs?: number, intervalMs?: number }} options
  * @returns {Promise<{ exitCode: number, lines: string[] }>}
  */
@@ -61,6 +87,7 @@ export async function waitForRelease({
   origin,
   sha,
   fetchImpl = globalThis.fetch,
+  isAncestor = (a, d) => gitIsAncestor(a, d),
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   now = () => Date.now(),
   timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -75,6 +102,9 @@ export async function waitForRelease({
   const deadline = now() + timeoutMs;
   let attempts = 0;
   let last = "no answer yet";
+  let live = sha;
+  /** 04-00 L-6: one git answer per release value (the poll repeats the same release many times). */
+  const descends = new Map();
   for (;;) {
     attempts += 1;
     try {
@@ -84,7 +114,15 @@ export async function waitForRelease({
         lines.push(`wait-for-release: /api/health reports release ${sha} (attempt ${attempts})`);
         break;
       }
-      last = status === 200 ? `release ${release ?? "null"}` : `HTTP ${status}`;
+      if (status === 200 && release !== null && SHA.test(release)) {
+        if (!descends.has(release)) descends.set(release, isAncestor(sha, release) === true);
+        if (descends.get(release)) {
+          live = release;
+          lines.push(`wait-for-release: /api/health reports release ${release}, a descendant of ${sha} (attempt ${attempts})`);
+          break;
+        }
+      }
+      last = status === 200 ? `release ${release !== null && SHA.test(release) ? release : release === null ? "null" : "malformed"}${release !== null && descends.get(release) === false ? " (not a descendant)" : ""}` : `HTTP ${status}`;
     } catch (e) {
       last = `request failed (${e instanceof Error ? e.name : "error"})`;
     }
@@ -107,6 +145,9 @@ export async function waitForRelease({
   if (schema !== "current") {
     const shown = typeof schema === "string" && /^[a-z_]{1,20}$/.test(schema) ? schema : "missing";
     return done(1, `wait-for-release: FAIL /api/ready checks.schema is ${shown}, not current (staging lacks this commit's newest migration)`);
+  }
+  if (live !== sha) {
+    return done(0, `wait-for-release: PASS release ${live} (descends from ${sha}) is live and ready with the schema current`);
   }
   return done(0, `wait-for-release: PASS release ${sha} is live and ready with the schema current`);
 }

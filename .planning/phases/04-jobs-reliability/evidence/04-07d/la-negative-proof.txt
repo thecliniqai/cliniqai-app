@@ -1,0 +1,32 @@
+# 04-07d L-A negative proof (tool output captured 2026-11-13T20:38:35Z)
+# Code under test: HEAD af92fe6 lib/messaging/templates/sms.ts (deny-list for undeclared SMS templates). Spec: tests/messaging/msg91-contract.spec.ts as committed in 04-07d.
+# Expected: the undeclared-template cases fail (look-alike keys, schtime, and the plain params reach the Flow body).
+
+   ✓ MSG91 request shape > SMS goes to the flow API with authkey and the flow body; 200 → externalMessageId 40ms
+   × MSG91 request shape > SMS (an undeclared template): params named mobiles / template_id / sender / short_url (any case) never change the request 5ms
+     → expected { patient_name: 'Synthetic', …(4) } to deeply equal { Object (template_id, sender, ...) }
+   ✓ MSG91 request shape > SMS (a declared SMS fallback): params named mobiles / template_id / sender / short_url (any case) never change the request 2ms
+   × MSG91 request shape > SMS with an undeclared template sends no variables: look-alike control keys and extra Flow fields never reach the body 2ms
+     → expected { 'MOBİLES': '917000000001', …(7) } to deeply equal { template_id: 'rogue_flow', …(3) }
+   ✓ MSG91 request shape > SMS with a declared template ignores look-alike spellings of its own variables (exact keys only) 3ms
+   ✓ MSG91 request shape > SMS with a declared template sends only its declared variables 2ms
+   ✓ MSG91 request shape > a catalogue WhatsApp template goes to the bulk endpoint with name, language and positional components 2ms
+   ✓ MSG91 request shape > a non-catalogue WhatsApp message goes to the session-text endpoint 2ms
+   ✓ MSG91 failure classification (R-20) > SMS: 400 → not retryable, code only (never MSG91's text) 2ms
+   ✓ MSG91 failure classification (R-20) > WhatsApp (catalogue): 400 → not retryable, code only (never MSG91's text) 2ms
+   ✓ MSG91 failure classification (R-20) > WhatsApp (session text): 400 → not retryable, code only (never MSG91's text) 2ms
+   ✓ MSG91 failure classification (R-20) > SMS: 500 and 429 → retryable 5ms
+   ✓ MSG91 failure classification (R-20) > WhatsApp (catalogue): 500 and 429 → retryable 3ms
+   ✓ MSG91 failure classification (R-20) > WhatsApp (session text): 500 and 429 → retryable 2ms
+   ✓ MSG91 failure classification (R-20) > SMS: a 200 body reporting an error → not retryable 1ms
+   ✓ MSG91 failure classification (R-20) > WhatsApp (catalogue): a 200 body reporting an error → not retryable 1ms
+   ✓ MSG91 failure classification (R-20) > WhatsApp (session text): a 200 body reporting an error → not retryable 1ms
+   ✓ MSG91 failure classification (R-20) > SMS: a network error → retryable 4ms
+   ✓ MSG91 failure classification (R-20) > WhatsApp (catalogue): a network error → retryable 1ms
+   ✓ MSG91 failure classification (R-20) > WhatsApp (session text): a network error → retryable 1ms
+   ✓ MSG91 failure classification (R-20) > no auth key → not retryable, no request 0ms
+   ✓ MSG91 call bounds > a response delayed past timeoutMs (50 ms) is aborted within 1 s, retryable 53ms
+   ✓ MSG91 call bounds > aborting the runner's signal aborts the call within 1 s (the 10 s bound is not waited for) 32ms
+   ✓ the lane stays offline around MSW > a request MSW does not handle never reaches MSG91 (its socket dials 127.0.0.1); other hosts stay refused 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  2 failed | 22 passed (24)

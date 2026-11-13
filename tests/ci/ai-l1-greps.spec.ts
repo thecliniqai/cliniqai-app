@@ -44,6 +44,21 @@ describe("AI-06 L1 checks", () => {
     expect(r.stderr.match(/^FAIL /gm)).toHaveLength(3);
   });
 
+  it("the fixed brand name \"CliniQ AI\" is allowed in copy and next to a price (PO ruling 2026-11-14)", () => {
+    const r = check("brand-name-ok");
+    expect(r.status).toBe(0);
+    expect(r.stderr).not.toContain("L1-R5");
+    expect(r.stderr).not.toContain("L1-R6");
+  });
+
+  it("only the exact brand string is exempt: a bare AI claim and other casings still fail", () => {
+    const r = check("brand-name-still-checked");
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("FAIL L1-R5 components/header.tsx:5");
+    expect(r.stderr).toContain("FAIL L1-R5 components/header.tsx:6");
+    expect(r.stderr).not.toContain("components/header.tsx:4");
+  });
+
   it("only the intended rule fires on the features/ai price fixture (AI alone is allowed there)", () => {
     const r = check("r6-ai-price");
     expect(r.stderr).not.toContain("L1-R5");

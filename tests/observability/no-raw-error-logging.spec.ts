@@ -8,7 +8,7 @@
  * or the message text. Before the sweep these paths printed the raw error through `console.error`.
  *
  * Paths: a patients write (`createPatient`), a labs write (`deleteLabDocument`), the prescription PDF route
- * (`GET /api/visits/[id]/prescription-pdf`), the v1 error envelope (`apiError`) and the cron route's 500 body.
+ * (`GET /api/visits/[id]/prescription-pdf`), the v1 error envelope (`apiError`) (04-03b deleted the cron webhook route and its case).
  */
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import type { ServiceContext } from "@/lib/auth/context";
@@ -18,8 +18,6 @@ const TENANT_ID = "7d1c0b9a-8e7f-4a6b-9c5d-4e3f2a1b0c9d";
 const USER_ID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 const PATIENT_ID = "5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b";
 const DOCUMENT_ID = "9f8e7d6c-5b4a-4392-8170-6f5e4d3c2b1a";
-/** A low-entropy synthetic cron token (>= 32 chars), built at runtime so it is not secret-shaped in source. */
-const CRON_TOKEN = ["synthetic", "cron", "x".repeat(32)].join("-");
 
 const PHONE = "+919000000001";
 const EMAIL = "synthetic.user@example.test";
@@ -52,9 +50,7 @@ vi.mock("@/lib/supabase/system", () => ({ getSystemDb: mocks.getSystemDb }));
 import { createPatient } from "@/features/patients/service";
 import { deleteLabDocument } from "@/features/labs/service";
 import { GET as getPrescriptionPdf } from "@/app/api/visits/[id]/prescription-pdf/route";
-import { GET as cronWebhooks } from "@/app/api/cron/webhooks/route";
 import { apiError } from "@/lib/api/envelope";
-import { NextRequest } from "next/server";
 
 type Result = { data: unknown; error: unknown };
 
@@ -215,30 +211,5 @@ describe("server error branches log the event and code, never the raw error (03-
     const [line] = linesFor("api.v1.failed");
     // 03-13d M-LOGFIELDS: log words are lower case; the envelope code is written through logWord().
     expect(line).toMatchObject({ level: "error", reason: "database_error", status: 500, requestId: REQUEST_ID });
-  });
-
-  it("cron route: a dispatcher exception becomes a fixed 500 body and one line", async () => {
-    vi.stubEnv("CRON_SECRET", CRON_TOKEN);
-    try {
-      // `serverEnv()` is memoised on the current values, so the stubbed secret is seen on the next call.
-      mocks.getSystemDb.mockImplementation(() => {
-        throw thrownPhiError();
-      });
-
-      const res = await cronWebhooks(
-        new NextRequest("http://localhost/api/cron/webhooks", {
-          headers: { authorization: `Bearer ${CRON_TOKEN}` },
-        })
-      );
-
-      expect(res.status).toBe(500);
-      expect(await res.json()).toEqual({ success: false, error: "Internal Cron Error" });
-      // The PHI check first: before the sweep it fails on the raw text, not only on the missing event.
-      expectNoRawError();
-      const [line] = linesFor("jobs.cron_webhooks.failed");
-      expect(line).toMatchObject({ level: "error", code: "23505", requestId: REQUEST_ID });
-    } finally {
-      vi.unstubAllEnvs();
-    }
   });
 });

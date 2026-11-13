@@ -1,0 +1,19 @@
+# Fixture (V2-04 04-07c, review C M-1 case 2; passed the policy before 04-07c): `STAGING-READONLY` is the read-only
+# Environment in another spelling, here given the write database URL -> environment-known, staging-readonly-secrets-ro.
+name: Fixture bypass read-only case
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exfil:
+    if: ${{ github.ref == 'refs/heads/feature/v2' }}
+    runs-on: ubuntu-24.04
+    environment: STAGING-READONLY
+    steps:
+      - name: Exact ref check (feature/v2, case-sensitive)
+        run: '[ "$GITHUB_REF" = "refs/heads/feature/v2" ] || { echo "wrong ref" >&2; exit 1; }'
+      - name: Reads the write database URL
+        env:
+          STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+        run: echo "fixture"

@@ -1,0 +1,11 @@
+# 04-07b full Vitest, run 1 on b67d2ad (tool output): 4 failures, root-caused in 37cb3e2 and 8527b9c (record 'Full-run failures').
+ FAIL  tests/jobs/message-send-handler-db.spec.ts > message.send handler > a synthetic recipient with the real MSG91 provider dead-letters after one attempt with zero HTTP requests
+JobsRpcError: jobs rpc jobs_runner_end failed
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: the real jobs runner files (04-02) > the runner route's source fails as a server action (the factory and two jobs internals)
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: the real jobs runner files (04-02) > the runner route's source fails as the enqueue surface (the factory and two jobs internals)
+AssertionError: expected [ [ 'P1-34:', …(1) ], …(3) ] to deeply equal [ [ 'P1-34:', …(1) ], …(2) ]
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: the real jobs runner files (04-02) > the runner route's source fails as a register route (the two jobs internals; the register may hold the factory until P1-37)
+AssertionError: expected [ [ 'P1-34:', …(1) ], …(2) ] to deeply equal [ [ 'P1-34:', …(1) ], …(1) ]
+ Test Files  2 failed | 205 passed (207)
+      Tests  4 failed | 4314 passed (4318)
+exit 1

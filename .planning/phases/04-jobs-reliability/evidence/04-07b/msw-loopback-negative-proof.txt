@@ -1,0 +1,7 @@
+# 04-07b MSW loopback root cause: negative proof (tool output captured 2026-11-13T19:56:09Z)
+# tests/setup/msw-loopback.spec.ts run with setupServer() instead of setupServer(loopbackPassthrough), 'error' strategy kept:
+# concurrent local RPCs that need new sockets fail inside the MSW window. With the handler: 1 passed (see vitest-full.txt).
+   × MSW 3 window with local stack traffic > concurrent local RPCs pass through; an unhandled MSG91 request still fails 24ms
+AssertionError: expected [ 'TypeError: fetch failed', …(3) ] to deeply equal [ null, null, null, null ]
+ Test Files  1 failed (1)
+      Tests  1 failed (1)

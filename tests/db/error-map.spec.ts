@@ -32,6 +32,15 @@ describe("mapDbError: SQLSTATE table", () => {
     ["P0001 INPUT_INVALID", { code: "P0001", message: "INPUT_INVALID" }, "VALIDATION_FAILED", "INPUT_INVALID"],
     ["P0001 IDEMPOTENCY_MISMATCH", { code: "P0001", message: "IDEMPOTENCY_MISMATCH" }, "IDEMPOTENCY_MISMATCH", "IDEMPOTENCY_MISMATCH"],
     ["P0001 OUTBOX_SUBJECT_INVALID (a programming fault)", { code: "P0001", message: "OUTBOX_SUBJECT_INVALID" }, "INTERNAL", "OUTBOX_SUBJECT_INVALID"],
+    // V2-04 04-03a: the message enqueue RPCs (migration 000035).
+    ["P0002 SUBJECT_MISMATCH (subject outside the active clinic)", { code: "P0002", message: "SUBJECT_MISMATCH" }, "NOT_FOUND", "SUBJECT_MISMATCH"],
+    ["P0001 SUBJECT_MISMATCH (patient is not the visit's)", { code: "P0001", message: "SUBJECT_MISMATCH" }, "NOT_FOUND", "SUBJECT_MISMATCH"],
+    ["P0001 TEMPLATE_NOT_ALLOWED", { code: "P0001", message: "TEMPLATE_NOT_ALLOWED" }, "VALIDATION_FAILED", "TEMPLATE_NOT_ALLOWED"],
+    ["P0001 RECIPIENT_NOT_ALLOWED", { code: "P0001", message: "RECIPIENT_NOT_ALLOWED" }, "VALIDATION_FAILED", "RECIPIENT_NOT_ALLOWED"],
+    ["P0001 EVENT_NOT_ALLOWED", { code: "P0001", message: "EVENT_NOT_ALLOWED" }, "VALIDATION_FAILED", "EVENT_NOT_ALLOWED"],
+    ["P0001 RATE_LIMITED", { code: "P0001", message: "RATE_LIMITED" }, "RATE_LIMITED", "RATE_LIMITED"],
+    // V2-04 04-03c (000037): ops.replay_job (postgres only; registered so the map stays complete).
+    ["P0001 JOB_NOT_REPLAYABLE", { code: "P0001", message: "JOB_NOT_REPLAYABLE" }, "CONFLICT", "JOB_NOT_REPLAYABLE"],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],

@@ -5,7 +5,10 @@
  * - anon executes it through PostgREST and gets booleans only: no count and no migration version; `schema_current`
  *   answers for the exact version asked (null for anything that is not six digits);
  * - authenticated, service_role and PUBLIC cannot execute it (/api/ready calls it as anon only);
- * - each flag is served by an index: with sequential scans disabled, no plan of the four checks scans a queue table;
+ * - each flag is served by an index: with sequential scans disabled, no plan of the checks scans a queue table;
+ * - 04-04 (R-41): four job flags (`jobs_backlog`, `jobs_dead_24h`, `runner_stale`, `alerts_critical_open`), booleans
+ *   only; a seeded dead job flips `jobs_dead_24h`, a runner URL in Vault without a runner pass flips `runner_stale`, an
+ *   open critical alert flips `alerts_critical_open`, a 6-minute-old due job flips `jobs_backlog` (rolled-back seeds);
  * - EXPECTED_MIGRATION (app/api/ready) is the newest file in supabase/migrations;
  * - SECURITY DEFINER with `search_path` pinned to the empty string;
  * - anon can execute no other SECURITY DEFINER function in `public` than the committed allowlist, so a later migration
@@ -18,6 +21,7 @@ import { createClient } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import { publicEnv } from "@/lib/env";
 import { EXPECTED_MIGRATION } from "@/app/api/ready/expected-migration";
+import { psqlSession } from "../helpers/sql";
 
 const ROOT = path.resolve(__dirname, "../..");
 
@@ -41,7 +45,17 @@ function psql(sql: string): string[] {
 }
 
 const SIGNATURE = "public.readiness_probe(text)";
-const FLAGS = ["messages_backlog", "messages_failed_24h", "webhooks_backlog", "webhooks_failed_24h"];
+const FLAGS = [
+  "messages_backlog",
+  "messages_failed_24h",
+  "webhooks_backlog",
+  "webhooks_failed_24h",
+  // 04-04 (R-41)
+  "jobs_backlog",
+  "jobs_dead_24h",
+  "runner_stale",
+  "alerts_critical_open",
+];
 
 function client(key: string) {
   return createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, key, {
@@ -91,15 +105,74 @@ describe("readiness_probe(p_expected_migration) (migrations 000025, 000029)", ()
       "select 1 from public.communication_queue q where q.status in ('failed', 'dead_letter') and q.updated_at >= now() - interval '24 hours'",
       "select 1 from public.webhook_delivery_queue w where w.status = 'pending' and w.next_retry_at < now() - interval '15 minutes'",
       "select 1 from public.webhook_delivery_queue w where w.status = 'failed' and w.updated_at >= now() - interval '24 hours'",
+      // 04-04 (R-41)
+      "select 1 from ops.jobs j where j.status = 'pending' and j.run_at < now() - interval '5 minutes'",
+      "select 1 from ops.jobs j where j.status = 'dead' and j.finished_at >= now() - interval '24 hours'",
+      "select 1 from ops.job_runner_runs r where r.started_at > now() - interval '5 minutes' and r.ok and r.source = 'pg_cron'",
+      "select 1 from vault.secrets v where v.name = 'jobs_runner_url'",
+      "select 1 from ops.alerts a where a.status = 'open' and a.severity = 'critical'",
     ];
     for (const check of checks) {
       const plan = psql(`begin; set local enable_seqscan = off; explain select exists (${check}); rollback;`).join("\n");
       expect(plan, check).not.toMatch(/Seq Scan/);
     }
-    // The function body runs exactly these four predicates.
+    // The function body runs exactly these predicates.
     const def = psql(`select pg_get_functiondef('${SIGNATURE}'::regprocedure)`).join("\n");
     expect(def).not.toMatch(/count\(/i);
     expect(def).not.toMatch(/max\(/i);
+  });
+
+  it("04-04: each job flag answers its condition (seeded in a rolled-back session), never a count", () => {
+    const probe = "select 'P|' || public.readiness_probe(null)::text";
+    const flags = (seed: string[]): Record<string, unknown> => {
+      const lines = psqlSession([
+        "begin",
+        "delete from ops.jobs",
+        "delete from ops.job_runner_runs",
+        "delete from ops.alerts",
+        "delete from vault.secrets where name = 'jobs_runner_url'",
+        ...seed,
+        probe,
+        "rollback",
+      ]);
+      const line = lines.find((l) => l.startsWith("P|"));
+      return JSON.parse(line!.slice(2)) as Record<string, unknown>;
+    };
+    const quiet = flags([]);
+    expect(quiet).toMatchObject({ jobs_backlog: false, jobs_dead_24h: false, runner_stale: false, alerts_critical_open: false });
+
+    const dead = flags([
+      "insert into ops.jobs (kind, dedupe_key, status, attempts, finished_at) values ('test.ready_dead', 'ready:' || gen_random_uuid(), 'dead', 1, now())",
+    ]);
+    expect(dead).toMatchObject({ jobs_dead_24h: true, jobs_backlog: false });
+    expect(flags([
+      "insert into ops.jobs (kind, dedupe_key, status, attempts, finished_at) values ('test.ready_dead', 'ready:' || gen_random_uuid(), 'dead', 1, now() - interval '25 hours')",
+    ]).jobs_dead_24h).toBe(false);
+
+    expect(flags(["insert into ops.jobs (kind, dedupe_key, run_at) values ('test.ready_due', 'ready:' || gen_random_uuid(), now() - interval '6 minutes')"]).jobs_backlog).toBe(true);
+    expect(flags(["insert into ops.jobs (kind, dedupe_key, run_at) values ('test.ready_due', 'ready:' || gen_random_uuid(), now() - interval '4 minutes')"]).jobs_backlog).toBe(false);
+
+    const vault = "select vault.create_secret('https://runner.example.invalid/api/jobs/run', 'jobs_runner_url')";
+    expect(flags([vault]).runner_stale).toBe(true);
+    expect(
+      flags([vault, "insert into ops.job_runner_runs (worker, source, started_at, ok) values ('test:ready', 'pg_cron', now() - interval '1 minute', true)"])
+        .runner_stale,
+    ).toBe(false);
+    // 04-07b (review A L-5): a manual (or test) pass does not hide a broken scheduler.
+    for (const source of ["manual", "test"]) {
+      expect(
+        flags([vault, `insert into ops.job_runner_runs (worker, source, started_at, ok) values ('test:ready', '${source}', now() - interval '1 minute', true)`])
+          .runner_stale,
+        source,
+      ).toBe(true);
+    }
+
+    expect(flags(["insert into ops.alerts (rule, severity) values ('backup_stale', 'critical')"]).alerts_critical_open).toBe(true);
+    expect(flags(["insert into ops.alerts (rule, severity) values ('dead_letter', 'warn')"]).alerts_critical_open).toBe(false);
+    for (const body of [quiet, dead]) {
+      expect(Object.values(body).every((v) => typeof v === "boolean" || v === null)).toBe(true);
+      expect(JSON.stringify(Object.values(body))).not.toMatch(/\d/);
+    }
   });
 
   it("is SECURITY DEFINER with search_path pinned to the empty string", () => {

@@ -56,7 +56,7 @@ describe("buildAppServerEnv", () => {
       NEXT_PUBLIC_APP_URL: E2E_BASE_URL,
       AI_ENABLED: "false",
       AI_PROVIDER: "mock",
-      MESSAGING_PROVIDER: "dev",
+      MESSAGING_PROVIDER: "sink",
       API_V1_ENABLED: "false",
     });
     expect(E2E_BASE_URL).toBe("http://127.0.0.1:3100");
@@ -125,6 +125,15 @@ describe("build output scan", () => {
     expect(scanText('k="sb_secret_abcdefghijklmnopqrstuvwxyz"', "j.js", false)).toEqual([
       { file: "j.js", kind: "hosted sb_secret_ key" },
     ]);
+  });
+
+  it("flags a Resend-key-shaped literal in any bundle, and not the provider's name or URL (04-00b)", () => {
+    // Assembled at run time: no key-shaped literal in the repo.
+    const key = ["re", "SyntheticScanKey00000000000"].join("_");
+    expect(scanText(`h={authorization:"Bearer "+e};k="${key}"`, "l.js", true)).toEqual([{ file: "l.js", kind: "Resend API key literal" }]);
+    expect(scanText(`k='${key}'`, "m.js", false)).toEqual([{ file: "m.js", kind: "Resend API key literal" }]);
+    expect(JSON.stringify(scanText(`k="${key}"`, "n.js", true))).not.toContain(key);
+    expect(scanText('u="https://api.resend.com/emails";p="resend";x="re_try"', "o.js", true)).toEqual([]);
   });
 
   it("never echoes a key value in a finding", () => {

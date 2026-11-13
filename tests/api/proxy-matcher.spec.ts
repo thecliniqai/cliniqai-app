@@ -7,9 +7,23 @@
  * refresh, no request id). Now only a single top-level segment with an image extension (`/logo.png`) is excluded.
  * The built-app proof (307 to /login with a request id) is `tests/e2e/security/unauth-pages.spec.ts`.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
-import { config } from "@/proxy";
+import { config, proxy } from "@/proxy";
+
+/** V2-04 04-02: counts the session clients the proxy builds (each one is a Supabase Auth round trip per request). */
+const sessionClients = vi.hoisted(() => ({ count: 0 }));
+vi.mock("@supabase/ssr", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@supabase/ssr")>();
+  return {
+    ...actual,
+    createServerClient: ((...args: Parameters<typeof actual.createServerClient>) => {
+      sessionClients.count += 1;
+      return actual.createServerClient(...args);
+    }) as typeof actual.createServerClient,
+  };
+});
 
 const runs = (url: string) => unstable_doesMiddlewareMatch({ config, url });
 
@@ -37,4 +51,32 @@ describe("proxy matcher (03-13a L-4)", () => {
       expect(runs(url)).toBe(false);
     },
   );
+});
+
+/**
+ * V2-04 04-02: pg_cron calls `/api/jobs/run` every minute with a bearer, never a session. The proxy skips the session
+ * refresh there (as for `/api/health` and `/api/ready`): no session client is built even when a cookie is present, and
+ * the request still gets a fresh request id. Fails without the change (the runner path would build a client and call
+ * `getClaims()` on every kick).
+ */
+describe("proxy: the job runner path skips the session refresh (04-02)", () => {
+  const cookie = "sb-127-auth-token=base64-eyJub3QiOiJhIHNlc3Npb24ifQ";
+
+  it.each(["/api/jobs/run", "/api/health", "/api/ready"])("%s: no session client, request id set", async (path) => {
+    sessionClients.count = 0;
+    for (const method of ["POST", "GET"]) {
+      const res = await proxy(new NextRequest(`http://localhost${path}`, { method, headers: { cookie, "x-request-id": "caller-chosen" } }));
+      expect(res.status, method).toBe(200);
+      expect(res.headers.get("x-middleware-next")).toBe("1");
+      expect(res.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/);
+      expect(res.headers.getSetCookie()).toEqual([]);
+    }
+    expect(sessionClients.count).toBe(0);
+  });
+
+  it.each(["/api/jobs/run/x", "/api/jobs", "/api/patients/abc/export"])("%s still runs the session refresh (control)", async (path) => {
+    sessionClients.count = 0;
+    await proxy(new NextRequest(`http://localhost${path}`, { method: "POST", headers: { cookie } }));
+    expect(sessionClients.count).toBe(1);
+  });
 });

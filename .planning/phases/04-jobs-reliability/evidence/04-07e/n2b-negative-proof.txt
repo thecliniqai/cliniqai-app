@@ -1,0 +1,53 @@
+# 04-07e N-2b negative proofs (local stack only; every shell command in a value is a harmless echo inside a throwaway psql container).
+# Spec: tests/ops/drill-lib-db.spec.ts and tests/ops/restore-guards.spec.ts as committed in 04-07e. Each stand-in was put back (cmp) right after its run.
+
+## A. drill-lib.sh drill_psql replaced by the 04-07d drill_psql (unrestricted ops/bin/psql-docker.sh) and supabase/tests/restore_drill_checks.sql as at 3947174 (raw :expected_policies::int, backslash-set, gset)
+##    -> route 1: the count's backslash-! ran (marker printed); the old file also printed the probe ids
+   × drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > route 1: a count holding a meta-command, given to the checks file → one literal that fails its cast; the command never runs 302ms
+     → expected '1..13\nok 1 - RLS is enabled on every…' not to match /^(VAR_INTERP|COUNTS_SQL)_EXECUTED$/m
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_checks refuses a manifest whose count is not a validated integer, before psql runs 29ms
+   × drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > the checks file (no meta-command) passes all 13 checks through the restricted session with the live counts 357ms
+     → expected '1..13\nok 1 - RLS is enabled on every…' not to match /[0-9a-f]{8}-[0-9a-f]{4}-/
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > route 2: in a database whose own setting turns standard_conforming_strings off, the session runs with it on and a hostile table key is only a name  489ms
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_counts counts the validated tables that exist and refuses keys that are not validated 270ms
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > psql-restricted.sh refuses to run without -c or -f (psql would silently ignore stdin) 6ms
+   ✓ the restore role cannot run COPY … PROGRAM (04-07e, L-F: the server-side control) > postgres (the role the restore connects as) holds neither superuser nor pg_execute_server_program, cannot grant it, and COPY … PROGRAM is refused  697ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ops/drill-lib-db.spec.ts > drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > route 1: a count holding a meta-command, given to the checks file → one literal that fails its cast; the command never runs
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+
+## B. ops/bin/psql-restricted.sh as at 3947174 (restricted, but no forced standard_conforming_strings / client encoding, no -c/-f check)
+##    -> a database whose own setting is off gives an 'off' session; stdin without -f is silently ignored (exit 0)
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > route 1: a count holding a meta-command, given to the checks file → one literal that fails its cast; the command never runs 283ms
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_checks refuses a manifest whose count is not a validated integer, before psql runs 34ms
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > the checks file (no meta-command) passes all 13 checks through the restricted session with the live counts  412ms
+   × drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > route 2: in a database whose own setting turns standard_conforming_strings off, the session runs with it on and a hostile table key is only a name 248ms
+     → expected 'off|UTF8' to be 'on|UTF8' // Object.is equality
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_counts counts the validated tables that exist and refuses keys that are not validated 284ms
+   × drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > psql-restricted.sh refuses to run without -c or -f (psql would silently ignore stdin) 211ms
+     → expected +0 to be 2 // Object.is equality
+   ✓ the restore role cannot run COPY … PROGRAM (04-07e, L-F: the server-side control) > postgres (the role the restore connects as) holds neither superuser nor pg_execute_server_program, cannot grant it, and COPY … PROGRAM is refused  769ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+
+## C. Route 2 by hand: the 04-07d counts step (run.sh:204-216 at 3947174, SQL text generated from the manifest's table keys, unrestricted psql) vs 04-07e, against a scratch database with ALTER DATABASE ... SET standard_conforming_strings = off (created and dropped for this run)
+== 04-07d counts step (generated SQL, unrestricted psql-docker.sh), database setting standard_conforming_strings=off
+psql:/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/negwork/counts.sql:1: WARNING:  nonstandard use of \' in a string literal at character 8
+x'
+COUNTS_SQL_EXECUTED
+exit 0
+== 04-07e drill_counts (manifest keys re-validated, fixed counts.sql, restricted session)
+restore-drill: manifest table keys are not validated
+exit 1
+== 04-07e fixed counts.sql given the same key directly (validation bypassed), restricted session
+exit 0
+
+## D. run.sh with the manifest-guard step replaced by the 04-07d behaviour (archive manifest used unvalidated)
+##    -> the hostile-manifest archive is not refused at the manifest stage (no 'manifest-guard: REFUSED'; the run went on to the drill stack, which run.sh's EXIT trap stopped; no drill container left)
+   × run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts > 04-07e (N-2b): refuses an authenticated archive whose manifest holds a meta-command in a count or a table key, before any SQL runs 31191ms
+     → expected '2026-11-13T21:29:07Z restore-drill.di…' to contain 'manifest-guard: REFUSED'
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  1 failed | 52 skipped (53)

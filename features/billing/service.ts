@@ -20,7 +20,7 @@ import {
 } from "./schema";
 import { completeAndSignConsultation } from "@/features/consultation/service";
 import { createShareToken } from "@/features/sharing/tokens";
-import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { enqueueMessage } from "@/lib/jobs/enqueue";
 import type { InteractiveButton } from "@/lib/messaging/types";
 import {
   compileAndArchiveReceiptPdf,
@@ -1184,8 +1184,8 @@ export async function shareReceiptViaWhatsApp(
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #11 (receipt_issued)
-    await enqueueMessage(supabase, {
-      tenantId: session.tenantId,
+    // V2-04 04-03a: queued through the enqueue RPC; the job runner sends it (per-row key, R-24).
+    await enqueueMessage(ctx, {
       patientId: inv.patient_id,
       channel: "whatsapp",
       messageType: "receipt_issued",
@@ -1398,9 +1398,10 @@ export async function sendConsolidatedConsultationWhatsApp(
     }
 
     // 9. Enqueue single consolidated WhatsApp message
-    const queueItem = await enqueueMessage(supabase, {
-      tenantId: session.tenantId,
+    // V2-04 04-03a: queued through the enqueue RPC with the visit as its subject; the job runner sends it.
+    const queueItem = await enqueueMessage(ctx, {
       patientId: patientId || null,
+      visitId: input.visitId,
       channel: "whatsapp",
       messageType: "consultation_documents",
       templateId: "consultation_documents",

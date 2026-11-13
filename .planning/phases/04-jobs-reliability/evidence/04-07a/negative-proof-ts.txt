@@ -1,0 +1,40 @@
+# 04-07a negative proof (TypeScript): pre-fix files from 624f47a in the working tree (lib/messaging/providers/msg91.ts,
+# app/api/webhooks/messaging/[provider]/route.ts, features/appointments/system.ts, lib/messaging/webhook-helpers.ts, eslint.config.mjs),
+# migration 000041 applied, then the specs below filtered to the 04-07a cases; files restored with git checkout -- <file>.
+   × M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > cancel: the visit UPDATE fails → 500, still booked, key failed; the retry cancels and acknowledges once
+   × M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > cancel: the acknowledgement enqueue fails after the cancel → 500; the retry queues the acknowledgement once (no 'not found' reply, no second audit)
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > a cancel for a visit that moved on is a business no-op: 200 `ignored`, no retry needed
+   × M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > confirm: the acknowledgement enqueue fails → 500; the retry acknowledges once and confirms once
+   × M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > triage: the reply enqueue fails after the front-desk note → 500; the retry writes no second note (review IND L4)
+   × M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > reschedule: a failed note insert → 500; the retry writes one note and one link reply
+   × M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > unmatched sender: the reply enqueue fails → 500; the retry queues one reply job
+   ✓ M-INBOUND: a transient failure answers 500 and the provider's retry completes the work once > a permanent refusal of the reply (the stored recipient is no longer the patient's number) is handled, not retried
+   × review B L-2: a reply acts only on the queue row's own visit column, never on metadata > a row without appointment_id whose metadata names another visit changes nothing there
+   ✓ delivery reports: an early report is kept; the failure note carries a code (IND L2, B L-6) > a Delivered report that beats the sender's finish write is applied when the id is written (before: lost) 
+   × delivery reports: an early report is kept; the failure note carries a code (IND L2, B L-6) > the urgent-failure note prints a reason code, never the provider's free text
+   ✓ H-SMS: a member cannot make the runner send SMS to arbitrary numbers (review B H-1) > the reviewer's exact call (nurse, sms fallback template, crafted params) is refused and writes no row
+   ✓ H-SMS: a member cannot make the runner send SMS to arbitrary numbers (review B H-1) > a template the nurse may queue refuses every control key; the system path and a direct INSERT refuse them too
+   × H-SMS: a member cannot make the runner send SMS to arbitrary numbers (review B H-1) > an existing hostile row is sent only to the patient, with the fixed template, sender and short_url; a hostile WhatsApp row gets no SMS fallback
+   ✓ H-SMS: a member cannot make the runner send SMS to arbitrary numbers (review B H-1) > the provider's declared SMS variables are the SQL allow-list of the same templates
+   × P0-12: provider and direct senders outside the runner fail lint > dynamic-imports.ts at features/billing/x.ts
+   × P0-12: provider and direct senders outside the runner fail lint > dynamic-imports.ts at app/api/webhooks/messaging/[provider]/route.ts
+   × P0-12: provider and direct senders outside the runner fail lint > dynamic-imports.ts at lib/jobs/enqueue.ts
+   × P0-12: provider and direct senders outside the runner fail lint > dynamic-imports.ts at lib/messaging/x.ts
+   × P0-12: provider and direct senders outside the runner fail lint > dynamic-imports.ts at lib/webhooks/x.ts
+   ✓ P0-12: the runner internals and the messaging modules pass > dynamic-imports.ts at lib/jobs/internal/x.ts
+   ✓ P0-12: the runner internals and the messaging modules pass > dynamic-imports.ts at tests/fixture/x.spec.ts
+   ✓ inbound replies: exactly-once effect, at most one queued reply > the same reply posted 5 times at once → one confirmation, one reply; 200 for the first, 200 or 503 for the rest
+   × inbound replies: exactly-once effect, at most one queued reply > a recent unfinished claim (another instance is on it) answers 503 Retry-After without any effect (04-07a M-INBOUND)
+   ✓ delivery reports: one transition and one audit row per report, monotonic > an unknown request id is finished as ignored (a repeat is a duplicate); 04-07a keeps it for a later finish
+   ✓ MSG91 request shape > SMS goes to the flow API with authkey and the flow body; 200 → externalMessageId
+   × MSG91 request shape > SMS (an undeclared template): params named mobiles / template_id / sender / short_url (any case) never change the request
+   × MSG91 request shape > SMS (a declared SMS fallback): params named mobiles / template_id / sender / short_url (any case) never change the request
+   × MSG91 request shape > SMS with a declared template sends only its declared variables
+   ✓ MSG91 failure classification (R-20) > SMS: 400 → not retryable, code only (never MSG91's text)
+   ✓ MSG91 failure classification (R-20) > SMS: 500 and 429 → retryable
+   ✓ MSG91 failure classification (R-20) > SMS: a 200 body reporting an error → not retryable
+   ✓ MSG91 failure classification (R-20) > SMS: a network error → retryable
+   × Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 3. V2-04 04-03c: the inbound dedupe key (exactly-once effect per callback) > 04-07a: the provider id is preferred (numeric ids included); without one the body hash covers the timestamp
+⎯⎯⎯⎯⎯⎯ Failed Tests 19 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  6 failed (6)
+      Tests  19 failed | 15 passed | 86 skipped (120)

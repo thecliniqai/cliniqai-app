@@ -113,6 +113,7 @@ jobs:
       - name: npm audit (all deps, report only)
         run: |
           npm audit --json > npm-audit-full.json || true
+          # shellcheck disable=SC2016 # JavaScript template literals, not shell expansions
           node -e '
             const r = require("./npm-audit-full.json");
             const v = r.metadata?.vulnerabilities ?? {};
@@ -125,10 +126,51 @@ jobs:
           path: npm-audit-full.json
           retention-days: 30
 
+  # V2-04 04-05a (FT-02, roadmap "the scripted restore drill"): ops/backup/backup.sh dumps the primary local stack,
+  # encrypts to two throwaway age recipients and uploads to the local Storage S3 endpoint (the bucket stand-in); the
+  # drill restores it into the second local stack (clinicos-drill, ports 553xx) and runs the checks. Synthetic local
+  # data only on a GitHub runner (PO-23(h)); no secret, no AWS. A failure opens/updates the "Nightly failing" issue.
+  backup-roundtrip:
+    name: backup-roundtrip
+    if: ${{ (inputs.lane || 'nightly') == 'nightly' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Install age (pinned release, SHA-256 verified)
+        run: ops/bin/install-age.sh
+      - name: Start the local Supabase stack
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
+          -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+      - name: Restore drill self-test (backup, encrypt, upload, restore into the drill stack, checks)
+        run: ops/restore-drill/run.sh --self-test --evidence restore-drill-selftest.json
+      - name: Check the drill evidence
+        run: npx tsx ops/restore-drill/check-evidence.ts restore-drill-selftest.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: restore-drill-selftest
+          path: restore-drill-selftest.json
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Stop the local stacks
+        if: ${{ always() }}
+        run: |
+          npx supabase stop --workdir ops/restore-drill --no-backup || true
+          npx supabase stop --no-backup
+
   # One open "Nightly failing" issue opened by this bot: created on the first failure, commented on every later one.
   report-failure:
     name: report-failure
-    needs: [e2e-nightly, audit-full]
+    needs: [e2e-nightly, audit-full, backup-roundtrip]
     if: ${{ failure() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5

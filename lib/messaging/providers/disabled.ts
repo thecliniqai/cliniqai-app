@@ -13,10 +13,10 @@ export class DisabledMessagingProvider implements MessagingProvider {
 
   // No parameters: the recipient, template and values are never read.
   async sendSms(): Promise<MessagingSendResult> {
-    return { success: false, channelUsed: "sms", error: PROVIDER_DISABLED, retryable: false };
+    return { success: false, channelUsed: "sms", error: PROVIDER_DISABLED, code: PROVIDER_DISABLED, retryable: false };
   }
 
   async sendWhatsApp(): Promise<MessagingSendResult> {
-    return { success: false, channelUsed: "whatsapp", error: PROVIDER_DISABLED, retryable: false };
+    return { success: false, channelUsed: "whatsapp", error: PROVIDER_DISABLED, code: PROVIDER_DISABLED, retryable: false };
   }
 }

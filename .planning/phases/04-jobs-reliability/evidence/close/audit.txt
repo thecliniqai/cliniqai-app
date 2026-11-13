@@ -1,0 +1,10 @@
+# npm run ci:audit at 2260c64
+
+> clinicos@0.1.0 ci:audit
+> node scripts/ci/audit-gate.mjs
+
+audit-gate: 2 high/critical advisories (production deps), 2 waiver(s), today 2026-11-13
+  high     GHSA-j4fx-xxwh-2485 jsondiffpatch
+  high     GHSA-mrhx-c7xc-m3w5 zod
+audit-gate: PASS
+exit=0

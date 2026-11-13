@@ -1,0 +1,16 @@
+# 04-02 R-16 probe: can the migration role (postgres) revoke pg_net's grants? (local stack, supabase/postgres 17.11, pg_net 0.20.4; rolled back)
+$ docker exec supabase_db_clinicos psql -U postgres -At -c begin -c '<revokes>' -c '<acl queries>' -c rollback
+BEGIN
+role|postgres|f
+owner net schema|supabase_admin
+WARNING:  no privileges could be revoked for "net"
+REVOKE
+WARNING:  no privileges could be revoked for "http_request_queue"
+WARNING:  no privileges could be revoked for "_http_response"
+REVOKE
+WARNING:  no privileges could be revoked for "http_post"
+WARNING:  no privileges could be revoked for "http_get"
+REVOKE
+after: anon usage net|t|authenticated execute http_post|t|authenticated select http_request_queue|t|PUBLIC on queue|{supabase_admin=arwdDxtm/supabase_admin,=arwdDxtm/supabase_admin}
+ROLLBACK
+# Result: every REVOKE is a no-op ('no privileges could be revoked'): the grantor is supabase_admin, postgres is not superuser.

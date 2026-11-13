@@ -1,0 +1,9 @@
+message.send:36,webhook.deliver:2
+message.send:36,webhook.deliver:2
+message.send:36,webhook.deliver:2
+message.send:36,webhook.deliver:2
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/security/guard-routes.spec.ts > P0-13: every route handler is in the guard manifest and guarded > seeded legs > denial legs (no writes) > wrote nothing, and tenant B's rows are unchanged
+-   "audit_logs": 362,
++   "audit_logs": 398,
+      Tests  1 failed | 675 passed (676)

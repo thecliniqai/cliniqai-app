@@ -1,0 +1,1138 @@
+# 04-03c before-run: the new and rewritten specs on pre-plan code (6cb887e, throwaway worktree, specs/helpers/fixtures copied in), stack reset to 000036
+# commit: 6cb887e54da74baef393215995f69f4330fe2dfd
+
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts (150 tests | 5 failed) 26837ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a server action importing the system factory  717ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a dashboard page importing the system factory 68ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a feature service importing the system factory 3ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > an A1 share route importing the factory itself 8ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the cookie-client module importing the factory 7ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the lib/jobs enqueue surface wrapping the factory 6ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > lib/jobs/enqueue.ts importing the system factory 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > lib/jobs/auth.ts importing the system factory 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a feature importing a factory wrapper from lint-fixtures/, scripts/, tests/, docs/ 3ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a register zone importing the tooling trees 7ms
+   × P1-34 boundary lint gates: bypass fixtures fail lint > the factory in lib/webhooks (V2-04 register entry deleted) 10ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ] ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > the factory in lib/messaging/dispatcher.ts (V2-04 register entry deleted) 7ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ] ]
+   × P1-34 boundary lint gates: bypass fixtures fail lint > the factory in an app/api/cron route (V2-04 register entry deleted) 8ms
+     → expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ] ]
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > features/auth/system from another auth route 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > features/auth/system from a feature service 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the factory itself in the Send Email hook route 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > another domain's system module in the Send Email hook route 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > features/sharing/system in the Send Email hook route 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a relative path to the factory 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a re-export of the factory 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a feature service importing features/sharing/system 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a non-A1 route importing features/sharing/system 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a non-A1 page importing features/sharing/system 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > an A1 route importing another domain's system module 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > an action importing its own domain's ./system 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > dynamic import() of the factory 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > dynamic import() of the factory on an allowed path 8ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > require() of the factory 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > require() of the factory on an allowed path 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a computed import() specifier 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > dynamic import() of @supabase/supabase-js 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a createClient value import and the secret key in a feature 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a namespace import of @supabase/supabase-js 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a createServerClient value import in a feature 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > new SupabaseClient in a feature 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > new SupabaseClient in the factory module (createClient only) 7ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > GoTrueAdminApi and @supabase/auth-js in a feature 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > GoTrueAdminApi and @supabase/auth-js in the factory module 4ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > GoTrueAdminApi and @supabase/auth-js in a cookie-session module 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/postgrest-js in a feature 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/postgrest-js in the factory module 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/ssr and supabase-js subpaths in a feature 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/ssr and supabase-js subpaths in a cookie-session module 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > @supabase/ssr and supabase-js subpaths in the factory module 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the secret-key name built from pieces, and computed/spread/enumerated env reads 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > require aliased, module.require, a computed require and createRequire 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the require forms on an allowed path 7ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > inline directives that silence or blanket the gates (inline configuration off) 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the secret-key names as strings in a feature 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > an action importing a lib/jobs internal 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a register route importing a lib/jobs internal 3ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the jobs enqueue surface importing a lib/jobs internal 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the jobs enqueue surface importing ./internal 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > process.env in a feature 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > process.env in the system factory 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > process.env in lib (outside the ops/** tooling zone) 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > console in a feature 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > console in the server logger 6ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > console in the env module 6ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > process.stdout/stderr in a feature 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > process.stdout/stderr in a route handler 1ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > process.stdout/stderr in the env module 3ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > process.stdout/stderr in instrumentation 6ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > the server logger imported into "use client" code 7ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > each UTC-date pattern in a feature 2ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > each UTC-date pattern outside lib/datetime 7ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/api/r/[token]/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/r/[token]/page.tsx 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/api/reports/view/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/reports/view/page.tsx 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > sharing-system-import.ts at app/api/reschedule/[token]/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/webhooks/x/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/jobs/run/route.ts 7ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/jobs/internal/runner.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at features/x/system.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at app/api/v1/x/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at lib/api/x.ts 1ms
+   × P1-34 boundary lint gates: allowed paths stay clean > auth-system-import.ts at app/api/auth/send-email/route.ts 1ms
+     → expected [ [ 1, 'P1-34:', …(2) ] ] to deeply equal []
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > other-feature-system-import.ts at features/sharing/system.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > other-feature-system-import.ts at app/api/webhooks/messaging/x/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > second-factory.ts at lib/supabase/system.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > ssr-client-import.ts at lib/supabase/server.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > ssr-client-import.ts at lib/supabase/client.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > ssr-client-import.ts at proxy.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > type-imports.ts at features/patients/service.ts 2ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > secret-key-names.ts at lib/env.ts 2ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > secret-key-names.ts at lib/env-server.ts 3ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at lib/env.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at lib/env-server.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at next.config.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at instrumentation.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at lib/log/client.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > console.ts at lib/log/client.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > raw-stream.ts at lib/log/index.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > raw-stream.ts at lib/log/client.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > raw-stream.ts at lib/observability/console-scrub.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > client-reporter.tsx at components/fixture/widget.tsx 5ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > utc-date-patterns.ts at lib/datetime/x.ts 6ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > jobs-internal-import.ts at app/api/jobs/run/route.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > jobs-internal-import.ts at lib/jobs/internal/registry.ts 3ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > factory-import.ts at tests/fixture/x.spec.ts 6ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > second-factory.ts at scripts/fixture.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > console.ts at scripts/fixture.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > raw-stream.ts at scripts/fixture.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at tests/fixture/x.spec.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > process-env.ts at ops/x.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > console.ts at ops/x.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > computed-secret-key.ts at lib/env.ts 2ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > computed-secret-key.ts at lib/env-server.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > tooling-import.ts at tests/fixture/x.spec.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > require-forms.ts at scripts/fixture.ts 1ms
+   ✓ P1-34 boundary lint gates: allowed paths stay clean > supabase-client-class.ts at tests/fixture/x.spec.ts 1ms
+   ✓ P1-34 boundary lint gates: the real jobs runner files (04-02) > app/api/jobs/run/route.ts lints clean where it lives 18ms
+   ✓ P1-34 boundary lint gates: the real jobs runner files (04-02) > lib/jobs/internal/registry.ts lints clean where it lives 2ms
+   ✓ P1-34 boundary lint gates: the real jobs runner files (04-02) > lib/jobs/internal/handlers/drill.ts lints clean where it lives 2ms
+   ✓ P1-34 boundary lint gates: the real jobs runner files (04-02) > lib/jobs/auth.ts lints clean where it lives 4ms
+   ✓ P1-34 boundary lint gates: the real jobs runner files (04-02) > the runner route's source fails as a server action (the factory and two jobs internals) 10ms
+   ✓ P1-34 boundary lint gates: the real jobs runner files (04-02) > the runner route's source fails as a register route (the two jobs internals; the register may hold the factory until P1-37) 8ms
+   ✓ P1-34 boundary lint gates: the real jobs runner files (04-02) > the runner route's source fails as the enqueue surface (the factory and two jobs internals) 11ms
+   ✓ P1-34 boundary lint gates: inline directives (03-13c M-LINT) > with inline configuration on (`npx eslint .`), the directive rule still fails a directive that names a gate 7ms
+   ✓ P1-34 boundary lint gates: inline directives (03-13c M-LINT) > tooling may carry directives (the rule is off there) 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/v1/x/route.ts 2ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/auth/send-email/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/webhooks/x/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/jobs/run/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/api/x.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/webhooks/x.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/messaging/x.ts 9ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/jobs/internal/runner.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at features/x/system.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/supabase/system.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/supabase/server.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at proxy.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/env.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at next.config.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/log/client.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/log/index.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/observability/x.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at lib/datetime/x.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/r/[token]/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/r/[token]/page.tsx 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/reports/view/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/reports/view/page.tsx 3ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at app/api/reschedule/[token]/route.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at tests/fixture/x.spec.ts 1ms
+   ✓ P1-34 boundary lint gates: zones keep the base gates > AUTH-01 and P0-13 fire at scripts/fixture.ts 1ms
+   ✓ P1-34 boundary lint gates: the real tree > app code carries 0 boundary messages  4180ms
+   ✓ P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed  10699ms
+   × P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > 04-03c: the ADR-0005 exception register holds only the /api/v1 entry (smaller than V2-03's) 10683ms
+     → expected undefined to deeply equal [ 'app/api/v1/**', 'lib/api/**' ]
+   ✓ P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the counters see the fixtures' second factories, system importers, directives and UTC patterns 127ms
+ ❯ tests/security/p0-12-lint-gates.spec.ts (46 tests | 6 failed) 12259ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at features/patients/service.ts  593ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at features/patients/actions.ts 4ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/(dashboard)/fixture/page.tsx 6ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/api/jobs/run/route.ts 8ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at lib/jobs/enqueue.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/api/webhooks/payments/route.ts 7ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > direct-send-import.ts at features/billing/service.ts 3ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > direct-send-import.ts at features/appointments/system.ts 2ms
+   × P0-12: provider and direct senders outside the runner fail lint > direct-send-import.ts at app/api/webhooks/messaging/[provider]/route.ts 13ms
+     → expected [] to deeply equal [ [ 2, …(1) ] ]
+   × P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/api/webhooks/messaging/[provider]/route.ts 2ms
+     → expected [] to deeply equal [ [ 1, …(1) ] ]
+   × P0-12: provider and direct senders outside the runner fail lint > provider-class-imports.ts at app/api/webhooks/messaging/[provider]/route.ts 2ms
+     → expected [] to deeply equal [ [ 1, …(1) ], [ 2, …(1) ], …(3) ]
+   × P0-12: provider and direct senders outside the runner fail lint > namespace-barrel-import.ts at app/api/webhooks/messaging/[provider]/route.ts 2ms
+     → expected [] to deeply equal [ [ 2, …(1) ] ]
+   ✓ P0-12: provider and direct senders outside the runner fail lint > direct-send-import.ts at app/api/webhooks/messaging/x/route.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-class-imports.ts at features/visits/scheduling-service.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > namespace-barrel-import.ts at features/labs/service.ts 1ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > reexport-sender.ts at lib/db/x.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at features/labs/service.ts 3ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at features/webhooks/actions.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at app/api/v1/prescriptions/route.ts 7ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at features/appointments/system.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at app/api/jobs/run/route.ts 3ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > webhook-fire-and-forget.ts at lib/jobs/enqueue.ts 2ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > webhook-transport-imports.ts at features/webhooks/service.ts 2ms
+   ✓ P0-12: the runner internals and the messaging modules pass > provider-factory-import.ts at lib/jobs/internal/x.ts 7ms
+   ✓ P0-12: the runner internals and the messaging modules pass > provider-factory-import.ts at lib/jobs/internal/handlers/message-send.ts 1ms
+   ✓ P0-12: the runner internals and the messaging modules pass > provider-factory-import.ts at lib/jobs/internal/handlers/message-reply-unmatched.ts 1ms
+   ✓ P0-12: the runner internals and the messaging modules pass > provider-factory-import.ts at lib/messaging/x.ts 6ms
+   ✓ P0-12: the runner internals and the messaging modules pass > provider-factory-import.ts at tests/fixture/x.spec.ts 6ms
+   ✓ P0-12: the runner internals and the messaging modules pass > provider-factory-import.ts at scripts/msg91-test-send.ts 1ms
+   ✓ P0-12: the runner internals and the messaging modules pass > direct-send-import.ts at lib/jobs/internal/x.ts 3ms
+   ✓ P0-12: the runner internals and the messaging modules pass > provider-class-imports.ts at lib/jobs/internal/x.ts 1ms
+   ✓ P0-12: the runner internals and the messaging modules pass > provider-class-imports.ts at lib/messaging/x.ts 1ms
+   ✓ P0-12: the runner internals and the messaging modules pass > namespace-barrel-import.ts at lib/messaging/x.ts 1ms
+   ✓ P0-12: the runner internals and the messaging modules pass > allowed-imports.ts at features/patients/service.ts 2ms
+   ✓ P0-12: the runner internals and the messaging modules pass > allowed-imports.ts at app/api/patients/route.ts 1ms
+   ✓ P0-12: the runner internals and the messaging modules pass > webhook-fire-and-forget.ts at lib/jobs/internal/x.ts 1ms
+   ✓ P0-12: the runner internals and the messaging modules pass > webhook-fire-and-forget.ts at lib/jobs/internal/handlers/webhook-deliver.ts 1ms
+   ✓ P0-12: the runner internals and the messaging modules pass > webhook-fire-and-forget.ts at tests/fixture/x.spec.ts 1ms
+   ✓ P0-12: the runner internals and the messaging modules pass > webhook-transport-imports.ts at lib/webhooks/x.ts 7ms
+   ✓ P0-12: the runner internals and the messaging modules pass > webhook-transport-imports.ts at lib/jobs/internal/x.ts 1ms
+   × P0-12: the real tree > the real handlers and inbound route lint clean in place, and fail at a feature path 28ms
+     → No files matching '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before/lib/jobs/internal/handlers/message-reply-unmatched.ts' were found.
+   ✓ P0-12: the real tree > sibling spellings of the deliverer fail outside lib/webhooks and pass inside it 3ms
+   × P0-12: the real tree > 04-03c: the inbound route lints clean without its allowance zone; a direct send added to it fails in place 1ms
+     → expected '[2,{"paths":[],"patterns":[{"regex":"…' to contain 'getMessagingProvider'
+   ✓ P0-12: the real tree > the fire-and-forget outbox and the cron webhook route are gone 0ms
+   ✓ P0-12: the real tree > app code carries 0 P0-12 messages (census: boundary_messages[P0-12] = 0)  11469ms
+   ✓ P0-12: the real tree > the census counts a P0-12 violation (so 0 above is live) 44ms
+ ❯ tests/jobs/queue-grants-db.spec.ts (10 tests | 1 failed) 1730ms
+   ✓ members cannot write the queues (42501) > a member inserting into communication_queue is refused 7ms
+   ✓ members cannot write the queues (42501) > a member calling communication_queue_claim / _finish is refused 4ms
+   ✓ members cannot write the queues (42501) > an owner cannot insert a delivery row naming its own subscription, nor edit or delete one 55ms
+   ✓ members cannot write the queues (42501) > the delivery log still reads the clinic's rows (SELECT policy) 4ms
+   ✓ members cannot write the queues (42501) > the enqueue RPCs still work for members 9ms
+   ✓ catalogue: the contract holds > anon holds no privilege on either queue table (table or column level)  663ms
+   ✓ catalogue: the contract holds > authenticated holds SELECT only (no write privilege at table or column level)  582ms
+   ✓ catalogue: the contract holds > every policy on the queue tables is FOR SELECT 31ms
+   ✓ catalogue: the contract holds > no API role may execute the queue's claim, finish, dead-letter, delivery-report or inbound functions 29ms
+   × catalogue: the contract holds > the migration's contract assertion raises when a write privilege is put back (rolled back) 2ms
+     → ENOENT: no such file or directory, open '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before/supabase/migrations/000038_queue_contract.sql'
+ ❯ tests/security/webhook-lockdown.spec.ts (47 tests | 45 failed) 742ms
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "dev" answers 404 with an empty body for every method, even with a valid secret 10ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "twilio" answers 404 with an empty body for every method, even with a valid secret 3ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "gupshup" answers 404 with an empty body for every method, even with a valid secret 3ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "unknown" answers 404 with an empty body for every method, even with a valid secret 3ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "MSG91" answers 404 with an empty body for every method, even with a valid secret 3ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "msg91 " answers 404 with an empty body for every method, even with a valid secret 3ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > GET /api/webhooks/messaging/dev?action=btn_cancel is 404 under NODE_ENV=development 4ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > GET /api/webhooks/messaging/dev?action=btn_cancel is 404 under NODE_ENV=production 2ms
+     → inboundDedupeKey is not a function
+   ✓ P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > GET on the msg91 provider is also 404 (the GET simulator is gone) 2ms
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > no secret header → 401 { ok: false }, no DB access, visit unchanged 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > wrong secret → 401 { ok: false }, no DB access, visit unchanged 3ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > shorter secret (length mismatch) → 401 { ok: false }, no DB access, visit unchanged 3ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > longer secret (length mismatch) → 401 { ok: false }, no DB access, visit unchanged 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > empty secret header → 401 { ok: false }, no DB access, visit unchanged 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > secret only in the query string → 401 { ok: false }, no DB access, visit unchanged 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > secret in an authkey header → 401 { ok: false }, no DB access, visit unchanged 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > the MSG91 API auth key is not a webhook credential 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > an unset MSG91_WEBHOOK_SECRET rejects everything under NODE_ENV=test 3ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > an unset MSG91_WEBHOOK_SECRET rejects everything under NODE_ENV=development 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > an unset MSG91_WEBHOOK_SECRET rejects everything under NODE_ENV=production 3ms
+     → inboundDedupeKey is not a function
+   ✓ P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > compares with crypto.timingSafeEqual over equal-length digests 7ms
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > AR-L1: a reply from a number other than the message's recipient changes nothing and gets no link 44ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > a tenant-B replyMsgId from tenant B's recipient acts only on tenant B; tenant A is untouched 4ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > AR-L1: a late confirm does not move a waiting visit back to confirmed 6ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > a queue row whose appointment points at another tenant's visit resolves nothing 4ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #0 does not widen the match 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #1 does not widen the match 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #2 does not widen the match 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #3 does not widen the match 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #4 does not widen the match 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #5 does not widen the match 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > no phone fallback: a cancel without replyMsgId from a seeded patient's phone changes nothing 35ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > the correct tenant-A replyMsgId cancels tenant A's visit and only that visit 3ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > AR2-L3: a foreign number ending in the recipient's 10 digits is not the recipient 34ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > AR3-N3: a sender without a country code never matches (a 10-digit foreign number is not an Indian mobile) 33ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > 01-10 / 04-03c: delivery reports persist and are monotonic — a late Failed leaves delivered; Failed on a sent row → dead_letter 5ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > AR2-L4: a late cancel or reschedule reply does nothing to a waiting visit (no link, no cancellation) 38ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > AR2-L4: a late cancel or reschedule reply does nothing to a in_consultation visit (no link, no cancellation) 33ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > AR2-L4: a booked visit can still be cancelled and a confirmed one gets a reschedule link (queued to the recipient) 34ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > inbound confirm 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > inbound cancel 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > inbound reschedule 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > inbound triage 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > DLR Delivered (known and unknown request id) 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > DLR Read (known and unknown request id) 3ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > DLR Failed (known and unknown request id) 2ms
+     → inboundDedupeKey is not a function
+   × P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > DLR Submitted (known and unknown request id) 2ms
+     → inboundDedupeKey is not a function
+ ❯ tests/jobs/backfill-db.spec.ts (4 tests | 4 failed) 683ms
+   × ops.backfill_delivery_jobs (R-38) > an open message row without a job gets exactly one; a second call creates none for it 93ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.backfill_delivery_jobs()
+ERROR:  function ops.backfill_delivery_jobs() does not exist
+LINE 1: select ops.backfill_delivery_jobs()
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+   × ops.backfill_delivery_jobs (R-38) > a row stuck in processing for more than 240 s becomes failed/outcome_unknown first, then gets its job 116ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.backfill_delivery_jobs()
+ERROR:  function ops.backfill_delivery_jobs() does not exist
+LINE 1: select ops.backfill_delivery_jobs()
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+   × ops.backfill_delivery_jobs (R-38) > webhook rows: pending and reaper-failed rows get a job; a terminal failed row does not 295ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.backfill_delivery_jobs()
+ERROR:  function ops.backfill_delivery_jobs() does not exist
+LINE 1: select ops.backfill_delivery_jobs()
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+   × ops.backfill_delivery_jobs (R-38) > is postgres only 29ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select has_function_privilege('service_role', 'ops.backfill_delivery_jobs()', 'execute')
+ERROR:  function "ops.backfill_delivery_jobs()" does not exist
+
+ ❯ tests/jobs/replay-job-db.spec.ts (4 tests | 4 failed) 486ms
+   × ops.replay_job (R-35) > a dead message.send job and its dead-lettered row go back to pending; the runner then sends once 122ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.replay_job('7f3aaa6a-2fb9-45b5-a2a0-65ebd855b9fd')
+ERROR:  function ops.replay_job(unknown) does not exist
+LINE 1: select ops.replay_job('7f3aaa6a-2fb9-45b5-a2a0-65ebd855b9fd'...
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+   × ops.replay_job (R-35) > a dead webhook.deliver job and its failed row go back to pending 124ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.replay_job('09633f6e-d116-449b-a2e7-9867f89cf067')
+ERROR:  function ops.replay_job(unknown) does not exist
+LINE 1: select ops.replay_job('09633f6e-d116-449b-a2e7-9867f89cf067'...
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+   × ops.replay_job (R-35) > refuses a job that is not dead, an unknown id and an unmatched reply (JOB_NOT_REPLAYABLE) 63ms
+     → expected [Function] to throw error matching /JOB_NOT_REPLAYABLE/ but got 'Command failed: docker exec supabase_…'
+   × ops.replay_job (R-35) > no API role may run it (postgres only) 28ms
+     → Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select has_function_privilege('service_role', 'ops.replay_job(uuid)', 'execute')
+ERROR:  function "ops.replay_job(uuid)" does not exist
+
+ ❯ tests/messaging/messaging-provider.spec.ts (11 tests | 1 failed) 8ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 1. Provider Factory Resolution > returns DevLoggerProvider by default when MESSAGING_PROVIDER is unset 1ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 1. Provider Factory Resolution > returns DevLoggerProvider when MESSAGING_PROVIDER=dev 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 1. Provider Factory Resolution > returns Msg91Provider when overrideName is 'msg91' 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 1. Provider Factory Resolution > returns TwilioProvider when overrideName is 'twilio' 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 1. Provider Factory Resolution > returns GupshupProvider when overrideName is 'gupshup' 0ms
+   × Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 0. V2-04 04-03c: no direct-send helpers > the barrel no longer exports sendDirectSms / sendDirectWhatsApp (R-33: only job handlers send) 2ms
+     → expected [ 'getMessagingProvider', …(9) ] to not include 'sendDirectSms'
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 2. DevLogger Local Delivery & File Appending (T-05-01) > the dev provider's sendSms writes one PHI-free log line and appends the message to .planning/dev-messages.txt 2ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 2. DevLogger Local Delivery & File Appending (T-05-01) > the dev provider's sendWhatsApp formats buttons without simulated webhook callback URLs 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 3. Production Driver Resilience Without Secrets > Msg91Provider gracefully reports error when MSG91_AUTH_KEY is missing 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 3. Production Driver Resilience Without Secrets > TwilioProvider gracefully reports error when credentials are missing 0ms
+   ✓ Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 3. Production Driver Resilience Without Secrets > GupshupProvider reports error on SMS request 0ms
+ ✓ tests/db/error-map.spec.ts (37 tests) 3ms
+ ❯ tests/messaging/two-way-bot.spec.ts (8 tests | 4 failed) 3ms
+   ✓ Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 2. Interactive Button & Action Parsing > parses confirmation aliases 0ms
+   ✓ Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 2. Interactive Button & Action Parsing > parses cancellation aliases 0ms
+   ✓ Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 2. Interactive Button & Action Parsing > parses reschedule aliases 0ms
+   ✓ Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 2. Interactive Button & Action Parsing > classifies conversational questions as unhandled 0ms
+   × Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 3. V2-04 04-03c: the inbound dedupe key (exactly-once effect per callback) > a delivery report is keyed by request id and status; a repeat is the same key, the next status another 1ms
+     → (0 , inboundDedupeKey) is not a function
+   × Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 3. V2-04 04-03c: the inbound dedupe key (exactly-once effect per callback) > a report with nothing to apply has no key (no request id, or a status the route ignores) 0ms
+     → (0 , inboundDedupeKey) is not a function
+   × Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 3. V2-04 04-03c: the inbound dedupe key (exactly-once effect per callback) > an inbound message uses its own id when the payload carries one, else the raw body's hash 0ms
+     → (0 , inboundDedupeKey) is not a function
+   × Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 3. V2-04 04-03c: the inbound dedupe key (exactly-once effect per callback) > a key never exceeds the 200-character column and never carries the sender's number 0ms
+     → (0 , inboundDedupeKey) is not a function
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/messaging/inbound-dedupe-db.spec.ts [ tests/messaging/inbound-dedupe-db.spec.ts ]
+ FAIL  tests/messaging/msg91-webhook.spec.ts [ tests/messaging/msg91-webhook.spec.ts ]
+ FAIL  tests/integration/auth/send-email-hook-dedupe-db.spec.ts [ tests/integration/auth/send-email-hook-dedupe-db.spec.ts ]
+Error: Cannot find module '@/lib/jobs/internal/handlers/message-reply-unmatched' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before/tests/messaging/inbound-helpers.ts'.
+
+- If you rely on tsconfig.json's "paths" to resolve modules, please install "vite-tsconfig-paths" plugin to handle module resolution.
+- Make sure you don't have relative aliases in your Vitest config. Use absolute paths instead. Read more: https://vitest.dev/guide/common-errors
+ ❯ tests/messaging/inbound-helpers.ts:13:1
+     11| import { inboundDedupeKey, parseMsg91Payload } from "@/lib/messaging/w…
+     12| import { runJobs } from "@/lib/jobs/internal/runner";
+     13| import {
+       | ^
+     14|   createMessageReplyUnmatchedHandler,
+     15|   MESSAGE_REPLY_UNMATCHED_KIND,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc delete from ops.inbound_webhook_events where provider = 'msg91' and dedupe_key in ('')
+ERROR:  relation "ops.inbound_webhook_events" does not exist
+LINE 1: delete from ops.inbound_webhook_events where provider = 'msg...
+                    ^
+
+ ❯ Module.psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/security/webhook-lockdown.spec.ts:206:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/74]⎯
+
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 70 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/jobs/backfill-db.spec.ts > ops.backfill_delivery_jobs (R-38) > an open message row without a job gets exactly one; a second call creates none for it
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.backfill_delivery_jobs()
+ERROR:  function ops.backfill_delivery_jobs() does not exist
+LINE 1: select ops.backfill_delivery_jobs()
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ backfill tests/jobs/backfill-db.spec.ts:37:17
+ ❯ tests/jobs/backfill-db.spec.ts:60:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/74]⎯
+
+ FAIL  tests/jobs/backfill-db.spec.ts > ops.backfill_delivery_jobs (R-38) > a row stuck in processing for more than 240 s becomes failed/outcome_unknown first, then gets its job
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.backfill_delivery_jobs()
+ERROR:  function ops.backfill_delivery_jobs() does not exist
+LINE 1: select ops.backfill_delivery_jobs()
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ backfill tests/jobs/backfill-db.spec.ts:37:17
+ ❯ tests/jobs/backfill-db.spec.ts:69:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/74]⎯
+
+ FAIL  tests/jobs/backfill-db.spec.ts > ops.backfill_delivery_jobs (R-38) > webhook rows: pending and reaper-failed rows get a job; a terminal failed row does not
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.backfill_delivery_jobs()
+ERROR:  function ops.backfill_delivery_jobs() does not exist
+LINE 1: select ops.backfill_delivery_jobs()
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ backfill tests/jobs/backfill-db.spec.ts:37:17
+ ❯ tests/jobs/backfill-db.spec.ts:88:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/74]⎯
+
+ FAIL  tests/jobs/backfill-db.spec.ts > ops.backfill_delivery_jobs (R-38) > is postgres only
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select has_function_privilege('service_role', 'ops.backfill_delivery_jobs()', 'execute')
+ERROR:  function "ops.backfill_delivery_jobs()" does not exist
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/jobs/backfill-db.spec.ts:102:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/74]⎯
+
+ FAIL  tests/jobs/queue-grants-db.spec.ts > catalogue: the contract holds > the migration's contract assertion raises when a write privilege is put back (rolled back)
+Error: ENOENT: no such file or directory, open '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before/supabase/migrations/000038_queue_contract.sql'
+ ❯ tests/jobs/queue-grants-db.spec.ts:161:20
+    159| 
+    160|   it("the migration's contract assertion raises when a write privilege…
+    161|     const sql = fs.readFileSync(path.join(ROOT, "supabase/migrations/0…
+       |                    ^
+    162|     const start = sql.indexOf("DO $$\nDECLARE\n    v_bad TEXT;");
+    163|     const end = sql.indexOf("END;\n$$;", start) + "END;\n$$;".length;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/74]⎯
+
+ FAIL  tests/jobs/replay-job-db.spec.ts > ops.replay_job (R-35) > a dead message.send job and its dead-lettered row go back to pending; the runner then sends once
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.replay_job('7f3aaa6a-2fb9-45b5-a2a0-65ebd855b9fd')
+ERROR:  function ops.replay_job(unknown) does not exist
+LINE 1: select ops.replay_job('7f3aaa6a-2fb9-45b5-a2a0-65ebd855b9fd'...
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ replay tests/jobs/replay-job-db.spec.ts:36:10
+ ❯ tests/jobs/replay-job-db.spec.ts:55:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/74]⎯
+
+ FAIL  tests/jobs/replay-job-db.spec.ts > ops.replay_job (R-35) > a dead webhook.deliver job and its failed row go back to pending
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.replay_job('09633f6e-d116-449b-a2e7-9867f89cf067')
+ERROR:  function ops.replay_job(unknown) does not exist
+LINE 1: select ops.replay_job('09633f6e-d116-449b-a2e7-9867f89cf067'...
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ replay tests/jobs/replay-job-db.spec.ts:36:10
+ ❯ tests/jobs/replay-job-db.spec.ts:74:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/74]⎯
+
+ FAIL  tests/jobs/replay-job-db.spec.ts > ops.replay_job (R-35) > refuses a job that is not dead, an unknown id and an unmatched reply (JOB_NOT_REPLAYABLE)
+AssertionError: expected [Function] to throw error matching /JOB_NOT_REPLAYABLE/ but got 'Command failed: docker exec supabase_…'
+
+[32m- Expected:[39m 
+/JOB_NOT_REPLAYABLE/
+
+[31m+ Received:[39m 
+"Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select ops.replay_job('f2156960-835e-4dda-8f52-d508632abc99')
+ERROR:  function ops.replay_job(unknown) does not exist
+LINE 1: select ops.replay_job('f2156960-835e-4dda-8f52-d508632abc99'...
+               ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+"
+
+ ❯ tests/jobs/replay-job-db.spec.ts:87:38
+     85|     );
+     86|     const [pending] = jobsFor(queued.id);
+     87|     expect(() => replay(pending.id)).toThrow(/JOB_NOT_REPLAYABLE/);
+       |                                      ^
+     88|     expect(() => replay(randomUUID())).toThrow(/JOB_NOT_REPLAYABLE/);
+     89| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/74]⎯
+
+ FAIL  tests/jobs/replay-job-db.spec.ts > ops.replay_job (R-35) > no API role may run it (postgres only)
+Error: Command failed: docker exec supabase_db_clinicos psql -U postgres -v ON_ERROR_STOP=1 -Atc select has_function_privilege('service_role', 'ops.replay_job(uuid)', 'execute')
+ERROR:  function "ops.replay_job(uuid)" does not exist
+
+ ❯ psql tests/helpers/sql.ts:29:15
+     27| export function psql(sql: string): string[] {
+     28|   // stderr is captured (and part of the thrown error's message), not …
+     29|   const out = execFileSync("docker", psqlArgs(sql), { encoding: "utf8"…
+       |               ^
+     30|   return out.trim().split("\n").filter(Boolean);
+     31| }
+ ❯ tests/jobs/replay-job-db.spec.ts:107:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/74]⎯
+
+ FAIL  tests/messaging/messaging-provider.spec.ts > Messaging Provider Layer (REQ-reminders-notifications, T-05-01) > 0. V2-04 04-03c: no direct-send helpers > the barrel no longer exports sendDirectSms / sendDirectWhatsApp (R-33: only job handlers send)
+AssertionError: expected [ 'getMessagingProvider', …(9) ] to not include 'sendDirectSms'
+ ❯ tests/messaging/messaging-provider.spec.ts:62:42
+     60|   describe("0. V2-04 04-03c: no direct-send helpers", () => {
+     61|     it("the barrel no longer exports sendDirectSms / sendDirectWhatsAp…
+     62|       expect(Object.keys(messaging)).not.toContain("sendDirectSms");
+       |                                          ^
+     63|       expect(Object.keys(messaging)).not.toContain("sendDirectWhatsApp…
+     64|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/74]⎯
+
+ FAIL  tests/messaging/two-way-bot.spec.ts > Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 3. V2-04 04-03c: the inbound dedupe key (exactly-once effect per callback) > a delivery report is keyed by request id and status; a repeat is the same key, the next status another
+TypeError: (0 , inboundDedupeKey) is not a function
+ ❯ key tests/messaging/two-way-bot.spec.ts:39:14
+     37|     const key = (body: unknown) => {
+     38|       const raw = typeof body === "string" ? body : JSON.stringify(bod…
+     39|       return inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |              ^
+     40|     };
+     41| 
+ ❯ tests/messaging/two-way-bot.spec.ts:43:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/74]⎯
+
+ FAIL  tests/messaging/two-way-bot.spec.ts > Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 3. V2-04 04-03c: the inbound dedupe key (exactly-once effect per callback) > a report with nothing to apply has no key (no request id, or a status the route ignores)
+TypeError: (0 , inboundDedupeKey) is not a function
+ ❯ key tests/messaging/two-way-bot.spec.ts:39:14
+     37|     const key = (body: unknown) => {
+     38|       const raw = typeof body === "string" ? body : JSON.stringify(bod…
+     39|       return inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |              ^
+     40|     };
+     41| 
+ ❯ tests/messaging/two-way-bot.spec.ts:49:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/74]⎯
+
+ FAIL  tests/messaging/two-way-bot.spec.ts > Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 3. V2-04 04-03c: the inbound dedupe key (exactly-once effect per callback) > an inbound message uses its own id when the payload carries one, else the raw body's hash
+TypeError: (0 , inboundDedupeKey) is not a function
+ ❯ key tests/messaging/two-way-bot.spec.ts:39:14
+     37|     const key = (body: unknown) => {
+     38|       const raw = typeof body === "string" ? body : JSON.stringify(bod…
+     39|       return inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |              ^
+     40|     };
+     41| 
+ ❯ tests/messaging/two-way-bot.spec.ts:54:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/74]⎯
+
+ FAIL  tests/messaging/two-way-bot.spec.ts > Two-Way WhatsApp Bot action parsing (REQ-reminders-notifications, T-05-05, T-05-07) > 3. V2-04 04-03c: the inbound dedupe key (exactly-once effect per callback) > a key never exceeds the 200-character column and never carries the sender's number
+TypeError: (0 , inboundDedupeKey) is not a function
+ ❯ key tests/messaging/two-way-bot.spec.ts:39:14
+     37|     const key = (body: unknown) => {
+     38|       const raw = typeof body === "string" ? body : JSON.stringify(bod…
+     39|       return inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |              ^
+     40|     };
+     41| 
+ ❯ tests/messaging/two-way-bot.spec.ts:64:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/74]⎯
+
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > direct-send-import.ts at app/api/webhooks/messaging/[provider]/route.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > namespace-barrel-import.ts at app/api/webhooks/messaging/[provider]/route.ts
+AssertionError: expected [] to deeply equal [ [ 2, …(1) ] ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     2,[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p0-12-lint-gates.spec.ts:89:44
+     87| describe("P0-12: provider and direct senders outside the runner fail l…
+     88|   it.each(FAILING)("%s at %s", async (fixture, relPath, expected) => {
+     89|     expect(await p012At(fixture, relPath)).toEqual(expected);
+       |                                            ^
+     90|   }, 60_000);
+     91| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/74]⎯
+
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/api/webhooks/messaging/[provider]/route.ts
+AssertionError: expected [] to deeply equal [ [ 1, …(1) ] ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     1,[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p0-12-lint-gates.spec.ts:89:44
+     87| describe("P0-12: provider and direct senders outside the runner fail l…
+     88|   it.each(FAILING)("%s at %s", async (fixture, relPath, expected) => {
+     89|     expect(await p012At(fixture, relPath)).toEqual(expected);
+       |                                            ^
+     90|   }, 60_000);
+     91| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/74]⎯
+
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > provider-class-imports.ts at app/api/webhooks/messaging/[provider]/route.ts
+AssertionError: expected [] to deeply equal [ [ 1, …(1) ], [ 2, …(1) ], …(3) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     1,[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     2,[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     3,[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     4,[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-   ],[39m
+[32m-   [[39m
+[32m-     4,[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p0-12-lint-gates.spec.ts:89:44
+     87| describe("P0-12: provider and direct senders outside the runner fail l…
+     88|   it.each(FAILING)("%s at %s", async (fixture, relPath, expected) => {
+     89|     expect(await p012At(fixture, relPath)).toEqual(expected);
+       |                                            ^
+     90|   }, 60_000);
+     91| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/74]⎯
+
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: the real tree > the real handlers and inbound route lint clean in place, and fail at a feature path
+Error: No files matching '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-before/lib/jobs/internal/handlers/message-reply-unmatched.ts' were found.
+ ❯ findFiles ../../../../../../../Users/sid/Code/clinicOS/node_modules/eslint/lib/eslint/eslint-helpers.js:624:9
+ ❯ ESLint.lintFiles ../../../../../../../Users/sid/Code/clinicOS/node_modules/eslint/lib/eslint/eslint.js:1014:21
+ ❯ tests/security/p0-12-lint-gates.spec.ts:108:24
+    106|       INBOUND,
+    107|     ]) {
+    108|       const [result] = await eslint.lintFiles([path.join(ROOT, rel)]);
+       |                        ^
+    109|       expect(result.messages.filter((m) => P012.test(m.message)), rel)…
+    110|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/74]⎯
+
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: the real tree > 04-03c: the inbound route lints clean without its allowance zone; a direct send added to it fails in place
+AssertionError: expected '[2,{"paths":[],"patterns":[{"regex":"…' to contain 'getMessagingProvider'
+
+Expected: [32m"getMessagingProvider"[39m
+Received: [31m"[2,{"paths":[],"patterns":[{"regex":"^@supabase\\/","allowTypeImports":true,"message":"P1-34: a value import from a Supabase package (any package or subpath) creates a second client factory; the only ones are lib/supabase/system.ts (getSystemDb) and the cookie-session modules lib/supabase/{server,client}.ts and proxy.ts. Type imports are allowed (ADR-0005 D2/D4)."},{"regex":"^(?:@\\/|(?:\\.\\.?\\/)+)(?:scripts|tests|docs|lint-fixtures|\\.planning)(?:\\/|$)","message":"P1-34: app code may not import scripts/, tests/, docs/, lint-fixtures/ or .planning/: a helper there is outside every boundary zone (ADR-0005 D4)."},{"regex":"^(?:@\\/lib\\/|(?:\\.{1,2}\\/)+(?:.*\\/)?)webhooks\\/(?:dispatcher|transport)(?:\\/index)?(?:\\.[cm]?[jt]sx?)?$|^(?:\\.{1,2}\\/)+(?:dispatcher|transport)(?:\\/index)?(?:\\.[cm]?[jt]sx?)?$","allowTypeImports":true,"message":"P0-12: a request path never delivers a webhook; enqueue through @/lib/jobs/enqueue (enqueueWebhookEvent). The webhook deliverer and its pinned transport are importable only from lib/jobs/internal/** (the webhook.deliver handler) and lib/webhooks/** (R-33)."},{"regex":"(?:^(?:@|\\.{1,2}|)\\/(?:.*\\/)?jobs\\/internal(?:\\/.*)?$|^\\.{1,2}\\/(?:\\.\\.\\/)*internal(?:\\/.*)?$)","message":"P1-34: lib/jobs/internal (claim, handlers, runner) is importable only from app/api/jobs/** and lib/jobs/internal/**; request paths use the lib/jobs enqueue surface (ADR-0005 D2)."}]}]"[39m
+
+ ❯ tests/security/p0-12-lint-gates.spec.ts:135:22
+    133|     const patterns = JSON.stringify(config.rules["@typescript-eslint/n…
+    134|     // The messagingSend group (the factory, the senders, the provider…
+    135|     expect(patterns).toContain("getMessagingProvider");
+       |                      ^
+    136|     const source = fs.readFileSync(path.join(ROOT, INBOUND), "utf8");
+    137|     // The same source with a direct send added fails in place.
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/74]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the factory in lib/webhooks (V2-04 register entry deleted)
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the factory in lib/messaging/dispatcher.ts (V2-04 register entry deleted)
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: bypass fixtures fail lint > the factory in an app/api/cron route (V2-04 register entry deleted)
+AssertionError: expected [] to deeply equal [ [ 1, 'P1-34:', …(2) ] ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [[39m
+[32m-   [[39m
+[32m-     1,[39m
+[32m-     "P1-34:",[39m
+[32m-     "@typescript-eslint/no-restricted-imports",[39m
+[32m-     2,[39m
+[32m-   ],[39m
+[32m- ][39m
+[31m+ [][39m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:218:17
+    216|   it.each(FAILING)("%s", async (_name, fixture, relPath, expected) => {
+    217|     const got = await boundaryAt(fixture, relPath);
+    218|     expect(got).toEqual(expected.map(([line, prefix, rule]) => [line, …
+       |                 ^
+    219|   }, 60_000);
+    220| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/74]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 boundary lint gates: allowed paths stay clean > auth-system-import.ts at app/api/auth/send-email/route.ts
+AssertionError: expected [ [ 1, 'P1-34:', …(2) ] ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   [[39m
+[31m+     1,[39m
+[31m+     "P1-34:",[39m
+[31m+     "@typescript-eslint/no-restricted-imports",[39m
+[31m+     2,[39m
+[31m+   ],[39m
+[31m+ ][39m
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:224:48
+    222| describe("P1-34 boundary lint gates: allowed paths stay clean", () => {
+    223|   it.each(PASSING)("%s at %s", async (fixture, relPath) => {
+    224|     expect(await boundaryAt(fixture, relPath)).toEqual([]);
+       |                                                ^
+    225|   }, 60_000);
+    226| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/74]⎯
+
+ FAIL  tests/security/p1-34-lint-gates.spec.ts > P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > 04-03c: the ADR-0005 exception register holds only the /api/v1 entry (smaller than V2-03's)
+AssertionError: expected undefined to deeply equal [ 'app/api/v1/**', 'lib/api/**' ]
+
+[32m- Expected:[39m 
+[
+  "app/api/v1/**",
+  "lib/api/**",
+]
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ tests/security/p1-34-lint-gates.spec.ts:378:34
+    376|   it("04-03c: the ADR-0005 exception register holds only the /api/v1 e…
+    377|     const c = (await p134Counters({ cwd: ROOT })) as Counters;
+    378|     expect(c.exception_register).toEqual(["app/api/v1/**", "lib/api/**…
+       |                                  ^
+    379|     expect(c.exception_register_entries).toBe(2);
+    380|     expect(c.exception_register_entries).toBeLessThan(V2_03_REGISTER.l…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "dev" answers 404 with an empty body for every method, even with a valid secret
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "twilio" answers 404 with an empty body for every method, even with a valid secret
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "gupshup" answers 404 with an empty body for every method, even with a valid secret
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "unknown" answers 404 with an empty body for every method, even with a valid secret
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "MSG91" answers 404 with an empty body for every method, even with a valid secret
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > provider "msg91 " answers 404 with an empty body for every method, even with a valid secret
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:219:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > GET /api/webhooks/messaging/dev?action=btn_cancel is 404 under NODE_ENV=development
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-01: only msg91 exists (default deny, D5/D6) > GET /api/webhooks/messaging/dev?action=btn_cancel is 404 under NODE_ENV=production
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:241:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > no secret header → 401 { ok: false }, no DB access, visit unchanged
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > wrong secret → 401 { ok: false }, no DB access, visit unchanged
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > shorter secret (length mismatch) → 401 { ok: false }, no DB access, visit unchanged
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > longer secret (length mismatch) → 401 { ok: false }, no DB access, visit unchanged
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > empty secret header → 401 { ok: false }, no DB access, visit unchanged
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > secret only in the query string → 401 { ok: false }, no DB access, visit unchanged
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > secret in an authkey header → 401 { ok: false }, no DB access, visit unchanged
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:275:42
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > the MSG91 API auth key is not a webhook credential
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:286:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > an unset MSG91_WEBHOOK_SECRET rejects everything under NODE_ENV=test
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > an unset MSG91_WEBHOOK_SECRET rejects everything under NODE_ENV=development
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-02/03: MSG91 header secret, constant time, fail closed > an unset MSG91_WEBHOOK_SECRET rejects everything under NODE_ENV=production
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:305:46
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > AR-L1: a reply from a number other than the message's recipient changes nothing and gets no link
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:331:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > a tenant-B replyMsgId from tenant B's recipient acts only on tenant B; tenant A is untouched
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:351:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[31/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > AR-L1: a late confirm does not move a waiting visit back to confirmed
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:368:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[32/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > a queue row whose appointment points at another tenant's visit resolves nothing
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:398:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[33/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #0 does not widen the match
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #1 does not widen the match
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #2 does not widen the match
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #3 does not widen the match
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #4 does not widen the match
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > injected replyMsgId #5 does not widen the match
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:422:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[34/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > no phone fallback: a cancel without replyMsgId from a seeded patient's phone changes nothing
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:441:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[35/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-05/07: replies route only by replyMsgId, tenant-scoped, injection-proof > the correct tenant-A replyMsgId cancels tenant A's visit and only that visit
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:457:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[36/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > AR2-L3: a foreign number ending in the recipient's 10 digits is not the recipient
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ reply tests/security/webhook-lockdown.spec.ts:474:9
+ ❯ tests/security/webhook-lockdown.spec.ts:483:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[37/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > AR3-N3: a sender without a country code never matches (a 10-digit foreign number is not an Indian mobile)
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ reply tests/security/webhook-lockdown.spec.ts:474:9
+ ❯ tests/security/webhook-lockdown.spec.ts:507:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[38/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > 01-10 / 04-03c: delivery reports persist and are monotonic — a late Failed leaves delivered; Failed on a sent row → dead_letter
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ dlr tests/security/webhook-lockdown.spec.ts:545:11
+ ❯ tests/security/webhook-lockdown.spec.ts:557:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[39/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > AR2-L4: a late cancel or reschedule reply does nothing to a waiting visit (no link, no cancellation)
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > AR2-L4: a late cancel or reschedule reply does nothing to a in_consultation visit (no link, no cancellation)
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ reply tests/security/webhook-lockdown.spec.ts:474:9
+ ❯ tests/security/webhook-lockdown.spec.ts:590:25
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[40/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > 01-09 review round 2 (AR2-L3, AR2-L4) > AR2-L4: a booked visit can still be cancelled and a confirmed one gets a reschedule link (queued to the recipient)
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ reply tests/security/webhook-lockdown.spec.ts:474:9
+ ❯ tests/security/webhook-lockdown.spec.ts:607:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[41/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > inbound confirm
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > inbound cancel
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > inbound reschedule
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > inbound triage
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:633:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[42/74]⎯
+
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > DLR Delivered (known and unknown request id)
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > DLR Read (known and unknown request id)
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > DLR Failed (known and unknown request id)
+ FAIL  tests/security/webhook-lockdown.spec.ts > P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9) > TC-WH-06: responses carry no ids, tokens or URLs > DLR Submitted (known and unknown request id)
+TypeError: inboundDedupeKey is not a function
+ ❯ webhook tests/security/webhook-lockdown.spec.ts:58:15
+     56|     payload && typeof payload === "object" && !("uuid" in payload) ? {…
+     57|   const raw = JSON.stringify(withId);
+     58|   const key = inboundDedupeKey(parseMsg91Payload(raw), raw);
+       |               ^
+     59|   if (key) createdKeys.push(key);
+     60|   return new NextRequest(
+ ❯ tests/security/webhook-lockdown.spec.ts:643:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[43/74]⎯
+
+
+ Test Files  11 failed | 1 passed (12)
+      Tests  70 failed | 247 passed (317)
+   Start at  22:20:09
+   Duration  44.76s (transform 221ms, setup 63ms, collect 374ms, tests 42.75s, environment 1ms, prepare 245ms)
+
+[teardown] removed run data: 5 tenant(s), 6 auth user(s), 0 storage object(s); verified none remain

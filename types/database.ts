@@ -325,6 +325,7 @@ export type Database = {
           channel: string;
           created_at: string;
           created_by: string | null;
+          dedupe_key: string | null;
           error_message: string | null;
           external_message_id: string | null;
           id: string;
@@ -349,6 +350,7 @@ export type Database = {
           channel: string;
           created_at?: string;
           created_by?: string | null;
+          dedupe_key?: string | null;
           error_message?: string | null;
           external_message_id?: string | null;
           id?: string;
@@ -372,6 +374,7 @@ export type Database = {
           channel?: string;
           created_at?: string;
           created_by?: string | null;
+          dedupe_key?: string | null;
           error_message?: string | null;
           external_message_id?: string | null;
           id?: string;
@@ -2190,8 +2193,10 @@ export type Database = {
           created_at: string;
           delivered_at: string | null;
           duration_ms: number | null;
+          event_key: string | null;
           event_type: string;
           id: string;
+          last_error: string | null;
           max_retries: number;
           next_retry_at: string;
           payload: string;
@@ -2207,8 +2212,10 @@ export type Database = {
           created_at?: string;
           delivered_at?: string | null;
           duration_ms?: number | null;
+          event_key?: string | null;
           event_type: string;
           id?: string;
+          last_error?: string | null;
           max_retries?: number;
           next_retry_at?: string;
           payload: string;
@@ -2223,8 +2230,10 @@ export type Database = {
           created_at?: string;
           delivered_at?: string | null;
           duration_ms?: number | null;
+          event_key?: string | null;
           event_type?: string;
           id?: string;
+          last_error?: string | null;
           max_retries?: number;
           next_retry_at?: string;
           payload?: string;
@@ -2326,8 +2335,37 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      claim_jobs: {
+        Args: {
+          p_batch: number;
+          p_kinds: string[];
+          p_lease_seconds: number;
+          p_per_tenant?: number;
+          p_worker: string;
+        };
+        Returns: {
+          attempts: number;
+          claim_order: number;
+          id: string;
+          kind: string;
+          lease_token: string;
+          max_attempts: number;
+          payload: Json;
+          run_at: string;
+          tenant_id: string;
+        }[];
+      };
       communication_metadata_strip_tokens: { Args: { p: Json }; Returns: Json };
       communication_payload_redact: { Args: { p: Json }; Returns: Json };
+      communication_queue_apply_dlr: {
+        Args: {
+          p_at: string;
+          p_external_message_id: string;
+          p_reason_code: string;
+          p_status: string;
+        };
+        Returns: Json;
+      };
       communication_queue_claim: {
         Args: { p_id: string };
         Returns: {
@@ -2335,6 +2373,7 @@ export type Database = {
           channel: string;
           created_at: string;
           created_by: string | null;
+          dedupe_key: string | null;
           error_message: string | null;
           external_message_id: string | null;
           id: string;
@@ -2360,6 +2399,10 @@ export type Database = {
           isSetofReturn: true;
         };
       };
+      communication_queue_dead_letter: {
+        Args: { p_error_code: string; p_id: string };
+        Returns: undefined;
+      };
       communication_queue_finish: {
         Args: {
           p_error: string;
@@ -2371,6 +2414,10 @@ export type Database = {
           new_retry_count: number;
           new_status: string;
         }[];
+      };
+      complete_job: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: boolean;
       };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
       consume_reschedule_token: {
@@ -2401,6 +2448,85 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: string[];
       };
+      defer_job: {
+        Args: {
+          p_error_code: string;
+          p_id: string;
+          p_lease_token: string;
+          p_retry_at: string;
+        };
+        Returns: string;
+      };
+      enqueue_message: {
+        Args: {
+          p_channel: string;
+          p_dedupe_key?: string;
+          p_message_type: string;
+          p_metadata: Json;
+          p_patient_id: string;
+          p_recipient_phone: string;
+          p_recipient_user_id: string;
+          p_run_at?: string;
+          p_template_id: string;
+          p_template_params: Json;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
+      enqueue_message_system: {
+        Args: {
+          p_channel: string;
+          p_dedupe_key?: string;
+          p_message_type: string;
+          p_metadata: Json;
+          p_patient_id: string;
+          p_recipient_phone: string;
+          p_recipient_user_id: string;
+          p_run_at?: string;
+          p_system_actor: string;
+          p_template_id: string;
+          p_template_params: Json;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
+      enqueue_unmatched_reply_system: {
+        Args: {
+          p_dedupe_key: string;
+          p_system_actor: string;
+          p_template_id: string;
+          p_to: string;
+        };
+        Returns: string;
+      };
+      enqueue_webhook_event: {
+        Args: {
+          p_event_type: string;
+          p_subject_id: string;
+          p_subscription_id?: string;
+          p_tenant_id: string;
+        };
+        Returns: Json;
+      };
+      enqueue_webhook_event_system: {
+        Args: {
+          p_event_type: string;
+          p_subject_id: string;
+          p_system_actor: string;
+        };
+        Returns: Json;
+      };
+      fail_job: {
+        Args: {
+          p_error_code: string;
+          p_id: string;
+          p_lease_token: string;
+          p_retry_at?: string;
+          p_retryable: boolean;
+        };
+        Returns: string;
+      };
       generate_daily_queue_token: {
         Args: { p_date: string; p_tenant_id: string };
         Returns: number;
@@ -2425,15 +2551,48 @@ export type Database = {
           with_check: string;
         }[];
       };
+      inbound_webhook_begin: {
+        Args: { p_dedupe_key: string; p_provider: string };
+        Returns: string;
+      };
+      inbound_webhook_finish: {
+        Args: { p_dedupe_key: string; p_outcome: string; p_provider: string };
+        Returns: undefined;
+      };
       is_safe_storage_key: { Args: { p_path: string }; Returns: boolean };
       is_valid_weekly_schedule: {
         Args: { p_schedule: Json };
         Returns: boolean;
       };
+      jobs_runner_begin: {
+        Args: { p_source: string; p_worker: string };
+        Returns: number;
+      };
+      jobs_runner_end: {
+        Args: {
+          p_claimed: number;
+          p_dead: number;
+          p_done: number;
+          p_error_code: string;
+          p_ok: boolean;
+          p_retried: number;
+          p_run_id: number;
+        };
+        Returns: undefined;
+      };
       normalize_indian_phone_e164: {
         Args: { raw_phone: string };
         Returns: string;
       };
+      ops_alert_notified: {
+        Args: {
+          p_alert_id: string;
+          p_provider_message_id: string;
+          p_seq: number;
+        };
+        Returns: boolean;
+      };
+      ops_alert_payload: { Args: { p_alert_id: string }; Returns: Json };
       ops_ingest_error: {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;
@@ -2462,6 +2621,10 @@ export type Database = {
           name: string;
           phone: string;
         }[];
+      };
+      release_job: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: boolean;
       };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
       resolve_share_token: {
@@ -2513,6 +2676,40 @@ export type Database = {
       share_type_roles: { Args: { p_type: string }; Returns: string[] };
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      start_job: {
+        Args: { p_id: string; p_lease_token: string };
+        Returns: number;
+      };
+      webhook_delivery_claim: {
+        Args: { p_id: string };
+        Returns: {
+          endpoint_url: string;
+          event_type: string;
+          id: string;
+          is_active: boolean;
+          max_retries: number;
+          payload: string;
+          retry_count: number;
+          signing_secret: string;
+          subscription_id: string;
+          subscription_tenant_id: string;
+          tenant_id: string;
+        }[];
+      };
+      webhook_delivery_finish: {
+        Args: {
+          p_duration_ms: number;
+          p_error_code: string;
+          p_id: string;
+          p_retryable: boolean;
+          p_status_code: number;
+          p_success: boolean;
+        };
+        Returns: {
+          new_status: string;
+          next_retry_at: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

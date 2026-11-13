@@ -1,0 +1,75 @@
+ ❯ tests/security/p0-12-lint-gates.spec.ts (27 tests | 14 failed) 12346ms
+ ❯ tests/messaging/msg91-contract.spec.ts (19 tests | 16 failed) 6070ms
+ ❯ tests/db/error-map.spec.ts (34 tests | 3 failed) 5ms
+ ❯ tests/messaging/sink-provider.spec.ts (2 tests | 2 failed) 4ms
+ FAIL  tests/jobs/delivery-reap-db.spec.ts [ tests/jobs/delivery-reap-db.spec.ts ]
+ FAIL  tests/jobs/message-send-handler-db.spec.ts [ tests/jobs/message-send-handler-db.spec.ts ]
+ FAIL  tests/jobs/parallel-dispatch-db.spec.ts [ tests/jobs/parallel-dispatch-db.spec.ts ]
+Error: Cannot find module '@/lib/jobs/internal/handlers/message-send' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/before-wt/tests/jobs/message-helpers.ts'.
+ ❯ tests/jobs/message-helpers.ts:11:1
+ FAIL  tests/jobs/enqueue-message-rpc-db.spec.ts [ tests/jobs/enqueue-message-rpc-db.spec.ts ]
+Error: Cannot find module '@/lib/jobs/enqueue' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/before-wt/tests/jobs/enqueue-message-rpc-db.spec.ts'.
+ ❯ tests/jobs/enqueue-message-rpc-db.spec.ts:19:1
+ FAIL  tests/messaging/outbox-queue.spec.ts [ tests/messaging/outbox-queue.spec.ts ]
+Error: Cannot find module '@/lib/jobs/enqueue' imported from '/private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/before-wt/tests/messaging/outbox-queue.spec.ts'.
+ ❯ tests/messaging/outbox-queue.spec.ts:7:1
+ FAIL  tests/db/error-map.spec.ts > mapDbError: SQLSTATE table > P0001 SUBJECT_MISMATCH (patient is not the visit's)
+ ❯ tests/db/error-map.spec.ts:50:25
+ FAIL  tests/db/error-map.spec.ts > mapDbError: SQLSTATE table > P0001 TEMPLATE_NOT_ALLOWED
+ FAIL  tests/db/error-map.spec.ts > mapDbError: SQLSTATE table > P0001 RECIPIENT_NOT_ALLOWED
+ ❯ tests/db/error-map.spec.ts:50:25
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > SMS: 400 → not retryable, code only (never MSG91's text)
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > WhatsApp (catalogue): 400 → not retryable, code only (never MSG91's text)
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > WhatsApp (session text): 400 → not retryable, code only (never MSG91's text)
+ ❯ tests/messaging/msg91-contract.spec.ts:161:20
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > SMS: 500 and 429 → retryable
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > WhatsApp (catalogue): 500 and 429 → retryable
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > WhatsApp (session text): 500 and 429 → retryable
+ ❯ tests/messaging/msg91-contract.spec.ts:168:28
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > SMS: a 200 body reporting an error → not retryable
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > WhatsApp (catalogue): a 200 body reporting an error → not retryable
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > WhatsApp (session text): a 200 body reporting an error → not retryable
+ ❯ tests/messaging/msg91-contract.spec.ts:177:20
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > SMS: a network error → retryable
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > WhatsApp (catalogue): a network error → retryable
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > WhatsApp (session text): a network error → retryable
+ ❯ tests/messaging/msg91-contract.spec.ts:183:26
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 failure classification (R-20) > no auth key → not retryable, no request
+ ❯ tests/messaging/msg91-contract.spec.ts:191:22
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 call bounds > a response delayed past timeoutMs (50 ms) is aborted within 1 s, retryable
+ ❯ tests/messaging/msg91-contract.spec.ts:208:19
+ FAIL  tests/messaging/msg91-contract.spec.ts > MSG91 call bounds > aborting the runner's signal aborts the call within 1 s (the 10 s bound is not waited for)
+ ❯ tests/messaging/msg91-contract.spec.ts:223:19
+ FAIL  tests/messaging/msg91-contract.spec.ts > the lane stays offline around MSW > a request MSW does not handle never reaches MSG91 (its socket dials 127.0.0.1); other hosts stay refused
+ ❯ tests/messaging/msg91-contract.spec.ts:232:20
+ FAIL  tests/messaging/sink-provider.spec.ts > SinkProvider > succeeds with a sink id, calls no network, writes no file and logs no message data
+ ❯ tests/messaging/sink-provider.spec.ts:30:41
+ FAIL  tests/messaging/sink-provider.spec.ts > SinkProvider > is what MESSAGING_PROVIDER=sink selects
+ ❯ parseEnv lib/env.ts:706:11
+ ❯ parseServerEnv lib/env-server.ts:52:15
+ ❯ serverEnv lib/env-server.ts:72:15
+ ❯ getMessagingProvider lib/messaging/index.ts:30:41
+ ❯ tests/messaging/sink-provider.spec.ts:48:22
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at features/patients/service.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at features/patients/actions.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/(dashboard)/fixture/page.tsx
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/api/jobs/run/route.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at lib/jobs/enqueue.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at app/api/webhooks/payments/route.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > direct-send-import.ts at features/billing/service.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > direct-send-import.ts at features/appointments/system.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > namespace-barrel-import.ts at features/labs/service.ts
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > reexport-sender.ts at lib/db/x.ts
+ ❯ tests/security/p0-12-lint-gates.spec.ts:67:44
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: provider and direct senders outside the runner fail lint > provider-class-imports.ts at features/visits/scheduling-service.ts
+ ❯ tests/security/p0-12-lint-gates.spec.ts:67:44
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: the real tree > the real handler and inbound route lint clean in place, and fail at a feature path
+ ❯ findFiles ../../../../../../../Users/sid/Code/clinicOS/node_modules/eslint/lib/eslint/eslint-helpers.js:624:9
+ ❯ ESLint.lintFiles ../../../../../../../Users/sid/Code/clinicOS/node_modules/eslint/lib/eslint/eslint.js:1014:21
+ ❯ tests/security/p0-12-lint-gates.spec.ts:80:24
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: the real tree > app code carries 0 P0-12 messages (census: boundary_messages[P0-12] = 0)
+ ❯ tests/security/p0-12-lint-gates.spec.ts:90:49
+ FAIL  tests/security/p0-12-lint-gates.spec.ts > P0-12: the real tree > the census counts a P0-12 violation (so 0 above is live)
+ ❯ tests/security/p0-12-lint-gates.spec.ts:99:49
+ Test Files  9 failed (9)
+      Tests  35 failed | 47 passed (82)

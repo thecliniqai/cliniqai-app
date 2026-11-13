@@ -7,7 +7,7 @@
  * (`buildAppServerEnv`) pass in their own tiers (K-6). No value here is real.
  */
 import { describe, expect, it } from "vitest";
-import { EnvConfigError, parseEnv, type EnvSource } from "@/lib/env";
+import { EnvConfigError, isLoopbackHost, parseEnv, SECRET_ENV_NAMES, type EnvSource } from "@/lib/env";
 import { buildAppServerEnv } from "../e2e/support/app-env";
 import { LOCAL_SEND_EMAIL_HOOK_SECRET } from "../setup/test-env";
 
@@ -31,6 +31,15 @@ function hookSecret(key: string): string {
 const SES_KEY_ID = ["AKIA", "MARKERSYNTH00000"].join("");
 const SES_SECRET = "MARKER-ses-secret-access-key-value-0123456789";
 const HOOK_SECRET = hookSecret("MARKER-hook-key-for-prod-0123456");
+/** 04-00b: a synthetic Resend key (`re_` + body), assembled at runtime. */
+const RESEND_KEY = ["re", "MARKERschemaResendKey0000"].join("_");
+/** 04-00b: the PO's launch configuration (Resend until go-live): SES names unset, Resend key set. */
+const RESEND_EMAIL: EnvSource = {
+  EMAIL_PROVIDER: "resend",
+  RESEND_API_KEY: RESEND_KEY,
+  SES_ACCESS_KEY_ID: undefined,
+  SES_SECRET_ACCESS_KEY: undefined,
+};
 
 /** Synthetic values; each is a marker that must never appear in an error message. */
 const PRODUCTION: EnvSource = {
@@ -41,6 +50,10 @@ const PRODUCTION: EnvSource = {
   SUPABASE_SECRET_KEY: SECRET,
   NEXT_PUBLIC_APP_URL: "https://app.synthetic-clinic.example.org",
   CRON_SECRET: "MARKER-cron-secret-value-0123456789abcdef",
+  // 04-02: the pg_cron runner bearer (its own secret, never the cron one).
+  JOBS_RUNNER_SECRET: "MARKER-jobs-runner-secret-value-0123456789abcdef",
+  // 04-04 (R-1): production emails ops alerts to one inbox.
+  OPS_ALERT_EMAIL: "ops-alerts@synthetic-clinic.example.org",
   MESSAGING_PROVIDER: "msg91",
   MSG91_AUTH_KEY: "MARKER-msg91-auth-value",
   MSG91_INTEGRATED_NUMBER: "910000000001",
@@ -129,7 +142,8 @@ describe("env schema: complete profiles pass", () => {
     const env = buildAppServerEnv({ source: {}, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } });
     const parsed = parseEnv(env);
     expect(parsed.APP_ENV).toBe("e2e");
-    expect(parsed.MESSAGING_PROVIDER).toBe("dev");
+    // 04-03a (R-9): a runner pass in e2e sends nothing and writes no file.
+    expect(parsed.MESSAGING_PROVIDER).toBe("sink");
     // 03-09b: the e2e server writes to the local sink and serves the diagnostic route.
     expect(parsed.ERROR_INGEST_KEY).toBeDefined();
     expect(parsed.DIAG_ERROR_ROUTE_ENABLED).toBe(true);
@@ -220,6 +234,18 @@ describe("env schema: staging and production are fail-closed", () => {
     expectRejected({ ...PRODUCTION, MESSAGING_PROVIDER: "disabled" }, "MESSAGING_PROVIDER");
   });
 
+  it("MESSAGING_PROVIDER=sink parses in staging and every local tier and is refused in production (04-03a, R-9)", () => {
+    expect(parseEnv({ ...STAGING, MESSAGING_PROVIDER: "sink" }).MESSAGING_PROVIDER).toBe("sink");
+    expectRejected({ ...PRODUCTION, MESSAGING_PROVIDER: "sink" }, "MESSAGING_PROVIDER");
+    let message = "";
+    try {
+      parseEnv({ ...PRODUCTION, MESSAGING_PROVIDER: "sink" });
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toMatch(/MESSAGING_PROVIDER: must not be sink in production/);
+  });
+
   it("lists every broken rule at once, never a value", () => {
     const issues = issuesOf({
       ...PRODUCTION,
@@ -234,15 +260,94 @@ describe("env schema: staging and production are fail-closed", () => {
   });
 });
 
+describe("env schema: the Resend provider (04-00b, PO decision 2026-11-13)", () => {
+  const local = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s parses with EMAIL_PROVIDER=resend, the key, the sender and the hook secret", (_tier, profile) => {
+    const env = parseEnv({ ...profile, ...RESEND_EMAIL });
+    expect(env.EMAIL_PROVIDER).toBe("resend");
+    expect(env.RESEND_API_KEY).toBe(RESEND_KEY);
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s refuses resend without RESEND_API_KEY (no silent fallback), naming the key", (tier, profile) => {
+    const issues = issuesOf({ ...profile, ...RESEND_EMAIL, RESEND_API_KEY: undefined });
+    expect(issues).toEqual(["RESEND_API_KEY: required when EMAIL_PROVIDER=resend"]);
+    expect(issuesOf({ ...profile, ...RESEND_EMAIL, RESEND_API_KEY: " " })).toEqual(["RESEND_API_KEY: required when EMAIL_PROVIDER=resend"]);
+    void tier;
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s refuses resend without the sender address or the hook secret", (_tier, profile) => {
+    expect(issuesOf({ ...profile, ...RESEND_EMAIL, EMAIL_FROM: undefined })).toContain("EMAIL_FROM: required when EMAIL_PROVIDER=resend");
+    expect(issuesOf({ ...profile, ...RESEND_EMAIL, SEND_EMAIL_HOOK_SECRET: undefined })).toContain(
+      "SEND_EMAIL_HOOK_SECRET: required when EMAIL_PROVIDER=resend",
+    );
+  });
+
+  it("resend needs its key, the sender address and the hook secret in the local tiers too", () => {
+    const issues = issuesOf({ ...local, EMAIL_PROVIDER: "resend" });
+    expect(issues.map((i) => i.split(":")[0]).sort()).toEqual(["EMAIL_FROM", "RESEND_API_KEY", "SEND_EMAIL_HOOK_SECRET"].sort());
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s refuses EMAIL_PROVIDER=mailpit (a loopback catcher, never a deploy sender)", (tier, profile) => {
+    expect(issuesOf({ ...profile, EMAIL_PROVIDER: "mailpit", MAILPIT_API_URL: "http://127.0.0.1:54324" })).toContain(
+      `EMAIL_PROVIDER: must not be mailpit in ${tier}`,
+    );
+  });
+
+  it("a value that is not a Resend key is refused in every tier, never echoed", () => {
+    for (const bad of ["MARKER-not-a-resend-key-000000", ["re", "MARKERshort"].join("_"), ["sk", "MARKERsomeOtherService0000"].join("_")]) {
+      const issues = issuesOf({ ...PRODUCTION, ...RESEND_EMAIL, RESEND_API_KEY: bad });
+      expect(issues).toContain("RESEND_API_KEY: must be a Resend API key (re_ followed by 16 to 200 letters, digits, _ or -)");
+      expect(issues.join("\n")).not.toContain(bad);
+    }
+    expect(issuesOf({ ...local, RESEND_API_KEY: "MARKER-local-not-a-key" })).toContain(
+      "RESEND_API_KEY: must be a Resend API key (re_ followed by 16 to 200 letters, digits, _ or -)",
+    );
+  });
+
+  it("the key is server only: a NEXT_PUBLIC_ name for it, or a Resend key in any public name, is refused in every tier", () => {
+    for (const profile of [PRODUCTION, STAGING, local, CI_BUILD]) {
+      const named = issuesOf({ ...profile, NEXT_PUBLIC_RESEND_API_KEY: RESEND_KEY });
+      expect(named.some((i) => i.startsWith("NEXT_PUBLIC_RESEND_API_KEY: must not be set: the Resend API key is server only"))).toBe(true);
+      expect(named.join("\n")).not.toContain(RESEND_KEY);
+    }
+    // In production the Turnstile site key is the public name a paste error would most likely hit.
+    expect(issuesOf({ ...PRODUCTION, ...RESEND_EMAIL, NEXT_PUBLIC_TURNSTILE_SITE_KEY: RESEND_KEY })).toContain(
+      "NEXT_PUBLIC_TURNSTILE_SITE_KEY: must not hold a Resend API key (server only, RESEND_API_KEY)",
+    );
+    expect(issuesOf({ ...local, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: RESEND_KEY })).toContain(
+      "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: must not hold a Resend API key (server only, RESEND_API_KEY)",
+    );
+    expect(SECRET_ENV_NAMES).toContain("RESEND_API_KEY");
+  });
+
+  it("a padded Resend key is refused naming the key, never the value", () => {
+    const issues = issuesOf({ ...PRODUCTION, ...RESEND_EMAIL, RESEND_API_KEY: `${RESEND_KEY}\n` });
+    expect(issues).toEqual(["RESEND_API_KEY: must not have leading or trailing whitespace"]);
+  });
+});
+
 describe("env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3, R-16, R-31)", () => {
   const local = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
 
-  it("production parses with SES and the hook secret; EMAIL_PROVIDER is required and must be ses", () => {
+  it("production parses with SES and the hook secret; EMAIL_PROVIDER is required and must be a real provider", () => {
     expect(parseEnv(PRODUCTION).EMAIL_PROVIDER).toBe("ses");
     expect(expectRejected({ ...PRODUCTION, EMAIL_PROVIDER: undefined }, "EMAIL_PROVIDER")).toContain(
-      "EMAIL_PROVIDER: required in production (ses, or disabled in staging)",
+      "EMAIL_PROVIDER: required in production (resend or ses, or disabled in staging)",
     );
-    expect(issuesOf({ ...PRODUCTION, EMAIL_PROVIDER: "disabled" })).toContain("EMAIL_PROVIDER: must be ses in production");
+    expect(issuesOf({ ...PRODUCTION, EMAIL_PROVIDER: "disabled" })).toContain("EMAIL_PROVIDER: must be resend or ses in production");
     const mailpit = issuesOf({ ...PRODUCTION, EMAIL_PROVIDER: "mailpit", MAILPIT_API_URL: "http://127.0.0.1:54324" });
     expect(mailpit).toContain("EMAIL_PROVIDER: must not be mailpit in production");
   });
@@ -329,7 +434,16 @@ describe("env schema: auth email and the Send Email hook (03-11b, AUTH-03, PO-A3
     expect(e2e.SEND_EMAIL_HOOK_SECRET).toBe(LOCAL_SEND_EMAIL_HOOK_SECRET);
   });
 
-  it("names no email value in the Error message", () => {
+  it("names no email value in the Error message (04-00b: the Resend key too)", () => {
+    try {
+      parseEnv({ ...PRODUCTION, EMAIL_PROVIDER: "resend", RESEND_API_KEY: `${RESEND_KEY}!`, NEXT_PUBLIC_RESEND_API_KEY: RESEND_KEY });
+      throw new Error("expected a throw");
+    } catch (e) {
+      expect((e as Error).message).not.toContain(RESEND_KEY);
+    }
+  });
+
+  it("names no SES value in the Error message", () => {
     try {
       parseEnv({ ...PRODUCTION, EMAIL_PROVIDER: "disabled", SES_ACCESS_KEY_ID: "MARKER-bad-id", SEND_EMAIL_HOOK_SECRET: "MARKER-bad" });
       throw new Error("expected a throw");
@@ -374,6 +488,103 @@ describe("env schema: error sink and diagnostic route (03-09b, R-7, R-18)", () =
 
   it("a non-boolean DIAG_ERROR_ROUTE_ENABLED throws", () => {
     expectRejected({ ...STAGING, DIAG_ERROR_ROUTE_ENABLED: "yes" }, "DIAG_ERROR_ROUTE_ENABLED");
+  });
+});
+
+/**
+ * V2-04 04-02 (RL-23, R-16, R-18, R-32; T-04-01, T-04-20): the job runner's bearer and the drill switch. Each refusal
+ * names the key and never the value.
+ */
+describe("env schema: job runner secret and drill switch (04-02)", () => {
+  const local = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+  const RUNNER_NEXT = "MARKER-jobs-runner-next-value-0123456789abcdef";
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+  ])("%s without JOBS_RUNNER_SECRET throws naming it", (tier, profile) => {
+    const issues = expectRejected({ ...profile, JOBS_RUNNER_SECRET: undefined }, "JOBS_RUNNER_SECRET");
+    expect(issues).toContain(`JOBS_RUNNER_SECRET: required in ${tier} (the pg_cron runner bearer, 04-P8)`);
+  });
+
+  it.each([
+    ["production", PRODUCTION],
+    ["staging", STAGING],
+    ["test", local],
+  ])("a 20-character or spaced JOBS_RUNNER_SECRET throws in %s, never echoed", (_tier, profile) => {
+    for (const value of ["MARKER-twenty-chars0", "MARKER-jobs-runner secret-with-a-space-0123"]) {
+      expect(issuesOf({ ...profile, JOBS_RUNNER_SECRET: value })).toContain(
+        "JOBS_RUNNER_SECRET: at least 32 printable ASCII characters without spaces",
+      );
+    }
+  });
+
+  it("JOBS_RUNNER_SECRET_NEXT equal to the current secret throws naming the key", () => {
+    const issues = expectRejected({ ...PRODUCTION, JOBS_RUNNER_SECRET_NEXT: PRODUCTION.JOBS_RUNNER_SECRET }, "JOBS_RUNNER_SECRET_NEXT");
+    expect(issues).toEqual(["JOBS_RUNNER_SECRET_NEXT: must differ from JOBS_RUNNER_SECRET"]);
+  });
+
+  it("JOBS_RUNNER_SECRET_NEXT needs a current secret and the same shape", () => {
+    expect(issuesOf({ ...local, JOBS_RUNNER_SECRET_NEXT: RUNNER_NEXT })).toEqual(["JOBS_RUNNER_SECRET_NEXT: requires JOBS_RUNNER_SECRET"]);
+    expect(issuesOf({ ...PRODUCTION, JOBS_RUNNER_SECRET_NEXT: "MARKER-short-next" })).toEqual([
+      "JOBS_RUNNER_SECRET_NEXT: at least 32 printable ASCII characters without spaces",
+    ]);
+    const env = parseEnv({ ...PRODUCTION, JOBS_RUNNER_SECRET_NEXT: RUNNER_NEXT });
+    expect(env.JOBS_RUNNER_SECRET_NEXT).toBe(RUNNER_NEXT);
+  });
+
+  it("the runner secret must not be the cron secret (a dedicated secret, R-16)", () => {
+    const issues = expectRejected({ ...PRODUCTION, JOBS_RUNNER_SECRET: PRODUCTION.CRON_SECRET }, "JOBS_RUNNER_SECRET");
+    expect(issues).toEqual(["JOBS_RUNNER_SECRET: must differ from CRON_SECRET (a dedicated runner secret, R-16)"]);
+  });
+
+  it("a padded runner secret or rotation slot is refused in every tier (both are secret names)", () => {
+    expect(SECRET_ENV_NAMES).toEqual(expect.arrayContaining(["JOBS_RUNNER_SECRET", "JOBS_RUNNER_SECRET_NEXT"]));
+    expect(issuesOf({ ...PRODUCTION, JOBS_RUNNER_SECRET: `${PRODUCTION.JOBS_RUNNER_SECRET}\n` })).toContain(
+      "JOBS_RUNNER_SECRET: must not have leading or trailing whitespace",
+    );
+    expect(issuesOf({ ...PRODUCTION, JOBS_RUNNER_SECRET_NEXT: ` ${RUNNER_NEXT}` })).toContain(
+      "JOBS_RUNNER_SECRET_NEXT: must not have leading or trailing whitespace",
+    );
+  });
+
+  it("the local tiers may leave the runner secret unset (the route then refuses every call)", () => {
+    expect(parseEnv(local).JOBS_RUNNER_SECRET).toBeUndefined();
+    expect(parseEnv(CI_BUILD).JOBS_RUNNER_SECRET).toBeUndefined();
+  });
+
+  it("production with JOBS_DRILL_ENABLED=true throws (R-32); staging may drill; it defaults to false", () => {
+    expectRejected({ ...PRODUCTION, JOBS_DRILL_ENABLED: "true" }, "JOBS_DRILL_ENABLED");
+    expect(parseEnv({ ...STAGING, JOBS_DRILL_ENABLED: "true" }).JOBS_DRILL_ENABLED).toBe(true);
+    expect(parseEnv(PRODUCTION).JOBS_DRILL_ENABLED).toBe(false);
+    expect(parseEnv({ ...PRODUCTION, JOBS_DRILL_ENABLED: "false" }).JOBS_DRILL_ENABLED).toBe(false);
+    expectRejected({ ...STAGING, JOBS_DRILL_ENABLED: "yes" }, "JOBS_DRILL_ENABLED");
+  });
+
+  it("production without OPS_ALERT_EMAIL, or with a malformed address, throws naming the key (04-04, R-1)", () => {
+    expect(parseEnv(PRODUCTION).OPS_ALERT_EMAIL).toBe("ops-alerts@synthetic-clinic.example.org");
+    expect(issuesOf({ ...PRODUCTION, OPS_ALERT_EMAIL: undefined })).toContain("OPS_ALERT_EMAIL: required in production (R-1)");
+    expect(issuesOf({ ...PRODUCTION, OPS_ALERT_EMAIL: "   " })).toContain("OPS_ALERT_EMAIL: required in production (R-1)");
+    for (const bad of ["MARKER-not-an-address", "MARKER-ops@", "MARKER ops@example.org", "a@b@MARKER.example.org"]) {
+      const issues = issuesOf({ ...PRODUCTION, OPS_ALERT_EMAIL: bad });
+      expect(issues, bad).toContain("OPS_ALERT_EMAIL: must be an email address");
+      expect(issues.join("\n")).not.toContain(bad);
+    }
+    // Staging and the local tiers may leave it unset (alerts then stay in ops.alerts and the ops report).
+    expect(parseEnv({ ...STAGING, OPS_ALERT_EMAIL: undefined }).OPS_ALERT_EMAIL).toBeUndefined();
+    expectRejected({ ...STAGING, OPS_ALERT_EMAIL: "MARKER-not-an-address" }, "OPS_ALERT_EMAIL");
+    expect(parseEnv(CI_BUILD).OPS_ALERT_EMAIL).toBeUndefined();
+  });
+
+  it("the e2e app server emails alerts to the synthetic ops inbox (04-04)", () => {
+    const env = parseEnv(buildAppServerEnv({ source: {}, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } }));
+    expect(env.OPS_ALERT_EMAIL).toBe("ops-alerts@example.test");
+  });
+
+  it("the e2e app server runs the drill kinds with its synthetic runner secret", () => {
+    const env = parseEnv(buildAppServerEnv({ source: {}, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } }));
+    expect(env.JOBS_DRILL_ENABLED).toBe(true);
+    expect(env.JOBS_RUNNER_SECRET?.length).toBeGreaterThanOrEqual(32);
   });
 });
 
@@ -674,5 +885,146 @@ describe("env schema: deploy tiers only in a Vercel production deployment (03-13
 
   it("the build and local tiers ignore VERCEL_ENV (the tier is never inferred from it, R-11)", () => {
     expect(parseEnv({ ...CI_BUILD, VERCEL_ENV: "preview", VERCEL_GIT_COMMIT_REF: "any-branch" }).APP_ENV).toBe("ci");
+  });
+});
+
+/**
+ * V2-04 04-00 (review A L-1, R-47): a value that is blank after `trim()` is unset, and a credential-shaped name with
+ * leading or trailing whitespace is refused in every tier, naming the key and never the value. Before 04-00 all of
+ * these booted in production.
+ */
+describe("env schema: blank and padded secrets (04-00, review A L-1)", () => {
+  const spaces = (n: number) => " ".repeat(n);
+
+  it("a CRON_SECRET of 32 spaces is unset (refused as missing in production), never echoed", () => {
+    const issues = expectRejected({ ...PRODUCTION, CRON_SECRET: spaces(32) }, "CRON_SECRET");
+    expect(issues).toContain("CRON_SECRET: required in production, at least 32 characters");
+  });
+
+  it.each(["SUPABASE_SECRET_KEY", "MSG91_AUTH_KEY", "MSG91_WEBHOOK_SECRET"])("%s=\" \" is refused as missing in production", (key) => {
+    const issues = expectRejected({ ...PRODUCTION, [key]: " " }, key);
+    expect(issues.find((i) => i.startsWith(`${key}:`))).toMatch(/required/);
+  });
+
+  it.each([
+    ["CRON_SECRET", `${PRODUCTION.CRON_SECRET}\n`],
+    ["SUPABASE_SECRET_KEY", `${SECRET} `],
+    ["MSG91_AUTH_KEY", `\t${PRODUCTION.MSG91_AUTH_KEY}`],
+    ["MSG91_WEBHOOK_SECRET", `${PRODUCTION.MSG91_WEBHOOK_SECRET}\r\n`],
+    ["SEND_EMAIL_HOOK_SECRET", `${HOOK_SECRET}\n`],
+    ["ERROR_INGEST_KEY", ` ${PRODUCTION.ERROR_INGEST_KEY}`],
+    ["SES_SECRET_ACCESS_KEY", `${SES_SECRET} `],
+  ])("a valid %s with surrounding whitespace is refused naming the key, never the value", (key, padded) => {
+    const issues = issuesOf({ ...PRODUCTION, [key]: padded });
+    expect(issues).toContain(`${key}: must not have leading or trailing whitespace`);
+    expect(issues.join("\n")).not.toContain(padded.trim());
+  });
+
+  it("the padding rule holds in every tier (a padded secret in the test tier is refused too)", () => {
+    const local = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+    expect(issuesOf({ ...local, CRON_SECRET: "MARKER-local-cron-secret " })).toEqual(["CRON_SECRET: must not have leading or trailing whitespace"]);
+    expect(parseEnv({ ...local, CRON_SECRET: "  " }).CRON_SECRET).toBeUndefined();
+  });
+
+  it("the rule covers every credential-shaped schema name and no public or non-secret one", () => {
+    for (const key of [
+      "CRON_SECRET",
+      "SUPABASE_SECRET_KEY",
+      "MSG91_AUTH_KEY",
+      "MSG91_WEBHOOK_SECRET",
+      "SEND_EMAIL_HOOK_SECRET",
+      "ERROR_INGEST_KEY",
+      "SES_SECRET_ACCESS_KEY",
+      "TWILIO_AUTH_TOKEN",
+      "GUPSHUP_API_KEY",
+      "AI_API_KEY",
+    ]) {
+      expect(SECRET_ENV_NAMES).toContain(key);
+    }
+    for (const key of ["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_TURNSTILE_SITE_KEY", "SES_ACCESS_KEY_ID", "MSG91_INTEGRATED_NUMBER"]) {
+      expect(SECRET_ENV_NAMES).not.toContain(key);
+    }
+  });
+});
+
+/**
+ * V2-04 04-00 (review A L-2, R-47): loopback is classified on the WHATWG-canonical host (127/8, 0.0.0.0, ::1, ::,
+ * ::ffff:127.*, localhost. and *.localhost), and the deploy tiers' Supabase and app URLs must be bare https origins.
+ * Before 04-00 every refused case below booted in production.
+ */
+describe("env schema: loopback forms and bare origins (04-00, review A L-2)", () => {
+  /** A synthetic 20-character project ref (not a real project). */
+  const REF = "abcdefghijklmnopqrst";
+
+  it.each(["https://localhost./", "https://0.0.0.0", "https://[::ffff:127.0.0.1]", "https://127.0.0.2", "https://127.1", "https://[::]", "https://app.localhost."])(
+    "production refuses NEXT_PUBLIC_APP_URL=%s as loopback",
+    (url) => {
+      expect(issuesOf({ ...PRODUCTION, NEXT_PUBLIC_APP_URL: url })).toContain("NEXT_PUBLIC_APP_URL: must be a non-loopback https URL in production");
+    },
+  );
+
+  it.each(["https://localhost./", "https://0.0.0.0", "https://[::ffff:127.0.0.1]", "https://127.0.0.2"])(
+    "staging refuses NEXT_PUBLIC_SUPABASE_URL=%s as loopback",
+    (url) => {
+      expect(issuesOf({ ...STAGING, NEXT_PUBLIC_SUPABASE_URL: url })).toContain("NEXT_PUBLIC_SUPABASE_URL: must be a non-loopback https URL in staging");
+    },
+  );
+
+  it.each([
+    ["userinfo, a path and a query", `https://u:p@${REF}.supabase.co/x?y`],
+    ["userinfo only", `https://u:p@${REF}.supabase.co`],
+    ["a path", `https://${REF}.supabase.co/rest/v1`],
+    ["a query", `https://${REF}.supabase.co/?apikey=MARKER-query-value`],
+    ["a lone ?", `https://${REF}.supabase.co?`],
+    ["a fragment", `https://${REF}.supabase.co/#x`],
+  ])("production refuses a Supabase URL with %s as not a bare origin, never echoing it", (_label, url) => {
+    const issues = issuesOf({ ...PRODUCTION, NEXT_PUBLIC_SUPABASE_URL: url });
+    expect(issues).toContain("NEXT_PUBLIC_SUPABASE_URL: must be a bare https origin in production (no credentials, path, query or fragment)");
+    expect(issues.join("\n")).not.toContain(url);
+  });
+
+  it("the app URL must be a bare origin too (staging)", () => {
+    expect(issuesOf({ ...STAGING, NEXT_PUBLIC_APP_URL: "https://app.synthetic-clinic.example.org/clinic" })).toEqual([
+      "NEXT_PUBLIC_APP_URL: must be a bare https origin in staging (no credentials, path, query or fragment)",
+    ]);
+  });
+
+  it("a bare hosted origin passes, with or without the trailing slash", () => {
+    for (const url of [`https://${REF}.supabase.co`, `https://${REF}.supabase.co/`]) {
+      expect(parseEnv({ ...PRODUCTION, NEXT_PUBLIC_SUPABASE_URL: url }).NEXT_PUBLIC_SUPABASE_URL).toBe(url);
+    }
+    expect(parseEnv({ ...STAGING, NEXT_PUBLIC_APP_URL: "https://staging.synthetic-clinic.example.org" }).APP_ENV).toBe("staging");
+  });
+
+  it("the test, e2e and ci tiers still accept the local stack (and refuse a non-loopback host)", () => {
+    for (const APP_ENV of ["ci", "e2e"]) {
+      expect(parseEnv({ ...CI_BUILD, APP_ENV, NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321" }).APP_ENV).toBe(APP_ENV);
+    }
+    const test = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+    expect(parseEnv(test).APP_ENV).toBe("test");
+    expect(parseEnv({ ...test, NEXT_PUBLIC_SUPABASE_URL: "http://localhost:54321" }).APP_ENV).toBe("test");
+    expectRejected({ ...test, NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1.nip.io:54321" }, "NEXT_PUBLIC_SUPABASE_URL");
+  });
+
+  it.each([
+    ["127.0.0.1", true],
+    ["127.255.255.254", true],
+    ["0.0.0.0", true],
+    ["[::1]", true],
+    ["[::]", true],
+    ["[::ffff:7f00:1]", true],
+    ["[::ffff:7fff:ffff]", true],
+    ["[::ffff:0:0]", true],
+    ["localhost", true],
+    ["localhost.", true],
+    ["db.localhost", true],
+    ["db.localhost.", true],
+    ["128.0.0.1", false],
+    ["[::2]", false],
+    ["[::ffff:8000:1]", false],
+    ["localhost.example.org", false],
+    ["notlocalhost", false],
+  ])("isLoopbackHost(%s) = %s", (host, expected) => {
+    expect(isLoopbackHost(host)).toBe(expected);
   });
 });

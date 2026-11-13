@@ -121,6 +121,29 @@ const BASE_RESTRICTED_SYNTAX = [...AUTH01_GATES, ...P001_ACTION_GATES, ...P013_I
  * system-factory allow-list or the exception register needs an ADR-0005 amendment accepted at a gate.
  */
 const P134 = "P1-34:";
+// V2-04 04-03a (P0-12, R-33): no request path sends a patient message; only the job runner does.
+const P012 = "P0-12:";
+const MESSAGING_SEND_NAMES = [
+  "getMessagingProvider",
+  "sendDirectSms",
+  "sendDirectWhatsApp",
+  "Msg91Provider",
+  "TwilioProvider",
+  "GupshupProvider",
+  "DevLoggerProvider",
+  "DisabledMessagingProvider",
+  "SinkProvider",
+];
+const MESSAGING_SEND_WHERE =
+  "lib/jobs/internal/** (the message.send and message.reply_unmatched handlers) and lib/messaging/**";
+// The provider modules themselves, by alias or by any relative spelling (`../messaging/providers/msg91`).
+const MESSAGING_PROVIDER_MODULE = String.raw`^(?:@\/lib\/|(?:\.{1,2}\/)+(?:.*\/)?)messaging\/(?:providers(?:\/.*)?|dev-logger)$|^(?:\.{1,2}\/)+(?:providers(?:\/.*)?|dev-logger)$`;
+// V2-04 04-03b (P0-12, R-33): the webhook deliverer and its pinned transport, by alias or by any relative spelling
+// (`../webhooks/dispatcher`, `./transport`, with or without an extension or `/index`).
+const WEBHOOK_DELIVER_MODULE = String.raw`^(?:@\/lib\/|(?:\.{1,2}\/)+(?:.*\/)?)webhooks\/(?:dispatcher|transport)(?:\/index)?(?:\.[cm]?[jt]sx?)?$|^(?:\.{1,2}\/)+(?:dispatcher|transport)(?:\/index)?(?:\.[cm]?[jt]sx?)?$`;
+const WEBHOOK_DELIVER_WHERE = "lib/jobs/internal/** (the webhook.deliver handler) and lib/webhooks/**";
+// The messaging barrel by any spelling (`@/lib/messaging`, `@/lib/messaging/index`, `../../lib/messaging`).
+const MESSAGING_BARREL = String.raw`^(?:@\/lib\/|(?:\.{1,2}\/)+(?:.*\/)?)messaging(?:\/index)?$`;
 const SYSTEM_TAIL = String.raw`system(?:\/index)?(?:\.[cm]?[jt]sx?)?\/?$`;
 // A module specifier that is an alias (`@/`), relative (`./`, `../`) or absolute (`/`) path, never a package name.
 const LOCAL_SPEC = String.raw`^(?:@|\.{1,2}|)\/`;
@@ -197,6 +220,29 @@ const BOUNDARY_SYNTAX = {
     {
       selector: 'ImportExpression:not([source.type="Literal"])',
       message: `${P134} import() needs a string-literal specifier so the boundary rules can check it (ADR-0005 D4).`,
+    },
+  ],
+  // V2-04 04-07a (P0-12; review B L-1): the dynamic forms of the messagingSend / webhookDeliver import gates. A request
+  // path may not load the messaging barrel, a provider module or the webhook deliverer / pinned transport with import()
+  // or require() either (case-insensitive, as the static gates). Allowed where the static imports are (zones below).
+  messagingDynamic: [
+    {
+      selector: [
+        `ImportExpression[source.value=/${MESSAGING_BARREL}/i]`,
+        `ImportExpression[source.value=/${MESSAGING_PROVIDER_MODULE}/i]`,
+        `CallExpression[callee.name="require"][arguments.0.value=/${MESSAGING_BARREL}/i]`,
+        `CallExpression[callee.name="require"][arguments.0.value=/${MESSAGING_PROVIDER_MODULE}/i]`,
+      ].join(", "),
+      message: `${P012} a request path never sends a message; a dynamic import()/require() of the messaging barrel or a provider module is allowed only in ${MESSAGING_SEND_WHERE} (R-33). Enqueue through @/lib/jobs/enqueue.`,
+    },
+  ],
+  webhookDynamic: [
+    {
+      selector: [
+        `ImportExpression[source.value=/${WEBHOOK_DELIVER_MODULE}/i]`,
+        `CallExpression[callee.name="require"][arguments.0.value=/${WEBHOOK_DELIVER_MODULE}/i]`,
+      ].join(", "),
+      message: `${P012} a request path never delivers a webhook; a dynamic import()/require() of the webhook deliverer or its pinned transport is allowed only in ${WEBHOOK_DELIVER_WHERE} (R-33). Enqueue through @/lib/jobs/enqueue (enqueueWebhookEvent).`,
     },
   ],
   // P1-15 / 03-01: configuration is read through the typed env modules.
@@ -294,12 +340,34 @@ const BOUNDARY_IMPORT_PATTERNS = {
   },
   featureSystem: {
     regex: String.raw`^@\/features\/[^/]+\/${SYSTEM_TAIL}`,
-    message: `${P134} a features/<domain>/system module runs on the service role and is importable only from ${SYSTEM_ALLOWED_WHERE}; features/sharing/system also from the five ADR-0005 A1 share routes.`,
+    message: `${P134} a features/<domain>/system module runs on the service role and is importable only from ${SYSTEM_ALLOWED_WHERE}; features/sharing/system also from the five ADR-0005 A1 share routes, features/auth/system also from the Send Email hook route (proposed A3).`,
   },
   // Relative, absolute or traversing spellings of a system module (`./system`, `../../lib/supabase/system`, …).
   otherSystem: {
     regex: String.raw`^(?!@\/lib\/supabase\/${SYSTEM_TAIL})(?!@\/features\/[^/]+\/${SYSTEM_TAIL})${ANY_SYSTEM_MODULE}`,
     message: `${P134} import a system module only by its canonical alias (@/lib/supabase/system, @/features/<domain>/system) and only from ${SYSTEM_ALLOWED_WHERE} (ADR-0005 D4).`,
+  },
+  // V2-04 04-03a (P0-12, R-33): the provider factory, the direct senders and the provider classes, from the barrel or
+  // the provider modules, only in lib/jobs/internal/** and lib/messaging/** (04-03c deleted the inbound route's allowance;
+  // sendDirectSms/sendDirectWhatsApp are deleted and stay banned by name).
+  messagingSend: [
+    {
+      regex: MESSAGING_BARREL,
+      importNames: MESSAGING_SEND_NAMES,
+      allowTypeImports: true,
+      message: `${P012} a request path never sends a message; enqueue through @/lib/jobs/enqueue. The provider factory and the direct senders are importable only from ${MESSAGING_SEND_WHERE} (R-33).`,
+    },
+    {
+      regex: MESSAGING_PROVIDER_MODULE,
+      allowTypeImports: true,
+      message: `${P012} a request path never sends a message; enqueue through @/lib/jobs/enqueue. The messaging provider modules are importable only from ${MESSAGING_SEND_WHERE} (R-33).`,
+    },
+  ],
+  // V2-04 04-03b (P0-12, R-33): no request path delivers a webhook (the 03-10 fire-and-forget dispatch is gone).
+  webhookDeliver: {
+    regex: WEBHOOK_DELIVER_MODULE,
+    allowTypeImports: true,
+    message: `${P012} a request path never delivers a webhook; enqueue through @/lib/jobs/enqueue (enqueueWebhookEvent). The webhook deliverer and its pinned transport are importable only from ${WEBHOOK_DELIVER_WHERE} (R-33).`,
   },
   jobsInternal: {
     regex: JOBS_INTERNAL_MODULE,
@@ -346,6 +414,12 @@ const A1_SHARING_ONLY = {
   regex: String.raw`^@\/features\/(?!sharing\/${SYSTEM_TAIL})[^/]+\/${SYSTEM_TAIL}`,
   message: `${P134} the ADR-0005 A1 share routes may import features/sharing/system only.`,
 };
+// Proposed ADR-0005 A3 (V2-04 04-03c, R-43): the Send Email hook route may import features/auth/system, and no other
+// features/*/system (nor the factory itself).
+const A3_AUTH_ONLY = {
+  regex: String.raw`^@\/features\/(?!auth\/${SYSTEM_TAIL})[^/]+\/${SYSTEM_TAIL}`,
+  message: `${P134} the Send Email hook route (proposed ADR-0005 A3) may import features/auth/system only.`,
+};
 const appImports = (allow = [], extraPatterns = [], extraPaths = []) => [
   "error",
   {
@@ -353,13 +427,21 @@ const appImports = (allow = [], extraPatterns = [], extraPaths = []) => [
     patterns: [
       ...Object.entries(BOUNDARY_IMPORT_PATTERNS)
         .filter(([group]) => !allow.includes(group))
-        .map(([, pattern]) => pattern),
+        .flatMap(([, pattern]) => [pattern].flat()),
       ...extraPatterns,
     ],
   },
 ];
 
 const SYSTEM_MODULES = ["factory", "featureSystem", "otherSystem"];
+
+/**
+ * The ADR-0005 exception register: paths outside the D2 allow-list that may still acquire the system client, each with
+ * an owner. V2-04 04-03c deleted the V2-04 entries (`app/api/cron/**`, `lib/messaging/dispatcher.ts`, `lib/webhooks/**`)
+ * with their passing cases; what is left is the /api/v1 entry (owner P1-37, public API rework). Exported through
+ * P134_CENSUS so the counters (scripts/ci/p1-34-counters.mjs) report the register as configured.
+ */
+const ADR0005_REGISTER = ["app/api/v1/**", "lib/api/**"];
 
 /**
  * Syntax allowances. Zones are disjoint from each other (except lib/log/client.ts inside lib/log/**, ordered so the
@@ -375,6 +457,10 @@ const BOUNDARY_SYNTAX_ZONES = [
   // 03-09a: the dev-only client reporter reads NODE_ENV and writes one console.warn (03-09c census: the only site).
   { files: ["lib/log/client.ts"], allow: ["processEnv", "console", "rawStream"] },
   { files: ["lib/datetime/**"], allow: ["utcDate"] },
+  // V2-04 04-07a (P0-12): the dynamic forms follow the static messagingSend / webhookDeliver allowances.
+  { files: ["lib/messaging/**"], allow: ["messagingDynamic"] },
+  { files: ["lib/webhooks/**"], allow: ["webhookDynamic"] },
+  { files: ["lib/jobs/internal/**"], allow: ["messagingDynamic", "webhookDynamic"] },
 ];
 
 /** Import allowances, in order: a later zone overrides an earlier one for the files both match. */
@@ -395,9 +481,19 @@ const BOUNDARY_IMPORT_ZONES = [
   // paths import (03-13c M-ALLOWLIST).
   { files: ["features/*/system.ts", "app/api/webhooks/**"], allow: SYSTEM_MODULES },
   // ADR-0005 exception register. Owner P1-37 (public API rework): delete when /api/v1 stops using the service role.
-  { files: ["app/api/v1/**", "lib/api/**"], allow: SYSTEM_MODULES },
-  // ADR-0005 exception register. Owner V2-04 (enqueue RPC + app/api/jobs/run replace these): delete in V2-04 04-03c.
-  { files: ["app/api/cron/**", "lib/messaging/dispatcher.ts", "lib/webhooks/**"], allow: SYSTEM_MODULES },
+  { files: ADR0005_REGISTER, allow: SYSTEM_MODULES },
+  // V2-04 04-03a (P0-12): the messaging modules themselves (the barrel re-exports the providers it builds).
+  { files: ["lib/messaging/**"], allow: ["messagingSend"] },
+  // V2-04 04-03b (P0-12): the webhook modules themselves (the deliverer imports the pinned transport). Not a system
+  // path: 04-03c removed lib/webhooks/** from the register (no module there acquires the system client).
+  { files: ["lib/webhooks/**"], allow: ["webhookDeliver"] },
+  // Proposed ADR-0005 A3 (V2-04 04-03c, R-43): the Send Email hook route records the signed webhook-id through
+  // features/auth/system after its signature check; features/auth/system only (not the factory, not another domain).
+  {
+    files: ["app/api/auth/send-email/route.ts"],
+    allow: ["featureSystem"],
+    extraPatterns: [A3_AUTH_ONLY],
+  },
   // ADR-0005 A1: the five public share routes (minimatch escapes the brackets of the dynamic segment).
   {
     files: [
@@ -412,12 +508,18 @@ const BOUNDARY_IMPORT_ZONES = [
   },
   // ADR-0005 D2: the jobs runner route and the jobs internals (after lib/jobs/** so the internals get the superset).
   { files: ["lib/jobs/internal/**", "app/api/jobs/**"], allow: [...SYSTEM_MODULES, "jobsInternal"] },
+  // P0-12 (R-33): only the internals (the message.send / webhook.deliver handlers) build a provider or deliver a
+  // webhook; the runner route does not.
+  { files: ["lib/jobs/internal/**"], allow: [...SYSTEM_MODULES, "jobsInternal", "messagingSend", "webhookDeliver"] },
 ];
 
-// ADR-0005 D4: tests and scripts are excepted from the boundary gates; so are the root tool configs.
+// ADR-0005 D4: tests and scripts are excepted from the boundary gates; so are the root tool configs. V2-04 04-05a:
+// `ops/**` (backup, restore drill and backup evidence: operator tooling run with tsx/bash, never imported by the app)
+// joins with the same exceptions as `scripts/**`.
 const TOOLING_FILES = [
   "tests/**",
   "scripts/**",
+  "ops/**",
   "eslint.config.mjs",
   "playwright.config.ts",
   "vitest.config.ts",
@@ -551,6 +653,8 @@ export const P134_CENSUS = {
   // a client factory, whatever the name (createClient, SupabaseClient, GoTrueAdminApi, PostgrestClient, a subpath).
   factoryPattern: { regex: String.raw`^@supabase\/(?!ssr$)`, allowTypeImports: true },
   boundaryRuleIds: BOUNDARY_RULE_IDS,
+  // V2-04 04-03c: the exception register as configured (the zone above is built from the same list).
+  exceptionRegister: ADR0005_REGISTER,
   systemPatterns: {
     factory: BOUNDARY_IMPORT_PATTERNS.factory.regex,
     featureSystem: BOUNDARY_IMPORT_PATTERNS.featureSystem.regex,

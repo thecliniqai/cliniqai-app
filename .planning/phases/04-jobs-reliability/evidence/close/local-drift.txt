@@ -1,0 +1,3 @@
+# node scripts/ci/local-drift.mjs at 2260c64
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+exit=0

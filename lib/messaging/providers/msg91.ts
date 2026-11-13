@@ -3,24 +3,55 @@ import {
   InteractiveButton,
   MessagingProvider,
   MessagingSendResult,
+  SendOptions,
 } from "../types";
-import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
+import { MESSAGING_PROVIDER_TIMEOUT_MS, providerSignal, syntheticRecipientRefusal } from "../provider-guard";
 import { errorTag } from "@/lib/errors/error-tag";
 import { WHATSAPP_TEMPLATES } from "../templates";
 import { buildPositionalComponents } from "../templates/mapping";
+import { smsFlowVariables } from "../templates/sms";
+
+/**
+ * MSG91 failure classification (V2-04 04-03a, R-20). A 4xx other than 408/429, or a 2xx body that reports an error, is
+ * a rejected request: sending it again cannot succeed (`retryable: false`, the `message.send` handler dead-letters the
+ * row at once). A 5xx, 408, 429, a network error, a timeout or the runner's abort may succeed later (`retryable:
+ * true`). `error` and `code` are machine codes only, never MSG91's response text (which can echo the recipient).
+ */
+function httpFailure(channel: "sms" | "whatsapp", status: number): MessagingSendResult {
+  const retryable = status >= 500 || status === 408 || status === 429;
+  const code = `msg91_http_${status}`;
+  return { success: false, channelUsed: channel, error: code, code, statusCode: status, retryable };
+}
+
+function rejected(channel: "sms" | "whatsapp", status: number): MessagingSendResult {
+  return { success: false, channelUsed: channel, error: "msg91_rejected", code: "msg91_rejected", statusCode: status, retryable: false };
+}
+
+function requestFailed(channel: "sms" | "whatsapp", err: unknown): MessagingSendResult {
+  const code = `msg91_request_failed:${errorTag(err)}`.slice(0, 64);
+  return { success: false, channelUsed: channel, error: code, code, retryable: true };
+}
+
+function notConfigured(channel: "sms" | "whatsapp"): MessagingSendResult {
+  return { success: false, channelUsed: channel, error: "msg91_not_configured", code: "msg91_not_configured", retryable: false };
+}
 
 export class Msg91Provider implements MessagingProvider {
   readonly name = "msg91" as const;
   private authKey: string;
   private senderId: string;
   private dltTeId?: string;
+  private timeoutMs: number;
 
   constructor(options?: {
     authKey?: string;
     senderId?: string;
     integratedNumber?: string;
     dltTeId?: string;
+    /** Bound for one HTTP call (default {@link MESSAGING_PROVIDER_TIMEOUT_MS}). */
+    timeoutMs?: number;
   }) {
+    this.timeoutMs = options?.timeoutMs ?? MESSAGING_PROVIDER_TIMEOUT_MS;
     const env = serverEnv();
     this.authKey = options?.authKey || env.MSG91_AUTH_KEY || "";
     this.senderId =
@@ -35,51 +66,41 @@ export class Msg91Provider implements MessagingProvider {
   async sendSms(
     to: string,
     templateId: string,
-    params: Record<string, string>
+    params: Record<string, string>,
+    options?: SendOptions
   ): Promise<MessagingSendResult> {
     const synthetic = syntheticRecipientRefusal(to, "sms");
     if (synthetic) return synthetic;
-    if (!this.authKey) {
-      return {
-        success: false,
-        channelUsed: "sms",
-        error: "MSG91_AUTH_KEY is not configured",
-      };
-    }
+    if (!this.authKey) return notConfigured("sms");
 
     try {
       // MSG91 Flow API
       const normalizedPhone = to.replace(/[^0-9]/g, "");
       const res = await fetch("https://control.msg91.com/api/v5/flow/", {
         method: "POST",
-        signal: providerSignal(),
+        signal: providerSignal(options?.signal, this.timeoutMs),
         headers: {
           "Content-Type": "application/json",
           authkey: this.authKey,
         },
+        // 04-07a H-SMS (review B H-1): the template's variables first, then the fixed control fields, so a queued
+        // row's params can never change the recipient, the Flow template, the sender id or short_url.
         body: JSON.stringify({
+          ...smsFlowVariables(templateId, params),
           template_id: templateId,
           sender: this.senderId,
           short_url: "0",
           mobiles: normalizedPhone,
-          ...params,
         }),
       });
 
       const data = (await res.json().catch(() => ({}))) as {
         type?: string;
-        message?: string;
         request_id?: string;
       };
 
-      if (!res.ok || data.type === "error") {
-        return {
-          success: false,
-          channelUsed: "sms",
-          error: data.message || `MSG91 SMS failed with HTTP ${res.status}`,
-          statusCode: res.status,
-        };
-      }
+      if (!res.ok) return httpFailure("sms", res.status);
+      if (data.type === "error") return rejected("sms", res.status);
 
       return {
         success: true,
@@ -88,11 +109,7 @@ export class Msg91Provider implements MessagingProvider {
         statusCode: res.status,
       };
     } catch (err: unknown) {
-      return {
-        success: false,
-        channelUsed: "sms",
-        error: `MSG91 SMS request failed (${errorTag(err)})`,
-      };
+      return requestFailed("sms", err);
     }
   }
 
@@ -100,17 +117,12 @@ export class Msg91Provider implements MessagingProvider {
     to: string,
     templateId: string,
     params: Record<string, string>,
-    _buttons?: InteractiveButton[]
+    _buttons?: InteractiveButton[],
+    options?: SendOptions
   ): Promise<MessagingSendResult> {
     const synthetic = syntheticRecipientRefusal(to, "whatsapp");
     if (synthetic) return synthetic;
-    if (!this.authKey) {
-      return {
-        success: false,
-        channelUsed: "whatsapp",
-        error: "MSG91_AUTH_KEY is not configured",
-      };
-    }
+    if (!this.authKey) return notConfigured("whatsapp");
 
     try {
       const normalizedPhone = to.replace(/[^0-9]/g, "");
@@ -125,7 +137,7 @@ export class Msg91Provider implements MessagingProvider {
           "https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/",
           {
             method: "POST",
-            signal: providerSignal(),
+            signal: providerSignal(options?.signal, this.timeoutMs),
             headers: {
               "Content-Type": "application/json",
               authkey: this.authKey,
@@ -157,25 +169,12 @@ export class Msg91Provider implements MessagingProvider {
         const data = (await res.json().catch(() => ({}))) as {
           status?: string;
           hasError?: boolean;
-          message?: string;
-          errors?: unknown;
           request_id?: string;
           requestId?: string;
         };
 
-        if (!res.ok || data.status === "error" || data.hasError === true) {
-          const errMsg =
-            data.message ||
-            (typeof data.errors === "string" ? data.errors : JSON.stringify(data.errors)) ||
-            `MSG91 WhatsApp failed with HTTP ${res.status}`;
-
-          return {
-            success: false,
-            channelUsed: "whatsapp",
-            error: errMsg,
-            statusCode: res.status,
-          };
-        }
+        if (!res.ok) return httpFailure("whatsapp", res.status);
+        if (data.status === "error" || data.hasError === true) return rejected("whatsapp", res.status);
 
         return {
           success: true,
@@ -193,7 +192,7 @@ export class Msg91Provider implements MessagingProvider {
           "https://control.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/",
           {
             method: "POST",
-            signal: providerSignal(),
+            signal: providerSignal(options?.signal, this.timeoutMs),
             headers: {
               "Content-Type": "application/json",
               authkey: this.authKey,
@@ -210,26 +209,13 @@ export class Msg91Provider implements MessagingProvider {
         const data = (await res.json().catch(() => ({}))) as {
           status?: string;
           hasError?: boolean;
-          message?: string;
-          errors?: unknown;
           request_id?: string;
           requestId?: string;
           message_uuid?: string;
         };
 
-        if (!res.ok || data.status === "error" || data.hasError === true) {
-          const errMsg =
-            data.message ||
-            (typeof data.errors === "string" ? data.errors : JSON.stringify(data.errors)) ||
-            `MSG91 session text failed with HTTP ${res.status}`;
-
-          return {
-            success: false,
-            channelUsed: "whatsapp",
-            error: errMsg,
-            statusCode: res.status,
-          };
-        }
+        if (!res.ok) return httpFailure("whatsapp", res.status);
+        if (data.status === "error" || data.hasError === true) return rejected("whatsapp", res.status);
 
         return {
           success: true,
@@ -243,11 +229,7 @@ export class Msg91Provider implements MessagingProvider {
         };
       }
     } catch (err: unknown) {
-      return {
-        success: false,
-        channelUsed: "whatsapp",
-        error: `MSG91 WhatsApp request failed (${errorTag(err)})`,
-      };
+      return requestFailed("whatsapp", err);
     }
   }
 }

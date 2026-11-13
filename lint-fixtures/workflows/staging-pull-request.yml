@@ -9,9 +9,12 @@ permissions:
   contents: read
 jobs:
   migrate:
+    if: ${{ github.ref == 'refs/heads/feature/v2' }}
     runs-on: ubuntu-24.04
     environment: staging
     steps:
+      - name: Exact ref check (feature/v2, case-sensitive)
+        run: '[ "$GITHUB_REF" = "refs/heads/feature/v2" ] || { echo "wrong ref" >&2; exit 1; }'
       - name: Migrate
         env:
           STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}

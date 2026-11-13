@@ -1,0 +1,23 @@
+# 04-07e Lows L-D, L-E, L-F negative proof: ops/restore-drill/sql-guard.ts as at 3947174, spec tests/ops/restore-guards.spec.ts as committed in 04-07e (-t "COPY spellings").
+# 15 of 17 fail on the 04-07d guard. Passing on both: COPY/PROGRAM split by a line comment (the old guard already saw the newline), and the documented residual (server-side settings pass any text guard).
+
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses the re-checker's 1$a$ file 4ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses a digit then an empty-tag dollar quote 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses SET U&"…\005f…" 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses ALTER ROLE … SET U&"…" 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses SET U&"client…" encoding 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses a U&'…' string 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses set_config with a concatenated name 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses set_config by a quoted name 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses set_config across lines 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses SET NAMES 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses SET SESSION NAMES 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses COPY(…) TO PROGRAM 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses COPY/**/t FROM PROGRAM 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses TO/* c */PROGRAM 0ms
+   ✓ sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > refuses COPY on one line, PROGRAM on the next after a comment 0ms
+   × sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > still passes pg_dump's shapes: its set_config line, set_config inside a function body, $1 parameters, identifiers with $, COPY/**/ FROM stdin data 1ms
+   ✓ sql-guard.ts: dollar quotes after a digit, U& spellings, set_config, SET NAMES, COPY spellings (04-07e) > residual (documented): a setting changed by server-side code passes the guard; restricted psql is the control there 0ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 15 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  15 failed | 2 passed | 36 skipped (53)
