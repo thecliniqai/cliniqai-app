@@ -38,6 +38,9 @@ const WORKER = `test:alert-notify-${letters(6)}`;
 const mailIds: string[] = [];
 let owner: SeededTenant;
 let patient: SeededPatient;
+// A second clinic whose due messages stand in for the pending `message.send` jobs other spec files leave behind.
+let other: SeededTenant;
+let otherPatient: SeededPatient;
 const guardianPhone = "+919000000077";
 const guardianName = `Synthetic Guardian ${letters(6)}`;
 
@@ -50,6 +53,8 @@ beforeAll(async () => {
     .update({ guardian_name: guardianName, guardian_phone: guardianPhone })
     .eq("id", patient.patientId);
   if (error) throw new Error(`guardian update failed: ${error.code}`);
+  other = await seedTenantWithOwner(`Alert Notify Other ${letters(6)}`);
+  otherPatient = await seedPatient(other.tenantId, other.userId);
 });
 
 afterEach(() => {
@@ -77,6 +82,33 @@ function openAlert(rule: string, details: Record<string, unknown> = { events: 21
   );
   psql(`select ops.enqueue_job('alert.notify', null, jsonb_build_object('alert_id', '${uuid(id)}'::uuid, 'seq', 1), 'alert:${id}:1', now(), 5)`);
   return id;
+}
+
+/**
+ * The message runner claims every due `message.send` job, also other files' leftovers. With the disabled provider they
+ * would be dead-lettered after this spec's job and push it out of the alert's ten newest `job_ids` (the order-dependent
+ * failure seen in the V2-04 close run). Park every other clinic's due message a day ahead, as run-route.spec.ts does.
+ */
+function parkOtherTenantsDueMessages(tenantId: string): void {
+  psql(
+    "update ops.jobs set run_at = now() + interval '1 day' where kind = 'message.send' and status = 'pending' " +
+      `and run_at <= now() + interval '1 hour' and tenant_id is distinct from '${uuid(tenantId)}'`,
+  );
+}
+
+function enqueuePrescriptionReady(t: SeededTenant, p: SeededPatient, name: string) {
+  return t.client.rpc("enqueue_message", {
+    p_tenant_id: t.tenantId,
+    p_patient_id: p.patientId,
+    p_visit_id: null as unknown as string,
+    p_channel: "whatsapp",
+    p_message_type: "prescription_ready",
+    p_template_id: "prescription_ready",
+    p_template_params: { patient_name: name },
+    p_recipient_phone: null as unknown as string,
+    p_recipient_user_id: null as unknown as string,
+    p_metadata: {},
+  });
 }
 
 function notify(label: string) {
@@ -121,24 +153,23 @@ describe("alert.notify → Mailpit", () => {
 
   it("a patient's dead-lettered message raises dead_letter; the email carries no patient or owner identifier", async () => {
     useMailpitAlerts();
-    const { data, error } = await owner.client.rpc("enqueue_message", {
-      p_tenant_id: owner.tenantId,
-      p_patient_id: patient.patientId,
-      p_visit_id: null as unknown as string,
-      p_channel: "whatsapp",
-      p_message_type: "prescription_ready",
-      p_template_id: "prescription_ready",
-      p_template_params: { patient_name: guardianName },
-      p_recipient_phone: null as unknown as string,
-      p_recipient_user_id: null as unknown as string,
-      p_metadata: {},
-    });
+    // Another clinic's due messages, more than the alert's ten job ids (as other spec files leave them in a full run).
+    const otherQueueIds: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      const r = await enqueuePrescriptionReady(other, otherPatient, `Synthetic Other ${letters(4)}`);
+      expect(r.error).toBeNull();
+      otherQueueIds.push((r.data as { id: string }).id);
+    }
+    const { data, error } = await enqueuePrescriptionReady(owner, patient, guardianName);
     expect(error).toBeNull();
     const queueId = (data as { id: string }).id;
+    parkOtherTenantsDueMessages(owner.tenantId);
     await runMessages(new DisabledMessagingProvider(), `${WORKER}:msg`);
     expect(queueState(queueId).status).toBe("dead_letter");
     const [messageJob] = jobsFor(queueId);
     expect(messageJob.status).toBe("dead");
+    // The parked messages of the other clinic were not touched by this spec's runner pass.
+    for (const otherId of otherQueueIds) expect(jobsFor(otherId)[0].status).toBe("pending");
 
     psql("select ops.evaluate_alerts()");
     const alert = alertFor("dead_letter");
