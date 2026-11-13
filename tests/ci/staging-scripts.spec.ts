@@ -20,9 +20,10 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkRegion, pinnedRegion } from "@/scripts/staging/check-region.mjs";
+import { comparePlan, localMigrations, planPsqlArgs, runMigrationPlan } from "@/scripts/staging/migration-plan.mjs";
 import { diffArgs, runSchemaDrift } from "@/scripts/staging/schema-drift.mjs";
 import { canonicalDbUrl, redactUrl, stagingTargetProblems } from "@/scripts/staging/target-guard.mjs";
-import { waitForRelease } from "@/scripts/staging/wait-for-release.mjs";
+import { gitIsAncestor, waitForRelease } from "@/scripts/staging/wait-for-release.mjs";
 import { ROOT } from "./run-checker";
 
 const REF = "abcdefghijklmnopqrst";
@@ -109,6 +110,44 @@ describe("target-guard", () => {
     // An API URL is not a database target for --print-db-url; --mask and --print-db-url together is a usage error.
     expect(runWithEnv(process.execPath, [guard, "--var", "X", "--print-db-url"], { ...base, X: `https://${REF}.supabase.co` }).status).toBe(1);
     expect(runWithEnv(process.execPath, [guard, "--var", "X", "--print-db-url", "--mask"], { ...base, X: pooler }).status).toBe(2);
+  });
+
+  it("04-00 L-7: --print-db-url --no-password prints the URL without its password; --print-pgpassword prints only the password", () => {
+    const guard = path.join(ROOT, "scripts/staging/target-guard.mjs");
+    const pooler = dbUrl(`postgres.${REF}`, "aws-0-ap-south-1.pooler.supabase.com");
+    const base = { PATH: process.env.PATH, GITHUB_ACTIONS: "true", SUPABASE_PROJECT_REF_STAGING: REF, STAGING_DB_URL: pooler };
+
+    const url = runWithEnv(process.execPath, [guard, "--var", "STAGING_DB_URL", "--print-db-url", "--no-password"], base);
+    expect(url.status).toBe(0);
+    expect(url.stdout).toBe(`postgresql://postgres.${REF}@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require\n`);
+    expect(new URL(url.stdout.trim()).password).toBe("");
+    for (const text of [url.stdout, url.stderr]) {
+      expect(text).not.toContain(PW);
+      expect(text).not.toContain(encodeURIComponent(PW));
+    }
+
+    // The decoded password, alone on stdout and without a newline (PGPASSWORD="$(…)"); nothing else prints it.
+    const pw = runWithEnv(process.execPath, [guard, "--var", "STAGING_DB_URL", "--print-pgpassword"], base);
+    expect(pw.status).toBe(0);
+    expect(pw.stdout).toBe(PW);
+    expect(pw.stderr).toContain("password for PGPASSWORD");
+    expect(pw.stderr).not.toContain(PW);
+
+    // Refusals print nothing on stdout; the modes do not combine; --no-password belongs to --print-db-url.
+    const refused = runWithEnv(process.execPath, [guard, "--var", "STAGING_DB_URL", "--print-pgpassword"], { ...base, STAGING_DB_URL: `${pooler}?host=127.0.0.1` });
+    expect(refused.status).toBe(1);
+    expect(refused.stdout).toBe("");
+    for (const args of [["--print-pgpassword", "--mask"], ["--print-pgpassword", "--print-db-url"], ["--no-password"], ["--print-db-url", "--no-pasword"]]) {
+      const r = runWithEnv(process.execPath, [guard, "--var", "STAGING_DB_URL", ...args], base);
+      expect(r.status, args.join(" ")).toBe(2);
+      expect(r.stdout).toBe("");
+    }
+  });
+
+  it("04-00 L-7: canonicalDbUrl({ password: false }) keeps every checked part but the password", () => {
+    const direct = dbUrl("postgres", `db.${REF}.supabase.co`);
+    expect(canonicalDbUrl(`${direct}?sslmode=verify-full`, { password: false })).toBe(`postgresql://postgres@db.${REF}.supabase.co:5432/postgres?sslmode=verify-full`);
+    expect(canonicalDbUrl(direct)).toContain(encodeURIComponent(PW));
   });
 
   it("refuses a missing or malformed ref and a missing URL", () => {
@@ -226,6 +265,65 @@ describe("wait-for-release", () => {
     }
   });
 
+  // 04-00 (review A L-6): a later commit that deployed while this run waited for approval.
+  const NEWER = "89abcdef0123456789abcdef0123456789abcdef";
+  const OLDER = "fedcba9876543210fedcba9876543210fedcba98";
+
+  it("04-00 L-6: exits 0 when /api/health reports a release that descends from the SHA and /api/ready is current", async () => {
+    const asked: string[][] = [];
+    const isAncestor = (a: string, d: string) => {
+      asked.push([a, d]);
+      return a === SHA && d === NEWER;
+    };
+    const s = fakeStaging([NEWER], READY);
+    const r = await waitForRelease({ origin: ORIGIN, sha: SHA, isAncestor, ...s.options });
+    expect(r.exitCode).toBe(0);
+    expect(r.lines).toContain(`wait-for-release: /api/health reports release ${NEWER}, a descendant of ${SHA} (attempt 1)`);
+    expect(r.lines.at(-1)).toBe(`wait-for-release: PASS release ${NEWER} (descends from ${SHA}) is live and ready with the schema current`);
+    expect(asked).toEqual([[SHA, NEWER]]);
+    expect(s.urls).toEqual([`${ORIGIN}/api/health`, `${ORIGIN}/api/ready`]);
+  });
+
+  it("04-00 L-6: a descendant release whose own migration is pending still fails readiness (schema behind)", async () => {
+    const behind = { status: 200, body: { status: "ready", checks: { database: "ok", schema: "behind" } } };
+    const r = await waitForRelease({ origin: ORIGIN, sha: SHA, isAncestor: () => true, ...fakeStaging([NEWER], behind).options });
+    expect(r.exitCode).toBe(1);
+    expect(r.lines.at(-1)).toContain("checks.schema is behind, not current");
+  });
+
+  it("04-00 L-6: a release that does not descend (a rollback) keeps waiting and times out, asking git once per release", async () => {
+    let asks = 0;
+    const s = fakeStaging([OLDER], READY);
+    const r = await waitForRelease({ origin: ORIGIN, sha: SHA, isAncestor: () => (asks++, false), ...s.options });
+    expect(r.exitCode).toBe(1);
+    expect(r.lines.at(-1)).toMatch(new RegExp(`TIMEOUT after 5 attempt\\(s\\).*last: release ${OLDER} \\(not a descendant\\)`));
+    expect(asks).toBe(1);
+    expect(s.urls.some((u) => u.endsWith("/api/ready"))).toBe(false);
+  });
+
+  it("04-00 L-6: the equal SHA passes without asking git; a malformed release is never handed to git or echoed", async () => {
+    const isAncestor = () => {
+      throw new Error("git must not be asked");
+    };
+    const equal = await waitForRelease({ origin: ORIGIN, sha: SHA, isAncestor, ...fakeStaging([SHA], READY).options });
+    expect(equal.exitCode).toBe(0);
+    expect(equal.lines.at(-1)).toBe(`wait-for-release: PASS release ${SHA} is live and ready with the schema current`);
+    const odd = await waitForRelease({ origin: ORIGIN, sha: SHA, isAncestor, ...fakeStaging(["--upload-pack=LEAK"], READY).options });
+    expect(odd.exitCode).toBe(1);
+    expect(odd.lines.join("\n")).not.toContain("LEAK");
+  });
+
+  it("04-00 L-6: gitIsAncestor answers from this repository's real history (git merge-base --is-ancestor)", () => {
+    const git = (...args: string[]) => spawnSync("git", args, { cwd: ROOT, encoding: "utf8" }).stdout.trim();
+    const head = git("rev-parse", "HEAD");
+    const parent = git("rev-parse", "HEAD~1");
+    expect(gitIsAncestor(parent, head)).toBe(true);
+    expect(gitIsAncestor(head, parent)).toBe(false);
+    // A commit the checkout does not hold is not a descendant; non-SHA input never reaches git.
+    expect(gitIsAncestor(parent, "0".repeat(40))).toBe(false);
+    expect(gitIsAncestor(parent, "--all")).toBe(false);
+  });
+
   it("exits 2 for a non-https or non-bare origin and a short SHA, before any request", async () => {
     for (const [origin, sha] of [["http://127.0.0.1:3000", SHA], [`${ORIGIN}/`, SHA], [ORIGIN, "0123abc"]]) {
       const s = fakeStaging([SHA], READY);
@@ -281,14 +379,16 @@ describe("schema-drift (staging, read-only)", () => {
    */
   function fakeCli(result: { status: number; stdout?: string; stderr?: string }) {
     const calls: string[][] = [];
+    const envs: Record<string, string | undefined>[] = [];
     const spawnImpl: SpawnImpl = (cmd, args, opts) => {
       calls.push([cmd, ...args]);
+      envs.push(((opts as { env?: Record<string, string | undefined> }).env ?? {}) as Record<string, string | undefined>);
       if (cmd === "npx") return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
       if (cmd === "psql") return { status: 0, stdout: fs.readFileSync(path.join(ROOT, "scripts/drift/schema-snapshot.txt"), "utf8"), stderr: "" };
       const r = spawnSync(cmd, args, { ...(opts as object), encoding: "utf8" });
       return { status: r.status, stdout: r.stdout, stderr: r.stderr };
     };
-    return { calls, spawnImpl };
+    return { calls, envs, spawnImpl };
   }
 
   it("refuses a loopback database URL without running the CLI", () => {
@@ -310,8 +410,13 @@ describe("schema-drift (staging, read-only)", () => {
   it("runs the read-only diff against the given URL with --schema public,ops,private and passes on no drift", () => {
     const cli = fakeCli({ status: 0, stdout: JSON.stringify({ diff: "" }) });
     const r = runSchemaDrift({ vars, spawnImpl: cli.spawnImpl });
-    // 03-13 M-GUARD: the CLI gets the re-serialised URL (TLS required), not the raw secret.
-    expect(cli.calls[0]).toEqual(["npx", ...diffArgs(`${roUrl}?sslmode=require`)]);
+    // 03-13 M-GUARD: the CLI gets the re-serialised URL (TLS required), not the raw secret; 04-00 L-7: and without the
+    // password, which travels as PGPASSWORD in the CLI's environment only.
+    const passwordFree = `postgresql://clinicos_drift_ro.${REF}@aws-0-ap-south-1.pooler.supabase.com:5432/postgres?sslmode=require`;
+    expect(cli.calls[0]).toEqual(["npx", ...diffArgs(passwordFree)]);
+    expect(cli.calls[0].join(" ")).not.toContain(encodeURIComponent(PW));
+    expect(cli.calls[0].join(" ")).not.toContain(PW);
+    expect(cli.envs[0].PGPASSWORD).toBe(PW);
     expect(cli.calls[0]).toEqual(expect.arrayContaining(["--db-url", "--schema", "public,ops,private"]));
     expect(cli.calls[0]).not.toContain("-f");
     expect(r.lines.join("\n")).toContain("local-drift: PASS");
@@ -333,6 +438,123 @@ describe("schema-drift (staging, read-only)", () => {
     expect(printed).toContain("failed to connect to <staging-url>");
     expect(printed).not.toContain(PW);
     expect(printed).not.toContain(encodeURIComponent(PW));
+  });
+});
+
+describe("migration-plan (04-00, review A L-5: what migrate would apply, from the read-only role)", () => {
+  const roUrl = dbUrl(`clinicos_drift_ro.${REF}`, "aws-0-ap-south-1.pooler.supabase.com");
+  const vars = { STAGING_DB_URL_RO: roUrl, SUPABASE_PROJECT_REF_STAGING: REF };
+
+  /** A throwaway migrations directory with these files (names only; empty bodies). */
+  function migrationsDir(files: string[]): string {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "migration-plan-"));
+    for (const f of files) fs.writeFileSync(path.join(dir, f), "");
+    return dir;
+  }
+  type PlanSpawn = NonNullable<NonNullable<Parameters<typeof runMigrationPlan>[0]>["spawnImpl"]>;
+  /** Fakes psql: answers `versions` (one per line), records argv and env. */
+  function fakePsql(versions: string[], status = 0, stderr = "") {
+    const calls: { cmd: string; args: string[]; env: Record<string, string | undefined> }[] = [];
+    const spawnImpl: PlanSpawn = (cmd, args, opts) => {
+      calls.push({ cmd, args, env: (opts as { env: Record<string, string | undefined> }).env });
+      return { status, stdout: versions.map((v) => `${v}\n`).join(""), stderr };
+    };
+    return { calls, spawnImpl };
+  }
+  const FILES = ["000001_init.sql", "000002_next.sql", "000003_third.sql", "000004_fourth.sql", "README.md"];
+
+  it("two files ahead: both names listed with the count, exit 0, and the job summary holds names only", () => {
+    const dir = migrationsDir(FILES);
+    const summary = path.join(dir, "summary.md");
+    const psql = fakePsql(["000001", "000002"]);
+    const r = runMigrationPlan({ vars, migrationsDir: dir, summaryFile: summary, spawnImpl: psql.spawnImpl });
+    expect(r.exitCode).toBe(0);
+    expect(r.lines).toEqual([
+      "migration-plan: 2 applied on staging, 4 file(s) in supabase/migrations, 2 pending",
+      "migration-plan: pending 000003_third.sql",
+      "migration-plan: pending 000004_fourth.sql",
+    ]);
+    const md = fs.readFileSync(summary, "utf8");
+    expect(md).toContain("2 pending (2 applied, 4 files)");
+    expect(md).toContain("- `000003_third.sql`");
+    expect(md).not.toContain(REF);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("none ahead: 0 pending, exit 0", () => {
+    const dir = migrationsDir(FILES);
+    const r = runMigrationPlan({ vars, migrationsDir: dir, spawnImpl: fakePsql(["000001", "000002", "000003", "000004"]).spawnImpl });
+    expect(r.exitCode).toBe(0);
+    expect(r.lines).toEqual(["migration-plan: 4 applied on staging, 4 file(s) in supabase/migrations, 0 pending"]);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("an applied version with no file is history drift: exit 1, naming the version", () => {
+    const dir = migrationsDir(FILES);
+    const r = runMigrationPlan({ vars, migrationsDir: dir, spawnImpl: fakePsql(["000001", "000002", "000099"]).spawnImpl });
+    expect(r.exitCode).toBe(1);
+    expect(r.lines.join("\n")).toContain("DRIFT 1 applied version(s) with no file: 000099");
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("a pending file older than the newest applied version is drift too (db push would refuse it): exit 1", () => {
+    const dir = migrationsDir(FILES);
+    const r = runMigrationPlan({ vars, migrationsDir: dir, spawnImpl: fakePsql(["000001", "000003"]).spawnImpl });
+    expect(r.exitCode).toBe(1);
+    expect(r.lines.join("\n")).toContain("pending file(s) older than the newest applied version (db push refuses them): 000002_next.sql");
+    expect(comparePlan(["000001", "000003"], localMigrations(dir)).pending.map((f) => f.file)).toEqual(["000002_next.sql", "000004_fourth.sql"]);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("the database URL and password never appear in psql's argv or the output; psql gets PATH and PG* only", () => {
+    const dir = migrationsDir(FILES);
+    const psql = fakePsql(["000001"]);
+    const r = runMigrationPlan({ vars: { ...vars, PATH: "/usr/bin", OTHER_SECRET: "LEAK-other" }, migrationsDir: dir, spawnImpl: psql.spawnImpl });
+    expect(r.exitCode).toBe(0);
+    expect(psql.calls).toHaveLength(1);
+    expect(psql.calls[0].cmd).toBe("psql");
+    expect(psql.calls[0].args).toEqual(planPsqlArgs());
+    const argv = psql.calls[0].args.join(" ");
+    expect(argv).toContain("begin read only");
+    for (const secret of [roUrl, PW, encodeURIComponent(PW)]) {
+      expect(argv).not.toContain(secret);
+      expect(r.lines.join("\n")).not.toContain(secret);
+    }
+    expect(Object.keys(psql.calls[0].env).sort()).toEqual(["PATH", "PGCONNECT_TIMEOUT", "PGDATABASE", "PGHOST", "PGPASSWORD", "PGPORT", "PGSSLMODE", "PGUSER"]);
+    expect(psql.calls[0].env.PGPASSWORD).toBe(PW);
+    expect(psql.calls[0].env.PGSSLMODE).toBe("require");
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("refuses a loopback or re-targeting URL without running psql (exit 2)", () => {
+    for (const url of [dbUrl("postgres", "127.0.0.1"), `${roUrl}?host=127.0.0.1`]) {
+      const psql = fakePsql([]);
+      const r = runMigrationPlan({ vars: { ...vars, STAGING_DB_URL_RO: url }, spawnImpl: psql.spawnImpl });
+      expect(r.exitCode).toBe(2);
+      expect(r.lines[0]).toContain("migration-plan: REFUSED STAGING_DB_URL_RO");
+      expect(psql.calls).toEqual([]);
+    }
+  });
+
+  it("a psql failure (e.g. the 04-P16 grant missing) exits 2 with stderr redacted; non-version rows exit 2", () => {
+    const failing = runMigrationPlan({
+      vars,
+      spawnImpl: fakePsql([], 1, `permission denied for schema supabase_migrations; url ${roUrl}; pw ${PW}`).spawnImpl,
+    });
+    expect(failing.exitCode).toBe(2);
+    expect(failing.lines[0]).toContain("04-P16 grant");
+    expect(failing.lines.join("\n")).not.toContain(PW);
+    expect(failing.lines.join("\n")).toContain("<staging-url>");
+    const odd = runMigrationPlan({ vars, spawnImpl: fakePsql(["000001", "LEAK; drop"]).spawnImpl });
+    expect(odd.exitCode).toBe(2);
+    expect(odd.lines.join("\n")).not.toContain("LEAK");
+  });
+
+  it("reads the repository's real migrations with the CLI's file rule", () => {
+    const files = localMigrations();
+    expect(files.length).toBeGreaterThanOrEqual(30);
+    expect(files[0]).toEqual({ version: "000001", file: expect.stringMatching(/^000001_.+\.sql$/) });
+    expect(files.map((f) => f.version)).toEqual([...files.map((f) => f.version)].sort());
   });
 });
 

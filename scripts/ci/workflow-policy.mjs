@@ -32,7 +32,13 @@
  *                               (`github.head_ref`, `github.event.*`, `inputs.*`, `steps.*.outputs.*`, `secrets.*`);
  *                               in a staging workflow no `${{ … }}` at all in `run:` (values reach the shell through
  *                               `env:` only);
- *   no-secrets-dump             no `toJSON(secrets)` and no `secrets: inherit`.
+ *   no-secrets-dump             no `toJSON(secrets)` and no `secrets: inherit`;
+ *   staging-plan-before-migrate (V2-04 04-00, review A L-5) in `staging.yml`, the `migrate` job `needs: plan`, and the
+ *                               `plan` job exists and runs in Environment `staging-readonly` (no reviewer, read-only
+ *                               role), so the PO sees the pending migrations before approving `staging`;
+ *   staging-db-url-no-password  (04-00, review A L-7) in a staging workflow, every `run:` command that uses the target
+ *                               guard's `--print-db-url` also passes `--no-password`: the CLI gets the password as
+ *                               `PGPASSWORD` (`--print-pgpassword`), never in argv.
  *
  * Reader (no YAML dependency, deliberately small and fail-closed): block mappings and sequences, plain, single- and
  * double-quoted one-line scalars, `|`/`>` block scalars, `[a, b]` flow sequences of plain scalars and the empty `{}`.
@@ -60,6 +66,11 @@ const STAGING_SECRET = /secrets\.([A-Za-z0-9_]*STAGING[A-Za-z0-9_]*)|secrets\[\s
 const UNTRUSTED_IN_RUN = /\bgithub\.head_ref\b|\bgithub\.event\b|\bgithub\.event\.|\binputs\.|\bsteps\.[^.\s]+\.outputs\b|\bsecrets\b|\bgithub\.token\b/;
 const EXPRESSION = /\$\{\{([\s\S]*?)\}\}/g;
 const INSTALL_COMMAND = /\b(npm\s+(?:ci|install|i|add)|pnpm\s+(?:install|i|add)|yarn\s+install)\b/;
+/** 04-00 (L-5): the staging deploy workflow whose `migrate` job must wait for the read-only `plan` job. */
+const STAGING_DEPLOY_FILES = new Set(["staging.yml", "staging.yaml"]);
+const PLAN_JOB = "plan";
+const MIGRATE_JOB = "migrate";
+const PLAN_ENVIRONMENT = "staging-readonly";
 
 /** The line without its comment (a `#` that starts the line or follows whitespace, outside quotes). */
 export function stripComment(line) {
@@ -352,6 +363,25 @@ export function checkWorkflow(file, text) {
     }
   }
 
+  // 04-00 (L-5): in staging.yml the approval of `migrate` is preceded by the read-only plan.
+  if (STAGING_DEPLOY_FILES.has(base)) {
+    const migrate = jobs.find((j) => j.id === MIGRATE_JOB);
+    const plan = jobs.find((j) => j.id === PLAN_JOB);
+    if (migrate) {
+      const needsNode = entryOf(migrate.node, "needs")?.value;
+      const needs = needsNode ? (needsNode.kind === "seq" ? needsNode.items.map((it) => scalarOf(it.value)) : [scalarOf(needsNode)]) : [];
+      if (!needs.includes(PLAN_JOB)) {
+        fail(migrate.start, "staging-plan-before-migrate", `job \`${MIGRATE_JOB}\` must declare \`needs: ${PLAN_JOB}\` (the PO sees the pending migrations before approving)`);
+      }
+      if (!plan) {
+        fail(migrate.start, "staging-plan-before-migrate", `no \`${PLAN_JOB}\` job: \`${MIGRATE_JOB}\` must be preceded by the read-only plan in \`${PLAN_ENVIRONMENT}\``);
+      }
+    }
+    if (plan && plan.environment !== PLAN_ENVIRONMENT) {
+      fail(plan.start, "staging-plan-before-migrate", `job \`${PLAN_JOB}\` must run in Environment \`${PLAN_ENVIRONMENT}\` (read-only, no reviewer), not \`${plan.environment ?? "none"}\``);
+    }
+  }
+
   for (const job of jobs) {
     const permEntry = entryOf(job.node, "permissions");
     if (permEntry) permissionProblems(permEntry.value, `job \`${job.id}\``, isStaging, permEntry.line, fail);
@@ -383,6 +413,15 @@ export function checkWorkflow(file, text) {
         } else if (isStaging) {
           fail(run.line, "run-no-untrusted-expression", `\`run:\` in staging job \`${job.id}\` interpolates \`\${{ ${expr} }}\`; staging scripts read values from \`env:\` only`);
         }
+      }
+
+      // 04-00 (L-7): a database URL printed for a CLI carries no password in a staging workflow.
+      if (isStaging) {
+        runText.split("\n").forEach((cmd) => {
+          if (/--print-db-url\b/.test(cmd) && !/--no-password\b/.test(cmd)) {
+            fail(run.line, "staging-db-url-no-password", `\`run:\` in staging job \`${job.id}\` uses \`--print-db-url\` without \`--no-password\`; pass the password as PGPASSWORD (\`--print-pgpassword\`), never in argv`);
+          }
+        });
       }
 
       if (!privileged) continue;

@@ -142,6 +142,8 @@ describe("workflow policy enforces every rule the staging/drift headers claim (0
         "privileged-no-cache",
         "run-no-untrusted-expression",
         "staging-no-pr-trigger",
+        // 04-00 (L-5): its `migrate` job has no read-only `plan` job to wait for.
+        "staging-plan-before-migrate",
         "staging-read-only-token",
         "staging-secret-step-scope",
       ].sort(),
@@ -211,5 +213,66 @@ describe("workflow policy enforces every rule the staging/drift headers claim (0
   it("ci.yml keeps its npm caches and plain npm ci (no environment, not a staging workflow)", () => {
     expect(rules(".github/workflows/ci.yml", workflow("ci.yml"))).toEqual([]);
     expect(rules(".github/workflows/nightly.yml", workflow("nightly.yml"))).toEqual([]);
+  });
+});
+
+/**
+ * V2-04 04-00 (review A L-5, L-7; R-47): in staging.yml the `migrate` job needs the read-only `plan` job (Environment
+ * `staging-readonly`), and no staging `run:` prints a database URL with its password for a CLI. Each regression is made
+ * on the real staging.yml, so the committed file is what the rules are proved against.
+ */
+describe("workflow policy: plan before migrate and password-free CLI URLs (04-00)", () => {
+  const staging = () => workflow("staging.yml");
+  const after = (edit: (t: string) => string, name = "staging.yml", original = staging()) => {
+    const text = edit(original);
+    expect(text, "the edit did not apply").not.toBe(original);
+    return checkWorkflow(`.github/workflows/${name}`, text);
+  };
+
+  it("the committed staging.yml has a plan job in staging-readonly that migrate needs, and passes", () => {
+    const text = staging();
+    expect(text).toMatch(/\n  plan:\n[\s\S]*?\n    environment: staging-readonly\n/);
+    expect(text).toMatch(/\n  migrate:\n    name: migrate\n    needs: plan\n/);
+    expect(checkWorkflow(".github/workflows/staging.yml", text)).toEqual([]);
+  });
+
+  it("migrate without `needs: plan` fails (L-5)", () => {
+    const found = after((t) => t.replace("    needs: plan\n", ""));
+    expect(found.map((f) => f.rule)).toEqual(["staging-plan-before-migrate"]);
+    expect(found[0].message).toContain("must declare `needs: plan`");
+  });
+
+  it("a plan job that runs in the reviewed staging Environment fails (L-5)", () => {
+    const found = after((t) => t.replace(/(\n  plan:[\s\S]*?\n    environment: )staging-readonly\n/, "$1staging\n"));
+    expect(found.map((f) => f.rule)).toEqual(["staging-plan-before-migrate"]);
+    expect(found[0].message).toContain("must run in Environment `staging-readonly`");
+  });
+
+  it("no plan job at all fails, even if migrate still names it (L-5)", () => {
+    const found = after((t) => t.replace(/\n  plan:\n[\s\S]*?\n(?=  migrate:\n)/, "\n"));
+    expect(found.map((f) => f.rule)).toEqual(["staging-plan-before-migrate"]);
+    expect(found[0].message).toContain("no `plan` job");
+  });
+
+  it.each([
+    ["a flow list", (t: string) => t.replace("    needs: plan\n", "    needs: [plan]\n")],
+    ["a block list", (t: string) => t.replace("    needs: plan\n", "    needs:\n      - plan\n")],
+  ])("`needs` written as %s passes", (_label, edit) => {
+    expect(after(edit)).toEqual([]);
+  });
+
+  it("a staging run: that prints the database URL with its password fails (L-7)", () => {
+    const found = after((t) => t.replace("--print-db-url --no-password)", "--print-db-url)"));
+    expect(found.map((f) => f.rule)).toEqual(["staging-db-url-no-password"]);
+    expect(found[0].message).toContain("without `--no-password`");
+  });
+
+  it("the same command in drift.yml (a staging workflow) fails too; outside staging workflows the rule does not apply", () => {
+    const drift = workflow("drift.yml");
+    const edit = (t: string) =>
+      t.replace("run: node scripts/staging/schema-drift.mjs --out drift-report", 'run: |\n          DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL_RO --print-db-url)"\n          node scripts/staging/schema-drift.mjs --out drift-report');
+    expect(after(edit, "drift.yml", drift).map((f) => f.rule)).toEqual(["staging-db-url-no-password"]);
+    const ci = workflow("ci.yml");
+    expect(after((t) => t.replace("run: node scripts/ci/assert-no-env-files.mjs", "run: node scripts/staging/target-guard.mjs --var X --print-db-url"), "ci.yml", ci)).toEqual([]);
   });
 });

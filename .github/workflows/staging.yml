@@ -16,7 +16,12 @@
 # - migrations go through `supabase db push --db-url` (never link state, never --include-seed); every database URL is
 #   checked by scripts/staging/target-guard.mjs first, which also masks the password for the rest of the job. The CLI
 #   gets the URL re-serialised by the guard (`--print-db-url`: no query parameter that could re-target pgx, TLS
-#   required), never the raw secret (03-13 M-GUARD).
+#   required), never the raw secret (03-13 M-GUARD), and without the password (`--no-password`); the password reaches
+#   the CLI only as `PGPASSWORD` (`--print-pgpassword`), never in a process's argv (V2-04 04-00, review A L-7);
+# - the `plan` job (Environment `staging-readonly`, no reviewer, read-only role) lists the pending migration files
+#   before `migrate` (which `needs: plan`) asks for the PO's approval, so the approval is never blind (04-00, L-5);
+# - `migrate` checks out the full history so `wait-for-release` can accept a release that descends from this commit
+#   (a later push that deployed while the run waited for approval; 04-00, L-6).
 # - the AUTH-00 re-check (03-12c, task `recheck`) runs scripts/staging/auth00-recheck.ts: synthetic users only (created
 #   and deleted by the kit), one burst of at most 40 password grants, read-only catalogue queries; its JSON report is
 #   uploaded as an artifact and holds no key, password, code or token.
@@ -68,8 +73,37 @@ env:
   CI: "true"
 
 jobs:
+  # 04-00 (review A L-5): what `migrate` would apply, listed from the read-only role before the PO approves `staging`.
+  # Needs the 04-P16 grant (docs/runbooks/staging.md §3). File names and a count only, in the log and the job summary.
+  plan:
+    name: plan
+    if: ${{ github.ref == 'refs/heads/feature/v2' && (github.event_name == 'push' || inputs.task == 'migrate') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging-readonly
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Target guard (the staging project only; masks the database password)
+        env:
+          STAGING_DB_URL_RO: ${{ secrets.STAGING_DB_URL_RO }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+        run: node scripts/staging/target-guard.mjs --var STAGING_DB_URL_RO --mask
+      # Exit 0 = plan listed, 1 = history drift (an applied version without a file, or an out-of-order file), 2 =
+      # refused or the history could not be read (missing 04-P16 grant). `migrate` does not start unless this passes.
+      - name: Pending migrations (read-only history vs supabase/migrations)
+        env:
+          STAGING_DB_URL_RO: ${{ secrets.STAGING_DB_URL_RO }}
+          SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
+        run: node scripts/staging/migration-plan.mjs
+
   migrate:
     name: migrate
+    needs: plan
     if: ${{ github.ref == 'refs/heads/feature/v2' && (github.event_name == 'push' || inputs.task == 'migrate') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -78,6 +112,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # 04-00 (L-6): full history, so wait-for-release can tell a descendant release from a rollback.
+          fetch-depth: 0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
@@ -94,7 +130,9 @@ jobs:
           SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
           PGSSLMODE: require
         run: |
-          DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url)"
+          DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url --no-password)"
+          PGPASSWORD="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-pgpassword)"
+          export PGPASSWORD
           npx supabase db push --db-url "$DB_URL" --dry-run
       - name: Apply the migrations
         env:
@@ -102,7 +140,9 @@ jobs:
           SUPABASE_PROJECT_REF_STAGING: ${{ vars.SUPABASE_PROJECT_REF_STAGING }}
           PGSSLMODE: require
         run: |
-          DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url)"
+          DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-db-url --no-password)"
+          PGPASSWORD="$(node scripts/staging/target-guard.mjs --var STAGING_DB_URL --print-pgpassword)"
+          export PGPASSWORD
           npx supabase db push --db-url "$DB_URL" --yes
       - name: Wait for the release on staging, then readiness with the schema current
         env:
