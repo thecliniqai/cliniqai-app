@@ -15,6 +15,8 @@
  * None of the denial legs writes anything (row counts); the cross-tenant leg leaves every tenant B row unchanged.
  */
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildInventory } from "@/scripts/inventory-server-actions";
 import { getAdminClient } from "../helpers/supabase-admin";
@@ -26,6 +28,7 @@ import {
   countRows,
   cronRouteLeg,
   healthRouteLeg,
+  webhookSignatureRouteLegs,
   publicTokenRouteLegs,
   report,
   routeCases,
@@ -40,6 +43,22 @@ import {
 import { seedGuardWorld, type GuardWorld } from "./guard/world";
 
 const slot = vi.hoisted((): RequestSlot => ({ client: null }));
+/** 03-11b: every message the Send Email hook route hands to a sender (none may be sent by a refused call). */
+const emailSends = vi.hoisted((): unknown[] => []);
+
+vi.mock("@/lib/email", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/email")>();
+  return {
+    ...actual,
+    getEmailSender: () => ({
+      provider: "mailpit" as const,
+      send: async (message: unknown) => {
+        emailSends.push(message);
+        return { providerMessageId: "guard-recorded" };
+      },
+    }),
+  };
+});
 
 vi.mock("@/lib/supabase/server", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/supabase/server")>();
@@ -116,6 +135,25 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
         violations.push(...(await cronRouteLeg(slot, c, "no header", {})));
         violations.push(...(await cronRouteLeg(slot, c, "wrong bearer", { authorization: `Bearer ${secret}x` })));
         violations.push(...(await cronRouteLeg(slot, c, "secret without Bearer", { authorization: secret })));
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("webhook-signature"))("webhook-signature: %s", async (_k, c) => {
+        const payload = JSON.parse(readFileSync(path.join(process.cwd(), "lint-fixtures/auth-hook/recovery.json"), "utf8"));
+        const secrets = {
+          secret: `v1,whsec_${randomBytes(32).toString("base64")}`,
+          other: `v1,whsec_${randomBytes(32).toString("base64")}`,
+        };
+        // The schema refuses a non-local hook secret in this lane only through the guard (run before the tests); the
+        // route reads it through serverEnv(), which accepts any well-formed secret in the test tier.
+        const violations = await webhookSignatureRouteLegs(
+          slot,
+          c,
+          payload,
+          secrets,
+          (value) => vi.stubEnv("SEND_EMAIL_HOOK_SECRET", value),
+          () => emailSends.length
+        );
         expect(violations, report(violations)).toEqual([]);
       });
 

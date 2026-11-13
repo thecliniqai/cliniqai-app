@@ -21,6 +21,7 @@
 import path from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { NextRequest } from "next/server";
+import { Webhook } from "standardwebhooks";
 import { createClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/db/types";
 import { publicEnv } from "@/lib/env";
@@ -718,6 +719,49 @@ export async function webhookRouteLegs(
   }
   const unknown = await call("twilio", { "x-webhook-secret": secret });
   out.push(...expectStatus(c, "unknown provider", unknown, [404]), ...expectNoIds(c, "unknown provider", unknown));
+  return out;
+}
+
+/** Standard Webhooks headers for `body` signed with a `v1,whsec_…` secret at `at` (default now). */
+export function signedWebhookHeaders(secret: string, body: string, at: Date = new Date()): Record<string, string> {
+  const id = `msg_${randomBytes(12).toString("hex")}`;
+  return {
+    "webhook-id": id,
+    "webhook-timestamp": String(Math.floor(at.getTime() / 1000)),
+    "webhook-signature": new Webhook(secret.slice("v1,".length)).sign(id, at, body),
+  };
+}
+
+/**
+ * `webhook-signature` route (03-11b): every leg must answer 401 with no ids, read nothing through the request client
+ * and send nothing (`sent()` counts the sends of the spec's recording sender). `setSecret` sets or clears
+ * SEND_EMAIL_HOOK_SECRET; `secret` and `other` are two valid `v1,whsec_…` secrets.
+ */
+export async function webhookSignatureRouteLegs(
+  slot: RequestSlot,
+  c: RouteCase,
+  payload: Record<string, unknown>,
+  secrets: { secret: string; other: string },
+  setSecret: (value: string | undefined) => void,
+  sent: () => number
+): Promise<Violation[]> {
+  const body = JSON.stringify(payload);
+  const before = sent();
+  const out: Violation[] = [];
+  const leg = async (name: string, headers: Record<string, string>) => {
+    const r = await callRoute(slot, anonClient(), c, { headers, body: payload });
+    out.push(...expectStatus(c, name, r, [401]), ...expectNoIds(c, name, r), ...expectNoAccess(c, name, r));
+  };
+  setSecret(undefined);
+  await leg("secret unset, validly signed", signedWebhookHeaders(secrets.secret, body));
+  setSecret(secrets.secret);
+  await leg("no signature headers", {});
+  const valid = signedWebhookHeaders(secrets.secret, body);
+  await leg("wrong signature", { ...valid, "webhook-signature": `v1,${Buffer.alloc(32, 7).toString("base64")}` });
+  await leg("signed with another secret", signedWebhookHeaders(secrets.other, body));
+  await leg("stale timestamp (10 minutes old)", signedWebhookHeaders(secrets.secret, body, new Date(Date.now() - 600_000)));
+  await leg("signature over a different body", signedWebhookHeaders(secrets.secret, `${body} `));
+  if (sent() !== before) out.push(routeV(c, "sends", `${sent() - before} message(s) sent by refused calls`));
   return out;
 }
 

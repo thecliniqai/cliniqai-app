@@ -37,6 +37,11 @@ export type RouteGuard =
   | { kind: "webhook-secret"; acceptsPost: boolean }
   /** Cron trigger: CRON_SECRET unset 401, wrong or missing bearer 401 (RL-23: the compare itself is V2-04's). */
   | { kind: "cron-secret" }
+  /**
+   * Standard Webhooks signed call (03-11b: the Supabase Auth Send Email hook): secret unset, no signature headers, a
+   * wrong signature, another secret's signature and a stale timestamp all answer 401 and send nothing.
+   */
+  | { kind: "webhook-signature" }
   /** `/api/v1` (PO-16, AR2-H2): switch off → 404 at the handler; switch on and no key → 401 (or the public docs). */
   | { kind: "api-v1"; key: boolean }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
@@ -197,6 +202,9 @@ const V1_PUBLIC_DOCS: RouteGuard = { kind: "api-v1", key: false };
 const WEBHOOK_OTHER_METHOD: RouteGuard = { kind: "webhook-secret", acceptsPost: false };
 
 export const ROUTE_GUARDS: Record<string, RouteGuard> = {
+  // V2-03 03-11b (AUTH-03, T-03-05): Supabase Auth calls the Send Email hook server to server; no session exists, the
+  // Standard Webhooks signature with SEND_EMAIL_HOOK_SECRET is the authentication.
+  "app/api/auth/send-email/route.ts#POST": { kind: "webhook-signature" },
   "app/api/cron/dispatch-communications/route.ts#GET": CRON,
   "app/api/cron/dispatch-communications/route.ts#POST": CRON,
   "app/api/cron/webhooks/route.ts#GET": CRON,
