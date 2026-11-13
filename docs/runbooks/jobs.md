@@ -189,7 +189,7 @@ select kind, status, count(*), min(run_at) from ops.jobs group by 1, 2 order by 
 ## 8. Retention
 
 `cron-history-cleanup` keeps 7 days of `cron.job_run_details` (pitfall 10; about 1 440 rows a day per schedule).
-`net._http_response` is trimmed by pg_net itself. `ops.jobs` and `ops.job_runner_runs` retention arrives with 04-06. `ops.alerts` retention is handed to 04-06 (resolved alerts; wave notes).
+`net._http_response` is trimmed by pg_net itself. Every `ops` table's retention is `ops.cleanup()` (04-06, §13).
 
 ## 9. Patient messages (`message.send`, V2-04 04-03a)
 
@@ -350,7 +350,8 @@ only when they are numbers, booleans, ISO timestamps or UUIDs (job ids); anythin
 names, phones, emails, payloads or messages ever (the rule functions produce counts; the renderer re-checks).
 
 **Noise control.** One open alert per rule; a persistent condition sends one email per cooldown (`cooldown_minutes`,
-default 60; `error_sink_overflow` 6 h, `error_sink_size` 24 h, `backup_stale` 3 h). The job's dedupe key
+default 60; `error_sink_overflow` 6 h, `error_sink_size` 24 h, `backup_stale` 3 h; 04-06: `heartbeat_gap` 6 h, the two
+quota rules 24 h, the weekly summary 7 days). The job's dedupe key
 `alert:<id>:<seq>` makes a repeated evaluation unable to enqueue a second email for the same notification, and the
 handler sends nothing when `notify_count` already covers it. A dead `alert.notify` never counts toward `dead_letter`
 (R-36).
@@ -375,6 +376,10 @@ channel that keeps failing.
 | `error_sink_overflow` | warn | the error sink dropped events today or yesterday (UTC): its daily cap of 500 new fingerprints was hit |
 | `error_sink_size` | warn | `ops.error_events` is larger than 50 MB (10 % of the Free database) |
 | `backup_stale` | critical | backups are recorded and none finished `ok` in 13 h, or the latest run failed |
+| `heartbeat_gap` | warn | heartbeats are recorded and the newest is older than 7 h (420 min; the heartbeat runs every 6 h) (04-06) |
+| `quota_upgrade_trigger` | warn | the newest quota snapshot has a metric at 60 % or more of the plan limit and none at 70 % (04-06) |
+| `quota_critical` | critical | the newest quota snapshot has a metric at 70 % or more of the plan limit (04-06) |
+| `quota_weekly_summary` | info | this week's summary (opened Monday 09:00 IST) is open and not yet emailed; resolves once sent (04-06) |
 
 ```sql
 -- open alerts (counts and ids only)
@@ -447,6 +452,34 @@ No `ok` backup in 13 hours, or the latest run failed. `select environment, start
 ops.backup_runs order by started_at desc limit 10`, then `docs/runbooks/backup-restore.md` (the failed workflow run and its
 issue carry the step that failed). It resolves after the next `ok` run.
 
+### heartbeat_gap
+
+The 6-hourly pg_cron heartbeat stopped: no `ops.heartbeats` row for 7 hours. Usual causes: the project was paused (Free
+plan inactivity; the PO gets the Supabase organisation email, 04-P7), pg_cron is down, or the `ops-heartbeat` row was
+deactivated (`select jobname, active from cron.job`; `cron.job_run_details` for its last runs). A paused project raises
+nothing here (nothing runs): the pause email and the uptime monitor (V2-15) cover it. Resolves after the next heartbeat
+(§13).
+
+### quota_upgrade_trigger
+
+A Free-plan metric reached 60 % of its limit (details: `db_*`, `storage_*`, `mau_*` with bytes/users, limit, percent
+and level). Roadmap §9.1: this is the upgrade trigger. Check the growth (`select at, db_bytes, storage_bytes,
+mau_estimate from ops.quota_snapshots order by at desc limit 14`), the biggest tables (`ops-report` artifact `tables`
+block; `pg_total_relation_size`), and plan the Pro upgrade with the PO. Re-sent at most once a day while it lasts (§13).
+
+### quota_critical
+
+A metric reached 70 % of its limit. Upgrade now or free space: Supabase restricts a Free project that exceeds its
+database size (read-only mode). Short-term relief: `select ops.cleanup();` early, `select ops.purge_error_events(interval
+'30 days');`, and check `cron.job_run_details` / `net._http_response` sizes. After an upgrade, add the new plan's rows to
+`ops.quota_limits` and set `ops.settings.plan` in a reviewed migration (§13).
+
+### quota_weekly_summary
+
+Not a problem: the Monday summary of database, Storage and MAU usage against the plan limits, with each level. Egress
+is not measured by the job: check Egress in the Supabase dashboard (Organization → Usage) once a month (FT-04). If this
+email does not arrive on a Monday, see §13 (the summary is re-tried every 15 minutes for 24 hours, R-51).
+
 ### Alert drill
 
 **Local (what CI runs, `tests/jobs/alert-drill-db.spec.ts`):** a `drill.always_fail` job dies after two runner passes,
@@ -475,3 +508,112 @@ phase evidence.
 `/api/ready` returns `jobs: { backlog, dead24h, runnerStale, alertsCriticalOpen }`, booleans only (a due job waiting over
 5 min; a job dead in 24 h; a configured runner with no ok pass in 5 min; an open critical alert). They never change the
 status code; the uptime monitor (V2-15) decides what pages.
+
+## 13. Heartbeat, quota, retention and the ops report (V2-04 04-06)
+
+FT-03, FT-04 (job part), R-2, R-8, R-28, V2-03 R-27; threats T-04-10, T-04-15, T-04-17, T-04-18. Migration
+`000040_ops_heartbeat_quota_report.sql`. Times below are GMT (pg_cron) with IST.
+
+| Schedule | GMT | IST | Does |
+|---|---|---|---|
+| `ops-heartbeat` `0 */6 * * *` | 00, 06, 12, 18:00 | 05:30, 11:30, 17:30, 23:30 | `ops.heartbeat()`: one `ops.heartbeats` row (`source = pg_cron`) |
+| `ops-quota-snapshot` `30 21 * * *` | 21:30 | 03:00 | `ops.quota_snapshot()`: database bytes, Storage bytes, MAU estimate vs `ops.quota_limits` |
+| `ops-cleanup` `45 21 * * *` | 21:45 | 03:15 | `ops.cleanup()`: retention below, returns the deleted counts |
+| `ops-quota-weekly-summary` `30 3 * * 1` | Mon 03:30 | Mon 09:00 | `ops.enqueue_quota_weekly_summary()`: one `info` email per ISO week |
+
+### Heartbeat (FT-03)
+
+`ops.heartbeat()` inserts one row every 6 hours; rule `heartbeat_gap` (warn) fires when rows exist and the newest is
+older than 7 hours. It proves pg_cron is alive inside the database; the per-minute runner calls (§1) are the stronger
+"project is active" signal. Supabase's pause and quota warnings go to the organisation's billing email, which must be the
+monitored ops inbox (04-P7). Manual check: `select max(at) from ops.heartbeats;`.
+
+### Quota (FT-04, R-8)
+
+`ops.quota_snapshot()` records `pg_database_size()`, the sum of `storage.objects.metadata->>'size'` and the MAU estimate
+(users with `last_sign_in_at` in the current UTC calendar month; Supabase counts MAU per billing cycle, so this is a
+proxy), with the limits of the plan named in `ops.settings` (`plan = free`: 500 MB database, 1 GB Storage, 50 000 MAU,
+decimal units). `ops.quota_level(used, limit)`: `ok` below 60 %, `upgrade_trigger` from 60 %, `critical` from 70 %,
+`unknown` without a limit. Rules `quota_upgrade_trigger` (warn) and `quota_critical` (critical) read the newest snapshot
+(one alert at a time: critical wins), cooldown 24 h. Egress is not measurable from SQL and stays the PO's monthly
+dashboard check (the weekly email says so).
+
+Weekly summary: every Monday 09:00 IST `ops.enqueue_quota_weekly_summary()` takes a fresh snapshot and opens one `info`
+alert `quota_weekly_summary` (at most one per ISO week; a second call returns null) with its `alert.notify` job; the
+email lists each metric's bytes or users, limit, percent and level, plus the egress note. The rule keeps the alert open
+while the email is unsent (R-51 re-tries every 15 minutes, up to 24 hours) and the evaluator resolves it two
+evaluations after it is sent.
+
+On a plan upgrade (a reviewed migration, never by hand): `insert into ops.quota_limits (plan, metric, limit_value)
+values ('pro', 'db_bytes', …), ('pro', 'storage_bytes', …), ('pro', 'mau', …); update ops.settings set value = 'pro'
+where key = 'plan';` with the limits from the plan page at that time.
+
+```sql
+select at, db_bytes, storage_bytes, mau_estimate, levels from ops.quota_snapshots order by at desc limit 7;
+select ops.quota_snapshot();               -- a snapshot now (postgres only)
+```
+
+### Retention (R-2, V2-03 R-27)
+
+| Table | Kept | Column |
+|---|---|---|
+| `ops.jobs` `done`/`cancelled` | 7 days | `finished_at` (else `updated_at`) |
+| `ops.jobs` `dead` | 30 days | `finished_at` (else `updated_at`); `pending`/`running` never |
+| `ops.job_runner_runs` | 14 days, plus the newest `ok` pass | `started_at` |
+| `ops.inbound_webhook_events` | 30 days | `received_at` |
+| `ops.alerts` resolved | 180 days; open alerts never | `resolved_at` |
+| `ops.heartbeats` | 90 days, plus the newest | `at` |
+| `ops.quota_snapshots` | 400 days, plus the newest | `at` |
+| `ops.backup_runs` | 400 days, plus the newest per environment | `created_at` |
+| `ops.error_events` (+ overflow counters) | 180 days | `last_seen` (`ops.purge_error_events`, 03-09b) |
+| `cron.job_run_details` | 7 days | 04-02's `cron-history-cleanup` (§8) |
+
+The newest heartbeat, snapshot, ok runner pass and backup run stay so a schedule that stopped long ago keeps its alert
+firing instead of being purged into silence. `ops.error_events` holds no tenant or user id today (null by design,
+03-09b); if a later phase fills them, DPDP erasure must cover the table. Run it early with `select ops.cleanup();`
+(postgres only; returns the counts).
+
+### Ops report (R-28)
+
+`ops.report_all(p_hours int default 48)` (definer; no API role may execute it) returns one JSON object: job counts by
+kind and status and queue lag p50/p95/max (`first_claimed_at − run_at`, jobs first claimed in the window), jobs dead in
+24 h by kind, runner passes (runs, ok runs, largest gap between ok passes, last ok age, `configured`), alerts (rule,
+severity, status, timestamps, count, `notified`, `notify_count`, `notify_tries`, `unsent`, `provider_id_present`; never
+details or ids), heartbeats (timestamps, largest gap, covered seconds), the latest quota snapshot, backup runs (status,
+sizes, codes; no object key) and ops table row counts. Counts, timestamps, job kinds, rule names and codes only.
+
+**PO action 04-P10 (staging SQL editor, once, after the migrate run with 000040).** The read-only role from
+`docs/runbooks/staging.md` §3 gets the schema usage and the one function, nothing else (no table grant):
+
+```sql
+grant usage on schema ops to clinicos_drift_ro;
+grant execute on function ops.report_all(integer) to clinicos_drift_ro;
+```
+
+**Workflow `.github/workflows/ops-report.yml`** (daily 05:00 GMT = 10:30 IST, or Actions → "Staging ops report" → Run
+workflow; schedules fire once the default branch is `feature/v2`, RL-3). Environment `staging-readonly`, secret
+`STAGING_DB_URL_RO`, variable `SUPABASE_PROJECT_REF_STAGING`. Steps: the target guard (`--mask`);
+`scripts/ops/ops-report.mjs` refuses any user but `clinicos_drift_ro` (or `clinicos_drift_ro.<ref>` on the pooler), then
+runs psql 17 from the digest-pinned image with the connection passed as `PG*` variables by name, inside one read-only
+transaction whose first statement refuses a role with a superuser/createrole/createdb/replication/bypassrls attribute,
+a membership in another role, a write privilege on any table (outside pg_net's `net` schema, writable by every role on
+Supabase) or a create privilege; then `select ops.report_all(48)`; `scripts/ops/check-ops-report.ts` checks the schema
+(exact keys and shapes) and scans for phone-, email- and UUID-shaped strings. The job fails only on a refusal, a missing
+grant or a schema/PII violation; acceptance results are data. Artifact `ops-report` (`ops-report.json`, `check.json`),
+30 days.
+
+| Exit of `ops-report.mjs` / message | Meaning |
+|---|---|
+| `REFUSED STAGING_DB_URL_RO: …` | not the staging project, or not the read-only role's URL |
+| `REFUSED the credentials are not read-only (<reason>)` | the role can change something (`role_attributes`, `role_membership`, `table_write_privilege`, `create_privilege`) or the transaction is not read-only: fix the role (staging.md §3), never the guard |
+| `reading ops.report_all failed … 04-P10 grant` | run the two statements above |
+
+**Verify (Claude, read-only):** `gh run list --workflow ops-report.yml --limit 1 --json conclusion,url,headSha`, `gh run
+download <id> -n ops-report`, then
+`npx tsx scripts/ops/check-ops-report.ts ops-report.json --require heartbeat,quota` (after ≥ 24 h of heartbeats), `--require
+lag,alert-drill` after the drill (04-P12), `--require backups` once backups run (04-P6). Requirements: `lag` p95 < 120 s
+with ≥ 100 samples; `heartbeat` largest gap ≤ 6 h 15 min over ≥ 24 h; `quota` a snapshot with the three metrics and
+levels; `alert-drill` a `dead_letter` alert emailed with a provider id; `backups` ≥ 2 ok staging backups in every full
+IST day of the window. Exit 0 pass, 1 failed, 2 usage. The same checker accepts the SQL editor's export of
+`select ops.report_all(48);` (`[{"report_all": {…}}]`).
+

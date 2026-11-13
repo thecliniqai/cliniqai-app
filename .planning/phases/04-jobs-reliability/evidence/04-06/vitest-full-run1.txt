@@ -1,0 +1,822 @@
+# 04-06 full Vitest lane (npm run test:db). The 'supabase start' status banner (local-stack URLs and keys) before the Vitest RUN line is removed from this file.
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/jobs/alerts-db.spec.ts (34 tests) 2881ms
+   ✓ access: nothing reachable from an API role > no API role executes the evaluator or a rule; the handler RPCs are service_role only  337ms
+   ✓ access: nothing reachable from an API role > every new function is SECURITY DEFINER with an empty search_path  344ms
+{"ts":"2026-11-13T18:13:29.547Z","level":"info","event":"jobs.run.completed","durationMs":24,"count":1}
+{"ts":"2026-11-13T18:13:29.719Z","level":"info","event":"jobs.run.completed","durationMs":5,"count":0}
+ ✓ tests/ops/heartbeat-quota-db.spec.ts (14 tests) 2357ms
+   ✓ weekly quota summary email (committed, Mailpit) > sends exactly one email naming the levels and the egress reminder; then resolves and sends nothing more  322ms
+   ✓ access: the new tables and functions are closed to every API role > tables: RLS on, no policy, no privilege for anon, authenticated or service_role  578ms
+   ✓ access: the new tables and functions are closed to every API role > functions: SECURITY DEFINER with an empty search_path, executable by no API role and not by PUBLIC  640ms
+ ✓ tests/ops/quota-level-db.spec.ts (18 tests) 629ms
+ ✓ tests/ops/ops-cleanup-db.spec.ts (10 tests) 414ms
+ ✓ tests/ci/workflow-policy.spec.ts (51 tests) 207ms
+ ✓ tests/ops/quota-alert-email.spec.ts (4 tests) 2ms
+ ✓ tests/ops/check-ops-report.spec.ts (36 tests) 3259ms
+   ✓ check-ops-report.ts (CLI) > not JSON -> exit 1; unreadable file, unknown requirement or no file -> exit 2  381ms
+ ✓ tests/ops/ops-report-db.spec.ts (16 tests) 751ms
+{"ts":"2026-11-13T18:13:40.613Z","level":"error","event":"ai.soap_generate.failed","code":"Error"}
+{"ts":"2026-11-13T18:13:40.614Z","level":"error","event":"ai.frequent_prescriptions.failed","code":"Error"}
+{"ts":"2026-11-13T18:13:40.614Z","level":"error","event":"ai.catch_up_summary.failed","code":"Error"}
+{"ts":"2026-11-13T18:13:40.795Z","level":"error","event":"ai.soap_generate.failed","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:13:40.810Z","level":"error","event":"ai.soap_generate.failed","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:13:40.827Z","level":"error","event":"ai.soap_generate.failed","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:13:40.843Z","level":"error","event":"ai.frequent_prescriptions.failed","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:13:40.858Z","level":"error","event":"ai.frequent_prescriptions.failed","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:13:40.874Z","level":"error","event":"ai.catch_up_summary.failed","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:13:40.888Z","level":"error","event":"ai.catch_up_summary.failed","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:13:42.796Z","level":"error","event":"ai.soap_generate.failed","code":"NoClinicMembershipError"}
+{"ts":"2026-11-13T18:13:42.810Z","level":"error","event":"ai.frequent_prescriptions.failed","code":"NoClinicMembershipError"}
+{"ts":"2026-11-13T18:13:42.825Z","level":"error","event":"ai.catch_up_summary.failed","code":"NoClinicMembershipError"}
+{"ts":"2026-11-13T18:13:47.809Z","level":"error","event":"sharing.token_create.failed","code":"P0002"}
+{"ts":"2026-11-13T18:13:52.181Z","level":"error","event":"referrals.acknowledge_query.failed","tenantId":"c4d67386-8cf7-4e4c-9f9e-de42354d4c29","code":"PGRST116"}
+{"ts":"2026-11-13T18:13:52.240Z","level":"error","event":"referrals.acknowledge_query.failed","tenantId":"c4d67386-8cf7-4e4c-9f9e-de42354d4c29","code":"PGRST116"}
+{"ts":"2026-11-13T18:13:55.238Z","level":"error","event":"visits.confirm_read.failed","tenantId":"c4d67386-8cf7-4e4c-9f9e-de42354d4c29","code":"PGRST116"}
+{"ts":"2026-11-13T18:13:55.296Z","level":"error","event":"visits.confirm_read.failed","tenantId":"c4d67386-8cf7-4e4c-9f9e-de42354d4c29","code":"PGRST116"}
+{"ts":"2026-11-13T18:13:56.919Z","level":"error","event":"visits.schedule_block_create.failed","tenantId":"c4d67386-8cf7-4e4c-9f9e-de42354d4c29","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:14:00.640Z","level":"error","event":"sharing.token_create.failed","code":"42501"}
+{"ts":"2026-11-13T18:14:04.528Z","level":"error","event":"referrals.acknowledge_query.failed","tenantId":"c4d67386-8cf7-4e4c-9f9e-de42354d4c29","code":"PGRST116"}
+{"ts":"2026-11-13T18:14:04.583Z","level":"error","event":"referrals.acknowledge_query.failed","tenantId":"c4d67386-8cf7-4e4c-9f9e-de42354d4c29","code":"PGRST116"}
+{"ts":"2026-11-13T18:14:07.732Z","level":"error","event":"visits.confirm_read.failed","tenantId":"c4d67386-8cf7-4e4c-9f9e-de42354d4c29","code":"PGRST116"}
+{"ts":"2026-11-13T18:14:07.788Z","level":"error","event":"visits.confirm_read.failed","tenantId":"c4d67386-8cf7-4e4c-9f9e-de42354d4c29","code":"PGRST116"}
+{"ts":"2026-11-13T18:14:09.503Z","level":"error","event":"visits.schedule_block_create.failed","tenantId":"c4d67386-8cf7-4e4c-9f9e-de42354d4c29","code":"PermissionDeniedError"}
+ ✓ tests/security/guard-actions.spec.ts (620 tests) 32257ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > every inventoried export is a runtime function of its module  348ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/ai/actions.ts#getFrequentPrescriptionsAction  583ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/ai/actions.ts#getPatientCatchUpSummaryAction  417ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#completeAndBillConsultation  478ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#sendConsolidatedConsultationWhatsApp  541ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/clinics/actions.ts#createClinic  330ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/notifications/actions.ts#getInAppNotifications  357ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/settings/actions.ts#updateStatutorySettings  354ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/terminology/actions.ts#searchDiagnoses  354ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/visits/actions.ts#getClinicVisitsRegister  502ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/visits/actions.ts#recordVisitVitals  367ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/ai/actions.ts#getFrequentPrescriptionsAction  440ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/ai/actions.ts#getPatientCatchUpSummaryAction  326ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/billing/actions.ts#completeAndBillConsultation  380ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/billing/actions.ts#sendConsolidatedConsultationWhatsApp  547ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/notifications/actions.ts#getInAppNotifications  327ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/settings/actions.ts#updateStatutorySettings  382ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/terminology/actions.ts#searchDiagnoses  336ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/visits/actions.ts#getClinicVisitsRegister  571ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/visits/actions.ts#recordVisitVitals  384ms
+ ✓ tests/security/p1-34-lint-gates.spec.ts (150 tests) 27296ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a server action importing the system factory  670ms
+   ✓ P1-34 boundary lint gates: the real tree > app code carries 0 boundary messages  4371ms
+   ✓ P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed  11015ms
+   ✓ P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > 04-03c: the ADR-0005 exception register holds only the /api/v1 entry (smaller than V2-03's)  10685ms
+ ✓ tests/ops/backup-roundtrip-db.spec.ts (2 tests) 25718ms
+   ✓ backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the stand-in) > uploads an age archive that only the two recipients' keys open, holding the dump, the objects and the manifest  13195ms
+   ✓ backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the stand-in) > a failed step exits non-zero, records a `failed` row with a machine code and uploads nothing  7451ms
+ ✓ tests/security/p0-12-lint-gates.spec.ts (46 tests) 12535ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at features/patients/service.ts  701ms
+   ✓ P0-12: the real tree > app code carries 0 P0-12 messages (census: boundary_messages[P0-12] = 0)  11498ms
+ ✓ tests/ci/hosted-dump-diff.spec.ts (3 tests) 11862ms
+   ✓ hosted dump drift tool > reports no drift for a schema-only dump of the local database  5240ms
+   ✓ hosted dump drift tool > names a column the dump has and the migrations do not  5285ms
+{"ts":"2026-11-13T18:15:36.785Z","level":"info","event":"auth.password.changed","userId":"eda0fdf8-1797-494e-8463-16c787798fe4","action":"set_new_password"}
+{"ts":"2026-11-13T18:15:37.413Z","level":"info","event":"auth.password.changed","userId":"529b685e-83b6-433f-898f-505c7effa114","action":"set_new_password"}
+{"ts":"2026-11-13T18:15:37.696Z","level":"info","event":"auth.password.rejected","userId":"6cfb2e9c-ff5e-4311-8844-7baa5f2fe873","action":"set_new_password","reason":"same_password","status":422}
+{"ts":"2026-11-13T18:15:37.828Z","level":"info","event":"auth.password.changed","userId":"6cfb2e9c-ff5e-4311-8844-7baa5f2fe873","action":"set_new_password"}
+ ✓ tests/integration/auth/password-auth.spec.ts (12 tests) 8927ms
+   ✓ AUTH-04a password sign-in (local stack) > a normal login, and a failed one, send 0 emails (Mailpit)  1649ms
+   ✓ AUTH-04a password sign-in (local stack) > self-service signup is disabled: no user is created and no email is sent  1543ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > sends exactly one code-only email for an existing account and none for an unknown one  3195ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a recovery code sets a new password, is single-use, and signs out other sessions  524ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a password the policy rejects does not use up the code  349ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > reusing the current password is mapped, and the update can be retried on the recovery session  414ms
+{"ts":"2026-11-13T18:15:38.136Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:38.154Z","level":"info","event":"auth.email.sent","action":"recovery","module":"auth.email.mailpit","count":1}
+{"ts":"2026-11-13T18:15:38.154Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:38.160Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:38.163Z","level":"info","event":"auth.email.duplicate","action":"recovery","module":"auth.email","reason":"webhook_id_seen"}
+{"ts":"2026-11-13T18:15:39.760Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:39.767Z","level":"error","event":"auth.email.failed","action":"recovery","module":"auth.email.mailpit","code":"mailpit_unreachable","status":500}
+{"ts":"2026-11-13T18:15:39.767Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:39.817Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:39.823Z","level":"info","event":"auth.email.sent","action":"recovery","module":"auth.email.mailpit","count":1}
+{"ts":"2026-11-13T18:15:39.823Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:39.827Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:39.829Z","level":"info","event":"auth.email.duplicate","action":"recovery","module":"auth.email","reason":"webhook_id_seen"}
+{"ts":"2026-11-13T18:15:41.432Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:41.435Z","level":"info","event":"auth.email.duplicate","action":"recovery","module":"auth.email","reason":"in_flight","status":409}
+{"ts":"2026-11-13T18:15:42.949Z","level":"warn","event":"auth.email.dedupe_unavailable","module":"auth.email","code":"Error"}
+{"ts":"2026-11-13T18:15:42.953Z","level":"info","event":"auth.email.sent","action":"recovery","module":"auth.email.mailpit","count":1}
+{"ts":"2026-11-13T18:15:42.953Z","level":"warn","event":"auth.email.dedupe_unavailable","module":"auth.email","code":"Error"}
+{"ts":"2026-11-13T18:15:44.540Z","level":"info","event":"auth.email.sent","action":"recovery","module":"auth.email.mailpit","count":1}
+{"ts":"2026-11-13T18:15:46.127Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:46.136Z","level":"info","event":"auth.email.sent","action":"recovery","module":"auth.email.mailpit","count":1}
+{"ts":"2026-11-13T18:15:46.136Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+ ✓ tests/integration/auth/send-email-hook-dedupe-db.spec.ts (6 tests) 8129ms
+   ✓ Send Email hook: shared webhook-id record across instances (R-43) > the same signed delivery on two instances sends exactly one email (before: two)  1627ms
+   ✓ Send Email hook: shared webhook-id record across instances (R-43) > a first attempt that fails at the provider: the retry on another instance sends once  1632ms
+   ✓ Send Email hook: shared webhook-id record across instances (R-43) > another instance sending the same id right now → 409 hook error and nothing sent  1556ms
+   ✓ Send Email hook: shared webhook-id record across instances (R-43) > the shared store failing does not block the email (fails open) and logs a code only  1589ms
+   ✓ Send Email hook: shared webhook-id record across instances (R-43) > an id of an unexpected shape skips the shared layer (still sent once, no row)  1590ms
+{"ts":"2026-11-13T18:15:47.033Z","level":"error","event":"billing.payment_record.failed","tenantId":"e1c9d9db-2ef2-484c-b5e5-4261f3498779","code":"XX000"}
+{"ts":"2026-11-13T18:15:53.401Z","level":"info","event":"db.system_acquired","module":"features/billing/system","reason":"billing.record_payment_system"}
+{"ts":"2026-11-13T18:15:53.415Z","level":"info","event":"db.system_acquired","module":"features/billing/system","reason":"billing.record_payment_system"}
+ ✓ tests/billing/record-payment-rpc.spec.ts (36 tests) 7218ms
+   ✓ record_payment: invariants > a held invoice lock makes the call fail fast with CONFLICT/LOCK_TIMEOUT (lock_timeout 2s), not hang  5077ms
+{"ts":"2026-11-13T18:15:53.947Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:53.955Z","level":"info","event":"auth.email.sent","action":"recovery","module":"auth.email.mailpit","count":1}
+{"ts":"2026-11-13T18:15:53.955Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:55.474Z","level":"info","event":"auth.email.dropped","action":"magiclink","module":"auth.email","reason":"magiclink"}
+{"ts":"2026-11-13T18:15:56.995Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:57.004Z","level":"info","event":"auth.email.sent","action":"password_changed_notification","module":"auth.email.mailpit","count":1}
+{"ts":"2026-11-13T18:15:57.004Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+{"ts":"2026-11-13T18:15:58.536Z","level":"warn","event":"auth.email.refused","module":"auth.email","reason":"bad_signature","status":401}
+ ✓ tests/integration/auth/mailpit-sender.spec.ts (7 tests) 6120ms
+   ✓ Send Email hook path → Mailpit (local stack) > recovery: exactly one code email reaches Mailpit for the user, carrying the payload's code and no link  1527ms
+   ✓ Send Email hook path → Mailpit (local stack) > magiclink: 200 and zero emails in Mailpit (A00-1)  1521ms
+   ✓ Send Email hook path → Mailpit (local stack) > password_changed_notification: exactly one code-free notice in Mailpit  1539ms
+   ✓ Send Email hook path → Mailpit (local stack) > a bad signature sends nothing to Mailpit  1512ms
+ ✓ tests/jobs/run-route.spec.ts (29 tests) 5702ms
+   ✓ POST /api/jobs/run: refusals before any database access > no configured secret: even `Bearer undefined` and the old secret are refused  647ms
+   ✓ POST /api/jobs/run: refusals before any database access > a signed-in clinic owner's session cookie without the bearer → 401 (no role is a runner)  492ms
+ ✓ tests/integration/auth/auth00-recheck-kit.spec.ts (14 tests) 4821ms
+ ✓ tests/auth/send-email-hook.spec.ts (28 tests) 3682ms
+   ✓ 03-13a: webhook-id dedupe and the SES time budget > a provider that hangs is aborted at the 3500 ms budget: 500 well inside GoTrue's 5000 ms hook timeout  3519ms
+ ✓ tests/ci/migration-immutability.spec.ts (20 tests) 3122ms
+ ✓ tests/auth/send-email-hook-resend.spec.ts (6 tests) 3041ms
+   ✓ Send Email hook with EMAIL_PROVIDER=resend (04-00b) > a hung Resend answers 500 (resend_timeout) inside the hook budget, before GoTrue's timeout  3008ms
+{"ts":"2026-11-13T18:16:25.086Z","level":"info","event":"db.system_acquired","module":"app/api/jobs/run","reason":"jobs.run"}
+{"ts":"2026-11-13T18:16:25.093Z","level":"info","event":"jobs.run.completed","durationMs":7,"count":0}
+{"ts":"2026-11-13T18:16:25.127Z","level":"warn","event":"auth.email.refused","module":"auth.email","reason":"no_secret","status":401}
+{"ts":"2026-11-13T18:16:25.130Z","level":"warn","event":"auth.email.refused","module":"auth.email","reason":"bad_signature","status":401}
+{"ts":"2026-11-13T18:16:25.130Z","level":"warn","event":"auth.email.refused","module":"auth.email","reason":"bad_signature","status":401}
+{"ts":"2026-11-13T18:16:25.130Z","level":"warn","event":"auth.email.refused","module":"auth.email","reason":"bad_signature","status":401}
+{"ts":"2026-11-13T18:16:25.131Z","level":"warn","event":"auth.email.refused","module":"auth.email","reason":"bad_signature","status":401}
+{"ts":"2026-11-13T18:16:25.131Z","level":"warn","event":"auth.email.refused","module":"auth.email","reason":"bad_signature","status":401}
+{"ts":"2026-11-13T18:16:25.341Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:16:25.342Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:16:25.342Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:16:25.342Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:16:25.342Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:16:25.342Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:16:25.342Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:16:25.342Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:16:25.342Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"invalid_scope","status":400}
+{"ts":"2026-11-13T18:16:25.358Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+{"ts":"2026-11-13T18:16:25.358Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+ ✓ tests/security/guard-routes.spec.ts (56 tests) 2975ms
+{"ts":"2026-11-13T18:16:26.081Z","level":"info","event":"jobs.run.completed","durationMs":19,"count":1}
+{"ts":"2026-11-13T18:16:26.288Z","level":"info","event":"jobs.run.completed","durationMs":14,"count":1}
+{"ts":"2026-11-13T18:16:26.369Z","level":"info","event":"jobs.run.completed","durationMs":12,"count":1}
+{"ts":"2026-11-13T18:16:26.516Z","level":"info","event":"jobs.run.completed","durationMs":12,"count":1}
+{"ts":"2026-11-13T18:16:26.737Z","level":"info","event":"jobs.run.completed","durationMs":12,"count":1}
+{"ts":"2026-11-13T18:16:26.869Z","level":"info","event":"jobs.run.completed","durationMs":11,"count":1}
+{"ts":"2026-11-13T18:16:27.097Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T18:16:27.134Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T18:16:27.171Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T18:16:27.209Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T18:16:27.251Z","level":"info","event":"jobs.run.completed","durationMs":9,"count":1}
+{"ts":"2026-11-13T18:16:27.481Z","level":"info","event":"jobs.run.completed","durationMs":12,"count":1}
+{"ts":"2026-11-13T18:16:27.608Z","level":"info","event":"jobs.run.completed","durationMs":5,"count":0}
+{"ts":"2026-11-13T18:16:27.768Z","level":"info","event":"jobs.run.completed","durationMs":6,"count":1}
+{"ts":"2026-11-13T18:16:27.967Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T18:16:28.129Z","level":"info","event":"jobs.run.completed","durationMs":9,"count":1}
+{"ts":"2026-11-13T18:16:28.336Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T18:16:28.432Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+ ✓ tests/jobs/alert-notify-db.spec.ts (10 tests) 2832ms
+   ✓ alert.notify → Mailpit > no input of the shared scrub vectors survives into the email, as a detail value or as a key  319ms
+   ✓ alert.notify: channel and failure handling > R-51: provider down → no email, notified_at null; provider back → the next evaluation sends exactly one  770ms
+ ✓ tests/jobs/enqueue-webhook-rpc-db.spec.ts (20 tests) 2850ms
+   ✓ contract: members cannot write the delivery table (M-XTENANT-WH, T-04-25) > catalogue: writers not executable by API roles; RPC grants as designed; definer + empty search_path  651ms
+ ✓ tests/config/env-boot.spec.ts (12 tests) 2826ms
+   ✓ boot: instrumentation.ts register() (every server instance) > refuses a staging profile carrying the local stack's opaque keys, naming both and no value (04-00 L-3)  1091ms
+   ✓ boot: instrumentation.ts register() (every server instance) > the same staging profile with run-time-built hosted keys boots; the local tiers keep their keys (04-00 L-3)  795ms
+{"ts":"2026-11-13T18:16:35.239Z","level":"info","event":"jobs.run.completed","durationMs":149,"count":18}
+{"ts":"2026-11-13T18:16:35.396Z","level":"info","event":"jobs.run.completed","durationMs":5,"count":0}
+{"ts":"2026-11-13T18:16:35.452Z","level":"info","event":"jobs.run.completed","durationMs":13,"count":2}
+{"ts":"2026-11-13T18:16:35.865Z","level":"info","event":"jobs.run.completed","durationMs":11,"count":2}
+{"ts":"2026-11-13T18:16:36.552Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":0}
+{"ts":"2026-11-13T18:16:36.553Z","level":"info","event":"jobs.run.completed","durationMs":9,"count":0}
+{"ts":"2026-11-13T18:16:36.564Z","level":"info","event":"jobs.run.completed","durationMs":20,"count":2}
+{"ts":"2026-11-13T18:16:36.565Z","level":"info","event":"jobs.run.completed","durationMs":21,"count":2}
+{"ts":"2026-11-13T18:16:36.566Z","level":"info","event":"jobs.run.completed","durationMs":22,"count":2}
+{"ts":"2026-11-13T18:16:36.731Z","level":"info","event":"jobs.run.completed","durationMs":187,"count":40}
+{"ts":"2026-11-13T18:16:36.733Z","level":"info","event":"jobs.run.completed","durationMs":189,"count":41}
+{"ts":"2026-11-13T18:16:36.734Z","level":"info","event":"jobs.run.completed","durationMs":190,"count":40}
+ ✓ tests/jobs/webhook-deliver-handler-db.spec.ts (15 tests) 2571ms
+   ✓ tracer: receptionist event → RPC → delivery row → job → runner → one signed, pinned POST > delivers once to the vetted address with SNI/Host = the endpoint name; the signature verifies over the stored text  326ms
+   ✓ delivery outcomes > successive failures follow 1 m, 5 m, 15 m, 1 h and the fifth is terminal (V2-03 curve, now in SQL)  337ms
+   ✓ concurrency (T-04-07) > 8 parallel runners over 120 deliveries → 120 POSTs, each delivery exactly once, every job done at attempt 1  326ms
+ ✓ tests/observability/error-sink-scrub-db.spec.ts (79 tests) 2621ms
+ ✓ tests/integration/auth/auth-config-applied.spec.ts (6 tests) 2453ms
+   ✓ AUTH-02: the local GoTrue runs the auth policy (local column) > a second recovery request for the same address within 60 s is refused with over_email_send_rate_limit  1683ms
+   ✓ AUTH-02: the local GoTrue runs the auth policy (local column) > a password change sends the code-free 'password changed' security notification  323ms
+ ✓ tests/ci/ai-l1-greps.spec.ts (16 tests) 2384ms
+ ✓ tests/security/guard-canary.spec.ts (6 tests) 2348ms
+{"ts":"2026-11-13T18:16:49.210Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.236Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.240Z","level":"info","event":"messaging.inbound.duplicate","reason":"key_seen"}
+{"ts":"2026-11-13T18:16:49.455Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.455Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.455Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.455Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.455Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.459Z","level":"info","event":"messaging.inbound.duplicate","reason":"in_flight"}
+{"ts":"2026-11-13T18:16:49.459Z","level":"info","event":"messaging.inbound.duplicate","reason":"in_flight"}
+{"ts":"2026-11-13T18:16:49.460Z","level":"info","event":"messaging.inbound.duplicate","reason":"in_flight"}
+{"ts":"2026-11-13T18:16:49.460Z","level":"info","event":"messaging.inbound.duplicate","reason":"in_flight"}
+{"ts":"2026-11-13T18:16:49.599Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.611Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.612Z","level":"info","event":"messaging.inbound.duplicate","reason":"key_seen"}
+{"ts":"2026-11-13T18:16:49.739Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.751Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.933Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.945Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:49.947Z","level":"info","event":"messaging.inbound.duplicate","reason":"key_seen"}
+{"ts":"2026-11-13T18:16:50.151Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.153Z","level":"info","event":"messaging.inbound.duplicate","reason":"in_flight"}
+{"ts":"2026-11-13T18:16:50.326Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.513Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.519Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.520Z","level":"info","event":"messaging.inbound.duplicate","reason":"key_seen"}
+{"ts":"2026-11-13T18:16:50.529Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.534Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.543Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.548Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.558Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.565Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.566Z","level":"info","event":"messaging.inbound.duplicate","reason":"key_seen"}
+{"ts":"2026-11-13T18:16:50.573Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.575Z","level":"error","event":"messaging.inbound.failed","code":"57014"}
+{"ts":"2026-11-13T18:16:50.664Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.698Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.703Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.704Z","level":"info","event":"messaging.inbound.duplicate","reason":"key_seen"}
+{"ts":"2026-11-13T18:16:50.746Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T18:16:50.777Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.779Z","level":"info","event":"messaging.inbound.duplicate","reason":"key_seen"}
+{"ts":"2026-11-13T18:16:50.810Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:16:50.820Z","level":"info","event":"jobs.run.completed","durationMs":6,"count":1}
+{"ts":"2026-11-13T18:16:50.849Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+ ✓ tests/messaging/inbound-dedupe-db.spec.ts (21 tests) 2206ms
+ ✓ tests/auth/session-age-token-hook-db.spec.ts (53 tests) 1945ms
+{"ts":"2026-11-13T18:16:53.763Z","level":"info","event":"auth.password.rejected","userId":"0ebd640d-6b03-479e-86c6-82c3ed659bce","action":"change_password","reason":"pwned_password"}
+{"ts":"2026-11-13T18:16:54.254Z","level":"info","event":"auth.password.changed","userId":"86e9a6eb-6c40-4aa3-8e36-4f5625f7eae4","action":"change_password"}
+{"ts":"2026-11-13T18:27:54.562Z","level":"info","event":"auth.password.rejected","userId":"f03550d7-d198-46db-9079-9bf71841a94b","action":"change_password","reason":"reauth_required"}
+{"ts":"2026-11-13T18:16:54.909Z","level":"info","event":"auth.password.changed","userId":"464718ab-03ee-42ce-ab2c-e0bd64bbe4d4","action":"change_password"}
+{"ts":"2026-11-13T18:16:55.278Z","level":"info","event":"auth.password.changed","userId":"e816a9b5-a499-4ef5-a75c-29780a0ddf26","action":"change_password"}
+ ✓ tests/integration/auth/change-password.spec.ts (6 tests) 1865ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a breached new password is refused with the catalogue copy and the password is unchanged  319ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a valid change: the new password signs in, the old one fails, another session's refresh fails, this one stays  515ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a fresh recovery session (within 10 minutes) may change the password  347ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > with the check off (the lane default) a fixture password is not looked up  306ms
+{"ts":"2026-11-13T18:16:56.335Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:16:56.368Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:16:56.383Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:16:56.394Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.reschedule_notify"}
+{"ts":"2026-11-13T18:16:56.505Z","level":"warn","event":"labs.delete_storage.skipped","tenantId":"425d8f5c-a0e0-419e-8c2a-ece286748671"}
+{"ts":"2026-11-13T18:16:57.314Z","level":"error","event":"settings.staff_update_query.failed","tenantId":"425d8f5c-a0e0-419e-8c2a-ece286748671","code":"23514"}
+{"ts":"2026-11-13T18:16:57.320Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ✓ tests/security/review2-fixes-db.spec.ts (21 tests) 1801ms
+{"ts":"2026-11-13T18:16:58.901Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:16:58.944Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:16:58.959Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:16:58.967Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:16:58.979Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:16:59.000Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.reschedule_notify"}
+ ✓ tests/security/review-fixes-db.spec.ts (19 tests) 1780ms
+ ✓ tests/jobs/queue-grants-db.spec.ts (10 tests) 1760ms
+   ✓ catalogue: the contract holds > anon holds no privilege on either queue table (table or column level)  638ms
+   ✓ catalogue: the contract holds > authenticated holds SELECT only (no write privilege at table or column level)  571ms
+{"ts":"2026-11-13T18:17:01.750Z","level":"info","event":"auth.password.rejected","userId":"20553413-d155-4002-abd0-e7bf1ef67b15","action":"set_new_password","reason":"pwned_password"}
+{"ts":"2026-11-13T18:17:01.999Z","level":"info","event":"auth.password.changed","userId":"20553413-d155-4002-abd0-e7bf1ef67b15","action":"set_new_password"}
+{"ts":"2026-11-13T18:17:02.431Z","level":"info","event":"auth.password.changed","userId":"fa036810-48b3-4e77-ac35-7205d500d323","action":"set_new_password"}
+{"ts":"2026-11-13T18:17:02.690Z","level":"info","event":"auth.password.rejected","userId":"55504830-1479-43a5-908d-4e0cc1fcab77","action":"set_new_password","reason":"reauth_required"}
+{"ts":"2026-11-13T18:28:02.905Z","level":"info","event":"auth.password.rejected","userId":"c5186fd0-3abf-4017-8d9c-810e568948b3","action":"set_new_password","reason":"reauth_required"}
+ ✓ tests/integration/auth/reset-completion.spec.ts (5 tests) 1621ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > a breached password is refused (code already used, retry on the same session); a clear one signs out other sessions  626ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > R-35 / H-AUTH: reset completion revokes the recovery session; its tokens then fail on a direct GoTrue PUT /auth/v1/user  378ms
+ ✓ tests/jobs/scheduler-migration-db.spec.ts (29 tests) 1615ms
+   ✓ 000033: exposure of net, Vault and the scheduler functions (R-16 as built, T-04-02) > no API role may execute the scheduler functions or use cron; anon and authenticated cannot read Vault  365ms
+ ✓ tests/jobs/enqueue-message-rpc-db.spec.ts (17 tests) 1542ms
+{"ts":"2026-11-13T18:17:07.501Z","level":"info","event":"jobs.run.completed","durationMs":150,"count":22}
+{"ts":"2026-11-13T18:17:07.530Z","level":"info","event":"jobs.run.completed","durationMs":10,"count":1}
+{"ts":"2026-11-13T18:17:07.551Z","level":"info","event":"jobs.run.completed","durationMs":11,"count":1}
+{"ts":"2026-11-13T18:17:07.566Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T18:17:07.579Z","level":"info","event":"jobs.run.completed","durationMs":11,"count":1}
+{"ts":"2026-11-13T18:17:07.592Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T18:17:07.829Z","level":"error","event":"billing.invoice_insert.failed","tenantId":"1541993c-85af-4263-b750-10f0d35ac887","code":"23505"}
+ ✓ tests/security/review3-fixes-db.spec.ts (16 tests) 1511ms
+ ✓ tests/ci/inventory-gate.spec.ts (3 tests) 1537ms
+   ✓ inventory gate (F14) > exits 1 and names the module when a "use server" export takes an override or an acting tenant  553ms
+   ✓ inventory gate (F14) > exits 1 on entry points it cannot inventory: inline "use server", route.{js,jsx,tsx,mjs}, a JS action module (02-06)  481ms
+   ✓ inventory gate (F14) > exits 0 on an action that takes only target ids  501ms
+{"ts":"2026-11-13T18:17:10.035Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:10.212Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:10.366Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:10.514Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:10.654Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:10.789Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:10.924Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:11.062Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:11.068Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:11.200Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:11.208Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+ ✓ tests/messaging/msg91-webhook.spec.ts (21 tests) 1401ms
+ ✓ tests/ci/staging-scripts.spec.ts (67 tests) 1394ms
+{"ts":"2026-11-13T18:17:13.331Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.339Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.344Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.394Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.408Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.417Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.426Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.434Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.442Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.450Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.457Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.465Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.515Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.519Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.522Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.566Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.615Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.621Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.626Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.631Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.635Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.639Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.642Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.646Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.650Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.653Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.657Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.660Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.706Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.721Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.732Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.780Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.784Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.789Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.792Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.796Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.800Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.803Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.807Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.810Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.814Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.819Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.822Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.870Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.876Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.883Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.935Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.942Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:13.994Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.001Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.045Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.058Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.076Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.088Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.103Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.114Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.125Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.130Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.136Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.140Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.147Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+{"ts":"2026-11-13T18:17:14.151Z","level":"info","event":"db.system_acquired","module":"app/api/webhooks/messaging","reason":"webhook.messaging_inbound"}
+ ✓ tests/security/webhook-lockdown.spec.ts (47 tests) 1344ms
+ ✓ tests/jobs/reaper-db.spec.ts (10 tests) 1324ms
+ ✓ tests/api/webhooks-outbox.spec.ts (24 tests) 1408ms
+{"ts":"2026-11-13T18:17:18.292Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.314Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.323Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.331Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.344Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.351Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.360Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.367Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.378Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.384Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.390Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.395Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.400Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.410Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.418Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.428Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.435Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.441Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.448Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.457Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.473Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.487Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.495Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.508Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.517Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.524Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.537Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.545Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.556Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.565Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.576Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.584Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.591Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.598Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.605Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.612Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.619Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.625Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.634Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.639Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.645Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.653Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.661Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.668Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.677Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.686Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.693Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.714Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.724Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.735Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:18.743Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ✓ tests/api/v1-doctor-guard.spec.ts (33 tests) 1372ms
+ ✓ tests/jobs/backfill-db.spec.ts (4 tests) 1381ms
+   ✓ ops.backfill_delivery_jobs (R-38) > a row stuck in processing for more than 240 s becomes failed/outcome_unknown first, then gets its job  377ms
+   ✓ ops.backfill_delivery_jobs (R-38) > webhook rows: pending and reaper-failed rows get a job; a terminal failed row does not  569ms
+{"ts":"2026-11-13T18:17:20.461Z","level":"info","event":"jobs.run.completed","durationMs":20,"count":1}
+{"ts":"2026-11-13T18:17:20.755Z","level":"info","event":"jobs.run.completed","durationMs":58,"count":20}
+{"ts":"2026-11-13T18:17:20.757Z","level":"info","event":"jobs.run.completed","durationMs":60,"count":20}
+{"ts":"2026-11-13T18:17:20.758Z","level":"info","event":"jobs.run.completed","durationMs":61,"count":20}
+{"ts":"2026-11-13T18:17:20.758Z","level":"info","event":"jobs.run.completed","durationMs":61,"count":20}
+{"ts":"2026-11-13T18:17:20.767Z","level":"info","event":"jobs.run.completed","durationMs":70,"count":30}
+{"ts":"2026-11-13T18:17:20.768Z","level":"info","event":"jobs.run.completed","durationMs":71,"count":30}
+{"ts":"2026-11-13T18:17:20.769Z","level":"info","event":"jobs.run.completed","durationMs":72,"count":30}
+{"ts":"2026-11-13T18:17:20.769Z","level":"info","event":"jobs.run.completed","durationMs":72,"count":30}
+{"ts":"2026-11-13T18:17:21.178Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":0}
+{"ts":"2026-11-13T18:17:21.178Z","level":"info","event":"jobs.run.completed","durationMs":9,"count":0}
+{"ts":"2026-11-13T18:17:21.178Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":0}
+{"ts":"2026-11-13T18:17:21.179Z","level":"info","event":"jobs.run.completed","durationMs":9,"count":0}
+{"ts":"2026-11-13T18:17:21.179Z","level":"info","event":"jobs.run.completed","durationMs":9,"count":0}
+{"ts":"2026-11-13T18:17:21.519Z","level":"info","event":"jobs.run.completed","durationMs":349,"count":73}
+{"ts":"2026-11-13T18:17:21.528Z","level":"info","event":"jobs.run.completed","durationMs":358,"count":76}
+{"ts":"2026-11-13T18:17:21.528Z","level":"info","event":"jobs.run.completed","durationMs":358,"count":76}
+ ✓ tests/jobs/parallel-dispatch-db.spec.ts (4 tests) 1354ms
+   ✓ 8 parallel runners over 200 queued messages (04-03a, real message.send handler) > send each message exactly once: 200 provider calls, 200 distinct rows, 0 duplicates  700ms
+ ✓ tests/security/p0-01-forged-overrides.spec.ts (14 tests) 1269ms
+ ✓ tests/integration/auth/session-age-token-hook.spec.ts (4 tests) 1318ms
+   ✓ Custom Access Token hook on the local GoTrue (03-13e) > a recovery session refreshed straight at GoTrue within 600 s succeeds (also at 590 s); claims unchanged  304ms
+   ✓ Custom Access Token hook on the local GoTrue (03-13e) > an unknown amr method fails closed: allowed while fresh, refused past 600 s  313ms
+{"ts":"2026-11-13T18:17:25.090Z","level":"info","event":"jobs.run.completed","durationMs":13,"count":1}
+{"ts":"2026-11-13T18:17:25.193Z","level":"info","event":"jobs.run.completed","durationMs":10,"count":1}
+{"ts":"2026-11-13T18:17:25.276Z","level":"info","event":"jobs.run.completed","durationMs":17,"count":2}
+{"ts":"2026-11-13T18:17:25.356Z","level":"info","event":"jobs.run.completed","durationMs":14,"count":1}
+{"ts":"2026-11-13T18:17:25.466Z","level":"info","event":"jobs.run.completed","durationMs":12,"count":1}
+{"ts":"2026-11-13T18:17:25.631Z","level":"info","event":"jobs.run.completed","durationMs":9,"count":1}
+{"ts":"2026-11-13T18:17:25.674Z","level":"info","event":"jobs.run.completed","durationMs":8,"count":1}
+{"ts":"2026-11-13T18:17:25.812Z","level":"info","event":"jobs.run.completed","durationMs":10,"count":1}
+ ✓ tests/jobs/message-send-handler-db.spec.ts (6 tests) 1105ms
+   ✓ message.send handler > an eligible WhatsApp booking failing twice queues exactly one SMS fallback; the last failure dead-letters once  335ms
+ ✓ tests/ci/auth00-recheck-cli.spec.ts (17 tests) 1092ms
+   ✓ the command line refuses before any request > 03-13a: the opt-in probes are bounded (stale wait 601..890 s, email-cap probe 1..70) → usage (exit 2)  673ms
+ ✓ tests/security/dpdp-export-route.spec.ts (5 tests) 1051ms
+{"ts":"2026-11-13T18:17:28.618Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:17:28.619Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:17:28.619Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:17:28.620Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:17:28.620Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"cross_origin","status":403}
+{"ts":"2026-11-13T18:17:28.758Z","level":"warn","event":"auth.signout.refused","module":"auth.signout","reason":"invalid_scope","status":400}
+{"ts":"2026-11-13T18:17:28.777Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+{"ts":"2026-11-13T18:17:28.978Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+{"ts":"2026-11-13T18:17:29.244Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"global"}
+{"ts":"2026-11-13T18:17:29.510Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+{"ts":"2026-11-13T18:17:29.526Z","level":"warn","event":"auth.signout.failed","module":"auth.signout","code":"unexpected_failure"}
+{"ts":"2026-11-13T18:17:29.527Z","level":"info","event":"auth.signout.done","module":"auth.signout","reason":"local"}
+ ✓ tests/auth/signout-route.spec.ts (21 tests) 1053ms
+ ✓ tests/ops/restore-drill-checks-db.spec.ts (4 tests) 1024ms
+stderr | tests/api/proxy-session.spec.ts > 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: a session that cannot be refreshed is redirected and its stale auth cookie deleted
+AuthApiError: Refresh token is not valid
+    at handleError (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:145:9)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _handleRequest (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:239:5)
+    at _request (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:200:16)
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/GoTrueClient.ts:4790:18
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/helpers.ts:242:26 {
+  __isAuthError: true,
+  status: 400,
+  code: 'validation_failed'
+}
+AuthApiError: Refresh token is not valid
+    at handleError (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:145:9)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _handleRequest (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:239:5)
+    at _request (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:200:16)
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/GoTrueClient.ts:4790:18
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/helpers.ts:242:26 {
+  __isAuthError: true,
+  status: 400,
+  code: 'validation_failed'
+}
+
+ ✓ tests/api/proxy-session.spec.ts (9 tests) 1017ms
+   ✓ 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a Server Action POST and an /api call on a stale recovery session run signed out (no auth cookie forwarded)  399ms
+ ✓ tests/integration/demo-clinic-seed.spec.ts (3 tests) 1017ms
+   ✓ demo clinic seeding core (local stack) > creates the clinic, five staff with the five roles and three synthetic patients  440ms
+   ✓ demo clinic seeding core (local stack) > is idempotent: a second run keeps the clinic, adds no patients and sets the new password  439ms
+ ✓ tests/setup/teardown.spec.ts (3 tests) 1009ms
+   ✓ teardown leak check > flags a run user's row in a tenant outside the run, and only that  941ms
+ ✓ tests/observability/error-sink-db.spec.ts (27 tests) 1056ms
+{"ts":"2026-11-13T18:17:35.803Z","level":"info","event":"jobs.run.completed","durationMs":15,"count":1}
+ ✓ tests/jobs/replay-job-db.spec.ts (4 tests) 980ms
+   ✓ ops.replay_job (R-35) > a dead message.send job and its dead-lettered row go back to pending; the runner then sends once  301ms
+{"ts":"2026-11-13T18:17:36.829Z","level":"info","event":"jobs.run.completed","durationMs":21,"count":2}
+{"ts":"2026-11-13T18:17:36.895Z","level":"info","event":"jobs.run.completed","durationMs":5,"count":0}
+{"ts":"2026-11-13T18:17:37.011Z","level":"info","event":"jobs.run.completed","durationMs":15,"count":1}
+{"ts":"2026-11-13T18:17:37.206Z","level":"info","event":"jobs.run.completed","durationMs":11,"count":1}
+ ✓ tests/jobs/delivery-reap-db.spec.ts (4 tests) 1007ms
+{"ts":"2026-11-13T18:17:38.324Z","level":"error","event":"consultation.sign.failed","tenantId":"8855659d-b536-459a-b2cb-5546f51311b2","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:17:38.325Z","level":"error","event":"consultation.amend_finalize.failed","tenantId":"8855659d-b536-459a-b2cb-5546f51311b2","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:17:38.325Z","level":"error","event":"consultation.sign.failed","tenantId":"8855659d-b536-459a-b2cb-5546f51311b2","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:17:38.325Z","level":"error","event":"consultation.amend_finalize.failed","tenantId":"8855659d-b536-459a-b2cb-5546f51311b2","code":"PermissionDeniedError"}
+ ✓ tests/integration/consultation-service-guards.spec.ts (9 tests) 948ms
+ ✓ tests/security/membership-guard.spec.ts (26 tests) 933ms
+ ✓ tests/auth/invite.spec.ts (5 tests) 908ms
+ ✓ tests/ci/inventory-guards.spec.ts (11 tests) 898ms
+   ✓ inventory: route handler methods > finds every app route module in the default scan  896ms
+ ✓ tests/visits/clinic-visits-register.spec.ts (8 tests) 913ms
+ ✓ tests/patients/visit-history.spec.ts (4 tests) 846ms
+ ✓ tests/jobs/claim-grants-db.spec.ts (11 tests) 873ms
+ ✓ tests/security/cross-tenant-refs.spec.ts (11 tests) 870ms
+ ✓ tests/security/override-lint-gates.spec.ts (19 tests) 836ms
+   ✓ P0-01 lint gates: "use server" exports > fails lint on client-override.ts (a clientOverride parameter)  683ms
+ ✓ tests/security/cross-tenant.spec.ts (20 tests) 764ms
+ ✓ tests/api/readiness-probe-db.spec.ts (8 tests) 767ms
+   ✓ readiness_probe(p_expected_migration) (migrations 000025, 000029) > each flag is an indexed check: with sequential scans off, no plan scans a queue table  304ms
+{"ts":"2026-11-13T18:17:50.011Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.037Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.050Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.058Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.065Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.071Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.083Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.099Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.112Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.119Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.127Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.140Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.151Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.157Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.162Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.168Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.177Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:50.189Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ✓ tests/api/v1-crud.spec.ts (17 tests) 728ms
+{"ts":"2026-11-13T18:17:50.638Z","level":"warn","event":"webhooks.queue_item.tenant_mismatch","tenantId":"52c80636-daec-4c96-8142-40768b42cbfe","reason":"subscription_tenant_mismatch"}
+{"ts":"2026-11-13T18:17:50.678Z","level":"warn","event":"webhooks.queue_item.tenant_mismatch","tenantId":"52c80636-daec-4c96-8142-40768b42cbfe","reason":"subscription_tenant_mismatch"}
+{"ts":"2026-11-13T18:17:50.949Z","level":"warn","event":"webhooks.test_ping.rate_limited","tenantId":"7aec6e22-c51a-43d2-8f12-657ceca83ad8"}
+{"ts":"2026-11-13T18:17:50.951Z","level":"warn","event":"webhooks.test_ping.rate_limited","tenantId":"7aec6e22-c51a-43d2-8f12-657ceca83ad8"}
+ ✓ tests/api/webhook-dispatch-hardening.spec.ts (8 tests) 745ms
+{"ts":"2026-11-13T18:17:51.433Z","level":"info","event":"jobs.run.completed","durationMs":24,"count":1}
+{"ts":"2026-11-13T18:17:51.508Z","level":"info","event":"jobs.run.completed","durationMs":10,"count":1}
+{"ts":"2026-11-13T18:17:51.682Z","level":"info","event":"jobs.run.completed","durationMs":17,"count":1}
+{"ts":"2026-11-13T18:17:51.854Z","level":"info","event":"jobs.run.completed","durationMs":6,"count":0}
+ ✓ tests/jobs/alert-drill-db.spec.ts (1 test) 727ms
+   ✓ alert drill (local): dead drill job → dead_letter alert → alert.notify → one email > drill.always_fail dies after two passes, raises dead_letter and mails the ops inbox exactly once  549ms
+ ✓ tests/security/auth-lint-gates.spec.ts (6 tests) 510ms
+   ✓ AUTH-01 lint gates > fails lint on otp-create-user.ts (OTP sign-in with user creation)  464ms
+ ✓ tests/ops/backup-evidence.spec.ts (9 tests) 676ms
+   ✓ evidence --check > CLI: --listing writes the artifact; --check exits 0 on it and 1 on a tampered copy  673ms
+{"ts":"2026-11-13T18:17:54.155Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:54.173Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:54.211Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:17:54.238Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ✓ tests/compliance/dpdp-rights.spec.ts (16 tests) 700ms
+ ✓ tests/ops/backup-runs-db.spec.ts (12 tests) 670ms
+ ✓ tests/ci/recheck-args.spec.ts (12 tests) 677ms
+   ✓ re-check dispatch inputs reach the kit's arguments > in-range values become --stale-wait-seconds / --email-cap-probe (CLI: the kit's argv, no shell)  507ms
+{"ts":"2026-11-13T18:17:56.481Z","level":"error","event":"visits.confirm_read.failed","tenantId":"4cfa393c-7ea8-4be8-8372-57282705a837","code":"PGRST116"}
+{"ts":"2026-11-13T18:17:56.647Z","level":"error","event":"referrals.acknowledge_query.failed","tenantId":"4cfa393c-7ea8-4be8-8372-57282705a837","code":"PGRST116"}
+ ✓ tests/security/multi-clinic-tenant-filters.spec.ts (7 tests) 638ms
+ ✓ tests/integration/prescription-versioning.spec.ts (6 tests) 637ms
+ ✓ tests/ci/auth-policy.spec.ts (14 tests) 642ms
+ ✓ tests/ci/tests-typecheck.spec.ts (3 tests) 564ms
+   ✓ test type-checking (RL-13) > fails a deliberately mistyped spec and passes a well-typed one using the Vitest globals  552ms
+ ✓ tests/integration/multi-tenancy.spec.ts (6 tests) 598ms
+{"ts":"2026-11-13T18:18:00.419Z","level":"error","event":"visits.schedule_block_delete.failed","tenantId":"43e0254a-7b10-4718-a3b8-e59ad414dd61","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:18:00.434Z","level":"error","event":"visits.schedule_block_delete.failed","tenantId":"43e0254a-7b10-4718-a3b8-e59ad414dd61","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:18:00.436Z","level":"error","event":"visits.schedule_block_delete.failed","tenantId":"43e0254a-7b10-4718-a3b8-e59ad414dd61","code":"PermissionDeniedError"}
+ ✓ tests/scheduling/schedule-block-guards.spec.ts (4 tests) 587ms
+{"ts":"2026-11-13T18:18:01.089Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:18:01.106Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:18:01.113Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:18:01.121Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:18:01.126Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:18:01.132Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:18:01.138Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:18:01.144Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:18:01.150Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-13T18:18:01.170Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.reschedule_notify"}
+ ✓ tests/security/share-tokens.spec.ts (22 tests) 539ms
+ ✓ tests/billing/payment-actor-guards.spec.ts (9 tests) 552ms
+ ✓ tests/security/p0-13-lint-gates.spec.ts (7 tests) 567ms
+   ✓ P0-13 lint gates > fails lint on an inline "use server" action  508ms
+ ✓ tests/security/pdf-route-guards.spec.ts (5 tests) 561ms
+{"ts":"2026-11-13T18:18:05.025Z","level":"error","event":"ai.soap_generate.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:05.026Z","level":"error","event":"ai.frequent_prescriptions.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:05.026Z","level":"error","event":"ai.catch_up_summary.failed","code":"Error"}
+ ✓ tests/security/p0-01-action-sweep.spec.ts (114 tests) 446ms
+ ✓ tests/labs/lab-documents.spec.ts (12 tests) 464ms
+ ✓ tests/integration/receipt-reports.spec.ts (4 tests) 452ms
+ ✓ tests/ops/manifest-compare.spec.ts (6 tests) 480ms
+   ✓ compare-manifest.ts CLI and parsers > hashes the storage dir, parses the psql TSVs, exits 0 on a match and 1 naming the table on a mismatch  477ms
+ ✓ tests/integration/ist-boundaries.spec.ts (4 tests) 415ms
+ ✓ tests/referrals/referrals-flow.spec.ts (13 tests) 462ms
+ ✓ tests/auth/resend-sender.spec.ts (24 tests) 460ms
+   ✓ ResendEmailSender: timeouts and aborts > over real HTTP: a hung Resend answer becomes resend_timeout after the configured deadline, not later  307ms
+ ✓ tests/integration/consultation-flow.spec.ts (10 tests) 443ms
+ ✓ tests/integration/subscription.spec.ts (3 tests) 409ms
+ ✓ tests/audit/audit-logging.spec.ts (4 tests) 411ms
+ ✓ tests/ci/schema-snapshot.spec.ts (13 tests) 407ms
+ ✓ tests/api/v1-performance.spec.ts (5 tests) 364ms
+{"ts":"2026-11-13T18:18:12.015Z","level":"error","event":"auth.context_resolve.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:12.016Z","level":"error","event":"auth.membership_lookup.failed","userId":"71b887a0-d244-43a1-bb91-98abe3e94606","code":"23502"}
+{"ts":"2026-11-13T18:18:12.019Z","level":"error","event":"auth.context_resolve.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:12.020Z","level":"error","event":"notifications.list_query.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"23502"}
+{"ts":"2026-11-13T18:18:12.020Z","level":"error","event":"notifications.mark_all_read_query.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"23502"}
+{"ts":"2026-11-13T18:18:12.020Z","level":"error","event":"notifications.list.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:12.020Z","level":"error","event":"referrals.outbound_list_query.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"23502"}
+{"ts":"2026-11-13T18:18:12.021Z","level":"error","event":"referrals.patient_list_query.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"23502"}
+{"ts":"2026-11-13T18:18:12.021Z","level":"error","event":"referrals.outbound_list.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:12.021Z","level":"error","event":"settings.clinic_update.failed","code":"Error"}
+ ✓ tests/security/review-fixes-app.spec.ts (14 tests) 360ms
+{"ts":"2026-11-13T18:18:12.455Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:18:12.461Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:18:12.487Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-13T18:18:12.493Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ✓ tests/api/v1-auth.spec.ts (7 tests) 337ms
+ ✓ tests/integration/per-visit-billing.spec.ts (5 tests) 337ms
+stdout | tests/integration/cdci-search.spec.ts > CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-tenancy)
+✓ Seeded 200 OPD drugs fixture in 7ms
+
+stdout | tests/integration/cdci-search.spec.ts > CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-tenancy) > 4. Drug search latency benchmark executes under 100ms on database tier
+Drug search roundtrip latency: 3.7ms
+
+ ✓ tests/integration/cdci-search.spec.ts (6 tests) 318ms
+ ✓ tests/integration/cabin-consultation-launch.spec.ts (2 tests) 353ms
+ ✓ tests/ci/env-example.spec.ts (3 tests) 349ms
+ ✓ tests/integration/visits.spec.ts (6 tests) 347ms
+ ✓ tests/ci/ci-scripts.spec.ts (7 tests) 317ms
+ ✓ tests/compliance/consent.spec.ts (3 tests) 316ms
+{"ts":"2026-11-13T18:18:16.091Z","level":"info","event":"jobs.run.completed","durationMs":30,"count":3}
+{"ts":"2026-11-13T18:18:16.149Z","level":"info","event":"jobs.run.completed","durationMs":20,"count":2}
+ ✓ tests/messaging/provider-selection.spec.ts (7 tests) 280ms
+ ✓ tests/observability/on-request-error.spec.ts (5 tests) 262ms
+ ✓ tests/referrals/referral-source-clinics.spec.ts (7 tests) 264ms
+{"ts":"2026-11-13T18:18:17.361Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ✓ tests/api/rate-limiting.spec.ts (5 tests) 271ms
+ ✓ tests/integration/queue-flow.spec.ts (4 tests) 222ms
+ ✓ tests/ops/backup-script-guards.spec.ts (12 tests) 236ms
+ ✓ tests/scheduling/calendar-waitlist.spec.ts (5 tests) 256ms
+ ✓ tests/messaging/provider-timeouts-and-synthetic.spec.ts (24 tests) 201ms
+{"ts":"2026-11-13T18:18:19.138Z","level":"error","event":"consultation.get_patient_consultation_history.failed","code":"22P02"}
+{"ts":"2026-11-13T18:18:19.150Z","level":"error","event":"labs.signed_url.failed","tenantId":"22b652eb-cf70-4d67-a537-2559788efd37","code":"Error"}
+{"ts":"2026-11-13T18:18:19.153Z","level":"error","event":"consultation.get_patient_consultation_history.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:19.153Z","level":"error","event":"labs.documents_list.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.153Z","level":"error","event":"labs.signed_url.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.153Z","level":"error","event":"labs.share_token.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.154Z","level":"error","event":"labs.delete.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.154Z","level":"error","event":"prescriptions.get_visit_prescription.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:19.154Z","level":"error","event":"prescriptions.search_medicines.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:19.154Z","level":"error","event":"visits.confirm_appointment.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:19.154Z","level":"error","event":"visits.cancel_visit.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:19.155Z","level":"error","event":"visits.schedule_block_delete.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.155Z","level":"error","event":"terminology.get_visit_diagnoses.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:19.155Z","level":"error","event":"terminology.search_diagnoses.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:19.155Z","level":"warn","event":"datetime.tenant_tz.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.164Z","level":"error","event":"apikeys.list.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.164Z","level":"error","event":"apikeys.revoke.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.164Z","level":"error","event":"webhooks.subscriptions_list.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.164Z","level":"error","event":"webhooks.subscription_delete.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.165Z","level":"error","event":"webhooks.test_ping.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.165Z","level":"error","event":"webhooks.delivery_logs.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"Error"}
+{"ts":"2026-11-13T18:18:19.165Z","level":"error","event":"patients.grant_consent.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:19.165Z","level":"error","event":"patients.withdraw_consent.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:19.166Z","level":"error","event":"apikeys.list.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"PermissionDeniedError"}
+ ✓ tests/security/no-raw-error-responses.spec.ts (24 tests) 214ms
+ ✓ tests/labs/tokenized-sharing.spec.ts (6 tests) 170ms
+ ✓ tests/patients/dedup.spec.ts (6 tests) 168ms
+ ✓ tests/ci/vitest-report-gate.spec.ts (9 tests) 184ms
+{"ts":"2026-11-13T18:18:20.277Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ✓ tests/security/system-db.spec.ts (12 tests) 170ms
+ ✓ tests/setup/test-env-guard.spec.ts (83 tests) 177ms
+ ✓ tests/ci/doc-grep-gate.spec.ts (7 tests) 171ms
+ ✓ tests/ci/local-drift.spec.ts (8 tests) 148ms
+stderr | tests/messaging/msg91-contract.spec.ts > the lane stays offline around MSW > a request MSW does not handle never reaches MSG91 (its socket dials 127.0.0.1); other hosts stay refused
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • POST https://control.msg91.com/api/v5/flow/
+
+  • Request body: {"template_id":"flow_template_1","sender":"synthetic-sender","short_url":"0","mobiles":"919812300045"}
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ tests/messaging/msg91-contract.spec.ts (19 tests) 145ms
+ ✓ tests/ci/env-files-gate.spec.ts (5 tests) 140ms
+ ✓ tests/ci/audit-gate.spec.ts (7 tests) 130ms
+ ✓ tests/api/v1-system-client-order.spec.ts (4 tests) 115ms
+ ✓ tests/auth/ses-sender.spec.ts (7 tests) 115ms
+ ✓ tests/api/api-v1-switch.spec.ts (57 tests) 106ms
+ ✓ tests/auth/pwned.spec.ts (13 tests) 91ms
+ ✓ tests/ci/playwright-summary.spec.ts (3 tests) 65ms
+ ✓ tests/api/health-probes.spec.ts (15 tests) 60ms
+ ✓ tests/jobs/runner.spec.ts (9 tests) 57ms
+ ✓ tests/setup/next-env-flag.spec.ts (2 tests) 41ms
+ ✓ tests/setup/e2e-app-env.spec.ts (14 tests) 37ms
+ ✓ tests/config/env-schema.spec.ts (256 tests) 31ms
+ ✓ tests/ci/auth-config-hosted.spec.ts (11 tests) 35ms
+ ✓ tests/observability/logger.spec.ts (26 tests) 25ms
+ ✓ tests/utils/datetime.spec.ts (17 tests) 13ms
+{"ts":"2026-11-13T18:18:24.017Z","level":"error","event":"ai.soap_generate.failed","code":"Error"}
+ ✓ tests/security/ai-containment.spec.ts (18 tests) 12ms
+ ✓ tests/observability/scrub.spec.ts (146 tests) 14ms
+ ✓ tests/observability/sink-flood.spec.ts (3 tests) 13ms
+{"ts":"2026-11-13T18:18:24.328Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+{"ts":"2026-11-13T18:18:24.336Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+{"ts":"2026-11-13T18:18:24.336Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+{"ts":"2026-11-13T18:18:24.336Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+{"ts":"2026-11-13T18:18:24.336Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+{"ts":"2026-11-13T18:18:24.337Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+{"ts":"2026-11-13T18:18:24.337Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+ ✓ tests/integration/calendar-scheduling-ux.spec.ts (12 tests) 12ms
+{"ts":"2026-11-13T18:18:24.446Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+{"ts":"2026-11-13T18:18:24.447Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+{"ts":"2026-11-13T18:18:24.447Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+{"ts":"2026-11-13T18:18:24.448Z","level":"error","event":"visits.availability_shifts.failed","code":"XX000"}
+{"ts":"2026-11-13T18:18:24.448Z","level":"error","event":"visits.availability_blocks.failed","code":"XX000"}
+{"ts":"2026-11-13T18:18:24.448Z","level":"error","event":"visits.availability_visits.failed","code":"XX000"}
+{"ts":"2026-11-13T18:18:24.449Z","level":"warn","event":"datetime.tenant_tz.failed","code":"Error"}
+{"ts":"2026-11-13T18:18:24.449Z","level":"error","event":"visits.availability.failed","code":"Error"}
+ ✓ tests/scheduling/availability-blocks.spec.ts (24 tests) 12ms
+{"ts":"2026-11-13T18:18:24.549Z","level":"error","event":"visits.vitals.failed","tenantId":"1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","code":"PermissionDeniedError"}
+{"ts":"2026-11-13T18:18:24.550Z","level":"warn","event":"datetime.tenant_tz.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"TypeError"}
+ ✓ tests/visits/visit-service-guards.spec.ts (6 tests) 11ms
+{"ts":"2026-11-13T18:18:24.657Z","level":"warn","event":"datetime.tenant_tz.failed","code":"TypeError"}
+ ✓ tests/patients/phone-search.spec.ts (11 tests) 11ms
+ ✓ tests/ai/prescription-suggestions.spec.ts (6 tests) 10ms
+ ✓ tests/billing/billing-error-messages.spec.ts (5 tests) 10ms
+ ✓ tests/api/proxy-matcher.spec.ts (24 tests) 9ms
+ ✓ tests/observability/request-id.spec.ts (12 tests) 8ms
+ ✓ tests/api/webhook-ssrf.spec.ts (61 tests) 8ms
+ ✓ tests/components/phone-input.spec.ts (16 tests) 8ms
+ ✓ tests/components/doctor-availability.spec.ts (11 tests) 7ms
+ ✓ tests/auth/password-service.spec.ts (23 tests) 8ms
+ ✓ tests/observability/no-raw-error-logging.spec.ts (4 tests) 6ms
+ ✓ tests/auth/password-schemas-and-errors.spec.ts (48 tests) 6ms
+ ✓ tests/observability/diag-route.spec.ts (5 tests) 6ms
+{"ts":"2026-11-13T18:18:26.313Z","level":"error","event":"sharing.token_create.failed","code":"P0002"}
+ ✓ tests/messaging/tokenized-sharing.spec.ts (6 tests) 6ms
+ ✓ tests/messaging/msg91-provider.spec.ts (26 tests) 5ms
+ ✓ tests/ai/ai-gateway.spec.ts (20 tests) 6ms
+ ✓ tests/messaging/messaging-provider.spec.ts (11 tests) 6ms
+ ✓ tests/observability/console-scrub.spec.ts (6 tests) 5ms
+ ✓ tests/ops/drill-evidence-and-workflows.spec.ts (8 tests) 6ms
+ ✓ tests/notifications/in-app-notifications.spec.ts (12 tests) 5ms
+ ✓ tests/jobs/alert-email.spec.ts (50 tests) 5ms
+ ✓ tests/api/openapi.spec.ts (3 tests) 4ms
+ ✓ tests/messaging/msg91-sync-templates.spec.ts (14 tests) 4ms
+ ✓ tests/security/invite-token-lockout.spec.ts (4 tests) 4ms
+ ✓ tests/security/share-path-encoding.spec.ts (21 tests) 4ms
+ ✓ tests/storage/storage-provider.spec.ts (14 tests) 4ms
+ ✓ tests/messaging/outbox-queue.spec.ts (10 tests) 4ms
+ ✓ tests/auth/password-flows-captcha.spec.ts (14 tests) 4ms
+ ✓ tests/messaging/sink-provider.spec.ts (2 tests) 3ms
+ ✓ tests/dental/odontogram.spec.ts (7 tests) 3ms
+ ✓ tests/auth/public-paths.spec.ts (60 tests) 3ms
+ ✓ tests/db/error-map.spec.ts (37 tests) 3ms
+ ✓ tests/consultation/schemas.spec.ts (11 tests) 3ms
+ ✓ tests/settings/profile-and-credentials.spec.ts (8 tests) 3ms
+ ✓ tests/settings/settings-service-guards.spec.ts (6 tests) 3ms
+ ✓ tests/auth/safe-next.spec.ts (85 tests) 3ms
+ ✓ tests/prescriptions/dosage.spec.ts (13 tests) 3ms
+ ✓ tests/jobs/runner-auth.spec.ts (31 tests) 2ms
+ ✓ tests/auth/session-age.spec.ts (39 tests) 2ms
+ ✓ tests/patients/schema.spec.ts (7 tests) 2ms
+ ✓ tests/billing/schemas.spec.ts (4 tests) 2ms
+ ✓ tests/utils/phone.spec.ts (28 tests) 2ms
+ ✓ tests/storage/no-service-role-fallback.spec.ts (5 tests) 2ms
+ ✓ tests/security/pii-scrubber.spec.ts (8 tests) 2ms
+ ✓ tests/messaging/two-way-bot.spec.ts (8 tests) 2ms
+ ✓ tests/auth/rbac.spec.ts (6 tests) 2ms
+ ✓ tests/ai/gateway-tools.spec.ts (3 tests) 2ms
+ ✓ tests/pediatrics/who-growth.spec.ts (7 tests) 2ms
+ ✓ tests/billing/sign-and-bill-outcome.spec.ts (3 tests) 1ms
+ ✓ tests/ci/known-bug-match.spec.ts (3 tests) 1ms
+ ✓ tests/utils/synthetic-phones.spec.ts (2 tests) 1ms
+
+ Test Files  201 passed (201)
+      Tests  4200 passed (4200)
+   Start at  23:43:25
+   Duration  304.66s (transform 1.46s, setup 915ms, collect 13.64s, tests 272.96s, environment 10ms, prepare 3.89s)
+
+[teardown] removed run data: 155 tenant(s), 304 auth user(s), 1396 storage object(s); verified none remain
+exit=0
