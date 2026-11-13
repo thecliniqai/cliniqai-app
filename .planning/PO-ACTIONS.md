@@ -171,6 +171,10 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Verify (Claude):* the `drift.yml` `auth-config` job confirms CAPTCHA enabled with provider Turnstile;
     `curl -s -o /dev/null -w "%{http_code}\n" https://staging.<domain>/login` → 200. You confirm one browser sign-in on
     staging succeeds with the widget (recorded with re-check item 2).
+    Then dispatch `staging.yml` (Actions → staging → Run workflow) with task `recheck`, inputs
+    `captcha_browser_check` and `auth_log_retention` (AUTH-00 staging re-check kit, 03-12c); approve the `staging`
+    environment run. *Verify (Claude):* `gh run view <id> --json conclusion,jobs` → `auth00-recheck` green; the job
+    summary lists all nine re-check items.
 
 - [ ] **03-E8 · Send Email hook on staging**
   - *Do / where:* Supabase staging → Authentication → Hooks → Send Email → HTTPS
@@ -196,7 +200,7 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
   - *Do / where:* repo `thecliniqai/cliniqai-app` → Settings → Environments. `staging`: required reviewer = you,
     deployment branches `feature/v2` only; secrets `STAGING_DB_URL` (direct/session URL with the DB password),
     `STAGING_SECRET_KEY`, `STAGING_SEED_PASSWORD`; variables `SUPABASE_PROJECT_REF_STAGING`, `STAGING_ORIGIN`
-    (`https://staging.<domain>`). `staging-readonly`: no reviewer, branch `feature/v2`; secrets
+    (`https://staging.<domain>`), `STAGING_PUBLISHABLE_KEY` (the staging `sb_publishable_…` key; added by 03-12c). `staging-readonly`: no reviewer, branch `feature/v2`; secrets
     `SUPABASE_ACCESS_TOKEN_STAGING_RO` (03-E11), `STAGING_DB_URL_RO` (the read-only role from `docs/runbooks/staging.md`,
     password set by you); same variables.
   - *Values (correction from 03-08):* `STAGING_DB_URL` must be the **Session pooler** URL (Dashboard → Connect → Session
