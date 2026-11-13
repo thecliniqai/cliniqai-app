@@ -235,6 +235,12 @@ Source: the consistency review. "Roadmap ref" points to `V2_MASTER_ROADMAP.md`.
 
 Missing content noted by the consistency review: TARGET_ARCHITECTURE has no §10 rows for frontend, design system, testing or security tooling; the roadmap §5, §8 and §6 cover these. SECURITY findings SEC-08 to SEC-33 lack the Component, Impact and Verification fields. UX has only ASCII wireframes and no design-skill exercise. The documentation items are recorded as debt (roadmap §10, P2-DOC). The design gap is now closed by phase V2-DX and the design sub-gate G2-D before any primitives are built (revised after review). None of these blocks G1.
 
+**Erratum (V2-04, 2026-11-14): staging backup target.** The roadmap's V2-04 dependencies, expected changes and
+acceptance named an AWS `ap-south-1` bucket written by AWS CodeBuild. Staging backups instead go to a **Cloudflare R2**
+bucket, written by the GitHub Actions workflow `.github/workflows/backup.yml` in the GitHub Environment
+`staging-backup` (PO decision B-3, 2026-11-13, `.planning/PO-ACTIONS.md`; ruling R-48). The AWS `ap-south-1` design
+moves to the production backups (V2-15). Applied in `V2_MASTER_ROADMAP.md` §12 V2-04 by 04-07c (`838d4bd`).
+
 ---
 
 ## 5. Methodology
