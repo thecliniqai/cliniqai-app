@@ -317,7 +317,7 @@ const BOUNDARY_IMPORT_PATTERNS = {
   },
   featureSystem: {
     regex: String.raw`^@\/features\/[^/]+\/${SYSTEM_TAIL}`,
-    message: `${P134} a features/<domain>/system module runs on the service role and is importable only from ${SYSTEM_ALLOWED_WHERE}; features/sharing/system also from the five ADR-0005 A1 share routes.`,
+    message: `${P134} a features/<domain>/system module runs on the service role and is importable only from ${SYSTEM_ALLOWED_WHERE}; features/sharing/system also from the five ADR-0005 A1 share routes, features/auth/system also from the Send Email hook route (proposed A3).`,
   },
   // Relative, absolute or traversing spellings of a system module (`./system`, `../../lib/supabase/system`, …).
   otherSystem: {
@@ -391,6 +391,12 @@ const A1_SHARING_ONLY = {
   regex: String.raw`^@\/features\/(?!sharing\/${SYSTEM_TAIL})[^/]+\/${SYSTEM_TAIL}`,
   message: `${P134} the ADR-0005 A1 share routes may import features/sharing/system only.`,
 };
+// Proposed ADR-0005 A3 (V2-04 04-03c, R-43): the Send Email hook route may import features/auth/system, and no other
+// features/*/system (nor the factory itself).
+const A3_AUTH_ONLY = {
+  regex: String.raw`^@\/features\/(?!auth\/${SYSTEM_TAIL})[^/]+\/${SYSTEM_TAIL}`,
+  message: `${P134} the Send Email hook route (proposed ADR-0005 A3) may import features/auth/system only.`,
+};
 const appImports = (allow = [], extraPatterns = [], extraPaths = []) => [
   "error",
   {
@@ -450,6 +456,13 @@ const BOUNDARY_IMPORT_ZONES = [
   // register allowance above (a later zone replaces the option list); 04-03c drops SYSTEM_MODULES here with the
   // register (lib/webhooks/** no longer acquires a system client since 04-03b deleted outbox.ts).
   { files: ["lib/webhooks/**"], allow: [...SYSTEM_MODULES, "webhookDeliver"] },
+  // Proposed ADR-0005 A3 (V2-04 04-03c, R-43): the Send Email hook route records the signed webhook-id through
+  // features/auth/system after its signature check; features/auth/system only (not the factory, not another domain).
+  {
+    files: ["app/api/auth/send-email/route.ts"],
+    allow: ["featureSystem"],
+    extraPatterns: [A3_AUTH_ONLY],
+  },
   // ADR-0005 A1: the five public share routes (minimatch escapes the brackets of the dynamic segment).
   {
     files: [

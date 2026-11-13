@@ -29,6 +29,15 @@ import { fetchVia, startFakeResend, type FakeResendServer } from "../helpers/fak
 import { signedWebhookHeaders } from "../security/guard/engine";
 import { LOCAL_SEND_EMAIL_HOOK_SECRET } from "../setup/test-env";
 
+// V2-04 04-03c: this spec isolates Resend's own idempotency key (the second line of defence across instances). The
+// shared webhook-id store (features/auth/system, R-43) is bypassed here, as for an id it does not record; it is proven
+// against the local stack in tests/integration/auth/send-email-hook-dedupe-db.spec.ts. (Its DB calls would otherwise go
+// through this spec's Resend-only global fetch stub.)
+vi.mock("@/features/auth/system", () => ({
+  authHookDeliveryBegin: async () => "skipped",
+  authHookDeliveryFinish: async () => undefined,
+}));
+
 const ROOT = path.resolve(__dirname, "../..");
 /** Synthetic, assembled at run time (no key-shaped literal in the repo). */
 const KEY = ["re", "SyntheticHookSpecKey000000000"].join("_");

@@ -95,6 +95,12 @@ const FAILING: Array<[string, string, string, Expected]> = [
   ["lib/jobs/auth.ts importing the system factory", "factory-import.ts", "lib/jobs/auth.ts", [imp(1)]],
   ["a feature importing a factory wrapper from lint-fixtures/, scripts/, tests/, docs/", "tooling-import.ts", "features/patients/service.ts", TOOLING_LINES],
   ["a register zone importing the tooling trees", "tooling-import.ts", "lib/webhooks/x.ts", TOOLING_LINES],
+  // Proposed ADR-0005 A3 (04-03c): features/auth/system from the Send Email hook route only; nothing else there.
+  ["features/auth/system from another auth route", "auth-system-import.ts", "app/api/auth/other/route.ts", [imp(1)]],
+  ["features/auth/system from a feature service", "auth-system-import.ts", "features/patients/service.ts", [imp(1)]],
+  ["the factory itself in the Send Email hook route", "factory-import.ts", "app/api/auth/send-email/route.ts", [imp(1)]],
+  ["another domain's system module in the Send Email hook route", "other-feature-system-import.ts", "app/api/auth/send-email/route.ts", [imp(1)]],
+  ["features/sharing/system in the Send Email hook route", "sharing-system-import.ts", "app/api/auth/send-email/route.ts", [imp(1)]],
   ["a relative path to the factory", "traversal-factory-import.ts", "features/patients/service.ts", [imp(1)]],
   ["a re-export of the factory", "reexport-factory.ts", "lib/db/system-reexport.ts", [imp(1)]],
   // features/*/system and ADR-0005 A1.
@@ -164,6 +170,8 @@ const PASSING: Array<[string, string]> = [
   ["factory-import.ts", "app/api/cron/x/route.ts"],
   ["factory-import.ts", "lib/messaging/dispatcher.ts"],
   ["factory-import.ts", "lib/webhooks/x.ts"],
+  // Proposed ADR-0005 A3 (V2-04 04-03c, R-43).
+  ["auth-system-import.ts", "app/api/auth/send-email/route.ts"],
   ["other-feature-system-import.ts", "features/sharing/system.ts"],
   ["other-feature-system-import.ts", "app/api/webhooks/messaging/x/route.ts"],
   ["second-factory.ts", "lib/supabase/system.ts"],
@@ -272,6 +280,7 @@ describe("P1-34 boundary lint gates: zones keep the base gates", () => {
   const ZONE_PATHS = [
     "app/api/v1/x/route.ts",
     "app/api/cron/x/route.ts",
+    "app/api/auth/send-email/route.ts",
     "app/api/webhooks/x/route.ts",
     "app/api/jobs/run/route.ts",
     "lib/api/x.ts",
@@ -336,6 +345,8 @@ const ALLOWED_IMPORTER = [
   /^lib\/messaging\/dispatcher\.ts$/, // register, V2-04
   /^lib\/webhooks\//, // register, V2-04
 ];
+// Proposed ADR-0005 A3 (V2-04 04-03c): a feature_system importer only (never the factory).
+const A3_ROUTE = "app/api/auth/send-email/route.ts";
 
 describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json)", () => {
   it("the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed", async () => {
@@ -350,10 +361,11 @@ describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-check
     expect(c.system_module_importers.factory.filter((f) => !ALLOWED_IMPORTER.some((re) => re.test(f)))).toEqual([]);
     expect(
       c.system_module_importers.feature_system.filter(
-        (f) => !A1_ROUTES.includes(f) && !ALLOWED_IMPORTER.some((re) => re.test(f)),
+        (f) => !A1_ROUTES.includes(f) && f !== A3_ROUTE && !ALLOWED_IMPORTER.some((re) => re.test(f)),
       ),
     ).toEqual([]);
     expect(c.system_module_importers.non_canonical).toEqual([]);
+    expect(c.system_module_importers.factory).not.toContain(A3_ROUTE);
   }, 180_000);
 
   it("the counters see the fixtures' second factories, system importers, directives and UTC patterns", async () => {
@@ -380,6 +392,7 @@ describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-check
       "lint-fixtures/p1-34/inline-disable.ts:2 P1-34 @typescript-eslint/no-restricted-imports",
     );
     expect(names(c.system_module_importers.feature_system)).toEqual([
+      "auth-system-import.ts",
       "other-feature-system-import.ts",
       "sharing-system-import.ts",
     ]);

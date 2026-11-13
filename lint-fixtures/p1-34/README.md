@@ -19,7 +19,8 @@ Rule ids: **imports** = `@typescript-eslint/no-restricted-imports`; **syntax** =
 | `traversal-factory-import.ts` | `features/patients/service.ts` (imports, P1-34) | |
 | `reexport-factory.ts` | `lib/db/system-reexport.ts` (imports, P1-34) | |
 | `sharing-system-import.ts` | `features/patients/service.ts`, `app/api/patients/route.ts`, `app/(dashboard)/patients/page.tsx` (imports, P1-34) | the 5 ADR-0005 A1 routes |
-| `other-feature-system-import.ts` | `app/api/reports/view/route.ts` (A1 route, other domain; imports, P1-34) | `features/sharing/system.ts`, `app/api/webhooks/messaging/x/route.ts` |
+| `other-feature-system-import.ts` | `app/api/reports/view/route.ts` (A1 route, other domain), `app/api/auth/send-email/route.ts` (A3 route, other domain) (imports, P1-34) | `features/sharing/system.ts`, `app/api/webhooks/messaging/x/route.ts` |
+| `auth-system-import.ts` (V2-04 04-03c, proposed ADR-0005 A3) | `app/api/auth/other/route.ts`, `features/patients/service.ts` (imports, P1-34) | `app/api/auth/send-email/route.ts` |
 | `relative-system-import.ts` | `features/billing/actions.ts` (imports, P1-34) | |
 | `dynamic-import-factory.ts` | `features/patients/service.ts`, `app/api/webhooks/x/route.ts` (syntax, P1-34) | nowhere |
 | `require-factory.ts` | `features/patients/service.ts`, `features/x/system.ts` (syntax, P1-34) | nowhere |
