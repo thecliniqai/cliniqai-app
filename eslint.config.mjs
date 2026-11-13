@@ -413,6 +413,14 @@ const appImports = (allow = [], extraPatterns = [], extraPaths = []) => [
 const SYSTEM_MODULES = ["factory", "featureSystem", "otherSystem"];
 
 /**
+ * The ADR-0005 exception register: paths outside the D2 allow-list that may still acquire the system client, each with
+ * an owner. V2-04 04-03c deleted the V2-04 entries (`app/api/cron/**`, `lib/messaging/dispatcher.ts`, `lib/webhooks/**`)
+ * with their passing cases; what is left is the /api/v1 entry (owner P1-37, public API rework). Exported through
+ * P134_CENSUS so the counters (scripts/ci/p1-34-counters.mjs) report the register as configured.
+ */
+const ADR0005_REGISTER = ["app/api/v1/**", "lib/api/**"];
+
+/**
  * Syntax allowances. Zones are disjoint from each other (except lib/log/client.ts inside lib/log/**, ordered so the
  * narrower zone wins and repeats the wider allowance) and from the schema/route zones in the config below.
  */
@@ -446,16 +454,12 @@ const BOUNDARY_IMPORT_ZONES = [
   // paths import (03-13c M-ALLOWLIST).
   { files: ["features/*/system.ts", "app/api/webhooks/**"], allow: SYSTEM_MODULES },
   // ADR-0005 exception register. Owner P1-37 (public API rework): delete when /api/v1 stops using the service role.
-  { files: ["app/api/v1/**", "lib/api/**"], allow: SYSTEM_MODULES },
-  // V2-04 04-03a (P0-12): the messaging modules themselves (the barrel re-exports the providers it builds). Before the
-  // register zone below, which still names lib/messaging/dispatcher.ts (deleted by 04-03a) until 04-03c drops it.
+  { files: ADR0005_REGISTER, allow: SYSTEM_MODULES },
+  // V2-04 04-03a (P0-12): the messaging modules themselves (the barrel re-exports the providers it builds).
   { files: ["lib/messaging/**"], allow: ["messagingSend"] },
-  // ADR-0005 exception register. Owner V2-04 (enqueue RPC + app/api/jobs/run replace these): delete in V2-04 04-03c.
-  { files: ["app/api/cron/**", "lib/messaging/dispatcher.ts", "lib/webhooks/**"], allow: SYSTEM_MODULES },
-  // V2-04 04-03b (P0-12): the webhook modules themselves (the deliverer imports the pinned transport). Repeats the
-  // register allowance above (a later zone replaces the option list); 04-03c drops SYSTEM_MODULES here with the
-  // register (lib/webhooks/** no longer acquires a system client since 04-03b deleted outbox.ts).
-  { files: ["lib/webhooks/**"], allow: [...SYSTEM_MODULES, "webhookDeliver"] },
+  // V2-04 04-03b (P0-12): the webhook modules themselves (the deliverer imports the pinned transport). Not a system
+  // path: 04-03c removed lib/webhooks/** from the register (no module there acquires the system client).
+  { files: ["lib/webhooks/**"], allow: ["webhookDeliver"] },
   // Proposed ADR-0005 A3 (V2-04 04-03c, R-43): the Send Email hook route records the signed webhook-id through
   // features/auth/system after its signature check; features/auth/system only (not the factory, not another domain).
   {
@@ -622,6 +626,8 @@ export const P134_CENSUS = {
   // a client factory, whatever the name (createClient, SupabaseClient, GoTrueAdminApi, PostgrestClient, a subpath).
   factoryPattern: { regex: String.raw`^@supabase\/(?!ssr$)`, allowTypeImports: true },
   boundaryRuleIds: BOUNDARY_RULE_IDS,
+  // V2-04 04-03c: the exception register as configured (the zone above is built from the same list).
+  exceptionRegister: ADR0005_REGISTER,
   systemPatterns: {
     factory: BOUNDARY_IMPORT_PATTERNS.factory.regex,
     featureSystem: BOUNDARY_IMPORT_PATTERNS.featureSystem.regex,

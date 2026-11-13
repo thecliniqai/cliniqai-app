@@ -94,7 +94,11 @@ const FAILING: Array<[string, string, string, Expected]> = [
   ["lib/jobs/enqueue.ts importing the system factory", "factory-import.ts", "lib/jobs/enqueue.ts", [imp(1)]],
   ["lib/jobs/auth.ts importing the system factory", "factory-import.ts", "lib/jobs/auth.ts", [imp(1)]],
   ["a feature importing a factory wrapper from lint-fixtures/, scripts/, tests/, docs/", "tooling-import.ts", "features/patients/service.ts", TOOLING_LINES],
-  ["a register zone importing the tooling trees", "tooling-import.ts", "lib/webhooks/x.ts", TOOLING_LINES],
+  ["a register zone importing the tooling trees", "tooling-import.ts", "app/api/v1/x/route.ts", TOOLING_LINES],
+  // V2-04 04-03c: the V2-04 register entries are deleted; the factory there now fails like any request path.
+  ["the factory in lib/webhooks (V2-04 register entry deleted)", "factory-import.ts", "lib/webhooks/x.ts", [imp(1)]],
+  ["the factory in lib/messaging/dispatcher.ts (V2-04 register entry deleted)", "factory-import.ts", "lib/messaging/dispatcher.ts", [imp(1)]],
+  ["the factory in an app/api/cron route (V2-04 register entry deleted)", "factory-import.ts", "app/api/cron/x/route.ts", [imp(1)]],
   // Proposed ADR-0005 A3 (04-03c): features/auth/system from the Send Email hook route only; nothing else there.
   ["features/auth/system from another auth route", "auth-system-import.ts", "app/api/auth/other/route.ts", [imp(1)]],
   ["features/auth/system from a feature service", "auth-system-import.ts", "features/patients/service.ts", [imp(1)]],
@@ -164,12 +168,9 @@ const PASSING: Array<[string, string]> = [
   ["factory-import.ts", "app/api/jobs/run/route.ts"],
   ["factory-import.ts", "lib/jobs/internal/runner.ts"],
   ["factory-import.ts", "features/x/system.ts"],
-  // Exception register (ADR-0005): P1-37 and V2-04 entries.
+  // Exception register (ADR-0005): since V2-04 04-03c only the P1-37 entry.
   ["factory-import.ts", "app/api/v1/x/route.ts"],
   ["factory-import.ts", "lib/api/x.ts"],
-  ["factory-import.ts", "app/api/cron/x/route.ts"],
-  ["factory-import.ts", "lib/messaging/dispatcher.ts"],
-  ["factory-import.ts", "lib/webhooks/x.ts"],
   // Proposed ADR-0005 A3 (V2-04 04-03c, R-43).
   ["auth-system-import.ts", "app/api/auth/send-email/route.ts"],
   ["other-feature-system-import.ts", "features/sharing/system.ts"],
@@ -279,13 +280,12 @@ describe("P1-34 boundary lint gates: zones keep the base gates", () => {
   // P0-13 bans still fire there, tooling included.
   const ZONE_PATHS = [
     "app/api/v1/x/route.ts",
-    "app/api/cron/x/route.ts",
     "app/api/auth/send-email/route.ts",
     "app/api/webhooks/x/route.ts",
     "app/api/jobs/run/route.ts",
     "lib/api/x.ts",
     "lib/webhooks/x.ts",
-    "lib/messaging/dispatcher.ts",
+    "lib/messaging/x.ts",
     "lib/jobs/internal/runner.ts",
     "features/x/system.ts",
     "lib/supabase/system.ts",
@@ -332,6 +332,9 @@ type Counters = {
   utc_today_messages: number;
   service_role_factories: string[];
   system_module_importers: { factory: string[]; feature_system: string[]; non_canonical: string[] };
+  exception_register: string[];
+  exception_register_entries: number;
+  exception_register_importers: string[];
 };
 
 // The ADR-0005 allow-list and exception register, written out independently of eslint.config.mjs.
@@ -341,12 +344,11 @@ const ALLOWED_IMPORTER = [
   /^app\/api\/(jobs|webhooks)\//,
   /^app\/api\/v1\//, // register, P1-37
   /^lib\/api\//, // register, P1-37
-  /^app\/api\/cron\//, // register, V2-04
-  /^lib\/messaging\/dispatcher\.ts$/, // register, V2-04
-  /^lib\/webhooks\//, // register, V2-04
 ];
 // Proposed ADR-0005 A3 (V2-04 04-03c): a feature_system importer only (never the factory).
 const A3_ROUTE = "app/api/auth/send-email/route.ts";
+// The V2-03 register (03-02/03-04): the P1-37 entry plus three V2-04 entries, five globs. 04-03c deleted the V2-04 ones.
+const V2_03_REGISTER = ["app/api/v1/**", "lib/api/**", "app/api/cron/**", "lib/messaging/dispatcher.ts", "lib/webhooks/**"];
 
 describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json)", () => {
   it("the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed", async () => {
@@ -366,6 +368,18 @@ describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-check
     ).toEqual([]);
     expect(c.system_module_importers.non_canonical).toEqual([]);
     expect(c.system_module_importers.factory).not.toContain(A3_ROUTE);
+    // No importer is left on a deleted register path (the files are gone or moved to the job runner).
+    const all = [...c.system_module_importers.factory, ...c.system_module_importers.feature_system];
+    expect(all.filter((f) => /^(app\/api\/cron\/|lib\/webhooks\/|lib\/messaging\/)/.test(f))).toEqual([]);
+  }, 180_000);
+
+  it("04-03c: the ADR-0005 exception register holds only the /api/v1 entry (smaller than V2-03's)", async () => {
+    const c = (await p134Counters({ cwd: ROOT })) as Counters;
+    expect(c.exception_register).toEqual(["app/api/v1/**", "lib/api/**"]);
+    expect(c.exception_register_entries).toBe(2);
+    expect(c.exception_register_entries).toBeLessThan(V2_03_REGISTER.length);
+    expect(c.exception_register_importers.length).toBeGreaterThan(0);
+    expect(c.exception_register_importers.every((f) => /^(app\/api\/v1\/|lib\/api\/)/.test(f))).toBe(true);
   }, 180_000);
 
   it("the counters see the fixtures' second factories, system importers, directives and UTC patterns", async () => {

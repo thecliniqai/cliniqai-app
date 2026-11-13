@@ -12,6 +12,10 @@
  *   `lib/supabase/system.ts`).
  * - `system_module_importers`: files flagged when the system-module import patterns are applied to every app-code
  *   file the same way; each is inside the allow-list or the exception register when `boundary_messages` is 0.
+ * - `exception_register` (V2-04 04-03c): the ADR-0005 exception register exactly as eslint.config.mjs builds its zone
+ *   from (`P134_CENSUS.exceptionRegister`), with `exception_register_entries` (its length) and
+ *   `exception_register_importers` (the system-module importers inside it). V2-03 ended with 5 entries; from 04-03c the
+ *   register holds only the `/api/v1` entry (`app/api/v1/**`, `lib/api/**`; owner P1-37).
  *
  * Reads source only: no env values, no test data.
  */
@@ -94,6 +98,15 @@ export async function p134Counters({ cwd = process.cwd(), targets = APP_CODE, ig
     }
   }
   const sorted = (set) => [...set].sort();
+  const register = [...(P134_CENSUS.exceptionRegister ?? [])];
+  // Register entries are `<dir>/**` globs or exact paths (no dependency on a glob library for two shapes).
+  const inRegister = (file) =>
+    register.some((glob) => {
+      if (glob.endsWith("/**") && !/[*?[\]{}]/.test(glob.slice(0, -3))) return file.startsWith(glob.slice(0, -2));
+      if (/[*?[\]{}]/.test(glob)) throw new Error(`p1-34-counters: unsupported register glob ${glob}`);
+      return file === glob;
+    });
+  const allImporters = new Set([...importers.factory, ...importers.featureSystem, ...importers.otherSystem]);
 
   return {
     files_linted: real.length,
@@ -107,5 +120,8 @@ export async function p134Counters({ cwd = process.cwd(), targets = APP_CODE, ig
       feature_system: sorted(importers.featureSystem),
       non_canonical: sorted(importers.otherSystem),
     },
+    exception_register: register,
+    exception_register_entries: register.length,
+    exception_register_importers: sorted(new Set([...allImporters].filter(inRegister))),
   };
 }

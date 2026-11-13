@@ -15,7 +15,7 @@ Rule ids: **imports** = `@typescript-eslint/no-restricted-imports`; **syntax** =
 |---|---|---|
 | `action-factory-import.ts` | `features/patients/actions.ts` (imports, P1-34) | |
 | `page-factory-import.tsx` | `app/(dashboard)/fixture/page.tsx` (imports, P1-34) | |
-| `factory-import.ts` | `features/patients/service.ts`, `app/api/r/[token]/route.ts`, `lib/supabase/server.ts`, `lib/jobs/x.ts` (03-13c: the enqueue surface is not the allow-list), `lib/jobs/enqueue.ts`, `lib/jobs/auth.ts` (04-02) (imports, P1-34) | `app/api/webhooks/x/route.ts`, `app/api/jobs/run/route.ts`, `lib/jobs/internal/runner.ts`, `features/x/system.ts`; register: `app/api/v1/x/route.ts`, `lib/api/x.ts`, `app/api/cron/x/route.ts`, `lib/messaging/dispatcher.ts`, `lib/webhooks/x.ts`; `tests/fixture/x.spec.ts` |
+| `factory-import.ts` | `features/patients/service.ts`, `app/api/r/[token]/route.ts`, `lib/supabase/server.ts`, `lib/jobs/x.ts` (03-13c: the enqueue surface is not the allow-list), `lib/jobs/enqueue.ts`, `lib/jobs/auth.ts` (04-02) (imports, P1-34) | `app/api/webhooks/x/route.ts`, `app/api/jobs/run/route.ts`, `lib/jobs/internal/runner.ts`, `features/x/system.ts`; register: `app/api/v1/x/route.ts`, `lib/api/x.ts` (V2-04 04-03c: `app/api/cron/x/route.ts`, `lib/messaging/dispatcher.ts`, `lib/webhooks/x.ts` and `app/api/auth/send-email/route.ts` now fail); `tests/fixture/x.spec.ts` |
 | `traversal-factory-import.ts` | `features/patients/service.ts` (imports, P1-34) | |
 | `reexport-factory.ts` | `lib/db/system-reexport.ts` (imports, P1-34) | |
 | `sharing-system-import.ts` | `features/patients/service.ts`, `app/api/patients/route.ts`, `app/(dashboard)/patients/page.tsx` (imports, P1-34) | the 5 ADR-0005 A1 routes |
