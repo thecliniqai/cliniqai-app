@@ -4,20 +4,31 @@
  * hand-typed). Runs on the LOCAL stack only: Vitest's own loopback guard refuses any non-local Supabase URL.
  *
  * Usage: node scripts/phase-evidence.mjs <evidence-dir> [runs=2]
- * Writes: commit.txt, full-run-<n>.json (Vitest JSON reporter), summary.json (per-run counts + per-file status +
- * teardown line), static-checks.json (typecheck, eslint, acceptance greps, inventory, dependency versions, and the
+ * Writes: commit.txt, full-run-<n>.json (Vitest JSON reporter), pgtap-run-<n>.tap (V2-05 05-01a: `npm run test:pgtap`,
+ * after the Vitest run, never concurrently: both take the test-run lock), summary.json (per-run counts + per-file
+ * status + teardown line + pgTAP counts and gate result from scripts/ci/assert-pgtap-report.mjs), static-checks.json (typecheck, eslint, acceptance greps, inventory, dependency versions, and the
  * V2-03 ESLint-computed acceptance counters from scripts/ci/p1-34-counters.mjs).
  *
  * Usage: node scripts/phase-evidence.mjs <evidence-dir> --ci-run <run-id>
- * Writes only ci-run.json: the GitHub Actions run (URL, head SHA, branch, event, conclusion, per-job conclusions)
- * exactly as `gh run view --json` returns it (V2-02: CI evidence = run link + commit SHA). Needs an authenticated
+ * Writes ci-run.json: the GitHub Actions run (URL, head SHA, branch, event, conclusion, per-job conclusions)
+ * exactly as `gh run view --json` returns it (V2-02: CI evidence = run link + commit SHA), and (V2-05 05-01a) the run's
+ * `pgtap-report` artifact as ci-pgtap-report.tap with its gate result in ci-run.json `pgtap`. Needs an authenticated
  * `gh`; read-only. Run by the orchestrator.
  * Prints nothing sensitive: no env values, no test data.
  */
 import { execFileSync, execSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { checkPgTapReport } from "./ci/assert-pgtap-report.mjs";
 import { p134Counters } from "./ci/p1-34-counters.mjs";
+
+/** Counts and gate result of a pgTAP report (scripts/ci/assert-pgtap-report.mjs with its FLOOR and REQUIRED_FILES). */
+const pgtapSummary = (file) => {
+  if (!existsSync(file)) return { report: null, gate: "FAIL", problems: ["no report written"] };
+  const { problems, counts, files } = checkPgTapReport(readFileSync(file, "utf8"));
+  return { gate: problems.length ? "FAIL" : "PASS", ...counts, per_file: files, problems: problems.slice(0, 50) };
+};
 
 const dir = resolve(process.argv[2] ?? "");
 if (!process.argv[2] || process.argv[2].startsWith("--")) {
@@ -47,9 +58,24 @@ if (ciRunIdx > -1) {
       url: j.url,
     })),
   };
+  // V2-05 05-01a: the run's pgTAP report artifact (absent on runs before 05-01a; recorded, not fatal).
+  const tmp = mkdtempSync(join(tmpdir(), "pgtap-artifact-"));
+  const dl = spawnSync("gh", ["run", "download", runId, "-n", "pgtap-report", "-D", tmp], { encoding: "utf8" });
+  if (dl.status === 0 && existsSync(join(tmp, "pgtap-report.tap"))) {
+    renameSync(join(tmp, "pgtap-report.tap"), join(dir, "ci-pgtap-report.tap"));
+    record.pgtap = { artifact: "ci-pgtap-report.tap", ...pgtapSummary(join(dir, "ci-pgtap-report.tap")) };
+  } else {
+    record.pgtap = { artifact: null, note: "no pgtap-report artifact on this run" };
+  }
+  rmSync(tmp, { recursive: true, force: true });
   writeFileSync(join(dir, "ci-run.json"), `${JSON.stringify(record, null, 1)}\n`);
   console.log(`ci-run ${run.databaseId}: ${run.workflowName} ${run.conclusion ?? run.status} @ ${run.headSha} ${run.url}`);
   for (const j of record.jobs) console.log(`  ${j.name}: ${j.conclusion}`);
+  console.log(
+    record.pgtap.artifact
+      ? `  pgtap: gate=${record.pgtap.gate} files=${record.pgtap.files} tests=${record.pgtap.total} failed=${record.pgtap.failed}`
+      : `  pgtap: ${record.pgtap.note}`,
+  );
   process.exit(0);
 }
 
@@ -89,6 +115,10 @@ for (let n = 1; n <= runs; n++) {
       json.testResults.map((f) => [f.name.replace(`${process.cwd()}/`, ""), f.status]),
     ),
   });
+  // V2-05 05-01a: the pgTAP lane, after Vitest has released the test-run lock.
+  const tap = join(dir, `pgtap-run-${n}.tap`);
+  const p = spawnSync("npm", ["run", "--silent", "test:pgtap", "--", tap], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  summary.runs[summary.runs.length - 1].pgtap = { exit_code: p.status, ...pgtapSummary(tap) };
 }
 writeFileSync(join(dir, "summary.json"), `${JSON.stringify(summary, null, 1)}\n`);
 
@@ -132,6 +162,9 @@ writeFileSync(join(dir, "static-checks.json"), `${JSON.stringify(checks, null, 1
 for (const r of summary.runs) {
   console.log(
     `run ${r.run}: success=${r.success} files=${r.files} failed_files=${r.files_failed} tests=${r.tests_passed}/${r.tests_total} skipped=${r.tests_skipped}`,
+  );
+  console.log(
+    `run ${r.run} pgtap: exit=${r.pgtap.exit_code} gate=${r.pgtap.gate} files=${r.pgtap.files} tests=${r.pgtap.passed}/${r.pgtap.total} failed=${r.pgtap.failed} skipped/todo=${r.pgtap.skipped}`,
   );
 }
 console.log(`typecheck exit=${checks.typecheck.exit_code} eslint exit=${checks.eslint.exit_code} inventory exit=${checks.inventory.exit_code}`);
