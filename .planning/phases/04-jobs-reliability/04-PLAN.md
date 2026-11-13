@@ -74,6 +74,14 @@ Written before V2-03 was built (against `03-PLAN.md`); revised against what V2-0
   not counts; the `ops` schema has no `service_role` USAGE; the read-only staging role is `clinicos_drift_ro`; new
   workflows must pass `scripts/ci/workflow-policy.mjs` and use `scripts/staging/target-guard.mjs`; `EmailTag` is a
   closed union (adds `ops-alert`); `sendDirect*` deletion moves from 04-03a to 04-03c (its last caller moves there).
+- **New plan 04-00b (Resend email provider; PO decision 2026-11-13 "Resend now, SES after go-live"):** `EMAIL_PROVIDER`
+  gains `resend` and the env key `RESEND_API_KEY` (R-15 checklist: schema + tier rules, `env-schema.spec.ts`, test-lane
+  forbid, e2e note, `.env.example`); production accepts `resend` or `ses`; `mailpit` stays refused in staging and
+  production; a `NEXT_PUBLIC_` name for the key is refused in every tier. Sender = plain `fetch` to
+  `https://api.resend.com/emails` (no SDK, no dependency) with Bearer, one recipient, HTML + text, an `Idempotency-Key`
+  derived from the hook's `webhook-id`, a 3 s abort inside the 3.5 s hook budget, `redirect: "error"`, fixed error
+  codes. `/api/ready` reports `resend` as configured. Tests against a loopback fake of Resend. Record `04-00b-RESEND.md`.
+  Not a change to an approved decision: PO-A3 (SES in Mumbai) still holds for after go-live; SES stays supported.
 - **PO actions changed:** 04-P1 (approve migrate right after the merge), 04-P8 (verify text: booleans), 04-P10 (role
   name), 04-P14 (rulings R-6, R-41 revised; R-43…R-47 new; ADR-0005 A2 text and new A3); new **04-P16** (read grant on
   the migration history for `clinicos_drift_ro`, for 04-00's `plan` job). New rulings R-43…R-47.
