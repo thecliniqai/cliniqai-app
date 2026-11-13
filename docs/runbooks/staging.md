@@ -158,6 +158,27 @@ Approve the `staging` deployment. The `migrate` job then:
 A green run, together with the Vercel deployment link for the same commit, is the evidence for "staging deploys from
 CI" (acceptance item 7). Record both in `docs/v2/VERIFICATION_LOG.md`.
 
+**Migrate before promote: a merge whose code needs its own migrations (V2-04 is the first, R-38).** From V2-04 on,
+the app code of a merge can require the migrations in the same merge (the job runner and the enqueue RPCs; V2-04 ships
+its expand and contract migrations together, R-38, because staging holds synthetic data and production is created
+fresh in V2-15). For such a merge:
+
+1. Approve the `staging.yml` `migrate` run for the merge commit **immediately** (after reading `plan`, above). Vercel
+   has already deployed the new code; until the migrations are applied that code runs against the old schema.
+2. Until `scripts/staging/wait-for-release.mjs` passes, `/api/ready` answers **503** with `checks.schema: "behind"`
+   (the build's `EXPECTED_MIGRATION` is not applied yet) and staging counts as **down**: do not test on it, do not
+   record evidence from it, and expect queued work to wait (messages and webhooks are only sent by the job runner).
+3. **Never promote or roll back** a Vercel deployment across a migration boundary without checking the schema first.
+   Promoting a build **newer** than the applied schema: read `checks.schema` on `/api/ready`; `behind` means approve
+   the pending `migrate` run first. Rolling back to a build **older** than the applied schema: the probe cannot warn
+   you (it only asks whether the build's own `EXPECTED_MIGRATION` is applied, 03-13c M-PROBE, so an older build reads
+   `current`); compare that build's `EXPECTED_MIGRATION` with the files after it in `supabase/migrations/`, and if any
+   of them is a contract step (a drop or revoke, such as V2-04's `000038_queue_contract.sql`: members can no longer
+   write the queues, so a pre-V2-04 build cannot queue a message) do not roll back: roll forward with a fix (§11).
+
+No code change backs this step: the readiness gate already exists (03-13c) and `tests/api/readiness-probe-db.spec.ts`
+proves the `behind` answer.
+
 ## 7. Seeding and demo-data reset
 
 Actions → Staging → Run workflow → branch `feature/v2`, task `seed` (create or refresh) or `seed-reset` (remove).

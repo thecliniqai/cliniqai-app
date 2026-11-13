@@ -55,6 +55,18 @@ email.
 - `/api/ready` reports `providers.email`: `configured` for `resend` and `ses` (from the env schema; it never calls the
   provider), `disabled` otherwise.
 
+## Retries across instances: the shared webhook-id record (V2-04 04-03c, R-43)
+
+After the signature check the route records the delivery's `webhook-id` in the shared inbound store
+(`ops.inbound_webhook_events`, provider `supabase_auth_hook`; through `features/auth/system.ts`, reason
+`auth.send_email_hook`, proposed ADR-0005 amendment A3). A GoTrue retry of a delivery that was sent answers 200 and sends
+nothing (`auth.email.duplicate`, reason `webhook_id_seen`), on any instance; a retry while another instance is still
+sending it answers a 409 hook error so GoTrue tries again later (reason `in_flight`); after a failed send the next retry
+sends. The per-instance memory stays as the first layer, and the provider's idempotency key (Resend, below) as the last.
+The store holds the provider, the id and timestamps only (no address, code or token) and **fails open**: if the database
+is unreachable the route logs `auth.email.dedupe_unavailable` with a code and sends the email anyway. An id outside
+`[A-Za-z0-9_.-]{1,128}` is not recorded (GoTrue's ids are `msg_…`).
+
 ## Resend (until go-live; 04-00b)
 
 How the app sends: one `POST https://api.resend.com/emails` per message (`lib/email/resend.ts`, plain `fetch`, no SDK)
