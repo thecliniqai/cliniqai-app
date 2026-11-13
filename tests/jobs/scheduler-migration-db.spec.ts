@@ -6,7 +6,8 @@
  * - `cron.job` holds `jobs-kick`, `jobs-reap` and `cron-history-cleanup` exactly once, as `postgres`, with the
  *   expected schedules and commands; re-applying the migration file (rolled back) keeps one row per name and its id.
  * - `ops.kick_job_runner()` without Vault secrets returns NULL and queues nothing; with synthetic secrets (rolled back,
- *   so pg_net never sends) it queues one POST to the Vault URL with `Authorization: Bearer <secret>`, JSON
+ *   so pg_net never sends) it queues one POST to the Vault URL with `Authorization: Bearer v1.<ts>.<hmac>` (000034,
+ *   R-49: an HMAC of the secret over a fresh timestamp; the secret appears nowhere in the queued row), JSON
  *   `{"source":"pg_cron"}` and `timeout_milliseconds = 30000`; a non-https non-loopback URL, a URL with userinfo and a
  *   short or spaced secret raise `22023`.
  * - Exposure (R-16 as built, see the migration header): `net` is not reachable through the API for anon or a signed-in
@@ -17,7 +18,7 @@
  *
  * Synthetic secrets are random per run and compared, never printed. Every write is inside a rolled-back transaction.
  */
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
@@ -27,7 +28,9 @@ import { localDbContainer, psql } from "../helpers/sql";
 import { seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { anonClient } from "./helpers";
 
-const MIGRATION = path.resolve(__dirname, "../../supabase/migrations/000033_jobs_scheduler.sql");
+const MIGRATIONS = ["000033_jobs_scheduler.sql", "000034_jobs_runner_token.sql"].map((f) =>
+  path.resolve(__dirname, "../../supabase/migrations", f),
+);
 const API_ROLES = ["anon", "authenticated", "service_role"] as const;
 const SCHEDULER_FUNCTIONS = ["ops.kick_job_runner()", "ops.drill_enqueue(text, integer, interval, integer)"];
 /** The local stack's own discard port: nothing listens, and the transaction is rolled back before pg_net sends. */
@@ -99,7 +102,7 @@ describe("000033: extensions and schedules", () => {
 
   it("re-applying the migration (rolled back) keeps one row per name and the same job ids (A8)", () => {
     const before = psql("select jobname || '=' || jobid from cron.job order by jobname");
-    const sql = fs.readFileSync(MIGRATION, "utf8");
+    const sql = MIGRATIONS.map((f) => fs.readFileSync(f, "utf8")).join("\n");
     const r = inRollback([
       sql,
       "select 'after:' || string_agg(jobname || '=' || jobid, ',' order by jobname) from cron.job",
@@ -132,28 +135,41 @@ describe("000033: ops.kick_job_runner()", () => {
     }
   });
 
-  it("with synthetic secrets queues one POST: Vault URL, bearer, JSON body, 30 s timeout (rolled back, never sent)", () => {
+  it("with synthetic secrets queues one POST: Vault URL, a fresh HMAC token (never the secret), JSON body, 30 s timeout (rolled back, never sent)", () => {
     const secret = syntheticSecret();
+    const before = Math.floor(Date.now() / 1000);
     const r = inRollback([
       ...withSecrets(LOOPBACK_URL, secret),
       "select set_config('spec.kick', ops.kick_job_runner()::text, true) is not null",
       "select 'id:' || current_setting('spec.kick')",
       "select 'row:' || q.method || '|' || q.url || '|' || q.timeout_milliseconds || '|' || " +
-        "encode(sha256(convert_to(q.headers->>'Authorization', 'UTF8')), 'hex') || '|' || " +
-        "(q.headers->>'Content-Type') || '|' || convert_from(q.body, 'UTF8') " +
+        "(q.headers->>'Authorization') || '|' || (q.headers->>'Content-Type') || '|' || convert_from(q.body, 'UTF8') " +
+        "from net.http_request_queue q where q.id = current_setting('spec.kick')::bigint",
+      // R-49: the secret appears nowhere in what pg_net will send (URL, every header, body) or keep in its queue row.
+      `select 'leak:' || (strpos(q.url || q.headers::text || convert_from(q.body, 'UTF8') || q::text, ${lit(secret)}) > 0) ` +
         "from net.http_request_queue q where q.id = current_setting('spec.kick')::bigint",
     ]);
+    const after = Math.ceil(Date.now() / 1000);
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toMatch(/^id:\d+$/m);
+    expect(r.stdout).toMatch(/^leak:false$/m);
     const row = /^row:(.*)$/m.exec(r.stdout)?.[1];
     expect(row, "one queued request").toBeDefined();
-    const [method, url, timeout, authDigest, contentType, body] = row!.split("|");
+    const [method, url, timeout, authorization, contentType, body] = row!.split("|");
     expect(method).toBe("POST");
     expect(url).toBe(LOOPBACK_URL);
     expect(timeout).toBe("30000");
-    expect(authDigest).toBe(sha(`Bearer ${secret}`));
     expect(contentType).toBe("application/json");
     expect(JSON.parse(body)).toEqual({ source: "pg_cron" });
+    // Bearer v1.<unix_ts>.<hex hmac_sha256(secret, 'jobs-run|v1|' || ts)>, minted at the time of the call.
+    const token = /^Bearer v1\.([1-9][0-9]*)\.([0-9a-f]{64})$/.exec(authorization);
+    expect(token, "token shape").not.toBeNull();
+    const ts = Number(token![1]);
+    expect(ts).toBeGreaterThanOrEqual(before - 5);
+    expect(ts).toBeLessThanOrEqual(after + 5);
+    expect(token![2]).toBe(createHmac("sha256", secret).update(`jobs-run|v1|${ts}`).digest("hex"));
+    expect(authorization).not.toContain(secret);
+    expect(sha(authorization)).not.toBe(sha(`Bearer ${secret}`));
     expect(r.stdout).not.toContain(secret);
     // Rolled back: the request never reached the queue the pg_net worker reads.
     const id = /^id:(\d+)$/m.exec(r.stdout)![1];

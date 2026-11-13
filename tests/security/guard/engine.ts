@@ -25,6 +25,7 @@ import { Webhook } from "standardwebhooks";
 import { createClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/db/types";
 import { publicEnv } from "@/lib/env";
+import { mintRunnerToken } from "@/lib/jobs/auth";
 import { hasPerm, ROLE_PERMISSIONS, type Permission } from "@/lib/permissions";
 import type { buildInventory } from "@/scripts/inventory-server-actions";
 import { rowsWhereIn, type PublicTable, type TestDb } from "../../helpers/db";
@@ -910,7 +911,7 @@ export async function cronRouteLeg(
 }
 
 /**
- * V2-04 04-02 `runner-secret` route (`/api/jobs/run`, RL-23, R-18). `setSecret` stubs JOBS_RUNNER_SECRET (undefined =
+ * V2-04 04-02 `runner-secret` route (`/api/jobs/run`, RL-23, R-18, R-49: the bearer is a token minted from the secret). `setSecret` stubs JOBS_RUNNER_SECRET (undefined =
  * unset); `member` is a signed-in clinic member's request client. POST: every refusal is 401 `{"ok":false}` with no
  * ids and no request-client access; the control with the right bearer is 200 with exactly the six count keys. Any other
  * method: 405 with `Allow: POST` and an empty body, with or without the bearer.
@@ -941,17 +942,21 @@ export async function runnerRouteLegs(
   await refused("JOBS_RUNNER_SECRET unset, 'Bearer undefined'", { authorization: "Bearer undefined" });
   await refused("JOBS_RUNNER_SECRET unset, empty bearer", { authorization: "Bearer " });
   setSecret(secret);
+  const now = () => Math.floor(Date.now() / 1000);
   await refused("no header", {});
   await refused("wrong bearer", { authorization: `Bearer ${randomBytes(32).toString("hex")}` });
   await refused("different-length bearer", { authorization: `Bearer ${secret.slice(0, 8)}` });
-  await refused("secret without Bearer", { authorization: secret });
+  await refused("the raw secret as bearer (R-49)", { authorization: `Bearer ${secret}` });
+  await refused("a token of another secret", { authorization: `Bearer ${mintRunnerToken(randomBytes(32).toString("hex"))}` });
+  await refused("a stale token", { authorization: `Bearer ${mintRunnerToken(secret, now() - 300)}` });
+  await refused("token without Bearer", { authorization: mintRunnerToken(secret) });
   await refused("a signed-in member, no bearer", {}, member);
 
   if (!guard.post) {
-    await refused("other method with the right bearer", { authorization: `Bearer ${secret}` });
+    await refused("other method with a valid token", { authorization: `Bearer ${mintRunnerToken(secret)}` });
     return out;
   }
-  const control = await callRoute(slot, anonClient(), c, { headers: { authorization: `Bearer ${secret}` } });
+  const control = await callRoute(slot, anonClient(), c, { headers: { authorization: `Bearer ${mintRunnerToken(secret)}` } });
   out.push(...expectStatus(c, "control: right bearer", control, [200]), ...expectNoIds(c, "control", control));
   try {
     const keys = Object.keys(JSON.parse(control.body) as Record<string, unknown>).sort();

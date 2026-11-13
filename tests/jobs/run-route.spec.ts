@@ -6,8 +6,10 @@
  * - Tracer: a `drill.noop` job seeded by `ops.drill_enqueue` is processed by a POST with the synthetic bearer: 200 with
  *   exactly `{ ok, claimed, done, retried, dead, durationMs }`, the job `done`, well inside the 25 s budget, and one
  *   `ops.job_runner_runs` row with the body's `source`.
+ * - R-49: the bearer is a token `v1.<ts>.<hmac>` minted from the secret; tokens up to ±120 s old are accepted.
  * - Refusals before any database access (the seeded job stays `pending`, no runner run is recorded): no configured
- *   secret; missing, wrong, different-length and scheme-less bearers; a signed-in clinic owner's session cookie
+ *   secret; missing, wrong, different-length and scheme-less bearers; the raw secret; stale (−125 s), future
+ *   (+125 s) and other-secret tokens; a signed-in clinic owner's session cookie
  *   without the bearer (no role is a runner). `GET`/`PUT`/`PATCH`/`DELETE` → 405 `Allow: POST` even with the bearer.
  * - The rotation slot is accepted; drill kinds are not claimed with `JOBS_DRILL_ENABLED` off; oversized, non-JSON and
  *   unknown-key bodies are refused; a thrown error is 500 `{ ok: false }` with one `jobs.run.failed` line carrying a
@@ -22,6 +24,7 @@ import { NextRequest } from "next/server";
 import type { Session } from "@supabase/supabase-js";
 import { DELETE, GET, PATCH, POST, PUT } from "@/app/api/jobs/run/route";
 import { publicEnv } from "@/lib/env";
+import { mintRunnerToken } from "@/lib/jobs/auth";
 import { psql, psqlSession } from "../helpers/sql";
 import { seedTenantWithOwner } from "../helpers/tenants";
 
@@ -31,7 +34,11 @@ const SIX_KEYS = ["claimed", "dead", "done", "durationMs", "ok", "retried"];
 
 const secret = randomBytes(32).toString("hex");
 const nextSecret = randomBytes(32).toString("hex");
-const bearer = (value: string) => ({ authorization: `Bearer ${value}` });
+/** R-49: the bearer is a token minted from the secret (as `ops.kick_job_runner()` does), never the secret. */
+const bearer = (value: string, offsetSeconds = 0) => ({
+  authorization: `Bearer ${mintRunnerToken(value, Math.floor(Date.now() / 1000) + offsetSeconds)}`,
+});
+const rawBearer = (value: string) => ({ authorization: `Bearer ${value}` });
 
 /** Seeds `count` drill.noop jobs through the SQL-editor function; returns their ids in run_at order. */
 function seedDrill(count = 1): string[] {
@@ -149,6 +156,16 @@ describe("POST /api/jobs/run: the tracer", () => {
     expect(statusOf(ids)).toEqual(["done"]);
   });
 
+  it("accepts a token minted 100 s ago or 100 s ahead (inside the ±120 s window, R-49)", async () => {
+    for (const offset of [-100, 100]) {
+      const ids = seedDrill(1);
+      const { res, json } = await post(bearer(secret, offset));
+      expect(res.status, String(offset)).toBe(200);
+      expect(json).toMatchObject({ ok: true, done: 1 });
+      expect(statusOf(ids)).toEqual(["done"]);
+    }
+  });
+
   it("claims no drill kind while JOBS_DRILL_ENABLED is off (the job stays pending)", async () => {
     vi.stubEnv("JOBS_DRILL_ENABLED", "false");
     const ids = seedDrill(1);
@@ -174,7 +191,7 @@ describe("POST /api/jobs/run: refusals before any database access", () => {
 
   it("no configured secret: even `Bearer undefined` and the old secret are refused", async () => {
     vi.stubEnv("JOBS_RUNNER_SECRET", undefined);
-    await expectRefused(bearer(secret), "old secret");
+    await expectRefused(bearer(secret), "a token of the old secret");
     await expectRefused({ authorization: "Bearer undefined" }, "Bearer undefined");
     await expectRefused({ authorization: "Bearer " }, "empty bearer");
     await expectRefused({}, "no header");
@@ -185,16 +202,22 @@ describe("POST /api/jobs/run: refusals before any database access", () => {
     await expectRefused(bearer("short"), "a secret the schema refuses");
   });
 
-  it.each([
-    ["no header", {}],
-    ["a wrong bearer", bearer(randomBytes(32).toString("hex"))],
-    ["a different-length bearer", bearer(secret.slice(0, 10))],
-    ["a longer bearer", bearer(`${secret}${secret}`)],
-    ["the secret without the scheme", { authorization: secret }],
-    ["a lower-case scheme", { authorization: `bearer ${secret}` }],
-    ["the secret in another header", { "x-jobs-runner-secret": secret }],
+  // Headers are built when each case runs (a token's age is measured from the moment it is minted).
+  it.each<[string, () => Record<string, string>]>([
+    ["no header", () => ({})],
+    ["a wrong raw bearer", () => rawBearer(randomBytes(32).toString("hex"))],
+    ["a different-length bearer", () => rawBearer(secret.slice(0, 10))],
+    ["a longer bearer", () => rawBearer(`${secret}${secret}`)],
+    ["the raw secret as bearer (the 000033 form, R-49)", () => rawBearer(secret)],
+    // ±125 s here (wall clock, a few ms pass before the call); the exact ±120/121 s edges are runner-auth.spec.ts.
+    ["a stale token (−125 s)", () => bearer(secret, -125)],
+    ["a future token (+125 s)", () => bearer(secret, 125)],
+    ["a token of another secret", () => bearer(randomBytes(32).toString("hex"))],
+    ["a token without the scheme", () => ({ authorization: mintRunnerToken(secret) })],
+    ["a lower-case scheme", () => ({ authorization: `bearer ${mintRunnerToken(secret)}` })],
+    ["the token in another header", () => ({ "x-jobs-runner-secret": mintRunnerToken(secret) })],
   ])("%s → 401", async (label, headers) => {
-    await expectRefused(headers as Record<string, string>, label);
+    await expectRefused(headers(), label);
   });
 
   it("a signed-in clinic owner's session cookie without the bearer → 401 (no role is a runner)", async () => {

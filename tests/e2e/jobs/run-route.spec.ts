@@ -3,7 +3,8 @@
  * the lane's synthetic runner secret, tests/e2e/support/app-env.ts). Through the real proxy and route:
  * - `POST` without a bearer → 401 `{"ok":false}` with the proxy's `x-request-id`, and a seeded `drill.noop` job stays
  *   `pending`;
- * - `POST` with the e2e secret → 200 with counts only and the seeded job `done`;
+ * - `POST` with the raw secret or a stale token → 401 (R-49); with a fresh token minted from the e2e secret → 200 with
+ *   counts only and the seeded job `done`;
  * - `GET` → 405 with `Allow: POST`.
  * The pg_cron → pg_net half is tested in Vitest (tests/jobs/scheduler-migration-db.spec.ts) and end to end on macOS by
  * scripts/ops/scheduler-local-e2e.ts (pitfall 6, R-21).
@@ -12,6 +13,7 @@
  * this test's job (and the route is server-side and device-independent).
  */
 import { expect, test } from "../fixtures";
+import { mintRunnerToken } from "@/lib/jobs/auth";
 import { E2E_JOBS_RUNNER_SECRET } from "../support/app-env";
 import { psql, psqlSession } from "../../helpers/sql";
 
@@ -53,10 +55,17 @@ test("the runner route refuses a call without the bearer and runs a drill job wi
 
   const wrong = await request.post("/api/jobs/run", { headers: { authorization: "Bearer not-the-runner-secret" } });
   expect(wrong.status()).toBe(401);
+  // R-49: the raw secret is not a bearer; only a fresh token minted from it is.
+  const raw = await request.post("/api/jobs/run", { headers: { authorization: `Bearer ${E2E_JOBS_RUNNER_SECRET}` } });
+  expect(raw.status()).toBe(401);
+  const stale = await request.post("/api/jobs/run", {
+    headers: { authorization: `Bearer ${mintRunnerToken(E2E_JOBS_RUNNER_SECRET, Math.floor(Date.now() / 1000) - 300)}` },
+  });
+  expect(stale.status()).toBe(401);
   expect(statusOf(id)).toBe("pending");
 
   const ran = await request.post("/api/jobs/run", {
-    headers: { authorization: `Bearer ${E2E_JOBS_RUNNER_SECRET}` },
+    headers: { authorization: `Bearer ${mintRunnerToken(E2E_JOBS_RUNNER_SECRET)}` },
     data: { source: "manual" },
   });
   expect(ran.status()).toBe(200);
@@ -70,7 +79,7 @@ test("the runner route refuses a call without the bearer and runs a drill job wi
 test("GET /api/jobs/run is 405 with Allow: POST and runs nothing", async ({ request }, testInfo) => {
   test.skip(testInfo.project.name !== ONE_DEVICE, ONE_DEVICE_REASON);
   const id = seedDrillJob();
-  const res = await request.get("/api/jobs/run", { headers: { authorization: `Bearer ${E2E_JOBS_RUNNER_SECRET}` } });
+  const res = await request.get("/api/jobs/run", { headers: { authorization: `Bearer ${mintRunnerToken(E2E_JOBS_RUNNER_SECRET)}` } });
   expect(res.status()).toBe(405);
   expect(res.headers()["allow"]).toBe("POST");
   expect(statusOf(id)).toBe("pending");

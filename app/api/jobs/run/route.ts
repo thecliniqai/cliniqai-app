@@ -1,10 +1,11 @@
 /**
  * POST /api/jobs/run (V2-04 04-02; P0-12, C22, RL-23; rulings R-17, R-18; threat T-04-01): one runner pass.
  *
- * pg_cron calls it every minute through pg_net (`ops.kick_job_runner()`, migration 000033) with the Vault-held bearer;
- * an operator may call it by hand with the same bearer (docs/runbooks/jobs.md). Order:
- *   1. `Authorization: Bearer <JOBS_RUNNER_SECRET | JOBS_RUNNER_SECRET_NEXT>`, compared in constant time
- *      (`lib/jobs/auth.ts`); anything else is 401 `{ ok: false }` before any body read or database access. No secret
+ * pg_cron calls it every minute through pg_net (`ops.kick_job_runner()`, migrations 000033/000034) with a short-lived
+ * token derived from the Vault-held secret; an operator may mint one by hand (docs/runbooks/jobs.md §5). Order:
+ *   1. `Authorization: Bearer v1.<unix_ts>.<hmac_sha256(secret, "jobs-run|v1|" + unix_ts)>` with |now − ts| ≤ 120 s and
+ *      the HMAC of `JOBS_RUNNER_SECRET` or `JOBS_RUNNER_SECRET_NEXT`, compared in constant time (`lib/jobs/auth.ts`,
+ *      R-49); anything else is 401 `{ ok: false }` with no detail, before any body read or database access. No secret
  *      configured (or an environment the schema refuses) authenticates nothing.
  *   2. Body: at most 1 KB of JSON `{ source?: "pg_cron" | "manual" }` (empty = manual); anything else is 400.
  *   3. `runJobs` on the system client (`getSystemDb("jobs.run")`) with a 25 s budget, batches of 25, a 120 s lease and

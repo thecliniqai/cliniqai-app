@@ -43,9 +43,10 @@ export type RouteGuard =
   /** Cron trigger: CRON_SECRET unset 401, wrong or missing bearer 401 (RL-23: the compare itself is V2-04's). */
   | { kind: "cron-secret" }
   /**
-   * V2-04 04-02 (RL-23, R-18): the job runner. `POST`: JOBS_RUNNER_SECRET unset 401, no header 401, wrong bearer 401,
-   * different-length bearer 401, scheme-less secret 401, a signed-in member's session 401, all before any data access;
-   * the control with the right bearer 200 with counts only. Every other method (`post: false`) 405 with `Allow: POST`,
+   * V2-04 04-02 (RL-23, R-18, R-49): the job runner. `POST`: JOBS_RUNNER_SECRET unset 401, no header 401, wrong bearer
+   * 401, different-length bearer 401, the raw secret 401, another secret's token 401, a stale token 401, a scheme-less
+   * token 401, a signed-in member's session 401, all before any data access; the control with a valid token 200 with
+   * counts only. Every other method (`post: false`) 405 with `Allow: POST`,
    * with or without the bearer.
    */
   | { kind: "runner-secret"; post: boolean }

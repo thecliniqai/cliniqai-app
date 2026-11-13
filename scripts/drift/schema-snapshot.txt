@@ -835,7 +835,7 @@ function ops.enqueue_job(p_kind text, p_tenant_id uuid, p_payload jsonb, p_dedup
 function ops.error_events_size() returns jsonb lang=sql security_definer=f volatility=s config=search_path="" body_md5=bef6ccb364b88adfc674fe75687ce17e
 function ops.error_sink_daily_cap() returns integer lang=sql security_definer=f volatility=s config=search_path="" body_md5=767817c66a4b05c817c8799a25abb42f
 function ops.job_error_code(p_code text) returns text lang=sql security_definer=t volatility=i config=search_path="" body_md5=8dc6403af216f42e661efb3cb947645d
-function ops.kick_job_runner() returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=b816105b3877e560dc1f28586dfadada
+function ops.kick_job_runner() returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0db715c86023c2e77b8ce1bcb5a1ed0d
 function ops.purge_error_events(p_older_than interval) returns integer lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8438d2fe2e64b4198d3d8a3b164d57cd
 function ops.reap_jobs() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=ee96223216deec9bcd478172b3d58c1d
 function ops.scrub_text(p_text text) returns text lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=0f77a1b8ed4621eeb8f1017a3d70eda6
