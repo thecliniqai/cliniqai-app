@@ -1,14 +1,17 @@
 /**
  * V2-04 04-05a, migration 000032: `ops.backup_runs` (the backup run log the backup_stale alert and the ops report read)
  * is closed to every API role and holds counts, sizes, a timestamped key and a machine code only; and
- * `ops.backup_runner_stale()` is the backup job's dead-man check for the scheduler (R-41).
+ * `ops.backup_runner_stale()` is the backup job's dead-man check for the scheduler (R-41). 04-07c (migration 000042): an
+ * ok run also records the archive's SHA-256 (`archive_sha256`), which a restore requires before decrypting.
  * Every write happens inside `begin … rollback` (psqlSession), so nothing persists.
  */
 import { describe, expect, it } from "vitest";
 import { psql, psqlSession } from "../helpers/sql";
 
-const insert = (cols: string) =>
-  `insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s, manifest_counts, error_code) values (${cols})`;
+/** 04-07c (M-BACKUPAUTH, migration 000042): `sha` is the archive_sha256 column (a valid digest unless given). */
+const DIGEST = "a".repeat(64);
+const insert = (cols: string, sha: string | null = DIGEST) =>
+  `insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s, manifest_counts, error_code, archive_sha256) values (${cols}, ${sha === null ? "null" : `'${sha}'`})`;
 
 function refused(statement: string): string {
   try {
@@ -47,6 +50,10 @@ describe("ops.backup_runs", () => {
     ["a free-text error", insert(`'staging', now(), now(), 'failed', null, null, 1, null, 'Connection to db.x failed for user postgres'`), "backup_runs_error_code_check"],
     ["an unknown environment", insert(`'prod', now(), now(), 'failed', null, null, 1, null, 'x'`), "backup_runs_environment_check"],
     ["manifest counts that are not an object", insert(`'staging', now(), now(), 'failed', null, null, 1, '[1,2]', 'x'`), "backup_runs_manifest_counts_check"],
+    // 04-07c (M-BACKUPAUTH): an ok run records the archive digest a restore checks (--expect-sha256), as 64 lower-case hex.
+    ["an ok run without the archive digest", insert(`'staging', now(), now(), 'ok', 'staging/2026-11-13T020004Z.tar.age', 1, 1, null, null`, null), "backup_runs_ok_has_digest"],
+    ["a digest that is not 64 lower-case hex", insert(`'staging', now(), now(), 'ok', 'staging/2026-11-13T020004Z.tar.age', 1, 1, null, null`, "A".repeat(64)), "backup_runs_archive_sha256_check"],
+    ["a digest with a path in it", insert(`'staging', now(), now(), 'ok', 'staging/2026-11-13T020004Z.tar.age', 1, 1, null, null`, "staging/x.tar.age"), "backup_runs_archive_sha256_check"],
   ])("refuses %s", (_label, statement, constraint) => {
     expect(refused(statement)).toContain(constraint);
   });

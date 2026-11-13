@@ -17,6 +17,7 @@ column ops.alerts.notify_count integer not_null=t default=0 identity=- generated
 column ops.alerts.notify_enqueued_at timestamp with time zone not_null=f default=- identity=- generated=-
 column ops.alerts.notify_job_id uuid not_null=f default=- identity=- generated=-
 column ops.alerts.notify_seq_enqueued integer not_null=t default=0 identity=- generated=-
+column ops.alerts.notify_stopped_code text not_null=f default=- identity=- generated=-
 column ops.alerts.notify_tries integer not_null=t default=0 identity=- generated=-
 column ops.alerts.provider_message_id text not_null=f default=- identity=- generated=-
 column ops.alerts.resolved_at timestamp with time zone not_null=f default=- identity=- generated=-
@@ -24,6 +25,7 @@ column ops.alerts.rule text not_null=t default=- identity=- generated=-
 column ops.alerts.severity text not_null=t default=- identity=- generated=-
 column ops.alerts.status text not_null=t default='open'::text identity=- generated=-
 column ops.backup_runs.archive_bytes bigint not_null=f default=- identity=- generated=-
+column ops.backup_runs.archive_sha256 text not_null=f default=- identity=- generated=-
 column ops.backup_runs.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column ops.backup_runs.duration_s integer not_null=f default=- identity=- generated=-
 column ops.backup_runs.environment text not_null=t default=- identity=- generated=-
@@ -598,6 +600,7 @@ constraint ops.alerts.alerts_count_check CHECK ((count >= 1))
 constraint ops.alerts.alerts_details_check CHECK (((jsonb_typeof(details) = 'object'::text) AND (octet_length((details)::text) <= 4096)))
 constraint ops.alerts.alerts_notify_count_check CHECK ((notify_count >= 0))
 constraint ops.alerts.alerts_notify_seq_enqueued_check CHECK ((notify_seq_enqueued >= 0))
+constraint ops.alerts.alerts_notify_stopped_code_check CHECK ((notify_stopped_code = 'alert_channel_unconfigured'::text))
 constraint ops.alerts.alerts_notify_tries_check CHECK ((notify_tries >= 0))
 constraint ops.alerts.alerts_pkey PRIMARY KEY (id)
 constraint ops.alerts.alerts_provider_message_id_check CHECK ((char_length(provider_message_id) <= 200))
@@ -606,6 +609,7 @@ constraint ops.alerts.alerts_rule_fkey FOREIGN KEY (rule) REFERENCES ops.alert_r
 constraint ops.alerts.alerts_severity_check CHECK ((severity = ANY (ARRAY['critical'::text, 'warn'::text, 'info'::text])))
 constraint ops.alerts.alerts_status_check CHECK ((status = ANY (ARRAY['open'::text, 'resolved'::text])))
 constraint ops.backup_runs.backup_runs_archive_bytes_check CHECK ((archive_bytes >= 0))
+constraint ops.backup_runs.backup_runs_archive_sha256_check CHECK ((archive_sha256 ~ '^[0-9a-f]{64}$'::text))
 constraint ops.backup_runs.backup_runs_duration_s_check CHECK ((duration_s >= 0))
 constraint ops.backup_runs.backup_runs_environment_check CHECK ((environment = ANY (ARRAY['local'::text, 'staging'::text, 'production'::text])))
 constraint ops.backup_runs.backup_runs_error_code_check CHECK (((char_length(error_code) <= 64) AND (error_code ~ '^[a-z][a-z0-9_]*$'::text)))
@@ -613,6 +617,7 @@ constraint ops.backup_runs.backup_runs_failed_has_code CHECK (((status <> 'faile
 constraint ops.backup_runs.backup_runs_manifest_counts_check CHECK (((manifest_counts IS NULL) OR ((jsonb_typeof(manifest_counts) = 'object'::text) AND (octet_length((manifest_counts)::text) <= 65536))))
 constraint ops.backup_runs.backup_runs_object_key_check CHECK (((char_length(object_key) <= 200) AND (object_key ~ '^[a-z0-9-]+/[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{6}Z\.tar\.age$'::text)))
 constraint ops.backup_runs.backup_runs_ok_has_archive CHECK (((status <> 'ok'::text) OR ((object_key IS NOT NULL) AND (archive_bytes IS NOT NULL))))
+constraint ops.backup_runs.backup_runs_ok_has_digest CHECK (((status <> 'ok'::text) OR (archive_sha256 IS NOT NULL))) NOT VALID
 constraint ops.backup_runs.backup_runs_pkey PRIMARY KEY (id)
 constraint ops.backup_runs.backup_runs_status_check CHECK ((status = ANY (ARRAY['ok'::text, 'failed'::text])))
 constraint ops.early_delivery_reports.early_delivery_reports_external_message_id_check CHECK (((char_length(external_message_id) >= 1) AND (char_length(external_message_id) <= 200)))
@@ -963,9 +968,10 @@ function ops.communication_queue_enqueue_job() returns trigger lang=plpgsql secu
 function ops.drill_enqueue(p_kind text, p_count integer, p_spread interval, p_max_attempts integer) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4fbe44f1b91bd1952a6352df5a741aea
 function ops.enqueue_job(p_kind text, p_tenant_id uuid, p_payload jsonb, p_dedupe_key text, p_run_at timestamp with time zone, p_max_attempts integer) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=34010c593d6ed05864c55aed746a90db
 function ops.enqueue_quota_weekly_summary() returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=aaadcc3a82d21c6e03602260ea42d69e
+function ops.ensure_schedules(p_activate_kick boolean) returns jsonb lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=42dfd5f766f479477cb6dbfa3f144758
 function ops.error_events_size() returns jsonb lang=sql security_definer=f volatility=s config=search_path="" body_md5=bef6ccb364b88adfc674fe75687ce17e
 function ops.error_sink_daily_cap() returns integer lang=sql security_definer=f volatility=s config=search_path="" body_md5=767817c66a4b05c817c8799a25abb42f
-function ops.evaluate_alerts() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=1a312c89d5ec8dc0ceafa24ec84e370e
+function ops.evaluate_alerts() returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e67fa1d1df6d4ff02dbb12bc320c5e97
 function ops.heartbeat() returns timestamp with time zone lang=sql security_definer=t volatility=v config=search_path="" body_md5=38052fa0d9e10bc2a50b3bebec60f8bb
 function ops.job_error_code(p_code text) returns text lang=sql security_definer=t volatility=i config=search_path="" body_md5=8dc6403af216f42e661efb3cb947645d
 function ops.kick_job_runner() returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=0db715c86023c2e77b8ce1bcb5a1ed0d
@@ -2165,6 +2171,7 @@ index ops.alerts_last_seen CREATE INDEX alerts_last_seen ON ops.alerts USING btr
 index ops.alerts_one_open_per_rule CREATE UNIQUE INDEX alerts_one_open_per_rule ON ops.alerts USING btree (rule) WHERE (status = 'open'::text)
 index ops.alerts_open_severity CREATE INDEX alerts_open_severity ON ops.alerts USING btree (severity) WHERE (status = 'open'::text)
 index ops.alerts_pkey CREATE UNIQUE INDEX alerts_pkey ON ops.alerts USING btree (id)
+index ops.alerts_rule CREATE INDEX alerts_rule ON ops.alerts USING btree (rule)
 index ops.backup_runs_created_at CREATE INDEX backup_runs_created_at ON ops.backup_runs USING btree (created_at)
 index ops.backup_runs_environment_started_at CREATE INDEX backup_runs_environment_started_at ON ops.backup_runs USING btree (environment, started_at DESC)
 index ops.backup_runs_pkey CREATE UNIQUE INDEX backup_runs_pkey ON ops.backup_runs USING btree (id)

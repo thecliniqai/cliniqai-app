@@ -159,8 +159,8 @@ describe("ops.report_all: figures match the seeded data", () => {
       "insert into ops.alerts (rule, severity, status, resolved_at, details, notified_at, notify_count, notify_seq_enqueued, notify_tries, provider_message_id) values " +
         `('dead_letter', 'warn', 'resolved', now(), '{"job_ids": ["${TENANT_ID}"]}', now(), 1, 1, 1, 'mailpit-id-1')`,
       "insert into ops.alerts (rule, severity, notify_seq_enqueued, notify_tries) values ('backup_stale', 'critical', 1, 3)",
-      "insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s) values " +
-        "('staging', now() - interval '3 hours', now() - interval '3 hours' + interval '4 minutes', 'ok', 'staging/2026-11-13T010203Z.tar.age', 4096, 240)",
+      "insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s, archive_sha256) values " +
+        "('staging', now() - interval '3 hours', now() - interval '3 hours' + interval '4 minutes', 'ok', 'staging/2026-11-13T010203Z.tar.age', 4096, 240, repeat('b', 64))",
       "insert into ops.backup_runs (environment, started_at, status, error_code) values ('staging', now() - interval '1 hour', 'failed', 'drill_forced')",
     ]);
     const byRule = Object.fromEntries(r.alerts.map((a) => [a.rule, a]));

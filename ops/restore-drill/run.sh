@@ -355,7 +355,8 @@ self_test() {
   r2="$("$AGE_KEYGEN" -y "$keys/breakglass.key")"
 
   log "restore-drill.selftest backup (ops/backup/backup.sh, BACKUP_ENV=local)"
-  local backup_rc=0
+  local backup_rc=0 before_id
+  before_id="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -At -c "select coalesce(max(id), 0) from ops.backup_runs")"
   BACKUP_ENV=local DB_URL="$db_url" BACKUP_AGE_RECIPIENTS="$r1 $r2" AGE_BIN="$AGE" \
     BACKUP_S3_BUCKET="$TARGET_BUCKET_ST" BACKUP_S3_PREFIX="local/" BACKUP_S3_ENDPOINT="$s3_url" \
     BACKUP_S3_ACCESS_KEY_ID="$key_id" BACKUP_S3_SECRET_ACCESS_KEY="$secret" \
@@ -368,6 +369,11 @@ self_test() {
   local expected_sha
   expected_sha="$(sed -n 's/.*backup\.encrypted .*sha256=\([0-9a-f]\{64\}\).*/\1/p' "$WORK/backup-run.log" | tail -n 1)"
   [[ -n "$expected_sha" ]] || die "backup.sh did not report the archive digest"
+  # ... and the same digest in its ops.backup_runs row (the database record a real restore can use, migration 000042).
+  local recorded_sha
+  recorded_sha="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -At \
+    -c "select archive_sha256 from ops.backup_runs where id > $before_id and status = 'ok' order by id desc limit 1")"
+  [[ "$recorded_sha" == "$expected_sha" ]] || die "the ops.backup_runs row does not hold the archive digest the backup reported"
 
   local key
   key="$(s3 s3 ls "s3://$TARGET_BUCKET_ST/local/" | awk '{print $4}' | grep -E '\.tar\.age$' | sort | tail -n 1)"

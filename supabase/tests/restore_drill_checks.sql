@@ -1,5 +1,6 @@
 -- Restore-drill checks (V2-04 04-05a, FT-02, ruling R-11): run against a database just restored from a backup archive
 -- by ops/restore-drill/run.sh, and against the primary local stack by tests/ops/restore-drill-checks-db.spec.ts.
+-- 04-07c: also proves the runbook's schedule re-creation (ops.ensure_schedules(), migration 000042) on the restore.
 -- V2-05 (05-01) replaces this file with its generated pgTAP RLS matrix.
 --
 -- psql variables (manifest-derived; the drill passes them, the spec computes them live):
@@ -17,7 +18,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(10);
+select plan(13);
 
 -- 1. RLS is on for every public table (the failing table names are listed in the diagnostics).
 select is_empty(
@@ -62,7 +63,23 @@ select is(
   'net.http_request_queue is empty'
 );
 
--- 7-10. Tenant isolation probe: a restored member U of clinic A must see none of a second clinic B's rows.
+-- 7-9. The real-restore path re-creates the schedules (04-07c, M-RESTORE; runbook backup-restore.md §8 step 4): on the
+-- restored database ops.ensure_schedules() yields exactly the migrations' nine pg_cron jobs, `jobs-kick` inactive until
+-- the pending-jobs review. Rolled back with everything else, so the drill stack still never schedules anything.
+select lives_ok('select ops.ensure_schedules()', 'ops.ensure_schedules() runs on the restored database');
+select is(
+  (select array_agg(jobname::text order by jobname) from cron.job),
+  array['cron-history-cleanup', 'delivery-reap', 'jobs-kick', 'jobs-reap', 'ops-cleanup', 'ops-evaluate-alerts',
+        'ops-heartbeat', 'ops-quota-snapshot', 'ops-quota-weekly-summary']::text[],
+  'the restore re-creates the expected pg_cron schedule set'
+);
+select is(
+  (select array_agg(jobname::text order by jobname) from cron.job where not active),
+  array['jobs-kick']::text[],
+  'jobs-kick is re-created inactive (pending jobs reviewed first); every other schedule is active'
+);
+
+-- 10-13. Tenant isolation probe: a restored member U of clinic A must see none of a second clinic B's rows.
 select isnt_empty(
   $$ select 1 from public.memberships m join auth.users u on u.id = m.user_id $$,
   'a restored membership exists to probe tenant isolation'

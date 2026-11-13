@@ -3,7 +3,8 @@
  * stack, with its Storage S3 endpoint standing in for the R2 bucket. Proves the artefact that leaves the machine is
  * age-encrypted to both recipients and unreadable without one of their keys, carries the dump, the Storage objects
  * and a manifest, writes a counts-only `ops.backup_runs` row, and that a failed run is recorded as `failed` with a
- * machine code and uploads nothing. (The restore into the second stack is `ops/restore-drill/run.sh --self-test`,
+ * machine code and uploads nothing, and (04-07c) that the archive's SHA-256 is recorded in the row, the digest file and the
+ * job summary. (The restore into the second stack is `ops/restore-drill/run.sh --self-test`,
  * nightly `backup-roundtrip` job and evidence/restore-drill-selftest.json.)
  *
  * Needs the pinned age binary (`ops/bin/install-age.sh`; CI's test job installs it) and Docker (pinned postgres:17 and
@@ -126,7 +127,9 @@ afterAll(() => {
 
 describe("backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the stand-in)", () => {
   it("uploads an age archive that only the two recipients' keys open, holding the dump, the objects and the manifest", () => {
-    const r = backup();
+    const digestOut = path.join(tmp, "archive-digest.json");
+    const summary = path.join(tmp, "step-summary.md");
+    const r = backup({ BACKUP_DIGEST_OUT: digestOut, GITHUB_STEP_SUMMARY: summary });
     const output = r.stdout + r.stderr;
     expect(r.status, output.slice(-2000)).toBe(0);
     expect(output).toMatch(/backup\.encrypted age_header=ok bytes=\d+ sha256=[0-9a-f]{64}/);
@@ -170,6 +173,20 @@ describe("backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the 
     expect([status, objectKey, errorCode]).toEqual(["ok", `local/${keys[0]}`, ""]);
     expect(counts).not.toContain(OBJECT_NAME);
     expect(JSON.parse(counts).buckets[SRC_BUCKET]).toEqual({ objects: 1, bytes: 4096 });
+
+    // 04-07c (M-BACKUPAUTH): the archive's SHA-256 is recorded outside the bucket, identically, in the row, the digest
+    // file (backup.yml's artifact) and the job summary: what `run.sh --expect-sha256` checks before decrypting.
+    const digest = sha256(bytes);
+    expect(psql(`select archive_sha256 from ops.backup_runs where id > ${maxIdBefore} and status = 'ok' order by id desc limit 1`)).toEqual([digest]);
+    expect(JSON.parse(fs.readFileSync(digestOut, "utf8"))).toEqual({
+      format_version: 1,
+      environment: "local",
+      object_key: `local/${keys[0]}`,
+      archive_sha256: digest,
+      archive_bytes: bytes.length,
+    });
+    expect(fs.readFileSync(summary, "utf8")).toContain(`| \`local/${keys[0]}\` | \`${digest}\` | ${bytes.length} |`);
+    expect(output).toContain(`sha256=${digest}`);
   }, 180_000);
 
   it("a failed step exits non-zero, records a `failed` row with a machine code and uploads nothing", () => {

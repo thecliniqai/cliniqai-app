@@ -2,7 +2,7 @@
 # FT-02 backup: database dump + Storage sync -> manifest -> age (two recipients) -> S3-compatible bucket
 # (V2-04 04-05a; R-3, R-31; PO decision 2026-11-13: staging backups go to Cloudflare R2, AWS Mumbai at go-live).
 #
-# Runs in the GitHub Actions workflow .github/workflows/backup.yml (Environment `staging`, feature/v2 only) for staging,
+# Runs in the GitHub Actions workflow .github/workflows/backup.yml (Environment `staging-backup`, feature/v2 only, R-48),
 # and locally (BACKUP_ENV=local) against the local Supabase stack with its Storage S3 endpoint as the bucket stand-in.
 # Every S3 call (source Storage sync and target upload) uses the digest-pinned AWS CLI image (ops/bin/aws-docker.sh).
 # Never prints a URL, a key or a password: failures name the variable, tool output passes through a URL redactor.
@@ -26,6 +26,10 @@
 #   SUPABASE_WORKDIR            local only: the directory holding supabase/config.toml (default: this repository)
 #   FORCE_FAIL=1                failed-run drill (04-P11): exit 64 after validation, before any connection
 #   AGE_BIN                     optional path to `age` (else PATH, else ops/bin/install-age.sh)
+#   BACKUP_DIGEST_OUT           optional file for {object_key, archive_sha256, archive_bytes} (04-07c, M-BACKUPAUTH);
+#                               backup.yml uploads it in the `backup-evidence` artifact. With GITHUB_STEP_SUMMARY set,
+#                               the same digest is appended to the job summary. Both are records the R2 token cannot
+#                               write; a restore passes the digest as `ops/restore-drill/run.sh --expect-sha256`.
 #
 # Exit codes: 0 ok; 2 configuration refused; 3 backup uploaded but the job runner is stale (dead-man, R-41); 64 forced
 # failure; any other non-zero = a failed step (a best-effort `failed` ops.backup_runs row is written first).
@@ -158,6 +162,7 @@ STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 STARTED_EPOCH="$(date -u +%s)"
 DB_REACHED=0
 ROW_WRITTEN=0
+HAS_DIGEST_COLUMN=0
 
 psql_db() { PSQL_DB_URL="$DB_URL" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -v ON_ERROR_STOP=1 -q "$@"; }
 
@@ -194,8 +199,8 @@ dump() {
 
 sql_literal() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/''/g")"; }
 
-record_run() { # status object_key archive_bytes counts_file error_code
-  local status="$1" key="$2" bytes="$3" counts="$4" code="$5" finished duration
+record_run() { # status object_key archive_bytes counts_file error_code [archive_sha256]
+  local status="$1" key="$2" bytes="$3" counts="$4" code="$5" sha="${6:-}" finished duration
   finished="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   duration=$(($(date -u +%s) - STARTED_EPOCH))
   local counts_sql="null"
@@ -204,9 +209,17 @@ record_run() { # status object_key archive_bytes counts_file error_code
   [[ -n "$key" ]] && key_sql="$(sql_literal "$key")"
   [[ -n "$bytes" ]] && bytes_sql="$bytes"
   [[ -n "$code" ]] && code_sql="$(sql_literal "$code")"
-  printf 'insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s, manifest_counts, error_code) values (%s, %s, %s, %s, %s, %s, %s, %s, %s);\n' \
-    "$(sql_literal "$BACKUP_ENV")" "$(sql_literal "$STARTED_AT")" "$(sql_literal "$finished")" "$(sql_literal "$status")" \
-    "$key_sql" "$bytes_sql" "$duration" "$counts_sql" "$code_sql" > "$WORK/record.sql"
+  # 04-07c (M-BACKUPAUTH): the archive digest, once migration 000042 added the column (a run of this script before the
+  # migration reached the database still records its row; the job summary and artifact carry the digest either way).
+  local sha_col="" sha_sql=""
+  if [[ "$HAS_DIGEST_COLUMN" == "1" ]]; then
+    sha_col=", archive_sha256"
+    sha_sql=", null"
+    [[ -n "$sha" ]] && sha_sql=", $(sql_literal "$sha")"
+  fi
+  printf 'insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s, manifest_counts, error_code%s) values (%s, %s, %s, %s, %s, %s, %s, %s, %s%s);\n' \
+    "$sha_col" "$(sql_literal "$BACKUP_ENV")" "$(sql_literal "$STARTED_AT")" "$(sql_literal "$finished")" "$(sql_literal "$status")" \
+    "$key_sql" "$bytes_sql" "$duration" "$counts_sql" "$code_sql" "$sha_sql" > "$WORK/record.sql"
   psql_db -f "$WORK/record.sql" 2>&1 | redact
 }
 
@@ -238,6 +251,7 @@ log "backup.start env=$BACKUP_ENV recipients=${#recipients[@]} cli=$SUPABASE_CLI
 STEP=connect
 psql_db -At -c "select 1" > /dev/null
 DB_REACHED=1
+HAS_DIGEST_COLUMN="$(psql_db -At -c "select count(*) from pg_catalog.pg_attribute where attrelid = pg_catalog.to_regclass('ops.backup_runs') and attname = 'archive_sha256' and not attisdropped")"
 
 STEP=dump
 dump -f "$STAGE/roles.sql" --role-only
@@ -384,8 +398,18 @@ KEY="${BACKUP_S3_PREFIX}${NAME}"
 aws_target s3 cp "$ARCHIVE" "s3://$BACKUP_S3_BUCKET/$KEY" --only-show-errors < /dev/null 2>&1 | redact
 log "backup.uploaded key=$KEY"
 
+# 04-07c (M-BACKUPAUTH): the digest outside the bucket, where the restore reads it (--expect-sha256).
+if [[ -n "${BACKUP_DIGEST_OUT:-}" ]]; then
+  printf '{"format_version":1,"environment":"%s","object_key":"%s","archive_sha256":"%s","archive_bytes":%s}\n' \
+    "$BACKUP_ENV" "$KEY" "$ARCHIVE_SHA" "$ARCHIVE_BYTES" > "$BACKUP_DIGEST_OUT"
+fi
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+  printf '### Backup archive\n\n| object key | SHA-256 | bytes |\n|---|---|---|\n| `%s` | `%s` | %s |\n\nRestore with `--expect-sha256 %s` (docs/runbooks/backup-restore.md §7).\n' \
+    "$KEY" "$ARCHIVE_SHA" "$ARCHIVE_BYTES" "$ARCHIVE_SHA" >> "$GITHUB_STEP_SUMMARY"
+fi
+
 STEP=record
-record_run ok "$KEY" "$ARCHIVE_BYTES" "$WORK/counts.json" ""
+record_run ok "$KEY" "$ARCHIVE_BYTES" "$WORK/counts.json" "" "$ARCHIVE_SHA"
 ROW_WRITTEN=1
 
 # ---------------------------------------------------------------------------------------------------------------------

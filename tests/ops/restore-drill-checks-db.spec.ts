@@ -40,15 +40,20 @@ describe("restore_drill_checks.sql on the primary local stack", () => {
     await seedTenantWithOwner("Restore drill checks spec clinic");
   });
 
-  it("passes with the manifest values computed live: 10 checks ok, nothing persists", () => {
+  it("passes with the manifest values computed live: 13 checks ok, nothing persists", () => {
     const [tenantsBefore] = psql("select count(*) from public.tenants");
+    const [cronJobsBefore] = psql("select count(*) from cron.job");
     const r = psqlFile(CHECKS, liveManifestValues(), { before: ["begin", AS_RESTORED] });
     expect(r.stderr.replace(/^.*there is already a transaction in progress\n?/m, "")).toBe("");
     expect(r.status).toBe(0);
     const oks = r.stdout.split("\n").filter((l) => /^ok \d+ - /.test(l));
-    expect(oks).toHaveLength(10);
+    expect(oks).toHaveLength(13);
     expect(tapFailures(r.stdout)).toEqual([]);
-    expect(r.stdout).toMatch(/^1\.\.10$/m);
+    expect(r.stdout).toMatch(/^1\.\.13$/m);
+    // 04-07c (M-RESTORE): the schedule checks ran, and the re-created schedules were rolled back with the rest.
+    expect(oks.some((l) => l.includes("the restore re-creates the expected pg_cron schedule set"))).toBe(true);
+    expect(oks.some((l) => l.includes("jobs-kick is re-created inactive"))).toBe(true);
+    expect(psql("select count(*) from cron.job")).toEqual([cronJobsBefore]);
     // The probe clinic and patient were rolled back.
     expect(psql("select count(*) from public.tenants")).toEqual([tenantsBefore]);
     expect(psql("select count(*) from public.patients where full_name = 'Restore Drill Probe'")).toEqual(["0"]);
@@ -81,6 +86,30 @@ describe("restore_drill_checks.sql on the primary local stack", () => {
     expect(tapFailures(r.stdout).some((l) => l.includes("cron.job is empty"))).toBe(true);
     // The extension and the schedule were rolled back with the transaction.
     expect(psql("select count(*) from pg_extension where extname = 'pg_cron'")).toEqual(cronBefore);
+  });
+
+  it("fails when the restore path does not re-create a schedule, or re-creates jobs-kick active (04-07c, M-RESTORE)", () => {
+    // ops.ensure_schedules() that forgets one schedule (the 000042 bug class: a migration added a schedule and not here).
+    const forgets = `do $$ begin
+      execute 'alter function ops.ensure_schedules(boolean) rename to ensure_schedules_real';
+      execute $f$create function ops.ensure_schedules(p boolean default false) returns jsonb language plpgsql as $b$
+        declare v jsonb; begin v := ops.ensure_schedules_real(p); perform cron.unschedule('ops-cleanup'); return v; end $b$ $f$;
+    end $$`;
+    const missing = psqlFile(CHECKS, liveManifestValues(), { before: ["begin", AS_RESTORED, forgets] });
+    expect(missing.status).not.toBe(0);
+    expect(tapFailures(missing.stdout).some((l) => l.includes("the restore re-creates the expected pg_cron schedule set"))).toBe(true);
+    // ... and one that would start sending at once on a restored project.
+    const active = `do $$ begin
+      execute 'alter function ops.ensure_schedules(boolean) rename to ensure_schedules_real';
+      execute $f$create function ops.ensure_schedules(p boolean default false) returns jsonb language plpgsql as $b$
+        begin return ops.ensure_schedules_real(true); end $b$ $f$;
+    end $$`;
+    const kick = psqlFile(CHECKS, liveManifestValues(), { before: ["begin", AS_RESTORED, active] });
+    expect(kick.status).not.toBe(0);
+    expect(tapFailures(kick.stdout).some((l) => l.includes("jobs-kick is re-created inactive"))).toBe(true);
+    // Both were rolled back: the real function is back, the stack's schedules untouched.
+    expect(psql("select count(*) from pg_proc where proname = 'ensure_schedules_real'")).toEqual(["0"]);
+    expect(psql("select count(*) from cron.job where jobname = 'ops-cleanup'")).toEqual(["1"]);
   });
 
   it("fails when a restored count differs from the manifest (policies, users)", () => {

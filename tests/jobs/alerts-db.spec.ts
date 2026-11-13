@@ -130,9 +130,9 @@ const overflow = (daysAgo: number, dropped: number) =>
 
 const backupRun = (hoursAgo: number, status: "ok" | "failed") =>
   status === "ok"
-    ? `insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s) values ` +
+    ? `insert into ops.backup_runs (environment, started_at, finished_at, status, object_key, archive_bytes, duration_s, archive_sha256) values ` +
       `('local', now() - interval '${hoursAgo} hours', now() - interval '${hoursAgo} hours' + interval '1 minute', 'ok', ` +
-      `'local/2026-11-13T010203Z.tar.age', 1024, 60)`
+      `'local/2026-11-13T010203Z.tar.age', 1024, 60, repeat('a', 64))`
     : `insert into ops.backup_runs (environment, started_at, finished_at, status, error_code) values ` +
       `('local', now() - interval '${hoursAgo} hours', now() - interval '${hoursAgo} hours' + interval '1 minute', 'failed', 'drill_forced')`;
 
@@ -343,18 +343,21 @@ describe("backup_stale (critical): backups recorded, none ok in 13 hours, or the
 });
 
 describe("lifecycle: cooldown, resolution, robustness", () => {
-  it("two clean evaluations resolve an alert; firing again opens a new one with notification 1", () => {
+  it("two clean evaluations resolve an alert; firing again opens a new one, notified (notification 1) once the rule's cooldown has passed", () => {
+    const resolveThenRefire = (before: string[]) => [
+      EVALUATE,
+      "delete from ops.jobs where kind = 'test.alerts_dead'",
+      EVALUATE,
+      "select 'C|' || clean_evaluations || '|' || status from ops.alerts",
+      EVALUATE,
+      ...before,
+      deadJob(),
+      EVALUATE,
+    ];
+    // The first episode was notified 61 minutes ago (outside the 60-minute cooldown): the new one is notified at once.
     const out = run(
       [deadJob()],
-      [
-        EVALUATE,
-        "delete from ops.jobs where kind = 'test.alerts_dead'",
-        EVALUATE,
-        "select 'C|' || clean_evaluations || '|' || status from ops.alerts",
-        EVALUATE,
-        deadJob(),
-        EVALUATE,
-      ],
+      resolveThenRefire(["update ops.alerts set notified_at = now() - interval '61 minutes', notify_count = 1, notify_enqueued_at = now() - interval '62 minutes'"]),
     );
     expect(out.firing).toEqual([1, 0, 0, 1]);
     expect(out.other).toContain("C|1|open");
@@ -367,6 +370,10 @@ describe("lifecycle: cooldown, resolution, robustness", () => {
     expect(out.jobs.map((j): [string, number] => [j.alertId, j.seq]).sort(byId)).toEqual(
       out.alerts.map((a): [string, number] => [a.id, 1]).sort(byId),
     );
+    // 04-07c (review C L-1): inside the cooldown the re-opened episode is not notified (a flapping rule).
+    const flapping = run([deadJob()], resolveThenRefire([]));
+    expect(flapping.alerts.map((a) => a.status)).toEqual(["resolved", "open"]);
+    expect(flapping.jobs.map((j) => j.alertId)).toEqual([flapping.alerts[0].id]);
   });
 
   it("an expired cooldown enqueues notification n + 1; inside the cooldown nothing new", () => {

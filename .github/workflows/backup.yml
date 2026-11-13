@@ -4,6 +4,8 @@
 # Twice a day (02:00 and 14:00 IST) dumps the staging database (roles, schema, data without cron/net queues, migration
 # history, storage policies) and syncs its Storage buckets, writes a manifest, encrypts the archive with age to two
 # recipients (primary + break-glass, R-3), uploads it to the R2 bucket and records a counts-only `ops.backup_runs` row.
+# The archive's SHA-256 goes to that row, the job summary and the `backup-evidence` artifact (`archive-digest.json`):
+# records the R2 token cannot write, which a restore checks before decrypting (04-07c, M-BACKUPAUTH).
 # Synthetic staging data only (PO-23(h) keeps production off GitHub-hosted runners).
 #
 # Environment `staging-backup` (ruling R-48): no required reviewer, so the schedule never waits for a human; deployment
@@ -84,7 +86,10 @@ jobs:
           BACKUP_S3_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
           BACKUP_AGE_RECIPIENTS: ${{ secrets.BACKUP_AGE_RECIPIENTS }}
           BACKUP_S3_PREFIX: staging/
+          # 04-07c (M-BACKUPAUTH): the archive's SHA-256 for the restore's --expect-sha256 (also in the job summary).
+          BACKUP_DIGEST_OUT: backup-evidence/archive-digest.json
         run: |
+          mkdir -p backup-evidence
           DB_URL="$(node scripts/staging/target-guard.mjs --var STAGING_BACKUP_DB_URL --print-db-url --no-password)"
           PGPASSWORD="$(node scripts/staging/target-guard.mjs --var STAGING_BACKUP_DB_URL --print-pgpassword)"
           export DB_URL PGPASSWORD
@@ -112,6 +117,8 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: backup-evidence
-          path: backup-evidence/backup-evidence.json
+          path: |
+            backup-evidence/backup-evidence.json
+            backup-evidence/archive-digest.json
           if-no-files-found: ignore
           retention-days: 90
