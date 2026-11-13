@@ -213,7 +213,8 @@ describe("server error branches log the event and code, never the raw error (03-
     // The PHI check first: before the sweep it fails on the raw text, not only on the missing event.
     expectNoRawError();
     const [line] = linesFor("api.v1.failed");
-    expect(line).toMatchObject({ level: "error", reason: "DATABASE_ERROR", status: 500, requestId: REQUEST_ID });
+    // 03-13d M-LOGFIELDS: log words are lower case; the envelope code is written through logWord().
+    expect(line).toMatchObject({ level: "error", reason: "database_error", status: 500, requestId: REQUEST_ID });
   });
 
   it("cron route: a dispatcher exception becomes a fixed 500 body and one line", async () => {

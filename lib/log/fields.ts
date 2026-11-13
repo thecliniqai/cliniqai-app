@@ -25,6 +25,11 @@ const DIGIT_RUN = /\d{6,}/;
 /** `action`, `module`, `reason`: lower-case machine words (no spaces, no `@`, no upper case). */
 export const WORD_PATTERN = /^[a-z0-9_.:-]{1,64}$/;
 export const MAX_WORD = 64;
+/**
+ * `module` may also be a lower-case module path (`app/api/cron/webhooks`, `features/sharing/system`: the owners
+ * `getSystemDb` names in `REASON_OWNER`): words of {@link WORD_PATTERN}'s alphabet joined by `/`, at most 64 characters.
+ */
+export const MODULE_PATTERN = /^(?=.{1,64}$)[a-z0-9_.:-]+(?:\/[a-z0-9_.:-]+)*$/;
 /** Upper bound for `count` / `durationMs`: phone-sized numbers are refused. */
 export const MAX_COUNT = 10_000_000;
 /** Written in place of an `event` that does not match {@link EVENT_PATTERN}; the rejected value is never written. */
@@ -105,7 +110,8 @@ export function sanitiseFields(input: unknown): SafeLogFields {
   if (route) out.route = route;
   for (const key of WORD_KEYS) {
     const value = source[key];
-    if (typeof value === "string" && WORD_PATTERN.test(value) && !DIGIT_RUN.test(value)) out[key] = value;
+    const pattern = key === "module" ? MODULE_PATTERN : WORD_PATTERN;
+    if (typeof value === "string" && pattern.test(value) && !DIGIT_RUN.test(value)) out[key] = value;
   }
   if (typeof source.code === "string" && CODE_PATTERN.test(source.code) && !DIGIT_RUN.test(source.code)) {
     out.code = source.code;

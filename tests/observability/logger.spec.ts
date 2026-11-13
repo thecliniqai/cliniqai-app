@@ -206,6 +206,13 @@ describe("closed field values (03-13d)", () => {
     },
   );
 
+  it("module may be a lower-case module path (getSystemDb's owners); other words may not contain '/'", async () => {
+    const { REASON_OWNER } = await import("@/lib/supabase/system");
+    for (const owner of Object.values(REASON_OWNER)) expect(sanitiseFields({ event: "a.b", module: owner })).toEqual({ event: "a.b", module: owner });
+    expect(sanitiseFields({ event: "a.b", module: "App/Api", reason: "a/b", action: "a/b" })).toEqual({ event: "a.b" });
+    expect(sanitiseFields({ event: "a.b", module: "tenants/9000000059/x" })).toEqual({ event: "a.b" });
+  });
+
   it("keeps machine words and route patterns", () => {
     expect(
       sanitiseFields({ event: "a.b", reason: "rate_limited", action: "auth.signout:others", module: "auth.email.ses", route: "/r/[token]" }),
