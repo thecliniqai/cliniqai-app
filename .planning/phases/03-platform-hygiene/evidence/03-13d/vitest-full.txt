@@ -1,0 +1,6 @@
+# npx vitest run (full lane) at c060dfb6a7343f04e01d3589b81d7259a67fd79b + uncommitted 03-13a WIP in the shared tree (lib/auth/session-age.ts, tests/api/proxy-session.spec.ts, ...)
+   × 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a recovery session aged 601 s: page GET → signed out (GoTrue refuses the refresh), cookies deleted, /login; its tokens are dead 202ms
+   × 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a Server Action POST and an /api call on a stale recovery session run signed out (no auth cookie forwarded) 198ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed | 161 passed (162)
+      Tests  2 failed | 3455 passed (3457)

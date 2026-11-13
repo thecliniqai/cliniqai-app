@@ -1,0 +1,12 @@
+# npm run e2e:build && npm run e2e:pr at c060dfb6a7343f04e01d3589b81d7259a67fd79b
+  7 skipped
+  188 passed (2.4m)
+retried results ("retry": >0): 0
+  "stats": {
+    "startTime": "2026-11-13T03:45:30.508Z",
+    "duration": 144766.522,
+    "expected": 188,
+    "skipped": 7,
+    "unexpected": 0,
+    "flaky": 0
+  }
