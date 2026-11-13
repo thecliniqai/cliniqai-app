@@ -245,25 +245,29 @@ DKIM and production access take hours to days) → 03-E4 → 03-E7, 03-E8, 03-E9
 
 ## V2-04 Jobs reliability
 
-Source: `.planning/phases/04-jobs-reliability/04-PLAN.md` §PO actions (verbatim). Plans are written; the phase is not started yet.
+Source: `.planning/phases/04-jobs-reliability/04-PLAN.md` §PO actions (verbatim, revised 2026-11-13 post V2-03). Phase in progress.
 
 The orchestrator copies these into `.planning/PO-ACTIONS.md` under "V2-04 Jobs reliability". No secret value appears
 here; secrets go only into the named store. Values in angle brackets are filled by the PO. **Order (lead times):** the
 AWS track first — 04-P2 → P3 → P7 → P4 → P5 → P6 (can start before the merge; nothing in the repo waits on it); at the
-gate 04-P14, P15; after the merge 04-P1 (before approving the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running
-→ P11, P12, P13. None of these blocks local work or the gate except P15 (merge) — R-19 pattern from V2-03.
+gate 04-P14, P15; 04-P16 any time before the merge (else right after it); after the merge 04-P1 (before approving
+the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, P12, P13. None of these blocks local work or the gate except P15 (merge) — R-19 pattern from V2-03.
 
 - [ ] **04-P1 · Confirm pg_cron, pg_net and Vault on the staging Free project**
   - *Do / where:* Supabase Dashboard → project `clinicos-staging` (03-E2) → SQL Editor → run
     `select name, default_version, installed_version from pg_available_extensions where name in ('pg_cron','pg_net','supabase_vault') order by 1;`
-    and paste the output. Do not enable anything by hand; migration `<N+2>` does it.
+    and paste the output. Do not enable anything by hand; migration `000033_jobs_scheduler.sql` does it. Then approve
+    the `staging.yml` `migrate` run for the V2-04 merge commit **right away**: V2-04's code needs its own migrations
+    (R-38), so until the run finishes staging answers `/api/ready` 503 with `checks.schema: "behind"` (runbook
+    `docs/runbooks/staging.md` §6, "migrate before promote").
   - *Values:* none.
   - *Why:* roadmap §9.1 — availability on Free is not stated by Supabase (A1). The migration fails loudly where an
     extension is missing (R-34).
-  - *Unblocks:* approving the first `staging.yml` migrate run that contains `<N+2>_jobs_scheduler.sql`; acceptance 3,
+  - *Unblocks:* approving the first `staging.yml` migrate run that contains `000033_jobs_scheduler.sql`; acceptance 3,
     4, 7.
   - *Verify (Claude, read-only):* three rows in the pasted output; after the approved run, `gh run view <run id> --json
-    conclusion,jobs` → success; recorded in VERIFICATION_LOG.
+    conclusion,jobs` → success (its `wait-for-release` step requires `checks.schema: "current"`); recorded in
+    VERIFICATION_LOG.
 
 - [ ] **04-P2 · AWS account baseline in `ap-south-1` (shared with SES, 03-E6)**
   - *Do / where:* AWS console: root user MFA; an admin role or IAM Identity Center user for yourself (do not use root);
@@ -347,11 +351,12 @@ gate 04-P14, P15; after the merge 04-P1 (before approving the staging migrate ru
   - *Why:* R-9, R-17, R-32.
   - *Unblocks:* 04-P9, P12; acceptance 3, 4.
   - *Verify (Claude, read-only):* `curl -s -o /dev/null -w "%{http_code}\n" -X POST https://staging.<domain>/api/jobs/run`
-    → `401` (no secret, no side effect); `curl -s https://staging.<domain>/api/ready` → `"status":"ok"` with the job
-    counts present.
+    → `401` (no secret, no side effect); `curl -s https://staging.<domain>/api/ready` → `"status":"ready"`,
+    `checks.schema` `"current"`, `providers.messaging` `"disabled"` (sink) and a `jobs` block of four booleans (no
+    counts: V2-03 M-PROBE).
 
 - [ ] **04-P9 · Scheduler secrets in staging Vault + answer OI-3**
-  - *Do / where:* after the approved migrate run with `<N+2>`: staging SQL Editor:
+  - *Do / where:* after the approved migrate run with `000033`: staging SQL Editor:
     `select vault.create_secret('<the 04-P8 JOBS_RUNNER_SECRET value>', 'jobs_runner_secret');` and
     `select vault.create_secret('https://staging.<domain>/api/jobs/run', 'jobs_runner_url');`. OI-3: Vercel (v1 and
     staging projects) → Settings → Cron Jobs — any entries? any external pinger calling `/api/cron/*`? (those routes
@@ -363,8 +368,10 @@ gate 04-P14, P15; after the merge 04-P1 (before approving the staging migrate ru
 
 - [ ] **04-P10 · Read-only grants for the ops report**
   - *Do / where:* staging SQL Editor: the two statements in `docs/runbooks/jobs.md` §"Ops report" (`grant usage on schema
-    ops to <read-only role from docs/runbooks/staging.md>; grant execute on function ops.report_all(integer) to <same
-    role>;`). Then GitHub → Actions → `ops-report` → Run workflow (or wait for the daily run).
+    ops to clinicos_drift_ro; grant execute on function ops.report_all(integer) to clinicos_drift_ro;` — the read-only
+    role from `docs/runbooks/staging.md` §3, already used by `STAGING_DB_URL_RO` in Environment `staging-readonly`).
+    Then GitHub → Actions → `ops-report` → Run workflow (or wait for the daily run; schedules fire only once the
+    default branch is `feature/v2`, RL-3).
   - *Why:* R-28 — staging evidence produced by a tool with a role that can read counts only.
   - *Unblocks:* evidence for acceptance 3, 4, 7, 8.
   - *Verify (Claude):* `gh run list --workflow ops-report.yml --limit 1 --json conclusion,url,headSha`; `gh run download
@@ -401,27 +408,41 @@ gate 04-P14, P15; after the merge 04-P1 (before approving the staging migrate ru
   - *Verify (Claude):* `npx tsx ops/restore-drill/check-evidence.ts .planning/phases/04-jobs-reliability/evidence/restore-drill-staging.json`
     → pass (all checks green, RPO ≤ 12 h, RTO ≤ 4 h, counts only); VERIFICATION_LOG entry written from the file.
 
-- [ ] **04-P14 · Confirm the V2-04 rulings** — the rulings table below (R-1…R-42), in particular R-6 (the ADR-0005 A2
-  clarification in `04-ADR0005-A2-PROPOSAL.md`), R-7 (TARGET §8 erratum: `dedupe_key` NOT NULL), R-26 (test ping
+- [ ] **04-P14 · Confirm the V2-04 rulings** — the rulings table below (R-1…R-47), in particular R-6 (revised: the
+  enqueue RPCs take the session's active tenant as a constraint; ADR-0005 amendment A2 in `04-ADR0005-PROPOSALS.md`
+  replaces D3's "accepts no tenant argument"), R-7 (TARGET §8 erratum: `dedupe_key` NOT NULL), R-26 (test ping
   becomes queued; event data built in SQL), R-27 (CRON_SECRET kept), R-34 (pg_cron confirmation at the staging apply),
-  R-38 (contract in the same PR), R-40 (SES bounce webhook moves to V2-12). *Verify:* your confirmation recorded in
-  VERIFICATION_LOG's gate section.
+  R-38 (contract in the same PR), R-40 (SES bounce webhook moves to V2-12), R-41 (revised: `/api/ready` gains four
+  booleans, no counts), R-43 (Send Email hook dedupe through the system client; ADR-0005 amendment A3), R-44 (`private`
+  definer writers), R-47 (04-00 hardening choices). *Verify:* your confirmation recorded in VERIFICATION_LOG's gate section.
 - [ ] **04-P15 · Confirm the pinned artefacts** — `msw@3.0.3` (research verdict SUS "too-new", older pin taken),
   age v1.3.2 SHA-256 values, the `postgres:17` and `amazon/aws-cli` digests, the `configure-aws-credentials` SHA.
   Review `evidence/package-legitimacy.json` and `evidence/pins.json`. Blocks the **merge**, not local work (V2-03
   R-23 pattern). *Verify:* confirmation recorded.
 
+- [ ] **04-P16 · Read grant on the migration history for the `plan` job (04-00, review A L-5)**
+  - *Do / where:* any time (best before the V2-04 merge; moot until staging is live), staging SQL Editor: the two
+    statements in `docs/runbooks/staging.md` §3 (`grant usage
+    on schema supabase_migrations to clinicos_drift_ro; grant select on supabase_migrations.schema_migrations to
+    clinicos_drift_ro;`). Nothing else changes for the role (still no table or function grant in `public`).
+  - *Values:* none.
+  - *Why:* the new `plan` job (Environment `staging-readonly`) lists the pending migrations from the read-only URL before
+    you approve `migrate`, so the approval is no longer blind (review A L-5).
+  - *Unblocks:* the `plan` job on every `staging.yml` run from the V2-04 merge on; without the grant `plan` fails and
+    `migrate` (which `needs: plan`) does not start.
+  - *Verify (Claude, read-only):* `gh run view <staging.yml run id> --json jobs` → `plan` success; its summary lists
+    migration file names and a count only; recorded in VERIFICATION_LOG.
+
 **No PO action needed for:** the queue, scheduler and alert code and their local tests, the MSG91 MSW contracts, the
 local backup self-test and drill, the template and its policy checks, the workflows' code.
 
-
 ## V2-05 Database authorisation & entitlements
 
-Source: `.planning/phases/05-db-authorisation-entitlements/05-PLAN.md` §PO actions (verbatim). Plans are written; the phase is not started yet.
+Source: `.planning/phases/05-db-authorisation-entitlements/05-PLAN.md` §PO actions (verbatim, revised 2026-11-13 post V2-03). Plans written; not started.
 
 The orchestrator copies these into `.planning/PO-ACTIONS.md` under "V2-05 Database authorisation, integrity &
-entitlements". No secret value appears here. Nothing below blocks local work; 05-P1 blocks the merges; 05-P2…05-P5 are
-hosted steps that run after a merge (V2-03 R-19 pattern). They assume V2-03's staging items (E2, E4, E10) are done; if
+entitlements". No secret value appears here. Nothing below blocks local work; 05-P1 blocks the merges; 05-P2…05-P5
+and 05-P7 are hosted steps that run after a merge (V2-03 R-19 pattern). They assume V2-03's staging items (E2, E4, E10) are done; if
 staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up applies every migration).
 
 - [ ] **05-P1 · Confirm the V2-05 rulings**
@@ -434,7 +455,14 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
     **R-10** (`saas_*`, `billing_profiles`, `provider_webhook_events` created in V2-13b); **R-15** (diagnostics on the
     local stack only, replacing the roadmap's test-project run); **R-31** (J-A6/J-A2 Playwright move to V2-11); PO-25
     (still open: the default "AI preview ends with the trial" is what acceptance 13 tests; changing it is one seed row);
-    the CLAUDE.md Commands proposal (05b close step 6); the doc errata list (R-38).
+    the CLAUDE.md Commands proposal (05b close step 6); the doc errata list (R-38). **Added 2026-11-13 (post V2-03):**
+    **R-42** (RLS helpers and RPCs bind the session's **active** clinic through a request header the server sets from
+    the clinic cookie — a multi-clinic user sees one clinic's data at a time; fallback carrier is a JWT claim from the
+    existing token hook); **R-43** (staff removal deletes the user's sessions inside the removal RPC; a hosted refusal
+    leaves the 900 s token expiry as the bound); **R-44** (ADR-0005 amendment A4: the invite-acceptance module may call
+    the Auth admin system module); **R-45** (lab file keys carry ids only, no patient names; no overwrite);
+    **R-46** (server-side Turnstile check for invite acceptance; new env `TURNSTILE_SECRET_KEY`, 05-P7); **R-47**
+    (per-role statement timeouts pinned by test).
   - *Why:* the PO delegated these to Claude as CTO; CLAUDE.md requires raising schema and role changes.
   - *Unblocks:* merging 05a (R-1…R-9, R-15) and 05b (the rest).
   - *Verify (Claude):* the confirmation is recorded in `docs/v2/VERIFICATION_LOG.md` (V2-05 gate section) with the date.
@@ -447,8 +475,10 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
     before 05b drops the old columns and function (R-37).
   - *Unblocks:* merging 05b (05-b0 precondition).
   - *Verify (Claude, read-only):* `gh run list --workflow staging.yml --branch feature/v2 --limit 1 --json
-    conclusion,headSha,url` → `success` at the 05a merge SHA; `curl -s https://staging.<domain>/api/ready` →
-    `latest_migration` equals the newest 05a migration file name.
+    conclusion,headSha,url` → `success` at the 05a merge SHA (its `plan` job lists the 05a files; its `wait-for-release`
+    step requires `checks.schema: "current"`); `curl -s https://staging.<domain>/api/ready` → `"status":"ready"` and
+    `checks.schema` `"current"` (since V2-03 03-13c the probe returns no migration version: the deployed build reports
+    whether its own `EXPECTED_MIGRATION`, the newest 05a file, is applied).
 
 - [ ] **05-P3 · Approve the staging migration run for 05b, then re-seed staging**
   - *Do / where:* after the 05b PR merges: approve the `staging.yml` run for the merge commit as in 05-P2; then Actions →
@@ -458,21 +488,23 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
   - *Unblocks:* using staging after V2-05; G3 evidence.
   - *Verify (Claude, read-only):* both runs `success` (`gh run list --workflow staging.yml --limit 2 --json
     conclusion,displayTitle,url`); `gh run view <seed run id> --log` contains `access summary: full=<n> locked=0
-    onboarding=0` (counts only); `/api/ready` `latest_migration` = newest 05b file. You confirm one sign-in on staging lands
-    on the dashboard, not `/billing/locked`.
+    onboarding=0` (counts only); `/api/ready` → `checks.schema` `"current"` for the 05b merge build. You confirm one
+    sign-in on staging lands on the dashboard, not `/billing/locked`.
 
 - [ ] **05-P4 · Confirm the hosted result for deleting `auth.sessions` rows**
-  - *Do / where:* nothing new to run: confirm the AUTH-00 staging re-check result recorded by V2-03 (03-12c kit, the
-    `auth.sessions` delete item). If it shows the delete is **denied** on hosted Supabase, accept the documented
-    fallback for staff removal: data access stops immediately through membership status in RLS, and the session ends
-    within the 900 s access-token lifetime (AUTH §3.6).
-  - *Why:* `revoke_user_sessions` (05-05) is proven locally only (research A9).
+  - *Do / where:* nothing new to run: confirm the AUTH-00 staging re-check result recorded by V2-03 (03-12c kit
+    `scripts/staging/auth00-recheck.ts`, **item 4** "postgres DELETE privilege on auth.sessions", dispatched as
+    `staging.yml` task `recheck`). If it shows the delete is **denied** on hosted Supabase, accept the documented
+    fallback for staff removal: `remove_member` still removes the membership (its session delete is fail-soft and
+    records `sessions_revoked: null`), data access stops immediately through membership status in RLS, and the session
+    ends within the 900 s access-token lifetime (AUTH §3.6).
+  - *Why:* the in-RPC session delete (05-05, R-43) is proven locally only (research A9).
   - *Unblocks:* closing acceptance 4's hosted note.
   - *Verify (Claude):* the V2-03 re-check entry in `docs/v2/VERIFICATION_LOG.md`; your acceptance of the fallback (if
     needed) recorded next to it.
 
 - [ ] **05-P5 · (Optional, not gating) One staff invite on staging**
-  - *Do / where:* after 05-P3, sign in on staging as the seeded owner, invite your own SES-verified address once (staff
+  - *Do / where:* after 05-P3 and 05-P7, sign in on staging as the seeded owner, invite your own SES-verified address once (staff
     invite server action through the existing staff page or the runbook command), and open the email.
   - *Why:* acceptance 10 is proven locally with Mailpit; this shows the same path through SES.
   - *Verify:* you confirm exactly one email arrived and paste its `Authentication-Results` line (`dkim=pass`); Claude
@@ -480,3 +512,14 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
 
 - [ ] **05-P6 · Gate approvals** — approve the 05a gate and then the 05b gate (reviews, evidence and
   `05a-VERIFICATION.md` / `05-VERIFICATION.md` links). *Verify:* recorded in VERIFICATION_LOG.
+
+- [ ] **05-P7 · Turnstile secret for the app on staging (05-07b, R-46)**
+  - *Do / where:* Vercel → `clinicos-staging` → Settings → Environment Variables (Production scope only, as 03-E4):
+    `TURNSTILE_SECRET_KEY` = the **secret key** of the Turnstile widget `clinicos-staging` you created in 03-E7 (the
+    same value already pasted into Supabase Auth's CAPTCHA settings; sensitive). Redeploy.
+  - *Values:* the existing widget secret; no new widget.
+  - *Why:* invite acceptance creates the account through the Auth admin API, which skips Supabase's CAPTCHA, so the
+    app verifies the Turnstile token itself (AUTH §3.2). Without the value staging refuses every invite acceptance.
+  - *Unblocks:* 05-P5 (the optional staging invite) and any invite acceptance on staging after the 05b merge.
+  - *Verify (Claude, read-only):* `curl -s https://staging.<domain>/api/health` → 200 (the env schema accepted the
+    value at boot); the acceptance itself is checked in 05-P5.
