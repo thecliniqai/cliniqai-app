@@ -222,3 +222,41 @@ pg_cron 'delivery-reap' * * * * * → ops.reap_delivery_rows(): rows in processi
 | Dead letters | Replay arrives with 04-03c (`ops.replay_job`). Until then a row can be re-queued only by the PO in the SQL editor. |
 | Templates | Only `ops.message_templates` ids per channel; V2-12 adds templates by migration. A new template id in code fails with `TEMPLATE_NOT_ALLOWED` until its migration lands. |
 | Removed | `/api/cron/dispatch-communications` (404) and its `cron.dispatch_communications` reason; the inbound webhook's five bot replies still send directly until 04-03c. |
+
+## 10. Outbound webhooks (`webhook.deliver`, V2-04 04-03b)
+
+No request path delivers a webhook (P0-12, R-33; ESLint `P0-12` zone: `@/lib/webhooks/dispatcher` and
+`@/lib/webhooks/transport` only from `lib/jobs/internal/**` and `lib/webhooks/**`). A request enqueues; the runner delivers.
+
+```
+server action / system module / v1 route
+   └─► public.enqueue_webhook_event (member)  |  public.enqueue_webhook_event_system (service role, closed actor set)
+         closed event set: appointment.rescheduled, appointment.cancelled, visit.completed, prescription.issued,
+         lab_result.ready (+ ping, members only, owner/admin, 5 per clinic per 60 s)
+         tenant = the subject row's; a member's active tenant (ctx.tenantId) must equal it and be a membership, else
+         P0002 SUBJECT_MISMATCH (R-6); the event data is built in SQL from the subject row (R-26, no caller payload)
+         └─► private.enqueue_webhook_internal: the clinic's active subscriptions for the event, read as definer (every
+             role's events are queued, R-19) → one webhook_delivery_queue row per subscription, event_key
+             <event>:<subject>[:<scheduled_at>] / ping:<uuid> / payment.recorded:<payment_id> (the same event queues once)
+               └─► AFTER INSERT trigger → ops.enqueue_job('webhook.deliver', tenant, {delivery_id}, 'wh:<id>',
+                   next_retry_at, least(max_retries, 5) + 2)
+record_payment → private.outbox_payment_recorded → the same table and trigger
+runner → handler webhook.deliver → webhook_delivery_claim (pending → processing; one handler per row)
+   subscription inactive → failed 410; subscription of another clinic → failed 403 + webhooks.queue_item.tenant_mismatch
+   deliverWebhook: SSRF check (resolve once) → HMAC over the stored text → POST pinned to the checked address
+                   (SNI/Host = name, no redirects, 5 s bound, runner signal)
+   → webhook_delivery_finish: 2xx delivered → job done; other status or network error → pending at 1 m, 5 m, 15 m, 1 h
+     → job retries at next_retry_at; the 5th failed attempt (least(max_retries, 5)) or an SSRF refusal → failed → dead
+   dead job → an open row failed (last_error job_dead:<code>)
+pg_cron 'delivery-reap' → ops.reap_delivery_rows(): webhook rows in processing > 240 s → failed / outcome_unknown
+   (re-claimable: at-least-once)
+```
+
+| Question | Answer |
+|---|---|
+| An integrator did not receive an event | `select status, retry_count, response_status, last_error, next_retry_at, event_key from public.webhook_delivery_queue where id = '<id>'` and `select status, attempts, last_error, run_at from ops.jobs where dedupe_key = 'wh:<id>'` (SQL editor, codes only). `last_error`: `http_<status>`, `ssrf_blocked`, `request_failed:<tag>`, `timeout`, `subscription_inactive`, `subscription_tenant_mismatch`, `outcome_unknown`, `job_dead:<code>`. |
+| Nothing was queued for a doctor's or receptionist's action | Fixed in 04-03b (R-19). If still 0: no active subscription of that clinic lists the event, or the event was already queued for that subject (event key). |
+| Duplicate deliveries? | Normal operation delivers once (job claim + lease fencing + the row claim; `tests/jobs/webhook-deliver-handler-db.spec.ts`, 8 runners). A crash between the POST and the finish re-delivers after the reaper (at-least-once, R-7); receivers dedupe on the envelope `id`. |
+| Test ping | Queued (R-26): the developer settings show "Test ping queued. The result appears in Delivery logs within about a minute."; the result is the ping row in Delivery logs. |
+| Who can write the delivery table? | Nobody but the definer writers, triggers and the service role (000036): members keep SELECT (owner/admin, the delivery logs). |
+| Removed | `/api/cron/webhooks` (404), its `cron.webhooks` reason, `lib/webhooks/outbox.ts` and the enqueue-time background dispatch (the 03-10 second writer). |

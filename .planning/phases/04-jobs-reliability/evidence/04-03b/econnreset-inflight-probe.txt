@@ -1,0 +1,10 @@
+INFLIGHT ["POST /  ","GET /cabin?_rsc=5CB68i4pnAekjehf rsc prefetch","GET /queue?_rsc=5CB68i4pnAekjehf rsc prefetch","GET /visits?_rsc=5CB68i4pnAekjehf rsc prefetch","GET /calendar?_rsc=5CB68i4pnAekjehf rsc prefetch"]
+  ✓  6 [desktop-chrome] › tests/e2e/zzprobe/inflight.spec.ts:7:5 › in-flight requests at the end of the owner smoke flow @golden (238ms)
+INFLIGHT ["POST /  ","GET /cabin?_rsc=5CB68i4pnAekjehf rsc prefetch","GET /queue?_rsc=5CB68i4pnAekjehf rsc prefetch","GET /visits?_rsc=5CB68i4pnAekjehf rsc prefetch","GET /calendar?_rsc=5CB68i4pnAekjehf rsc prefetch"]
+  ✓  7 [iphone-15] › tests/e2e/zzprobe/inflight.spec.ts:7:5 › in-flight requests at the end of the owner smoke flow @golden (756ms)
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+  7 passed (7.8s)

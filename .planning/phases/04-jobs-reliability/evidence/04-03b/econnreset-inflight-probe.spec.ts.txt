@@ -1,0 +1,19 @@
+// Temporary probe (not committed): which requests are still in flight when a smoke test ends on WebKit?
+import { expect, test } from "../fixtures";
+import { LANDING, storageStatePath } from "../support/run-data";
+
+test.use({ storageState: storageStatePath("owner") });
+
+test("in-flight requests at the end of the owner smoke flow @golden", async ({ page }, testInfo) => {
+  const pending = new Map<string, string>();
+  page.on("request", (r) => pending.set(r.url() + "#" + Math.random(), `${r.method()} ${new URL(r.url()).pathname}${new URL(r.url()).search} ${r.headers()["rsc"] ? "rsc" : ""} ${r.headers()["next-router-prefetch"] ? "prefetch" : ""}`));
+  const done = (r: { url(): string }) => { for (const k of pending.keys()) if (k.startsWith(r.url() + "#")) { pending.delete(k); break; } };
+  page.on("requestfinished", done);
+  page.on("requestfailed", done);
+  await page.goto("/");
+  await page.waitForURL((url) => url.pathname === LANDING.owner);
+  await expect(page.getByRole("main")).toBeVisible();
+  await page.waitForLoadState("load");
+  testInfo.annotations.push({ type: "inflight-at-end", description: JSON.stringify([...pending.values()]) });
+  console.log("INFLIGHT", JSON.stringify([...pending.values()]));
+});
