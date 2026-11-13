@@ -16,8 +16,10 @@ pg_cron  'jobs-kick'  * * * * *  ──► ops.kick_job_runner()  (SECURITY DEFI
                                   net.http_post(url, {"source":"pg_cron"}, Authorization: Bearer <token>, 30 s)
                                         ▼  (sent by the pg_net worker after the cron transaction commits)
 POST /api/jobs/run  ──► isAuthorisedRunner (|now − ts| ≤ 120 s; HMAC of current or NEXT, timingSafeEqual) ── else 401
-                    ──► runJobs(getSystemDb("jobs.run"), budget 25 s, batch 25, lease 120 s, ≤ 10 per tenant)
-                    ──► public.claim_jobs (FOR UPDATE SKIP LOCKED, lease token) → handler → complete/fail_job
+                    ──► runJobs(getSystemDb("jobs.run"), RUN_PASS_CONFIG: budget 25 s, batch 10, ≤ 5 per tenant,
+                                lease 120 s, 4 s per queue RPC)
+                    ──► public.claim_jobs (FOR UPDATE SKIP LOCKED, round-robin across tenants, lease token)
+                        → start_job (counts the attempt) → handler → complete/fail/defer_job
 pg_cron  'jobs-reap'  * * * * *  ──► ops.reap_jobs()   (dead-letters expired leases with no attempts left)
 pg_cron  'cron-history-cleanup'  15 0 * * *  ──► deletes cron.job_run_details older than 7 days
 ```
@@ -25,16 +27,19 @@ pg_cron  'cron-history-cleanup'  15 0 * * *  ──► deletes cron.job_run_deta
 | Piece | Where |
 |---|---|
 | Schedules, kick, drill enqueue | `supabase/migrations/000033_jobs_scheduler.sql`; the token-sending kick `000034_jobs_runner_token.sql` (R-49) |
-| Queue, claim, fencing, reaper | `supabase/migrations/000031_jobs_queue.sql`; runner `lib/jobs/internal/runner.ts` (record 04-01) |
+| Queue, claim, fencing, reaper | `supabase/migrations/000031_jobs_queue.sql`, revised by `000043_runner_review_fixes.sql` (attempt counted at `start_job`, `defer_job`, round-robin claim); runner `lib/jobs/internal/runner.ts`, pass config `lib/jobs/internal/run-config.ts` (records 04-01, 04-07b) |
 | Route | `app/api/jobs/run/route.ts` (`POST` only; other methods 405 `Allow: POST`; `maxDuration` 60 s) |
 | Bearer check | `lib/jobs/auth.ts` (`isAuthorisedRunner`, `mintRunnerToken`) |
 | Handlers | `lib/jobs/internal/registry.ts` (the route claims exactly these kinds); drills in `handlers/drill.ts` |
 | Env | `JOBS_RUNNER_SECRET` (required in staging/production, 32+ printable characters, not the `CRON_SECRET`), `JOBS_RUNNER_SECRET_NEXT` (rotation only), `JOBS_DRILL_ENABLED` (default false, refused in production) |
 
-Timeouts (R-17, pitfall 1/2): pg_net waits 30 s (its default of 2 s would record every call as a timeout); the runner
-stops claiming at 25 s and never starts a job it cannot finish inside the budget; the function may run 60 s (Vercel
-Hobby maximum); a lease is 120 s, so a live pass never loses its lease; provider calls abort at 10 s (messaging) and 5 s
-(webhooks).
+Timeouts (R-17, pitfall 1/2; 04-07b): pg_net waits 30 s (its default of 2 s would record every call as a timeout); the
+runner stops claiming at 25 s and never starts a job whose bound (plus 0.5 s settle grace and 1 s margin) no longer fits
+the budget, handing claimed-but-unstarted jobs back at no attempt cost; every queue RPC is aborted at 4 s, so a pass
+ends within 45 s even when the database stalls; the function may run 60 s (Vercel Hobby maximum); a lease is 120 s, so a
+live pass never loses its lease; provider calls abort at 10 s (messaging) and 5 s (webhooks). A handler that ignores its
+abort keeps its job `running` until the lease expires (no second runner starts it meanwhile); the log shows
+`jobs.run.late_settle` if it finishes later in the same instance.
 
 Times: **pg_cron runs in GMT on Supabase.** `* * * * *` is every minute everywhere; `15 0 * * *` is 00:15 GMT =
 **05:45 IST**.
@@ -392,7 +397,7 @@ channel that keeps failing. Exception: a try that died with `alert_channel_uncon
 | `dead_letter` | warn | a job went `dead` (any kind except `alert.notify`), a message row became `dead_letter`, or a webhook delivery became `failed`, in the last 15 min |
 | `queue_lag` | warn | p95 of `first_claimed_at − run_at` over jobs first claimed in the last 15 min > 120 s, with ≥ 5 samples |
 | `queue_oldest_due` | critical | a `pending` job is due for more than 5 min |
-| `runner_stale` | critical | Vault holds `jobs_runner_url` and no runner pass started `ok` in 5 min (silent on local and CI stacks) |
+| `runner_stale` | critical | Vault holds `jobs_runner_url` and no **pg_cron-triggered** runner pass (`source = 'pg_cron'`) started `ok` in 5 min (silent on local and CI stacks; a manual pass does not clear it, 04-07b) |
 | `lease_expiry` | warn | more than 3 job leases expired in the last 15 min |
 | `error_burst` | warn | more than 20 server errors (`ops.error_events` counts seen in the last 10 min) |
 | `error_sink_overflow` | warn | the error sink dropped events today or yesterday (UTC): its daily cap of 500 new fingerprints was hit |
@@ -427,7 +432,7 @@ marked a stuck delivery `outcome_unknown` (§10). A `drill.always_fail` job is t
 
 ### queue_lag
 
-The runner is keeping up too slowly. Check runner passes (§6): `claimed` near the batch (25) every minute means more work
+The runner is keeping up too slowly. Check runner passes (§6): `claimed` far above the batch (10) every minute means more work
 than one pass per minute drains; long `durationMs` means slow providers. Check `cron.job_run_details` for `jobs-kick`
 gaps and pg_net `timed_out`. Lag acceptance is p95 < 2 min (roadmap V2-04).
 
@@ -440,14 +445,16 @@ open alerts in the SQL editor or the ops report.
 
 ### runner_stale
 
-No successful runner pass in 5 minutes while the scheduler is configured. Check §6 in order: `cron.job_run_details`
+No successful scheduler-triggered runner pass in 5 minutes while the scheduler is configured (a manual pass from §5 runs
+the queue but does not clear this alert: the kick itself is broken). Check §6 in order: `cron.job_run_details`
 (`jobs-kick` ran?), `net._http_response` (status 401/405/5xx or `timed_out`), `ops.job_runner_runs` (`ok = false` and its
 `error_code`). The backup job has its own stricter dead-man (`ops.backup_runner_stale()`, 15 min).
 
 ### lease_expiry
 
-Handlers ran past their lease (120 s) or the function was killed (Vercel timeout, deploy mid-pass). The re-claimed jobs
-finish exactly once (fencing), but repeated expiries burn attempts. Check the `job_ids` kinds and their providers'
+Handlers ran past their lease (120 s), a handler ignored its abort and was abandoned with its lease, or the function was
+killed (Vercel timeout, deploy mid-pass). The re-claimed jobs finish exactly once (fencing); repeated expiries burn
+attempts only for jobs whose handler had started (a claimed job the pass never reached spends none, 04-07b). Check the `job_ids` kinds and their providers'
 latency; a deploy during a pass explains a one-off.
 
 ### error_burst
