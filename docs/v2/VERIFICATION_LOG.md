@@ -765,3 +765,9 @@ incl. R-9, R-35, R-36 and the proposed CLAUDE.md change), 03-E14 (two flagged pa
 | Item | Result | Evidence |
 |---|---|---|
 | V2-DX direction | **Approved by the PO**: direction A "Calm Confidence — Botanical Teal", typeface Inter, round-3 component system and consult structure; kept tokenised for later change | PR #7, branch `v2/phase-dx-design-exploration` at `e95b8b5`; `.planning/sketches/V2-DX-PROPOSAL.md` (round 3 + PO decision); evidence `.planning/sketches/v2-dx-evidence/` (axe 107 runs 0 serious/critical; contrast 139/139) |
+
+### PO ruling: "CliniQ AI" is a fixed brand name (2026-11-14)
+
+| Item | Ruling | Evidence |
+|---|---|---|
+| Product name vs AI-06 L1 copy rules (AI_STRATEGY §5.3) | The exact, case-sensitive string "CliniQ AI" is the brand name, not an AI feature claim: masked before L1-R5 (AI in UI copy) and L1-R6 (AI next to a price). Every other "AI" stays checked; AI features keep the AI-02 labels; pricing copy names the plan. Brand theme from Claude Design applied to the V2-DX branch (`d2e399f`) and supersedes the round-3 teal default for G2-D. | `scripts/ci/ai-l1-greps.mjs` (`BRAND_NAME`), `tests/ci/ai-l1-greps.spec.ts` (2 new cases, both fail on the old checker), fixtures `lint-fixtures/ai-l1/brand-name-*` |
