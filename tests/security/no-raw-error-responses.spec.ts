@@ -138,6 +138,14 @@ describe("raw error text never reaches a response (03-13d M-ERRMSG)", () => {
     expectClean(result.error);
   });
 
+  it("a session refusal keeps its fixed text (no session, no clinic), never the fallback", async () => {
+    const { clientErrorMessage } = await import("@/lib/errors/client-message");
+    const { NoClinicMembershipError } = await import("@/lib/auth/tenant");
+    expect(clientErrorMessage(new Error("Unauthenticated"), "Fallback.")).toBe("Unauthenticated");
+    expect(clientErrorMessage(new NoClinicMembershipError(), "Fallback.")).toBe("Your account is not linked to a clinic yet");
+    expect(clientErrorMessage(new Error(`Unauthenticated ${PHONE}`), "Fallback.")).toBe("Fallback.");
+  });
+
   it("a permission refusal keeps its fixed text", async () => {
     const ctx = mockCtx(throwingDb() as unknown as Record<string, unknown>, { role: "nurse" });
     const result = await listApiKeys(ctx);
