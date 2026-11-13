@@ -316,6 +316,7 @@ describe("runJobs: outcomes and counts", () => {
       ]
     );
     expect(result).toMatchObject({
+      ok: true,
       claimed: 3,
       done: 1,
       retried: 1,
@@ -378,7 +379,8 @@ describe("runJobs: outcomes and counts", () => {
     const result = await runJobs(
       options(db, { "test.any": handler(async () => ({ outcome: "done" })) })
     );
-    expect(result).toMatchObject({ claimed: 0, done: 0 });
+    // 04-02: the route reports the pass outcome as `ok`.
+    expect(result).toMatchObject({ claimed: 0, done: 0, ok: false });
     expect(calls.find((c) => c.fn === "jobs_runner_end")?.args).toMatchObject({
       p_ok: false,
       p_error_code: "57014",

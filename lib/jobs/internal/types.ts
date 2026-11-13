@@ -61,5 +61,7 @@ export interface RunJobsResult {
   stale: number;
   /** Claimed jobs handed back unstarted because the budget ran out. */
   released: number;
+  /** 04-02: false when a queue RPC failed and the pass stopped early (`ops.job_runner_runs.ok`, with its code). */
+  ok: boolean;
   durationMs: number;
 }

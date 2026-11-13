@@ -24,6 +24,8 @@ export const REASON_OWNER = {
   "cron.dispatch_communications": "app/api/cron/dispatch-communications",
   "cron.webhooks": "app/api/cron/webhooks",
   "webhook.messaging_inbound": "app/api/webhooks/messaging",
+  // V2-04 04-02: the job runner pass (`runJobs` in lib/jobs/internal/runner.ts claims and finishes jobs through it).
+  "jobs.run": "app/api/jobs/run",
   "share.sign": "features/sharing/system",
   "share.receipt_pdf": "features/sharing/system",
   "share.reschedule_notify": "features/sharing/system",

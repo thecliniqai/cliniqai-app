@@ -207,5 +207,5 @@ export async function runJobs(opts: RunJobsOptions): Promise<RunJobsResult> {
 
   const durationMs = Math.max(0, now().getTime() - started);
   log.info({ event: "jobs.run.completed", count: counts.claimed, durationMs });
-  return { ...counts, durationMs };
+  return { ...counts, ok, durationMs };
 }

@@ -65,6 +65,9 @@ function continueSignedOut(request: NextRequest, requestId: string, previous: Ne
   return response;
 }
 
+/** Exact paths that never carry a user session: no cookie refresh, no default-deny redirect (they are `/api`). */
+const SESSIONLESS_PATHS: ReadonlySet<string> = new Set(["/api/health", "/api/ready", "/api/jobs/run"]);
+
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   // Every path gets an id, the early returns included.
@@ -80,7 +83,9 @@ export async function proxy(request: NextRequest) {
     return continueWithRequestId(request, requestId);
   }
 
-  if (pathname === "/api/health" || pathname === "/api/ready") {
+  // Probes and the job runner (04-02: pg_cron calls it every minute with a bearer, never a session) skip the session
+  // refresh, so they cost no Supabase Auth round trip; they still get a request id.
+  if (SESSIONLESS_PATHS.has(pathname)) {
     return continueWithRequestId(request, requestId);
   }
 
