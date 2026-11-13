@@ -14,6 +14,7 @@ import type {
   AllowedWebhookEvent,
 } from "./constants";
 import { errorTag, log } from "@/lib/log";
+import { DEFAULT_APP_ERROR_MESSAGES } from "@/lib/errors/app-error";
 import { getRequestId } from "@/lib/log/request-id";
 
 export type {
@@ -23,6 +24,10 @@ export type {
 };
 
 // Webhook subscription use-cases (clinic:manage, as before). Tenant and creator come only from `ctx` (ADR-0005 D1).
+
+/** Test pings per tenant per {@link TEST_PING_WINDOW_MS} (03-13d; review E-8). */
+export const TEST_PING_LIMIT = 5;
+export const TEST_PING_WINDOW_MS = 60_000;
 
 /**
  * Lists all active and inactive webhook subscriptions for the clinic tenant.
@@ -148,7 +153,8 @@ export async function createWebhookSubscription(
         entityType: "webhook",
         entityId: created.id,
         metadata: {
-          reason: `Webhook subscription registered for ${cleanUrl}`,
+          // Origin only (03-13d; review E-7): a receiver's path or query often carries its own token.
+          reason: `Webhook subscription registered for ${new URL(cleanUrl).origin}`,
         },
       });
     } catch (auditErr) {
@@ -259,6 +265,23 @@ export async function testPingWebhook(
 
     if (subErr || !sub) {
       return { success: false, error: "Webhook subscription not found." };
+    }
+
+    // Rate limit (03-13d M-SSRF-DNS; review E-8): each ping is a synchronous outbound connect whose status and timing
+    // the caller sees. Counted from the tenant's own ping rows, so it holds across server instances.
+    const since = new Date(Date.now() - TEST_PING_WINDOW_MS).toISOString();
+    const { count: recentPings, error: countErr } = await (supabase.from("webhook_delivery_queue") as any)
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", session.tenantId)
+      .eq("event_type", "ping")
+      .gte("created_at", since);
+    if (countErr) {
+      log.error({ event: "webhooks.test_ping_count.failed", code: errorTag(countErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Test ping failed." };
+    }
+    if ((recentPings ?? 0) >= TEST_PING_LIMIT) {
+      log.warn({ event: "webhooks.test_ping.rate_limited", requestId: await getRequestId(), tenantId: ctx.tenantId, count: recentPings ?? 0 });
+      return { success: false, error: DEFAULT_APP_ERROR_MESSAGES.RATE_LIMITED };
     }
 
     // Enqueue ping item targeting this subscription
