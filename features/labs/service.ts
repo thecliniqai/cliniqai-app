@@ -12,7 +12,7 @@ import { isPatientStoragePath } from "@/lib/storage/tenant-path";
 import { uploadLabDocumentSchema, generateShareTokenSchema } from "./schema";
 import { LabDocumentItem, ShareTokenResult, DeleteLabDocumentResult } from "./types";
 import { formatAmendedFilename } from "./utils";
-import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { enqueueMessage } from "@/lib/jobs/enqueue";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -457,10 +457,11 @@ export async function shareLabReportViaWhatsApp(
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #7 (lab_report_uploaded)
+    // V2-04 04-03a: queued through the enqueue RPC (tenant from the patient row, constrained to ctx.tenantId); the job
+    // runner sends it. A user-initiated share keeps a per-row key (R-24) until V2-07 command ids.
     await enqueueMessage(
-      supabase,
+      ctx,
       {
-        tenantId: session.tenantId,
         patientId: doc.patient_id,
         channel: "whatsapp",
         messageType: "lab_report_uploaded",

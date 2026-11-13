@@ -18,7 +18,7 @@ import { generateRescheduleToken } from "@/features/appointments/system";
 import { canManageShareLink } from "@/features/sharing/tokens";
 import { updateStaffMember } from "@/features/settings/service";
 import { acknowledgeReferral, getReferralSignedUrl } from "@/features/referrals/service";
-import * as dispatcher from "@/lib/messaging/dispatcher";
+import * as enqueueModule from "@/lib/jobs/enqueue";
 import { shareTokenHash } from "../helpers/share-tokens";
 import { jsonObject } from "../helpers/db";
 
@@ -434,7 +434,7 @@ describe("01-08 review fixes (000021)", () => {
     });
 
     it("a slot overlapping another active visit of the doctor is 409 and nothing moves", async () => {
-      vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-syn" } as never);
+      vi.spyOn(enqueueModule, "enqueueMessageAsSystem").mockResolvedValue({ id: "msg-syn" } as never);
       const taken = dayAt(12, 6);
       await freshVisit(taken);
       const visitId = await freshVisit(dayAt(12, 9));

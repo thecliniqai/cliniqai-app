@@ -6,7 +6,7 @@ import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { PrescriptionItem } from "@/lib/db/types";
-import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { enqueueMessage } from "@/lib/jobs/enqueue";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import {
   prescriptionItemSchema,
@@ -749,8 +749,8 @@ export async function sharePrescriptionViaWhatsApp(
     const shareUrl = `${baseUrl}/r/${token}`;
 
     // 3. Enqueue Event #6 (prescription_ready)
-    await enqueueMessage(supabase, {
-      tenantId: ctx.tenantId,
+    // V2-04 04-03a: queued through the enqueue RPC; the job runner sends it (per-row key, R-24).
+    await enqueueMessage(ctx, {
       patientId: rx.patient_id,
       channel: "whatsapp",
       messageType: "prescription_ready",

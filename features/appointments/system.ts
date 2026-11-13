@@ -2,7 +2,7 @@ import "server-only";
 import { serverEnv } from "@/lib/env-server";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { enqueueMessage } from "@/lib/messaging/dispatcher";
+import { enqueueMessageAsSystem } from "@/lib/jobs/enqueue";
 import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -68,26 +68,36 @@ export async function notifyAppointmentRescheduled(sys: AppointmentSystemContext
       timeZone: "Asia/Kolkata",
     });
 
-    await enqueueMessage(supabase, {
-      tenantId: visit.tenant_id,
-      patientId: visit.patient_id,
-      appointmentId: visit.id,
-      channel: "whatsapp",
-      messageType: "appointment_rescheduled",
-      templateId: "appointment_rescheduled",
-      templateParams: {
-        patient_name: patient.full_name || "Patient",
-        doctor_name: "Doctor",
-        new_date_time: formattedDateTime,
-      },
-      recipientPhone: patient.phone,
-      metadata: {
-        buttons: [
-          { id: "btn_confirm", text: "Confirm" },
-          { id: "btn_cancel", text: "Cancel" },
-        ],
-      },
-    });
+    // V2-04 04-03a: queued through the system enqueue RPC (tenant from the visit); the job runner sends it. One message
+    // per visit and time, however often the reschedule follow-up runs (R-24). Best effort: the reschedule stands.
+    try {
+      await enqueueMessageAsSystem(
+        supabase,
+        {
+          patientId: visit.patient_id,
+          visitId: visit.id,
+          dedupeKey: `appointment_rescheduled:${visit.id}:${new Date(input.newScheduledAt).toISOString()}`,
+          channel: "whatsapp",
+          messageType: "appointment_rescheduled",
+          templateId: "appointment_rescheduled",
+          templateParams: {
+            patient_name: patient.full_name || "Patient",
+            doctor_name: "Doctor",
+            new_date_time: formattedDateTime,
+          },
+          recipientPhone: patient.phone,
+          metadata: {
+            buttons: [
+              { id: "btn_confirm", text: "Confirm" },
+              { id: "btn_cancel", text: "Cancel" },
+            ],
+          },
+        },
+        `system:${sys.reason}`
+      );
+    } catch (enqueueErr) {
+      log.warn({ event: "jobs.enqueue.failed", code: errorTag(enqueueErr), requestId: await getRequestId(), tenantId: visit.tenant_id });
+    }
   }
 
   // Enqueue webhook event: appointment.rescheduled
@@ -183,19 +193,28 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
 
   // Queue Event #3 (appointment_cancelled) if clinic-initiated
   if (input.isClinicInitiated && visit.patient?.phone) {
-    await enqueueMessage(supabase, {
-      tenantId: visit.tenant_id,
-      patientId: visit.patient_id,
-      appointmentId: visit.id,
-      channel: "whatsapp",
-      messageType: "appointment_cancelled",
-      templateId: "appointment_cancelled",
-      templateParams: {
-        patient_name: visit.patient?.full_name || "Patient",
-        reason: input.reason || "Schedule conflict",
-      },
-      recipientPhone: visit.patient?.phone,
-    });
+    // V2-04 04-03a: queued through the system enqueue RPC; one cancellation message per visit (R-24). Best effort.
+    try {
+      await enqueueMessageAsSystem(
+        supabase,
+        {
+          patientId: visit.patient_id,
+          visitId: visit.id,
+          dedupeKey: `appointment_cancelled:${visit.id}`,
+          channel: "whatsapp",
+          messageType: "appointment_cancelled",
+          templateId: "appointment_cancelled",
+          templateParams: {
+            patient_name: visit.patient?.full_name || "Patient",
+            reason: input.reason || "Schedule conflict",
+          },
+          recipientPhone: visit.patient?.phone,
+        },
+        `system:${sys.reason}`
+      );
+    } catch (enqueueErr) {
+      log.warn({ event: "jobs.enqueue.failed", code: errorTag(enqueueErr), requestId: await getRequestId(), tenantId: visit.tenant_id });
+    }
   }
 
   return { success: true, appointment: updated };

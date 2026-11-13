@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getMessagingProvider, SinkProvider } from "@/lib/messaging";
+import { getMessagingProvider, SinkProvider, type MessagingProvider } from "@/lib/messaging";
 
 const PHONE = "+919000000077"; // synthetic range
 const DEV_FILE = path.resolve(__dirname, "../../.planning/dev-messages.txt");
@@ -27,7 +27,7 @@ describe("SinkProvider", () => {
     const existed = fs.existsSync(DEV_FILE);
     const before = existed ? fs.statSync(DEV_FILE).size : -1;
 
-    const provider = new SinkProvider();
+    const provider: MessagingProvider = new SinkProvider();
     const wa = await provider.sendWhatsApp(PHONE, "appointment_booked", { patient_name: "Synthetic Sink Patient" });
     const sms = await provider.sendSms(PHONE, "appointment_booked_sms_fallback", { patient_name: "Synthetic Sink Patient" });
 

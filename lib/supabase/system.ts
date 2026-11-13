@@ -10,7 +10,8 @@ import { log } from "@/lib/log";
  * The one service-role client factory (V2-03 03-02, P1-34, ADR-0005 D2). The service role bypasses RLS, so it is
  * reachable only from the paths ADR-0005 allows (`lib/jobs/**` internals, `features/<domain>/system.ts`,
  * `app/api/{jobs,webhooks}/**`) and the exception register (`app/api/v1/**` + `lib/api/**` until P1-37;
- * `lib/messaging/dispatcher.ts`, `lib/webhooks/**`, `app/api/cron/**` until V2-04). 03-04 enforces that list in ESLint.
+ * `lib/webhooks/**`, `app/api/cron/**` until V2-04; V2-04 04-03a deleted `lib/messaging/dispatcher.ts` and the
+ * `cron.dispatch_communications` reason with its route: patient messages go through the job runner). 03-04 enforces that list in ESLint.
  *
  * Every call names a closed {@link SystemDbReason} and writes exactly one log line
  * `{ event: "db.system_acquired", reason, module }`: the reason and its owning module only, never tenant data or PHI.
@@ -21,7 +22,6 @@ import { log } from "@/lib/log";
 /** Each reason a system client may be acquired for, mapped to the module that owns the call site. */
 export const REASON_OWNER = {
   api_v1: "app/api/v1",
-  "cron.dispatch_communications": "app/api/cron/dispatch-communications",
   "cron.webhooks": "app/api/cron/webhooks",
   "webhook.messaging_inbound": "app/api/webhooks/messaging",
   // V2-04 04-02: the job runner pass (`runJobs` in lib/jobs/internal/runner.ts claims and finishes jobs through it).

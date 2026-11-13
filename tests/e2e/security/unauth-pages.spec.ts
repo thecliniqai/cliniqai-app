@@ -145,7 +145,8 @@ test("public paths stay reachable without a session (never redirected to /login)
   await post("/api/auth/send-email", [401]);
   await post("/api/webhooks/messaging/msg91", [401]);
   await get("/api/cron/webhooks", [401]);
-  await post("/api/cron/dispatch-communications", [401]);
+  // V2-04 04-03a: the message dispatch cron route is deleted (the job runner sends); nothing answers there.
+  await post("/api/cron/dispatch-communications", [404]);
   await get("/api/v1/patients", [401, 404]);
   await get("/api/v1/openapi.json", [200, 404]);
   await get(`/api/r/${token}`, [404]);

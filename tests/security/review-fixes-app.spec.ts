@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 import { seedTenantWithOwner, addMemberToTenant, type SeededTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor, mockCtx } from "../helpers/context";
-import * as dispatcher from "@/lib/messaging/dispatcher";
+import * as enqueueModule from "@/lib/jobs/enqueue";
 import * as tenantModule from "@/lib/auth/tenant";
 import * as contextModule from "@/lib/auth/context";
 import * as serverClientModule from "@/lib/supabase/server";
@@ -77,7 +77,7 @@ describe("01-08 review fixes, app-only items", () => {
 
   describe("AR-L5: lab and referral share audits carry no token or phone", () => {
     it.each(["lab", "referral"] as const)("%s share", async (kind) => {
-      vi.spyOn(dispatcher, "enqueueMessage").mockResolvedValue({ id: "msg-syn" } as never);
+      vi.spyOn(enqueueModule, "enqueueMessage").mockResolvedValue({ id: "msg-syn" } as never);
       const tenantDigits = patientPhone.slice(-10);
 
       let entityId: string;

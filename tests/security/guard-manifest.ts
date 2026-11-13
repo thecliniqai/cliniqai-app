@@ -231,8 +231,6 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   "app/api/auth/send-email/route.ts#POST": { kind: "webhook-signature" },
   // V2-03 03-12b (AUTH-04b, T-03-13): server-side sign-out; same-origin form POST, works with or without a session.
   "app/auth/signout/route.ts#POST": { kind: "signout" },
-  "app/api/cron/dispatch-communications/route.ts#GET": CRON,
-  "app/api/cron/dispatch-communications/route.ts#POST": CRON,
   "app/api/cron/webhooks/route.ts#GET": CRON,
   "app/api/cron/webhooks/route.ts#POST": CRON,
   // V2-03 03-09b (R-18, T-03-15): the diagnostic error route authenticates with the cron bearer before its flag.
