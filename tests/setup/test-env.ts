@@ -149,8 +149,27 @@ const URL_VARS = [
   "PWNED_API_BASE_URL",
 ];
 
-/** Fragments that identify hosted services anywhere in any variable's value. */
-export const HOSTED_MARKERS = [".supabase.co", ".supabase.in", ".supabase.net", "r2.cloudflarestorage.com", "pooler.supabase"];
+/**
+ * V2-04 04-00 (review A L-8, R-47): every name of the staging lane (`STAGING_DB_URL`, `STAGING_DB_URL_RO`,
+ * `STAGING_SECRET_KEY`, `STAGING_SEED_PASSWORD`, `STAGING_PUBLISHABLE_KEY` and any later one) is refused by prefix: a
+ * staging credential never belongs in a test lane, whatever its value looks like.
+ */
+export const FORBIDDEN_VAR_PREFIXES = ["STAGING_"] as const;
+
+/**
+ * Fragments that identify hosted services anywhere in any variable's value. 04-00 (L-8): the opaque hosted key
+ * prefixes too: the lane loads the local stack's `supabase-demo` JWT keys, never an `sb_…` key (specs that need a
+ * deploy-tier profile build prefixed keys at run time, after this guard has run).
+ */
+export const HOSTED_MARKERS = [
+  ".supabase.co",
+  ".supabase.in",
+  ".supabase.net",
+  "r2.cloudflarestorage.com",
+  "pooler.supabase",
+  ["sb", "secret", ""].join("_"),
+  ["sb", "publishable", ""].join("_"),
+];
 
 /**
  * The environment the guard reads and fills: `process.env` or a plain map in the guard's own tests. Wider than
@@ -340,6 +359,11 @@ export function findTestEnvProblems(env: EnvMap, options: TestEnvRuleOptions = {
 
   for (const key of FORBIDDEN_VARS) {
     if (env[key] !== undefined && env[key] !== "") problems.push(`${key} must not be set in the test lane`);
+  }
+  for (const [key, value] of Object.entries(env)) {
+    if (value !== undefined && value !== "" && FORBIDDEN_VAR_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+      problems.push(`${key} must not be set in the test lane (staging names never reach a test lane)`);
+    }
   }
 
   for (const [key, role] of [

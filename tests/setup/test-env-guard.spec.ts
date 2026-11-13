@@ -106,6 +106,32 @@ describe("test-env guard rules", () => {
     expect(findTestEnvProblems(safeEnv({ [key]: "anything" }))).toContain(`${key} must not be set in the test lane`);
   });
 
+  // V2-04 04-00 (review A L-8, R-47): the staging lane's names are refused by prefix, whatever the value looks like.
+  it.each(["STAGING_SECRET_KEY", "STAGING_SEED_PASSWORD", "STAGING_PUBLISHABLE_KEY", "STAGING_DB_URL_RO", "STAGING_ANY_LATER_NAME"])(
+    "rejects the staging name %s, never echoing its value (04-00 L-8)",
+    (key) => {
+      const value = "MARKER-staging-value-not-hosted-shaped";
+      const problems = findTestEnvProblems(safeEnv({ [key]: value }));
+      expect(problems).toContain(`${key} must not be set in the test lane (staging names never reach a test lane)`);
+      expect(problems.join("\n")).not.toContain(value);
+    },
+  );
+
+  it("an empty staging name is not a value (the shell may export it blank); a name merely containing STAGING passes", () => {
+    expect(findTestEnvProblems(safeEnv({ STAGING_SECRET_KEY: "" }))).toEqual([]);
+    expect(findTestEnvProblems(safeEnv({ MY_STAGING_NOTE: "x" }))).toEqual([]);
+  });
+
+  it.each([
+    ["an sb_secret_ value", ["sb", "secret", "MARKER0123456789abcdefghij"].join("_"), "sb_secret_"],
+    ["an sb_publishable_ value", ["sb", "publishable", "MARKER0123456789abcdefghij"].join("_"), "sb_publishable_"],
+    ["an upper-case SB_SECRET_ value", ["SB", "SECRET", "MARKER0123456789abcdefghij"].join("_"), "sb_secret_"],
+  ])("rejects %s in an unrelated variable as hosted, never echoing it (04-00 L-8)", (_label, value, marker) => {
+    const problems = findTestEnvProblems(safeEnv({ SOME_UNRELATED_VAR: value }));
+    expect(problems).toContain(`SOME_UNRELATED_VAR references a hosted service ("${marker}")`);
+    expect(problems.join("\n")).not.toContain(value);
+  });
+
   it("rejects a key with the wrong role claim (anon key in the service-role slot)", () => {
     expect(findTestEnvProblems(safeEnv({ SUPABASE_SECRET_KEY: LOCAL_ANON }))).toContain(
       'SUPABASE_SECRET_KEY has the wrong role claim (must be "service_role")',
