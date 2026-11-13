@@ -1,0 +1,33 @@
+Tailwind 4.3.3 via @tailwindcss/postcss
+Input: @import clinic-paper.css + cliniq-ai.css (unchanged) + generated clinic-paper.theme.css (@theme reference, 180 names)
+Utilities resolving to var(--token): 28/28
+Runtime values emitted from clinic-paper.css: yes
+
+OK   .bg-canvas { background-color: var(--color-canvas, #ffffff); }
+OK   .bg-surface { background-color: var(--color-surface, #ffffff); }
+OK   .text-fg-muted { color: var(--color-fg-muted, #5c6981); }
+OK   .border-border-control { border-color: var(--color-border-control, #7e8ba2); }
+OK   .bg-status-waiting-bg { background-color: var(--color-status-waiting-bg, #fdf3e2); }
+OK   .text-status-waiting-fg { color: var(--color-status-waiting-fg, #8a5710); }
+OK   .h-control { height: var(--spacing-control, 2.75rem); }
+OK   .w-sidebar { width: var(--spacing-sidebar, 13.5rem); }
+OK   .rounded-lg { border-radius: var(--radius-lg, 14px); }
+OK   .shadow-popover { --tw-shadow: 0 2px 6px var(--tw-shadow-color, rgb(11 26 66 / 0.06)), 0 12px 32px var(--tw-shadow-color, rgb(11 26 66 / 0.1)); box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow); }
+OK   .text-title-1 { font-size: var(--text-title-1, 1.25rem); line-height: var(--tw-leading, var(--text-title-1--line-height, 1.625rem)); }
+OK   .text-token { font-size: var(--text-token, 1.375rem); line-height: var(--tw-leading, var(--text-token--line-height, 1.5rem)); }
+OK   .bg-accent { background-color: var(--color-accent, #246bce); }
+OK   .text-fg-on-accent { color: var(--color-fg-on-accent, #ffffff); }
+OK   .bg-ai-bg { background-color: var(--color-ai-bg, #ffffff); }
+OK   .font-sans { font-family: var(--font-sans, "Inter", "IBM Plex Sans Devanagari", "Noto Sans Devanagari", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif); }
+OK   .ease-out { --tw-ease: var(--ease-out, cubic-bezier(0.2, 0, 0, 1)); transition-timing-function: var(--ease-out, cubic-bezier(0.2, 0, 0, 1)); }
+OK   .text-body-md { font-size: var(--text-body-md, 0.875rem); line-height: var(--tw-leading, var(--text-body-md--line-height, 1.25rem)); }
+OK   .h-tile { height: var(--spacing-tile, 2rem); }
+OK   .max-w-note-max { max-width: var(--spacing-note-max, 56rem); }
+OK   .bg-finding-abnormal-bg { background-color: var(--color-finding-abnormal-bg, #fdf3e2); }
+OK   .bg-surface-soft { background-color: var(--color-surface-soft, #f7f9fc); }
+OK   .text-fg-secondary { color: var(--color-fg-secondary, #465268); }
+OK   .h-control-compact { height: var(--spacing-control-compact, 2rem); }
+OK   .text-caption { font-size: var(--text-caption, 0.6875rem); line-height: var(--tw-leading, var(--text-caption--line-height, 0.875rem)); }
+OK   .font-display { font-family: var(--font-display, "Manrope", "Inter", "IBM Plex Sans Devanagari", "Noto Sans Devanagari", ui-sans-serif, system-ui, sans-serif); }
+OK   .bg-status-booked-bg { background-color: var(--color-status-booked-bg, #f3effd); }
+OK   .text-status-with-doctor-fg { color: var(--color-status-with-doctor-fg, #0d6962); }

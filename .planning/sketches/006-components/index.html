@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Component gallery · V2-DX round 3</title>
+<link rel="stylesheet" href="../themes/clinic-paper.css">
+<link rel="stylesheet" href="../shared/sketch.css">
+<link rel="stylesheet" href="../004-consult/consult.css">
+<style>
+  body { padding-bottom: 48px; }
+  .g { max-width: 1120px; margin: 0 auto; padding: 24px var(--spacing-gutter) 0; display: grid; gap: 28px; }
+  @media (min-width: 768px) { .g { padding: 28px var(--spacing-gutter-lg) 0; } }
+  .g > header { display: grid; gap: 6px; max-width: 72ch; }
+  .g > header p { color: var(--color-fg-secondary); }
+  .cg { display: grid; gap: 12px; }
+  .cg > h2 { font-size: var(--text-title-2); font-weight: 600; letter-spacing: -0.01em; padding-top: 8px; border-top: 1px solid var(--color-border); padding-top: 18px; }
+  .cg > p { font-size: var(--text-body-sm); color: var(--color-fg-muted); max-width: 72ch; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .row.top { align-items: flex-start; }
+  .spec { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .spec > div { display: grid; gap: 8px; align-content: start; }
+  .spec .cap { font-size: var(--text-caption); font-weight: 600; letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--color-fg-muted); }
+  .sw { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .sw div { display: grid; gap: 4px; font-size: var(--text-caption); color: var(--color-fg-muted); }
+  .sw i { display: block; height: 40px; border-radius: var(--radius-md); border: 1px solid var(--color-border); }
+  .sw b { color: var(--color-fg); font-weight: 500; }
+  .type-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--color-border); }
+  .type-row > span:first-child { font-size: var(--text-caption); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+  .mock { position: relative; height: 300px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-surface-soft); }
+  .mock .scrim, .mock .sheet, .mock .dialog, .mock .menu, .mock .toasts { position: absolute; }
+  .mock .sheet { top: 0; bottom: 0; right: 0; left: auto; width: 300px; border-radius: 0; }
+  .mock .sheet::before { display: none; }
+  .mock .toasts { left: auto; right: 12px; bottom: 12px; }
+  .mock .menu { top: 12px; left: 12px; }
+  .side-demo { width: 216px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 10px; display: grid; gap: 1px; }
+  .side-demo a { position: relative; display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 0 8px; border-radius: var(--radius-sm); color: var(--nav-fg); text-decoration: none; font-size: var(--text-body-sm); font-weight: 500; }
+  .side-demo a[aria-current="page"] { background: var(--nav-active-bg); color: var(--nav-active-fg); }
+  .side-demo a[aria-current="page"]::before { content: ""; position: absolute; left: -10px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 2px 2px 0; background: var(--nav-active-indicator); }
+  .focus-demo .fake-focus { outline: 2px solid var(--color-ring); outline-offset: 2px; box-shadow: 0 0 0 2px var(--color-ring-halo); }
+  .list { border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
+  .list .row-item { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 2px 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--color-border); font-size: var(--text-body-md); }
+  .list .row-item:last-child { border-bottom: 0; }
+  .list .row-item .token { grid-column: 1; grid-row: 1 / span 2; }
+  .list .row-item .n { grid-column: 2; grid-row: 1; font-weight: 500; }
+  .list .row-item .m { grid-column: 2; grid-row: 2; font-size: var(--text-label); color: var(--color-fg-muted); }
+  .list .row-item .a { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: 4px; align-items: center; }
+  .skel-row { display: grid; gap: 8px; padding: 12px; }
+</style>
+</head>
+<body>
+<main class="g" id="main">
+  <header>
+    <p class="eyebrow">V2-DX round 3 · component system</p>
+    <h1 class="title-1">Components and states</h1>
+    <p>Every reusable element in one place, in the CliniQ AI brand theme (add <code>?dir=a</code> or <code>?dir=b</code> for the round-3 directions). Desktop sizes are shown; on touch or below 1024 px every interactive control grows to a 44 px hit area while the visual stays compact. Values are tokens from <code>themes/clinic-paper.css</code> with <code>themes/cliniq-ai.css</code> on top; nothing here is hand-tuned per screen.</p>
+  </header>
+
+  <section class="cg" aria-labelledby="c-found">
+    <h2 id="c-found">Foundation</h2>
+    <div class="spec">
+      <div><span class="cap">Surfaces and borders</span><div class="sw" id="sw-surf"></div></div>
+      <div><span class="cap">Ink</span><div class="sw" id="sw-ink"></div></div>
+      <div><span class="cap">Primary and secondary accent</span><div class="sw" id="sw-acc"></div></div>
+      <div><span class="cap">Status</span><div class="sw" id="sw-status"></div></div>
+    </div>
+    <div class="spec">
+      <div><span class="cap">Type scale (desktop)</span>
+        <div class="type-row"><span>title-1 20/26</span><span class="title-1">Today</span></div>
+        <div class="type-row"><span>title-2 16/22</span><span class="title-2">Plan and billing</span></div>
+        <div class="type-row"><span>title-3 14/20</span><span class="title-3">Prescription</span></div>
+        <div class="type-row"><span>body 14/22</span><span>Running text, rows and tiles. Inputs rise to 16 px on touch.</span></div>
+        <div class="type-row"><span>body-sm 13/18</span><span class="body-sm">54 y · M · Dr A Rao · Walk-in</span></div>
+        <div class="type-row"><span>label 12/16</span><span class="label">Amount received</span></div>
+        <div class="type-row"><span>caption 11 caps</span><span class="eyebrow">Likely from the complaints</span></div>
+        <div class="type-row"><span>display 26/32</span><span class="display">Start your 14-day trial</span></div>
+      </div>
+      <div><span class="cap">Spacing · radius · depth</span>
+        <div class="row" aria-hidden="true"><span style="width:4px;height:16px;background:var(--color-accent)"></span><span style="width:8px;height:16px;background:var(--color-accent)"></span><span style="width:12px;height:16px;background:var(--color-accent)"></span><span style="width:16px;height:16px;background:var(--color-accent)"></span><span style="width:24px;height:16px;background:var(--color-accent)"></span><span style="width:32px;height:16px;background:var(--color-accent)"></span></div>
+        <p class="body-sm muted">4 · 8 · 12 · 16 · 24 · 32</p>
+        <div class="row" aria-hidden="true"><span class="panel" style="width:48px;height:32px;border-radius:var(--radius-sm)"></span><span class="panel" style="width:48px;height:32px;border-radius:var(--radius-md)"></span><span class="panel" style="width:48px;height:32px;border-radius:var(--radius-lg)"></span><span class="panel" style="width:48px;height:32px;border-radius:var(--radius-xl)"></span></div>
+        <p class="body-sm muted">Radius 6 · 10 · 14 · 20 (pills 999)</p>
+        <div class="row" aria-hidden="true"><span class="panel" style="width:72px;height:40px"></span><span class="panel panel-raised" style="width:72px;height:40px"></span><span class="panel" style="width:72px;height:40px;box-shadow:var(--shadow-popover)"></span></div>
+        <p class="body-sm muted">Hairline · raised card · popover</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="cg" aria-labelledby="c-btn">
+    <h2 id="c-btn">Buttons · action hierarchy</h2>
+    <p>One primary per view. Soft for the emphasised secondary (accent wash). Secondary (white, hairline) for everything else. Ghost for inline and row actions. Danger only for destructive confirms. Sizes: 36 default, 44 large (and every control on touch), 28 small.</p>
+    <div class="row"><button type="button" class="btn btn-primary">Finish visit</button><button type="button" class="btn btn-soft">Create prescription</button><button type="button" class="btn btn-secondary">Reschedule</button><button type="button" class="btn btn-ghost">Cancel</button><button type="button" class="btn btn-danger">Cancel visit</button><button type="button" class="btn btn-danger-quiet">Remove</button></div>
+    <div class="row"><button type="button" class="btn btn-lg btn-primary">Sign and finish</button><button type="button" class="btn btn-lg btn-secondary">Back to note</button><button type="button" class="btn btn-sm btn-secondary">Edit</button><button type="button" class="btn btn-sm btn-ghost">Clear</button><button type="button" class="btn btn-primary" disabled>Disabled</button><button type="button" class="btn btn-primary loading" aria-label="Saving">Saving</button><button type="button" class="btn btn-secondary loading" aria-label="Loading">Loading</button></div>
+    <div class="row"><button type="button" class="icon-btn" aria-label="More"><i data-icon="more"></i></button><button type="button" class="icon-btn bordered" data-ai-copy aria-label="AI Assist, preview"><i data-icon="sparkles"></i></button><button type="button" class="icon-btn sm" aria-label="Remove"><i data-icon="x"></i></button><button type="button" class="btn btn-secondary">Walk-in <kbd class="kbd-lg">W</kbd></button><button type="button" class="btn btn-primary">Add <kbd>↵</kbd></button></div>
+    <div class="row focus-demo"><span class="btn btn-primary fake-focus">Focus on primary</span><span class="btn btn-secondary fake-focus">Focus on secondary</span><span class="btn btn-danger fake-focus">Focus on danger</span><button type="button" class="tile fake-focus" aria-pressed="true">Focus on a tile</button></div>
+  </section>
+
+  <section class="cg" aria-labelledby="c-input">
+    <h2 id="c-input">Inputs, selects, textareas, toggles</h2>
+    <div class="spec">
+      <div class="field"><label for="i1">Mobile number</label><input class="input tnum" id="i1" placeholder="+91 90000 00000"><span class="hint">Used for WhatsApp receipts</span></div>
+      <div class="field"><label for="i2">Search</label><div class="input-wrap"><i data-icon="search"></i><input class="input" id="i2" placeholder="Token, name or mobile"><kbd class="kbd-lg">/</kbd></div></div>
+      <div class="field"><label for="i3">Consultation fee</label><div class="adorn"><span>₹</span><input class="input tnum" id="i3" value="500"></div></div>
+      <div class="field"><label for="i4">Doctor</label><select class="select" id="i4"><option>Dr A Rao</option><option>Dr M Iyer</option></select></div>
+      <div class="field"><label for="i5">Age</label><input class="input" id="i5" value="142" aria-invalid="true" aria-describedby="i5e"><span class="hint error" id="i5e">Age must be 0–120</span></div>
+      <div class="field"><label for="i6">Read only</label><input class="input" id="i6" value="CQ-0050" disabled></div>
+      <div class="field"><label for="i7">History note</label><textarea class="input" id="i7" rows="2" placeholder="Onset, progression, what helps"></textarea></div>
+      <div class="field"><span class="field-label">Options</span><div class="row"><label class="check"><input type="checkbox" checked> Send on WhatsApp</label><label class="check"><input type="radio" name="r" checked> Cash</label><label class="check"><input type="radio" name="r"> UPI</label><button type="button" class="switch" role="switch" aria-checked="true" aria-label="Collect at desk"></button></div></div>
+    </div>
+  </section>
+
+  <section class="cg" aria-labelledby="c-pill">
+    <h2 id="c-pill">Badges, status pills, token chips, tiles</h2>
+    <p>Status pills are 20 px, 11 px semibold, never interactive, always with text. Token chips carry the queue number with a status-coloured border. Tiles are the tap-first control: 32 px on desktop, 44 on touch, selected = accent wash + accent border.</p>
+    <div class="row"><span class="chip chip-booked">Booked</span><span class="chip chip-waiting">Waiting</span><span class="chip chip-with-doctor">With doctor</span><span class="chip chip-to-bill">To bill</span><span class="chip chip-done">Done</span><span class="chip chip-no-show">No-show</span><span class="chip chip-cancelled">Cancelled</span><span class="chip chip-neutral">Chronic</span><span class="chip chip-outline">Primary</span><span class="chip chip-allergy"><i data-icon="allergy"></i>Penicillin</span><span class="chip chip-outline-warning"><i data-icon="warn"></i>Allergies not recorded</span><span class="chip chip-abnormal">Crepts · right</span><span class="chip chip-info">Info</span><span class="chip chip-success">Paid</span><span class="chip chip-ai"><i data-icon="sparkles"></i>AI Assist</span><span class="chip chip-preview">Preview</span><span class="smart"><i data-icon="zap"></i>Smart Assist</span></div>
+    <div class="row"><span class="token s-booked"><b>10:30</b><small>am</small></span><span class="token s-waiting">14</span><span class="token s-with-doctor">12</span><span class="token s-to-bill">9</span><span class="token s-done">3</span><span class="token token-lg s-waiting">108</span></div>
+    <div class="row"><button type="button" class="tile" aria-pressed="false">Fever</button><button type="button" class="tile" aria-pressed="true">Cough</button><button type="button" class="tile" aria-pressed="false">Viral fever <small>MG26</small></button><button type="button" class="tile" aria-pressed="false">Paracetamol 650 mg <small>1-0-1 · 5 days</small></button><button type="button" class="tile ghost"><i data-icon="search"></i>Other…</button><button type="button" class="tile bundle" aria-pressed="false"><b>Your usual for Viral fever</b><span>Paracetamol 1-0-1 · 5 days · Cetirizine 0-0-1 · 5 days</span></button></div>
+    <div class="row"><button type="button" class="toggle-chip" aria-pressed="false">Dr A Rao <span class="n">17</span></button><button type="button" class="toggle-chip" aria-pressed="true">All <span class="n">28</span></button><span class="pills" role="radiogroup" aria-label="Duration"><button type="button" class="pill" role="radio" aria-checked="false">1d</button><button type="button" class="pill" role="radio" aria-checked="true">3d</button><button type="button" class="pill" role="radio" aria-checked="false">5d</button><button type="button" class="pill" role="radio" aria-checked="false">1w</button></span><span class="stepper" aria-label="Duration in days"><button type="button" aria-label="One day less">−</button><output>5 days</output><button type="button" aria-label="One day more">+</button></span></div>
+  </section>
+
+  <section class="cg" aria-labelledby="c-nav">
+    <h2 id="c-nav">Navigation · sidebar, segmented, tabs</h2>
+    <div class="row top">
+      <nav class="side-demo" aria-label="Sidebar example"><a href="#" aria-current="page"><i data-icon="today"></i>Today</a><a href="#"><i data-icon="calendar"></i>Schedule</a><a href="#"><i data-icon="users"></i>Patients</a><a href="#"><i data-icon="wallet"></i>Collections</a></nav>
+      <div style="display:grid;gap:12px;flex:1;min-width:260px">
+        <div class="seg" role="radiogroup" aria-label="Lane"><button type="button" role="radio" aria-checked="false">Booked <span class="n">9</span></button><button type="button" role="radio" aria-checked="true">Waiting <span class="n">6</span></button><button type="button" role="radio" aria-checked="false">Doctor <span class="n">2</span></button><button type="button" role="radio" aria-checked="false">Bill <span class="n">3</span></button></div>
+        <div class="tabs" role="tablist" aria-label="Patient"><button type="button" role="tab" aria-selected="true">Visits</button><button type="button" role="tab" aria-selected="false">Prescriptions</button><button type="button" role="tab" aria-selected="false">Reports</button><button type="button" role="tab" aria-selected="false">Billing</button></div>
+        <nav class="strip" aria-label="Sections" style="position:static;margin:0;border:0;padding:0;display:flex"><button type="button" aria-current="true">Complaints<span class="n">3</span></button><button type="button" aria-current="false">Examination<span class="n">1</span></button><button type="button" aria-current="false">Diagnosis<span class="n">1</span></button></nav>
+      </div>
+    </div>
+  </section>
+
+  <section class="cg" aria-labelledby="c-cont">
+    <h2 id="c-cont">Containers · panel, raised card, well, section row</h2>
+    <p>Default container is a hairline panel. The raised card (soft shadow) is for one hero per page, such as the plan card. Wells (soft surface) hold read-only or transient content. Section rows (label column + body, hairline between rows) structure long forms such as the consult note.</p>
+    <div class="spec">
+      <div class="panel"><div class="panel-head"><h3>Last visit · 2 Oct</h3><button type="button" class="btn btn-sm btn-ghost" style="margin-left:auto">Open</button></div><div class="panel-body body-sm"><div class="rx-old"><ul style="list-style:none;padding:0;margin:0;display:grid;gap:4px"><li style="display:flex;justify-content:space-between"><span>Telmisartan 40 mg</span><span class="muted tnum">1-0-0 · 1 month</span></li><li style="display:flex;justify-content:space-between"><span>Metformin 500 mg</span><span class="muted tnum">1-0-1 · 1 month</span></li></ul></div></div></div>
+      <div class="panel panel-raised"><div class="panel-body" style="display:grid;gap:6px"><span class="eyebrow">Standard plan</span><span class="title-1 tnum">₹1,499 <span class="muted" style="font-size:var(--text-body-sm);font-weight:400">+ GST per month</span></span><span class="body-sm muted">Next debit ₹1,768.82 on 27 Nov 2026</span></div></div>
+      <div class="well body-sm"><b>Front desk collects ₹500.</b> <span class="muted">Change in the finish sheet.</span></div>
+      <div style="border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:0 14px;grid-column:1 / -1"><section class="sec" style="border-top:0"><div class="sec-label"><h2>Diagnosis</h2><span class="sum">Viral fever</span></div><div class="sec-body"><div class="tiles"><button type="button" class="tile" aria-pressed="true">Viral fever <small>MG26</small></button><button type="button" class="tile" aria-pressed="false">Acute URTI <small>CA07</small></button></div></div></section><section class="sec"><div class="sec-label"><h2>Plan</h2><span class="sum">review 16 Nov</span></div><div class="sec-body"><div class="tiles"><button type="button" class="tile" aria-pressed="true">3 days</button><button type="button" class="tile" aria-pressed="false">1 week</button></div></div></section></div>
+    </div>
+  </section>
+
+  <section class="cg" aria-labelledby="c-table">
+    <h2 id="c-table">Tables and patient lists</h2>
+    <div class="spec" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+      <div class="list">
+        <div class="row-item"><span class="token s-waiting">14</span><span class="n">Suresh Patil</span><span class="a"><button type="button" class="btn btn-sm btn-secondary">Vitals</button><button type="button" class="icon-btn sm" aria-label="More"><i data-icon="more"></i></button></span><span class="m">54 y · M · Dr Rao · Walk-in · <span class="chip chip-allergy" style="vertical-align:middle">Penicillin</span></span></div>
+        <div class="row-item" style="background:var(--row-selected-bg);box-shadow:inset 3px 0 0 var(--row-selected-indicator)"><span class="token s-waiting">15</span><span class="n">Farah Shaikh</span><span class="a"><button type="button" class="btn btn-sm btn-primary">Call in</button></span><span class="m">29 y · F · Dr Iyer · Appt 10:15 · <span class="chip chip-outline-warning" style="vertical-align:middle">Vitals pending</span></span></div>
+        <div class="row-item"><span class="token s-booked"><b>11:00</b><small>am</small></span><span class="n">Shalini Bhosale</span><span class="a"><button type="button" class="btn btn-sm btn-primary">Check in</button></span><span class="m">55 y · F · Dr Rao</span></div>
+      </div>
+      <table class="dt"><thead><tr><th>Receipt</th><th>Patient</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody><tr><td>CQ/26-27/00123</td><td>Arjun Mehta</td><td class="num">₹700</td><td><span class="chip chip-success">Paid</span></td></tr><tr><td>CQ/26-27/00122</td><td>Priya Kale</td><td class="num">₹500</td><td><span class="chip chip-waiting">Due</span></td></tr><tr><td>CQ/26-27/00121</td><td>Nikhil Gaikwad</td><td class="num">₹1,250</td><td><span class="chip chip-success">Paid</span></td></tr></tbody></table>
+    </div>
+  </section>
+
+  <section class="cg" aria-labelledby="c-overlay">
+    <h2 id="c-overlay">Sheets, dialogs, menus, toasts</h2>
+    <div class="spec" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+      <div class="mock" aria-label="Side sheet example"><div class="scrim"></div><div class="sheet" role="dialog" aria-labelledby="sh1" aria-modal="false"><div class="sheet-head"><div class="grow"><h2 class="title-2" id="sh1">Finish visit</h2><p class="body-sm muted">Token 14 · Suresh Patil</p></div><button type="button" class="icon-btn" aria-label="Close"><i data-icon="x"></i></button></div><div class="sheet-body body-sm"><div class="field"><span class="field-label">Send the prescription</span><div class="tiles"><button type="button" class="tile" aria-pressed="true">WhatsApp</button><button type="button" class="tile" aria-pressed="false">Print</button></div></div></div><div class="sheet-foot"><button type="button" class="btn btn-secondary">Back</button><button type="button" class="btn btn-primary">Sign and finish</button></div></div></div>
+      <div class="mock" aria-label="Confirm dialog and menu example"><div class="scrim"></div><div class="menu" role="menu" aria-label="Row actions"><button type="button" role="menuitem">Reschedule</button><button type="button" role="menuitem">Move doctor</button><hr><button type="button" role="menuitem" class="danger">Cancel visit</button></div><div class="dialog" role="dialog" aria-labelledby="d1" aria-modal="false"><h2 class="title-2" id="d1">Cancel this visit?</h2><p class="body-sm secondary">Meena Pawar, 10:30 am with Dr Rao. The slot becomes free again. You can undo for 8 seconds.</p><div class="actions"><button type="button" class="btn btn-secondary">Keep</button><button type="button" class="btn btn-danger">Cancel visit</button></div></div><div class="toasts"><div class="toast" role="status"><span>Visit cancelled</span><button type="button" class="btn">Undo</button></div></div></div>
+    </div>
+  </section>
+
+  <section class="cg" aria-labelledby="c-state">
+    <h2 id="c-state">Empty, loading, banners, alerts</h2>
+    <div class="spec" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+      <div class="panel"><div class="empty"><i data-icon="users"></i><b>No one waiting</b><span>Walk-ins and check-ins appear here.</span><button type="button" class="btn btn-sm btn-secondary">Add walk-in</button></div></div>
+      <div class="panel"><div class="skel-row" role="status" aria-busy="true" aria-label="Loading"><span class="skel" style="width:60%"></span><span class="skel" style="width:40%"></span><span class="skel" style="width:80%"></span></div><div class="row" style="padding:0 12px 12px"><span class="spinner" aria-hidden="true"></span><span class="body-sm muted">Loading today's queue…</span></div></div>
+      <div style="display:grid;gap:8px"><div class="banner banner-info"><i data-icon="clock"></i>Free trial until 27 Nov. First debit 27 Nov, 10:00 am.</div><div class="banner banner-warning"><i data-icon="warn"></i>Payment failed on 27 Nov. Retry in Settings.</div><div class="banner banner-offline"><i data-icon="wifioff"></i>Offline. Changes save when you reconnect.</div><div class="allergy" style="border-radius:var(--radius-md)"><i data-icon="allergy"></i>Allergy: Penicillin</div></div>
+    </div>
+  </section>
+</main>
+<script src="../shared/proto.js"></script>
+<script>
+  (function () {
+    "use strict";
+    const cs = getComputedStyle(document.documentElement);
+    const v = (n) => cs.getPropertyValue(n).trim();
+    const resolve = (n) => { let x = v(n); let g = 0; while (/^var\(/.test(x) && g++ < 8) x = v(x.slice(4, -1)); return x; };
+    function sw(id, names) {
+      document.getElementById(id).innerHTML = names.map((n) => '<div><i style="background:var(--color-' + n[0] + ')"></i><b>' + n[1] + "</b>" + resolve("--color-" + n[0]).toUpperCase() + "</div>").join("");
+    }
+    sw("sw-surf", [["canvas", "canvas"], ["surface-soft", "soft"], ["surface-muted", "muted"], ["border", "hairline"], ["border-strong", "strong"], ["border-control", "control"]]);
+    sw("sw-ink", [["fg", "ink"], ["fg-secondary", "secondary"], ["fg-muted", "muted"], ["fg-icon", "icon"], ["fg-disabled", "disabled"]]);
+    sw("sw-acc", [["accent", "primary"], ["accent-hover", "hover"], ["accent-pressed", "pressed"], ["accent-subtle", "soft"], ["accent-tint", "tint"], ["accent-2", "accent 2"], ["accent-2-bg", "accent 2 bg"], ["ring", "focus"]]);
+    sw("sw-status", [["success-fg", "success"], ["success-bg", "bg"], ["warning-fg", "warning"], ["warning-bg", "bg"], ["danger-fg", "danger"], ["danger-bg", "bg"], ["info-fg", "info"], ["info-bg", "bg"]]);
+    document.querySelectorAll('[href="#"]').forEach((a) => a.addEventListener("click", (e) => e.preventDefault()));
+  })();
+</script>
+</body>
+</html>

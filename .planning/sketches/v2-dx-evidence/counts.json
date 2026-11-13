@@ -1,0 +1,772 @@
+{
+  "m0Commit": "ade531fe6c7a87c3ee9f440238b359541378de8c",
+  "rules": "click = 1 tap; key press = 1 press; typed characters counted separately; 'actions (M0 rules)' = clicks + presses + typed fields; v1 per-step references are code-derived (V2-DX-R2-V1-CONSULT-ANALYSIS.md §4) unless marked M0",
+  "flows": [
+    {
+      "id": "check-in",
+      "label": "Check in a booked patient (filter → Enter)",
+      "target": "1 action + typing once the filter has focus (UX_AUDIT §4.1)",
+      "targetMax": 2,
+      "meetsTarget": true,
+      "v1": null,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 3,
+      "actionsExcludingTyping": 2,
+      "keystrokes": 7,
+      "typedChars": 5,
+      "mouse": 0,
+      "clicks": 0,
+      "presses": 2,
+      "fills": 1,
+      "durationMs": 31,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "press",
+          "target": "focus Today filter",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "filter",
+          "keystrokes": 5
+        },
+        {
+          "kind": "press",
+          "target": "Enter = Check in",
+          "keystrokes": 1
+        }
+      ],
+      "video": "walkthrough/check-in.webm"
+    },
+    {
+      "id": "check-in-next",
+      "label": "Check in the next booked patient (filter keeps focus)",
+      "target": "1 action + typing",
+      "targetMax": 1,
+      "meetsTarget": true,
+      "v1": null,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 2,
+      "actionsExcludingTyping": 1,
+      "keystrokes": 5,
+      "typedChars": 4,
+      "mouse": 0,
+      "clicks": 0,
+      "presses": 1,
+      "fills": 1,
+      "durationMs": 17,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "type",
+          "target": "filter",
+          "keystrokes": 4
+        },
+        {
+          "kind": "press",
+          "target": "Enter = Check in",
+          "keystrokes": 1
+        }
+      ],
+      "video": "walkthrough/check-in-next.webm"
+    },
+    {
+      "id": "walk-in-token",
+      "label": "Walk-in, existing patient → token",
+      "target": "W → phone → Enter → Enter (3 keystrokes besides typing)",
+      "targetMax": 3,
+      "meetsTarget": true,
+      "v1": null,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 4,
+      "actionsExcludingTyping": 3,
+      "keystrokes": 13,
+      "typedChars": 10,
+      "mouse": 0,
+      "clicks": 0,
+      "presses": 3,
+      "fills": 1,
+      "durationMs": 25,
+      "m0": {
+        "id": "walk-in-token",
+        "actions": 4,
+        "keystrokes": 28,
+        "clicks": 2
+      },
+      "steps": [
+        {
+          "kind": "press",
+          "target": "W = walk-in",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "mobile number",
+          "keystrokes": 10
+        },
+        {
+          "kind": "press",
+          "target": "select top match",
+          "keystrokes": 1
+        },
+        {
+          "kind": "press",
+          "target": "Add to queue",
+          "keystrokes": 1
+        }
+      ],
+      "video": "walkthrough/walk-in-token.webm"
+    },
+    {
+      "id": "book-next-free",
+      "label": "Book, existing patient, suggested next free slot",
+      "target": "3 actions with context, 4 without (UX_AUDIT §5.2)",
+      "targetMax": 3,
+      "meetsTarget": true,
+      "v1": null,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 4,
+      "actionsExcludingTyping": 3,
+      "keystrokes": 13,
+      "typedChars": 10,
+      "mouse": 0,
+      "clicks": 0,
+      "presses": 3,
+      "fills": 1,
+      "durationMs": 34,
+      "m0": {
+        "id": "book-appointment",
+        "actions": 6,
+        "keystrokes": 32,
+        "clicks": 3
+      },
+      "steps": [
+        {
+          "kind": "press",
+          "target": "B = book",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "mobile number",
+          "keystrokes": 10
+        },
+        {
+          "kind": "press",
+          "target": "select patient",
+          "keystrokes": 1
+        },
+        {
+          "kind": "press",
+          "target": "Book 11:30 am",
+          "keystrokes": 1
+        }
+      ],
+      "video": "walkthrough/book-next-free.webm"
+    },
+    {
+      "id": "book-chosen-slot",
+      "label": "Book, existing patient, a slot of the caller's choice",
+      "target": "4 actions without context",
+      "targetMax": 4,
+      "meetsTarget": true,
+      "v1": null,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 5,
+      "actionsExcludingTyping": 4,
+      "keystrokes": 12,
+      "typedChars": 10,
+      "mouse": 2,
+      "clicks": 2,
+      "presses": 2,
+      "fills": 1,
+      "durationMs": 98,
+      "m0": {
+        "id": "book-appointment",
+        "actions": 6,
+        "keystrokes": 32,
+        "clicks": 3
+      },
+      "steps": [
+        {
+          "kind": "press",
+          "target": "B = book",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "mobile number",
+          "keystrokes": 10
+        },
+        {
+          "kind": "press",
+          "target": "select patient",
+          "keystrokes": 1
+        },
+        {
+          "kind": "click",
+          "target": "slot 4:30 pm",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Book",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/book-chosen-slot.webm"
+    },
+    {
+      "id": "reschedule",
+      "label": "Reschedule a booked appointment",
+      "target": "⋯ → Reschedule → slot → Confirm = 4 (UX_AUDIT §5.3)",
+      "targetMax": 4,
+      "meetsTarget": true,
+      "v1": null,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 4,
+      "actionsExcludingTyping": 4,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 4,
+      "clicks": 4,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 141,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "⋯",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Reschedule",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "slot 12:45 pm",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Confirm",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/reschedule.webm"
+    },
+    {
+      "id": "collect",
+      "label": "Collect payment for a visit in To bill",
+      "target": "≤ 3 (brief); UX_AUDIT §5.9 keeps 4 incl. share",
+      "targetMax": 3,
+      "meetsTarget": true,
+      "v1": null,
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 3,
+      "actionsExcludingTyping": 3,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 3,
+      "clicks": 3,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 105,
+      "m0": {
+        "id": "checkout-collect",
+        "actions": 9,
+        "keystrokes": 22,
+        "clicks": 6
+      },
+      "steps": [
+        {
+          "kind": "click",
+          "target": "Collect ₹700 (row)",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Collect ₹700 (sheet)",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Done",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/collect.webm"
+    },
+    {
+      "id": "consult-complaints-3",
+      "label": "A. Add 3 complaints (durations set)",
+      "target": "≤ 3 taps, 0 typed (v1: 3 taps, 0 typed)",
+      "targetMax": 3,
+      "meetsTarget": true,
+      "v1": {
+        "taps": 3,
+        "typed": 0,
+        "how": "3 quick chips, default 3 days"
+      },
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 3,
+      "actionsExcludingTyping": 3,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 3,
+      "clicks": 3,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 111,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "tile Fever",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "tile Body ache",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "tile Cough",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/consult-complaints-3.webm"
+    },
+    {
+      "id": "consult-exam-template",
+      "label": "B. Apply an exam template with one abnormal finding",
+      "target": "≤ 3 taps, 0 typed (v1: ≈ 170 typed characters)",
+      "targetMax": 3,
+      "meetsTarget": true,
+      "v1": {
+        "taps": 0,
+        "typed": 170,
+        "how": "no template; CVS/RS/PA/CNS typed (≈150) plus the finding (≈20)"
+      },
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 3,
+      "actionsExcludingTyping": 3,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 3,
+      "clicks": 3,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 102,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "template Fever workup (suggested)",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "RS → Abnormal",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "finding Crepts",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/consult-exam-template.webm"
+    },
+    {
+      "id": "consult-diagnosis",
+      "label": "C. Add a diagnosis",
+      "target": "1 tap, 0 typed (v1: 1 tap if in the fixed 8, else typing)",
+      "targetMax": 1,
+      "meetsTarget": true,
+      "v1": {
+        "taps": 1,
+        "typed": 0,
+        "how": "quick chip (fixed list of 8 per specialty)"
+      },
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 1,
+      "actionsExcludingTyping": 1,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 1,
+      "clicks": 1,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 38,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "tile Viral fever (likely from complaints)",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/consult-diagnosis.webm"
+    },
+    {
+      "id": "consult-rx-bundle",
+      "label": "D1. 3-drug Rx, standard dosing: your usual for the diagnosis",
+      "target": "1 tap, 0 typed (v1: 6 taps + ≈ 27 typed)",
+      "targetMax": 1,
+      "meetsTarget": true,
+      "v1": {
+        "taps": 6,
+        "typed": 27,
+        "how": "per drug: type ≈ 9, pick, Add (M0 measured 78 typed as custom entries)"
+      },
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 1,
+      "actionsExcludingTyping": 1,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 1,
+      "clicks": 1,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 35,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "bundle: Your usual for Viral fever",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/consult-rx-bundle.webm"
+    },
+    {
+      "id": "consult-rx-favourites",
+      "label": "D2. 3-drug Rx from favourite tiles (each with the doctor's usual dose)",
+      "target": "3 taps, 0 typed",
+      "targetMax": 3,
+      "meetsTarget": true,
+      "v1": {
+        "taps": 6,
+        "typed": 27,
+        "how": "as D1"
+      },
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 3,
+      "actionsExcludingTyping": 3,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 3,
+      "clicks": 3,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 107,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "favourite Paracetamol",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "favourite Cetirizine",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "favourite Pantoprazole",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/consult-rx-favourites.webm"
+    },
+    {
+      "id": "consult-rx-keyboard",
+      "label": "D3. 3-drug Rx by keyboard (defaults accepted)",
+      "target": "0 taps after focusing the field; ≈ 4 typed per drug",
+      "targetMax": 1,
+      "meetsTarget": true,
+      "v1": {
+        "taps": 6,
+        "typed": 27,
+        "how": "as D1"
+      },
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 10,
+      "actionsExcludingTyping": 7,
+      "keystrokes": 18,
+      "typedChars": 12,
+      "mouse": 1,
+      "clicks": 1,
+      "presses": 6,
+      "fills": 3,
+      "durationMs": 103,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "focus Medicine",
+          "keystrokes": 0
+        },
+        {
+          "kind": "type",
+          "target": "medicine",
+          "keystrokes": 4
+        },
+        {
+          "kind": "press",
+          "target": "pick top match → dose builder with usual dose",
+          "keystrokes": 1
+        },
+        {
+          "kind": "press",
+          "target": "accept usual dose",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "medicine",
+          "keystrokes": 4
+        },
+        {
+          "kind": "press",
+          "target": "pick top match → dose builder with usual dose",
+          "keystrokes": 1
+        },
+        {
+          "kind": "press",
+          "target": "accept usual dose",
+          "keystrokes": 1
+        },
+        {
+          "kind": "type",
+          "target": "medicine",
+          "keystrokes": 4
+        },
+        {
+          "kind": "press",
+          "target": "pick top match → dose builder with usual dose",
+          "keystrokes": 1
+        },
+        {
+          "kind": "press",
+          "target": "accept usual dose",
+          "keystrokes": 1
+        }
+      ],
+      "video": "walkthrough/consult-rx-keyboard.webm"
+    },
+    {
+      "id": "consult-rx-edit-line",
+      "label": "D4. Change a committed line's duration (v1: remove + re-add)",
+      "target": "≤ 3 taps",
+      "targetMax": 3,
+      "meetsTarget": true,
+      "v1": {
+        "taps": 5,
+        "typed": 9,
+        "how": "trash, confirm, retype, pick, change chip, Add"
+      },
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 3,
+      "actionsExcludingTyping": 3,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 3,
+      "clicks": 3,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 113,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "tap duration on the line",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "3 days",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Update line",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/consult-rx-edit-line.webm"
+    },
+    {
+      "id": "consult-same-last",
+      "label": "Repeat last visit (diagnosis + prescription)",
+      "target": "1 tap (UX_AUDIT §4.2)",
+      "targetMax": 1,
+      "meetsTarget": true,
+      "v1": {
+        "taps": 1,
+        "typed": 0,
+        "how": "Repeat Last Rx (Rx only; diagnosis separate)"
+      },
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 1,
+      "actionsExcludingTyping": 1,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 1,
+      "clicks": 1,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 50,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "Same as last visit",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/consult-same-last.webm"
+    },
+    {
+      "id": "consult-finish",
+      "label": "E. Finish the consult (WhatsApp + front-desk billing defaulted)",
+      "target": "2 taps (v1: 2, M0 measured 3)",
+      "targetMax": 2,
+      "meetsTarget": true,
+      "v1": {
+        "taps": 3,
+        "typed": 0,
+        "how": "Complete & Sign, untick collect, Sign (M0)"
+      },
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 2,
+      "actionsExcludingTyping": 2,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 2,
+      "clicks": 2,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 85,
+      "m0": null,
+      "steps": [
+        {
+          "kind": "click",
+          "target": "Finish visit",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Sign and finish",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/consult-finish.webm"
+    },
+    {
+      "id": "consult-whole",
+      "label": "Whole consult A–E by tap (3 complaints, template + 1 abnormal, diagnosis, 3-drug Rx, finish)",
+      "target": "≤ 10 taps, 0 typed (v1 code-derived: 12 taps + ≈ 197 typed; M0 measured 12 actions / 105 keystrokes with a shorter note)",
+      "targetMax": 10,
+      "meetsTarget": true,
+      "v1": {
+        "taps": 12,
+        "typed": 197,
+        "how": "sum of A–E in the analysis §4"
+      },
+      "outcomeAsserted": true,
+      "error": null,
+      "actionsM0Rules": 10,
+      "actionsExcludingTyping": 10,
+      "keystrokes": 0,
+      "typedChars": 0,
+      "mouse": 10,
+      "clicks": 10,
+      "presses": 0,
+      "fills": 0,
+      "durationMs": 341,
+      "m0": {
+        "id": "consult-rx-finish",
+        "actions": 12,
+        "keystrokes": 105,
+        "clicks": 8
+      },
+      "steps": [
+        {
+          "kind": "click",
+          "target": "tile Fever",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "tile Body ache",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "tile Cough",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "template Fever workup",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "RS → Abnormal",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "finding Crepts",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "tile Viral fever",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "bundle Rx (3)",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Finish visit",
+          "keystrokes": 0
+        },
+        {
+          "kind": "click",
+          "target": "Sign and finish",
+          "keystrokes": 0
+        }
+      ],
+      "video": "walkthrough/consult-whole.webm"
+    }
+  ]
+}

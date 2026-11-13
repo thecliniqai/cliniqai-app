@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Clinic Paper R2 · colour directions and type · V2-DX</title>
+<link rel="stylesheet" href="../themes/clinic-paper.css">
+<link rel="stylesheet" href="../shared/sketch.css">
+<style>
+  main { max-width: 1120px; margin: 0 auto; padding: 24px var(--spacing-gutter) 56px; display: grid; gap: 28px; }
+  @media (min-width: 768px) { main { padding: 32px var(--spacing-gutter-lg) 64px; } }
+  header p { max-width: 70ch; }
+  section { display: grid; gap: 16px; }
+  section > h2 { font-size: var(--text-title-2); font-weight: 600; letter-spacing: -0.01em; }
+  .dirs { display: grid; gap: 20px; }
+  @media (min-width: 900px) { .dirs { grid-template-columns: 1fr 1fr; } }
+  .dir { border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: 20px; display: grid; gap: 16px; background: var(--color-surface); }
+  .dir h3 { font-size: var(--text-title-3); font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .dir .rec { font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-success-fg); border: 1px solid var(--color-success-border); border-radius: 999px; padding: 2px 8px; }
+  .sw { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+  .sw div { display: grid; gap: 6px; }
+  .sw i { display: block; height: 40px; border-radius: var(--radius-md); border: 1px solid var(--color-border); }
+  .sw p { font-size: var(--text-caption); line-height: 1.3; color: var(--color-fg-muted); }
+  .sw p b { display: block; color: var(--color-fg); font-weight: 500; }
+  .demo { display: grid; gap: 14px; }
+  .demo .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .mini-nav { display: grid; gap: 2px; width: 200px; }
+  .mini-nav a { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px; border-radius: var(--radius-md); color: var(--nav-fg); text-decoration: none; font-size: var(--text-body-sm); font-weight: 500; position: relative; }
+  .mini-nav a[aria-current="page"] { background: var(--nav-active-bg); color: var(--nav-active-fg); }
+  .mini-nav a[aria-current="page"]::before { content: ""; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--nav-active-indicator); }
+  .type-row { display: grid; grid-template-columns: 140px 1fr; gap: 16px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--color-border-subtle); }
+  .type-row > span:first-child { font-size: var(--text-caption); color: var(--color-fg-subtle); font-variant-numeric: tabular-nums; }
+  .nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+  .nums div { padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius-lg); display: grid; gap: 2px; }
+  .nums b { font-size: var(--text-title-3); font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: var(--tracking-title); }
+  .nums span { font-size: var(--text-caption); color: var(--color-fg-muted); }
+  .focus-demo { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+  .focus-demo .fake-focus { outline: 2px solid var(--color-ring); outline-offset: 2px; box-shadow: 0 0 0 2px var(--color-ring-halo); }
+  .dis { font-size: 1.75rem; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+  .neutrals { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+  .neutrals div { display: grid; gap: 4px; font-size: var(--text-caption); color: var(--color-fg-muted); }
+  .neutrals i { display: block; height: 56px; border-radius: var(--radius-md); border: 1px solid var(--color-border); }
+  .card-demo { border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 14px 16px; display: grid; gap: 8px; font-size: var(--text-body-sm); }
+  .card-demo .t { font-weight: 600; font-size: var(--text-body-md); }
+</style>
+</head>
+<body>
+<main id="main">
+  <header style="display:grid;gap:10px">
+    <p class="eyebrow">V2-DX round 3</p>
+    <h1 class="title-1" id="dir-title">Direction A · Calm Confidence (Botanical Teal)</h1>
+    <p class="muted">White-first, light only. This page renders one direction at a time from the live tokens: open it plainly for the CliniQ AI brand theme (CliniQ Blue actions, Midnight ink, Care Teal for "with doctor", slate neutrals); add <code>?dir=a</code> or <code>?dir=b</code> for the round-3 directions. Both share the type scale, spacing, components and the four status colours; they differ in the primary, the soft surfaces (mineral vs azure-tinted greys) and the secondary accent. Ratios for every pair are in <code>v2-dx-evidence/contrast.md</code>.</p>
+  </header>
+
+  <section aria-labelledby="s0">
+    <h2 id="s0">Neutrals</h2>
+    <div class="neutrals" id="neutrals"></div>
+    <p class="body-sm muted">Ink, secondary and muted text all pass 4.5:1 on white and on the soft and muted surfaces; the PO reference muted ink is kept for icons and large text only. Two hairlines and one control border (3.1:1) carry structure.</p>
+  </section>
+
+  <section aria-labelledby="s1">
+    <h2 id="s1">Accent, actions and status in this direction</h2>
+    <div class="dir">
+      <div class="sw" id="sw-a"></div>
+      <div class="demo">
+        <div class="row"><button type="button" class="btn btn-primary">Finish visit</button><button type="button" class="btn btn-soft">Create prescription</button><button type="button" class="btn btn-secondary">Reschedule</button><button type="button" class="btn btn-ghost">Cancel</button><a href="#">Prescription PDF</a></div>
+        <div class="row"><button type="button" class="tile" aria-pressed="true">Fever</button><button type="button" class="tile" aria-pressed="false">Cough</button><span class="token s-waiting">14</span><span class="token s-with-doctor">12</span><span class="token s-to-bill">9</span><span class="token s-booked"><b>10:30</b><small>am</small></span></div>
+        <div class="row"><span class="chip chip-booked">Booked</span><span class="chip chip-waiting">Waiting</span><span class="chip chip-with-doctor">With doctor</span><span class="chip chip-to-bill">To bill</span><span class="chip chip-done">Done</span><span class="chip chip-no-show">No-show</span><span class="chip chip-cancelled">Cancelled</span><span class="chip chip-allergy">Penicillin</span><span class="chip chip-abnormal">Crepts · right</span></div>
+        <div class="row" style="align-items:flex-start;gap:24px"><nav class="mini-nav" aria-label="Example"><a href="#" aria-current="page">Today</a><a href="#">Schedule</a><a href="#">Patients</a></nav><div class="card-demo" style="flex:1;min-width:220px"><span class="t">Arjun Mehta</span><span class="muted">35 y · M · Dr Rao</span><span><b class="tnum">₹700</b> due</span></div><div class="card-demo" style="flex:1;min-width:220px;background:var(--color-surface-soft)"><span class="t">Soft surface</span><span class="muted">Muted text on the soft surface, 13 px</span><span class="secondary">Secondary text</span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="s3">
+    <h2 id="s3">Type · IBM Plex Sans 400 / 500 / 600, vendored (OFL)</h2>
+    <div>
+      <div class="type-row"><span>title-1 20/26</span><span class="title-1">Today</span></div>
+      <div class="type-row"><span>title-2 16/22</span><span class="title-2">Plan and billing</span></div>
+      <div class="type-row"><span>title-3 14/20</span><span class="title-3">Prescription</span></div>
+      <div class="type-row"><span>body 14/22</span><span>Running text, rows and tiles are 14 px on desktop; inputs rise to 16 px on touch.</span></div>
+      <div class="type-row"><span>body-sm 13/18</span><span class="body-sm">54 y · M · Dr A Rao · Walk-in</span></div>
+      <div class="type-row"><span>label 12/16</span><span class="label">Amount received</span></div>
+      <div class="type-row"><span>caption 11 caps</span><span class="eyebrow">Likely from the complaints</span></div>
+      <div class="type-row"><span>display 26/32</span><span class="display">Start your 14-day trial</span></div>
+      <div class="type-row"><span>token 22 / 17</span><span><span class="token token-lg s-waiting">14</span> <span class="token s-with-doctor">7</span> <span class="token s-to-bill">108</span></span></div>
+    </div>
+    <p class="body-sm muted">Hierarchy comes from weight (400/500/600), colour (ink / secondary / muted) and spacing; only the page title is 20 px. Titles are tracked −1.5%. Plex separates <span class="dis">I l 1 · O 0 · 1-0-1 · 10 mg</span> and gives tabular figures for tokens, doses and money.</p>
+  </section>
+
+  <section aria-labelledby="s4">
+    <h2 id="s4">Numbers, money and dates (en-IN)</h2>
+    <div class="nums" id="nums"></div>
+    <p lang="hi" class="title-3" id="deva">पेरासिटामोल 650 mg · खाने के बाद · दिन में 2 बार</p>
+    <p class="caption subtle">Devanagari renders in IBM Plex Sans Devanagari (vendored; loaded only by unicode-range). Only patient-facing print uses it in v2.0.</p>
+  </section>
+
+  <section aria-labelledby="s5">
+    <h2 id="s5">Focus · ring on a white halo, visible on every fill</h2>
+    <div class="focus-demo">
+      <span class="btn btn-primary fake-focus">Collect ₹700</span>
+      <span class="btn btn-secondary fake-focus">Reschedule</span>
+      <span class="btn btn-danger fake-focus">Cancel visit</span>
+      <button type="button" class="tile fake-focus" aria-pressed="true">HbA1c</button>
+      <span class="allergy fake-focus" style="border-radius:var(--radius-md)">Allergies: Penicillin</span>
+    </div>
+    <p class="body-sm muted">The 2 px ring sits 2 px outside the control on a 2 px white halo, so it is measured against white (4.65:1), never against the fill.</p>
+  </section>
+</main>
+<script src="../shared/proto.js"></script>
+<script>
+  (function () {
+    "use strict";
+    const cs = getComputedStyle(document.documentElement);
+    const hex = (el, n) => getComputedStyle(el).getPropertyValue("--color-" + n).trim();
+    function sw(host, names, el) {
+      document.getElementById(host).innerHTML = names
+        .map(function (n) {
+          return '<div><i style="background:var(--color-' + n[0] + ')"></i><p><b>' + n[1] + "</b>" + hex(el, n[0]) + "</p></div>";
+        })
+        .join("");
+    }
+    const a = document.getElementById("sw-a");
+    const acc = [["accent", "primary"], ["accent-hover", "hover"], ["accent-pressed", "pressed"], ["accent-subtle", "soft"], ["accent-tint", "tint"], ["accent-2", "accent 2"], ["accent-2-bg", "accent 2 bg"], ["ring", "focus ring"]];
+    sw("sw-a", acc, a);
+    var dirAttr = document.documentElement.getAttribute("data-dir");
+    if (dirAttr === "b") document.getElementById("dir-title").textContent = "Direction B · Calm Azure (Deep Blue)";
+    if (dirAttr === "cliniq") document.getElementById("dir-title").textContent = "CliniQ AI · CliniQ Blue and Care Teal";
+    document.getElementById("neutrals").innerHTML = [["canvas", "canvas"], ["surface-soft", "soft"], ["surface-muted", "muted"], ["border", "hairline"], ["border-strong", "strong"], ["border-control", "control"], ["fg-icon", "icon"], ["fg-muted", "muted text"], ["fg-secondary", "secondary"], ["fg", "ink"], ["danger-fg", "critical"], ["warning-fg", "waiting"], ["info-fg", "information"], ["success-fg", "done"]]
+      .map((n) => '<div><i style="background:var(--color-' + n[0] + ')"></i><span>' + n[1] + "<br>" + cs.getPropertyValue("--color-" + n[0]).trim() + "</span></div>")
+      .join("");
+    // resolve var() chains for display
+    document.querySelectorAll(".neutrals span, .sw p").forEach((p) => {
+      const m = /var\((--[a-z0-9-]+)\)/i.exec(p.textContent);
+      if (m) p.innerHTML = p.innerHTML.replace(/var\((--[a-z0-9-]+)\)/i, cs.getPropertyValue(m[1]).trim());
+    });
+    const inr = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    const t = new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+    const d = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+    const at = new Date(Date.UTC(2026, 10, 12, 4, 0));
+    const items = [
+      [inr.format(149900), "₹1,49,900 · lakh grouping"],
+      [inr.format(125000), "₹1,25,000"],
+      [inr.format(499.5).replace(/\.5$/, ".50"), "paise only when non-zero"],
+      ["₹1,499 + GST", "plan price, everywhere (PO-20)"],
+      [inr.format(1768.82) + " per month incl. 18% GST", "checkout and debit notices"],
+      ["−" + inr.format(50), "discount, true minus"],
+      [t.format(at).replace(/\s?(AM|PM)$/i, (m) => m.toLowerCase()), "time, 12-hour lowercase"],
+      [d.format(at), "date"],
+      ["42 y · M  ·  8 m · F", "age and sex"],
+      ["+91 90000 00114", "phone"],
+      ["CQ/26-27/00123", "receipt number, FY"],
+      ["BP 150/95 · 100.8°F", "vitals"],
+    ];
+    document.getElementById("nums").innerHTML = items.map((i) => "<div><b>" + i[0] + "</b><span>" + i[1] + "</span></div>").join("");
+  })();
+</script>
+</body>
+</html>

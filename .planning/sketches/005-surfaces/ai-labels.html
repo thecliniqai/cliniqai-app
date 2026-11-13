@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Assist labels · V2-DX</title>
+<link rel="stylesheet" href="../themes/clinic-paper.css">
+<link rel="stylesheet" href="../shared/sketch.css">
+<link rel="stylesheet" href="surfaces.css">
+</head>
+<body>
+<main class="lf" id="main" data-ai-copy>
+  <header class="lf-head"><p class="tag">DX-04 · AI-02 labelling (AI_STRATEGY §5.3, PO-21)</p><h1 class="title-1">AI Assist and Smart Assist</h1><p class="muted">Only features that call a language model may say “AI” or show the sparkle. Rule-based helpers say “Smart Assist” with a lightning glyph, or nothing.</p></header>
+  <div class="lf-grid">
+    <section class="card" aria-labelledby="l1">
+      <p class="tag">DX-7 option A (recommended): neutral chip, the sparkle is the marker</p>
+      <h2 id="l1">AI Assist</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="chip chip-ai"><i data-icon="sparkles"></i>AI Assist</span><span class="chip chip-preview">Preview</span></div>
+      <button type="button" class="btn btn-secondary" style="justify-self:start"><i data-icon="sparkles"></i>AI Assist <span class="chip chip-preview">Preview</span></button>
+      <div class="ai-draft" style="border:1px dashed var(--color-ai-border);border-radius:var(--radius-lg);padding:12px;display:grid;gap:8px"><span class="chip chip-ai" style="justify-self:start"><i data-icon="sparkles"></i>AI draft</span><p class="body-sm">Complaints: headache for 3 days.</p></div>
+    </section>
+    <section class="card" aria-labelledby="l2">
+      <p class="tag">DX-7 option B: a dedicated plum hue</p>
+      <h2 id="l2">AI Assist (plum)</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="chip" style="background:var(--color-plum-50);color:var(--color-plum-700);border-color:var(--color-plum-500)"><i data-icon="sparkles"></i>AI Assist</span><span class="chip chip-preview">Preview</span></div>
+      <p class="body-sm muted">More noticeable, but adds an eighth hue to a palette where every hue already means a status. Plum sits close to “To bill” violet and to danger red on small chips.</p>
+    </section>
+    <section class="card" aria-labelledby="l3">
+      <p class="tag">Smart Assist (deterministic, base plan)</p>
+      <h2 id="l3">Labelled where it adds information</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="smart"><i data-icon="zap"></i>Smart Assist</span><button type="button" class="toggle-chip" aria-pressed="false">Repeat last Rx (2)</button></div>
+      <div class="suggest" style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--color-border);border-radius:var(--radius-lg);font-size:var(--text-body-sm)"><span class="smart"><i data-icon="zap"></i>Smart Assist</span><span>Next free slot: 11:30 am today</span></div>
+      <p class="body-sm muted">Unlabelled where self-evident: diagnosis synonyms (HTN, URTI), duplicate-patient hints, vitals range flags.</p>
+    </section>
+    <section class="card" aria-labelledby="l4">
+      <p class="tag">Preview note (trial only; owner opted in)</p>
+      <h2 id="l4">Preview chip and note</h2>
+      <div style="display:flex;gap:8px;align-items:center"><span class="chip chip-ai"><i data-icon="sparkles"></i>AI Assist</span><span class="chip chip-preview">Preview</span></div>
+      <p class="body-sm muted">AI features are in preview and not yet offered as a paid product.</p>
+      <p class="caption subtle">After the trial the entry point is not rendered. There is no lock icon or upsell anywhere.</p>
+    </section>
+    <section class="card" aria-labelledby="l5">
+      <p class="tag">Plan and billing pages</p>
+      <h2 id="l5">“Coming soon” row</h2>
+      <div class="soon"><span>AI features</span><span>Coming soon</span></div>
+      <p class="body-sm muted">Muted, with no amount, no button and no link. It sits in its own section on the plan page.</p>
+    </section>
+  </div>
+</main>
+<script src="../shared/proto.js"></script>
+</body>
+</html>
