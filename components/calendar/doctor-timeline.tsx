@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { Visit, Patient, DoctorWeeklySchedule, ScheduleBlock, DayOfWeek } from "@/lib/db/types";
-import { ymdOf } from "@/lib/datetime";
+import { isYmd, weekdayOfYmd, ymdOf } from "@/lib/datetime";
 import { useClinicTimeZone } from "@/lib/datetime/client";
 import { Clock, Plus, AlertCircle, XCircle, Stethoscope, Ban, Coffee, Check, CheckCircle2, Loader2 } from "lucide-react";
 
@@ -36,16 +36,6 @@ export interface DoctorTimelineProps {
   confirmingId?: string | null;
 }
 
-const DAY_NAMES: DayOfWeek[] = [
-  "sunday",
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-];
-
 export function DoctorTimeline({
   doctors,
   visits,
@@ -59,10 +49,10 @@ export function DoctorTimeline({
   const timeZone = useClinicTimeZone();
 
   // Day of week for currentDate
-  const dayKey = useMemo<DayOfWeek>(() => {
-    const d = new Date(`${currentDate}T00:00:00`);
-    return DAY_NAMES[d.getDay()] || "monday";
-  }, [currentDate]);
+  const dayKey = useMemo<DayOfWeek>(
+    () => (isYmd(currentDate) ? weekdayOfYmd(currentDate) : "monday"),
+    [currentDate]
+  );
 
   // Compute dynamic start and end hours based on active doctor shifts
   const { startHour, endHour } = useMemo(() => {
