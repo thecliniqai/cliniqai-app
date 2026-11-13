@@ -1,0 +1,7 @@
+# negative: route deleted (no handler)
+ FAIL  tests/auth/send-email-hook.spec.ts [ tests/auth/send-email-hook.spec.ts ]
+ FAIL  tests/integration/auth/mailpit-sender.spec.ts [ tests/integration/auth/mailpit-sender.spec.ts ]
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/security/guard-routes.spec.ts > P0-13: every route handler is in the guard manifest and guarded > the manifest lists exactly the inventoried route methods (a new route without an entry fails here)
+ Test Files  3 failed (3)
+      Tests  1 failed | 52 passed (53)

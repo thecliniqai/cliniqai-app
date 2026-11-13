@@ -1,0 +1,23 @@
+# registry.npmjs.org/@smithy/core: deprecation flag per 3.3x version (2026-11-13T01:06:51Z); 03-11b resolved the SES tree with npm install --before=2026-11-06T00:00:00Z
+3.30.0 2026-07-24 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.31.0 2026-07-27 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.31.1 2026-07-29 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.32.0 2026-08-11 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.33.0 2026-08-14 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.33.1 2026-08-15 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.33.2 2026-08-15 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.33.3 2026-08-20 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.34.0 2026-09-11 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.34.1 2026-09-11 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.35.0 2026-09-22 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.35.1 2026-09-30 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.35.2 2026-10-08 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.36.0 2026-10-13 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.36.1 2026-10-20 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.36.2 2026-10-21 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.37.0 2026-10-26 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.38.0 2026-10-29 DEPRECATED: Deprecated due to a bug in custom logger data redaction
+3.38.1 2026-10-30 ok
+3.39.0 2026-11-04 ok
+# resolved in package-lock.json:
+3.39.0

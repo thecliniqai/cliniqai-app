@@ -1,0 +1,8 @@
+# negative: magiclink passed like signup (A00-1 drop removed)
+ ✓ tests/security/guard-routes.spec.ts (54 tests) 2538ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: drops (A00-1 and default deny) > magiclink → 200 and zero sends, logged as dropped with reason magiclink
+ FAIL  tests/auth/send-email-hook.spec.ts > Send Email hook: sender failures surface to Supabase Auth > magiclink is still dropped with 200 when email is disabled (the drop needs no provider)
+ FAIL  tests/integration/auth/mailpit-sender.spec.ts > Send Email hook path → Mailpit (local stack) > magiclink: 200 and zero emails in Mailpit (A00-1)
+ Test Files  2 failed | 1 passed (3)
+      Tests  3 failed | 82 passed (85)

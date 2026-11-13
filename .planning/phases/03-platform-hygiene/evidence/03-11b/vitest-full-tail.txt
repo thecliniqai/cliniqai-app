@@ -1,0 +1,8 @@
+
+ Test Files  136 passed (136)
+      Tests  2546 passed (2546)
+   Start at  06:30:31
+   Duration  149.75s (transform 858ms, setup 571ms, collect 10.38s, tests 127.37s, environment 7ms, prepare 2.60s)
+
+JSON report written to /Users/sid/Code/clinicOS/.planning/phases/03-platform-hygiene/evidence/03-11b/vitest-full.json
+[teardown] removed run data: 109 tenant(s), 223 auth user(s), 1398 storage object(s); verified none remain
