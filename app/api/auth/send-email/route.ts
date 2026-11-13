@@ -26,7 +26,7 @@ import { z } from "zod";
 import { EmailDisabledError, getEmailSender, type EmailMessage } from "@/lib/email";
 import { renderAuthEmail, type AuthEmailKind } from "@/lib/email/templates/auth";
 import { serverEnv } from "@/lib/env-server";
-import { errorTag, log } from "@/lib/log";
+import { errorTag, log, logWord, type LogWord } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
 export const dynamic = "force-dynamic";
@@ -64,8 +64,8 @@ function ok(): NextResponse {
 }
 
 /** The action type for a log line: a known shape, or a fixed marker (it is signed input, but still not free text). */
-function actionLabel(action: string): string {
-  return /^[a-z_]{1,40}$/.test(action) ? action : "unrecognised";
+function actionLabel(action: string): LogWord {
+  return /^[a-z_]{1,40}$/.test(action) ? logWord(action) : "unrecognised";
 }
 
 type Delivery = { kind: AuthEmailKind; to: string; code?: string };
@@ -176,10 +176,10 @@ export async function POST(request: NextRequest): Promise<Response> {
   } catch (err) {
     const disabled = err instanceof EmailDisabledError;
     const status = disabled ? 503 : 500;
-    log.error({ event: "auth.email.failed", requestId, module: `${MODULE}.${provider}`, action, code: errorTag(err), status });
+    log.error({ event: "auth.email.failed", requestId, module: logWord(`${MODULE}.${provider}`), action, code: errorTag(err), status });
     return hookError(status, disabled ? "Email delivery is disabled" : "Email could not be sent");
   }
 
-  log.info({ event: "auth.email.sent", requestId, module: `${MODULE}.${provider}`, action, count: deliveries.length });
+  log.info({ event: "auth.email.sent", requestId, module: logWord(`${MODULE}.${provider}`), action, count: deliveries.length });
   return ok();
 }

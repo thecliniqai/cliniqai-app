@@ -10,7 +10,8 @@
 import { sanitiseFields, type LogFields, type LogLevel } from "./fields";
 
 export { errorTag } from "@/lib/errors/error-tag";
-export type { LogFields, LogLevel } from "./fields";
+export type { LogFields, LogLevel, LogRoute, LogWord } from "./fields";
+export { logWord } from "./fields";
 
 function write(level: LogLevel, fields: LogFields): void {
   const line = JSON.stringify({ ts: new Date().toISOString(), level, ...sanitiseFields(fields) }) + "\n";

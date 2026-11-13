@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { errorTag, log } from "@/lib/log";
 import { reportClientError } from "@/lib/log/client";
-import { INVALID_EVENT, MAX_STRING } from "@/lib/log/fields";
+import { INVALID_EVENT, MAX_COUNT, sanitiseFields, type LogWord } from "@/lib/log/fields";
 
 const TENANT = "11111111-2222-4333-8444-555555555555";
 const USER = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -92,7 +92,7 @@ describe("log: closed field set", () => {
       tenantId: TENANT,
       userId: USER,
       route: "/api/v1/patients/[id]",
-      action: "recordPayment",
+      action: "record_payment",
       module: "billing",
       reason: "duplicate",
       code: errorTag(Object.assign(new Error("Key (phone)=(+919000000001)"), { code: "23505" })),
@@ -110,7 +110,7 @@ describe("log: closed field set", () => {
       tenantId: TENANT,
       userId: USER,
       route: "/api/v1/patients/[id]",
-      action: "recordPayment",
+      action: "record_payment",
       module: "billing",
       reason: "duplicate",
       code: "23505",
@@ -121,10 +121,10 @@ describe("log: closed field set", () => {
     expect(stderr).not.toHaveBeenCalled();
   });
 
-  it("truncates strings, drops a malformed code and non-finite or non-numeric numbers", () => {
+  it("drops an over-long word, a malformed code and non-finite or non-numeric numbers", () => {
     log.error({
       event: "jobs.run_failed",
-      reason: "x".repeat(500),
+      reason: "x".repeat(500) as LogWord,
       code: "Key (phone)=(+919000000001)",
       status: Number.NaN,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -132,7 +132,7 @@ describe("log: closed field set", () => {
       durationMs: Number.POSITIVE_INFINITY,
     });
     const line = onlyLine(stderr);
-    expect(line.reason).toBe("x".repeat(MAX_STRING));
+    expect(line).not.toHaveProperty("reason");
     expect(line).not.toHaveProperty("code");
     expect(line).not.toHaveProperty("status");
     expect(line).not.toHaveProperty("count");
@@ -176,5 +176,64 @@ describe("reportClientError (R-29)", () => {
     for (const spy of consoleSpies) expect(spy).not.toHaveBeenCalled();
     expect(stdout).not.toHaveBeenCalled();
     expect(stderr).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * 03-13d M-LOGFIELDS (review C M-1): `reason`, `action`, `module` and `route` used to be written verbatim (cut to 120
+ * characters), and `status`/`count`/`durationMs` accepted any finite number. A caller that bypasses the types (a cast,
+ * `any`) with row data, an email or a phone now gets the field dropped, never written.
+ */
+describe("closed field values (03-13d)", () => {
+  const PHI = [
+    "Key (phone)=(+919000000051) synthetic.patient@example.com",
+    "Synthetic Patientname",
+    "9000000052",
+    "synthetic.patient@example.com",
+    "visit_for_9000000053",
+    "Recordpayment",
+  ];
+
+  it.each(PHI)("reason/action/module carrying %j are dropped", (value) => {
+    const line = sanitiseFields({ event: "a.b", reason: value, action: value, module: value });
+    expect(line).toEqual({ event: "a.b" });
+  });
+
+  it.each(["/r/abcDEF1234567890token", "/patients/9000000054", "/r/secrettoken123?phone=98", "Key (phone)=(x)", "patients"])(
+    "a route %j that is not a plain pattern is dropped",
+    (route) => {
+      expect(sanitiseFields({ event: "a.b", route })).toEqual({ event: "a.b" });
+    },
+  );
+
+  it("keeps machine words and route patterns", () => {
+    expect(
+      sanitiseFields({ event: "a.b", reason: "rate_limited", action: "auth.signout:others", module: "auth.email.ses", route: "/r/[token]" }),
+    ).toEqual({ event: "a.b", route: "/r/[token]", action: "auth.signout:others", module: "auth.email.ses", reason: "rate_limited" });
+  });
+
+  it("status must be an HTTP status; count and durationMs bounded non-negative integers", () => {
+    expect(sanitiseFields({ event: "a.b", status: 919000000055, count: 9000000056, durationMs: -1 })).toEqual({ event: "a.b" });
+    expect(sanitiseFields({ event: "a.b", status: 99 })).toEqual({ event: "a.b" });
+    expect(sanitiseFields({ event: "a.b", status: 404.5, count: 1.5 })).toEqual({ event: "a.b" });
+    expect(sanitiseFields({ event: "a.b", status: 503, count: MAX_COUNT, durationMs: 0 })).toEqual({
+      event: "a.b",
+      status: 503,
+      durationMs: 0,
+      count: MAX_COUNT,
+    });
+  });
+
+  it("a code carrying a phone-sized digit run is dropped", () => {
+    expect(sanitiseFields({ event: "a.b", code: "x_9000000057" })).toEqual({ event: "a.b" });
+  });
+
+  it("the types refuse free text: an error message does not compile as reason, action, module or route", () => {
+    const err = new Error("Key (phone)=(+919000000058)");
+    // @ts-expect-error a plain string (an error message) is not a LogWord
+    const reason: LogWord = err.message;
+    // @ts-expect-error a plain string is not a route pattern
+    const route: `/${string}` = err.message;
+    expect([reason, route]).toHaveLength(2);
   });
 });

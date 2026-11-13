@@ -1,0 +1,11 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/observability/logger.spec.ts (25 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  25 passed (25)
+   Start at  08:22:52
+   Duration  271ms (transform 61ms, setup 8ms, collect 17ms, tests 6ms, environment 0ms, prepare 19ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

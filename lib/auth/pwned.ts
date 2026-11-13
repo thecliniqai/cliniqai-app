@@ -61,7 +61,7 @@ function listsSuffix(body: string, suffix: string): boolean {
   return false;
 }
 
-function unavailable(reason: string, status?: number): PwnedResult {
+function unavailable(reason: "http_status" | "timeout" | "network", status?: number): PwnedResult {
   // Reason and HTTP status only: never the password, the hash, the prefix or the suffix.
   log.warn({ event: "pwned.unavailable", module: "auth.pwned", reason, ...(status !== undefined ? { status } : {}) });
   return "unavailable";
