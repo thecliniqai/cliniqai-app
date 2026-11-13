@@ -393,6 +393,24 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
     run `gh run list --workflow backup-evidence.yml --limit 1 --json conclusion,url,headSha` and `gh run download <id>
     -n backup-evidence`, then `npx tsx ops/backup/evidence.ts --check <file>`.
 
+- [ ] **04-R2 · Staging backups on Cloudflare R2 (replaces 04-P2…P6; PO decision B-3; ruling R-48). Low priority: only after staging exists**
+  - *Do / where:* (1) Cloudflare → R2 → create bucket `clinicos-staging-backups` (no public access; location hint
+    Asia-Pacific) → Settings → Object lifecycle: delete objects 30 days after upload. (2) R2 → Manage API tokens →
+    `clinicos-staging-backup`, **Object Read & Write**, this bucket only. (3) Supabase staging → Storage → S3 connection
+    → enable and create an access key. (4) GitHub → Settings → Environments → **`staging-backup`**: no required
+    reviewer, deployment branches `feature/v2` only. Secrets: `BACKUP_S3_ENDPOINT`
+    (`https://<account-id>.r2.cloudflarestorage.com`), `BACKUP_S3_BUCKET`, `BACKUP_S3_ACCESS_KEY_ID`,
+    `BACKUP_S3_SECRET_ACCESS_KEY`, `BACKUP_AGE_RECIPIENTS` (two age public keys, 04-P3), `STAGING_STORAGE_S3_KEY_ID`,
+    `STAGING_STORAGE_S3_SECRET`, `STAGING_BACKUP_DB_URL` (same value as `STAGING_DB_URL`). Variables:
+    `STAGING_STORAGE_S3_REGION`, `SUPABASE_PROJECT_REF_STAGING`. (5) Make the two age key pairs (04-P3; private keys
+    stay offline). (6) Watch repo Issues from the ops inbox ("Staging backup failing").
+  - *Why:* FT-02 twice-daily encrypted backups without paying for AWS before go-live.
+  - *Verify (Claude):* `gh api repos/thecliniqai/cliniqai-app/environments --jq '.environments[].name'` includes
+    `staging-backup`; `gh secret list --env staging-backup` (names only); after merge, the first scheduled `backup.yml`
+    run is green and the drills follow (04-P11, 04-P13; runbook `docs/runbooks/backup-restore.md` §7).
+  - *Accepted risks until go-live (owner V2-15):* no R2 versioning, the token can delete, no India region, a
+    `postgres` URL in an Environment with no reviewer. Staging data is synthetic.
+
 - [ ] **04-P7 · Monitored ops inbox**
   - *Do / where:* choose an address you read daily (e.g. `ops@<domain>` from 03-E0). (a) Supabase organisation
     `clinicos-staging` → Settings → billing/notification email = this address (pause and quota warnings, FT-03);
