@@ -16,6 +16,7 @@ import type {
 import { errorTag, log } from "@/lib/log";
 import { DEFAULT_APP_ERROR_MESSAGES } from "@/lib/errors/app-error";
 import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 export type {
   WebhookSubscriptionItem,
@@ -76,7 +77,7 @@ export async function listWebhookSubscriptions(ctx: ServiceContext): Promise<{
     return {
       success: false,
       subscriptions: [],
-      error: err instanceof Error ? err.message : "Access denied.",
+      error: clientErrorMessage(err, "Access denied."),
     };
   }
 }
@@ -177,9 +178,7 @@ export async function createWebhookSubscription(
     return {
       success: false,
       error:
-        err instanceof Error
-          ? err.message
-          : "Unable to register webhook endpoint.",
+        clientErrorMessage(err, "Unable to register webhook endpoint."),
     };
   }
 }
@@ -230,9 +229,7 @@ export async function deleteWebhookSubscription(
     return {
       success: false,
       error:
-        err instanceof Error
-          ? err.message
-          : "Unable to delete webhook endpoint.",
+        clientErrorMessage(err, "Unable to delete webhook endpoint."),
     };
   }
 }
@@ -314,7 +311,7 @@ export async function testPingWebhook(
     log.error({ event: "webhooks.test_ping.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Test ping failed.",
+      error: clientErrorMessage(err, "Test ping failed."),
     };
   }
 }
@@ -373,7 +370,7 @@ export async function listDeliveryLogs(
     return {
       success: false,
       logs: [],
-      error: err instanceof Error ? err.message : "Access denied.",
+      error: clientErrorMessage(err, "Access denied."),
     };
   }
 }

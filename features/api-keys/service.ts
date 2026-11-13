@@ -7,6 +7,7 @@ import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { getTenantToday } from "@/lib/datetime/server";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // API key management use-cases (clinic:manage, as before). Tenant and creator come only from `ctx` (ADR-0005 D1).
 
@@ -87,7 +88,7 @@ export async function listApiKeys(ctx: ServiceContext): Promise<ListApiKeysResul
     return {
       success: false,
       keys: [],
-      error: err instanceof Error ? err.message : "Access denied or session invalid.",
+      error: clientErrorMessage(err, "Access denied or session invalid."),
     };
   }
 }
@@ -158,7 +159,7 @@ export async function createApiKey(ctx: ServiceContext, name: string): Promise<C
     log.error({ event: "apikeys.create.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Unable to generate API key.",
+      error: clientErrorMessage(err, "Unable to generate API key."),
     };
   }
 }
@@ -210,7 +211,7 @@ export async function revokeApiKey(ctx: ServiceContext, keyId: string): Promise<
     log.error({ event: "apikeys.revoke.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Unable to revoke API key.",
+      error: clientErrorMessage(err, "Unable to revoke API key."),
     };
   }
 }

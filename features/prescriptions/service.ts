@@ -20,6 +20,7 @@ import { PrescriptionPdfPayload } from "./pdf/prescription-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Prescription use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move. `notifyPrescriptionIssued` was deleted (P0-01): the only
@@ -72,7 +73,7 @@ export async function searchMedicines(ctx: ServiceContext, query: string, limit 
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to search medicines.",
+      error: clientErrorMessage(err, "Failed to search medicines.", "prescriptions.search_medicines.failed"),
     };
   }
 }
@@ -151,7 +152,7 @@ export async function getOrCreateDraftPrescription(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to initialize prescription.",
+      error: clientErrorMessage(err, "Failed to initialize prescription.", "prescriptions.get_or_create_draft_prescription.failed"),
     };
   }
 }
@@ -172,7 +173,7 @@ export async function addPrescriptionItem(
   try {
     assertPerm(ctx.role, "consultations:edit");
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Failed to record medication." };
+    return { success: false, error: clientErrorMessage(err, "Failed to record medication.", "prescriptions.add_prescription_item.failed") };
   }
 
   const parseResult = prescriptionItemSchema.safeParse(input);
@@ -270,7 +271,7 @@ export async function addPrescriptionItem(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to record medication.",
+      error: clientErrorMessage(err, "Failed to record medication.", "prescriptions.add_prescription_item.failed"),
     };
   }
 }
@@ -322,7 +323,7 @@ export async function removePrescriptionItem(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to remove medication.",
+      error: clientErrorMessage(err, "Failed to remove medication.", "prescriptions.remove_prescription_item.failed"),
     };
   }
 }
@@ -341,7 +342,7 @@ export async function saveDoctorProtocolTemplate(
   try {
     assertPerm(ctx.role, "consultations:edit");
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Failed to save protocol template." };
+    return { success: false, error: clientErrorMessage(err, "Failed to save protocol template.", "prescriptions.save_doctor_protocol_template.failed") };
   }
 
   const parseResult = protocolTemplateSchema.safeParse(input);
@@ -385,7 +386,7 @@ export async function saveDoctorProtocolTemplate(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to save protocol template.",
+      error: clientErrorMessage(err, "Failed to save protocol template.", "prescriptions.save_doctor_protocol_template.failed"),
     };
   }
 }
@@ -438,7 +439,7 @@ export async function getDoctorProtocolTemplates(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to load protocol templates.",
+      error: clientErrorMessage(err, "Failed to load protocol templates.", "prescriptions.get_doctor_protocol_templates.failed"),
     };
   }
 }
@@ -518,7 +519,7 @@ export async function getVisitPrescription(ctx: ServiceContext, visitId: string)
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to load prescription.",
+      error: clientErrorMessage(err, "Failed to load prescription.", "prescriptions.get_visit_prescription.failed"),
     };
   }
 }
@@ -679,7 +680,7 @@ export async function getPrescriptionPdfSignedUrl(
     log.error({ event: "prescriptions.pdf_signed_url.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to generate prescription preview.",
+      error: clientErrorMessage(err, "Failed to generate prescription preview."),
     };
   }
 }
@@ -785,7 +786,7 @@ export async function sharePrescriptionViaWhatsApp(
     log.error({ event: "prescriptions.whatsapp_share.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to share prescription.",
+      error: clientErrorMessage(err, "Failed to share prescription."),
     };
   }
 }

@@ -20,6 +20,7 @@ import { isSlotWithinShifts, getTimePartsFromISO } from "./scheduling-utils";
 import { createVisit } from "./service";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Scheduling use-cases (blocks, slot checks, booking). Tenant and actor come only from `ctx` (ADR-0005 D1); each
 // use-case checks the permission its server action checked before the move.
@@ -117,7 +118,7 @@ export async function createScheduleBlock(
     log.error({ event: "visits.schedule_block_create.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to create schedule block.",
+      error: clientErrorMessage(err, "Failed to create schedule block."),
     };
   }
 }
@@ -183,7 +184,7 @@ export async function deleteScheduleBlock(ctx: ServiceContext, blockId: string):
     log.error({ event: "visits.schedule_block_delete.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to delete schedule block.",
+      error: clientErrorMessage(err, "Failed to delete schedule block."),
     };
   }
 }
@@ -405,7 +406,7 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
   try {
     assertPerm(ctx.role, "appointments:edit");
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Failed to book appointment." };
+    return { success: false, error: clientErrorMessage(err, "Failed to book appointment.", "visits.book_appointment.failed") };
   }
 
   const parseResult = bookAppointmentSchema.safeParse(input);

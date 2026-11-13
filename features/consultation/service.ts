@@ -16,6 +16,7 @@ import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Consultation use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission
 // its server action checked before the move, and service->service calls (saveConsultationDraft -> recordFollowUp)
@@ -89,7 +90,7 @@ export async function saveConsultationDraft(
   try {
     assertPerm(ctx.role, "consultations:edit");
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "An unexpected error occurred saving draft." };
+    return { success: false, error: clientErrorMessage(err, "An unexpected error occurred saving draft.", "consultation.save_consultation_draft.failed") };
   }
 
   const parseResult = saveConsultationDraftSchema.safeParse(input);
@@ -210,7 +211,7 @@ export async function saveConsultationDraft(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "An unexpected error occurred saving draft.",
+      error: clientErrorMessage(err, "An unexpected error occurred saving draft.", "consultation.save_consultation_draft.failed"),
     };
   }
 }
@@ -268,7 +269,7 @@ export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpI
         .eq("id", followUpId)
         .eq("tenant_id", ctx.tenantId);
 
-      if (updateErr) throw new Error(updateErr.message);
+      if (updateErr) throw updateErr;
     } else {
       // Insert new follow-up
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -285,7 +286,7 @@ export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpI
         .select("id")
         .single();
 
-      if (insertErr || !inserted) throw new Error(insertErr?.message || "Failed to create follow-up");
+      if (insertErr || !inserted) throw insertErr ?? new Error("Failed to create follow-up");
       followUpId = inserted.id;
     }
 
@@ -302,7 +303,7 @@ export async function recordFollowUp(ctx: ServiceContext, input: RecordFollowUpI
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to record follow-up.",
+      error: clientErrorMessage(err, "Failed to record follow-up.", "consultation.record_follow_up.failed"),
     };
   }
 }
@@ -371,7 +372,7 @@ export async function getPatientConsultationHistory(
     }
 
     const { data: visits, error: visitsErr } = await visitQuery;
-    if (visitsErr) throw new Error(visitsErr.message);
+    if (visitsErr) throw visitsErr;
 
     if (!visits || visits.length === 0) {
       return { success: true, encounters: [] };
@@ -387,7 +388,7 @@ export async function getPatientConsultationHistory(
       .in("visit_id", visitIds)
       .eq("tenant_id", ctx.tenantId);
 
-    if (diagErr) throw new Error(diagErr.message);
+    if (diagErr) throw diagErr;
 
     // 3. Fetch prescriptions for these visits
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -398,7 +399,7 @@ export async function getPatientConsultationHistory(
       .eq("tenant_id", ctx.tenantId)
       .eq("status", "active");
 
-    if (rxErr) throw new Error(rxErr.message);
+    if (rxErr) throw rxErr;
 
     const rxIds = (rxList || []).map((rx: { id: string }) => rx.id);
     let itemsByRx: Record<string, unknown[]> = {};
@@ -411,7 +412,7 @@ export async function getPatientConsultationHistory(
         .in("prescription_id", rxIds)
         .order("sort_order", { ascending: true });
 
-      if (itemsErr) throw new Error(itemsErr.message);
+      if (itemsErr) throw itemsErr;
 
       itemsByRx = (items || []).reduce((acc: Record<string, unknown[]>, item: { prescription_id: string }) => {
         acc[item.prescription_id] = acc[item.prescription_id] || [];
@@ -465,7 +466,7 @@ export async function getPatientConsultationHistory(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to load patient consultation history.",
+      error: clientErrorMessage(err, "Failed to load patient consultation history.", "consultation.get_patient_consultation_history.failed"),
     };
   }
 }
@@ -758,7 +759,7 @@ export async function completeAndSignConsultation(
     log.error({ event: "consultation.sign.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to complete and sign consultation.",
+      error: clientErrorMessage(err, "Failed to complete and sign consultation."),
     };
   }
 }
@@ -780,7 +781,7 @@ export async function reopenVisitForAmendment(
   try {
     assertPerm(ctx.role, "consultations:edit");
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : "Failed to reopen visit for amendment." };
+    return { success: false, error: clientErrorMessage(err, "Failed to reopen visit for amendment.", "consultation.reopen_visit_for_amendment.failed") };
   }
 
   const cleanReason = (reason || "").trim();
@@ -885,7 +886,7 @@ export async function reopenVisitForAmendment(
 
     if (revErr) {
       log.error({ event: "consultation.amend_revision_insert.failed", code: errorTag(revErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to create audit revision record: " + revErr.message };
+      return { success: false, error: "Failed to create audit revision record." };
     }
 
     // 7. Transition visit back to 'in_consultation'
@@ -914,7 +915,7 @@ export async function reopenVisitForAmendment(
     log.error({ event: "consultation.amend_reopen.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to reopen visit for amendment.",
+      error: clientErrorMessage(err, "Failed to reopen visit for amendment."),
     };
   }
 }
@@ -1025,7 +1026,7 @@ export async function finalizeVisitAmendment(
     log.error({ event: "consultation.amend_finalize.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to finalize amendment.",
+      error: clientErrorMessage(err, "Failed to finalize amendment."),
     };
   }
 }

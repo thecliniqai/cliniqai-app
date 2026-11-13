@@ -14,6 +14,7 @@ import {
 } from "./schema";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 export type SearchDiagnosesResult =
   { success: true; results: DiagnosisSearchResult[] } | { success: false; error: string };
@@ -112,7 +113,7 @@ export async function searchDiagnoses(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to search diagnoses.",
+      error: clientErrorMessage(err, "Failed to search diagnoses.", "terminology.search_diagnoses.failed"),
     };
   }
 }
@@ -238,7 +239,7 @@ export async function addConsultationDiagnosis(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to add diagnosis.",
+      error: clientErrorMessage(err, "Failed to add diagnosis.", "terminology.add_consultation_diagnosis.failed"),
     };
   }
 }
@@ -317,7 +318,7 @@ export async function removeConsultationDiagnosis(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to remove diagnosis.",
+      error: clientErrorMessage(err, "Failed to remove diagnosis.", "terminology.remove_consultation_diagnosis.failed"),
     };
   }
 }
@@ -365,7 +366,7 @@ export async function updateDiagnosisNote(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update diagnosis note.",
+      error: clientErrorMessage(err, "Failed to update diagnosis note.", "terminology.update_diagnosis_note.failed"),
     };
   }
 }
@@ -400,7 +401,7 @@ export async function getVisitDiagnoses(ctx: ServiceContext, visitId: string): P
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to load diagnoses.",
+      error: clientErrorMessage(err, "Failed to load diagnoses.", "terminology.get_visit_diagnoses.failed"),
     };
   }
 }

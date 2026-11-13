@@ -11,6 +11,7 @@ import type { QueueItem } from "@/components/queue/queue-card";
 import { getTenantDoctorMap } from "@/features/staff/service";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Queue use-cases (check-in, state transitions, day board). Tenant and actor come only from `ctx` (ADR-0005 D1);
 // each use-case checks the permission its server action checked before the move.
@@ -136,7 +137,7 @@ export async function checkInVisit(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to check in visit.",
+      error: clientErrorMessage(err, "Failed to check in visit.", "queue.check_in_visit.failed"),
     };
   }
 }
@@ -230,7 +231,7 @@ export async function transitionQueueState(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to transition queue state.",
+      error: clientErrorMessage(err, "Failed to transition queue state.", "queue.transition_queue_state.failed"),
     };
   }
 }
@@ -349,7 +350,7 @@ export async function getQueueForDate(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to fetch queue.",
+      error: clientErrorMessage(err, "Failed to fetch queue.", "queue.get_queue_for_date.failed"),
     };
   }
 }

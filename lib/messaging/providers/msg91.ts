@@ -5,6 +5,7 @@ import {
   MessagingSendResult,
 } from "../types";
 import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
+import { errorTag } from "@/lib/errors/error-tag";
 import { WHATSAPP_TEMPLATES } from "../templates";
 import { buildPositionalComponents } from "../templates/mapping";
 
@@ -90,7 +91,7 @@ export class Msg91Provider implements MessagingProvider {
       return {
         success: false,
         channelUsed: "sms",
-        error: err instanceof Error ? err.message : "Unknown MSG91 SMS error",
+        error: `MSG91 SMS request failed (${errorTag(err)})`,
       };
     }
   }
@@ -245,7 +246,7 @@ export class Msg91Provider implements MessagingProvider {
       return {
         success: false,
         channelUsed: "whatsapp",
-        error: err instanceof Error ? err.message : "Unknown MSG91 WhatsApp error",
+        error: `MSG91 WhatsApp request failed (${errorTag(err)})`,
       };
     }
   }

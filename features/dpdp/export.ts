@@ -73,7 +73,7 @@ export async function exportPatientDpdpArchive(
     .single();
 
   if (patientError || !patient) {
-    throw new Error(`Patient not found or unauthorized: ${patientError?.message || "Not found"}`);
+    throw new Error("Patient not found or unauthorized.", { cause: patientError });
   }
 
   // 2. Fetch Tenant / Clinic info

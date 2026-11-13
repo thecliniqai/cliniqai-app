@@ -1,0 +1,6 @@
+# git 4cd4c4b + the M-ERRMSG sweep (after)
+app/api/patients/[id]/export/route.ts:50:    const message = err instanceof Error ? err.message : "";
+features/clinics/actions.ts:59:      error: dbError.message.includes("unique")
+features/settings/service.ts:41:  const msg = err.message ?? "";
+features/staff/actions.ts:141:      const msg = error?.message || "";
+features/staff/actions.ts:91:      (err instanceof Error && err.message === "Unauthenticated");

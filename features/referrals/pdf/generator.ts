@@ -80,9 +80,8 @@ export async function generateAndArchiveReferralPdf(
     );
   } catch (uploadErr) {
     log.error({ event: "referrals.pdf_upload.failed", code: errorTag(uploadErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    throw new Error(
-      `Failed to upload referral letter PDF to storage: ${uploadErr instanceof Error ? uploadErr.message : "Unknown error"}`
-    );
+    // Fixed text: the storage error names the object key (03-13d M-ERRMSG); the cause stays server-side.
+    throw new Error("Failed to upload referral letter PDF to storage.", { cause: uploadErr });
   }
 
   // 4. Generate 3600s signed URL

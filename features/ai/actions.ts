@@ -16,6 +16,7 @@ import {
 } from "@/lib/ai";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 /** Typed "AI unavailable" result (AI-01): no draft, no reason detail beyond the code. */
 export interface AiUnavailableResult {
@@ -107,7 +108,7 @@ export async function getFrequentPrescriptionsAction(input: {
     return {
       success: false,
       suggestions: [],
-      error: err instanceof Error ? err.message : "Failed to retrieve frequent prescriptions.",
+      error: clientErrorMessage(err, "Failed to retrieve frequent prescriptions."),
     };
   }
 }

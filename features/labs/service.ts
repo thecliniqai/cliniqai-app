@@ -17,6 +17,7 @@ import { enqueueWebhookEvent } from "@/lib/webhooks/outbox";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { getTenantToday } from "@/lib/datetime/server";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 const ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
@@ -180,7 +181,7 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
     log.error({ event: "labs.upload.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "An unexpected error occurred during upload.",
+      error: clientErrorMessage(err, "An unexpected error occurred during upload."),
     };
   }
 }
@@ -222,7 +223,7 @@ export async function getPatientDocuments(
     return {
       success: false,
       documents: [],
-      error: err instanceof Error ? err.message : "Failed to load documents.",
+      error: clientErrorMessage(err, "Failed to load documents."),
     };
   }
 }
@@ -273,7 +274,7 @@ export async function getDocumentSignedUrl(
     log.error({ event: "labs.signed_url.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to generate download URL.",
+      error: clientErrorMessage(err, "Failed to generate download URL."),
     };
   }
 }
@@ -333,7 +334,7 @@ export async function generateDocumentShareToken(ctx: ServiceContext, documentId
     log.error({ event: "labs.share_token.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to create share link.",
+      error: clientErrorMessage(err, "Failed to create share link."),
     };
   }
 }
@@ -410,7 +411,7 @@ export async function deleteLabDocument(ctx: ServiceContext, documentId: string)
     log.error({ event: "labs.delete.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to delete document.",
+      error: clientErrorMessage(err, "Failed to delete document."),
     };
   }
 }
@@ -491,7 +492,7 @@ export async function shareLabReportViaWhatsApp(
     log.error({ event: "labs.whatsapp_share.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to share lab report.",
+      error: clientErrorMessage(err, "Failed to share lab report."),
     };
   }
 }

@@ -5,6 +5,7 @@ import {
   MessagingSendResult,
 } from "../types";
 import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
+import { errorTag } from "@/lib/errors/error-tag";
 
 export class TwilioProvider implements MessagingProvider {
   readonly name = "twilio" as const;
@@ -89,7 +90,7 @@ export class TwilioProvider implements MessagingProvider {
       return {
         success: false,
         channelUsed: "sms",
-        error: err instanceof Error ? err.message : "Unknown Twilio SMS error",
+        error: `Twilio SMS request failed (${errorTag(err)})`,
       };
     }
   }
@@ -166,7 +167,7 @@ export class TwilioProvider implements MessagingProvider {
       return {
         success: false,
         channelUsed: "whatsapp",
-        error: err instanceof Error ? err.message : "Unknown Twilio WhatsApp error",
+        error: `Twilio WhatsApp request failed (${errorTag(err)})`,
       };
     }
   }

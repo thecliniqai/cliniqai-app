@@ -5,6 +5,7 @@ import {
   MessagingSendResult,
 } from "../types";
 import { providerSignal, syntheticRecipientRefusal } from "../provider-guard";
+import { errorTag } from "@/lib/errors/error-tag";
 
 export class GupshupProvider implements MessagingProvider {
   readonly name = "gupshup" as const;
@@ -114,7 +115,7 @@ export class GupshupProvider implements MessagingProvider {
       return {
         success: false,
         channelUsed: "whatsapp",
-        error: err instanceof Error ? err.message : "Unknown Gupshup WhatsApp error",
+        error: `Gupshup WhatsApp request failed (${errorTag(err)})`,
       };
     }
   }

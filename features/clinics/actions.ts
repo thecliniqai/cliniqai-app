@@ -55,9 +55,10 @@ export async function createClinic(formData: FormData): Promise<CreateClinicResu
   if (dbError) {
     return {
       success: false,
+      // Fixed texts only (03-13d M-ERRMSG): the RPC's message can carry the caller's input.
       error: dbError.message.includes("unique")
         ? "Clinic creation conflict. Please try again."
-        : dbError.message,
+        : "Unable to create the clinic. Please try again.",
     };
   }
 

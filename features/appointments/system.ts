@@ -144,7 +144,7 @@ export async function cancelAppointment(sys: AppointmentSystemContext, input: Ca
     throw new Error("Appointment not cancellable");
   }
   if (updateError || !updated) {
-    throw new Error(`Failed to cancel appointment: ${updateError?.message || "Unknown error"}`);
+    throw new Error("Failed to cancel appointment.", { cause: updateError });
   }
 
   // Enqueue webhook event: appointment.cancelled

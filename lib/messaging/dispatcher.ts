@@ -7,6 +7,7 @@ import {
 import { getMessagingProvider } from "./index";
 import { InteractiveButton, MessagingProvider } from "./types";
 import { errorTag, log } from "@/lib/log";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 export interface EnqueueMessageInput {
   tenantId: string;
@@ -99,7 +100,7 @@ export async function enqueueMessage(
     .single();
 
   if (error || !data) {
-    throw new Error(`Failed to enqueue communication: ${error?.message || "Unknown error"}`);
+    throw new Error("Failed to enqueue communication.", { cause: error });
   }
 
   const enqueued = data as EnqueuedMessage;
@@ -170,7 +171,7 @@ export async function dispatchQueuedMessage(
   } catch (err: unknown) {
     sendResult = {
       success: false,
-      error: err instanceof Error ? err.message : "Unexpected dispatcher error",
+      error: clientErrorMessage(err, "Unexpected dispatcher error", "messaging.dispatch_queued_message.failed"),
     };
   }
 

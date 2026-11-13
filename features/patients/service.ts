@@ -7,6 +7,7 @@ import { patientSchema, PatientInput, PatientVisitHistoryItem } from "./schema";
 import { Patient } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -74,7 +75,7 @@ export async function createPatient(ctx: ServiceContext, input: PatientInput): P
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to register patient.",
+      error: clientErrorMessage(err, "Failed to register patient.", "patients.create_patient.failed"),
     };
   }
 }
@@ -159,7 +160,7 @@ export async function updatePatient(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update patient.",
+      error: clientErrorMessage(err, "Failed to update patient.", "patients.update_patient.failed"),
     };
   }
 }

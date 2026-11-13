@@ -20,6 +20,7 @@ import {
 import { recordVitalsInputSchema, type RecordVitalsInput, type Vitals } from "@/features/consultation/schema";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Visit use-cases. The acting tenant and user come only from `ctx` (ADR-0005 D1); each use-case checks the same
 // permission its server action checked before the move, so service→service chains are checked too.
@@ -115,7 +116,7 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to create visit.",
+      error: clientErrorMessage(err, "Failed to create visit.", "visits.create_visit.failed"),
     };
   }
 }
@@ -174,7 +175,7 @@ export async function getVisitsForDate(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to fetch visits.",
+      error: clientErrorMessage(err, "Failed to fetch visits.", "visits.get_visits_for_date.failed"),
     };
   }
 }
@@ -239,7 +240,7 @@ export async function updateVisitStatus(
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to update visit status.",
+      error: clientErrorMessage(err, "Failed to update visit status.", "visits.update_visit_status.failed"),
     };
   }
 }
@@ -312,7 +313,7 @@ export async function confirmAppointment(ctx: ServiceContext, visitId: string): 
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to confirm appointment.",
+      error: clientErrorMessage(err, "Failed to confirm appointment.", "visits.confirm_appointment.failed"),
     };
   }
 }
@@ -469,7 +470,7 @@ export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise
   } catch (err: unknown) {
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to cancel visit.",
+      error: clientErrorMessage(err, "Failed to cancel visit.", "visits.cancel_visit.failed"),
     };
   }
 }
@@ -969,7 +970,7 @@ export async function recordVisitVitals(
     log.error({ event: "visits.vitals.failed", code: errorTag(err), requestId: await getRequestId(), tenantId: ctx.tenantId });
     return {
       success: false,
-      error: err instanceof Error ? err.message : "Failed to record patient vitals.",
+      error: clientErrorMessage(err, "Failed to record patient vitals."),
     };
   }
 }
