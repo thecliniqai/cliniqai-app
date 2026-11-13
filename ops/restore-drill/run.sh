@@ -10,11 +10,13 @@
 #
 # --dump/--identity paths must be OUTSIDE this repository (real dumps and keys never enter the repo or an agent
 # session, R-29). --decrypt-only proves a key (e.g. the break-glass key) without restoring or writing plaintext.
-# --expect-sha256 (04-07c, M-BACKUPAUTH): the archive's SHA-256 as the backup run recorded it OUTSIDE the bucket (the
-# backup.yml run's job summary or its `backup-evidence` artifact `archive-digest.json`, or `ops.backup_runs`). The
-# archive is refused before `age -d` when it differs: age gives confidentiality only, and the R2 token can replace an
-# object. After decrypting, ops/restore-drill/sql-guard.ts refuses SQL that holds a psql meta-command (`\! …`) before
-# any of it runs, and every psql call runs with -X.
+# --expect-sha256 (04-07c, M-BACKUPAUTH): the archive's SHA-256 as the green GitHub backup.yml run recorded it (its
+# job summary or its `backup-evidence` artifact `archive-digest.json`), never from the bucket and never from
+# `ops.backup_runs` (04-07d, N-2: the backup Environment's database URL can write that table). The archive is refused
+# before `age -d` when it differs: age gives confidentiality only, and the R2 token can replace an object. After
+# decrypting, ops/restore-drill/sql-guard.ts refuses SQL that holds a psql meta-command (`\! …`) before any of it runs
+# and writes the restore copies; the restore runs them with psql in restricted mode under a fresh key (04-07d, N-2:
+# ops/bin/psql-restricted.sh, so psql itself refuses every meta-command), and every psql call runs with -X.
 # --self-test (local only, synthetic data): seeds the primary local stack (`npm run seed:local`), uploads one synthetic
 # Storage object, generates two throwaway age key pairs in a temp dir, runs ops/backup/backup.sh with BACKUP_ENV=local
 # (the local Storage S3 endpoint stands in for the R2 bucket), downloads the archive from the stand-in, runs the drill with
@@ -157,10 +159,11 @@ run_drill() { # <archive> <identity>
   [[ "$(json_get "$plain/manifest.json" format_version)" == "1" ]] || die "unsupported manifest format_version"
   CHECK_DECRYPT=true
 
-  # 04-07c (M-BACKUPAUTH): no psql meta-command in any SQL file, checked before anything is executed.
+  # 04-07c (M-BACKUPAUTH): no psql meta-command in any SQL file, checked before anything is executed. 04-07d (N-2): the
+  # guard writes the restore copies the restore runs (pg_dump's own \restrict lines as comments) to $plain/restore.
   log "restore-drill.sql_guard"
-  (cd "$ROOT" && npx tsx ops/restore-drill/sql-guard.ts "$plain/roles.sql" "$plain/schema.sql" "$plain/storage_policies.sql" \
-    "$plain/data.sql" "$plain/history_schema.sql" "$plain/history_data.sql") \
+  (cd "$ROOT" && npx tsx ops/restore-drill/sql-guard.ts --emit-dir "$plain/restore" "$plain/roles.sql" "$plain/schema.sql" \
+    "$plain/storage_policies.sql" "$plain/data.sql" "$plain/history_schema.sql" "$plain/history_data.sql") \
     || die "the archive's SQL holds a psql meta-command or a refused COPY form: refused before restore"
   CHECK_SQL_GUARD=true
 
@@ -179,18 +182,20 @@ run_drill() { # <archive> <identity>
   [[ "$DRILL_DB_URL" == *"@127.0.0.1:55322/"* ]] || die "drill stack DB is not on 127.0.0.1:55322"
 
   drill_psql() { PSQL_DB_URL="$DRILL_DB_URL" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=terse "$@"; }
+  # The archive's SQL runs only through this one (04-07d, N-2): psql restricted under a fresh key for the whole session.
+  restore_psql() { PSQL_DB_URL="$DRILL_DB_URL" PSQL_MOUNT="$WORK" "$BIN/psql-restricted.sh" -X -q -v ON_ERROR_STOP=1 -v VERBOSITY=terse "$@"; }
 
   log "restore-drill.restore"
   # Parameter privileges granted to Supabase-managed roles are platform state the target already manages (and only a
   # superuser may grant them), like the managed-role lines the CLI itself comments out of a role dump: skip them.
   sed -E 's/^GRANT (SET|ALTER SYSTEM)( ?, ?(SET|ALTER SYSTEM))? ON PARAMETER .* TO "(anon|authenticated|authenticator|dashboard_user|pgbouncer|postgres|service_role|supabase_[a-z_]*|pgsodium_[a-z]*|pgtle_admin)"( WITH GRANT OPTION)?;$/-- (managed by the platform) &/' \
-    "$plain/roles.sql" > "$plain/roles.restore.sql"
-  (cd "$plain" && drill_psql --single-transaction \
+    "$plain/restore/roles.sql" > "$plain/restore/roles.restore.sql"
+  (cd "$plain/restore" && restore_psql --single-transaction \
     -f roles.restore.sql -f schema.sql -f storage_policies.sql \
     -c 'SET session_replication_role = replica' -f data.sql > "$WORK/restore.log" 2>&1) \
     || { grep -E "ERROR" "$WORK/restore.log" | head -n 3 >&2; die "restore failed (Supabase-documented order: roles, schema, data)"; }
   CHECK_RESTORE=true
-  (cd "$plain" && drill_psql --single-transaction -f history_schema.sql -f history_data.sql > "$WORK/history.log" 2>&1) \
+  (cd "$plain/restore" && restore_psql --single-transaction -f history_schema.sql -f history_data.sql > "$WORK/history.log" 2>&1) \
     || { grep -E "ERROR" "$WORK/history.log" | head -n 3 >&2; die "migration history restore failed"; }
   MIGRATIONS="$(drill_psql -At -c "select count(*) from supabase_migrations.schema_migrations")"
   CHECK_HISTORY=true
@@ -369,7 +374,8 @@ self_test() {
   local expected_sha
   expected_sha="$(sed -n 's/.*backup\.encrypted .*sha256=\([0-9a-f]\{64\}\).*/\1/p' "$WORK/backup-run.log" | tail -n 1)"
   [[ -n "$expected_sha" ]] || die "backup.sh did not report the archive digest"
-  # ... and the same digest in its ops.backup_runs row (the database record a real restore can use, migration 000042).
+  # ... and the same digest in its ops.backup_runs row (migration 000042; a record cross-check only: a real restore takes
+  # the digest from the GitHub run, 04-07d N-2).
   local recorded_sha
   recorded_sha="$(PSQL_DB_URL="$db_url" PSQL_MOUNT="$WORK" "$BIN/psql-docker.sh" -X -At \
     -c "select archive_sha256 from ops.backup_runs where id > $before_id and status = 'ok' order by id desc limit 1")"

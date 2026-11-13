@@ -13,7 +13,7 @@ V2-15.
 | `ops/backup/backup.sh` | the workflow; locally with `BACKUP_ENV=local` | validates config (exit 2 on anything unsafe, naming the variable only) → `supabase db dump` (roles, schema, data with `cron.job`, `cron.job_run_details`, `net.*` queues and vector tables excluded, migration history) + `storage_policies.sql` (the CLI's schema dump skips the `storage` schema) → `aws s3 sync` of every Storage bucket → `manifest.json` (row counts from the dump, per-object size and SHA-256) → `tar` → `age` to every recipient → header check → upload `staging/<UTC yyyy-mm-ddTHHMMSSZ>.tar.age` → the archive's **SHA-256** in the job summary and the `backup-evidence` artifact (`archive-digest.json`, 04-07c) → `ops.backup_runs` row (counts and the digest) → dead-man check |
 | `.github/workflows/backup-alert.yml` | GitHub Actions on `workflow_run` of "Staging backup" | any non-success run of this repository's `.github/workflows/backup.yml` on `feature/v2` from a schedule or a dispatch (04-07c: matched by path, repository and event, not by the copyable name; re-checked case-sensitively in the step) → opens or comments on the bot's **"Staging backup failing"** issue (GitHub emails watchers) |
 | `ops.backup_runs` (migrations 000032, 000042) | staging and local DB | one row per run: `ok` with key/size/duration/counts and `archive_sha256` (000042), or `failed` with a machine code (`dump_failed`, `storage_failed`, `encrypt_failed`, `upload_failed`, …); read by 04-04's `backup_stale` alert and 04-06's report |
-| `ops/restore-drill/run.sh` | the PO's machine (staging archive), nightly CI and locally (`--self-test`, synthetic) | archive SHA-256 = the recorded digest (`--expect-sha256`, else refused before decrypting) → decrypt → `sql-guard.ts` (no psql meta-command in any SQL file) → second local stack `clinicos-drill` (ports 553xx) → restore → verify → evidence JSON (counts, verdicts, RPO, RTO) → stack stopped with `--no-backup`, plaintext deleted |
+| `ops/restore-drill/run.sh` | the PO's machine (staging archive), nightly CI and locally (`--self-test`, synthetic) | archive SHA-256 = the digest the green GitHub `backup.yml` run recorded (`--expect-sha256`, else refused before decrypting) → decrypt → `sql-guard.ts` (no psql meta-command in any SQL file; writes the restore copies) → second local stack `clinicos-drill` (ports 553xx) → restore with psql in restricted mode (`ops/bin/psql-restricted.sh`: every meta-command refused, 04-07d) → verify → evidence JSON (counts, verdicts, RPO, RTO) → stack stopped with `--no-backup`, plaintext deleted |
 | `nightly.yml` job `backup-roundtrip` | GitHub runner, local synthetic data | `run.sh --self-test`: backup → encrypt → local Storage S3 stand-in → restore into the drill stack → checks |
 
 Pinned tools (`ops/bin/pins.env`, PO confirms in 04-P15): age v1.3.2 (SHA-256 per platform, `ops/bin/install-age.sh`),
@@ -96,14 +96,17 @@ On the PO's machine (Docker running, repo at `feature/v2`, never inside an agent
 
 1. Download the newest `staging/*.tar.age` from R2 (dashboard → bucket → object → Download) to a folder **outside**
    the repository; export the primary key from the password manager to a file outside the repository.
-2. Take its digest from GitHub, **not** from the bucket (04-07c, M-BACKUPAUTH: age gives confidentiality only, and the
-   R2 token can replace an object): open the green "Staging backup" run whose job summary names that object key (Actions
-   → Staging backup → the run → Summary, table "Backup archive"), or `gh run download <id> -n backup-evidence` and read
-   `archive-digest.json`. Check the run is `.github/workflows/backup.yml` on `feature/v2`. The same value is in
-   `ops.backup_runs.archive_sha256`.
+2. Take its digest **only** from GitHub (04-07c M-BACKUPAUTH, 04-07d N-2): open the green "Staging backup" run whose
+   job summary names that object key (Actions → Staging backup → the run → Summary, table "Backup archive"), or
+   `gh run download <id> -n backup-evidence` and read `archive-digest.json`. Check the run is
+   `.github/workflows/backup.yml` on `feature/v2` and green. Never take it from the bucket (age gives confidentiality
+   only, and the R2 token can replace an object) and never from `ops.backup_runs.archive_sha256` (the `staging-backup`
+   Environment's `postgres` URL can write that table, so whoever can plant an archive could plant its digest there; the
+   row is a record, not an authority).
 3. `ops/restore-drill/run.sh --dump <archive> --identity <primary key> --expect-sha256 <digest> --evidence
    .planning/phases/04-jobs-reliability/evidence/restore-drill-staging.json` (refused before decrypting if the archive
-   is not the recorded one; refused before restoring if any SQL file holds a psql meta-command)
+   is not the recorded one; refused before restoring if any SQL file holds a psql meta-command; the restore itself runs
+   psql in restricted mode, so a meta-command the guard missed is refused by psql)
 4. `ops/restore-drill/run.sh --dump <archive> --identity <break-glass key> --expect-sha256 <digest> --decrypt-only`
 5. Delete the archive and key files. Claude verifies with `npx tsx ops/restore-drill/check-evidence.ts <evidence>`
    (all checks green, RPO ≤ 12 h, RTO ≤ 4 h, counts only) and records it in VERIFICATION_LOG.
@@ -127,14 +130,19 @@ drill stack's service versions with staging's by writing them to `ops/restore-dr
 ## 8. Real restore into a new Supabase project
 
 1. Create the project (same region); note its session pooler URL and enable Storage S3 access.
-2. Authenticate the archive before anything reads it (04-07c, M-BACKUPAUTH): `shasum -a 256 <archive>` must equal the
-   digest recorded by the backup run (§7 step 2: job summary, `archive-digest.json`, or `ops.backup_runs`); stop on any
-   difference. Decrypt outside the repository, then `npx tsx ops/restore-drill/sql-guard.ts roles.sql schema.sql
+2. Authenticate the archive before anything reads it (04-07c M-BACKUPAUTH, 04-07d N-2): `shasum -a 256 <archive>` must
+   equal the digest of the green GitHub `backup.yml` run, taken exactly as in §7 step 2 (its job summary or
+   `archive-digest.json`; **never** from the bucket or from `ops.backup_runs`); stop on any difference. Decrypt outside
+   the repository, then `npx tsx ops/restore-drill/sql-guard.ts --emit-dir restore roles.sql schema.sql
    storage_policies.sql data.sql history_schema.sql history_data.sql` must print PASS (no psql meta-command such as
-   `\!` or `\copy`). Restore in Supabase's documented order in one transaction, with `-X` (no `psqlrc`):
-   `psql -X --single-transaction -v ON_ERROR_STOP=1 -f roles.sql -f schema.sql -f storage_policies.sql -c 'SET
-   session_replication_role = replica' -f data.sql` (skip the managed-role parameter grants as the drill does), then
-   `psql -X … -f history_schema.sql -f history_data.sql`.
+   `\!` or `\copy`, no change of `standard_conforming_strings` / `client_encoding`) and writes the restore copies to
+   `restore/` (pg_dump's own `\restrict` lines as comments). Restore **those copies** with psql in restricted mode
+   (`ops/bin/psql-restricted.sh`, which takes `PSQL_DB_URL` and first runs `\restrict` with a fresh random key, so psql
+   refuses every meta-command), in Supabase's documented order in one transaction, with `-X` (no `psqlrc`), from inside
+   `restore/`: `ops/bin/psql-restricted.sh -X --single-transaction -v ON_ERROR_STOP=1 -f roles.sql -f schema.sql -f
+   storage_policies.sql -c 'SET session_replication_role = replica' -f data.sql` (skip the managed-role parameter grants
+   as the drill does), then `ops/bin/psql-restricted.sh -X … -f history_schema.sql -f history_data.sql`. Never feed the
+   archive's SQL to a plain `psql`.
 3. Objects: `aws s3 sync storage/<bucket> s3://<bucket> --endpoint-url https://<new-ref>.storage.supabase.co/storage/v1/s3`
    per bucket (buckets already exist from `storage.buckets` in `data.sql`).
 4. Re-create the schedules (04-07c, M-RESTORE): `cron.job` is not in the dump and the restored migration history
@@ -164,8 +172,9 @@ evidence).
 **Accepted risks (R-48; owner V2-15 / go-live; staging holds synthetic data only):** R2 has no object versioning; the
 R2 token (Object Read & Write) can delete or overwrite backups (no bucket lock yet: evaluated with the production
 backup target, 04-07 triage); R2 has no India region. An overwritten or planted archive is **detected**, not prevented:
-a restore refuses any archive whose SHA-256 differs from the digest the backup run recorded in GitHub and in
-`ops.backup_runs` (04-07c, M-BACKUPAUTH). The reviewer-free `staging-backup` Environment holds a `postgres` database URL
+a restore refuses any archive whose SHA-256 differs from the digest the green GitHub backup run recorded (04-07c,
+M-BACKUPAUTH; `ops.backup_runs` holds a copy for the record, never the authority: 04-07d, N-2), and runs the archive's
+SQL only through the guard and psql in restricted mode. The reviewer-free `staging-backup` Environment holds a `postgres` database URL
 for staging, limited to `feature/v2` and to `backup.yml` by the workflow policy, which since 04-07c also refuses the
 review's bypasses (computed or differently spelled Environment names, computed secret names, `workflow_run` next to an
 Environment) and requires a case-sensitive ref check in every staging job. Go-live moves production backups to the AWS design
@@ -175,6 +184,7 @@ Environment) and requires a case-sensitive ref check in every staging job. Go-li
 
 - `ops/bin/install-age.sh` · `ops/restore-drill/run.sh --self-test [--evidence <file>]` (primary stack running; seeds
   synthetic data; uses the drill stack on 553xx and stops it) · `npx vitest run tests/ops`.
-- `npx tsx ops/restore-drill/sql-guard.ts <file.sql> …` (reads files only).
+- `npx tsx ops/restore-drill/sql-guard.ts [--emit-dir <dir>] <file.sql> …` (reads files; with `--emit-dir`, writes the
+  restore copies there).
 - Never: `ops/backup/backup.sh` with `BACKUP_ENV` other than `local`; dispatching `backup.yml`; any R2/AWS call with
   real credentials.

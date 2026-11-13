@@ -17,7 +17,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { findMetaCommands } from "../../ops/restore-drill/sql-guard";
+import { findMetaCommands, guardBytes } from "../../ops/restore-drill/sql-guard";
 
 const ROOT = path.resolve(__dirname, "../..");
 const RUN = path.join(ROOT, "ops/restore-drill/run.sh");
@@ -31,6 +31,9 @@ function findAge(): string {
 }
 
 const reasons = (sql: string) => findMetaCommands(sql).map((f) => `${f.line}:${f.reason}`);
+const SCS = "backslash before a quote inside a standard string (read differently when standard_conforming_strings is off)";
+const LINE_START = "line starts with a backslash outside COPY data (psql meta-command shape)";
+const setting = (name: string) => `statement changes or names ${name} (only pg_dump's own SET line is allowed)`;
 
 describe("sql-guard.ts: what psql would execute as a meta-command", () => {
   it("passes the shapes pg_dump writes: COPY data with \\N and backslashes, E'' strings, dollar quotes, comments, \\restrict", () => {
@@ -38,7 +41,10 @@ describe("sql-guard.ts: what psql would execute as a meta-command", () => {
       "\\restrict AbC123",
       "-- a comment with a backslash \\! is not a command",
       "/* block \\o /tmp/x /* nested */ still a comment */",
+      "SET client_encoding = 'UTF8';",
       "SET standard_conforming_strings = on;",
+      "SELECT pg_catalog.set_config('search_path', '', false);",
+      "COMMENT ON TABLE t IS 'ends with an escaped-or-doubled backslash \\\\';",
       "CREATE FUNCTION f() RETURNS text LANGUAGE plpgsql AS $_$ BEGIN RETURN '\\d+' || E'\\n'; END; $_$;",
       "CREATE FUNCTION g() RETURNS text LANGUAGE sql AS $$",
       "  SELECT '\\! not a command inside a dollar quote'",
@@ -65,7 +71,7 @@ describe("sql-guard.ts: what psql would execute as a meta-command", () => {
     ["content after COPY … FROM stdin; on its line", "COPY t (a) FROM stdin; \\! id\n1\n\\.\n", ["1:content after COPY … FROM stdin; on the same line"]],
     ["a \\restrict line that is not the bare form", "\\restrict key; \\! id\n", ["1:psql meta-command (unquoted backslash outside COPY data)"]],
     ["\\restrict inside a statement", "SELECT\n\\restrict k\n1;\n", ["2:psql meta-command (unquoted backslash outside COPY data)"]],
-    ["a quote closed early by an E-string escape trick", "SELECT 'a\\'; \\! id\n", ["1:psql meta-command (unquoted backslash outside COPY data)"]],
+    ["a quote closed early by an E-string escape trick", "SELECT 'a\\'; \\! id\n", [`1:${SCS}`]],
     ["COPY … PROGRAM", "COPY t FROM PROGRAM 'id';\n", ["1:COPY … PROGRAM (server-side command)"]],
     ["a COPY whose terminator is missing", "COPY t (a) FROM stdin;\n1\n", ["1:COPY … FROM stdin without its \\. terminator"]],
     ["an unterminated dollar quote hiding the rest", "SELECT $x$ \\! id\n", ["1:unterminated quoted text at end of file"]],
@@ -86,6 +92,76 @@ describe("sql-guard.ts: what psql would execute as a meta-command", () => {
       expect(cli([path.join(dir, "data.sql")]).status).toBe(0);
       expect(cli([]).status).toBe(2);
       expect(cli([path.join(dir, "missing.sql")]).status).toBe(2);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// 04-07d (re-verification N-2): the 04-07c guard read every '…' string as standard_conforming_strings = on, while psql
+// follows the server's setting, which the archive can turn off. The re-verifier's file passed the guard and psql ran
+// `\! echo …`. The guard is now independent of that setting and refuses the settings psql's lexer depends on.
+describe("sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2)", () => {
+  it.each([
+    [
+      "the re-verifier's repro (SET standard_conforming_strings = off, then `\\'` hides `\\!`)",
+      "SET standard_conforming_strings = off;\nselect 'a\\';  select ' \\! echo GUARD_BYPASS_EXECUTED # ' ;\n",
+      [`1:${setting("standard_conforming_strings")}`, `2:${SCS}`],
+    ],
+    [
+      "the same strings when the setting is changed where no text scan can see it (server-side code)",
+      "select 'a\\';  select ' \\! echo X # ' ;\n",
+      [`1:${SCS}`],
+    ],
+    ["`\\'` at the end of a string spanning lines", "select 'a\nb\\';\n", [`2:${SCS}`]],
+    ["set_config of standard_conforming_strings", "SELECT pg_catalog.set_config('standard_conforming_strings', 'off', false);\n", [`1:${setting("standard_conforming_strings")}`]],
+    ["a quoted-identifier spelling", 'SET "standard_conforming_strings" TO off;\n', [`1:${setting("standard_conforming_strings")}`]],
+    ["RESET standard_conforming_strings", "RESET standard_conforming_strings;\n", [`1:${setting("standard_conforming_strings")}`]],
+    ["SET standard_conforming_strings = on inside a statement pg_dump never writes", "SET LOCAL standard_conforming_strings = on;\n", [`1:${setting("standard_conforming_strings")}`]],
+    ["a client_encoding other than UTF8", "SET client_encoding = 'SJIS';\n", [`1:${setting("client_encoding")}`]],
+    ["set_config of client_encoding", "select set_config('client_encoding', 'GBK', false);\n", [`1:${setting("client_encoding")}`]],
+    ["a function body that sets client_encoding", "CREATE FUNCTION f() RETURNS void LANGUAGE sql AS $$ SET client_encoding = 'BIG5' $$;\n", [`1:${setting("client_encoding")}`]],
+    ["a line inside a string that starts with a backslash", "SELECT '\n  \\! id\n';\n", [`2:${LINE_START}`]],
+    ["a line inside a dollar quote that starts with a backslash", "SELECT $q$\n\\o /tmp/x\n$q$;\n", [`2:${LINE_START}`]],
+    ["a line inside a block comment that starts with a backslash", "/*\n\\! id\n*/ SELECT 1;\n", [`2:${LINE_START}`]],
+  ])("refuses %s", (_label, sql, expected) => {
+    expect(reasons(sql)).toEqual(expected);
+  });
+
+  it("passes backslashes whose reading is the same under both settings (`\\\\` before the closing quote, `\\d`, `\\n`)", () => {
+    expect(reasons("SELECT 'a\\\\', '^\\d+$', 'x\\ny';\nSET standard_conforming_strings = on;\nSET client_encoding = 'UTF8';\n")).toEqual([]);
+  });
+
+  it("refuses a file that is not valid UTF-8, naming the line only", () => {
+    const bytes = Buffer.concat([Buffer.from("SELECT 1;\nSELECT 'x"), Buffer.from([0x85, 0x5c]), Buffer.from("';\n")]);
+    expect(guardBytes(bytes).findings).toEqual([{ line: 2, reason: "not valid UTF-8 (pg_dump writes UTF8)" }]);
+    expect(guardBytes(Buffer.from("SELECT 'ą';\n")).findings).toEqual([]);
+  });
+
+  it("--emit-dir writes restore copies with only pg_dump's \\restrict lines turned into comments, and nothing when refused", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sql-guard-emit-"));
+    try {
+      const dump = "\\restrict AbC123\nSET client_encoding = 'UTF8';\nCOPY t (a) FROM stdin;\n\\\\restrict data\n\\.\n\\unrestrict AbC123\n";
+      fs.writeFileSync(path.join(dir, "data.sql"), dump);
+      fs.writeFileSync(path.join(dir, "evil.sql"), "select 'a\\';  select ' \\! echo X # ' ;\n");
+      const cli = (args: string[]) => spawnSync("npx", ["tsx", "ops/restore-drill/sql-guard.ts", ...args], { cwd: ROOT, encoding: "utf8" });
+
+      const out = path.join(dir, "restore");
+      const ok = cli(["--emit-dir", out, path.join(dir, "data.sql")]);
+      expect(ok.status).toBe(0);
+      const copy = fs.readFileSync(path.join(out, "data.sql"), "utf8").split("\n");
+      const original = dump.split("\n");
+      expect(copy).toHaveLength(original.length);
+      expect(copy[0]).toMatch(/^-- pg_dump restrict line removed/);
+      expect(copy[5]).toMatch(/^-- pg_dump restrict line removed/);
+      // Everything else, the COPY data line included, is unchanged.
+      expect(copy.filter((_l, i) => i !== 0 && i !== 5)).toEqual(original.filter((_l, i) => i !== 0 && i !== 5));
+
+      const refusedOut = path.join(dir, "refused");
+      const bad = cli(["--emit-dir", refusedOut, path.join(dir, "data.sql"), path.join(dir, "evil.sql")]);
+      expect(bad.status).toBe(1);
+      expect(fs.existsSync(refusedOut)).toBe(false);
+      expect(cli(["--emit-dir"]).status).toBe(2);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

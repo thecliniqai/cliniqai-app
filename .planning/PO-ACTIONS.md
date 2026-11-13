@@ -484,9 +484,13 @@ the staging migrate run) → P8 → P9 → P10 → ≥ 48 h of running → P11, 
 - [ ] **04-P13 · First restore drill from a staging backup**
   - *Do / where:* on your machine (Docker running, repo at `feature/v2`): S3 console → backup bucket → `staging/` →
     download the newest `.tar.age` to a folder outside the repo; export the primary key from your password manager to
-    a file outside the repo; run `ops/restore-drill/run.sh --dump <file> --identity <primary key file> --evidence
-    .planning/phases/04-jobs-reliability/evidence/restore-drill-staging.json`; then once `ops/restore-drill/run.sh
-    --dump <file> --identity <break-glass key file> --decrypt-only`; delete the archive and key files afterwards.
+    a file outside the repo; take the archive's SHA-256 **only** from GitHub: the green "Staging backup" run
+    (`.github/workflows/backup.yml` on `feature/v2`) whose job summary names that object key (Summary → "Backup
+    archive"), or its `backup-evidence` artifact `archive-digest.json` (never from the bucket, never from
+    `ops.backup_runs`: runbook §7 step 2); run `ops/restore-drill/run.sh --dump <file> --identity <primary key file>
+    --expect-sha256 <digest> --evidence .planning/phases/04-jobs-reliability/evidence/restore-drill-staging.json`; then
+    once `ops/restore-drill/run.sh --dump <file> --identity <break-glass key file> --expect-sha256 <digest>
+    --decrypt-only`; delete the archive and key files afterwards.
   - *Why:* acceptance 6; keys and real dumps never enter an agent session (R-29).
   - *Unblocks:* acceptance 6; evidence "the restore-drill record in VERIFICATION_LOG".
   - *Verify (Claude):* `npx tsx ops/restore-drill/check-evidence.ts .planning/phases/04-jobs-reliability/evidence/restore-drill-staging.json`
