@@ -1,5 +1,5 @@
 /**
- * Code-only auth email templates (03-11b, AUTH-04a, 01-06 ruling R2). Each message carries the 6-digit code and no link
+ * Code-only auth email templates (03-11b, AUTH-04a, 01-06 ruling R2). Each message carries the 8-digit code (R-36) and no link
  * or URL. The HTML is the same text as `supabase/templates/*.html` (the SMTP fallback's templates) with the code in
  * place of `{{ .Token }}`; `tests/auth/send-email-hook.spec.ts` compares them, so the two cannot drift apart. The
  * invite copy has no Supabase template (the local stack sends no invites); the password-changed notice has no code.
@@ -15,7 +15,7 @@ export interface RenderedEmail {
   tag: EmailTag;
 }
 
-/** An auth code: digits only (the policy sets 6; up to 10 accepted so a policy change fails loudly elsewhere). */
+/** An auth code: digits only (the policy sets 8, R-36; 6 to 10 accepted so a hosted project not yet moved to 8 still delivers). */
 export const AUTH_CODE_PATTERN = /^[0-9]{6,10}$/;
 
 const CODE_STYLE = "font-size: 24px; font-weight: bold; letter-spacing: 4px;";

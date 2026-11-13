@@ -92,7 +92,7 @@ async function waitForNewMail(address: string, previous: number, timeoutMs = 10_
 }
 
 function extractCode(text: string): string | null {
-  return /\b(\d{6})\b/.exec(text)?.[1] ?? null;
+  return /\b(\d{8})\b/.exec(text)?.[1] ?? null;
 }
 
 /** Requests a reset for `email` and returns the emailed code (never printed). */
@@ -112,7 +112,7 @@ function viaAction(client: ReturnType<typeof browserLikeClient>["client"]) {
 }
 
 function otherCode(code: string): string {
-  return String((Number(code) + 1) % 1_000_000).padStart(6, "0");
+  return String((Number(code) + 1) % 100_000_000).padStart(8, "0");
 }
 
 async function canSignIn(email: string, password: string) {

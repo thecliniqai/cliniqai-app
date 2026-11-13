@@ -50,11 +50,13 @@ enable_confirmations = true
 secure_password_change = false
 # One code email per address per minute (AUTH §4.1).
 max_frequency = "60s"
-otp_length = 6
-# The 6-digit codes are valid for 10 minutes, not the default hour (AR-L6).
+# Ruling R-36 (03-13a, review D M-1): 8-digit codes (10^8), not 6: /verify is limited per IP only, so a 10^6 space
+# is within reach of a distributed guesser inside one code's lifetime. scripts/ci/check-auth-config.mjs enforces >= 8.
+otp_length = 8
+# The codes are valid for 10 minutes, not the default hour (AR-L6).
 otp_expiry = 600
 
-# Templates are code-only: the email carries the 6-digit {{ .Token }} and no link (AUTH-04a, 01-06 ruling R2).
+# Templates are code-only: the email carries the 8-digit {{ .Token }} and no link (AUTH-04a, 01-06 ruling R2).
 [auth.email.template.recovery]
 subject = "Your ClinicOS password reset code"
 content_path = "./supabase/templates/recovery.html"

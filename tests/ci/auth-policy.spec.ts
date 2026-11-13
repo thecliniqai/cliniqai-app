@@ -135,12 +135,45 @@ describe("auth policy check (config.toml vs supabase/auth-policy.json, local col
     expect(r.stderr).toContain("hosted field security_captcha_secret is secret-bearing and must not be mapped");
   });
 
+  it("03-13a (R-36): a 6-digit OTP breaks the length floor in any environment, also for --print (exit 1)", () => {
+    for (const env of ["local", "staging", "production"] as const) {
+      const dir = tmpDir();
+      const copy = structuredClone(POLICY);
+      for (const e of ["local", "staging", "production"]) copy.settings.find((s) => s.id === "email_otp_length")![e] = 8;
+      copy.settings.find((s) => s.id === "email_otp_length")![env] = 6;
+      copy.settings.find((s) => s.id === "email_otp_length")!.deviation_reason = "test";
+      const file = path.join(dir, "auth-policy.json");
+      fs.writeFileSync(file, JSON.stringify(copy));
+      // The matching config keeps the local-column comparison out of the way when only a hosted column changes.
+      const config = path.join(dir, "config.toml");
+      fs.writeFileSync(config, env === "local" ? CONFIG.replace(/^otp_length = 8$/m, "otp_length = 6") : CONFIG);
+      for (const extra of [[], ["--print", "staging"]]) {
+        const r = runNodeChecker("check-auth-config.mjs", ["--policy", file, "--config", config, ...extra]);
+        expect(r.status, `${env} ${extra.join(" ")}`).toBe(1);
+        expect(r.stderr).toContain(`FLOOR email_otp_length (${env}): 6 breaks the floor >= 8 (R-36)`);
+        expect(r.stdout).toBe("");
+      }
+    }
+  });
+
+  it("03-13a: an OTP expiry above 600 s breaks the expiry floor; the committed policy meets both floors", () => {
+    const r = checkPolicy((p) => {
+      for (const e of ["local", "staging", "production"]) p.settings.find((s) => s.id === "email_otp_expiry")![e] = 3600;
+    });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("FLOOR email_otp_expiry (production): 3600 breaks the floor <= 600 s (AR-L6)");
+    const row = POLICY.settings.find((s) => s.id === "email_otp_length")!;
+    expect([row.local, row.staging, row.production]).toEqual([8, 8, 8]);
+    expect(CONFIG).toMatch(/^otp_length = 8$/m);
+  });
+
   it("--print staging lists the dashboard checklist with the hosted-only require-current-password row", () => {
     const r = runNodeChecker("check-auth-config.mjs", ["--print", "staging"]);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain("security_update_password_require_current_password = true");
     expect(r.stdout).toContain("disable_signup = true"); // printed as the hosted field holds it (inverse of enable_signup)
     expect(r.stdout).toContain("smtp_max_frequency = 60");
+    expect(r.stdout).toContain("mailer_otp_length = 8");
     expect(r.stdout).toContain('hook_send_email_uri = "{{STAGING_ORIGIN}}/api/auth/send-email"');
     expect(r.stdout).toContain("mailer_templates_recovery_content = contents of ./supabase/templates/recovery.html");
   });

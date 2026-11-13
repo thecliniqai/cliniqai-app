@@ -282,11 +282,11 @@
       "toml": "auth.email.otp_length",
       "hosted": "mailer_otp_length",
       "transform": "same",
-      "local": 6,
-      "staging": 6,
-      "production": 6,
-      "dashboard": "Authentication > Sign In / Providers > Email > Email OTP length: 6",
-      "source": "AUTH_REDESIGN §4.1 Email OTP length 6",
+      "local": 8,
+      "staging": 8,
+      "production": 8,
+      "dashboard": "Authentication > Sign In / Providers > Email > Email OTP length: 8",
+      "source": "Ruling R-36 (03-13a, review D M-1): Email OTP length 8 (was 6, AUTH_REDESIGN §4.1); check-auth-config.mjs enforces a floor of 8 on every environment",
       "deviation_reason": null
     },
     {

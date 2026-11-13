@@ -63,8 +63,8 @@ export async function requestRecoveryCode(email: string, timeoutMs = 10_000): Pr
     if (messages.length > before) {
       const res = await fetch(`${LOCAL_MAILPIT_API_URL}/api/v1/message/${messages[0].ID}`);
       const text = ((await res.json()) as { Text?: string }).Text ?? "";
-      const code = /\b(\d{6})\b/.exec(text)?.[1];
-      if (!code) throw new Error("the reset email carried no 6-digit code");
+      const code = /\b(\d{8})\b/.exec(text)?.[1];
+      if (!code) throw new Error("the reset email carried no 8-digit code (R-36)");
       return code;
     }
     await sleep(250);

@@ -111,7 +111,7 @@ describe("AUTH-02: the local GoTrue runs the auth policy (local column)", () => 
     expect(error).toBeNull();
 
     const mail = await waitForMail(user.userEmail, "Your ClinicOS password was changed");
-    expect(/\b\d{6}\b/.test(mail.Text)).toBe(false);
+    expect(/\d{6,}/.test(mail.Text)).toBe(false);
     expect(/https?:\/\//.test(mail.Text) || /href=/i.test(mail.HTML)).toBe(false);
   });
 

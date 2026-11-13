@@ -38,14 +38,14 @@ test("J-A4: reset refuses a breached password with the catalogue copy, accepts a
   await expect(page.getByRole("heading", { name: "Set a new password" })).toBeVisible();
   const code = await newestCode(user.email, before);
 
-  await page.getByLabel(/^6-digit code/).fill(code);
+  await page.getByLabel(/^8-digit code/).fill(code);
   await page.getByLabel(/^New password/).fill(BREACHED_FIXTURE_PASSWORDS[0]);
   await page.getByLabel(/^Confirm new password/).fill(BREACHED_FIXTURE_PASSWORDS[0]);
   await page.getByRole("button", { name: "Save new password" }).click();
 
   await expect(page.getByText(BREACHED_COPY)).toBeVisible();
   // The code was used (recovery session open); only the password is retried.
-  await expect(page.getByLabel(/^6-digit code/)).toBeDisabled();
+  await expect(page.getByLabel(/^8-digit code/)).toBeDisabled();
 
   const fresh = clearPassword();
   await page.getByLabel(/^New password/).fill(fresh);

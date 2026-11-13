@@ -7,7 +7,7 @@ import { ArrowLeft, KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { abandonReset, completeReset, requestReset, type SetPasswordResult } from "@/features/auth/password-flows";
 import { setNewPasswordAction } from "@/features/auth/actions";
-import { PASSWORDS_DO_NOT_MATCH_MESSAGE, completeResetFormSchema } from "@/features/auth/schemas";
+import { PASSWORDS_DO_NOT_MATCH_MESSAGE, RECOVERY_CODE_LENGTH, completeResetFormSchema } from "@/features/auth/schemas";
 import { ClinicShowcasePanel } from "@/components/auth/clinic-showcase-panel";
 import { TurnstileField, type TurnstileFieldHandle } from "@/components/auth/turnstile-field";
 import { AuthMobileBrand, FormMessage, PasswordInput } from "@/components/auth/auth-form-parts";
@@ -18,7 +18,7 @@ import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { publicEnv } from "@/lib/env";
 
 const RESEND_COOLDOWN_SECONDS = 60;
-const SENT_NOTICE = "If an account exists for this email, we've sent a 6-digit code. It can take a minute to arrive.";
+const SENT_NOTICE = `If an account exists for this email, we've sent a ${RECOVERY_CODE_LENGTH}-digit code. It can take a minute to arrive.`;
 const RESET_FAILED = "We couldn't reset your password, try again";
 
 /**
@@ -197,7 +197,7 @@ export default function ForgotPasswordPage() {
             </h1>
             <p className="text-sm text-gray-500 mt-1.5">
               {step === "request"
-                ? "Enter your clinic email and we'll send you a 6-digit code."
+                ? `Enter your clinic email and we'll send you a ${RECOVERY_CODE_LENGTH}-digit code.`
                 : step === "reset"
                   ? "Enter the code from the email and choose a new password."
                   : "You are signed in with your new password."}
@@ -267,17 +267,17 @@ export default function ForgotPasswordPage() {
               {/* Hidden username field so password managers save the new password against the right account. */}
               <input type="email" name="username" autoComplete="username" value={email.trim()} readOnly hidden />
 
-              <Field label="6-digit code" htmlFor="code" required>
+              <Field label={`${RECOVERY_CODE_LENGTH}-digit code`} htmlFor="code" required>
                 <Input
                   id="code"
                   name="code"
                   type="text"
                   inputMode="numeric"
                   autoComplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
+                  pattern={`[0-9]{${RECOVERY_CODE_LENGTH}}`}
+                  maxLength={RECOVERY_CODE_LENGTH}
                   value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, RECOVERY_CODE_LENGTH))}
                   required
                   autoFocus
                   disabled={codeAccepted}

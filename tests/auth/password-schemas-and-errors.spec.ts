@@ -70,9 +70,9 @@ describe("emailSchema and recoveryCodeSchema", () => {
     expect(emailSchema.safeParse("not-an-email").success).toBe(false);
   });
 
-  it("accepts exactly six digits", () => {
-    expect(recoveryCodeSchema.safeParse("123456").success).toBe(true);
-    for (const bad of ["12345", "1234567", "12345a", "", "12 3456"]) {
+  it("accepts exactly eight digits (ruling R-36)", () => {
+    expect(recoveryCodeSchema.safeParse("12345678").success).toBe(true);
+    for (const bad of ["123456", "1234567", "123456789", "1234567a", "", "1234 5678"]) {
       expect(recoveryCodeSchema.safeParse(bad).success).toBe(false);
     }
   });
@@ -80,7 +80,7 @@ describe("emailSchema and recoveryCodeSchema", () => {
   it("requires the confirmation to match", () => {
     const result = completeResetFormSchema.safeParse({
       email: "a@example.com",
-      code: "123456",
+      code: "12345678",
       newPassword: "correct horse battery",
       confirmPassword: "correct horse batterY",
     });
@@ -226,7 +226,7 @@ describe("flows validate input before calling Supabase", () => {
     const { client, auth } = fakeClient();
     const setPassword = vi.fn();
     for (const newPassword of ["short", "a".repeat(73)]) {
-      const result = await completeReset(client, { email: "a@example.com", code: "123456", newPassword }, setPassword);
+      const result = await completeReset(client, { email: "a@example.com", code: "12345678", newPassword }, setPassword);
       expect(result).toMatchObject({ ok: false, code: "invalid_input", stage: "verify" });
     }
     expect(auth.verifyOtp).not.toHaveBeenCalled();
@@ -239,10 +239,10 @@ describe("flows validate input before calling Supabase", () => {
     auth.verifyOtp.mockResolvedValue({ data: { session: { access_token: "t" } }, error: null });
     const pwned = { ok: false as const, code: "pwned_password" as const, message: en.auth.errors.pwned_password };
     const setPassword = vi.fn().mockResolvedValueOnce(pwned).mockResolvedValueOnce({ ok: true, otherSessionsSignedOut: true });
-    const input = { email: "a@example.com", code: "123456", newPassword: SYNTHETIC_NEW_PASSWORD };
+    const input = { email: "a@example.com", code: "12345678", newPassword: SYNTHETIC_NEW_PASSWORD };
 
     expect(await completeReset(client, input, setPassword)).toEqual({ ...pwned, stage: "update" });
-    expect(auth.verifyOtp).toHaveBeenCalledWith({ email: "a@example.com", token: "123456", type: "recovery" });
+    expect(auth.verifyOtp).toHaveBeenCalledWith({ email: "a@example.com", token: "12345678", type: "recovery" });
     expect(setPassword).toHaveBeenCalledWith({ newPassword: SYNTHETIC_NEW_PASSWORD });
     expect(await completeReset(client, input, setPassword)).toEqual({ ok: true, otherSessionsSignedOut: true });
     expect(auth.updateUser).not.toHaveBeenCalled();
@@ -253,7 +253,7 @@ describe("flows validate input before calling Supabase", () => {
     auth.verifyOtp.mockResolvedValue({ data: { session: { access_token: "t" } }, error: null });
     const result = await completeReset(
       client,
-      { email: "a@example.com", code: "123456", newPassword: SYNTHETIC_NEW_PASSWORD },
+      { email: "a@example.com", code: "12345678", newPassword: SYNTHETIC_NEW_PASSWORD },
       vi.fn().mockRejectedValue(new Error("network down")),
     );
     expect(result).toEqual({ ok: false, code: "unknown", message: AUTH_MESSAGES.reset_failed, stage: "update" });

@@ -7,7 +7,9 @@
  *   - an `[auth]` key in config.toml that no policy row governs (so a setting cannot be added outside the policy),
  *   - a policy row whose local value is null (hosted-only or "off locally") while config.toml sets the key,
  *   - a template or notification body that is not code-only (a link marker, a missing `{{ .Token }}`, or a code in a
- *     notification).
+ *     notification);
+ *   - 03-13a: a security floor broken in ANY environment column (local, staging, production), see {@link FLOORS}.
+ *     The floors also apply to `--print`, so the PO checklist can never carry a value below them.
  *
  * Usage:
  *   node scripts/ci/check-auth-config.mjs [--policy <file>] [--config <file>] [--root <dir>]
@@ -80,6 +82,32 @@ function printChecklist(policy, env) {
   return lines;
 }
 
+/**
+ * Security floors every environment must meet (03-13a). `email_otp_length` >= 8 (ruling R-36, review D M-1: a 10^6
+ * code space is within reach of a distributed guesser while `/verify` is limited per IP only); `email_otp_expiry` <=
+ * 600 s (AR-L6, the window the 8-digit arithmetic assumes).
+ */
+export const FLOORS = [
+  { id: "email_otp_length", test: (v) => Number.isInteger(v) && v >= 8, rule: ">= 8 (R-36)" },
+  { id: "email_otp_expiry", test: (v) => Number.isInteger(v) && v > 0 && v <= 600, rule: "<= 600 s (AR-L6)" },
+];
+
+/** Problem lines for every floor broken in any environment column (a missing row is a problem too). */
+export function checkFloors(policy) {
+  const problems = [];
+  for (const floor of FLOORS) {
+    const row = policy.settings.find((r) => r.id === floor.id);
+    if (!row) {
+      problems.push(`${floor.id}: policy row missing (floor ${floor.rule})`);
+      continue;
+    }
+    for (const env of ENVIRONMENTS) {
+      if (!floor.test(row[env])) problems.push(`${floor.id} (${env}): ${formatValue(row[env])} breaks the floor ${floor.rule}`);
+    }
+  }
+  return problems;
+}
+
 /** Returns problem lines; empty means config.toml matches the local column. */
 export function checkLocal(policy, config, root) {
   const problems = [];
@@ -128,6 +156,12 @@ function main() {
   } catch (e) {
     console.error(`auth-policy: ${e instanceof Error ? e.message : String(e)}`);
     return 2;
+  }
+  const floorProblems = checkFloors(policy);
+  if (floorProblems.length) {
+    for (const p of floorProblems) console.error(`auth-policy: FLOOR ${p}`);
+    console.error(`auth-policy: FAIL (${floorProblems.length} security floor(s) broken in supabase/auth-policy.json)`);
+    return 1;
   }
   if (opts.print) {
     console.log(printChecklist(policy, opts.print).join("\n"));

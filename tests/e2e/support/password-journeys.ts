@@ -88,13 +88,13 @@ export async function mailCount(address: string): Promise<number> {
   return (await messagesTo(address)).length;
 }
 
-/** Waits for a message beyond `previous` and returns its 6-digit code. */
+/** Waits for a message beyond `previous` and returns its 8-digit code (R-36). */
 export async function newestCode(address: string, previous: number): Promise<string> {
   await expect.poll(() => mailCount(address), { timeout: 15_000 }).toBeGreaterThan(previous);
   const [newest] = await messagesTo(address);
   const res = await fetch(`${LOCAL_MAILPIT_API_URL}/api/v1/message/${newest.ID}`);
   const text = ((await res.json()) as { Text?: string }).Text ?? "";
-  const code = /\b(\d{6})\b/.exec(text)?.[1];
-  expect(code !== undefined, "the reset email carries a 6-digit code").toBe(true);
+  const code = /\b(\d{8})\b/.exec(text)?.[1];
+  expect(code !== undefined, "the reset email carries an 8-digit code").toBe(true);
   return code as string;
 }

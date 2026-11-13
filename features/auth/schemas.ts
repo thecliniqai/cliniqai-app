@@ -45,10 +45,13 @@ export const signInSchema = z.object({
   password: z.string().min(1, "Enter your password"),
 });
 
+/** Ruling R-36 (03-13a, M-OTP): emailed codes are 8 digits (`auth.email.otp_length`, supabase/auth-policy.json). */
+export const RECOVERY_CODE_LENGTH = 8;
+
 export const recoveryCodeSchema = z
   .string()
   .trim()
-  .regex(/^\d{6}$/, "Enter the 6-digit code from the email");
+  .regex(/^\d{8}$/, "Enter the 8-digit code from the email");
 
 export const resetRequestSchema = z.object({
   email: emailSchema,
