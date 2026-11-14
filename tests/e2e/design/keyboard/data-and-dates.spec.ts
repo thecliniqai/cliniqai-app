@@ -444,6 +444,8 @@ test.describe("DayStrip, SlotPicker, PhoneInput and AgeOrDobInput in a browser f
     const strip = page.getByRole("radiogroup", { name: "Appointment day" });
     const today = strip.getByRole("radio", { name: "Today, 12 Nov 2026" });
     await expect(today).toHaveAttribute("aria-checked", "true");
+    // Showing the selected chip scrolls the strip sideways only, never the page (the strip is far below the fold).
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
     await expect(strip.getByRole("radio", { name: "Sat 14 Nov 2026" })).toHaveText("Sat 14");
 
     await today.focus();

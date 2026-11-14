@@ -13,7 +13,8 @@ import { ChipGroup } from "./chip-group";
  * accessible name carries the full date ("Today, 15 Nov 2026", "Mon 16 Nov 2026") so the visible text is part of it.
  *
  * `today` is the clinic's date (`useClinicToday()` from the caller, which computes it in the clinic's zone); the strip
- * does no zone maths of its own. On mount and on a new selection the selected chip is scrolled into view.
+ * does no zone maths of its own. On mount and on a new selection the strip scrolls sideways to show the selected chip
+ * (never the page).
  */
 export interface DayStripProps {
   /** The clinic's today, `YYYY-MM-DD`. */
@@ -42,15 +43,23 @@ export function DayStrip({ today, value, onValueChange, days = 14, "aria-label":
   const items = dayStripDays(today, days);
 
   useEffect(() => {
-    const selected = scroller.current?.querySelector<HTMLElement>('[data-state="on"]');
-    selected?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    // Horizontal only: `scrollIntoView` would also scroll the page to the strip on load.
+    const strip = scroller.current;
+    const selected = strip?.querySelector<HTMLElement>('[data-state="on"]');
+    if (!strip || !selected) return;
+    // The strip is the chips' offsetParent (`relative`), so offsetLeft is in its scrolled content's coordinates.
+    const left = selected.offsetLeft;
+    if (left < strip.scrollLeft) strip.scrollLeft = left - 4;
+    else if (left + selected.offsetWidth > strip.scrollLeft + strip.clientWidth) {
+      strip.scrollLeft = left + selected.offsetWidth - strip.clientWidth + 4;
+    }
   }, [value]);
 
   return (
     <div
       ref={scroller}
       data-day-strip=""
-      className={cn("no-scrollbar -mx-1 max-w-full overflow-x-auto overscroll-x-contain px-1 py-1", className)}
+      className={cn("no-scrollbar relative -mx-1 max-w-full overflow-x-auto overscroll-x-contain px-1 py-1", className)}
     >
       <ChipGroup
         type="single"
