@@ -1,0 +1,16 @@
+# static checks at 33b6076
+## npm run typecheck
+> clinicos@0.1.0 typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+exit=0
+## npx eslint .
+✖ 386 problems (0 errors, 386 warnings)
+  0 errors and 24 warnings potentially fixable with the `--fix` option.
+
+## npm run inventory
+}
+inventory exit=0
+inventory: 25 "use server" modules, 112 exports; 14/15 D1 non-action modules present; 28 route modules, 50 methods; 0 flagged, 6 noted
+typecheck at 05ce4c2: pass
+✖ 386 problems (0 errors, 386 warnings)

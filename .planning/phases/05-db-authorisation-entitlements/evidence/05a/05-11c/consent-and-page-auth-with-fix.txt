@@ -1,0 +1,13 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T05:22:54.573Z","level":"error","event":"referrals.consent_insert.failed","tenantId":"a19adac8-7a7c-4bf9-b0a1-386ba8aa554b","code":"XX000"}
+ ✓ tests/referrals/referral-consent-write.spec.ts (2 tests) 981ms
+ ✓ tests/auth/page-revoked-session.spec.ts (13 tests) 288ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  10:52:52
+   Duration  3.68s (transform 807ms, setup 35ms, collect 1.52s, tests 1.27s, environment 0ms, prepare 113ms)
+
+[teardown] removed run data: 3 tenant(s), 3 auth user(s), 1 storage object(s); verified none remain

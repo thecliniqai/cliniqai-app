@@ -1,0 +1,61 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/security/dpdp-export-route.spec.ts (5 tests) 1320ms
+{"ts":"2026-11-14T05:20:38.311Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:38.338Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:38.379Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:38.412Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ✓ tests/compliance/dpdp-rights.spec.ts (16 tests) 797ms
+{"ts":"2026-11-14T05:20:39.024Z","level":"error","event":"dpdp.export_route.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.046Z","level":"error","event":"dpdp.export_route.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.077Z","level":"error","event":"dpdp.export_route.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.103Z","level":"error","event":"dpdp.export_route.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.125Z","level":"error","event":"dpdp.export_route.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.144Z","level":"error","event":"dpdp.export_route.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.165Z","level":"error","event":"dpdp.export_route.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.183Z","level":"error","event":"dpdp.export_route.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.189Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.234Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.251Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.261Z","level":"error","event":"api.patient_export.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.261Z","level":"error","event":"api.v1.failed","requestId":"4b1a0543-0dd8-4202-a36a-fefe63a6bdec","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:20:39.262Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.270Z","level":"error","event":"api.patient_export.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.270Z","level":"error","event":"api.v1.failed","requestId":"21b474c0-b7dd-4b55-9d6b-fe9dd335f15d","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:20:39.274Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.288Z","level":"error","event":"api.patient_export.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.288Z","level":"error","event":"api.v1.failed","requestId":"9abf74eb-b906-43ea-98fb-172cb64157cb","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:20:39.288Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.301Z","level":"error","event":"api.patient_export.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.301Z","level":"error","event":"api.v1.failed","requestId":"3e8d52c9-9b8a-4caf-add0-06c463689c9d","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:20:39.304Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.312Z","level":"error","event":"api.patient_export.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.312Z","level":"error","event":"api.v1.failed","requestId":"aaef8245-6f2a-4aeb-a819-30c847671ab9","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:20:39.312Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.320Z","level":"error","event":"api.patient_export.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.320Z","level":"error","event":"api.v1.failed","requestId":"8dfb3a0f-b3cc-420f-ac7a-1ec30b75bac4","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:20:39.322Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.322Z","level":"warn","event":"datetime.tenant_tz.failed","tenantId":"977c9ed3-d3ba-407d-a1b6-f4cfc86429f6","code":"XX000"}
+{"ts":"2026-11-14T05:20:39.327Z","level":"error","event":"api.patient_export.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.327Z","level":"error","event":"api.v1.failed","requestId":"c91532bc-0fc9-4718-8135-bf0d4c7b8350","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:20:39.327Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.328Z","level":"warn","event":"datetime.tenant_tz.failed","tenantId":"977c9ed3-d3ba-407d-a1b6-f4cfc86429f6","code":"XX000"}
+{"ts":"2026-11-14T05:20:39.333Z","level":"error","event":"api.patient_export.failed","code":"ExportIncompleteError"}
+{"ts":"2026-11-14T05:20:39.333Z","level":"error","event":"api.v1.failed","requestId":"a6c93ab6-c015-46e0-811d-d5030b575da8","reason":"database_error","status":500}
+ ✓ tests/dpdp/export-routes-audit.spec.ts (12 tests) 623ms
+{"ts":"2026-11-14T05:20:39.829Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.856Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.870Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.889Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:20:39.898Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+ ✓ tests/api/export-scope.spec.ts (6 tests) 379ms
+ ✓ tests/dpdp/export-dto.spec.ts (7 tests) 341ms
+ ✓ tests/dpdp/export-fail-closed.spec.ts (9 tests) 3ms
+
+ Test Files  6 passed (6)
+      Tests  55 passed (55)
+   Start at  10:50:35
+   Duration  4.98s (transform 199ms, setup 38ms, collect 644ms, tests 3.46s, environment 0ms, prepare 134ms)
+
+[teardown] removed run data: 8 tenant(s), 14 auth user(s), 1 storage object(s); verified none remain
