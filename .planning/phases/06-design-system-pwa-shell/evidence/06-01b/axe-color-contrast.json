@@ -1,0 +1,143 @@
+{
+  "generatedBy": "06-01b private probe: axe-routes.spec.ts (m0-axe-desktop-chrome) with color-contrast node details; classified by the node's own classes",
+  "colorContrastNodes": {
+    "before": 182,
+    "after": 6,
+    "m0Baseline": 233
+  },
+  "seriousOrCriticalNodes": {
+    "before": 259,
+    "after": 83
+  },
+  "perRoute": {
+    "/": {
+      "before": 5,
+      "after": 0
+    },
+    "/billing/register": {
+      "before": 5,
+      "after": 1
+    },
+    "/billing/reports": {
+      "before": 5,
+      "after": 1
+    },
+    "/cabin": {
+      "before": 4,
+      "after": 0
+    },
+    "/calendar": {
+      "before": 55,
+      "after": 0
+    },
+    "/consultation/[id]": {
+      "before": 18,
+      "after": 0
+    },
+    "/diag/client-error": {
+      "before": 3,
+      "after": 0
+    },
+    "/forgot-password": {
+      "before": 0,
+      "after": 0
+    },
+    "/login": {
+      "before": 0,
+      "after": 0
+    },
+    "/patients": {
+      "before": 6,
+      "after": 0
+    },
+    "/patients/[id]": {
+      "before": 9,
+      "after": 0
+    },
+    "/patients/new": {
+      "before": 4,
+      "after": 0
+    },
+    "/profile": {
+      "before": 18,
+      "after": 0
+    },
+    "/queue": {
+      "before": 4,
+      "after": 0
+    },
+    "/referrals": {
+      "before": 4,
+      "after": 0
+    },
+    "/settings/billing": {
+      "before": 4,
+      "after": 0
+    },
+    "/settings/clinic": {
+      "before": 18,
+      "after": 0
+    },
+    "/settings/developer": {
+      "before": 4,
+      "after": 0
+    },
+    "/staff": {
+      "before": 6,
+      "after": 2
+    },
+    "/visits": {
+      "before": 10,
+      "after": 2
+    }
+  },
+  "afterByKind": {
+    "raw-palette": 6
+  },
+  "afterSemanticNodes": [],
+  "afterInheritedNodes": [],
+  "afterRawPaletteClasses": [
+    [
+      "text-slate-400",
+      2
+    ],
+    [
+      "text-gray-500",
+      2
+    ],
+    [
+      "bg-gray-100",
+      2
+    ],
+    [
+      "text-emerald-600",
+      1
+    ],
+    [
+      "text-amber-600",
+      1
+    ]
+  ],
+  "note": "before = plan base ef24000 build, after = a79297c build (06-01b + 06-09a fixes); m0-axe-desktop-chrome, M0 tags, all 25 M0 routes; m0Baseline = the V2-02 M0 report figure the plan quotes. Remaining nodes all sit on raw Tailwind palette classes; owner phases: /billing/register and /billing/reports V2-10 (FMP M4.5), /staff and /visits V2-11 (FMP M4.7).",
+  "afterRemainingOwners": {
+    "/billing/register": "V2-10 (M4.5)",
+    "/billing/reports": "V2-10 (M4.5)",
+    "/staff": "V2-11 (M4.7)",
+    "/visits": "V2-11 (M4.7)"
+  },
+  "seriousOrCriticalByRule": {
+    "before": {
+      "color-contrast (serious)": 182,
+      "label (critical)": 67,
+      "select-name (critical)": 9,
+      "target-size (serious)": 1
+    },
+    "after": {
+      "color-contrast (serious)": 6,
+      "label (critical)": 67,
+      "select-name (critical)": 9,
+      "target-size (serious)": 1
+    },
+    "note": "label, select-name and target-size are v1 form/markup findings unchanged by tokens (owners: the M4 rebuild of each screen)"
+  }
+}
