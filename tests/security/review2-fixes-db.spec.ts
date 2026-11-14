@@ -286,7 +286,10 @@ describe("01-09 review round 2 fixes (000022)", () => {
       expect(JSON.stringify(rows)).not.toContain(token);
       expect((rows ?? []).some((r: { token_hash: string }) => r.token_hash === shareTokenHash(token))).toBe(true);
 
-      const at = new Date(Date.now() + 4 * 86_400_000);
+      // Day 13: outside the seed-slot window of this file's other visits of A's doctor (2-4 days ahead plus 20 minutes
+      // per seed, tests/helpers/seed-slots.ts) and clear of the day-9/day-11 reschedules below. Day 4 at 05:00 UTC lay
+      // inside that window, so a high random seed base made a later freshVisit collide (23P01, 05-11d evidence run).
+      const at = new Date(Date.now() + 13 * 86_400_000);
       at.setUTCHours(5, 0, 0, 0);
       const post = (t: string) =>
         postRescheduleRoute(
