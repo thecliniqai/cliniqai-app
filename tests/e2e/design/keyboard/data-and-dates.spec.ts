@@ -534,7 +534,7 @@ test.describe("DayStrip, SlotPicker, PhoneInput and AgeOrDobInput in a browser f
 
   test("AgeOrDobInput: age gives an approximate DOB, months below 2 years, DOB gives the age on the clinic's date", async ({ page }, testInfo) => {
     await openGallery(page, testInfo, IST_2330_12_NOV);
-    const group = page.getByRole("group", { name: "Age or date of birth" });
+    const group = page.locator("#dates").getByRole("group", { name: "Age or date of birth" });
     const age = group.getByRole("textbox", { name: "Age" });
     await age.fill("42");
     await expect(age).toHaveAccessibleDescription("Born about 1984");

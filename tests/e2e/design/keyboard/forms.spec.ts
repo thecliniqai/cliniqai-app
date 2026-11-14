@@ -76,7 +76,7 @@ test("IconButton: named, ringed, and disabled or loading icon buttons are skippe
   await page.keyboard.press("Tab");
   await expect(page.getByRole("button", { name: "Copy last prescription" })).toBeFocused();
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "Remove Paracetamol 650 mg" })).toBeFocused();
+  await expect(page.locator("#forms").getByRole("button", { name: "Remove Paracetamol 650 mg" })).toBeFocused();
   // Next stop is the first input: the forced specimens, the disabled and the loading icon buttons are skipped.
   await page.keyboard.press("Tab");
   await expect(page.getByTestId("input-live")).toBeFocused();
@@ -87,7 +87,7 @@ test("Input and Field: the label names the control, hint and error describe it, 
   await startAt(page, "Input and Field");
   await page.keyboard.press("Tab");
   await expectFocusRing(live, "input");
-  await expect(page.getByLabel("Mobile number", { exact: true })).toHaveAttribute("data-testid", "input-live");
+  await expect(page.locator("#forms").getByLabel("Mobile number", { exact: true })).toHaveAttribute("data-testid", "input-live");
   expect(await description(live)).toBe("Used for WhatsApp receipts");
   await expect(live).not.toHaveAttribute("aria-invalid", /.*/);
 
@@ -104,7 +104,7 @@ test("Input and Field: the label names the control, hint and error describe it, 
   expect(boxStyle.outlineWidth).toBeGreaterThanOrEqual(2);
   expect(boxStyle.outlineOffset).toBeGreaterThan(0);
   await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Weight", { exact: true })).toBeFocused();
+  await expect(page.locator("#forms").getByLabel("Weight", { exact: true })).toBeFocused();
   await page.keyboard.press("Tab");
   const age = page.getByTestId("input-error");
   await expect(age).toBeFocused();
@@ -236,7 +236,7 @@ test("SegmentedControl: a radiogroup; arrows move and select, wrapping; one tab 
   await expect(booked).toHaveAttribute("aria-checked", "true");
   await expect(waiting).toHaveAttribute("aria-checked", "false");
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("radiogroup", { name: "Temperature unit" }).getByRole("radio", { name: "°F" })).toBeFocused();
+  await expect(page.locator("#forms").getByRole("radiogroup", { name: "Temperature unit" }).getByRole("radio", { name: "°F" })).toBeFocused();
 });
 
 test("ChipGroup: one tab stop per group; arrows move with wrap, skipping disabled; Space toggles pressed or checked", async ({ page }) => {

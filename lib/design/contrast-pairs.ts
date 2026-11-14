@@ -261,4 +261,13 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   { group: "06-03a clinical", fg: "--color-success-fg", bg: "--color-surface", min: 3, note: "Saved check, ABHA check" },
   { group: "06-03a clinical", fg: "--color-fg-subtle", bg: "--color-surface", min: 1, note: "meta separator dot (decorative, aria-hidden)" },
   { group: "06-03a clinical", fg: "--color-accent-subtle", bg: "--color-surface", min: 1, note: "row change flash (decorative, 600 ms)" },
+  // 06-03b clinical entry (06-UI-SPEC "06-03b Clinical entry").
+  { group: "06-03b clinical", fg: "--color-fg", bg: "--color-danger-bg", min: 4.5, note: "drug name on an allergy-matched Rx line" },
+  { group: "06-03b clinical", fg: "--color-fg-muted", bg: "--color-danger-bg", min: 4.5, note: "index, form and generic on an allergy-matched Rx line" },
+  { group: "06-03b clinical", fg: "--color-fg-secondary", bg: "--color-danger-bg", min: 4.5, note: "ghost Cancel on an allergy-matched Rx line" },
+  { group: "06-03b clinical", fg: "--color-border-control", bg: "--color-danger-bg", min: 3, note: "reason input boundary on an allergy-matched Rx line" },
+  { group: "06-03b clinical", fg: "--color-fg-secondary", bg: "--color-surface", min: 4.5, note: "timing and duration pills on an Rx line" },
+  { group: "06-03b clinical", fg: "--color-border-strong", bg: "--color-surface", min: 1, note: "\"Repeated\" marker outline (the word carries it)" },
+  { group: "06-03b clinical", fg: "--color-warning-fg", bg: "--color-surface", min: 3, note: "\"Vitals pending\" outline and vitals \"High\"/\"Low\" icons" },
+  { group: "06-03b clinical", fg: "--color-danger-fg", bg: "--color-surface-soft", min: 4.5, note: "flagged vital in the summary popover" },
 ];
