@@ -11,6 +11,7 @@ import { notFound } from "next/navigation";
 import { galleryEnabled } from "@/lib/dev/gallery";
 import { serverEnv } from "@/lib/env-server";
 import { AiSection } from "./sections/ai";
+import { ClinicalASection } from "./sections/clinical-a";
 import { DataSection } from "./sections/data";
 import { DatesSection } from "./sections/dates";
 import { FormsSection } from "./sections/forms";
@@ -44,6 +45,7 @@ export default function GalleryPage() {
         <OverlaysSection />
         <DataSection />
         <DatesSection />
+        <ClinicalASection />
         <AiSection />
       </main>
     </div>
