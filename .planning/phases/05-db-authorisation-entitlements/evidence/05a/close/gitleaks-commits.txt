@@ -1,13 +1,10 @@
-# gitleaks v8.30.1 (docker zricethezav/gitleaks, repo config .gitleaks.toml), 2026-11-14T08:42:02Z
-## git --log-opts=ec0d337..961ba82 (the 05a close code, gate and docs commits)
-
-    ○
-    │╲
-    │ ○
-    ○ ░
-    ░    gitleaks
-
-[90m8:42AM[0m [32mINF[0m [1m5 commits scanned.[0m
-[90m8:42AM[0m [32mINF[0m [1mscanned ~56460 bytes (56.46 KB) in 242ms[0m
-[90m8:42AM[0m [32mINF[0m [1mno leaks found[0m
+# gitleaks v8.30.1 (docker zricethezav/gitleaks:v8.30.1, repo config .gitleaks.toml, --redact), 2026-11-14T10:04:24Z
+## git --log-opts=ec0d337..a23da1b (every 05a close commit: 000078, gates, spec fixes, docs and evidence)
+10:04AM INF 8 commits scanned.
+10:04AM INF scanned ~8086683 bytes (8.09 MB) in 29.1s
+10:04AM INF no leaks found
+exit=0
+## dir: evidence/05a/close (as committed in a23da1b; every other file of the close is covered by the git scan above)
+10:04AM INF scanned ~89772 bytes (89.77 KB) in 49.1ms
+10:04AM INF no leaks found
 exit=0
