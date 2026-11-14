@@ -9,14 +9,15 @@ import {
 
 describe("PhoneInput Component & Utilities (D-03, D-04, REQ-patient-records)", () => {
   describe("1. Rendering & HTML Attributes", () => {
-    it("renders with inset Indian flag 🇮🇳 and +91 badge marked aria-hidden", () => {
+    it("renders a +91 start adornment (no flag emoji, V2-06 06-02c) and the tel input kind", () => {
       const html = renderToStaticMarkup(
         React.createElement(PhoneInput, { id: "test-phone", value: "" })
       );
 
-      expect(html).toContain('aria-hidden="true"');
-      expect(html).toContain("🇮🇳");
-      expect(html).toContain("+91");
+      expect(html).not.toContain("🇮🇳");
+      expect(html).toMatch(/<span[^>]*>\+91<\/span>/);
+      expect(html).toContain('autoComplete="tel-national"');
+      expect(html).toContain('enterKeyHint="next"');
       expect(html).toContain('id="test-phone"');
       expect(html).toContain('type="tel"');
       expect(html).toContain('inputMode="numeric"');
@@ -54,7 +55,7 @@ describe("PhoneInput Component & Utilities (D-03, D-04, REQ-patient-records)", (
       );
 
       expect(html).toContain('aria-invalid="true"');
-      expect(html).toContain("border-danger-solid");
+      expect(html).toContain("border-(--input-invalid-border)");
     });
 
     it("applies disabled styling and disabled attribute when disabled=true", () => {
@@ -62,9 +63,8 @@ describe("PhoneInput Component & Utilities (D-03, D-04, REQ-patient-records)", (
         React.createElement(PhoneInput, { value: "9876543210", disabled: true })
       );
 
-      expect(html).toContain("disabled");
-      expect(html).toContain("opacity-50");
-      expect(html).toContain("bg-gray-50");
+      expect(html).toMatch(/<input[^>]* disabled=""/);
+      expect(html).toContain("bg-surface-muted");
     });
   });
 

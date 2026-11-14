@@ -236,4 +236,9 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   { group: "06-02b overlays", fg: "--color-fg", bg: "--color-selected", min: 4.5, note: "active command option" },
   { group: "06-02b overlays", fg: "--color-accent", bg: "--color-selected", min: 3, note: "active option's 2 px inset bar" },
   { group: "06-02b overlays", fg: "--color-border-strong", bg: "--color-surface", min: 1, note: "drawer handle (decorative, aria-hidden)" },
+  // 06-02c data display and dates (06-UI-SPEC "06-02c Data display and dates").
+  { group: "06-02c data and dates", fg: "--color-fg-icon", bg: "--color-surface-soft", min: 3, note: "unsorted-column glyph in a table header" },
+  { group: "06-02c data and dates", fg: "--color-fg-secondary", bg: "--color-hover", min: 4.5, note: "secondary cell text on a hovered row" },
+  { group: "06-02c data and dates", fg: "--color-fg-disabled", bg: "--color-surface", min: 1, note: "calendar day outside min/max (disabled, not focusable; WCAG exempts it)" },
+  { group: "06-02c data and dates", fg: "--color-border", bg: "--color-surface", min: 1, note: "skeleton block (decorative, aria-hidden)" },
 ];

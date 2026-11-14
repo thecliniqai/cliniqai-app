@@ -1,11 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { cn } from "@/lib/utils";
 import { extractTenDigits } from "@/lib/utils/phone";
+import { Input } from "./input";
 
+/**
+ * PhoneInput (V2-06 06-02c; 06-UI-SPEC PhoneInput, DESIGN_SYSTEM §6.2): an Indian mobile number. Restyled onto the
+ * Input primitive, logic unchanged from v1 (06-PLAN 06-02c: "PhoneInput restyled, logic unchanged"; `lib/utils/phone.ts`
+ * kept): the field holds the 10 subscriber digits, non-digits are stripped and the length capped at 10, a pasted
+ * number loses its `+91` / `91` / `0` prefix, and `onChange` receives the 10 digits and the E.164 form.
+ *
+ * Look: a "+91" start adornment (the v1 flag emoji is gone: no emoji in UI), `kind="tel"` (`type="tel"`, numeric
+ * keypad, `autoComplete="tel-national"`, `enterKeyHint="next"`), 16 px text and 44 px on touch, 36 px on a fine
+ * pointer. Read-only display elsewhere uses `+91 98765 43210` (`formatTenDigitsDisplay`).
+ *
+ * v1 props kept: `value`, `onChange(tenDigits, e164)`, `invalid`, `disabled`, `id`, `placeholder`, `className` (on the
+ * box, as in v1), and the rest on the `<input>`. Inside a `Field` it takes the field's id and description.
+ */
 export interface PhoneInputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "size"> {
   value?: string;
   onChange?: (tenDigits: string, e164: string) => void;
   invalid?: boolean;
@@ -68,42 +81,22 @@ export const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
     };
 
     return (
-      <div
-        className={cn(
-          "relative flex items-center w-full min-h-[44px] rounded-lg border bg-white shadow-theme-xs transition-colors overflow-hidden",
-          "focus-within:ring-3 focus-within:ring-offset-0",
-          invalid
-            ? "border-danger-solid focus-within:border-danger-solid focus-within:ring-danger-solid/15"
-            : "border-gray-300 focus-within:border-accent focus-within:ring-ring/15",
-          disabled && "opacity-50 bg-gray-50 cursor-not-allowed",
-          className
-        )}
-      >
-        <div
-          className="flex items-center gap-1.5 px-3 py-2 select-none border-r border-gray-200 bg-gray-50/80 rounded-l-lg text-gray-700 font-medium text-sm shrink-0 self-stretch"
-          aria-hidden="true"
-        >
-          <span className="text-base leading-none">🇮🇳</span>
-          <span className="font-semibold text-gray-700 tracking-tight text-xs sm:text-sm">
-            +91
-          </span>
-        </div>
-        <input
-          ref={ref}
-          id={id}
-          type="tel"
-          inputMode="numeric"
-          maxLength={10}
-          placeholder={placeholder}
-          disabled={disabled}
-          aria-invalid={invalid}
-          value={digits}
-          onChange={handleChange}
-          onPaste={handlePaste}
-          className="flex-1 w-full bg-transparent px-3 py-2 text-sm text-gray-900 placeholder:text-fg-placeholder focus:outline-none disabled:cursor-not-allowed"
-          {...props}
-        />
-      </div>
+      <Input
+        ref={ref}
+        kind="tel"
+        id={id}
+        maxLength={10}
+        placeholder={placeholder}
+        disabled={disabled}
+        invalid={invalid}
+        value={digits}
+        onChange={handleChange}
+        onPaste={handlePaste}
+        startAdornment={<span className="tabular-nums">+91</span>}
+        wrapperClassName={className}
+        className="tabular-nums"
+        {...props}
+      />
     );
   }
 );

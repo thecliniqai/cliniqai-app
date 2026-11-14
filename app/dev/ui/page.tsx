@@ -11,6 +11,8 @@ import { notFound } from "next/navigation";
 import { galleryEnabled } from "@/lib/dev/gallery";
 import { serverEnv } from "@/lib/env-server";
 import { AiSection } from "./sections/ai";
+import { DataSection } from "./sections/data";
+import { DatesSection } from "./sections/dates";
 import { FormsSection } from "./sections/forms";
 import { OverlaysSection } from "./sections/overlays";
 
@@ -40,6 +42,8 @@ export default function GalleryPage() {
       <main id="main" className="mx-auto flex max-w-6xl flex-col gap-12 px-gutter py-8 lg:px-gutter-lg">
         <FormsSection />
         <OverlaysSection />
+        <DataSection />
+        <DatesSection />
         <AiSection />
       </main>
     </div>
