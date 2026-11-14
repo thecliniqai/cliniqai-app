@@ -278,6 +278,22 @@ test("queue rows: next, selected, waits and flash carry non-colour cues", async 
       color: tokenColor("--wait-critical-fg"),
     },
   ]);
+  // Every wait (and its clock) stays inside the 44 px token column, at desktop and at 360 px.
+  for (const width of [1280, 360]) {
+    await page.setViewportSize({ width, height: 800 });
+    const overflow = await rows.locator("[data-wait]").evaluateAll((els) =>
+      els
+        .map((el) => {
+          const col = el.parentElement!.getBoundingClientRect();
+          const parts = [...el.children].filter((c) => !c.classList.contains("sr-only")).map((c) => c.getBoundingClientRect());
+          return { text: el.textContent, out: parts.some((r) => r.left < col.left - 0.5 || r.right > col.right + 0.5) };
+        })
+        .filter((w) => w.out)
+        .map((w) => w.text),
+    );
+    expect(overflow, `waits overflowing the token column at ${width}px`).toEqual([]);
+  }
+  await page.setViewportSize({ width: 1280, height: 800 });
   // Flash: a live update tints the row and fades within 600 ms (motion allowed); with reduced motion nothing animates.
   await page.getByRole("button", { name: "Simulate an update" }).click();
   const flash = selected.locator("[data-row-flash]");
