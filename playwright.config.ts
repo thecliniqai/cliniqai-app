@@ -27,6 +27,8 @@ const DESIGN_CAPTURE = /\/design\/(neutral|screens)\//;
 const DESIGN_PR_ONLY = /\/design\/(keyboard\/|.*axe)/;
 /** V2-06 06-07: Lighthouse CI (`npm run perf:lhci`, nightly `lhci` job) runs only in the perf-lhci project. */
 const PERF = /\/perf\//;
+/** V2-06 06-09a: the two-build service-worker update spec has its own config (`npm run e2e:sw-update`). */
+const SW_UPDATE = /\/pwa-update\//;
 
 /** Custom Android tablet (PWA_STRATEGY §9.1): Chromium, Pixel 7 user agent, 800×1280, touch. */
 const androidTablet800 = {
@@ -44,13 +46,13 @@ const ipadMini744 = {
 // PR lane (RL-20): desktop-chrome runs everything; pixel-7 everything except the viewport-owning a11y specs (v1
 // layout failures only as annotated test.fail()); iphone-15 the @golden paths only.
 const prLane: Project[] = [
-  { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] }, testIgnore: [BASELINE, DESIGN_CAPTURE, PERF], ...setup },
-  { name: "pixel-7", use: { ...devices["Pixel 7"] }, testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF], ...setup },
+  { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] }, testIgnore: [BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE], ...setup },
+  { name: "pixel-7", use: { ...devices["Pixel 7"] }, testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE], ...setup },
   {
     name: "iphone-15",
     use: { ...devices["iPhone 15"] },
     grep: GOLDEN,
-    testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF],
+    testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE],
     ...setup,
   },
 ];
@@ -60,7 +62,7 @@ const nightly = (name: string, use: Project["use"]): Project => ({
   name,
   use,
   grep: GOLDEN,
-  testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF],
+  testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE],
   ...setup,
 });
 const nightlyLane: Project[] = [

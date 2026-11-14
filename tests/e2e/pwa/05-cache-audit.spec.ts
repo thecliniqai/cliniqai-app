@@ -15,9 +15,13 @@
  * survive. After each exit: caches hold only allowlisted URLs, sessionStorage is empty, only the `clinicos.pref.*` key
  * remains, IndexedDB is empty, no Supabase auth cookie remains, and Back shows no patient data. Before 06-05 (plain form
  * POST): caches, storage and Back were untouched. Expired and removed sessions: 06-06; idle: V2-11.
+ *
+ * 06-09a (H-WEBKIT): the exit paths are `@golden`, so they also run on the WebKit `iphone-15` project in the PR lane.
+ * Before 06-09a, on WebKit, `hardSignOut()`'s fetch of the route's 303 + Clear-Site-Data never settled: the page stayed
+ * on the patient screen showing "Signing out…" and nothing was purged (adversarial review A, H-1).
  */
 import type { Page } from "@playwright/test";
-import { allowlisted, authCookies, deviceState, expect, PREF_KEYS, test, waitForServiceWorker } from "./fixtures";
+import { allowlisted, authCookies, deviceState, expect, PREF_KEYS, SHELL_CACHE, SHELL_URLS, test, waitForServiceWorker } from "./fixtures";
 import { readRunData, storageStatePath } from "../support/run-data";
 import { freshMember, otherDevice, uiSignIn, expectSignedOut } from "../support/password-journeys";
 import { run, seedPatient, seedVisit, testTag } from "../support/m0-data";
@@ -91,7 +95,7 @@ test.describe("browse as owner", () => {
     const state = await deviceState(page);
     expectAllowlistedOnly(state.cacheUrls);
     expect(state.cacheUrls.some((u) => u.startsWith("static-v1:/_next/static/")), "the static cache is in use").toBe(true);
-    expect(state.cacheUrls.filter((u) => u.startsWith("shell-v1:"))).toHaveLength(5);
+    expect(state.cacheUrls.filter((u) => SHELL_URLS.some((s) => /^shell-[^:]+:/.test(u) && u.endsWith(`:${s}`)))).toHaveLength(5);
     expect(state.indexedDbNames).toEqual([]);
     expect(state.localKeys.filter((k) => !PREF_KEYS.includes(k))).toEqual([]);
     expect(state.sessionKeys.filter((k) => !PREF_KEYS.includes(k))).toEqual([]);
@@ -125,7 +129,7 @@ async function dirtyDevice(page: Page) {
 async function expectPurged(page: Page) {
   const state = await deviceState(page);
   expectAllowlistedOnly(state.cacheUrls);
-  expect(state.cacheNames.filter((n) => n !== "static-v1" && n !== "shell-v1")).toEqual([]);
+  expect(state.cacheNames.filter((n) => n !== "static-v1" && !SHELL_CACHE.test(n))).toEqual([]);
   expect(state.sessionKeys).toEqual([]);
   expect(state.localKeys).toEqual(["clinicos.pref.density"]);
   expect(state.indexedDbNames).toEqual([]);
@@ -174,7 +178,7 @@ test.describe("exit paths (fresh nurse each)", () => {
     return user;
   }
 
-  test("Sign out: purged, no auth cookie, Back shows no patient data", async ({ page, context }) => {
+  test("Sign out: purged, no auth cookie, Back shows no patient data @golden", async ({ page, context }) => {
     await signInFresh(page);
     const offset = logOffset(SERVER_STDOUT_LOG);
     await (await menuItem(page, "Sign out")).click();
@@ -186,7 +190,7 @@ test.describe("exit paths (fresh nurse each)", () => {
     await expectBackShowsNoPatient(page);
   });
 
-  test("Sign out of all devices: purged here, the second device loses its session", async ({ page, context, browser }) => {
+  test("Sign out of all devices: purged here, the second device loses its session @golden", async ({ page, context, browser }) => {
     const user = await signInFresh(page);
     const device2 = await otherDevice(browser, user);
     const offset = logOffset(SERVER_STDOUT_LOG);
@@ -201,7 +205,7 @@ test.describe("exit paths (fresh nurse each)", () => {
     await device2.context.close();
   });
 
-  test("Switch user: purged, plain login page with nothing prefilled", async ({ page, context }) => {
+  test("Switch user: purged, plain login page with nothing prefilled @golden", async ({ page, context }) => {
     await signInFresh(page);
     const offset = logOffset(SERVER_STDOUT_LOG);
     await (await menuItem(page, "Switch user")).click();
@@ -214,7 +218,7 @@ test.describe("exit paths (fresh nurse each)", () => {
     await expectBackShowsNoPatient(page);
   });
 
-  test("Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie", async ({ page, context }) => {
+  test("Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie @golden", async ({ page, context }) => {
     await signInFresh(page);
     const item = await menuItem(page, "Sign out");
     const offset = logOffset(SERVER_STDOUT_LOG);

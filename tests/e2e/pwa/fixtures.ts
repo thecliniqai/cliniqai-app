@@ -80,12 +80,23 @@ export async function deviceState(page: Page): Promise<DeviceState> {
 
 /** The D-2 allowlist as the specs state it (independent of lib/pwa/purge.ts, so a wrong allowlist there is caught). */
 export const SHELL_URLS = ["/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/icon-maskable-512.png"];
+/** 06-09a (M-OFFLINE): one shell cache per build, `shell-<stamp>`. */
+export const SHELL_CACHE = /^shell-[A-Za-z0-9_-]{1,64}$/;
+const isStatic = (url: string) => url.startsWith("/_next/static/") && !url.includes("_rsc=");
 export function allowlisted(entry: string): boolean {
   const [name, ...rest] = entry.split(":");
   const url = rest.join(":");
-  if (name === "shell-v1") return SHELL_URLS.includes(url);
-  if (name === "static-v1") return url.startsWith("/_next/static/") && !url.includes("_rsc=");
+  // The shell cache also holds the stylesheets the offline page links (06-09a: /offline is self-contained).
+  if (SHELL_CACHE.test(name ?? "")) return SHELL_URLS.includes(url) || isStatic(url);
+  if (name === "static-v1") return isStatic(url);
   return false;
+}
+
+/** The name of the worker's current shell cache on `page`'s origin (there is exactly one after activate). */
+export async function shellCacheName(page: Page): Promise<string> {
+  const names = (await page.evaluate(() => caches.keys())).filter((n) => SHELL_CACHE.test(n));
+  expect(names, "exactly one shell cache").toHaveLength(1);
+  return names[0]!;
 }
 
 /** D-3: the only localStorage keys allowed (lib/pwa/device-prefs.ts, restated). */

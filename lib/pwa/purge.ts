@@ -5,16 +5,24 @@ import { isDevicePrefKey } from "@/lib/pwa/device-prefs";
  * worker's allowlist may hold and the `clinicos.pref.*` preferences; everything else a page or a library may have put
  * on the device goes:
  *
- * - Cache Storage: every cache not named like the worker's (`static-v1`, `shell-v1`) is deleted; inside those, every
- *   entry outside the allowlist (`/_next/static/**` without `_rsc`, and the five shell URLs) is deleted.
+ * - Cache Storage: every cache not named like the worker's (`static-v1`, `shell-<build>`) is deleted; inside those,
+ *   every entry outside the allowlist (`/_next/static/**` without `_rsc`, and the five shell URLs) is deleted.
  * - `sessionStorage`: cleared.
  * - `localStorage`: every key outside `lib/pwa/device-prefs.ts` removed.
  * - IndexedDB: every database deleted.
  *
  * Each step runs even when an earlier one failed; the result names the steps that failed (never any stored value).
- * The names below must equal `public/sw.js` (tests/pwa/purge.spec.ts compares them).
+ * The names below must equal the worker's (`lib/pwa/service-worker-source.ts`; tests/pwa/purge.spec.ts compares them).
+ * Since 06-09a the shell cache is named per build (`shell-<stamp>`); the worker deletes older ones on activate.
  */
-export const SW_CACHE_NAMES = ["static-v1", "shell-v1"] as const;
+export const STATIC_CACHE_NAME = "static-v1";
+export const SHELL_CACHE_PREFIX = "shell-";
+const SHELL_CACHE_NAME = /^shell-[A-Za-z0-9_-]{1,64}$/;
+
+/** True for a cache the worker owns: `static-v1` or a build's `shell-<stamp>`. */
+export function isWorkerCacheName(name: string): boolean {
+  return name === STATIC_CACHE_NAME || SHELL_CACHE_NAME.test(name);
+}
 export const SHELL_PATHS = ["/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/icon-maskable-512.png"] as const;
 
 const SHELL: ReadonlySet<string> = new Set(SHELL_PATHS);
@@ -49,7 +57,7 @@ export interface PurgeResult {
 
 async function purgeCaches(caches: NonNullable<PurgeTargets["caches"]>, origin: string): Promise<void> {
   for (const name of await caches.keys()) {
-    if (!(SW_CACHE_NAMES as readonly string[]).includes(name)) {
+    if (!isWorkerCacheName(name)) {
       await caches.delete(name);
       continue;
     }

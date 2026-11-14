@@ -123,9 +123,11 @@ describe("03-12b public paths (enumerated from app/)", () => {
     },
   );
 
-  it("route handlers outside /api are all public auth routes (a new one is reviewed here)", () => {
+  it("route handlers outside /api are the public sign-out and service-worker routes (a new one is reviewed here)", () => {
+    // 06-09a (M-OFFLINE): `/sw.js` is a route handler (build-stamped worker), no longer a public/ file.
     expect(ROUTES.filter((r) => !isApiPath(r.pattern)).map((r) => [r.pattern, pageNeedsSession(r.url)])).toEqual([
       ["/auth/signout", false],
+      ["/sw.js", false],
     ]);
   });
 
@@ -138,7 +140,6 @@ describe("03-12b public paths (enumerated from app/)", () => {
     expect(ASSETS.map((a) => a.pattern)).toEqual(
       expect.arrayContaining([
         "/manifest.webmanifest",
-        "/sw.js",
         "/icon.svg",
         "/apple-icon.png",
         "/icon-192.png",
@@ -160,6 +161,10 @@ describe("03-12b public paths (enumerated from app/)", () => {
       expect(pageNeedsSession(url), url).toBe(false);
     }
     expect(ASSETS.filter((a) => a.pattern.split("/").length > 2).map((a) => a.file)).toEqual([]);
+    // 06-09a: the worker is the `app/sw.js/route.ts` handler; a `public/sw.js` next to it would not build (the kill
+    // switch replaces the route with that file, docs/runbooks/pwa.md).
+    expect(ROUTES.map((r) => r.file)).toContain("app/sw.js/route.ts");
+    expect(ASSETS.map((a) => a.file)).not.toContain("public/sw.js");
   });
 
   it("an unknown page path defaults to protected", () => {

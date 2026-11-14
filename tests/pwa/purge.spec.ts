@@ -4,8 +4,8 @@
  * every cache entry, session key, unknown local key and database on the device.
  */
 import { describe, expect, it } from "vitest";
-import { isAllowlistedCacheUrl, purgeDeviceState, SHELL_PATHS, SW_CACHE_NAMES } from "@/lib/pwa/purge";
-import { FakeCacheStorage, SW_SOURCE } from "./sw-harness";
+import { isAllowlistedCacheUrl, isWorkerCacheName, purgeDeviceState, SHELL_PATHS, STATIC_CACHE_NAME } from "@/lib/pwa/purge";
+import { FakeCacheStorage, SHELL, SW_SOURCE } from "./sw-harness";
 
 const ORIGIN = "http://127.0.0.1:3100";
 
@@ -75,10 +75,13 @@ describe("Cache Storage allowlist (D-2)", () => {
     expect(isAllowlistedCacheUrl(url, ORIGIN)).toBe(kept);
   });
 
-  it("names the same caches and shell URLs as public/sw.js", () => {
+  it("names the same caches and shell URLs as the worker (static-v1; shell-<build>, 06-09a)", () => {
     const sw = SW_SOURCE();
-    expect(/const STATIC_CACHE = "([^"]+)"/.exec(sw)?.[1]).toBe(SW_CACHE_NAMES[0]);
-    expect(/const SHELL_CACHE = "([^"]+)"/.exec(sw)?.[1]).toBe(SW_CACHE_NAMES[1]);
+    expect(/const STATIC_CACHE = "([^"]+)"/.exec(sw)?.[1]).toBe(STATIC_CACHE_NAME);
+    expect(/const SHELL_CACHE = "([^"]+)" \+ BUILD;/.exec(sw)?.[1]).toBe("shell-");
+    expect(isWorkerCacheName(SHELL)).toBe(true);
+    for (const name of ["static-v1", "shell-build-a", "shell-0f3a"]) expect(isWorkerCacheName(name), name).toBe(true);
+    for (const name of ["shell-", "static-v2", "rogue-cache", "shell-a b", "next-data"]) expect(isWorkerCacheName(name), name).toBe(false);
     expect(JSON.parse(/const PRECACHE = (\[[^\]]+\]);/.exec(sw)?.[1] ?? "null")).toEqual([...SHELL_PATHS]);
   });
 });
@@ -89,7 +92,7 @@ describe("purgeDeviceState", () => {
     const statics = await caches.open("static-v1");
     await statics.put(`${ORIGIN}/_next/static/x.js?dpl=1`, new Response("js"));
     await statics.put(`${ORIGIN}/patients?_rsc=1`, new Response("rsc payload"));
-    const shell = await caches.open("shell-v1");
+    const shell = await caches.open(SHELL);
     await shell.put(`${ORIGIN}/offline`, new Response("offline"));
     await shell.put(`${ORIGIN}/api/x`, new Response("api"));
     await (await caches.open("next-data")).put(`${ORIGIN}/patients`, new Response("html"));
@@ -117,7 +120,7 @@ describe("purgeDeviceState", () => {
       indexedDB: d.idb as unknown as IDBFactory,
     });
     expect(result.failed).toEqual([]);
-    expect(d.caches.urls().sort()).toEqual(["shell-v1:/offline", "static-v1:/_next/static/x.js?dpl=1"]);
+    expect(d.caches.urls().sort()).toEqual([`${SHELL}:/offline`, "static-v1:/_next/static/x.js?dpl=1"]);
     expect(await d.caches.keys()).not.toContain("next-data");
     expect(d.session.length).toBe(0);
     expect(d.local.keys().sort()).toEqual(["clinicos.pref.density", "clinicos.pref.installDismissedUntil"]);

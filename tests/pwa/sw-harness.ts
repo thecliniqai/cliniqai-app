@@ -1,5 +1,6 @@
 /**
- * A `node:vm` sandbox for `public/sw.js` and the runbook's kill switch (V2-06 06-05, T-06-01/T-06-05). The worker runs
+ * A `node:vm` sandbox for the service worker (`lib/pwa/service-worker-source.ts`, served by `app/sw.js/route.ts`; 06-05's
+ * `public/sw.js` until 06-09a) and the runbook's kill switch (V2-06 06-05, T-06-01/T-06-05). The worker runs
  * against in-memory stand-ins for `self`, `caches`, `clients`, the registration and `fetch`, so a spec can fire
  * `install`/`activate`/`fetch`/`message` and read exactly what was stored and which requests got `respondWith`.
  * Requests are plain objects (Node's `Request` refuses `mode: "navigate"`); responses are Node's `Response`.
@@ -7,6 +8,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import { serviceWorkerSource } from "@/lib/pwa/service-worker-source";
 
 export const ORIGIN = "http://127.0.0.1:3100";
 
@@ -228,7 +230,10 @@ export function loadWorker(source: string, opts: { navigationPreload?: boolean; 
   };
 }
 
-export const SW_SOURCE = () => fs.readFileSync(path.join(process.cwd(), "public/sw.js"), "utf8");
+/** The worker exactly as `GET /sw.js` serves it for build `build`. */
+export const SW_SOURCE = (build = TEST_BUILD) => serviceWorkerSource(build);
+export const TEST_BUILD = "build-a";
+export const SHELL = `shell-${TEST_BUILD}`;
 
-/** The kill-switch worker the runbook tells operators to deploy as `public/sw.js` (scripts/pwa/kill-switch-sw.js). */
+/** The kill-switch worker the runbook tells operators to deploy as `public/sw.js` in place of the route (scripts/pwa/kill-switch-sw.js). */
 export const KILL_SWITCH_SOURCE = () => fs.readFileSync(path.join(process.cwd(), "scripts/pwa/kill-switch-sw.js"), "utf8");

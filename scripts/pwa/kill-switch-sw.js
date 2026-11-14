@@ -1,6 +1,7 @@
 /*
  * clinicOS service worker KILL SWITCH (V2-06 06-05; T-06-05; docs/runbooks/pwa.md "Kill switch").
- * Deploy this file, unchanged, as public/sw.js when a deployed worker misbehaves. Browsers fetch /sw.js past the HTTP
+ * Deploy this file, unchanged, as public/sw.js (removing the app/sw.js route in the same commit, 06-09a) when a deployed
+ * worker misbehaves. Browsers fetch /sw.js past the HTTP
  * cache, install it at once, and it deletes every cache, unregisters itself and reloads open windows so they run
  * without a worker. tests/pwa/sw-allowlist.spec.ts runs this file in a node:vm sandbox.
  */
