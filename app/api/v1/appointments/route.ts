@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
-import { apiSuccess, apiError } from "@/lib/api/envelope";
+import { apiSuccess, apiError, apiDbError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (error) {
-      return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
+      return apiDbError(error, rateHeaders);
     }
 
     const total = count || 0;
@@ -92,8 +92,7 @@ export async function GET(req: NextRequest) {
       rateHeaders
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }
 
@@ -157,7 +156,13 @@ export async function POST(req: NextRequest) {
       .eq("is_deleted", false)
       .maybeSingle();
 
-    if (patientErr || !patient) {
+    if (patientErr) {
+
+      return apiDbError(patientErr, rateHeaders);
+
+    }
+
+    if (!patient) {
       return apiError("NOT_FOUND", "Patient not found in active clinic.", 404, undefined, rateHeaders);
     }
 
@@ -168,7 +173,10 @@ export async function POST(req: NextRequest) {
       .eq("tenant_id", session.tenantId)
       .maybeSingle();
 
-    if (doctorErr || !doctor || !["doctor", "owner"].includes(doctor.role)) {
+    if (doctorErr) {
+      return apiDbError(doctorErr, rateHeaders);
+    }
+    if (!doctor || !["doctor", "owner"].includes(doctor.role)) {
       return apiError(
         "FORBIDDEN",
         "Assigned doctor is not a registered doctor or owner in this clinic.",
@@ -258,7 +266,7 @@ export async function POST(req: NextRequest) {
       );
     }
     if (insertErr || !visit) {
-      return apiError("DATABASE_ERROR", insertErr?.message || "Failed to create appointment", 500, undefined, rateHeaders);
+      return apiDbError(insertErr, rateHeaders);
     }
 
     // 5. Record audit log
@@ -277,7 +285,6 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(visit, undefined, 201, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }

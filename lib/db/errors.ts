@@ -15,6 +15,8 @@ import { appError, isAppErrorReason, type AppError, type AppErrorCode } from "@/
  * | 55P03               | CONFLICT, reason LOCK_TIMEOUT (an RPC's lock_timeout expired)             |
  * | 40P01, 40001        | CONFLICT, reason CONCURRENT_WRITE (deadlock victim / serialization        |
  * |                     | failure: a concurrent write won; retrying is safe; V2-05 05-11c)          |
+ * | 22P02, 22007, 22008 | VALIDATION_FAILED (a value the column type refuses: a malformed uuid,     |
+ * |                     | timestamp or number; V2-05 05-11c)                                        |
  * | anything else       | INTERNAL                                                                  |
  *
  * The returned message is always a fixed text (the caller's `messages` or the default for the code): never the
@@ -94,6 +96,10 @@ function classify(err: DbErrorLike): { code: AppErrorCode; reason?: string } {
     case "40P01":
     case "40001":
       return { code: "CONFLICT", reason: CONCURRENT_WRITE };
+    case "22P02":
+    case "22007":
+    case "22008":
+      return { code: "VALIDATION_FAILED" };
     default:
       return { code: "INTERNAL" };
   }

@@ -27,6 +27,10 @@ describe("mapDbError: SQLSTATE table", () => {
     // V2-05 05-11c (INT L-3): a deadlock victim or a serialization failure lost to a concurrent write (retry-safe).
     ["40P01 deadlock", { code: "40P01", message: "deadlock detected", details: "Process 101 waits for ShareLock on transaction 9" }, "CONFLICT", "CONCURRENT_WRITE"],
     ["40001 serialization failure", { code: "40001", message: "could not serialize access due to concurrent update" }, "CONFLICT", "CONCURRENT_WRITE"],
+    // 05-11c (INT L-4): a value the column type refuses is the caller's input, not a server fault.
+    ["22P02 invalid text representation", { code: "22P02", message: 'invalid input syntax for type uuid: "Synthetic+919000000000"' }, "VALIDATION_FAILED", undefined],
+    ["22007 invalid datetime format", { code: "22007", message: 'invalid input syntax for type timestamp with time zone: "x"' }, "VALIDATION_FAILED", undefined],
+    ["22008 datetime field overflow", { code: "22008", message: 'date/time field value out of range: "2031-13-45"' }, "VALIDATION_FAILED", undefined],
     ["P0001 OVERPAYMENT", { code: "P0001", message: "OVERPAYMENT" }, "CONFLICT", "OVERPAYMENT"],
     ["P0001 INVOICE_NOT_PAYABLE", { code: "P0001", message: "INVOICE_NOT_PAYABLE" }, "CONFLICT", "INVOICE_NOT_PAYABLE"],
     ["P0001 ACTOR_INVALID", { code: "P0001", message: "ACTOR_INVALID" }, "FORBIDDEN", "ACTOR_INVALID"],

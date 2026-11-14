@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
-import { apiSuccess, apiError } from "@/lib/api/envelope";
+import { apiSuccess, apiError, apiDbError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (error) {
-      return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
+      return apiDbError(error, rateHeaders);
     }
 
     const total = count || 0;
@@ -104,8 +104,7 @@ export async function GET(req: NextRequest) {
       rateHeaders
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }
 
@@ -184,12 +183,21 @@ export async function POST(req: NextRequest) {
       .eq("is_deleted", false)
       .maybeSingle();
 
-    if (patientErr || !patient) {
+    if (patientErr) {
+
+      return apiDbError(patientErr, rateHeaders);
+
+    }
+
+    if (!patient) {
       return apiError("NOT_FOUND", "Patient not found in active clinic.", 404, undefined, rateHeaders);
     }
 
     // 2. Enforce Doctor Guard (D-05, T-06-05)
     const doctorCheck = await validateDoctorAssignment(admin, session.tenantId, doctor_id);
+    if (doctorCheck.dbError) {
+      return apiDbError(doctorCheck.dbError, rateHeaders);
+    }
     if (!doctorCheck.valid) {
       return apiError(
         "FORBIDDEN_CLINICIAN",
@@ -228,7 +236,7 @@ export async function POST(req: NextRequest) {
       );
     }
     if (insertErr || !newVisitRow) {
-      return apiError("DATABASE_ERROR", insertErr?.message || "Failed to create visit.", 500, undefined, rateHeaders);
+      return apiDbError(insertErr, rateHeaders);
     }
     const newVisit = newVisitRow;
 
@@ -249,7 +257,6 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(newVisit, undefined, 201, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }

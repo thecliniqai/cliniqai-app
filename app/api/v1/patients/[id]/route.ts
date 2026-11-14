@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
-import { apiSuccess, apiError } from "@/lib/api/envelope";
+import { apiSuccess, apiError, apiDbError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { z } from "zod";
@@ -75,7 +75,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       .maybeSingle();
 
     if (error) {
-      return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
+      return apiDbError(error, rateHeaders);
     }
 
     if (!patient || patient.status === "erased") {
@@ -84,8 +84,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
     return apiSuccess(patient, undefined, 200, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }
 
@@ -145,7 +144,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       .maybeSingle();
 
     if (fetchErr) {
-      return apiError("DATABASE_ERROR", fetchErr.message, 500, undefined, rateHeaders);
+      return apiDbError(fetchErr, rateHeaders);
     }
 
     if (!existing) {
@@ -166,7 +165,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
       .single();
 
     if (updateErr || !updatedPatient) {
-      return apiError("DATABASE_ERROR", updateErr?.message || "Failed to update patient", 500, undefined, rateHeaders);
+      return apiDbError(updateErr, rateHeaders);
     }
 
     // 3. Record audit log
@@ -183,8 +182,7 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
     return apiSuccess(updatedPatient, undefined, 200, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }
 
@@ -241,11 +239,16 @@ export async function DELETE(req: NextRequest, { params }: RouteContext) {
       rateHeaders
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    if (message.includes("not found")) {
+    // A failed read or write carries the database error as its cause: mapped to a fixed text (05-11c, INT L-4).
+    const cause = err instanceof Error ? err.cause : undefined;
+    if (cause && typeof cause === "object") {
+      return apiDbError(cause, rateHeaders, { event: "api.patient_erase.failed" });
+    }
+    const message = err instanceof Error ? err.message : "";
+    if (message.startsWith("Patient not found")) {
       return apiError("NOT_FOUND", "Patient not found or unauthorized.", 404, undefined, rateHeaders);
     }
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders, { event: "api.patient_erase.failed" });
   }
 }
 
