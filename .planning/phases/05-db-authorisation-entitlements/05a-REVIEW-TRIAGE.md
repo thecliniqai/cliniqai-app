@@ -50,3 +50,13 @@ billing, notices, audit, referrals), 05-11c = application only, no migrations.
 | INT Info: doctor memberships use RESTRICT | Staff are deactivated, never deleted (V2 staff management); revisit if hard delete is ever needed | V2-05b 05-05 |
 | IND Info: 000059 revokes PUBLIC execute in every schema | Intended; documented in the 05-02c record | — |
 | pgTAP gate `FLOOR` / `REQUIRED_FILES` | Raised at the 05a gate close (before the evidence run) | 05a gate |
+
+## Fix-plan deviations (CTO, 2026-11-14)
+
+Approved: 05-11c v1 PATCH refuses `status: "completed"` (completing signs the visit; keys hold no clinical access);
+lookups report a database failure as an error, not 404; the second-deadlock spec expects the taken slot; referral
+consent failure withdraws the referral (single transaction via RPC in V2-11). 05-11a: prescriber = caller (strict);
+doctor reassignment refused for doctors only. 05-11b: `record_payment` SECURITY DEFINER; scopes set at key creation
+only; `reason_for_referral` not consent-gated; `dpdp.*` audit actions accepted only from their own paths.
+Assigned: v1 `/prescriptions`, `/referrals`, `/lab-orders` clinical content → P1-37 (v1 off everywhere, PO-16);
+shared read state of role/broadcast notices → V2-11; `link_url` CHECK VALIDATE → 05-b0; 000070 deploy order → 05-b0 runbook.
