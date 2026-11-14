@@ -286,19 +286,15 @@ describe("P0-02 membership guard (000019)", () => {
   });
 
   describe("TC-RLS-MEM-04: invitations", () => {
-    function invite(by: SeededTenant, role: string, createdBy = by.userId) {
+    // V2-05 05-07a (000088): members create invitations only through invite_staff (the clinic is checked against
+    // staff:invite in the active clinic; owner/admin invitations are owner-only).
+    function invite(by: SeededTenant, role: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (by.client.from("invitations") as any)
-        .insert({
-          tenant_id: by.tenantId,
-          role,
-          invited_address: `invitee-${randomUUID().slice(0, 8)}@example.com`,
-          token_hash: randomBytes(32).toString("hex"),
-          expires_at: new Date(Date.now() + 86_400_000).toISOString(),
-          created_by: createdBy,
-        })
-        .select("id")
-        .single();
+      return (by.client.rpc as any)("invite_staff", {
+        p_tenant: by.tenantId,
+        p_email: `invitee-${randomUUID().slice(0, 8)}@example.com`,
+        p_role: role,
+      }) as Promise<{ data: { id: string } | null; error: { code?: string; message?: string } | null }>;
     }
 
     it("an admin cannot invite an owner or an admin", async () => {
@@ -311,14 +307,24 @@ describe("P0-02 membership guard (000019)", () => {
     it("an admin can invite a doctor; an owner can invite an admin", async () => {
       const { data: d, error: dErr } = await invite(adminMember, "doctor");
       expect(dErr).toBeNull();
-      expect(d.id).toBeTruthy();
+      expect(d?.id).toBeTruthy();
       const { data: a, error: aErr } = await invite(owner, "admin");
       expect(aErr).toBeNull();
-      expect(a.id).toBeTruthy();
+      expect(a?.id).toBeTruthy();
+      const { data: row } = await admin.from("invitations").select("created_by").eq("id", a!.id).single();
+      expect(row?.created_by).toBe(owner.userId);
     });
 
-    it("created_by must be the caller", async () => {
-      const { error } = await invite(owner, "doctor", adminMember.userId);
+    it("no member inserts an invitation directly, not even naming themself (INSERT revoked)", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (owner.client.from("invitations") as any).insert({
+        tenant_id: owner.tenantId,
+        role: "doctor",
+        invited_address: `invitee-${randomUUID().slice(0, 8)}@example.com`,
+        token_hash: randomBytes(32).toString("hex"),
+        expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+        created_by: owner.userId,
+      });
       expect(error?.code).toBe("42501");
     });
 
@@ -332,9 +338,9 @@ describe("P0-02 membership guard (000019)", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error: upErr } = await (owner.client.from("invitations") as any)
         .update({ role: "owner" })
-        .eq("id", data.id);
+        .eq("id", data!.id);
       expect(upErr?.code).toBe("42501");
-      const { data: row } = await admin.from("invitations").select("role").eq("id", data.id).single();
+      const { data: row } = await admin.from("invitations").select("role").eq("id", data!.id).single();
       expect(row?.role).toBe("nurse");
     });
   });

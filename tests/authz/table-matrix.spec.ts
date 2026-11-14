@@ -360,7 +360,8 @@ const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
     "full AND (self(user_id) OR perm(clinic:manage))",
     "rpc_only",
   ],
-  "public.invitations": ["perm(staff:invite)", "self(created_by) AND perm(staff:invite)", "rpc_only", "rpc_only"],
+  // 05-07a (000088): invitations are created only by invite_staff.
+  "public.invitations": ["perm(staff:invite)", "rpc_only", "rpc_only", "rpc_only"],
   "public.patient_documents": ["perm(labs:view)", "perm(labs:edit)", "perm(labs:edit)", "perm(labs:edit)"],
   "public.document_share_tokens": ["perm(labs:view)", "rpc_only", "rpc_only", "rpc_only"],
   "public.in_app_notifications": [

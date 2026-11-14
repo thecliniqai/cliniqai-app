@@ -5,7 +5,8 @@
 --   2. in_app_notifications: a notice addressed to a user is theirs alone; an unaddressed notice reaches its role (or
 --      everyone), owners/admins also the admin/owner/receptionist notices (the rule the service applies), only in the
 --      active clinic (before: every member read every colleague's notices);
---   3. invitations: staff:invite in the active clinic; owner/admin invitations only by an owner;
+--   3. invitations: staff:invite in the active clinic; owner/admin invitations only by an owner (through invite_staff
+--      since 05-07a, 000088: no INSERT policy or privilege);
 --   4. document_share_tokens: rows by resource type (prescription / invoice / referral / patient document);
 --   5. memberships and tenants: the clinic switcher (own rows and every clinic of the caller) vs the active clinic's
 --      staff; profile updates only in the active clinic.
@@ -162,7 +163,7 @@ select set_eq(
   array[
     'tenants.tenants_select', 'tenants.tenants_update',
     'memberships.memberships_select', 'memberships.memberships_update',
-    'invitations.invitations_select', 'invitations.invitations_insert',
+    'invitations.invitations_select',
     'api_keys.api_keys_select', 'api_keys.api_keys_insert', 'api_keys.api_keys_update',
     'api_key_usage_daily.api_key_usage_daily_select', 'api_key_usage_daily.api_key_usage_daily_insert',
     'api_key_usage_daily.api_key_usage_daily_update',
@@ -211,30 +212,24 @@ select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000101', null,
     values ('c2c00000-0000-4000-8000-00000000000a', 'c2c00000-0000-4000-8000-000000000103', 'system', 'c2c', 'Synthetic', 'Synthetic')$$),
   'denied:permission denied for table in_app_notifications', 'no user-client writer: INSERT is revoked');
 
--- 3. invitations ----------------------------------------------------------------------------------------------------
+-- 3. invitations (through invite_staff since 05-07a) ------------------------------------------------------------------
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000102', null,
-  $$insert into public.invitations (tenant_id, role, invited_address, token_hash, expires_at, created_by)
-    values ('c2c00000-0000-4000-8000-00000000000a', 'doctor', 'c2c-invitee-1@example.test', repeat('5', 64), now() + interval '1 day', 'c2c00000-0000-4000-8000-000000000102')$$),
+  $$select public.invite_staff('c2c00000-0000-4000-8000-00000000000a', 'c2c-invitee-1@example.test', 'doctor')$$),
   '1', 'an admin invites a doctor (staff:invite)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000102', null,
-  $$insert into public.invitations (tenant_id, role, invited_address, token_hash, expires_at, created_by)
-    values ('c2c00000-0000-4000-8000-00000000000a', 'admin', 'c2c-invitee-2@example.test', repeat('6', 64), now() + interval '1 day', 'c2c00000-0000-4000-8000-000000000102')$$),
-  'denied:new row violates row-level security policy for table "invitations"', 'an admin cannot invite an admin (owner only)');
+  $$select public.invite_staff('c2c00000-0000-4000-8000-00000000000a', 'c2c-invitee-2@example.test', 'admin')$$),
+  'denied:OWNER_REQUIRED', 'an admin cannot invite an admin (owner only)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000101', null,
-  $$insert into public.invitations (tenant_id, role, invited_address, token_hash, expires_at, created_by)
-    values ('c2c00000-0000-4000-8000-00000000000a', 'admin', 'c2c-invitee-3@example.test', repeat('7', 64), now() + interval '1 day', 'c2c00000-0000-4000-8000-000000000101')$$),
+  $$select public.invite_staff('c2c00000-0000-4000-8000-00000000000a', 'c2c-invitee-3@example.test', 'admin')$$),
   '1', 'the owner invites an admin');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000106', null,
-  $$insert into public.invitations (tenant_id, role, invited_address, token_hash, expires_at, created_by)
-    values ('c2c00000-0000-4000-8000-00000000000a', 'nurse', 'c2c-invitee-4@example.test', repeat('8', 64), now() + interval '1 day', 'c2c00000-0000-4000-8000-000000000106')$$),
-  'denied:new row violates row-level security policy for table "invitations"', 'a receptionist cannot invite');
+  $$select public.invite_staff('c2c00000-0000-4000-8000-00000000000a', 'c2c-invitee-4@example.test', 'nurse')$$),
+  'denied:STAFF_INVITE_FORBIDDEN', 'a receptionist cannot invite');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000a',
-  $$insert into public.invitations (tenant_id, role, invited_address, token_hash, expires_at, created_by)
-    values ('c2c00000-0000-4000-8000-00000000000b', 'admin', 'c2c-invitee-5@example.test', repeat('9', 64), now() + interval '1 day', 'c2c00000-0000-4000-8000-000000000303')$$),
-  'denied:new row violates row-level security policy for table "invitations"', 'B''s owner acting in A cannot invite into B');
+  $$select public.invite_staff('c2c00000-0000-4000-8000-00000000000b', 'c2c-invitee-5@example.test', 'admin')$$),
+  'denied:STAFF_INVITE_FORBIDDEN', 'B''s owner acting in A cannot invite into B');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
-  $$insert into public.invitations (tenant_id, role, invited_address, token_hash, expires_at, created_by)
-    values ('c2c00000-0000-4000-8000-00000000000b', 'admin', 'c2c-invitee-6@example.test', repeat('a', 64), now() + interval '1 day', 'c2c00000-0000-4000-8000-000000000303')$$),
+  $$select public.invite_staff('c2c00000-0000-4000-8000-00000000000b', 'c2c-invitee-6@example.test', 'admin')$$),
   '1', 'the same owner acting in B invites an admin into B');
 
 -- 4. document_share_tokens by type ------------------------------------------------------------------------------------

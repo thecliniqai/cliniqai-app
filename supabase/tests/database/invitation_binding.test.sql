@@ -94,9 +94,9 @@ select is(pg_temp.val_as('b11b0000-0000-4000-8000-000000000102', 'b11b0000-0000-
   'doctor/b11b-unconfirmed@example.test,owner/b11b-partner@example.test',
   'the staff page columns stay readable for staff:invite');
 select ok(not has_column_privilege('authenticated', 'public.invitations', 'token_hash', 'SELECT')
-          and has_column_privilege('authenticated', 'public.invitations', 'token_hash', 'INSERT')
+          and not has_any_column_privilege('authenticated', 'public.invitations', 'INSERT')
           and not has_table_privilege('anon', 'public.invitations', 'SELECT'),
-  'catalogue: no SELECT on token_hash for authenticated (INSERT kept), nothing for anon');
+  'catalogue: no SELECT on token_hash for authenticated, no INSERT (invite_staff only since 05-07a), nothing for anon');
 
 -- 2. consume_invitation binds the invitee ---------------------------------------------------------------------------
 select is(pg_temp.val_as('b11b0000-0000-4000-8000-000000000103', null,

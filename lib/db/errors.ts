@@ -76,6 +76,11 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   SELF_REMOVAL: "VALIDATION_FAILED",
   MEMBER_NOT_ACTIVE: "CONFLICT",
   INVITATION_REVOKED: "CONFLICT",
+  // V2-05 05-07a (migration 000088): invitations v2. An address that is already a member; resend/revoke of an invitation
+  // that is no longer pending. INVITATION_NOT_FOUND is P0002 (→ NOT_FOUND); STAFF_INVITE_FORBIDDEN and SYSTEM_ONLY are
+  // 42501 (→ FORBIDDEN by SQLSTATE).
+  ALREADY_MEMBER: "CONFLICT",
+  INVITATION_NOT_PENDING: "CONFLICT",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

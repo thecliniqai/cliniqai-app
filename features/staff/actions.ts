@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { generateInviteToken, hashInviteToken } from "./invite";
+import { hashInviteToken } from "./invite";
 import { resolveServiceContext } from "@/lib/auth/context";
 import { MultipleClinicsSelectionRequiredError, NoClinicMembershipError } from "@/lib/auth/tenant";
 import { clientErrorMessage } from "@/lib/errors/client-message";
@@ -13,6 +13,7 @@ import { removeStaffSchema } from "./schema";
 import { UserRole } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { mapDbError, type DbErrorMessages } from "@/lib/db/errors";
 
 const inviteStaffSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
@@ -24,6 +25,14 @@ const inviteStaffSchema = z.object({
 export type InviteStaffResult =
   | { success: true; inviteId: string }
   | { success: false; error: string };
+
+/** Fixed texts for the `invite_staff` refusals (V2-05 05-07a); never database text. */
+const INVITE_STAFF_MESSAGES: DbErrorMessages = {
+  ALREADY_MEMBER: "This person is already a member of the clinic.",
+  INPUT_INVALID: "Please enter a valid email address and role.",
+  FORBIDDEN: "You do not have permission to invite staff.",
+  INTERNAL: "Unable to create staff invitation. Please try again.",
+};
 
 export async function inviteStaff(
   input: FormData | { email: string; role: string }
@@ -55,35 +64,35 @@ export async function inviteStaff(
       return { success: false, error: "Only a clinic owner can invite an admin." };
     }
 
-    // 2. Generate cryptographically safe token
-    const { tokenHash, expiresAt } = generateInviteToken(7);
+    // 2. V2-05 05-07a (AUTH-06): invitations are created only by the invite_staff RPC (the INSERT privilege is revoked).
+    // The clinic is the session's (ctx.tenantId); the database accepts it only if the caller holds staff:invite there
+    // (the active clinic), keeps owner/admin invitations owner-only, returns an existing pending invitation for the same
+    // address (deduped) and enqueues the send job in the same transaction. No token exists until the email handler
+    // mints it at send time (R-30), so none can be returned or logged here.
+    const { data, error } = await (
+      supabase.rpc as unknown as (
+        name: "invite_staff",
+        args: { p_tenant: string; p_email: string; p_role: UserRole }
+      ) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>
+    )("invite_staff", { p_tenant: session.tenantId, p_email: email, p_role: role as UserRole });
 
-    // 3. Insert invite row (RLS policy requires membership with owner/admin)
-    const { data, error } = await (supabase.from("invitations") as any)
-      .insert({
-        tenant_id: session.tenantId,
-        role: role as UserRole,
-        invited_address: email.toLowerCase().trim(),
-        token_hash: tokenHash,
-        expires_at: expiresAt,
-        created_by: session.userId,
-      })
-      .select("id")
-      .single();
-
-    if (error || !data) {
-      log.error({ event: "staff.invite_insert.failed", code: errorTag(error), requestId: await getRequestId() });
-      return {
-        success: false,
-        error: "Unable to create staff invitation. Please try again.",
-      };
+    if (error) {
+      if (error.code === "42501" && error.message === "OWNER_REQUIRED") {
+        return { success: false, error: "Only a clinic owner can invite an admin." };
+      }
+      const mapped = mapDbError(error, INVITE_STAFF_MESSAGES);
+      if (mapped.code === "INTERNAL") {
+        log.error({ event: "staff.invite_insert.failed", code: errorTag(error), requestId: await getRequestId() });
+      }
+      return { success: false, error: mapped.message };
     }
 
-    // The raw token is never returned or logged: invitation delivery arrives with AUTH-06 (AUTH_REDESIGN §6).
-    return {
-      success: true,
-      inviteId: (data as { id: string }).id,
-    };
+    const inviteId = (data as { id?: unknown } | null)?.id;
+    if (typeof inviteId !== "string") {
+      log.error({ event: "staff.invite_insert.failed", code: "result_shape", requestId: await getRequestId() });
+      return { success: false, error: INVITE_STAFF_MESSAGES.INTERNAL as string };
+    }
+    return { success: true, inviteId };
   } catch (err: unknown) {
     // Session and permission refusals keep their fixed text; anything else gets a fixed message (IR-L2).
     const known =

@@ -375,13 +375,13 @@ export const TARGETS: readonly Target[] = [
     update: "invited_address",
     rules: {
       select: perm("staff:invite"),
-      insert: all(self("created_by"), perm("staff:invite")),
+      insert: rpcOnly,
       update: rpcOnly,
       delete: rpcOnly,
     },
     note:
-      "INSERT: staff:invite, created_by = caller; owner/admin roles only by an owner (admin_policies.test.sql; RPC " +
-      "only after 05-07a)",
+      "SELECT staff:invite (token_hash not readable, 000071); INSERT only through invite_staff (05-07a, 000088: " +
+      "staff:invite in the active clinic, owner/admin invitations by owners only, one pending per address)",
   },
   {
     kind: "table",

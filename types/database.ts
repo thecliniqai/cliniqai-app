@@ -1028,11 +1028,14 @@ export type Database = {
           expires_at: string;
           id: string;
           invited_address: string;
+          last_sent_at: string | null;
           revoked_at: string | null;
           revoked_by: string | null;
           role: string;
+          send_count: number;
           tenant_id: string;
-          token_hash: string;
+          token_hash: string | null;
+          token_version: number;
         };
         ComputedFields: never;
         Insert: {
@@ -1043,11 +1046,14 @@ export type Database = {
           expires_at: string;
           id?: string;
           invited_address: string;
+          last_sent_at?: string | null;
           revoked_at?: string | null;
           revoked_by?: string | null;
           role: string;
+          send_count?: number;
           tenant_id: string;
-          token_hash: string;
+          token_hash?: string | null;
+          token_version?: number;
         };
         Update: {
           consumed_at?: string | null;
@@ -1057,11 +1063,14 @@ export type Database = {
           expires_at?: string;
           id?: string;
           invited_address?: string;
+          last_sent_at?: string | null;
           revoked_at?: string | null;
           revoked_by?: string | null;
           role?: string;
+          send_count?: number;
           tenant_id?: string;
-          token_hash?: string;
+          token_hash?: string | null;
+          token_version?: number;
         };
         Relationships: [
           {
@@ -3043,6 +3052,10 @@ export type Database = {
         Returns: boolean;
       };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
+      consume_invitation_for: {
+        Args: { p_token_hash: string; p_user_id: string };
+        Returns: string;
+      };
       consume_reschedule_token: {
         Args: { p_new_at: string; p_token: string };
         Returns: Json;
@@ -3174,6 +3187,14 @@ export type Database = {
         Args: { p_dedupe_key: string; p_outcome: string; p_provider: string };
         Returns: undefined;
       };
+      invitation_issue_token: {
+        Args: { p_invitation_id: string; p_token_version: number };
+        Returns: string;
+      };
+      invite_staff: {
+        Args: { p_email: string; p_role: string; p_tenant: string };
+        Returns: Json;
+      };
       is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_safe_storage_key: { Args: { p_path: string }; Returns: boolean };
       is_valid_weekly_schedule: {
@@ -3241,6 +3262,7 @@ export type Database = {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;
       };
+      peek_invitation: { Args: { p_token_hash: string }; Returns: Json };
       permission_matrix: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -3289,10 +3311,12 @@ export type Database = {
         Returns: Json;
       };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
+      resend_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       resolve_share_token: {
         Args: { p_kinds: string[]; p_token: string };
         Returns: Json;
       };
+      revoke_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       revoke_share_token: { Args: { p_token_id: string }; Returns: string };
       search_medicines: {
         Args: {

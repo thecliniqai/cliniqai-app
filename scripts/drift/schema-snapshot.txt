@@ -313,11 +313,14 @@ column public.invitations.created_by uuid not_null=t default=- identity=- genera
 column public.invitations.expires_at timestamp with time zone not_null=t default=- identity=- generated=-
 column public.invitations.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
 column public.invitations.invited_address text not_null=t default=- identity=- generated=-
+column public.invitations.last_sent_at timestamp with time zone not_null=f default=- identity=- generated=-
 column public.invitations.revoked_at timestamp with time zone not_null=f default=- identity=- generated=-
 column public.invitations.revoked_by uuid not_null=f default=- identity=- generated=-
 column public.invitations.role text not_null=t default=- identity=- generated=-
+column public.invitations.send_count integer not_null=t default=0 identity=- generated=-
 column public.invitations.tenant_id uuid not_null=t default=- identity=- generated=-
-column public.invitations.token_hash text not_null=t default=- identity=- generated=-
+column public.invitations.token_hash text not_null=f default=- identity=- generated=-
+column public.invitations.token_version integer not_null=t default=1 identity=- generated=-
 column public.invoice_items.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.invoice_items.description text not_null=t default=- identity=- generated=-
 column public.invoice_items.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
@@ -903,8 +906,10 @@ constraint public.invitations.invitations_created_by_fkey FOREIGN KEY (created_b
 constraint public.invitations.invitations_pkey PRIMARY KEY (id)
 constraint public.invitations.invitations_revoked_by_fkey FOREIGN KEY (revoked_by) REFERENCES auth.users(id)
 constraint public.invitations.invitations_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'doctor'::text, 'receptionist'::text, 'nurse'::text])))
+constraint public.invitations.invitations_send_count_nonnegative CHECK ((send_count >= 0))
 constraint public.invitations.invitations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.invitations.invitations_token_hash_key UNIQUE (token_hash)
+constraint public.invitations.invitations_token_version_positive CHECK ((token_version >= 1))
 constraint public.invoice_items.invoice_items_item_type_check CHECK ((item_type = ANY (ARRAY['consultation'::text, 'procedure'::text, 'medicine'::text, 'other'::text])))
 constraint public.invoice_items.invoice_items_pkey PRIMARY KEY (id)
 constraint public.invoice_items.invoice_items_quantity_check CHECK ((quantity > 0))
@@ -1245,6 +1250,12 @@ function private.enqueue_message_internal(p_tenant_id uuid, p_patient_id uuid, p
 function private.enqueue_webhook_internal(p_tenant_id uuid, p_event_type text, p_data jsonb, p_event_key text, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=763d49ebad50197b2e663c0d616f3020
 function private.follow_ups_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=bbd6fb5274caaa67b058c73a883d2a0d
 function private.indian_mobile_national(p_phone text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=2a5aa7a4e8b1d1466066904166db237e
+function private.invitation_audit(p_tenant uuid, p_actor uuid, p_actor_role text, p_action text, p_invitation_id uuid, p_metadata jsonb) returns void lang=sql security_definer=t volatility=v config=search_path="" body_md5=cade1974fa3b2ae4eb08a5b93ec219b1
+function private.invitation_consume(p_user uuid, p_token_hash text, p_require_confirmed boolean, p_idempotent boolean) returns uuid lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=94f85a8c1adb0a794c95aa212538b852
+function private.invitation_enqueue_send(p_invitation_id uuid, p_tenant uuid, p_token_version integer) returns uuid lang=sql security_definer=f volatility=v config=search_path="" body_md5=fb47824016db9049c44282827658ca3f
+function private.invitation_inviter_role(p_tenant uuid) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=088c32de5a46a03f1cd5176937cccacc
+function private.invitation_manager_role(p_invitation_id uuid) returns text lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=13f77062b2ed737290afcdbe5e6e64b6
+function private.invitation_system_caller() returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=b33a53bc52b6bb3f80f5beee8890ad3c
 function private.invoice_items_integrity_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=2a62bf04efb8ac06230fed9f6d077d7a
 function private.invoice_items_sync_invoice() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=b82d3d630d44c615bd5dcf0368ba1bf8
 function private.invoices_insert_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9e99b683ef5df552abc6ed4429d5f956
@@ -1284,7 +1295,8 @@ function public.communication_queue_dead_letter(p_id uuid, p_error_code text) re
 function public.communication_queue_finish(p_id uuid, p_success boolean, p_external_message_id text, p_error text) returns TABLE(new_status text, new_retry_count integer) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=5e068d4ec4a8189aabc84b6715a404aa
 function public.communication_queue_scrub_payload() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=fb0edb07f8fe206c580ea92f55c0dda2
 function public.complete_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=5b1d8a829ebe6feb6dfdba9f9add9361
-function public.consume_invitation(p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=92b75562f7426f47456ccd5f57c38120
+function public.consume_invitation(p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=baa83f696258d0742c6451fea44320fb
+function public.consume_invitation_for(p_user_id uuid, p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=63bf8dac3bbc99f14db4278598f9a98e
 function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6fb989b97bd42e441edb45788719d2e8
 function public.create_clinic_with_owner(p_name text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path=public, pg_temp body_md5=79edd5983ec8e22efe0672f12bb168a6
 function public.create_reschedule_token(p_visit_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=e1b7a0d65ed910109d7ac2f27d5ed901
@@ -1303,6 +1315,8 @@ function public.get_tenant_table_rls_policies() returns TABLE(table_name text, r
 function public.has_permission(p_tenant uuid, p_perm text) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=ae413fcc266ead95670d107f176ce0b3
 function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d9eb45e242d8aa1a81b281a32b433a6e
 function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6e09b6c645bd991920f556c59af2d9bd
+function public.invitation_issue_token(p_invitation_id uuid, p_token_version integer) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=2f4be3c0b9b9dc42244f7a1b17c156c8
+function public.invite_staff(p_tenant uuid, p_email text, p_role text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=ddb8d2fecad1d00b2f2b67874f3572ad
 function public.is_platform_admin() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=af70fe3e8a794856bb34c32b19b5d4d6
 function public.is_safe_storage_key(p_path text) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=7a398bad0569219987cdf11d3c9b2487
 function public.is_valid_weekly_schedule(p_schedule jsonb) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=70d8e5967b9f88ca8cc3926225d8527f
@@ -1318,6 +1332,7 @@ function public.ops_alert_notified(p_alert_id uuid, p_provider_message_id text, 
 function public.ops_alert_payload(p_alert_id uuid) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=8d54f08aef54ac1a27cd288c2f95d33f
 function public.ops_ingest_error(p_ingest_key text, p_event jsonb) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=1s,search_path="" body_md5=99745b9b2a82906f1411d1d22c67e4aa
 function public.patients_clinical_fields_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=0cd27f8d47d2cdb83c07494b52b75c1c
+function public.peek_invitation(p_token_hash text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=eb3e0439d1e55230792a241f80ba9030
 function public.permission_matrix() returns TABLE(role text, perm text) lang=sql security_definer=f volatility=i config=search_path="" body_md5=39ee865d6f01342a333f400391c113a5
 function public.prescription_items_fill_tenant() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8d8857c616ef2a290542986d2df34fee
 function public.readiness_probe(p_expected_migration text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=9f9173b2ceaa83871c8578e0a619a107
@@ -1328,7 +1343,9 @@ function public.referrals_target_update_guard() returns trigger lang=plpgsql sec
 function public.release_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=830646140fd502bc31c9c625ec1568eb
 function public.remove_member(p_membership_id uuid, p_reason text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=67fbd036b4b9718d4988b1a651fd77c3
 function public.reschedule_token_visit(p_token text) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=140605e0bc8e901e9152141bdedbb1b4
+function public.resend_invitation(p_invitation_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=7a640654f8320e8d78f49d73d52cd671
 function public.resolve_share_token(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=60bebe306b147fad0da0c1ba83310590
+function public.revoke_invitation(p_invitation_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=bc0d165d6ce1fc022c1e6c5fb621e15c
 function public.revoke_share_token(p_token_id uuid) returns timestamp with time zone lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=51b0f9062d5a580902b32cac2b5d1d7c
 function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) returns TABLE(id text, medicine_name text, generic_name text, dose_form text, default_dosage text, default_timing text, default_duration text, is_custom boolean, is_favorite boolean) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bfcbb14840d1397ca3971ef34e80eb0b
 function public.session_is_live() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=093c2711c41fa48f9b09290978b4f826
@@ -1370,10 +1387,13 @@ grant column public.invitations.created_by SELECT to authenticated
 grant column public.invitations.expires_at SELECT to authenticated
 grant column public.invitations.id SELECT to authenticated
 grant column public.invitations.invited_address SELECT to authenticated
+grant column public.invitations.last_sent_at SELECT to authenticated
 grant column public.invitations.revoked_at SELECT to authenticated
 grant column public.invitations.revoked_by SELECT to authenticated
 grant column public.invitations.role SELECT to authenticated
+grant column public.invitations.send_count SELECT to authenticated
 grant column public.invitations.tenant_id SELECT to authenticated
+grant column public.invitations.token_version SELECT to authenticated
 grant column public.memberships.availability_schedule UPDATE to authenticated
 grant column public.memberships.default_slot_duration_minutes UPDATE to authenticated
 grant column public.memberships.default_specialty UPDATE to authenticated
@@ -1424,7 +1444,7 @@ grant function public.communication_queue_finish(p_id uuid, p_success boolean, p
 grant function public.communication_queue_scrub_payload() EXECUTE to service_role
 grant function public.complete_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
 grant function public.consume_invitation(p_token_hash text) EXECUTE to authenticated
-grant function public.consume_invitation(p_token_hash text) EXECUTE to service_role
+grant function public.consume_invitation_for(p_user_id uuid, p_token_hash text) EXECUTE to service_role
 grant function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) EXECUTE to anon
 grant function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) EXECUTE to authenticated
 grant function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) EXECUTE to service_role
@@ -1452,6 +1472,8 @@ grant function public.has_permission(p_tenant uuid, p_perm text) EXECUTE to auth
 grant function public.has_permission(p_tenant uuid, p_perm text) EXECUTE to service_role
 grant function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) EXECUTE to service_role
 grant function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) EXECUTE to service_role
+grant function public.invitation_issue_token(p_invitation_id uuid, p_token_version integer) EXECUTE to service_role
+grant function public.invite_staff(p_tenant uuid, p_email text, p_role text) EXECUTE to authenticated
 grant function public.is_platform_admin() EXECUTE to authenticated
 grant function public.is_safe_storage_key(p_path text) EXECUTE to authenticated
 grant function public.is_safe_storage_key(p_path text) EXECUTE to service_role
@@ -1475,6 +1497,8 @@ grant function public.ops_alert_payload(p_alert_id uuid) EXECUTE to service_role
 grant function public.ops_ingest_error(p_ingest_key text, p_event jsonb) EXECUTE to anon
 grant function public.ops_ingest_error(p_ingest_key text, p_event jsonb) EXECUTE to authenticated
 grant function public.patients_clinical_fields_guard() EXECUTE to service_role
+grant function public.peek_invitation(p_token_hash text) EXECUTE to anon
+grant function public.peek_invitation(p_token_hash text) EXECUTE to authenticated
 grant function public.permission_matrix() EXECUTE to authenticated
 grant function public.permission_matrix() EXECUTE to service_role
 grant function public.prescription_items_fill_tenant() EXECUTE to service_role
@@ -1487,9 +1511,11 @@ grant function public.referrals_target_update_guard() EXECUTE to service_role
 grant function public.release_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
 grant function public.remove_member(p_membership_id uuid, p_reason text) EXECUTE to authenticated
 grant function public.reschedule_token_visit(p_token text) EXECUTE to service_role
+grant function public.resend_invitation(p_invitation_id uuid) EXECUTE to authenticated
 grant function public.resolve_share_token(p_token text, p_kinds text[]) EXECUTE to anon
 grant function public.resolve_share_token(p_token text, p_kinds text[]) EXECUTE to authenticated
 grant function public.resolve_share_token(p_token text, p_kinds text[]) EXECUTE to service_role
+grant function public.revoke_invitation(p_invitation_id uuid) EXECUTE to authenticated
 grant function public.revoke_share_token(p_token_id uuid) EXECUTE to authenticated
 grant function public.revoke_share_token(p_token_id uuid) EXECUTE to service_role
 grant function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) EXECUTE to authenticated
@@ -1755,7 +1781,6 @@ grant table public.in_app_notifications TRIGGER to service_role
 grant table public.in_app_notifications TRUNCATE to service_role
 grant table public.in_app_notifications UPDATE to service_role
 grant table public.invitations DELETE to service_role
-grant table public.invitations INSERT to authenticated
 grant table public.invitations INSERT to service_role
 grant table public.invitations MAINTAIN to service_role
 grant table public.invitations REFERENCES to service_role
@@ -2232,6 +2257,7 @@ index public.idx_webhook_queue_tenant CREATE INDEX idx_webhook_queue_tenant ON p
 index public.idx_webhook_subs_tenant CREATE INDEX idx_webhook_subs_tenant ON public.webhook_subscriptions USING btree (tenant_id)
 index public.idx_webhook_subscriptions_created_by CREATE INDEX idx_webhook_subscriptions_created_by ON public.webhook_subscriptions USING btree (created_by)
 index public.in_app_notifications_pkey CREATE UNIQUE INDEX in_app_notifications_pkey ON public.in_app_notifications USING btree (id)
+index public.invitations_one_pending_per_address CREATE UNIQUE INDEX invitations_one_pending_per_address ON public.invitations USING btree (tenant_id, lower(invited_address)) WHERE ((consumed_at IS NULL) AND (revoked_at IS NULL))
 index public.invitations_pkey CREATE UNIQUE INDEX invitations_pkey ON public.invitations USING btree (id)
 index public.invitations_token_hash_key CREATE UNIQUE INDEX invitations_token_hash_key ON public.invitations USING btree (token_hash)
 index public.invoice_items_pkey CREATE UNIQUE INDEX invoice_items_pkey ON public.invoice_items USING btree (id)
@@ -2336,7 +2362,6 @@ policy public.follow_ups.follow_ups_update cmd=w permissive=t roles=authenticate
 policy public.in_app_notifications.in_app_notifications_delete cmd=d permissive=t roles=authenticated using=((recipient_user_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids))) check=-
 policy public.in_app_notifications.in_app_notifications_select cmd=r permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids)) AND ((recipient_user_id = ( SELECT auth.uid() AS uid)) OR ((recipient_user_id IS NULL) AND ((recipient_role IS NULL) OR (EXISTS ( SELECT 1    FROM memberships m   WHERE ((m.tenant_id = in_app_notifications.tenant_id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND ((m.role = in_app_notifications.recipient_role) OR ((m.role = ANY (ARRAY['owner'::text, 'admin'::text])) AND (in_app_notifications.recipient_role = ANY (ARRAY['owner'::text, 'admin'::text, 'receptionist'::text]))))))))))) check=-
 policy public.in_app_notifications.in_app_notifications_update cmd=w permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids)) AND ((recipient_user_id = ( SELECT auth.uid() AS uid)) OR ((recipient_user_id IS NULL) AND ((recipient_role IS NULL) OR (EXISTS ( SELECT 1    FROM memberships m   WHERE ((m.tenant_id = in_app_notifications.tenant_id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND ((m.role = in_app_notifications.recipient_role) OR ((m.role = ANY (ARRAY['owner'::text, 'admin'::text])) AND (in_app_notifications.recipient_role = ANY (ARRAY['owner'::text, 'admin'::text, 'receptionist'::text]))))))))))) check=((tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids)) AND ((recipient_user_id = ( SELECT auth.uid() AS uid)) OR ((recipient_user_id IS NULL) AND ((recipient_role IS NULL) OR (EXISTS ( SELECT 1    FROM memberships m   WHERE ((m.tenant_id = in_app_notifications.tenant_id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND ((m.role = in_app_notifications.recipient_role) OR ((m.role = ANY (ARRAY['owner'::text, 'admin'::text])) AND (in_app_notifications.recipient_role = ANY (ARRAY['owner'::text, 'admin'::text, 'receptionist'::text])))))))))))
-policy public.invitations.invitations_insert cmd=a permissive=t roles=authenticated using=- check=((created_by = ( SELECT auth.uid() AS uid)) AND (consumed_at IS NULL) AND (consumed_by IS NULL) AND (tenant_id IN ( SELECT authz.tenant_ids_with('staff:invite'::text) AS tenant_ids_with)) AND ((role <> ALL (ARRAY['owner'::text, 'admin'::text])) OR (EXISTS ( SELECT 1    FROM memberships m   WHERE ((m.tenant_id = invitations.tenant_id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND (m.role = 'owner'::text))))))
 policy public.invitations.invitations_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('staff:invite'::text) AS tenant_ids_with)) check=-
 policy public.invoice_items.invoice_items_delete cmd=d permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('billing:collect'::text) AS tenant_ids_with)) check=-
 policy public.invoice_items.invoice_items_insert cmd=a permissive=t roles=authenticated using=- check=((tenant_id IN ( SELECT authz.tenant_ids_with('billing:collect'::text) AS tenant_ids_with)) OR ((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id = invoice_items.tenant_id) AND (i.id = invoice_items.invoice_id) AND (v.doctor_id = ( SELECT auth.uid() AS uid)))))))

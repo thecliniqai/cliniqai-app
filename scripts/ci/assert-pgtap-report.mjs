@@ -43,6 +43,8 @@
  *   4513 — V2-05 05b 05-05 (000087 membership_status): 3934 + authz_matrix 496 (2728 → 3224: 62 targets x 4 ops x 2 new
  *          principals, removed and suspended) + definer_functions 2 (34 → 36: remove_member legs) + remove_member 81
  *          = 4513 (40 files).
+ *   4592 — V2-05 05b 05-07a (000088 invitations_v2): 4513 + definer_functions 4 (36 → 40: invite_staff, resend and
+ *          revoke legs) + invitations_v2 75 = 4592 (41 files; the matrix keeps 3224 cells, invitations INSERT → rpc_only).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -54,7 +56,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 4513;
+export const FLOOR = 4592;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -116,6 +118,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/drop_v1_subscriptions.test.sql",
   // 05-05
   "supabase/tests/database/remove_member.test.sql",
+  // 05-07a
+  "supabase/tests/database/invitations_v2.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

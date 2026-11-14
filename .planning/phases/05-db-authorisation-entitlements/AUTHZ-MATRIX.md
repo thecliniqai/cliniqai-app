@@ -40,7 +40,7 @@ Principals:
 | `public.memberships` | U | full AND (self(user_id) OR perm(clinic:manage)) | Y | Y | - | Y | - | - | - | - | - | X | - | - | - |
 | `public.memberships` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invitations` | S | perm(staff:invite) | Y | Y | - | - | - | - | - | - | - | X | - | - | - |
-| `public.invitations` | I | self(created_by) AND perm(staff:invite) | Y | Y | X | X | X | X | X | X | X | X | X | X | X |
+| `public.invitations` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invitations` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invitations` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X | X | X |
 | `public.patients` | S | perm(patients:view) | Y | Y | Y | Y | Y | Y | - | - | - | X | Y | - | - |
@@ -284,7 +284,7 @@ Notes:
 
 - `public.tenants`: SELECT: every clinic of the caller (the switcher, R-40); clinics are created by create_clinic_with_owner (definer RPC)
 - `public.memberships`: fixture row = the second doctor's membership; SELECT own rows in any clinic (switcher) or the active clinic's staff; UPDATE profile columns only (column grants + memberships_profile_update_guard)
-- `public.invitations`: INSERT: staff:invite, created_by = caller; owner/admin roles only by an owner (admin_policies.test.sql; RPC only after 05-07a)
+- `public.invitations`: SELECT staff:invite (token_hash not readable, 000071); INSERT only through invite_staff (05-07a, 000088: staff:invite in the active clinic, owner/admin invitations by owners only, one pending per address)
 - `public.patients`: 05-02b: receptionists register patients (P0-14, PO-3); a change to allergies/chronic_conditions needs consultations:view (patients_clinical_fields_guard, 42501, R-8; front_desk_policies.test.sql). 05-11d (N-5): created_by = caller on INSERT and never changed (patients_actor_guard, 42501 ACTOR_INVALID)
 - `public.visits`: no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03). 05-11a guard (visit_integrity.test.sql): patient never changes; sign-off only by consultations:edit as the caller; a signed visit's status/doctor change only through the amendment path; a doctor does not reassign doctor_id
 - `public.clinical_notes`: 05-02a (R-2, R-3, R-5): one row per visit, created by a definer trigger with fixed content; UPDATE of any column but `vitals` needs consultations:edit (clinical_notes_guard, 42501; clinical_notes.test.sql)

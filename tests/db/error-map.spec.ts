@@ -61,6 +61,11 @@ describe("mapDbError: SQLSTATE table", () => {
     ["P0001 INVITATION_REVOKED (05-05)", { code: "P0001", message: "INVITATION_REVOKED" }, "CONFLICT", "INVITATION_REVOKED"],
     ["P0002 MEMBER_NOT_FOUND (05-05)", { code: "P0002", message: "MEMBER_NOT_FOUND" }, "NOT_FOUND", "MEMBER_NOT_FOUND"],
     ["42501 OWNER_REQUIRED (05-05)", { code: "42501", message: "OWNER_REQUIRED" }, "FORBIDDEN", undefined],
+    // V2-05 05-07a (000088): invitations v2.
+    ["P0001 ALREADY_MEMBER (05-07a)", { code: "P0001", message: "ALREADY_MEMBER" }, "CONFLICT", "ALREADY_MEMBER"],
+    ["P0001 INVITATION_NOT_PENDING (05-07a)", { code: "P0001", message: "INVITATION_NOT_PENDING" }, "CONFLICT", "INVITATION_NOT_PENDING"],
+    ["P0002 INVITATION_NOT_FOUND (05-07a)", { code: "P0002", message: "INVITATION_NOT_FOUND" }, "NOT_FOUND", "INVITATION_NOT_FOUND"],
+    ["42501 SYSTEM_ONLY (05-07a)", { code: "42501", message: "SYSTEM_ONLY" }, "FORBIDDEN", undefined],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],

@@ -11,7 +11,7 @@
 --      subject, is refused; the same call acting in B is allowed. 05-10a adds the access-level leg to this file.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(36);
+select plan(40);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -149,6 +149,8 @@ insert into public.document_share_tokens (id, tenant_id, resource_type, resource
 insert into public.referrals (id, tenant_id, patient_id, referral_type, referring_doctor_id, referred_to_name,
                               reason_for_referral, target_tenant_id) values
   ('c2c00000-0000-4000-8000-000000001008', 'c2c00000-0000-4000-8000-00000000000a', 'c2c00000-0000-4000-8000-000000001001', 'in_network', 'c2c00000-0000-4000-8000-000000000103', 'Synthetic Clinic B', 'Synthetic reason', 'c2c00000-0000-4000-8000-00000000000b');
+insert into public.invitations (id, tenant_id, role, invited_address, expires_at, created_by) values
+  ('c2c00000-0000-4000-8000-000000004101', 'c2c00000-0000-4000-8000-00000000000b', 'nurse', 'c2c-pending-b@example.test', now() + interval '1 day', 'c2c00000-0000-4000-8000-000000000201');
 insert into public.payments (id, tenant_id, invoice_id, amount, payment_method, recorded_by) values
   ('c2c00000-0000-4000-8000-000000009999', 'c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000002005', 100, 'cash', 'c2c00000-0000-4000-8000-000000000201');
 
@@ -170,12 +172,16 @@ insert into c2c_definer values
   ('public.has_permission', 'bound', 'authz.tenant_ids_with: the active clinic (000046)'),
   ('public.referral_directory_search', 'bound', 'consultations:edit in the active clinic; never the active clinic itself (000062, 05-06)'),
   ('public.remove_member', 'bound', 'target membership''s clinic = active clinic; staff:invite, owner-only for owner/admin targets (000087, 05-05)'),
+  ('public.invite_staff', 'bound', 'p_tenant in tenant_ids_with(staff:invite): the active clinic; owner/admin invitations by owners (000088, 05-07a)'),
+  ('public.resend_invitation', 'bound', 'invitation''s clinic = active clinic with staff:invite (000088, 05-07a)'),
+  ('public.revoke_invitation', 'bound', 'invitation''s clinic = active clinic with staff:invite (000088, 05-07a)'),
   -- the member helper
   ('public.current_user_tenant_ids', 'member', 'every clinic of the caller (switcher); no policy or function uses it'),
   ('public.my_tenant_access', 'member', 'SUB §6.2 wrapper: the access level of one of the caller''s own clinics, else null (000083, 05-09a)'),
   ('public.my_entitlements', 'member', 'SUB §6.2 wrapper: entitlements of one of the caller''s own clinics, else no rows (000083, 05-09a)'),
   -- exempt: authorised by something other than a clinic membership
-  ('public.consume_invitation', 'exempt', 'invitation token (creates the membership; 05-07a rework)'),
+  ('public.consume_invitation', 'exempt', 'invitation token bound to the caller''s confirmed address (000071, 000088)'),
+  ('public.peek_invitation', 'exempt', 'anon /join preview by token hash: status, clinic, role, masked address (000088, 05-07a)'),
   ('public.create_clinic_with_owner', 'exempt', 'onboarding: creates the clinic and the caller''s first membership'),
   ('public.consume_reschedule_token', 'exempt', 'anon, patient reschedule token'),
   ('public.get_reschedule_context', 'exempt', 'anon, patient reschedule token'),
@@ -209,6 +215,9 @@ insert into c2c_definer values
   ('public.webhook_delivery_claim', 'system', 'webhook runner'),
   ('public.webhook_delivery_finish', 'system', 'webhook runner'),
   ('private.log_system_audit', 'system', 'record_payment system path (000060)'),
+  ('public.invitation_issue_token', 'system', 'email.invite handler: mints the token at send time (000088, 05-07a, R-30)'),
+  ('public.consume_invitation_for', 'system', 'invite acceptance system path, address-bound (000088, 05-07a)'),
+  ('private.invitation_audit', 'internal', 'audit writer behind the invitation RPCs (000088, 05-07a)'),
   -- internal: no API role may execute them (called by the definer wrappers or as triggers)
   ('private.enqueue_message_internal', 'internal', 'writer behind the bound enqueue RPCs'),
   ('private.enqueue_webhook_internal', 'internal', 'writer behind the bound enqueue RPCs'),
@@ -247,12 +256,16 @@ select set_eq(
     'public.log_audit:authenticated', 'public.has_permission:authenticated,service_role',
     'public.current_user_tenant_ids:authenticated,service_role',
     'public.my_tenant_access:authenticated', 'public.my_entitlements:authenticated',
-    'public.consume_invitation:authenticated,service_role', 'public.create_clinic_with_owner:authenticated,service_role',
+    'public.consume_invitation:authenticated', 'public.create_clinic_with_owner:authenticated,service_role',
     'public.consume_reschedule_token:anon,authenticated,service_role',
     'public.get_reschedule_context:anon,authenticated,service_role',
     'public.resolve_share_token:anon,authenticated,service_role', 'public.readiness_probe:anon',
     'public.ops_ingest_error:anon,authenticated', 'public.is_platform_admin:authenticated',
     'public.remove_member:authenticated', 'public.session_is_live:authenticated',
+    'public.invite_staff:authenticated', 'public.resend_invitation:authenticated',
+    'public.revoke_invitation:authenticated', 'public.peek_invitation:anon,authenticated',
+    'public.invitation_issue_token:service_role', 'public.consume_invitation_for:service_role',
+    'private.invitation_audit:',
     'public.claim_jobs:service_role', 'public.complete_job:service_role', 'public.defer_job:service_role',
     'public.fail_job:service_role', 'public.release_job:service_role', 'public.start_job:service_role',
     'public.jobs_runner_begin:service_role', 'public.jobs_runner_end:service_role',
@@ -375,6 +388,18 @@ select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
   format('select public.remove_member(%L, %L)', (select id from public.memberships where user_id = 'c2c00000-0000-4000-8000-000000000202' and tenant_id = 'c2c00000-0000-4000-8000-00000000000b'), 'Synthetic reason')),
   '1', 'remove_member: acting in B as its owner the B doctor is removed (05-05)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000a',
+  $$select public.invite_staff('c2c00000-0000-4000-8000-00000000000b', 'c2c-invitee-b@example.test', 'admin')$$),
+  'denied:STAFF_INVITE_FORBIDDEN', 'invite_staff: acting in A, inviting into B (where the caller is the owner) is refused (05-07a)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select public.invite_staff('c2c00000-0000-4000-8000-00000000000b', 'c2c-invitee-b@example.test', 'admin')$$),
+  '1', 'invite_staff: acting in B as its owner the invitation is created (05-07a)');
+select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000a',
+  $$select public.resend_invitation('c2c00000-0000-4000-8000-000000004101')$$),
+  'error:P0002:INVITATION_NOT_FOUND%', 'resend_invitation: acting in A on B''s invitation is not found (05-07a)');
+select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000a',
+  $$select public.revoke_invitation('c2c00000-0000-4000-8000-000000004101')$$),
+  'error:P0002:INVITATION_NOT_FOUND%', 'revoke_invitation: acting in A on B''s invitation is not found (05-07a)');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', null, $$select count(*)::text from public.current_user_tenant_ids()$$),
   '2', 'current_user_tenant_ids stays the member helper: every clinic of the caller (the switcher)');
 
