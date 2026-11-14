@@ -1,0 +1,18 @@
+ RUN  v3.2.7 v206-0605-base
+   × 06-05 proxy: signed-in pages and RSC are private/no-store (D-4) > a page GET carries the no-store headers 9ms
+   × 06-05 proxy: signed-in pages and RSC are private/no-store (D-4) > a dynamic page GET carries the no-store headers 1ms
+   × 06-05 proxy: signed-in pages and RSC are private/no-store (D-4) > the root page carries the no-store headers 1ms
+   × 06-05 proxy: signed-in pages and RSC are private/no-store (D-4) > a page HEAD carries the no-store headers 1ms
+   × 06-05 proxy: signed-in pages and RSC are private/no-store (D-4) > an RSC fetch carries the no-store headers 1ms
+   × 06-05 proxy: signed-in pages and RSC are private/no-store (D-4) > an RSC prefetch carries the no-store headers 1ms
+   ✓ 06-05 proxy: signed-in pages and RSC are private/no-store (D-4) > /api requests and Server Action POSTs are left to their handlers 2ms
+   × 06-05 proxy: signed-in pages and RSC are private/no-store (D-4) > a signed-out request for a public page or PWA asset gets no cache header from the proxy 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected null to be 'private, no-cache, no-store, must-rev…' // Object.is equality
+- Expected: 
++ Received: 
+AssertionError: /offline: expected 307 to be 200 // Object.is equality
+- Expected
++ Received
+ Test Files  1 failed (1)
+      Tests  7 failed | 1 passed (8)
