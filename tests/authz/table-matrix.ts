@@ -159,6 +159,8 @@ export const FX = {
   apiKey: id(0x1006),
   webhook: id(0x1007),
   referral: id(0x1008),
+  /** A signed, completed visit: amendment rows are written only on one (05-11e, NF-1). */
+  visitSigned: id(0x1009),
   /** Ids of the other fixture rows and of every INSERT cell's row. */
   row: (n: number): string => id(0x2000 + n),
 } as const;
@@ -365,6 +367,17 @@ export const TARGETS: readonly Target[] = [
     update: "status",
     extraRows: [
       { id: q(FX.visit2), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, origin_type: "'walk_in'", created_by: U.ownerA },
+      {
+        id: q(FX.visitSigned),
+        tenant_id: A,
+        patient_id: q(FX.patient),
+        doctor_id: U.doctorA,
+        origin_type: "'walk_in'",
+        created_by: U.ownerA,
+        status: "'completed'",
+        signed_at: "'2030-01-01 10:00+05:30'",
+        signed_by: U.doctorA,
+      },
     ],
     rules: permSiu("appointments:view", "appointments:edit", rpcOnly),
     note:
@@ -406,10 +419,11 @@ export const TARGETS: readonly Target[] = [
       amendment_reason: "'Synthetic amendment'",
       snapshot: "'{}'::jsonb",
     },
+    // 05-11e (NF-1): a signed-in caller writes an amendment row only on a signed, completed visit.
     insert: {
       id: q(FX.row(5)),
       tenant_id: A,
-      visit_id: q(FX.visit),
+      visit_id: q(FX.visitSigned),
       revision_number: "2",
       amended_by: "auth.uid()",
       amendment_reason: "'Synthetic amendment'",
@@ -419,7 +433,8 @@ export const TARGETS: readonly Target[] = [
     rules: { select: perm("consultations:view"), insert: perm("consultations:edit"), update: rpcOnly, delete: rpcOnly },
     note:
       "append-only amendment history (no UPDATE policy); the author is the caller (05-11a guard); the snapshot and the " +
-      "number are filled by the database (05-11d, N-2/N-8)",
+      "number are filled by the database (05-11d, N-2/N-8); a signed-in caller writes one only on a signed, completed " +
+      "visit, and reopening needs the caller's row of the current signature (05-11e, NF-1; amendment_snapshot.test.sql)",
   },
   {
     kind: "table",
@@ -455,7 +470,9 @@ export const TARGETS: readonly Target[] = [
     insert: { id: q(FX.row(10)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: "auth.uid()", version: "2" },
     update: "status",
     rules: permSiu("prescriptions:view", "prescriptions:edit", rpcOnly),
-    note: "the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql)",
+    note:
+      "the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql); a " +
+      "header is added only while the visit is unsigned or reopened (05-11e, NF-2). The fixture visit is unsigned",
   },
   {
     kind: "table",
@@ -603,6 +620,9 @@ export const TARGETS: readonly Target[] = [
       update: any(perm("appointments:edit"), perm("consultations:edit")),
       delete: perm("consultations:edit"),
     },
+    note:
+      "05-11e (NF-3): keys never change; a follow-up tied to a visit names its patient and is written only while the " +
+      "visit is unsigned or reopened (follow_ups_integrity_guard; amendment_snapshot.test.sql). The fixture row has no visit",
   },
   {
     kind: "table",
