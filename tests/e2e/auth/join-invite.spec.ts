@@ -38,6 +38,12 @@ function seriousOrCritical(results: AxeResults) {
 }
 
 async function check(page: Page, testInfo: TestInfo, name: string, width: number): Promise<void> {
+  // The form keeps submit disabled until hydration, then fades it in (150 ms): scan the settled page (02-06 guard).
+  const submits = page.locator('button[type="submit"]');
+  if (await submits.count()) {
+    await expect(submits.first()).toBeEnabled();
+    await expect.poll(() => submits.first().evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+  }
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   await testInfo.attach(`axe-${name}.json`, {
     body: JSON.stringify({ url: results.url.replace(/token=[0-9a-f]+/, "token=<redacted>"), violations: results.violations }, null, 2),
