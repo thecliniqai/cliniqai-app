@@ -1,0 +1,6 @@
+supabase/tests/database/drop_v1_subscriptions.test.sql planned=4 ok=4 not_ok=0
+supabase/tests/database/authz_matrix.test.sql planned=2728 ok=2728 not_ok=0
+supabase/tests/database/authz_completeness.test.sql planned=6 ok=6 not_ok=0
+supabase/tests/database/admin_policies.test.sql planned=32 ok=32 not_ok=0
+supabase/tests/database/platform_rpcs.test.sql planned=80 ok=80 not_ok=0
+supabase/tests/database/subscription_invariant.test.sql planned=14 ok=14 not_ok=0

@@ -1,0 +1,24 @@
+{
+  "commit": "ed96f8d",
+  "note": "full Vitest on ed96f8d with authz.full_tenant_ids() requiring access level full (uncommitted, local only)",
+  "files": 249,
+  "tests": 4901,
+  "passed": 4901,
+  "failed": 0,
+  "pending": 0,
+  "todo": 0,
+  "specs": {
+    "tests/helpers/subscription.spec.ts": {
+      "tests": 10,
+      "passed": 10
+    },
+    "tests/security/cross-tenant.spec.ts": {
+      "tests": 21,
+      "passed": 21
+    },
+    "tests/security/guard-actions.spec.ts": {
+      "tests": 625,
+      "passed": 625
+    }
+  }
+}
