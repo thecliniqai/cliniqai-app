@@ -40,11 +40,11 @@ describe("client route patterns", () => {
     page("");
     page("(group)/inside");
     page("things/[id]");
-    page("docs/[...slug]");
+    page("guides/[...slug]");
     page("_private/hidden");
     page("@modal/slot");
     page("(.)photo/[id]");
-    expect(dashboardRoutePatterns(root)).toEqual(["/", "/docs/[...slug]", "/inside", "/things/[id]"]);
+    expect(dashboardRoutePatterns(root)).toEqual(["/", "/guides/[...slug]", "/inside", "/things/[id]"]);
   });
 
   it("--check passes on the repository", () => {
