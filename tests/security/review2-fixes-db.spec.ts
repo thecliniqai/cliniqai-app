@@ -642,8 +642,11 @@ describe("01-09 review round 2 fixes (000022)", () => {
     });
   });
 
+  // V2-05 05-11c (M-APINOTES, R-9): the v1 visit routes no longer write clinical content, so the body that used to
+  // provoke the database error (a non-array investigations_advised) is now refused before any write. Fixed texts for
+  // real database errors on every v1 route are proven in tests/api/v1-error-texts.spec.ts.
   describe("AR2-Info (I2): the v1 visit PATCH never returns or logs database text", () => {
-    it("a database error on update answers a fixed message and logs only the error code", async () => {
+    it("a clinical field is refused with 403 CLINICAL_ACCESS_DENIED before any write; nothing echoes the input", async () => {
       vi.stubEnv("API_V1_ENABLED", "true");
       try {
         const secret = createApiKeySecret();
@@ -658,7 +661,6 @@ describe("01-09 review round 2 fixes (000022)", () => {
         const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
         const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 
-        // investigations_advised is text[]; a number is not an array literal, so PostgREST returns a 22P02 error.
         const res = await patchV1Visit(
           new NextRequest(`http://localhost/api/v1/visits/${visitId}`, {
             method: "PATCH",
@@ -667,14 +669,15 @@ describe("01-09 review round 2 fixes (000022)", () => {
           }),
           { params: Promise.resolve({ id: visitId }) }
         );
-        expect(res.status).toBe(500);
+        expect(res.status).toBe(403);
         const body = await res.text();
+        expect(JSON.parse(body).error.code).toBe("CLINICAL_ACCESS_DENIED");
         expect(body).not.toMatch(/malformed|array literal|12345/i);
-        // V2-03 03-09c: the server log is lib/log on stderr; it names the event and the code, never the message.
         const logged = JSON.stringify([...errSpy.mock.calls, ...stderrSpy.mock.calls]);
-        expect(logged).not.toMatch(/malformed|array literal/i);
-        expect(logged).toContain('\\"event\\":\\"api.visit_update.failed\\"');
-        expect(logged).toContain('\\"code\\":\\"22P02\\"');
+        expect(logged).not.toMatch(/malformed|array literal|12345/i);
+        expect(logged).not.toContain('\\"event\\":\\"api.visit_update.failed\\"');
+        const { data: notes } = await getAdminClient().from("clinical_notes").select("investigations_advised").eq("visit_id", visitId).single();
+        expect(notes?.investigations_advised).toEqual([]);
       } finally {
         vi.unstubAllEnvs();
       }
