@@ -1,0 +1,18 @@
+# static checks at 8edd46a (working tree also holds other agents' uncommitted files)
+## npm run typecheck
+
+> clinicos@0.1.0 typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+exit=0
+## npx eslint .
+✖ 386 problems (0 errors, 386 warnings)
+  0 errors and 24 warnings potentially fixable with the `--fix` option.
+
+## npm run inventory
+      ]
+    }
+  ]
+}
+
+## exit codes (re-run): inventory=0 tsc(app)=0 tsc(tests)=0 eslint=0
