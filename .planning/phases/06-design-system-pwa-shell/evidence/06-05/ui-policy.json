@@ -1,0 +1,80 @@
+{
+  "generatedBy": "scripts/ci/ui-policy.mjs --json (06-05; findings omitted except signout-guard)",
+  "commit": "24e8a62",
+  "files": 364,
+  "rules": [
+    {
+      "id": "ai-sdk-import",
+      "mode": "report",
+      "count": 0,
+      "files": 0,
+      "baseline": 0,
+      "delta": 0
+    },
+    {
+      "id": "arbitrary-color",
+      "mode": "report",
+      "count": 4,
+      "files": 3,
+      "baseline": 4,
+      "delta": 0
+    },
+    {
+      "id": "brand-utility",
+      "mode": "enforce",
+      "count": 0,
+      "files": 0,
+      "baseline": 0,
+      "delta": 0
+    },
+    {
+      "id": "link-wraps-button",
+      "mode": "report",
+      "count": 31,
+      "files": 9,
+      "baseline": 31,
+      "delta": 0
+    },
+    {
+      "id": "px-font",
+      "mode": "report",
+      "count": 282,
+      "files": 52,
+      "baseline": 282,
+      "delta": 0
+    },
+    {
+      "id": "raw-palette",
+      "mode": "report",
+      "count": 3530,
+      "files": 100,
+      "baseline": 3530,
+      "delta": 0
+    },
+    {
+      "id": "screen-height",
+      "mode": "enforce",
+      "count": 0,
+      "files": 0,
+      "baseline": 0,
+      "delta": 0
+    },
+    {
+      "id": "signout-guard",
+      "mode": "enforce",
+      "count": 0,
+      "files": 0,
+      "baseline": null,
+      "delta": null
+    },
+    {
+      "id": "window-dialog",
+      "mode": "report",
+      "count": 27,
+      "files": 8,
+      "baseline": 27,
+      "delta": 0
+    }
+  ],
+  "signoutGuardFindings": []
+}

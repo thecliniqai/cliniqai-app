@@ -1,0 +1,462 @@
+{
+ "generatedBy": "npm run e2e:pr (playwright-report/results.json)",
+ "commitBase": "tree of 3029320 (built and run before that commit; the kill-switch move in c7ee1d9 changes no app or e2e file)",
+ "stats": {
+  "startTime": "2026-11-14T08:14:27.255Z",
+  "duration": 190401.778,
+  "expected": 287,
+  "skipped": 38,
+  "unexpected": 0,
+  "flaky": 0
+ },
+ "pwaAndSignoutTests": [
+  {
+   "project": "desktop-chrome",
+   "file": "auth/signout.spec.ts",
+   "title": "at 360px: both items visible, 0 serious/critical axe violations",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "auth/signout.spec.ts",
+   "title": "at 820px: both items visible, 0 serious/critical axe violations",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "auth/signout.spec.ts",
+   "title": "at 1280px: both items visible, 0 serious/critical axe violations",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "auth/signout.spec.ts",
+   "title": "at 360px: both items visible, 0 serious/critical axe violations",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "auth/signout.spec.ts",
+   "title": "at 820px: both items visible, 0 serious/critical axe violations",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "auth/signout.spec.ts",
+   "title": "at 1280px: both items visible, 0 serious/critical axe violations",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "auth/signout.spec.ts",
+   "title": "Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "auth/signout.spec.ts",
+   "title": "Sign out of all devices: every session of the user ends",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "auth/signout.spec.ts",
+   "title": "GET is 405 and a cross-origin POST is 403 (the session survives); a same-origin POST is 303 with Clear-Site-Data",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "auth/signout.spec.ts",
+   "title": "Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "auth/signout.spec.ts",
+   "title": "Sign out of all devices: every session of the user ends",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "auth/signout.spec.ts",
+   "title": "GET is 405 and a cross-origin POST is 403 (the session survives); a same-origin POST is 303 with Clear-Site-Data",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/01-manifest.spec.ts",
+   "title": "signed out: /manifest.webmanifest answers 200 application/manifest+json with the PWA \u00a73.1 fields",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/01-manifest.spec.ts",
+   "title": "signed out: every manifest icon is a PNG of its declared size; 192 any, 512 any and 512 maskable exist",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/01-manifest.spec.ts",
+   "title": "signed out: /sw.js, /offline, /icon.svg and /apple-icon.png answer 200 with their content types",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/01-manifest.spec.ts",
+   "title": "the root document links the manifest, the icons and the PWA viewport (no pinch-zoom lock)",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/01-manifest.spec.ts",
+   "title": "signed out: /manifest.webmanifest answers 200 application/manifest+json with the PWA \u00a73.1 fields",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/01-manifest.spec.ts",
+   "title": "signed out: every manifest icon is a PNG of its declared size; 192 any, 512 any and 512 maskable exist",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/01-manifest.spec.ts",
+   "title": "signed out: /sw.js, /offline, /icon.svg and /apple-icon.png answer 200 with their content types",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/01-manifest.spec.ts",
+   "title": "the root document links the manifest, the icons and the PWA viewport (no pinch-zoom lock)",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/02-installable.spec.ts",
+   "title": "Chrome reports the signed-in app installable (Page.getInstallabilityErrors is empty)",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/02-installable.spec.ts",
+   "title": "Chrome reports the signed-in app installable (Page.getInstallabilityErrors is empty)",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/03-sw.spec.ts",
+   "title": "the shell registers /sw.js (scope /, update via cache: none) and it activates",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/03-sw.spec.ts",
+   "title": "/sw.js is served no-store with a same-origin-only CSP, signed in and signed out",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/03-sw.spec.ts",
+   "title": "the precache holds exactly the five public shell URLs, \u2264 150 kB in total",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/03-sw.spec.ts",
+   "title": "the shell registers /sw.js (scope /, update via cache: none) and it activates",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/03-sw.spec.ts",
+   "title": "/sw.js is served no-store with a same-origin-only CSP, signed in and signed out",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/03-sw.spec.ts",
+   "title": "the precache holds exactly the five public shell URLs, \u2264 150 kB in total",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/04-offline.spec.ts",
+   "title": "offline: a navigation shows the /offline page; Today keeps its rows and shows the banner until back online",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/04-offline.spec.ts",
+   "title": "offline: a navigation shows the /offline page; Today keeps its rows and shows the banner until back online",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/05-cache-audit.spec.ts",
+   "title": "Today, a patient, a consult, billing and a receipt: nothing authenticated is cached or stored",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/05-cache-audit.spec.ts",
+   "title": "Today, a patient, a consult, billing and a receipt: nothing authenticated is cached or stored",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/05-cache-audit.spec.ts",
+   "title": "Sign out: purged, no auth cookie, Back shows no patient data",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/05-cache-audit.spec.ts",
+   "title": "Sign out of all devices: purged here, the second device loses its session",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/05-cache-audit.spec.ts",
+   "title": "Switch user: purged, plain login page with nothing prefilled",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/05-cache-audit.spec.ts",
+   "title": "Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/05-cache-audit.spec.ts",
+   "title": "Sign out: purged, no auth cookie, Back shows no patient data",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/05-cache-audit.spec.ts",
+   "title": "Sign out of all devices: purged here, the second device loses its session",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/05-cache-audit.spec.ts",
+   "title": "Switch user: purged, plain login page with nothing prefilled",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/05-cache-audit.spec.ts",
+   "title": "Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "/offline at 360px: no horizontal scroll, axe clean",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "/offline at 820px: no horizontal scroll, axe clean",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "/offline at 1180px: no horizontal scroll, axe clean",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "/offline at 1280px: no horizontal scroll, axe clean",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "/offline at 360px: no horizontal scroll, axe clean",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "/offline at 820px: no horizontal scroll, axe clean",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "/offline at 1180px: no horizontal scroll, axe clean",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "/offline at 1280px: no horizontal scroll, axe clean",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "offline banner on Today at 360px: axe clean, adds no horizontal scroll",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "user menu with Switch user at 360px: visible, axe clean",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "offline banner on Today at 820px: axe clean, adds no horizontal scroll",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "user menu with Switch user at 820px: visible, axe clean",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "offline banner on Today at 1180px: axe clean, adds no horizontal scroll",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "user menu with Switch user at 1180px: visible, axe clean",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "offline banner on Today at 1280px: axe clean, adds no horizontal scroll",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "desktop-chrome",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "user menu with Switch user at 1280px: visible, axe clean",
+   "status": "expected",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "offline banner on Today at 360px: axe clean, adds no horizontal scroll",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "user menu with Switch user at 360px: visible, axe clean",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "offline banner on Today at 820px: axe clean, adds no horizontal scroll",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "user menu with Switch user at 820px: visible, axe clean",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "offline banner on Today at 1180px: axe clean, adds no horizontal scroll",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "user menu with Switch user at 1180px: visible, axe clean",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "offline banner on Today at 1280px: axe clean, adds no horizontal scroll",
+   "status": "skipped",
+   "retries": 0
+  },
+  {
+   "project": "pixel-7",
+   "file": "pwa/ui-checks.spec.ts",
+   "title": "user menu with Switch user at 1280px: visible, axe clean",
+   "status": "skipped",
+   "retries": 0
+  }
+ ]
+}
