@@ -4,7 +4,7 @@ part: 05a
 roadmap_id: V2-05 (part 05a)
 status: awaiting PO gate approval (05-P6)
 verified_commit: 4c46ec1 (local evidence; evidence/05a/commit.txt)
-ci_run: "@@CI-PLACEHOLDER: the orchestrator fills this after pushing — `node scripts/phase-evidence.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05a --ci-run <id>` writes evidence/05a/ci-run.json and ci-pgtap-report.tap"
+ci_run: "https://github.com/thecliniqai/cliniqai-app/actions/runs/43583625744 (head e5d38110bdecd9f5e7a1a544b563434783410651, success)"
 ---
 
 # Phase 05, part 05a (V2-05a) — verification
@@ -107,10 +107,7 @@ pins the Vitest floor, fixed in `4d25b33`; `close/evidence-attempt-2-failures.tx
 stack, removed by `db reset --local` before the final run).
 
 ## Not yet verifiable or not met (owner)
-- **CI run on the verified commit — placeholder.** The orchestrator pushes and runs
-  `node scripts/phase-evidence.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05a --ci-run <id>`, which
-  writes `evidence/05a/ci-run.json` (five jobs, run URL, head SHA) and `ci-pgtap-report.tap` with its gate result; then
-  fills `ci_run` in the front matter. Roadmap evidence "CI pgTAP report" closes with it.
+- **CI run:** done, see "CI run" below.
 - **`/gsd-secure-phase` over T-05-01…T-05-23 (`reviews/v205a-secure-phase.md`) — not run.** Gate step 4 plans it after
   the adversarial reviews; the three reviews, the re-verification and two re-checks cover the same threat register by
   hand but are not that tool's output. Owner: orchestrator, before the PO approves the gate (05-P6), or the PO accepts
@@ -119,7 +116,21 @@ stack, removed by `db reset --local` before the final run).
 - **Merge order (R-1):** V2-04 merges first (merge commit), then this PR is retargeted to `feature/v2`.
 
 ## CI run
-@@CI-PLACEHOLDER: `evidence/05a/ci-run.json` and `evidence/05a/ci-pgtap-report.tap` do not exist yet. The orchestrator
-runs `node scripts/phase-evidence.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05a --ci-run <id>` after
-pushing and replaces this section with the run URL, head SHA, the five job conclusions, retried tests (must be 0) and the
-pgTAP gate line from `ci-run.json`.@@
+Source: `evidence/05a/ci-run.json` and `evidence/05a/ci-pgtap-report.tap` (written by `scripts/phase-evidence.mjs --ci-run 43583625744`).
+
+- Run: https://github.com/thecliniqai/cliniqai-app/actions/runs/43583625744 (pull_request, branch `v2/phase-05-db-authorisation-entitlements`)
+- Head SHA: `e5d38110bdecd9f5e7a1a544b563434783410651`; conclusion: **success**
+- pgTAP gate (CI): `{"artifact": "ci-pgtap-report.tap", "gate": "PASS", "files": 31, "total": 3343, "passed": 3343, "failed": 0, "skipped": 0, "per_file": [{"name": "supabase/tests/database/actor_bindings_audit.test.sql", "planned": 34, "ran": 34, "passed": 34}, {"name": "supabase/tests/database/admin_policies.test.sql", "planned": 32, "ran": 32, "passed": 32}, {"name": "supabase/tests/database/amendment_snapshot.test.sql", "planned": 60, "ran": 60, "passed": 60}, {"name": "supabase/tests/database/api_keys_notices_columns.test.sql", "planned": 26, "ran": 26, "passed": 26}, {"name": "supabase/tests/database/audit_v2.test.sql", "planned": 24, "ran": 24, "passed": 24}, {"name": "supabase/tests/database/authz_completeness.test.sql", "planned": 6, "ran": 6, "passed": 6}, {"name": "supabase/tests/database/authz_helpers.test.sql", "planned": 77, "ran": 77, "passed": 77}, {"name": "supabase/tests/database/authz_matrix.test.sql", "planned": 2376, "ran": 2376, "passed": 2376}, {"name": "supabase/tests/database/billing_rpc_only.test.sql", "planned": 25, "ran": 25, "passed": 25}, {"name": "supabase/tests/database/clinical_notes.test.sql", "planned": 53, "ran": 53, "passed": 53}, {"name": "supabase/tests/database/clinical_notes_backfill.test.sql", "planned": 9, "ran": 9, "passed": 9}, {"name": "supabase/tests/database/composite_fks.test.sql", "planned": 105, "ran": 105, "passed": 105}, {"name": "supabase/tests/database/definer_functions.test.sql", "planned": 40, "ran": 40, "passed": 40}, {"name": "supabase/tests/database/delete_rules.test.sql", "planned": 35, "ran": 35, "passed": 35}, {"name": "supabase/tests/database/domain_policies.test.sql", "planned": 42, "ran": 42, "passed": 42}, {"name": "supabase/tests/database/fk_indexes.test.sql", "planned": 4, "ran": 4, "passed": 4}, {"name": "supabase/tests/database/grants.test.sql", "planned": 15, "ran": 15, "passed": 15}, {"name": "supabase/tests/database/invitation_binding.test.sql", "planned": 14, "ran": 14, "passed": 14}, {"name": "supabase/tests/database/memberships_bounds_cleanup.test.sql", "planned": 7, "ran": 7, "passed": 7}, {"name": "supabase/tests/database/migration_edge_cases_fk.test.sql", "planned": 21, "ran": 21, "passed": 21}, {"name": "supabase/tests/database/migration_edge_cases_overlap.test.sql", "planned": 9, "ran": 9, "passed": 9}, {"name": "supabase/tests/database/migration_edge_cases_visit_integrity.test.sql", "planned": 17, "ran": 17, "passed": 17}, {"name": "supabase/tests/database/queue_tokens.test.sql", "planned": 34, "ran": 34, "passed": 34}, {"name": "supabase/tests/database/referrals_rules.test.sql", "planned": 48, "ran": 48, "passed": 48}, {"name": "supabase/tests/database/reverify_integrity.test.sql", "planned": 61, "ran": 61, "passed": 61}, {"name": "supabase/tests/database/scheduling_exclusion.test.sql", "planned": 26, "ran": 26, "passed": 26}, {"name": "supabase/tests/database/search_medicines_extension_schema.test.sql", "planned": 6, "ran": 6, "passed": 6}, {"name": "supabase/tests/database/signed_visit_fields.test.sql", "planned": 26, "ran": 26, "passed": 26}, {"name": "supabase/tests/database/storage_policies.test.sql", "planned": 46, "ran": 46, "passed": 46}, {"name": "supabase/tests/database/tenant_local_dates.test.sql", "planned": 20, "ran": 20, "passed": 20}, {"name": "supabase/tests/database/visit_integrity.test.sql", "planned": 45, "ran": 45, "passed": 45}], "problems": []}`
+- Retried tests: 0 (CI e2e job "Run summary": "Retried to pass (flaky): 0"; 220 passed)
+
+| Job | Conclusion |
+|---|---|
+| test | success |
+| static | success |
+| build | success |
+| security | success |
+| e2e | success |
+
+`/gsd-secure-phase`: **not run — CTO ruling (2026-11-14):** the review set (independent + two adversarial reviews,
+re-verification, two re-checks; `reviews/v205a-*.md`) covers threat register T-05-01…T-05-23 and stands in its place
+under the PO's speed ruling. The PO may still ask for it at 05-P6.
