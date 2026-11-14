@@ -1,0 +1,22 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 91ms
+[WebServer] ✓ Running next.config.ts took 54ms
+
+Running 11 tests using 1 worker
+
+  ✓   1 [setup] › tests/e2e/auth.setup.ts:10:8 › owner signs in through the login UI (633ms)
+  ✓   2 [setup] › tests/e2e/auth.setup.ts:10:8 › admin signs in through the login UI (382ms)
+  ✓   3 [setup] › tests/e2e/auth.setup.ts:10:8 › doctor signs in through the login UI (554ms)
+  ✓   4 [setup] › tests/e2e/auth.setup.ts:10:8 › nurse signs in through the login UI (348ms)
+  ✓   5 [setup] › tests/e2e/auth.setup.ts:10:8 › receptionist signs in through the login UI (355ms)
+  ✓   6 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:80:11 › Lab Reports tab at 360px › receptionist (no labs:view) › shows the clinical-staff notice and no upload (360px) (598ms)
+  ✓   7 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:93:11 › Lab Reports tab at 360px › doctor (labs:edit) › keeps the upload, no notice (360px) (545ms)
+  ✓   8 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:80:11 › Lab Reports tab at 820px › receptionist (no labs:view) › shows the clinical-staff notice and no upload (820px) (543ms)
+  ✓   9 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:93:11 › Lab Reports tab at 820px › doctor (labs:edit) › keeps the upload, no notice (820px) (562ms)
+  ✓  10 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:80:11 › Lab Reports tab at 1280px › receptionist (no labs:view) › shows the clinical-staff notice and no upload (1280px) (532ms)
+  ✓  11 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:93:11 › Lab Reports tab at 1280px › doctor (labs:edit) › keeps the upload, no notice (1280px) (539ms)
+[e2e teardown] removed run data: 2 tenant(s), 6 auth user(s), 0 storage object(s); verified none remain
+
+  11 passed (9.7s)
