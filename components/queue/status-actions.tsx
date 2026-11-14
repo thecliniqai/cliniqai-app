@@ -89,7 +89,7 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
 
   if (visit.status === "cancelled" || visit.status === "no_show") {
     return (
-      <span className="text-xs text-gray-400 italic capitalize px-2 py-1">
+      <span className="text-xs text-fg-subtle italic capitalize px-2 py-1">
         {visit.status.replace("_", " ")}
       </span>
     );
@@ -106,7 +106,7 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
           variant="primary"
           onClick={handleCheckIn}
           disabled={loading}
-          className="h-9 text-xs font-semibold px-3.5 gap-1.5 bg-[#1769E0] text-white hover:bg-[#155cc0] cursor-pointer"
+          className="h-9 text-xs font-semibold px-3.5 gap-1.5 bg-accent text-white hover:bg-accent-hover cursor-pointer"
         >
           <UserCheck className="w-3.5 h-3.5" />
           {loading ? "Checking in..." : "Check In"}
@@ -120,7 +120,7 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
           variant="primary"
           onClick={handleStartConsultation}
           disabled={loading}
-          className="h-9 text-xs font-semibold px-3.5 gap-1.5 bg-[#1769E0] text-white hover:bg-[#155cc0] cursor-pointer shadow-2xs"
+          className="h-9 text-xs font-semibold px-3.5 gap-1.5 bg-accent text-white hover:bg-accent-hover cursor-pointer shadow-2xs"
         >
           <Stethoscope className="w-3.5 h-3.5" />
           <span>{loading ? "Opening..." : "Start Consultation"}</span>
@@ -132,7 +132,7 @@ export function StatusActions({ visit, onStatusChanged }: StatusActionsProps) {
         <div className="flex items-center gap-2">
           <Link
             href={`/consultation/${visit.id}`}
-            className="h-9 px-3.5 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            className="h-9 px-3.5 rounded-xl bg-accent text-white hover:bg-accent-hover font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
           >
             <Stethoscope className="w-3.5 h-3.5" />
             <span>Resume Consultation</span>

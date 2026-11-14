@@ -231,7 +231,7 @@ export function SignAndBillModal({
                   router.push("/cabin");
                   router.refresh();
                 }}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -257,9 +257,9 @@ export function SignAndBillModal({
               {receiptState?.kind === "already_billed" ? (
                 <div
                   role="status"
-                  className="p-3.5 rounded-xl bg-[#EAF2FF] border border-[#B2CCFF] flex items-center gap-3 text-xs text-gray-900"
+                  className="p-3.5 rounded-xl bg-accent-subtle border border-accent-border flex items-center gap-3 text-xs text-gray-900"
                 >
-                  <Receipt className="w-4 h-4 text-[#1769E0] shrink-0" />
+                  <Receipt className="w-4 h-4 text-accent shrink-0" />
                   <p>{receiptState.message}</p>
                 </div>
               ) : null}
@@ -277,9 +277,9 @@ export function SignAndBillModal({
               {/* Action Cards */}
               <div className="space-y-3 pt-1">
                 {/* 1. Prescription Print & WhatsApp */}
-                <div className="p-4 rounded-xl border border-gray-200 bg-white hover:border-[#1769E0]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+                <div className="p-4 rounded-xl border border-gray-200 bg-white hover:border-accent/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center shrink-0 border border-[#B2CCFF]">
+                    <div className="w-10 h-10 rounded-xl bg-accent-subtle text-accent flex items-center justify-center shrink-0 border border-accent-border">
                       <Printer className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">
@@ -327,7 +327,7 @@ export function SignAndBillModal({
                       href={`/api/visits/${completedResult.visitId}/prescription-pdf`}
                       target="_blank"
                       rel="noreferrer"
-                      className="h-9 px-3.5 rounded-lg bg-[#1769E0] text-white hover:bg-[#155cc0] text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                      className="h-9 px-3.5 rounded-lg bg-accent text-white hover:bg-accent-hover text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                     >
                       <Printer className="w-3.5 h-3.5" />
                       <span>Print Rx</span>
@@ -352,7 +352,7 @@ export function SignAndBillModal({
                             receiptState?.kind === "paid"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : receiptState?.kind === "already_billed"
-                                ? "bg-[#EAF2FF] text-[#1769E0] border-[#B2CCFF]"
+                                ? "bg-accent-subtle text-accent border-accent-border"
                                 : "bg-amber-50 text-amber-700 border-amber-200"
                           )}
                         >
@@ -430,7 +430,7 @@ export function SignAndBillModal({
                   router.push("/cabin");
                   router.refresh();
                 }}
-                className="h-11 px-5 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] text-xs font-semibold shadow-theme-xs cursor-pointer flex items-center gap-2"
+                className="h-11 px-5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold shadow-theme-xs cursor-pointer flex items-center gap-2"
               >
                 <span>Return to Doctor&apos;s Cabin</span>
                 <ArrowRight className="w-4 h-4" />
@@ -445,7 +445,7 @@ export function SignAndBillModal({
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50/70">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center border border-[#B2CCFF]">
+                <div className="w-9 h-9 rounded-xl bg-accent-subtle text-accent flex items-center justify-center border border-accent-border">
                   <Stethoscope className="w-5 h-5" />
                 </div>
                 <div>
@@ -462,7 +462,7 @@ export function SignAndBillModal({
                 type="button"
                 onClick={onClose}
                 disabled={isPending}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -481,19 +481,19 @@ export function SignAndBillModal({
               {/* Clinical Encounter Summary */}
               <div className="p-3.5 rounded-xl bg-blue-50/50 border border-blue-100">
                 <div className="text-xs font-semibold text-gray-900 mb-2">
-                  Clinical Summary &middot; <span className="font-bold text-[#1769E0]">{patientName}</span>
+                  Clinical Summary &middot; <span className="font-bold text-accent">{patientName}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center text-xs">
                   <div className="p-2 bg-white rounded-lg border border-blue-100 shadow-2xs">
-                    <span className="text-[10px] text-gray-400 block uppercase font-medium">Diagnoses</span>
+                    <span className="text-[10px] text-fg-subtle block uppercase font-medium">Diagnoses</span>
                     <span className="font-bold text-gray-800 text-sm">{diagnosesCount}</span>
                   </div>
                   <div className="p-2 bg-white rounded-lg border border-blue-100 shadow-2xs">
-                    <span className="text-[10px] text-gray-400 block uppercase font-medium">Medicines (Rx)</span>
+                    <span className="text-[10px] text-fg-subtle block uppercase font-medium">Medicines (Rx)</span>
                     <span className="font-bold text-gray-800 text-sm">{medicinesCount}</span>
                   </div>
                   <div className="p-2 bg-white rounded-lg border border-blue-100 shadow-2xs">
-                    <span className="text-[10px] text-gray-400 block uppercase font-medium">Follow-Up</span>
+                    <span className="text-[10px] text-fg-subtle block uppercase font-medium">Follow-Up</span>
                     <span className="font-bold text-gray-800 text-xs truncate">
                       {followUpDate ? new Date(followUpDate).toLocaleDateString([], { month: "short", day: "numeric" }) : "None"}
                     </span>
@@ -515,7 +515,7 @@ export function SignAndBillModal({
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Consultation Fee (₹)" htmlFor="consultation_fee" required>
                     <div className="relative">
-                      <span className="absolute start-3 top-2.5 text-gray-400 font-semibold text-sm">
+                      <span className="absolute start-3 top-2.5 text-fg-subtle font-semibold text-sm">
                         ₹
                       </span>
                       <Input
@@ -533,7 +533,7 @@ export function SignAndBillModal({
 
                   <Field label="Discount (₹)" htmlFor="discount">
                     <div className="relative">
-                      <span className="absolute start-3 top-2.5 text-gray-400 font-semibold text-sm">
+                      <span className="absolute start-3 top-2.5 text-fg-subtle font-semibold text-sm">
                         ₹
                       </span>
                       <Input
@@ -590,7 +590,7 @@ export function SignAndBillModal({
                         onChange={(e) => setPaymentCollected(e.target.checked)}
                         className="sr-only peer"
                       />
-                      <div className="w-10 h-5.5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-[#1769E0]" />
+                      <div className="w-10 h-5.5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-accent" />
                     </label>
                   </div>
 
@@ -604,7 +604,7 @@ export function SignAndBillModal({
                           className={cn(
                             "p-2.5 rounded-xl border flex flex-col items-center gap-1 text-xs font-semibold transition-all cursor-pointer",
                             paymentMethod === "cash"
-                              ? "bg-[#EAF2FF] border-[#1769E0] text-[#1769E0] ring-1 ring-[#1769E0]"
+                              ? "bg-accent-subtle border-accent text-accent ring-1 ring-accent"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}
                         >
@@ -618,7 +618,7 @@ export function SignAndBillModal({
                           className={cn(
                             "p-2.5 rounded-xl border flex flex-col items-center gap-1 text-xs font-semibold transition-all cursor-pointer",
                             paymentMethod === "upi"
-                              ? "bg-[#EAF2FF] border-[#1769E0] text-[#1769E0] ring-1 ring-[#1769E0]"
+                              ? "bg-accent-subtle border-accent text-accent ring-1 ring-accent"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}
                         >
@@ -632,7 +632,7 @@ export function SignAndBillModal({
                           className={cn(
                             "p-2.5 rounded-xl border flex flex-col items-center gap-1 text-xs font-semibold transition-all cursor-pointer",
                             paymentMethod === "card"
-                              ? "bg-[#EAF2FF] border-[#1769E0] text-[#1769E0] ring-1 ring-[#1769E0]"
+                              ? "bg-accent-subtle border-accent text-accent ring-1 ring-accent"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}
                         >
@@ -674,7 +674,7 @@ export function SignAndBillModal({
                 <Button
                   type="submit"
                   disabled={isPending}
-                  className="h-11 px-5 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] text-xs font-semibold shadow-theme-xs cursor-pointer flex items-center gap-2"
+                  className="h-11 px-5 rounded-xl bg-accent text-white hover:bg-accent-hover text-xs font-semibold shadow-theme-xs cursor-pointer flex items-center gap-2"
                 >
                   <ShieldCheck className="w-4 h-4" />
                   <span>

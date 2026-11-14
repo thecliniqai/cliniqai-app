@@ -79,7 +79,7 @@ export function DropdownItem({
       className={cn(
         "w-full px-4 py-2.5 text-start text-sm flex items-center gap-2.5 transition-colors cursor-pointer",
         danger
-          ? "text-[#B42318] hover:bg-rose-50"
+          ? "text-danger-fg hover:bg-rose-50"
           : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
         className
       )}

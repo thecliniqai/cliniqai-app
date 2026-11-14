@@ -1,0 +1,6 @@
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ FAIL  tests/billing/invoice-totals-db.spec.ts > M-INVOICE: the app's billing paths still work > adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment
+ FAIL  tests/ops/drill-lib-db.spec.ts > drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind
+ Test Files  3 failed | 250 passed (253)
+      Tests  4 failed | 4915 passed (4919)

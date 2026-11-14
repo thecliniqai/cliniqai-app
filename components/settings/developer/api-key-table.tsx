@@ -54,12 +54,12 @@ export function ApiKeyTable({
   const allKeys = [...activeKeys, ...revokedKeys];
 
   return (
-    <div className="rounded-xl border border-[#E4E5E7] bg-white shadow-theme-xs overflow-hidden">
+    <div className="rounded-xl border border-border bg-white shadow-theme-xs overflow-hidden">
       {/* Card Header (Primary Visual Anchor per 06-UI-SPEC.md §1.1) */}
-      <div className="p-6 border-b border-[#E4E5E7] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-6 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-accent-subtle text-accent flex items-center justify-center shrink-0">
               <Key className="w-4 h-4" />
             </div>
             <h2 className="text-xl font-semibold text-gray-900 tracking-tight">
@@ -85,7 +85,7 @@ export function ApiKeyTable({
       {/* Content */}
       {allKeys.length === 0 ? (
         <EmptyState
-          icon={<Key className="w-6 h-6 text-gray-400" />}
+          icon={<Key className="w-6 h-6 text-fg-subtle" />}
           title="No API Keys Created"
           description="Generate a tenant-scoped API key to integrate external clients, EHRs, or the AI voice agent with ClinicQ."
           action={
@@ -102,7 +102,7 @@ export function ApiKeyTable({
       ) : (
         <TableContainer className="rounded-none border-0 shadow-none">
           <Table>
-            <TableHeader className="bg-[#F1F2F4]/60">
+            <TableHeader className="bg-sunken/60">
               <TableRow>
                 <TableHead className="text-xs font-semibold text-gray-600">Name</TableHead>
                 <TableHead className="text-xs font-semibold text-gray-600">Key Prefix</TableHead>
@@ -127,7 +127,7 @@ export function ApiKeyTable({
                     </TableCell>
 
                     <TableCell>
-                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-[#EAF2FF] text-[#1769E0] border border-[#BFD8FF] tabular-nums inline-block">
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded bg-accent-subtle text-accent border border-accent-border tabular-nums inline-block">
                         {key.keyPrefix}••••
                       </span>
                     </TableCell>
@@ -166,14 +166,14 @@ export function ApiKeyTable({
                       {!isRevoked ? (
                         <button
                           onClick={() => onRevokeKey(key)}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-[#B42318] hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-danger-fg hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
                           aria-label={`Revoke API key ${key.name}`}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Revoke Key</span>
                         </button>
                       ) : (
-                        <span className="text-xs text-gray-400 italic">Revoked</span>
+                        <span className="text-xs text-fg-subtle italic">Revoked</span>
                       )}
                     </TableCell>
                   </TableRow>

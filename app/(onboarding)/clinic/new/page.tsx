@@ -34,13 +34,13 @@ export default function NewClinicPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50/70 flex items-center justify-center p-4">
+    <main className="min-h-app bg-gray-50/70 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white p-8 sm:p-10 rounded-2xl border border-gray-200 shadow-theme-sm">
         <div className="mb-8 text-center flex flex-col items-center">
-          <div className="w-12 h-12 rounded-2xl bg-brand-500 text-white flex items-center justify-center mb-4 shadow-theme-xs">
+          <div className="w-12 h-12 rounded-2xl bg-accent text-white flex items-center justify-center mb-4 shadow-theme-xs">
             <Building2 className="w-6 h-6" />
           </div>
-          <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200 mb-2">
+          <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-accent-subtle text-accent-fg border border-accent-border mb-2">
             Step 1 of 2
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">
@@ -82,7 +82,7 @@ export default function NewClinicPage() {
         </form>
 
         <div className="mt-8 pt-6 border-t border-gray-100 text-center">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-fg-subtle">
             You will be assigned as the founding Clinic Owner
           </p>
         </div>

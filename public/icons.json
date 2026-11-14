@@ -1,0 +1,54 @@
+{
+  "$comment": "Rendered by scripts/design/render-icons.mjs from the approved masters; do not edit.",
+  "masters": {
+    "icon": {
+      "file": "scripts/design/brand/icon.svg",
+      "sha256": "d00c53383cf1b983e3a43d211bdf3b885b8838ac128d3edc13df0f76218cd179",
+      "source": "v2/phase-dx-design-exploration 3a78a5d:.planning/sketches/002-icon/icon.svg (verbatim)"
+    },
+    "maskable": {
+      "file": "scripts/design/brand/icon-maskable.svg",
+      "sha256": "ae10346ea5b93d7ef61d2ab1d6fe0c7d922e6d790ef3fed4b32d79b01e16af53",
+      "source": "v2/phase-dx-design-exploration 3a78a5d:.planning/sketches/002-icon/icon-maskable.svg (verbatim)"
+    }
+  },
+  "favicon": {
+    "file": "app/icon.svg",
+    "sha256": "83acd5aef745527cdced68d7a30d59e70e96a2a916cf564f711759a36f8d3f6f",
+    "source": "CliniQ AI brand kit v1.0 03-favicon/favicon.svg (verbatim; mark-small geometry = 3a78a5d shared/proto.js mark() below 32 px)"
+  },
+  "outputs": [
+    {
+      "file": "public/icon-192.png",
+      "width": 192,
+      "height": 192,
+      "master": "scripts/design/brand/icon.svg",
+      "purpose": "any",
+      "corners": "transparent"
+    },
+    {
+      "file": "public/icon-512.png",
+      "width": 512,
+      "height": 512,
+      "master": "scripts/design/brand/icon.svg",
+      "purpose": "any",
+      "corners": "transparent"
+    },
+    {
+      "file": "public/icon-maskable-512.png",
+      "width": 512,
+      "height": 512,
+      "master": "scripts/design/brand/icon-maskable.svg",
+      "purpose": "maskable",
+      "corners": "opaque"
+    },
+    {
+      "file": "app/apple-icon.png",
+      "width": 180,
+      "height": 180,
+      "master": "scripts/design/brand/icon.svg",
+      "purpose": "apple-touch-icon",
+      "corners": "opaque"
+    }
+  ]
+}

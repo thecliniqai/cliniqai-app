@@ -26,7 +26,7 @@ function LayoutContent({
   const isConsultation = pathname?.startsWith("/consultation");
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3] flex flex-col">
+    <div className="min-h-app bg-canvas flex flex-col">
       {/* Sidebar & Mobile Backdrop */}
       <AppSidebar tenantName={tenantName} role={role} />
       <Backdrop />

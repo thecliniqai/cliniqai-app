@@ -346,7 +346,7 @@ export function CalendarView({
             onClick={setToday}
             className="px-4 min-h-[44px] flex items-center gap-2 text-sm font-semibold text-gray-900 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
           >
-            <Calendar className="w-4 h-4 text-[#1769E0]" />
+            <Calendar className="w-4 h-4 text-accent" />
             <span>{formatDisplayDate(currentDate)}</span>
           </button>
 
@@ -383,7 +383,7 @@ export function CalendarView({
             onClick={(e) => toggleDoctorFilter("all", e)}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer border ${
               selectedDoctorIds.includes("all")
-                ? "bg-[#1769E0] text-white border-[#1769E0] shadow-2xs"
+                ? "bg-accent text-white border-accent shadow-2xs"
                 : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
             }`}
           >
@@ -402,7 +402,7 @@ export function CalendarView({
                 onClick={(e) => toggleDoctorFilter(doc.id, e)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer border ${
                   isSelected
-                    ? "bg-[#1769E0] text-white border-[#1769E0] font-semibold shadow-2xs"
+                    ? "bg-accent text-white border-accent font-semibold shadow-2xs"
                     : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                 }`}
                 title={doc.specialty ? `${doc.name} (${doc.specialty})` : doc.name}
@@ -416,7 +416,7 @@ export function CalendarView({
                 {doc.specialty && (
                   <span
                     className={`text-[10px] ${
-                      isSelected ? "text-blue-100" : "text-gray-400"
+                      isSelected ? "text-blue-100" : "text-fg-subtle"
                     }`}
                   >
                     • {doc.specialty}

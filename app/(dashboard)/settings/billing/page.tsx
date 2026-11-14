@@ -39,7 +39,7 @@ async function BillingSettingsPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 border border-brand-100">
+            <div className="w-8 h-8 rounded-lg bg-accent-subtle flex items-center justify-center text-accent-fg border border-accent-border">
               <CreditCard className="w-4 h-4" />
             </div>
             <div>
@@ -74,7 +74,7 @@ async function BillingSettingsPage() {
               <div className="flex justify-between items-center py-3">
                 <span className="text-sm text-gray-500">Next Renewal Date</span>
                 <span className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                  <Calendar className="w-3.5 h-3.5 text-fg-subtle" />
                   {new Date(subscription.current_period_end).toLocaleDateString()}
                 </span>
               </div>

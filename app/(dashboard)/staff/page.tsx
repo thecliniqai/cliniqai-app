@@ -80,7 +80,7 @@ async function StaffPage() {
         <Card className="max-w-xl">
           <CardHeader>
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-brand-50 flex items-center justify-center text-brand-600 border border-brand-100">
+              <div className="w-8 h-8 rounded-lg bg-accent-subtle flex items-center justify-center text-accent-fg border border-accent-border">
                 <UserPlus className="w-4 h-4" />
               </div>
               <div>

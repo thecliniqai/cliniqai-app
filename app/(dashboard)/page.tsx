@@ -97,12 +97,12 @@ async function DashboardPage() {
             </Button>
           </Link>
           <Link href="/queue">
-            <Button variant="secondary" startIcon={<Clock className="w-4 h-4 text-[#1769E0]" />}>
+            <Button variant="secondary" startIcon={<Clock className="w-4 h-4 text-accent" />}>
               Live Queue
             </Button>
           </Link>
           <Link href="/calendar">
-            <Button variant="secondary" startIcon={<Calendar className="w-4 h-4 text-[#1769E0]" />}>
+            <Button variant="secondary" startIcon={<Calendar className="w-4 h-4 text-accent" />}>
               Calendar
             </Button>
           </Link>
@@ -142,12 +142,12 @@ async function DashboardPage() {
               <p className="text-2xl sm:text-3xl font-bold text-gray-900 tabular-nums">
                 {inConsultCount}
               </p>
-              <p className="text-xs text-[#1769E0] flex items-center gap-1 font-medium">
+              <p className="text-xs text-accent flex items-center gap-1 font-medium">
                 <Activity className="w-3.5 h-3.5" />
                 <span>Active consultations</span>
               </p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-accent-subtle text-accent flex items-center justify-center shrink-0">
               <Activity className="w-5 h-5" />
             </div>
           </CardContent>
@@ -186,7 +186,7 @@ async function DashboardPage() {
               </p>
               <Link
                 href="/patients"
-                className="text-xs text-[#1769E0] hover:underline flex items-center gap-1 font-medium"
+                className="text-xs text-accent hover:underline flex items-center gap-1 font-medium"
               >
                 <span>View directory</span>
                 <ArrowRight className="w-3 h-3" />
@@ -272,14 +272,14 @@ async function DashboardPage() {
                           <div className="font-semibold text-gray-900 tabular-nums">
                             {visitTime}
                           </div>
-                          <span className="text-xs uppercase text-gray-400 font-medium">
+                          <span className="text-xs uppercase text-fg-subtle font-medium">
                             {v.origin_type === "walk_in" ? "Walk-In" : "Scheduled"}
                           </span>
                         </TableCell>
                         <TableCell>
                           <Link
                             href={`/patients/${v.patient_id}`}
-                            className="font-medium text-gray-900 hover:text-[#1769E0]"
+                            className="font-medium text-gray-900 hover:text-accent"
                           >
                             {patientInfo?.full_name || "Patient"}
                           </Link>
@@ -296,7 +296,7 @@ async function DashboardPage() {
                               <Button
                                 variant="primary"
                                 size="sm"
-                                className="h-8 text-xs font-semibold px-2.5 bg-[#1769E0] text-white hover:bg-[#155cc0] gap-1 cursor-pointer shadow-2xs"
+                                className="h-8 text-xs font-semibold px-2.5 bg-accent text-white hover:bg-accent-hover gap-1 cursor-pointer shadow-2xs"
                               >
                                 <Stethoscope className="w-3.5 h-3.5" />
                                 Resume
@@ -307,7 +307,7 @@ async function DashboardPage() {
                               <Button
                                 variant="primary"
                                 size="sm"
-                                className="h-8 text-xs font-semibold px-2.5 bg-[#1769E0] text-white hover:bg-[#155cc0] gap-1 cursor-pointer shadow-2xs"
+                                className="h-8 text-xs font-semibold px-2.5 bg-accent text-white hover:bg-accent-hover gap-1 cursor-pointer shadow-2xs"
                               >
                                 <Stethoscope className="w-3.5 h-3.5" />
                                 Consult

@@ -1,0 +1,66 @@
+{
+  "generatedBy": "tests/e2e/pwa/ui-checks.spec.ts (axe wcag2a/2aa/21aa/22aa; desktop-chrome; e2e:pr run 2026-11-14)",
+  "reports": [
+    {
+      "label": "banner-1180",
+      "url": "/",
+      "violations": []
+    },
+    {
+      "label": "banner-1280",
+      "url": "/",
+      "violations": []
+    },
+    {
+      "label": "banner-360",
+      "url": "/",
+      "violations": []
+    },
+    {
+      "label": "banner-820",
+      "url": "/",
+      "violations": []
+    },
+    {
+      "label": "offline-1180",
+      "url": "/offline",
+      "violations": []
+    },
+    {
+      "label": "offline-1280",
+      "url": "/offline",
+      "violations": []
+    },
+    {
+      "label": "offline-360",
+      "url": "/offline",
+      "violations": []
+    },
+    {
+      "label": "offline-820",
+      "url": "/offline",
+      "violations": []
+    },
+    {
+      "label": "user-menu-1180",
+      "url": "/",
+      "violations": []
+    },
+    {
+      "label": "user-menu-1280",
+      "url": "/",
+      "violations": []
+    },
+    {
+      "label": "user-menu-360",
+      "url": "/",
+      "violations": []
+    },
+    {
+      "label": "user-menu-820",
+      "url": "/",
+      "violations": []
+    }
+  ],
+  "seriousOrCritical": 0
+}

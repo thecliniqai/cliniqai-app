@@ -9,7 +9,9 @@ import {
   getStorageProviderForDb,
   SupabaseStorageProvider,
   StorageProvider,
+  VIEW_LINK_TTL_SECONDS,
 } from "@/lib/storage";
+import { isViewLinkFresh } from "@/lib/storage/view-link";
 import * as storageModule from "@/lib/storage";
 
 describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)", () => {
@@ -72,6 +74,23 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       } finally {
         vi.unstubAllEnvs();
       }
+    });
+
+    it("a signed URL with no lifetime given is a 5-minute view link, not an hour (06-09b N-1)", async () => {
+      const createSignedUrl = vi.fn(async () => ({ data: { signedUrl: "https://storage.local/signed" }, error: null }));
+      const callerClient = { storage: { from: vi.fn(() => ({ createSignedUrl })) } } as unknown as Parameters<
+        typeof getStorageProviderForDb
+      >[0];
+      await getStorageProviderForDb(callerClient, "clinic-records").createSignedUrl({ path: "tenants/t-1/labs/l-1/report.pdf" });
+      expect(createSignedUrl).toHaveBeenCalledWith("tenants/t-1/labs/l-1/report.pdf", VIEW_LINK_TTL_SECONDS, { download: undefined });
+      expect(VIEW_LINK_TTL_SECONDS).toBe(300);
+    });
+
+    it("a held view link is reused only while it has more than 30 s to live (06-09b N-1)", () => {
+      const signedAt = 1_000_000;
+      expect(isViewLinkFresh(signedAt, signedAt + 269_999)).toBe(true);
+      expect(isViewLinkFresh(signedAt, signedAt + 270_000)).toBe(false);
+      expect(isViewLinkFresh(0, signedAt)).toBe(false);
     });
 
     it("exports no R2/S3 provider", () => {
@@ -163,7 +182,7 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       );
     });
 
-    it("getSignedUrl validates path and defaults to 3600s expiration", async () => {
+    it("getSignedUrl validates path and passes the caller's lifetime to the provider", async () => {
       const mockProvider: StorageProvider = {
         name: "mock",
         upload: vi.fn(),
@@ -177,7 +196,7 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       const result = await getSignedUrl(
         {
           path: "tenants/tenant-1/referrals/ref-1/letter.pdf",
-          expiresInSeconds: 3600,
+          expiresInSeconds: 120,
         },
         mockProvider
       );
@@ -186,7 +205,7 @@ describe("Unified Storage Provider Abstraction (REQ-lab-records, REQ-referrals)"
       expect(mockProvider.createSignedUrl).toHaveBeenCalledWith(
         expect.objectContaining({
           path: "tenants/tenant-1/referrals/ref-1/letter.pdf",
-          expiresInSeconds: 3600,
+          expiresInSeconds: 120,
         })
       );
     });

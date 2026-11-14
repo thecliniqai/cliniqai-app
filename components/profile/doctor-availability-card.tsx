@@ -279,7 +279,7 @@ export function DoctorAvailabilityCard({
       <CardHeader className="border-b border-gray-100 pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-[#1769E0]">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-accent">
               <Clock className="w-5 h-5" />
             </div>
             <div>
@@ -302,7 +302,7 @@ export function DoctorAvailabilityCard({
                 setSlotDuration(val);
                 if (onSlotDurationChange) onSlotDurationChange(val);
               }}
-              className="h-9 px-3 rounded-lg border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1769E0]/20"
+              className="h-9 px-3 rounded-lg border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-ring/20"
             >
               <option value={15}>15 mins (Default)</option>
               <option value={20}>20 mins</option>
@@ -341,7 +341,7 @@ export function DoctorAvailabilityCard({
               onClick={copyMondayToWeekdays}
               className="px-2.5 py-1 text-xs font-medium rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors flex items-center gap-1.5 cursor-pointer shadow-theme-xs"
             >
-              <Copy className="w-3.5 h-3.5 text-[#1769E0]" />
+              <Copy className="w-3.5 h-3.5 text-accent" />
               <span>Apply Monday to Mon–Fri</span>
             </button>
             <button
@@ -377,11 +377,11 @@ export function DoctorAvailabilityCard({
                       onChange={() => handleDayToggle(key)}
                       className="sr-only peer"
                     />
-                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#1769E0]" />
+                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent" />
                   </label>
                   <span
                     className={`text-sm font-semibold ${
-                      isEnabled ? "text-gray-900" : "text-gray-400"
+                      isEnabled ? "text-gray-900" : "text-fg-subtle"
                     }`}
                   >
                     {label}
@@ -406,9 +406,9 @@ export function DoctorAvailabilityCard({
                           onChange={(e) =>
                             handleShiftChange(key, idx, "start", e.target.value)
                           }
-                          className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-[#1769E0]"
+                          className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-ring"
                         />
-                        <span className="text-gray-400">to</span>
+                        <span className="text-fg-subtle">to</span>
                         <input
                           type="time"
                           value={shift.end}
@@ -416,13 +416,13 @@ export function DoctorAvailabilityCard({
                           onChange={(e) =>
                             handleShiftChange(key, idx, "end", e.target.value)
                           }
-                          className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-[#1769E0]"
+                          className="bg-white border border-gray-200 rounded px-1.5 py-0.5 text-xs text-gray-900 focus:outline-none focus:ring-1 focus:ring-ring"
                         />
                         {dayConf.shifts.length > 1 && (
                           <button
                             type="button"
                             onClick={() => handleRemoveShift(key, idx)}
-                            className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors cursor-pointer"
+                            className="p-1 text-fg-subtle hover:text-red-600 rounded transition-colors cursor-pointer"
                             title="Remove shift"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -435,7 +435,7 @@ export function DoctorAvailabilityCard({
                       <button
                         type="button"
                         onClick={() => handleAddShift(key)}
-                        className="px-2.5 py-1 text-xs font-semibold rounded-lg text-[#1769E0] bg-blue-50 hover:bg-blue-100 transition-colors flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1 text-xs font-semibold rounded-lg text-accent bg-blue-50 hover:bg-blue-100 transition-colors flex items-center gap-1 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Evening Shift</span>
@@ -443,7 +443,7 @@ export function DoctorAvailabilityCard({
                     )}
                   </div>
                 ) : (
-                  <div className="flex-1 text-xs font-medium text-gray-400 italic">
+                  <div className="flex-1 text-xs font-medium text-fg-subtle italic">
                     Closed / Day Off
                   </div>
                 )}
@@ -542,7 +542,7 @@ export function DoctorAvailabilityCard({
               type="button"
               onClick={handleSaveStandalone}
               disabled={isPending}
-              className="h-10 px-5 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] font-semibold text-xs shadow-theme-xs cursor-pointer flex items-center gap-2"
+              className="h-10 px-5 rounded-xl bg-accent text-white hover:bg-accent-hover font-semibold text-xs shadow-theme-xs cursor-pointer flex items-center gap-2"
             >
               <Save className="w-4 h-4" />
               <span>{isPending ? "Saving..." : "Save Availability Settings"}</span>

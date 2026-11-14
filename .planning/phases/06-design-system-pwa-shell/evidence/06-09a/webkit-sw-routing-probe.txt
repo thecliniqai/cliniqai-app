@@ -1,0 +1,66 @@
+06-09a: WebKit (Playwright iPhone 15) and the service worker - root cause of the iphone-15 sign-out failures reported
+on the a79297c build (evidence/06-01b/e2e-attribution.txt). Probe instrumentation (temporary, private detached worktree
+at c0a5a83): every non-loopback request the PWA context saw (url, redirect chain, frame, type) and every route
+fulfil/abort of the base fixture's loopback block.
+
+== Probe 1 (no proxy): spec 5 + spec 06 on iphone-15. Per test, the first /login (before the worker is registered)
+   has its Turnstile script request routed (route-fulfil: local stub). The /login reached after hardSignOut is
+   worker-controlled: its script request is seen by context.on('request') but NOT by the route (no route-fulfil), so
+   the real Cloudflare script loaded, which then fetched /turnstile/v0/b/<build>/api.js (unrouted) and opened the
+   challenge-platform frame (routed, aborted -> 'page tried to reach non-loopback hosts').
+PROBE09A route-fulfil https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit
+[4/13] [setup] › tests/e2e/auth.setup.ts:10:8 › nurse signs in through the login UI
+PROBE09A route-fulfil https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit
+[5/13] [setup] › tests/e2e/auth.setup.ts:10:8 › receptionist signs in through the login UI
+PROBE09A route-fulfil https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit
+[6/13] [iphone-15] › tests/e2e/pwa/05-cache-audit.spec.ts:181:7 › exit paths (fresh nurse each) › Sign out: purged, no auth cookie, Back shows no patient data @golden
+PROBE09A {"url":"https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit","chain":[],"frameUrl":"http://127.0.0.1:3100/login","type":"script","nav":false,"sw":false}
+PROBE09A route-fulfil https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit
+PROBE09A {"url":"https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit","chain":[],"frameUrl":"http://127.0.0.1:3100/login","type":"script","nav":false,"sw":false}
+[7/13] [iphone-15] › tests/e2e/pwa/05-cache-audit.spec.ts:193:7 › exit paths (fresh nurse each) › Sign out of all devices: purged here, the second device loses its session @golden
+PROBE09A {"url":"https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit","chain":[],"frameUrl":"http://127.0.0.1:3100/login","type":"script","nav":false,"sw":false}
+PROBE09A route-fulfil https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit
+PROBE09A route-fulfil https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit
+PROBE09A {"url":"https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit","chain":[],"frameUrl":"http://127.0.0.1:3100/login","type":"script","nav":false,"sw":false}
+PROBE09A {"url":"https://challenges.cloudflare.com/turnstile/v0/b/f8df4d4a0cd6/api.js","chain":[],"frameUrl":"http://127.0.0.1:3100/login?next=%2F","type":"script","nav":false,"sw":false}
+PROBE09A {"url":"https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit","chain":[],"frameUrl":"http://127.0.0.1:3100/login?next=%2F","type":"script","nav":false,"sw":false}
+PROBE09A {"url":"https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/turnstile/f/av0/rch/fwsf2/1x00000000000000000000AA/light/fbE/new/flexible?lang=en&offlabel_show_privacy=true&offlabel_show_help=true","chain":[],"frameUrl":"","type":"document","nav":true,"sw":false}
+PROBE09A route-abort https://challenges.cloudflare.com/cdn-cgi/challenge-platform/h/b/turnstile/f/av0/rch/fwsf2/1x00000000000000000000AA/light/fbE/new/flexible?lang=en&offlabel_show_privacy=true&offlabel_show_help=true
+PROBE09A route-fulfil https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onloadTurnstileCallback&render=explicit
+    Error: the /patients request carried a request id
+    Error: a page or service-worker request left the machine (PWA specs stay on loopback)
+    Error: the page tried to reach non-loopback hosts (V2-02: the e2e browser never leaves 127.0.0.1)
+    test-results/pwa-05-cache-audit-exit-pa-f58c5-ce-loses-its-session-golden-iphone-15/test-failed-1.png
+    test-results/pwa-05-cache-audit-exit-pa-f58c5-ce-loses-its-session-golden-iphone-15/test-failed-2.png
+[8/13] [iphone-15] › tests/e2e/pwa/05-cache-audit.spec.ts:208:7 › exit paths (fresh nurse each) › Switch user: purged, plain login page with nothing prefilled @golden
+   ...
+
+== Probe 2 (PWA contexts get a dead proxy with a loopback bypass): no /b/ script, no challenge frame, no route-abort.
+   Remaining failures: expectSignedOut (redirect headers), the offline navigation, and a page.route abort bypassed.
+    Error: the /patients request carried a request id
+    test-results/pwa-05-cache-audit-exit-pa-f58c5-ce-loses-its-session-golden-iphone-15/test-failed-1.png
+    test-results/pwa-05-cache-audit-exit-pa-f58c5-ce-loses-its-session-golden-iphone-15/test-failed-2.png
+    Error: page.waitForURL: WebKit encountered an internal error
+    test-results/pwa-05-cache-audit-exit-pa-aa045-nline-no-auth-cookie-golden-iphone-15/test-failed-1.png
+    Error: the /patients request carried a request id
+    test-results/pwa-06-tabs-and-devices-M--6fbf2-vice-2-is-signed-out-golden-iphone-15/test-failed-1.png
+    test-results/pwa-06-tabs-and-devices-M--6fbf2-vice-2-is-signed-out-golden-iphone-15/test-failed-2.png
+    Error: page.waitForURL: Test timeout of 30000ms exceeded.
+    test-results/pwa-06-tabs-and-devices-M--dce99-told-device-2-is-not-golden-iphone-15/test-failed-1.png
+    test-results/pwa-06-tabs-and-devices-M--dce99-told-device-2-is-not-golden-iphone-15/test-failed-2.png
+PROBE09A preload {"enabled":true,"headerValue":"true"}
+PROBE09A goto-offline ERR Error: page.goto: WebKit encountered an internal error
+PROBE09A replace-offline ERR Error: page.waitForURL: WebKit encountered an internal error
+  4 failed
+  10 passed (50.2s)
+   challenge-platform / b/ requests in probe 2: 0
+
+== Probe 3: (a) WebKit reports the 307 /patients response without its headers (x-request-id null), so the
+   request-id check must not require it; (b) any offline navigation under the worker fails in Playwright WebKit,
+   navigation preload disabled as well.
+PROBE09A resp {"url":"http://127.0.0.1:3100/patients","status":307,"rid":null,"chain":[]}
+PROBE09A resp {"url":"http://127.0.0.1:3100/login?next=%2Fpatients","status":200,"rid":"93399d45-9742-4935-a0cd-e0ac0759a534","chain":["http://127.0.0.1:3100/patients"]}
+PROBE09A preload {"enabled":false,"headerValue":"true"}
+PROBE09A goto-offline ERR Error: page.goto: WebKit encountered an internal error
+PROBE09A replace-offline ERR Error: page.waitForURL: WebKit encountered an internal error
+  7 passed (7.9s)

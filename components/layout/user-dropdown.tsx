@@ -2,8 +2,9 @@
 
 import React, { useState } from "react";
 import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
-import { LogOut, Building, Shield, User, MonitorSmartphone } from "lucide-react";
+import { LogOut, Building, Shield, User, MonitorSmartphone, Users } from "lucide-react";
 import Link from "next/link";
+import { hardSignOut } from "@/lib/auth/hard-sign-out";
 
 export interface UserDropdownProps {
   userEmail: string;
@@ -12,12 +13,15 @@ export interface UserDropdownProps {
 }
 
 /**
- * V2-03 03-12b (AUTH-04b, PWA D-5): sign-out is a plain form POST to `/auth/signout`, which revokes the session at
- * GoTrue, deletes the auth cookies and sends `Clear-Site-Data: "cache"`. It replaces the client `signOut()` (whose
- * default scope signed the user out of every device). "Sign out of all devices" posts `scope=global`.
+ * V2-03 03-12b (AUTH-04b, PWA D-5): sign-out is a form POST to `/auth/signout`, which revokes the session at GoTrue,
+ * deletes the auth cookies and sends `Clear-Site-Data: "cache"`. "Sign out of all devices" posts `scope=global`.
  *
- * The forms stop the click from reaching the menu's close handler: closing unmounts the form before the browser
- * submits it, which would cancel the submission.
+ * V2-06 06-05 (PWA D-5, R-18): with JavaScript, each sign-out item calls `hardSignOut()` instead (the same server call,
+ * then the device purge and a hard navigation to `/login`); the form POST stays as the no-JavaScript fallback.
+ * "Switch user" is `hardSignOut("switch")`: the next person lands on a plain login page, nothing prefilled.
+ *
+ * The forms stop the click from reaching the menu's close handler: closing unmounts the form before its submit event,
+ * which would cancel the submission.
  */
 function SignOutForm({
   scope,
@@ -28,7 +32,7 @@ function SignOutForm({
 }: {
   scope: "local" | "global";
   pending: boolean;
-  onSubmit: () => void;
+  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -57,7 +61,14 @@ function MenuLink({ href, icon, children }: { href: string; icon: React.ReactNod
 }
 
 export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps) {
-  const [signingOut, setSigningOut] = useState<"local" | "global" | null>(null);
+  const [signingOut, setSigningOut] = useState<"local" | "global" | "switch" | null>(null);
+
+  const signOut = (event: React.FormEvent<HTMLFormElement> | null, kind: "local" | "global" | "switch") => {
+    event?.preventDefault();
+    if (signingOut !== null) return;
+    setSigningOut(kind);
+    void hardSignOut(kind === "global" ? "everywhere" : kind === "switch" ? "switch" : "user");
+  };
 
   const initials = userEmail
     ? userEmail.slice(0, 2).toUpperCase()
@@ -69,9 +80,9 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
       type="button"
       aria-haspopup="menu"
       aria-label={`Account menu (${userEmail})`}
-      className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-[#1769E0]"
+      className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring"
     >
-      <span className="w-9 h-9 rounded-full bg-[#1769E0] text-white flex items-center justify-center font-semibold text-xs shadow-theme-xs">
+      <span className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center font-semibold text-xs shadow-theme-xs">
         {initials}
       </span>
       <span className="hidden sm:block text-start text-xs">
@@ -86,7 +97,7 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
       <div role="none" className="px-3 py-2 border-b border-gray-100 mb-1">
         <p className="text-xs font-semibold text-gray-900 truncate">{userEmail}</p>
         <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5 capitalize">
-          <Shield className="w-3 h-3 text-[#1769E0]" />
+          <Shield className="w-3 h-3 text-accent" />
           <span>{role} · {tenantName}</span>
         </p>
       </div>
@@ -103,19 +114,30 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
 
       <div role="separator" className="my-1 border-t border-gray-100" />
 
+      <DropdownItem
+        type="button"
+        icon={<Users className="w-4 h-4 text-fg-muted" aria-hidden="true" />}
+        aria-disabled={signingOut !== null || undefined}
+        onClick={(event) => {
+          event.stopPropagation();
+          signOut(null, "switch");
+        }}
+      >
+        {signingOut === "switch" ? "Switching user…" : "Switch user"}
+      </DropdownItem>
       <SignOutForm
         scope="local"
         pending={signingOut !== null}
-        onSubmit={() => setSigningOut("local")}
-        icon={<LogOut className="w-4 h-4 text-[#B42318]" aria-hidden="true" />}
+        onSubmit={(event) => signOut(event, "local")}
+        icon={<LogOut className="w-4 h-4 text-danger-fg" aria-hidden="true" />}
       >
         {signingOut === "local" ? "Signing out…" : "Sign out"}
       </SignOutForm>
       <SignOutForm
         scope="global"
         pending={signingOut !== null}
-        onSubmit={() => setSigningOut("global")}
-        icon={<MonitorSmartphone className="w-4 h-4 text-[#B42318]" aria-hidden="true" />}
+        onSubmit={(event) => signOut(event, "global")}
+        icon={<MonitorSmartphone className="w-4 h-4 text-danger-fg" aria-hidden="true" />}
       >
         {signingOut === "global" ? "Signing out…" : "Sign out of all devices"}
       </SignOutForm>

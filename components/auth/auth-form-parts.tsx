@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export function AuthMobileBrand() {
   return (
     <div className="lg:hidden flex items-center gap-2.5 pb-2 border-b border-gray-100">
-      <div className="w-9 h-9 rounded-xl bg-[#1769E0] text-white flex items-center justify-center shadow-theme-xs">
+      <div className="w-9 h-9 rounded-xl bg-accent text-white flex items-center justify-center shadow-theme-xs">
         <Stethoscope className="w-5 h-5" aria-hidden="true" />
       </div>
       <span className="text-base font-bold text-gray-900">ClinicOS</span>
@@ -68,11 +68,11 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
           autoCorrect="off"
           spellCheck={false}
           className={cn(
-            "w-full min-h-[44px] ps-3.5 pe-12 py-2.5 text-sm rounded-lg border bg-white text-gray-900 placeholder:text-gray-400 transition-colors shadow-theme-xs",
+            "w-full min-h-[44px] ps-3.5 pe-12 py-2.5 text-sm rounded-lg border bg-white text-gray-900 placeholder:text-fg-placeholder transition-colors shadow-theme-xs",
             "focus:outline-none focus:ring-3 focus:ring-offset-0",
             invalid
-              ? "border-[#B42318] focus:border-[#B42318] focus:ring-[#B42318]/15"
-              : "border-gray-300 focus:border-[#1769E0] focus:ring-[#1769E0]/15",
+              ? "border-danger-solid focus:border-danger-solid focus:ring-danger-solid/15"
+              : "border-gray-300 focus:border-accent focus:ring-ring/15",
             "disabled:opacity-50 disabled:bg-gray-50 disabled:cursor-not-allowed",
             className,
           )}
@@ -84,7 +84,7 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
           aria-label={visible ? "Hide password" : "Show password"}
           aria-pressed={visible}
           aria-controls={id}
-          className="absolute inset-y-0 end-0 flex items-center justify-center w-11 text-gray-500 hover:text-gray-800 rounded-e-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1769E0]/40"
+          className="absolute inset-y-0 end-0 flex items-center justify-center w-11 text-gray-500 hover:text-gray-800 rounded-e-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           {visible ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
         </button>

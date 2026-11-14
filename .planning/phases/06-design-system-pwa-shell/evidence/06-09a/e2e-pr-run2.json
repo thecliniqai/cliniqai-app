@@ -1,0 +1,28 @@
+{
+  "generatedBy": "npm run e2e:pr (playwright-report/results.json), private detached worktree, under the e2e lane lock; run 2; build of f09705d (run 2 tests at 41517f2: test-only change)",
+  "stats": {
+    "startTime": "2026-11-14T16:28:55.533Z",
+    "duration": 241563.138,
+    "expected": 321,
+    "skipped": 56,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "perProject": {
+    "setup": {
+      "expected": 5
+    },
+    "desktop-chrome": {
+      "expected": 206
+    },
+    "pixel-7": {
+      "expected": 93,
+      "skipped": 56
+    },
+    "iphone-15": {
+      "expected": 17
+    }
+  },
+  "retriedResults": 0,
+  "unexpectedOrFlaky": []
+}

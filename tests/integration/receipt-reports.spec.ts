@@ -16,6 +16,7 @@ import {
 } from "@/features/billing/reports-service";
 import { formatCollectionReportCsv } from "@/features/billing/csv-utils";
 import { ctxFor } from "../helpers/context";
+import { signedUrlLifetimeSeconds } from "../helpers/signed-url";
 
 describe("Payment Receipts & Financial Collection Reports Integration (REQ-billing-invoicing, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -233,6 +234,8 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
     const magic = result.buffer.toString("ascii", 0, 5);
     expect(magic).toBe("%PDF-");
     expect(result.signedUrl).toBeTruthy();
+    // 06-09b (N-1): a 5-minute view link (was one hour).
+    expect(signedUrlLifetimeSeconds(result.signedUrl)).toBe(300);
     expect(result.storagePath).toContain(tenantA.tenantId);
   });
 
@@ -244,6 +247,7 @@ describe("Payment Receipts & Financial Collection Reports Integration (REQ-billi
     if (!res.success) return;
 
     expect(res.signedUrl).toBeTruthy();
+    expect(signedUrlLifetimeSeconds(res.signedUrl)).toBe(300);
     expect(res.invoiceNumber).toMatch(/^INV-/);
   });
 

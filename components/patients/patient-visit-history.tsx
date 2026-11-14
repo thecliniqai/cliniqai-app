@@ -98,7 +98,7 @@ export function PatientVisitHistory({
   if (!visits || visits.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/50 p-8 text-center">
-        <div className="w-12 h-12 rounded-full bg-blue-50 text-[#1769E0] flex items-center justify-center mx-auto mb-3">
+        <div className="w-12 h-12 rounded-full bg-blue-50 text-accent flex items-center justify-center mx-auto mb-3">
           <FileText className="w-6 h-6" />
         </div>
         <h3 className="text-sm font-semibold text-gray-900">No Clinical Visits Yet</h3>
@@ -141,7 +141,7 @@ export function PatientVisitHistory({
               });
               setExpandedVisits(next);
             }}
-            className="text-xs text-[#1769E0] hover:underline font-medium cursor-pointer"
+            className="text-xs text-accent hover:underline font-medium cursor-pointer"
           >
             {visits.every((v) => expandedVisits[v.id]) ? "Collapse All" : "Expand All"}
           </button>
@@ -174,7 +174,7 @@ export function PatientVisitHistory({
                   visit.status === "completed"
                     ? "border-emerald-600 bg-emerald-50 text-emerald-600"
                     : visit.status === "in_consultation"
-                    ? "border-[#1769E0] bg-blue-50 text-[#1769E0]"
+                    ? "border-accent bg-blue-50 text-accent"
                     : "border-gray-400 bg-white"
                 )}
               >
@@ -184,7 +184,7 @@ export function PatientVisitHistory({
                     visit.status === "completed"
                       ? "bg-emerald-600"
                       : visit.status === "in_consultation"
-                      ? "bg-[#1769E0]"
+                      ? "bg-accent"
                       : "bg-gray-400"
                   )}
                 />
@@ -200,12 +200,12 @@ export function PatientVisitHistory({
                   <div className="flex flex-wrap items-center gap-2.5">
                     <span className="font-semibold text-gray-900 text-sm">{formattedDate}</span>
                     <span className="text-xs text-gray-500 font-mono flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-gray-400" />
+                      <Clock className="w-3 h-3 text-fg-subtle" />
                       {formattedTime}
                     </span>
 
                     {visit.token_number && (
-                      <span className="px-2 py-0.5 rounded-md bg-blue-50 text-[#1769E0] font-mono font-bold text-xs">
+                      <span className="px-2 py-0.5 rounded-md bg-blue-50 text-accent font-mono font-bold text-xs">
                         Token #{visit.token_number}
                       </span>
                     )}
@@ -219,7 +219,7 @@ export function PatientVisitHistory({
                     )}
 
                     {visit.investigations_advised && visit.investigations_advised.length > 0 && (
-                      <span className="px-2 py-0.5 rounded-md bg-blue-50/80 text-[#1769E0] text-xs font-medium flex items-center gap-1">
+                      <span className="px-2 py-0.5 rounded-md bg-blue-50/80 text-accent text-xs font-medium flex items-center gap-1">
                         <FlaskConical className="w-3 h-3" />
                         <span>{visit.investigations_advised.length} Lab(s) Advised</span>
                       </span>
@@ -229,7 +229,7 @@ export function PatientVisitHistory({
                       <Link
                         href="/referrals"
                         onClick={(e) => e.stopPropagation()}
-                        className="px-2 py-0.5 rounded-md bg-[#FFF5E5] text-[#9A5B00] border border-[#F3D39A] text-xs font-semibold flex items-center gap-1 hover:bg-[#ffeacc] transition-colors"
+                        className="px-2 py-0.5 rounded-md bg-warning-bg text-warning-fg border border-warning-border text-xs font-semibold flex items-center gap-1 hover:bg-[#ffeacc] transition-colors"
                       >
                         <Share2 className="w-3 h-3" />
                         <span>Referral: Dr. {visit.referral.referred_to_name} ({visit.referral.status})</span>
@@ -240,7 +240,7 @@ export function PatientVisitHistory({
                   <div className="flex items-center gap-2 self-end sm:self-center">
                     <div className="text-right text-xs">
                       <p className="font-medium text-gray-900 flex items-center gap-1 justify-end">
-                        <Stethoscope className="w-3.5 h-3.5 text-[#1769E0]" />
+                        <Stethoscope className="w-3.5 h-3.5 text-accent" />
                         {visit.doctor.full_name}
                       </p>
                       {visit.doctor.qualifications && (
@@ -250,7 +250,7 @@ export function PatientVisitHistory({
                     <button
                       type="button"
                       aria-label={isExpanded ? "Collapse visit details" : "Expand visit details"}
-                      className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-200/50"
+                      className="p-1 rounded-md text-fg-subtle hover:text-gray-600 hover:bg-gray-200/50"
                     >
                       {isExpanded ? (
                         <ChevronUp className="w-4 h-4" />
@@ -266,7 +266,7 @@ export function PatientVisitHistory({
                   {/* Chief complaints & Reason */}
                   {(visit.reason_for_visit || (visit.chief_complaints && visit.chief_complaints.length > 0)) && (
                     <div className="space-y-1">
-                      <span className="text-[11px] uppercase font-bold text-gray-400 tracking-wider">
+                      <span className="text-[11px] uppercase font-bold text-fg-subtle tracking-wider">
                         Chief Complaints & Reason
                       </span>
                       <div className="flex flex-wrap gap-1.5 items-center">
@@ -295,7 +295,7 @@ export function PatientVisitHistory({
                   {/* Diagnoses List */}
                   {visit.diagnoses && visit.diagnoses.length > 0 && (
                     <div className="space-y-1">
-                      <span className="text-[11px] uppercase font-bold text-gray-400 tracking-wider">
+                      <span className="text-[11px] uppercase font-bold text-fg-subtle tracking-wider">
                         Diagnoses
                       </span>
                       <div className="flex flex-wrap gap-1.5 items-center">
@@ -332,8 +332,8 @@ export function PatientVisitHistory({
                       {/* Vitals Summary Strip */}
                       {visit.vitals && Object.keys(visit.vitals).length > 0 && (
                         <div className="space-y-1.5">
-                          <span className="text-[11px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1">
-                            <Activity className="w-3 h-3 text-[#1769E0]" />
+                          <span className="text-[11px] uppercase font-bold text-fg-subtle tracking-wider flex items-center gap-1">
+                            <Activity className="w-3 h-3 text-accent" />
                             Recorded Vitals
                           </span>
                           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs">
@@ -358,7 +358,7 @@ export function PatientVisitHistory({
                       {visit.prescription && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-[11px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1">
+                            <span className="text-[11px] uppercase font-bold text-fg-subtle tracking-wider flex items-center gap-1">
                               <Pill className="w-3 h-3 text-emerald-600" />
                               Prescription Details (Rev v{visit.prescription.version})
                             </span>
@@ -421,7 +421,7 @@ export function PatientVisitHistory({
                       {/* Clinical Notes & Advice */}
                       {(visit.clinical_notes || (visit.advice && visit.advice.length > 0)) && (
                         <div className="space-y-2">
-                          <span className="text-[11px] uppercase font-bold text-gray-400 tracking-wider">
+                          <span className="text-[11px] uppercase font-bold text-fg-subtle tracking-wider">
                             Clinical Notes & Advice
                           </span>
                           {visit.clinical_notes && (
@@ -442,15 +442,15 @@ export function PatientVisitHistory({
                       {/* Investigations Advised */}
                       {visit.investigations_advised && visit.investigations_advised.length > 0 && (
                         <div className="space-y-1.5">
-                          <span className="text-[11px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1.5">
-                            <FlaskConical className="w-3.5 h-3.5 text-[#1769E0]" />
+                          <span className="text-[11px] uppercase font-bold text-fg-subtle tracking-wider flex items-center gap-1.5">
+                            <FlaskConical className="w-3.5 h-3.5 text-accent" />
                             <span>Investigations Advised</span>
                           </span>
                           <div className="flex flex-wrap gap-1.5">
                             {visit.investigations_advised.map((test, idx) => (
                               <span
                                 key={idx}
-                                className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50/70 border border-blue-100 text-[#1769E0]"
+                                className="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50/70 border border-blue-100 text-accent"
                               >
                                 {test}
                               </span>
@@ -526,7 +526,7 @@ export function PatientVisitHistory({
                           <Button
                             variant="secondary"
                             size="sm"
-                            startIcon={<Printer className="w-3.5 h-3.5 text-[#1769E0]" />}
+                            startIcon={<Printer className="w-3.5 h-3.5 text-accent" />}
                           >
                             Print Rx
                           </Button>

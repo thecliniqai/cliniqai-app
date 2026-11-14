@@ -162,7 +162,7 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
             !isExpanded && "lg:justify-center lg:w-full"
           )}
         >
-          <div className="w-9 h-9 rounded-xl bg-[#1769E0] text-white flex items-center justify-center font-bold text-sm shadow-theme-xs shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-accent text-white flex items-center justify-center font-bold text-sm shadow-theme-xs shrink-0">
             CQ
           </div>
           {(isExpanded || isMobileOpen) && (
@@ -170,7 +170,7 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
               <span className="font-semibold text-gray-900 text-sm tracking-tight truncate">
                 {tenantName}
               </span>
-              <span className="text-[11px] text-gray-400 font-medium">
+              <span className="text-[11px] text-fg-subtle font-medium">
                 ClinicOS Console
               </span>
             </div>
@@ -181,7 +181,7 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
         {isMobileOpen && (
           <button
             onClick={closeMobileSidebar}
-            className="lg:hidden p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100"
+            className="lg:hidden p-1.5 rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100"
             aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
@@ -194,7 +194,7 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
         {/* Operations Section */}
         <div>
           {(isExpanded || isMobileOpen) ? (
-            <h2 className="px-3 mb-2 text-[11px] font-semibold tracking-wider text-gray-400 uppercase">
+            <h2 className="px-3 mb-2 text-[11px] font-semibold tracking-wider text-fg-subtle uppercase">
               Operations
             </h2>
           ) : (
@@ -211,7 +211,7 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 font-medium select-none",
                     item.active
-                      ? "bg-[#EAF2FF] text-[#1769E0] font-semibold"
+                      ? "bg-accent-subtle text-accent font-semibold"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-100",
                     !isExpanded && !isMobileOpen && "lg:justify-center lg:px-2"
                   )}
@@ -220,7 +220,7 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
                   <Icon
                     className={cn(
                       "w-5 h-5 shrink-0 transition-colors",
-                      item.active ? "text-[#1769E0]" : "text-gray-500"
+                      item.active ? "text-accent" : "text-gray-500"
                     )}
                   />
                   {(isExpanded || isMobileOpen) && (
@@ -236,7 +236,7 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
         {isOwnerOrAdmin && (
           <div>
             {(isExpanded || isMobileOpen) ? (
-              <h2 className="px-3 mb-2 text-[11px] font-semibold tracking-wider text-gray-400 uppercase">
+              <h2 className="px-3 mb-2 text-[11px] font-semibold tracking-wider text-fg-subtle uppercase">
                 Management
               </h2>
             ) : (
@@ -253,7 +253,7 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
                     className={cn(
                       "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 font-medium select-none",
                       item.active
-                        ? "bg-[#EAF2FF] text-[#1769E0] font-semibold"
+                        ? "bg-accent-subtle text-accent font-semibold"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-100",
                       !isExpanded && !isMobileOpen && "lg:justify-center lg:px-2"
                     )}
@@ -262,7 +262,7 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
                     <Icon
                       className={cn(
                         "w-5 h-5 shrink-0 transition-colors",
-                        item.active ? "text-[#1769E0]" : "text-gray-500"
+                        item.active ? "text-accent" : "text-gray-500"
                       )}
                     />
                     {(isExpanded || isMobileOpen) && (
@@ -281,7 +281,7 @@ export function AppSidebar({ tenantName, role }: AppSidebarProps) {
         {(isExpanded || isMobileOpen) ? (
           <div className="flex items-center justify-between px-2 py-1">
             <span className="text-xs text-gray-500 font-medium">Logged in role</span>
-            <span className="text-[11px] font-semibold uppercase px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[#1769E0]">
+            <span className="text-[11px] font-semibold uppercase px-2 py-0.5 rounded-full bg-white border border-gray-200 text-accent">
               {role}
             </span>
           </div>

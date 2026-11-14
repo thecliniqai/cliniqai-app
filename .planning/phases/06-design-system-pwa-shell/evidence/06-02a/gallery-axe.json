@@ -1,0 +1,59 @@
+{
+  "source": "tests/e2e/design/gallery-axe.spec.ts (PR-lane run of 20b5e94, desktop-chrome); per-width JSON written by the spec",
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21aa",
+    "wcag22aa"
+  ],
+  "widths": [
+    {
+      "route": "/dev/ui",
+      "width": 360,
+      "sections": [
+        "forms",
+        "ai"
+      ],
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 24
+    },
+    {
+      "route": "/dev/ui",
+      "width": 820,
+      "sections": [
+        "forms",
+        "ai"
+      ],
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 24
+    },
+    {
+      "route": "/dev/ui",
+      "width": 1180,
+      "sections": [
+        "forms",
+        "ai"
+      ],
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 24
+    },
+    {
+      "route": "/dev/ui",
+      "width": 1280,
+      "sections": [
+        "forms",
+        "ai"
+      ],
+      "horizontalScroll": false,
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 24
+    }
+  ]
+}

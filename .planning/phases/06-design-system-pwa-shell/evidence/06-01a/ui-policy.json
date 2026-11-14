@@ -1,0 +1,2359 @@
+{
+  "generatedBy": "scripts/ci/ui-policy.mjs --json (raw-palette findings summarised per file)",
+  "files": 327,
+  "rules": [
+    {
+      "id": "ai-sdk-import",
+      "mode": "report",
+      "count": 0,
+      "files": 0,
+      "baseline": 0,
+      "delta": 0
+    },
+    {
+      "id": "arbitrary-color",
+      "mode": "report",
+      "count": 4,
+      "files": 3,
+      "baseline": 4,
+      "delta": 0
+    },
+    {
+      "id": "brand-utility",
+      "mode": "enforce",
+      "count": 0,
+      "files": 0,
+      "baseline": 0,
+      "delta": 0
+    },
+    {
+      "id": "link-wraps-button",
+      "mode": "report",
+      "count": 31,
+      "files": 9,
+      "baseline": 31,
+      "delta": 0
+    },
+    {
+      "id": "px-font",
+      "mode": "report",
+      "count": 282,
+      "files": 52,
+      "baseline": 282,
+      "delta": 0
+    },
+    {
+      "id": "raw-palette",
+      "mode": "report",
+      "count": 3530,
+      "files": 100,
+      "baseline": 3530,
+      "delta": 0
+    },
+    {
+      "id": "screen-height",
+      "mode": "report",
+      "count": 20,
+      "files": 10,
+      "baseline": 20,
+      "delta": 0
+    },
+    {
+      "id": "window-dialog",
+      "mode": "report",
+      "count": 27,
+      "files": 8,
+      "baseline": 27,
+      "delta": 0
+    }
+  ],
+  "textGray400": 0,
+  "findings": [
+    {
+      "rule": "screen-height",
+      "file": "app/(auth)/forgot-password/page.tsx",
+      "line": 184,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/(auth)/forgot-password/page.tsx",
+      "line": 187,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/(auth)/join/page.tsx",
+      "line": 57,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/(auth)/join/page.tsx",
+      "line": 114,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/(auth)/login/page.tsx",
+      "line": 60,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/(auth)/login/page.tsx",
+      "line": 63,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/page.tsx",
+      "line": 94,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/page.tsx",
+      "line": 99,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/page.tsx",
+      "line": 104,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/page.tsx",
+      "line": 206,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/page.tsx",
+      "line": 227,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/page.tsx",
+      "line": 232,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/page.tsx",
+      "line": 295,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/page.tsx",
+      "line": 306,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/page.tsx",
+      "line": 317,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/page.tsx",
+      "line": 323,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "arbitrary-color",
+      "file": "app/(dashboard)/patients/[id]/consent-section.tsx",
+      "line": 156,
+      "detail": "hover:bg-[#146340]"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/(dashboard)/patients/[id]/consent-section.tsx",
+      "line": 189,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/(dashboard)/patients/[id]/consent-section.tsx",
+      "line": 219,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/(dashboard)/patients/[id]/consent-section.tsx",
+      "line": 231,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/(dashboard)/patients/[id]/consent-section.tsx",
+      "line": 261,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/patients/new/page.tsx",
+      "line": 119,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "app/(dashboard)/patients/page.tsx",
+      "line": 58,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/(onboarding)/clinic/new/page.tsx",
+      "line": 43,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/(onboarding)/clinic/new/page.tsx",
+      "line": 37,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/r/[token]/page.tsx",
+      "line": 188,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/r/[token]/page.tsx",
+      "line": 25,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/r/[token]/page.tsx",
+      "line": 46,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/r/[token]/page.tsx",
+      "line": 99,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/reports/view/page.tsx",
+      "line": 137,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/reports/view/page.tsx",
+      "line": 144,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/reports/view/page.tsx",
+      "line": 151,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/reports/view/page.tsx",
+      "line": 158,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/reports/view/page.tsx",
+      "line": 175,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/reports/view/page.tsx",
+      "line": 216,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/reports/view/page.tsx",
+      "line": 23,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/reports/view/page.tsx",
+      "line": 44,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/reports/view/page.tsx",
+      "line": 89,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "px-font",
+      "file": "app/reschedule/[token]/page.tsx",
+      "line": 272,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/reschedule/[token]/page.tsx",
+      "line": 130,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/reschedule/[token]/page.tsx",
+      "line": 141,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/reschedule/[token]/page.tsx",
+      "line": 155,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "screen-height",
+      "file": "app/reschedule/[token]/page.tsx",
+      "line": 208,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 45,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 55,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 78,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 84,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 98,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 100,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 106,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 114,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 124,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 134,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 147,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "screen-height",
+      "file": "components/auth/clinic-showcase-panel.tsx",
+      "line": 14,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/billing/collection-reports-view.tsx",
+      "line": 235,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/billing/collection-reports-view.tsx",
+      "line": 251,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/billing/collection-reports-view.tsx",
+      "line": 269,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/billing/collection-reports-view.tsx",
+      "line": 283,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/billing/collection-reports-view.tsx",
+      "line": 316,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/billing/collection-reports-view.tsx",
+      "line": 372,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/billing/collection-reports-view.tsx",
+      "line": 389,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/billing/collection-reports-view.tsx",
+      "line": 394,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/billing/collection-reports-view.tsx",
+      "line": 405,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/doctor-cabin-view.tsx",
+      "line": 264,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/doctor-cabin-view.tsx",
+      "line": 419,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/doctor-cabin-view.tsx",
+      "line": 424,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/cabin/doctor-cabin-view.tsx",
+      "line": 77,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/cabin/doctor-cabin-view.tsx",
+      "line": 81,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/cabin/doctor-cabin-view.tsx",
+      "line": 95,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/cabin/doctor-cabin-view.tsx",
+      "line": 99,
+      "detail": "alert()"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 134,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 173,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 202,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 214,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 217,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 223,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 226,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 232,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 240,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 243,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/cabin/my-queue-card.tsx",
+      "line": 249,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/block-time-modal.tsx",
+      "line": 276,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/booking-drawer.tsx",
+      "line": 396,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/calendar-view.tsx",
+      "line": 418,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/calendar-view.tsx",
+      "line": 446,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/calendar/calendar-view.tsx",
+      "line": 186,
+      "detail": "confirm()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/calendar/calendar-view.tsx",
+      "line": 198,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/calendar/calendar-view.tsx",
+      "line": 201,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/calendar/calendar-view.tsx",
+      "line": 235,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/calendar/calendar-view.tsx",
+      "line": 239,
+      "detail": "alert()"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 235,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 330,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 332,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 345,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 353,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 361,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 381,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 424,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 428,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 442,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 446,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 460,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/doctor-timeline.tsx",
+      "line": 462,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/calendar/waitlist-drawer.tsx",
+      "line": 307,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/ai-scribe-modal.tsx",
+      "line": 148,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/ai-scribe-modal.tsx",
+      "line": 179,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/ai-scribe-modal.tsx",
+      "line": 199,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/ai-scribe-modal.tsx",
+      "line": 232,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/chief-complaints-section.tsx",
+      "line": 179,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 508,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 514,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 522,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 532,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 612,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 1188,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 1194,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 1197,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 1269,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "screen-height",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 460,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 201,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/consultation/consultation-workspace.tsx",
+      "line": 204,
+      "detail": "alert()"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/diagnosis-section.tsx",
+      "line": 320,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/diagnosis-section.tsx",
+      "line": 381,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/diagnosis-section.tsx",
+      "line": 386,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/diagnosis-section.tsx",
+      "line": 392,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/diagnosis-section.tsx",
+      "line": 400,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/diagnosis-section.tsx",
+      "line": 405,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/diagnosis-section.tsx",
+      "line": 424,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/diagnosis-section.tsx",
+      "line": 456,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/diagnosis-section.tsx",
+      "line": 461,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/diagnosis-section.tsx",
+      "line": 466,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/frequent-rx-chips.tsx",
+      "line": 76,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/frequent-rx-chips.tsx",
+      "line": 104,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/patient-history-drawer.tsx",
+      "line": 122,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/patient-history-drawer.tsx",
+      "line": 141,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/patient-history-drawer.tsx",
+      "line": 170,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/patient-history-drawer.tsx",
+      "line": 184,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/patient-history-drawer.tsx",
+      "line": 212,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/patient-history-drawer.tsx",
+      "line": 215,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/prescription-builder.tsx",
+      "line": 540,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/prescription-builder.tsx",
+      "line": 545,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/prescription-builder.tsx",
+      "line": 551,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/prescription-builder.tsx",
+      "line": 557,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/prescription-builder.tsx",
+      "line": 581,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/prescription-builder.tsx",
+      "line": 595,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/prescription-builder.tsx",
+      "line": 759,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/prescription-builder.tsx",
+      "line": 770,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/prescription-builder.tsx",
+      "line": 899,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/returning-patient-catchup.tsx",
+      "line": 140,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/sign-and-bill-modal.tsx",
+      "line": 290,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/sign-and-bill-modal.tsx",
+      "line": 298,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/sign-and-bill-modal.tsx",
+      "line": 351,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/sign-and-bill-modal.tsx",
+      "line": 370,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/sign-and-bill-modal.tsx",
+      "line": 488,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/sign-and-bill-modal.tsx",
+      "line": 492,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/sign-and-bill-modal.tsx",
+      "line": 496,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/sign-and-bill-modal.tsx",
+      "line": 567,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/sign-and-bill-modal.tsx",
+      "line": 579,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "line": 271,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "line": 360,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "line": 370,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "line": 385,
+      "detail": "text-[9px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "line": 393,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "line": 415,
+      "detail": "text-[9px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "line": 423,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "line": 484,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "line": 548,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "line": 573,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/gp-systemic-review.tsx",
+      "line": 124,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/gp-systemic-review.tsx",
+      "line": 126,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/pediatrics-tools.tsx",
+      "line": 297,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/pediatrics-tools.tsx",
+      "line": 308,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/pediatrics-tools.tsx",
+      "line": 356,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/pediatrics-tools.tsx",
+      "line": 396,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/pediatrics-tools.tsx",
+      "line": 437,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/pediatrics-tools.tsx",
+      "line": 485,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/pediatrics-tools.tsx",
+      "line": 530,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/pediatrics-tools.tsx",
+      "line": 537,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/specialty/pediatrics-tools.tsx",
+      "line": 541,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/consultation/vitals-block.tsx",
+      "line": 165,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/app-header.tsx",
+      "line": 85,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/app-header.tsx",
+      "line": 102,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "screen-height",
+      "file": "components/layout/app-layout-shell.tsx",
+      "line": 29,
+      "detail": "min-h-screen"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/app-sidebar.tsx",
+      "line": 173,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/app-sidebar.tsx",
+      "line": 197,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/app-sidebar.tsx",
+      "line": 239,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/app-sidebar.tsx",
+      "line": 284,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/global-search-modal.tsx",
+      "line": 188,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/global-search-modal.tsx",
+      "line": 215,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/global-search-modal.tsx",
+      "line": 217,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/global-search-modal.tsx",
+      "line": 250,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/global-search-modal.tsx",
+      "line": 323,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/global-search-modal.tsx",
+      "line": 326,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/global-search-modal.tsx",
+      "line": 329,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/global-search-modal.tsx",
+      "line": 335,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/layout/user-dropdown.tsx",
+      "line": 88,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/notifications/notification-bell.tsx",
+      "line": 33,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/notifications/notification-drawer.tsx",
+      "line": 226,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/notifications/notification-drawer.tsx",
+      "line": 236,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/patients/dpdp-export-actions.tsx",
+      "line": 43,
+      "detail": "alert()"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/duplicate-warning-banner.tsx",
+      "line": 87,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/duplicate-warning-banner.tsx",
+      "line": 64,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 96,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 153,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 174,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 385,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 189,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 199,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 212,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 226,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 252,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 434,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 439,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 444,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 451,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 470,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 476,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 490,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 508,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-detail-view.tsx",
+      "line": 591,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-directory-table.tsx",
+      "line": 177,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-directory-table.tsx",
+      "line": 208,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-directory-table.tsx",
+      "line": 279,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-lab-documents.tsx",
+      "line": 353,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-lab-documents.tsx",
+      "line": 358,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-lab-documents.tsx",
+      "line": 465,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-lab-documents.tsx",
+      "line": 500,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-lab-documents.tsx",
+      "line": 542,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-lab-documents.tsx",
+      "line": 642,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/patients/patient-lab-documents.tsx",
+      "line": 196,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/patients/patient-lab-documents.tsx",
+      "line": 199,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/patients/patient-lab-documents.tsx",
+      "line": 237,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/patients/patient-lab-documents.tsx",
+      "line": 240,
+      "detail": "alert()"
+    },
+    {
+      "rule": "arbitrary-color",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 232,
+      "detail": "hover:bg-[#ffeacc]"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 110,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 115,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 526,
+      "detail": "<a> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 572,
+      "detail": "<a> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 586,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 247,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 269,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 298,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 314,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 319,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 335,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 345,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 361,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 366,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 375,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 389,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 396,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 424,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 445,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 72,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 76,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 90,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 94,
+      "detail": "alert()"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/profile/doctor-availability-card.tsx",
+      "line": 514,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/profile/doctor-availability-card.tsx",
+      "line": 519,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/profile/user-profile-form.tsx",
+      "line": 295,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/profile/user-profile-form.tsx",
+      "line": 301,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/checkout-drawer.tsx",
+      "line": 434,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/checkout-drawer.tsx",
+      "line": 492,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/checkout-drawer.tsx",
+      "line": 520,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/checkout-drawer.tsx",
+      "line": 542,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/checkout-drawer.tsx",
+      "line": 647,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/checkout-drawer.tsx",
+      "line": 654,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/checkout-drawer.tsx",
+      "line": 682,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/checkout-drawer.tsx",
+      "line": 752,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/queue-card.tsx",
+      "line": 117,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/queue-card.tsx",
+      "line": 137,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/queue-card.tsx",
+      "line": 144,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/queue-card.tsx",
+      "line": 157,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/queue/queue-card.tsx",
+      "line": 167,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/close-loop-modal.tsx",
+      "line": 118,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/close-loop-modal.tsx",
+      "line": 158,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/create-referral-modal.tsx",
+      "line": 256,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/create-referral-modal.tsx",
+      "line": 259,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/create-referral-modal.tsx",
+      "line": 277,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/create-referral-modal.tsx",
+      "line": 483,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/create-referral-modal.tsx",
+      "line": 584,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/create-referral-modal.tsx",
+      "line": 609,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/create-referral-modal.tsx",
+      "line": 624,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 135,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 141,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 147,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 153,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 159,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 170,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 176,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 182,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 218,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 236,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 331,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 334,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 337,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 340,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 343,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 346,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 349,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 365,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 379,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 392,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 406,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 411,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 446,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 461,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 479,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 494,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 505,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 532,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 628,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/referrals/referrals-register.tsx",
+      "line": 669,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/settings/clinic-profile-form.tsx",
+      "line": 368,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/settings/clinic-profile-form.tsx",
+      "line": 374,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/settings/developer/developer-settings-view.tsx",
+      "line": 124,
+      "detail": "window.confirm()"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/settings/developer/webhook-delivery-logs-drawer.tsx",
+      "line": 182,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/settings/developer/webhook-delivery-logs-drawer.tsx",
+      "line": 229,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/settings/developer/webhook-delivery-logs-drawer.tsx",
+      "line": 234,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/settings/developer/webhook-subscription-list.tsx",
+      "line": 159,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/staff/edit-staff-modal.tsx",
+      "line": 286,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/staff/edit-staff-modal.tsx",
+      "line": 292,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/staff/staff-list.tsx",
+      "line": 63,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/staff/staff-list.tsx",
+      "line": 73,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/staff/staff-list.tsx",
+      "line": 79,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/ui/badge.tsx",
+      "line": 30,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "arbitrary-color",
+      "file": "components/ui/button.tsx",
+      "line": 45,
+      "detail": "hover:bg-[#912018]"
+    },
+    {
+      "rule": "arbitrary-color",
+      "file": "components/ui/button.tsx",
+      "line": 45,
+      "detail": "active:bg-[#7A271A]"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 286,
+      "detail": "<a> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 302,
+      "detail": "<a> wraps <Button>"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 64,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 75,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 83,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 94,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 112,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 163,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 168,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 194,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/read-only-encounter-modal.tsx",
+      "line": 208,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 194,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 199,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 671,
+      "detail": "<a> wraps <Button>"
+    },
+    {
+      "rule": "link-wraps-button",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 684,
+      "detail": "<Link> wraps <Button>"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 220,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 235,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 250,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 267,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 434,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 472,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 477,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 495,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 500,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 515,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 519,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 534,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 554,
+      "detail": "text-[11px]"
+    },
+    {
+      "rule": "px-font",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 559,
+      "detail": "text-[10px]"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 100,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 104,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 118,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 122,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 136,
+      "detail": "alert()"
+    },
+    {
+      "rule": "window-dialog",
+      "file": "components/visits/visits-register-view.tsx",
+      "line": 140,
+      "detail": "alert()"
+    }
+  ],
+  "rawPaletteByFile": {
+    "app/(auth)/forgot-password/page.tsx": 15,
+    "app/(auth)/join/page.tsx": 14,
+    "app/(auth)/login/page.tsx": 8,
+    "app/(dashboard)/page.tsx": 28,
+    "app/(dashboard)/patients/[id]/consent-section.tsx": 29,
+    "app/(dashboard)/patients/new/page.tsx": 7,
+    "app/(dashboard)/patients/page.tsx": 2,
+    "app/(dashboard)/profile/page.tsx": 3,
+    "app/(dashboard)/settings/billing/page.tsx": 27,
+    "app/(dashboard)/settings/clinic/page.tsx": 7,
+    "app/(dashboard)/settings/developer/page.tsx": 3,
+    "app/(dashboard)/staff/page.tsx": 18,
+    "app/(onboarding)/clinic/new/page.tsx": 7,
+    "app/r/[token]/page.tsx": 18,
+    "app/reports/view/page.tsx": 7,
+    "app/reschedule/[token]/page.tsx": 37,
+    "components/auth/auth-form-parts.tsx": 15,
+    "components/auth/clinic-showcase-panel.tsx": 46,
+    "components/auth/turnstile-field.tsx": 1,
+    "components/billing/collection-reports-view.tsx": 124,
+    "components/billing/receipt-modal.tsx": 28,
+    "components/cabin/doctor-cabin-view.tsx": 101,
+    "components/cabin/my-queue-card.tsx": 51,
+    "components/calendar/block-time-modal.tsx": 27,
+    "components/calendar/booking-drawer.tsx": 36,
+    "components/calendar/calendar-view.tsx": 54,
+    "components/calendar/doctor-timeline.tsx": 65,
+    "components/calendar/overbook-dialog.tsx": 13,
+    "components/calendar/soft-block-override-dialog.tsx": 19,
+    "components/calendar/waitlist-drawer.tsx": 49,
+    "components/consultation/ai-scribe-modal.tsx": 52,
+    "components/consultation/amendment-modal.tsx": 24,
+    "components/consultation/chief-complaints-section.tsx": 31,
+    "components/consultation/consultation-workspace.tsx": 154,
+    "components/consultation/diagnosis-section.tsx": 71,
+    "components/consultation/frequent-rx-chips.tsx": 9,
+    "components/consultation/patient-history-drawer.tsx": 34,
+    "components/consultation/pdf-preview-modal.tsx": 31,
+    "components/consultation/prescription-builder.tsx": 123,
+    "components/consultation/returning-patient-catchup.tsx": 27,
+    "components/consultation/sign-and-bill-modal.tsx": 134,
+    "components/consultation/specialty/dental-odontogram.tsx": 98,
+    "components/consultation/specialty/gp-systemic-review.tsx": 38,
+    "components/consultation/specialty/pediatrics-tools.tsx": 105,
+    "components/consultation/vitals-block.tsx": 40,
+    "components/dashboard/nav.tsx": 2,
+    "components/layout/app-header.tsx": 23,
+    "components/layout/app-sidebar.tsx": 24,
+    "components/layout/backdrop.tsx": 1,
+    "components/layout/global-search-modal.tsx": 42,
+    "components/layout/user-dropdown.tsx": 13,
+    "components/notifications/notification-bell.tsx": 3,
+    "components/notifications/notification-drawer.tsx": 23,
+    "components/patients/age-dob-input.tsx": 2,
+    "components/patients/dpdp-export-actions.tsx": 3,
+    "components/patients/duplicate-warning-banner.tsx": 19,
+    "components/patients/edit-patient-modal.tsx": 14,
+    "components/patients/patient-detail-view.tsx": 115,
+    "components/patients/patient-directory-table.tsx": 17,
+    "components/patients/patient-lab-documents.tsx": 94,
+    "components/patients/patient-visit-history.tsx": 93,
+    "components/profile/change-password-form.tsx": 2,
+    "components/profile/doctor-availability-card.tsx": 71,
+    "components/profile/user-profile-form.tsx": 31,
+    "components/queue/checkout-drawer.tsx": 168,
+    "components/queue/queue-card.tsx": 47,
+    "components/queue/queue-view.tsx": 49,
+    "components/queue/status-actions.tsx": 16,
+    "components/queue/triage-vitals-modal.tsx": 9,
+    "components/queue/walk-in-drawer.tsx": 31,
+    "components/referrals/close-loop-modal.tsx": 33,
+    "components/referrals/create-referral-modal.tsx": 119,
+    "components/referrals/referrals-register.tsx": 115,
+    "components/settings/clinic-profile-form.tsx": 50,
+    "components/settings/developer/api-key-table.tsx": 17,
+    "components/settings/developer/create-api-key-modal.tsx": 1,
+    "components/settings/developer/create-webhook-modal.tsx": 9,
+    "components/settings/developer/developer-settings-view.tsx": 2,
+    "components/settings/developer/revoke-key-modal.tsx": 7,
+    "components/settings/developer/single-reveal-key-modal.tsx": 9,
+    "components/settings/developer/webhook-delivery-logs-drawer.tsx": 49,
+    "components/settings/developer/webhook-subscription-list.tsx": 28,
+    "components/settings/statutory-fields-card.tsx": 15,
+    "components/staff/edit-staff-modal.tsx": 37,
+    "components/staff/invite-staff-form.tsx": 13,
+    "components/staff/staff-list.tsx": 14,
+    "components/ui/alert.tsx": 10,
+    "components/ui/badge.tsx": 23,
+    "components/ui/button.tsx": 11,
+    "components/ui/card.tsx": 7,
+    "components/ui/dropdown.tsx": 6,
+    "components/ui/empty-state.tsx": 4,
+    "components/ui/field.tsx": 2,
+    "components/ui/input.tsx": 4,
+    "components/ui/modal.tsx": 8,
+    "components/ui/phone-input.tsx": 8,
+    "components/ui/select.tsx": 4,
+    "components/ui/table.tsx": 10,
+    "components/visits/read-only-encounter-modal.tsx": 59,
+    "components/visits/visits-register-view.tsx": 114
+  }
+}

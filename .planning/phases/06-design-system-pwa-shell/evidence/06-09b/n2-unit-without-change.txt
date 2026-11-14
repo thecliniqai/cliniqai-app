@@ -1,0 +1,8 @@
+   × hardSignOut > server revoked: cleanups → conceal → announce → POST /auth/signout as a fetch caller → purge → replace /login; no local fallback 5ms
+   × hardSignOut > H-WEBKIT: a server call that never settles (and no AbortSignal.timeout) is given up after 5 s; local fallback, purge, replace 2ms
+   × hardSignOut > offline (fetch rejects): signs out locally, expires the auth cookies, still purges and navigates 0ms
+   × hardSignOut > failing cleanups, announce and purge do not stop the sign-out 0ms
+   × hardSignOut > 06-09b N-2: the page is hidden right after the cleanups, while the server call is still open 51ms
+   × hardSignOut > 06-09b N-2: hanging cleanups delay the hiding by their 2 s budget at most, never by the server call 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  6 failed | 30 passed (36)

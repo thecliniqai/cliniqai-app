@@ -217,7 +217,7 @@ export function DoctorTimeline({
         {/* Doctors Header Row */}
         <div className="grid grid-cols-[110px_repeat(auto-fit,minmax(210px,1fr))] border-b border-gray-200 bg-gray-50/80 sticky top-0 z-10 backdrop-blur-xs">
           <div className="p-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center justify-center border-r border-gray-200">
-            <Clock className="w-3.5 h-3.5 mr-1.5 text-gray-400" />
+            <Clock className="w-3.5 h-3.5 mr-1.5 text-fg-subtle" />
             Time
           </div>
           {doctors.map((doc) => (
@@ -225,7 +225,7 @@ export function DoctorTimeline({
               key={doc.id}
               className="p-3 border-r border-gray-200 last:border-r-0 flex items-center justify-center gap-2.5 truncate"
             >
-              <div className="w-8 h-8 rounded-full bg-brand-50 border border-brand-200 text-brand-600 font-bold text-xs flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-full bg-accent-subtle border border-accent-border text-accent-fg font-bold text-xs flex items-center justify-center shrink-0">
                 {doc.name.replace(/^(Dr\.|Staff)\s*/i, "").charAt(0) || "D"}
               </div>
               <div className="text-left truncate">
@@ -310,7 +310,7 @@ export function DoctorTimeline({
                                     ? "bg-sky-50/60 border-dashed border-sky-300 text-sky-950"
                                     : isInConsultation
                                     ? "bg-emerald-50 border-solid border-emerald-300 text-emerald-950"
-                                    : "bg-brand-50/80 border-solid border-brand-200 text-brand-950"
+                                    : "bg-accent-subtle/80 border-solid border-accent-border text-accent-fg"
                                 }`}
                               >
                                 {/* Top Row: Patient Name & Overbooked icon */}
@@ -391,7 +391,7 @@ export function DoctorTimeline({
 
                                     <Link
                                       href={`/consultation/${v.id}`}
-                                      className="p-1 rounded-lg text-[#1769E0] hover:text-[#155cc0] hover:bg-white/90 transition-colors cursor-pointer"
+                                      className="p-1 rounded-lg text-accent hover:text-accent-hover hover:bg-white/90 transition-colors cursor-pointer"
                                       title={
                                         v.status === "in_consultation"
                                           ? "Resume Consultation"
@@ -409,7 +409,7 @@ export function DoctorTimeline({
                                       }}
                                       title="Cancel Appointment"
                                       aria-label="Cancel Appointment"
-                                      className="p-1 rounded-lg text-gray-400 hover:text-red-600 hover:bg-white/80 transition-colors cursor-pointer"
+                                      className="p-1 rounded-lg text-fg-subtle hover:text-red-600 hover:bg-white/80 transition-colors cursor-pointer"
                                     >
                                       <XCircle className="w-3.5 h-3.5" />
                                     </button>
@@ -421,11 +421,11 @@ export function DoctorTimeline({
                         </div>
                       ) : ongoingVisit ? (
                         /* Ongoing Consultation Span from Previous Slot */
-                        <div className="px-2.5 py-1.5 rounded-lg bg-brand-50/40 border border-dashed border-brand-200 text-[11px] text-brand-800 flex items-center justify-between">
+                        <div className="px-2.5 py-1.5 rounded-lg bg-accent-subtle/40 border border-dashed border-accent-border text-[11px] text-accent-fg flex items-center justify-between">
                           <span className="truncate font-medium">
                             ↳ {ongoingVisit.patients?.full_name || "Patient"} (in progress)
                           </span>
-                          <span className="text-[10px] font-semibold text-brand-600 shrink-0">
+                          <span className="text-[10px] font-semibold text-accent-fg shrink-0">
                             {ongoingVisit.estimated_duration_minutes}m
                           </span>
                         </div>
@@ -455,8 +455,8 @@ export function DoctorTimeline({
                           className="w-full h-full min-h-[38px] px-2 py-1 rounded-lg border border-transparent hover:border-dashed hover:border-gray-300 hover:bg-gray-200/50 transition-colors flex items-center justify-between text-left cursor-pointer group"
                           title="Click to override off-duty for emergency"
                         >
-                          <div className="flex items-center gap-1.5 text-gray-400 truncate">
-                            <Coffee className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-fg-subtle truncate">
+                            <Coffee className="w-3.5 h-3.5 text-fg-subtle shrink-0" />
                             <span className="text-[11px] font-medium truncate">Off Duty</span>
                           </div>
                           <span className="text-[10px] font-bold text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -468,7 +468,7 @@ export function DoctorTimeline({
                         <button
                           type="button"
                           onClick={() => onSlotClick(doc.id, timeStr, {})}
-                          className="w-full h-full min-h-[44px] rounded-lg hover:border hover:border-dashed hover:border-brand-300 hover:bg-brand-50/30 group flex items-center justify-center text-transparent hover:text-brand-600 text-xs font-semibold transition-all cursor-pointer"
+                          className="w-full h-full min-h-[44px] rounded-lg hover:border hover:border-dashed hover:border-accent-border hover:bg-accent-subtle/30 group flex items-center justify-center text-transparent hover:text-accent-hover text-xs font-semibold transition-all cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5 mr-1" />
                           <span>Book</span>

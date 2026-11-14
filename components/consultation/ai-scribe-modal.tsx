@@ -11,6 +11,8 @@ import {
   FileText,
   HelpCircle,
 } from "lucide-react";
+import { AiAssistChip } from "@/components/clinical/ai-assist-chip";
+import { AiPreviewChip, AiPreviewNote } from "@/components/clinical/ai-preview-chip";
 import { generateSoapAction } from "@/features/ai/actions";
 import { SoapDraft, AnonymizedPatientContext } from "@/lib/ai/types";
 
@@ -88,24 +90,25 @@ export function AiScribeModal({
     >
       <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-[#F7F6F3]">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shadow-2xs">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 id="ai-scribe-modal-title" className="text-base font-semibold text-gray-900">
-                AI Clinical Scribe — Shorthand
+        {/* AI-02 labels (V2-06 06-01b): the AI Assist and Preview chips and the preview note, not a hand-made header. */}
+        <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100 bg-canvas">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 id="ai-scribe-modal-title" className="text-base font-semibold text-fg">
+                Clinical Scribe — Shorthand
               </h2>
-              <p className="text-xs text-gray-500">
-                Type shorthand. Scribe drafts notes for your approval.
-              </p>
+              <AiAssistChip />
+              <AiPreviewChip />
             </div>
+            <p className="mt-1 text-xs text-fg-muted">
+              Type shorthand. Scribe drafts notes for your approval.
+            </p>
+            <AiPreviewNote className="mt-0.5" />
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-200/50 transition-colors"
+            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-200/50 transition-colors"
             aria-label="Close AI Scribe Modal"
           >
             <X className="h-5 w-5" />
@@ -142,7 +145,7 @@ export function AiScribeModal({
               value={shorthand}
               onChange={(e) => setShorthand(e.target.value)}
               placeholder="e.g. c/o fever 3d, throat pain, dry cough. o/e throat congested, tonsils enlarged, chest clear. adv warm water gargle, steam inhalation twice daily."
-              className="w-full p-3.5 rounded-xl border border-gray-300 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0] leading-relaxed font-sans"
+              className="w-full p-3.5 rounded-xl border border-gray-300 text-sm text-gray-900 placeholder:text-fg-placeholder focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring leading-relaxed font-sans"
             />
 
             <div className="flex items-center justify-between text-[11px] text-gray-500 pt-1">
@@ -151,7 +154,7 @@ export function AiScribeModal({
                 type="button"
                 onClick={handleGenerate}
                 disabled={isGenerating || !shorthand.trim()}
-                className="min-h-[40px] px-4 rounded-xl bg-[#1769E0] hover:bg-[#155cc0] text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                className="min-h-[40px] px-4 rounded-xl bg-accent hover:bg-accent-hover text-white font-semibold text-xs flex items-center gap-2 shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {isGenerating ? (
                   <>
@@ -202,7 +205,7 @@ export function AiScribeModal({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 italic">None detected</p>
+                  <p className="text-xs text-fg-subtle italic">None detected</p>
                 )}
               </div>
 
@@ -237,7 +240,7 @@ export function AiScribeModal({
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="px-6 py-4 border-t border-gray-100 bg-[#F7F6F3] flex items-center justify-between gap-3">
+        <div className="px-6 py-4 border-t border-gray-100 bg-canvas flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={handleClose}
@@ -250,7 +253,7 @@ export function AiScribeModal({
             <button
               type="button"
               onClick={handleAcceptAndInsert}
-              className="min-h-[44px] px-5 rounded-xl bg-[#1769E0] hover:bg-[#155cc0] text-white text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
+              className="min-h-[44px] px-5 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
             >
               <Check className="h-4 w-4" />
               <span>Accept & Insert into Note</span>

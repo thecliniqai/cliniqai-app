@@ -158,7 +158,7 @@ export function EditPatientModal({
         {/* Section 1: Core Demographics */}
         <div className="space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
-            <User className="w-3.5 h-3.5 text-[#1769E0]" />
+            <User className="w-3.5 h-3.5 text-accent" />
             Basic Demographics
           </h4>
 

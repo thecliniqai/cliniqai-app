@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { apiRequestBlocked, isApiV1Path, normaliseRequestPath } from "@/lib/api/enabled";
 import { REQUEST_ID_HEADER, newRequestId } from "@/lib/log/request-id";
 import { publicEnv } from "@/lib/env";
-import { loginNextValue, pageNeedsSession } from "@/lib/auth/public-paths";
+import { isApiPath, loginNextValue, pageNeedsSession } from "@/lib/auth/public-paths";
 import { isSupabaseAuthCookie, sessionMustEnd } from "@/lib/auth/session-age";
 
 /**
@@ -42,8 +42,11 @@ function redirectToLogin(request: NextRequest, requestId: string, carry: NextRes
   return response;
 }
 
-/** The no-store headers for a response that deletes the session cookies (it must never be cached). */
-const ENDED_SESSION_CACHE_HEADERS: Record<(typeof SESSION_CACHE_HEADERS)[number], string> = {
+/**
+ * The no-store headers for a response that must never be cached: one that deletes the session cookies, and (V2-06
+ * 06-05, PWA D-4) every signed-in page and RSC response.
+ */
+const NO_STORE_HEADERS: Record<(typeof SESSION_CACHE_HEADERS)[number], string> = {
   "cache-control": "private, no-cache, no-store, must-revalidate, max-age=0",
   expires: "0",
   pragma: "no-cache",
@@ -61,7 +64,7 @@ function continueSignedOut(request: NextRequest, requestId: string, previous: Ne
   for (const name of names) request.cookies.delete(name);
   const response = continueWithRequestId(request, requestId);
   for (const name of names) response.cookies.set(name, "", { path: "/", maxAge: 0 });
-  for (const [key, value] of Object.entries(ENDED_SESSION_CACHE_HEADERS)) response.headers.set(key, value);
+  for (const [key, value] of Object.entries(NO_STORE_HEADERS)) response.headers.set(key, value);
   return response;
 }
 
@@ -148,6 +151,19 @@ export async function proxy(request: NextRequest) {
   // handlers authenticate themselves.
   if (!signedIn && (request.method === "GET" || request.method === "HEAD") && pageNeedsSession(pathname)) {
     return redirectToLogin(request, requestId, response);
+  }
+
+  // V2-06 06-05 (PWA_STRATEGY §4 D-4, ruling R-20): a signed-in page or RSC response (GET/HEAD outside /api) is
+  // `private, no-store`, set here rather than relying on Next's default for dynamic pages, so neither the browser's
+  // HTTP cache nor any shared cache keeps patient data and the page is not restored from the back-forward cache.
+  // `/api` handlers set their own headers. A response `setAll` already marked no-store (a refreshed session) keeps that.
+  if (
+    signedIn &&
+    (request.method === "GET" || request.method === "HEAD") &&
+    !isApiPath(normaliseRequestPath(pathname) ?? pathname) &&
+    !(response.headers.get("cache-control") ?? "").includes("no-store")
+  ) {
+    for (const [key, value] of Object.entries(NO_STORE_HEADERS)) response.headers.set(key, value);
   }
 
   return response;

@@ -1,0 +1,24 @@
+{
+  "$comment": "Lighthouse CI base config (V2-06 06-07; PWA-09, PWA_STRATEGY §3.9; ruling R-6). Never used directly: scripts/perf/lhci-config.mjs adds the loopback URLs, Chromium path, host-resolver lockdown and (signed-in routes) the Cookie header, writes the result to a git-ignored temp path and deletes it after the run. Lighthouse mobile defaults (no preset): Moto G Power emulation, simulated slow 4G, 4x CPU. Report-only: every assertion is `warn` (V2-15 turns them to `error`). Upload is the local filesystem only, never temporary-public-storage.",
+  "ci": {
+    "collect": {
+      "numberOfRuns": 1,
+      "settings": {
+        "formFactor": "mobile",
+        "throttlingMethod": "simulate",
+        "onlyCategories": ["performance", "accessibility", "best-practices"]
+      }
+    },
+    "assert": {
+      "assertions": {
+        "largest-contentful-paint": ["warn", { "maxNumericValue": 2500 }],
+        "total-blocking-time": ["warn", { "maxNumericValue": 300 }],
+        "cumulative-layout-shift": ["warn", { "maxNumericValue": 0.1 }],
+        "resource-summary:font:count": ["warn", { "maxNumericValue": 2 }]
+      }
+    },
+    "upload": {
+      "target": "filesystem"
+    }
+  }
+}

@@ -91,7 +91,7 @@ export function ChiefComplaintsSection({
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-            <Clock className="w-5 h-5 text-[#1769E0]" />
+            <Clock className="w-5 h-5 text-accent" />
             Chief Complaints
           </h3>
           <span className="text-xs text-gray-500 font-medium">
@@ -116,8 +116,8 @@ export function ChiefComplaintsSection({
                     onClick={() => handleAddSymptom(symptom)}
                     className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                       isSelected
-                        ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                        : "bg-[#F7F6F3] text-gray-700 hover:bg-[#EAF2FF] hover:text-[#1769E0] border border-gray-200"
+                        ? "bg-gray-100 text-fg-subtle cursor-not-allowed"
+                        : "bg-canvas text-gray-700 hover:bg-accent-subtle hover:text-accent border border-gray-200"
                     }`}
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -140,7 +140,7 @@ export function ChiefComplaintsSection({
                     handleAddSymptom(customSymptom);
                   }
                 }}
-                className="w-full text-xs h-9 px-3 rounded-lg border border-gray-200 bg-white placeholder-gray-400 focus:outline-hidden focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                className="w-full text-xs h-9 px-3 rounded-lg border border-gray-200 bg-white placeholder-fg-placeholder focus:outline-hidden focus:border-accent focus:ring-1 focus:ring-ring"
               />
               <button
                 type="button"
@@ -160,7 +160,7 @@ export function ChiefComplaintsSection({
             {complaints.map((item, index) => (
               <div
                 key={item.id || index}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-gray-100 bg-[#F7F6F3]/50"
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-lg border border-gray-100 bg-canvas/50"
               >
                 <div className="flex-1">
                   <span className="text-sm font-semibold text-gray-900">{item.symptom}</span>
@@ -178,7 +178,7 @@ export function ChiefComplaintsSection({
                             onClick={() => handleUpdateDuration(index, preset.val, preset.unit)}
                             className={`px-2 py-0.5 rounded-sm text-[11px] font-medium transition-colors ${
                               isPresetActive
-                                ? "bg-[#1769E0] text-white"
+                                ? "bg-accent text-white"
                                 : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
                             }`}
                           >
@@ -197,14 +197,14 @@ export function ChiefComplaintsSection({
                     value={item.notes || ""}
                     disabled={disabled}
                     onChange={(e) => handleUpdateNotes(index, e.target.value)}
-                    className="text-xs h-8 px-2.5 rounded-md border border-gray-200 bg-white placeholder-gray-400 focus:outline-hidden focus:border-[#1769E0] w-full sm:w-72 md:w-96"
+                    className="text-xs h-8 px-2.5 rounded-md border border-gray-200 bg-white placeholder-fg-placeholder focus:outline-hidden focus:border-accent w-full sm:w-72 md:w-96"
                   />
                   {!disabled && (
                     <button
                       type="button"
                       onClick={() => handleRemoveComplaint(index)}
                       aria-label="Dismiss complaint"
-                      className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                      className="p-1.5 text-fg-subtle hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -214,7 +214,7 @@ export function ChiefComplaintsSection({
             ))}
           </div>
         ) : (
-          <div className="p-4 rounded-lg border border-dashed border-gray-200 text-center text-xs text-gray-400">
+          <div className="p-4 rounded-lg border border-dashed border-gray-200 text-center text-xs text-fg-subtle">
             No complaints added yet. Tap a quick chip above or type a symptom.
           </div>
         )}
@@ -238,7 +238,7 @@ export function ChiefComplaintsSection({
           disabled={disabled}
           onChange={(e) => onClinicalNotesChange(e.target.value)}
           placeholder="Detailed notes on symptom onset, progression, aggravating/relieving factors, prior medications taken..."
-          className="w-full text-sm p-3 rounded-lg border border-gray-200 bg-white placeholder-gray-400 focus:outline-hidden focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0] min-h-[96px] resize-y"
+          className="w-full text-sm p-3 rounded-lg border border-gray-200 bg-white placeholder-fg-placeholder focus:outline-hidden focus:border-accent focus:ring-1 focus:ring-ring min-h-[96px] resize-y"
         />
       </div>
     </div>

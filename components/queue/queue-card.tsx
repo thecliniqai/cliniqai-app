@@ -58,7 +58,7 @@ export function QueueCard({ item, onRefresh, onCheckout, onRecordVitals }: Queue
         );
       case "in_consultation":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EAF2FF] text-[#1769E0] border border-[#B2CCFF]">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-subtle text-accent border border-accent-border">
             In Consultation
           </span>
         );
@@ -114,7 +114,7 @@ export function QueueCard({ item, onRefresh, onCheckout, onRecordVitals }: Queue
         <div className="shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-xl bg-gray-50 border border-gray-200 text-center shadow-2xs">
           {queueToken ? (
             <>
-              <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+              <span className="text-[10px] uppercase font-bold text-fg-subtle tracking-wider">
                 Token
               </span>
               <span className="text-base font-bold text-gray-900 leading-tight">
@@ -122,7 +122,7 @@ export function QueueCard({ item, onRefresh, onCheckout, onRecordVitals }: Queue
               </span>
             </>
           ) : (
-            <Clock className="w-5 h-5 text-gray-400" />
+            <Clock className="w-5 h-5 text-fg-subtle" />
           )}
         </div>
 
@@ -185,7 +185,7 @@ export function QueueCard({ item, onRefresh, onCheckout, onRecordVitals }: Queue
               <>
                 <span>•</span>
                 <span className="inline-flex items-center text-gray-700 font-medium">
-                  <Stethoscope className="w-3.5 h-3.5 mr-1 text-gray-400" />
+                  <Stethoscope className="w-3.5 h-3.5 mr-1 text-fg-subtle" />
                   Dr. {doctorName}
                 </span>
               </>

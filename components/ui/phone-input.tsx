@@ -73,8 +73,8 @@ export const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
           "relative flex items-center w-full min-h-[44px] rounded-lg border bg-white shadow-theme-xs transition-colors overflow-hidden",
           "focus-within:ring-3 focus-within:ring-offset-0",
           invalid
-            ? "border-[#B42318] focus-within:border-[#B42318] focus-within:ring-[#B42318]/15"
-            : "border-gray-300 focus-within:border-[#1769E0] focus-within:ring-[#1769E0]/15",
+            ? "border-danger-solid focus-within:border-danger-solid focus-within:ring-danger-solid/15"
+            : "border-gray-300 focus-within:border-accent focus-within:ring-ring/15",
           disabled && "opacity-50 bg-gray-50 cursor-not-allowed",
           className
         )}
@@ -100,7 +100,7 @@ export const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
           value={digits}
           onChange={handleChange}
           onPaste={handlePaste}
-          className="flex-1 w-full bg-transparent px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none disabled:cursor-not-allowed"
+          className="flex-1 w-full bg-transparent px-3 py-2 text-sm text-gray-900 placeholder:text-fg-placeholder focus:outline-none disabled:cursor-not-allowed"
           {...props}
         />
       </div>

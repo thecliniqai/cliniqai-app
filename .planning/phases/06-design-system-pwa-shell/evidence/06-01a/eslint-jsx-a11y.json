@@ -1,0 +1,14 @@
+{
+  "generatedBy": "npx eslint . -f json (summarised)",
+  "errors": 0,
+  "warnings": 461,
+  "jsxA11yWarnings": 67,
+  "jsxA11yByRule": {
+    "jsx-a11y/no-autofocus": 8,
+    "jsx-a11y/click-events-have-key-events": 11,
+    "jsx-a11y/no-static-element-interactions": 10,
+    "jsx-a11y/label-has-associated-control": 36,
+    "jsx-a11y/heading-has-content": 1,
+    "jsx-a11y/interactive-supports-focus": 1
+  }
+}

@@ -108,7 +108,7 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
       className={cn(
         "bg-white rounded-xl border p-4 sm:p-5 transition-all duration-200 shadow-theme-xs hover:shadow-theme-md",
         isActive
-          ? "border-[#1769E0] ring-2 ring-[#1769E0]/20 bg-[#F8FAFC]"
+          ? "border-accent ring-2 ring-accent/20 bg-sunken"
           : priority === "emergency" || priority === "urgent"
           ? "border-amber-300 bg-amber-50/20"
           : "border-gray-200 hover:border-gray-300"
@@ -121,8 +121,8 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
             className={cn(
               "px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1",
               isActive
-                ? "bg-[#1769E0] text-white border-[#1769E0]"
-                : "bg-[#EAF2FF] text-[#1769E0] border-[#B2CCFF]"
+                ? "bg-accent text-white border-accent"
+                : "bg-accent-subtle text-accent border-accent-border"
             )}
           >
             Token #{token_number != null ? String(token_number).padStart(2, "0") : "--"}
@@ -150,7 +150,7 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
         </div>
 
         {visit.scheduled_at && (
-          <div className="flex items-center gap-1 text-xs text-gray-400">
+          <div className="flex items-center gap-1 text-xs text-fg-subtle">
             <Clock className="w-3.5 h-3.5" />
             <span suppressHydrationWarning>
               {new Date(visit.scheduled_at).toLocaleTimeString("en-IN", {
@@ -170,7 +170,7 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
             {patient.full_name}
           </h3>
           {patient.uhid && (
-            <span className="text-[11px] font-mono text-gray-400 uppercase">
+            <span className="text-[11px] font-mono text-fg-subtle uppercase">
               {patient.uhid}
             </span>
           )}
@@ -201,35 +201,35 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
       <div className="mb-3.5 p-2.5 rounded-lg bg-gray-50 border border-gray-100">
         <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center justify-between">
           <span className="flex items-center gap-1">
-            <Activity className="w-3 h-3 text-gray-400" />
+            <Activity className="w-3 h-3 text-fg-subtle" />
             Pre-consultation Vitals
           </span>
-          {!hasVitals && <span className="text-gray-400 font-normal italic">Not recorded</span>}
+          {!hasVitals && <span className="text-fg-subtle font-normal italic">Not recorded</span>}
         </div>
 
         {hasVitals ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
             {vitals.bp_systolic != null && vitals.bp_diastolic != null && (
               <div className="bg-white px-2 py-1.5 rounded border border-gray-100 shadow-2xs">
-                <span className="text-[10px] text-gray-400 block">BP</span>
+                <span className="text-[10px] text-fg-subtle block">BP</span>
                 <span className="font-semibold text-gray-800">
                   {vitals.bp_systolic}/{vitals.bp_diastolic}{" "}
-                  <span className="text-[10px] text-gray-400 font-normal">mmHg</span>
+                  <span className="text-[10px] text-fg-subtle font-normal">mmHg</span>
                 </span>
               </div>
             )}
             {vitals.pulse != null && (
               <div className="bg-white px-2 py-1.5 rounded border border-gray-100 shadow-2xs">
-                <span className="text-[10px] text-gray-400 block">Pulse</span>
+                <span className="text-[10px] text-fg-subtle block">Pulse</span>
                 <span className="font-semibold text-gray-800">
                   {vitals.pulse}{" "}
-                  <span className="text-[10px] text-gray-400 font-normal">bpm</span>
+                  <span className="text-[10px] text-fg-subtle font-normal">bpm</span>
                 </span>
               </div>
             )}
             {vitals.temperature != null && (
               <div className="bg-white px-2 py-1.5 rounded border border-gray-100 shadow-2xs">
-                <span className="text-[10px] text-gray-400 block">Temp</span>
+                <span className="text-[10px] text-fg-subtle block">Temp</span>
                 <span className="font-semibold text-gray-800">
                   {vitals.temperature}°F
                 </span>
@@ -237,16 +237,16 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
             )}
             {vitals.weight != null && (
               <div className="bg-white px-2 py-1.5 rounded border border-gray-100 shadow-2xs">
-                <span className="text-[10px] text-gray-400 block">Weight</span>
+                <span className="text-[10px] text-fg-subtle block">Weight</span>
                 <span className="font-semibold text-gray-800">
                   {vitals.weight}{" "}
-                  <span className="text-[10px] text-gray-400 font-normal">kg</span>
+                  <span className="text-[10px] text-fg-subtle font-normal">kg</span>
                 </span>
               </div>
             )}
             {vitals.spo2 != null && (
               <div className="bg-white px-2 py-1.5 rounded border border-gray-100 shadow-2xs">
-                <span className="text-[10px] text-gray-400 block">SpO2</span>
+                <span className="text-[10px] text-fg-subtle block">SpO2</span>
                 <span className="font-semibold text-gray-800">
                   {vitals.spo2}%
                 </span>
@@ -254,7 +254,7 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
             )}
           </div>
         ) : (
-          <p className="text-xs text-gray-400 italic">
+          <p className="text-xs text-fg-subtle italic">
             Triage vitals have not been entered yet. You can record them during consultation.
           </p>
         )}
@@ -277,8 +277,8 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
           className={cn(
             "flex-1 h-11 text-sm font-semibold rounded-xl shadow-theme-xs cursor-pointer flex items-center justify-center gap-2",
             isActive
-              ? "bg-[#1769E0] text-white hover:bg-[#155cc0]"
-              : "bg-[#1769E0] text-white hover:bg-[#155cc0]"
+              ? "bg-accent text-white hover:bg-accent-hover"
+              : "bg-accent text-white hover:bg-accent-hover"
           )}
         >
           <Stethoscope className="w-4 h-4 shrink-0" />

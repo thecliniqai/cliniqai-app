@@ -149,7 +149,7 @@ export function QueueView({
             onClick={setToday}
             className="px-4 min-h-[44px] flex items-center gap-2 text-sm font-semibold text-gray-900 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer"
           >
-            <Calendar className="w-4 h-4 text-brand-500" />
+            <Calendar className="w-4 h-4 text-accent" />
             <span>{formatDisplayDate(currentDate)}</span>
           </button>
 
@@ -172,7 +172,7 @@ export function QueueView({
             id="doctor-filter"
             value={doctorFilter}
             onChange={(e) => handleDoctorChange(e.target.value)}
-            className="h-11 px-3.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+            className="h-11 px-3.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent"
           >
             <option value="all">All Doctors ({initialItems.length})</option>
             {doctors.map((doc) => (
@@ -219,14 +219,14 @@ export function QueueView({
         {/* With Doctor */}
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs flex items-center justify-between">
           <div>
-            <div className="text-xs font-semibold text-brand-700 uppercase tracking-wider">
+            <div className="text-xs font-semibold text-accent-fg uppercase tracking-wider">
               With Doctor
             </div>
-            <div className="text-2xl font-bold text-brand-600 mt-1">
+            <div className="text-2xl font-bold text-accent-fg mt-1">
               {inConsultCount}
             </div>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600">
+          <div className="w-11 h-11 rounded-xl bg-accent-subtle border border-accent-border flex items-center justify-center text-accent-fg">
             <Stethoscope className="w-5 h-5" />
           </div>
         </div>
@@ -251,7 +251,7 @@ export function QueueView({
       <div className="space-y-3">
         {filteredItems.length === 0 ? (
           <div className="bg-white border border-gray-200 border-dashed rounded-2xl p-12 text-center shadow-xs">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-400 mb-4">
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center text-fg-subtle mb-4">
               <Users className="w-7 h-7" />
             </div>
             <h3 className="text-base font-semibold text-gray-900">

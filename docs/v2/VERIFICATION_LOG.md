@@ -814,3 +814,18 @@ security audit anyways"). Applies from the 05a re-verification onward; nothing a
 | 3. Lows | A Low is fixed in the current round only if it is cheap and local; otherwise it goes to the backlog with an owner phase, without a second review pass. Highs and Mediums are unchanged (fix + test that fails without it) |
 | 4. Overlapping phases | V2-06 starts now alongside V2-05 (05a fixes, then 05b), in its own worktree, branched from the 05a tip and later merging the 05b tip (merge commits only). Plans that need 05b code (06-06; the locked-user leg of 06-05 spec 1) wait for 05b |
 | V2-14 | Remains the full security verification (adversarial review + scanners) and is the backstop for deferred Lows. It does not replace per-change review of security-sensitive code |
+
+### G2-D addendum: approved state is the CliniQ AI brand theme at `3a78a5d` (2026-11-14)
+
+The G2-D row above names `e95b8b5` (direction A, teal). The PO since supplied the CliniQ AI brand (Claude Design patch,
+applied as `d2e399f`) and decided the With-doctor border `#11998D` (`3a78a5d`, PR #7 head). **Approved state for V2-06
+Wave B: `v2/phase-dx-design-exploration` at `3a78a5d`**; per-file SHA-256 list (tool output) in the 06-PLAN revision
+note of 2026-11-14. Typography: Manrope display + Inter body. CTO rulings on the plan's open items (PO delegated):
+
+| Item | Ruling |
+|---|---|
+| PWA theme colour | `#FFFFFF` (white-first canvas, as approved in V2-DX); one token to change |
+| Favicon below 32 px | Brand-kit rule: the small mark below 32 px; the white-tile icon for app icons |
+| "ClinicOS"/"ClinicQ" strings outside V2-06 | Renamed by their owner phases: WhatsApp templates in V2-12 (templates are re-registered there anyway); `X-ClinicQ-Signature` decided with API v1 hardening (P1-37) — no external consumer exists yet (PO-16); other UI copy by the phase that owns the screen |
+| Inter licence file | Vendor rsms/inter's own `OFL.txt` (correct copyright line) |
+| Doc errata (DESIGN_SYSTEM, PWA_STRATEGY, PO-19) | Proposed at phase close, as planned |

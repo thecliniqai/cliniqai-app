@@ -16,6 +16,7 @@ against a hosted project and never call a hosted diagnostic route.
 | Proof route | `POST /api/diag/error` (`CRON_SECRET` bearer, then `DIAG_ERROR_ROUTE_ENABLED=true`, refused by the env schema in production) throws a synthetic error (R-18) |
 | Retention | `ops.purge_error_events(interval default '180 days')`, `ops.error_events_size()`; scheduling is V2-04 (R-27) |
 | Cap | 500 new fingerprints per UTC day (`ops.error_sink_daily_cap()`); beyond it `ops.error_event_overflow.dropped` counts |
+| Client errors (V2-06) | `reportClientRenderError` (`features/observability/actions.ts`): a signed-in dashboard error boundary reports an uncaught render error without a digest. See "Client render errors" below |
 
 What a row holds: fingerprint, day, first/last seen, count, tier (`environment`), release (git SHA), route **pattern**
 (`/r/[token]`, never the concrete path or query string), route type, method, error class name, code (SQLSTATE or
@@ -25,6 +26,31 @@ strings, raw messages, function names. `ops` is not exposed by the API and no AP
 
 If `ERROR_INGEST_KEY` is unset (allowed outside production), errors are still logged as one `request.error` JSON line
 (request id, route pattern, code) but nothing is written to the sink.
+
+### Client render errors (V2-06 06-04a, 06-09a)
+
+A dashboard route error boundary (`components/shell/route-error.tsx`) sends the error's class name and the route
+pattern, nothing else, to the `reportClientRenderError` server action (membership required; the browser's message and
+stack never leave it). The row is `error_name = client.<Name>`, `route_type = render`, empty message and frames, no
+digest, method or request id, and no tenant or user (R-3). Because any member can call the action directly, neither
+string is stored as sent (06-09a M-ERRCAP):
+
+- the name is kept only if it is a listed class (`CLIENT_ERROR_NAMES` in `lib/observability/client-render-event.ts`:
+  `Error`, `TypeError`, `RangeError`, `ReferenceError`, `SyntaxError`, `AbortError`, `ChunkLoadError`,
+  `DiagClientRenderError`), otherwise `client.Error`;
+- the route is kept only if it is one of the dashboard's own route patterns (`lib/observability/client-routes.ts`,
+  generated from `app/(dashboard)/` by `node scripts/observability/client-routes.mjs --write`; a test fails while it is
+  out of date), otherwise `/`.
+
+So clients can create at most names × routes fingerprints a day (152 today; a test keeps it ≤ 40 % of the 500 cap),
+whatever the number of server instances, and nothing a caller types reaches a row or a log line. Per server instance
+and UTC day: at most 50 distinct client keys; the same key again within a minute is dropped without a log line or a
+write (so `count` is "reports at least a minute apart", not every render); the first report refused by the 50-key cap
+writes one `observability.sink.client_cap_reached` line. Public, auth and onboarding boundaries never report (no
+membership; the onboarding boundary is a recorded 06-04a deviation).
+
+- **Client rows:** `select occurred_on, count, route_path, error_name from ops.error_events where error_name like
+  'client.%' order by last_seen desc limit 50;`
 
 ## 2. Turn it on for staging and prove it (PO action E9)
 
@@ -106,4 +132,5 @@ e2e app server runs with the sink and the diagnostic route on. A test lane refus
   message (never request data), and Postgres row details, quoted input values and identifiers are removed.
 - Next.js itself still prints an uncaught error (with its raw message) to the server's stderr, i.e. the Vercel
   function logs. That output is outside this sink; see the 03-09b record for the follow-up.
-- Client (browser) errors are not captured until V2-06 (R-29).
+- Client (browser) errors: only uncaught render errors of the signed-in dashboard, as class name + route pattern
+  (above). Event-handler and promise errors in the browser are not captured.

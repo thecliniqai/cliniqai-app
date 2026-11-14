@@ -1,0 +1,30 @@
+# SHA-256 of every approved input as committed (shasum -a 256), 763673f
+4acc7dffe4951bbd8c60bc5a4ceb605728c3991186690b3e3875ce0128cf5bd4  .planning/phases/06-design-system-pwa-shell/evidence/06-01b/clinic-paper.approved.css
+6557d4c8c91e35d67a31597521f25c10f27a51da742a2689051c5a02ad600a21  .planning/phases/06-design-system-pwa-shell/evidence/06-01b/cliniq-ai.approved.css
+5041dc3d65b1891cfa12c3b6ba48bbb3cbeb5f7292dbcccb783c51e94dc8d48e  .planning/phases/06-design-system-pwa-shell/evidence/06-01b/v2-dx-contrast.approved.json
+48f540fb71166bf65a0fe187a71fad500c43143d3e2e42038f527e38c786e90f  app/fonts/Inter-latin-ext-wght.woff2
+f052ee44c3728dfd23aba8a4567150bc314d23903026fbb6ad089422c2df56af  app/fonts/Inter-latin-wght.woff2
+78e9f6cf3867ffb2daa80d211eea9ecaacff15c715ff27bc5c24b26d621a9ea3  app/fonts/Manrope-latin-ext-wght.woff2
+69379a4a2e4bc31a7e3e3db66951692fef0c8c00ca0aba63668331004559a886  app/fonts/Manrope-latin-wght.woff2
+262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a  app/fonts/Inter-OFL.txt
+05e0d611afd8398bb3285d05eceaf2fbebbb42d930afaa5c40dca1c4254aae26  app/fonts/Manrope-OFL.txt
+d00c53383cf1b983e3a43d211bdf3b885b8838ac128d3edc13df0f76218cd179  scripts/design/brand/icon.svg
+ae10346ea5b93d7ef61d2ab1d6fe0c7d922e6d790ef3fed4b32d79b01e16af53  scripts/design/brand/icon-maskable.svg
+83acd5aef745527cdced68d7a30d59e70e96a2a916cf564f711759a36f8d3f6f  app/icon.svg
+
+# The same paths at the approved commit (git show 3a78a5d:<path> | shasum -a 256)
+4acc7dffe4951bbd8c60bc5a4ceb605728c3991186690b3e3875ce0128cf5bd4  3a78a5d:.planning/sketches/themes/clinic-paper.css
+6557d4c8c91e35d67a31597521f25c10f27a51da742a2689051c5a02ad600a21  3a78a5d:.planning/sketches/themes/cliniq-ai.css
+5041dc3d65b1891cfa12c3b6ba48bbb3cbeb5f7292dbcccb783c51e94dc8d48e  3a78a5d:.planning/sketches/v2-dx-evidence/contrast.json
+f052ee44c3728dfd23aba8a4567150bc314d23903026fbb6ad089422c2df56af  3a78a5d:.planning/sketches/themes/fonts/Inter-latin-wght.woff2
+48f540fb71166bf65a0fe187a71fad500c43143d3e2e42038f527e38c786e90f  3a78a5d:.planning/sketches/themes/fonts/Inter-latin-ext-wght.woff2
+69379a4a2e4bc31a7e3e3db66951692fef0c8c00ca0aba63668331004559a886  3a78a5d:.planning/sketches/themes/fonts/Manrope-latin-wght.woff2
+78e9f6cf3867ffb2daa80d211eea9ecaacff15c715ff27bc5c24b26d621a9ea3  3a78a5d:.planning/sketches/themes/fonts/Manrope-latin-ext-wght.woff2
+18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3  3a78a5d:.planning/sketches/themes/fonts/Inter-OFL.txt
+05e0d611afd8398bb3285d05eceaf2fbebbb42d930afaa5c40dca1c4254aae26  3a78a5d:.planning/sketches/themes/fonts/Manrope-OFL.txt
+d00c53383cf1b983e3a43d211bdf3b885b8838ac128d3edc13df0f76218cd179  3a78a5d:.planning/sketches/002-icon/icon.svg
+ae10346ea5b93d7ef61d2ab1d6fe0c7d922e6d790ef3fed4b32d79b01e16af53  3a78a5d:.planning/sketches/002-icon/icon-maskable.svg
+
+# Inputs outside 3a78a5d
+83acd5aef745527cdced68d7a30d59e70e96a2a916cf564f711759a36f8d3f6f  brand kit v1.0 03-favicon/favicon.svg (docs/design-v2/, git-excluded, reference only; vendored verbatim as app/icon.svg)
+262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a  https://raw.githubusercontent.com/rsms/inter/v4.1/LICENSE.txt (fetched 2026-11-14; vendored as app/fonts/Inter-OFL.txt)

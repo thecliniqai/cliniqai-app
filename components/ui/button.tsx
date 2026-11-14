@@ -1,93 +1,147 @@
-import React from "react";
+"use client";
+
+import React, { useId } from "react";
 import { cn } from "@/lib/utils";
+import { useOnlineStatus } from "@/lib/pwa/online";
+import { joinIds } from "@/lib/ui/ids";
+import {
+  BUTTON_BASE,
+  BUTTON_DISABLED,
+  BUTTON_INTERACTIVE,
+  BUTTON_LOADING,
+  BUTTON_SIZE,
+  BUTTON_VARIANT,
+  FOCUS_RING,
+  SPINNER_ON_FILL,
+  TRANSITION,
+  resolveButtonVariant,
+  type ButtonSize,
+  type ButtonVariant,
+} from "@/lib/ui/variants";
+
+/**
+ * Button (V2-06 06-02a; 06-UI-SPEC "06-02a Forms", DESIGN_SYSTEM §6.1). One primitive for new code and the v1 call
+ * sites: the v1 props (`variant` incl. `outline`, `size` `sm | md | lg`, `loading`, `startIcon`, `endIcon`) keep
+ * working, so the ~55 v1 importers compile unchanged.
+ *
+ * - Variants `primary` (CliniQ Blue, one per view region), `soft`, `secondary`, `ghost`, `danger` (AlertDialog confirm
+ *   only), `danger-quiet`, `link`. Sizes 28 / 36 / 44 px on a fine pointer; every size is 44 px on touch.
+ * - `loading`: the label is hidden visually (width and accessible name kept), a spinner is drawn, `aria-busy="true"`,
+ *   and the button does not act.
+ * - `requiresNetwork` (PWA §3.6, R-32): defaults to true for `type="submit"`. Offline, the button is `aria-disabled`
+ *   (still focusable, so keyboard and screen-reader users reach it), described by the reason "You're offline. Changes
+ *   are disabled until you reconnect.", and a click or an implicit form submission does nothing.
+ * - `kbd`: an optional trailing shortcut hint (shown ≥ 1024 px on fine pointers only, CD-33).
+ */
+export const OFFLINE_REASON = "You're offline. Changes are disabled until you reconnect.";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "outline" | "danger" | "ghost";
-  size?: "sm" | "md" | "lg";
+  variant?: ButtonVariant | "outline";
+  size?: ButtonSize;
   loading?: boolean;
   startIcon?: React.ReactNode;
   endIcon?: React.ReactNode;
+  /** A `Kbd` hint after the label (≥ lg screens, fine pointer). */
+  kbd?: React.ReactNode;
+  /** Disable while offline. Default: true for `type="submit"`, false otherwise. */
+  requiresNetwork?: boolean;
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      children,
-      variant = "primary",
-      size = "md",
-      loading = false,
-      disabled,
-      startIcon,
-      endIcon,
-      className,
-      ...props
-    },
-    ref
-  ) => {
-    const baseStyles =
-      "inline-flex items-center justify-center font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none select-none cursor-pointer";
+/** The class list of a button look, for a link that must look like a button (avoid a link wrapping a button). */
+export function buttonClassName({
+  variant,
+  size = "md",
+  className,
+}: {
+  variant?: ButtonVariant | "outline";
+  size?: ButtonSize;
+  className?: string;
+} = {}): string {
+  const v = resolveButtonVariant(variant);
+  return cn(BUTTON_BASE, TRANSITION, FOCUS_RING, BUTTON_SIZE[size], BUTTON_VARIANT[v], BUTTON_INTERACTIVE[v], className);
+}
 
-    // 44px min touch target on mobile per DESIGN.md & AGENTS.md §26
-    const sizeStyles = {
-      sm: "h-9 px-3 text-xs sm:text-sm rounded-lg gap-1.5",
-      md: "min-h-[44px] px-4 py-2 text-sm rounded-lg gap-2",
-      lg: "min-h-[48px] px-5 py-2.5 text-base rounded-lg gap-2.5",
-    }[size];
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    children,
+    variant,
+    size = "md",
+    loading = false,
+    disabled,
+    startIcon,
+    endIcon,
+    kbd,
+    requiresNetwork,
+    type,
+    className,
+    onClick,
+    "aria-describedby": describedBy,
+    ...props
+  },
+  ref,
+) {
+  const v = resolveButtonVariant(variant);
+  const online = useOnlineStatus();
+  const reasonId = useId();
+  const offline = (requiresNetwork ?? type === "submit") && !online;
+  const nativeDisabled = Boolean(disabled) || loading;
+  const inert = nativeDisabled || offline;
 
-    const variantStyles = {
-      primary:
-        "bg-[#1769E0] text-white hover:bg-[#0F5AB8] active:bg-[#0B4C9C] focus-visible:ring-[#1769E0] shadow-theme-xs",
-      secondary:
-        "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 active:bg-gray-100 focus-visible:ring-[#1769E0] shadow-theme-xs",
-      outline:
-        "bg-transparent text-[#1769E0] border border-[#1769E0]/30 hover:bg-[#1769E0]/5 active:bg-[#1769E0]/10 focus-visible:ring-[#1769E0]",
-      danger:
-        "bg-[#B42318] text-white hover:bg-[#912018] active:bg-[#7A271A] focus-visible:ring-[#B42318] shadow-theme-xs",
-      ghost:
-        "bg-transparent text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus-visible:ring-gray-400",
-    }[variant];
+  const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (offline) {
+      // An aria-disabled button stays focusable; cancelling the click also cancels an implicit form submission.
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    onClick?.(event);
+  };
 
-    return (
+  return (
+    <>
       <button
         ref={ref}
-        disabled={disabled || loading}
-        className={cn(baseStyles, sizeStyles, variantStyles, className)}
+        type={type}
+        disabled={nativeDisabled}
+        aria-disabled={offline && !nativeDisabled ? true : undefined}
+        aria-busy={loading || undefined}
+        aria-describedby={joinIds(describedBy, offline ? reasonId : undefined)}
+        data-offline={offline || undefined}
+        onClick={handleClick}
+        className={cn(
+          BUTTON_BASE,
+          TRANSITION,
+          FOCUS_RING,
+          BUTTON_SIZE[size],
+          BUTTON_VARIANT[v],
+          inert ? (loading ? "cursor-wait" : BUTTON_DISABLED[v]) : BUTTON_INTERACTIVE[v],
+          loading && BUTTON_LOADING,
+          className,
+        )}
         {...props}
       >
-        {loading ? (
-          <span className="flex items-center gap-2">
-            <svg
-              className="animate-spin h-4 w-4 shrink-0"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v8H4z"
-              />
-            </svg>
-            <span>{children}</span>
-          </span>
-        ) : (
-          <>
-            {startIcon && <span className="shrink-0 flex items-center">{startIcon}</span>}
-            {children}
-            {endIcon && <span className="shrink-0 flex items-center">{endIcon}</span>}
-          </>
+        {startIcon && <span className="flex shrink-0 items-center [&_svg]:size-4">{startIcon}</span>}
+        {children}
+        {kbd}
+        {endIcon && <span className="flex shrink-0 items-center [&_svg]:size-4">{endIcon}</span>}
+        {loading && (
+          <span
+            aria-hidden="true"
+            data-spinner=""
+            className={cn(
+              "absolute inset-0 m-auto size-3.5 rounded-pill border-2 motion-safe:animate-spin",
+              SPINNER_ON_FILL[v],
+            )}
+          />
         )}
       </button>
-    );
-  }
-);
+      {offline && (
+        <span id={reasonId} className="sr-only">
+          {OFFLINE_REASON}
+        </span>
+      )}
+    </>
+  );
+});
 
 Button.displayName = "Button";

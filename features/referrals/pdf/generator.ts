@@ -3,7 +3,7 @@ import "server-only";
 import React from "react";
 import { pdf } from "@react-pdf/renderer";
 import type { ServiceContext } from "@/lib/auth/context";
-import { uploadFile, getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
+import { uploadFile, getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { referralLetterPath } from "@/lib/storage/tenant-path";
 import {
   ReferralLetterDocument,
@@ -40,7 +40,7 @@ async function streamToBuffer(stream: unknown): Promise<Buffer> {
 /**
  * Compiles a branded referral letter into an A4 PDF document on the server,
  * uploads it via the unified storage abstraction (lib/storage/),
- * generates a 3600-second signed URL, and persists the storage path.
+ * generates a 5-minute signed URL (`VIEW_LINK_TTL_SECONDS`, 06-09b N-1), and persists the storage path.
  */
 export async function generateAndArchiveReferralPdf(
   ctx: ServiceContext,
@@ -84,11 +84,11 @@ export async function generateAndArchiveReferralPdf(
     throw new Error("Failed to upload referral letter PDF to storage.", { cause: uploadErr });
   }
 
-  // 4. Generate 3600s signed URL
+  // 4. Generate a short-lived view link (5 minutes)
   const { signedUrl } = await getSignedUrl(
     {
       path: storagePath,
-      expiresInSeconds: 3600,
+      expiresInSeconds: VIEW_LINK_TTL_SECONDS,
       bucket: "clinic-records",
     },
     storageProvider

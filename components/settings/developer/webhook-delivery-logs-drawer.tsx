@@ -66,13 +66,13 @@ export function WebhookDeliveryLogsDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Webhook Delivery Logs Drawer"
-        className="relative z-50 flex h-full w-full max-w-full sm:max-w-[480px] flex-col bg-white border-l border-[#E4E5E7] shadow-2xl overflow-hidden"
+        className="relative z-50 flex h-full w-full max-w-full sm:max-w-[480px] flex-col bg-white border-l border-border shadow-2xl overflow-hidden"
       >
         {/* Sticky Header (06-UI-SPEC.md §2.3) */}
-        <div className="flex shrink-0 items-start justify-between border-b border-[#E4E5E7] p-6 bg-white">
+        <div className="flex shrink-0 items-start justify-between border-b border-border p-6 bg-white">
           <div className="max-w-[380px]">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-accent-subtle text-accent flex items-center justify-center shrink-0">
                 <FileText className="w-4 h-4" />
               </div>
               <h2 className="text-lg font-semibold text-gray-900 tracking-tight">
@@ -86,7 +86,7 @@ export function WebhookDeliveryLogsDrawer({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
             aria-label="Close delivery logs drawer"
           >
             <X className="w-5 h-5" />
@@ -134,12 +134,12 @@ export function WebhookDeliveryLogsDrawer({
         <div className="flex-1 overflow-y-auto p-6 space-y-3">
           {isLoading ? (
             <div className="flex items-center justify-center py-16 text-sm text-gray-500">
-              <span className="inline-block w-5 h-5 border-2 border-[#1769E0] border-t-transparent rounded-full animate-spin mr-2" />
+              <span className="inline-block w-5 h-5 border-2 border-accent border-t-transparent rounded-full animate-spin mr-2" />
               Loading delivery logs...
             </div>
           ) : filteredLogs.length === 0 ? (
             <EmptyState
-              icon={<FileText className="w-6 h-6 text-gray-400" />}
+              icon={<FileText className="w-6 h-6 text-fg-subtle" />}
               title="No Deliveries Recorded"
               description="Deliveries for this subscription will appear here with HTTP response codes, latency, and retry attempts."
               className="py-12"
@@ -170,16 +170,16 @@ export function WebhookDeliveryLogsDrawer({
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       {isExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
+                        <ChevronDown className="w-4 h-4 text-fg-subtle shrink-0" />
                       ) : (
-                        <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                        <ChevronRight className="w-4 h-4 text-fg-subtle shrink-0" />
                       )}
 
                       <div className="min-w-0">
                         <span className="font-mono text-xs font-semibold text-gray-900 block truncate">
                           {log.eventType}
                         </span>
-                        <span className="text-[11px] text-gray-400 tabular-nums">
+                        <span className="text-[11px] text-fg-subtle tabular-nums">
                           {new Date(log.createdAt).toLocaleTimeString("en-IN", {
                             hour: "2-digit",
                             minute: "2-digit",
@@ -233,11 +233,11 @@ export function WebhookDeliveryLogsDrawer({
 
                       <div className="grid grid-cols-2 gap-2 text-[11px] text-gray-600 pt-1">
                         <div>
-                          <span className="text-gray-400">Retry Attempt:</span>{" "}
+                          <span className="text-fg-subtle">Retry Attempt:</span>{" "}
                           <span className="font-semibold tabular-nums">{log.retryCount} of {log.maxRetries}</span>
                         </div>
                         <div>
-                          <span className="text-gray-400">Response Code:</span>{" "}
+                          <span className="text-fg-subtle">Response Code:</span>{" "}
                           <span className="font-semibold tabular-nums">{log.responseStatus || "None"}</span>
                         </div>
                       </div>
@@ -250,7 +250,7 @@ export function WebhookDeliveryLogsDrawer({
         </div>
 
         {/* Drawer Footer */}
-        <div className="p-4 border-t border-[#E4E5E7] bg-white shrink-0 flex justify-end">
+        <div className="p-4 border-t border-border bg-white shrink-0 flex justify-end">
           <Button
             type="button"
             variant="secondary"

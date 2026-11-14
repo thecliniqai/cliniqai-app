@@ -9,7 +9,7 @@ import { ReferralsRegister } from "@/components/referrals/referrals-register";
 import { withPageAuth } from "@/lib/auth/page";
 
 export const metadata: Metadata = {
-  title: "Referrals Register | ClinicOS",
+  title: "Referrals Register",
   description: "Manage outbound specialist referrals and inbound transfer records",
 };
 

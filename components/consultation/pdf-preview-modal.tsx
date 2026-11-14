@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, Printer, Download, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getPrescriptionPdfSignedUrl } from "@/features/prescriptions/actions";
+import { isViewLinkFresh } from "@/lib/storage/view-link";
 
 export interface PdfPreviewModalProps {
   isOpen: boolean;
@@ -27,6 +28,8 @@ export function PdfPreviewModal({
   );
   const [loading, setLoading] = useState<boolean>(true);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  /** When `signedUrl` was signed: it lives 5 minutes (06-09b N-1), so Print/Download re-sign an older one first. */
+  const [signedAt, setSignedAt] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -65,6 +68,7 @@ export function PdfPreviewModal({
 
         if (res.success) {
           setSignedUrl(res.signedUrl);
+          setSignedAt(Date.now());
         } else {
           setError(res.error || "Failed to compile prescription PDF.");
         }
@@ -88,19 +92,34 @@ export function PdfPreviewModal({
 
   if (!isOpen) return null;
 
-  const handlePrint = () => {
+  /** The held link while it is fresh, else a newly signed one (the preview keeps showing the document it loaded). */
+  const currentUrl = async (): Promise<string | null> => {
+    if (signedUrl && isViewLinkFresh(signedAt)) return signedUrl;
+    const res = await getPrescriptionPdfSignedUrl(prescriptionId, letterheadMode);
+    if (!res.success) {
+      setError(res.error || "Failed to compile prescription PDF.");
+      return null;
+    }
+    setSignedUrl(res.signedUrl);
+    setSignedAt(Date.now());
+    return res.signedUrl;
+  };
+
+  const handlePrint = async () => {
     if (iframeRef.current?.contentWindow) {
       iframeRef.current.contentWindow.focus();
       iframeRef.current.contentWindow.print();
-    } else if (signedUrl) {
-      window.open(signedUrl, "_blank");
+      return;
     }
+    const url = await currentUrl();
+    if (url) window.open(url, "_blank");
   };
 
-  const handleDownload = () => {
-    if (signedUrl) {
+  const handleDownload = async () => {
+    const url = await currentUrl();
+    if (url) {
       const downloadLink = document.createElement("a");
-      downloadLink.href = signedUrl;
+      downloadLink.href = url;
       downloadLink.download = `Prescription-v${version}-${visitId.slice(0, 8)}.pdf`;
       downloadLink.target = "_blank";
       document.body.appendChild(downloadLink);
@@ -165,7 +184,7 @@ export function PdfPreviewModal({
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
               aria-label="Close prescription preview"
             >
               <X className="w-5 h-5" />
@@ -177,9 +196,9 @@ export function PdfPreviewModal({
         <div className="flex-1 bg-gray-100 p-4 overflow-hidden flex items-center justify-center relative">
           {loading && (
             <div className="flex flex-col items-center justify-center gap-3 text-gray-500">
-              <Loader2 className="w-8 h-8 animate-spin text-[#1769E0]" />
+              <Loader2 className="w-8 h-8 animate-spin text-accent" />
               <p className="text-sm font-medium">Compiling prescription PDF...</p>
-              <p className="text-xs text-gray-400">Rendering high-resolution A4 vectors</p>
+              <p className="text-xs text-fg-subtle">Rendering high-resolution A4 vectors</p>
             </div>
           )}
 
@@ -219,7 +238,7 @@ export function PdfPreviewModal({
                 href={signedUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#1769E0] font-medium hover:underline inline-flex items-center gap-1"
+                className="text-accent font-medium hover:underline inline-flex items-center gap-1"
               >
                 Open in new tab
               </a>

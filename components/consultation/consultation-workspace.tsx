@@ -457,7 +457,7 @@ export function ConsultationWorkspace({
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3] pb-24 text-gray-900 w-full">
+    <div className="min-h-app bg-canvas pb-24 text-gray-900 w-full">
       {/* 1. STICKY TOP WORKSPACE HEADER (z-30) */}
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-2xs">
         <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
@@ -473,7 +473,7 @@ export function ConsultationWorkspace({
             </Link>
 
             {/* Patient Initials Avatar */}
-            <div className="hidden sm:flex h-10 w-10 shrink-0 rounded-full bg-brand-50 border border-brand-200 text-brand-700 font-bold text-xs items-center justify-center">
+            <div className="hidden sm:flex h-10 w-10 shrink-0 rounded-full bg-accent-subtle border border-accent-border text-accent-fg font-bold text-xs items-center justify-center">
               {patient.full_name
                 ? patient.full_name
                     .split(" ")
@@ -505,7 +505,7 @@ export function ConsultationWorkspace({
 
                 {/* Token Badge */}
                 {visit.token_number && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-brand-50 text-brand-700 border border-brand-200 whitespace-nowrap">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-accent-subtle text-accent-fg border border-accent-border whitespace-nowrap">
                     Token #{visit.token_number}
                   </span>
                 )}
@@ -551,7 +551,7 @@ export function ConsultationWorkspace({
                   markDirty();
                   setSpecialty(e.target.value as ClinicalSpecialty);
                 }}
-                className="h-8 px-2.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-900 bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 cursor-pointer"
+                className="h-8 px-2.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring cursor-pointer"
               >
                 <option value="general_physician">General Physician</option>
                 <option value="dental">Dental</option>
@@ -563,8 +563,8 @@ export function ConsultationWorkspace({
             <div className="flex items-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
               {isSaving ? (
                 <>
-                  <Clock className="h-3.5 w-3.5 text-brand-600 animate-spin" />
-                  <span className="text-brand-600 font-medium">Saving draft...</span>
+                  <Clock className="h-3.5 w-3.5 text-accent-fg animate-spin" />
+                  <span className="text-accent-fg font-medium">Saving draft...</span>
                 </>
               ) : lastSavedAt ? (
                 <>
@@ -576,7 +576,7 @@ export function ConsultationWorkspace({
               ) : isDirty ? (
                 <span className="text-amber-600 font-medium">• Unsaved changes</span>
               ) : (
-                <span className="text-gray-400">Draft ready</span>
+                <span className="text-fg-subtle">Draft ready</span>
               )}
             </div>
           </div>
@@ -645,7 +645,7 @@ export function ConsultationWorkspace({
                   href={`/api/visits/${visit.id}/prescription-pdf`}
                   target="_blank"
                   rel="noreferrer"
-                  className="min-h-[38px] px-3 rounded-lg bg-[#EAF2FF] hover:bg-[#d6e5ff] text-[#1769E0] text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap shrink-0 cursor-pointer"
+                  className="min-h-[38px] px-3 rounded-lg bg-accent-subtle hover:bg-selected text-accent text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap shrink-0 cursor-pointer"
                   title="Print / View PDF Prescription"
                 >
                   <Printer className="h-4 w-4" />
@@ -689,7 +689,7 @@ export function ConsultationWorkspace({
                 <button
                   type="button"
                   onClick={() => setIsSignModalOpen(true)}
-                  className="min-h-[38px] px-4 rounded-lg bg-[#1769E0] text-white hover:bg-[#155cc0] text-xs font-semibold flex items-center gap-1.5 shadow-theme-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="min-h-[38px] px-4 rounded-lg bg-accent text-white hover:bg-accent-hover text-xs font-semibold flex items-center gap-1.5 shadow-theme-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <Check className="h-4 w-4" />
                   <span>Complete & Sign ℞</span>
@@ -724,7 +724,7 @@ export function ConsultationWorkspace({
                   onClick={() => scrollToSection(id)}
                   className={`min-h-[28px] px-2.5 sm:px-3 rounded-md text-xs font-medium whitespace-nowrap transition-colors cursor-pointer ${
                     isActive
-                      ? "bg-brand-50 text-brand-700 font-semibold border border-brand-200 shadow-2xs"
+                      ? "bg-accent-subtle text-accent-fg font-semibold border border-accent-border shadow-2xs"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   }`}
                 >
@@ -823,7 +823,7 @@ export function ConsultationWorkspace({
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-xs">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">
               <div className="flex items-center gap-2">
-                <HeartPulse className="h-5 w-5 text-brand-600" />
+                <HeartPulse className="h-5 w-5 text-accent-fg" />
                 <h3 className="text-sm font-bold text-gray-900">
                   Clinical Examination & Specialty Workspace
                 </h3>
@@ -907,7 +907,7 @@ export function ConsultationWorkspace({
             {/* Investigations Advised */}
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <FlaskConical className="h-4 w-4 text-brand-600" />
+                <FlaskConical className="h-4 w-4 text-accent-fg" />
                 <h3 className="text-sm font-bold text-gray-900">
                   Investigations Advised
                 </h3>
@@ -928,7 +928,7 @@ export function ConsultationWorkspace({
                       }
                       className={`min-h-[36px] px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                         isSelected
-                          ? "bg-brand-50 text-brand-800 border border-brand-300"
+                          ? "bg-accent-subtle text-accent-fg border border-accent-border"
                           : "bg-gray-100 text-gray-700 border border-transparent hover:bg-gray-200/70"
                       }`}
                     >
@@ -952,7 +952,7 @@ export function ConsultationWorkspace({
                         type="button"
                         onClick={() => removeInvestigation(index)}
                         aria-label={`Remove investigation ${item}`}
-                        className="text-gray-400 hover:text-rose-600 p-0.5 rounded"
+                        className="text-fg-subtle hover:text-rose-600 p-0.5 rounded"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -974,7 +974,7 @@ export function ConsultationWorkspace({
                     }
                   }}
                   placeholder="Type custom test name and press Enter (e.g. 2D Echocardiography)..."
-                  className="flex-1 min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white"
+                  className="flex-1 min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 placeholder:text-fg-placeholder focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring bg-white"
                 />
                 <button
                   type="button"
@@ -1007,7 +1007,7 @@ export function ConsultationWorkspace({
                       }
                       className={`min-h-[36px] px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
                         isSelected
-                          ? "bg-brand-50 text-brand-800 border border-brand-300"
+                          ? "bg-accent-subtle text-accent-fg border border-accent-border"
                           : "bg-gray-100 text-gray-700 border border-transparent hover:bg-gray-200/70"
                       }`}
                     >
@@ -1031,7 +1031,7 @@ export function ConsultationWorkspace({
                         type="button"
                         onClick={() => removeAdviceItem(index)}
                         aria-label={`Remove advice item ${item}`}
-                        className="text-gray-400 hover:text-rose-600 p-1 rounded"
+                        className="text-fg-subtle hover:text-rose-600 p-1 rounded"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -1053,7 +1053,7 @@ export function ConsultationWorkspace({
                     }
                   }}
                   placeholder="Add custom advice instruction and press Enter..."
-                  className="flex-1 min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white"
+                  className="flex-1 min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 placeholder:text-fg-placeholder focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring bg-white"
                 />
                 <button
                   type="button"
@@ -1072,7 +1072,7 @@ export function ConsultationWorkspace({
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-xs space-y-6">
             <div>
               <div className="flex items-center gap-2 mb-3">
-                <Calendar className="h-4 w-4 text-brand-600" />
+                <Calendar className="h-4 w-4 text-accent-fg" />
                 <h3 className="text-sm font-bold text-gray-900">
                   Follow-Up Recommendation
                 </h3>
@@ -1096,7 +1096,7 @@ export function ConsultationWorkspace({
                       onClick={() => handleIntervalChange(id as typeof followUpInterval)}
                       className={`min-h-[44px] px-3.5 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
                         isSelected
-                          ? "bg-brand-50 border-brand-300 text-brand-800 shadow-xs"
+                          ? "bg-accent-subtle border-accent-border text-accent-fg shadow-xs"
                           : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
                       }`}
                     >
@@ -1130,7 +1130,7 @@ export function ConsultationWorkspace({
                         setFollowUpDate(e.target.value);
                         setFollowUpInterval("custom");
                       }}
-                      className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                      className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                     />
                   </div>
 
@@ -1150,7 +1150,7 @@ export function ConsultationWorkspace({
                         setFollowUpNotes(e.target.value);
                       }}
                       placeholder="e.g. Review with repeat fasting blood sugar and lipid profile reports"
-                      className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+                      className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                     />
                   </div>
                 </div>
@@ -1161,7 +1161,7 @@ export function ConsultationWorkspace({
             <div className="pt-4 border-t border-gray-100">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Share2 className="h-4 w-4 text-[#1769E0]" />
+                  <Share2 className="h-4 w-4 text-accent" />
                   <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-700">
                     Referral & Specialist Disposition
                   </h4>
@@ -1170,7 +1170,7 @@ export function ConsultationWorkspace({
                   <button
                     type="button"
                     onClick={() => setIsReferralModalOpen(true)}
-                    className="min-h-[36px] px-3 rounded-lg border border-blue-200 bg-[#EAF2FF] hover:bg-blue-100 text-[#1769E0] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="min-h-[36px] px-3 rounded-lg border border-blue-200 bg-accent-subtle hover:bg-blue-100 text-accent text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     <span>Refer Patient</span>
@@ -1179,7 +1179,7 @@ export function ConsultationWorkspace({
               </div>
 
               {activeReferral ? (
-                <div className="p-4 rounded-xl border border-blue-200 bg-[#EAF2FF]/50 space-y-2">
+                <div className="p-4 rounded-xl border border-blue-200 bg-accent-subtle/50 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="text-xs font-bold text-gray-900">
@@ -1191,10 +1191,10 @@ export function ConsultationWorkspace({
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FFF5E5] text-[#9A5B00] border border-[#F3D39A]">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-warning-bg text-warning-fg border border-warning-border">
                         {activeReferral.status}
                       </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FFEDEC] text-[#BA1A1A]">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-danger-bg text-danger-fg">
                         {activeReferral.urgency.toUpperCase()}
                       </span>
                     </div>
@@ -1212,13 +1212,13 @@ export function ConsultationWorkspace({
                       disabled={isOpeningReferralPdf}
                       className="min-h-[36px] px-3 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <Printer className="h-3.5 w-3.5 text-[#1769E0]" />
+                      <Printer className="h-3.5 w-3.5 text-accent" />
                       <span>{isOpeningReferralPdf ? "Loading..." : "Print Referral Letter"}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsReferralModalOpen(true)}
-                      className="text-xs text-[#1769E0] hover:underline font-semibold cursor-pointer"
+                      className="text-xs text-accent hover:underline font-semibold cursor-pointer"
                     >
                       + New Referral
                     </button>
@@ -1230,7 +1230,7 @@ export function ConsultationWorkspace({
                   <button
                     type="button"
                     onClick={() => setIsReferralModalOpen(true)}
-                    className="text-xs font-semibold text-[#1769E0] hover:underline cursor-pointer"
+                    className="text-xs font-semibold text-accent hover:underline cursor-pointer"
                   >
                     + Refer to Specialist
                   </button>
@@ -1245,11 +1245,11 @@ export function ConsultationWorkspace({
               </h4>
 
               <div className="rounded-xl border border-dashed border-gray-300 p-6 bg-gray-50 text-center space-y-2">
-                <UploadCloud className="h-8 w-8 text-gray-400 mx-auto" />
+                <UploadCloud className="h-8 w-8 text-fg-subtle mx-auto" />
                 <div>
                   <label
                     htmlFor="clinical-file-upload"
-                    className="text-xs font-semibold text-brand-600 hover:text-brand-700 cursor-pointer"
+                    className="text-xs font-semibold text-accent-fg hover:text-accent-hover cursor-pointer"
                   >
                     Upload lab report or radiograph
                     <input

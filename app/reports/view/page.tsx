@@ -20,13 +20,13 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
 
   if (!isPlausibleToken(token)) {
     return (
-      <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-xl border border-[#E5E7EB] p-8 text-center shadow-sm">
-          <div className="w-12 h-12 rounded-full bg-[#FFEDEC] text-[#BA1A1A] flex items-center justify-center mx-auto mb-4">
+      <div className="min-h-app bg-sunken flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-xl border border-border p-8 text-center shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-danger-bg text-danger-fg flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-[#111827] mb-2">Invalid Document Link</h1>
-          <p className="text-sm text-[#4B5563] mb-6">
+          <h1 className="text-xl font-bold text-fg mb-2">Invalid Document Link</h1>
+          <p className="text-sm text-fg-secondary mb-6">
             This link is missing or incomplete. Please verify the URL or contact your clinic for a new link.
           </p>
         </div>
@@ -41,17 +41,17 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
 
   if (resolved.status !== "ok" || !signed) {
     return (
-      <div className="min-h-screen bg-[#F6F7F9] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-xl border border-[#E5E7EB] p-8 text-center shadow-sm">
-          <div className="w-12 h-12 rounded-full bg-[#FFEDEC] text-[#BA1A1A] flex items-center justify-center mx-auto mb-4">
+      <div className="min-h-app bg-sunken flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-xl border border-border p-8 text-center shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-danger-bg text-danger-fg flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-[#111827] mb-2">Link Expired or Invalid</h1>
-          <p className="text-sm text-[#4B5563] mb-6">
+          <h1 className="text-xl font-bold text-fg mb-2">Link Expired or Invalid</h1>
+          <p className="text-sm text-fg-secondary mb-6">
             This document link has expired or has been revoked for your security. Please contact your clinic to request a fresh link.
           </p>
           {clinicPhone && (
-            <p className="text-xs text-[#6B7280]">
+            <p className="text-xs text-fg-muted">
               Clinic Contact: <span className="font-semibold">{clinicPhone}</span>
             </p>
           )}
@@ -74,6 +74,9 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
   };
   const patientName = doc.patient_name || "Patient";
   const signedUrl = signed.signedUrl;
+  // 06-09b (N-1): the signed link above feeds the preview, which loads at once, and expires 5 minutes after signing.
+  // Download goes through the token route, which checks the token again and signs a new link on every click.
+  const downloadHref = `/api/reports/view?${new URLSearchParams({ token, download: "true" }).toString()}`;
 
   const isPdf = doc.mime_type === "application/pdf" || doc.original_filename.toLowerCase().endsWith(".pdf");
   const isImage = doc.mime_type.startsWith("image/");
@@ -86,16 +89,16 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
   });
 
   return (
-    <div className="min-h-screen bg-[#F6F7F9] text-[#111827]">
+    <div className="min-h-app bg-sunken text-fg">
       {/* Top Clinic Branding Bar */}
-      <header className="bg-white border-b border-[#E5E7EB] sticky top-0 z-20 shadow-xs">
+      <header className="bg-white border-b border-border sticky top-0 z-20 shadow-xs">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-base sm:text-lg font-bold text-[#111827]">{clinic.name}</h1>
-            {clinic.address && <p className="text-xs text-[#6B7280]">{clinic.address}</p>}
+            <h1 className="text-base sm:text-lg font-bold text-fg">{clinic.name}</h1>
+            {clinic.address && <p className="text-xs text-fg-muted">{clinic.address}</p>}
           </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EAF7F0] border border-[#BDE5CF] text-[#18794E] text-xs font-medium">
-            <ShieldCheck className="w-4 h-4 text-[#18794E]" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success-bg border border-success-border text-success-fg text-xs font-medium">
+            <ShieldCheck className="w-4 h-4 text-success-fg" />
             <span>Verified Record</span>
           </div>
         </div>
@@ -104,25 +107,25 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
       {/* Main Container */}
       <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
         {/* Document Metadata Card */}
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#F3F4F6]">
+        <div className="bg-white rounded-xl border border-border p-5 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border-subtle">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <h2 className="text-xl font-bold text-[#111827]">{doc.title}</h2>
+                <h2 className="text-xl font-bold text-fg">{doc.title}</h2>
                 {doc.is_abnormal && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#FFEDEC] text-[#BA1A1A] border border-[#F8B4B4]">
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-danger-bg text-danger-fg border border-danger-border">
                     Abnormal Findings
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#6B7280]">Original file: {doc.original_filename}</p>
+              <p className="text-xs text-fg-muted">Original file: {doc.original_filename}</p>
             </div>
             <a
-              href={signedUrl}
+              href={downloadHref}
               download={doc.original_filename}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#1769E0] hover:bg-[#1255B8] active:bg-[#0D4496] text-white text-sm font-semibold transition-colors min-h-[44px] shadow-xs"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-accent hover:bg-accent-hover active:bg-accent-pressed text-white text-sm font-semibold transition-colors min-h-[44px] shadow-xs"
             >
               <Download className="w-4 h-4" />
               <span>Download Report</span>
@@ -131,51 +134,51 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
 
           {/* Quick Details Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-4 text-xs">
-            <div className="flex items-center gap-2 text-[#4B5563]">
-              <User className="w-4 h-4 text-[#9CA3AF]" />
+            <div className="flex items-center gap-2 text-fg-secondary">
+              <User className="w-4 h-4 text-fg-subtle" />
               <div>
-                <p className="text-[10px] text-[#6B7280] uppercase tracking-wider">Patient</p>
-                <p className="font-medium text-[#111827]">{patientName}</p>
+                <p className="text-[10px] text-fg-muted uppercase tracking-wider">Patient</p>
+                <p className="font-medium text-fg">{patientName}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-[#4B5563]">
-              <Calendar className="w-4 h-4 text-[#9CA3AF]" />
+            <div className="flex items-center gap-2 text-fg-secondary">
+              <Calendar className="w-4 h-4 text-fg-subtle" />
               <div>
-                <p className="text-[10px] text-[#6B7280] uppercase tracking-wider">Report Date</p>
-                <p className="font-medium text-[#111827]">{doc.report_date}</p>
+                <p className="text-[10px] text-fg-muted uppercase tracking-wider">Report Date</p>
+                <p className="font-medium text-fg">{doc.report_date}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-[#4B5563]">
-              <FileText className="w-4 h-4 text-[#9CA3AF]" />
+            <div className="flex items-center gap-2 text-fg-secondary">
+              <FileText className="w-4 h-4 text-fg-subtle" />
               <div>
-                <p className="text-[10px] text-[#6B7280] uppercase tracking-wider">Type</p>
-                <p className="font-medium text-[#111827] capitalize">{doc.document_type.replace(/_/g, " ")}</p>
+                <p className="text-[10px] text-fg-muted uppercase tracking-wider">Type</p>
+                <p className="font-medium text-fg capitalize">{doc.document_type.replace(/_/g, " ")}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 text-[#4B5563]">
-              <HardDrive className="w-4 h-4 text-[#9CA3AF]" />
+            <div className="flex items-center gap-2 text-fg-secondary">
+              <HardDrive className="w-4 h-4 text-fg-subtle" />
               <div>
-                <p className="text-[10px] text-[#6B7280] uppercase tracking-wider">Size</p>
-                <p className="font-medium text-[#111827]">{formatBytes(doc.file_size_bytes)}</p>
+                <p className="text-[10px] text-fg-muted uppercase tracking-wider">Size</p>
+                <p className="font-medium text-fg">{formatBytes(doc.file_size_bytes)}</p>
               </div>
             </div>
           </div>
 
           {doc.notes && (
-            <div className="mt-4 p-3 bg-[#F9FAFB] rounded-lg border border-[#F3F4F6] text-xs text-[#4B5563]">
-              <span className="font-semibold text-[#111827]">Clinical Notes:</span> {doc.notes}
+            <div className="mt-4 p-3 bg-sunken rounded-lg border border-border-subtle text-xs text-fg-secondary">
+              <span className="font-semibold text-fg">Clinical Notes:</span> {doc.notes}
             </div>
           )}
         </div>
 
         {/* Embedded Viewer Pane */}
-        <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden shadow-xs">
-          <div className="p-3 bg-[#F9FAFB] border-b border-[#E5E7EB] flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#4B5563]">Document Preview</span>
-            <span className="text-[11px] text-[#6B7280]">Secure Stream</span>
+        <div className="bg-white rounded-xl border border-border overflow-hidden shadow-xs">
+          <div className="p-3 bg-sunken border-b border-border flex items-center justify-between">
+            <span className="text-xs font-semibold text-fg-secondary">Document Preview</span>
+            <span className="text-[11px] text-fg-muted">Secure Stream</span>
           </div>
 
-          <div className="p-2 sm:p-4 min-h-[500px] flex items-center justify-center bg-[#F3F4F6]">
+          <div className="p-2 sm:p-4 min-h-[500px] flex items-center justify-center bg-sunken">
             {isPdf ? (
               <iframe
                 src={`${signedUrl}#toolbar=0`}
@@ -193,12 +196,12 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
               </div>
             ) : (
               <div className="text-center p-8">
-                <FileText className="w-12 h-12 text-[#9CA3AF] mx-auto mb-3" />
-                <p className="text-sm font-medium text-[#111827] mb-2">Preview not available for this file format.</p>
+                <FileText className="w-12 h-12 text-fg-subtle mx-auto mb-3" />
+                <p className="text-sm font-medium text-fg mb-2">Preview not available for this file format.</p>
                 <a
-                  href={signedUrl}
+                  href={downloadHref}
                   download={doc.original_filename}
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#1769E0] hover:underline"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
                 >
                   <Download className="w-4 h-4" />
                   <span>Click here to download</span>
@@ -209,11 +212,11 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
         </div>
 
         {/* Footer info */}
-        <div className="text-center text-xs text-[#6B7280] space-y-1 pb-8">
+        <div className="text-center text-xs text-fg-muted space-y-1 pb-8">
           <p>
-            This secure medical link is valid until <span className="font-semibold text-[#4B5563]">{formattedExpiry}</span>.
+            This secure medical link is valid until <span className="font-semibold text-fg-secondary">{formattedExpiry}</span>.
           </p>
-          <p className="text-[11px] text-[#9CA3AF]">
+          <p className="text-[11px] text-fg-subtle">
             Confidential Health Information — Protected under Indian Digital Personal Data Protection (DPDP) Act.
           </p>
         </div>

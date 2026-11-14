@@ -9,7 +9,7 @@ import { getTenantToday } from "@/lib/datetime/server";
 import { withPageAuth } from "@/lib/auth/page";
 
 export const metadata: Metadata = {
-  title: "Billing & Financial Reports | ClinicOS",
+  title: "Billing & Financial Reports",
   description: "Daily collection register, payment breakdown, and financial reports.",
 };
 

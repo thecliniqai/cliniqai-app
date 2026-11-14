@@ -34,6 +34,7 @@ import { EditPatientModal } from "./edit-patient-modal";
 import { PatientLabDocuments } from "./patient-lab-documents";
 import { CreateReferralModal } from "@/components/referrals/create-referral-modal";
 import { getReferralSignedUrl } from "@/features/referrals/actions";
+import { isViewLinkFresh } from "@/lib/storage/view-link";
 import { ConsentSection } from "@/app/(dashboard)/patients/[id]/consent-section";
 import { DpdpExportActions } from "./dpdp-export-actions";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,8 @@ export function PatientDetailView({
     id: string;
     doctorName: string;
     signedUrl?: string;
+    /** When `signedUrl` was signed: it lives 5 minutes (06-09b N-1), so an older one is re-signed before use. */
+    signedAt?: number;
   } | null>(null);
   const [isOpeningNoticePdf, setIsOpeningNoticePdf] = useState(false);
 
@@ -104,7 +107,7 @@ export function PatientDetailView({
             </Link>
 
             <div className="flex items-center gap-3.5">
-              <div className="w-14 h-14 rounded-2xl bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center font-bold text-lg shadow-theme-xs shrink-0 border border-[#1769E0]/15">
+              <div className="w-14 h-14 rounded-2xl bg-accent-subtle text-accent flex items-center justify-center font-bold text-lg shadow-theme-xs shrink-0 border border-accent/15">
                 {initials || "PT"}
               </div>
 
@@ -126,7 +129,7 @@ export function PatientDetailView({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
-                  <span className="font-mono text-gray-400">ID: {patient.id.slice(0, 13)}...</span>
+                  <span className="font-mono text-fg-subtle">ID: {patient.id.slice(0, 13)}...</span>
                   <span>•</span>
                   <span>Registered: {new Date(patient.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
                 </div>
@@ -153,7 +156,7 @@ export function PatientDetailView({
               <Button
                 variant="secondary"
                 size="sm"
-                startIcon={<Calendar className="w-3.5 h-3.5 text-[#1769E0]" />}
+                startIcon={<Calendar className="w-3.5 h-3.5 text-accent" />}
                 className="h-9 font-medium"
               >
                 Book Slot
@@ -163,7 +166,7 @@ export function PatientDetailView({
             <Button
               variant="secondary"
               size="sm"
-              startIcon={<Share2 className="w-3.5 h-3.5 text-[#1769E0]" />}
+              startIcon={<Share2 className="w-3.5 h-3.5 text-accent" />}
               onClick={() => setIsReferralModalOpen(true)}
               className="h-9 font-medium"
             >
@@ -187,7 +190,7 @@ export function PatientDetailView({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="p-3 rounded-xl bg-gray-50/80 border border-gray-100 space-y-0.5">
             <span className="text-[11px] text-gray-500 flex items-center gap-1 font-medium">
-              <Phone className="w-3.5 h-3.5 text-gray-400" />
+              <Phone className="w-3.5 h-3.5 text-fg-subtle" />
               Phone Number
             </span>
             <p className="font-semibold text-gray-900 font-mono text-sm pt-0.5">
@@ -197,7 +200,7 @@ export function PatientDetailView({
 
           <div className="p-3 rounded-xl bg-gray-50/80 border border-gray-100 space-y-0.5">
             <span className="text-[11px] text-gray-500 flex items-center gap-1 font-medium">
-              <User className="w-3.5 h-3.5 text-gray-400" />
+              <User className="w-3.5 h-3.5 text-fg-subtle" />
               Sex & Age
             </span>
             <p className="font-semibold text-gray-900 capitalize text-sm pt-0.5">
@@ -217,21 +220,21 @@ export function PatientDetailView({
               {patient.allergies && patient.allergies.length > 0 ? (
                 <span className="text-rose-700">{patient.allergies.join(", ")}</span>
               ) : (
-                <span className="text-gray-400 font-normal italic">None recorded</span>
+                <span className="text-fg-subtle font-normal italic">None recorded</span>
               )}
             </p>
           </div>
 
           <div className="p-3 rounded-xl bg-gray-50/80 border border-gray-100 space-y-0.5">
             <span className="text-[11px] text-gray-500 flex items-center gap-1 font-medium">
-              <MapPin className="w-3.5 h-3.5 text-gray-400" />
+              <MapPin className="w-3.5 h-3.5 text-fg-subtle" />
               Location / City
             </span>
             <p className="font-semibold text-gray-900 text-sm pt-0.5 truncate">
               {addressObj.city || addressObj.line1 ? (
                 [addressObj.city, addressObj.state].filter(Boolean).join(", ")
               ) : (
-                <span className="text-gray-400 font-normal italic">Not recorded</span>
+                <span className="text-fg-subtle font-normal italic">Not recorded</span>
               )}
             </p>
           </div>
@@ -240,9 +243,9 @@ export function PatientDetailView({
 
       {/* Referral Note Print Banner */}
       {recentReferralNotice && (
-        <div className="rounded-2xl border border-blue-200 bg-[#EAF2FF] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+        <div className="rounded-2xl border border-blue-200 bg-accent-subtle p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#1769E0] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-accent text-white flex items-center justify-center flex-shrink-0 shadow-xs">
               <Share2 className="w-4 h-4" />
             </div>
             <div>
@@ -259,7 +262,8 @@ export function PatientDetailView({
               type="button"
               disabled={isOpeningNoticePdf}
               onClick={async () => {
-                let url = recentReferralNotice.signedUrl;
+                const held = recentReferralNotice;
+                let url = held.signedUrl && held.signedAt && isViewLinkFresh(held.signedAt) ? held.signedUrl : undefined;
                 if (!url) {
                   setIsOpeningNoticePdf(true);
                   try {
@@ -267,7 +271,7 @@ export function PatientDetailView({
                     if (res.success && res.signedUrl) {
                       url = res.signedUrl;
                       setRecentReferralNotice((prev) =>
-                        prev ? { ...prev, signedUrl: res.signedUrl } : null
+                        prev ? { ...prev, signedUrl: res.signedUrl, signedAt: Date.now() } : null
                       );
                     }
                   } catch {
@@ -278,7 +282,7 @@ export function PatientDetailView({
                 }
                 if (url) window.open(url, "_blank", "noopener,noreferrer");
               }}
-              className="min-h-[36px] px-3.5 rounded-lg bg-[#1769E0] hover:bg-[#155cc0] text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              className="min-h-[36px] px-3.5 rounded-lg bg-accent hover:bg-accent-hover text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>{isOpeningNoticePdf ? "Loading..." : "Print Referral Note"}</span>
@@ -286,7 +290,7 @@ export function PatientDetailView({
             <button
               type="button"
               onClick={() => setRecentReferralNotice(null)}
-              className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-white/60 rounded-lg transition-colors cursor-pointer"
+              className="min-h-[36px] min-w-[36px] inline-flex items-center justify-center text-fg-subtle hover:text-gray-700 hover:bg-white/60 rounded-lg transition-colors cursor-pointer"
               aria-label="Dismiss banner"
             >
               <X className="w-4 h-4" />
@@ -304,7 +308,7 @@ export function PatientDetailView({
             className={cn(
               "py-3 px-1 border-b-2 text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer",
               activeTab === "visits"
-                ? "border-[#1769E0] text-[#1769E0]"
+                ? "border-accent text-accent"
                 : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
             )}
           >
@@ -314,7 +318,7 @@ export function PatientDetailView({
               className={cn(
                 "px-2 py-0.5 rounded-full text-xs font-bold",
                 activeTab === "visits"
-                  ? "bg-blue-50 text-[#1769E0]"
+                  ? "bg-blue-50 text-accent"
                   : "bg-gray-100 text-gray-600"
               )}
             >
@@ -328,7 +332,7 @@ export function PatientDetailView({
             className={cn(
               "py-3 px-1 border-b-2 text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer",
               activeTab === "profile"
-                ? "border-[#1769E0] text-[#1769E0]"
+                ? "border-accent text-accent"
                 : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
             )}
           >
@@ -342,7 +346,7 @@ export function PatientDetailView({
             className={cn(
               "py-3 px-1 border-b-2 text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer",
               activeTab === "consent"
-                ? "border-[#1769E0] text-[#1769E0]"
+                ? "border-accent text-accent"
                 : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
             )}
           >
@@ -356,7 +360,7 @@ export function PatientDetailView({
             className={cn(
               "py-3 px-1 border-b-2 text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer",
               activeTab === "labs"
-                ? "border-[#1769E0] text-[#1769E0]"
+                ? "border-accent text-accent"
                 : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
             )}
           >
@@ -373,7 +377,7 @@ export function PatientDetailView({
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-[#1769E0]" />
+                  <FileText className="w-4 h-4 text-accent" />
                   <span>Clinical Visit History</span>
                 </CardTitle>
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -405,7 +409,7 @@ export function PatientDetailView({
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
                 <CardTitle className="text-base flex items-center gap-2">
-                  <User className="w-4 h-4 text-[#1769E0]" />
+                  <User className="w-4 h-4 text-accent" />
                   <span>Comprehensive Demographics</span>
                 </CardTitle>
                 <p className="text-xs text-gray-500 mt-0.5">
@@ -500,7 +504,7 @@ export function PatientDetailView({
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-400 italic">No allergies recorded.</p>
+                      <p className="text-fg-subtle italic">No allergies recorded.</p>
                     )}
                   </div>
 
@@ -518,7 +522,7 @@ export function PatientDetailView({
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-400 italic">No chronic conditions recorded.</p>
+                      <p className="text-fg-subtle italic">No chronic conditions recorded.</p>
                     )}
                   </div>
                 </div>
@@ -534,7 +538,7 @@ export function PatientDetailView({
                   {formattedAddress ? (
                     <p className="text-gray-900 font-medium leading-relaxed">{formattedAddress}</p>
                   ) : (
-                    <p className="text-gray-400 italic">No residential address recorded.</p>
+                    <p className="text-fg-subtle italic">No residential address recorded.</p>
                   )}
                 </div>
               </div>
@@ -557,7 +561,7 @@ export function PatientDetailView({
                       )}
                     </p>
                   ) : (
-                    <p className="text-gray-400 italic">No emergency contact provided.</p>
+                    <p className="text-fg-subtle italic">No emergency contact provided.</p>
                   )}
                 </div>
               </div>
@@ -625,6 +629,7 @@ export function PatientDetailView({
             id: ref.id,
             doctorName: ref.referred_to_name,
             signedUrl,
+            signedAt: Date.now(),
           });
         }}
       />

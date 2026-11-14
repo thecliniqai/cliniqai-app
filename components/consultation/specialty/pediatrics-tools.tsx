@@ -155,7 +155,7 @@ export function PediatricsTools({
       {/* Section 1: Birth History */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Baby className="h-4 w-4 text-brand-600" aria-hidden="true" />
+          <Baby className="h-4 w-4 text-accent-fg" aria-hidden="true" />
           <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
             Birth & Perinatal History
           </h4>
@@ -184,7 +184,7 @@ export function PediatricsTools({
                 )
               }
               placeholder="e.g. 38"
-              className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -211,7 +211,7 @@ export function PediatricsTools({
                 )
               }
               placeholder="e.g. 3.1"
-              className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -233,7 +233,7 @@ export function PediatricsTools({
                   e.target.value as "normal" | "c_section" | "assisted"
                 )
               }
-              className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
             >
               <option value="normal">Normal Vaginal Delivery</option>
               <option value="c_section">LSCS (Caesarean)</option>
@@ -256,7 +256,7 @@ export function PediatricsTools({
               value={birthHistory.complications ?? ""}
               onChange={(e) => handleBirthHistoryChange("complications", e.target.value)}
               placeholder="e.g. Uneventful, cried at birth"
-              className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+              className="w-full min-h-[44px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
             />
           </div>
         </div>
@@ -266,7 +266,7 @@ export function PediatricsTools({
       <div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
-            <Scale className="h-4 w-4 text-brand-600" aria-hidden="true" />
+            <Scale className="h-4 w-4 text-accent-fg" aria-hidden="true" />
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
               WHO Child Growth Percentiles (LMS Standard)
             </h4>
@@ -323,7 +323,7 @@ export function PediatricsTools({
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-700">Weight-for-Age</span>
-              <Scale className="h-3.5 w-3.5 text-gray-400" />
+              <Scale className="h-3.5 w-3.5 text-fg-subtle" />
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -334,7 +334,7 @@ export function PediatricsTools({
                 value={customWeight}
                 onChange={(e) => setCustomWeight(e.target.value)}
                 placeholder="kg"
-                className="w-24 min-h-[40px] px-2.5 rounded-lg border border-gray-300 text-sm font-semibold text-gray-900 focus:outline-none focus:border-brand-500"
+                className="w-24 min-h-[40px] px-2.5 rounded-lg border border-gray-300 text-sm font-semibold text-gray-900 focus:outline-none focus:border-accent"
               />
               <span className="text-xs text-gray-500 font-medium">kg</span>
             </div>
@@ -353,7 +353,7 @@ export function PediatricsTools({
                 </span>
               </div>
             ) : (
-              <span className="text-[11px] text-gray-400 italic block">
+              <span className="text-[11px] text-fg-subtle italic block">
                 Enter weight to compute WHO percentile
               </span>
             )}
@@ -363,7 +363,7 @@ export function PediatricsTools({
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-700">Height-for-Age</span>
-              <Ruler className="h-3.5 w-3.5 text-gray-400" />
+              <Ruler className="h-3.5 w-3.5 text-fg-subtle" />
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -374,7 +374,7 @@ export function PediatricsTools({
                 value={customHeight}
                 onChange={(e) => setCustomHeight(e.target.value)}
                 placeholder="cm"
-                className="w-24 min-h-[40px] px-2.5 rounded-lg border border-gray-300 text-sm font-semibold text-gray-900 focus:outline-none focus:border-brand-500"
+                className="w-24 min-h-[40px] px-2.5 rounded-lg border border-gray-300 text-sm font-semibold text-gray-900 focus:outline-none focus:border-accent"
               />
               <span className="text-xs text-gray-500 font-medium">cm</span>
             </div>
@@ -393,7 +393,7 @@ export function PediatricsTools({
                 </span>
               </div>
             ) : (
-              <span className="text-[11px] text-gray-400 italic block">
+              <span className="text-[11px] text-fg-subtle italic block">
                 Enter height to compute WHO percentile
               </span>
             )}
@@ -403,7 +403,7 @@ export function PediatricsTools({
           <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-xs space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-700">Head Circumference</span>
-              <Baby className="h-3.5 w-3.5 text-gray-400" />
+              <Baby className="h-3.5 w-3.5 text-fg-subtle" />
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -415,7 +415,7 @@ export function PediatricsTools({
                 value={customHeadCirc}
                 onChange={(e) => handleHeadCircChange(e.target.value)}
                 placeholder="cm"
-                className="w-24 min-h-[40px] px-2.5 rounded-lg border border-gray-300 text-sm font-semibold text-gray-900 focus:outline-none focus:border-brand-500"
+                className="w-24 min-h-[40px] px-2.5 rounded-lg border border-gray-300 text-sm font-semibold text-gray-900 focus:outline-none focus:border-accent"
               />
               <span className="text-xs text-gray-500 font-medium">cm</span>
             </div>
@@ -434,7 +434,7 @@ export function PediatricsTools({
                 </span>
               </div>
             ) : (
-              <span className="text-[11px] text-gray-400 italic block">
+              <span className="text-[11px] text-fg-subtle italic block">
                 Enter head circumference to compute percentile
               </span>
             )}
@@ -446,7 +446,7 @@ export function PediatricsTools({
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-brand-600" aria-hidden="true" />
+            <ShieldCheck className="h-4 w-4 text-accent-fg" aria-hidden="true" />
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
               IAP Immunization Schedule (ACVIP Recommendations)
             </h4>
@@ -494,7 +494,7 @@ export function PediatricsTools({
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-gray-400">
+                  <div className="flex items-center gap-2 text-fg-subtle">
                     {isExpanded ? (
                       <ChevronUp className="h-4 w-4" />
                     ) : (

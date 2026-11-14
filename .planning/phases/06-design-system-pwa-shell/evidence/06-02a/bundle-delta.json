@@ -1,0 +1,177 @@
+{
+  "tool": "node scripts/ci/route-js.mjs --out <dir> after npm run e2e:build (Turbopack manifests, gzip -9, kB = 1024)",
+  "before": {
+    "commit": "b9463be",
+    "note": "06-02a plan base"
+  },
+  "after": {
+    "commit": "20b5e94",
+    "note": "06-02a head (Button/Input/Field adapters, radix-ui)"
+  },
+  "limitBytes": 15360,
+  "check": {
+    "route": "/forgot-password",
+    "deltaBytes": 10776,
+    "deltaKb": 10.52,
+    "pass": true
+  },
+  "routes": [
+    {
+      "route": "/forgot-password",
+      "beforeTotalGzipBytes": 252676,
+      "afterTotalGzipBytes": 263452,
+      "deltaTotalGzipBytes": 10776,
+      "beforeRouteSpecificGzipBytes": 121125,
+      "afterRouteSpecificGzipBytes": 131265,
+      "afterStatus": "over",
+      "budgetKb": 150
+    },
+    {
+      "route": "/login",
+      "beforeTotalGzipBytes": 251436,
+      "afterTotalGzipBytes": 262287,
+      "deltaTotalGzipBytes": 10851,
+      "beforeRouteSpecificGzipBytes": 119885,
+      "afterRouteSpecificGzipBytes": 130100,
+      "afterStatus": "over",
+      "budgetKb": 150
+    },
+    {
+      "route": "/patients/new",
+      "beforeTotalGzipBytes": 190885,
+      "afterTotalGzipBytes": 196406,
+      "deltaTotalGzipBytes": 5521,
+      "beforeRouteSpecificGzipBytes": 59334,
+      "afterRouteSpecificGzipBytes": 64219,
+      "afterStatus": "over",
+      "budgetKb": 150
+    },
+    {
+      "route": "/queue",
+      "beforeTotalGzipBytes": 202820,
+      "afterTotalGzipBytes": 208257,
+      "deltaTotalGzipBytes": 5437,
+      "beforeRouteSpecificGzipBytes": 71269,
+      "afterRouteSpecificGzipBytes": 76070,
+      "afterStatus": "over",
+      "budgetKb": 150
+    },
+    {
+      "route": "/profile",
+      "beforeTotalGzipBytes": 197170,
+      "afterTotalGzipBytes": 203680,
+      "deltaTotalGzipBytes": 6510,
+      "beforeRouteSpecificGzipBytes": 65619,
+      "afterRouteSpecificGzipBytes": 71493,
+      "afterStatus": "over",
+      "budgetKb": 150
+    }
+  ],
+  "devUi": {
+    "route": "/dev/ui",
+    "afterTotalGzipBytes": 176901,
+    "afterStatus": "over"
+  },
+  "overBudgetAfter": [
+    {
+      "route": "/billing/register",
+      "status": "over"
+    },
+    {
+      "route": "/billing/reports",
+      "status": "over"
+    },
+    {
+      "route": "/cabin",
+      "status": "over"
+    },
+    {
+      "route": "/calendar",
+      "status": "over"
+    },
+    {
+      "route": "/clinic/new",
+      "status": "over"
+    },
+    {
+      "route": "/consultation/[id]",
+      "status": "over"
+    },
+    {
+      "route": "/dev/ui",
+      "status": "over"
+    },
+    {
+      "route": "/diag/client-error",
+      "status": "over"
+    },
+    {
+      "route": "/forgot-password",
+      "status": "over"
+    },
+    {
+      "route": "/join",
+      "status": "over"
+    },
+    {
+      "route": "/login",
+      "status": "over"
+    },
+    {
+      "route": "/patients",
+      "status": "over"
+    },
+    {
+      "route": "/patients/[id]",
+      "status": "over"
+    },
+    {
+      "route": "/patients/new",
+      "status": "over"
+    },
+    {
+      "route": "/profile",
+      "status": "over"
+    },
+    {
+      "route": "/queue",
+      "status": "over"
+    },
+    {
+      "route": "/r/[token]",
+      "status": "over"
+    },
+    {
+      "route": "/referrals",
+      "status": "over"
+    },
+    {
+      "route": "/reports/view",
+      "status": "over"
+    },
+    {
+      "route": "/reschedule/[token]",
+      "status": "over"
+    },
+    {
+      "route": "/settings/billing",
+      "status": "over"
+    },
+    {
+      "route": "/settings/clinic",
+      "status": "over"
+    },
+    {
+      "route": "/settings/developer",
+      "status": "over"
+    },
+    {
+      "route": "/staff",
+      "status": "over"
+    },
+    {
+      "route": "/visits",
+      "status": "over"
+    }
+  ]
+}

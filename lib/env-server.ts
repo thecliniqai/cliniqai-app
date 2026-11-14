@@ -89,3 +89,16 @@ export function deploymentInfo(): { region: string | null; release: string | nul
     release: release && RELEASE_PATTERN.test(release) ? release : null,
   };
 }
+
+const BUILD_STAMP_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * This build's stamp (V2-06 06-09a M-OFFLINE): `CLINICOS_BUILD_STAMP`, which `next.config.ts` computes once per
+ * `next build` and the bundler inlines (`env`), so the running server reports the build it was compiled in. The service
+ * worker route puts it in `/sw.js`, so every deploy installs a new worker. `null` outside a build (tests, `next dev`
+ * before the first compile) or for an unexpected shape.
+ */
+export function buildStamp(): string | null {
+  const stamp = process.env.CLINICOS_BUILD_STAMP;
+  return stamp && BUILD_STAMP_PATTERN.test(stamp) ? stamp : null;
+}

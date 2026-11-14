@@ -1,0 +1,9 @@
+{
+  "$comment": "First-load JS budgets per app route (PWA_STRATEGY §3.9; V2-06 06-07, ruling R-5). kB = 1024 bytes of gzip -9. Report-only in V2-06; `route-js.mjs --enforce` makes them blocking at V2-15. defaultKb applies to every route not listed (shell-only routes); /_not-found and /_global-error are Next's built-in pages, API routes are excluded by the script.",
+  "defaultKb": 150,
+  "routes": {
+    "/": 200,
+    "/consultation/[id]": 200
+  },
+  "exclude": ["/_not-found", "/_global-error"]
+}

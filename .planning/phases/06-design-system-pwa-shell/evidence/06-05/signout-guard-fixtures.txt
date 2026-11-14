@@ -1,0 +1,17 @@
+FAIL signout-guard components/menu.tsx:6 createClient().auth.signOut
+FAIL signout-guard components/menu.tsx:11 auth.signOut
+FAIL signout-guard components/menu.tsx:16 client.auth["signOut"]
+FAIL signout-guard components/menu.tsx:20 { signOut } destructured
+FAIL signout-guard features/auth/client-helper.tsx:7 createClient().auth.signOut
+FAIL signout-guard lib/hooks/use-session.ts:3 client.auth.signOut
+ui-policy: ai-sdk-import [report] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: arbitrary-color [report] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: brand-utility [enforce] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: link-wraps-button [report] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: px-font [report] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: raw-palette [report] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: screen-height [enforce] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: signout-guard [enforce] 6 finding(s) in 3 file(s) (no baseline)
+ui-policy: window-dialog [report] 0 finding(s) in 0 file(s) (no baseline)
+ui-policy: FAIL (6 enforced finding(s))
+exit 1

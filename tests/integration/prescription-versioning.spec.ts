@@ -17,6 +17,7 @@ import {
 import { generateAndArchivePrescriptionPdf } from "@/features/prescriptions/pdf/generator";
 import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescription-document";
 import { ctxFor } from "../helpers/context";
+import { signedUrlLifetimeSeconds } from "../helpers/signed-url";
 
 describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendment Lifecycle (REQ-e-prescriptions, REQ-diagnosis-visit-management, REQ-multi-tenancy)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -226,10 +227,11 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     // Verifies PDF magic bytes %PDF-
     expect(genRes.buffer.subarray(0, 5).toString()).toBe("%PDF-");
     expect(genRes.storagePath).toBe(`${tenantA.tenantId}/${visitAId}/rx_v1.pdf`);
-    expect(genRes.signedUrl).toContain("http");
+    // 06-09b (N-1): a 5-minute view link (was one hour).
+    expect(signedUrlLifetimeSeconds(genRes.signedUrl)).toBe(300);
   });
 
-  it("4. getPrescriptionPdfSignedUrl generates valid 3600s signed URLs for both Blank Paper and Pre-Printed modes", async () => {
+  it("4. getPrescriptionPdfSignedUrl generates 5-minute signed URLs for both Blank Paper and Pre-Printed modes (06-09b N-1)", async () => {
     // 1. Blank paper mode
     const blankRes = await getPrescriptionPdfSignedUrl(
       ctxFor(tenantA),
@@ -239,7 +241,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     expect(blankRes.success).toBe(true);
     if (blankRes.success) {
-      expect(blankRes.signedUrl).toContain("http");
+      expect(signedUrlLifetimeSeconds(blankRes.signedUrl)).toBe(300);
       expect(blankRes.version).toBe(1);
     }
 
@@ -252,7 +254,7 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
 
     expect(preprintedRes.success).toBe(true);
     if (preprintedRes.success) {
-      expect(preprintedRes.signedUrl).toContain("http");
+      expect(signedUrlLifetimeSeconds(preprintedRes.signedUrl)).toBe(300);
       expect(preprintedRes.version).toBe(1);
     }
   });

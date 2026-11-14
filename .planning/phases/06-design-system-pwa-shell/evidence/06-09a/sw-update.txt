@@ -1,0 +1,17 @@
+06-09a M-OFFLINE: npm run e2e:sw-update (tests/e2e/pwa-update/sw-update.spec.ts), two real e2e builds of 41517f2,
+private detached worktree, under the e2e lane lock.
+
+✓ Running next.config.ts took 53ms
+✓ Compiled successfully in 1075ms
+✓ Generating static pages using 9 workers (37/37) in 165ms
+[e2e:build] output scan clean (1516 files); stamp written for build NzZI9NZezODn4Xc_9ZD86
+✓ Ready in 56ms
+✓ Running next.config.ts took 24ms
+✓ Running next.config.ts took 20ms
+✓ Compiled successfully in 527ms
+✓ Generating static pages using 9 workers (37/37) in 159ms
+[e2e:build] output scan clean (1516 files); stamp written for build 7x53KW-HY10ZFlaUD50Ct
+✓ Ready in 52ms
+✓ Running next.config.ts took 22ms
+  ✓  1 [sw-update-chromium] › tests/e2e/pwa-update/sw-update.spec.ts:82:5 › a second build installs a new worker whose /offline is served offline, styled; the old shell cache is gone (13.1s)
+  1 passed (13.3s)

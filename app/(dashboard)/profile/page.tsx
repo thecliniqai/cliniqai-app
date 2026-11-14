@@ -4,7 +4,7 @@ import { ChangePasswordForm } from "@/components/profile/change-password-form";
 import { withPageAuth } from "@/lib/auth/page";
 
 export const metadata = {
-  title: "My Profile · ClinicOS",
+  title: "My Profile",
   description: "Manage your personal information and clinical practice credentials",
 };
 

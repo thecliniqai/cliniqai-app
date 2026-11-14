@@ -1,0 +1,932 @@
+{
+  "generatedBy": "scripts/design/neutral-diff.mjs compare",
+  "before": "before",
+  "after": "before-repeat",
+  "maxRatio": 0.005,
+  "channelThreshold": 8,
+  "screens": 92,
+  "failing": 0,
+  "maxObservedRatio": 0.000292,
+  "results": [
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "flow-booking-drawer",
+      "size": "1180x3386",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "flow-checkout-drawer",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "flow-sign-and-bill-modal",
+      "size": "1180x3359",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "flow-walk-in-drawer",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "billing-register",
+      "size": "1180x890",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "billing-reports",
+      "size": "1180x890",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "cabin",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "calendar",
+      "size": "1180x3362",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "consultation-id",
+      "size": "1180x3359",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "forgot-password",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "home",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 73,
+      "ratio": 0.000075,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "login",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "patients-id",
+      "size": "1180x983",
+      "sizeMismatch": false,
+      "differingPixels": 215,
+      "ratio": 0.000185,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "patients-new",
+      "size": "1180x1288",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "patients",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "profile",
+      "size": "1180x2667",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "queue",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "referrals",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "settings-billing",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "settings-clinic",
+      "size": "1180x3565",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "settings-developer",
+      "size": "1180x1171",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "staff",
+      "size": "1180x1079",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1180",
+      "width": 1180,
+      "route": "visits",
+      "size": "1180x820",
+      "sizeMismatch": false,
+      "differingPixels": 42,
+      "ratio": 0.000043,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "flow-booking-drawer",
+      "size": "1280x3386",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "flow-checkout-drawer",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "flow-sign-and-bill-modal",
+      "size": "1280x3345",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "flow-walk-in-drawer",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "billing-register",
+      "size": "1280x846",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "billing-reports",
+      "size": "1280x846",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "cabin",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "calendar",
+      "size": "1280x3362",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "consultation-id",
+      "size": "1280x3345",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "forgot-password",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "home",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 73,
+      "ratio": 0.000071,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "login",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "patients-id",
+      "size": "1280x899",
+      "sizeMismatch": false,
+      "differingPixels": 203,
+      "ratio": 0.000176,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "patients-new",
+      "size": "1280x1288",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "patients",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "profile",
+      "size": "1280x2667",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "queue",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "referrals",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "settings-billing",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "settings-clinic",
+      "size": "1280x3565",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "settings-developer",
+      "size": "1280x1171",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "staff",
+      "size": "1280x1079",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-1280",
+      "width": 1280,
+      "route": "visits",
+      "size": "1280x800",
+      "sizeMismatch": false,
+      "differingPixels": 42,
+      "ratio": 0.000041,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "flow-booking-drawer",
+      "size": "360x3566",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "flow-checkout-drawer",
+      "size": "369x936",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "flow-sign-and-bill-modal",
+      "size": "406x5299",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "flow-walk-in-drawer",
+      "size": "369x936",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "billing-register",
+      "size": "360x1344",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "billing-reports",
+      "size": "360x1344",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "cabin",
+      "size": "360x1169",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "calendar",
+      "size": "360x3542",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "consultation-id",
+      "size": "406x5299",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "forgot-password",
+      "size": "360x780",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "home",
+      "size": "360x1162",
+      "sizeMismatch": false,
+      "differingPixels": 73,
+      "ratio": 0.000175,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "login",
+      "size": "360x780",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "patients-id",
+      "size": "533x1336",
+      "sizeMismatch": false,
+      "differingPixels": 208,
+      "ratio": 0.000292,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "patients-new",
+      "size": "360x1608",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "patients",
+      "size": "360x780",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "profile",
+      "size": "360x3651",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "queue",
+      "size": "369x912",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "referrals",
+      "size": "360x780",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "settings-billing",
+      "size": "360x780",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "settings-clinic",
+      "size": "360x5151",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "settings-developer",
+      "size": "360x1320",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "staff",
+      "size": "360x1526",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-360",
+      "width": 360,
+      "route": "visits",
+      "size": "360x1153",
+      "sizeMismatch": false,
+      "differingPixels": 42,
+      "ratio": 0.000101,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "flow-booking-drawer",
+      "size": "820x3370",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "flow-checkout-drawer",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "flow-sign-and-bill-modal",
+      "size": "820x3578",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "flow-walk-in-drawer",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "billing-register",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "billing-reports",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "cabin",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "calendar",
+      "size": "820x3346",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "consultation-id",
+      "size": "820x3578",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "forgot-password",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "home",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 73,
+      "ratio": 0.000075,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "login",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "patients-id",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 203,
+      "ratio": 0.00021,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "patients-new",
+      "size": "820x1272",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "patients",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "profile",
+      "size": "820x2651",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "queue",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "referrals",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "settings-billing",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "settings-clinic",
+      "size": "820x3549",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "settings-developer",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "staff",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 0,
+      "ratio": 0,
+      "pass": true
+    },
+    {
+      "project": "design-820",
+      "width": 820,
+      "route": "visits",
+      "size": "820x1180",
+      "sizeMismatch": false,
+      "differingPixels": 42,
+      "ratio": 0.000043,
+      "pass": true
+    }
+  ]
+}

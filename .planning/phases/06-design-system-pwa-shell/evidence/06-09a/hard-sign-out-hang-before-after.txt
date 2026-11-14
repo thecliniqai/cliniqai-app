@@ -1,0 +1,10 @@
+06-09a H-WEBKIT unit: a sign-out fetch that never settles and ignores its AbortSignal (what WebKit did with the
+route's 303 + Clear-Site-Data). 0892105's hardSignOut vs 06-09a's, real timers, injected stand-ins (scratch spec,
+not committed: tests/pwa/zz09a-webkit-hang.spec.ts).
+
+   × 0892105: with the server call hanging, the page has not left after 7 s (real timers) 7009ms
+     → expected [] to include 'replace /login'
+   ✓ 06-09a: with the server call hanging, the page has left after 7 s (real timers)  7002ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [] to include 'replace /login'
+      Tests  1 failed | 1 passed (2)

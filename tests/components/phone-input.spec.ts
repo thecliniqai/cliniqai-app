@@ -54,7 +54,7 @@ describe("PhoneInput Component & Utilities (D-03, D-04, REQ-patient-records)", (
       );
 
       expect(html).toContain('aria-invalid="true"');
-      expect(html).toContain("border-[#B42318]");
+      expect(html).toContain("border-danger-solid");
     });
 
     it("applies disabled styling and disabled attribute when disabled=true", () => {

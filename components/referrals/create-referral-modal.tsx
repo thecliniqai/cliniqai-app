@@ -15,6 +15,7 @@ import {
 import { createReferral, getReferralSignedUrl } from "@/features/referrals/actions";
 import { Referral, ReferralType, ReferralUrgency, LetterheadMode } from "@/lib/db/types";
 import { reportClientError } from "@/lib/log/client";
+import { isViewLinkFresh } from "@/lib/storage/view-link";
 
 export interface CreateReferralModalProps {
   patientId: string;
@@ -85,6 +86,8 @@ export function CreateReferralModal({
   const [createdResult, setCreatedResult] = useState<{
     referral: Referral;
     signedUrl?: string;
+    /** When `signedUrl` was signed: it lives 5 minutes (06-09b N-1), so an older one is re-signed before use. */
+    signedAt?: number;
   } | null>(null);
 
   if (!isOpen) return null;
@@ -97,14 +100,15 @@ export function CreateReferralModal({
 
   const handlePrintLetter = async () => {
     if (!createdResult) return;
-    let url = createdResult.signedUrl;
+    const held = createdResult;
+    let url = held.signedUrl && held.signedAt && isViewLinkFresh(held.signedAt) ? held.signedUrl : undefined;
     if (!url) {
       setIsOpeningPdf(true);
       try {
         const res = await getReferralSignedUrl(createdResult.referral.id);
         if (res.success && res.signedUrl) {
           url = res.signedUrl;
-          setCreatedResult((prev) => (prev ? { ...prev, signedUrl: res.signedUrl } : null));
+          setCreatedResult((prev) => (prev ? { ...prev, signedUrl: res.signedUrl, signedAt: Date.now() } : null));
         } else {
           setError(res.error || "Failed to retrieve referral letter PDF.");
           setIsOpeningPdf(false);
@@ -182,6 +186,7 @@ export function CreateReferralModal({
       setCreatedResult({
         referral: res.referral,
         signedUrl: res.signedUrl,
+        signedAt: Date.now(),
       });
       setIsSubmitting(false);
     } catch (err: unknown) {
@@ -201,9 +206,9 @@ export function CreateReferralModal({
       >
         <div className="bg-white rounded-2xl shadow-theme-lg border border-gray-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-6">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-[#EAF2FF]/60">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-accent-subtle/60">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#1769E0] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+              <div className="w-9 h-9 rounded-xl bg-accent text-white flex items-center justify-center flex-shrink-0 shadow-xs">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
@@ -222,7 +227,7 @@ export function CreateReferralModal({
               type="button"
               onClick={handleClose}
               aria-label="Close dialog"
-              className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+              className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <X className="h-5 w-5" />
             </button>
@@ -230,7 +235,7 @@ export function CreateReferralModal({
 
           {/* Content */}
           <div className="p-6 space-y-4">
-            <div className="p-4 rounded-xl border border-gray-200 bg-[#F8FAFC] space-y-2.5">
+            <div className="p-4 rounded-xl border border-gray-200 bg-sunken space-y-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -253,10 +258,10 @@ export function CreateReferralModal({
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#FFF5E5] text-[#9A5B00] border border-[#F3D39A]">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-warning-bg text-warning-fg border border-warning-border">
                     {createdResult.referral.status}
                   </span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#FFEDEC] text-[#BA1A1A]">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-danger-bg text-danger-fg">
                     {createdResult.referral.urgency.toUpperCase()}
                   </span>
                 </div>
@@ -268,8 +273,8 @@ export function CreateReferralModal({
               </div>
             </div>
 
-            <div className="rounded-xl border border-blue-200 bg-[#EAF2FF] p-3.5 text-xs text-blue-900 flex items-start gap-2.5">
-              <Printer className="h-4 w-4 text-[#1769E0] flex-shrink-0 mt-0.5" />
+            <div className="rounded-xl border border-blue-200 bg-accent-subtle p-3.5 text-xs text-blue-900 flex items-start gap-2.5">
+              <Printer className="h-4 w-4 text-accent flex-shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <p className="font-semibold text-blue-950">
                   Referral Note & Letter Ready for Printing
@@ -289,7 +294,7 @@ export function CreateReferralModal({
           </div>
 
           {/* Footer Actions */}
-          <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 px-6 py-4 border-t border-gray-100 bg-[#F8FAFC]">
+          <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 px-6 py-4 border-t border-gray-100 bg-sunken">
             <button
               type="button"
               onClick={handleClose}
@@ -302,7 +307,7 @@ export function CreateReferralModal({
               type="button"
               onClick={handlePrintLetter}
               disabled={isOpeningPdf}
-              className="w-full sm:w-auto min-h-[44px] px-5 rounded-xl bg-[#1769E0] hover:bg-[#155cc0] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+              className="w-full sm:w-auto min-h-[44px] px-5 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
             >
               {isOpeningPdf ? (
                 <>
@@ -331,9 +336,9 @@ export function CreateReferralModal({
     >
       <div className="bg-white rounded-2xl shadow-theme-lg border border-gray-200 max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 my-6">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-[#F8FAFC]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-sunken">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center flex-shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-accent-subtle text-accent flex items-center justify-center flex-shrink-0">
               <Share2 className="h-5 w-5" />
             </div>
             <div>
@@ -353,7 +358,7 @@ export function CreateReferralModal({
             type="button"
             onClick={handleClose}
             aria-label="Close dialog"
-            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -383,7 +388,7 @@ export function CreateReferralModal({
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
-                <User className="h-3.5 w-3.5 text-[#1769E0]" />
+                <User className="h-3.5 w-3.5 text-accent" />
                 <span>Out-of-Network Specialist</span>
               </button>
               <button
@@ -402,7 +407,7 @@ export function CreateReferralModal({
           </div>
 
           {/* 2. Recipient Specialist Details */}
-          <div className="space-y-3 p-4 rounded-xl border border-gray-200 bg-[#F8FAFC]">
+          <div className="space-y-3 p-4 rounded-xl border border-gray-200 bg-sunken">
             <h4 className="text-xs font-bold uppercase tracking-wider text-gray-600">
               Recipient Specialist Information
             </h4>
@@ -418,7 +423,7 @@ export function CreateReferralModal({
                   placeholder="e.g. Dr. Rajesh Verma"
                   value={referredToName}
                   onChange={(e) => setReferredToName(e.target.value)}
-                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                 />
               </div>
 
@@ -429,7 +434,7 @@ export function CreateReferralModal({
                 <select
                   value={referredToSpecialty}
                   onChange={(e) => setReferredToSpecialty(e.target.value)}
-                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                 >
                   {COMMON_SPECIALTIES.map((spec) => (
                     <option key={spec} value={spec}>
@@ -448,7 +453,7 @@ export function CreateReferralModal({
                   placeholder="e.g. Max Super Speciality Hospital"
                   value={referredToFacility}
                   onChange={(e) => setReferredToFacility(e.target.value)}
-                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                 />
               </div>
 
@@ -461,7 +466,7 @@ export function CreateReferralModal({
                   placeholder="e.g. +91 98112 23344"
                   value={referredToContact}
                   onChange={(e) => setReferredToContact(e.target.value)}
-                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                 />
               </div>
             </div>
@@ -478,7 +483,7 @@ export function CreateReferralModal({
                   placeholder="Paste destination clinic UUID..."
                   value={targetTenantId}
                   onChange={(e) => setTargetTenantId(e.target.value)}
-                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white font-mono focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white font-mono focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
                   The target partner clinic will securely receive this referral in their Inbound Referrals register.
@@ -509,10 +514,10 @@ export function CreateReferralModal({
                       className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center ${
                         isSelected
                           ? id === "urgent"
-                            ? "bg-[#FFEDEC] border-[#FFDAD6] text-[#BA1A1A] shadow-xs"
+                            ? "bg-danger-bg border-danger-border text-danger-fg shadow-xs"
                             : id === "priority"
-                            ? "bg-[#FFF5E5] border-[#F3D39A] text-[#9A5B00] shadow-xs"
-                            : "bg-[#EAF2FF] border-[#BFD8FF] text-[#1769E0] shadow-xs"
+                            ? "bg-warning-bg border-warning-border text-warning-fg shadow-xs"
+                            : "bg-accent-subtle border-accent-border text-accent shadow-xs"
                           : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                       }`}
                     >
@@ -534,7 +539,7 @@ export function CreateReferralModal({
                 placeholder="e.g. Suspected CAD with atypical angina; advice coronary angiogram and secondary evaluation"
                 value={reasonForReferral}
                 onChange={(e) => setReasonForReferral(e.target.value)}
-                className="w-full p-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                className="w-full p-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white placeholder:text-fg-placeholder focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
               />
             </div>
 
@@ -548,7 +553,7 @@ export function CreateReferralModal({
                 placeholder="e.g. Unstable Angina / Atypical CAD"
                 value={provisionalDiagnosis}
                 onChange={(e) => setProvisionalDiagnosis(e.target.value)}
-                className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
               />
             </div>
 
@@ -562,20 +567,20 @@ export function CreateReferralModal({
                 placeholder="Brief clinical context, physical findings, ECG/vitals highlights, or specific questions for the specialist..."
                 value={clinicalSummary}
                 onChange={(e) => setClinicalSummary(e.target.value)}
-                className="w-full p-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white placeholder:text-gray-400 focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                className="w-full p-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white placeholder:text-fg-placeholder focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
 
           {/* 4. DPDP Consent Toggle (In-Network only) */}
           {referralType === "in_network" && (
-            <div className="p-3.5 rounded-xl border border-blue-200 bg-[#EAF2FF] space-y-2">
+            <div className="p-3.5 rounded-xl border border-blue-200 bg-accent-subtle space-y-2">
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={patientConsentsHistory}
                   onChange={(e) => setPatientConsentsHistory(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#1769E0] focus:ring-[#1769E0]"
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-accent focus:ring-ring"
                 />
                 <div className="text-xs">
                   <span className="font-bold text-blue-900">
@@ -595,14 +600,14 @@ export function CreateReferralModal({
               Letterhead Paper Mode
             </label>
             <div className="grid grid-cols-2 gap-2">
-              <label className="flex items-center gap-2 p-3 rounded-xl border border-gray-200 bg-[#F8FAFC] cursor-pointer hover:bg-gray-100 transition-colors">
+              <label className="flex items-center gap-2 p-3 rounded-xl border border-gray-200 bg-sunken cursor-pointer hover:bg-gray-100 transition-colors">
                 <input
                   type="radio"
                   name="letterhead_mode"
                   value="blank_paper"
                   checked={letterheadMode === "blank_paper"}
                   onChange={() => setLetterheadMode("blank_paper")}
-                  className="text-[#1769E0] focus:ring-[#1769E0]"
+                  className="text-accent focus:ring-ring"
                 />
                 <div className="text-xs">
                   <div className="font-semibold text-gray-900">Blank Paper</div>
@@ -610,14 +615,14 @@ export function CreateReferralModal({
                 </div>
               </label>
 
-              <label className="flex items-center gap-2 p-3 rounded-xl border border-gray-200 bg-[#F8FAFC] cursor-pointer hover:bg-gray-100 transition-colors">
+              <label className="flex items-center gap-2 p-3 rounded-xl border border-gray-200 bg-sunken cursor-pointer hover:bg-gray-100 transition-colors">
                 <input
                   type="radio"
                   name="letterhead_mode"
                   value="preprinted_letterhead"
                   checked={letterheadMode === "preprinted_letterhead"}
                   onChange={() => setLetterheadMode("preprinted_letterhead")}
-                  className="text-[#1769E0] focus:ring-[#1769E0]"
+                  className="text-accent focus:ring-ring"
                 />
                 <div className="text-xs">
                   <div className="font-semibold text-gray-900">Pre-printed Pad</div>
@@ -640,7 +645,7 @@ export function CreateReferralModal({
             <button
               type="submit"
               disabled={isSubmitting || !referredToName.trim() || !reasonForReferral.trim()}
-              className="min-h-[44px] px-5 rounded-xl bg-[#1769E0] hover:bg-[#155cc0] text-white text-xs font-semibold flex items-center gap-2 shadow-theme-xs transition-colors disabled:opacity-50 cursor-pointer"
+              className="min-h-[44px] px-5 rounded-xl bg-accent hover:bg-accent-hover text-white text-xs font-semibold flex items-center gap-2 shadow-theme-xs transition-colors disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? (
                 <>

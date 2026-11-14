@@ -54,10 +54,10 @@ function JoinClinicContent() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50/70 flex flex-col justify-center items-center p-4">
+    <main className="min-h-app bg-gray-50/70 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl p-6 sm:p-10 shadow-theme-sm space-y-6">
         <div className="text-center flex flex-col items-center">
-          <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-100 text-brand-600 flex items-center justify-center mb-4 shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-accent-subtle border border-accent-border text-accent-fg flex items-center justify-center mb-4 shadow-2xs">
             <Building2 className="w-6 h-6" aria-hidden="true" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-gray-900">Join your clinic</h1>
@@ -80,7 +80,7 @@ function JoinClinicContent() {
             <p className="text-sm text-gray-500">After signing in, open the invitation link again.</p>
             <Link
               href="/login"
-              className="inline-flex w-full items-center justify-center min-h-[44px] px-4 rounded-lg bg-[#1769E0] text-white text-sm font-semibold hover:bg-[#0F5AB8] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1769E0]"
+              className="inline-flex w-full items-center justify-center min-h-[44px] px-4 rounded-lg bg-accent text-white text-sm font-semibold hover:bg-accent-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-ring"
             >
               Sign in
             </Link>
@@ -111,7 +111,7 @@ export default function JoinClinicPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-50/70 flex items-center justify-center">
+        <div className="min-h-app bg-gray-50/70 flex items-center justify-center">
           <p className="text-sm text-gray-500">Loading invitation…</p>
         </div>
       }

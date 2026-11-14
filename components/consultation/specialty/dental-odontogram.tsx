@@ -217,7 +217,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
         aria-pressed={isSelected}
         className={`relative flex flex-col items-center justify-center p-1 min-w-[42px] min-h-[52px] rounded-lg border transition-all ${
           isSelected
-            ? "ring-2 ring-brand-500 border-brand-500 bg-brand-50/20 scale-105 z-10"
+            ? "ring-2 ring-accent border-accent bg-accent-subtle/20 scale-105 z-10"
             : hasConditions
             ? "border-gray-300 hover:border-gray-400 bg-white"
             : "border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50/50"
@@ -270,7 +270,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
         <span
           className={`text-[11px] font-semibold mt-0.5 tracking-tight ${
             isSelected
-              ? "text-brand-600 font-bold"
+              ? "text-accent-fg font-bold"
               : hasConditions
               ? "text-gray-900"
               : "text-gray-600"
@@ -382,7 +382,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
                 title="Dental Midline"
                 aria-hidden="true"
               >
-                <span className="text-[9px] text-gray-400 font-bold">|</span>
+                <span className="text-[9px] text-fg-subtle font-bold">|</span>
               </div>
 
               {/* Left quadrant */}
@@ -390,7 +390,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
                 {upperLeftTeeth.map(renderToothCell)}
               </div>
             </div>
-            <div className="flex justify-between px-10 text-[10px] font-semibold text-gray-400 mt-1 uppercase tracking-wider">
+            <div className="flex justify-between px-10 text-[10px] font-semibold text-fg-subtle mt-1 uppercase tracking-wider">
               <span>Patient Right</span>
               <span>Patient Left</span>
             </div>
@@ -412,7 +412,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
                 title="Dental Midline"
                 aria-hidden="true"
               >
-                <span className="text-[9px] text-gray-400 font-bold">|</span>
+                <span className="text-[9px] text-fg-subtle font-bold">|</span>
               </div>
 
               {/* Left quadrant */}
@@ -433,7 +433,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
           <div className="flex items-center justify-between pb-3 border-b border-gray-100">
             <div>
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center h-6 w-8 rounded bg-brand-50 border border-brand-200 text-xs font-bold text-brand-700">
+                <span className="inline-flex items-center justify-center h-6 w-8 rounded bg-accent-subtle border border-accent-border text-xs font-bold text-accent-fg">
                   #{selectedTooth}
                 </span>
                 <h5 className="text-sm font-semibold text-gray-900">
@@ -448,7 +448,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
               type="button"
               onClick={() => setSelectedTooth(null)}
               aria-label="Close tooth details"
-              className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="p-1 rounded-md text-fg-subtle hover:text-gray-600 hover:bg-gray-100"
             >
               <X className="h-4 w-4" />
             </button>
@@ -503,7 +503,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
               value={currentToothData?.notes ?? ""}
               onChange={(e) => handleUpdateToothNotes(selectedTooth, e.target.value)}
               placeholder="e.g. Deep mesial decay, tender on percussion, advise RCT"
-              className="w-full min-h-[38px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white"
+              className="w-full min-h-[38px] px-3 rounded-lg border border-gray-300 text-xs text-gray-900 placeholder:text-fg-placeholder focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring bg-white"
             />
           </div>
 
@@ -582,7 +582,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
                       </div>
                     </td>
                     <td className="py-2.5 px-3 text-gray-700 italic">
-                      {tooth.notes || <span className="text-gray-400 not-italic">—</span>}
+                      {tooth.notes || <span className="text-fg-subtle not-italic">—</span>}
                     </td>
                     <td className="py-2.5 px-3 text-right">
                       <button
@@ -590,7 +590,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
                         disabled={disabled}
                         onClick={() => handleClearTooth(tooth.tooth_number)}
                         aria-label={`Remove conditions for tooth ${tooth.tooth_number}`}
-                        className="p-1 rounded text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        className="p-1 rounded text-fg-subtle hover:text-rose-600 hover:bg-rose-50 transition-colors"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -624,7 +624,7 @@ export function DentalOdontogram({ data, onChange, disabled }: DentalOdontogramP
             })
           }
           placeholder="e.g. Generalized mild gingivitis, calculus on lingual surfaces of lower anterior teeth. Scaling advised."
-          className="w-full text-xs text-gray-900 placeholder:text-gray-400 rounded-lg border border-gray-300 p-2.5 bg-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+          className="w-full text-xs text-gray-900 placeholder:text-fg-placeholder rounded-lg border border-gray-300 p-2.5 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
         />
       </div>
     </div>

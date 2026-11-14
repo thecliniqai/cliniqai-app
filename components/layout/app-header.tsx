@@ -96,10 +96,10 @@ export function AppHeader({ tenantName, role, userEmail }: AppHeaderProps) {
             className="relative w-full h-9 px-3 flex items-center justify-between text-xs rounded-lg border border-gray-200 bg-gray-50/60 text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 transition-colors cursor-pointer text-left shadow-2xs group"
           >
             <span className="flex items-center gap-2 truncate">
-              <Search className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
+              <Search className="w-4 h-4 text-fg-subtle group-hover:text-gray-600" />
               <span>Search patients, records...</span>
             </span>
-            <kbd className="h-5 px-1.5 flex items-center text-[10px] font-medium text-gray-400 bg-white border border-gray-200 rounded shadow-2xs">
+            <kbd className="h-5 px-1.5 flex items-center text-[10px] font-medium text-fg-subtle bg-white border border-gray-200 rounded shadow-2xs">
               /
             </kbd>
           </button>

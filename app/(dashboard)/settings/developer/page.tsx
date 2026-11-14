@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { withPageAuth } from "@/lib/auth/page";
 
 export const metadata = {
-  title: "Developer Settings | ClinicQ",
+  title: "Developer Settings",
   description: "Manage tenant API keys, outgoing webhook subscriptions, and developer integrations.",
 };
 
@@ -17,7 +17,7 @@ async function DeveloperSettingsPage() {
     return (
       <Card className="max-w-2xl border-rose-200 bg-rose-50/50">
         <CardContent className="p-6">
-          <h2 className="text-base font-semibold text-[#B42318]">Access Denied</h2>
+          <h2 className="text-base font-semibold text-danger-fg">Access Denied</h2>
           <p className="text-xs text-rose-600 mt-1 leading-relaxed">
             Developer settings are restricted to Clinic Owners and Administrators. Contact your clinic owner to request access.
           </p>

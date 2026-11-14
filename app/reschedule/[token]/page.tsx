@@ -127,10 +127,10 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center p-4">
-        <div className="max-w-[480px] w-full bg-white rounded-xl border border-[#E5E7EB] p-8 text-center space-y-3 shadow-xs">
-          <div className="w-8 h-8 border-3 border-[#1769E0] border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-sm text-[#4B5563] font-medium">Loading appointment options...</p>
+      <div className="min-h-app bg-canvas flex items-center justify-center p-4">
+        <div className="max-w-[480px] w-full bg-white rounded-xl border border-border p-8 text-center space-y-3 shadow-xs">
+          <div className="w-8 h-8 border-3 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-fg-secondary font-medium">Loading appointment options...</p>
         </div>
       </div>
     );
@@ -138,7 +138,7 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
 
   if (error && !appointment) {
     return (
-      <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center p-4">
+      <div className="min-h-app bg-canvas flex items-center justify-center p-4">
         <div className="max-w-[480px] w-full bg-white rounded-xl border border-amber-200 bg-amber-50/50 p-6 text-center shadow-xs">
           <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6" />
@@ -152,26 +152,26 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
 
   if (confirmedNewTime && appointment) {
     return (
-      <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center p-4">
-        <div className="max-w-[480px] w-full bg-white rounded-xl border border-[#E5E7EB] p-6 text-center space-y-5 shadow-xs">
-          <div className="w-14 h-14 rounded-full bg-emerald-50 text-[#16A34A] flex items-center justify-center mx-auto">
+      <div className="min-h-app bg-canvas flex items-center justify-center p-4">
+        <div className="max-w-[480px] w-full bg-white rounded-xl border border-border p-6 text-center space-y-5 shadow-xs">
+          <div className="w-14 h-14 rounded-full bg-emerald-50 text-success-fg flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8" />
           </div>
 
           <div>
-            <h1 className="text-xl font-bold text-[#111827]">Appointment Rescheduled</h1>
-            <p className="text-xs text-[#6B7280] mt-1">We have updated your consultation time.</p>
+            <h1 className="text-xl font-bold text-fg">Appointment Rescheduled</h1>
+            <p className="text-xs text-fg-muted mt-1">We have updated your consultation time.</p>
           </div>
 
-          <div className="bg-[#F9FAFB] rounded-lg p-4 border border-[#E5E7EB] text-left space-y-2">
-            <div className="flex items-center gap-2 text-xs text-[#4B5563]">
-              <User className="w-4 h-4 text-[#1769E0]" />
-              <span>Doctor: <strong className="font-semibold text-[#111827]">Dr. {appointment.doctor_name}</strong></span>
+          <div className="bg-sunken rounded-lg p-4 border border-border text-left space-y-2">
+            <div className="flex items-center gap-2 text-xs text-fg-secondary">
+              <User className="w-4 h-4 text-accent" />
+              <span>Doctor: <strong className="font-semibold text-fg">Dr. {appointment.doctor_name}</strong></span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-[#4B5563]">
-              <Calendar className="w-4 h-4 text-[#1769E0]" />
+            <div className="flex items-center gap-2 text-xs text-fg-secondary">
+              <Calendar className="w-4 h-4 text-accent" />
               <span>
-                New Time: <strong className="font-semibold text-[#16A34A]">
+                New Time: <strong className="font-semibold text-success-fg">
                   {new Date(confirmedNewTime).toLocaleString("en-IN", {
                     dateStyle: "medium",
                     timeStyle: "short",
@@ -180,22 +180,22 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
                 </strong>
               </span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-[#4B5563]">
-              <Building2 className="w-4 h-4 text-[#1769E0]" />
+            <div className="flex items-center gap-2 text-xs text-fg-secondary">
+              <Building2 className="w-4 h-4 text-accent" />
               <span>{appointment.clinic.name}</span>
             </div>
           </div>
 
-          <p className="text-xs text-[#4B5563]">
+          <p className="text-xs text-fg-secondary">
             A confirmation message has been queued to your WhatsApp number.
           </p>
 
           {appointment.clinic.phone && (
             <a
               href={`tel:${appointment.clinic.phone}`}
-              className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-gray-200 text-xs font-semibold text-[#111827] hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center justify-center gap-2 w-full h-11 rounded-lg border border-gray-200 text-xs font-semibold text-fg hover:bg-gray-50 transition-colors"
             >
-              <Phone className="w-3.5 h-3.5 text-[#1769E0]" />
+              <Phone className="w-3.5 h-3.5 text-accent" />
               Call Clinic Desk
             </a>
           )}
@@ -205,24 +205,24 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3] py-8 px-4">
+    <div className="min-h-app bg-canvas py-8 px-4">
       <main className="max-w-[480px] w-full mx-auto space-y-4">
         {/* Clinic & Doctor Header */}
-        <header className="bg-white rounded-xl border border-[#E5E7EB] p-5 shadow-xs">
+        <header className="bg-white rounded-xl border border-border p-5 shadow-xs">
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <Building2 className="w-5 h-5 text-[#1769E0]" />
-                <h1 className="text-base font-bold text-[#111827]">{appointment?.clinic.name}</h1>
+                <Building2 className="w-5 h-5 text-accent" />
+                <h1 className="text-base font-bold text-fg">{appointment?.clinic.name}</h1>
               </div>
-              <p className="text-xs text-[#4B5563]">
-                Doctor: <strong className="font-semibold text-[#111827]">Dr. {appointment?.doctor_name}</strong> ({appointment?.doctor_specialty})
+              <p className="text-xs text-fg-secondary">
+                Doctor: <strong className="font-semibold text-fg">Dr. {appointment?.doctor_name}</strong> ({appointment?.doctor_specialty})
               </p>
             </div>
             {appointment?.clinic.phone && (
               <a
                 href={`tel:${appointment.clinic.phone}`}
-                className="shrink-0 p-2 rounded-lg bg-gray-50 border border-gray-200 text-[#1769E0] hover:bg-gray-100"
+                className="shrink-0 p-2 rounded-lg bg-gray-50 border border-gray-200 text-accent hover:bg-gray-100"
                 title="Call Clinic"
               >
                 <Phone className="w-4 h-4" />
@@ -233,12 +233,12 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
 
         {/* Current Scheduled Time Note */}
         {appointment?.current_scheduled_at && (
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 text-xs text-[#4B5563] shadow-xs flex items-center justify-between">
+          <div className="bg-white rounded-xl border border-border p-4 text-xs text-fg-secondary shadow-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-amber-600" />
               <span>Current Time:</span>
             </div>
-            <span className="font-semibold text-[#111827]">
+            <span className="font-semibold text-fg">
               {new Date(appointment.current_scheduled_at).toLocaleString("en-IN", {
                 dateStyle: "medium",
                 timeStyle: "short",
@@ -249,9 +249,9 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
         )}
 
         {/* Step 1: Select Date */}
-        <section className="bg-white rounded-xl border border-[#E5E7EB] p-5 shadow-xs space-y-3">
-          <h2 className="text-sm font-semibold text-[#111827] flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[#1769E0]" />
+        <section className="bg-white rounded-xl border border-border p-5 shadow-xs space-y-3">
+          <h2 className="text-sm font-semibold text-fg flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-accent" />
             1. Select Date
           </h2>
 
@@ -265,11 +265,11 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
                   onClick={() => handleDateChange(opt.isoDate)}
                   className={`p-2.5 rounded-lg border text-center transition-all min-h-[58px] flex flex-col items-center justify-center ${
                     isSelected
-                      ? "bg-[#1769E0] text-white border-[#1769E0] shadow-xs"
-                      : "bg-gray-50 text-[#4B5563] border-gray-200 hover:bg-gray-100"
+                      ? "bg-accent text-white border-accent shadow-xs"
+                      : "bg-gray-50 text-fg-secondary border-gray-200 hover:bg-gray-100"
                   }`}
                 >
-                  <span className={`text-[10px] uppercase font-bold ${isSelected ? "text-blue-100" : "text-[#6B7280]"}`}>
+                  <span className={`text-[10px] uppercase font-bold ${isSelected ? "text-blue-100" : "text-fg-muted"}`}>
                     {opt.displayDay}
                   </span>
                   <span className="text-xs font-semibold mt-0.5">{opt.displayDate}</span>
@@ -280,14 +280,14 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
         </section>
 
         {/* Step 2: Select Slot */}
-        <section className="bg-white rounded-xl border border-[#E5E7EB] p-5 shadow-xs space-y-3">
-          <h2 className="text-sm font-semibold text-[#111827] flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#1769E0]" />
+        <section className="bg-white rounded-xl border border-border p-5 shadow-xs space-y-3">
+          <h2 className="text-sm font-semibold text-fg flex items-center gap-2">
+            <Clock className="w-4 h-4 text-accent" />
             2. Available Times
           </h2>
 
           {availableSlots.length === 0 ? (
-            <div className="p-6 text-center text-xs text-[#6B7280] bg-gray-50 rounded-lg border border-dashed border-gray-200">
+            <div className="p-6 text-center text-xs text-fg-muted bg-gray-50 rounded-lg border border-dashed border-gray-200">
               No available slots for this date. Please pick another day or call the clinic.
             </div>
           ) : (
@@ -301,8 +301,8 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
                     onClick={() => setSelectedSlot(slot)}
                     className={`h-11 px-3 rounded-lg border text-xs font-semibold transition-all ${
                       isSelected
-                        ? "bg-[#1769E0] text-white border-[#1769E0] shadow-xs"
-                        : "bg-gray-50 text-[#111827] border-gray-200 hover:bg-blue-50 hover:border-blue-200"
+                        ? "bg-accent text-white border-accent shadow-xs"
+                        : "bg-gray-50 text-fg border-gray-200 hover:bg-blue-50 hover:border-blue-200"
                     }`}
                   >
                     {formatSlotTime(slot)}
@@ -325,7 +325,7 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
           type="button"
           disabled={!selectedSlot || submitting}
           onClick={handleConfirmReschedule}
-          className="w-full h-12 rounded-lg bg-[#1769E0] text-white font-semibold text-sm hover:bg-[#0F5AB8] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xs"
+          className="w-full h-12 rounded-lg bg-accent text-white font-semibold text-sm hover:bg-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xs"
         >
           {submitting ? (
             <>

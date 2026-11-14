@@ -1,0 +1,12 @@
+# screen-height rule on lint-fixtures/ui-policy/screen-height (06-04a), tool output
+## enforced (this plan)
+FAIL screen-height components/tall.tsx:5 min-h-screen
+FAIL screen-height components/tall.tsx:6 md:h-screen
+FAIL screen-height components/tall.tsx:7 max-h-[100vh]
+ui-policy: screen-height [enforce] 3 finding(s) in 1 file(s) (no baseline)
+ui-policy: FAIL (3 enforced finding(s))
+exit 1
+## same fixture with the rule at mode report (the 06-01a state)
+ui-policy: screen-height [report] 3 finding(s) in 1 file(s) (no baseline)
+ui-policy: PASS (report-mode findings do not fail)
+exit 0

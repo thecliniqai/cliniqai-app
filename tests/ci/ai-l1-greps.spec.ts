@@ -3,8 +3,11 @@
  * fixture tree (lint-fixtures/ai-l1/<case>/), stays silent on allowed copy, and that time-boxed exceptions work only
  * while valid (expired and stale entries fail; L1-R6 cannot be waived). Asserts the checker's exit code and output.
  */
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { runNodeChecker } from "./run-checker";
+import { ROOT, runNodeChecker } from "./run-checker";
 
 const F = "lint-fixtures/ai-l1";
 const TODAY = "2026-11-12";
@@ -29,6 +32,8 @@ describe("AI-06 L1 checks", () => {
     ["r4-glyph", "L1-R4 components/hint.tsx:3"],
     ["r5-ai-copy", "L1-R5 components/banner.tsx:3 AI insights"],
     ["r6-ai-price", "L1-R6 features/ai/upsell.tsx:6"],
+    ["r6-coming-soon-price", "L1-R6 components/clinical/ai-coming-soon-row.tsx:6"],
+    ["r5-ai-assist-elsewhere", "L1-R5 components/patients/header.tsx:7 AI Assist"],
   ])("fails on %s", (fixture, expected) => {
     const r = check(fixture);
     expect(r.status).toBe(1);
@@ -98,5 +103,51 @@ describe("AI-06 L1 checks", () => {
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("L1-R6 (AI next to a price or purchase action) has no exceptions");
     expect(r.stderr).toContain("FAIL L1-R6 features/ai/upsell.tsx:6");
+  });
+
+  describe("AI-02 labels (V2-06 06-01b)", () => {
+    const CHIPS = [
+      "components/clinical/ai-assist-chip.tsx",
+      "components/clinical/ai-preview-chip.tsx",
+      "components/clinical/ai-coming-soon-row.tsx",
+      "components/clinical/smart-assist-label.tsx",
+    ];
+    /** A scan root holding the real chip files, at their own paths or moved to `components/other/`. */
+    function treeWithChips(moved: boolean): string {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-l1-chips-"));
+      for (const file of CHIPS) {
+        const target = path.join(dir, moved ? file.replace("components/clinical/", "components/other/") : file);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(path.join(ROOT, file), target);
+      }
+      return dir;
+    }
+    const scan = (root: string) =>
+      runNodeChecker("ai-l1-greps.mjs", ["--root", root, "--allowlist", `${F}/allowlists/none.json`, "--today", TODAY]);
+
+    it("the real chip files pass L1-R4/R5 where they live (Sparkles and the word AI are allowed there)", () => {
+      const dir = treeWithChips(false);
+      try {
+        const r = scan(dir);
+        expect(r.stderr).toBe("");
+        expect(r.status).toBe(0);
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("the same files anywhere else fail L1-R4 (Sparkles) and L1-R5 (AI copy): the allowance is the file list", () => {
+      const dir = treeWithChips(true);
+      try {
+        const r = scan(dir);
+        expect(r.status).toBe(1);
+        expect(r.stderr).toContain("FAIL L1-R4 components/other/ai-assist-chip.tsx");
+        expect(r.stderr).toContain("FAIL L1-R5 components/other/ai-assist-chip.tsx");
+        expect(r.stderr).toContain("FAIL L1-R5 components/other/ai-preview-chip.tsx");
+        expect(r.stderr).toContain("FAIL L1-R5 components/other/ai-coming-soon-row.tsx");
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    });
   });
 });

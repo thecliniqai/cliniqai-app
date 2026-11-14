@@ -1,0 +1,243 @@
+{
+  "generatedBy": "npm run e2e:pr (playwright-report/results.json) on the a79297c build (06-01b commits + 06-09a fixes 5cde926, 1777942, a79297c), private detached worktree, under the e2e lane lock",
+  "stats": {
+    "startTime": "2026-11-14T09:39:08.876Z",
+    "duration": 244430.639,
+    "expected": 304,
+    "skipped": 46,
+    "unexpected": 7,
+    "flaky": 0
+  },
+  "tests06_01b": [
+    {
+      "project": "desktop-chrome",
+      "file": "design/fonts.spec.ts",
+      "title": "/login renders body text in Inter from local files; ≤ 2 font requests, none Plex or Devanagari",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "design/fonts.spec.ts",
+      "title": "each Inter and Manrope face has the approved unicode-range (one face per subset file)",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "design/fonts.spec.ts",
+      "title": "₹ in body text loads Inter's Latin Extended face, so the rupee sign is drawn by Inter",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "design/fonts.spec.ts",
+      "title": "/offline renders the product name in Manrope from a loaded face",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "design/fonts.spec.ts",
+      "title": "/login renders body text in Inter from local files; ≤ 2 font requests, none Plex or Devanagari",
+      "status": "skipped",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "design/fonts.spec.ts",
+      "title": "each Inter and Manrope face has the approved unicode-range (one face per subset file)",
+      "status": "skipped",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "design/fonts.spec.ts",
+      "title": "₹ in body text loads Inter's Latin Extended face, so the rupee sign is drawn by Inter",
+      "status": "skipped",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "design/fonts.spec.ts",
+      "title": "/offline renders the product name in Manrope from a loaded face",
+      "status": "skipped",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "design/offline-brand-axe.spec.ts",
+      "title": "/offline with the brand mark at 360px: axe clean, no horizontal scroll",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "design/offline-brand-axe.spec.ts",
+      "title": "/offline with the brand mark at 820px: axe clean, no horizontal scroll",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "design/offline-brand-axe.spec.ts",
+      "title": "/offline with the brand mark at 1180px: axe clean, no horizontal scroll",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "design/offline-brand-axe.spec.ts",
+      "title": "/offline with the brand mark at 1280px: axe clean, no horizontal scroll",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "design/offline-brand-axe.spec.ts",
+      "title": "/offline with the brand mark at 360px: axe clean, no horizontal scroll",
+      "status": "skipped",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "design/offline-brand-axe.spec.ts",
+      "title": "/offline with the brand mark at 820px: axe clean, no horizontal scroll",
+      "status": "skipped",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "design/offline-brand-axe.spec.ts",
+      "title": "/offline with the brand mark at 1180px: axe clean, no horizontal scroll",
+      "status": "skipped",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "design/offline-brand-axe.spec.ts",
+      "title": "/offline with the brand mark at 1280px: axe clean, no horizontal scroll",
+      "status": "skipped",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "pwa/01-manifest.spec.ts",
+      "title": "signed out: /manifest.webmanifest answers 200 application/manifest+json with the PWA §3.1 fields",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "pwa/01-manifest.spec.ts",
+      "title": "signed out: every manifest icon is a PNG of its declared size; 192 any, 512 any and 512 maskable exist",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "pwa/01-manifest.spec.ts",
+      "title": "signed out: /sw.js, /offline, /icon.svg and /apple-icon.png answer 200 with their content types",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "pwa/01-manifest.spec.ts",
+      "title": "the root document links the manifest, the icons and the PWA viewport (no pinch-zoom lock)",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "pwa/01-manifest.spec.ts",
+      "title": "signed out: /manifest.webmanifest answers 200 application/manifest+json with the PWA §3.1 fields",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "pwa/01-manifest.spec.ts",
+      "title": "signed out: every manifest icon is a PNG of its declared size; 192 any, 512 any and 512 maskable exist",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "pwa/01-manifest.spec.ts",
+      "title": "signed out: /sw.js, /offline, /icon.svg and /apple-icon.png answer 200 with their content types",
+      "status": "expected",
+      "retries": 0
+    },
+    {
+      "project": "pixel-7",
+      "file": "pwa/01-manifest.spec.ts",
+      "title": "the root document links the manifest, the icons and the PWA viewport (no pinch-zoom lock)",
+      "status": "expected",
+      "retries": 0
+    }
+  ],
+  "failed": [
+    {
+      "project": "desktop-chrome",
+      "file": "design/route-states-axe.spec.ts",
+      "title": "dashboard loading at 1180px",
+      "status": "unexpected",
+      "retries": 0,
+      "error": "Error: expect(locator).toBeVisible() failed"
+    },
+    {
+      "project": "iphone-15",
+      "file": "pwa/05-cache-audit.spec.ts",
+      "title": "Sign out of all devices: purged here, the second device loses its session @golden",
+      "status": "unexpected",
+      "retries": 0,
+      "error": "Error: the /patients request carried a request id"
+    },
+    {
+      "project": "iphone-15",
+      "file": "pwa/05-cache-audit.spec.ts",
+      "title": "Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie @golden",
+      "status": "unexpected",
+      "retries": 0,
+      "error": "Error: page.waitForURL: WebKit encountered an internal error"
+    },
+    {
+      "project": "iphone-15",
+      "file": "pwa/06-tabs-and-devices.spec.ts",
+      "title": "M-EVERYWHERE: route unreachable, GoTrue reachable: the browser client revokes every session; device 2 is signed out @golden",
+      "status": "unexpected",
+      "retries": 0,
+      "error": "Error: the /patients request carried a request id"
+    },
+    {
+      "project": "iphone-15",
+      "file": "pwa/06-tabs-and-devices.spec.ts",
+      "title": "M-EVERYWHERE: neither the route nor GoTrue reachable: this device is signed out and the user is told; device 2 is not @golden",
+      "status": "unexpected",
+      "retries": 0,
+      "error": "Test timeout of 30000ms exceeded."
+    },
+    {
+      "project": "iphone-15",
+      "file": "pwa/06-tabs-and-devices.spec.ts",
+      "title": "IND L-6: a session ended without hardSignOut purges the device on arrival at /login; other tabs leave @golden",
+      "status": "unexpected",
+      "retries": 0,
+      "error": "Error: a page or service-worker request left the machine (PWA specs stay on loopback)"
+    },
+    {
+      "project": "desktop-chrome",
+      "file": "shell/route-states.spec.ts",
+      "title": "a slow client navigation shows the loading skeleton inside the shell, then the page",
+      "status": "unexpected",
+      "retries": 0,
+      "error": "Error: expect(locator).toBeVisible() failed"
+    }
+  ],
+  "failedAttribution": {
+    "route-states (desktop-chrome, 2)": "Intermittent 06-04a loading-skeleton specs under investigation by the gsd-debugger (route-states loading flake). Re-run in isolation: 25/25 pass both with and without the 06-01b commits (evidence/06-01b/e2e-attribution.txt).",
+    "iphone-15 PWA sign-out (5)": "06-09a tests (1777942) that land on /login under the PWA fixture on WebKit record the Turnstile redirect URLs (challenges.cloudflare.com/turnstile/v0/b/<build>/api.js, challenge-platform) that isTurnstileScriptUrl does not accept. With the 06-01b commits reverted on the same tip, 4 of the 5 fail identically; the fifth (IND L-6) fails the same assertion with 06-01b, a timing exposure of the same cause (evidence/06-01b/e2e-attribution.txt)."
+  }
+}
