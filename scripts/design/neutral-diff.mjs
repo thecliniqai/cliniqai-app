@@ -3,7 +3,7 @@
  * Value-neutral proof for the token layer and the colour codemod (V2-06 plan 06-01a steps 7-8).
  *
  *   node scripts/design/neutral-diff.mjs capture --label before|after [--project design-360 ...]
- *     writes test-results/design/neutral/label.json, then runs tests/e2e/design/neutral/capture.spec.ts on the
+ *     writes design-captures/neutral/label.json, then runs tests/e2e/design/neutral/capture.spec.ts on the
  *     design-* projects (default: all four) against the current e2e build (`npm run e2e:build` first).
  *   node scripts/design/neutral-diff.mjs compare --before before --after after --out <file> [--max-ratio 0.005]
  *       [--threshold 8] [--note <file.json>]
@@ -21,7 +21,7 @@ import { chromium } from "@playwright/test";
 import { DEFAULT_CHANNEL_THRESHOLD, diffPngs, openDiffPage } from "./png-diff.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const NEUTRAL_DIR = join(ROOT, "test-results/design/neutral");
+const NEUTRAL_DIR = join(ROOT, "design-captures/neutral");
 const PROJECTS = ["design-360", "design-820", "design-1180", "design-1280"];
 
 function usage(message) {
@@ -90,7 +90,7 @@ async function compare(args) {
   const a = screensOf(join(NEUTRAL_DIR, before));
   const b = screensOf(join(NEUTRAL_DIR, after));
   const keys = [...new Set([...a.keys(), ...b.keys()])].sort();
-  if (keys.length === 0) usage(`no PNGs under test-results/design/neutral/${before} or /${after}`);
+  if (keys.length === 0) usage(`no PNGs under design-captures/neutral/${before} or /${after}`);
 
   const browser = await chromium.launch();
   const { page, close } = await openDiffPage(browser);
