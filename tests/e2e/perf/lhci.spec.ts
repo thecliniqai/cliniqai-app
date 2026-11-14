@@ -28,6 +28,8 @@ import {
   readBaseConfig,
   scrubReportDir,
   secretsOf,
+  lhciFailureMessage,
+  redactToolOutput,
 } from "../../../scripts/perf/lhci-config.mjs";
 
 const { isLoopbackHost } = createRequire(__filename)("../../setup/loopback.cjs") as {
@@ -66,7 +68,8 @@ function minimalEnv(): NodeJS.ProcessEnv {
   return env as NodeJS.ProcessEnv;
 }
 
-function lhci(args: string[], cwd: string): string {
+/** Runs `lhci`; its output (returned or thrown) never carries a secret (06-09a C L-3). */
+function lhci(args: string[], cwd: string, secrets: readonly string[]): string {
   const r = spawnSync(process.execPath, [LHCI_CLI, ...args], {
     cwd,
     env: minimalEnv(),
@@ -76,9 +79,9 @@ function lhci(args: string[], cwd: string): string {
   });
   const output = `${r.stdout ?? ""}${r.stderr ?? ""}`;
   if (r.error || r.status !== 0) {
-    throw new Error(`lhci ${args[0]} failed (status ${r.status}${r.error ? `, ${r.error.message}` : ""}):\n${output}`);
+    throw new Error(lhciFailureMessage(args[0], r.status, output, [...secrets], r.error?.message ?? null));
   }
-  return output;
+  return redactToolOutput(output, [...secrets]);
 }
 
 function roleCookieHeader(role: E2eRole): string {
@@ -129,11 +132,11 @@ test("Lighthouse CI on Login, Today, Patients and Consult (report-only)", async 
       configFile = path.join(workDir, `lighthouserc.${group.name}.json`);
       fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
       // The first collect clears .lighthouseci/; the next ones add to it.
-      lhci(["collect", `--config=${configFile}`, ...(i > 0 ? ["--additive"] : [])], workDir);
+      lhci(["collect", `--config=${configFile}`, ...(i > 0 ? ["--additive"] : [])], workDir, secrets);
     }
     // Every assertion is `warn`, so `assert` exits 0 whatever the scores; a non-zero exit is a tool error.
-    const assertOutput = lhci(["assert", `--config=${configFile}`], workDir);
-    lhci(["upload", `--config=${configFile}`], workDir);
+    const assertOutput = lhci(["assert", `--config=${configFile}`], workDir, secrets);
+    lhci(["upload", `--config=${configFile}`], workDir, secrets);
     fs.copyFileSync(path.join(workDir, ".lighthouseci/assertion-results.json"), path.join(OUT_DIR, "assertion-results.json"));
     await testInfo.attach("lhci-assert.txt", { body: assertOutput, contentType: "text/plain" });
   } finally {

@@ -18,6 +18,8 @@ import {
   scrubLhr,
   scrubReportDir,
   secretsOf,
+  lhciFailureMessage,
+  redactToolOutput,
 } from "../../scripts/perf/lhci-config.mjs";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -152,5 +154,24 @@ describe("report scrub", () => {
     const json = /window\.__LIGHTHOUSE_JSON__ = ([\s\S]*?);<\/script>/.exec(html)![1];
     expect(JSON.parse(json).configSettings).toEqual({ formFactor: "mobile" });
     expect(html).toContain(`<p>${REDACTED}</p>`);
+  });
+});
+
+describe("tool output scrub (06-09a C L-3)", () => {
+  const header = "sb-127-auth-token=base64-eyJzeW50aGV0aWMiOiJ0b2tlbi12YWx1ZSJ9; clinic_active_tenant=00000000-0000-4000-8000-000000000000";
+  const secrets = secretsOf(header);
+
+  it("a failed lhci run's message carries no cookie value, the whole header or a value copied by Lighthouse", () => {
+    const output = `Runtime error: the page at /patients sent ${header}\nlhr head: {"cookie":"${secrets[1]}"}\n`;
+    const message = lhciFailureMessage("collect", 1, output, secrets, `spawn failed near ${secrets[2]}`);
+    for (const secret of secrets) expect(message).not.toContain(secret);
+    expect(message).toContain(REDACTED);
+    expect(message).toMatch(/^lhci collect failed \(status 1, spawn failed near /);
+  });
+
+  it("returned output (the lhci-assert.txt attachment) is redacted too; text without secrets is unchanged", () => {
+    expect(redactToolOutput(`ok ${secrets[1]} done`, secrets)).toBe(`ok ${REDACTED} done`);
+    expect(redactToolOutput("Done running Lighthouse!", secrets)).toBe("Done running Lighthouse!");
+    expect(redactToolOutput(undefined, secrets)).toBe("");
   });
 });

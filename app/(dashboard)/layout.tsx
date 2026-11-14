@@ -7,6 +7,18 @@ import { ClinicTimeZoneProvider } from "@/lib/datetime/client";
 import { PwaRuntime } from "@/components/shell/pwa-runtime";
 import { serverEnv } from "@/lib/env-server";
 
+/**
+ * V2-06 06-05: the worker never registers under `next dev`. 06-09a (IND L-5): an environment the schema refuses makes
+ * `serverEnv()` throw; that must cost only the worker, not every dashboard page (as for every other Wave A caller).
+ */
+function serviceWorkerEnabled(): boolean {
+  try {
+    return serverEnv().APP_ENV !== "development";
+  } catch {
+    return false;
+  }
+}
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -46,7 +58,7 @@ export default async function DashboardLayout({
   // registers the worker (its chunks are not content-hashed, so caching them would serve stale code).
   return (
     <ClinicTimeZoneProvider timeZone={resolveTimeZone(tenant?.timezone)}>
-      <PwaRuntime swEnabled={serverEnv().APP_ENV !== "development"} />
+      <PwaRuntime swEnabled={serviceWorkerEnabled()} />
       <AppLayoutShell
         tenantName={tenant?.name || "Clinic"}
         role={membership.role}

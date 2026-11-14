@@ -107,6 +107,32 @@ function redactValue(value, secrets) {
   return out;
 }
 
+/**
+ * The text of an `lhci` command's stdout/stderr with every secret replaced (V2-06 06-09a C L-3). On a Lighthouse failure
+ * `@lhci/cli` prints the head of the LHR and Lighthouse's stderr; that text goes into the thrown error, the job log and
+ * the Playwright report, none of which pass through `scrubReportFile`, so it is redacted before it leaves `lhci()`.
+ */
+/**
+ * @param {unknown} text
+ * @param {string[]} [secrets]
+ */
+export function redactToolOutput(text, secrets = []) {
+  return redactValue(String(text ?? ""), secrets);
+}
+
+/**
+ * The error message for a failed `lhci <command>` run: status and the redacted output, nothing else.
+ * @param {string} command
+ * @param {number | null} status
+ * @param {string} output
+ * @param {string[]} [secrets]
+ * @param {string | null} [spawnError]
+ */
+export function lhciFailureMessage(command, status, output, secrets = [], spawnError = null) {
+  const detail = spawnError ? `, ${redactToolOutput(spawnError, secrets)}` : "";
+  return `lhci ${command} failed (status ${status}${detail}):\n${redactToolOutput(output, secrets)}`;
+}
+
 /** Returns a scrubbed deep copy of a Lighthouse result (or any JSON value). */
 export function scrubLhr(value, secrets = []) {
   if (typeof value === "string") return redactValue(value, secrets);

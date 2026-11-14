@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { withPageAuth } from "@/lib/auth/page";
 
 export const metadata = {
-  title: "Developer Settings | ClinicQ",
+  title: "Developer Settings",
   description: "Manage tenant API keys, outgoing webhook subscriptions, and developer integrations.",
 };
 
