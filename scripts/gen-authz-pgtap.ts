@@ -3,7 +3,9 @@
  *
  * Reads the single source `tests/authz/table-matrix.ts` and writes, deterministically (fixed order, no timestamps):
  *   - supabase/tests/database/authz_matrix.test.sql       one pgTAP cell per principal x target x operation;
- *   - supabase/tests/database/authz_completeness.test.sql the catalogue equals the matrix's targets (`set_eq`);
+ *   - supabase/tests/database/authz_completeness.test.sql the catalogue equals the matrix's targets (`set_eq`), no
+ *     policy calls a legacy membership helper, and every public table grants `anon`/`authenticated` exactly the
+ *     privileges its matrix row needs (05-02c grants hardening);
  *   - .planning/phases/05-db-authorisation-entitlements/AUTHZ-MATRIX.md  the human-readable grid.
  * `--check` compares instead of writing (exit 1 on a difference); tests/authz/generator-drift.spec.ts does the same.
  *
@@ -17,8 +19,9 @@
  * `\ir` (research A7) and no psql meta-command at all (the restore drill feeds the file to a restricted psql).
  *
  * The expected outcome is computed here from the rule, the principal and PostgreSQL's evaluation order: no privilege
- * -> denied (UPDATE/DELETE also read the key columns, so they need SELECT); `anon` matches no policy (every policy is
- * `TO authenticated`); UPDATE/DELETE see only rows the SELECT rule admits.
+ * -> denied (UPDATE/DELETE also read the key columns, so they need SELECT); `anon` holds no table privilege in `public`
+ * (05-02c) and matches no storage policy (every policy is `TO authenticated`); UPDATE/DELETE see only rows the SELECT
+ * rule admits.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -46,8 +49,7 @@ export const MATRIX_SQL = "supabase/tests/database/authz_matrix.test.sql";
 export const COMPLETENESS_SQL = "supabase/tests/database/authz_completeness.test.sql";
 export const MATRIX_MD = ".planning/phases/05-db-authorisation-entitlements/AUTHZ-MATRIX.md";
 
-/** `error:22P02`: only a storage target's `legacyCastError` (BACKEND C9, transitional until 05-02c). */
-export type Outcome = "1" | "0" | "ok" | "denied" | "error:22P02";
+export type Outcome = "1" | "0" | "ok" | "denied";
 
 const OP_LETTER: Record<Op, string> = { select: "S", insert: "I", update: "U", delete: "D" };
 
@@ -101,15 +103,9 @@ export function admits(rule: Rule, p: Principal, t: Target, row: Row): boolean {
       return p.userId !== null && (row[rule.column] === q(p.userId) || row[rule.column] === "auth.uid()");
     case "ownVisit":
       return p.userId !== null && visitDoctorOf(row, rule.via) === q(p.userId);
-    case "legacy_member":
     case "member": {
       const tenant = rowTenant(t, row, rule.tenantColumn);
       return tenant !== null && p.memberships[tenant] !== undefined;
-    }
-    case "legacy_owner_admin": {
-      const tenant = rowTenant(t, row, rule.tenantColumn);
-      const role = tenant ? p.memberships[tenant] : undefined;
-      return role === "owner" || role === "admin";
     }
     case "billing": {
       const tenant = rowTenant(t, row, rule.tenantColumn);
@@ -128,36 +124,38 @@ export function admits(rule: Rule, p: Principal, t: Target, row: Row): boolean {
   }
 }
 
+/**
+ * Whether the principal's database role holds the operation's privilege. Tables (05-02c grants hardening): `anon`
+ * holds none; `authenticated` holds exactly the operations whose rule is neither `rpc_only` nor `none`. Storage:
+ * Supabase's `storage.objects` grants stay, policies decide.
+ */
 function holdsPrivilege(t: Target, op: Op, p: Principal): boolean {
-  if (t.rules[op].kind === "rpc_only") return false;
-  if (p.dbRole === "anon" && t.kind === "table" && t.anon !== undefined) return t.anon.includes(OP_LETTER[op]);
-  return true;
+  if (t.kind === "table") return p.dbRole === "authenticated" && tableGrants(t).includes(op);
+  return t.rules[op].kind !== "rpc_only";
+}
+
+/** The operations `authenticated` holds a privilege for on a table target (table or column level). */
+export function tableGrants(t: TableTarget): Op[] {
+  return OPS.filter((op) => t.rules[op].kind !== "rpc_only" && t.rules[op].kind !== "none");
 }
 
 function fixtureRow(t: Target): Row {
-  return t.kind === "table" ? t.fixture : {};
+  return t.kind === "table" ? t.fixture : (t.row ?? {});
 }
 
 function insertRow(t: Target): Row {
-  return t.kind === "table" ? t.insert : {};
+  return t.kind === "table" ? t.insert : (t.insertRow ?? {});
 }
 
 export function expectedOutcome(t: Target, op: Op, p: Principal): Outcome {
   if (!holdsPrivilege(t, op, p)) return "denied";
   if ((op === "update" || op === "delete") && !holdsPrivilege(t, "select", p)) return "denied";
   if (p.dbRole === "anon") return op === "insert" ? "denied" : "0";
-  // The C9 cast runs whenever the caller's policy is evaluated and the `tenants/` branch fails.
-  const castError = t.kind === "storage" && t.legacyCastError === true;
-  if (op === "insert") {
-    if (admits(t.rules.insert, p, t, insertRow(t))) return "ok";
-    return castError ? "error:22P02" : "denied";
-  }
+  if (op === "insert") return admits(t.rules.insert, p, t, insertRow(t)) ? "ok" : "denied";
   const row = fixtureRow(t);
   const visible = admits(t.rules.select, p, t, row);
-  if (!visible && castError) return "error:22P02";
   if (op === "select") return visible ? "1" : "0";
-  if (visible && admits(t.rules[op], p, t, row)) return "1";
-  return castError && t.rules[op].kind !== "none" ? "error:22P02" : "0";
+  return visible && admits(t.rules[op], p, t, row) ? "1" : "0";
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -361,11 +359,16 @@ export function completenessSql(): string {
   const buckets = [...new Set(TARGETS.flatMap((t) => (t.kind === "storage" ? [t.bucket] : [])))].sort();
   const arr = (xs: string[]) => `array[${xs.map((x) => `'${x}'`).join(", ")}]::text[]`;
   const notExtension = `not exists (select 1 from pg_depend d where d.classid = 'pg_class'::regclass and d.objid = c.oid and d.deptype = 'e')`;
+  const PRIV: Record<Op, string> = { select: "SELECT", insert: "INSERT", update: "UPDATE", delete: "DELETE" };
+  const grants = tables
+    .filter((t) => t.schema === "public")
+    .flatMap((t) => tableGrants(t).map((op) => `${t.table}:authenticated:${PRIV[op]}`))
+    .sort();
   return (
     [
       HEADER("The live catalogue equals the matrix's targets (acceptance 1: 100% of tenant tables)."),
       "begin;",
-      "select plan(4);",
+      "select plan(6);",
       "",
       "select set_eq(",
       "  $$ select c.relname::text from pg_class c join pg_namespace n on n.oid = c.relnamespace",
@@ -395,6 +398,28 @@ export function completenessSql(): string {
       "  'RLS is enabled on every public table'",
       ");",
       "",
+      "-- 05-02c: every policy is on the bound authz helpers; none calls a legacy \"any membership\" helper.",
+      "select is_empty(",
+      "  $$ select p.schemaname || '.' || p.tablename || '.' || p.policyname from pg_policies p",
+      "      where p.schemaname in ('public', 'storage')",
+      "        and coalesce(p.qual, '') || ' ' || coalesce(p.with_check, '') ~ '(current_user_tenant_ids|current_user_has_role|current_user_is_admin_or_owner)' $$,",
+      "  'no policy in public or storage references current_user_tenant_ids, current_user_has_role or current_user_is_admin_or_owner'",
+      ");",
+      "",
+      "-- 05-02c grants hardening (T-05-13): anon holds nothing; authenticated holds exactly what a rule admits (table or",
+      "-- column level; DELETE is table level only).",
+      "select set_eq(",
+      "  $$ select c.relname::text || ':' || r.rolname || ':' || pr.priv",
+      "       from pg_class c join pg_namespace n on n.oid = c.relnamespace",
+      "      cross join (values ('anon'), ('authenticated')) r(rolname)",
+      "      cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) pr(priv)",
+      `      where n.nspname = 'public' and c.relkind in ('r', 'p') and ${notExtension}`,
+      "        and case when pr.priv = 'DELETE' then has_table_privilege(r.rolname, c.oid, pr.priv)",
+      "                 else has_any_column_privilege(r.rolname, c.oid, pr.priv) end $$,",
+      `  ${arr(grants)},`,
+      "  'every public table grants anon nothing and authenticated exactly the operations its matrix row needs'",
+      ");",
+      "",
       "select * from finish();",
       "rollback;",
     ].join("\n") + "\n"
@@ -420,15 +445,13 @@ export function ruleText(rule: Rule): string {
     case "member":
     case "billing":
     case "full":
-    case "legacy_member":
-    case "legacy_owner_admin":
       return `${rule.kind}${rule.tenantColumn ? `(@${rule.tenantColumn})` : ""}`;
     default:
       return rule.kind;
   }
 }
 
-const SYMBOL: Record<Outcome, string> = { "1": "Y", ok: "Y", "0": "-", denied: "X", "error:22P02": "E" };
+const SYMBOL: Record<Outcome, string> = { "1": "Y", ok: "Y", "0": "-", denied: "X" };
 
 export function matrixMd(): string {
   const lines: string[] = [];
@@ -441,15 +464,12 @@ export function matrixMd(): string {
   lines.push("`supabase/tests/database/authz_matrix.test.sql`, run against a synthetic tenant-A row.");
   lines.push("");
   lines.push("Legend: `Y` admitted (row visible / inserted / affected) · `-` filtered by RLS (0 rows) · `X` refused with 42501");
-  lines.push("(no privilege, RLS WITH CHECK or a guard trigger) · `E` 22P02 from the legacy storage-key cast (BACKEND C9, no access;");
-  lines.push("fixed in 05-02c).");
+  lines.push("(no privilege, RLS WITH CHECK or a guard trigger).");
   lines.push("");
-  lines.push(
-    "`legacy_member` / `legacy_owner_admin` are today's tenant-only policies (any membership, the active clinic ignored);",
-  );
-  lines.push("05-02b/05-02c move every table to its target rule and delete both kinds. The DELETE rows are final since 05-04;");
-  lines.push("the clinical, front-desk and financial tables are on their target rules since 05-02b. `ownVisit`: the row's visit");
-  lines.push("(or its invoice's visit) has the caller as doctor (Sign & Bill, R-7).");
+  lines.push("Every table and storage class is on its target rule (05-02b clinical/front-desk/financial, 05-02c admin/system,");
+  lines.push("storage and grants, 05-04 DELETE); no rule is a legacy \"any membership\" rule. `rpc_only`: the privilege is not");
+  lines.push("granted to `anon`/`authenticated` (05-02c grants hardening). `ownVisit`: the row's visit (or its invoice's visit) has");
+  lines.push("the caller as doctor (Sign & Bill, R-7).");
   lines.push("");
   lines.push("Principals:");
   lines.push("");

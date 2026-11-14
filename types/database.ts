@@ -2719,6 +2719,16 @@ export type Database = {
         };
         Returns: undefined;
       };
+      log_audit: {
+        Args: {
+          p_action: string;
+          p_entity_id: string;
+          p_entity_type: string;
+          p_metadata: Json;
+          p_tenant: string;
+        };
+        Returns: number;
+      };
       normalize_indian_phone_e164: {
         Args: { raw_phone: string };
         Returns: string;

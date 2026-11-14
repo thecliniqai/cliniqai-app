@@ -178,13 +178,15 @@ describe("Cross-Tenant Security Proof & Operational Hardening (REQ-multi-tenancy
     });
 
     it("proves Tenant A cannot DELETE Tenant B's patient record", async () => {
-      const { data } = await ecosystem.tenantA.owner.client
+      const { data, error } = await ecosystem.tenantA.owner.client
         .from("patients")
         .delete()
         .eq("id", ecosystem.tenantB.patientId)
         .select();
 
-      expect(data).toHaveLength(0);
+      // No member deletes a patient (05-04); since V2-05 05-02c the DELETE privilege itself is revoked (42501).
+      expect(error?.code).toBe("42501");
+      expect(data).toBeNull();
 
       // Verify row still exists via admin client
       const { data: stillExisting } = await admin

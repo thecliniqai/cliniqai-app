@@ -160,8 +160,9 @@ describe("01-09 review round 2 fixes (000022)", () => {
         `tenants/${A.owner.tenantId}/patients/${A.patientId}//x.pdf`,
         `tenants/${A.owner.tenantId}/patients/${A.patientId}/`,
       ]) {
+        // The attacker holds labs:edit (since V2-05 05-02c the patient_documents rule; the receptionist no longer does).
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (A.receptionist.client.from("patient_documents") as any)
+        const { error } = await (A.doctor.client.from("patient_documents") as any)
           .update({ storage_path })
           .eq("id", A.documentId);
         expect(error?.code, storage_path).toBe("23514");
@@ -170,7 +171,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
       expect((data as { storage_path: string }).storage_path).toBe(A.documentPath);
 
       // Nothing the attacker can mint signs B's object.
-      const token = await mint(A.receptionist.client as SupabaseClient, "patient_document", A.documentId);
+      const token = await mint(A.doctor.client as SupabaseClient, "patient_document", A.documentId);
       const res = await docGet(token, "?download=true");
       expect(decodeURIComponent(res.headers.get("location") ?? "")).not.toContain(B.owner.tenantId);
     });
@@ -241,9 +242,15 @@ describe("01-09 review round 2 fixes (000022)", () => {
       const token = await mint(A.doctor.client as SupabaseClient, "prescription", A.prescriptionId);
       expect(token).toMatch(/^[0-9a-f]{64}$/);
 
-      // Every column of every token row a receptionist can see: the raw token appears nowhere.
+      // Since V2-05 05-02c a member reads token rows by resource type (a prescription link: prescriptions:view).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: rows, error } = await (A.receptionist.client.from("document_share_tokens") as any).select("*");
+      const desk = await (A.receptionist.client.from("document_share_tokens") as any).select("token_hash");
+      expect(desk.error).toBeNull();
+      expect((desk.data ?? []).filter((r: { token_hash: string }) => r.token_hash === shareTokenHash(token))).toEqual([]);
+
+      // Every column of every token row the doctor can see: the raw token appears nowhere.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: rows, error } = await (A.doctor.client.from("document_share_tokens") as any).select("*");
       expect(error).toBeNull();
       const mine = (rows ?? []).filter((r: { token_hash: string }) => r.token_hash === shareTokenHash(token));
       expect(mine).toHaveLength(1);
@@ -253,7 +260,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
 
       // The raw column is gone, for members and for the service role.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const raw = await (A.receptionist.client.from("document_share_tokens") as any).select("token").limit(1);
+      const raw = await (A.doctor.client.from("document_share_tokens") as any).select("token").limit(1);
       expect(raw.error?.code).toBe("42703");
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rawAdmin = await (admin.from("document_share_tokens") as any).select("token").limit(1);

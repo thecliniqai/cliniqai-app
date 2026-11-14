@@ -106,11 +106,11 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/consultation/actions.ts#reopenVisitForAmendment": "consultations:edit",
   "features/consultation/actions.ts#saveConsultationDraft": "consultations:edit",
   "features/labs/actions.ts#deleteLabDocument": "labs:edit",
-  "features/labs/actions.ts#generateDocumentShareToken": "patients:view",
-  "features/labs/actions.ts#getDocumentSignedUrl": "patients:view",
-  "features/labs/actions.ts#getPatientDocuments": "patients:view",
-  "features/labs/actions.ts#shareLabReportViaWhatsApp": "patients:view",
-  "features/labs/actions.ts#uploadLabDocument": "patients:edit",
+  "features/labs/actions.ts#generateDocumentShareToken": "labs:view",
+  "features/labs/actions.ts#getDocumentSignedUrl": "labs:view",
+  "features/labs/actions.ts#getPatientDocuments": "labs:view",
+  "features/labs/actions.ts#shareLabReportViaWhatsApp": "labs:view",
+  "features/labs/actions.ts#uploadLabDocument": "labs:edit",
   "features/notifications/actions.ts#getInAppNotifications":
     { member: "Every member reads their own in-app notifications (recipient-scoped)." },
   "features/notifications/actions.ts#getUnreadNotificationCount":

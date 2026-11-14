@@ -11,7 +11,7 @@ import { uploadFile, getSignedUrl, deleteFile, getStorageProviderForDb } from "@
 import { isPatientStoragePath } from "@/lib/storage/tenant-path";
 import { uploadLabDocumentSchema, generateShareTokenSchema } from "./schema";
 import { LabDocumentItem, ShareTokenResult, DeleteLabDocumentResult } from "./types";
-import { formatAmendedFilename } from "./utils";
+import { formatAmendedFilename, labStorageKey } from "./utils";
 import { enqueueMessage, enqueueWebhookEvent } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -34,7 +34,8 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "patients:edit");
+    // labs:edit: the key of the patient_documents and lab-storage rules (V2-05 05-02c; before: patients:edit).
+    assertPerm(ctx.role, "labs:edit");
     const session = ctx;
 
     // 1. Extract and validate file
@@ -82,10 +83,10 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
 
     const { patient_id, visit_id, title, document_type, report_date, notes, is_abnormal } = parseResult.data;
 
-    // 3. Fetch patient name for filename auto-amendment
+    // 3. The patient must be this clinic's
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: patient, error: patientErr } = await (supabase.from("patients") as any)
-      .select("full_name")
+      .select("id")
       .eq("id", patient_id)
       .eq("tenant_id", session.tenantId)
       .single();
@@ -99,9 +100,11 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
       return { success: false, error: FOREIGN_REFERENCE_MESSAGE };
     }
 
-    // 4. Compute amended filename & storage path
-    const amendedFilename = formatAmendedFilename(patient.full_name, file.name, report_date);
-    const storagePath = `tenants/${session.tenantId}/patients/${patient_id}/labs/${amendedFilename}`;
+    // 4. Storage key of ids only (R-45, T-05-41): the document's own id names the object, so the key, the signed-URL path,
+    // the audit row and the logs never carry the patient's name, and two uploads never share a key. The readable name
+    // (formatAmendedFilename) is computed only when a download URL is signed.
+    const documentId = crypto.randomUUID();
+    const storagePath = labStorageKey(session.tenantId, patient_id, documentId, file.name);
 
     // 5. Read buffer and upload via unified storage abstraction
     const arrayBuffer = await file.arrayBuffer();
@@ -115,7 +118,8 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
         buffer,
         contentType: file.type,
         bucket: "clinic-records",
-        upsert: true,
+        // Never replace an earlier report (before 05-02c a same-name, same-date upload overwrote it).
+        upsert: false,
       },
       storageProvider
     );
@@ -124,6 +128,7 @@ export async function uploadLabDocument(ctx: ServiceContext, formData: FormData)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: newDoc, error: insertErr } = await (supabase.from("patient_documents") as any)
       .insert({
+        id: documentId,
         tenant_id: session.tenantId,
         patient_id,
         visit_id: visit_id || null,
@@ -187,7 +192,7 @@ export async function getPatientDocuments(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "patients:view");
+    assertPerm(ctx.role, "labs:view");
     const session = ctx;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -229,12 +234,12 @@ export async function getDocumentSignedUrl(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "patients:view");
+    assertPerm(ctx.role, "labs:view");
     const session = ctx;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: doc, error } = await (supabase.from("patient_documents") as any)
-      .select("storage_path, original_filename, patient_id")
+      .select("storage_path, original_filename, patient_id, report_date, patient:patients(full_name)")
       .eq("id", documentId)
       .eq("tenant_id", session.tenantId)
       .single();
@@ -255,7 +260,8 @@ export async function getDocumentSignedUrl(
         path: doc.storage_path,
         bucket: "clinic-records",
         expiresInSeconds: 3600,
-        downloadFilename: doc.original_filename,
+        // The readable name (R-45) is only the download name; the key holds ids only.
+        downloadFilename: formatAmendedFilename(doc.patient?.full_name ?? "Patient", doc.original_filename, doc.report_date),
       },
       storageProvider
     );
@@ -277,7 +283,7 @@ export async function generateDocumentShareToken(ctx: ServiceContext, documentId
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "patients:view");
+    assertPerm(ctx.role, "labs:view");
     const session = ctx;
 
     const parseResult = generateShareTokenSchema.safeParse({ document_id: documentId });
@@ -402,7 +408,7 @@ export async function deleteLabDocument(ctx: ServiceContext, documentId: string)
       metadata: {
         patient_id: doc.patient_id,
         title: doc.title,
-        // No storage_path: the key embeds the patient's name (AR2-L5, as AR-L5 for the v1 lab-order audit).
+        // No storage_path: legacy keys (before 05-02c, R-45) embed the patient's name (AR2-L5).
       },
     });
 
@@ -427,7 +433,7 @@ export async function shareLabReportViaWhatsApp(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "patients:view");
+    assertPerm(ctx.role, "labs:view");
     const session = ctx;
 
     // 1. Fetch document record joined with patient and tenant

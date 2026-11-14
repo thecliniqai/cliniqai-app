@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/db/types";
+import type { Database, Json } from "@/lib/db/types";
 import type { ServiceContext } from "@/lib/auth/context";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -159,16 +159,23 @@ function filterMetadata(metadata?: Record<string, unknown>): Record<string, unkn
 
 type AuditMembership = { userId: string; tenantId: string; role?: string };
 
-async function insertAuditRow(
+async function failAudit(tenantId: string, error: unknown): Promise<never> {
+  log.error({ event: "audit.record.failed", code: errorTag(error), requestId: await getRequestId(), tenantId });
+  // Mandatory audit guarantee: fail the transaction/action if audit cannot be recorded
+  throw new Error("Audit log recording failed. Action was aborted to preserve compliance trail.");
+}
+
+/**
+ * API-key path (V2-03 03-04): `db` is the `getSystemDb("api_v1")` client, which keeps INSERT on `audit_logs`; the row
+ * names the key and the key's acting member.
+ */
+async function insertApiKeyAuditRow(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<Database, any, any>,
   membership: AuditMembership,
-  actorType: "user" | "api_key",
   apiKeyId: string | null,
   params: RecordAuditParams
 ): Promise<void> {
-  const safeMetadata = filterMetadata(params.metadata);
-
   const { error } = await (
     supabase.from("audit_logs") as unknown as {
       insert: (row: Record<string, unknown>) => Promise<{ error: { message: string } | null }>;
@@ -177,19 +184,36 @@ async function insertAuditRow(
     tenant_id: membership.tenantId,
     actor_id: membership.userId,
     actor_role: membership.role || "owner",
-    actor_type: actorType,
+    actor_type: "api_key",
     api_key_id: apiKeyId,
     action: params.action,
     entity_type: params.entityType,
     entity_id: params.entityId || null,
-    metadata: safeMetadata,
+    metadata: filterMetadata(params.metadata),
   });
+  if (error) await failAudit(membership.tenantId, error);
+}
 
-  if (error) {
-    log.error({ event: "audit.record.failed", code: errorTag(error), requestId: await getRequestId(), tenantId: membership.tenantId });
-    // Mandatory audit guarantee: fail the transaction/action if audit cannot be recorded
-    throw new Error("Audit log recording failed. Action was aborted to preserve compliance trail.");
-  }
+/**
+ * User path (V2-05 05-02c, R-20, T-05-12): `public.log_audit` on the caller's JWT client. A user can no longer insert
+ * into `audit_logs` (INSERT revoked); the database takes the actor and role from the session and refuses a tenant that
+ * is not the session's active clinic, so nothing here can name another actor.
+ */
+async function logUserAudit(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<Database, any, any>,
+  tenantId: string,
+  params: RecordAuditParams
+): Promise<void> {
+  const { error } = await supabase.rpc("log_audit", {
+    p_tenant: tenantId,
+    p_action: params.action,
+    p_entity_type: params.entityType,
+    // The generated type marks every argument non-null; SQL accepts NULL for an action without an entity or metadata.
+    p_entity_id: (params.entityId || null) as unknown as string,
+    p_metadata: filterMetadata(params.metadata) as unknown as Json,
+  });
+  if (error) await failAudit(tenantId, error);
 }
 
 /**
@@ -202,11 +226,9 @@ export async function recordAudit(
   ctx: Pick<ServiceContext, "userId" | "tenantId" | "role" | "actorType" | "apiKeyId" | "db">,
   params: RecordAuditParams
 ): Promise<void> {
-  await insertAuditRow(
-    ctx.db,
-    { userId: ctx.userId, tenantId: ctx.tenantId, role: ctx.role },
-    ctx.actorType,
-    ctx.actorType === "api_key" ? ctx.apiKeyId ?? null : null,
-    params
-  );
+  if (ctx.actorType === "api_key") {
+    await insertApiKeyAuditRow(ctx.db, { userId: ctx.userId, tenantId: ctx.tenantId, role: ctx.role }, ctx.apiKeyId ?? null, params);
+    return;
+  }
+  await logUserAudit(ctx.db, ctx.tenantId, params);
 }

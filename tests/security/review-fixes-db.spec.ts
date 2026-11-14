@@ -21,6 +21,7 @@ import { acknowledgeReferral, getReferralSignedUrl } from "@/features/referrals/
 import * as enqueueModule from "@/lib/jobs/enqueue";
 import { shareTokenHash } from "../helpers/share-tokens";
 import { jsonObject } from "../helpers/db";
+import { hasPerm } from "@/lib/permissions";
 
 // V2-01 plan 01-08 (review fixes, migration 000021). Local stack, real clients; the admin client only seeds rows and
 // reads results. Each case fails on the 000020 schema.
@@ -216,11 +217,31 @@ describe("01-08 review fixes (000021)", () => {
           p_resource_type: type,
           p_resource_id: resourceId(A, type),
         });
-        if (canManageShareLink(role, type)) {
+        // V2-05 05-02c: without billing:view an invoice link also needs the invoice's visit to be the caller's own
+        // (a doctor's Sign & Bill message, R-7); the fixture invoice is the owner's visit.
+        const ownVisitOnly = type === "invoice" && !hasPerm(role, "billing:view");
+        if (canManageShareLink(role, type) && !ownVisitOnly) {
           expect(error, `${role} ${type}`).toBeNull();
           expect((data as Array<{ token: string }>)[0].token).toMatch(/^[0-9a-f]{64}$/);
         } else {
           expect(error?.code, `${role} ${type}`).toBe("42501");
+        }
+        if (canManageShareLink(role, type) && ownVisitOnly) {
+          const ownVisit = await insertRow("visits", {
+            tenant_id: A.owner.tenantId,
+            patient_id: A.patient2Id,
+            doctor_id: A.members[role].userId,
+            origin_type: "walk_in",
+            created_by: A.owner.userId,
+          });
+          const ownInvoice = await insertRow("invoices", {
+            tenant_id: A.owner.tenantId,
+            visit_id: ownVisit,
+            patient_id: A.patient2Id,
+            invoice_number: `INV-SYN-${randomUUID().slice(0, 6)}`,
+          });
+          const own = await rpc(A.members[role].client, "create_share_token", { p_resource_type: type, p_resource_id: ownInvoice });
+          expect(own.error, `${role} ${type} own visit`).toBeNull();
         }
       }
     });
@@ -275,11 +296,13 @@ describe("01-08 review fixes (000021)", () => {
       expect(
         (await rpc(A.members.receptionist.client, "revoke_share_token", { p_token_id: id })).error?.code
       ).toBe("42501");
+      // Since V2-05 05-02c a prescription link follows prescriptions:view (owner, doctor): the nurse is refused too.
+      expect((await rpc(A.members.nurse.client, "revoke_share_token", { p_token_id: id })).error?.code).toBe("42501");
       expect((await tokenRowByToken(token)).revoked_at).toBeNull();
 
-      const first = await rpc(A.members.nurse.client, "revoke_share_token", { p_token_id: id });
+      const first = await rpc(A.members.doctor.client, "revoke_share_token", { p_token_id: id });
       expect(first.error).toBeNull();
-      const second = await rpc(A.members.nurse.client, "revoke_share_token", { p_token_id: id });
+      const second = await rpc(A.members.doctor.client, "revoke_share_token", { p_token_id: id });
       expect(second.error).toBeNull();
       expect(new Date(second.data as string).getTime()).toBe(new Date(first.data as string).getTime());
 
@@ -294,7 +317,7 @@ describe("01-08 review fixes (000021)", () => {
         .eq("entity_id", A.prescriptionId);
       const mine = (audits ?? []).filter((a) => jsonObject(a.metadata).token_id === id);
       expect(mine).toHaveLength(1);
-      expect(mine[0].actor_id).toBe(A.members.nurse.userId);
+      expect(mine[0].actor_id).toBe(A.members.doctor.userId);
     });
   });
 

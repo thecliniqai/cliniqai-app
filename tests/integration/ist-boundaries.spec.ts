@@ -5,6 +5,7 @@ import { ctxFor } from "../helpers/context";
 import { createVisit, getVisitsForDate } from "@/features/visits/service";
 import { checkInVisit, getQueueForDate } from "@/features/queue/service";
 import { uploadLabDocument } from "@/features/labs/service";
+import { formatAmendedFilename } from "@/features/labs/utils";
 
 // V2-03 03-05 (P1-21): the clinic day at 00:00-05:30 IST. 2026-11-12T19:00:00Z is 00:30 IST on 13 Nov while the UTC
 // date is still 12 Nov. Only `Date` is faked (timers, promises and the network run normally), and only around the
@@ -143,6 +144,8 @@ describe("IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC 
 
     if (!res.success) throw new Error(`Upload failed: ${res.error}`);
     expect(res.document.report_date).toBe("2026-11-13");
-    expect(res.document.storage_path).toContain("_2026-11-13.pdf");
+    // The date no longer travels in the storage key (ids only since V2-05 05-02c, R-45); the readable download name
+    // (formatAmendedFilename) carries the same clinic date.
+    expect(formatAmendedFilename("Synthetic", res.document.original_filename, res.document.report_date)).toMatch(/_2026-11-13\.pdf$/);
   });
 });

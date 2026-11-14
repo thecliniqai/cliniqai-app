@@ -233,7 +233,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
       expect(stored).not.toMatch(/[0-9a-f]{64}/);
     });
 
-    it("a receptionist's lab-report share still enqueues, and the runner sends it", async () => {
+    it("a nurse's lab-report share still enqueues, and the runner sends it (receptionists: no labs:view since 05-02c)", async () => {
       const documentId = await insertRow("patient_documents", {
         tenant_id: A.owner.tenantId,
         patient_id: A.patientId,
@@ -244,7 +244,10 @@ describe("01-10 review round 3 fixes (000024)", () => {
         mime_type: "application/pdf",
         uploaded_by: A.owner.userId,
       });
-      const res = await shareLabReportViaWhatsApp(ctxFor(A.members.receptionist), documentId);
+      // The least-privileged lab sharer is the nurse since V2-05 05-02c (labs:view); the receptionist is refused.
+      const refused = await shareLabReportViaWhatsApp(ctxFor(A.members.receptionist), documentId);
+      expect(refused.success).toBe(false);
+      const res = await shareLabReportViaWhatsApp(ctxFor(A.members.nurse), documentId);
       expect(res.success).toBe(true);
       const read = async () =>
         (

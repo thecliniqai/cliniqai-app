@@ -34,6 +34,7 @@ import { completeAndSignConsultation, saveConsultationDraft } from "@/features/c
 import { anonClient, letters } from "./helpers";
 import { seedPatient, type SeededPatient } from "./message-helpers";
 import { deliveriesFor, deliveryPayload, subscribe, webhookJobsFor, type Subscription } from "./webhook-helpers";
+import { signInActingIn } from "../helpers/active-tenant";
 
 let ownerA: SeededTenant;
 let adminA: SeededTenant;
@@ -177,11 +178,17 @@ describe("tenant binding (R-6 revised; 03-07 D1 finding 2)", () => {
 
   it("a member of A and B acting in A cannot raise an event about B's prescription; acting in B queues one B row", async () => {
     const rxB = await prescriptionFor(ownerB, ownerB.userId);
-    const refused = await enqueue(dual.client, ownerA.tenantId, "prescription.issued", rxB);
+    // The app's client names the active clinic (x-clinicos-tenant, R-42); since 05-02c the RPC binds p_tenant_id to it.
+    const inA = await signInActingIn(dual.userEmail, ownerA.tenantId);
+    const inB = await signInActingIn(dual.userEmail, ownerB.tenantId);
+    const refused = await enqueue(inA, ownerA.tenantId, "prescription.issued", rxB);
     expect(refused.error).toMatchObject({ code: "P0002", message: "SUBJECT_MISMATCH" });
+    // 05-02c: acting in A, naming B as the tenant is refused too (before: any membership of B passed this check).
+    const namedB = await enqueue(inA, ownerB.tenantId, "prescription.issued", rxB);
+    expect(namedB.error).toMatchObject({ code: "P0002", message: "SUBJECT_MISMATCH" });
     expect(deliveriesFor(subB.id).filter((r) => r.eventKey === `prescription.issued:${rxB}:signed`)).toEqual([]);
 
-    const allowed = await enqueue(dual.client, ownerB.tenantId, "prescription.issued", rxB);
+    const allowed = await enqueue(inB, ownerB.tenantId, "prescription.issued", rxB);
     expect(allowed.error).toBeNull();
     expect(allowed.data?.queued).toBe(1);
     const rows = deliveriesFor(subB.id).filter((r) => r.eventKey === `prescription.issued:${rxB}:signed`);

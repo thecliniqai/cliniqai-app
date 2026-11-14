@@ -231,8 +231,9 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
       .eq("id", visitA1Id)
       .select();
 
-    expect(deleteErr).toBeNull();
-    expect(deleteData).toHaveLength(0);
+    // No member deletes a visit (05-04); since V2-05 05-02c the DELETE privilege itself is revoked (42501).
+    expect(deleteErr?.code).toBe("42501");
+    expect(deleteData).toBeNull();
 
     // Verify Tenant A visit remains untouched
     const { data: originalVisit } = await admin

@@ -4,9 +4,8 @@
  * The generated pgTAP proves the database matches `tests/authz/table-matrix.ts`; these checks prove the matrix itself
  * says what the plan requires: no cell admits `anon` or another clinic's owner (cross-tenant denial; the referral
  * target is the one designed exception), `rpc_only` is denied to everyone, the active-tenant evaluator mirrors
- * `authz.active_tenant_id()`, and a dual member acting in clinic B reaches clinic-A rows ONLY through a transitional
- * `legacy_*` rule or the switcher's `member` rule, so the count of such cells falls to zero as 05-02b/05-02c move
- * tables to their target rules.
+ * `authz.active_tenant_id()`, and (05-02c, the matrix complete) a dual member acting in clinic B, or with no active
+ * clinic, reaches no clinic-A row of any table or storage class except the switcher's `tenants` read.
  */
 import { describe, expect, it } from "vitest";
 import { activeTenant, cellSql, cells, expectedOutcome, ruleText } from "../../scripts/gen-authz-pgtap";
@@ -97,69 +96,79 @@ describe("the expected outcomes", () => {
     expect(expectedOutcome(bound, "select", principal("owner_b"))).toBe("0");
   });
 
-  it("admits a dual member acting in B on clinic-A rows only through legacy_* or member rules (05-02c drives this to 0)", () => {
-    const viaOther = all
+  it("denies a dual member acting in B every clinic-A row of every table and storage class, except the switcher (R-42)", () => {
+    const leaks = all
       .filter((c) => c.principal.id === "dual_hdr_b" && admitted(c.expected))
-      .filter(
-        (c) =>
-          !kinds(c.target.rules[c.op]).some(
-            (k) => k === "legacy_member" || k === "legacy_owner_admin" || k === "member" || k === "catalogue",
-          ),
-      )
+      .filter((c) => !kinds(c.target.rules[c.op]).includes("catalogue"))
       .map((c) => `${targetName(c.target)} ${c.op}`);
-    expect(viaOther).toEqual([]);
+    expect(leaks).toEqual(["public.tenants select"]);
+  });
+
+  it("shows a dual member with no active clinic only the clinic switcher (tenants) and global reference data", () => {
+    const visible = all
+      .filter((c) => c.principal.id === "dual_no_hdr" && admitted(c.expected))
+      .filter((c) => !kinds(c.target.rules[c.op]).includes("catalogue"))
+      .map((c) => `${targetName(c.target)} ${c.op}`);
+    expect(visible).toEqual(["public.tenants select"]);
+  });
+
+  it("uses no `none` rule on a table (05-02c grants hardening: an operation no policy admits holds no privilege)", () => {
+    const withNone = TARGETS.filter((t) => t.kind === "table")
+      .flatMap((t) => OPS.filter((op) => kinds(t.rules[op]).includes("none")).map((op) => `${targetName(t)} ${op}`));
+    expect(withNone).toEqual([]);
   });
 });
 
 /**
  * The DELETE column is final since 05-04 (migration 000052 owns every DELETE policy; 05-02a/b/c change only S/I/U).
  * Each table's rule is the 05-PLAN "Target policy matrix" DELETE column; a new table must decide its DELETE here.
+ * Since 05-02c (grants hardening) "no member deletes" is `rpc_only`: the DELETE privilege itself is revoked.
  */
 const FINAL_DELETE: Record<string, string> = {
-  "public.tenants": "none",
+  "public.tenants": "rpc_only",
   "public.memberships": "rpc_only",
   "public.invitations": "rpc_only",
-  "public.patients": "none",
-  "public.visits": "none",
+  "public.patients": "rpc_only",
+  "public.visits": "rpc_only",
   "public.clinical_notes": "rpc_only",
-  "public.visit_revisions": "none",
-  "public.consultations": "none",
+  "public.visit_revisions": "rpc_only",
+  "public.consultations": "rpc_only",
   "public.consultation_diagnoses": "perm(consultations:edit)",
-  "public.prescriptions": "none",
+  "public.prescriptions": "rpc_only",
   "public.prescription_items": "perm(prescriptions:edit)",
-  "public.invoices": "none",
+  "public.invoices": "rpc_only",
   "public.invoice_items": "perm(billing:collect)",
-  "public.payments": "none",
-  "public.queue_tokens": "none",
-  "public.waitlist_entries": "none",
+  "public.payments": "rpc_only",
+  "public.queue_tokens": "rpc_only",
+  "public.waitlist_entries": "rpc_only",
   "public.schedule_blocks": "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
   "public.follow_ups": "perm(consultations:edit)",
-  "public.consent_records": "none",
+  "public.consent_records": "rpc_only",
   "public.patient_documents": "perm(labs:edit)",
   "public.document_share_tokens": "rpc_only",
-  "public.referrals": "none",
+  "public.referrals": "rpc_only",
   "public.doctor_custom_diagnoses": "perm(consultations:edit) AND self(doctor_id)",
   "public.doctor_custom_medicines": "perm(consultations:edit) AND self(doctor_id)",
   "public.doctor_prescription_templates": "perm(consultations:edit) AND self(doctor_id)",
   "public.communication_queue": "rpc_only",
   "public.in_app_notifications": "self(recipient_user_id) AND full",
-  "public.tenant_messaging_config": "none",
-  "public.audit_logs": "none",
+  "public.tenant_messaging_config": "rpc_only",
+  "public.audit_logs": "rpc_only",
   "public.api_keys": "perm(clinic:manage)",
   "public.api_key_usage_daily": "perm(clinic:manage)",
   "public.webhook_subscriptions": "perm(clinic:manage)",
   "public.webhook_delivery_queue": "rpc_only",
-  "public.subscriptions": "none",
-  "public.payment_records": "none",
-  "public.cdci_brands": "none",
-  "public.cdci_drug_forms": "none",
-  "public.cdci_generics": "none",
-  "public.cdci_medicines_search": "none",
-  "public.cdci_products": "none",
-  "public.cdci_routes": "none",
-  "public.cdci_substances": "none",
-  "public.cdci_suppliers": "none",
-  "public.opd_diagnoses": "none",
+  "public.subscriptions": "rpc_only",
+  "public.payment_records": "rpc_only",
+  "public.cdci_brands": "rpc_only",
+  "public.cdci_drug_forms": "rpc_only",
+  "public.cdci_generics": "rpc_only",
+  "public.cdci_medicines_search": "rpc_only",
+  "public.cdci_products": "rpc_only",
+  "public.cdci_routes": "rpc_only",
+  "public.cdci_substances": "rpc_only",
+  "public.cdci_suppliers": "rpc_only",
+  "public.opd_diagnoses": "rpc_only",
   "ops.jobs": "rpc_only",
   "ops.error_events": "rpc_only",
 };
@@ -170,13 +179,6 @@ describe("the DELETE column (final since 05-04)", () => {
   it("gives every table target its planned DELETE rule, and lists no table that is not a target", () => {
     const actual = Object.fromEntries(tables.map((t) => [targetName(t), ruleText(t.rules.delete)]));
     expect(actual).toEqual(FINAL_DELETE);
-  });
-
-  it("uses no transitional legacy rule for DELETE on any table", () => {
-    const legacy = tables
-      .filter((t) => kinds(t.rules.delete).some((k) => k === "legacy_member" || k === "legacy_owner_admin"))
-      .map(targetName);
-    expect(legacy).toEqual([]);
   });
 
   it("lets no member delete clinical or financial history: visits, prescriptions, invoices, payments, patients", () => {
@@ -211,7 +213,7 @@ describe("the DELETE column (final since 05-04)", () => {
  */
 const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   "public.patients": ["perm(patients:view)", "perm(patients:edit)", "perm(patients:edit)"],
-  "public.consent_records": ["perm(patients:view)", "perm(patients:edit)", "none"],
+  "public.consent_records": ["perm(patients:view)", "perm(patients:edit)", "rpc_only"],
   "public.visits": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
   "public.queue_tokens": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
   "public.waitlist_entries": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
@@ -228,7 +230,7 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   "public.communication_queue": ["perm(appointments:view)", "rpc_only", "rpc_only"],
   "public.consultation_diagnoses": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
   "public.consultations": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
-  "public.visit_revisions": ["perm(consultations:view)", "perm(consultations:edit)", "none"],
+  "public.visit_revisions": ["perm(consultations:view)", "perm(consultations:edit)", "rpc_only"],
   "public.prescriptions": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)"],
   "public.prescription_items": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)"],
   "public.doctor_custom_diagnoses": [
@@ -261,7 +263,7 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
     "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice))",
     "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice))",
   ],
-  "public.payments": ["(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))", "perm(billing:collect)", "none"],
+  "public.payments": ["(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))", "perm(billing:collect)", "rpc_only"],
 };
 
 describe("the clinical, front-desk and financial S/I/U rules (target since 05-02b)", () => {
@@ -272,7 +274,7 @@ describe("the clinical, front-desk and financial S/I/U rules (target since 05-02
     return expectedOutcome(t, op, principal(principalId));
   };
 
-  it("gives each of the 20 tables its planned SELECT / INSERT / UPDATE rule, with no legacy kind", () => {
+  it("gives each of the 20 tables its planned SELECT / INSERT / UPDATE rule", () => {
     const actual = Object.fromEntries(
       Object.keys(TARGET_SIU_05_02B).map((name) => {
         const t = byName.get(name);
@@ -281,13 +283,6 @@ describe("the clinical, front-desk and financial S/I/U rules (target since 05-02
       }),
     );
     expect(actual).toEqual(TARGET_SIU_05_02B);
-    for (const name of Object.keys(TARGET_SIU_05_02B)) {
-      const t = byName.get(name)!;
-      const legacy = (["select", "insert", "update"] as const).filter((op) =>
-        kinds(t.rules[op]).some((k) => k === "legacy_member" || k === "legacy_owner_admin"),
-      );
-      expect(legacy, name).toEqual([]);
-    }
   });
 
   it("has the plan's example cells (05-02b 'Tests that fail without the change')", () => {
@@ -311,5 +306,94 @@ describe("the clinical, front-desk and financial S/I/U rules (target since 05-02
       .filter((c) => admitted(c.expected))
       .map((c) => `${targetName(c.target)} ${c.op}`);
     expect(leaks).toEqual([]);
+  });
+});
+
+/**
+ * The admin/system tables and the storage classes are on their TARGET rules since 05-02c (000057-000061; 05-PLAN "Target
+ * policy matrix"; R-23, R-40, R-42, R-45): with them the matrix is complete.
+ */
+const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
+  "public.tenants": ["member(@id)", "rpc_only", "perm(clinic:manage @id)", "rpc_only"],
+  "public.memberships": [
+    "(self(user_id) AND member OR perm(staff:view))",
+    "rpc_only",
+    "full AND (self(user_id) OR perm(clinic:manage))",
+    "rpc_only",
+  ],
+  "public.invitations": ["perm(staff:invite)", "self(created_by) AND perm(staff:invite)", "rpc_only", "rpc_only"],
+  "public.patient_documents": ["perm(labs:view)", "perm(labs:edit)", "perm(labs:edit)", "perm(labs:edit)"],
+  "public.document_share_tokens": ["perm(labs:view)", "rpc_only", "rpc_only", "rpc_only"],
+  "public.in_app_notifications": [
+    "self(recipient_user_id) AND full",
+    "rpc_only",
+    "self(recipient_user_id) AND full",
+    "self(recipient_user_id) AND full",
+  ],
+  "public.tenant_messaging_config": ["perm(clinic:view)", "perm(clinic:manage)", "perm(clinic:manage)", "rpc_only"],
+  "public.audit_logs": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
+  "public.api_keys": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
+  "public.api_key_usage_daily": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
+  "public.webhook_subscriptions": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
+  "public.webhook_delivery_queue": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
+  "public.subscriptions": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
+  "public.payment_records": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
+  "storage:prescriptions/rx": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)", "none"],
+  "storage:prescriptions/receipt": [
+    "(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))",
+    "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice))",
+    "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice))",
+    "none",
+  ],
+  "storage:prescriptions/malformed": ["none", "none", "none", "none"],
+  "storage:clinic-records/lab": ["perm(labs:view)", "perm(labs:edit)", "perm(labs:edit)", "perm(labs:edit)"],
+  "storage:clinic-records/referral_letter": [
+    "perm(consultations:view)",
+    "perm(consultations:edit)",
+    "perm(consultations:edit)",
+    "none",
+  ],
+  "storage:clinic-records/legacy_root": ["none", "none", "none", "none"],
+  "storage:clinic-records/malformed": ["none", "none", "none", "none"],
+};
+
+describe("the admin/system tables and the storage classes (target since 05-02c)", () => {
+  const byName = new Map(TARGETS.map((t) => [targetName(t), t]));
+  const outcome = (target: string, op: "select" | "insert" | "update" | "delete", principalId: string) => {
+    const t = byName.get(target);
+    if (!t) throw new Error(`no target ${target}`);
+    return expectedOutcome(t, op, principal(principalId));
+  };
+
+  it("gives each its planned rule for every operation", () => {
+    const actual = Object.fromEntries(
+      Object.keys(TARGET_SIU_05_02C).map((name) => {
+        const t = byName.get(name);
+        if (!t) throw new Error(`no target ${name}`);
+        return [name, OPS.map((op) => ruleText(t.rules[op]))];
+      }),
+    );
+    expect(actual).toEqual(TARGET_SIU_05_02C);
+  });
+
+  it("lists every storage target here: a bucket class cannot be added without its rule", () => {
+    const storage = TARGETS.filter((t) => t.kind === "storage").map(targetName).sort();
+    expect(storage).toEqual(Object.keys(TARGET_SIU_05_02C).filter((n) => n.startsWith("storage:")).sort());
+  });
+
+  it("has the plan's example cells (05-02c 'Tests that fail without the change')", () => {
+    expect(outcome("storage:prescriptions/rx", "select", "receptionist_a")).toBe("0");
+    expect(outcome("storage:prescriptions/receipt", "select", "receptionist_a")).toBe("1");
+    expect(outcome("storage:prescriptions/receipt", "select", "doctor_a")).toBe("1");
+    expect(outcome("storage:prescriptions/receipt", "select", "doctor2_a")).toBe("0");
+    expect(outcome("storage:prescriptions/receipt", "select", "nurse_a")).toBe("0");
+    expect(outcome("storage:clinic-records/lab", "select", "receptionist_a")).toBe("0");
+    expect(outcome("storage:clinic-records/lab", "insert", "nurse_a")).toBe("ok");
+    expect(outcome("storage:prescriptions/malformed", "select", "owner_a")).toBe("0");
+    expect(outcome("public.in_app_notifications", "select", "doctor2_a")).toBe("0");
+    expect(outcome("public.in_app_notifications", "select", "doctor_a")).toBe("1");
+    expect(outcome("public.audit_logs", "insert", "owner_a")).toBe("denied");
+    expect(outcome("public.memberships", "select", "receptionist_a")).toBe("1");
+    expect(outcome("public.tenants", "select", "dual_no_hdr")).toBe("1");
   });
 });

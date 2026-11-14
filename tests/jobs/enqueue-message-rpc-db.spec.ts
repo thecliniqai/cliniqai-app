@@ -31,6 +31,7 @@ import {
 import { psql } from "../helpers/sql";
 import { anonClient, letters } from "./helpers";
 import { jobsFor, seedPatient, syntheticMobile, type SeededPatient } from "./message-helpers";
+import { signInActingIn } from "../helpers/active-tenant";
 
 let ownerA: SeededTenant;
 let receptionistA: SeededTenant;
@@ -129,14 +130,20 @@ describe("public.enqueue_message (request path)", () => {
   });
 
   it("dual-clinic member acting in A cannot enqueue for B's patient; acting in B writes one B row (03-07 finding 2)", async () => {
+    // The app's client names the active clinic (x-clinicos-tenant, R-42); since 05-02c the RPC binds p_tenant_id to it.
+    const inA = await signInActingIn(dual.userEmail, ownerA.tenantId);
+    const inB = await signInActingIn(dual.userEmail, ownerB.tenantId);
     const before = rowsFor(patientB.patientId).length;
-    const refused = await enqueue(dual.client, ownerA.tenantId, { p_patient_id: patientB.patientId });
+    const refused = await enqueue(inA, ownerA.tenantId, { p_patient_id: patientB.patientId });
     expect(refused.error).toMatchObject({ code: "P0002", message: "SUBJECT_MISMATCH" });
-    const refusedVisit = await enqueue(dual.client, ownerA.tenantId, { p_patient_id: null, p_visit_id: patientB.visitId });
+    const refusedVisit = await enqueue(inA, ownerA.tenantId, { p_patient_id: null, p_visit_id: patientB.visitId });
     expect(refusedVisit.error).toMatchObject({ code: "P0002", message: "SUBJECT_MISMATCH" });
+    // 05-02c: acting in A, naming B as the tenant is refused too (before: any membership of B passed this check).
+    const namedB = await enqueue(inA, ownerB.tenantId, { p_patient_id: patientB.patientId });
+    expect(namedB.error).toMatchObject({ code: "P0002", message: "SUBJECT_MISMATCH" });
     expect(rowsFor(patientB.patientId)).toHaveLength(before);
 
-    const allowed = await enqueue(dual.client, ownerB.tenantId, { p_patient_id: patientB.patientId });
+    const allowed = await enqueue(inB, ownerB.tenantId, { p_patient_id: patientB.patientId });
     expect(allowed.error).toBeNull();
     const rows = rowsFor(patientB.patientId);
     expect(rows).toHaveLength(before + 1);

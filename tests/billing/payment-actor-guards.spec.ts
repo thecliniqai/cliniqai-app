@@ -6,7 +6,9 @@
  *
  * - H-PAY: a direct `payments` INSERT cannot name another actor in `recorded_by` (forced to auth.uid()) and cannot
  *   carry a command id (only record_payment writes one); record_payment never replays another actor's row as its own.
- * - M-AUDITSYS: a direct `audit_logs` INSERT cannot claim the system, another user, an API key or another role.
+ * - M-AUDITSYS: a direct `audit_logs` INSERT cannot claim the system, another user, an API key or another role. Since
+ *   V2-05 05-02c (R-20) the direct INSERT is refused outright (privilege revoked) and a user's row goes through
+ *   `log_audit`, which takes the actor from the session; the 000029 guard stays behind the revoke (audit_v2.test.sql).
  * - Low: record_payment works inside a savepoint (the outbox check no longer compares xmin with the top-level xid).
  */
 import { randomUUID } from "node:crypto";
@@ -211,7 +213,7 @@ describe("Low: record_payment inside a savepoint (outbox subject check)", () => 
   });
 });
 
-describe("M-AUDITSYS: direct audit_logs INSERT through PostgREST", () => {
+describe("M-AUDITSYS: audit_logs writes through PostgREST", () => {
   async function auditRow(entityId: string) {
     const { data, error } = await admin
       .from("audit_logs")
@@ -221,7 +223,7 @@ describe("M-AUDITSYS: direct audit_logs INSERT through PostgREST", () => {
     return data ?? [];
   }
 
-  it("a nurse claiming the system (the reviewer's row) is stored as the nurse, role nurse, without system_actor", async () => {
+  it("a nurse claiming the system (the reviewer's row) is refused; through log_audit it is the nurse, without system_actor", async () => {
     const entityId = randomUUID();
     const { error } = await nurse.client.from("audit_logs").insert({
       tenant_id: owner.tenantId,
@@ -233,13 +235,22 @@ describe("M-AUDITSYS: direct audit_logs INSERT through PostgREST", () => {
       entity_id: entityId,
       metadata: { system_actor: "system:payment_webhook", invoice_id: entityId },
     });
-    expect(error).toBeNull();
+    expect(error?.code).toBe("42501");
+    expect(await auditRow(entityId)).toEqual([]);
+    const { error: rpcError } = await nurse.client.rpc("log_audit", {
+      p_tenant: owner.tenantId,
+      p_action: "invoice.payment_recorded",
+      p_entity_type: "payment",
+      p_entity_id: entityId,
+      p_metadata: { system_actor: "system:payment_webhook", invoice_id: entityId },
+    });
+    expect(rpcError).toBeNull();
     expect(await auditRow(entityId)).toEqual([
       { actor_id: nurse.userId, actor_role: "nurse", actor_type: "user", api_key_id: null, metadata: { invoice_id: entityId } },
     ]);
   });
 
-  it("a nurse naming another user, an API key and the owner role is stored as the nurse", async () => {
+  it("a nurse naming another user, an API key and the owner role is refused, and no row is written", async () => {
     const entityId = randomUUID();
     const apiKeyId = await insertReturningId(admin, "api_keys", {
       tenant_id: owner.tenantId,
@@ -258,7 +269,17 @@ describe("M-AUDITSYS: direct audit_logs INSERT through PostgREST", () => {
       entity_type: "patient",
       entity_id: entityId,
     });
-    expect(error).toBeNull();
+    expect(error?.code).toBe("42501");
+    expect(await auditRow(entityId)).toEqual([]);
+    // log_audit has no actor, role, type or key argument at all: the same write is the nurse's.
+    const { error: rpcError } = await nurse.client.rpc("log_audit", {
+      p_tenant: owner.tenantId,
+      p_action: "patient.updated",
+      p_entity_type: "patient",
+      p_entity_id: entityId,
+      p_metadata: null as unknown as Record<string, never>,
+    });
+    expect(rpcError).toBeNull();
     expect(await auditRow(entityId)).toEqual([
       { actor_id: nurse.userId, actor_role: "nurse", actor_type: "user", api_key_id: null, metadata: null },
     ]);

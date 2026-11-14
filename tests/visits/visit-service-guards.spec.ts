@@ -34,7 +34,13 @@ function recordingClient(notesRows: Array<Record<string, unknown>> = [{ visit_id
     chain.then = (resolve: (v: unknown) => unknown) => resolve(result);
     return chain;
   });
-  return { client: { from }, from, updates, inserts, orFilters };
+  // The user-path audit row is written by public.log_audit (V2-05 05-02c): recorded as an `audit_logs` write with the RPC
+  // arguments (the database takes the actor from the session; the app passes none).
+  const rpc = vi.fn((name: string, args: Record<string, unknown>) => {
+    inserts.push({ table: name === "log_audit" ? "audit_logs" : name, row: args });
+    return Promise.resolve({ data: 1, error: null });
+  });
+  return { client: { from, rpc }, from, updates, inserts, orFilters };
 }
 
 describe("recordVisitVitals: the recorder is always the session user (ADR-0005 D1, SEC-02)", () => {
@@ -61,7 +67,9 @@ describe("recordVisitVitals: the recorder is always the session user (ADR-0005 D
     expect(db.updates.filter((u) => u.table === "visits")).toEqual([]);
 
     const audit = db.inserts.find((i) => i.table === "audit_logs");
-    expect(audit?.row).toMatchObject({ actor_id: NURSE_ID, tenant_id: TENANT_ID, action: "vitals.record" });
+    expect(audit?.row).toMatchObject({ p_tenant: TENANT_ID, p_action: "vitals.record" });
+    // No caller-chosen actor reaches the database at all: log_audit has no actor argument.
+    expect(Object.keys(audit?.row ?? {}).sort()).toEqual(["p_action", "p_entity_id", "p_entity_type", "p_metadata", "p_tenant"]);
   });
 
   it("refuses, without an audit row, a vitals write that RLS filtered to 0 rows (V2-05 05-02a)", async () => {

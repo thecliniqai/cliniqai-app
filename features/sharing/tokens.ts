@@ -8,19 +8,21 @@ import { getRequestId } from "@/lib/log/request-id";
 
 /**
  * App permissions that allow minting (or revoking) a public link of each type: any one of the listed permissions.
- * Each entry is the permission the share action for that type checks. The database enforces the same rule in
- * `share_type_roles` (000021), used by `create_share_token` and `revoke_share_token`; keep the two in sync
- * (tests/security/review-fixes-db.spec.ts compares them for every role and type).
+ * Each entry is the read permission of the shared resource (its RLS key since V2-05 05-02b/05-02c). The database
+ * enforces the same rule in `share_type_roles` (000061), used by `create_share_token` and `revoke_share_token` together
+ * with the active clinic (R-42); keep the two in sync (tests/security/review-fixes-db.spec.ts compares them for every
+ * role and type). For an invoice the database also requires, without billing:view, that the invoice's visit is the
+ * caller's own (a doctor's Sign & Bill message, R-7).
  */
 export const SHARE_LINK_PERMISSIONS: Record<ShareTokenResourceType, readonly Permission[]> = {
   // sharePrescriptionViaWhatsApp, sendConsolidatedConsultationWhatsApp
-  prescription: ["consultations:view"],
-  // shareReceiptViaWhatsApp (billing:view); sendConsolidatedConsultationWhatsApp links the visit's receipt
-  invoice: ["billing:view", "consultations:view"],
+  prescription: ["prescriptions:view"],
+  // shareReceiptViaWhatsApp (billing:view); sendConsolidatedConsultationWhatsApp links the doctor's own visit's receipt
+  invoice: ["billing:view", "consultations:edit"],
   // generateDocumentShareToken, shareLabReportViaWhatsApp
-  patient_document: ["patients:view"],
+  patient_document: ["labs:view"],
   // shareReferralLetterViaWhatsApp
-  referral: ["patients:view"],
+  referral: ["consultations:view"],
   // system-issued reschedule links; revocation only
   appointment: ["appointments:edit"],
 };

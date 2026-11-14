@@ -916,74 +916,50 @@ constraint public.webhook_subscriptions.webhook_subscriptions_pkey PRIMARY KEY (
 constraint public.webhook_subscriptions.webhook_subscriptions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.webhook_subscriptions.webhook_subscriptions_tenant_id_id_key UNIQUE (tenant_id, id)
 default-privilege public S SELECT to anon
-default-privilege public S SELECT to anon
-default-privilege public S SELECT to authenticated
 default-privilege public S SELECT to authenticated
 default-privilege public S SELECT to service_role
 default-privilege public S SELECT to service_role
 default-privilege public S UPDATE to anon
-default-privilege public S UPDATE to anon
-default-privilege public S UPDATE to authenticated
 default-privilege public S UPDATE to authenticated
 default-privilege public S UPDATE to service_role
 default-privilege public S UPDATE to service_role
 default-privilege public S USAGE to anon
-default-privilege public S USAGE to anon
-default-privilege public S USAGE to authenticated
 default-privilege public S USAGE to authenticated
 default-privilege public S USAGE to service_role
 default-privilege public S USAGE to service_role
 default-privilege public f EXECUTE to anon
-default-privilege public f EXECUTE to anon
-default-privilege public f EXECUTE to authenticated
 default-privilege public f EXECUTE to authenticated
 default-privilege public f EXECUTE to service_role
 default-privilege public f EXECUTE to service_role
 default-privilege public r DELETE to anon
-default-privilege public r DELETE to anon
-default-privilege public r DELETE to authenticated
 default-privilege public r DELETE to authenticated
 default-privilege public r DELETE to service_role
 default-privilege public r DELETE to service_role
 default-privilege public r INSERT to anon
-default-privilege public r INSERT to anon
-default-privilege public r INSERT to authenticated
 default-privilege public r INSERT to authenticated
 default-privilege public r INSERT to service_role
 default-privilege public r INSERT to service_role
 default-privilege public r MAINTAIN to anon
-default-privilege public r MAINTAIN to anon
-default-privilege public r MAINTAIN to authenticated
 default-privilege public r MAINTAIN to authenticated
 default-privilege public r MAINTAIN to service_role
 default-privilege public r MAINTAIN to service_role
 default-privilege public r REFERENCES to anon
-default-privilege public r REFERENCES to anon
-default-privilege public r REFERENCES to authenticated
 default-privilege public r REFERENCES to authenticated
 default-privilege public r REFERENCES to service_role
 default-privilege public r REFERENCES to service_role
 default-privilege public r SELECT to anon
-default-privilege public r SELECT to anon
-default-privilege public r SELECT to authenticated
 default-privilege public r SELECT to authenticated
 default-privilege public r SELECT to service_role
 default-privilege public r SELECT to service_role
 default-privilege public r TRIGGER to anon
-default-privilege public r TRIGGER to anon
-default-privilege public r TRIGGER to authenticated
 default-privilege public r TRIGGER to authenticated
 default-privilege public r TRIGGER to service_role
 default-privilege public r TRIGGER to service_role
 default-privilege public r TRUNCATE to anon
-default-privilege public r TRUNCATE to anon
-default-privilege public r TRUNCATE to authenticated
 default-privilege public r TRUNCATE to authenticated
 default-privilege public r TRUNCATE to service_role
 default-privilege public r TRUNCATE to service_role
 default-privilege public r UPDATE to anon
-default-privilege public r UPDATE to anon
-default-privilege public r UPDATE to authenticated
 default-privilege public r UPDATE to authenticated
 default-privilege public r UPDATE to service_role
 default-privilege public r UPDATE to service_role
@@ -1036,51 +1012,53 @@ function ops.scrub_text(p_text text) returns text lang=plpgsql security_definer=
 function ops.utc_text(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=42079a21f3de41233494ff11a2fa1e07
 function ops.webhook_delivery_enqueue_job() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=38101db227044c6de5ea0b4884431409
 function ops.webhook_job_dead() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9adac804d193ddd2cf90f715841f6c52
-function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=335bcb17d06170df44c79181e1bc6548
+function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=398fea5d583e2a0c02e276e519b2be57
 function private.enqueue_message_internal(p_tenant_id uuid, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text, p_created_by uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f13ae355890d673b3b7a7fa235e0a32d
 function private.enqueue_webhook_internal(p_tenant_id uuid, p_event_type text, p_data jsonb, p_event_key text, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=763d49ebad50197b2e663c0d616f3020
 function private.indian_mobile_national(p_phone text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=2a5aa7a4e8b1d1466066904166db237e
+function private.log_system_audit(p_tenant uuid, p_system_actor text, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=43454c84b959bca41bce09ae79e83f95
 function private.message_params_ok(p_params jsonb, p_allowed text[], p_max integer) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=e10f676cdbfd121d4e73600b2347b949
 function private.message_subject(p_patient_id uuid, p_visit_id uuid, OUT visit_tenant uuid, OUT visit_patient uuid, OUT patient_tenant uuid) returns record lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=ebd0a35b0126da7755b4a29aa82d2881
-function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ae13b8ad5e649d4c13c4a8283f360630
+function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=c91f5ac2da43fc2875f7d2db37311254
 function private.payments_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9d07a669cf91ce75b6839f73f1d5c6b0
 function private.request_message_metadata_ok(p_metadata jsonb, p_visit_id uuid) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=374c3225f829fce968531847028b2a9c
 function private.session_age_fresh_seconds() returns integer lang=sql security_definer=f volatility=i config=search_path="" body_md5=c24ae58647ff07129cfb1f22e8a2d93d
 function private.session_age_non_mailbox_methods() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=e87c54c10462bf2088aa50f3d398b3a2
 function private.session_age_token_hook(event jsonb) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=3c2be7b2ca884766fb76799d75601c71
+function private.share_invoice_allowed(p_tenant uuid, p_invoice uuid) returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=0d7decea17a88bcad93da79e0b7cea6b
 function private.visits_create_clinical_notes() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=94f806265257f3a3c569fbef346a1a91
 function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=3f9364431c0bfd99577d1cf49f87bf8e
 function private.webhook_iso(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cf107b0b69f25a02f89ee3381aca5f4f
-function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4b9a79b32cd6254b22017731a27dde2a
+function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6cf9f926eb7b48e65b3dfe85c05df294
 function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone, claim_order integer) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4a0cbeec1199ea9027c2521a7e2f8138
 function public.clinical_notes_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=80cb453835200fd330f6a9e6eb67fd21
 function public.communication_metadata_strip_tokens(p jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=699c303067ef7c6e5ac6a23949259380
 function public.communication_payload_redact(p jsonb) returns jsonb lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=e5a03ebc6b0a124b256fe7c73d684772
 function public.communication_queue_apply_dlr(p_external_message_id text, p_status text, p_at timestamp with time zone, p_reason_code text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e24095fda52f0c8d19095845be9f31f1
-function public.communication_queue_claim(p_id uuid) returns SETOF communication_queue lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=cfadd0d157146e0bf28fbed0fe2f2fc4
+function public.communication_queue_claim(p_id uuid) returns SETOF communication_queue lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=217a49702703b64b24a2cdbd8fdfde68
 function public.communication_queue_dead_letter(p_id uuid, p_error_code text) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4ab6583a2339ddebe26d9de673ed4287
-function public.communication_queue_finish(p_id uuid, p_success boolean, p_external_message_id text, p_error text) returns TABLE(new_status text, new_retry_count integer) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=657a777fe4f467ac7b2961fa1fd2eebc
+function public.communication_queue_finish(p_id uuid, p_success boolean, p_external_message_id text, p_error text) returns TABLE(new_status text, new_retry_count integer) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=5e068d4ec4a8189aabc84b6715a404aa
 function public.communication_queue_scrub_payload() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=fb0edb07f8fe206c580ea92f55c0dda2
 function public.complete_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=5b1d8a829ebe6feb6dfdba9f9add9361
 function public.consume_invitation(p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path=public, pg_temp body_md5=ed143906c3ed3e03b9086dd400da0708
 function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6fb989b97bd42e441edb45788719d2e8
 function public.create_clinic_with_owner(p_name text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path=public, pg_temp body_md5=79edd5983ec8e22efe0672f12bb168a6
 function public.create_reschedule_token(p_visit_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=e1b7a0d65ed910109d7ac2f27d5ed901
-function public.create_share_token(p_resource_type text, p_resource_id uuid) returns TABLE(token text, expires_at timestamp with time zone) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=36f3b5e6bc8077b21c7eaf95cab93c64
-function public.current_user_has_role(p_tenant_id uuid, p_roles text[]) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=9cd0d3271680a766f9c8b92c47e06faf
-function public.current_user_is_admin_or_owner(p_tenant_id uuid) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=8d7e38bba31823c90edcebb0adf97f7e
+function public.create_share_token(p_resource_type text, p_resource_id uuid) returns TABLE(token text, expires_at timestamp with time zone) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=5a55786a2434b4ad75cf1656650f04d3
+function public.current_user_has_role(p_tenant_id uuid, p_roles text[]) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=96cfc6dc53b1a47db14ec2fe20e2a4f1
+function public.current_user_is_admin_or_owner(p_tenant_id uuid) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=4847e0b72d4d5d9b3e658638ce2ed697
 function public.current_user_tenant_ids() returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=28e76ed00248e93c3f6838260fc44d28
 function public.defer_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=588bfd998e2106774df3635ecc72a1b3
-function public.enqueue_message(p_tenant_id uuid, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6ae5848ddeb0623320aba200ed980d4f
+function public.enqueue_message(p_tenant_id uuid, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=5e04c416b7055986c2f2b5e190c7ef5a
 function public.enqueue_message_system(p_system_actor text, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4770e6d76cbf4b8e43ec30b25c7cd5ad
 function public.enqueue_unmatched_reply_system(p_system_actor text, p_to text, p_template_id text, p_dedupe_key text) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a6fedc4c763a7d5fa2ee031f41948cde
-function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_subject_id uuid, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=855d8079b5cf1e500aea6ea83d4b4177
+function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_subject_id uuid, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=3c0449ce352d6d267f1f9d9e3004e770
 function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9f64efd50a5521effcf80061d1428ae7
 function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b4be2145ebfab4c5c7a731763c7314c3
-function public.generate_daily_queue_token(p_tenant_id uuid, p_date date) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9467931a4b0b3deb66d22d51685b1d51
+function public.generate_daily_queue_token(p_tenant_id uuid, p_date date) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=15142a878438b75048d1477b4b82cada
 function public.generate_tenant_invoice_number(p_tenant_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ce8c24338edcc5187bb52527bab05206
 function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=afb9de521bf3ac8044f6e3c001869559
-function public.get_tenant_table_rls_policies() returns TABLE(table_name text, rls_enabled boolean, policy_name text, roles text[], cmd text, qual text, with_check text) lang=sql security_definer=t volatility=v config=search_path=public, pg_catalog body_md5=5693109bf28e5720a7b582d33270fc6b
+function public.get_tenant_table_rls_policies() returns TABLE(table_name text, rls_enabled boolean, policy_name text, roles text[], cmd text, qual text, with_check text) lang=sql security_definer=t volatility=v config=search_path=public, pg_catalog, pg_temp body_md5=5693109bf28e5720a7b582d33270fc6b
 function public.has_permission(p_tenant uuid, p_perm text) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=ae413fcc266ead95670d107f176ce0b3
 function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d9eb45e242d8aa1a81b281a32b433a6e
 function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6e09b6c645bd991920f556c59af2d9bd
@@ -1088,7 +1066,8 @@ function public.is_safe_storage_key(p_path text) returns boolean lang=sql securi
 function public.is_valid_weekly_schedule(p_schedule jsonb) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=70d8e5967b9f88ca8cc3926225d8527f
 function public.jobs_runner_begin(p_worker text, p_source text) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=de6a32d34452a6867bf2e9fe1b2a39ba
 function public.jobs_runner_end(p_run_id bigint, p_claimed integer, p_done integer, p_retried integer, p_dead integer, p_ok boolean, p_error_code text) returns void lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=7555a20bdb505e6274917ef194da5e12
-function public.memberships_profile_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=6446baefa0dac64b9258025333b6b102
+function public.log_audit(p_tenant uuid, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=224dbe6c5c77d91d34648541e39c0101
+function public.memberships_profile_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=51a190e31251f3d6b271c6761b80e297
 function public.normalize_indian_phone_e164(raw_phone text) returns text lang=plpgsql security_definer=f volatility=i config=- body_md5=498b95e13d2569704d35dd5d0a6569ed
 function public.ops_alert_notified(p_alert_id uuid, p_provider_message_id text, p_seq integer) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=298e7bdd6c125b654f910a39def7cfc6
 function public.ops_alert_payload(p_alert_id uuid) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=8d54f08aef54ac1a27cd288c2f95d33f
@@ -1097,20 +1076,20 @@ function public.patients_clinical_fields_guard() returns trigger lang=plpgsql se
 function public.permission_matrix() returns TABLE(role text, perm text) lang=sql security_definer=f volatility=i config=search_path="" body_md5=39ee865d6f01342a333f400391c113a5
 function public.prescription_items_fill_tenant() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8d8857c616ef2a290542986d2df34fee
 function public.readiness_probe(p_expected_migration text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=9f9173b2ceaa83871c8578e0a619a107
-function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) returns jsonb lang=plpgsql security_definer=f volatility=v config=lock_timeout=2s,search_path="" body_md5=ee29373c00ebe6fc1e499ccf6fe4af59
-function public.referral_source_clinics(p_ids uuid[]) returns TABLE(id uuid, name text, phone text) lang=sql security_definer=t volatility=s config=search_path="" body_md5=bded9c4fde92a62b2ad3a33057d6df6f
+function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) returns jsonb lang=plpgsql security_definer=f volatility=v config=lock_timeout=2s,search_path="" body_md5=878110fd0d3c56d93bee17f16e65c057
+function public.referral_source_clinics(p_ids uuid[]) returns TABLE(id uuid, name text, phone text) lang=sql security_definer=t volatility=s config=search_path="" body_md5=09808d6285a2365415daca842756abd2
 function public.referrals_target_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f79e6bdc4f0750532696da1cc28a8f67
 function public.release_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=830646140fd502bc31c9c625ec1568eb
 function public.reschedule_token_visit(p_token text) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=140605e0bc8e901e9152141bdedbb1b4
 function public.resolve_share_token(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=60bebe306b147fad0da0c1ba83310590
-function public.revoke_share_token(p_token_id uuid) returns timestamp with time zone lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ecdd7f7f149c62b1a8e38458ff870a8e
-function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) returns TABLE(id text, medicine_name text, generic_name text, dose_form text, default_dosage text, default_timing text, default_duration text, is_custom boolean, is_favorite boolean) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9d216cdd71cb46f5deab3f5a72de21ec
+function public.revoke_share_token(p_token_id uuid) returns timestamp with time zone lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=51b0f9062d5a580902b32cac2b5d1d7c
+function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) returns TABLE(id text, medicine_name text, generic_name text, dose_form text, default_dosage text, default_timing text, default_duration text, is_custom boolean, is_favorite boolean) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bfcbb14840d1397ca3971ef34e80eb0b
 function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=87eb41555cfe9a23c14a3355ab1eea35
 function public.share_resource_tenant(p_type text, p_id uuid) returns uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=f202d708281179487dd5ca6d6cf9edb4
 function public.share_token_hash(p_token text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=46b48a816bdde078e25dc7a687214bc5
 function public.share_token_object(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=6dbc843465b6839e8d9b8bb7bc2db49c
 function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=49ba9f24043600e599c87b27216a5e2b
-function public.share_type_roles(p_type text) returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=00e0b194b55c8315a93ce5c831ef7d00
+function public.share_type_roles(p_type text) returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=fbfbeb6ae6fd3fb8ce2ee9d41c23b5b5
 function public.start_job(p_id uuid, p_lease_token uuid) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=643c9082f0a2c4993b6a14af853fcffe
 function public.webhook_delivery_claim(p_id uuid) returns TABLE(id uuid, tenant_id uuid, subscription_id uuid, event_type text, payload text, retry_count integer, max_retries integer, subscription_tenant_id uuid, endpoint_url text, signing_secret text, is_active boolean) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e478b0593cdc926c110d41ce14d2e526
 function public.webhook_delivery_finish(p_id uuid, p_success boolean, p_status_code integer, p_error_code text, p_duration_ms integer, p_retryable boolean) returns TABLE(new_status text, next_retry_at timestamp with time zone) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=cdd25042f6bc5f0539b0ca8d7d361f3f
@@ -1154,6 +1133,7 @@ grant function authz.permission_keys() EXECUTE to service_role
 grant function authz.role_has_permission(p_role text, p_perm text) EXECUTE to authenticated
 grant function authz.role_has_permission(p_role text, p_perm text) EXECUTE to service_role
 grant function authz.tenant_ids_with(p_perm text) EXECUTE to authenticated
+grant function private.log_system_audit(p_tenant uuid, p_system_actor text, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) EXECUTE to service_role
 grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to authenticated
 grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to service_role
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to authenticated
@@ -1211,6 +1191,7 @@ grant function public.is_valid_weekly_schedule(p_schedule jsonb) EXECUTE to auth
 grant function public.is_valid_weekly_schedule(p_schedule jsonb) EXECUTE to service_role
 grant function public.jobs_runner_begin(p_worker text, p_source text) EXECUTE to service_role
 grant function public.jobs_runner_end(p_run_id bigint, p_claimed integer, p_done integer, p_retried integer, p_dead integer, p_ok boolean, p_error_code text) EXECUTE to service_role
+grant function public.log_audit(p_tenant uuid, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) EXECUTE to authenticated
 grant function public.memberships_profile_update_guard() EXECUTE to service_role
 grant function public.normalize_indian_phone_e164(raw_phone text) EXECUTE to PUBLIC
 grant function public.normalize_indian_phone_e164(raw_phone text) EXECUTE to anon
@@ -1256,278 +1237,113 @@ grant schema public USAGE to PUBLIC
 grant schema public USAGE to anon
 grant schema public USAGE to authenticated
 grant schema public USAGE to service_role
-grant sequence public.audit_logs_id_seq SELECT to anon
-grant sequence public.audit_logs_id_seq SELECT to authenticated
 grant sequence public.audit_logs_id_seq SELECT to service_role
-grant sequence public.audit_logs_id_seq UPDATE to anon
-grant sequence public.audit_logs_id_seq UPDATE to authenticated
 grant sequence public.audit_logs_id_seq UPDATE to service_role
-grant sequence public.audit_logs_id_seq USAGE to anon
-grant sequence public.audit_logs_id_seq USAGE to authenticated
 grant sequence public.audit_logs_id_seq USAGE to service_role
-grant table public.api_key_usage_daily DELETE to anon
 grant table public.api_key_usage_daily DELETE to authenticated
 grant table public.api_key_usage_daily DELETE to service_role
-grant table public.api_key_usage_daily INSERT to anon
 grant table public.api_key_usage_daily INSERT to authenticated
 grant table public.api_key_usage_daily INSERT to service_role
-grant table public.api_key_usage_daily MAINTAIN to anon
-grant table public.api_key_usage_daily MAINTAIN to authenticated
 grant table public.api_key_usage_daily MAINTAIN to service_role
-grant table public.api_key_usage_daily REFERENCES to anon
-grant table public.api_key_usage_daily REFERENCES to authenticated
 grant table public.api_key_usage_daily REFERENCES to service_role
-grant table public.api_key_usage_daily SELECT to anon
 grant table public.api_key_usage_daily SELECT to authenticated
 grant table public.api_key_usage_daily SELECT to service_role
-grant table public.api_key_usage_daily TRIGGER to anon
-grant table public.api_key_usage_daily TRIGGER to authenticated
 grant table public.api_key_usage_daily TRIGGER to service_role
-grant table public.api_key_usage_daily TRUNCATE to anon
-grant table public.api_key_usage_daily TRUNCATE to authenticated
 grant table public.api_key_usage_daily TRUNCATE to service_role
-grant table public.api_key_usage_daily UPDATE to anon
 grant table public.api_key_usage_daily UPDATE to authenticated
 grant table public.api_key_usage_daily UPDATE to service_role
-grant table public.api_keys DELETE to anon
 grant table public.api_keys DELETE to authenticated
 grant table public.api_keys DELETE to service_role
-grant table public.api_keys INSERT to anon
 grant table public.api_keys INSERT to authenticated
 grant table public.api_keys INSERT to service_role
-grant table public.api_keys MAINTAIN to anon
-grant table public.api_keys MAINTAIN to authenticated
 grant table public.api_keys MAINTAIN to service_role
-grant table public.api_keys REFERENCES to anon
-grant table public.api_keys REFERENCES to authenticated
 grant table public.api_keys REFERENCES to service_role
-grant table public.api_keys SELECT to anon
 grant table public.api_keys SELECT to authenticated
 grant table public.api_keys SELECT to service_role
-grant table public.api_keys TRIGGER to anon
-grant table public.api_keys TRIGGER to authenticated
 grant table public.api_keys TRIGGER to service_role
-grant table public.api_keys TRUNCATE to anon
-grant table public.api_keys TRUNCATE to authenticated
 grant table public.api_keys TRUNCATE to service_role
-grant table public.api_keys UPDATE to anon
 grant table public.api_keys UPDATE to authenticated
 grant table public.api_keys UPDATE to service_role
-grant table public.audit_logs DELETE to anon
-grant table public.audit_logs DELETE to authenticated
 grant table public.audit_logs DELETE to service_role
-grant table public.audit_logs INSERT to anon
-grant table public.audit_logs INSERT to authenticated
 grant table public.audit_logs INSERT to service_role
-grant table public.audit_logs MAINTAIN to anon
-grant table public.audit_logs MAINTAIN to authenticated
 grant table public.audit_logs MAINTAIN to service_role
-grant table public.audit_logs REFERENCES to anon
-grant table public.audit_logs REFERENCES to authenticated
 grant table public.audit_logs REFERENCES to service_role
-grant table public.audit_logs SELECT to anon
 grant table public.audit_logs SELECT to authenticated
 grant table public.audit_logs SELECT to service_role
-grant table public.audit_logs TRIGGER to anon
-grant table public.audit_logs TRIGGER to authenticated
 grant table public.audit_logs TRIGGER to service_role
-grant table public.audit_logs TRUNCATE to anon
-grant table public.audit_logs TRUNCATE to authenticated
 grant table public.audit_logs TRUNCATE to service_role
-grant table public.audit_logs UPDATE to anon
-grant table public.audit_logs UPDATE to authenticated
 grant table public.audit_logs UPDATE to service_role
-grant table public.cdci_brands DELETE to anon
-grant table public.cdci_brands DELETE to authenticated
 grant table public.cdci_brands DELETE to service_role
-grant table public.cdci_brands INSERT to anon
-grant table public.cdci_brands INSERT to authenticated
 grant table public.cdci_brands INSERT to service_role
-grant table public.cdci_brands MAINTAIN to anon
-grant table public.cdci_brands MAINTAIN to authenticated
 grant table public.cdci_brands MAINTAIN to service_role
-grant table public.cdci_brands REFERENCES to anon
-grant table public.cdci_brands REFERENCES to authenticated
 grant table public.cdci_brands REFERENCES to service_role
-grant table public.cdci_brands SELECT to anon
 grant table public.cdci_brands SELECT to authenticated
 grant table public.cdci_brands SELECT to service_role
-grant table public.cdci_brands TRIGGER to anon
-grant table public.cdci_brands TRIGGER to authenticated
 grant table public.cdci_brands TRIGGER to service_role
-grant table public.cdci_brands TRUNCATE to anon
-grant table public.cdci_brands TRUNCATE to authenticated
 grant table public.cdci_brands TRUNCATE to service_role
-grant table public.cdci_brands UPDATE to anon
-grant table public.cdci_brands UPDATE to authenticated
 grant table public.cdci_brands UPDATE to service_role
-grant table public.cdci_drug_forms DELETE to anon
-grant table public.cdci_drug_forms DELETE to authenticated
 grant table public.cdci_drug_forms DELETE to service_role
-grant table public.cdci_drug_forms INSERT to anon
-grant table public.cdci_drug_forms INSERT to authenticated
 grant table public.cdci_drug_forms INSERT to service_role
-grant table public.cdci_drug_forms MAINTAIN to anon
-grant table public.cdci_drug_forms MAINTAIN to authenticated
 grant table public.cdci_drug_forms MAINTAIN to service_role
-grant table public.cdci_drug_forms REFERENCES to anon
-grant table public.cdci_drug_forms REFERENCES to authenticated
 grant table public.cdci_drug_forms REFERENCES to service_role
-grant table public.cdci_drug_forms SELECT to anon
 grant table public.cdci_drug_forms SELECT to authenticated
 grant table public.cdci_drug_forms SELECT to service_role
-grant table public.cdci_drug_forms TRIGGER to anon
-grant table public.cdci_drug_forms TRIGGER to authenticated
 grant table public.cdci_drug_forms TRIGGER to service_role
-grant table public.cdci_drug_forms TRUNCATE to anon
-grant table public.cdci_drug_forms TRUNCATE to authenticated
 grant table public.cdci_drug_forms TRUNCATE to service_role
-grant table public.cdci_drug_forms UPDATE to anon
-grant table public.cdci_drug_forms UPDATE to authenticated
 grant table public.cdci_drug_forms UPDATE to service_role
-grant table public.cdci_generics DELETE to anon
-grant table public.cdci_generics DELETE to authenticated
 grant table public.cdci_generics DELETE to service_role
-grant table public.cdci_generics INSERT to anon
-grant table public.cdci_generics INSERT to authenticated
 grant table public.cdci_generics INSERT to service_role
-grant table public.cdci_generics MAINTAIN to anon
-grant table public.cdci_generics MAINTAIN to authenticated
 grant table public.cdci_generics MAINTAIN to service_role
-grant table public.cdci_generics REFERENCES to anon
-grant table public.cdci_generics REFERENCES to authenticated
 grant table public.cdci_generics REFERENCES to service_role
-grant table public.cdci_generics SELECT to anon
 grant table public.cdci_generics SELECT to authenticated
 grant table public.cdci_generics SELECT to service_role
-grant table public.cdci_generics TRIGGER to anon
-grant table public.cdci_generics TRIGGER to authenticated
 grant table public.cdci_generics TRIGGER to service_role
-grant table public.cdci_generics TRUNCATE to anon
-grant table public.cdci_generics TRUNCATE to authenticated
 grant table public.cdci_generics TRUNCATE to service_role
-grant table public.cdci_generics UPDATE to anon
-grant table public.cdci_generics UPDATE to authenticated
 grant table public.cdci_generics UPDATE to service_role
-grant table public.cdci_medicines_search DELETE to anon
-grant table public.cdci_medicines_search DELETE to authenticated
 grant table public.cdci_medicines_search DELETE to service_role
-grant table public.cdci_medicines_search INSERT to anon
-grant table public.cdci_medicines_search INSERT to authenticated
 grant table public.cdci_medicines_search INSERT to service_role
-grant table public.cdci_medicines_search MAINTAIN to anon
-grant table public.cdci_medicines_search MAINTAIN to authenticated
 grant table public.cdci_medicines_search MAINTAIN to service_role
-grant table public.cdci_medicines_search REFERENCES to anon
-grant table public.cdci_medicines_search REFERENCES to authenticated
 grant table public.cdci_medicines_search REFERENCES to service_role
-grant table public.cdci_medicines_search SELECT to anon
 grant table public.cdci_medicines_search SELECT to authenticated
 grant table public.cdci_medicines_search SELECT to service_role
-grant table public.cdci_medicines_search TRIGGER to anon
-grant table public.cdci_medicines_search TRIGGER to authenticated
 grant table public.cdci_medicines_search TRIGGER to service_role
-grant table public.cdci_medicines_search TRUNCATE to anon
-grant table public.cdci_medicines_search TRUNCATE to authenticated
 grant table public.cdci_medicines_search TRUNCATE to service_role
-grant table public.cdci_medicines_search UPDATE to anon
-grant table public.cdci_medicines_search UPDATE to authenticated
 grant table public.cdci_medicines_search UPDATE to service_role
-grant table public.cdci_products DELETE to anon
-grant table public.cdci_products DELETE to authenticated
 grant table public.cdci_products DELETE to service_role
-grant table public.cdci_products INSERT to anon
-grant table public.cdci_products INSERT to authenticated
 grant table public.cdci_products INSERT to service_role
-grant table public.cdci_products MAINTAIN to anon
-grant table public.cdci_products MAINTAIN to authenticated
 grant table public.cdci_products MAINTAIN to service_role
-grant table public.cdci_products REFERENCES to anon
-grant table public.cdci_products REFERENCES to authenticated
 grant table public.cdci_products REFERENCES to service_role
-grant table public.cdci_products SELECT to anon
 grant table public.cdci_products SELECT to authenticated
 grant table public.cdci_products SELECT to service_role
-grant table public.cdci_products TRIGGER to anon
-grant table public.cdci_products TRIGGER to authenticated
 grant table public.cdci_products TRIGGER to service_role
-grant table public.cdci_products TRUNCATE to anon
-grant table public.cdci_products TRUNCATE to authenticated
 grant table public.cdci_products TRUNCATE to service_role
-grant table public.cdci_products UPDATE to anon
-grant table public.cdci_products UPDATE to authenticated
 grant table public.cdci_products UPDATE to service_role
-grant table public.cdci_routes DELETE to anon
-grant table public.cdci_routes DELETE to authenticated
 grant table public.cdci_routes DELETE to service_role
-grant table public.cdci_routes INSERT to anon
-grant table public.cdci_routes INSERT to authenticated
 grant table public.cdci_routes INSERT to service_role
-grant table public.cdci_routes MAINTAIN to anon
-grant table public.cdci_routes MAINTAIN to authenticated
 grant table public.cdci_routes MAINTAIN to service_role
-grant table public.cdci_routes REFERENCES to anon
-grant table public.cdci_routes REFERENCES to authenticated
 grant table public.cdci_routes REFERENCES to service_role
-grant table public.cdci_routes SELECT to anon
 grant table public.cdci_routes SELECT to authenticated
 grant table public.cdci_routes SELECT to service_role
-grant table public.cdci_routes TRIGGER to anon
-grant table public.cdci_routes TRIGGER to authenticated
 grant table public.cdci_routes TRIGGER to service_role
-grant table public.cdci_routes TRUNCATE to anon
-grant table public.cdci_routes TRUNCATE to authenticated
 grant table public.cdci_routes TRUNCATE to service_role
-grant table public.cdci_routes UPDATE to anon
-grant table public.cdci_routes UPDATE to authenticated
 grant table public.cdci_routes UPDATE to service_role
-grant table public.cdci_substances DELETE to anon
-grant table public.cdci_substances DELETE to authenticated
 grant table public.cdci_substances DELETE to service_role
-grant table public.cdci_substances INSERT to anon
-grant table public.cdci_substances INSERT to authenticated
 grant table public.cdci_substances INSERT to service_role
-grant table public.cdci_substances MAINTAIN to anon
-grant table public.cdci_substances MAINTAIN to authenticated
 grant table public.cdci_substances MAINTAIN to service_role
-grant table public.cdci_substances REFERENCES to anon
-grant table public.cdci_substances REFERENCES to authenticated
 grant table public.cdci_substances REFERENCES to service_role
-grant table public.cdci_substances SELECT to anon
 grant table public.cdci_substances SELECT to authenticated
 grant table public.cdci_substances SELECT to service_role
-grant table public.cdci_substances TRIGGER to anon
-grant table public.cdci_substances TRIGGER to authenticated
 grant table public.cdci_substances TRIGGER to service_role
-grant table public.cdci_substances TRUNCATE to anon
-grant table public.cdci_substances TRUNCATE to authenticated
 grant table public.cdci_substances TRUNCATE to service_role
-grant table public.cdci_substances UPDATE to anon
-grant table public.cdci_substances UPDATE to authenticated
 grant table public.cdci_substances UPDATE to service_role
-grant table public.cdci_suppliers DELETE to anon
-grant table public.cdci_suppliers DELETE to authenticated
 grant table public.cdci_suppliers DELETE to service_role
-grant table public.cdci_suppliers INSERT to anon
-grant table public.cdci_suppliers INSERT to authenticated
 grant table public.cdci_suppliers INSERT to service_role
-grant table public.cdci_suppliers MAINTAIN to anon
-grant table public.cdci_suppliers MAINTAIN to authenticated
 grant table public.cdci_suppliers MAINTAIN to service_role
-grant table public.cdci_suppliers REFERENCES to anon
-grant table public.cdci_suppliers REFERENCES to authenticated
 grant table public.cdci_suppliers REFERENCES to service_role
-grant table public.cdci_suppliers SELECT to anon
 grant table public.cdci_suppliers SELECT to authenticated
 grant table public.cdci_suppliers SELECT to service_role
-grant table public.cdci_suppliers TRIGGER to anon
-grant table public.cdci_suppliers TRIGGER to authenticated
 grant table public.cdci_suppliers TRIGGER to service_role
-grant table public.cdci_suppliers TRUNCATE to anon
-grant table public.cdci_suppliers TRUNCATE to authenticated
 grant table public.cdci_suppliers TRUNCATE to service_role
-grant table public.cdci_suppliers UPDATE to anon
-grant table public.cdci_suppliers UPDATE to authenticated
 grant table public.cdci_suppliers UPDATE to service_role
 grant table public.clinical_notes DELETE to service_role
 grant table public.clinical_notes INSERT to service_role
@@ -1547,675 +1363,316 @@ grant table public.communication_queue SELECT to service_role
 grant table public.communication_queue TRIGGER to service_role
 grant table public.communication_queue TRUNCATE to service_role
 grant table public.communication_queue UPDATE to service_role
-grant table public.consent_records DELETE to anon
-grant table public.consent_records DELETE to authenticated
 grant table public.consent_records DELETE to service_role
-grant table public.consent_records INSERT to anon
 grant table public.consent_records INSERT to authenticated
 grant table public.consent_records INSERT to service_role
-grant table public.consent_records MAINTAIN to anon
-grant table public.consent_records MAINTAIN to authenticated
 grant table public.consent_records MAINTAIN to service_role
-grant table public.consent_records REFERENCES to anon
-grant table public.consent_records REFERENCES to authenticated
 grant table public.consent_records REFERENCES to service_role
-grant table public.consent_records SELECT to anon
 grant table public.consent_records SELECT to authenticated
 grant table public.consent_records SELECT to service_role
-grant table public.consent_records TRIGGER to anon
-grant table public.consent_records TRIGGER to authenticated
 grant table public.consent_records TRIGGER to service_role
-grant table public.consent_records TRUNCATE to anon
-grant table public.consent_records TRUNCATE to authenticated
 grant table public.consent_records TRUNCATE to service_role
-grant table public.consent_records UPDATE to anon
-grant table public.consent_records UPDATE to authenticated
 grant table public.consent_records UPDATE to service_role
-grant table public.consultation_diagnoses DELETE to anon
 grant table public.consultation_diagnoses DELETE to authenticated
 grant table public.consultation_diagnoses DELETE to service_role
-grant table public.consultation_diagnoses INSERT to anon
 grant table public.consultation_diagnoses INSERT to authenticated
 grant table public.consultation_diagnoses INSERT to service_role
-grant table public.consultation_diagnoses MAINTAIN to anon
-grant table public.consultation_diagnoses MAINTAIN to authenticated
 grant table public.consultation_diagnoses MAINTAIN to service_role
-grant table public.consultation_diagnoses REFERENCES to anon
-grant table public.consultation_diagnoses REFERENCES to authenticated
 grant table public.consultation_diagnoses REFERENCES to service_role
-grant table public.consultation_diagnoses SELECT to anon
 grant table public.consultation_diagnoses SELECT to authenticated
 grant table public.consultation_diagnoses SELECT to service_role
-grant table public.consultation_diagnoses TRIGGER to anon
-grant table public.consultation_diagnoses TRIGGER to authenticated
 grant table public.consultation_diagnoses TRIGGER to service_role
-grant table public.consultation_diagnoses TRUNCATE to anon
-grant table public.consultation_diagnoses TRUNCATE to authenticated
 grant table public.consultation_diagnoses TRUNCATE to service_role
-grant table public.consultation_diagnoses UPDATE to anon
 grant table public.consultation_diagnoses UPDATE to authenticated
 grant table public.consultation_diagnoses UPDATE to service_role
-grant table public.consultations DELETE to anon
-grant table public.consultations DELETE to authenticated
 grant table public.consultations DELETE to service_role
-grant table public.consultations INSERT to anon
 grant table public.consultations INSERT to authenticated
 grant table public.consultations INSERT to service_role
-grant table public.consultations MAINTAIN to anon
-grant table public.consultations MAINTAIN to authenticated
 grant table public.consultations MAINTAIN to service_role
-grant table public.consultations REFERENCES to anon
-grant table public.consultations REFERENCES to authenticated
 grant table public.consultations REFERENCES to service_role
-grant table public.consultations SELECT to anon
 grant table public.consultations SELECT to authenticated
 grant table public.consultations SELECT to service_role
-grant table public.consultations TRIGGER to anon
-grant table public.consultations TRIGGER to authenticated
 grant table public.consultations TRIGGER to service_role
-grant table public.consultations TRUNCATE to anon
-grant table public.consultations TRUNCATE to authenticated
 grant table public.consultations TRUNCATE to service_role
-grant table public.consultations UPDATE to anon
 grant table public.consultations UPDATE to authenticated
 grant table public.consultations UPDATE to service_role
-grant table public.doctor_custom_diagnoses DELETE to anon
 grant table public.doctor_custom_diagnoses DELETE to authenticated
 grant table public.doctor_custom_diagnoses DELETE to service_role
-grant table public.doctor_custom_diagnoses INSERT to anon
 grant table public.doctor_custom_diagnoses INSERT to authenticated
 grant table public.doctor_custom_diagnoses INSERT to service_role
-grant table public.doctor_custom_diagnoses MAINTAIN to anon
-grant table public.doctor_custom_diagnoses MAINTAIN to authenticated
 grant table public.doctor_custom_diagnoses MAINTAIN to service_role
-grant table public.doctor_custom_diagnoses REFERENCES to anon
-grant table public.doctor_custom_diagnoses REFERENCES to authenticated
 grant table public.doctor_custom_diagnoses REFERENCES to service_role
-grant table public.doctor_custom_diagnoses SELECT to anon
 grant table public.doctor_custom_diagnoses SELECT to authenticated
 grant table public.doctor_custom_diagnoses SELECT to service_role
-grant table public.doctor_custom_diagnoses TRIGGER to anon
-grant table public.doctor_custom_diagnoses TRIGGER to authenticated
 grant table public.doctor_custom_diagnoses TRIGGER to service_role
-grant table public.doctor_custom_diagnoses TRUNCATE to anon
-grant table public.doctor_custom_diagnoses TRUNCATE to authenticated
 grant table public.doctor_custom_diagnoses TRUNCATE to service_role
-grant table public.doctor_custom_diagnoses UPDATE to anon
 grant table public.doctor_custom_diagnoses UPDATE to authenticated
 grant table public.doctor_custom_diagnoses UPDATE to service_role
-grant table public.doctor_custom_medicines DELETE to anon
 grant table public.doctor_custom_medicines DELETE to authenticated
 grant table public.doctor_custom_medicines DELETE to service_role
-grant table public.doctor_custom_medicines INSERT to anon
 grant table public.doctor_custom_medicines INSERT to authenticated
 grant table public.doctor_custom_medicines INSERT to service_role
-grant table public.doctor_custom_medicines MAINTAIN to anon
-grant table public.doctor_custom_medicines MAINTAIN to authenticated
 grant table public.doctor_custom_medicines MAINTAIN to service_role
-grant table public.doctor_custom_medicines REFERENCES to anon
-grant table public.doctor_custom_medicines REFERENCES to authenticated
 grant table public.doctor_custom_medicines REFERENCES to service_role
-grant table public.doctor_custom_medicines SELECT to anon
 grant table public.doctor_custom_medicines SELECT to authenticated
 grant table public.doctor_custom_medicines SELECT to service_role
-grant table public.doctor_custom_medicines TRIGGER to anon
-grant table public.doctor_custom_medicines TRIGGER to authenticated
 grant table public.doctor_custom_medicines TRIGGER to service_role
-grant table public.doctor_custom_medicines TRUNCATE to anon
-grant table public.doctor_custom_medicines TRUNCATE to authenticated
 grant table public.doctor_custom_medicines TRUNCATE to service_role
-grant table public.doctor_custom_medicines UPDATE to anon
 grant table public.doctor_custom_medicines UPDATE to authenticated
 grant table public.doctor_custom_medicines UPDATE to service_role
-grant table public.doctor_prescription_templates DELETE to anon
 grant table public.doctor_prescription_templates DELETE to authenticated
 grant table public.doctor_prescription_templates DELETE to service_role
-grant table public.doctor_prescription_templates INSERT to anon
 grant table public.doctor_prescription_templates INSERT to authenticated
 grant table public.doctor_prescription_templates INSERT to service_role
-grant table public.doctor_prescription_templates MAINTAIN to anon
-grant table public.doctor_prescription_templates MAINTAIN to authenticated
 grant table public.doctor_prescription_templates MAINTAIN to service_role
-grant table public.doctor_prescription_templates REFERENCES to anon
-grant table public.doctor_prescription_templates REFERENCES to authenticated
 grant table public.doctor_prescription_templates REFERENCES to service_role
-grant table public.doctor_prescription_templates SELECT to anon
 grant table public.doctor_prescription_templates SELECT to authenticated
 grant table public.doctor_prescription_templates SELECT to service_role
-grant table public.doctor_prescription_templates TRIGGER to anon
-grant table public.doctor_prescription_templates TRIGGER to authenticated
 grant table public.doctor_prescription_templates TRIGGER to service_role
-grant table public.doctor_prescription_templates TRUNCATE to anon
-grant table public.doctor_prescription_templates TRUNCATE to authenticated
 grant table public.doctor_prescription_templates TRUNCATE to service_role
-grant table public.doctor_prescription_templates UPDATE to anon
 grant table public.doctor_prescription_templates UPDATE to authenticated
 grant table public.doctor_prescription_templates UPDATE to service_role
 grant table public.document_share_tokens DELETE to service_role
 grant table public.document_share_tokens INSERT to service_role
-grant table public.document_share_tokens MAINTAIN to anon
-grant table public.document_share_tokens MAINTAIN to authenticated
 grant table public.document_share_tokens MAINTAIN to service_role
-grant table public.document_share_tokens REFERENCES to anon
-grant table public.document_share_tokens REFERENCES to authenticated
 grant table public.document_share_tokens REFERENCES to service_role
-grant table public.document_share_tokens SELECT to anon
 grant table public.document_share_tokens SELECT to authenticated
 grant table public.document_share_tokens SELECT to service_role
-grant table public.document_share_tokens TRIGGER to anon
-grant table public.document_share_tokens TRIGGER to authenticated
 grant table public.document_share_tokens TRIGGER to service_role
 grant table public.document_share_tokens TRUNCATE to service_role
 grant table public.document_share_tokens UPDATE to service_role
-grant table public.follow_ups DELETE to anon
 grant table public.follow_ups DELETE to authenticated
 grant table public.follow_ups DELETE to service_role
-grant table public.follow_ups INSERT to anon
 grant table public.follow_ups INSERT to authenticated
 grant table public.follow_ups INSERT to service_role
-grant table public.follow_ups MAINTAIN to anon
-grant table public.follow_ups MAINTAIN to authenticated
 grant table public.follow_ups MAINTAIN to service_role
-grant table public.follow_ups REFERENCES to anon
-grant table public.follow_ups REFERENCES to authenticated
 grant table public.follow_ups REFERENCES to service_role
-grant table public.follow_ups SELECT to anon
 grant table public.follow_ups SELECT to authenticated
 grant table public.follow_ups SELECT to service_role
-grant table public.follow_ups TRIGGER to anon
-grant table public.follow_ups TRIGGER to authenticated
 grant table public.follow_ups TRIGGER to service_role
-grant table public.follow_ups TRUNCATE to anon
-grant table public.follow_ups TRUNCATE to authenticated
 grant table public.follow_ups TRUNCATE to service_role
-grant table public.follow_ups UPDATE to anon
 grant table public.follow_ups UPDATE to authenticated
 grant table public.follow_ups UPDATE to service_role
-grant table public.in_app_notifications DELETE to anon
 grant table public.in_app_notifications DELETE to authenticated
 grant table public.in_app_notifications DELETE to service_role
-grant table public.in_app_notifications INSERT to anon
-grant table public.in_app_notifications INSERT to authenticated
 grant table public.in_app_notifications INSERT to service_role
-grant table public.in_app_notifications MAINTAIN to anon
-grant table public.in_app_notifications MAINTAIN to authenticated
 grant table public.in_app_notifications MAINTAIN to service_role
-grant table public.in_app_notifications REFERENCES to anon
-grant table public.in_app_notifications REFERENCES to authenticated
 grant table public.in_app_notifications REFERENCES to service_role
-grant table public.in_app_notifications SELECT to anon
 grant table public.in_app_notifications SELECT to authenticated
 grant table public.in_app_notifications SELECT to service_role
-grant table public.in_app_notifications TRIGGER to anon
-grant table public.in_app_notifications TRIGGER to authenticated
 grant table public.in_app_notifications TRIGGER to service_role
-grant table public.in_app_notifications TRUNCATE to anon
-grant table public.in_app_notifications TRUNCATE to authenticated
 grant table public.in_app_notifications TRUNCATE to service_role
-grant table public.in_app_notifications UPDATE to anon
 grant table public.in_app_notifications UPDATE to authenticated
 grant table public.in_app_notifications UPDATE to service_role
 grant table public.invitations DELETE to service_role
 grant table public.invitations INSERT to authenticated
 grant table public.invitations INSERT to service_role
-grant table public.invitations MAINTAIN to anon
-grant table public.invitations MAINTAIN to authenticated
 grant table public.invitations MAINTAIN to service_role
-grant table public.invitations REFERENCES to anon
-grant table public.invitations REFERENCES to authenticated
 grant table public.invitations REFERENCES to service_role
-grant table public.invitations SELECT to anon
 grant table public.invitations SELECT to authenticated
 grant table public.invitations SELECT to service_role
-grant table public.invitations TRIGGER to anon
-grant table public.invitations TRIGGER to authenticated
 grant table public.invitations TRIGGER to service_role
 grant table public.invitations TRUNCATE to service_role
 grant table public.invitations UPDATE to service_role
-grant table public.invoice_items DELETE to anon
 grant table public.invoice_items DELETE to authenticated
 grant table public.invoice_items DELETE to service_role
-grant table public.invoice_items INSERT to anon
 grant table public.invoice_items INSERT to authenticated
 grant table public.invoice_items INSERT to service_role
-grant table public.invoice_items MAINTAIN to anon
-grant table public.invoice_items MAINTAIN to authenticated
 grant table public.invoice_items MAINTAIN to service_role
-grant table public.invoice_items REFERENCES to anon
-grant table public.invoice_items REFERENCES to authenticated
 grant table public.invoice_items REFERENCES to service_role
-grant table public.invoice_items SELECT to anon
 grant table public.invoice_items SELECT to authenticated
 grant table public.invoice_items SELECT to service_role
-grant table public.invoice_items TRIGGER to anon
-grant table public.invoice_items TRIGGER to authenticated
 grant table public.invoice_items TRIGGER to service_role
-grant table public.invoice_items TRUNCATE to anon
-grant table public.invoice_items TRUNCATE to authenticated
 grant table public.invoice_items TRUNCATE to service_role
-grant table public.invoice_items UPDATE to anon
 grant table public.invoice_items UPDATE to authenticated
 grant table public.invoice_items UPDATE to service_role
-grant table public.invoices DELETE to anon
-grant table public.invoices DELETE to authenticated
 grant table public.invoices DELETE to service_role
-grant table public.invoices INSERT to anon
 grant table public.invoices INSERT to authenticated
 grant table public.invoices INSERT to service_role
-grant table public.invoices MAINTAIN to anon
-grant table public.invoices MAINTAIN to authenticated
 grant table public.invoices MAINTAIN to service_role
-grant table public.invoices REFERENCES to anon
-grant table public.invoices REFERENCES to authenticated
 grant table public.invoices REFERENCES to service_role
-grant table public.invoices SELECT to anon
 grant table public.invoices SELECT to authenticated
 grant table public.invoices SELECT to service_role
-grant table public.invoices TRIGGER to anon
-grant table public.invoices TRIGGER to authenticated
 grant table public.invoices TRIGGER to service_role
-grant table public.invoices TRUNCATE to anon
-grant table public.invoices TRUNCATE to authenticated
 grant table public.invoices TRUNCATE to service_role
-grant table public.invoices UPDATE to anon
 grant table public.invoices UPDATE to authenticated
 grant table public.invoices UPDATE to service_role
 grant table public.memberships DELETE to service_role
 grant table public.memberships INSERT to service_role
-grant table public.memberships MAINTAIN to anon
-grant table public.memberships MAINTAIN to authenticated
 grant table public.memberships MAINTAIN to service_role
-grant table public.memberships REFERENCES to anon
-grant table public.memberships REFERENCES to authenticated
 grant table public.memberships REFERENCES to service_role
-grant table public.memberships SELECT to anon
 grant table public.memberships SELECT to authenticated
 grant table public.memberships SELECT to service_role
-grant table public.memberships TRIGGER to anon
-grant table public.memberships TRIGGER to authenticated
 grant table public.memberships TRIGGER to service_role
 grant table public.memberships TRUNCATE to service_role
 grant table public.memberships UPDATE to service_role
-grant table public.opd_diagnoses DELETE to anon
-grant table public.opd_diagnoses DELETE to authenticated
 grant table public.opd_diagnoses DELETE to service_role
-grant table public.opd_diagnoses INSERT to anon
-grant table public.opd_diagnoses INSERT to authenticated
 grant table public.opd_diagnoses INSERT to service_role
-grant table public.opd_diagnoses MAINTAIN to anon
-grant table public.opd_diagnoses MAINTAIN to authenticated
 grant table public.opd_diagnoses MAINTAIN to service_role
-grant table public.opd_diagnoses REFERENCES to anon
-grant table public.opd_diagnoses REFERENCES to authenticated
 grant table public.opd_diagnoses REFERENCES to service_role
-grant table public.opd_diagnoses SELECT to anon
 grant table public.opd_diagnoses SELECT to authenticated
 grant table public.opd_diagnoses SELECT to service_role
-grant table public.opd_diagnoses TRIGGER to anon
-grant table public.opd_diagnoses TRIGGER to authenticated
 grant table public.opd_diagnoses TRIGGER to service_role
-grant table public.opd_diagnoses TRUNCATE to anon
-grant table public.opd_diagnoses TRUNCATE to authenticated
 grant table public.opd_diagnoses TRUNCATE to service_role
-grant table public.opd_diagnoses UPDATE to anon
-grant table public.opd_diagnoses UPDATE to authenticated
 grant table public.opd_diagnoses UPDATE to service_role
-grant table public.patient_documents DELETE to anon
 grant table public.patient_documents DELETE to authenticated
 grant table public.patient_documents DELETE to service_role
-grant table public.patient_documents INSERT to anon
 grant table public.patient_documents INSERT to authenticated
 grant table public.patient_documents INSERT to service_role
-grant table public.patient_documents MAINTAIN to anon
-grant table public.patient_documents MAINTAIN to authenticated
 grant table public.patient_documents MAINTAIN to service_role
-grant table public.patient_documents REFERENCES to anon
-grant table public.patient_documents REFERENCES to authenticated
 grant table public.patient_documents REFERENCES to service_role
-grant table public.patient_documents SELECT to anon
 grant table public.patient_documents SELECT to authenticated
 grant table public.patient_documents SELECT to service_role
-grant table public.patient_documents TRIGGER to anon
-grant table public.patient_documents TRIGGER to authenticated
 grant table public.patient_documents TRIGGER to service_role
-grant table public.patient_documents TRUNCATE to anon
-grant table public.patient_documents TRUNCATE to authenticated
 grant table public.patient_documents TRUNCATE to service_role
-grant table public.patient_documents UPDATE to anon
 grant table public.patient_documents UPDATE to authenticated
 grant table public.patient_documents UPDATE to service_role
-grant table public.patients DELETE to anon
-grant table public.patients DELETE to authenticated
 grant table public.patients DELETE to service_role
-grant table public.patients INSERT to anon
 grant table public.patients INSERT to authenticated
 grant table public.patients INSERT to service_role
-grant table public.patients MAINTAIN to anon
-grant table public.patients MAINTAIN to authenticated
 grant table public.patients MAINTAIN to service_role
-grant table public.patients REFERENCES to anon
-grant table public.patients REFERENCES to authenticated
 grant table public.patients REFERENCES to service_role
-grant table public.patients SELECT to anon
 grant table public.patients SELECT to authenticated
 grant table public.patients SELECT to service_role
-grant table public.patients TRIGGER to anon
-grant table public.patients TRIGGER to authenticated
 grant table public.patients TRIGGER to service_role
-grant table public.patients TRUNCATE to anon
-grant table public.patients TRUNCATE to authenticated
 grant table public.patients TRUNCATE to service_role
-grant table public.patients UPDATE to anon
 grant table public.patients UPDATE to authenticated
 grant table public.patients UPDATE to service_role
-grant table public.payment_records DELETE to anon
-grant table public.payment_records DELETE to authenticated
 grant table public.payment_records DELETE to service_role
-grant table public.payment_records INSERT to anon
-grant table public.payment_records INSERT to authenticated
 grant table public.payment_records INSERT to service_role
-grant table public.payment_records MAINTAIN to anon
-grant table public.payment_records MAINTAIN to authenticated
 grant table public.payment_records MAINTAIN to service_role
-grant table public.payment_records REFERENCES to anon
-grant table public.payment_records REFERENCES to authenticated
 grant table public.payment_records REFERENCES to service_role
-grant table public.payment_records SELECT to anon
 grant table public.payment_records SELECT to authenticated
 grant table public.payment_records SELECT to service_role
-grant table public.payment_records TRIGGER to anon
-grant table public.payment_records TRIGGER to authenticated
 grant table public.payment_records TRIGGER to service_role
-grant table public.payment_records TRUNCATE to anon
-grant table public.payment_records TRUNCATE to authenticated
 grant table public.payment_records TRUNCATE to service_role
-grant table public.payment_records UPDATE to anon
-grant table public.payment_records UPDATE to authenticated
 grant table public.payment_records UPDATE to service_role
-grant table public.payments DELETE to anon
-grant table public.payments DELETE to authenticated
 grant table public.payments DELETE to service_role
 grant table public.payments INSERT to service_role
-grant table public.payments MAINTAIN to anon
-grant table public.payments MAINTAIN to authenticated
 grant table public.payments MAINTAIN to service_role
-grant table public.payments REFERENCES to anon
-grant table public.payments REFERENCES to authenticated
 grant table public.payments REFERENCES to service_role
-grant table public.payments SELECT to anon
 grant table public.payments SELECT to authenticated
 grant table public.payments SELECT to service_role
-grant table public.payments TRIGGER to anon
-grant table public.payments TRIGGER to authenticated
 grant table public.payments TRIGGER to service_role
-grant table public.payments TRUNCATE to anon
-grant table public.payments TRUNCATE to authenticated
 grant table public.payments TRUNCATE to service_role
-grant table public.payments UPDATE to anon
-grant table public.payments UPDATE to authenticated
 grant table public.payments UPDATE to service_role
-grant table public.prescription_items DELETE to anon
 grant table public.prescription_items DELETE to authenticated
 grant table public.prescription_items DELETE to service_role
-grant table public.prescription_items INSERT to anon
 grant table public.prescription_items INSERT to authenticated
 grant table public.prescription_items INSERT to service_role
-grant table public.prescription_items MAINTAIN to anon
-grant table public.prescription_items MAINTAIN to authenticated
 grant table public.prescription_items MAINTAIN to service_role
-grant table public.prescription_items REFERENCES to anon
-grant table public.prescription_items REFERENCES to authenticated
 grant table public.prescription_items REFERENCES to service_role
-grant table public.prescription_items SELECT to anon
 grant table public.prescription_items SELECT to authenticated
 grant table public.prescription_items SELECT to service_role
-grant table public.prescription_items TRIGGER to anon
-grant table public.prescription_items TRIGGER to authenticated
 grant table public.prescription_items TRIGGER to service_role
-grant table public.prescription_items TRUNCATE to anon
-grant table public.prescription_items TRUNCATE to authenticated
 grant table public.prescription_items TRUNCATE to service_role
-grant table public.prescription_items UPDATE to anon
 grant table public.prescription_items UPDATE to authenticated
 grant table public.prescription_items UPDATE to service_role
-grant table public.prescriptions DELETE to anon
-grant table public.prescriptions DELETE to authenticated
 grant table public.prescriptions DELETE to service_role
-grant table public.prescriptions INSERT to anon
 grant table public.prescriptions INSERT to authenticated
 grant table public.prescriptions INSERT to service_role
-grant table public.prescriptions MAINTAIN to anon
-grant table public.prescriptions MAINTAIN to authenticated
 grant table public.prescriptions MAINTAIN to service_role
-grant table public.prescriptions REFERENCES to anon
-grant table public.prescriptions REFERENCES to authenticated
 grant table public.prescriptions REFERENCES to service_role
-grant table public.prescriptions SELECT to anon
 grant table public.prescriptions SELECT to authenticated
 grant table public.prescriptions SELECT to service_role
-grant table public.prescriptions TRIGGER to anon
-grant table public.prescriptions TRIGGER to authenticated
 grant table public.prescriptions TRIGGER to service_role
-grant table public.prescriptions TRUNCATE to anon
-grant table public.prescriptions TRUNCATE to authenticated
 grant table public.prescriptions TRUNCATE to service_role
-grant table public.prescriptions UPDATE to anon
 grant table public.prescriptions UPDATE to authenticated
 grant table public.prescriptions UPDATE to service_role
-grant table public.queue_tokens DELETE to anon
-grant table public.queue_tokens DELETE to authenticated
 grant table public.queue_tokens DELETE to service_role
-grant table public.queue_tokens INSERT to anon
 grant table public.queue_tokens INSERT to authenticated
 grant table public.queue_tokens INSERT to service_role
-grant table public.queue_tokens MAINTAIN to anon
-grant table public.queue_tokens MAINTAIN to authenticated
 grant table public.queue_tokens MAINTAIN to service_role
-grant table public.queue_tokens REFERENCES to anon
-grant table public.queue_tokens REFERENCES to authenticated
 grant table public.queue_tokens REFERENCES to service_role
-grant table public.queue_tokens SELECT to anon
 grant table public.queue_tokens SELECT to authenticated
 grant table public.queue_tokens SELECT to service_role
-grant table public.queue_tokens TRIGGER to anon
-grant table public.queue_tokens TRIGGER to authenticated
 grant table public.queue_tokens TRIGGER to service_role
-grant table public.queue_tokens TRUNCATE to anon
-grant table public.queue_tokens TRUNCATE to authenticated
 grant table public.queue_tokens TRUNCATE to service_role
-grant table public.queue_tokens UPDATE to anon
 grant table public.queue_tokens UPDATE to authenticated
 grant table public.queue_tokens UPDATE to service_role
-grant table public.referrals DELETE to anon
-grant table public.referrals DELETE to authenticated
 grant table public.referrals DELETE to service_role
-grant table public.referrals INSERT to anon
 grant table public.referrals INSERT to authenticated
 grant table public.referrals INSERT to service_role
-grant table public.referrals MAINTAIN to anon
-grant table public.referrals MAINTAIN to authenticated
 grant table public.referrals MAINTAIN to service_role
-grant table public.referrals REFERENCES to anon
-grant table public.referrals REFERENCES to authenticated
 grant table public.referrals REFERENCES to service_role
-grant table public.referrals SELECT to anon
 grant table public.referrals SELECT to authenticated
 grant table public.referrals SELECT to service_role
-grant table public.referrals TRIGGER to anon
-grant table public.referrals TRIGGER to authenticated
 grant table public.referrals TRIGGER to service_role
-grant table public.referrals TRUNCATE to anon
-grant table public.referrals TRUNCATE to authenticated
 grant table public.referrals TRUNCATE to service_role
-grant table public.referrals UPDATE to anon
 grant table public.referrals UPDATE to authenticated
 grant table public.referrals UPDATE to service_role
-grant table public.schedule_blocks DELETE to anon
 grant table public.schedule_blocks DELETE to authenticated
 grant table public.schedule_blocks DELETE to service_role
-grant table public.schedule_blocks INSERT to anon
 grant table public.schedule_blocks INSERT to authenticated
 grant table public.schedule_blocks INSERT to service_role
-grant table public.schedule_blocks MAINTAIN to anon
-grant table public.schedule_blocks MAINTAIN to authenticated
 grant table public.schedule_blocks MAINTAIN to service_role
-grant table public.schedule_blocks REFERENCES to anon
-grant table public.schedule_blocks REFERENCES to authenticated
 grant table public.schedule_blocks REFERENCES to service_role
-grant table public.schedule_blocks SELECT to anon
 grant table public.schedule_blocks SELECT to authenticated
 grant table public.schedule_blocks SELECT to service_role
-grant table public.schedule_blocks TRIGGER to anon
-grant table public.schedule_blocks TRIGGER to authenticated
 grant table public.schedule_blocks TRIGGER to service_role
-grant table public.schedule_blocks TRUNCATE to anon
-grant table public.schedule_blocks TRUNCATE to authenticated
 grant table public.schedule_blocks TRUNCATE to service_role
-grant table public.schedule_blocks UPDATE to anon
 grant table public.schedule_blocks UPDATE to authenticated
 grant table public.schedule_blocks UPDATE to service_role
-grant table public.subscriptions DELETE to anon
-grant table public.subscriptions DELETE to authenticated
 grant table public.subscriptions DELETE to service_role
-grant table public.subscriptions INSERT to anon
-grant table public.subscriptions INSERT to authenticated
 grant table public.subscriptions INSERT to service_role
-grant table public.subscriptions MAINTAIN to anon
-grant table public.subscriptions MAINTAIN to authenticated
 grant table public.subscriptions MAINTAIN to service_role
-grant table public.subscriptions REFERENCES to anon
-grant table public.subscriptions REFERENCES to authenticated
 grant table public.subscriptions REFERENCES to service_role
-grant table public.subscriptions SELECT to anon
 grant table public.subscriptions SELECT to authenticated
 grant table public.subscriptions SELECT to service_role
-grant table public.subscriptions TRIGGER to anon
-grant table public.subscriptions TRIGGER to authenticated
 grant table public.subscriptions TRIGGER to service_role
-grant table public.subscriptions TRUNCATE to anon
-grant table public.subscriptions TRUNCATE to authenticated
 grant table public.subscriptions TRUNCATE to service_role
-grant table public.subscriptions UPDATE to anon
-grant table public.subscriptions UPDATE to authenticated
 grant table public.subscriptions UPDATE to service_role
-grant table public.tenant_messaging_config DELETE to anon
-grant table public.tenant_messaging_config DELETE to authenticated
 grant table public.tenant_messaging_config DELETE to service_role
-grant table public.tenant_messaging_config INSERT to anon
 grant table public.tenant_messaging_config INSERT to authenticated
 grant table public.tenant_messaging_config INSERT to service_role
-grant table public.tenant_messaging_config MAINTAIN to anon
-grant table public.tenant_messaging_config MAINTAIN to authenticated
 grant table public.tenant_messaging_config MAINTAIN to service_role
-grant table public.tenant_messaging_config REFERENCES to anon
-grant table public.tenant_messaging_config REFERENCES to authenticated
 grant table public.tenant_messaging_config REFERENCES to service_role
-grant table public.tenant_messaging_config SELECT to anon
 grant table public.tenant_messaging_config SELECT to authenticated
 grant table public.tenant_messaging_config SELECT to service_role
-grant table public.tenant_messaging_config TRIGGER to anon
-grant table public.tenant_messaging_config TRIGGER to authenticated
 grant table public.tenant_messaging_config TRIGGER to service_role
-grant table public.tenant_messaging_config TRUNCATE to anon
-grant table public.tenant_messaging_config TRUNCATE to authenticated
 grant table public.tenant_messaging_config TRUNCATE to service_role
-grant table public.tenant_messaging_config UPDATE to anon
 grant table public.tenant_messaging_config UPDATE to authenticated
 grant table public.tenant_messaging_config UPDATE to service_role
-grant table public.tenants DELETE to anon
-grant table public.tenants DELETE to authenticated
 grant table public.tenants DELETE to service_role
-grant table public.tenants INSERT to anon
-grant table public.tenants INSERT to authenticated
 grant table public.tenants INSERT to service_role
-grant table public.tenants MAINTAIN to anon
-grant table public.tenants MAINTAIN to authenticated
 grant table public.tenants MAINTAIN to service_role
-grant table public.tenants REFERENCES to anon
-grant table public.tenants REFERENCES to authenticated
 grant table public.tenants REFERENCES to service_role
-grant table public.tenants SELECT to anon
 grant table public.tenants SELECT to authenticated
 grant table public.tenants SELECT to service_role
-grant table public.tenants TRIGGER to anon
-grant table public.tenants TRIGGER to authenticated
 grant table public.tenants TRIGGER to service_role
-grant table public.tenants TRUNCATE to anon
-grant table public.tenants TRUNCATE to authenticated
 grant table public.tenants TRUNCATE to service_role
-grant table public.tenants UPDATE to anon
 grant table public.tenants UPDATE to authenticated
 grant table public.tenants UPDATE to service_role
-grant table public.visit_revisions DELETE to anon
-grant table public.visit_revisions DELETE to authenticated
 grant table public.visit_revisions DELETE to service_role
-grant table public.visit_revisions INSERT to anon
 grant table public.visit_revisions INSERT to authenticated
 grant table public.visit_revisions INSERT to service_role
-grant table public.visit_revisions MAINTAIN to anon
-grant table public.visit_revisions MAINTAIN to authenticated
 grant table public.visit_revisions MAINTAIN to service_role
-grant table public.visit_revisions REFERENCES to anon
-grant table public.visit_revisions REFERENCES to authenticated
 grant table public.visit_revisions REFERENCES to service_role
-grant table public.visit_revisions SELECT to anon
 grant table public.visit_revisions SELECT to authenticated
 grant table public.visit_revisions SELECT to service_role
-grant table public.visit_revisions TRIGGER to anon
-grant table public.visit_revisions TRIGGER to authenticated
 grant table public.visit_revisions TRIGGER to service_role
-grant table public.visit_revisions TRUNCATE to anon
-grant table public.visit_revisions TRUNCATE to authenticated
 grant table public.visit_revisions TRUNCATE to service_role
-grant table public.visit_revisions UPDATE to anon
-grant table public.visit_revisions UPDATE to authenticated
 grant table public.visit_revisions UPDATE to service_role
-grant table public.visits DELETE to anon
-grant table public.visits DELETE to authenticated
 grant table public.visits DELETE to service_role
-grant table public.visits INSERT to anon
 grant table public.visits INSERT to authenticated
 grant table public.visits INSERT to service_role
-grant table public.visits MAINTAIN to anon
-grant table public.visits MAINTAIN to authenticated
 grant table public.visits MAINTAIN to service_role
-grant table public.visits REFERENCES to anon
-grant table public.visits REFERENCES to authenticated
 grant table public.visits REFERENCES to service_role
-grant table public.visits SELECT to anon
 grant table public.visits SELECT to authenticated
 grant table public.visits SELECT to service_role
-grant table public.visits TRIGGER to anon
-grant table public.visits TRIGGER to authenticated
 grant table public.visits TRIGGER to service_role
-grant table public.visits TRUNCATE to anon
-grant table public.visits TRUNCATE to authenticated
 grant table public.visits TRUNCATE to service_role
-grant table public.visits UPDATE to anon
 grant table public.visits UPDATE to authenticated
 grant table public.visits UPDATE to service_role
-grant table public.waitlist_entries DELETE to anon
-grant table public.waitlist_entries DELETE to authenticated
 grant table public.waitlist_entries DELETE to service_role
-grant table public.waitlist_entries INSERT to anon
 grant table public.waitlist_entries INSERT to authenticated
 grant table public.waitlist_entries INSERT to service_role
-grant table public.waitlist_entries MAINTAIN to anon
-grant table public.waitlist_entries MAINTAIN to authenticated
 grant table public.waitlist_entries MAINTAIN to service_role
-grant table public.waitlist_entries REFERENCES to anon
-grant table public.waitlist_entries REFERENCES to authenticated
 grant table public.waitlist_entries REFERENCES to service_role
-grant table public.waitlist_entries SELECT to anon
 grant table public.waitlist_entries SELECT to authenticated
 grant table public.waitlist_entries SELECT to service_role
-grant table public.waitlist_entries TRIGGER to anon
-grant table public.waitlist_entries TRIGGER to authenticated
 grant table public.waitlist_entries TRIGGER to service_role
-grant table public.waitlist_entries TRUNCATE to anon
-grant table public.waitlist_entries TRUNCATE to authenticated
 grant table public.waitlist_entries TRUNCATE to service_role
-grant table public.waitlist_entries UPDATE to anon
 grant table public.waitlist_entries UPDATE to authenticated
 grant table public.waitlist_entries UPDATE to service_role
 grant table public.webhook_delivery_queue DELETE to service_role
@@ -2227,28 +1684,16 @@ grant table public.webhook_delivery_queue SELECT to service_role
 grant table public.webhook_delivery_queue TRIGGER to service_role
 grant table public.webhook_delivery_queue TRUNCATE to service_role
 grant table public.webhook_delivery_queue UPDATE to service_role
-grant table public.webhook_subscriptions DELETE to anon
 grant table public.webhook_subscriptions DELETE to authenticated
 grant table public.webhook_subscriptions DELETE to service_role
-grant table public.webhook_subscriptions INSERT to anon
 grant table public.webhook_subscriptions INSERT to authenticated
 grant table public.webhook_subscriptions INSERT to service_role
-grant table public.webhook_subscriptions MAINTAIN to anon
-grant table public.webhook_subscriptions MAINTAIN to authenticated
 grant table public.webhook_subscriptions MAINTAIN to service_role
-grant table public.webhook_subscriptions REFERENCES to anon
-grant table public.webhook_subscriptions REFERENCES to authenticated
 grant table public.webhook_subscriptions REFERENCES to service_role
-grant table public.webhook_subscriptions SELECT to anon
 grant table public.webhook_subscriptions SELECT to authenticated
 grant table public.webhook_subscriptions SELECT to service_role
-grant table public.webhook_subscriptions TRIGGER to anon
-grant table public.webhook_subscriptions TRIGGER to authenticated
 grant table public.webhook_subscriptions TRIGGER to service_role
-grant table public.webhook_subscriptions TRUNCATE to anon
-grant table public.webhook_subscriptions TRUNCATE to authenticated
 grant table public.webhook_subscriptions TRUNCATE to service_role
-grant table public.webhook_subscriptions UPDATE to anon
 grant table public.webhook_subscriptions UPDATE to authenticated
 grant table public.webhook_subscriptions UPDATE to service_role
 index ops.alert_rules_pkey CREATE UNIQUE INDEX alert_rules_pkey ON ops.alert_rules USING btree (rule)
@@ -2452,15 +1897,14 @@ index public.webhook_delivery_queue_subscription_event_key CREATE UNIQUE INDEX w
 index public.webhook_subscriptions_pkey CREATE UNIQUE INDEX webhook_subscriptions_pkey ON public.webhook_subscriptions USING btree (id)
 index public.webhook_subscriptions_tenant_id_id_key CREATE UNIQUE INDEX webhook_subscriptions_tenant_id_id_key ON public.webhook_subscriptions USING btree (tenant_id, id)
 policy public.api_key_usage_daily.api_key_usage_daily_delete cmd=d permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
-policy public.api_key_usage_daily.api_key_usage_owner_admin_insert cmd=a permissive=t roles=authenticated using=- check=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_key_usage_daily.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text])))))
-policy public.api_key_usage_daily.api_key_usage_owner_admin_select cmd=r permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_key_usage_daily.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=-
-policy public.api_key_usage_daily.api_key_usage_owner_admin_update cmd=w permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_key_usage_daily.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_key_usage_daily.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text])))))
+policy public.api_key_usage_daily.api_key_usage_daily_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
+policy public.api_key_usage_daily.api_key_usage_daily_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
+policy public.api_key_usage_daily.api_key_usage_daily_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
 policy public.api_keys.api_keys_delete cmd=d permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
-policy public.api_keys.api_keys_owner_admin_insert cmd=a permissive=t roles=authenticated using=- check=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_keys.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text])))))
-policy public.api_keys.api_keys_owner_admin_select cmd=r permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_keys.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=-
-policy public.api_keys.api_keys_owner_admin_update cmd=w permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_keys.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_keys.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text])))))
-policy public.audit_logs.audit_logs_insert_member cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))
-policy public.audit_logs.audit_logs_select_owner_admin cmd=r permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = audit_logs.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=-
+policy public.api_keys.api_keys_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
+policy public.api_keys.api_keys_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
+policy public.api_keys.api_keys_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
+policy public.audit_logs.audit_logs_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
 policy public.cdci_brands.cdci_brands_select cmd=r permissive=t roles=authenticated using=true check=-
 policy public.cdci_drug_forms.cdci_drug_forms_select cmd=r permissive=t roles=authenticated using=true check=-
 policy public.cdci_generics.cdci_generics_select cmd=r permissive=t roles=authenticated using=true check=-
@@ -2493,17 +1937,16 @@ policy public.doctor_prescription_templates.doctor_prescription_templates_delete
 policy public.doctor_prescription_templates.doctor_prescription_templates_insert cmd=a permissive=t roles=authenticated using=- check=((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (doctor_id = ( SELECT auth.uid() AS uid)))
 policy public.doctor_prescription_templates.doctor_prescription_templates_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:view'::text) AS tenant_ids_with)) check=-
 policy public.doctor_prescription_templates.doctor_prescription_templates_update cmd=w permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (doctor_id = ( SELECT auth.uid() AS uid))) check=((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (doctor_id = ( SELECT auth.uid() AS uid)))
-policy public.document_share_tokens.doc_tokens_select_tenant cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=-
+policy public.document_share_tokens.document_share_tokens_select cmd=r permissive=t roles=authenticated using=(((resource_type = 'prescription'::text) AND (tenant_id IN ( SELECT authz.tenant_ids_with('prescriptions:view'::text) AS tenant_ids_with))) OR ((resource_type = 'invoice'::text) AND (tenant_id IN ( SELECT authz.tenant_ids_with('billing:view'::text) AS tenant_ids_with))) OR ((resource_type = 'referral'::text) AND (tenant_id IN ( SELECT authz.tenant_ids_with('consultations:view'::text) AS tenant_ids_with))) OR ((resource_type = 'patient_document'::text) AND (tenant_id IN ( SELECT authz.tenant_ids_with('labs:view'::text) AS tenant_ids_with)))) check=-
 policy public.follow_ups.follow_ups_delete cmd=d permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) check=-
 policy public.follow_ups.follow_ups_insert cmd=a permissive=t roles=authenticated using=- check=((tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)))
 policy public.follow_ups.follow_ups_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:view'::text) AS tenant_ids_with)) check=-
 policy public.follow_ups.follow_ups_update cmd=w permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with))) check=((tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)))
 policy public.in_app_notifications.in_app_notifications_delete cmd=d permissive=t roles=authenticated using=((recipient_user_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids))) check=-
-policy public.in_app_notifications.in_app_notifications_tenant_isolation_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))
-policy public.in_app_notifications.in_app_notifications_tenant_isolation_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=-
-policy public.in_app_notifications.in_app_notifications_tenant_isolation_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))
-policy public.invitations.invitations_insert_owner_admin cmd=a permissive=t roles=authenticated using=- check=((created_by = auth.uid()) AND (consumed_at IS NULL) AND (consumed_by IS NULL) AND current_user_is_admin_or_owner(tenant_id) AND ((role <> ALL (ARRAY['owner'::text, 'admin'::text])) OR current_user_has_role(tenant_id, ARRAY['owner'::text])))
-policy public.invitations.invitations_select_owner_admin cmd=r permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = invitations.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=-
+policy public.in_app_notifications.in_app_notifications_select cmd=r permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids)) AND ((recipient_user_id = ( SELECT auth.uid() AS uid)) OR ((recipient_user_id IS NULL) AND ((recipient_role IS NULL) OR (EXISTS ( SELECT 1    FROM memberships m   WHERE ((m.tenant_id = in_app_notifications.tenant_id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND ((m.role = in_app_notifications.recipient_role) OR ((m.role = ANY (ARRAY['owner'::text, 'admin'::text])) AND (in_app_notifications.recipient_role = ANY (ARRAY['owner'::text, 'admin'::text, 'receptionist'::text]))))))))))) check=-
+policy public.in_app_notifications.in_app_notifications_update cmd=w permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids)) AND ((recipient_user_id = ( SELECT auth.uid() AS uid)) OR ((recipient_user_id IS NULL) AND ((recipient_role IS NULL) OR (EXISTS ( SELECT 1    FROM memberships m   WHERE ((m.tenant_id = in_app_notifications.tenant_id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND ((m.role = in_app_notifications.recipient_role) OR ((m.role = ANY (ARRAY['owner'::text, 'admin'::text])) AND (in_app_notifications.recipient_role = ANY (ARRAY['owner'::text, 'admin'::text, 'receptionist'::text]))))))))))) check=(tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids))
+policy public.invitations.invitations_insert cmd=a permissive=t roles=authenticated using=- check=((created_by = ( SELECT auth.uid() AS uid)) AND (consumed_at IS NULL) AND (consumed_by IS NULL) AND (tenant_id IN ( SELECT authz.tenant_ids_with('staff:invite'::text) AS tenant_ids_with)) AND ((role <> ALL (ARRAY['owner'::text, 'admin'::text])) OR (EXISTS ( SELECT 1    FROM memberships m   WHERE ((m.tenant_id = invitations.tenant_id) AND (m.user_id = ( SELECT auth.uid() AS uid)) AND (m.role = 'owner'::text))))))
+policy public.invitations.invitations_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('staff:invite'::text) AS tenant_ids_with)) check=-
 policy public.invoice_items.invoice_items_delete cmd=d permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('billing:collect'::text) AS tenant_ids_with)) check=-
 policy public.invoice_items.invoice_items_insert cmd=a permissive=t roles=authenticated using=- check=((tenant_id IN ( SELECT authz.tenant_ids_with('billing:collect'::text) AS tenant_ids_with)) OR ((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id = invoice_items.tenant_id) AND (i.id = invoice_items.invoice_id) AND (v.doctor_id = ( SELECT auth.uid() AS uid)))))))
 policy public.invoice_items.invoice_items_select cmd=r permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.tenant_ids_with('billing:view'::text) AS tenant_ids_with)) OR ((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id = invoice_items.tenant_id) AND (i.id = invoice_items.invoice_id) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=-
@@ -2511,17 +1954,17 @@ policy public.invoice_items.invoice_items_update cmd=w permissive=t roles=authen
 policy public.invoices.invoices_insert cmd=a permissive=t roles=authenticated using=- check=((tenant_id IN ( SELECT authz.tenant_ids_with('billing:collect'::text) AS tenant_ids_with)) OR ((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (EXISTS ( SELECT 1    FROM visits v   WHERE ((v.tenant_id = invoices.tenant_id) AND (v.id = invoices.visit_id) AND (v.doctor_id = ( SELECT auth.uid() AS uid)))))))
 policy public.invoices.invoices_select cmd=r permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.tenant_ids_with('billing:view'::text) AS tenant_ids_with)) OR ((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (EXISTS ( SELECT 1    FROM visits v   WHERE ((v.tenant_id = invoices.tenant_id) AND (v.id = invoices.visit_id) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=-
 policy public.invoices.invoices_update cmd=w permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.tenant_ids_with('billing:collect'::text) AS tenant_ids_with)) OR ((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (EXISTS ( SELECT 1    FROM visits v   WHERE ((v.tenant_id = invoices.tenant_id) AND (v.id = invoices.visit_id) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=((tenant_id IN ( SELECT authz.tenant_ids_with('billing:collect'::text) AS tenant_ids_with)) OR ((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (EXISTS ( SELECT 1    FROM visits v   WHERE ((v.tenant_id = invoices.tenant_id) AND (v.id = invoices.visit_id) AND (v.doctor_id = ( SELECT auth.uid() AS uid)))))))
-policy public.memberships.memberships_select_tenant cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=-
-policy public.memberships.memberships_update_tenant cmd=w permissive=t roles=authenticated using=((tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) AND ((user_id = auth.uid()) OR current_user_is_admin_or_owner(tenant_id))) check=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))
+policy public.memberships.memberships_select cmd=r permissive=t roles=authenticated using=(((user_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.member_tenant_ids() AS member_tenant_ids))) OR (tenant_id IN ( SELECT authz.tenant_ids_with('staff:view'::text) AS tenant_ids_with))) check=-
+policy public.memberships.memberships_update cmd=w permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids)) AND ((user_id = ( SELECT auth.uid() AS uid)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)))) check=((tenant_id IN ( SELECT authz.full_tenant_ids() AS full_tenant_ids)) AND ((user_id = ( SELECT auth.uid() AS uid)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))))
 policy public.opd_diagnoses.opd_diagnoses_select cmd=r permissive=t roles=authenticated using=true check=-
 policy public.patient_documents.patient_documents_delete cmd=d permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with)) check=-
-policy public.patient_documents.patient_documents_tenant_isolation_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))
-policy public.patient_documents.patient_documents_tenant_isolation_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=-
-policy public.patient_documents.patient_documents_tenant_isolation_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))
+policy public.patient_documents.patient_documents_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with))
+policy public.patient_documents.patient_documents_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:view'::text) AS tenant_ids_with)) check=-
+policy public.patient_documents.patient_documents_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('labs:edit'::text) AS tenant_ids_with))
 policy public.patients.patients_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with))
 policy public.patients.patients_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:view'::text) AS tenant_ids_with)) check=-
 policy public.patients.patients_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with))
-policy public.payment_records.payment_records_select_owner_admin cmd=r permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = payment_records.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=-
+policy public.payment_records.payment_records_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
 policy public.payments.payments_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('billing:collect'::text) AS tenant_ids_with))
 policy public.payments.payments_select cmd=r permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.tenant_ids_with('billing:view'::text) AS tenant_ids_with)) OR ((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id = payments.tenant_id) AND (i.id = payments.invoice_id) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=-
 policy public.prescription_items.prescription_items_delete cmd=d permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('prescriptions:edit'::text) AS tenant_ids_with)) check=-
@@ -2543,12 +1986,12 @@ policy public.schedule_blocks.schedule_blocks_delete cmd=d permissive=t roles=au
 policy public.schedule_blocks.schedule_blocks_insert cmd=a permissive=t roles=authenticated using=- check=(((doctor_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)))
 policy public.schedule_blocks.schedule_blocks_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:view'::text) AS tenant_ids_with)) check=-
 policy public.schedule_blocks.schedule_blocks_update cmd=w permissive=t roles=authenticated using=(((doctor_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))) check=(((doctor_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)))
-policy public.subscriptions.subscriptions_select_owner_admin cmd=r permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = subscriptions.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=-
-policy public.tenant_messaging_config.tenant_messaging_config_tenant_isolation_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))
-policy public.tenant_messaging_config.tenant_messaging_config_tenant_isolation_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=-
-policy public.tenant_messaging_config.tenant_messaging_config_tenant_isolation_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))
-policy public.tenants.tenants_select_membership cmd=r permissive=t roles=authenticated using=(id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=-
-policy public.tenants.tenants_update_owner_admin cmd=w permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = tenants.id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=-
+policy public.subscriptions.subscriptions_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
+policy public.tenant_messaging_config.tenant_messaging_config_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
+policy public.tenant_messaging_config.tenant_messaging_config_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:view'::text) AS tenant_ids_with)) check=-
+policy public.tenant_messaging_config.tenant_messaging_config_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
+policy public.tenants.tenants_select cmd=r permissive=t roles=authenticated using=(id IN ( SELECT authz.member_tenant_ids() AS member_tenant_ids)) check=-
+policy public.tenants.tenants_update cmd=w permissive=t roles=authenticated using=(id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=(id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
 policy public.visit_revisions.visit_revisions_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with))
 policy public.visit_revisions.visit_revisions_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:view'::text) AS tenant_ids_with)) check=-
 policy public.visits.visits_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))
@@ -2557,18 +2000,24 @@ policy public.visits.visits_update cmd=w permissive=t roles=authenticated using=
 policy public.waitlist_entries.waitlist_entries_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))
 policy public.waitlist_entries.waitlist_entries_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:view'::text) AS tenant_ids_with)) check=-
 policy public.waitlist_entries.waitlist_entries_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))
-policy public.webhook_delivery_queue.webhook_queue_select_owner_admin cmd=r permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = webhook_delivery_queue.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=-
-policy public.webhook_subscriptions.webhook_subs_owner_admin_insert cmd=a permissive=t roles=authenticated using=- check=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = webhook_subscriptions.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text])))))
-policy public.webhook_subscriptions.webhook_subs_owner_admin_select cmd=r permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = webhook_subscriptions.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=-
-policy public.webhook_subscriptions.webhook_subs_owner_admin_update cmd=w permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = webhook_subscriptions.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = webhook_subscriptions.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text])))))
+policy public.webhook_delivery_queue.webhook_delivery_queue_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
 policy public.webhook_subscriptions.webhook_subscriptions_delete cmd=d permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
-policy storage.objects.clinic_records_storage_delete_policy cmd=d permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (((split_part(name, '/'::text, 1) = 'tenants'::text) AND ((split_part(name, '/'::text, 2))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))) OR ((split_part(name, '/'::text, 1))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)))) check=-
-policy storage.objects.clinic_records_storage_insert_policy cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'clinic-records'::text) AND (((split_part(name, '/'::text, 1) = 'tenants'::text) AND ((split_part(name, '/'::text, 2))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))) OR ((split_part(name, '/'::text, 1))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))))
-policy storage.objects.clinic_records_storage_select_policy cmd=r permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (((split_part(name, '/'::text, 1) = 'tenants'::text) AND ((split_part(name, '/'::text, 2))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))) OR ((split_part(name, '/'::text, 1))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)))) check=-
-policy storage.objects.clinic_records_storage_update_policy cmd=w permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (((split_part(name, '/'::text, 1) = 'tenants'::text) AND ((split_part(name, '/'::text, 2))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))) OR ((split_part(name, '/'::text, 1))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)))) check=((bucket_id = 'clinic-records'::text) AND (((split_part(name, '/'::text, 1) = 'tenants'::text) AND ((split_part(name, '/'::text, 2))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))) OR ((split_part(name, '/'::text, 1))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))))
-policy storage.objects.prescriptions_storage_insert_policy cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'prescriptions'::text) AND ((split_part(name, '/'::text, 1))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)))
-policy storage.objects.prescriptions_storage_select_policy cmd=r permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND ((split_part(name, '/'::text, 1))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))) check=-
-policy storage.objects.prescriptions_storage_update_policy cmd=w permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND ((split_part(name, '/'::text, 1))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))) check=((bucket_id = 'prescriptions'::text) AND ((split_part(name, '/'::text, 1))::uuid IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)))
+policy public.webhook_subscriptions.webhook_subscriptions_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
+policy public.webhook_subscriptions.webhook_subscriptions_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
+policy public.webhook_subscriptions.webhook_subscriptions_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
+policy storage.objects.clinic_records_lab_delete cmd=d permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/patients/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/labs/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,254}$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('labs:edit'::text) t(t)))) check=-
+policy storage.objects.clinic_records_lab_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/patients/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/labs/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,254}$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('labs:edit'::text) t(t))))
+policy storage.objects.clinic_records_lab_select cmd=r permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/patients/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/labs/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,254}$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('labs:view'::text) t(t)))) check=-
+policy storage.objects.clinic_records_lab_update cmd=w permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/patients/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/labs/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,254}$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('labs:edit'::text) t(t)))) check=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/patients/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/labs/[A-Za-z0-9_-][A-Za-z0-9_.-]{0,254}$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('labs:edit'::text) t(t))))
+policy storage.objects.clinic_records_referral_letter_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referrals/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referral_letter\.pdf$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('consultations:edit'::text) t(t))))
+policy storage.objects.clinic_records_referral_letter_select cmd=r permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referrals/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referral_letter\.pdf$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('consultations:view'::text) t(t)))) check=-
+policy storage.objects.clinic_records_referral_letter_update cmd=w permissive=t roles=authenticated using=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referrals/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referral_letter\.pdf$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('consultations:edit'::text) t(t)))) check=((bucket_id = 'clinic-records'::text) AND (name ~ '^tenants/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referrals/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/referral_letter\.pdf$'::text) AND (split_part(name, '/'::text, 2) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('consultations:edit'::text) t(t))))
+policy storage.objects.prescriptions_receipt_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:collect'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid)))))))
+policy storage.objects.prescriptions_receipt_select cmd=r permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:view'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=-
+policy storage.objects.prescriptions_receipt_update cmd=w permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:collect'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/receipts/inv_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.pdf$'::text) AND ((split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('billing:collect'::text) t(t))) OR (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND ((i.tenant_id)::text = split_part(objects.name, '/'::text, 1)) AND ((('inv_'::text || (i.id)::text) || '.pdf'::text) = split_part(objects.name, '/'::text, 3)) AND (v.doctor_id = ( SELECT auth.uid() AS uid)))))))
+policy storage.objects.prescriptions_rx_insert cmd=a permissive=t roles=authenticated using=- check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:edit'::text) t(t))))
+policy storage.objects.prescriptions_rx_select cmd=r permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:view'::text) t(t)))) check=-
+policy storage.objects.prescriptions_rx_update cmd=w permissive=t roles=authenticated using=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:edit'::text) t(t)))) check=((bucket_id = 'prescriptions'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/rx_v[0-9]{1,9}\.pdf$'::text) AND (split_part(name, '/'::text, 1) IN ( SELECT (t.t)::text AS t    FROM authz.tenant_ids_with('prescriptions:edit'::text) t(t))))
 relation ops.alert_rules kind=r rls=t force_rls=f
 relation ops.alerts kind=r rls=t force_rls=f
 relation ops.backup_runs kind=r rls=t force_rls=f

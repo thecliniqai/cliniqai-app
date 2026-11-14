@@ -193,17 +193,19 @@ select is_empty(
   'every DELETE policy binds the active clinic through the authz helpers, never the legacy rules');
 
 -- 3. Real principals ------------------------------------------------------------------------------------------------
+-- Since 05-02c (000059 grants hardening) a table with no DELETE policy no longer grants DELETE at all: the attempt is
+-- refused with 42501 ('denied') instead of affecting 0 rows.
 select is(pg_temp.as_user('de000000-0000-4000-8000-000000000101', null,
-  $$delete from public.visits where id = 'de000000-0000-4000-8000-000000001012'$$), '0',
-  'the owner cannot delete a visit, even one without children (visits_delete_member dropped)');
+  $$delete from public.visits where id = 'de000000-0000-4000-8000-000000001012'$$), 'denied',
+  'the owner cannot delete a visit, even one without children (visits_delete_member dropped; DELETE revoked, 05-02c)');
 select is(pg_temp.as_user('de000000-0000-4000-8000-000000000102', null,
-  $$delete from public.visits where id = 'de000000-0000-4000-8000-000000001012'$$), '0',
+  $$delete from public.visits where id = 'de000000-0000-4000-8000-000000001012'$$), 'denied',
   'an admin cannot delete a visit');
 select is(pg_temp.as_user('de000000-0000-4000-8000-000000000101', null,
-  $$delete from public.prescriptions where id = 'de000000-0000-4000-8000-000000001032'$$), '0',
+  $$delete from public.prescriptions where id = 'de000000-0000-4000-8000-000000001032'$$), 'denied',
   'the owner cannot delete a prescription');
 select is(pg_temp.as_user('de000000-0000-4000-8000-000000000101', null,
-  $$delete from public.patients where id = 'de000000-0000-4000-8000-000000001003'$$), '0',
+  $$delete from public.patients where id = 'de000000-0000-4000-8000-000000001003'$$), 'denied',
   'the owner cannot delete a patient');
 select is(pg_temp.as_user('de000000-0000-4000-8000-000000000103', null,
   $$delete from public.prescription_items where id = 'de000000-0000-4000-8000-000000002004'$$), '1',
