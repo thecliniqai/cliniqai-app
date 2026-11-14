@@ -1,0 +1,15 @@
+== typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+exit 0
+== eslint
+✖ 387 problems (0 errors, 387 warnings)
+  0 errors and 23 warnings potentially fixable with the `--fix` option.
+
+== inventory
+            inventory: 25 "use server" modules, 112 exports; 14/15 D1 non-action modules present; 28 route modules, 50 methods; 0 flagged, 6 noted
+== authz:gen --check
+
+exit 
+== schema snapshot --check
+schema-snapshot: PASS (local: 2170 lines equal the committed snapshot)

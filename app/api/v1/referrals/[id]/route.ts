@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
-import { apiSuccess, apiError } from "@/lib/api/envelope";
+import { apiSuccess, apiError, apiDbError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
@@ -49,7 +49,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .maybeSingle();
 
     if (error) {
-      return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
+      return apiDbError(error, rateHeaders);
     }
 
     if (!referral) {
@@ -58,8 +58,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(referral, undefined, 200, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }
 
@@ -121,7 +120,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       .maybeSingle();
 
     if (fetchErr) {
-      return apiError("DATABASE_ERROR", fetchErr.message, 500, undefined, rateHeaders);
+      return apiDbError(fetchErr, rateHeaders);
     }
 
     if (!existingReferral) {
@@ -156,7 +155,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       .single();
 
     if (updateErr || !updatedReferral) {
-      return apiError("DATABASE_ERROR", updateErr?.message || "Failed to update referral.", 500, undefined, rateHeaders);
+      return apiDbError(updateErr, rateHeaders);
     }
 
     // Audit log
@@ -177,7 +176,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(updatedReferral, undefined, 200, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }

@@ -21,6 +21,7 @@ import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { buildInventory } from "@/scripts/inventory-server-actions";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { plantLegacyRow, psql } from "../helpers/sql";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { ACTION_GUARDS, ROUTE_GUARDS } from "./guard-manifest";
 import {
@@ -30,6 +31,7 @@ import {
   completeness,
   crossTenantActionLeg,
   forgeAt,
+  invokeAction,
   positiveControlLeg,
   referenceSlots,
   refusedActionLeg,
@@ -135,23 +137,41 @@ describe("P0-13 canary: an unguarded action and route are caught", () => {
     const fnOf = async (c: ActionCase) =>
       ((await import(path.join(ROOT, c.file))) as Record<string, (...a: unknown[]) => unknown>)[c.name];
 
-    it("forging every B id at once misses the unchecked second reference; one at a time catches it", async () => {
+    it("forging every B id at once misses the unchecked second reference; one at a time reaches it", async () => {
       if (!linkCase) throw new Error("leg 3 fixture not inventoried");
       const fn = await fnOf(linkCase);
       const caller = world.roles.doctor;
 
       // The pre-02-06 leg: B's ids everywhere. Refused at the patient check, so nothing is written.
       expect(await crossTenantActionLeg(slot, linkCase, fn, caller.client, world)).toEqual([]);
+      expect((await invokeAction(slot, caller.client, fn, argsFor(linkCase, world.b))).value).toEqual({
+        success: false,
+        error: "Not found in this clinic.",
+      });
       expect(await aRowsReferencingB(admin, world)).toEqual([]);
 
-      // One reference at a time inside valid tenant-A inputs: the B visit alone is stored.
+      // One reference at a time inside valid tenant-A inputs: the B visit alone passes the action's own check and
+      // reaches the write. Before V2-05 05-03 it was stored (and the detector below caught it); since 05-03 the
+      // composite FK (tenant_id, visit_id) refuses it, so the action reports its write failure and nothing is stored.
       const rows = await world.aRows(caller);
       const valid = argsFor(linkCase, rows);
       expect(await positiveControlLeg(slot, linkCase, fn, caller.client, valid)).toEqual([]);
       const visitSlot = referenceSlots(valid, rows).find((p) => p[p.length - 1] === "visit_id");
       if (!visitSlot) throw new Error("no visit_id reference found");
-      await crossTenantActionLeg(slot, linkCase, fn, caller.client, world, forgeAt(argsFor(linkCase, rows), visitSlot, rows, world.b));
-      expect(await aRowsReferencingB(admin, world)).toContain("follow_ups row references B visit");
+      const forged = forgeAt(argsFor(linkCase, rows), visitSlot, rows, world.b);
+      expect((await invokeAction(slot, caller.client, fn, forged)).value).toEqual({ success: false, error: "Failed." });
+      expect(await aRowsReferencingB(admin, world)).toEqual([]);
+
+      // The detector still catches a stored B reference: plant the row the canary wrote before 05-03 (FK triggers off).
+      const [planted] = plantLegacyRow(
+        `insert into public.follow_ups (tenant_id, patient_id, visit_id, doctor_id, follow_up_date) values ` +
+          `('${world.tenantA}', '${rows.patient}', '${world.b.visit}', '${caller.userId}', current_date) returning id`
+      );
+      try {
+        expect(await aRowsReferencingB(admin, world)).toContain("follow_ups row references B visit");
+      } finally {
+        psql(`delete from public.follow_ups where id = '${planted}'`);
+      }
     }, 120_000);
 
     it("the positive control reports inputs that never reach the reference checks", async () => {

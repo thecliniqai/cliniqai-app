@@ -3,13 +3,14 @@ import { listApiKeys } from "@/features/api-keys/actions";
 import { listWebhookSubscriptions } from "@/features/webhooks/actions";
 import { DeveloperSettingsView } from "@/components/settings/developer/developer-settings-view";
 import { Card, CardContent } from "@/components/ui/card";
+import { withPageAuth } from "@/lib/auth/page";
 
 export const metadata = {
   title: "Developer Settings | ClinicQ",
   description: "Manage tenant API keys, outgoing webhook subscriptions, and developer integrations.",
 };
 
-export default async function DeveloperSettingsPage() {
+async function DeveloperSettingsPage() {
   try {
     await requirePermission("clinic:manage");
   } catch {
@@ -39,3 +40,6 @@ export default async function DeveloperSettingsPage() {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(DeveloperSettingsPage);

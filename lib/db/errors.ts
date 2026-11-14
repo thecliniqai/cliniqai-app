@@ -13,6 +13,10 @@ import { appError, isAppErrorReason, type AppError, type AppErrorCode } from "@/
  * |                     | unregistered reason → CONFLICT                                            |
  * | P0002               | NOT_FOUND, reason = the raised reason                                     |
  * | 55P03               | CONFLICT, reason LOCK_TIMEOUT (an RPC's lock_timeout expired)             |
+ * | 40P01, 40001        | CONFLICT, reason CONCURRENT_WRITE (deadlock victim / serialization        |
+ * |                     | failure: a concurrent write won; retrying is safe; V2-05 05-11c)          |
+ * | 22P02, 22007, 22008 | VALIDATION_FAILED (a value the column type refuses: a malformed uuid,     |
+ * |                     | timestamp or number; V2-05 05-11c)                                        |
  * | anything else       | INTERNAL                                                                  |
  *
  * The returned message is always a fixed text (the caller's `messages` or the default for the code): never the
@@ -48,7 +52,16 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   RATE_LIMITED: "RATE_LIMITED",
   // V2-04 04-03c (migration 000037): ops.replay_job refuses a job that is missing, not dead, or an erased unmatched reply.
   JOB_NOT_REPLAYABLE: "CONFLICT",
+  // V2-05 05-06 (migration 000062): the referrals directory/consent trigger. The target clinic is not listed in the
+  // referral directory (or is the referral's own clinic); a history snapshot without the patient's consent.
+  REFERRAL_TARGET_NOT_LISTED: "VALIDATION_FAILED",
+  REFERRAL_CONSENT_REQUIRED: "VALIDATION_FAILED",
+  // V2-05 05-11b (migration 000074): a referral's target doctor is not an owner/doctor of the target clinic.
+  REFERRAL_TARGET_DOCTOR_INVALID: "VALIDATION_FAILED",
 };
+
+/** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */
+export const CONCURRENT_WRITE = "CONCURRENT_WRITE";
 
 /** Fixed texts keyed by reason (checked first) or by code. */
 export type DbErrorMessages = Partial<Record<AppErrorCode | string, string>>;
@@ -82,6 +95,13 @@ function classify(err: DbErrorLike): { code: AppErrorCode; reason?: string } {
       return { code: "NOT_FOUND", reason: raisedReason(err) };
     case "55P03":
       return { code: "CONFLICT", reason: "LOCK_TIMEOUT" };
+    case "40P01":
+    case "40001":
+      return { code: "CONFLICT", reason: CONCURRENT_WRITE };
+    case "22P02":
+    case "22007":
+    case "22008":
+      return { code: "VALIDATION_FAILED" };
     default:
       return { code: "INTERNAL" };
   }
@@ -91,4 +111,20 @@ export function mapDbError(err: DbErrorLike | null | undefined, messages: DbErro
   const { code, reason } = err && typeof err === "object" ? classify(err) : { code: "INTERNAL" as const };
   const message = (reason !== undefined ? messages[reason] : undefined) ?? messages[code];
   return appError(code, { message, reason });
+}
+
+/** Reason of {@link unaffectedRowsError}: the write matched no row the caller may change. */
+export const ROW_NOT_AFFECTED = "ROW_NOT_AFFECTED";
+
+/**
+ * A DELETE (or UPDATE) that RLS may filter (V2-05 05-04, R-22, T-05-07). PostgREST answers a write whose rows the
+ * caller's policies exclude with success and 0 rows, so a service that only checks `error` reports a silent no-op as
+ * done (research Pitfall 11). Request the affected rows with `.select("id")` on the write and pass them here: fewer
+ * than `expected` → FORBIDDEN with reason {@link ROW_NOT_AFFECTED} (the service read the row first, so it exists for
+ * the caller; their role in the active clinic may not change it). Write the audit row only when this returns null.
+ */
+export function unaffectedRowsError(rows: unknown, expected = 1, messages: DbErrorMessages = {}): AppError | null {
+  const affected = Array.isArray(rows) ? rows.length : 0;
+  if (affected >= expected) return null;
+  return appError("FORBIDDEN", { message: messages[ROW_NOT_AFFECTED] ?? messages.FORBIDDEN, reason: ROW_NOT_AFFECTED });
 }

@@ -24,6 +24,13 @@ describe("mapDbError: SQLSTATE table", () => {
     ["23514 check", { code: "23514", message: 'new row violates check constraint "payments_amount_check"', details: ROW_DETAIL }, "CONFLICT", "PAYMENTS_AMOUNT_CHECK"],
     ["23P01 exclusion", { code: "23P01", message: 'conflicting key value violates exclusion constraint "visits_no_overlap"' }, "CONFLICT", "VISITS_NO_OVERLAP"],
     ["55P03 lock timeout", { code: "55P03", message: "canceling statement due to lock timeout" }, "CONFLICT", "LOCK_TIMEOUT"],
+    // V2-05 05-11c (INT L-3): a deadlock victim or a serialization failure lost to a concurrent write (retry-safe).
+    ["40P01 deadlock", { code: "40P01", message: "deadlock detected", details: "Process 101 waits for ShareLock on transaction 9" }, "CONFLICT", "CONCURRENT_WRITE"],
+    ["40001 serialization failure", { code: "40001", message: "could not serialize access due to concurrent update" }, "CONFLICT", "CONCURRENT_WRITE"],
+    // 05-11c (INT L-4): a value the column type refuses is the caller's input, not a server fault.
+    ["22P02 invalid text representation", { code: "22P02", message: 'invalid input syntax for type uuid: "Synthetic+919000000000"' }, "VALIDATION_FAILED", undefined],
+    ["22007 invalid datetime format", { code: "22007", message: 'invalid input syntax for type timestamp with time zone: "x"' }, "VALIDATION_FAILED", undefined],
+    ["22008 datetime field overflow", { code: "22008", message: 'date/time field value out of range: "2031-13-45"' }, "VALIDATION_FAILED", undefined],
     ["P0001 OVERPAYMENT", { code: "P0001", message: "OVERPAYMENT" }, "CONFLICT", "OVERPAYMENT"],
     ["P0001 INVOICE_NOT_PAYABLE", { code: "P0001", message: "INVOICE_NOT_PAYABLE" }, "CONFLICT", "INVOICE_NOT_PAYABLE"],
     ["P0001 ACTOR_INVALID", { code: "P0001", message: "ACTOR_INVALID" }, "FORBIDDEN", "ACTOR_INVALID"],
@@ -41,6 +48,8 @@ describe("mapDbError: SQLSTATE table", () => {
     ["P0001 RATE_LIMITED", { code: "P0001", message: "RATE_LIMITED" }, "RATE_LIMITED", "RATE_LIMITED"],
     // V2-04 04-03c (000037): ops.replay_job (postgres only; registered so the map stays complete).
     ["P0001 JOB_NOT_REPLAYABLE", { code: "P0001", message: "JOB_NOT_REPLAYABLE" }, "CONFLICT", "JOB_NOT_REPLAYABLE"],
+    // 05-11b (000074): the referral target-doctor guard.
+    ["P0001 REFERRAL_TARGET_DOCTOR_INVALID", { code: "P0001", message: "REFERRAL_TARGET_DOCTOR_INVALID" }, "VALIDATION_FAILED", "REFERRAL_TARGET_DOCTOR_INVALID"],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],
@@ -57,6 +66,17 @@ describe("mapDbError: SQLSTATE table", () => {
     const serialised = JSON.stringify(mapped);
     if (err.message !== reason) expect(serialised).not.toContain(err.message);
     expect(serialised).not.toContain("+91");
+  });
+
+  it("23P01 from visits_no_double_booking (V2-05 05-08) → CONFLICT, reason = the constraint, the caller's fixed text", () => {
+    const err = {
+      code: "23P01",
+      message: 'conflicting key value violates exclusion constraint "visits_no_double_booking"',
+      details: "Key (tenant_id, doctor_id, public.visit_slot(scheduled_at, estimated_duration_minutes))=(...) conflicts with existing key",
+    };
+    const mapped = mapDbError(err, { VISITS_NO_DOUBLE_BOOKING: "Synthetic slot-taken text." });
+    expect(mapped).toEqual(appError("CONFLICT", { message: "Synthetic slot-taken text.", reason: "VISITS_NO_DOUBLE_BOOKING" }));
+    expect(JSON.stringify(mapped)).not.toContain("Key (");
   });
 
   it("null, undefined and non-objects map to INTERNAL", () => {

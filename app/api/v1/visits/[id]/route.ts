@@ -1,35 +1,27 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
-import { apiSuccess, apiError } from "@/lib/api/envelope";
+import { apiSuccess, apiError, apiDbError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { CLINICAL_ACCESS_DENIED, hasClinicalField, V1_VISIT_COLUMNS } from "@/lib/api/visit-dto";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-const VISIT_STATUSES = [
-  "booked",
-  "confirmed",
-  "waiting",
-  "in_consultation",
-  "completed",
-  "cancelled",
-  "no_show",
-] as const;
+/**
+ * Statuses an API key may set. "completed" is not one: completing signs the visit, a clinical act, and the key principal
+ * has no clinical access (V2-05 05-11c, R-9; IND M4: it signed as the key's creator).
+ */
+const VISIT_STATUSES = ["booked", "confirmed", "waiting", "in_consultation", "cancelled", "no_show"] as const;
 
-/** Body of `PATCH /api/v1/visits/[id]`; `status` must be a real visit status (unknown keys are ignored). */
+/** Body of `PATCH /api/v1/visits/[id]`; `status` must be a settable visit status (unknown keys are ignored). */
 const visitPatchSchema = z.object({
   status: z.enum(VISIT_STATUSES).optional(),
-  clinical_notes: z.string().nullable().optional(),
-  chief_complaints: z.union([z.string(), z.array(z.unknown())]).nullable().optional(),
-  vitals: z.record(z.unknown()).nullable().optional(),
-  advice: z.unknown().optional(),
-  investigations_advised: z.unknown().optional(),
 });
 
 function isVisitLocked(visit: { status?: string | null; signed_at?: string | null }): boolean {
@@ -42,7 +34,8 @@ function visitLocked(rateHeaders: Record<string, string>) {
 
 /**
  * GET /api/v1/visits/[id]
- * Retrieve detailed clinical visit record scoped strictly to active tenant.
+ * Retrieve a visit scoped strictly to the active tenant, without clinical content (V2-05 05-11c, R-9:
+ * `V1_VISIT_COLUMNS` only).
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
   const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
@@ -72,13 +65,13 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   try {
     const { data: visit, error } = await (admin.from("visits") as any)
-      .select("*")
+      .select(V1_VISIT_COLUMNS)
       .eq("id", id)
       .eq("tenant_id", session.tenantId)
       .maybeSingle();
 
     if (error) {
-      return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
+      return apiDbError(error, rateHeaders);
     }
 
     if (!visit) {
@@ -87,16 +80,15 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(visit, undefined, 200, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }
 
 /**
  * PATCH /api/v1/visits/[id]
- * Update visit status, notes, chief complaints, or vitals.
- * Enforces clinical safety check (AGENTS.md §18, T-06-07): If transition to 'completed'
- * is requested, at least one diagnosis or clinical note must exist.
+ * Update a visit's status. Clinical content (notes, complaints, vitals, advice, investigations, specialty data) and
+ * completing (signing) the visit are refused with 403 CLINICAL_ACCESS_DENIED: API keys have no clinical access
+ * (V2-05 05-11c, R-9). A completed or signed visit is read-only (409 VISIT_LOCKED).
  */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
@@ -131,24 +123,30 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return apiError("INVALID_JSON", "Request body must be valid JSON.", 400, undefined, rateHeaders);
   }
 
+  // API keys have no clinical access (R-9; IND M5, IND M4): clinical content and the sign-off are refused, never
+  // silently dropped, before anything is read.
+  if (hasClinicalField(body) || (body && typeof body === "object" && (body as { status?: unknown }).status === "completed")) {
+    return apiError(CLINICAL_ACCESS_DENIED.code, CLINICAL_ACCESS_DENIED.message, 403, undefined, rateHeaders);
+  }
+
   const parsed = visitPatchSchema.safeParse(body ?? {});
   if (!parsed.success) {
     const field = parsed.error.issues[0]?.path.join(".") || "body";
     return apiError("VALIDATION_ERROR", `Field '${field}' is invalid.`, 422, undefined, rateHeaders);
   }
 
-  const { status, clinical_notes, chief_complaints, vitals, advice, investigations_advised } = parsed.data;
+  const { status } = parsed.data;
 
   try {
     // 1. Fetch existing encounter
     const { data: existingVisit, error: fetchErr } = await (admin.from("visits") as any)
-      .select("*")
+      .select("id, status, signed_at")
       .eq("id", id)
       .eq("tenant_id", session.tenantId)
       .maybeSingle();
 
     if (fetchErr) {
-      return apiError("DATABASE_ERROR", fetchErr.message, 500, undefined, rateHeaders);
+      return apiDbError(fetchErr, rateHeaders);
     }
 
     if (!existingVisit) {
@@ -161,67 +159,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return visitLocked(rateHeaders);
     }
 
-    // 2. Clinical safety check if transitioning status to 'completed'
-    if (status === "completed") {
-      const hasNotes = Boolean(
-        (typeof clinical_notes === "string" && clinical_notes.trim().length > 0) ||
-        (existingVisit.clinical_notes && existingVisit.clinical_notes.trim().length > 0)
-      );
-
-      const { data: diagnoses } = await (admin.from("consultation_diagnoses") as any)
-        .select("id")
-        .eq("visit_id", id)
-        .eq("tenant_id", session.tenantId)
-        .limit(1);
-
-      const hasDiagnosis = diagnoses && diagnoses.length > 0;
-
-      if (!hasNotes && !hasDiagnosis) {
-        return apiError(
-          "CLINICAL_SAFETY_VIOLATION",
-          "Cannot complete encounter without recording at least one diagnosis or clinical note.",
-          422,
-          undefined,
-          rateHeaders
-        );
-      }
-    }
-
-    // 3. Construct update object
+    // 2. Construct update object
     const updateData: Record<string, any> = {
       updated_at: new Date().toISOString(),
     };
-
     if (status) {
       updateData.status = status;
-      if (status === "completed") {
-        updateData.signed_at = new Date().toISOString();
-        updateData.signed_by = session.userId;
-      }
-    }
-
-    if (clinical_notes !== undefined) {
-      updateData.clinical_notes = clinical_notes;
-    }
-
-    if (chief_complaints !== undefined) {
-      updateData.chief_complaints = Array.isArray(chief_complaints)
-        ? chief_complaints
-        : typeof chief_complaints === "string" && chief_complaints.trim()
-        ? [{ complaint: chief_complaints.trim() }]
-        : [];
-    }
-
-    if (vitals !== undefined) {
-      updateData.vitals = vitals;
-    }
-
-    if (advice !== undefined) {
-      updateData.advice = advice;
-    }
-
-    if (investigations_advised !== undefined) {
-      updateData.investigations_advised = investigations_advised;
     }
 
     // The lock is part of the filter, so a visit signed between the read above and this write matches 0 rows.
@@ -231,12 +174,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       .eq("tenant_id", session.tenantId)
       .neq("status", "completed")
       .is("signed_at", null)
-      .select();
+      .select(V1_VISIT_COLUMNS);
 
     if (updateErr) {
       // AR2-Info (I2): a fixed message; the database text is neither returned nor logged (only its code).
-      log.error({ event: "api.visit_update.failed", code: errorTag(updateErr), requestId: await getRequestId() });
-      return apiError("DATABASE_ERROR", "Failed to update visit.", 500, undefined, rateHeaders);
+      return apiDbError(updateErr, rateHeaders, { event: "api.visit_update.failed" });
     }
 
     const updatedVisit = Array.isArray(updatedRows) ? updatedRows[0] : null;
@@ -244,7 +186,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return visitLocked(rateHeaders);
     }
 
-    // 4. Audit log update (D-08)
+    // 3. Audit log update (D-08)
     try {
       await recordAudit(apiKeyServiceContext(session, admin), {
           action: "visit.status_update",
@@ -261,7 +203,6 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     return apiSuccess(updatedVisit, undefined, 200, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }

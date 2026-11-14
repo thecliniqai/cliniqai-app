@@ -8,8 +8,9 @@ import * as messagingModule from "@/lib/messaging";
 import { inboundDedupeKey, parseMsg91Payload, verifyMsg91WebhookSecret } from "@/lib/messaging/webhook-helpers";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner } from "../helpers/tenants";
-import { psql } from "../helpers/sql";
+import { plantLegacyRow, psql } from "../helpers/sql";
 import { syntheticMobile } from "../jobs/message-helpers";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 const usedPhones = new Set<string>();
 
@@ -135,7 +136,7 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
         patient_id: patient.id,
         doctor_id: owner.userId,
         origin_type: "scheduled",
-        scheduled_at: new Date(Date.now() + 3 * 86400000).toISOString(),
+        scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
         status: "booked",
         created_by: owner.userId,
       })
@@ -381,7 +382,7 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
 
     it("a queue row whose appointment points at another tenant's visit resolves nothing", async () => {
       const forgedId = `wamid.forged-${Date.now()}`;
-      const { error } = await (admin.from("communication_queue") as any).insert({
+      const forged = {
         tenant_id: A.tenantId,
         appointment_id: B.visitId, // cross-tenant pointer: the visit read is bound to tenant A and must miss
         channel: "whatsapp",
@@ -390,8 +391,17 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
         recipient_phone: A.patientPhone,
         status: "sent",
         external_message_id: forgedId,
-      });
-      expect(error).toBeNull();
+      };
+      // Since 05-03 the composite FK (tenant_id, appointment_id) refuses this row for every writer; a row from before
+      // 05-03 is planted with FK triggers off to prove the reply lookup's tenant binding still holds.
+      const { error } = await (admin.from("communication_queue") as any).insert(forged);
+      expect(error?.code).toBe("23503");
+      expect(forged.recipient_phone).toMatch(/^\+[0-9]{8,15}$/);
+      plantLegacyRow(
+        `insert into public.communication_queue (tenant_id, appointment_id, channel, message_type, template_id, recipient_phone, ` +
+          `status, external_message_id) values ('${forged.tenant_id}', '${forged.appointment_id}', 'whatsapp', 'appointment_booked', ` +
+          `'appointment_booked', '${forged.recipient_phone}', 'sent', '${forgedId}')`
+      );
 
       const cancelSpy = vi.spyOn(appointmentsActions, "cancelAppointment");
       const res = await routeModule.POST(

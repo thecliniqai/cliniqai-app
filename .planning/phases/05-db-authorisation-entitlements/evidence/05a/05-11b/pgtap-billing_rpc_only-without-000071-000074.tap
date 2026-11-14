@@ -1,0 +1,64 @@
+1..25
+not ok 1 - the visit's doctor cannot mark the invoice paid or zero it (IND M2 repro)
+# Failed test 1: "the visit's doctor cannot mark the invoice paid or zero it (IND M2 repro)"
+#         have: 1
+#         want: denied:permission denied for table invoices
+not ok 2 - nor can a collector: paid comes only from record_payment
+# Failed test 2: "nor can a collector: paid comes only from record_payment"
+#         have: 1
+#         want: denied:permission denied for table invoices
+not ok 3 - nor the owner (totals are derived)
+# Failed test 3: "nor the owner (totals are derived)"
+#         have: 1
+#         want: denied:permission denied for table invoices
+ok 4 - the invoice is unchanged
+not ok 5 - Sign & Bill cannot create an invoice that is already paid
+# Failed test 5: "Sign & Bill cannot create an invoice that is already paid"
+#         have: 1
+#         want: denied:INVOICE_STATUS_RPC_ONLY
+not ok 6 - a negative discount is refused
+# Failed test 6: "a negative discount is refused"
+#         have: 1
+#         want: error:P0001:INPUT_INVALID
+ok 7 - the doctor's Sign & Bill INSERT still works
+not ok 8 - and its total is the formula's (300 - 20 + 5), not the typed 1
+# Failed test 8: "and its total is the formula's (300 - 20 + 5), not the typed 1"
+#         have: 1.00
+#         want: 285.00
+not ok 9 - a collector cannot insert a payment directly (IND Info 3)
+# Failed test 9: "a collector cannot insert a payment directly (IND Info 3)"
+#         have: 1
+#         want: denied:permission denied for table payments
+ok 10 - the doctor cannot pay through record_payment either (billing:collect)
+ok 11 - nor the nurse (no billing:collect)
+ok 12 - the overpayment check still holds
+ok 13 - the receptionist records a 200 payment through record_payment
+ok 14 - a partial payment keeps it issued
+ok 15 - the payment names the receptionist
+ok 16 - and is audited in the same call
+ok 17 - the receptionist adds a 150 charge
+not ok 18 - subtotal and total follow the items
+# Failed test 18: "subtotal and total follow the items"
+#         have: 500.00/500.00/issued
+#         want: 650.00/650.00/issued
+not ok 19 - the balance is paid through record_payment
+# Failed test 19: "the balance is paid through record_payment"
+#         have: error:P0001:OVERPAYMENT
+#         want: 1
+not ok 20 - the invoice is paid
+# Failed test 20: "the invoice is paid"
+#         have: 500.00/500.00/issued
+#         want: 650.00/650.00/paid
+ok 21 - a later charge is added
+not ok 22 - and reopens the balance (issued)
+# Failed test 22: "and reopens the balance (issued)"
+#         have: 500.00/500.00/issued
+#         want: 750.00/750.00/issued
+ok 23 - removing that charge
+not ok 24 - settles it again
+# Failed test 24: "settles it again"
+#         have: 500.00/500.00/issued
+#         want: 650.00/650.00/paid
+not ok 25 - catalogue: no UPDATE on invoices, no INSERT on payments for authenticated; record_payment is SECURITY DEFINER
+# Failed test 25: "catalogue: no UPDATE on invoices, no INSERT on payments for authenticated; record_payment is SECURITY DEFINER"
+# Looks like you failed 13 tests of 25

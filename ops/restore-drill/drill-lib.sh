@@ -40,7 +40,8 @@ process.stdout.write(JSON.stringify(keys));' "$1")" || { echo "restore-drill: ma
   drill_psql -At -F $'\t' -v tables="$tables" -f "$WORK/counts.sql" -o "$2"
 }
 
-# The pgTAP restore checks with the manifest's expected counts: TAP (and any error) to <out>.
+# The pgTAP restore checks with the manifest's expected counts, then the generated authorisation matrix: TAP (and any
+# error) to <out>.
 drill_checks() { # <validated manifest> <out tap>
   local policies functions users
   policies="$(drill_count_var "$1" policies)" || return 1
@@ -48,5 +49,18 @@ drill_checks() { # <validated manifest> <out tap>
   users="$(drill_count_var "$1" auth_users)" || return 1
   cp "$ROOT/supabase/tests/restore_drill_checks.sql" "$WORK/restore_drill_checks.sql"
   drill_psql -At -v expected_policies="$policies" -v expected_functions="$functions" -v expected_users="$users" \
-    -f "$WORK/restore_drill_checks.sql" > "$2" 2>&1
+    -f "$WORK/restore_drill_checks.sql" > "$2" 2>&1 || return 1
+  drill_authz_matrix "$2.authz" || { cat "$2.authz" >> "$2"; return 1; }
+  cat "$2.authz" >> "$2"
+}
+
+# V2-05 05-01b (V2-04 ruling R-11 "V2-05 swaps in the matrix"): the generated role x table RLS matrix
+# (supabase/tests/database/authz_matrix.test.sql, no meta-command) on the restored database, TAP to <out>. pgTAP is
+# created inside the session's transaction, which the file's own `rollback` ends, so nothing persists. run.sh fails the
+# drill on any `not ok` line.
+drill_authz_matrix() { # <out tap>
+  cp "$ROOT/supabase/tests/database/authz_matrix.test.sql" "$WORK/authz_matrix.test.sql"
+  drill_psql -At -c "begin" -c "create extension if not exists pgtap with schema extensions" \
+    -c "set local search_path = extensions, public" -f "$WORK/authz_matrix.test.sql" > "$1" 2>&1 || return 1
+  ! grep -q '^not ok' "$1"
 }

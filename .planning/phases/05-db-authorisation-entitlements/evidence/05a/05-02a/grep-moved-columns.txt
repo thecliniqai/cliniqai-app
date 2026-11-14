@@ -1,0 +1,19 @@
+# 05-02a step 3: queries on visits that name a moved column (app/ features/ lib/ components/ tests/)
+# rg -U over each .from("visits") statement (600 chars) for vitals|chief_complaints|clinical_notes|specialty_data|investigations_advised|advice
+# Expected: app code only through clinicalNotesEmbed(...) (the clinical_notes table); tests only in role-rls.spec.ts, which proves the legacy columns are empty and refuse writes.
+
+app/(dashboard)/cabin/page.tsx:85:      ${clinicalNotesEmbed(["vitals"])},
+features/referrals/service.ts:86:        .select(`id, created_at, specialty, ${clinicalNotesEmbed(["chief_complaints", "vitals"])}`)
+features/visits/service.ts:560:        `id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, reason_for_visit, specialty, created_at, updated_at, ${clinicalNotesEmbed(["vitals", "chief_complaints", "c
+features/consultation/service.ts:127:      .select(`id, patient_id, status, signed_at, ${clinicalNotesEmbed(["vitals"])}`)
+features/consultation/service.ts:405:      .select(`id, scheduled_at, created_at, status, specialty, ${clinicalNotesEmbed(["vitals", "chief_complaints", "clinical_notes", "advice"])}`)
+features/consultation/service.ts:680:      .select(`id, status, patient_id, doctor_id, signed_at, ${clinicalNotesEmbed(["clinical_notes"])}`)
+app/api/v1/visits/[id]/route.ts:155:      .select(`*, ${clinicalNotesEmbed(["clinical_notes"])}`)
+app/api/v1/visits/route.ts:55:        `id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, estimated_duration_minutes, reason_for_visit, is_overbooked, specialty, created_by, created_at, updated_at, 
+tests/security/role-rls.spec.ts:106:        .select("id, status, clinical_notes, vitals, chief_complaints, specialty_data, investigations_advised, advice")
+tests/security/role-rls.spec.ts:139:        const { error } = await member.client.from("visits").update({ clinical_notes: "Injected" }).eq("id", visitId);
+tests/security/role-rls.spec.ts:142:      const { error } = await admin.from("visits").update({ vitals: { pulse: 99 } }).eq("id", visitId);
+tests/security/role-rls.spec.ts:195:        clinical_notes: "Injected at booking",
+
+# Inserts/updates of visits rows carrying a moved column (object literals inside a visits insert/update): none outside role-rls.spec.ts
+(end)

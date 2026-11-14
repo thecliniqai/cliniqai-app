@@ -5,6 +5,10 @@
  * invariants, the payment, the status transition, the audit row (actor = auth.uid()) and the `payment.recorded` outbox
  * rows commit together or not at all. The system path runs the same function through `getSystemDb(reason)` with an
  * explicit system actor. Synthetic data only.
+ *
+ * Since V2-05 05-11b (M-INVOICE, migration 000072) the function is SECURITY DEFINER: members hold no INSERT on payments
+ * and no UPDATE on invoices, so record_payment is the only way to pay. Its own checks bind it (session, active clinic,
+ * billing:collect; service role + closed system actor), as the cases below still prove.
  */
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -25,6 +29,7 @@ import {
 import { getAdminClient } from "../helpers/supabase-admin";
 import { insertReturningId, type TestDb } from "../helpers/db";
 import { ctxFor } from "../helpers/context";
+import { signInActingIn } from "../helpers/active-tenant";
 import { psql, psqlAsync } from "../helpers/sql";
 
 const RPC_SIGNATURE = "public.record_payment(uuid, uuid, numeric, text, text, uuid, text, text)";
@@ -292,9 +297,29 @@ describe("record_payment: one transaction under the caller's RLS", () => {
     });
     expect(await paymentsOf(invoiceId)).toEqual([]);
 
-    // Acting in A, the same user can.
-    const inA = await rpc(dual.client, { p_tenant_id: tenantA.tenantId, p_invoice_id: invoiceId, p_amount: 100 });
+    // Acting in A (the app's client names the cookie's clinic in x-clinicos-tenant, R-42), the same user can.
+    const actingInA = await signInActingIn(dual.userEmail, tenantA.tenantId);
+    const inA = await rpc(actingInA, { p_tenant_id: tenantA.tenantId, p_invoice_id: invoiceId, p_amount: 100 });
     expect(inA.error).toBeNull();
+  });
+
+  it("a member of A and B acting in A cannot pay B's invoice by naming B as the tenant (p_tenant_id checked in SQL, 05-02c)", async () => {
+    const invoiceB = await seedInvoice(tenantB, 500);
+    const dual = await createDualMembershipUser(tenantA.tenantId, "receptionist", tenantB.tenantId, "receptionist");
+    const actingInA = await signInActingIn(dual.userEmail, tenantA.tenantId);
+    const { data, error } = await rpc(actingInA, { p_tenant_id: tenantB.tenantId, p_invoice_id: invoiceB, p_amount: 100 });
+    expect(data).toBeNull();
+    expect(error).toMatchObject({ code: "P0002", message: "INVOICE_NOT_FOUND" });
+    expect(mapDbError(error)).toMatchObject({ code: "NOT_FOUND", reason: "INVOICE_NOT_FOUND" });
+    expect(await paymentsOf(invoiceB)).toEqual([]);
+    expect(await auditByInvoice(invoiceB)).toEqual([]);
+
+    // Acting in B, the same user collects there; the audit row (log_audit) names them with their B role.
+    const actingInB = await signInActingIn(dual.userEmail, tenantB.tenantId);
+    const inB = await rpc(actingInB, { p_tenant_id: tenantB.tenantId, p_invoice_id: invoiceB, p_amount: 100 });
+    expect(inB.error).toBeNull();
+    const paymentId = (inB.data as { payment_id: string }).payment_id;
+    expect(await auditOf([paymentId])).toMatchObject([{ actor_id: dual.userId, actor_role: "receptionist", actor_type: "user" }]);
   });
 
   it("a user with no membership gets NOT_FOUND", async () => {
@@ -306,32 +331,31 @@ describe("record_payment: one transaction under the caller's RLS", () => {
   });
 });
 
-describe("record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit)", () => {
+describe("record_payment: role matrix derived from ROLE_PERMISSIONS (billing:collect, V2-05 05-02b/05-02c)", () => {
   const roles = Object.keys(ROLE_PERMISSIONS) as UserRole[];
-  const allowed = roles.filter((r) => hasPerm(r, "appointments:edit"));
 
-  it("the function's role list equals the roles the matrix allows", () => {
-    const def = psql(`select pg_get_functiondef('${RPC_SIGNATURE}'::regprocedure)`).join("\n");
-    const lists = [...def.matchAll(/ARRAY\[([^\]]*)\]/g)].map((m) => m[1]);
-    expect(lists).toHaveLength(1);
-    const sqlRoles = [...lists[0].matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
-    expect(sqlRoles.sort()).toEqual([...allowed].sort());
-  });
+  // Since 05-02c (000060) the function itself checks has_permission(p_tenant_id, 'billing:collect') in the active clinic
+  // BEFORE it reads the invoice (before: its own appointments:edit role list, so a doctor or nurse got NOT_FOUND from
+  // the invoices RLS or 42501 from the payments policy, never the function's own refusal).
 
-  it.each(roles)("%s: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role", async (role) => {
+  it.each(roles)("%s: succeeds iff the matrix grants billing:collect (PO-3); the outbox row is written for every collector", async (role) => {
     const member = role === "owner" ? tenantA : await addMemberToTenant(tenantA.tenantId, role);
     const invoiceId = await seedInvoice(tenantA, 200);
     const { data, error } = await rpc(member.client, { p_invoice_id: invoiceId, p_amount: 200 });
 
-    if (hasPerm(role, "appointments:edit")) {
+    if (hasPerm(role, "billing:collect")) {
       expect(error).toBeNull();
       const paymentId = (data as { payment_id: string }).payment_id;
       expect(await auditOf([paymentId])).toMatchObject([{ actor_id: member.userId, actor_role: role, actor_type: "user" }]);
       // The outbox tables are owner/admin-only under RLS; the definer fan-out still writes the row for every role.
       expect(await outboxOf(paymentId)).toHaveLength(1);
     } else {
+      // Doctors and nurses: FORBIDDEN from the function's billing:collect check (42501 'FORBIDDEN'), before the invoice
+      // lookup (before 05-02c: NOT_FOUND, the invoices RLS hiding the row).
+      expect(error).toMatchObject({ code: "42501", message: "FORBIDDEN" });
       expect(mapDbError(error).code).toBe("FORBIDDEN");
       expect(await paymentsOf(invoiceId)).toEqual([]);
+      expect(await auditByInvoice(invoiceId)).toEqual([]);
     }
   });
 });
@@ -547,11 +571,11 @@ describe("record_payment: privileges", () => {
     expect(await paymentsOf(invoiceId)).toEqual([]);
   });
 
-  it("catalog: INVOKER, empty search_path, lock_timeout; EXECUTE for authenticated and service_role only; the definer helper is not anon-executable", () => {
+  it("catalog: DEFINER (05-11b), empty search_path, lock_timeout; EXECUTE for authenticated and service_role only; the definer helper is not anon-executable", () => {
     const [prosecdef, config] = psql(
       `select prosecdef, array_to_string(proconfig, ',') from pg_proc where oid = '${RPC_SIGNATURE}'::regprocedure`
     )[0].split("|");
-    expect(prosecdef).toBe("f");
+    expect(prosecdef).toBe("t");
     expect(config.split(",").sort()).toEqual(['lock_timeout=2s', 'search_path=""']);
 
     const privileges = (fn: string) =>

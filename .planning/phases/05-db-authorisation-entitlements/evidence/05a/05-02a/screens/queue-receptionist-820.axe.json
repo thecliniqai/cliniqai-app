@@ -1,0 +1,14 @@
+{
+  "screen": "queue-receptionist-820",
+  "baseline_rules": [
+    "color-contrast"
+  ],
+  "serious_or_critical": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "nodes": 1
+    }
+  ],
+  "horizontal_scroll": false
+}

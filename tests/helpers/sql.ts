@@ -55,6 +55,18 @@ export function psqlSession(statements: string[]): string[] {
   return out.trim().split("\n").filter(Boolean);
 }
 
+/**
+ * Plants a row the composite tenant FKs (V2-05 05-03) now refuse, as such a row could exist before 05-03 (a legacy
+ * cross-tenant reference), so a spec can prove that a downstream defence (a handler's tenant check, a token or
+ * reply lookup) still holds for it. One superuser session; FK triggers are off for this transaction only
+ * (`session_replication_role = replica`, which also skips every other trigger of the statement), then committed.
+ * The planted row belongs to the run's tenant, so the run teardown removes it. Returns the statement's output lines
+ * (e.g. a `returning id`). Synthetic SQL only; never interpolate row data.
+ */
+export function plantLegacyRow(sql: string): string[] {
+  return psqlSession(["begin", "set local session_replication_role = replica", sql, "commit"]);
+}
+
 export interface PsqlFileOptions {
   /** Container to run in (default: the primary stack's `localDbContainer()`). */
   container?: string;

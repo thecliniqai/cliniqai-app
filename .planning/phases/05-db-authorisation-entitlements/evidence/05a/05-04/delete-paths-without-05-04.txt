@@ -1,0 +1,168 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/integration/delete-paths.spec.ts (8 tests | 7 failed) 948ms
+   × delete paths: no silent no-ops (05-04) > a doctor deletes a draft Rx item: the row is gone and one audit row records it (was: success, row kept) 21ms
+     → expected true to be false // Object.is equality
+   × delete paths: no silent no-ops (05-04) > a doctor removes a diagnosis: the row is gone (was: success, row kept) 10ms
+     → expected true to be false // Object.is equality
+   × delete paths: no silent no-ops (05-04) > a receptionist deletes an invoice item: the row is gone and the totals follow (was: success, row kept) 18ms
+     → expected true to be false // Object.is equality
+   × delete paths: no silent no-ops (05-04) > a doctor's 'no follow-up' draft clears the visit's follow-up (was: success, follow-up kept) 15ms
+     → expected true to be false // Object.is equality
+   ✓ delete paths: no silent no-ops (05-04) > a receptionist attempting an Rx item delete gets FORBIDDEN: row kept, no audit row 9ms
+   × delete paths: no silent no-ops (05-04) > a doctor past the service guard but refused by RLS (invoice item, billing:collect) gets FORBIDDEN: row kept, no audit, totals untouched 15ms
+     → expected { success: true } to deeply equal { success: false, …(1) }
+   × delete paths: no silent no-ops (05-04) > a session bound to another clinic than the service context (R-42 active tenant) > acting in the same clinic, the dual member (doctor there) deletes an Rx item 70ms
+     → expected true to be false // Object.is equality
+   × delete paths: no silent no-ops (05-04) > a session bound to another clinic than the service context (R-42 active tenant) > acting in the other clinic, the Rx item and diagnosis deletes are refused with FORBIDDEN, rows kept, no audit row 77ms
+     → expected { success: true } to deeply equal { success: false, …(1) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/delete-paths.spec.ts > delete paths: no silent no-ops (05-04) > a doctor deletes a draft Rx item: the row is gone and one audit row records it (was: success, row kept)
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ tests/integration/delete-paths.spec.ts:139:56
+    137|     const res = await removePrescriptionItem(ctxFor(doctor), itemId);
+    138|     expect(res).toEqual({ success: true });
+    139|     expect(await exists("prescription_items", itemId)).toBe(false);
+       |                                                        ^
+    140|     expect(await auditCount("prescription.item_remove", prescriptionId…
+    141|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/integration/delete-paths.spec.ts > delete paths: no silent no-ops (05-04) > a doctor removes a diagnosis: the row is gone (was: success, row kept)
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ tests/integration/delete-paths.spec.ts:147:65
+    145|     const res = await removeConsultationDiagnosis(ctxFor(doctor), diag…
+    146|     expect(res).toEqual({ success: true });
+    147|     expect(await exists("consultation_diagnoses", diagnosisId)).toBe(f…
+       |                                                                 ^
+    148|     expect(await auditCount("diagnosis.remove", diagnosisId)).toBe(1);
+    149|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/integration/delete-paths.spec.ts > delete paths: no silent no-ops (05-04) > a receptionist deletes an invoice item: the row is gone and the totals follow (was: success, row kept)
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ tests/integration/delete-paths.spec.ts:156:51
+    154|     const res = await deleteInvoiceItem(ctxFor(receptionist), itemId);
+    155|     expect(res.success).toBe(true);
+    156|     expect(await exists("invoice_items", itemId)).toBe(false);
+       |                                                   ^
+    157|     expect(await exists("invoice_items", keep)).toBe(true);
+    158|     const { data: inv } = await admin.from("invoices").select("subtota…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/integration/delete-paths.spec.ts > delete paths: no silent no-ops (05-04) > a doctor's 'no follow-up' draft clears the visit's follow-up (was: success, follow-up kept)
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ tests/integration/delete-paths.spec.ts:174:52
+    172|     const res = await saveConsultationDraft(ctxFor(doctor), consultati…
+    173|     expect(res.success).toBe(true);
+    174|     expect(await exists("follow_ups", followUpId)).toBe(false);
+       |                                                    ^
+    175|   });
+    176| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/integration/delete-paths.spec.ts > delete paths: no silent no-ops (05-04) > a doctor past the service guard but refused by RLS (invoice item, billing:collect) gets FORBIDDEN: row kept, no audit, totals untouched
+AssertionError: expected { success: true } to deeply equal { success: false, …(1) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": "You do not have permission to perform this action.",[39m
+[32m-   "success": false,[39m
+[31m+   "success": true,[39m
+[2m  }[22m
+
+ ❯ tests/integration/delete-paths.spec.ts:190:17
+    188|     const { data: invBefore } = await admin.from("invoices").select("s…
+    189|     const res = await deleteInvoiceItem(ctxFor(doctor), itemId);
+    190|     expect(res).toEqual({ success: false, error: FORBIDDEN });
+       |                 ^
+    191|     expect(await exists("invoice_items", itemId)).toBe(true);
+    192|     const { data: invAfter } = await admin.from("invoices").select("su…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/integration/delete-paths.spec.ts > delete paths: no silent no-ops (05-04) > a session bound to another clinic than the service context (R-42 active tenant) > acting in the same clinic, the dual member (doctor there) deletes an Rx item
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ tests/integration/delete-paths.spec.ts:222:58
+    220|       const res = await removePrescriptionItem(await dualCtx(owner.ten…
+    221|       expect(res).toEqual({ success: true });
+    222|       expect(await exists("prescription_items", itemId)).toBe(false);
+       |                                                          ^
+    223|     });
+    224| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/integration/delete-paths.spec.ts > delete paths: no silent no-ops (05-04) > a session bound to another clinic than the service context (R-42 active tenant) > acting in the other clinic, the Rx item and diagnosis deletes are refused with FORBIDDEN, rows kept, no audit row
+AssertionError: expected { success: true } to deeply equal { success: false, …(1) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": "You do not have permission to perform this action.",[39m
+[32m-   "success": false,[39m
+[31m+   "success": true,[39m
+[2m  }[22m
+
+ ❯ tests/integration/delete-paths.spec.ts:231:57
+    229|       const ctx = await dualCtx(otherClinic.tenantId);
+    230| 
+    231|       expect(await removePrescriptionItem(ctx, itemId)).toEqual({ succ…
+       |                                                         ^
+    232|       expect(await removeConsultationDiagnosis(ctx, diagnosisId, visit…
+    233| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 1 passed (8)
+   Start at  06:03:49
+   Duration  1.60s (transform 167ms, setup 10ms, collect 245ms, tests 948ms, environment 0ms, prepare 27ms)
+
+[teardown] removed run data: 2 tenant(s), 5 auth user(s), 0 storage object(s); verified none remain

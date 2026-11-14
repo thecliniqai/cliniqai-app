@@ -1,0 +1,656 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T03:02:05.727Z","level":"error","event":"billing.payment_record.failed","tenantId":"b32c54b8-a381-49d3-b8bf-df52b1ac9bf8","code":"XX000"}
+{"ts":"2026-11-14T03:02:12.359Z","level":"info","event":"db.system_acquired","module":"features/billing/system","reason":"billing.record_payment_system"}
+{"ts":"2026-11-14T03:02:12.372Z","level":"info","event":"db.system_acquired","module":"features/billing/system","reason":"billing.record_payment_system"}
+ ❯ tests/billing/record-payment-rpc.spec.ts (36 tests | 2 failed) 7413ms
+   ✓ record_payment: one transaction under the caller's RLS > happy path: one payment, audit actor = auth.uid(), one outbox row for the subscribed endpoint, invoice paid 78ms
+   ✓ record_payment: one transaction under the caller's RLS > a partial payment keeps the invoice issued; the remainder settles it 16ms
+   ✓ record_payment: one transaction under the caller's RLS > rollback: a fault in the outbox insert (after the payment and audit inserts) leaves 0 payments, 0 audit, 0 outbox rows and the invoice unchanged 133ms
+   ✓ record_payment: one transaction under the caller's RLS > a cross-tenant invoice id is NOT_FOUND and nothing changes in either tenant 14ms
+   ✓ record_payment: one transaction under the caller's RLS > a member of A and B acting in B cannot pay A's invoice (the active tenant narrows RLS, AR-M2b) 219ms
+   ✓ record_payment: one transaction under the caller's RLS > a member of A and B acting in A cannot pay B's invoice by naming B as the tenant (p_tenant_id checked in SQL, 05-02c) 256ms
+   ✓ record_payment: one transaction under the caller's RLS > a user with no membership gets NOT_FOUND 127ms
+   ✓ record_payment: role matrix derived from ROLE_PERMISSIONS (billing:collect, V2-05 05-02b/05-02c) > owner: succeeds iff the matrix grants billing:collect (PO-3); the outbox row is written for every collector 13ms
+   ✓ record_payment: role matrix derived from ROLE_PERMISSIONS (billing:collect, V2-05 05-02b/05-02c) > admin: succeeds iff the matrix grants billing:collect (PO-3); the outbox row is written for every collector 129ms
+   × record_payment: role matrix derived from ROLE_PERMISSIONS (billing:collect, V2-05 05-02b/05-02c) > doctor: succeeds iff the matrix grants billing:collect (PO-3); the outbox row is written for every collector 137ms
+     → expected { code: 'P0002', details: null, …(2) } to match object { code: '42501', message: 'FORBIDDEN' }
+(2 matching properties omitted from actual)
+   ✓ record_payment: role matrix derived from ROLE_PERMISSIONS (billing:collect, V2-05 05-02b/05-02c) > receptionist: succeeds iff the matrix grants billing:collect (PO-3); the outbox row is written for every collector 128ms
+   × record_payment: role matrix derived from ROLE_PERMISSIONS (billing:collect, V2-05 05-02b/05-02c) > nurse: succeeds iff the matrix grants billing:collect (PO-3); the outbox row is written for every collector 124ms
+     → expected { code: 'P0002', details: null, …(2) } to match object { code: '42501', message: 'FORBIDDEN' }
+(2 matching properties omitted from actual)
+   ✓ record_payment: invariants > overpayment is CONFLICT/OVERPAYMENT and writes nothing 9ms
+   ✓ record_payment: invariants > a paid invoice is CONFLICT/INVOICE_NOT_PAYABLE 6ms
+   ✓ record_payment: invariants > a cancelled invoice is CONFLICT/INVOICE_NOT_PAYABLE 6ms
+   ✓ record_payment: invariants > zero amount is VALIDATION_FAILED 6ms
+   ✓ record_payment: invariants > negative amount is VALIDATION_FAILED 6ms
+   ✓ record_payment: invariants > three decimals is VALIDATION_FAILED 7ms
+   ✓ record_payment: invariants > unknown method is VALIDATION_FAILED 4ms
+   ✓ record_payment: invariants > reference over 100 characters is VALIDATION_FAILED 5ms
+   ✓ record_payment: invariants > concurrent overpayment race: of two 600 payments on a 1000 invoice exactly one succeeds (3 rounds) 160ms
+   ✓ record_payment: invariants > concurrent full-balance race: one payment, the invoice paid once 11ms
+   ✓ record_payment: invariants > a held invoice lock makes the call fail fast with CONFLICT/LOCK_TIMEOUT (lock_timeout 2s), not hang  5080ms
+   ✓ record_payment: idempotent replay by command id > the same command twice returns the same payment, replayed, and writes one payment, one audit and one outbox row 28ms
+   ✓ record_payment: idempotent replay by command id > two concurrent submits of one command record one payment; one of them is the replay 22ms
+   ✓ record_payment: idempotent replay by command id > reusing a command id with a different amount is IDEMPOTENCY_MISMATCH 17ms
+   ✓ record_payment: idempotent replay by command id > the service passes the client's commandId: a resubmitted payment replays instead of paying twice 47ms
+   ✓ record_payment: actor rule and the system path (TARGET §7.1) > system path via getSystemDb: recorded_by_system set, audit actor_type system, outbox row written 18ms
+   ✓ record_payment: actor rule and the system path (TARGET §7.1) > the system path is bound to the tenant it names: another tenant's invoice is NOT_FOUND 7ms
+   ✓ record_payment: actor rule and the system path (TARGET §7.1) > a user session passing p_system_actor is ACTOR_INVALID 7ms
+   ✓ record_payment: actor rule and the system path (TARGET §7.1) > the service role without a system actor, or with one outside the closed set, is ACTOR_INVALID 7ms
+   ✓ record_payment: privileges > anon cannot execute record_payment (EXECUTE revoked) 5ms
+   ✓ record_payment: privileges > catalog: INVOKER, empty search_path, lock_timeout; EXECUTE for authenticated and service_role only; the definer helper is not anon-executable 178ms
+   ✓ record_payment: privileges > the outbox writer is not served by PostgREST 2ms
+   ✓ record_payment: privileges > the outbox writer refuses a payment the current transaction did not insert (no forged or replayed events) 42ms
+   ✓ record_payment: privileges > a request-path client cannot write recorded_by_system (column privilege), so it cannot forge a system payment 5ms
+{"ts":"2026-11-14T03:02:15.910Z","level":"error","event":"audit.record.failed","tenantId":"603165ba-77a4-4b3a-938b-66d541028b62","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:15.910Z","level":"error","event":"consultation.save_consultation_draft.failed","code":"Error"}
+ ❯ tests/jobs/enqueue-webhook-rpc-db.spec.ts (23 tests | 2 failed) 3355ms
+   ✓ public.enqueue_webhook_event: every role's events are queued (R-19) > the caller's RLS still hides subscriptions from a receptionist and a doctor (the cause of the old silent drop) 5ms
+   ✓ public.enqueue_webhook_event: every role's events are queued (R-19) > a receptionist raises prescription.issued → one delivery row for the subscribed endpoint and one webhook.deliver job 171ms
+   ✓ public.enqueue_webhook_event: every role's events are queued (R-19) > a doctor raises prescription.issued → one delivery row for the subscribed endpoint and one webhook.deliver job 176ms
+   ✓ public.enqueue_webhook_event: every role's events are queued (R-19) > lib/jobs/enqueue: enqueueWebhookEvent(ctx, …) queues for ctx.tenantId and returns the delivery ids 41ms
+   ✓ tenant binding (R-6 revised; 03-07 D1 finding 2) > a subject of another clinic → P0002 SUBJECT_MISMATCH, no row 41ms
+   × tenant binding (R-6 revised; 03-07 D1 finding 2) > a member of A and B acting in A cannot raise an event about B's prescription; acting in B queues one B row 137ms
+     → expected null to match object { code: 'P0002', …(1) }
+   ✓ tenant binding (R-6 revised; 03-07 D1 finding 2) > a non-member tenant, a null tenant and anon are refused 48ms
+   ✓ closed event set, subject state and idempotency > an event outside the closed set → EVENT_NOT_ALLOWED; a subscription id on a lifecycle event → INPUT_INVALID 22ms
+   ✓ closed event set, subject state and idempotency > visit.completed and appointment.cancelled need the visit in that state; the data comes from the visit row 295ms
+   ✓ closed event set, subject state and idempotency > lab_result.ready carries the document id, patient id and title from the document row 90ms
+   ✓ closed event set, subject state and idempotency > the same event twice queues once; five parallel calls queue one row and one job 81ms
+   ✓ test ping (R-26; 03-13d limit) > a receptionist → 42501; another clinic's subscription → P0002; no rows 45ms
+   ✓ test ping (R-26; 03-13d limit) > an admin's ping queues one row for that subscription only; the sixth inside 60 s → RATE_LIMITED 175ms
+   ✓ public.enqueue_webhook_event_system (service role) > authenticated and anon → 42501 7ms
+   ✓ public.enqueue_webhook_event_system (service role) > an actor outside the closed set → ACTOR_INVALID; ping → EVENT_NOT_ALLOWED; a missing subject → P0002 6ms
+   ✓ public.enqueue_webhook_event_system (service role) > a known actor → the tenant comes from the subject row 34ms
+   ✓ contract: members cannot write the delivery table (M-XTENANT-WH, T-04-25) > owner/admin read their clinic's rows; a receptionist reads none 3ms
+   ✓ contract: members cannot write the delivery table (M-XTENANT-WH, T-04-25) > owner and admin: INSERT, UPDATE and DELETE are refused (42501), including the review E-1 cross-tenant PoC 94ms
+   ✓ contract: members cannot write the delivery table (M-XTENANT-WH, T-04-25) > members cannot claim or finish a delivery (42501) 32ms
+   ✓ contract: members cannot write the delivery table (M-XTENANT-WH, T-04-25) > catalogue: writers not executable by API roles; RPC grants as designed; definer + empty search_path  653ms
+   × 04-07a: prescription.issued at signing; lab_result.ready for a consistent document > the app flow: the empty draft queues nothing; signing the consultation queues the one event 17ms
+     → expected false to be true // Object.is equality
+   ✓ 04-07a: prescription.issued at signing; lab_result.ready for a consistent document > from a request an unsigned prescription is refused (empty draft or with items); the API path queues one with items 194ms
+   ✓ 04-07a: prescription.issued at signing; lab_result.ready for a consistent document > lab_result.ready: a document whose visit is another patient's, or whose patient is another clinic's, is refused 186ms
+ ❯ tests/jobs/enqueue-message-rpc-db.spec.ts (24 tests | 1 failed) 2667ms
+   ✓ public.enqueue_message (request path) > a receptionist enqueues for a patient of their clinic: one row by them and one message.send job 170ms
+   ✓ public.enqueue_message (request path) > a patient of another clinic → P0002 SUBJECT_MISMATCH, no row 64ms
+   ✓ public.enqueue_message (request path) > anon cannot execute it (42501) 2ms
+   × public.enqueue_message (request path) > dual-clinic member acting in A cannot enqueue for B's patient; acting in B writes one B row (03-07 finding 2) 174ms
+     → expected null to match object { code: 'P0002', …(1) }
+   ✓ public.enqueue_message (request path) > a non-member tenant id narrows nothing: a member of A naming B for A's patient is refused 3ms
+   ✓ public.enqueue_message (request path) > patient and visit that do not belong together → SUBJECT_MISMATCH 40ms
+   ✓ public.enqueue_message (request path) > the same dedupe key twice → one row; the second answer is deduped 100ms
+   ✓ public.enqueue_message (request path) > a user action retried five times at once enqueues exactly one row and one job for its dedupe key 91ms
+   ✓ public.enqueue_message (request path) > R-24: only the patient's or guardian's number; the template must be allow-listed for the channel 40ms
+   ✓ public.enqueue_message (request path) > the caller cannot claim a system actor through metadata (04-07a: any key outside the allow-list is refused) 58ms
+   ✓ public.enqueue_message (request path) > lib/jobs/enqueue maps a refusal to EnqueueError with a fixed message 6ms
+   ✓ public.enqueue_message_system > authenticated → 42501; anon → 42501 2ms
+   ✓ public.enqueue_message_system > the service role with an actor outside the closed set → ACTOR_INVALID 1ms
+   ✓ public.enqueue_message_system > the service role with a known actor: tenant from the subject, no creator, actor recorded 60ms
+   ✓ communication_queue contract (members only read status columns) > a member cannot insert, update or delete queue rows 36ms
+   ✓ communication_queue contract (members only read status columns) > a member cannot claim, finish or dead-letter a row (42501) 55ms
+   ✓ communication_queue contract (members only read status columns) > catalogue: no write privilege for API roles; writers not executable by API roles; definer + empty search_path  325ms
+   ✓ 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > ops.message_templates.request_roles is exactly the roles holding each call site's permission; every other template is system-only 40ms
+   ✓ 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > a role without the template's permission → 42501 FORBIDDEN, no row (receptionist: prescription; nurse: receipt) 86ms
+   ✓ 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > bot replies, lifecycle follow-ups and SMS fallbacks are system-only: TEMPLATE_NOT_ALLOWED even for the owner 68ms
+   ✓ 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > params: only the template's declared keys, scalar values of at most 256 characters; message_type is the template 72ms
+   ✓ 04-07a: public.enqueue_message permission per template and bounded input (M-ROLE) > metadata: only subject ids and up to three buttons; visit_id must be the message's visit; run_at at most 90 days ahead 73ms
+   ✓ 04-07a: a caller's dedupe key never pre-empts a system key (M-DEDUPE) > a member who queues the real cancellation key first does not suppress the system's cancellation message 97ms
+   ✓ 04-07a: a caller's dedupe key never pre-empts a system key (M-DEDUPE) > two members' equal keys are two rows; the system path refuses the member namespace; a key over 150 characters is refused 8ms
+{"ts":"2026-11-14T03:02:21.353Z","level":"error","event":"audit.record.failed","tenantId":"1043eded-e287-4765-bdc5-de0369082a9a","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:21.353Z","level":"warn","event":"billing.receipt_pdf_audit.failed","tenantId":"1043eded-e287-4765-bdc5-de0369082a9a","code":"Error"}
+ ❯ tests/storage/storage-policies-jwt.spec.ts (8 tests | 7 failed) 2187ms
+   × storage classes x principals x operations through the Storage API (matrix expectations) > storage:prescriptions/rx 276ms
+     → expected [ 'owner_a select allowed', …(35) ] to deeply equal [ 'owner_a select allowed', …(35) ]
+   × storage classes x principals x operations through the Storage API (matrix expectations) > storage:prescriptions/receipt 160ms
+     → expected [ 'owner_a select allowed', …(35) ] to deeply equal [ 'owner_a select allowed', …(35) ]
+   × storage classes x principals x operations through the Storage API (matrix expectations) > storage:clinic-records/lab 189ms
+     → expected [ 'owner_a select allowed', …(35) ] to deeply equal [ 'owner_a select allowed', …(35) ]
+   × storage classes x principals x operations through the Storage API (matrix expectations) > storage:clinic-records/referral_letter 182ms
+     → expected [ 'owner_a select allowed', …(35) ] to deeply equal [ 'owner_a select allowed', …(35) ]
+   × storage classes x principals x operations through the Storage API (matrix expectations) > the plan's key cells: receptionist reads a receipt but no Rx PDF or lab report; B's owner reads nothing of A 4ms
+     → expected true to be false // Object.is equality
+   ✓ the doctor's Sign & Bill receipt archive (05-02b handover b) > archives the receipt of the doctor's own visit through the real generator, and signs a URL for it 95ms
+   × the doctor's Sign & Bill receipt archive (05-02b handover b) > refuses a second doctor's archive of a colleague's visit receipt 132ms
+     → expected Blob { size: 39, type: 'application/pdf' } to be null
+   × malformed keys and unknown classes (BACKEND C9, T-05-15) > are denied without a database error, for members and non-members alike 10ms
+     → expected 'invalid input syntax for type uuid: "…' not to match /invalid input syntax|uuid/i
+{"ts":"2026-11-14T03:02:23.086Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-14T03:02:23.115Z","level":"error","event":"audit.record.failed","tenantId":"230ab5ea-7538-4eae-8d0d-befeba2c1df9","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:23.115Z","level":"error","event":"referrals.acknowledge.failed","code":"Error"}
+{"ts":"2026-11-14T03:02:23.135Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-14T03:02:23.152Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-14T03:02:23.160Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-14T03:02:23.172Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.sign"}
+{"ts":"2026-11-14T03:02:23.197Z","level":"info","event":"db.system_acquired","module":"features/sharing/system","reason":"share.reschedule_notify"}
+{"ts":"2026-11-14T03:02:23.272Z","level":"error","event":"audit.record.failed","tenantId":"b4f3d439-e8a4-4fbf-92dc-807470ec8418","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:23.272Z","level":"error","event":"settings.staff_update.failed","code":"Error"}
+ ❯ tests/security/review-fixes-db.spec.ts (19 tests | 7 failed) 1806ms
+   × 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > prescription: the database allows exactly the roles the app's share permission allows 24ms
+     → nurse prescription: expected undefined to be '42501' // Object.is equality
+   × 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > invoice: the database allows exactly the roles the app's share permission allows 5ms
+     → doctor invoice: expected undefined to be '42501' // Object.is equality
+   × 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > patient_document: the database allows exactly the roles the app's share permission allows 4ms
+     → admin patient_document: expected undefined to be '42501' // Object.is equality
+   × 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > referral: the database allows exactly the roles the app's share permission allows 4ms
+     → admin referral: expected undefined to be '42501' // Object.is equality
+   ✓ 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > a receptionist cannot mint a prescription link (F9) and no token row is written 9ms
+   ✓ 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > creation writes an audit row in the database with the token id and without the token 7ms
+   × 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > revoke: role rule as for creation, tenant from the token row, audited once, link then 410 24ms
+     → expected undefined to be '42501' // Object.is equality
+   × 01-08 review fixes (000021) > AR-M1: shared object path bound to the resource; receiving clinic may only acknowledge > the receiving clinic cannot rewrite pdf_storage_path or clinical fields, but can acknowledge 21ms
+     → expected false to be true // Object.is equality
+   ✓ 01-08 review fixes (000021) > AR-M1: shared object path bound to the resource; receiving clinic may only acknowledge > a referral link signs the referral's own letter even when the stored path names another referral 25ms
+   ✓ 01-08 review fixes (000021) > AR-M1: shared object path bound to the resource; receiving clinic may only acknowledge > prescription and lab document links refuse a stored path outside the resource's own prefix 34ms
+   ✓ 01-08 review fixes (000021) > AR-L2: reschedule horizon, double booking, one live link per visit, bounded lookup > a time more than 90 days ahead is refused and the link stays usable 11ms
+   ✓ 01-08 review fixes (000021) > AR-L2: reschedule horizon, double booking, one live link per visit, bounded lookup > a slot overlapping another active visit of the doctor is 409 and nothing moves 33ms
+   ✓ 01-08 review fixes (000021) > AR-L2: reschedule horizon, double booking, one live link per visit, bounded lookup > issuing a new link revokes the visit's earlier unused link 13ms
+   ✓ 01-08 review fixes (000021) > AR-L2: reschedule horizon, double booking, one live link per visit, bounded lookup > get_reschedule_context returns booked times for at most one day 7ms
+   ✓ 01-08 review fixes (000021) > AR-L3: slot length and schedule bounds in the database > a member cannot store a non-positive or huge slot length or a malformed schedule on their own row 12ms
+   ✓ 01-08 review fixes (000021) > AR-L4: credentials by self or owner; owner/admin identity by self or owner > an admin cannot change another member's credentials or an owner's name, directly or via the service 8ms
+   × 01-08 review fixes (000021) > AR-L4: credentials by self or owner; owner/admin identity by self or owner > the member themself and an owner can change credentials; an admin can still edit a receptionist's name 12ms
+     → expected false to be true // Object.is equality
+   ✓ 01-08 review fixes (000021) > IR-L4: search_medicines > a doctor's own search runs (pg_trgm resolved at migration time, search_path '') 3ms
+   ✓ 01-08 review fixes (000021) > AR-L6: server-side password minimum (config.toml minimum_password_length = 10) > updateUser with a 9-character password is rejected by the auth server; 10 characters is accepted 283ms
+{"ts":"2026-11-14T03:02:24.124Z","level":"error","event":"audit.record.failed","tenantId":"c7a267c9-76be-4334-a39e-ce4c689f2d35","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:24.377Z","level":"error","event":"audit.record.failed","tenantId":"02028513-926b-431a-8a31-cda938ee765c","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:24.382Z","level":"error","event":"audit.record.failed","tenantId":"02028513-926b-431a-8a31-cda938ee765c","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:24.384Z","level":"error","event":"audit.record.failed","tenantId":"02028513-926b-431a-8a31-cda938ee765c","code":"PGRST202"}
+ ❯ tests/audit/audit-actor.spec.ts (5 tests | 4 failed) 700ms
+   × audit_logs direct writes (INSERT revoked, 05-02c) > a nurse inserting a row that names the owner is refused and nothing is written 10ms
+     → expected undefined to be '42501' // Object.is equality
+   × audit_logs direct writes (INSERT revoked, 05-02c) > even an honest direct insert is refused: users write through log_audit only 3ms
+     → expected undefined to be '42501' // Object.is equality
+   × recordAudit through log_audit > records the caller as the actor with their role, whatever the context claims, and only allow-listed metadata 4ms
+     → Audit log recording failed. Action was aborted to preserve compliance trail.
+   × recordAudit through log_audit > a member of A and B acting in A cannot audit for B; acting in B the row is theirs with the B role 257ms
+     → Audit log recording failed. Action was aborted to preserve compliance trail.
+   ✓ recordAudit through log_audit > a member of A cannot audit for clinic B at all 4ms
+{"ts":"2026-11-14T03:02:24.827Z","level":"error","event":"audit.record.failed","tenantId":"90feaf0d-1960-4065-9584-bf62faf9d8ed","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:24.829Z","level":"error","event":"labs.upload.failed","tenantId":"90feaf0d-1960-4065-9584-bf62faf9d8ed","code":"Error"}
+{"ts":"2026-11-14T03:02:24.843Z","level":"error","event":"audit.record.failed","tenantId":"90feaf0d-1960-4065-9584-bf62faf9d8ed","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:24.843Z","level":"error","event":"labs.upload.failed","tenantId":"90feaf0d-1960-4065-9584-bf62faf9d8ed","code":"Error"}
+{"ts":"2026-11-14T03:02:24.855Z","level":"error","event":"audit.record.failed","tenantId":"90feaf0d-1960-4065-9584-bf62faf9d8ed","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:24.855Z","level":"error","event":"labs.upload.failed","tenantId":"90feaf0d-1960-4065-9584-bf62faf9d8ed","code":"Error"}
+{"ts":"2026-11-14T03:02:24.867Z","level":"error","event":"audit.record.failed","tenantId":"90feaf0d-1960-4065-9584-bf62faf9d8ed","code":"PGRST202"}
+{"ts":"2026-11-14T03:02:24.867Z","level":"error","event":"labs.upload.failed","tenantId":"90feaf0d-1960-4065-9584-bf62faf9d8ed","code":"Error"}
+{"ts":"2026-11-14T03:02:24.988Z","level":"error","event":"labs.upload.failed","tenantId":"90feaf0d-1960-4065-9584-bf62faf9d8ed","code":"PermissionDeniedError"}
+ ❯ tests/labs/lab-storage-key.spec.ts (4 tests | 3 failed) 450ms
+   × lab storage keys hold ids only (R-45) > names the object by the document id, with nothing of the patient's name 24ms
+     → upload failed: An unexpected error occurred during upload.
+   × lab storage keys hold ids only (R-45) > two uploads of the same file name and date create two objects (no overwrite) 24ms
+     → upload failed
+   × lab storage keys hold ids only (R-45) > gives the readable name only as the signed URL's download name 12ms
+     → upload failed
+   ✓ lab storage keys hold ids only (R-45) > refuses a receptionist's upload (labs:edit since 05-02c) 123ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 26 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: role matrix derived from ROLE_PERMISSIONS (billing:collect, V2-05 05-02b/05-02c) > doctor: succeeds iff the matrix grants billing:collect (PO-3); the outbox row is written for every collector
+ FAIL  tests/billing/record-payment-rpc.spec.ts > record_payment: role matrix derived from ROLE_PERMISSIONS (billing:collect, V2-05 05-02b/05-02c) > nurse: succeeds iff the matrix grants billing:collect (PO-3); the outbox row is written for every collector
+AssertionError: expected { code: 'P0002', details: null, …(2) } to match object { code: '42501', message: 'FORBIDDEN' }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "code": "42501",
+-   "message": "FORBIDDEN",
++   "code": "P0002",
++   "message": "INVOICE_NOT_FOUND",
+  }
+
+ ❯ tests/billing/record-payment-rpc.spec.ts:351:21
+    349|       // Doctors and nurses: FORBIDDEN from the function's billing:col…
+    350|       // lookup (before 05-02c: NOT_FOUND, the invoices RLS hiding the…
+    351|       expect(error).toMatchObject({ code: "42501", message: "FORBIDDEN…
+       |                     ^
+    352|       expect(mapDbError(error).code).toBe("FORBIDDEN");
+    353|       expect(await paymentsOf(invoiceId)).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/26]⎯
+
+ FAIL  tests/audit/audit-actor.spec.ts > audit_logs direct writes (INSERT revoked, 05-02c) > a nurse inserting a row that names the owner is refused and nothing is written
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/audit/audit-actor.spec.ts:49:25
+     47|       entity_id: entityId,
+     48|     });
+     49|     expect(error?.code).toBe("42501");
+       |                         ^
+     50|     expect(await rowsFor(entityId)).toEqual([]);
+     51|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/26]⎯
+
+ FAIL  tests/audit/audit-actor.spec.ts > audit_logs direct writes (INSERT revoked, 05-02c) > even an honest direct insert is refused: users write through log_audit only
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/audit/audit-actor.spec.ts:63:25
+     61|       entity_id: entityId,
+     62|     });
+     63|     expect(error?.code).toBe("42501");
+       |                         ^
+     64|     expect(await rowsFor(entityId)).toEqual([]);
+     65|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/26]⎯
+
+ FAIL  tests/audit/audit-actor.spec.ts > recordAudit through log_audit > records the caller as the actor with their role, whatever the context claims, and only allow-listed metadata
+Error: Audit log recording failed. Action was aborted to preserve compliance trail.
+ ❯ failAudit lib/audit/audit.ts:165:9
+    163|   log.error({ event: "audit.record.failed", code: errorTag(error), req…
+    164|   // Mandatory audit guarantee: fail the transaction/action if audit c…
+    165|   throw new Error("Audit log recording failed. Action was aborted to p…
+       |         ^
+    166| }
+    167| 
+ ❯ logUserAudit lib/audit/audit.ts:216:14
+ ❯ recordAudit lib/audit/audit.ts:233:3
+ ❯ tests/audit/audit-actor.spec.ts:73:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/26]⎯
+
+ FAIL  tests/audit/audit-actor.spec.ts > recordAudit through log_audit > a member of A and B acting in A cannot audit for B; acting in B the row is theirs with the B role
+Error: Audit log recording failed. Action was aborted to preserve compliance trail.
+ ❯ failAudit lib/audit/audit.ts:165:9
+    163|   log.error({ event: "audit.record.failed", code: errorTag(error), req…
+    164|   // Mandatory audit guarantee: fail the transaction/action if audit c…
+    165|   throw new Error("Audit log recording failed. Action was aborted to p…
+       |         ^
+    166| }
+    167| 
+ ❯ logUserAudit lib/audit/audit.ts:216:14
+ ❯ recordAudit lib/audit/audit.ts:233:3
+ ❯ tests/audit/audit-actor.spec.ts:104:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/26]⎯
+
+ FAIL  tests/jobs/enqueue-message-rpc-db.spec.ts > public.enqueue_message (request path) > dual-clinic member acting in A cannot enqueue for B's patient; acting in B writes one B row (03-07 finding 2)
+AssertionError: expected null to match object { code: 'P0002', …(1) }
+
+- Expected: 
+{
+  "code": "P0002",
+  "message": "SUBJECT_MISMATCH",
+}
+
++ Received: 
+null
+
+ ❯ tests/jobs/enqueue-message-rpc-db.spec.ts:143:26
+    141|     // 05-02c: acting in A, naming B as the tenant is refused too (bef…
+    142|     const namedB = await enqueue(inA, ownerB.tenantId, { p_patient_id:…
+    143|     expect(namedB.error).toMatchObject({ code: "P0002", message: "SUBJ…
+       |                          ^
+    144|     expect(rowsFor(patientB.patientId)).toHaveLength(before);
+    145| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/26]⎯
+
+ FAIL  tests/jobs/enqueue-webhook-rpc-db.spec.ts > tenant binding (R-6 revised; 03-07 D1 finding 2) > a member of A and B acting in A cannot raise an event about B's prescription; acting in B queues one B row
+AssertionError: expected null to match object { code: 'P0002', …(1) }
+
+- Expected: 
+{
+  "code": "P0002",
+  "message": "SUBJECT_MISMATCH",
+}
+
++ Received: 
+null
+
+ ❯ tests/jobs/enqueue-webhook-rpc-db.spec.ts:188:26
+    186|     // 05-02c: acting in A, naming B as the tenant is refused too (bef…
+    187|     const namedB = await enqueue(inA, ownerB.tenantId, "prescription.i…
+    188|     expect(namedB.error).toMatchObject({ code: "P0002", message: "SUBJ…
+       |                          ^
+    189|     expect(deliveriesFor(subB.id).filter((r) => r.eventKey === `prescr…
+    190| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/26]⎯
+
+ FAIL  tests/jobs/enqueue-webhook-rpc-db.spec.ts > 04-07a: prescription.issued at signing; lab_result.ready for a consistent document > the app flow: the empty draft queues nothing; signing the consultation queues the one event
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/jobs/enqueue-webhook-rpc-db.spec.ts:450:27
+    448|     const doctorCtx = ctxFor(doctorA);
+    449|     const saved = await saveConsultationDraft(doctorCtx, consultationD…
+    450|     expect(saved.success).toBe(true);
+       |                           ^
+    451|     const draft = await getOrCreateDraftPrescription(doctorCtx, p.visi…
+    452|     if (!draft.success) throw new Error("draft prescription failed");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/26]⎯
+
+ FAIL  tests/labs/lab-storage-key.spec.ts > lab storage keys hold ids only (R-45) > names the object by the document id, with nothing of the patient's name
+Error: upload failed: An unexpected error occurred during upload.
+ ❯ tests/labs/lab-storage-key.spec.ts:51:29
+     49|   it("names the object by the document id, with nothing of the patient…
+     50|     const res = await uploadLabDocument(ctxFor(doctor), form("Asha Tes…
+     51|     if (!res.success) throw new Error(`upload failed: ${res.error}`);
+       |                             ^
+     52|     const key = res.document.storage_path;
+     53|     expect(key).toMatch(KEY_SHAPE);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/26]⎯
+
+ FAIL  tests/labs/lab-storage-key.spec.ts > lab storage keys hold ids only (R-45) > two uploads of the same file name and date create two objects (no overwrite)
+Error: upload failed
+ ❯ tests/labs/lab-storage-key.spec.ts:71:50
+     69|     const first = await uploadLabDocument(ctxFor(doctor), form("same_r…
+     70|     const second = await uploadLabDocument(ctxFor(doctor), form("same_…
+     71|     if (!first.success || !second.success) throw new Error("upload fai…
+       |                                                  ^
+     72|     expect(first.document.storage_path).not.toBe(second.document.stora…
+     73|     for (const doc of [first.document, second.document]) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/26]⎯
+
+ FAIL  tests/labs/lab-storage-key.spec.ts > lab storage keys hold ids only (R-45) > gives the readable name only as the signed URL's download name
+Error: upload failed
+ ❯ tests/labs/lab-storage-key.spec.ts:87:29
+     85|   it("gives the readable name only as the signed URL's download name",…
+     86|     const res = await uploadLabDocument(ctxFor(doctor), form("lipid pa…
+     87|     if (!res.success) throw new Error("upload failed");
+       |                             ^
+     88|     const signed = await getDocumentSignedUrl(ctxFor(doctor), res.docu…
+     89|     expect(signed.success).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/26]⎯
+
+ FAIL  tests/security/review-fixes-db.spec.ts > 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > prescription: the database allows exactly the roles the app's share permission allows
+AssertionError: nurse prescription: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/security/review-fixes-db.spec.ts:227:50
+    225|           expect((data as Array<{ token: string }>)[0].token).toMatch(…
+    226|         } else {
+    227|           expect(error?.code, `${role} ${type}`).toBe("42501");
+       |                                                  ^
+    228|         }
+    229|         if (canManageShareLink(role, type) && ownVisitOnly) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/26]⎯
+
+ FAIL  tests/security/review-fixes-db.spec.ts > 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > invoice: the database allows exactly the roles the app's share permission allows
+AssertionError: doctor invoice: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/security/review-fixes-db.spec.ts:227:50
+    225|           expect((data as Array<{ token: string }>)[0].token).toMatch(…
+    226|         } else {
+    227|           expect(error?.code, `${role} ${type}`).toBe("42501");
+       |                                                  ^
+    228|         }
+    229|         if (canManageShareLink(role, type) && ownVisitOnly) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/26]⎯
+
+ FAIL  tests/security/review-fixes-db.spec.ts > 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > patient_document: the database allows exactly the roles the app's share permission allows
+AssertionError: admin patient_document: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/security/review-fixes-db.spec.ts:227:50
+    225|           expect((data as Array<{ token: string }>)[0].token).toMatch(…
+    226|         } else {
+    227|           expect(error?.code, `${role} ${type}`).toBe("42501");
+       |                                                  ^
+    228|         }
+    229|         if (canManageShareLink(role, type) && ownVisitOnly) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/26]⎯
+
+ FAIL  tests/security/review-fixes-db.spec.ts > 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > referral: the database allows exactly the roles the app's share permission allows
+AssertionError: admin referral: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/security/review-fixes-db.spec.ts:227:50
+    225|           expect((data as Array<{ token: string }>)[0].token).toMatch(…
+    226|         } else {
+    227|           expect(error?.code, `${role} ${type}`).toBe("42501");
+       |                                                  ^
+    228|         }
+    229|         if (canManageShareLink(role, type) && ownVisitOnly) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/26]⎯
+
+ FAIL  tests/security/review-fixes-db.spec.ts > 01-08 review fixes (000021) > IR-M2 / AR-M2: create_share_token role per type, audited; revoke_share_token > revoke: role rule as for creation, tenant from the token row, audited once, link then 410
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+- Expected: 
+"42501"
+
++ Received: 
+undefined
+
+ ❯ tests/security/review-fixes-db.spec.ts:300:105
+    298|       ).toBe("42501");
+    299|       // Since V2-05 05-02c a prescription link follows prescriptions:…
+    300|       expect((await rpc(A.members.nurse.client, "revoke_share_token", …
+       |                                                                                                         ^
+    301|       expect((await tokenRowByToken(token)).revoked_at).toBeNull();
+    302| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/26]⎯
+
+ FAIL  tests/security/review-fixes-db.spec.ts > 01-08 review fixes (000021) > AR-M1: shared object path bound to the resource; receiving clinic may only acknowledge > the receiving clinic cannot rewrite pdf_storage_path or clinical fields, but can acknowledge
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/security/review-fixes-db.spec.ts:361:27
+    359| 
+    360|       const ack = await acknowledgeReferral(ctxFor(B.owner), r1);
+    361|       expect(ack.success).toBe(true);
+       |                           ^
+    362|       const { data: acked } = await admin.from("referrals").select("st…
+    363|       expect(acked?.status).toBe("acknowledged");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/26]⎯
+
+ FAIL  tests/security/review-fixes-db.spec.ts > 01-08 review fixes (000021) > AR-L4: credentials by self or owner; owner/admin identity by self or owner > the member themself and an owner can change credentials; an admin can still edit a receptionist's name
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/security/review-fixes-db.spec.ts:585:27
+    583|         role: "receptionist",
+    584|       } as never);
+    585|       expect(res.success).toBe(true);
+       |                           ^
+    586|       expect((await membershipRow(A.members.receptionist)).full_name).…
+    587|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/26]⎯
+
+ FAIL  tests/storage/storage-policies-jwt.spec.ts > storage classes x principals x operations through the Storage API (matrix expectations) > storage:prescriptions/rx
+ FAIL  tests/storage/storage-policies-jwt.spec.ts > storage classes x principals x operations through the Storage API (matrix expectations) > storage:prescriptions/receipt
+ FAIL  tests/storage/storage-policies-jwt.spec.ts > storage classes x principals x operations through the Storage API (matrix expectations) > storage:clinic-records/lab
+ FAIL  tests/storage/storage-policies-jwt.spec.ts > storage classes x principals x operations through the Storage API (matrix expectations) > storage:clinic-records/referral_letter
+AssertionError: expected [ 'owner_a select allowed', …(35) ] to deeply equal [ 'owner_a select allowed', …(35) ]
+
+- Expected
++ Received
+
+  [
+    "owner_a select allowed",
+    "owner_a insert allowed",
+    "owner_a update allowed",
+    "owner_a delete refused",
+-   "admin_a select refused",
+-   "admin_a insert refused",
+-   "admin_a update refused",
++   "admin_a select allowed",
++   "admin_a insert allowed",
++   "admin_a update allowed",
+    "admin_a delete refused",
+    "doctor_a select allowed",
+    "doctor_a insert allowed",
+    "doctor_a update allowed",
+    "doctor_a delete refused",
+-   "nurse_a select refused",
+-   "nurse_a insert refused",
+-   "nurse_a update refused",
++   "nurse_a select allowed",
++   "nurse_a insert allowed",
++   "nurse_a update allowed",
+    "nurse_a delete refused",
+-   "receptionist_a select refused",
+-   "receptionist_a insert refused",
+-   "receptionist_a update refused",
++   "receptionist_a select allowed",
++   "receptionist_a insert allowed",
++   "receptionist_a update allowed",
+    "receptionist_a delete refused",
+    "owner_b select refused",
+    "owner_b insert refused",
+    "owner_b update refused",
+    "owner_b delete refused",
+    "dual_hdr_a select allowed",
+    "dual_hdr_a insert allowed",
+    "dual_hdr_a update allowed",
+    "dual_hdr_a delete refused",
+-   "dual_hdr_b select refused",
+-   "dual_hdr_b insert refused",
+-   "dual_hdr_b update refused",
++   "dual_hdr_b select allowed",
++   "dual_hdr_b insert allowed",
++   "dual_hdr_b update allowed",
+    "dual_hdr_b delete refused",
+-   "dual_no_hdr select refused",
+-   "dual_no_hdr insert refused",
+-   "dual_no_hdr update refused",
++   "dual_no_hdr select allowed",
++   "dual_no_hdr insert allowed",
++   "dual_no_hdr update allowed",
+    "dual_no_hdr delete refused",
+  ]
+
+ ❯ tests/storage/storage-policies-jwt.spec.ts:189:22
+    187|       }
+    188|     }
+    189|     expect(outcomes).toEqual(wanted);
+       |                      ^
+    190|   }, 120_000);
+    191| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/26]⎯
+
+ FAIL  tests/storage/storage-policies-jwt.spec.ts > storage classes x principals x operations through the Storage API (matrix expectations) > the plan's key cells: receptionist reads a receipt but no Rx PDF or lab report; B's owner reads nothing of A
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/storage/storage-policies-jwt.spec.ts:195:85
+    193|     const reception = actors.get("receptionist_a")!;
+    194|     expect(await attempt(reception, classes["storage:prescriptions/rec…
+    195|     expect(await attempt(reception, classes["storage:prescriptions/rx"…
+       |                                                                                     ^
+    196|     expect(await attempt(reception, classes["storage:clinic-records/la…
+    197|     for (const name of CLASS_NAMES) expect(await attempt(actors.get("o…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/26]⎯
+
+ FAIL  tests/storage/storage-policies-jwt.spec.ts > the doctor's Sign & Bill receipt archive (05-02b handover b) > refuses a second doctor's archive of a colleague's visit receipt
+AssertionError: expected Blob { size: 39, type: 'application/pdf' } to be null
+
+- Expected: 
+null
+
++ Received: 
+Blob {
+  Symbol(kHandle): Blob {},
+  Symbol(kLength): 39,
+  Symbol(kType): "application/pdf",
+}
+
+ ❯ tests/storage/storage-policies-jwt.spec.ts:237:18
+    235|     expect(error).not.toBeNull();
+    236|     const { data } = await doctor2.client.storage.from("prescriptions"…
+    237|     expect(data).toBeNull();
+       |                  ^
+    238|   }, 60_000);
+    239| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/26]⎯
+
+ FAIL  tests/storage/storage-policies-jwt.spec.ts > malformed keys and unknown classes (BACKEND C9, T-05-15) > are denied without a database error, for members and non-members alike
+AssertionError: expected 'invalid input syntax for type uuid: "…' not to match /invalid input syntax|uuid/i
+
+- Expected: 
+/invalid input syntax|uuid/i
+
++ Received: 
+"invalid input syntax for type uuid: \"not-a-uuid\""
+
+ ❯ tests/storage/storage-policies-jwt.spec.ts:250:53
+    248|       const read = await db.storage.from("prescriptions").download("no…
+    249|       expect(read.data).toBeNull();
+    250|       expect(String(read.error?.message ?? "")).not.toMatch(/invalid i…
+       |                                                     ^
+    251|       const write = await db.storage.from("prescriptions").upload(`not…
+    252|       expect(write.error).not.toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/26]⎯
+
+
+ Test Files  7 failed (7)
+      Tests  26 failed | 93 passed (119)
+   Start at  08:32:04
+   Duration  20.32s (transform 286ms, setup 35ms, collect 812ms, tests 18.58s, environment 0ms, prepare 141ms)
+
+[teardown] removed run data: 14 tenant(s), 53 auth user(s), 14 storage object(s); verified none remain

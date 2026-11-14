@@ -20,7 +20,7 @@ import type { ClaimedJob, HandlerResult, JobContext, RunJobsResult } from "@/lib
 import type { HostResolver } from "@/lib/webhooks/ssrf";
 import type { RequestImpl } from "@/lib/webhooks/transport";
 import { getAdminClient } from "../helpers/supabase-admin";
-import { psql } from "../helpers/sql";
+import { plantLegacyRow, psql } from "../helpers/sql";
 import { letters } from "./helpers";
 
 /** A public documentation-free address the SSRF check accepts (never connected to: the request is recorded). */
@@ -129,6 +129,22 @@ export async function insertDelivery(
     .single();
   if (error || !data) throw new Error(`insert delivery failed: ${error?.code}`);
   return data.id;
+}
+
+/**
+ * A delivery row of `tenantId` naming ANOTHER clinic's subscription, as one could exist before V2-05 05-03 (review
+ * E-1 / M-XTENANT-WH). The composite FK `webhook_delivery_queue_tenant_subscription_fkey` now refuses it for every
+ * writer (service role included), so it is planted with FK triggers off (`plantLegacyRow`) to prove the handler's
+ * tenant check still holds as defence in depth.
+ */
+export function plantForgedDelivery(tenantId: string, foreignSubscriptionId: string, eventType = "appointment.booked"): string {
+  if (!/^[a-z0-9._]+$/.test(eventType)) throw new Error("webhook-helpers: bad event type");
+  const [id] = plantLegacyRow(
+    `insert into public.webhook_delivery_queue (tenant_id, subscription_id, event_type, payload, status, retry_count, max_retries) ` +
+      `values ('${uuid(tenantId)}', '${uuid(foreignSubscriptionId)}', '${eventType}', '{"synthetic":true}', 'pending', 0, 5) returning id`
+  );
+  if (!id) throw new Error("webhook-helpers: planting the forged delivery returned no id");
+  return id;
 }
 
 export interface DeliveryRow {

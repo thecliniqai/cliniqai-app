@@ -5,9 +5,10 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { isDateOnly } from "@/lib/utils/filter-values";
 import { dayWindowUtc } from "@/lib/datetime";
-import { getTenantTimeZone, getTenantToday } from "@/lib/datetime/server";
+import { getTenantTimeZone } from "@/lib/datetime/server";
 import { QueuePriority, QueueToken, Visit, Patient } from "@/lib/db/types";
 import type { QueueItem } from "@/components/queue/queue-card";
+import { clinicalNotesEmbed, embeddedClinicalNotes, CLINICAL_NOTES_EMBED_KEY } from "@/lib/db/clinical-notes";
 import { getTenantDoctorMap } from "@/features/staff/service";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -30,9 +31,6 @@ export async function checkInVisit(
   try {
     assertPerm(ctx.role, "appointments:edit");
     const session = ctx;
-    // The token's day is the clinic date in the tenant's zone (V2-03 03-05); the SQL `DEFAULT CURRENT_DATE` is
-    // never relied on (R-33; V2-05 05-08 owns the counter rework).
-    const { today } = await getTenantToday(supabase, session.tenantId);
 
     // 1. Verify visit belongs to tenant and get current state
     // By id AND the active clinic: RLS admits every clinic the user belongs to, so a member of two clinics acting in
@@ -50,65 +48,31 @@ export async function checkInVisit(
       return { success: false, error: "Visit record not found." };
     }
 
-    // 2. Check if a token already exists for this visit
-    const { data: existingToken } = (await (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      supabase.from("queue_tokens") as any
-    )
-      .select("*")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", session.tenantId)
-      .maybeSingle()) as { data: QueueToken | null; error: unknown };
-
-    if (existingToken) {
-      return {
-        success: true,
-        tokenNumber: existingToken.token_number,
-        queueTokenId: existingToken.id,
-      };
-    }
-
-    // 3. Atomically generate daily sequential token number via RPC
-    const { data: tokenNumber, error: rpcError } = await (
-      supabase as unknown as {
-        rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: number | null; error: { message: string } | null }>;
-      }
-    ).rpc("generate_daily_queue_token", {
-      p_tenant_id: session.tenantId,
-      p_date: today,
+    // 2. The visit's token (V2-05 05-11a, M-TOKEN): `issue_queue_token` takes the clinic from the visit, checks
+    // appointments:edit in the active clinic and, under a lock on the visit, either returns the token the visit already
+    // has (`reused`: a repeat check-in) or advances the per-clinic, per-day counter and writes the `queue_tokens` row
+    // itself. Members hold no INSERT privilege on `queue_tokens` and cannot write `token_number` or `date`, so a forged
+    // token can no longer stop the clinic's check-ins. The day is the clinic-local date computed in SQL
+    // (`tenant_local_date`, the same zone rules as lib/datetime).
+    const { data: tokenRows, error: rpcError } = await supabase.rpc("issue_queue_token", {
+      p_visit_id: visitId,
+      p_priority: priority,
     });
+    const issued = Array.isArray(tokenRows) ? tokenRows[0] : undefined;
 
-    if (rpcError || tokenNumber == null) {
+    if (rpcError || !issued || issued.token_number == null || !issued.queue_token_id) {
       log.error({ event: "queue.token_generate.failed", code: errorTag(rpcError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to generate queue token." };
     }
+    const tokenNumber = issued.token_number;
 
-    // 4. Insert queue_token record
-    const { data: newToken, error: tokenInsertError } = await (
-      supabase.from("queue_tokens") as unknown as {
-        insert: (row: Record<string, unknown>) => {
-          select: (cols: string) => {
-            single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
-          };
-        };
-      }
-    )
-      .insert({
-        tenant_id: session.tenantId,
-        visit_id: visitId,
-        date: today,
-        token_number: tokenNumber,
-        priority: priority,
-      })
-      .select("id")
-      .single();
-
-    if (tokenInsertError || !newToken) {
-      log.error({ event: "queue.token_insert.failed", code: errorTag(tokenInsertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to register queue entry." };
+    // A repeat check-in returns the visit's existing token unchanged (no status move, no second audit row).
+    if (issued.reused) {
+      return { success: true, tokenNumber, queueTokenId: issued.queue_token_id };
     }
+    const newToken = { id: issued.queue_token_id };
 
-    // 5. Update visit status to 'waiting'
+    // 3. Update visit status to 'waiting'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from("visits") as any)
       .update({
@@ -118,7 +82,7 @@ export async function checkInVisit(
       .eq("id", visitId)
       .eq("tenant_id", session.tenantId);
 
-    // 6. Record audit log
+    // 4. Record audit log
     await recordAudit(ctx, {
       action: "queue.check_in",
       entityType: "queue_token",
@@ -239,6 +203,8 @@ export async function transitionQueueState(
 interface QueueRow extends Visit {
   patients?: Patient | null;
   queue_tokens?: QueueToken | QueueToken[] | null;
+  /** The visit's clinical_notes row (vitals only); null when RLS hides it (receptionist, admin; V2-05 05-02a). */
+  [CLINICAL_NOTES_EMBED_KEY]?: unknown;
 }
 
 export type GetQueueResult = { success: true; items: QueueItem[] } | { success: false; error: string };
@@ -276,7 +242,7 @@ export async function getQueueForDate(
         };
       };
     })
-      .select("*, patients(*), queue_tokens(*)")
+      .select(`*, patients(*), queue_tokens(*), ${clinicalNotesEmbed(["vitals"])}`)
       .eq("tenant_id", session.tenantId)
       .or(`scheduled_at.gte.${startOfDay},created_at.gte.${startOfDay}`)
       .or(`scheduled_at.lt.${endOfDay},created_at.lt.${endOfDay}`);
@@ -307,11 +273,12 @@ export async function getQueueForDate(
         : row.queue_tokens || null;
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { patients, queue_tokens: _qt, ...visitData } = row;
+      const { patients, queue_tokens: _qt, [CLINICAL_NOTES_EMBED_KEY]: _notes, ...visitData } = row;
       const resolvedDocName = row.doctor_id ? doctorMap[row.doctor_id] : null;
 
       return {
-        visit: visitData as Visit,
+        // Triage vitals come from clinical_notes (05-02a): null for a role that may not read them.
+        visit: { ...(visitData as Visit), vitals: embeddedClinicalNotes(row)?.vitals ?? null },
         patient: patients || null,
         queueToken: queueToken || null,
         doctorName: resolvedDocName || (row.doctor_id ? "Doctor" : "Clinic"),

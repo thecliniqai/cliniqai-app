@@ -1,0 +1,184 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/billing/collect-permission.spec.ts (12 tests | 5 failed) 1502ms
+   ✓ billing:collect (05-02b, PO-3) > recordPayment > a receptionist collects: ok, one payment by the receptionist, the invoice is paid 21ms
+   ✓ billing:collect (05-02b, PO-3) > recordPayment > a doctor is refused (FORBIDDEN text), 0 payments, the invoice unchanged 8ms
+   ✓ billing:collect (05-02b, PO-3) > recordPayment > a nurse is refused (FORBIDDEN text), 0 payments, the invoice unchanged 7ms
+   × billing:collect (05-02b, PO-3) > recordPayment > the database refuses a doctor's record_payment call made directly (past the service): 0 payments 14ms
+     → expected undefined to be '42501' // Object.is equality
+   × billing:collect (05-02b, PO-3) > recordPayment > a nurse's direct payments insert is refused by RLS (42501) 6ms
+     → expected undefined to be '42501' // Object.is equality
+   ✓ billing:collect (05-02b, PO-3) > Sign & Bill (completeAndBillConsultation) > a doctor collecting at the desk is refused BEFORE anything happens: visit unsigned, no invoice, 0 payments 22ms
+   ✓ billing:collect (05-02b, PO-3) > Sign & Bill (completeAndBillConsultation) > a doctor routing to reception: signed, the invoice is created unpaid, 0 payments 229ms
+   ✓ billing:collect (05-02b, PO-3) > Sign & Bill (completeAndBillConsultation) > the owner of a solo clinic signs and collects: payment recorded, invoice paid 107ms
+   × billing:collect (05-02b, PO-3) > a doctor sees and bills only their own visits (R-7) > reads the invoice of their own visit, not a colleague's; a nurse reads none 6ms
+     → expected [ …(2) ] to deeply equal [ Array(1) ]
+   × billing:collect (05-02b, PO-3) > a doctor sees and bills only their own visits (R-7) > cannot invoice a colleague's visit (service text; nothing written), the front desk can 4ms
+     → expected undefined to be '42501' // Object.is equality
+   ✓ billing:collect (05-02b, PO-3) > a member of two clinics (R-42 active tenant) > acting in this clinic, collects here 69ms
+   × billing:collect (05-02b, PO-3) > a member of two clinics (R-42 active tenant) > acting in the other clinic, cannot read or collect this clinic's invoice: 0 payments 65ms
+     → expected [ Array(1) ] to deeply equal []
+ ❯ tests/patients/receptionist-registration.spec.ts (7 tests | 2 failed) 830ms
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > a receptionist session registers a patient: success, the row exists in the clinic with created_by = receptionist 24ms
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > the receptionist updates the phone; the allergies stay as they were 9ms
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > a receptionist's change of allergies or chronic conditions is refused (FORBIDDEN text) and nothing changes 9ms
+   × receptionist registration and demographics (05-02b, acceptance 5, R-8) > the database refuses the allergy change itself (42501), even past the service 8ms
+     → expected [ Array(1) ] to be null
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > a doctor (consultations:view) changes allergies 8ms
+   ✓ receptionist registration and demographics (05-02b, acceptance 5, R-8) > a receptionist of this clinic who is also a member of another clinic (R-42 active tenant) > acting in this clinic, registers a patient here 67ms
+   × receptionist registration and demographics (05-02b, acceptance 5, R-8) > a receptionist of this clinic who is also a member of another clinic (R-42 active tenant) > acting in the other clinic, cannot register or edit a patient of this clinic 67ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/collect-permission.spec.ts > billing:collect (05-02b, PO-3) > recordPayment > the database refuses a doctor's record_payment call made directly (past the service): 0 payments
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+[32m- Expected:[39m 
+"42501"
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ tests/billing/collect-permission.spec.ts:158:27
+    156|         p_command_id: randomUUID(),
+    157|       });
+    158|       expect(error?.code).toBe("42501");
+       |                           ^
+    159|       expect(await paymentsOf(invoiceId)).toEqual([]);
+    160|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/billing/collect-permission.spec.ts > billing:collect (05-02b, PO-3) > recordPayment > a nurse's direct payments insert is refused by RLS (42501)
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+[32m- Expected:[39m 
+"42501"
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ tests/billing/collect-permission.spec.ts:167:27
+    165|         .from("payments")
+    166|         .insert({ tenant_id: owner.tenantId, invoice_id: invoiceId, am…
+    167|       expect(error?.code).toBe("42501");
+       |                           ^
+    168|       expect(await paymentsOf(invoiceId)).toEqual([]);
+    169|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/billing/collect-permission.spec.ts > billing:collect (05-02b, PO-3) > a doctor sees and bills only their own visits (R-7) > reads the invoice of their own visit, not a colleague's; a nurse reads none
+AssertionError: expected [ …(2) ] to deeply equal [ Array(1) ]
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[2m    "c8825fec-1809-4f90-9fa8-4df0b11ef1ed",[22m
+[31m+   "f90b5cd5-42db-4e7c-9ab0-0350202d1fc9",[39m
+[2m  ][22m
+
+ ❯ tests/billing/collect-permission.spec.ts:220:51
+    218| 
+    219|       const { data: doctorRows } = await doctor.client.from("invoices"…
+    220|       expect((doctorRows ?? []).map((r) => r.id)).toEqual([own]);
+       |                                                   ^
+    221|       const { data: nurseRows } = await nurse.client.from("invoices").…
+    222|       expect(nurseRows).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/billing/collect-permission.spec.ts > billing:collect (05-02b, PO-3) > a doctor sees and bills only their own visits (R-7) > cannot invoice a colleague's visit (service text; nothing written), the front desk can
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+[32m- Expected:[39m 
+"42501"
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ tests/billing/collect-permission.spec.ts:247:27
+    245|         invoice_number: `COLLECT-${randomUUID().slice(0, 8)}`,
+    246|       });
+    247|       expect(error?.code).toBe("42501");
+       |                           ^
+    248| 
+    249|       const desk = await createVisitInvoice(ctxFor(receptionist), inpu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/billing/collect-permission.spec.ts > billing:collect (05-02b, PO-3) > a member of two clinics (R-42 active tenant) > acting in the other clinic, cannot read or collect this clinic's invoice: 0 payments
+AssertionError: expected [ Array(1) ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   {[39m
+[31m+     "id": "f72f96c1-b5cb-4cd6-a7ac-8a3286ae0322",[39m
+[31m+   },[39m
+[31m+ ][39m
+
+ ❯ tests/billing/collect-permission.spec.ts:278:20
+    276|       const ctx = await dualCtx(otherClinic.tenantId);
+    277|       const { data } = await ctx.db.from("invoices").select("id").eq("…
+    278|       expect(data).toEqual([]);
+       |                    ^
+    279|       const res = await recordPayment(ctx, pay(invoiceId));
+    280|       expect(res).toEqual({ success: false, error: RECORD_PAYMENT_MESS…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/patients/receptionist-registration.spec.ts > receptionist registration and demographics (05-02b, acceptance 5, R-8) > the database refuses the allergy change itself (42501), even past the service
+AssertionError: expected [ Array(1) ] to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+[
+  {
+    "id": "84aeb4bc-3305-42e8-bc08-80dd0c6a1183",
+  },
+]
+
+ ❯ tests/patients/receptionist-registration.spec.ts:123:18
+    121|       .eq("id", created.patientId)
+    122|       .select("id");
+    123|     expect(data).toBeNull();
+       |                  ^
+    124|     expect(error?.code).toBe("42501");
+    125|     expect((await patientRow(created.patientId)).allergies).toEqual(["…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/patients/receptionist-registration.spec.ts > receptionist registration and demographics (05-02b, acceptance 5, R-8) > a receptionist of this clinic who is also a member of another clinic (R-42 active tenant) > acting in the other clinic, cannot register or edit a patient of this clinic
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ tests/patients/receptionist-registration.spec.ts:167:31
+    165|       const ctx = await dualCtx(otherClinic.tenantId);
+    166|       const created = await createPatient(ctx, input());
+    167|       expect(created.success).toBe(false);
+       |                               ^
+    168| 
+    169|       const existing = await createPatient(ctxFor(receptionist), input…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  7 failed | 12 passed (19)
+   Start at  07:30:17
+   Duration  3.11s (transform 115ms, setup 14ms, collect 277ms, tests 2.33s, environment 0ms, prepare 44ms)
+
+[teardown] removed run data: 4 tenant(s), 12 auth user(s), 4 storage object(s); verified none remain

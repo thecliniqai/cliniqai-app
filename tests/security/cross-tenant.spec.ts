@@ -4,6 +4,7 @@ import {
   DualTenantEcosystem,
 } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { signInActingIn } from "../helpers/active-tenant";
 import { assertRlsCatalog, TENANT_OWNED_TABLES } from "../helpers/rls";
 import {
   getActiveMembership,
@@ -49,9 +50,10 @@ describe("Cross-Tenant Security Proof & Operational Hardening (REQ-multi-tenancy
     });
 
     it("proves Tenant A cannot read Tenant B rows from 'invitations'", async () => {
+      // token_hash is not readable by members (05-11b, H-INVITE): select the readable columns.
       const { data, error } = await ecosystem.tenantA.owner.client
         .from("invitations")
-        .select("*")
+        .select("id, tenant_id, role, invited_address")
         .eq("id", ecosystem.tenantB.invitationId);
 
       expect(error).toBeNull();
@@ -177,13 +179,15 @@ describe("Cross-Tenant Security Proof & Operational Hardening (REQ-multi-tenancy
     });
 
     it("proves Tenant A cannot DELETE Tenant B's patient record", async () => {
-      const { data } = await ecosystem.tenantA.owner.client
+      const { data, error } = await ecosystem.tenantA.owner.client
         .from("patients")
         .delete()
         .eq("id", ecosystem.tenantB.patientId)
         .select();
 
-      expect(data).toHaveLength(0);
+      // No member deletes a patient (05-04); since V2-05 05-02c the DELETE privilege itself is revoked (42501).
+      expect(error?.code).toBe("42501");
+      expect(data).toBeNull();
 
       // Verify row still exists via admin client
       const { data: stillExisting } = await admin
@@ -235,11 +239,12 @@ describe("Cross-Tenant Security Proof & Operational Hardening (REQ-multi-tenancy
       expect(tenantIds).toContain(ecosystem.tenantB.tenantId);
     });
 
-    it("proves dual user querying in Tenant A context receives only Tenant A data when filtered", async () => {
-      const { data: pA } = await ecosystem.dualUser.client
-        .from("patients")
-        .select("id, tenant_id")
-        .eq("tenant_id", ecosystem.tenantA.tenantId);
+    // Since V2-05 05-02b the patients policies are bound to the ACTIVE clinic (the x-clinicos-tenant header the app's
+    // client sends from the clinic cookie, R-42): a context is the client acting in that clinic, and it reads only it,
+    // even without a tenant filter; with no header and two memberships it reads nothing.
+    it("proves dual user querying in Tenant A context receives only Tenant A data", async () => {
+      const inA = await signInActingIn(ecosystem.dualUser.userEmail, ecosystem.tenantA.tenantId);
+      const { data: pA } = await inA.from("patients").select("id, tenant_id");
 
       expect(pA?.length).toBeGreaterThan(0);
       for (const p of pA || []) {
@@ -247,16 +252,19 @@ describe("Cross-Tenant Security Proof & Operational Hardening (REQ-multi-tenancy
       }
     });
 
-    it("proves dual user querying in Tenant B context receives only Tenant B data when filtered", async () => {
-      const { data: pB } = await ecosystem.dualUser.client
-        .from("patients")
-        .select("id, tenant_id")
-        .eq("tenant_id", ecosystem.tenantB.tenantId);
+    it("proves dual user querying in Tenant B context receives only Tenant B data", async () => {
+      const inB = await signInActingIn(ecosystem.dualUser.userEmail, ecosystem.tenantB.tenantId);
+      const { data: pB } = await inB.from("patients").select("id, tenant_id");
 
       expect(pB?.length).toBeGreaterThan(0);
       for (const p of pB || []) {
         expect(p.tenant_id).toBe(ecosystem.tenantB.tenantId);
       }
+    });
+
+    it("a dual user with no active clinic named reads no patient at all", async () => {
+      const { data } = await ecosystem.dualUser.client.from("patients").select("id");
+      expect(data).toEqual([]);
     });
   });
 

@@ -1,0 +1,44 @@
+$ git rev-parse HEAD
+9d15cdaa2df27894954d41c38ba02dddecece115
+$ latest applied migration on the local stack
+000046
+$ npm run test:pgtap -- .planning/phases/05-db-authorisation-entitlements/evidence/05a/05-01a/after-pgtap-report.tap
+NotFound: FileSystem.readFile (<home>/.supabase/profile)
+Connecting to local database...
+psql:<repo>/supabase/tests/database/memberships_bounds_cleanup.test.sql:111: NOTICE:  constraint "memberships_slot_duration_bounds" of relation "memberships" does not exist, skipping
+psql:<repo>/supabase/tests/database/memberships_bounds_cleanup.test.sql:116: NOTICE:  constraint "memberships_availability_schedule_shape" of relation "memberships" does not exist, skipping
+<repo>/supabase/tests/database/memberships_bounds_cleanup.test.sql ......... 
+1..7
+ok 1 - control: the slot-length CHECK fails on the planted rows without the clean-up
+ok 2 - slot length 180 is clamped to 120
+ok 3 - a valid schedule is not changed
+ok 4 - slot length 3 is clamped to 5
+ok 5 - a malformed schedule is reset to the column default
+ok 6 - an in-range slot length is not changed
+ok 7 - memberships_slot_duration_bounds and memberships_availability_schedule_shape are present and validated
+ok
+<repo>/supabase/tests/database/search_medicines_extension_schema.test.sql .. 
+1..6
+ok 1 - pg_trgm is installed
+ok 2 - precondition: the probe matches only through similarity()
+ok 3 - control: the stale function fails once pg_trgm moved (undefined_function)
+ok 4 - search_medicines calls extensions.similarity after re-resolution
+ok 5 - search_medicines keeps search_path = ''
+ok 6 - search_medicines returns the trigram-only match with pg_trgm in extensions
+ok
+All tests successful.
+Files=2, Tests=13,  0 wallclock secs ( 0.01 usr  0.00 sys +  0.01 cusr  0.00 csys =  0.02 CPU)
+Result: PASS
+A new version of Supabase CLI is available: v3.1.0 (currently installed v2.120.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+[test:pgtap] report: .planning/phases/05-db-authorisation-entitlements/evidence/05a/05-01a/after-pgtap-report.tap (exit 0)
+exit=0
+$ node scripts/ci/assert-pgtap-report.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05a/05-01a/after-pgtap-report.tap
+pgtap-report-gate: files=2 tests=13 passed=13 failed=0 skipped/todo=0 floor=13 required=2
+pgtap-report-gate: PASS
+exit=0
+$ select extname from pg_extension where extname = 'pgtap'  (rows after the run)
+0
+$ npm run test:pgtap -- --linked
+[test:pgtap] refusing `--linked`: the pgTAP lane runs only against the local stack (--local); no target flag is passed through
+exit=1

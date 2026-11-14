@@ -108,8 +108,11 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
       if (uploadRes.success) {
         expect(uploadRes.document.title).toBe("Complete Blood Count");
         expect(uploadRes.document.is_abnormal).toBe(true);
-        expect(uploadRes.document.storage_path).toContain(`tenants/${tenantA.tenantId}/patients/${patientAId}/labs/`);
-        expect(uploadRes.document.storage_path).toContain("Aarav_Sharma_CBC_Report_Final_2026-10-22.pdf");
+        // V2-05 05-02c (R-45): the key holds ids only (the document's own id), never the patient's name.
+        expect(uploadRes.document.storage_path).toBe(
+          `tenants/${tenantA.tenantId}/patients/${patientAId}/labs/${uploadRes.document.id}.pdf`
+        );
+        expect(uploadRes.document.storage_path).not.toMatch(/Aarav|Sharma/i);
         documentAId = uploadRes.document.id;
       }
     });
@@ -208,9 +211,10 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
       expect(draftRes.success).toBe(true);
 
       // 3. Verify database row has investigations_advised array
-      const { data: updatedVisit } = await (tenantA.client.from("visits") as any)
+      // In the visit's clinical_notes row (V2-05 05-02a), read through RLS.
+      const { data: updatedVisit } = await (tenantA.client.from("clinical_notes") as any)
         .select("investigations_advised")
-        .eq("id", visitId)
+        .eq("visit_id", visitId)
         .single();
 
       expect(updatedVisit?.investigations_advised).toEqual(advisedTests);

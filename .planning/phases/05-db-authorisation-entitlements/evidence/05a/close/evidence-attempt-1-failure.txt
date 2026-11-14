@@ -1,0 +1,8 @@
+# First 05a close evidence attempt (phase-evidence at 961ba82dc52b): the failing test of each run, read from full-run-{1,2}.json
+run 1: tests=4876 passed=4875 failed=1
+  failed: tests/ci/vitest-report-gate.spec.ts > vitest report gate fails when the suite shrinks below the recorded floor (default 4180, 95% of the suite, IR-F5)
+    AssertionError: expected 'FAIL total 3 is below the floor 4633 …' to contain 'total 3 is below the floor 4180'
+run 2: tests=4876 passed=4875 failed=1
+  failed: tests/ci/vitest-report-gate.spec.ts > vitest report gate fails when the suite shrinks below the recorded floor (default 4180, 95% of the suite, IR-F5)
+    AssertionError: expected 'FAIL total 3 is below the floor 4633 …' to contain 'total 3 is below the floor 4180'
+# root cause: 9fb0f6d raised the Vitest gate FLOOR 4180 -> 4633 but this spec pins the default floor; fixed in 4d25b33; the evidence was then re-run.

@@ -1,0 +1,6 @@
+Result: PASS
+A new version of Supabase CLI is available: v3.1.0 (currently installed v2.120.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+[test:pgtap] report: /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/pgtap-final.tap (exit 0)
+pgtap-report-gate: files=8 tests=2451 passed=2451 failed=0 skipped/todo=0 floor=13 required=2
+pgtap-report-gate: PASS

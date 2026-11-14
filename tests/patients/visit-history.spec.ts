@@ -17,8 +17,11 @@ import {
 } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
+import { signInActingIn } from "../helpers/active-tenant";
 import { insertReturningId, type IdTable } from "../helpers/db";
 import type { TablesInsert } from "@/types/database";
+import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
+import { seedClinicalNotes } from "../helpers/clinical-notes";
 
 function insertRow<T extends IdTable>(table: T, row: TablesInsert<T>): Promise<string> {
   return insertReturningId(getAdminClient(), table, row);
@@ -99,12 +102,15 @@ describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", 
       created_at: daysAgo(2),
       reason_for_visit: "Synthetic fever",
       specialty: "general_physician",
+      created_by: ownerA.userId,
+    });
+    // The clinical content lives in the visit's clinical_notes row (V2-05 05-02a).
+    await seedClinicalNotes(olderVisitA, {
       vitals: { systolic: 120, diastolic: 80, pulse: 72 },
       chief_complaints: [{ symptom: "Fever", duration_val: 3, duration_unit: "days" }],
       clinical_notes: "Synthetic note one.",
       investigations_advised: ["CBC"],
       advice: ["Rest"],
-      created_by: ownerA.userId,
     });
     newerVisitA = await insertRow("visits", {
       tenant_id: ownerA.tenantId,
@@ -129,7 +135,8 @@ describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", 
       created_by: ownerB.userId,
     });
 
-    await insertRow("queue_tokens", { tenant_id: ownerA.tenantId, visit_id: olderVisitA, token_number: 14 });
+    // The token date is explicit since 05-08 (no SQL default; the fill trigger would give the same clinic date).
+    await insertRow("queue_tokens", { tenant_id: ownerA.tenantId, visit_id: olderVisitA, token_number: 14, date: todayInTz(DEFAULT_CLINIC_TZ) });
     await insertRow("consultation_diagnoses", {
       tenant_id: ownerA.tenantId,
       visit_id: olderVisitA,
@@ -148,6 +155,7 @@ describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", 
       signed_at: daysAgo(2),
     });
     await insertRow("prescription_items", {
+      tenant_id: ownerA.tenantId,
       prescription_id: rxId,
       medicine_name: "Paracetamol 650mg",
       generic_name: "Paracetamol",
@@ -218,8 +226,12 @@ describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", 
 
   it("scopes to the context's tenant even for a user whose RLS reaches both tenants", async () => {
     const dual = await createDualMembershipUser(ownerA.tenantId, "doctor", ownerB.tenantId, "receptionist");
-    const inA = ctxFor({ userId: dual.userId, tenantId: ownerA.tenantId, role: dual.roleInA, client: dual.client });
-    const inB = ctxFor({ userId: dual.userId, tenantId: ownerB.tenantId, role: dual.roleInB, client: dual.client });
+    // Each context's client names its clinic in x-clinicos-tenant, as the app's createClient() does (R-42; the
+    // policies are bound to the active clinic since 05-02b).
+    const clientInA = await signInActingIn(dual.userEmail, ownerA.tenantId);
+    const clientInB = await signInActingIn(dual.userEmail, ownerB.tenantId);
+    const inA = ctxFor({ userId: dual.userId, tenantId: ownerA.tenantId, role: dual.roleInA, client: clientInA });
+    const inB = ctxFor({ userId: dual.userId, tenantId: ownerB.tenantId, role: dual.roleInB, client: clientInB });
 
     // The same JWT can read B's visit when acting in B ...
     expect((await getPatientVisitHistory(inB, patientB)).map((v) => v.id)).toEqual([visitB]);

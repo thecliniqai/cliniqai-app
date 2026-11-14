@@ -1,0 +1,238 @@
+# 05-11a fails-without run, 2026-11-14T05:11:32Z
+# tree: c7cbaa0 + working tree, with 000068-000070 moved aside (not applied)
+## supabase db reset --local (without 000068-000070)
+Applying migration 000066_fk_indexes.sql...
+Applying migration 000067_api_key_scope_guard.sql...
+Applying migration 000071_invitation_token_binding.sql...
+Applying migration 000072_billing_totals_rpc_only.sql...
+Applying migration 000073_api_keys_notices_columns.sql...
+Applying migration 000074_actor_bindings_audit_templates.sql...
+Finished supabase db reset on branch v2/phase-05-db-authorisation-entitlements.
+## applied: 000066,000067,000071,000072,000073,000074
+{
+  "label": "before-05-11a",
+  "generated_at": "2026-11-14T05:11:58.752Z",
+  "target": "local stack (docker container, loopback)",
+  "note": "counts only; D0/D4/D7d are row counts; see scripts/db/diagnostics.sql",
+  "blocking_nonzero": [],
+  "checks": {
+    "V0": {
+      "tenants": 0,
+      "memberships": 0,
+      "patients": 0,
+      "visits": 0,
+      "invoices": 0,
+      "payments": 0,
+      "prescriptions": 0,
+      "prescription_items": 0,
+      "patient_documents": 0,
+      "communication_queue": 0,
+      "webhook_delivery_queue": 0
+    },
+    "D0": 71,
+    "D1": {
+      "visits→patients": 0,
+      "invoices→visits": 0,
+      "prescriptions→visits": 0,
+      "diagnoses→visits": 0,
+      "documents→patients": 0,
+      "payments→invoices": 0,
+      "queue_tokens→visits": 0,
+      "comm_queue→patients": 0
+    },
+    "D2": {},
+    "D3": 0,
+    "D4a": 0,
+    "D4b": 0,
+    "D5": 0,
+    "D6": 0,
+    "D7a": 0,
+    "D7b": 0,
+    "D7c": 0,
+    "D7d": 0,
+    "D7e": 0,
+    "D8a": 0,
+    "D8b": 0,
+    "D8c": 0,
+    "D8d": 0,
+    "D9a": {},
+    "D9b": {},
+    "D10a": 0,
+    "D10b": 0,
+    "D1x": {
+      "visits.patient_id→patients": 0,
+      "invoices.patient_id→patients": 0,
+      "invoices.visit_id→visits": 0,
+      "invoice_items.invoice_id→invoices": 0,
+      "payments.invoice_id→invoices": 0,
+      "prescriptions.patient_id→patients": 0,
+      "prescriptions.visit_id→visits": 0,
+      "prescription_items.prescription_id→prescriptions": 0,
+      "consultation_diagnoses.patient_id→patients": 0,
+      "consultation_diagnoses.visit_id→visits": 0,
+      "consultations.patient_id→patients": 0,
+      "consent_records.patient_id→patients": 0,
+      "follow_ups.patient_id→patients": 0,
+      "follow_ups.visit_id→visits": 0,
+      "patient_documents.patient_id→patients": 0,
+      "patient_documents.visit_id→visits": 0,
+      "document_share_tokens.document_id→patient_documents": 0,
+      "communication_queue.patient_id→patients": 0,
+      "communication_queue.appointment_id→visits": 0,
+      "queue_tokens.visit_id→visits": 0,
+      "visit_revisions.visit_id→visits": 0,
+      "waitlist_entries.patient_id→patients": 0,
+      "waitlist_entries.promoted_visit_id→visits": 0,
+      "referrals.patient_id→patients": 0,
+      "referrals.visit_id→visits": 0,
+      "api_key_usage_daily.api_key_id→api_keys": 0,
+      "audit_logs.api_key_id→api_keys": 0,
+      "webhook_delivery_queue.subscription_id→webhook_subscriptions": 0
+    },
+    "D5x": {
+      "visits.doctor_id": 0,
+      "prescriptions.doctor_id": 0,
+      "consultations.doctor_id": 0,
+      "follow_ups.doctor_id": 0,
+      "waitlist_entries.doctor_id": 0,
+      "schedule_blocks.doctor_id": 0,
+      "doctor_custom_diagnoses.doctor_id": 0,
+      "doctor_custom_medicines.doctor_id": 0,
+      "doctor_prescription_templates.doctor_id": 0,
+      "referrals.referring_doctor_id": 0
+    },
+    "D6d": 0,
+    "D9t": 0,
+    "D5s": 0,
+    "FKNV": 0
+  }
+}
+[db:diagnostics] wrote .planning/phases/05-db-authorisation-entitlements/evidence/05a/diagnostics/before-05-11a.json
+## pgTAP visit_integrity.test.sql (05-11a version) WITHOUT the migrations
+1..45
+not ok 1 - INT H-1 reproduction: a receptionist cannot move a signed visit to another patient
+not ok 2 - a doctor cannot re-key even an unsigned visit to another patient
+not ok 3 - patient_id is immutable on a system path too (service role, migrations)
+not ok 4 - RLS M-3 reproduction: a receptionist cannot mark a visit signed by a doctor
+not ok 5 - IND M1 reproduction: a receptionist cannot un-sign a consultation
+not ok 6 - a receptionist cannot reopen a signed visit
+not ok 7 - a receptionist cannot cancel a signed visit
+not ok 8 - a doctor cannot sign in another doctor's name
+not ok 9 - a doctor cannot replace a signature on a completed visit (only finalizing an amendment re-signs)
+not ok 10 - the signer cannot clear the signature either
+not ok 11 - a doctor cannot reopen a signed visit without an amendment row
+ok 12 - a second doctor writes an amendment row as itself
+not ok 13 - another doctor's amendment row does not let this doctor reopen
+ok 14 - the doctor writes an amendment row (the app's reopenVisitForAmendment step 6)
+not ok 15 - then reopens it (step 7); current_revision moves past the amendment row (2 -> 3)
+ok 16 - a reopened visit's notes can be amended
+not ok 17 - finalizing an amendment without re-signing is refused
+ok 18 - finalizing re-signs as the caller (finalizeVisitAmendment step 4)
+not ok 19 - a second reopen needs a new amendment row (the old one is spent)
+not ok 20 - a signed visit keeps its doctor, even for the front desk
+not ok 21 - a signed visit keeps its doctor on a system path too
+not ok 22 - IND M1: a signer who is not a member of the clinic is refused (visits_tenant_signed_by_fkey), even on a system path
+ok 23 - a doctor signs an open visit as itself (completeAndSignConsultation step 3)
+not ok 24 - IND M2 / RLS L-1 reproduction: a doctor cannot take a colleague's visit
+ok 25 - the front desk reassigns an unsigned visit
+not ok 26 - a visit is not inserted in another user's name
+not ok 27 - a visit is not inserted already signed
+ok 28 - a receptionist books a visit as itself
+not ok 29 - created_by never changes (not even to the caller)
+not ok 30 - current_revision is written only by the reopen path
+not ok 31 - IND L2 reproduction: a doctor cannot prescribe in another doctor's name
+not ok 32 - a prescription names the visit's own patient
+not ok 33 - a doctor prescribes as itself
+not ok 34 - a prescription's prescriber never changes
+not ok 35 - RLS M-3 reproduction: an amendment is not attributed to another doctor
+not ok 36 - an amendment's time is the database clock, not the caller's
+not ok 37 - INT M-3 reproduction: a doctor cannot rewrite the notes of a signed visit
+not ok 38 - INT M-3 reproduction: a nurse cannot rewrite the vitals of a signed visit
+ok 39 - a nurse still records vitals on an unsigned visit
+not ok 40 - INT M-1 reproduction: a zero-length slot (which overlapped nothing) is refused
+not ok 41 - a slot of years is refused, also on a system path
+not ok 42 - the bounds 5 and 480 are admitted
+not ok 43 - the three 000068 constraints are validated (000069)
+not ok 44 - past token 9999 the RPC refuses (no integer overflow, no out-of-range row)
+ok 45 - the refused call left the counter at 9999 and wrote no token row
+# Looks like you failed 36 tests of 45
+## summary visit_integrity: ok=9 not_ok=36
+## pgTAP migration_edge_cases_visit_integrity.test.sql (05-11a version) WITHOUT the migrations
+1..17
+ok 1 - D6d, D9t and D5s are 0 for the fixture clinic before the edge cases are planted
+ERROR:  constraint "visits_duration_range" of relation "visits" does not exist
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+## summary migration_edge_cases_visit_integrity: ok=1 not_ok=0
+## pgTAP queue_tokens.test.sql (05-11a version) WITHOUT the migrations
+1..34
+ok 1 - IST clinic: 19:00 UTC on 13 Nov is 14 Nov (00:30 IST)
+ok 2 - IST clinic: 18:29:59 UTC is still 13 Nov (23:59:59 IST)
+ok 3 - IST clinic: 18:30 UTC is 14 Nov (00:00 IST)
+ok 4 - America/New_York clinic: the same instant is still 13 Nov
+ok 5 - America/New_York clinic: its own midnight (05:00 UTC) starts 14 Nov
+ok 6 - the clinic date is not the server-zone date (what CURRENT_DATE gave)
+ERROR:  function "public.issue_queue_token(uuid, text)" does not exist
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+## summary queue_tokens: ok=6 not_ok=0

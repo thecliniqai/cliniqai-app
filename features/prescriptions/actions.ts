@@ -94,13 +94,13 @@ export async function getPrescriptionPdfSignedUrl(
   prescriptionId: string,
   letterheadMode: "blank_paper" | "preprinted_letterhead" = "blank_paper"
 ): Promise<GetPrescriptionPdfSignedUrlResult> {
-  const resolved = await resolveServiceContext("consultations:view");
+  const resolved = await resolveServiceContext("prescriptions:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return rxService.getPrescriptionPdfSignedUrl(resolved.ctx, prescriptionId, letterheadMode);
 }
 
 export async function sharePrescriptionViaWhatsApp(prescriptionId: string): Promise<SharePrescriptionViaWhatsAppResult> {
-  const resolved = await resolveServiceContext("consultations:view");
+  const resolved = await resolveServiceContext("prescriptions:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return rxService.sharePrescriptionViaWhatsApp(resolved.ctx, prescriptionId);
 }

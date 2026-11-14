@@ -134,7 +134,7 @@ export async function seedSignedPrescription(input: {
   must(
     await admin
       .from("prescription_items")
-      .insert({ prescription_id: rx.id, medicine_name: input.medicineName, dosage: "1-0-1", duration: "5 days", sort_order: 0 })
+      .insert({ tenant_id: input.tenantId, prescription_id: rx.id, medicine_name: input.medicineName, dosage: "1-0-1", duration: "5 days", sort_order: 0 })
       .select("id")
       .single(),
     "prescription item insert",
@@ -209,25 +209,33 @@ export interface VisitRow {
   signed_at: string | null;
 }
 
+/** The visit columns the M0 specs check; the note comes from the visit's clinical_notes row (V2-05 05-02a). */
+const VISIT_COLUMNS = "id, status, scheduled_at, is_overbooked, origin_type, doctor_id, patient_id, signed_at, notes:clinical_notes(clinical_notes)";
+
+function toVisitRow(row: Record<string, unknown>): VisitRow {
+  const { notes, ...visit } = row as Record<string, unknown> & { notes?: { clinical_notes?: string | null } | null };
+  return { ...(visit as Omit<VisitRow, "clinical_notes">), clinical_notes: notes?.clinical_notes ?? null };
+}
+
 export async function visitsOf(tenantId: string, patientId: string): Promise<VisitRow[]> {
   const { data, error } = await getAdminClient()
     .from("visits")
-    .select("id, status, scheduled_at, is_overbooked, origin_type, doctor_id, patient_id, clinical_notes, signed_at")
+    .select(VISIT_COLUMNS)
     .eq("tenant_id", tenantId)
     .eq("patient_id", patientId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(`m0 read: visits: ${error.message}`);
-  return (data ?? []) as VisitRow[];
+  return ((data ?? []) as Record<string, unknown>[]).map(toVisitRow);
 }
 
 export async function visitById(visitId: string): Promise<VisitRow | null> {
   const { data, error } = await getAdminClient()
     .from("visits")
-    .select("id, status, scheduled_at, is_overbooked, origin_type, doctor_id, patient_id, clinical_notes, signed_at")
+    .select(VISIT_COLUMNS)
     .eq("id", visitId)
     .maybeSingle();
   if (error) throw new Error(`m0 read: visit: ${error.message}`);
-  return (data as VisitRow | null) ?? null;
+  return data ? toVisitRow(data as Record<string, unknown>) : null;
 }
 
 export async function patientsByPhone(tenantId: string, phoneE164: string): Promise<Array<{ id: string; full_name: string }>> {

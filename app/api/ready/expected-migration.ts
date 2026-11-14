@@ -6,4 +6,4 @@
  * Bump it in the same commit as every new file in `supabase/migrations/`: tests/api/readiness-probe-db.spec.ts fails
  * when it is not the newest migration number.
  */
-export const EXPECTED_MIGRATION = "000045";
+export const EXPECTED_MIGRATION = "000078";

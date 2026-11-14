@@ -1,0 +1,13 @@
+{
+  "screen": "receptionist-360",
+  "baseline_rules": [
+    "color-contrast"
+  ],
+  "serious_or_critical_page": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "nodes": 6
+    }
+  ]
+}

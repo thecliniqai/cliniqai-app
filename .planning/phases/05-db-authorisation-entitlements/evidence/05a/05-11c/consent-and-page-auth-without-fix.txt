@@ -1,0 +1,134 @@
+
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old
+
+ ❯ tests/referrals/referral-consent-write.spec.ts (2 tests | 1 failed) 604ms
+   × referral consent write is checked (05-11c, IND L7) > a failed consent write fails the referral; the history is withdrawn and the referral cancelled (before: success, no consent) 234ms
+     → expected { success: true, …(2) } to deeply equal { success: false, error: undefined }
+   ✓ referral consent write is checked (05-11c, IND L7) > control: without the fault the referral is sent with the history, one consent record and one consent audit row 63ms
+{"ts":"2026-11-14T05:21:00.410Z","level":"error","event":"patients.detail_load.failed","code":"Error"}
+ ❯ tests/auth/page-revoked-session.spec.ts (13 tests | 7 failed) 280ms
+   ✓ dashboard pages with a revoked session redirect to /login (05-11c) > precondition: the client still holds its access token, and GoTrue refuses it (the revoked-session case) 14ms
+   ✓ dashboard pages with a revoked session redirect to /login (05-11c) > / → redirect('/login'), not an error 1ms
+   × dashboard pages with a revoked session redirect to /login (05-11c) > /patients → redirect('/login'), not an error 2ms
+     → expected 'Unauthenticated' not to be 'Unauthenticated' // Object.is equality
+   × dashboard pages with a revoked session redirect to /login (05-11c) > /patients/[id] → redirect('/login'), not an error 1ms
+     → expected null to be '/login' // Object.is equality
+   ✓ dashboard pages with a revoked session redirect to /login (05-11c) > /calendar → redirect('/login'), not an error 0ms
+   × dashboard pages with a revoked session redirect to /login (05-11c) > /visits → redirect('/login'), not an error 0ms
+     → expected 'Unauthenticated' not to be 'Unauthenticated' // Object.is equality
+   × dashboard pages with a revoked session redirect to /login (05-11c) > /referrals → redirect('/login'), not an error 0ms
+     → expected 'Unauthenticated' not to be 'Unauthenticated' // Object.is equality
+   ✓ dashboard pages with a revoked session redirect to /login (05-11c) > /cabin → redirect('/login'), not an error 0ms
+   × dashboard pages with a revoked session redirect to /login (05-11c) > /profile → redirect('/login'), not an error 0ms
+     → expected 'Unauthenticated' not to be 'Unauthenticated' // Object.is equality
+   ✓ dashboard pages with a revoked session redirect to /login (05-11c) > /queue → redirect('/login'), not an error 0ms
+   × dashboard pages with a revoked session redirect to /login (05-11c) > /staff → redirect('/login'), not an error 0ms
+     → expected 'Unauthenticated' not to be 'Unauthenticated' // Object.is equality
+   × dashboard pages with a revoked session redirect to /login (05-11c) > /settings/clinic → redirect('/login'), not an error 0ms
+     → expected 'Unauthenticated' not to be 'Unauthenticated' // Object.is equality
+   ✓ dashboard pages with a revoked session redirect to /login (05-11c) > /consultation/[id] → redirect('/login'), not an error 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/auth/page-revoked-session.spec.ts > dashboard pages with a revoked session redirect to /login (05-11c) > /patients → redirect('/login'), not an error
+ FAIL  tests/auth/page-revoked-session.spec.ts > dashboard pages with a revoked session redirect to /login (05-11c) > /visits → redirect('/login'), not an error
+ FAIL  tests/auth/page-revoked-session.spec.ts > dashboard pages with a revoked session redirect to /login (05-11c) > /referrals → redirect('/login'), not an error
+ FAIL  tests/auth/page-revoked-session.spec.ts > dashboard pages with a revoked session redirect to /login (05-11c) > /profile → redirect('/login'), not an error
+ FAIL  tests/auth/page-revoked-session.spec.ts > dashboard pages with a revoked session redirect to /login (05-11c) > /staff → redirect('/login'), not an error
+ FAIL  tests/auth/page-revoked-session.spec.ts > dashboard pages with a revoked session redirect to /login (05-11c) > /settings/clinic → redirect('/login'), not an error
+AssertionError: expected 'Unauthenticated' not to be 'Unauthenticated' // Object.is equality
+ ❯ tests/auth/page-revoked-session.spec.ts:95:66
+     93|     expect(outcome.rendered).toBe(false);
+     94|     const err = (outcome as { err: unknown }).err;
+     95|     expect(err instanceof Error ? err.message : String(err)).not.toBe(…
+       |                                                                  ^
+     96|     expect(redirectTarget(err)).toBe("/login");
+     97|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/auth/page-revoked-session.spec.ts > dashboard pages with a revoked session redirect to /login (05-11c) > /patients/[id] → redirect('/login'), not an error
+AssertionError: expected null to be '/login' // Object.is equality
+
+[32m- Expected:[39m 
+"/login"
+
+[31m+ Received:[39m 
+null
+
+ ❯ tests/auth/page-revoked-session.spec.ts:96:33
+     94|     const err = (outcome as { err: unknown }).err;
+     95|     expect(err instanceof Error ? err.message : String(err)).not.toBe(…
+     96|     expect(redirectTarget(err)).toBe("/login");
+       |                                 ^
+     97|   });
+     98| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  tests/referrals/referral-consent-write.spec.ts > referral consent write is checked (05-11c, IND L7) > a failed consent write fails the referral; the history is withdrawn and the referral cancelled (before: success, no consent)
+AssertionError: expected { success: true, …(2) } to deeply equal { success: false, error: undefined }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": undefined,[39m
+[32m-   "success": false,[39m
+[31m+   "referral": {[39m
+[31m+     "acknowledged_at": null,[39m
+[31m+     "active_medications_snapshot": [],[39m
+[31m+     "clinical_summary": null,[39m
+[31m+     "closed_by": null,[39m
+[31m+     "closure_notes": null,[39m
+[31m+     "completed_at": null,[39m
+[31m+     "consented_history_snapshot": {[39m
+[31m+       "consented_by_patient": true,[39m
+[31m+       "encounters": [],[39m
+[31m+       "generated_at": "2026-11-14T05:20:59.022Z",[39m
+[31m+     },[39m
+[31m+     "created_at": "2026-11-14T05:20:59.022776+00:00",[39m
+[31m+     "id": "db992e8e-dcfe-4709-a80e-391ead7f0b8e",[39m
+[31m+     "investigations_advised": [],[39m
+[31m+     "letterhead_mode": "blank_paper",[39m
+[31m+     "patient_consents_history_sharing": true,[39m
+[31m+     "patient_id": "1f835e4c-0d1f-48b4-b4e8-4e021d8e94b6",[39m
+[31m+     "pdf_storage_path": "tenants/682a787c-8a3c-4ea9-b0ef-efd77e0f13a8/referrals/db992e8e-dcfe-4709-a80e-391ead7f0b8e/referral_letter.pdf",[39m
+[31m+     "provisional_diagnosis": null,[39m
+[31m+     "reason_for_referral": "Synthetic second opinion",[39m
+[31m+     "referral_type": "in_network",[39m
+[31m+     "referred_to_contact": null,[39m
+[31m+     "referred_to_facility": null,[39m
+[31m+     "referred_to_name": "Synthetic Partner Doctor",[39m
+[31m+     "referred_to_specialty": null,[39m
+[31m+     "referring_doctor_id": "3d4f1ee7-b10e-4b7d-a87b-a63a73d3398d",[39m
+[31m+     "sent_at": "2026-11-14T05:20:59.022776+00:00",[39m
+[31m+     "status": "sent",[39m
+[31m+     "target_doctor_id": null,[39m
+[31m+     "target_tenant_id": "08e18a43-e13f-42c1-9f6a-53cb4643f3fd",[39m
+[31m+     "tenant_id": "682a787c-8a3c-4ea9-b0ef-efd77e0f13a8",[39m
+[31m+     "updated_at": "2026-11-14T05:20:59.022776+00:00",[39m
+[31m+     "urgency": "routine",[39m
+[31m+     "visit_id": null,[39m
+[31m+   },[39m
+[31m+   "signedUrl": "http://127.0.0.1:54321/storage/v1/object/sign/clinic-records/tenants/682a787c-8a3c-4ea9-b0ef-efd77e0f13a8/referrals/db992e8e-dcfe-4709-a80e-391ead7f0b8e/referral_letter.pdf?token=[REDACTED: local signed-URL token]",[39m
+[31m+   "success": true,[39m
+[2m  }[22m
+
+ ❯ tests/referrals/referral-consent-write.spec.ts:108:19
+    106|     try {
+    107|       const res = await createReferral(ctxFor(A), referralInput(patien…
+    108|       expect(res).toEqual({ success: false, error: REFERRAL_CONSENT_WR…
+       |                   ^
+    109|       expect(JSON.stringify(res)).not.toContain("SENTINEL");
+    110| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  8 failed | 7 passed (15)
+   Start at  10:50:58
+   Duration  2.29s (transform 550ms, setup 14ms, collect 993ms, tests 885ms, environment 0ms, prepare 39ms)
+
+[teardown] removed run data: 3 tenant(s), 3 auth user(s), 2 storage object(s); verified none remain

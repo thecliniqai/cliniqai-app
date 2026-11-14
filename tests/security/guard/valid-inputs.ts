@@ -96,7 +96,9 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       consultation_fee: 500,
       additional_items: [],
       discount: 0,
-      payment_collected: true,
+      // PO-3 (05-02b): the least-privileged holder of consultations:edit is a doctor, who routes the fee to reception;
+      // a doctor's collection is refused (tests/billing/collect-permission.spec.ts).
+      payment_collected: false,
       payment_method: "cash",
       reference_number: null,
       ...acting(a),
@@ -152,6 +154,8 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     args: () => [{ template_name: "Synthetic protocol", specialty: "general_physician", items: [{ medicine_name: "Synthetic Tablet 250", dosage: "1-0-1", duration: "5 days", sort_order: 0 }] }],
   },
   "features/queue/actions.ts#checkInVisit": { args: (a) => [a.visit, "normal"] },
+  // The clinic acknowledges a referral it received (05-06: from the unrelated clinic S, not a self-referral).
+  "features/referrals/actions.ts#acknowledgeReferral": { args: (a) => [a.inboundReferral] },
   "features/referrals/actions.ts#closeReferralLoop": {
     args: (a) => [{ referral_id: a.referral, closure_notes: "Synthetic closure notes", return_date: null, ...acting(a) }],
   },

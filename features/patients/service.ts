@@ -1,6 +1,6 @@
 import "server-only";
 
-import { assertPerm } from "@/lib/permissions";
+import { assertPerm, hasPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { patientSchema, PatientInput, PatientVisitHistoryItem } from "./schema";
@@ -8,6 +8,8 @@ import { Patient } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { unaffectedRowsError } from "@/lib/db/errors";
+import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -80,6 +82,16 @@ export async function createPatient(ctx: ServiceContext, input: PatientInput): P
   }
 }
 
+/** Fixed text when a caller without consultations:view changes allergies or chronic conditions (R-8, 05-02b). */
+export const PATIENT_CLINICAL_FIELDS_FORBIDDEN_MESSAGE =
+  "Allergies and chronic conditions can only be changed by clinical staff.";
+
+/** Same list, same order (the stored arrays are compared as given; the edit form preserves their order). */
+function sameList(a: unknown, b: string[]): boolean {
+  const left = Array.isArray(a) ? (a as unknown[]) : [];
+  return left.length === b.length && left.every((v, i) => v === b[i]);
+}
+
 export type UpdatePatientResult =
   { success: true; patient: Patient } | { success: false; error: string; fieldErrors?: Record<string, string[]> };
 
@@ -122,6 +134,18 @@ export async function updatePatient(
     if (existing.sex !== data.sex) changedFields.push("sex");
     if (existing.abha_id !== data.abha_id) changedFields.push("abha_id");
 
+    // R-8 (V2-05 05-02b): front desk and admins update demographics only. A caller without consultations:view who
+    // changes allergies or chronic conditions is refused before the write; unchanged values are not sent, so the
+    // patients_clinical_fields_guard trigger (000055, the control) never sees them.
+    const allergies = data.allergies || [];
+    const chronicConditions = data.chronic_conditions || [];
+    const clinicalFieldsChanged =
+      !sameList(existing.allergies, allergies) || !sameList(existing.chronic_conditions, chronicConditions);
+    const mayEditClinicalFields = hasPerm(ctx.role, "consultations:view");
+    if (clinicalFieldsChanged && !mayEditClinicalFields) {
+      return { success: false, error: PATIENT_CLINICAL_FIELDS_FORBIDDEN_MESSAGE };
+    }
+
     // 2. Update under RLS
     const { data: updated, error: updateError } = await (supabase.from("patients") as any)
       .update({
@@ -131,19 +155,25 @@ export async function updatePatient(
         age: data.age ?? null,
         sex: data.sex || null,
         address: data.address || null,
-        allergies: data.allergies || [],
-        chronic_conditions: data.chronic_conditions || [],
+        ...(mayEditClinicalFields ? { allergies, chronic_conditions: chronicConditions } : {}),
         emergency_contact: data.emergency_contact || null,
         abha_id: data.abha_id,
         updated_at: new Date().toISOString(),
       })
       .eq("id", patientId)
       .eq("tenant_id", session.tenantId)
-      .select("*")
-      .single();
+      .select("*");
 
-    if (updateError || !updated) {
+    if (updateError?.code === "42501") {
+      return { success: false, error: PATIENT_CLINICAL_FIELDS_FORBIDDEN_MESSAGE };
+    }
+    if (updateError) {
       return { success: false, error: "Failed to update patient record." };
+    }
+    // RLS may filter the update to 0 rows (V2-05 05-02b: patients:edit in the active clinic): never report success.
+    const refused = unaffectedRowsError(updated);
+    if (refused) {
+      return { success: false, error: refused.message };
     }
 
     // 3. Record audit with only changed field names (no PII/clinical values)
@@ -156,7 +186,7 @@ export async function updatePatient(
       },
     });
 
-    return { success: true, patient: updated as Patient };
+    return { success: true, patient: (updated as Patient[])[0] };
   } catch (err: unknown) {
     return {
       success: false,
@@ -296,9 +326,9 @@ export async function getPatientVisitHistory(
 
     // 1. Fetch all visits for this patient within the active tenant, reverse chronologically
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visits, error: visitsErr } = await (supabase.from("visits") as any)
+    const { data: visitRows, error: visitsErr } = await (supabase.from("visits") as any)
       .select(
-        "id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, reason_for_visit, vitals, chief_complaints, clinical_notes, specialty, investigations_advised, advice, created_at, updated_at"
+        `id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, reason_for_visit, specialty, created_at, updated_at, ${clinicalNotesEmbed()}`
       )
       .eq("tenant_id", session.tenantId)
       .eq("patient_id", patientId)
@@ -308,6 +338,8 @@ export async function getPatientVisitHistory(
       log.error({ event: "patients.visit_history_query.failed", code: errorTag(visitsErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
+    // Clinical content from clinical_notes (V2-05 05-02a): absent (null) for a role without consultations:view.
+    const visits: any[] | null = visitRows ? visitRows.map(withClinicalNotes) : null;
 
     if (!visits || visits.length === 0) {
       return [];

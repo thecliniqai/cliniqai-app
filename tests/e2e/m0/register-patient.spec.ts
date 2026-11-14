@@ -4,16 +4,15 @@
  * Outcome asserted: exactly one `patients` row in tenant A with the entered name and the phone normalised to E.164,
  * the new patient's record opens, and the patient is findable in the patient list.
  *
- * Receptionist variant: the CORRECT outcome (the patient is registered) is asserted under `test.fail()` — known v1 bug
- * F-01 (receptionists lack `patients:edit`, the save fails), which flips to a pass when PO-3 lands (V2-05/V2-08); the
- * suite then turns red and this annotation must be removed (RL-19).
+ * Receptionist variant: known v1 bug F-01 (receptionists lacked `patients:edit`, the save failed) is fixed by PO-3
+ * (V2-05 05-01b: receptionists hold `patients:edit`, ruling R-6), so the `knownBug` marker is gone (RL-19) and the
+ * correct outcome is a plain expectation.
  */
 import type { Page } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import type { UxCounter } from "../support/ux-counter";
 import { patientsByName, run, syntheticPhoneDigits, testTag } from "../support/m0-data";
 import { storageStatePath } from "../support/run-data";
-import { knownBug, knownBugMessage } from "../support/known-bug";
 
 async function registerPatient(page: Page, ux: UxCounter, fullName: string, phoneDigits: string): Promise<void> {
   await page.goto("/patients");
@@ -60,23 +59,18 @@ test.describe("M0 flow: register patient", () => {
   test.describe("receptionist", () => {
     test.use({ storageState: storageStatePath("receptionist") });
 
-    test("receptionist registers a patient (known v1 bug F-01)", async ({ page, ux }) => {
-      await knownBug("F-01", "receptionists cannot register patients in v1 (no patients:edit); fixed by PO-3 in V2-05/V2-08", async () => {
-        const { tenantA } = run();
-        const fullName = `E2E Synthetic Front Desk ${testTag()}`;
-        const phoneDigits = syntheticPhoneDigits();
+    test("receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed)", async ({ page, ux }) => {
+      const { tenantA } = run();
+      const fullName = `E2E Synthetic Front Desk ${testTag()}`;
+      const phoneDigits = syntheticPhoneDigits();
 
-        await registerPatient(page, ux, fullName, phoneDigits);
+      await registerPatient(page, ux, fullName, phoneDigits);
 
-        // Correct outcome: the record is created and opens. Only these marked assertions may carry the expected
-        // failure (IR-F4); anything failing earlier turns the test red.
-        await expect(page, knownBugMessage("F-01", "the new patient's record opens")).toHaveURL(/\/patients\/[0-9a-f-]{36}$/, {
-          timeout: 15_000,
-        });
-        const rows = await patientsByName(tenantA.id, fullName);
-        expect(rows, knownBugMessage("F-01", "exactly one patient row")).toHaveLength(1);
-        expect(rows[0].phone, knownBugMessage("F-01", "the phone is stored in E.164")).toBe(`+91${phoneDigits}`);
-      });
+      await expect(page).toHaveURL(/\/patients\/[0-9a-f-]{36}$/, { timeout: 15_000 });
+      const rows = await patientsByName(tenantA.id, fullName);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].phone).toBe(`+91${phoneDigits}`);
+      expect(page.url()).toContain(rows[0].id);
     });
   });
 });

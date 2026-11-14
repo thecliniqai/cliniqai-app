@@ -1,0 +1,14 @@
+## git caf7779
+## npm run typecheck
+> clinicos@0.1.0 typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+exit=0
+## npx eslint .
+✖ 387 problems (0 errors, 387 warnings)
+## npm run inventory
+exit=0
+## schema snapshot check
+schema-snapshot: PASS (local: 2168 lines equal the committed snapshot)
+## local drift
+local-drift: PASS (0 statement(s), 0 allowlisted: none)

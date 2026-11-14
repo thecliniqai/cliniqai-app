@@ -151,6 +151,25 @@ jobs:
           ops/bin/install-age.sh
           # shellcheck disable=SC2016 # the variables expand in the inner `bash -c`, after pins.env is sourced
           node scripts/ci/retry.mjs --attempts 3 --delay 30 -- bash -c '. ops/bin/pins.env && docker pull -q "$POSTGRES_IMAGE" && docker pull -q "$AWS_CLI_IMAGE"'
+      # V2-05 05-01a: `supabase test db` runs pg_prove in this image; the tag is the one the pinned Supabase CLI
+      # (package.json "supabase": "2.120.0") pulls, so bump it with the CLI. Only the image pull is retried.
+      - name: Pre-pull pg_prove
+        run: node scripts/ci/retry.mjs --attempts 3 --delay 30 -- docker pull -q public.ecr.aws/supabase/pg_prove:3.36
+      # V2-05 05-01a (P1-01): every supabase/tests/database/*.test.sql file against the migrated stack
+      # (scripts/test-pgtap.mjs: `supabase test db --local`, TAP teed to the report). Never retried: a test that passes
+      # only on retry is a defect.
+      - name: pgTAP (RLS matrix and constraints)
+        run: npm run test:pgtap -- pgtap-report.tap
+      - name: pgTAP report gate (0 not ok, 0 SKIP/TODO, every plan complete, total >= floor, required files)
+        if: ${{ !cancelled() }}
+        run: node scripts/ci/assert-pgtap-report.mjs pgtap-report.tap
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ always() }}
+        with:
+          name: pgtap-report
+          path: pgtap-report.tap
+          if-no-files-found: warn
+          retention-days: 14
       # One run produces both the JSON report and v8 coverage (02-05); coverage is report-only until V2-14.
       - name: Vitest (full unit + DB lane, with coverage)
         run: npx vitest run --reporter=dot --reporter=json --outputFile.json=vitest-report.json --coverage.enabled

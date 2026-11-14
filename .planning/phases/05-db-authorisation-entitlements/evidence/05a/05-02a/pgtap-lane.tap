@@ -1,0 +1,2592 @@
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_completeness.test.sql ................. 
+1..4
+ok 1 - every public table (tenant and global) has a row in tests/authz/table-matrix.ts, and nothing else
+ok 2 - every ops / billing_internal / platform table with a tenant_id has a row in the matrix, and nothing else
+ok 3 - every storage bucket has its path classes in the matrix, and nothing else
+ok 4 - RLS is enabled on every public table
+ok
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_helpers.test.sql ...................... 
+1..77
+ok 1 - authz.permission_keys() exists
+ok 2 - permission_keys returns text[]
+ok 3 - permission_keys is IMMUTABLE
+ok 4 - permission_keys is SECURITY INVOKER
+ok 5 - permission_keys: search_path is empty
+ok 6 - authz.role_has_permission(text, text) exists
+ok 7 - role_has_permission returns boolean
+ok 8 - role_has_permission is IMMUTABLE
+ok 9 - role_has_permission is SECURITY INVOKER
+ok 10 - role_has_permission: search_path is empty
+ok 11 - authz.active_tenant_id() exists
+ok 12 - active_tenant_id returns uuid
+ok 13 - active_tenant_id is STABLE
+ok 14 - active_tenant_id is SECURITY DEFINER
+ok 15 - active_tenant_id: search_path is empty
+ok 16 - authz.member_tenant_ids() exists
+ok 17 - member_tenant_ids returns setof uuid
+ok 18 - member_tenant_ids is STABLE
+ok 19 - member_tenant_ids is SECURITY DEFINER
+ok 20 - member_tenant_ids: search_path is empty
+ok 21 - authz.full_tenant_ids() exists
+ok 22 - full_tenant_ids returns setof uuid
+ok 23 - full_tenant_ids is STABLE
+ok 24 - full_tenant_ids is SECURITY DEFINER
+ok 25 - full_tenant_ids: search_path is empty
+ok 26 - authz.tenant_ids_with(text) exists
+ok 27 - tenant_ids_with returns setof uuid
+ok 28 - tenant_ids_with is STABLE
+ok 29 - tenant_ids_with is SECURITY DEFINER
+ok 30 - tenant_ids_with: search_path is empty
+ok 31 - authz.billing_tenant_ids() exists
+ok 32 - billing_tenant_ids returns setof uuid
+ok 33 - billing_tenant_ids is STABLE
+ok 34 - billing_tenant_ids is SECURITY DEFINER
+ok 35 - billing_tenant_ids: search_path is empty
+ok 36 - public.has_permission(uuid, text) exists
+ok 37 - has_permission returns boolean
+ok 38 - has_permission is STABLE
+ok 39 - has_permission is SECURITY DEFINER
+ok 40 - has_permission: search_path is empty
+ok 41 - public.permission_matrix() exists
+ok 42 - permission_matrix returns a table
+ok 43 - permission_matrix is IMMUTABLE
+ok 44 - permission_matrix is SECURITY INVOKER
+ok 45 - permission_matrix: search_path is empty
+ok 46 - public.current_user_tenant_ids() keeps its signature
+ok 47 - current_user_tenant_ids returns setof uuid
+ok 48 - current_user_tenant_ids is STABLE
+ok 49 - current_user_tenant_ids is SECURITY DEFINER
+ok 50 - current_user_tenant_ids: search_path is empty
+ok 51 - USAGE on schema authz: authenticated and service_role only (not anon, not PUBLIC)
+ok 52 - EXECUTE grants are exact: no PUBLIC or anon grant on any authz function or entry point
+ok 53 - receptionist holds billing:collect (PO-3)
+ok 54 - receptionist holds patients:edit (PO-3, P0-14)
+ok 55 - doctor does not hold billing:collect (PO-3)
+ok 56 - receptionist does not hold consultations:view
+ok 57 - owner holds every known key
+ok 58 - an unknown (misspelt) key is denied to everyone, owner included
+ok 59 - an unknown role holds nothing
+ok 60 - permission_keys lists the 20 keys and never the wildcard
+ok 61 - dual member, header A: active tenant is A
+ok 62 - dual member, header A: full_tenant_ids = {A}
+ok 63 - dual member, header A: has_permission(B, patients:view) is false (03-07 finding 2)
+ok 64 - dual member, header A: has_permission(A, consultations:edit) is true (doctor in A)
+ok 65 - dual member, header B: active tenant is B
+ok 66 - dual member, header B: tenant_ids_with(billing:collect) = {B}
+ok 67 - dual member, header B: has_permission(A, consultations:edit) is false
+ok 68 - dual member, header naming a non-member clinic: no active tenant, no full tenants
+ok 69 - dual member, malformed header: null, no error
+ok 70 - dual member, request.headers not JSON: null, no error
+ok 71 - dual member, no header (two memberships): no active tenant, nothing with patients:view
+ok 72 - dual member: member_tenant_ids still lists both clinics (switcher)
+ok 73 - current_user_tenant_ids() equals member_tenant_ids() (legacy policies keep their meaning)
+ok 74 - single-clinic owner, no header: billing_tenant_ids = {A} (sole membership)
+ok 75 - single-clinic owner, header naming B: still A only (B not theirs)
+ok 76 - anon cannot execute authz functions (no USAGE)
+ok 77 - anon cannot execute has_permission (EXECUTE revoked)
+ok
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql ....................... 
+1..2244
+ok 1 - public.tenants select: owner of A
+ok 2 - public.tenants select: admin of A
+ok 3 - public.tenants select: doctor of A
+ok 4 - public.tenants select: second doctor of A
+ok 5 - public.tenants select: nurse of A
+ok 6 - public.tenants select: receptionist of A
+ok 7 - public.tenants select: owner of B
+ok 8 - public.tenants select: anon
+ok 9 - public.tenants select: dual member (doctor A, receptionist B), header A
+ok 10 - public.tenants select: dual member, header B
+ok 11 - public.tenants select: dual member, no header
+ok 12 - public.tenants insert: owner of A
+ok 13 - public.tenants insert: admin of A
+ok 14 - public.tenants insert: doctor of A
+ok 15 - public.tenants insert: second doctor of A
+ok 16 - public.tenants insert: nurse of A
+ok 17 - public.tenants insert: receptionist of A
+ok 18 - public.tenants insert: owner of B
+ok 19 - public.tenants insert: anon
+ok 20 - public.tenants insert: dual member (doctor A, receptionist B), header A
+ok 21 - public.tenants insert: dual member, header B
+ok 22 - public.tenants insert: dual member, no header
+ok 23 - public.tenants update: owner of A
+ok 24 - public.tenants update: admin of A
+ok 25 - public.tenants update: doctor of A
+ok 26 - public.tenants update: second doctor of A
+ok 27 - public.tenants update: nurse of A
+ok 28 - public.tenants update: receptionist of A
+ok 29 - public.tenants update: owner of B
+ok 30 - public.tenants update: anon
+ok 31 - public.tenants update: dual member (doctor A, receptionist B), header A
+ok 32 - public.tenants update: dual member, header B
+ok 33 - public.tenants update: dual member, no header
+ok 34 - public.tenants delete: owner of A
+ok 35 - public.tenants delete: admin of A
+ok 36 - public.tenants delete: doctor of A
+ok 37 - public.tenants delete: second doctor of A
+ok 38 - public.tenants delete: nurse of A
+ok 39 - public.tenants delete: receptionist of A
+ok 40 - public.tenants delete: owner of B
+ok 41 - public.tenants delete: anon
+ok 42 - public.tenants delete: dual member (doctor A, receptionist B), header A
+ok 43 - public.tenants delete: dual member, header B
+ok 44 - public.tenants delete: dual member, no header
+ok 45 - public.memberships select: owner of A
+ok 46 - public.memberships select: admin of A
+ok 47 - public.memberships select: doctor of A
+ok 48 - public.memberships select: second doctor of A
+ok 49 - public.memberships select: nurse of A
+ok 50 - public.memberships select: receptionist of A
+ok 51 - public.memberships select: owner of B
+ok 52 - public.memberships select: anon
+ok 53 - public.memberships select: dual member (doctor A, receptionist B), header A
+ok 54 - public.memberships select: dual member, header B
+ok 55 - public.memberships select: dual member, no header
+ok 56 - public.memberships insert: owner of A
+ok 57 - public.memberships insert: admin of A
+ok 58 - public.memberships insert: doctor of A
+ok 59 - public.memberships insert: second doctor of A
+ok 60 - public.memberships insert: nurse of A
+ok 61 - public.memberships insert: receptionist of A
+ok 62 - public.memberships insert: owner of B
+ok 63 - public.memberships insert: anon
+ok 64 - public.memberships insert: dual member (doctor A, receptionist B), header A
+ok 65 - public.memberships insert: dual member, header B
+ok 66 - public.memberships insert: dual member, no header
+ok 67 - public.memberships update: owner of A
+ok 68 - public.memberships update: admin of A
+ok 69 - public.memberships update: doctor of A
+ok 70 - public.memberships update: second doctor of A
+ok 71 - public.memberships update: nurse of A
+ok 72 - public.memberships update: receptionist of A
+ok 73 - public.memberships update: owner of B
+ok 74 - public.memberships update: anon
+ok 75 - public.memberships update: dual member (doctor A, receptionist B), header A
+ok 76 - public.memberships update: dual member, header B
+ok 77 - public.memberships update: dual member, no header
+ok 78 - public.memberships delete: owner of A
+ok 79 - public.memberships delete: admin of A
+ok 80 - public.memberships delete: doctor of A
+ok 81 - public.memberships delete: second doctor of A
+ok 82 - public.memberships delete: nurse of A
+ok 83 - public.memberships delete: receptionist of A
+ok 84 - public.memberships delete: owner of B
+ok 85 - public.memberships delete: anon
+ok 86 - public.memberships delete: dual member (doctor A, receptionist B), header A
+ok 87 - public.memberships delete: dual member, header B
+ok 88 - public.memberships delete: dual member, no header
+ok 89 - public.invitations select: owner of A
+ok 90 - public.invitations select: admin of A
+ok 91 - public.invitations select: doctor of A
+ok 92 - public.invitations select: second doctor of A
+ok 93 - public.invitations select: nurse of A
+ok 94 - public.invitations select: receptionist of A
+ok 95 - public.invitations select: owner of B
+ok 96 - public.invitations select: anon
+ok 97 - public.invitations select: dual member (doctor A, receptionist B), header A
+ok 98 - public.invitations select: dual member, header B
+ok 99 - public.invitations select: dual member, no header
+ok 100 - public.invitations insert: owner of A
+ok 101 - public.invitations insert: admin of A
+ok 102 - public.invitations insert: doctor of A
+ok 103 - public.invitations insert: second doctor of A
+ok 104 - public.invitations insert: nurse of A
+ok 105 - public.invitations insert: receptionist of A
+ok 106 - public.invitations insert: owner of B
+ok 107 - public.invitations insert: anon
+ok 108 - public.invitations insert: dual member (doctor A, receptionist B), header A
+ok 109 - public.invitations insert: dual member, header B
+ok 110 - public.invitations insert: dual member, no header
+ok 111 - public.invitations update: owner of A
+ok 112 - public.invitations update: admin of A
+ok 113 - public.invitations update: doctor of A
+ok 114 - public.invitations update: second doctor of A
+ok 115 - public.invitations update: nurse of A
+ok 116 - public.invitations update: receptionist of A
+ok 117 - public.invitations update: owner of B
+ok 118 - public.invitations update: anon
+ok 119 - public.invitations update: dual member (doctor A, receptionist B), header A
+ok 120 - public.invitations update: dual member, header B
+ok 121 - public.invitations update: dual member, no header
+ok 122 - public.invitations delete: owner of A
+ok 123 - public.invitations delete: admin of A
+ok 124 - public.invitations delete: doctor of A
+ok 125 - public.invitations delete: second doctor of A
+ok 126 - public.invitations delete: nurse of A
+ok 127 - public.invitations delete: receptionist of A
+ok 128 - public.invitations delete: owner of B
+ok 129 - public.invitations delete: anon
+ok 130 - public.invitations delete: dual member (doctor A, receptionist B), header A
+ok 131 - public.invitations delete: dual member, header B
+ok 132 - public.invitations delete: dual member, no header
+ok 133 - public.patients select: owner of A
+ok 134 - public.patients select: admin of A
+ok 135 - public.patients select: doctor of A
+ok 136 - public.patients select: second doctor of A
+ok 137 - public.patients select: nurse of A
+ok 138 - public.patients select: receptionist of A
+ok 139 - public.patients select: owner of B
+ok 140 - public.patients select: anon
+ok 141 - public.patients select: dual member (doctor A, receptionist B), header A
+ok 142 - public.patients select: dual member, header B
+ok 143 - public.patients select: dual member, no header
+ok 144 - public.patients insert: owner of A
+ok 145 - public.patients insert: admin of A
+ok 146 - public.patients insert: doctor of A
+ok 147 - public.patients insert: second doctor of A
+ok 148 - public.patients insert: nurse of A
+ok 149 - public.patients insert: receptionist of A
+ok 150 - public.patients insert: owner of B
+ok 151 - public.patients insert: anon
+ok 152 - public.patients insert: dual member (doctor A, receptionist B), header A
+ok 153 - public.patients insert: dual member, header B
+ok 154 - public.patients insert: dual member, no header
+ok 155 - public.patients update: owner of A
+ok 156 - public.patients update: admin of A
+ok 157 - public.patients update: doctor of A
+ok 158 - public.patients update: second doctor of A
+ok 159 - public.patients update: nurse of A
+ok 160 - public.patients update: receptionist of A
+ok 161 - public.patients update: owner of B
+ok 162 - public.patients update: anon
+ok 163 - public.patients update: dual member (doctor A, receptionist B), header A
+ok 164 - public.patients update: dual member, header B
+ok 165 - public.patients update: dual member, no header
+ok 166 - public.patients delete: owner of A
+ok 167 - public.patients delete: admin of A
+ok 168 - public.patients delete: doctor of A
+ok 169 - public.patients delete: second doctor of A
+ok 170 - public.patients delete: nurse of A
+ok 171 - public.patients delete: receptionist of A
+ok 172 - public.patients delete: owner of B
+ok 173 - public.patients delete: anon
+ok 174 - public.patients delete: dual member (doctor A, receptionist B), header A
+ok 175 - public.patients delete: dual member, header B
+ok 176 - public.patients delete: dual member, no header
+ok 177 - public.visits select: owner of A
+ok 178 - public.visits select: admin of A
+ok 179 - public.visits select: doctor of A
+ok 180 - public.visits select: second doctor of A
+ok 181 - public.visits select: nurse of A
+ok 182 - public.visits select: receptionist of A
+ok 183 - public.visits select: owner of B
+ok 184 - public.visits select: anon
+ok 185 - public.visits select: dual member (doctor A, receptionist B), header A
+ok 186 - public.visits select: dual member, header B
+ok 187 - public.visits select: dual member, no header
+ok 188 - public.visits insert: owner of A
+ok 189 - public.visits insert: admin of A
+ok 190 - public.visits insert: doctor of A
+ok 191 - public.visits insert: second doctor of A
+ok 192 - public.visits insert: nurse of A
+ok 193 - public.visits insert: receptionist of A
+ok 194 - public.visits insert: owner of B
+ok 195 - public.visits insert: anon
+ok 196 - public.visits insert: dual member (doctor A, receptionist B), header A
+ok 197 - public.visits insert: dual member, header B
+ok 198 - public.visits insert: dual member, no header
+ok 199 - public.visits update: owner of A
+ok 200 - public.visits update: admin of A
+ok 201 - public.visits update: doctor of A
+ok 202 - public.visits update: second doctor of A
+ok 203 - public.visits update: nurse of A
+ok 204 - public.visits update: receptionist of A
+ok 205 - public.visits update: owner of B
+ok 206 - public.visits update: anon
+ok 207 - public.visits update: dual member (doctor A, receptionist B), header A
+ok 208 - public.visits update: dual member, header B
+ok 209 - public.visits update: dual member, no header
+ok 210 - public.visits delete: owner of A
+ok 211 - public.visits delete: admin of A
+ok 212 - public.visits delete: doctor of A
+ok 213 - public.visits delete: second doctor of A
+ok 214 - public.visits delete: nurse of A
+ok 215 - public.visits delete: receptionist of A
+ok 216 - public.visits delete: owner of B
+ok 217 - public.visits delete: anon
+ok 218 - public.visits delete: dual member (doctor A, receptionist B), header A
+ok 219 - public.visits delete: dual member, header B
+ok 220 - public.visits delete: dual member, no header
+ok 221 - public.clinical_notes select: owner of A
+ok 222 - public.clinical_notes select: admin of A
+ok 223 - public.clinical_notes select: doctor of A
+ok 224 - public.clinical_notes select: second doctor of A
+ok 225 - public.clinical_notes select: nurse of A
+ok 226 - public.clinical_notes select: receptionist of A
+ok 227 - public.clinical_notes select: owner of B
+ok 228 - public.clinical_notes select: anon
+ok 229 - public.clinical_notes select: dual member (doctor A, receptionist B), header A
+ok 230 - public.clinical_notes select: dual member, header B
+ok 231 - public.clinical_notes select: dual member, no header
+ok 232 - public.clinical_notes insert: owner of A
+ok 233 - public.clinical_notes insert: admin of A
+ok 234 - public.clinical_notes insert: doctor of A
+ok 235 - public.clinical_notes insert: second doctor of A
+ok 236 - public.clinical_notes insert: nurse of A
+ok 237 - public.clinical_notes insert: receptionist of A
+ok 238 - public.clinical_notes insert: owner of B
+ok 239 - public.clinical_notes insert: anon
+ok 240 - public.clinical_notes insert: dual member (doctor A, receptionist B), header A
+ok 241 - public.clinical_notes insert: dual member, header B
+ok 242 - public.clinical_notes insert: dual member, no header
+ok 243 - public.clinical_notes update: owner of A
+ok 244 - public.clinical_notes update: admin of A
+ok 245 - public.clinical_notes update: doctor of A
+ok 246 - public.clinical_notes update: second doctor of A
+ok 247 - public.clinical_notes update: nurse of A
+ok 248 - public.clinical_notes update: receptionist of A
+ok 249 - public.clinical_notes update: owner of B
+ok 250 - public.clinical_notes update: anon
+ok 251 - public.clinical_notes update: dual member (doctor A, receptionist B), header A
+ok 252 - public.clinical_notes update: dual member, header B
+ok 253 - public.clinical_notes update: dual member, no header
+ok 254 - public.clinical_notes delete: owner of A
+ok 255 - public.clinical_notes delete: admin of A
+ok 256 - public.clinical_notes delete: doctor of A
+ok 257 - public.clinical_notes delete: second doctor of A
+ok 258 - public.clinical_notes delete: nurse of A
+ok 259 - public.clinical_notes delete: receptionist of A
+ok 260 - public.clinical_notes delete: owner of B
+ok 261 - public.clinical_notes delete: anon
+ok 262 - public.clinical_notes delete: dual member (doctor A, receptionist B), header A
+ok 263 - public.clinical_notes delete: dual member, header B
+ok 264 - public.clinical_notes delete: dual member, no header
+ok 265 - public.visit_revisions select: owner of A
+ok 266 - public.visit_revisions select: admin of A
+ok 267 - public.visit_revisions select: doctor of A
+ok 268 - public.visit_revisions select: second doctor of A
+ok 269 - public.visit_revisions select: nurse of A
+ok 270 - public.visit_revisions select: receptionist of A
+ok 271 - public.visit_revisions select: owner of B
+ok 272 - public.visit_revisions select: anon
+ok 273 - public.visit_revisions select: dual member (doctor A, receptionist B), header A
+ok 274 - public.visit_revisions select: dual member, header B
+ok 275 - public.visit_revisions select: dual member, no header
+ok 276 - public.visit_revisions insert: owner of A
+ok 277 - public.visit_revisions insert: admin of A
+ok 278 - public.visit_revisions insert: doctor of A
+ok 279 - public.visit_revisions insert: second doctor of A
+ok 280 - public.visit_revisions insert: nurse of A
+ok 281 - public.visit_revisions insert: receptionist of A
+ok 282 - public.visit_revisions insert: owner of B
+ok 283 - public.visit_revisions insert: anon
+ok 284 - public.visit_revisions insert: dual member (doctor A, receptionist B), header A
+ok 285 - public.visit_revisions insert: dual member, header B
+ok 286 - public.visit_revisions insert: dual member, no header
+ok 287 - public.visit_revisions update: owner of A
+ok 288 - public.visit_revisions update: admin of A
+ok 289 - public.visit_revisions update: doctor of A
+ok 290 - public.visit_revisions update: second doctor of A
+ok 291 - public.visit_revisions update: nurse of A
+ok 292 - public.visit_revisions update: receptionist of A
+ok 293 - public.visit_revisions update: owner of B
+ok 294 - public.visit_revisions update: anon
+ok 295 - public.visit_revisions update: dual member (doctor A, receptionist B), header A
+ok 296 - public.visit_revisions update: dual member, header B
+ok 297 - public.visit_revisions update: dual member, no header
+ok 298 - public.visit_revisions delete: owner of A
+ok 299 - public.visit_revisions delete: admin of A
+ok 300 - public.visit_revisions delete: doctor of A
+ok 301 - public.visit_revisions delete: second doctor of A
+ok 302 - public.visit_revisions delete: nurse of A
+ok 303 - public.visit_revisions delete: receptionist of A
+ok 304 - public.visit_revisions delete: owner of B
+ok 305 - public.visit_revisions delete: anon
+ok 306 - public.visit_revisions delete: dual member (doctor A, receptionist B), header A
+ok 307 - public.visit_revisions delete: dual member, header B
+ok 308 - public.visit_revisions delete: dual member, no header
+ok 309 - public.consultations select: owner of A
+ok 310 - public.consultations select: admin of A
+ok 311 - public.consultations select: doctor of A
+ok 312 - public.consultations select: second doctor of A
+ok 313 - public.consultations select: nurse of A
+ok 314 - public.consultations select: receptionist of A
+ok 315 - public.consultations select: owner of B
+ok 316 - public.consultations select: anon
+ok 317 - public.consultations select: dual member (doctor A, receptionist B), header A
+ok 318 - public.consultations select: dual member, header B
+ok 319 - public.consultations select: dual member, no header
+ok 320 - public.consultations insert: owner of A
+ok 321 - public.consultations insert: admin of A
+ok 322 - public.consultations insert: doctor of A
+ok 323 - public.consultations insert: second doctor of A
+ok 324 - public.consultations insert: nurse of A
+ok 325 - public.consultations insert: receptionist of A
+ok 326 - public.consultations insert: owner of B
+ok 327 - public.consultations insert: anon
+ok 328 - public.consultations insert: dual member (doctor A, receptionist B), header A
+ok 329 - public.consultations insert: dual member, header B
+ok 330 - public.consultations insert: dual member, no header
+ok 331 - public.consultations update: owner of A
+ok 332 - public.consultations update: admin of A
+ok 333 - public.consultations update: doctor of A
+ok 334 - public.consultations update: second doctor of A
+ok 335 - public.consultations update: nurse of A
+ok 336 - public.consultations update: receptionist of A
+ok 337 - public.consultations update: owner of B
+ok 338 - public.consultations update: anon
+ok 339 - public.consultations update: dual member (doctor A, receptionist B), header A
+ok 340 - public.consultations update: dual member, header B
+ok 341 - public.consultations update: dual member, no header
+ok 342 - public.consultations delete: owner of A
+ok 343 - public.consultations delete: admin of A
+ok 344 - public.consultations delete: doctor of A
+ok 345 - public.consultations delete: second doctor of A
+ok 346 - public.consultations delete: nurse of A
+ok 347 - public.consultations delete: receptionist of A
+ok 348 - public.consultations delete: owner of B
+ok 349 - public.consultations delete: anon
+ok 350 - public.consultations delete: dual member (doctor A, receptionist B), header A
+ok 351 - public.consultations delete: dual member, header B
+ok 352 - public.consultations delete: dual member, no header
+ok 353 - public.consultation_diagnoses select: owner of A
+ok 354 - public.consultation_diagnoses select: admin of A
+ok 355 - public.consultation_diagnoses select: doctor of A
+ok 356 - public.consultation_diagnoses select: second doctor of A
+ok 357 - public.consultation_diagnoses select: nurse of A
+ok 358 - public.consultation_diagnoses select: receptionist of A
+ok 359 - public.consultation_diagnoses select: owner of B
+ok 360 - public.consultation_diagnoses select: anon
+ok 361 - public.consultation_diagnoses select: dual member (doctor A, receptionist B), header A
+ok 362 - public.consultation_diagnoses select: dual member, header B
+ok 363 - public.consultation_diagnoses select: dual member, no header
+ok 364 - public.consultation_diagnoses insert: owner of A
+ok 365 - public.consultation_diagnoses insert: admin of A
+ok 366 - public.consultation_diagnoses insert: doctor of A
+ok 367 - public.consultation_diagnoses insert: second doctor of A
+ok 368 - public.consultation_diagnoses insert: nurse of A
+ok 369 - public.consultation_diagnoses insert: receptionist of A
+ok 370 - public.consultation_diagnoses insert: owner of B
+ok 371 - public.consultation_diagnoses insert: anon
+ok 372 - public.consultation_diagnoses insert: dual member (doctor A, receptionist B), header A
+ok 373 - public.consultation_diagnoses insert: dual member, header B
+ok 374 - public.consultation_diagnoses insert: dual member, no header
+ok 375 - public.consultation_diagnoses update: owner of A
+ok 376 - public.consultation_diagnoses update: admin of A
+ok 377 - public.consultation_diagnoses update: doctor of A
+ok 378 - public.consultation_diagnoses update: second doctor of A
+ok 379 - public.consultation_diagnoses update: nurse of A
+ok 380 - public.consultation_diagnoses update: receptionist of A
+ok 381 - public.consultation_diagnoses update: owner of B
+ok 382 - public.consultation_diagnoses update: anon
+ok 383 - public.consultation_diagnoses update: dual member (doctor A, receptionist B), header A
+ok 384 - public.consultation_diagnoses update: dual member, header B
+ok 385 - public.consultation_diagnoses update: dual member, no header
+ok 386 - public.consultation_diagnoses delete: owner of A
+ok 387 - public.consultation_diagnoses delete: admin of A
+ok 388 - public.consultation_diagnoses delete: doctor of A
+ok 389 - public.consultation_diagnoses delete: second doctor of A
+ok 390 - public.consultation_diagnoses delete: nurse of A
+ok 391 - public.consultation_diagnoses delete: receptionist of A
+ok 392 - public.consultation_diagnoses delete: owner of B
+ok 393 - public.consultation_diagnoses delete: anon
+ok 394 - public.consultation_diagnoses delete: dual member (doctor A, receptionist B), header A
+ok 395 - public.consultation_diagnoses delete: dual member, header B
+ok 396 - public.consultation_diagnoses delete: dual member, no header
+ok 397 - public.prescriptions select: owner of A
+ok 398 - public.prescriptions select: admin of A
+ok 399 - public.prescriptions select: doctor of A
+ok 400 - public.prescriptions select: second doctor of A
+ok 401 - public.prescriptions select: nurse of A
+ok 402 - public.prescriptions select: receptionist of A
+ok 403 - public.prescriptions select: owner of B
+ok 404 - public.prescriptions select: anon
+ok 405 - public.prescriptions select: dual member (doctor A, receptionist B), header A
+ok 406 - public.prescriptions select: dual member, header B
+ok 407 - public.prescriptions select: dual member, no header
+ok 408 - public.prescriptions insert: owner of A
+ok 409 - public.prescriptions insert: admin of A
+ok 410 - public.prescriptions insert: doctor of A
+ok 411 - public.prescriptions insert: second doctor of A
+ok 412 - public.prescriptions insert: nurse of A
+ok 413 - public.prescriptions insert: receptionist of A
+ok 414 - public.prescriptions insert: owner of B
+ok 415 - public.prescriptions insert: anon
+ok 416 - public.prescriptions insert: dual member (doctor A, receptionist B), header A
+ok 417 - public.prescriptions insert: dual member, header B
+ok 418 - public.prescriptions insert: dual member, no header
+ok 419 - public.prescriptions update: owner of A
+ok 420 - public.prescriptions update: admin of A
+ok 421 - public.prescriptions update: doctor of A
+ok 422 - public.prescriptions update: second doctor of A
+ok 423 - public.prescriptions update: nurse of A
+ok 424 - public.prescriptions update: receptionist of A
+ok 425 - public.prescriptions update: owner of B
+ok 426 - public.prescriptions update: anon
+ok 427 - public.prescriptions update: dual member (doctor A, receptionist B), header A
+ok 428 - public.prescriptions update: dual member, header B
+ok 429 - public.prescriptions update: dual member, no header
+ok 430 - public.prescriptions delete: owner of A
+ok 431 - public.prescriptions delete: admin of A
+ok 432 - public.prescriptions delete: doctor of A
+ok 433 - public.prescriptions delete: second doctor of A
+ok 434 - public.prescriptions delete: nurse of A
+ok 435 - public.prescriptions delete: receptionist of A
+ok 436 - public.prescriptions delete: owner of B
+ok 437 - public.prescriptions delete: anon
+ok 438 - public.prescriptions delete: dual member (doctor A, receptionist B), header A
+ok 439 - public.prescriptions delete: dual member, header B
+ok 440 - public.prescriptions delete: dual member, no header
+ok 441 - public.prescription_items select: owner of A
+ok 442 - public.prescription_items select: admin of A
+ok 443 - public.prescription_items select: doctor of A
+ok 444 - public.prescription_items select: second doctor of A
+ok 445 - public.prescription_items select: nurse of A
+ok 446 - public.prescription_items select: receptionist of A
+ok 447 - public.prescription_items select: owner of B
+ok 448 - public.prescription_items select: anon
+ok 449 - public.prescription_items select: dual member (doctor A, receptionist B), header A
+ok 450 - public.prescription_items select: dual member, header B
+ok 451 - public.prescription_items select: dual member, no header
+ok 452 - public.prescription_items insert: owner of A
+ok 453 - public.prescription_items insert: admin of A
+ok 454 - public.prescription_items insert: doctor of A
+ok 455 - public.prescription_items insert: second doctor of A
+ok 456 - public.prescription_items insert: nurse of A
+ok 457 - public.prescription_items insert: receptionist of A
+ok 458 - public.prescription_items insert: owner of B
+ok 459 - public.prescription_items insert: anon
+ok 460 - public.prescription_items insert: dual member (doctor A, receptionist B), header A
+ok 461 - public.prescription_items insert: dual member, header B
+ok 462 - public.prescription_items insert: dual member, no header
+ok 463 - public.prescription_items update: owner of A
+ok 464 - public.prescription_items update: admin of A
+ok 465 - public.prescription_items update: doctor of A
+ok 466 - public.prescription_items update: second doctor of A
+ok 467 - public.prescription_items update: nurse of A
+ok 468 - public.prescription_items update: receptionist of A
+ok 469 - public.prescription_items update: owner of B
+ok 470 - public.prescription_items update: anon
+ok 471 - public.prescription_items update: dual member (doctor A, receptionist B), header A
+ok 472 - public.prescription_items update: dual member, header B
+ok 473 - public.prescription_items update: dual member, no header
+ok 474 - public.prescription_items delete: owner of A
+ok 475 - public.prescription_items delete: admin of A
+ok 476 - public.prescription_items delete: doctor of A
+ok 477 - public.prescription_items delete: second doctor of A
+ok 478 - public.prescription_items delete: nurse of A
+ok 479 - public.prescription_items delete: receptionist of A
+ok 480 - public.prescription_items delete: owner of B
+ok 481 - public.prescription_items delete: anon
+ok 482 - public.prescription_items delete: dual member (doctor A, receptionist B), header A
+ok 483 - public.prescription_items delete: dual member, header B
+ok 484 - public.prescription_items delete: dual member, no header
+ok 485 - public.invoices select: owner of A
+ok 486 - public.invoices select: admin of A
+ok 487 - public.invoices select: doctor of A
+ok 488 - public.invoices select: second doctor of A
+ok 489 - public.invoices select: nurse of A
+ok 490 - public.invoices select: receptionist of A
+ok 491 - public.invoices select: owner of B
+ok 492 - public.invoices select: anon
+ok 493 - public.invoices select: dual member (doctor A, receptionist B), header A
+ok 494 - public.invoices select: dual member, header B
+ok 495 - public.invoices select: dual member, no header
+ok 496 - public.invoices insert: owner of A
+ok 497 - public.invoices insert: admin of A
+ok 498 - public.invoices insert: doctor of A
+ok 499 - public.invoices insert: second doctor of A
+ok 500 - public.invoices insert: nurse of A
+ok 501 - public.invoices insert: receptionist of A
+ok 502 - public.invoices insert: owner of B
+ok 503 - public.invoices insert: anon
+ok 504 - public.invoices insert: dual member (doctor A, receptionist B), header A
+ok 505 - public.invoices insert: dual member, header B
+ok 506 - public.invoices insert: dual member, no header
+ok 507 - public.invoices update: owner of A
+ok 508 - public.invoices update: admin of A
+ok 509 - public.invoices update: doctor of A
+ok 510 - public.invoices update: second doctor of A
+ok 511 - public.invoices update: nurse of A
+ok 512 - public.invoices update: receptionist of A
+ok 513 - public.invoices update: owner of B
+ok 514 - public.invoices update: anon
+ok 515 - public.invoices update: dual member (doctor A, receptionist B), header A
+ok 516 - public.invoices update: dual member, header B
+ok 517 - public.invoices update: dual member, no header
+ok 518 - public.invoices delete: owner of A
+ok 519 - public.invoices delete: admin of A
+ok 520 - public.invoices delete: doctor of A
+ok 521 - public.invoices delete: second doctor of A
+ok 522 - public.invoices delete: nurse of A
+ok 523 - public.invoices delete: receptionist of A
+ok 524 - public.invoices delete: owner of B
+ok 525 - public.invoices delete: anon
+ok 526 - public.invoices delete: dual member (doctor A, receptionist B), header A
+ok 527 - public.invoices delete: dual member, header B
+ok 528 - public.invoices delete: dual member, no header
+ok 529 - public.invoice_items select: owner of A
+ok 530 - public.invoice_items select: admin of A
+ok 531 - public.invoice_items select: doctor of A
+ok 532 - public.invoice_items select: second doctor of A
+ok 533 - public.invoice_items select: nurse of A
+ok 534 - public.invoice_items select: receptionist of A
+ok 535 - public.invoice_items select: owner of B
+ok 536 - public.invoice_items select: anon
+ok 537 - public.invoice_items select: dual member (doctor A, receptionist B), header A
+ok 538 - public.invoice_items select: dual member, header B
+ok 539 - public.invoice_items select: dual member, no header
+ok 540 - public.invoice_items insert: owner of A
+ok 541 - public.invoice_items insert: admin of A
+ok 542 - public.invoice_items insert: doctor of A
+ok 543 - public.invoice_items insert: second doctor of A
+ok 544 - public.invoice_items insert: nurse of A
+ok 545 - public.invoice_items insert: receptionist of A
+ok 546 - public.invoice_items insert: owner of B
+ok 547 - public.invoice_items insert: anon
+ok 548 - public.invoice_items insert: dual member (doctor A, receptionist B), header A
+ok 549 - public.invoice_items insert: dual member, header B
+ok 550 - public.invoice_items insert: dual member, no header
+ok 551 - public.invoice_items update: owner of A
+ok 552 - public.invoice_items update: admin of A
+ok 553 - public.invoice_items update: doctor of A
+ok 554 - public.invoice_items update: second doctor of A
+ok 555 - public.invoice_items update: nurse of A
+ok 556 - public.invoice_items update: receptionist of A
+ok 557 - public.invoice_items update: owner of B
+ok 558 - public.invoice_items update: anon
+ok 559 - public.invoice_items update: dual member (doctor A, receptionist B), header A
+ok 560 - public.invoice_items update: dual member, header B
+ok 561 - public.invoice_items update: dual member, no header
+ok 562 - public.invoice_items delete: owner of A
+ok 563 - public.invoice_items delete: admin of A
+ok 564 - public.invoice_items delete: doctor of A
+ok 565 - public.invoice_items delete: second doctor of A
+ok 566 - public.invoice_items delete: nurse of A
+ok 567 - public.invoice_items delete: receptionist of A
+ok 568 - public.invoice_items delete: owner of B
+ok 569 - public.invoice_items delete: anon
+ok 570 - public.invoice_items delete: dual member (doctor A, receptionist B), header A
+ok 571 - public.invoice_items delete: dual member, header B
+ok 572 - public.invoice_items delete: dual member, no header
+ok 573 - public.payments select: owner of A
+ok 574 - public.payments select: admin of A
+ok 575 - public.payments select: doctor of A
+ok 576 - public.payments select: second doctor of A
+ok 577 - public.payments select: nurse of A
+ok 578 - public.payments select: receptionist of A
+ok 579 - public.payments select: owner of B
+ok 580 - public.payments select: anon
+ok 581 - public.payments select: dual member (doctor A, receptionist B), header A
+ok 582 - public.payments select: dual member, header B
+ok 583 - public.payments select: dual member, no header
+ok 584 - public.payments insert: owner of A
+ok 585 - public.payments insert: admin of A
+ok 586 - public.payments insert: doctor of A
+ok 587 - public.payments insert: second doctor of A
+ok 588 - public.payments insert: nurse of A
+ok 589 - public.payments insert: receptionist of A
+ok 590 - public.payments insert: owner of B
+ok 591 - public.payments insert: anon
+ok 592 - public.payments insert: dual member (doctor A, receptionist B), header A
+ok 593 - public.payments insert: dual member, header B
+ok 594 - public.payments insert: dual member, no header
+ok 595 - public.payments update: owner of A
+ok 596 - public.payments update: admin of A
+ok 597 - public.payments update: doctor of A
+ok 598 - public.payments update: second doctor of A
+ok 599 - public.payments update: nurse of A
+ok 600 - public.payments update: receptionist of A
+ok 601 - public.payments update: owner of B
+ok 602 - public.payments update: anon
+ok 603 - public.payments update: dual member (doctor A, receptionist B), header A
+ok 604 - public.payments update: dual member, header B
+ok 605 - public.payments update: dual member, no header
+ok 606 - public.payments delete: owner of A
+ok 607 - public.payments delete: admin of A
+ok 608 - public.payments delete: doctor of A
+ok 609 - public.payments delete: second doctor of A
+ok 610 - public.payments delete: nurse of A
+ok 611 - public.payments delete: receptionist of A
+ok 612 - public.payments delete: owner of B
+ok 613 - public.payments delete: anon
+ok 614 - public.payments delete: dual member (doctor A, receptionist B), header A
+ok 615 - public.payments delete: dual member, header B
+ok 616 - public.payments delete: dual member, no header
+ok 617 - public.queue_tokens select: owner of A
+ok 618 - public.queue_tokens select: admin of A
+ok 619 - public.queue_tokens select: doctor of A
+ok 620 - public.queue_tokens select: second doctor of A
+ok 621 - public.queue_tokens select: nurse of A
+ok 622 - public.queue_tokens select: receptionist of A
+ok 623 - public.queue_tokens select: owner of B
+ok 624 - public.queue_tokens select: anon
+ok 625 - public.queue_tokens select: dual member (doctor A, receptionist B), header A
+ok 626 - public.queue_tokens select: dual member, header B
+ok 627 - public.queue_tokens select: dual member, no header
+ok 628 - public.queue_tokens insert: owner of A
+ok 629 - public.queue_tokens insert: admin of A
+ok 630 - public.queue_tokens insert: doctor of A
+ok 631 - public.queue_tokens insert: second doctor of A
+ok 632 - public.queue_tokens insert: nurse of A
+ok 633 - public.queue_tokens insert: receptionist of A
+ok 634 - public.queue_tokens insert: owner of B
+ok 635 - public.queue_tokens insert: anon
+ok 636 - public.queue_tokens insert: dual member (doctor A, receptionist B), header A
+ok 637 - public.queue_tokens insert: dual member, header B
+ok 638 - public.queue_tokens insert: dual member, no header
+ok 639 - public.queue_tokens update: owner of A
+ok 640 - public.queue_tokens update: admin of A
+ok 641 - public.queue_tokens update: doctor of A
+ok 642 - public.queue_tokens update: second doctor of A
+ok 643 - public.queue_tokens update: nurse of A
+ok 644 - public.queue_tokens update: receptionist of A
+ok 645 - public.queue_tokens update: owner of B
+ok 646 - public.queue_tokens update: anon
+ok 647 - public.queue_tokens update: dual member (doctor A, receptionist B), header A
+ok 648 - public.queue_tokens update: dual member, header B
+ok 649 - public.queue_tokens update: dual member, no header
+ok 650 - public.queue_tokens delete: owner of A
+ok 651 - public.queue_tokens delete: admin of A
+ok 652 - public.queue_tokens delete: doctor of A
+ok 653 - public.queue_tokens delete: second doctor of A
+ok 654 - public.queue_tokens delete: nurse of A
+ok 655 - public.queue_tokens delete: receptionist of A
+ok 656 - public.queue_tokens delete: owner of B
+ok 657 - public.queue_tokens delete: anon
+ok 658 - public.queue_tokens delete: dual member (doctor A, receptionist B), header A
+ok 659 - public.queue_tokens delete: dual member, header B
+ok 660 - public.queue_tokens delete: dual member, no header
+ok 661 - public.waitlist_entries select: owner of A
+ok 662 - public.waitlist_entries select: admin of A
+ok 663 - public.waitlist_entries select: doctor of A
+ok 664 - public.waitlist_entries select: second doctor of A
+ok 665 - public.waitlist_entries select: nurse of A
+ok 666 - public.waitlist_entries select: receptionist of A
+ok 667 - public.waitlist_entries select: owner of B
+ok 668 - public.waitlist_entries select: anon
+ok 669 - public.waitlist_entries select: dual member (doctor A, receptionist B), header A
+ok 670 - public.waitlist_entries select: dual member, header B
+ok 671 - public.waitlist_entries select: dual member, no header
+ok 672 - public.waitlist_entries insert: owner of A
+ok 673 - public.waitlist_entries insert: admin of A
+ok 674 - public.waitlist_entries insert: doctor of A
+ok 675 - public.waitlist_entries insert: second doctor of A
+ok 676 - public.waitlist_entries insert: nurse of A
+ok 677 - public.waitlist_entries insert: receptionist of A
+ok 678 - public.waitlist_entries insert: owner of B
+ok 679 - public.waitlist_entries insert: anon
+ok 680 - public.waitlist_entries insert: dual member (doctor A, receptionist B), header A
+ok 681 - public.waitlist_entries insert: dual member, header B
+ok 682 - public.waitlist_entries insert: dual member, no header
+ok 683 - public.waitlist_entries update: owner of A
+ok 684 - public.waitlist_entries update: admin of A
+ok 685 - public.waitlist_entries update: doctor of A
+ok 686 - public.waitlist_entries update: second doctor of A
+ok 687 - public.waitlist_entries update: nurse of A
+ok 688 - public.waitlist_entries update: receptionist of A
+ok 689 - public.waitlist_entries update: owner of B
+ok 690 - public.waitlist_entries update: anon
+ok 691 - public.waitlist_entries update: dual member (doctor A, receptionist B), header A
+ok 692 - public.waitlist_entries update: dual member, header B
+ok 693 - public.waitlist_entries update: dual member, no header
+ok 694 - public.waitlist_entries delete: owner of A
+ok 695 - public.waitlist_entries delete: admin of A
+ok 696 - public.waitlist_entries delete: doctor of A
+ok 697 - public.waitlist_entries delete: second doctor of A
+ok 698 - public.waitlist_entries delete: nurse of A
+ok 699 - public.waitlist_entries delete: receptionist of A
+ok 700 - public.waitlist_entries delete: owner of B
+ok 701 - public.waitlist_entries delete: anon
+ok 702 - public.waitlist_entries delete: dual member (doctor A, receptionist B), header A
+ok 703 - public.waitlist_entries delete: dual member, header B
+ok 704 - public.waitlist_entries delete: dual member, no header
+ok 705 - public.schedule_blocks select: owner of A
+ok 706 - public.schedule_blocks select: admin of A
+ok 707 - public.schedule_blocks select: doctor of A
+ok 708 - public.schedule_blocks select: second doctor of A
+ok 709 - public.schedule_blocks select: nurse of A
+ok 710 - public.schedule_blocks select: receptionist of A
+ok 711 - public.schedule_blocks select: owner of B
+ok 712 - public.schedule_blocks select: anon
+ok 713 - public.schedule_blocks select: dual member (doctor A, receptionist B), header A
+ok 714 - public.schedule_blocks select: dual member, header B
+ok 715 - public.schedule_blocks select: dual member, no header
+ok 716 - public.schedule_blocks insert: owner of A
+ok 717 - public.schedule_blocks insert: admin of A
+ok 718 - public.schedule_blocks insert: doctor of A
+ok 719 - public.schedule_blocks insert: second doctor of A
+ok 720 - public.schedule_blocks insert: nurse of A
+ok 721 - public.schedule_blocks insert: receptionist of A
+ok 722 - public.schedule_blocks insert: owner of B
+ok 723 - public.schedule_blocks insert: anon
+ok 724 - public.schedule_blocks insert: dual member (doctor A, receptionist B), header A
+ok 725 - public.schedule_blocks insert: dual member, header B
+ok 726 - public.schedule_blocks insert: dual member, no header
+ok 727 - public.schedule_blocks update: owner of A
+ok 728 - public.schedule_blocks update: admin of A
+ok 729 - public.schedule_blocks update: doctor of A
+ok 730 - public.schedule_blocks update: second doctor of A
+ok 731 - public.schedule_blocks update: nurse of A
+ok 732 - public.schedule_blocks update: receptionist of A
+ok 733 - public.schedule_blocks update: owner of B
+ok 734 - public.schedule_blocks update: anon
+ok 735 - public.schedule_blocks update: dual member (doctor A, receptionist B), header A
+ok 736 - public.schedule_blocks update: dual member, header B
+ok 737 - public.schedule_blocks update: dual member, no header
+ok 738 - public.schedule_blocks delete: owner of A
+ok 739 - public.schedule_blocks delete: admin of A
+ok 740 - public.schedule_blocks delete: doctor of A
+ok 741 - public.schedule_blocks delete: second doctor of A
+ok 742 - public.schedule_blocks delete: nurse of A
+ok 743 - public.schedule_blocks delete: receptionist of A
+ok 744 - public.schedule_blocks delete: owner of B
+ok 745 - public.schedule_blocks delete: anon
+ok 746 - public.schedule_blocks delete: dual member (doctor A, receptionist B), header A
+ok 747 - public.schedule_blocks delete: dual member, header B
+ok 748 - public.schedule_blocks delete: dual member, no header
+ok 749 - public.follow_ups select: owner of A
+ok 750 - public.follow_ups select: admin of A
+ok 751 - public.follow_ups select: doctor of A
+ok 752 - public.follow_ups select: second doctor of A
+ok 753 - public.follow_ups select: nurse of A
+ok 754 - public.follow_ups select: receptionist of A
+ok 755 - public.follow_ups select: owner of B
+ok 756 - public.follow_ups select: anon
+ok 757 - public.follow_ups select: dual member (doctor A, receptionist B), header A
+ok 758 - public.follow_ups select: dual member, header B
+ok 759 - public.follow_ups select: dual member, no header
+ok 760 - public.follow_ups insert: owner of A
+ok 761 - public.follow_ups insert: admin of A
+ok 762 - public.follow_ups insert: doctor of A
+ok 763 - public.follow_ups insert: second doctor of A
+ok 764 - public.follow_ups insert: nurse of A
+ok 765 - public.follow_ups insert: receptionist of A
+ok 766 - public.follow_ups insert: owner of B
+ok 767 - public.follow_ups insert: anon
+ok 768 - public.follow_ups insert: dual member (doctor A, receptionist B), header A
+ok 769 - public.follow_ups insert: dual member, header B
+ok 770 - public.follow_ups insert: dual member, no header
+ok 771 - public.follow_ups update: owner of A
+ok 772 - public.follow_ups update: admin of A
+ok 773 - public.follow_ups update: doctor of A
+ok 774 - public.follow_ups update: second doctor of A
+ok 775 - public.follow_ups update: nurse of A
+ok 776 - public.follow_ups update: receptionist of A
+ok 777 - public.follow_ups update: owner of B
+ok 778 - public.follow_ups update: anon
+ok 779 - public.follow_ups update: dual member (doctor A, receptionist B), header A
+ok 780 - public.follow_ups update: dual member, header B
+ok 781 - public.follow_ups update: dual member, no header
+ok 782 - public.follow_ups delete: owner of A
+ok 783 - public.follow_ups delete: admin of A
+ok 784 - public.follow_ups delete: doctor of A
+ok 785 - public.follow_ups delete: second doctor of A
+ok 786 - public.follow_ups delete: nurse of A
+ok 787 - public.follow_ups delete: receptionist of A
+ok 788 - public.follow_ups delete: owner of B
+ok 789 - public.follow_ups delete: anon
+ok 790 - public.follow_ups delete: dual member (doctor A, receptionist B), header A
+ok 791 - public.follow_ups delete: dual member, header B
+ok 792 - public.follow_ups delete: dual member, no header
+ok 793 - public.consent_records select: owner of A
+ok 794 - public.consent_records select: admin of A
+ok 795 - public.consent_records select: doctor of A
+ok 796 - public.consent_records select: second doctor of A
+ok 797 - public.consent_records select: nurse of A
+ok 798 - public.consent_records select: receptionist of A
+ok 799 - public.consent_records select: owner of B
+ok 800 - public.consent_records select: anon
+ok 801 - public.consent_records select: dual member (doctor A, receptionist B), header A
+ok 802 - public.consent_records select: dual member, header B
+ok 803 - public.consent_records select: dual member, no header
+ok 804 - public.consent_records insert: owner of A
+ok 805 - public.consent_records insert: admin of A
+ok 806 - public.consent_records insert: doctor of A
+ok 807 - public.consent_records insert: second doctor of A
+ok 808 - public.consent_records insert: nurse of A
+ok 809 - public.consent_records insert: receptionist of A
+ok 810 - public.consent_records insert: owner of B
+ok 811 - public.consent_records insert: anon
+ok 812 - public.consent_records insert: dual member (doctor A, receptionist B), header A
+ok 813 - public.consent_records insert: dual member, header B
+ok 814 - public.consent_records insert: dual member, no header
+ok 815 - public.consent_records update: owner of A
+ok 816 - public.consent_records update: admin of A
+ok 817 - public.consent_records update: doctor of A
+ok 818 - public.consent_records update: second doctor of A
+ok 819 - public.consent_records update: nurse of A
+ok 820 - public.consent_records update: receptionist of A
+ok 821 - public.consent_records update: owner of B
+ok 822 - public.consent_records update: anon
+ok 823 - public.consent_records update: dual member (doctor A, receptionist B), header A
+ok 824 - public.consent_records update: dual member, header B
+ok 825 - public.consent_records update: dual member, no header
+ok 826 - public.consent_records delete: owner of A
+ok 827 - public.consent_records delete: admin of A
+ok 828 - public.consent_records delete: doctor of A
+ok 829 - public.consent_records delete: second doctor of A
+ok 830 - public.consent_records delete: nurse of A
+ok 831 - public.consent_records delete: receptionist of A
+ok 832 - public.consent_records delete: owner of B
+ok 833 - public.consent_records delete: anon
+ok 834 - public.consent_records delete: dual member (doctor A, receptionist B), header A
+ok 835 - public.consent_records delete: dual member, header B
+ok 836 - public.consent_records delete: dual member, no header
+ok 837 - public.patient_documents select: owner of A
+ok 838 - public.patient_documents select: admin of A
+ok 839 - public.patient_documents select: doctor of A
+ok 840 - public.patient_documents select: second doctor of A
+ok 841 - public.patient_documents select: nurse of A
+ok 842 - public.patient_documents select: receptionist of A
+ok 843 - public.patient_documents select: owner of B
+ok 844 - public.patient_documents select: anon
+ok 845 - public.patient_documents select: dual member (doctor A, receptionist B), header A
+ok 846 - public.patient_documents select: dual member, header B
+ok 847 - public.patient_documents select: dual member, no header
+ok 848 - public.patient_documents insert: owner of A
+ok 849 - public.patient_documents insert: admin of A
+ok 850 - public.patient_documents insert: doctor of A
+ok 851 - public.patient_documents insert: second doctor of A
+ok 852 - public.patient_documents insert: nurse of A
+ok 853 - public.patient_documents insert: receptionist of A
+ok 854 - public.patient_documents insert: owner of B
+ok 855 - public.patient_documents insert: anon
+ok 856 - public.patient_documents insert: dual member (doctor A, receptionist B), header A
+ok 857 - public.patient_documents insert: dual member, header B
+ok 858 - public.patient_documents insert: dual member, no header
+ok 859 - public.patient_documents update: owner of A
+ok 860 - public.patient_documents update: admin of A
+ok 861 - public.patient_documents update: doctor of A
+ok 862 - public.patient_documents update: second doctor of A
+ok 863 - public.patient_documents update: nurse of A
+ok 864 - public.patient_documents update: receptionist of A
+ok 865 - public.patient_documents update: owner of B
+ok 866 - public.patient_documents update: anon
+ok 867 - public.patient_documents update: dual member (doctor A, receptionist B), header A
+ok 868 - public.patient_documents update: dual member, header B
+ok 869 - public.patient_documents update: dual member, no header
+ok 870 - public.patient_documents delete: owner of A
+ok 871 - public.patient_documents delete: admin of A
+ok 872 - public.patient_documents delete: doctor of A
+ok 873 - public.patient_documents delete: second doctor of A
+ok 874 - public.patient_documents delete: nurse of A
+ok 875 - public.patient_documents delete: receptionist of A
+ok 876 - public.patient_documents delete: owner of B
+ok 877 - public.patient_documents delete: anon
+ok 878 - public.patient_documents delete: dual member (doctor A, receptionist B), header A
+ok 879 - public.patient_documents delete: dual member, header B
+ok 880 - public.patient_documents delete: dual member, no header
+ok 881 - public.document_share_tokens select: owner of A
+ok 882 - public.document_share_tokens select: admin of A
+ok 883 - public.document_share_tokens select: doctor of A
+ok 884 - public.document_share_tokens select: second doctor of A
+ok 885 - public.document_share_tokens select: nurse of A
+ok 886 - public.document_share_tokens select: receptionist of A
+ok 887 - public.document_share_tokens select: owner of B
+ok 888 - public.document_share_tokens select: anon
+ok 889 - public.document_share_tokens select: dual member (doctor A, receptionist B), header A
+ok 890 - public.document_share_tokens select: dual member, header B
+ok 891 - public.document_share_tokens select: dual member, no header
+ok 892 - public.document_share_tokens insert: owner of A
+ok 893 - public.document_share_tokens insert: admin of A
+ok 894 - public.document_share_tokens insert: doctor of A
+ok 895 - public.document_share_tokens insert: second doctor of A
+ok 896 - public.document_share_tokens insert: nurse of A
+ok 897 - public.document_share_tokens insert: receptionist of A
+ok 898 - public.document_share_tokens insert: owner of B
+ok 899 - public.document_share_tokens insert: anon
+ok 900 - public.document_share_tokens insert: dual member (doctor A, receptionist B), header A
+ok 901 - public.document_share_tokens insert: dual member, header B
+ok 902 - public.document_share_tokens insert: dual member, no header
+ok 903 - public.document_share_tokens update: owner of A
+ok 904 - public.document_share_tokens update: admin of A
+ok 905 - public.document_share_tokens update: doctor of A
+ok 906 - public.document_share_tokens update: second doctor of A
+ok 907 - public.document_share_tokens update: nurse of A
+ok 908 - public.document_share_tokens update: receptionist of A
+ok 909 - public.document_share_tokens update: owner of B
+ok 910 - public.document_share_tokens update: anon
+ok 911 - public.document_share_tokens update: dual member (doctor A, receptionist B), header A
+ok 912 - public.document_share_tokens update: dual member, header B
+ok 913 - public.document_share_tokens update: dual member, no header
+ok 914 - public.document_share_tokens delete: owner of A
+ok 915 - public.document_share_tokens delete: admin of A
+ok 916 - public.document_share_tokens delete: doctor of A
+ok 917 - public.document_share_tokens delete: second doctor of A
+ok 918 - public.document_share_tokens delete: nurse of A
+ok 919 - public.document_share_tokens delete: receptionist of A
+ok 920 - public.document_share_tokens delete: owner of B
+ok 921 - public.document_share_tokens delete: anon
+ok 922 - public.document_share_tokens delete: dual member (doctor A, receptionist B), header A
+ok 923 - public.document_share_tokens delete: dual member, header B
+ok 924 - public.document_share_tokens delete: dual member, no header
+ok 925 - public.referrals select: owner of A
+ok 926 - public.referrals select: admin of A
+ok 927 - public.referrals select: doctor of A
+ok 928 - public.referrals select: second doctor of A
+ok 929 - public.referrals select: nurse of A
+ok 930 - public.referrals select: receptionist of A
+ok 931 - public.referrals select: owner of B
+ok 932 - public.referrals select: anon
+ok 933 - public.referrals select: dual member (doctor A, receptionist B), header A
+ok 934 - public.referrals select: dual member, header B
+ok 935 - public.referrals select: dual member, no header
+ok 936 - public.referrals insert: owner of A
+ok 937 - public.referrals insert: admin of A
+ok 938 - public.referrals insert: doctor of A
+ok 939 - public.referrals insert: second doctor of A
+ok 940 - public.referrals insert: nurse of A
+ok 941 - public.referrals insert: receptionist of A
+ok 942 - public.referrals insert: owner of B
+ok 943 - public.referrals insert: anon
+ok 944 - public.referrals insert: dual member (doctor A, receptionist B), header A
+ok 945 - public.referrals insert: dual member, header B
+ok 946 - public.referrals insert: dual member, no header
+ok 947 - public.referrals update: owner of A
+ok 948 - public.referrals update: admin of A
+ok 949 - public.referrals update: doctor of A
+ok 950 - public.referrals update: second doctor of A
+ok 951 - public.referrals update: nurse of A
+ok 952 - public.referrals update: receptionist of A
+ok 953 - public.referrals update: owner of B
+ok 954 - public.referrals update: anon
+ok 955 - public.referrals update: dual member (doctor A, receptionist B), header A
+ok 956 - public.referrals update: dual member, header B
+ok 957 - public.referrals update: dual member, no header
+ok 958 - public.referrals delete: owner of A
+ok 959 - public.referrals delete: admin of A
+ok 960 - public.referrals delete: doctor of A
+ok 961 - public.referrals delete: second doctor of A
+ok 962 - public.referrals delete: nurse of A
+ok 963 - public.referrals delete: receptionist of A
+ok 964 - public.referrals delete: owner of B
+ok 965 - public.referrals delete: anon
+ok 966 - public.referrals delete: dual member (doctor A, receptionist B), header A
+ok 967 - public.referrals delete: dual member, header B
+ok 968 - public.referrals delete: dual member, no header
+ok 969 - public.doctor_custom_diagnoses select: owner of A
+ok 970 - public.doctor_custom_diagnoses select: admin of A
+ok 971 - public.doctor_custom_diagnoses select: doctor of A
+ok 972 - public.doctor_custom_diagnoses select: second doctor of A
+ok 973 - public.doctor_custom_diagnoses select: nurse of A
+ok 974 - public.doctor_custom_diagnoses select: receptionist of A
+ok 975 - public.doctor_custom_diagnoses select: owner of B
+ok 976 - public.doctor_custom_diagnoses select: anon
+ok 977 - public.doctor_custom_diagnoses select: dual member (doctor A, receptionist B), header A
+ok 978 - public.doctor_custom_diagnoses select: dual member, header B
+ok 979 - public.doctor_custom_diagnoses select: dual member, no header
+ok 980 - public.doctor_custom_diagnoses insert: owner of A
+ok 981 - public.doctor_custom_diagnoses insert: admin of A
+ok 982 - public.doctor_custom_diagnoses insert: doctor of A
+ok 983 - public.doctor_custom_diagnoses insert: second doctor of A
+ok 984 - public.doctor_custom_diagnoses insert: nurse of A
+ok 985 - public.doctor_custom_diagnoses insert: receptionist of A
+ok 986 - public.doctor_custom_diagnoses insert: owner of B
+ok 987 - public.doctor_custom_diagnoses insert: anon
+ok 988 - public.doctor_custom_diagnoses insert: dual member (doctor A, receptionist B), header A
+ok 989 - public.doctor_custom_diagnoses insert: dual member, header B
+ok 990 - public.doctor_custom_diagnoses insert: dual member, no header
+ok 991 - public.doctor_custom_diagnoses update: owner of A
+ok 992 - public.doctor_custom_diagnoses update: admin of A
+ok 993 - public.doctor_custom_diagnoses update: doctor of A
+ok 994 - public.doctor_custom_diagnoses update: second doctor of A
+ok 995 - public.doctor_custom_diagnoses update: nurse of A
+ok 996 - public.doctor_custom_diagnoses update: receptionist of A
+ok 997 - public.doctor_custom_diagnoses update: owner of B
+ok 998 - public.doctor_custom_diagnoses update: anon
+ok 999 - public.doctor_custom_diagnoses update: dual member (doctor A, receptionist B), header A
+ok 1000 - public.doctor_custom_diagnoses update: dual member, header B
+ok 1001 - public.doctor_custom_diagnoses update: dual member, no header
+ok 1002 - public.doctor_custom_diagnoses delete: owner of A
+ok 1003 - public.doctor_custom_diagnoses delete: admin of A
+ok 1004 - public.doctor_custom_diagnoses delete: doctor of A
+ok 1005 - public.doctor_custom_diagnoses delete: second doctor of A
+ok 1006 - public.doctor_custom_diagnoses delete: nurse of A
+ok 1007 - public.doctor_custom_diagnoses delete: receptionist of A
+ok 1008 - public.doctor_custom_diagnoses delete: owner of B
+ok 1009 - public.doctor_custom_diagnoses delete: anon
+ok 1010 - public.doctor_custom_diagnoses delete: dual member (doctor A, receptionist B), header A
+ok 1011 - public.doctor_custom_diagnoses delete: dual member, header B
+ok 1012 - public.doctor_custom_diagnoses delete: dual member, no header
+ok 1013 - public.doctor_custom_medicines select: owner of A
+ok 1014 - public.doctor_custom_medicines select: admin of A
+ok 1015 - public.doctor_custom_medicines select: doctor of A
+ok 1016 - public.doctor_custom_medicines select: second doctor of A
+ok 1017 - public.doctor_custom_medicines select: nurse of A
+ok 1018 - public.doctor_custom_medicines select: receptionist of A
+ok 1019 - public.doctor_custom_medicines select: owner of B
+ok 1020 - public.doctor_custom_medicines select: anon
+ok 1021 - public.doctor_custom_medicines select: dual member (doctor A, receptionist B), header A
+ok 1022 - public.doctor_custom_medicines select: dual member, header B
+ok 1023 - public.doctor_custom_medicines select: dual member, no header
+ok 1024 - public.doctor_custom_medicines insert: owner of A
+ok 1025 - public.doctor_custom_medicines insert: admin of A
+ok 1026 - public.doctor_custom_medicines insert: doctor of A
+ok 1027 - public.doctor_custom_medicines insert: second doctor of A
+ok 1028 - public.doctor_custom_medicines insert: nurse of A
+ok 1029 - public.doctor_custom_medicines insert: receptionist of A
+ok 1030 - public.doctor_custom_medicines insert: owner of B
+ok 1031 - public.doctor_custom_medicines insert: anon
+ok 1032 - public.doctor_custom_medicines insert: dual member (doctor A, receptionist B), header A
+ok 1033 - public.doctor_custom_medicines insert: dual member, header B
+ok 1034 - public.doctor_custom_medicines insert: dual member, no header
+ok 1035 - public.doctor_custom_medicines update: owner of A
+ok 1036 - public.doctor_custom_medicines update: admin of A
+ok 1037 - public.doctor_custom_medicines update: doctor of A
+ok 1038 - public.doctor_custom_medicines update: second doctor of A
+ok 1039 - public.doctor_custom_medicines update: nurse of A
+ok 1040 - public.doctor_custom_medicines update: receptionist of A
+ok 1041 - public.doctor_custom_medicines update: owner of B
+ok 1042 - public.doctor_custom_medicines update: anon
+ok 1043 - public.doctor_custom_medicines update: dual member (doctor A, receptionist B), header A
+ok 1044 - public.doctor_custom_medicines update: dual member, header B
+ok 1045 - public.doctor_custom_medicines update: dual member, no header
+ok 1046 - public.doctor_custom_medicines delete: owner of A
+ok 1047 - public.doctor_custom_medicines delete: admin of A
+ok 1048 - public.doctor_custom_medicines delete: doctor of A
+ok 1049 - public.doctor_custom_medicines delete: second doctor of A
+ok 1050 - public.doctor_custom_medicines delete: nurse of A
+ok 1051 - public.doctor_custom_medicines delete: receptionist of A
+ok 1052 - public.doctor_custom_medicines delete: owner of B
+ok 1053 - public.doctor_custom_medicines delete: anon
+ok 1054 - public.doctor_custom_medicines delete: dual member (doctor A, receptionist B), header A
+ok 1055 - public.doctor_custom_medicines delete: dual member, header B
+ok 1056 - public.doctor_custom_medicines delete: dual member, no header
+ok 1057 - public.doctor_prescription_templates select: owner of A
+ok 1058 - public.doctor_prescription_templates select: admin of A
+ok 1059 - public.doctor_prescription_templates select: doctor of A
+ok 1060 - public.doctor_prescription_templates select: second doctor of A
+ok 1061 - public.doctor_prescription_templates select: nurse of A
+ok 1062 - public.doctor_prescription_templates select: receptionist of A
+ok 1063 - public.doctor_prescription_templates select: owner of B
+ok 1064 - public.doctor_prescription_templates select: anon
+ok 1065 - public.doctor_prescription_templates select: dual member (doctor A, receptionist B), header A
+ok 1066 - public.doctor_prescription_templates select: dual member, header B
+ok 1067 - public.doctor_prescription_templates select: dual member, no header
+ok 1068 - public.doctor_prescription_templates insert: owner of A
+ok 1069 - public.doctor_prescription_templates insert: admin of A
+ok 1070 - public.doctor_prescription_templates insert: doctor of A
+ok 1071 - public.doctor_prescription_templates insert: second doctor of A
+ok 1072 - public.doctor_prescription_templates insert: nurse of A
+ok 1073 - public.doctor_prescription_templates insert: receptionist of A
+ok 1074 - public.doctor_prescription_templates insert: owner of B
+ok 1075 - public.doctor_prescription_templates insert: anon
+ok 1076 - public.doctor_prescription_templates insert: dual member (doctor A, receptionist B), header A
+ok 1077 - public.doctor_prescription_templates insert: dual member, header B
+ok 1078 - public.doctor_prescription_templates insert: dual member, no header
+ok 1079 - public.doctor_prescription_templates update: owner of A
+ok 1080 - public.doctor_prescription_templates update: admin of A
+ok 1081 - public.doctor_prescription_templates update: doctor of A
+ok 1082 - public.doctor_prescription_templates update: second doctor of A
+ok 1083 - public.doctor_prescription_templates update: nurse of A
+ok 1084 - public.doctor_prescription_templates update: receptionist of A
+ok 1085 - public.doctor_prescription_templates update: owner of B
+ok 1086 - public.doctor_prescription_templates update: anon
+ok 1087 - public.doctor_prescription_templates update: dual member (doctor A, receptionist B), header A
+ok 1088 - public.doctor_prescription_templates update: dual member, header B
+ok 1089 - public.doctor_prescription_templates update: dual member, no header
+ok 1090 - public.doctor_prescription_templates delete: owner of A
+ok 1091 - public.doctor_prescription_templates delete: admin of A
+ok 1092 - public.doctor_prescription_templates delete: doctor of A
+ok 1093 - public.doctor_prescription_templates delete: second doctor of A
+ok 1094 - public.doctor_prescription_templates delete: nurse of A
+ok 1095 - public.doctor_prescription_templates delete: receptionist of A
+ok 1096 - public.doctor_prescription_templates delete: owner of B
+ok 1097 - public.doctor_prescription_templates delete: anon
+ok 1098 - public.doctor_prescription_templates delete: dual member (doctor A, receptionist B), header A
+ok 1099 - public.doctor_prescription_templates delete: dual member, header B
+ok 1100 - public.doctor_prescription_templates delete: dual member, no header
+ok 1101 - public.communication_queue select: owner of A
+ok 1102 - public.communication_queue select: admin of A
+ok 1103 - public.communication_queue select: doctor of A
+ok 1104 - public.communication_queue select: second doctor of A
+ok 1105 - public.communication_queue select: nurse of A
+ok 1106 - public.communication_queue select: receptionist of A
+ok 1107 - public.communication_queue select: owner of B
+ok 1108 - public.communication_queue select: anon
+ok 1109 - public.communication_queue select: dual member (doctor A, receptionist B), header A
+ok 1110 - public.communication_queue select: dual member, header B
+ok 1111 - public.communication_queue select: dual member, no header
+ok 1112 - public.communication_queue insert: owner of A
+ok 1113 - public.communication_queue insert: admin of A
+ok 1114 - public.communication_queue insert: doctor of A
+ok 1115 - public.communication_queue insert: second doctor of A
+ok 1116 - public.communication_queue insert: nurse of A
+ok 1117 - public.communication_queue insert: receptionist of A
+ok 1118 - public.communication_queue insert: owner of B
+ok 1119 - public.communication_queue insert: anon
+ok 1120 - public.communication_queue insert: dual member (doctor A, receptionist B), header A
+ok 1121 - public.communication_queue insert: dual member, header B
+ok 1122 - public.communication_queue insert: dual member, no header
+ok 1123 - public.communication_queue update: owner of A
+ok 1124 - public.communication_queue update: admin of A
+ok 1125 - public.communication_queue update: doctor of A
+ok 1126 - public.communication_queue update: second doctor of A
+ok 1127 - public.communication_queue update: nurse of A
+ok 1128 - public.communication_queue update: receptionist of A
+ok 1129 - public.communication_queue update: owner of B
+ok 1130 - public.communication_queue update: anon
+ok 1131 - public.communication_queue update: dual member (doctor A, receptionist B), header A
+ok 1132 - public.communication_queue update: dual member, header B
+ok 1133 - public.communication_queue update: dual member, no header
+ok 1134 - public.communication_queue delete: owner of A
+ok 1135 - public.communication_queue delete: admin of A
+ok 1136 - public.communication_queue delete: doctor of A
+ok 1137 - public.communication_queue delete: second doctor of A
+ok 1138 - public.communication_queue delete: nurse of A
+ok 1139 - public.communication_queue delete: receptionist of A
+ok 1140 - public.communication_queue delete: owner of B
+ok 1141 - public.communication_queue delete: anon
+ok 1142 - public.communication_queue delete: dual member (doctor A, receptionist B), header A
+ok 1143 - public.communication_queue delete: dual member, header B
+ok 1144 - public.communication_queue delete: dual member, no header
+ok 1145 - public.in_app_notifications select: owner of A
+ok 1146 - public.in_app_notifications select: admin of A
+ok 1147 - public.in_app_notifications select: doctor of A
+ok 1148 - public.in_app_notifications select: second doctor of A
+ok 1149 - public.in_app_notifications select: nurse of A
+ok 1150 - public.in_app_notifications select: receptionist of A
+ok 1151 - public.in_app_notifications select: owner of B
+ok 1152 - public.in_app_notifications select: anon
+ok 1153 - public.in_app_notifications select: dual member (doctor A, receptionist B), header A
+ok 1154 - public.in_app_notifications select: dual member, header B
+ok 1155 - public.in_app_notifications select: dual member, no header
+ok 1156 - public.in_app_notifications insert: owner of A
+ok 1157 - public.in_app_notifications insert: admin of A
+ok 1158 - public.in_app_notifications insert: doctor of A
+ok 1159 - public.in_app_notifications insert: second doctor of A
+ok 1160 - public.in_app_notifications insert: nurse of A
+ok 1161 - public.in_app_notifications insert: receptionist of A
+ok 1162 - public.in_app_notifications insert: owner of B
+ok 1163 - public.in_app_notifications insert: anon
+ok 1164 - public.in_app_notifications insert: dual member (doctor A, receptionist B), header A
+ok 1165 - public.in_app_notifications insert: dual member, header B
+ok 1166 - public.in_app_notifications insert: dual member, no header
+ok 1167 - public.in_app_notifications update: owner of A
+ok 1168 - public.in_app_notifications update: admin of A
+ok 1169 - public.in_app_notifications update: doctor of A
+ok 1170 - public.in_app_notifications update: second doctor of A
+ok 1171 - public.in_app_notifications update: nurse of A
+ok 1172 - public.in_app_notifications update: receptionist of A
+ok 1173 - public.in_app_notifications update: owner of B
+ok 1174 - public.in_app_notifications update: anon
+ok 1175 - public.in_app_notifications update: dual member (doctor A, receptionist B), header A
+ok 1176 - public.in_app_notifications update: dual member, header B
+ok 1177 - public.in_app_notifications update: dual member, no header
+ok 1178 - public.in_app_notifications delete: owner of A
+ok 1179 - public.in_app_notifications delete: admin of A
+ok 1180 - public.in_app_notifications delete: doctor of A
+ok 1181 - public.in_app_notifications delete: second doctor of A
+ok 1182 - public.in_app_notifications delete: nurse of A
+ok 1183 - public.in_app_notifications delete: receptionist of A
+ok 1184 - public.in_app_notifications delete: owner of B
+ok 1185 - public.in_app_notifications delete: anon
+ok 1186 - public.in_app_notifications delete: dual member (doctor A, receptionist B), header A
+ok 1187 - public.in_app_notifications delete: dual member, header B
+ok 1188 - public.in_app_notifications delete: dual member, no header
+ok 1189 - public.tenant_messaging_config select: owner of A
+ok 1190 - public.tenant_messaging_config select: admin of A
+ok 1191 - public.tenant_messaging_config select: doctor of A
+ok 1192 - public.tenant_messaging_config select: second doctor of A
+ok 1193 - public.tenant_messaging_config select: nurse of A
+ok 1194 - public.tenant_messaging_config select: receptionist of A
+ok 1195 - public.tenant_messaging_config select: owner of B
+ok 1196 - public.tenant_messaging_config select: anon
+ok 1197 - public.tenant_messaging_config select: dual member (doctor A, receptionist B), header A
+ok 1198 - public.tenant_messaging_config select: dual member, header B
+ok 1199 - public.tenant_messaging_config select: dual member, no header
+ok 1200 - public.tenant_messaging_config insert: owner of A
+ok 1201 - public.tenant_messaging_config insert: admin of A
+ok 1202 - public.tenant_messaging_config insert: doctor of A
+ok 1203 - public.tenant_messaging_config insert: second doctor of A
+ok 1204 - public.tenant_messaging_config insert: nurse of A
+ok 1205 - public.tenant_messaging_config insert: receptionist of A
+ok 1206 - public.tenant_messaging_config insert: owner of B
+ok 1207 - public.tenant_messaging_config insert: anon
+ok 1208 - public.tenant_messaging_config insert: dual member (doctor A, receptionist B), header A
+ok 1209 - public.tenant_messaging_config insert: dual member, header B
+ok 1210 - public.tenant_messaging_config insert: dual member, no header
+ok 1211 - public.tenant_messaging_config update: owner of A
+ok 1212 - public.tenant_messaging_config update: admin of A
+ok 1213 - public.tenant_messaging_config update: doctor of A
+ok 1214 - public.tenant_messaging_config update: second doctor of A
+ok 1215 - public.tenant_messaging_config update: nurse of A
+ok 1216 - public.tenant_messaging_config update: receptionist of A
+ok 1217 - public.tenant_messaging_config update: owner of B
+ok 1218 - public.tenant_messaging_config update: anon
+ok 1219 - public.tenant_messaging_config update: dual member (doctor A, receptionist B), header A
+ok 1220 - public.tenant_messaging_config update: dual member, header B
+ok 1221 - public.tenant_messaging_config update: dual member, no header
+ok 1222 - public.tenant_messaging_config delete: owner of A
+ok 1223 - public.tenant_messaging_config delete: admin of A
+ok 1224 - public.tenant_messaging_config delete: doctor of A
+ok 1225 - public.tenant_messaging_config delete: second doctor of A
+ok 1226 - public.tenant_messaging_config delete: nurse of A
+ok 1227 - public.tenant_messaging_config delete: receptionist of A
+ok 1228 - public.tenant_messaging_config delete: owner of B
+ok 1229 - public.tenant_messaging_config delete: anon
+ok 1230 - public.tenant_messaging_config delete: dual member (doctor A, receptionist B), header A
+ok 1231 - public.tenant_messaging_config delete: dual member, header B
+ok 1232 - public.tenant_messaging_config delete: dual member, no header
+ok 1233 - public.audit_logs select: owner of A
+ok 1234 - public.audit_logs select: admin of A
+ok 1235 - public.audit_logs select: doctor of A
+ok 1236 - public.audit_logs select: second doctor of A
+ok 1237 - public.audit_logs select: nurse of A
+ok 1238 - public.audit_logs select: receptionist of A
+ok 1239 - public.audit_logs select: owner of B
+ok 1240 - public.audit_logs select: anon
+ok 1241 - public.audit_logs select: dual member (doctor A, receptionist B), header A
+ok 1242 - public.audit_logs select: dual member, header B
+ok 1243 - public.audit_logs select: dual member, no header
+ok 1244 - public.audit_logs insert: owner of A
+ok 1245 - public.audit_logs insert: admin of A
+ok 1246 - public.audit_logs insert: doctor of A
+ok 1247 - public.audit_logs insert: second doctor of A
+ok 1248 - public.audit_logs insert: nurse of A
+ok 1249 - public.audit_logs insert: receptionist of A
+ok 1250 - public.audit_logs insert: owner of B
+ok 1251 - public.audit_logs insert: anon
+ok 1252 - public.audit_logs insert: dual member (doctor A, receptionist B), header A
+ok 1253 - public.audit_logs insert: dual member, header B
+ok 1254 - public.audit_logs insert: dual member, no header
+ok 1255 - public.audit_logs update: owner of A
+ok 1256 - public.audit_logs update: admin of A
+ok 1257 - public.audit_logs update: doctor of A
+ok 1258 - public.audit_logs update: second doctor of A
+ok 1259 - public.audit_logs update: nurse of A
+ok 1260 - public.audit_logs update: receptionist of A
+ok 1261 - public.audit_logs update: owner of B
+ok 1262 - public.audit_logs update: anon
+ok 1263 - public.audit_logs update: dual member (doctor A, receptionist B), header A
+ok 1264 - public.audit_logs update: dual member, header B
+ok 1265 - public.audit_logs update: dual member, no header
+ok 1266 - public.audit_logs delete: owner of A
+ok 1267 - public.audit_logs delete: admin of A
+ok 1268 - public.audit_logs delete: doctor of A
+ok 1269 - public.audit_logs delete: second doctor of A
+ok 1270 - public.audit_logs delete: nurse of A
+ok 1271 - public.audit_logs delete: receptionist of A
+ok 1272 - public.audit_logs delete: owner of B
+ok 1273 - public.audit_logs delete: anon
+ok 1274 - public.audit_logs delete: dual member (doctor A, receptionist B), header A
+ok 1275 - public.audit_logs delete: dual member, header B
+ok 1276 - public.audit_logs delete: dual member, no header
+ok 1277 - public.api_keys select: owner of A
+ok 1278 - public.api_keys select: admin of A
+ok 1279 - public.api_keys select: doctor of A
+ok 1280 - public.api_keys select: second doctor of A
+ok 1281 - public.api_keys select: nurse of A
+ok 1282 - public.api_keys select: receptionist of A
+ok 1283 - public.api_keys select: owner of B
+ok 1284 - public.api_keys select: anon
+ok 1285 - public.api_keys select: dual member (doctor A, receptionist B), header A
+ok 1286 - public.api_keys select: dual member, header B
+ok 1287 - public.api_keys select: dual member, no header
+ok 1288 - public.api_keys insert: owner of A
+ok 1289 - public.api_keys insert: admin of A
+ok 1290 - public.api_keys insert: doctor of A
+ok 1291 - public.api_keys insert: second doctor of A
+ok 1292 - public.api_keys insert: nurse of A
+ok 1293 - public.api_keys insert: receptionist of A
+ok 1294 - public.api_keys insert: owner of B
+ok 1295 - public.api_keys insert: anon
+ok 1296 - public.api_keys insert: dual member (doctor A, receptionist B), header A
+ok 1297 - public.api_keys insert: dual member, header B
+ok 1298 - public.api_keys insert: dual member, no header
+ok 1299 - public.api_keys update: owner of A
+ok 1300 - public.api_keys update: admin of A
+ok 1301 - public.api_keys update: doctor of A
+ok 1302 - public.api_keys update: second doctor of A
+ok 1303 - public.api_keys update: nurse of A
+ok 1304 - public.api_keys update: receptionist of A
+ok 1305 - public.api_keys update: owner of B
+ok 1306 - public.api_keys update: anon
+ok 1307 - public.api_keys update: dual member (doctor A, receptionist B), header A
+ok 1308 - public.api_keys update: dual member, header B
+ok 1309 - public.api_keys update: dual member, no header
+ok 1310 - public.api_keys delete: owner of A
+ok 1311 - public.api_keys delete: admin of A
+ok 1312 - public.api_keys delete: doctor of A
+ok 1313 - public.api_keys delete: second doctor of A
+ok 1314 - public.api_keys delete: nurse of A
+ok 1315 - public.api_keys delete: receptionist of A
+ok 1316 - public.api_keys delete: owner of B
+ok 1317 - public.api_keys delete: anon
+ok 1318 - public.api_keys delete: dual member (doctor A, receptionist B), header A
+ok 1319 - public.api_keys delete: dual member, header B
+ok 1320 - public.api_keys delete: dual member, no header
+ok 1321 - public.api_key_usage_daily select: owner of A
+ok 1322 - public.api_key_usage_daily select: admin of A
+ok 1323 - public.api_key_usage_daily select: doctor of A
+ok 1324 - public.api_key_usage_daily select: second doctor of A
+ok 1325 - public.api_key_usage_daily select: nurse of A
+ok 1326 - public.api_key_usage_daily select: receptionist of A
+ok 1327 - public.api_key_usage_daily select: owner of B
+ok 1328 - public.api_key_usage_daily select: anon
+ok 1329 - public.api_key_usage_daily select: dual member (doctor A, receptionist B), header A
+ok 1330 - public.api_key_usage_daily select: dual member, header B
+ok 1331 - public.api_key_usage_daily select: dual member, no header
+ok 1332 - public.api_key_usage_daily insert: owner of A
+ok 1333 - public.api_key_usage_daily insert: admin of A
+ok 1334 - public.api_key_usage_daily insert: doctor of A
+ok 1335 - public.api_key_usage_daily insert: second doctor of A
+ok 1336 - public.api_key_usage_daily insert: nurse of A
+ok 1337 - public.api_key_usage_daily insert: receptionist of A
+ok 1338 - public.api_key_usage_daily insert: owner of B
+ok 1339 - public.api_key_usage_daily insert: anon
+ok 1340 - public.api_key_usage_daily insert: dual member (doctor A, receptionist B), header A
+ok 1341 - public.api_key_usage_daily insert: dual member, header B
+ok 1342 - public.api_key_usage_daily insert: dual member, no header
+ok 1343 - public.api_key_usage_daily update: owner of A
+ok 1344 - public.api_key_usage_daily update: admin of A
+ok 1345 - public.api_key_usage_daily update: doctor of A
+ok 1346 - public.api_key_usage_daily update: second doctor of A
+ok 1347 - public.api_key_usage_daily update: nurse of A
+ok 1348 - public.api_key_usage_daily update: receptionist of A
+ok 1349 - public.api_key_usage_daily update: owner of B
+ok 1350 - public.api_key_usage_daily update: anon
+ok 1351 - public.api_key_usage_daily update: dual member (doctor A, receptionist B), header A
+ok 1352 - public.api_key_usage_daily update: dual member, header B
+ok 1353 - public.api_key_usage_daily update: dual member, no header
+ok 1354 - public.api_key_usage_daily delete: owner of A
+ok 1355 - public.api_key_usage_daily delete: admin of A
+ok 1356 - public.api_key_usage_daily delete: doctor of A
+ok 1357 - public.api_key_usage_daily delete: second doctor of A
+ok 1358 - public.api_key_usage_daily delete: nurse of A
+ok 1359 - public.api_key_usage_daily delete: receptionist of A
+ok 1360 - public.api_key_usage_daily delete: owner of B
+ok 1361 - public.api_key_usage_daily delete: anon
+ok 1362 - public.api_key_usage_daily delete: dual member (doctor A, receptionist B), header A
+ok 1363 - public.api_key_usage_daily delete: dual member, header B
+ok 1364 - public.api_key_usage_daily delete: dual member, no header
+ok 1365 - public.webhook_subscriptions select: owner of A
+ok 1366 - public.webhook_subscriptions select: admin of A
+ok 1367 - public.webhook_subscriptions select: doctor of A
+ok 1368 - public.webhook_subscriptions select: second doctor of A
+ok 1369 - public.webhook_subscriptions select: nurse of A
+ok 1370 - public.webhook_subscriptions select: receptionist of A
+ok 1371 - public.webhook_subscriptions select: owner of B
+ok 1372 - public.webhook_subscriptions select: anon
+ok 1373 - public.webhook_subscriptions select: dual member (doctor A, receptionist B), header A
+ok 1374 - public.webhook_subscriptions select: dual member, header B
+ok 1375 - public.webhook_subscriptions select: dual member, no header
+ok 1376 - public.webhook_subscriptions insert: owner of A
+ok 1377 - public.webhook_subscriptions insert: admin of A
+ok 1378 - public.webhook_subscriptions insert: doctor of A
+ok 1379 - public.webhook_subscriptions insert: second doctor of A
+ok 1380 - public.webhook_subscriptions insert: nurse of A
+ok 1381 - public.webhook_subscriptions insert: receptionist of A
+ok 1382 - public.webhook_subscriptions insert: owner of B
+ok 1383 - public.webhook_subscriptions insert: anon
+ok 1384 - public.webhook_subscriptions insert: dual member (doctor A, receptionist B), header A
+ok 1385 - public.webhook_subscriptions insert: dual member, header B
+ok 1386 - public.webhook_subscriptions insert: dual member, no header
+ok 1387 - public.webhook_subscriptions update: owner of A
+ok 1388 - public.webhook_subscriptions update: admin of A
+ok 1389 - public.webhook_subscriptions update: doctor of A
+ok 1390 - public.webhook_subscriptions update: second doctor of A
+ok 1391 - public.webhook_subscriptions update: nurse of A
+ok 1392 - public.webhook_subscriptions update: receptionist of A
+ok 1393 - public.webhook_subscriptions update: owner of B
+ok 1394 - public.webhook_subscriptions update: anon
+ok 1395 - public.webhook_subscriptions update: dual member (doctor A, receptionist B), header A
+ok 1396 - public.webhook_subscriptions update: dual member, header B
+ok 1397 - public.webhook_subscriptions update: dual member, no header
+ok 1398 - public.webhook_subscriptions delete: owner of A
+ok 1399 - public.webhook_subscriptions delete: admin of A
+ok 1400 - public.webhook_subscriptions delete: doctor of A
+ok 1401 - public.webhook_subscriptions delete: second doctor of A
+ok 1402 - public.webhook_subscriptions delete: nurse of A
+ok 1403 - public.webhook_subscriptions delete: receptionist of A
+ok 1404 - public.webhook_subscriptions delete: owner of B
+ok 1405 - public.webhook_subscriptions delete: anon
+ok 1406 - public.webhook_subscriptions delete: dual member (doctor A, receptionist B), header A
+ok 1407 - public.webhook_subscriptions delete: dual member, header B
+ok 1408 - public.webhook_subscriptions delete: dual member, no header
+ok 1409 - public.webhook_delivery_queue select: owner of A
+ok 1410 - public.webhook_delivery_queue select: admin of A
+ok 1411 - public.webhook_delivery_queue select: doctor of A
+ok 1412 - public.webhook_delivery_queue select: second doctor of A
+ok 1413 - public.webhook_delivery_queue select: nurse of A
+ok 1414 - public.webhook_delivery_queue select: receptionist of A
+ok 1415 - public.webhook_delivery_queue select: owner of B
+ok 1416 - public.webhook_delivery_queue select: anon
+ok 1417 - public.webhook_delivery_queue select: dual member (doctor A, receptionist B), header A
+ok 1418 - public.webhook_delivery_queue select: dual member, header B
+ok 1419 - public.webhook_delivery_queue select: dual member, no header
+ok 1420 - public.webhook_delivery_queue insert: owner of A
+ok 1421 - public.webhook_delivery_queue insert: admin of A
+ok 1422 - public.webhook_delivery_queue insert: doctor of A
+ok 1423 - public.webhook_delivery_queue insert: second doctor of A
+ok 1424 - public.webhook_delivery_queue insert: nurse of A
+ok 1425 - public.webhook_delivery_queue insert: receptionist of A
+ok 1426 - public.webhook_delivery_queue insert: owner of B
+ok 1427 - public.webhook_delivery_queue insert: anon
+ok 1428 - public.webhook_delivery_queue insert: dual member (doctor A, receptionist B), header A
+ok 1429 - public.webhook_delivery_queue insert: dual member, header B
+ok 1430 - public.webhook_delivery_queue insert: dual member, no header
+ok 1431 - public.webhook_delivery_queue update: owner of A
+ok 1432 - public.webhook_delivery_queue update: admin of A
+ok 1433 - public.webhook_delivery_queue update: doctor of A
+ok 1434 - public.webhook_delivery_queue update: second doctor of A
+ok 1435 - public.webhook_delivery_queue update: nurse of A
+ok 1436 - public.webhook_delivery_queue update: receptionist of A
+ok 1437 - public.webhook_delivery_queue update: owner of B
+ok 1438 - public.webhook_delivery_queue update: anon
+ok 1439 - public.webhook_delivery_queue update: dual member (doctor A, receptionist B), header A
+ok 1440 - public.webhook_delivery_queue update: dual member, header B
+ok 1441 - public.webhook_delivery_queue update: dual member, no header
+ok 1442 - public.webhook_delivery_queue delete: owner of A
+ok 1443 - public.webhook_delivery_queue delete: admin of A
+ok 1444 - public.webhook_delivery_queue delete: doctor of A
+ok 1445 - public.webhook_delivery_queue delete: second doctor of A
+ok 1446 - public.webhook_delivery_queue delete: nurse of A
+ok 1447 - public.webhook_delivery_queue delete: receptionist of A
+ok 1448 - public.webhook_delivery_queue delete: owner of B
+ok 1449 - public.webhook_delivery_queue delete: anon
+ok 1450 - public.webhook_delivery_queue delete: dual member (doctor A, receptionist B), header A
+ok 1451 - public.webhook_delivery_queue delete: dual member, header B
+ok 1452 - public.webhook_delivery_queue delete: dual member, no header
+ok 1453 - public.subscriptions select: owner of A
+ok 1454 - public.subscriptions select: admin of A
+ok 1455 - public.subscriptions select: doctor of A
+ok 1456 - public.subscriptions select: second doctor of A
+ok 1457 - public.subscriptions select: nurse of A
+ok 1458 - public.subscriptions select: receptionist of A
+ok 1459 - public.subscriptions select: owner of B
+ok 1460 - public.subscriptions select: anon
+ok 1461 - public.subscriptions select: dual member (doctor A, receptionist B), header A
+ok 1462 - public.subscriptions select: dual member, header B
+ok 1463 - public.subscriptions select: dual member, no header
+ok 1464 - public.subscriptions insert: owner of A
+ok 1465 - public.subscriptions insert: admin of A
+ok 1466 - public.subscriptions insert: doctor of A
+ok 1467 - public.subscriptions insert: second doctor of A
+ok 1468 - public.subscriptions insert: nurse of A
+ok 1469 - public.subscriptions insert: receptionist of A
+ok 1470 - public.subscriptions insert: owner of B
+ok 1471 - public.subscriptions insert: anon
+ok 1472 - public.subscriptions insert: dual member (doctor A, receptionist B), header A
+ok 1473 - public.subscriptions insert: dual member, header B
+ok 1474 - public.subscriptions insert: dual member, no header
+ok 1475 - public.subscriptions update: owner of A
+ok 1476 - public.subscriptions update: admin of A
+ok 1477 - public.subscriptions update: doctor of A
+ok 1478 - public.subscriptions update: second doctor of A
+ok 1479 - public.subscriptions update: nurse of A
+ok 1480 - public.subscriptions update: receptionist of A
+ok 1481 - public.subscriptions update: owner of B
+ok 1482 - public.subscriptions update: anon
+ok 1483 - public.subscriptions update: dual member (doctor A, receptionist B), header A
+ok 1484 - public.subscriptions update: dual member, header B
+ok 1485 - public.subscriptions update: dual member, no header
+ok 1486 - public.subscriptions delete: owner of A
+ok 1487 - public.subscriptions delete: admin of A
+ok 1488 - public.subscriptions delete: doctor of A
+ok 1489 - public.subscriptions delete: second doctor of A
+ok 1490 - public.subscriptions delete: nurse of A
+ok 1491 - public.subscriptions delete: receptionist of A
+ok 1492 - public.subscriptions delete: owner of B
+ok 1493 - public.subscriptions delete: anon
+ok 1494 - public.subscriptions delete: dual member (doctor A, receptionist B), header A
+ok 1495 - public.subscriptions delete: dual member, header B
+ok 1496 - public.subscriptions delete: dual member, no header
+ok 1497 - public.payment_records select: owner of A
+ok 1498 - public.payment_records select: admin of A
+ok 1499 - public.payment_records select: doctor of A
+ok 1500 - public.payment_records select: second doctor of A
+ok 1501 - public.payment_records select: nurse of A
+ok 1502 - public.payment_records select: receptionist of A
+ok 1503 - public.payment_records select: owner of B
+ok 1504 - public.payment_records select: anon
+ok 1505 - public.payment_records select: dual member (doctor A, receptionist B), header A
+ok 1506 - public.payment_records select: dual member, header B
+ok 1507 - public.payment_records select: dual member, no header
+ok 1508 - public.payment_records insert: owner of A
+ok 1509 - public.payment_records insert: admin of A
+ok 1510 - public.payment_records insert: doctor of A
+ok 1511 - public.payment_records insert: second doctor of A
+ok 1512 - public.payment_records insert: nurse of A
+ok 1513 - public.payment_records insert: receptionist of A
+ok 1514 - public.payment_records insert: owner of B
+ok 1515 - public.payment_records insert: anon
+ok 1516 - public.payment_records insert: dual member (doctor A, receptionist B), header A
+ok 1517 - public.payment_records insert: dual member, header B
+ok 1518 - public.payment_records insert: dual member, no header
+ok 1519 - public.payment_records update: owner of A
+ok 1520 - public.payment_records update: admin of A
+ok 1521 - public.payment_records update: doctor of A
+ok 1522 - public.payment_records update: second doctor of A
+ok 1523 - public.payment_records update: nurse of A
+ok 1524 - public.payment_records update: receptionist of A
+ok 1525 - public.payment_records update: owner of B
+ok 1526 - public.payment_records update: anon
+ok 1527 - public.payment_records update: dual member (doctor A, receptionist B), header A
+ok 1528 - public.payment_records update: dual member, header B
+ok 1529 - public.payment_records update: dual member, no header
+ok 1530 - public.payment_records delete: owner of A
+ok 1531 - public.payment_records delete: admin of A
+ok 1532 - public.payment_records delete: doctor of A
+ok 1533 - public.payment_records delete: second doctor of A
+ok 1534 - public.payment_records delete: nurse of A
+ok 1535 - public.payment_records delete: receptionist of A
+ok 1536 - public.payment_records delete: owner of B
+ok 1537 - public.payment_records delete: anon
+ok 1538 - public.payment_records delete: dual member (doctor A, receptionist B), header A
+ok 1539 - public.payment_records delete: dual member, header B
+ok 1540 - public.payment_records delete: dual member, no header
+ok 1541 - public.cdci_brands select: owner of A
+ok 1542 - public.cdci_brands select: admin of A
+ok 1543 - public.cdci_brands select: doctor of A
+ok 1544 - public.cdci_brands select: second doctor of A
+ok 1545 - public.cdci_brands select: nurse of A
+ok 1546 - public.cdci_brands select: receptionist of A
+ok 1547 - public.cdci_brands select: owner of B
+ok 1548 - public.cdci_brands select: anon
+ok 1549 - public.cdci_brands select: dual member (doctor A, receptionist B), header A
+ok 1550 - public.cdci_brands select: dual member, header B
+ok 1551 - public.cdci_brands select: dual member, no header
+ok 1552 - public.cdci_brands insert: owner of A
+ok 1553 - public.cdci_brands insert: admin of A
+ok 1554 - public.cdci_brands insert: doctor of A
+ok 1555 - public.cdci_brands insert: second doctor of A
+ok 1556 - public.cdci_brands insert: nurse of A
+ok 1557 - public.cdci_brands insert: receptionist of A
+ok 1558 - public.cdci_brands insert: owner of B
+ok 1559 - public.cdci_brands insert: anon
+ok 1560 - public.cdci_brands insert: dual member (doctor A, receptionist B), header A
+ok 1561 - public.cdci_brands insert: dual member, header B
+ok 1562 - public.cdci_brands insert: dual member, no header
+ok 1563 - public.cdci_brands update: owner of A
+ok 1564 - public.cdci_brands update: admin of A
+ok 1565 - public.cdci_brands update: doctor of A
+ok 1566 - public.cdci_brands update: second doctor of A
+ok 1567 - public.cdci_brands update: nurse of A
+ok 1568 - public.cdci_brands update: receptionist of A
+ok 1569 - public.cdci_brands update: owner of B
+ok 1570 - public.cdci_brands update: anon
+ok 1571 - public.cdci_brands update: dual member (doctor A, receptionist B), header A
+ok 1572 - public.cdci_brands update: dual member, header B
+ok 1573 - public.cdci_brands update: dual member, no header
+ok 1574 - public.cdci_brands delete: owner of A
+ok 1575 - public.cdci_brands delete: admin of A
+ok 1576 - public.cdci_brands delete: doctor of A
+ok 1577 - public.cdci_brands delete: second doctor of A
+ok 1578 - public.cdci_brands delete: nurse of A
+ok 1579 - public.cdci_brands delete: receptionist of A
+ok 1580 - public.cdci_brands delete: owner of B
+ok 1581 - public.cdci_brands delete: anon
+ok 1582 - public.cdci_brands delete: dual member (doctor A, receptionist B), header A
+ok 1583 - public.cdci_brands delete: dual member, header B
+ok 1584 - public.cdci_brands delete: dual member, no header
+ok 1585 - public.cdci_drug_forms select: owner of A
+ok 1586 - public.cdci_drug_forms select: admin of A
+ok 1587 - public.cdci_drug_forms select: doctor of A
+ok 1588 - public.cdci_drug_forms select: second doctor of A
+ok 1589 - public.cdci_drug_forms select: nurse of A
+ok 1590 - public.cdci_drug_forms select: receptionist of A
+ok 1591 - public.cdci_drug_forms select: owner of B
+ok 1592 - public.cdci_drug_forms select: anon
+ok 1593 - public.cdci_drug_forms select: dual member (doctor A, receptionist B), header A
+ok 1594 - public.cdci_drug_forms select: dual member, header B
+ok 1595 - public.cdci_drug_forms select: dual member, no header
+ok 1596 - public.cdci_drug_forms insert: owner of A
+ok 1597 - public.cdci_drug_forms insert: admin of A
+ok 1598 - public.cdci_drug_forms insert: doctor of A
+ok 1599 - public.cdci_drug_forms insert: second doctor of A
+ok 1600 - public.cdci_drug_forms insert: nurse of A
+ok 1601 - public.cdci_drug_forms insert: receptionist of A
+ok 1602 - public.cdci_drug_forms insert: owner of B
+ok 1603 - public.cdci_drug_forms insert: anon
+ok 1604 - public.cdci_drug_forms insert: dual member (doctor A, receptionist B), header A
+ok 1605 - public.cdci_drug_forms insert: dual member, header B
+ok 1606 - public.cdci_drug_forms insert: dual member, no header
+ok 1607 - public.cdci_drug_forms update: owner of A
+ok 1608 - public.cdci_drug_forms update: admin of A
+ok 1609 - public.cdci_drug_forms update: doctor of A
+ok 1610 - public.cdci_drug_forms update: second doctor of A
+ok 1611 - public.cdci_drug_forms update: nurse of A
+ok 1612 - public.cdci_drug_forms update: receptionist of A
+ok 1613 - public.cdci_drug_forms update: owner of B
+ok 1614 - public.cdci_drug_forms update: anon
+ok 1615 - public.cdci_drug_forms update: dual member (doctor A, receptionist B), header A
+ok 1616 - public.cdci_drug_forms update: dual member, header B
+ok 1617 - public.cdci_drug_forms update: dual member, no header
+ok 1618 - public.cdci_drug_forms delete: owner of A
+ok 1619 - public.cdci_drug_forms delete: admin of A
+ok 1620 - public.cdci_drug_forms delete: doctor of A
+ok 1621 - public.cdci_drug_forms delete: second doctor of A
+ok 1622 - public.cdci_drug_forms delete: nurse of A
+ok 1623 - public.cdci_drug_forms delete: receptionist of A
+ok 1624 - public.cdci_drug_forms delete: owner of B
+ok 1625 - public.cdci_drug_forms delete: anon
+ok 1626 - public.cdci_drug_forms delete: dual member (doctor A, receptionist B), header A
+ok 1627 - public.cdci_drug_forms delete: dual member, header B
+ok 1628 - public.cdci_drug_forms delete: dual member, no header
+ok 1629 - public.cdci_generics select: owner of A
+ok 1630 - public.cdci_generics select: admin of A
+ok 1631 - public.cdci_generics select: doctor of A
+ok 1632 - public.cdci_generics select: second doctor of A
+ok 1633 - public.cdci_generics select: nurse of A
+ok 1634 - public.cdci_generics select: receptionist of A
+ok 1635 - public.cdci_generics select: owner of B
+ok 1636 - public.cdci_generics select: anon
+ok 1637 - public.cdci_generics select: dual member (doctor A, receptionist B), header A
+ok 1638 - public.cdci_generics select: dual member, header B
+ok 1639 - public.cdci_generics select: dual member, no header
+ok 1640 - public.cdci_generics insert: owner of A
+ok 1641 - public.cdci_generics insert: admin of A
+ok 1642 - public.cdci_generics insert: doctor of A
+ok 1643 - public.cdci_generics insert: second doctor of A
+ok 1644 - public.cdci_generics insert: nurse of A
+ok 1645 - public.cdci_generics insert: receptionist of A
+ok 1646 - public.cdci_generics insert: owner of B
+ok 1647 - public.cdci_generics insert: anon
+ok 1648 - public.cdci_generics insert: dual member (doctor A, receptionist B), header A
+ok 1649 - public.cdci_generics insert: dual member, header B
+ok 1650 - public.cdci_generics insert: dual member, no header
+ok 1651 - public.cdci_generics update: owner of A
+ok 1652 - public.cdci_generics update: admin of A
+ok 1653 - public.cdci_generics update: doctor of A
+ok 1654 - public.cdci_generics update: second doctor of A
+ok 1655 - public.cdci_generics update: nurse of A
+ok 1656 - public.cdci_generics update: receptionist of A
+ok 1657 - public.cdci_generics update: owner of B
+ok 1658 - public.cdci_generics update: anon
+ok 1659 - public.cdci_generics update: dual member (doctor A, receptionist B), header A
+ok 1660 - public.cdci_generics update: dual member, header B
+ok 1661 - public.cdci_generics update: dual member, no header
+ok 1662 - public.cdci_generics delete: owner of A
+ok 1663 - public.cdci_generics delete: admin of A
+ok 1664 - public.cdci_generics delete: doctor of A
+ok 1665 - public.cdci_generics delete: second doctor of A
+ok 1666 - public.cdci_generics delete: nurse of A
+ok 1667 - public.cdci_generics delete: receptionist of A
+ok 1668 - public.cdci_generics delete: owner of B
+ok 1669 - public.cdci_generics delete: anon
+ok 1670 - public.cdci_generics delete: dual member (doctor A, receptionist B), header A
+ok 1671 - public.cdci_generics delete: dual member, header B
+ok 1672 - public.cdci_generics delete: dual member, no header
+ok 1673 - public.cdci_medicines_search select: owner of A
+ok 1674 - public.cdci_medicines_search select: admin of A
+ok 1675 - public.cdci_medicines_search select: doctor of A
+ok 1676 - public.cdci_medicines_search select: second doctor of A
+ok 1677 - public.cdci_medicines_search select: nurse of A
+ok 1678 - public.cdci_medicines_search select: receptionist of A
+ok 1679 - public.cdci_medicines_search select: owner of B
+ok 1680 - public.cdci_medicines_search select: anon
+ok 1681 - public.cdci_medicines_search select: dual member (doctor A, receptionist B), header A
+ok 1682 - public.cdci_medicines_search select: dual member, header B
+ok 1683 - public.cdci_medicines_search select: dual member, no header
+ok 1684 - public.cdci_medicines_search insert: owner of A
+ok 1685 - public.cdci_medicines_search insert: admin of A
+ok 1686 - public.cdci_medicines_search insert: doctor of A
+ok 1687 - public.cdci_medicines_search insert: second doctor of A
+ok 1688 - public.cdci_medicines_search insert: nurse of A
+ok 1689 - public.cdci_medicines_search insert: receptionist of A
+ok 1690 - public.cdci_medicines_search insert: owner of B
+ok 1691 - public.cdci_medicines_search insert: anon
+ok 1692 - public.cdci_medicines_search insert: dual member (doctor A, receptionist B), header A
+ok 1693 - public.cdci_medicines_search insert: dual member, header B
+ok 1694 - public.cdci_medicines_search insert: dual member, no header
+ok 1695 - public.cdci_medicines_search update: owner of A
+ok 1696 - public.cdci_medicines_search update: admin of A
+ok 1697 - public.cdci_medicines_search update: doctor of A
+ok 1698 - public.cdci_medicines_search update: second doctor of A
+ok 1699 - public.cdci_medicines_search update: nurse of A
+ok 1700 - public.cdci_medicines_search update: receptionist of A
+ok 1701 - public.cdci_medicines_search update: owner of B
+ok 1702 - public.cdci_medicines_search update: anon
+ok 1703 - public.cdci_medicines_search update: dual member (doctor A, receptionist B), header A
+ok 1704 - public.cdci_medicines_search update: dual member, header B
+ok 1705 - public.cdci_medicines_search update: dual member, no header
+ok 1706 - public.cdci_medicines_search delete: owner of A
+ok 1707 - public.cdci_medicines_search delete: admin of A
+ok 1708 - public.cdci_medicines_search delete: doctor of A
+ok 1709 - public.cdci_medicines_search delete: second doctor of A
+ok 1710 - public.cdci_medicines_search delete: nurse of A
+ok 1711 - public.cdci_medicines_search delete: receptionist of A
+ok 1712 - public.cdci_medicines_search delete: owner of B
+ok 1713 - public.cdci_medicines_search delete: anon
+ok 1714 - public.cdci_medicines_search delete: dual member (doctor A, receptionist B), header A
+ok 1715 - public.cdci_medicines_search delete: dual member, header B
+ok 1716 - public.cdci_medicines_search delete: dual member, no header
+ok 1717 - public.cdci_products select: owner of A
+ok 1718 - public.cdci_products select: admin of A
+ok 1719 - public.cdci_products select: doctor of A
+ok 1720 - public.cdci_products select: second doctor of A
+ok 1721 - public.cdci_products select: nurse of A
+ok 1722 - public.cdci_products select: receptionist of A
+ok 1723 - public.cdci_products select: owner of B
+ok 1724 - public.cdci_products select: anon
+ok 1725 - public.cdci_products select: dual member (doctor A, receptionist B), header A
+ok 1726 - public.cdci_products select: dual member, header B
+ok 1727 - public.cdci_products select: dual member, no header
+ok 1728 - public.cdci_products insert: owner of A
+ok 1729 - public.cdci_products insert: admin of A
+ok 1730 - public.cdci_products insert: doctor of A
+ok 1731 - public.cdci_products insert: second doctor of A
+ok 1732 - public.cdci_products insert: nurse of A
+ok 1733 - public.cdci_products insert: receptionist of A
+ok 1734 - public.cdci_products insert: owner of B
+ok 1735 - public.cdci_products insert: anon
+ok 1736 - public.cdci_products insert: dual member (doctor A, receptionist B), header A
+ok 1737 - public.cdci_products insert: dual member, header B
+ok 1738 - public.cdci_products insert: dual member, no header
+ok 1739 - public.cdci_products update: owner of A
+ok 1740 - public.cdci_products update: admin of A
+ok 1741 - public.cdci_products update: doctor of A
+ok 1742 - public.cdci_products update: second doctor of A
+ok 1743 - public.cdci_products update: nurse of A
+ok 1744 - public.cdci_products update: receptionist of A
+ok 1745 - public.cdci_products update: owner of B
+ok 1746 - public.cdci_products update: anon
+ok 1747 - public.cdci_products update: dual member (doctor A, receptionist B), header A
+ok 1748 - public.cdci_products update: dual member, header B
+ok 1749 - public.cdci_products update: dual member, no header
+ok 1750 - public.cdci_products delete: owner of A
+ok 1751 - public.cdci_products delete: admin of A
+ok 1752 - public.cdci_products delete: doctor of A
+ok 1753 - public.cdci_products delete: second doctor of A
+ok 1754 - public.cdci_products delete: nurse of A
+ok 1755 - public.cdci_products delete: receptionist of A
+ok 1756 - public.cdci_products delete: owner of B
+ok 1757 - public.cdci_products delete: anon
+ok 1758 - public.cdci_products delete: dual member (doctor A, receptionist B), header A
+ok 1759 - public.cdci_products delete: dual member, header B
+ok 1760 - public.cdci_products delete: dual member, no header
+ok 1761 - public.cdci_routes select: owner of A
+ok 1762 - public.cdci_routes select: admin of A
+ok 1763 - public.cdci_routes select: doctor of A
+ok 1764 - public.cdci_routes select: second doctor of A
+ok 1765 - public.cdci_routes select: nurse of A
+ok 1766 - public.cdci_routes select: receptionist of A
+ok 1767 - public.cdci_routes select: owner of B
+ok 1768 - public.cdci_routes select: anon
+ok 1769 - public.cdci_routes select: dual member (doctor A, receptionist B), header A
+ok 1770 - public.cdci_routes select: dual member, header B
+ok 1771 - public.cdci_routes select: dual member, no header
+ok 1772 - public.cdci_routes insert: owner of A
+ok 1773 - public.cdci_routes insert: admin of A
+ok 1774 - public.cdci_routes insert: doctor of A
+ok 1775 - public.cdci_routes insert: second doctor of A
+ok 1776 - public.cdci_routes insert: nurse of A
+ok 1777 - public.cdci_routes insert: receptionist of A
+ok 1778 - public.cdci_routes insert: owner of B
+ok 1779 - public.cdci_routes insert: anon
+ok 1780 - public.cdci_routes insert: dual member (doctor A, receptionist B), header A
+ok 1781 - public.cdci_routes insert: dual member, header B
+ok 1782 - public.cdci_routes insert: dual member, no header
+ok 1783 - public.cdci_routes update: owner of A
+ok 1784 - public.cdci_routes update: admin of A
+ok 1785 - public.cdci_routes update: doctor of A
+ok 1786 - public.cdci_routes update: second doctor of A
+ok 1787 - public.cdci_routes update: nurse of A
+ok 1788 - public.cdci_routes update: receptionist of A
+ok 1789 - public.cdci_routes update: owner of B
+ok 1790 - public.cdci_routes update: anon
+ok 1791 - public.cdci_routes update: dual member (doctor A, receptionist B), header A
+ok 1792 - public.cdci_routes update: dual member, header B
+ok 1793 - public.cdci_routes update: dual member, no header
+ok 1794 - public.cdci_routes delete: owner of A
+ok 1795 - public.cdci_routes delete: admin of A
+ok 1796 - public.cdci_routes delete: doctor of A
+ok 1797 - public.cdci_routes delete: second doctor of A
+ok 1798 - public.cdci_routes delete: nurse of A
+ok 1799 - public.cdci_routes delete: receptionist of A
+ok 1800 - public.cdci_routes delete: owner of B
+ok 1801 - public.cdci_routes delete: anon
+ok 1802 - public.cdci_routes delete: dual member (doctor A, receptionist B), header A
+ok 1803 - public.cdci_routes delete: dual member, header B
+ok 1804 - public.cdci_routes delete: dual member, no header
+ok 1805 - public.cdci_substances select: owner of A
+ok 1806 - public.cdci_substances select: admin of A
+ok 1807 - public.cdci_substances select: doctor of A
+ok 1808 - public.cdci_substances select: second doctor of A
+ok 1809 - public.cdci_substances select: nurse of A
+ok 1810 - public.cdci_substances select: receptionist of A
+ok 1811 - public.cdci_substances select: owner of B
+ok 1812 - public.cdci_substances select: anon
+ok 1813 - public.cdci_substances select: dual member (doctor A, receptionist B), header A
+ok 1814 - public.cdci_substances select: dual member, header B
+ok 1815 - public.cdci_substances select: dual member, no header
+ok 1816 - public.cdci_substances insert: owner of A
+ok 1817 - public.cdci_substances insert: admin of A
+ok 1818 - public.cdci_substances insert: doctor of A
+ok 1819 - public.cdci_substances insert: second doctor of A
+ok 1820 - public.cdci_substances insert: nurse of A
+ok 1821 - public.cdci_substances insert: receptionist of A
+ok 1822 - public.cdci_substances insert: owner of B
+ok 1823 - public.cdci_substances insert: anon
+ok 1824 - public.cdci_substances insert: dual member (doctor A, receptionist B), header A
+ok 1825 - public.cdci_substances insert: dual member, header B
+ok 1826 - public.cdci_substances insert: dual member, no header
+ok 1827 - public.cdci_substances update: owner of A
+ok 1828 - public.cdci_substances update: admin of A
+ok 1829 - public.cdci_substances update: doctor of A
+ok 1830 - public.cdci_substances update: second doctor of A
+ok 1831 - public.cdci_substances update: nurse of A
+ok 1832 - public.cdci_substances update: receptionist of A
+ok 1833 - public.cdci_substances update: owner of B
+ok 1834 - public.cdci_substances update: anon
+ok 1835 - public.cdci_substances update: dual member (doctor A, receptionist B), header A
+ok 1836 - public.cdci_substances update: dual member, header B
+ok 1837 - public.cdci_substances update: dual member, no header
+ok 1838 - public.cdci_substances delete: owner of A
+ok 1839 - public.cdci_substances delete: admin of A
+ok 1840 - public.cdci_substances delete: doctor of A
+ok 1841 - public.cdci_substances delete: second doctor of A
+ok 1842 - public.cdci_substances delete: nurse of A
+ok 1843 - public.cdci_substances delete: receptionist of A
+ok 1844 - public.cdci_substances delete: owner of B
+ok 1845 - public.cdci_substances delete: anon
+ok 1846 - public.cdci_substances delete: dual member (doctor A, receptionist B), header A
+ok 1847 - public.cdci_substances delete: dual member, header B
+ok 1848 - public.cdci_substances delete: dual member, no header
+ok 1849 - public.cdci_suppliers select: owner of A
+ok 1850 - public.cdci_suppliers select: admin of A
+ok 1851 - public.cdci_suppliers select: doctor of A
+ok 1852 - public.cdci_suppliers select: second doctor of A
+ok 1853 - public.cdci_suppliers select: nurse of A
+ok 1854 - public.cdci_suppliers select: receptionist of A
+ok 1855 - public.cdci_suppliers select: owner of B
+ok 1856 - public.cdci_suppliers select: anon
+ok 1857 - public.cdci_suppliers select: dual member (doctor A, receptionist B), header A
+ok 1858 - public.cdci_suppliers select: dual member, header B
+ok 1859 - public.cdci_suppliers select: dual member, no header
+ok 1860 - public.cdci_suppliers insert: owner of A
+ok 1861 - public.cdci_suppliers insert: admin of A
+ok 1862 - public.cdci_suppliers insert: doctor of A
+ok 1863 - public.cdci_suppliers insert: second doctor of A
+ok 1864 - public.cdci_suppliers insert: nurse of A
+ok 1865 - public.cdci_suppliers insert: receptionist of A
+ok 1866 - public.cdci_suppliers insert: owner of B
+ok 1867 - public.cdci_suppliers insert: anon
+ok 1868 - public.cdci_suppliers insert: dual member (doctor A, receptionist B), header A
+ok 1869 - public.cdci_suppliers insert: dual member, header B
+ok 1870 - public.cdci_suppliers insert: dual member, no header
+ok 1871 - public.cdci_suppliers update: owner of A
+ok 1872 - public.cdci_suppliers update: admin of A
+ok 1873 - public.cdci_suppliers update: doctor of A
+ok 1874 - public.cdci_suppliers update: second doctor of A
+ok 1875 - public.cdci_suppliers update: nurse of A
+ok 1876 - public.cdci_suppliers update: receptionist of A
+ok 1877 - public.cdci_suppliers update: owner of B
+ok 1878 - public.cdci_suppliers update: anon
+ok 1879 - public.cdci_suppliers update: dual member (doctor A, receptionist B), header A
+ok 1880 - public.cdci_suppliers update: dual member, header B
+ok 1881 - public.cdci_suppliers update: dual member, no header
+ok 1882 - public.cdci_suppliers delete: owner of A
+ok 1883 - public.cdci_suppliers delete: admin of A
+ok 1884 - public.cdci_suppliers delete: doctor of A
+ok 1885 - public.cdci_suppliers delete: second doctor of A
+ok 1886 - public.cdci_suppliers delete: nurse of A
+ok 1887 - public.cdci_suppliers delete: receptionist of A
+ok 1888 - public.cdci_suppliers delete: owner of B
+ok 1889 - public.cdci_suppliers delete: anon
+ok 1890 - public.cdci_suppliers delete: dual member (doctor A, receptionist B), header A
+ok 1891 - public.cdci_suppliers delete: dual member, header B
+ok 1892 - public.cdci_suppliers delete: dual member, no header
+ok 1893 - public.opd_diagnoses select: owner of A
+ok 1894 - public.opd_diagnoses select: admin of A
+ok 1895 - public.opd_diagnoses select: doctor of A
+ok 1896 - public.opd_diagnoses select: second doctor of A
+ok 1897 - public.opd_diagnoses select: nurse of A
+ok 1898 - public.opd_diagnoses select: receptionist of A
+ok 1899 - public.opd_diagnoses select: owner of B
+ok 1900 - public.opd_diagnoses select: anon
+ok 1901 - public.opd_diagnoses select: dual member (doctor A, receptionist B), header A
+ok 1902 - public.opd_diagnoses select: dual member, header B
+ok 1903 - public.opd_diagnoses select: dual member, no header
+ok 1904 - public.opd_diagnoses insert: owner of A
+ok 1905 - public.opd_diagnoses insert: admin of A
+ok 1906 - public.opd_diagnoses insert: doctor of A
+ok 1907 - public.opd_diagnoses insert: second doctor of A
+ok 1908 - public.opd_diagnoses insert: nurse of A
+ok 1909 - public.opd_diagnoses insert: receptionist of A
+ok 1910 - public.opd_diagnoses insert: owner of B
+ok 1911 - public.opd_diagnoses insert: anon
+ok 1912 - public.opd_diagnoses insert: dual member (doctor A, receptionist B), header A
+ok 1913 - public.opd_diagnoses insert: dual member, header B
+ok 1914 - public.opd_diagnoses insert: dual member, no header
+ok 1915 - public.opd_diagnoses update: owner of A
+ok 1916 - public.opd_diagnoses update: admin of A
+ok 1917 - public.opd_diagnoses update: doctor of A
+ok 1918 - public.opd_diagnoses update: second doctor of A
+ok 1919 - public.opd_diagnoses update: nurse of A
+ok 1920 - public.opd_diagnoses update: receptionist of A
+ok 1921 - public.opd_diagnoses update: owner of B
+ok 1922 - public.opd_diagnoses update: anon
+ok 1923 - public.opd_diagnoses update: dual member (doctor A, receptionist B), header A
+ok 1924 - public.opd_diagnoses update: dual member, header B
+ok 1925 - public.opd_diagnoses update: dual member, no header
+ok 1926 - public.opd_diagnoses delete: owner of A
+ok 1927 - public.opd_diagnoses delete: admin of A
+ok 1928 - public.opd_diagnoses delete: doctor of A
+ok 1929 - public.opd_diagnoses delete: second doctor of A
+ok 1930 - public.opd_diagnoses delete: nurse of A
+ok 1931 - public.opd_diagnoses delete: receptionist of A
+ok 1932 - public.opd_diagnoses delete: owner of B
+ok 1933 - public.opd_diagnoses delete: anon
+ok 1934 - public.opd_diagnoses delete: dual member (doctor A, receptionist B), header A
+ok 1935 - public.opd_diagnoses delete: dual member, header B
+ok 1936 - public.opd_diagnoses delete: dual member, no header
+ok 1937 - ops.jobs select: owner of A
+ok 1938 - ops.jobs select: admin of A
+ok 1939 - ops.jobs select: doctor of A
+ok 1940 - ops.jobs select: second doctor of A
+ok 1941 - ops.jobs select: nurse of A
+ok 1942 - ops.jobs select: receptionist of A
+ok 1943 - ops.jobs select: owner of B
+ok 1944 - ops.jobs select: anon
+ok 1945 - ops.jobs select: dual member (doctor A, receptionist B), header A
+ok 1946 - ops.jobs select: dual member, header B
+ok 1947 - ops.jobs select: dual member, no header
+ok 1948 - ops.jobs insert: owner of A
+ok 1949 - ops.jobs insert: admin of A
+ok 1950 - ops.jobs insert: doctor of A
+ok 1951 - ops.jobs insert: second doctor of A
+ok 1952 - ops.jobs insert: nurse of A
+ok 1953 - ops.jobs insert: receptionist of A
+ok 1954 - ops.jobs insert: owner of B
+ok 1955 - ops.jobs insert: anon
+ok 1956 - ops.jobs insert: dual member (doctor A, receptionist B), header A
+ok 1957 - ops.jobs insert: dual member, header B
+ok 1958 - ops.jobs insert: dual member, no header
+ok 1959 - ops.jobs update: owner of A
+ok 1960 - ops.jobs update: admin of A
+ok 1961 - ops.jobs update: doctor of A
+ok 1962 - ops.jobs update: second doctor of A
+ok 1963 - ops.jobs update: nurse of A
+ok 1964 - ops.jobs update: receptionist of A
+ok 1965 - ops.jobs update: owner of B
+ok 1966 - ops.jobs update: anon
+ok 1967 - ops.jobs update: dual member (doctor A, receptionist B), header A
+ok 1968 - ops.jobs update: dual member, header B
+ok 1969 - ops.jobs update: dual member, no header
+ok 1970 - ops.jobs delete: owner of A
+ok 1971 - ops.jobs delete: admin of A
+ok 1972 - ops.jobs delete: doctor of A
+ok 1973 - ops.jobs delete: second doctor of A
+ok 1974 - ops.jobs delete: nurse of A
+ok 1975 - ops.jobs delete: receptionist of A
+ok 1976 - ops.jobs delete: owner of B
+ok 1977 - ops.jobs delete: anon
+ok 1978 - ops.jobs delete: dual member (doctor A, receptionist B), header A
+ok 1979 - ops.jobs delete: dual member, header B
+ok 1980 - ops.jobs delete: dual member, no header
+ok 1981 - ops.error_events select: owner of A
+ok 1982 - ops.error_events select: admin of A
+ok 1983 - ops.error_events select: doctor of A
+ok 1984 - ops.error_events select: second doctor of A
+ok 1985 - ops.error_events select: nurse of A
+ok 1986 - ops.error_events select: receptionist of A
+ok 1987 - ops.error_events select: owner of B
+ok 1988 - ops.error_events select: anon
+ok 1989 - ops.error_events select: dual member (doctor A, receptionist B), header A
+ok 1990 - ops.error_events select: dual member, header B
+ok 1991 - ops.error_events select: dual member, no header
+ok 1992 - ops.error_events insert: owner of A
+ok 1993 - ops.error_events insert: admin of A
+ok 1994 - ops.error_events insert: doctor of A
+ok 1995 - ops.error_events insert: second doctor of A
+ok 1996 - ops.error_events insert: nurse of A
+ok 1997 - ops.error_events insert: receptionist of A
+ok 1998 - ops.error_events insert: owner of B
+ok 1999 - ops.error_events insert: anon
+ok 2000 - ops.error_events insert: dual member (doctor A, receptionist B), header A
+ok 2001 - ops.error_events insert: dual member, header B
+ok 2002 - ops.error_events insert: dual member, no header
+ok 2003 - ops.error_events update: owner of A
+ok 2004 - ops.error_events update: admin of A
+ok 2005 - ops.error_events update: doctor of A
+ok 2006 - ops.error_events update: second doctor of A
+ok 2007 - ops.error_events update: nurse of A
+ok 2008 - ops.error_events update: receptionist of A
+ok 2009 - ops.error_events update: owner of B
+ok 2010 - ops.error_events update: anon
+ok 2011 - ops.error_events update: dual member (doctor A, receptionist B), header A
+ok 2012 - ops.error_events update: dual member, header B
+ok 2013 - ops.error_events update: dual member, no header
+ok 2014 - ops.error_events delete: owner of A
+ok 2015 - ops.error_events delete: admin of A
+ok 2016 - ops.error_events delete: doctor of A
+ok 2017 - ops.error_events delete: second doctor of A
+ok 2018 - ops.error_events delete: nurse of A
+ok 2019 - ops.error_events delete: receptionist of A
+ok 2020 - ops.error_events delete: owner of B
+ok 2021 - ops.error_events delete: anon
+ok 2022 - ops.error_events delete: dual member (doctor A, receptionist B), header A
+ok 2023 - ops.error_events delete: dual member, header B
+ok 2024 - ops.error_events delete: dual member, no header
+ok 2025 - storage:prescriptions/rx select: owner of A
+ok 2026 - storage:prescriptions/rx select: admin of A
+ok 2027 - storage:prescriptions/rx select: doctor of A
+ok 2028 - storage:prescriptions/rx select: second doctor of A
+ok 2029 - storage:prescriptions/rx select: nurse of A
+ok 2030 - storage:prescriptions/rx select: receptionist of A
+ok 2031 - storage:prescriptions/rx select: owner of B
+ok 2032 - storage:prescriptions/rx select: anon
+ok 2033 - storage:prescriptions/rx select: dual member (doctor A, receptionist B), header A
+ok 2034 - storage:prescriptions/rx select: dual member, header B
+ok 2035 - storage:prescriptions/rx select: dual member, no header
+ok 2036 - storage:prescriptions/rx insert: owner of A
+ok 2037 - storage:prescriptions/rx insert: admin of A
+ok 2038 - storage:prescriptions/rx insert: doctor of A
+ok 2039 - storage:prescriptions/rx insert: second doctor of A
+ok 2040 - storage:prescriptions/rx insert: nurse of A
+ok 2041 - storage:prescriptions/rx insert: receptionist of A
+ok 2042 - storage:prescriptions/rx insert: owner of B
+ok 2043 - storage:prescriptions/rx insert: anon
+ok 2044 - storage:prescriptions/rx insert: dual member (doctor A, receptionist B), header A
+ok 2045 - storage:prescriptions/rx insert: dual member, header B
+ok 2046 - storage:prescriptions/rx insert: dual member, no header
+ok 2047 - storage:prescriptions/rx update: owner of A
+ok 2048 - storage:prescriptions/rx update: admin of A
+ok 2049 - storage:prescriptions/rx update: doctor of A
+ok 2050 - storage:prescriptions/rx update: second doctor of A
+ok 2051 - storage:prescriptions/rx update: nurse of A
+ok 2052 - storage:prescriptions/rx update: receptionist of A
+ok 2053 - storage:prescriptions/rx update: owner of B
+ok 2054 - storage:prescriptions/rx update: anon
+ok 2055 - storage:prescriptions/rx update: dual member (doctor A, receptionist B), header A
+ok 2056 - storage:prescriptions/rx update: dual member, header B
+ok 2057 - storage:prescriptions/rx update: dual member, no header
+ok 2058 - storage:prescriptions/rx delete: owner of A
+ok 2059 - storage:prescriptions/rx delete: admin of A
+ok 2060 - storage:prescriptions/rx delete: doctor of A
+ok 2061 - storage:prescriptions/rx delete: second doctor of A
+ok 2062 - storage:prescriptions/rx delete: nurse of A
+ok 2063 - storage:prescriptions/rx delete: receptionist of A
+ok 2064 - storage:prescriptions/rx delete: owner of B
+ok 2065 - storage:prescriptions/rx delete: anon
+ok 2066 - storage:prescriptions/rx delete: dual member (doctor A, receptionist B), header A
+ok 2067 - storage:prescriptions/rx delete: dual member, header B
+ok 2068 - storage:prescriptions/rx delete: dual member, no header
+ok 2069 - storage:prescriptions/receipt select: owner of A
+ok 2070 - storage:prescriptions/receipt select: admin of A
+ok 2071 - storage:prescriptions/receipt select: doctor of A
+ok 2072 - storage:prescriptions/receipt select: second doctor of A
+ok 2073 - storage:prescriptions/receipt select: nurse of A
+ok 2074 - storage:prescriptions/receipt select: receptionist of A
+ok 2075 - storage:prescriptions/receipt select: owner of B
+ok 2076 - storage:prescriptions/receipt select: anon
+ok 2077 - storage:prescriptions/receipt select: dual member (doctor A, receptionist B), header A
+ok 2078 - storage:prescriptions/receipt select: dual member, header B
+ok 2079 - storage:prescriptions/receipt select: dual member, no header
+ok 2080 - storage:prescriptions/receipt insert: owner of A
+ok 2081 - storage:prescriptions/receipt insert: admin of A
+ok 2082 - storage:prescriptions/receipt insert: doctor of A
+ok 2083 - storage:prescriptions/receipt insert: second doctor of A
+ok 2084 - storage:prescriptions/receipt insert: nurse of A
+ok 2085 - storage:prescriptions/receipt insert: receptionist of A
+ok 2086 - storage:prescriptions/receipt insert: owner of B
+ok 2087 - storage:prescriptions/receipt insert: anon
+ok 2088 - storage:prescriptions/receipt insert: dual member (doctor A, receptionist B), header A
+ok 2089 - storage:prescriptions/receipt insert: dual member, header B
+ok 2090 - storage:prescriptions/receipt insert: dual member, no header
+ok 2091 - storage:prescriptions/receipt update: owner of A
+ok 2092 - storage:prescriptions/receipt update: admin of A
+ok 2093 - storage:prescriptions/receipt update: doctor of A
+ok 2094 - storage:prescriptions/receipt update: second doctor of A
+ok 2095 - storage:prescriptions/receipt update: nurse of A
+ok 2096 - storage:prescriptions/receipt update: receptionist of A
+ok 2097 - storage:prescriptions/receipt update: owner of B
+ok 2098 - storage:prescriptions/receipt update: anon
+ok 2099 - storage:prescriptions/receipt update: dual member (doctor A, receptionist B), header A
+ok 2100 - storage:prescriptions/receipt update: dual member, header B
+ok 2101 - storage:prescriptions/receipt update: dual member, no header
+ok 2102 - storage:prescriptions/receipt delete: owner of A
+ok 2103 - storage:prescriptions/receipt delete: admin of A
+ok 2104 - storage:prescriptions/receipt delete: doctor of A
+ok 2105 - storage:prescriptions/receipt delete: second doctor of A
+ok 2106 - storage:prescriptions/receipt delete: nurse of A
+ok 2107 - storage:prescriptions/receipt delete: receptionist of A
+ok 2108 - storage:prescriptions/receipt delete: owner of B
+ok 2109 - storage:prescriptions/receipt delete: anon
+ok 2110 - storage:prescriptions/receipt delete: dual member (doctor A, receptionist B), header A
+ok 2111 - storage:prescriptions/receipt delete: dual member, header B
+ok 2112 - storage:prescriptions/receipt delete: dual member, no header
+ok 2113 - storage:clinic-records/lab select: owner of A
+ok 2114 - storage:clinic-records/lab select: admin of A
+ok 2115 - storage:clinic-records/lab select: doctor of A
+ok 2116 - storage:clinic-records/lab select: second doctor of A
+ok 2117 - storage:clinic-records/lab select: nurse of A
+ok 2118 - storage:clinic-records/lab select: receptionist of A
+ok 2119 - storage:clinic-records/lab select: owner of B
+ok 2120 - storage:clinic-records/lab select: anon
+ok 2121 - storage:clinic-records/lab select: dual member (doctor A, receptionist B), header A
+ok 2122 - storage:clinic-records/lab select: dual member, header B
+ok 2123 - storage:clinic-records/lab select: dual member, no header
+ok 2124 - storage:clinic-records/lab insert: owner of A
+ok 2125 - storage:clinic-records/lab insert: admin of A
+ok 2126 - storage:clinic-records/lab insert: doctor of A
+ok 2127 - storage:clinic-records/lab insert: second doctor of A
+ok 2128 - storage:clinic-records/lab insert: nurse of A
+ok 2129 - storage:clinic-records/lab insert: receptionist of A
+ok 2130 - storage:clinic-records/lab insert: owner of B
+ok 2131 - storage:clinic-records/lab insert: anon
+ok 2132 - storage:clinic-records/lab insert: dual member (doctor A, receptionist B), header A
+ok 2133 - storage:clinic-records/lab insert: dual member, header B
+ok 2134 - storage:clinic-records/lab insert: dual member, no header
+ok 2135 - storage:clinic-records/lab update: owner of A
+ok 2136 - storage:clinic-records/lab update: admin of A
+ok 2137 - storage:clinic-records/lab update: doctor of A
+ok 2138 - storage:clinic-records/lab update: second doctor of A
+ok 2139 - storage:clinic-records/lab update: nurse of A
+ok 2140 - storage:clinic-records/lab update: receptionist of A
+ok 2141 - storage:clinic-records/lab update: owner of B
+ok 2142 - storage:clinic-records/lab update: anon
+ok 2143 - storage:clinic-records/lab update: dual member (doctor A, receptionist B), header A
+ok 2144 - storage:clinic-records/lab update: dual member, header B
+ok 2145 - storage:clinic-records/lab update: dual member, no header
+ok 2146 - storage:clinic-records/lab delete: owner of A
+ok 2147 - storage:clinic-records/lab delete: admin of A
+ok 2148 - storage:clinic-records/lab delete: doctor of A
+ok 2149 - storage:clinic-records/lab delete: second doctor of A
+ok 2150 - storage:clinic-records/lab delete: nurse of A
+ok 2151 - storage:clinic-records/lab delete: receptionist of A
+ok 2152 - storage:clinic-records/lab delete: owner of B
+ok 2153 - storage:clinic-records/lab delete: anon
+ok 2154 - storage:clinic-records/lab delete: dual member (doctor A, receptionist B), header A
+ok 2155 - storage:clinic-records/lab delete: dual member, header B
+ok 2156 - storage:clinic-records/lab delete: dual member, no header
+ok 2157 - storage:clinic-records/referral_letter select: owner of A
+ok 2158 - storage:clinic-records/referral_letter select: admin of A
+ok 2159 - storage:clinic-records/referral_letter select: doctor of A
+ok 2160 - storage:clinic-records/referral_letter select: second doctor of A
+ok 2161 - storage:clinic-records/referral_letter select: nurse of A
+ok 2162 - storage:clinic-records/referral_letter select: receptionist of A
+ok 2163 - storage:clinic-records/referral_letter select: owner of B
+ok 2164 - storage:clinic-records/referral_letter select: anon
+ok 2165 - storage:clinic-records/referral_letter select: dual member (doctor A, receptionist B), header A
+ok 2166 - storage:clinic-records/referral_letter select: dual member, header B
+ok 2167 - storage:clinic-records/referral_letter select: dual member, no header
+ok 2168 - storage:clinic-records/referral_letter insert: owner of A
+ok 2169 - storage:clinic-records/referral_letter insert: admin of A
+ok 2170 - storage:clinic-records/referral_letter insert: doctor of A
+ok 2171 - storage:clinic-records/referral_letter insert: second doctor of A
+ok 2172 - storage:clinic-records/referral_letter insert: nurse of A
+ok 2173 - storage:clinic-records/referral_letter insert: receptionist of A
+ok 2174 - storage:clinic-records/referral_letter insert: owner of B
+ok 2175 - storage:clinic-records/referral_letter insert: anon
+ok 2176 - storage:clinic-records/referral_letter insert: dual member (doctor A, receptionist B), header A
+ok 2177 - storage:clinic-records/referral_letter insert: dual member, header B
+ok 2178 - storage:clinic-records/referral_letter insert: dual member, no header
+ok 2179 - storage:clinic-records/referral_letter update: owner of A
+ok 2180 - storage:clinic-records/referral_letter update: admin of A
+ok 2181 - storage:clinic-records/referral_letter update: doctor of A
+ok 2182 - storage:clinic-records/referral_letter update: second doctor of A
+ok 2183 - storage:clinic-records/referral_letter update: nurse of A
+ok 2184 - storage:clinic-records/referral_letter update: receptionist of A
+ok 2185 - storage:clinic-records/referral_letter update: owner of B
+ok 2186 - storage:clinic-records/referral_letter update: anon
+ok 2187 - storage:clinic-records/referral_letter update: dual member (doctor A, receptionist B), header A
+ok 2188 - storage:clinic-records/referral_letter update: dual member, header B
+ok 2189 - storage:clinic-records/referral_letter update: dual member, no header
+ok 2190 - storage:clinic-records/referral_letter delete: owner of A
+ok 2191 - storage:clinic-records/referral_letter delete: admin of A
+ok 2192 - storage:clinic-records/referral_letter delete: doctor of A
+ok 2193 - storage:clinic-records/referral_letter delete: second doctor of A
+ok 2194 - storage:clinic-records/referral_letter delete: nurse of A
+ok 2195 - storage:clinic-records/referral_letter delete: receptionist of A
+ok 2196 - storage:clinic-records/referral_letter delete: owner of B
+ok 2197 - storage:clinic-records/referral_letter delete: anon
+ok 2198 - storage:clinic-records/referral_letter delete: dual member (doctor A, receptionist B), header A
+ok 2199 - storage:clinic-records/referral_letter delete: dual member, header B
+ok 2200 - storage:clinic-records/referral_letter delete: dual member, no header
+ok 2201 - storage:clinic-records/legacy_root select: owner of A
+ok 2202 - storage:clinic-records/legacy_root select: admin of A
+ok 2203 - storage:clinic-records/legacy_root select: doctor of A
+ok 2204 - storage:clinic-records/legacy_root select: second doctor of A
+ok 2205 - storage:clinic-records/legacy_root select: nurse of A
+ok 2206 - storage:clinic-records/legacy_root select: receptionist of A
+ok 2207 - storage:clinic-records/legacy_root select: owner of B
+ok 2208 - storage:clinic-records/legacy_root select: anon
+ok 2209 - storage:clinic-records/legacy_root select: dual member (doctor A, receptionist B), header A
+ok 2210 - storage:clinic-records/legacy_root select: dual member, header B
+ok 2211 - storage:clinic-records/legacy_root select: dual member, no header
+ok 2212 - storage:clinic-records/legacy_root insert: owner of A
+ok 2213 - storage:clinic-records/legacy_root insert: admin of A
+ok 2214 - storage:clinic-records/legacy_root insert: doctor of A
+ok 2215 - storage:clinic-records/legacy_root insert: second doctor of A
+ok 2216 - storage:clinic-records/legacy_root insert: nurse of A
+ok 2217 - storage:clinic-records/legacy_root insert: receptionist of A
+ok 2218 - storage:clinic-records/legacy_root insert: owner of B
+ok 2219 - storage:clinic-records/legacy_root insert: anon
+ok 2220 - storage:clinic-records/legacy_root insert: dual member (doctor A, receptionist B), header A
+ok 2221 - storage:clinic-records/legacy_root insert: dual member, header B
+ok 2222 - storage:clinic-records/legacy_root insert: dual member, no header
+ok 2223 - storage:clinic-records/legacy_root update: owner of A
+ok 2224 - storage:clinic-records/legacy_root update: admin of A
+ok 2225 - storage:clinic-records/legacy_root update: doctor of A
+ok 2226 - storage:clinic-records/legacy_root update: second doctor of A
+ok 2227 - storage:clinic-records/legacy_root update: nurse of A
+ok 2228 - storage:clinic-records/legacy_root update: receptionist of A
+ok 2229 - storage:clinic-records/legacy_root update: owner of B
+ok 2230 - storage:clinic-records/legacy_root update: anon
+ok 2231 - storage:clinic-records/legacy_root update: dual member (doctor A, receptionist B), header A
+ok 2232 - storage:clinic-records/legacy_root update: dual member, header B
+ok 2233 - storage:clinic-records/legacy_root update: dual member, no header
+ok 2234 - storage:clinic-records/legacy_root delete: owner of A
+ok 2235 - storage:clinic-records/legacy_root delete: admin of A
+ok 2236 - storage:clinic-records/legacy_root delete: doctor of A
+ok 2237 - storage:clinic-records/legacy_root delete: second doctor of A
+ok 2238 - storage:clinic-records/legacy_root delete: nurse of A
+ok 2239 - storage:clinic-records/legacy_root delete: receptionist of A
+ok 2240 - storage:clinic-records/legacy_root delete: owner of B
+ok 2241 - storage:clinic-records/legacy_root delete: anon
+ok 2242 - storage:clinic-records/legacy_root delete: dual member (doctor A, receptionist B), header A
+ok 2243 - storage:clinic-records/legacy_root delete: dual member, header B
+ok 2244 - storage:clinic-records/legacy_root delete: dual member, no header
+ok
+/Users/sid/Code/clinicOS/supabase/tests/database/clinical_notes.test.sql ..................... 
+1..53
+ok 1 - public.clinical_notes exists
+ok 2 - clinical_notes is keyed by visit_id (1:1 with visits)
+ok 3 - composite FK to visits (tenant_id, id), RESTRICT (05-03 pattern)
+ok 4 - RLS is enabled on clinical_notes
+ok 5 - authenticated holds SELECT and UPDATE only (no INSERT, DELETE, TRUNCATE, REFERENCES, TRIGGER)
+ok 6 - anon holds no privilege on clinical_notes
+ok 7 - clinical_notes has exactly a SELECT and an UPDATE policy (no INSERT, no DELETE)
+ok 8 - the clinical_notes policies use the authz helpers (active clinic), never the legacy rules
+ok 9 - visits_create_clinical_notes is SECURITY DEFINER with an empty search_path
+ok 10 - the API roles cannot execute the trigger functions
+ok 11 - inserting a visit creates exactly one clinical_notes row
+ok 12 - a receptionist booking a visit creates its one clinical_notes row, with the fixed empty content (T-05-03)
+ok 13 - a receptionist cannot inject notes through the visit insert (visits_clinical_content_moved)
+ok 14 - writing clinical_notes into visits fails (23514)
+ok 15 - writing vitals into visits fails (23514)
+ok 16 - writing chief_complaints into visits fails (23514)
+ok 17 - writing specialty_data into visits fails (23514)
+ok 18 - writing investigations_advised into visits fails (23514)
+ok 19 - writing advice into visits fails (23514)
+ok 20 - control: the empty values (the column defaults) are still accepted on visits
+ok 21 - visits_clinical_content_moved is VALID
+ok 22 - owner reads the note
+ok 23 - doctor reads the note
+ok 24 - nurse reads the note
+ok 25 - receptionist reads 0 rows (PO-3, acceptance 2)
+ok 26 - admin reads 0 rows (R-9)
+ok 27 - clinic B's owner reads 0 rows
+ok 28 - dual member acting in A (doctor) reads the note
+ok 29 - dual member acting in B (receptionist) reads 0 rows of A
+ok 30 - anon has no privilege
+ok 31 - the receptionist still reads the visit row, whose legacy clinical columns are empty
+ok 32 - nurse updates vitals (1 row)
+ok 33 - nurse update of clinical_notes → 42501 (guard, T-05-02)
+ok 34 - nurse update of vitals together with advice → 42501
+ok 35 - nurse update of chief_complaints → 42501
+ok 36 - doctor updates notes and vitals (1 row)
+ok 37 - owner updates (1 row)
+ok 38 - receptionist update → 0 rows
+ok 39 - admin update → 0 rows
+ok 40 - clinic B's owner update → 0 rows
+ok 41 - dual member acting in B → 0 rows of A
+ok 42 - dual member acting in A (doctor) → 1 row
+ok 43 - the nurse's vitals update lands and leaves the notes and complaints untouched
+ok 44 - visit_id never changes (doctor)
+ok 45 - tenant_id never changes (even as postgres)
+ok 46 - no tenant role inserts (doctor: no privilege)
+ok 47 - no tenant role deletes (owner: no privilege)
+ok 48 - a notes row needs its visit in the same clinic (composite FK)
+ok 49 - updated_at is maintained by the guard (a caller-sent value is replaced by now())
+ok 50 - a visit cannot be deleted from under its clinical notes (RESTRICT)
+ok 51 - clinic B's owner updates 0 rows of A with an unfiltered UPDATE
+ok 52 - deleting the tenant cascades through visits and their clinical notes
+ok 53 - no clinical_notes row of the deleted clinic is left
+ok
+/Users/sid/Code/clinicOS/supabase/tests/database/clinical_notes_backfill.test.sql ............ 
+1..9
+ok 1 - the backfill creates one clinical_notes row per visit
+ok 2 - lossless: every old column equals its clinical_notes value (coalesced to the new defaults), timestamps kept
+ok 3 - every non-null note (including the empty string and 5 kB texts) is carried as is
+ok 4 - a JSON null value is carried as is (not turned into a default)
+ok 5 - running the backfill again changes nothing (idempotent)
+ok 6 - the clear empties every moved column on visits
+ok 7 - the clear leaves the clinical_notes rows untouched
+ok 8 - the CHECK is added VALID over the cleared rows
+ok 9 - after the replay, clinical text cannot be written into visits
+ok
+/Users/sid/Code/clinicOS/supabase/tests/database/composite_fks.test.sql ...................... 
+1..103
+ok 1 - the composite tenant FKs are exactly the 38 of 05-03 plus clinical_notes (05-02a) (columns, parent, delete action)
+ok 2 - no foreign key in public/ops/private is left NOT VALID
+ok 3 - the 28 replaced single-column FKs to tenant parents are dropped
+ok 4 - referrals.target_tenant_id stays a single-column FK (cross-tenant by design)
+ok 5 - api_key_usage_daily_tenant_api_key_fkey: a tenant-A api_key_usage_daily row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 6 - audit_logs_tenant_api_key_fkey: a tenant-A audit_logs row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 7 - clinical_notes_tenant_visit_fkey: a tenant-A clinical_notes row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 8 - communication_queue_tenant_appointment_fkey: a tenant-A communication_queue row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 9 - communication_queue_tenant_patient_fkey: a tenant-A communication_queue row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 10 - consent_records_tenant_patient_fkey: a tenant-A consent_records row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 11 - consultation_diagnoses_tenant_patient_fkey: a tenant-A consultation_diagnoses row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 12 - consultation_diagnoses_tenant_visit_fkey: a tenant-A consultation_diagnoses row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 13 - consultations_tenant_doctor_fkey: a tenant-A consultations row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 14 - consultations_tenant_patient_fkey: a tenant-A consultations row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 15 - doctor_custom_diagnoses_tenant_doctor_fkey: a tenant-A doctor_custom_diagnoses row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 16 - doctor_custom_medicines_tenant_doctor_fkey: a tenant-A doctor_custom_medicines row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 17 - doctor_prescription_templates_tenant_doctor_fkey: a tenant-A doctor_prescription_templates row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 18 - document_share_tokens_tenant_document_fkey: a tenant-A document_share_tokens row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 19 - follow_ups_tenant_doctor_fkey: a tenant-A follow_ups row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 20 - follow_ups_tenant_patient_fkey: a tenant-A follow_ups row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 21 - follow_ups_tenant_visit_fkey: a tenant-A follow_ups row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 22 - invoice_items_tenant_invoice_fkey: a tenant-A invoice_items row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 23 - invoices_tenant_patient_fkey: a tenant-A invoices row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 24 - invoices_tenant_visit_fkey: a tenant-A invoices row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 25 - patient_documents_tenant_patient_fkey: a tenant-A patient_documents row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 26 - patient_documents_tenant_visit_fkey: a tenant-A patient_documents row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 27 - payments_tenant_invoice_fkey: a tenant-A payments row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 28 - prescriptions_tenant_doctor_fkey: a tenant-A prescriptions row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 29 - prescriptions_tenant_patient_fkey: a tenant-A prescriptions row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 30 - prescriptions_tenant_visit_fkey: a tenant-A prescriptions row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 31 - queue_tokens_tenant_visit_fkey: a tenant-A queue_tokens row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 32 - referrals_tenant_patient_fkey: a tenant-A referrals row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 33 - referrals_tenant_referring_doctor_fkey: a tenant-A referrals row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 34 - referrals_tenant_visit_fkey: a tenant-A referrals row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 35 - schedule_blocks_tenant_doctor_fkey: a tenant-A schedule_blocks row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 36 - visit_revisions_tenant_visit_fkey: a tenant-A visit_revisions row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 37 - visits_tenant_doctor_fkey: a tenant-A visits row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 38 - visits_tenant_patient_fkey: a tenant-A visits row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 39 - waitlist_entries_tenant_doctor_fkey: a tenant-A waitlist_entries row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 40 - waitlist_entries_tenant_patient_fkey: a tenant-A waitlist_entries row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 41 - waitlist_entries_tenant_promoted_visit_fkey: a tenant-A waitlist_entries row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 42 - webhook_delivery_queue_tenant_subscription_fkey: a tenant-A webhook_delivery_queue row naming tenant B's parent / a non-member doctor is refused (23503)
+ok 43 - api_key_usage_daily_tenant_api_key_fkey: the same row within tenant A inserts (control)
+ok 44 - audit_logs_tenant_api_key_fkey: the same row within tenant A inserts (control)
+ok 45 - clinical_notes_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 46 - communication_queue_tenant_appointment_fkey: the same row within tenant A inserts (control)
+ok 47 - communication_queue_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 48 - consent_records_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 49 - consultation_diagnoses_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 50 - consultation_diagnoses_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 51 - consultations_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 52 - consultations_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 53 - doctor_custom_diagnoses_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 54 - doctor_custom_medicines_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 55 - doctor_prescription_templates_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 56 - document_share_tokens_tenant_document_fkey: the same row within tenant A inserts (control)
+ok 57 - follow_ups_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 58 - follow_ups_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 59 - follow_ups_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 60 - invoice_items_tenant_invoice_fkey: the same row within tenant A inserts (control)
+ok 61 - invoices_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 62 - invoices_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 63 - patient_documents_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 64 - patient_documents_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 65 - payments_tenant_invoice_fkey: the same row within tenant A inserts (control)
+ok 66 - prescription_items_tenant_prescription_fkey: the same row within tenant A inserts (control)
+ok 67 - prescriptions_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 68 - prescriptions_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 69 - prescriptions_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 70 - queue_tokens_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 71 - referrals_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 72 - referrals_tenant_referring_doctor_fkey: the same row within tenant A inserts (control)
+ok 73 - referrals_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 74 - schedule_blocks_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 75 - visit_revisions_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 76 - visits_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 77 - visits_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 78 - waitlist_entries_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 79 - waitlist_entries_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 80 - waitlist_entries_tenant_promoted_visit_fkey: the same row within tenant A inserts (control)
+ok 81 - webhook_delivery_queue_tenant_subscription_fkey: the same row within tenant A inserts (control)
+ok 82 - M-XTENANT-WH: as postgres (the only writer since V2-04), a tenant-A queue row naming tenant B's subscription is refused
+ok 83 - an UPDATE re-pointing a tenant-A visit at a tenant-B patient is refused too
+ok 84 - prescription_items: a supplied tenant_id that differs from the prescription's is refused (23514, fill trigger)
+ok 85 - prescription_items: re-pointing a tenant-A item at tenant B's prescription is refused (composite FK)
+ok 86 - prescription_items: an insert without tenant_id (the app path) gets its prescription's tenant
+ok 87 - prescription_items.tenant_id is NOT NULL
+ok 88 - every prescription item's tenant_id equals its prescription's (backfill and trigger)
+ok 89 - prescription_items.tenant_id references tenants(id)
+ok 90 - a visit with only SET NULL children can be deleted (as postgres)
+ok 91 - follow_ups.visit_id is set null when its visit is deleted
+ok 92 - follow_ups.tenant_id is kept (SET NULL (visit_id) column list)
+ok 93 - patient_documents.visit_id is set null when its visit is deleted
+ok 94 - patient_documents.tenant_id is kept (SET NULL (visit_id) column list)
+ok 95 - communication_queue.appointment_id is set null when its visit is deleted
+ok 96 - communication_queue.tenant_id is kept (SET NULL (appointment_id) column list)
+ok 97 - referrals.visit_id is set null when its visit is deleted
+ok 98 - referrals.tenant_id is kept (SET NULL (visit_id) column list)
+ok 99 - an API key referenced by an audit row can be deleted
+ok 100 - audit_logs.api_key_id is set null and tenant_id kept (SET NULL (api_key_id))
+ok 101 - a patient with visits cannot be deleted (RESTRICT)
+ok 102 - deleting tenant A cascades through children that RESTRICT each other (teardown and purge)
+ok 103 - no tenant-A visit, membership, prescription item or audit row is left
+ok
+/Users/sid/Code/clinicOS/supabase/tests/database/delete_rules.test.sql ....................... 
+1..35
+ok 1 - a patient with visits cannot be deleted (RESTRICT)
+ok 2 - a patient with only a consent record cannot be deleted (RESTRICT)
+ok 3 - control: a patient with no history can be deleted by the superuser
+ok 4 - a visit with an invoice cannot be deleted (RESTRICT)
+ok 5 - a visit with a prescription cannot be deleted (RESTRICT)
+ok 6 - a visit with clinical and financial history cannot be deleted (RESTRICT)
+ok 7 - control: a visit with no children can be deleted by the superuser
+ok 8 - an invoice with a payment cannot be deleted (RESTRICT)
+ok 9 - an invoice without payments can be deleted and its items cascade
+ok 10 - a prescription (as postgres) can be deleted and its items cascade
+ok 11 - the membership of a doctor named on visits cannot be deleted (RESTRICT)
+ok 12 - every other reference to a patient, visit, invoice or prescription is RESTRICT (P1-08: no CASCADE of history)
+ok 13 - the DELETE policies are exactly the 05-04 set (no visits, prescriptions, queue_tokens, waitlist_entries, referrals, ...)
+ok 14 - no FOR ALL policy is left on a public table (it would also grant DELETE)
+ok 15 - every DELETE policy binds the active clinic through the authz helpers, never the legacy rules
+ok 16 - the owner cannot delete a visit, even one without children (visits_delete_member dropped)
+ok 17 - an admin cannot delete a visit
+ok 18 - the owner cannot delete a prescription
+ok 19 - the owner cannot delete a patient
+ok 20 - a doctor deletes a draft Rx item (was a silent no-op: owner/admin-only policy)
+ok 21 - a nurse cannot delete an Rx item
+ok 22 - a receptionist cannot delete an Rx item
+ok 23 - an admin cannot delete an Rx item (R-9: no clinical access)
+ok 24 - a doctor removes a diagnosis (was a silent no-op: owner/admin-only policy)
+ok 25 - a receptionist cannot remove a diagnosis
+ok 26 - a receptionist deletes an invoice item (was a silent no-op: no DELETE policy)
+ok 27 - a doctor cannot delete an invoice item (billing:collect, PO-3)
+ok 28 - a doctor clears a follow-up (was a silent no-op: owner/admin-only policy)
+ok 29 - a dual member acting in clinic A (doctor there) removes an A diagnosis
+ok 30 - the same dual member acting in clinic B cannot delete an A row (active-tenant binding, R-42)
+ok 31 - a dual member with no active clinic deletes nothing
+ok 32 - clinic B's owner cannot delete a clinic-A invoice item
+ok 33 - before: clinic A has rows in at least 11 tenant tables
+ok 34 - deleting clinic A as postgres succeeds although its children RESTRICT each other
+ok 35 - after: no row of clinic A is left in any table with a tenant foreign key
+ok
+/Users/sid/Code/clinicOS/supabase/tests/database/memberships_bounds_cleanup.test.sql ......... 
+1..7
+ok 1 - control: the slot-length CHECK fails on the planted rows without the clean-up
+ok 2 - slot length 180 is clamped to 120
+ok 3 - a valid schedule is not changed
+ok 4 - slot length 3 is clamped to 5
+ok 5 - a malformed schedule is reset to the column default
+ok 6 - an in-range slot length is not changed
+ok 7 - memberships_slot_duration_bounds and memberships_availability_schedule_shape are present and validated
+ok
+/Users/sid/Code/clinicOS/supabase/tests/database/migration_edge_cases_fk.test.sql ............ 
+1..21
+ok 1 - D1 (visits→patients) finds the planted cross-tenant visit
+ok 2 - D1: the composite FK is added NOT VALID over the bad row (expand)
+ok 3 - D1: VALIDATE fails while the cross-tenant visit exists
+ok 4 - D1: the row is corrected to its own clinic's patient
+ok 5 - D1 is 0 after the correction
+ok 6 - D1: VALIDATE succeeds once D1 = 0
+ok 7 - D5 finds the planted visit of a non-member doctor
+ok 8 - D5: the doctor FK is added NOT VALID over the bad row (expand)
+ok 9 - D5: VALIDATE fails while the non-member doctor's visit exists
+ok 10 - D5: the visit is reassigned to a member doctor
+ok 11 - D5 is 0 after the correction
+ok 12 - D5: VALIDATE succeeds once D5 = 0
+ok 13 - M-XTENANT-WH: the composite FK is added NOT VALID over the bad row (expand)
+ok 14 - M-XTENANT-WH: VALIDATE fails while the cross-tenant delivery exists
+ok 15 - M-XTENANT-WH: the row is corrected
+ok 16 - M-XTENANT-WH: VALIDATE succeeds once corrected
+ok 17 - 000048: the planted item has no tenant_id (as before the column)
+ok 18 - 000048: the backfill statement runs
+ok 19 - 000048: the backfill gives the item its prescription's tenant
+ok 20 - 000048: NOT NULL is enforceable after the backfill
+ok 21 - 000048: no item disagrees with its prescription's tenant
+ok
+/Users/sid/Code/clinicOS/supabase/tests/database/search_medicines_extension_schema.test.sql .. 
+1..6
+ok 1 - pg_trgm is installed
+ok 2 - precondition: the probe matches only through similarity()
+ok 3 - control: the stale function fails once pg_trgm moved (undefined_function)
+ok 4 - search_medicines calls extensions.similarity after re-resolution
+ok 5 - search_medicines keeps search_path = ''
+ok 6 - search_medicines returns the trigram-only match with pg_trgm in extensions
+ok
+All tests successful.
+Files=10, Tests=2559,  1 wallclock secs ( 0.05 usr  0.01 sys +  0.04 cusr  0.04 csys =  0.14 CPU)
+Result: PASS

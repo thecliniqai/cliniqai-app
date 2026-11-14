@@ -1,0 +1,8 @@
+# npm run db:drift:local
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+# authz:gen --check
+clean
+# inventory exit
+0
+# eslint
+✖ 382 problems (0 errors, 382 warnings)

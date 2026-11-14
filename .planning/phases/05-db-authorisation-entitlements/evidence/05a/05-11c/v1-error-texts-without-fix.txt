@@ -1,0 +1,723 @@
+
+ RUN  v3.2.7 /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/wt-old4
+
+{"ts":"2026-11-14T05:25:46.921Z","level":"error","event":"api.v1.failed","requestId":"641789d9-3cef-4a7c-8153-08d66a27b00b","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.927Z","level":"error","event":"api.v1.failed","requestId":"f445489c-be4f-4000-bc7f-ad10c8274b58","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.927Z","level":"error","event":"api.v1.failed","requestId":"c9a7405b-8de2-4476-929b-d726972f515f","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.928Z","level":"error","event":"api.v1.failed","requestId":"6ec06af2-eece-48ce-86a8-e497fcccba70","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.929Z","level":"error","event":"api.v1.failed","requestId":"68a50c80-aa05-4764-b41b-1cab0f66d160","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.929Z","level":"error","event":"api.v1.failed","requestId":"ac3e9d3d-4fa7-4245-aefb-9f05a7aa85c0","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.930Z","level":"error","event":"api.v1.failed","requestId":"63be8a10-16a9-46dc-9de8-c0c7960401e4","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.930Z","level":"error","event":"api.v1.failed","requestId":"700faa4f-ef9b-459d-bfd4-5d86e978901d","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.930Z","level":"error","event":"api.v1.failed","requestId":"657b93f6-e11a-41bf-b2cd-b5c361b061b1","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.931Z","level":"error","event":"api.v1.failed","requestId":"9dd2a567-5cf9-45aa-9ae2-901771c1bfc7","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.931Z","level":"error","event":"api.v1.failed","requestId":"010504a8-b0c2-4ca8-b040-671e7f9e4fda","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.932Z","level":"error","event":"api.v1.failed","requestId":"17421b22-5500-4e4d-9ce8-cad79e03a4d8","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.932Z","level":"error","event":"api.v1.failed","requestId":"fbbb67c8-2d0c-4f61-8fc4-cc9486dc7ffc","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.932Z","level":"error","event":"api.v1.failed","requestId":"77cb4a62-407e-4130-8188-67f20ac1bc5c","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.932Z","level":"error","event":"api.v1.failed","requestId":"bf350acc-5993-45a3-94fc-8e194362412f","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.933Z","level":"error","event":"api.v1.failed","requestId":"1631a860-ba24-4f04-b12c-4b9efb5d4941","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.933Z","level":"error","event":"api.v1.failed","requestId":"5fc9abe8-5514-4a70-82c9-b8c8a25d54d6","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.934Z","level":"error","event":"api.v1.failed","requestId":"77d2f501-bbfc-414a-bdf9-74cc042776df","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.934Z","level":"error","event":"api.v1.failed","requestId":"cd71f796-8e51-4670-a3a1-75d28cb5ec72","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.934Z","level":"error","event":"api.v1.failed","requestId":"c1220ef5-f8e5-41d5-b3e2-b20061881c06","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.934Z","level":"error","event":"api.v1.failed","requestId":"67f6175d-191a-4eaf-aa3e-ee4760a2d6c3","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.934Z","level":"error","event":"api.v1.failed","requestId":"02e2618f-e213-4311-87ff-6d679cc7aeb7","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.935Z","level":"error","event":"api.v1.failed","requestId":"ab608c71-de63-4b59-ad3d-f8c31099a9a9","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.935Z","level":"error","event":"api.v1.failed","requestId":"bea58017-21bd-48c1-b84c-0a56d51f3a47","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.935Z","level":"error","event":"api.v1.failed","requestId":"ecad7b5a-5197-4bef-91cb-07aaa021295a","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.935Z","level":"error","event":"api.v1.failed","requestId":"5ee5588c-446b-4713-9e37-61b61c44d007","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.935Z","level":"error","event":"api.v1.failed","requestId":"e85add72-9866-4a49-9bf6-1fcae7960fba","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.936Z","level":"error","event":"api.v1.failed","requestId":"87333a44-5714-4394-a023-02a6c254b9fd","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.936Z","level":"error","event":"api.v1.failed","requestId":"ab1a7f4b-2af9-461f-998b-105b28124820","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.936Z","level":"error","event":"api.v1.failed","requestId":"e892bfc4-a0cf-46ec-aab5-ab4ee3a14dc8","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.937Z","level":"error","event":"api.v1.failed","requestId":"9801e21e-b68f-4564-92c1-aa708655a6ad","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.937Z","level":"error","event":"api.v1.failed","requestId":"e9afaeea-6d94-4777-aa0c-0c1fc0977644","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.937Z","level":"error","event":"api.v1.failed","requestId":"c0de801a-af9f-409e-98d5-099b7b85ec44","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.937Z","level":"error","event":"api.v1.failed","requestId":"e042c392-482f-4e36-b3a1-186f77aaf738","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.938Z","level":"error","event":"api.v1.failed","requestId":"8f20b1e5-ea9d-4b9c-b29d-460741b3bd78","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.938Z","level":"error","event":"api.v1.failed","requestId":"9be8896a-fa99-4790-9c98-fc26e63afe65","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.938Z","level":"error","event":"api.v1.failed","requestId":"bf155e9e-e14e-42a5-ba24-bea83d417691","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.938Z","level":"error","event":"api.v1.failed","requestId":"b1f1191f-d429-4090-8219-2838a3a25a04","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.938Z","level":"error","event":"api.v1.failed","requestId":"ce589a97-bac4-4593-bbf8-e70af8e4e0c3","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.939Z","level":"error","event":"api.v1.failed","requestId":"7df6f0c7-2f24-468a-82e2-e010fa86c0fe","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.939Z","level":"error","event":"api.v1.failed","requestId":"c10488ab-9207-41a1-9de5-14246047d218","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.939Z","level":"error","event":"api.v1.failed","requestId":"fca23643-bfe4-4fe4-a25a-6fa5d4b9bf90","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.939Z","level":"error","event":"api.v1.failed","requestId":"6eac4d01-4050-4f7f-bf62-d494cd1ef921","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.940Z","level":"error","event":"api.v1.failed","requestId":"62c5ea69-b6d0-4d63-8936-0d0b58174fa7","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.940Z","level":"error","event":"api.v1.failed","requestId":"cc8d3a22-0a72-4bea-b4b0-d2dc253ba99f","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.940Z","level":"error","event":"api.v1.failed","requestId":"ebc47b08-b9f6-4b2a-88e9-d12c70d7b153","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.940Z","level":"error","event":"api.v1.failed","requestId":"4fd360bc-030c-4dd7-bd1a-bf88869034c2","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.940Z","level":"error","event":"api.v1.failed","requestId":"f886d279-a1de-45fc-93b9-c338f9c6aaba","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.941Z","level":"error","event":"api.v1.failed","requestId":"5c3d685e-7da6-43c4-9676-afb0fd7070cb","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.941Z","level":"error","event":"api.v1.failed","requestId":"e8715c2a-dab8-4c42-add4-0f9997faf491","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.941Z","level":"error","event":"api.v1.failed","requestId":"04c1650b-b8b3-45e8-9eaa-32a0e2f11c7c","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.941Z","level":"error","event":"api.v1.failed","requestId":"da45604a-bffc-4171-bd55-39a53029e80a","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.941Z","level":"error","event":"api.v1.failed","requestId":"9b60dbce-f603-4d3d-b663-1bec36fe8751","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.942Z","level":"error","event":"api.v1.failed","requestId":"49936958-2241-4f42-b38a-8a2203a94e62","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.942Z","level":"error","event":"api.v1.failed","requestId":"df407dbd-7081-4ead-801a-fdd2eba4c364","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.942Z","level":"error","event":"api.v1.failed","requestId":"f6d028ce-7172-41c8-a4f2-cb70b5b06603","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.942Z","level":"error","event":"api.v1.failed","requestId":"b015ec9b-0a0f-4e62-b12e-e07007e86d6f","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.942Z","level":"error","event":"api.v1.failed","requestId":"77437a37-f216-45b6-b046-335017ed9e79","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.942Z","level":"error","event":"api.v1.failed","requestId":"062380d5-f458-4526-b723-aad3db324e7c","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.943Z","level":"error","event":"api.v1.failed","requestId":"9006ea96-7904-4ab1-82ca-01550bafe22c","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.943Z","level":"error","event":"api.v1.failed","requestId":"f46c7d3c-aa71-4956-a4a9-8828b07c819f","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.943Z","level":"error","event":"api.v1.failed","requestId":"94e30eca-0657-4869-8b2b-9703e7da1b2f","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.943Z","level":"error","event":"api.v1.failed","requestId":"75c51ad9-621e-48c5-b707-d679eb7ac377","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.943Z","level":"error","event":"api.v1.failed","requestId":"9d24de5d-d8cd-440b-b633-1cd130f98bf2","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.944Z","level":"error","event":"api.v1.failed","requestId":"57bc3fde-fb38-4552-8ad2-095a5f658fbe","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.944Z","level":"error","event":"api.v1.failed","requestId":"8f22fcde-3e51-4990-9ef4-834d279cf23e","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.944Z","level":"error","event":"api.v1.failed","requestId":"be5500a8-d0c3-4e4b-a9f3-d92b5aa25d25","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.944Z","level":"error","event":"api.v1.failed","requestId":"e72066e9-3e16-4644-9ad5-bcda5b942e83","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.944Z","level":"error","event":"api.v1.failed","requestId":"1cd0df96-6b56-4ac5-a5fd-1ed6f4a80a46","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.945Z","level":"error","event":"api.v1.failed","requestId":"03682334-d809-4113-8e65-2a54495cf96a","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.945Z","level":"error","event":"api.v1.failed","requestId":"140164ca-2d04-42f0-a7a1-1495e1ab28eb","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.945Z","level":"error","event":"api.v1.failed","requestId":"389fef7a-75e6-4957-81f8-9d54b5541086","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.945Z","level":"error","event":"api.v1.failed","requestId":"8be1a7c5-6793-4a96-b5af-687c60276bab","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.945Z","level":"error","event":"api.v1.failed","requestId":"69fc82bf-bddd-4976-8dd3-6e5130893a2f","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.945Z","level":"error","event":"api.v1.failed","requestId":"0df6d29d-de16-4342-a60b-70ddb19429fa","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.946Z","level":"error","event":"api.v1.failed","requestId":"4ae13983-c202-4312-bf92-074b4c9b6e62","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.947Z","level":"error","event":"api.v1.failed","requestId":"9c7f3b0c-0d42-4829-b5cf-ab8c296ba229","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.947Z","level":"error","event":"api.v1.failed","requestId":"68ab422e-e732-4da5-9de1-7d1d3c953ebb","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.947Z","level":"error","event":"api.v1.failed","requestId":"42dbb9cf-738b-45b2-ab1e-7b484f8bf1cb","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.947Z","level":"error","event":"api.v1.failed","requestId":"c0af6dde-27b4-4dd1-83a7-8887d3784c94","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.947Z","level":"error","event":"api.v1.failed","requestId":"5ccc1427-dd5e-4ae7-a459-69448c6a634a","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.948Z","level":"error","event":"api.v1.failed","requestId":"cd3ada99-ca4c-4d6b-b021-e1848b8a262a","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.948Z","level":"error","event":"api.v1.failed","requestId":"00abc902-4744-4eec-9afe-77f55cda8203","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.948Z","level":"error","event":"api.v1.failed","requestId":"2b3a7f03-401f-4b26-a21b-151882f6a6c7","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.948Z","level":"error","event":"api.v1.failed","requestId":"97581b54-3258-4fcf-a698-b503895bce00","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.948Z","level":"error","event":"api.v1.failed","requestId":"56400097-c331-43a7-9488-edb6129d44ee","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.948Z","level":"error","event":"api.v1.failed","requestId":"ff463bd6-dd2d-4601-95ca-420251cff015","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.949Z","level":"error","event":"api.v1.failed","requestId":"f5173d08-7adb-4f82-8fbc-4ac5728cebf2","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.949Z","level":"error","event":"api.v1.failed","requestId":"5fc8e127-da16-42c7-81e0-149bb9722a53","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.949Z","level":"error","event":"api.v1.failed","requestId":"1e292149-e3e5-4e00-85da-53db6e4b53e0","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.949Z","level":"error","event":"api.v1.failed","requestId":"a4068021-b5c3-4345-970d-9621cee33ce0","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.949Z","level":"error","event":"api.v1.failed","requestId":"12cdf897-719f-47fe-b280-fbbdfe6bcca5","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.950Z","level":"error","event":"api.v1.failed","requestId":"d87b7c21-dbaf-4e35-8dbd-aeeb5dd7dcc3","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.950Z","level":"error","event":"api.v1.failed","requestId":"2692a686-9631-45cc-ac8f-e016851b40fb","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.950Z","level":"error","event":"api.v1.failed","requestId":"1098be38-31ea-4a58-83a8-574e14e35f5e","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.950Z","level":"error","event":"api.v1.failed","requestId":"be0421c4-3e73-4525-a394-9b42ba66b32c","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.950Z","level":"error","event":"api.v1.failed","requestId":"9456125e-4989-44be-be23-3262bc9d09e8","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.950Z","level":"error","event":"api.v1.failed","requestId":"969fe6bd-43ce-4acc-9e09-48b171fc34c7","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.951Z","level":"error","event":"api.v1.failed","requestId":"38fc7c1a-2d25-4a85-a4d0-876db0b8cd13","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.951Z","level":"error","event":"api.v1.failed","requestId":"1e56f51e-1486-42fc-9229-2d61f9277483","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.951Z","level":"error","event":"api.v1.failed","requestId":"2cb1d27b-6033-4ce3-9809-32cf362b69da","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.951Z","level":"error","event":"api.v1.failed","requestId":"94321b20-b919-4b5f-9030-094ff111d05f","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.951Z","level":"error","event":"api.v1.failed","requestId":"9688517a-9aa9-4040-8b74-8b70cb62a3b2","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.951Z","level":"error","event":"api.v1.failed","requestId":"8cc84223-b59b-47d7-9938-ea4058dbab27","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.951Z","level":"error","event":"api.v1.failed","requestId":"0eab8d8b-7c9c-4ec2-9564-2394d9a2e754","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.952Z","level":"error","event":"api.v1.failed","requestId":"ffee12e2-4819-4192-bd8c-fdcc24ca3729","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.952Z","level":"error","event":"api.v1.failed","requestId":"c8a7fa87-fa5b-43f8-851e-820904830d85","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:46.952Z","level":"error","event":"api.v1.failed","requestId":"e2338ba5-e781-4c7b-8cbf-951938eca959","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:47.520Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:25:47.551Z","level":"error","event":"api.v1.failed","requestId":"552ce641-86eb-4546-8940-d5321c59d98b","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:47.551Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:25:47.560Z","level":"error","event":"api.v1.failed","requestId":"b18f4db2-3e9b-42b6-b1e4-551a037ed12e","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:47.560Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:25:47.567Z","level":"error","event":"api.v1.failed","requestId":"18b5f1ae-ee4b-4d81-8a91-1a6d2ed18050","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:47.568Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:25:47.577Z","level":"error","event":"api.v1.failed","requestId":"e53303fd-c34e-4ea4-9371-cebf2d48371f","reason":"database_error","status":500}
+{"ts":"2026-11-14T05:25:47.578Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T05:25:47.585Z","level":"error","event":"api.v1.failed","requestId":"bad572f0-d264-4eb6-801f-cd72114ad519","reason":"database_error","status":500}
+ ❯ tests/api/v1-error-texts.spec.ts (149 tests | 131 failed) 666ms
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /patients 6ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /patients 1ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /patients/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > PUT /patients/:id 1ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > DELETE /patients/:id 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /appointments 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /appointments 1ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /appointments/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > PATCH /appointments/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > DELETE /appointments/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /visits 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /visits 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /visits/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > PATCH /visits/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /referrals 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /referrals 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /referrals/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > PATCH /referrals/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /lab-orders 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /lab-orders 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /lab-orders/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /prescriptions 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /prescriptions 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /prescriptions/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /patients 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /patients 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /patients/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > PUT /patients/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > DELETE /patients/:id 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /appointments 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /appointments 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /appointments/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > PATCH /appointments/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > DELETE /appointments/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /visits 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /visits 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /visits/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > PATCH /visits/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /referrals 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /referrals 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /referrals/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > PATCH /referrals/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /lab-orders 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /lab-orders 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /lab-orders/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /prescriptions 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /prescriptions 0ms
+     → expected 404 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /prescriptions/:id 0ms
+     → expected 500 to be 422 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /patients 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /patients 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /patients/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > PUT /patients/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > DELETE /patients/:id 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /appointments 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /appointments 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /appointments/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > PATCH /appointments/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > DELETE /appointments/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /visits 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /visits 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /visits/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > PATCH /visits/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /referrals 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /referrals 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /referrals/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > PATCH /referrals/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /lab-orders 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /lab-orders 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /lab-orders/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /prescriptions 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /prescriptions 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /prescriptions/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /patients 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /patients 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /patients/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > PUT /patients/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > DELETE /patients/:id 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /appointments 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /appointments 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /appointments/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > PATCH /appointments/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > DELETE /appointments/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /visits 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /visits 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /visits/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > PATCH /visits/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /referrals 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /referrals 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /referrals/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > PATCH /referrals/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /lab-orders 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /lab-orders 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /lab-orders/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /prescriptions 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /prescriptions 0ms
+     → expected 404 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /prescriptions/:id 0ms
+     → expected 500 to be 409 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /patients 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /patients 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /patients/:id 1ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > PUT /patients/:id 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > DELETE /patients/:id 0ms
+     → expected 404 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /appointments 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /appointments 0ms
+     → expected 404 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /appointments/:id 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > PATCH /appointments/:id 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > DELETE /appointments/:id 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /visits 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /visits 0ms
+     → expected 404 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /visits/:id 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > PATCH /visits/:id 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /referrals 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /referrals 0ms
+     → expected 404 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /referrals/:id 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > PATCH /referrals/:id 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /lab-orders 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /lab-orders 0ms
+     → expected 404 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /lab-orders/:id 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /prescriptions 0ms
+     → expected 500 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /prescriptions 0ms
+     → expected 404 to be 403 // Object.is equality
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /prescriptions/:id 0ms
+     → expected 500 to be 403 // Object.is equality
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /patients 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /patients 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /patients/:id 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > PUT /patients/:id 0ms
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > DELETE /patients/:id 0ms
+     → expected 404 to be 500 // Object.is equality
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /appointments 0ms
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /appointments 0ms
+     → expected 404 to be 500 // Object.is equality
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /appointments/:id 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > PATCH /appointments/:id 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > DELETE /appointments/:id 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /visits 0ms
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /visits 0ms
+     → expected 404 to be 500 // Object.is equality
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /visits/:id 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > PATCH /visits/:id 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /referrals 0ms
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /referrals 0ms
+     → expected 404 to be 500 // Object.is equality
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /referrals/:id 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > PATCH /referrals/:id 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /lab-orders 0ms
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /lab-orders 0ms
+     → expected 404 to be 500 // Object.is equality
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /lab-orders/:id 0ms
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /prescriptions 0ms
+   × every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /prescriptions 0ms
+     → expected 404 to be 500 // Object.is equality
+   ✓ every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > GET /prescriptions/:id 0ms
+   × real database errors on the local stack (05-11c, INT L-4) > PATCH /appointments/:id to another clinic's doctor (composite FK, 23503) → 422 fixed text, the visit unchanged 35ms
+     → expected 500 to be 422 // Object.is equality
+   × real database errors on the local stack (05-11c, INT L-4) > GET /visits?start_date=<not a date> (22007) → 422 fixed text without the echoed input 9ms
+     → expected 500 to be 422 // Object.is equality
+   × real database errors on the local stack (05-11c, INT L-4) > GET /patients/:id with a malformed id (22P02) → 422 fixed text without the echoed input 8ms
+     → expected 500 to be 422 // Object.is equality
+   × real database errors on the local stack (05-11c, INT L-4) > GET /visits/:id with a malformed id (22P02) → 422 fixed text without the echoed input 10ms
+     → expected 500 to be 422 // Object.is equality
+   × real database errors on the local stack (05-11c, INT L-4) > GET /appointments/:id with a malformed id (22P02) → 422 fixed text without the echoed input 7ms
+     → expected 500 to be 422 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 131 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /patients
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /patients
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > PUT /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > PATCH /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > DELETE /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /visits/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > PATCH /visits/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /referrals/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > PATCH /referrals/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /lab-orders/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /prescriptions
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > GET /prescriptions/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /patients
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /patients
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > PUT /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > PATCH /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > DELETE /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /visits/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > PATCH /visits/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /referrals/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > PATCH /referrals/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /lab-orders/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /prescriptions
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > GET /prescriptions/:id
+AssertionError: expected 500 to be 422 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 422[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-error-texts.spec.ts:167:26
+    165|       const text = await res.text();
+    166|       expectNoSentinel(text);
+    167|       expect(res.status).toBe(status);
+       |                          ^
+    168|       const body = JSON.parse(text);
+    169|       expect(body.error.code).toBe(code);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/131]⎯
+
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > DELETE /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23503 > POST /prescriptions
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > DELETE /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 22P02 > POST /prescriptions
+AssertionError: expected 404 to be 422 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 422[39m
+[31m+ 404[39m
+
+ ❯ tests/api/v1-error-texts.spec.ts:167:26
+    165|       const text = await res.text();
+    166|       expectNoSentinel(text);
+    167|       expect(res.status).toBe(status);
+       |                          ^
+    168|       const body = JSON.parse(text);
+    169|       expect(body.error.code).toBe(code);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/131]⎯
+
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /patients
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /patients
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > PUT /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > PATCH /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > DELETE /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /visits/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > PATCH /visits/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /referrals/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > PATCH /referrals/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /lab-orders/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /prescriptions
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > GET /prescriptions/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /patients
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /patients
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > PUT /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > PATCH /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > DELETE /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /visits/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > PATCH /visits/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /referrals/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > PATCH /referrals/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /lab-orders/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /prescriptions
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > GET /prescriptions/:id
+AssertionError: expected 500 to be 409 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 409[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-error-texts.spec.ts:167:26
+    165|       const text = await res.text();
+    166|       expectNoSentinel(text);
+    167|       expect(res.status).toBe(status);
+       |                          ^
+    168|       const body = JSON.parse(text);
+    169|       expect(body.error.code).toBe(code);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/131]⎯
+
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > DELETE /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 23505 > POST /prescriptions
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > DELETE /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 40P01 > POST /prescriptions
+AssertionError: expected 404 to be 409 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 409[39m
+[31m+ 404[39m
+
+ ❯ tests/api/v1-error-texts.spec.ts:167:26
+    165|       const text = await res.text();
+    166|       expectNoSentinel(text);
+    167|       expect(res.status).toBe(status);
+       |                          ^
+    168|       const body = JSON.parse(text);
+    169|       expect(body.error.code).toBe(code);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/131]⎯
+
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /patients
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /patients
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > PUT /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > PATCH /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > DELETE /appointments/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /visits/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > PATCH /visits/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /referrals/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > PATCH /referrals/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /lab-orders/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /prescriptions
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > GET /prescriptions/:id
+AssertionError: expected 500 to be 403 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 403[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-error-texts.spec.ts:167:26
+    165|       const text = await res.text();
+    166|       expectNoSentinel(text);
+    167|       expect(res.status).toBe(status);
+       |                          ^
+    168|       const body = JSON.parse(text);
+    169|       expect(body.error.code).toBe(code);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/131]⎯
+
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > DELETE /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE 42501 > POST /prescriptions
+AssertionError: expected 404 to be 403 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 403[39m
+[31m+ 404[39m
+
+ ❯ tests/api/v1-error-texts.spec.ts:167:26
+    165|       const text = await res.text();
+    166|       expectNoSentinel(text);
+    167|       expect(res.status).toBe(status);
+       |                          ^
+    168|       const body = JSON.parse(text);
+    169|       expect(body.error.code).toBe(code);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/131]⎯
+
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > DELETE /patients/:id
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /appointments
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /visits
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /referrals
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /lab-orders
+ FAIL  tests/api/v1-error-texts.spec.ts > every /api/v1 handler: database errors → mapped status and fixed text (05-11c, INT L-4) > SQLSTATE XX000 > POST /prescriptions
+AssertionError: expected 404 to be 500 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 500[39m
+[31m+ 404[39m
+
+ ❯ tests/api/v1-error-texts.spec.ts:167:26
+    165|       const text = await res.text();
+    166|       expectNoSentinel(text);
+    167|       expect(res.status).toBe(status);
+       |                          ^
+    168|       const body = JSON.parse(text);
+    169|       expect(body.error.code).toBe(code);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/131]⎯
+
+ FAIL  tests/api/v1-error-texts.spec.ts > real database errors on the local stack (05-11c, INT L-4) > PATCH /appointments/:id to another clinic's doctor (composite FK, 23503) → 422 fixed text, the visit unchanged
+AssertionError: expected 500 to be 422 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 422[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-error-texts.spec.ts:238:24
+    236|     });
+    237|     const text = await res.text();
+    238|     expect(res.status).toBe(422);
+       |                        ^
+    239|     expect(JSON.parse(text).error).toEqual({ code: "VALIDATION_ERROR",…
+    240|     expect(text).not.toContain("Key (");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/131]⎯
+
+ FAIL  tests/api/v1-error-texts.spec.ts > real database errors on the local stack (05-11c, INT L-4) > GET /visits?start_date=<not a date> (22007) → 422 fixed text without the echoed input
+AssertionError: expected 500 to be 422 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 422[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-error-texts.spec.ts:249:24
+    247|     const res = await getVisits(realReq("/api/v1/visits?start_date=SEN…
+    248|     const text = await res.text();
+    249|     expect(res.status).toBe(422);
+       |                        ^
+    250|     expect(JSON.parse(text).error).toEqual({ code: "VALIDATION_ERROR",…
+    251|     expect(text).not.toContain("SENTINEL_NOT_A_DATE");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/131]⎯
+
+ FAIL  tests/api/v1-error-texts.spec.ts > real database errors on the local stack (05-11c, INT L-4) > GET /patients/:id with a malformed id (22P02) → 422 fixed text without the echoed input
+ FAIL  tests/api/v1-error-texts.spec.ts > real database errors on the local stack (05-11c, INT L-4) > GET /visits/:id with a malformed id (22P02) → 422 fixed text without the echoed input
+ FAIL  tests/api/v1-error-texts.spec.ts > real database errors on the local stack (05-11c, INT L-4) > GET /appointments/:id with a malformed id (22P02) → 422 fixed text without the echoed input
+AssertionError: expected 500 to be 422 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 422[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-error-texts.spec.ts:261:24
+    259|     const res = await call("SENTINEL-not-a-uuid");
+    260|     const text = await res.text();
+    261|     expect(res.status).toBe(422);
+       |                        ^
+    262|     expect(JSON.parse(text).error).toEqual({ code: "VALIDATION_ERROR",…
+    263|     expect(text).not.toContain("SENTINEL-not-a-uuid");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/131]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  131 failed | 18 passed (149)
+   Start at  10:55:46
+   Duration  1.22s (transform 144ms, setup 9ms, collect 198ms, tests 666ms, environment 0ms, prepare 27ms)
+
+[teardown] removed run data: 2 tenant(s), 4 auth user(s), 0 storage object(s); verified none remain

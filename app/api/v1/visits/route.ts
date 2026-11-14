@@ -1,17 +1,22 @@
 import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
-import { apiSuccess, apiError } from "@/lib/api/envelope";
+import { apiSuccess, apiError, apiDbError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
+import { isSlotTakenError } from "@/features/visits/service";
+import { retryOnDeadlock } from "@/lib/db/retry";
+import { apiVisitDuration, VISIT_DURATION_API_MESSAGE } from "@/features/visits/duration";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { CLINICAL_ACCESS_DENIED, hasClinicalField, V1_VISIT_COLUMNS } from "@/lib/api/visit-dto";
 
 /**
  * GET /api/v1/visits
  * List visits (walk-in and scheduled encounters) grounded in public.visits.
  * Filters: patient_id, doctor_id, status, start_date, end_date. Standard page/limit pagination.
+ * No clinical content (V2-05 05-11c, R-9): only `V1_VISIT_COLUMNS` (lib/api/visit-dto.ts).
  */
 export async function GET(req: NextRequest) {
   const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
@@ -50,10 +55,7 @@ export async function GET(req: NextRequest) {
 
   try {
     let query = (admin.from("visits") as any)
-      .select(
-        "id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, estimated_duration_minutes, reason_for_visit, is_overbooked, vitals, chief_complaints, clinical_notes, specialty, created_by, created_at, updated_at",
-        { count: "exact" }
-      )
+      .select(V1_VISIT_COLUMNS, { count: "exact" })
       .eq("tenant_id", session.tenantId);
 
     if (patientId) {
@@ -84,7 +86,7 @@ export async function GET(req: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (error) {
-      return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
+      return apiDbError(error, rateHeaders);
     }
 
     const total = count || 0;
@@ -102,8 +104,7 @@ export async function GET(req: NextRequest) {
       rateHeaders
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }
 
@@ -112,6 +113,7 @@ export async function GET(req: NextRequest) {
  * Create a new clinical visit (walk-in or consultation).
  * Enforces Doctor Guard (D-05) ensuring doctor_id belongs to active clinic and holds 'doctor' or 'owner' role.
  * Grounded in public.visits with created_by = session.userId.
+ * A body with clinical content (e.g. `chief_complaints`) → 403 CLINICAL_ACCESS_DENIED (V2-05 05-11c, R-9).
  */
 export async function POST(req: NextRequest) {
   const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
@@ -141,12 +143,16 @@ export async function POST(req: NextRequest) {
     return apiError("INVALID_JSON", "Request body must be valid JSON.", 400, undefined, rateHeaders);
   }
 
+  // API keys have no clinical access (R-9; IND M5): clinical content is refused, never silently dropped.
+  if (hasClinicalField(body)) {
+    return apiError(CLINICAL_ACCESS_DENIED.code, CLINICAL_ACCESS_DENIED.message, 403, undefined, rateHeaders);
+  }
+
   const {
     patient_id,
     doctor_id,
     origin_type,
     reason_for_visit,
-    chief_complaints,
     status,
     scheduled_at,
     estimated_duration_minutes,
@@ -157,6 +163,12 @@ export async function POST(req: NextRequest) {
   }
   if (!doctor_id || typeof doctor_id !== "string") {
     return apiError("VALIDATION_ERROR", "Field 'doctor_id' is required.", 400, undefined, rateHeaders);
+  }
+
+  // The same bounds as the app and the database (`visits_duration_range`, V2-05 05-11a/05-11c M-DURATION).
+  const duration = apiVisitDuration(estimated_duration_minutes);
+  if (duration === null) {
+    return apiError("VALIDATION_ERROR", VISIT_DURATION_API_MESSAGE, 422, undefined, rateHeaders);
   }
 
   const originType = origin_type === "scheduled" ? "scheduled" : "walk_in";
@@ -171,12 +183,21 @@ export async function POST(req: NextRequest) {
       .eq("is_deleted", false)
       .maybeSingle();
 
-    if (patientErr || !patient) {
+    if (patientErr) {
+
+      return apiDbError(patientErr, rateHeaders);
+
+    }
+
+    if (!patient) {
       return apiError("NOT_FOUND", "Patient not found in active clinic.", 404, undefined, rateHeaders);
     }
 
     // 2. Enforce Doctor Guard (D-05, T-06-05)
     const doctorCheck = await validateDoctorAssignment(admin, session.tenantId, doctor_id);
+    if (doctorCheck.dbError) {
+      return apiDbError(doctorCheck.dbError, rateHeaders);
+    }
     if (!doctorCheck.valid) {
       return apiError(
         "FORBIDDEN_CLINICIAN",
@@ -187,39 +208,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Format chief complaints as JSONB
-    let formattedComplaints: any[] = [];
-    if (Array.isArray(chief_complaints)) {
-      formattedComplaints = chief_complaints;
-    } else if (typeof chief_complaints === "string" && chief_complaints.trim()) {
-      formattedComplaints = [{ complaint: chief_complaints.trim() }];
-    }
-
-    // 4. Insert into public.visits
-    const { data: newVisit, error: insertErr } = await (admin.from("visits") as any)
+    // 3. Insert into public.visits. A deadlock victim of a concurrent overlapping slot write is retried once
+    // (`retryOnDeadlock`, V2-05 05-11c); a residual deadlock counts as the taken slot (`isSlotTakenError`).
+    const { data: newVisitRow, error: insertErr } = await retryOnDeadlock<{ data: any; error: any }>(() => (admin.from("visits") as any)
       .insert({
         tenant_id: session.tenantId,
         patient_id,
         doctor_id,
         origin_type: originType,
         reason_for_visit: reason_for_visit || null,
-        chief_complaints: formattedComplaints,
         status: visitStatus,
         scheduled_at: scheduled_at || null,
-        estimated_duration_minutes:
-          typeof estimated_duration_minutes === "number" && estimated_duration_minutes > 0
-            ? estimated_duration_minutes
-            : 15,
+        estimated_duration_minutes: duration,
         created_by: session.userId,
       })
-      .select()
-      .single();
+      .select(V1_VISIT_COLUMNS)
+      .single());
 
-    if (insertErr || !newVisit) {
-      return apiError("DATABASE_ERROR", insertErr?.message || "Failed to create visit.", 500, undefined, rateHeaders);
+    if (isSlotTakenError(insertErr)) {
+      // A scheduled visit overlapping another non-overbooked one of the doctor (V2-05 05-08: visits_no_double_booking).
+      return apiError(
+        "SLOT_CONFLICT",
+        "The requested visit time conflicts with an existing booking for this doctor.",
+        409,
+        undefined,
+        rateHeaders
+      );
     }
+    if (insertErr || !newVisitRow) {
+      return apiDbError(insertErr, rateHeaders);
+    }
+    const newVisit = newVisitRow;
 
-    // 5. Audit log mutation (D-08)
+    // 4. Audit log mutation (D-08)
     try {
       await recordAudit(apiKeyServiceContext(session, admin), {
           action: "visit.create",
@@ -236,7 +257,6 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(newVisit, undefined, 201, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }

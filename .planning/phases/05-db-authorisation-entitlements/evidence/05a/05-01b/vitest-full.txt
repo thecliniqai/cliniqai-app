@@ -1,0 +1,5 @@
+# npx vitest run at f3c6b80 (+ uncommitted e2e spec edit only)
+total 4445 passed 4445 failed 0 skipped 0
+[teardown] removed run data: 172 tenant(s), 327 auth user(s), 1397 storage object(s); verified none remain
+exit 0
+

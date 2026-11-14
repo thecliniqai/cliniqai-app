@@ -31,6 +31,8 @@ function createMockSupabase(overrides?: {
   const insertedVisits = overrides?.insertedVisits || [];
 
   return {
+    // The user-path audit row goes through public.log_audit (V2-05 05-02c).
+    rpc: async () => ({ data: 1, error: null }),
     from: (table: string) => {
       if (table === "memberships") {
         return {

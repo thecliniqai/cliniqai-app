@@ -1,0 +1,3 @@
+# Probe (local stack, rolled back): a per-schema ALTER DEFAULT PRIVILEGES ... REVOKE EXECUTE FROM PUBLIC does not remove PUBLIC's built-in EXECUTE on a new function
+acl=NULL(default: PUBLIC=X)
+anon has EXECUTE on the function: true

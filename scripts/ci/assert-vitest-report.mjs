@@ -27,6 +27,9 @@
  *          4399 × 0.95 = 4179.05 → 4180. No test was removed by a V2-04 rewrite without its replacement in the same run
  *          (the count is the measured total). REQUIRED_FILES gains every spec V2-04 added outside tests/e2e (49 files;
  *          118 in total).
+ *   4633 — V2-05 05a gate close: the full suite at 13217bb (000078, the 05a fixes and gates) had 4876 tests in 248 files,
+ *          0 skipped; 4876 × 0.95 = 4632.2 → 4633. REQUIRED_FILES gains every spec 05a added outside tests/e2e
+ *          (37 files; 155 in total).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -35,7 +38,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 4180;
+const FLOOR = 4633;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -184,6 +187,54 @@ const REQUIRED_FILES = [
   "tests/ops/restore-guards.spec.ts",
   "tests/ops/manifest-guard.spec.ts",
   "tests/ops/restore-psql-restricted-db.spec.ts",
+  // V2-05 05a (05-PLAN.md "05a gate" step 1 plus each plan record's close note): every spec 05a added outside tests/e2e.
+  // 05-01a pgTAP harness and gate.
+  "tests/ci/pgtap-report.spec.ts",
+  "tests/ci/test-pgtap-script.spec.ts",
+  "tests/ci/pgtap-legacy-inline.spec.ts",
+  // 05-01b authz helpers, active-tenant carrier, parity, generated matrix.
+  "tests/permissions/has-permission-parity.spec.ts",
+  "tests/authz/active-tenant-carrier.spec.ts",
+  "tests/authz/table-matrix.spec.ts",
+  "tests/authz/generator-drift.spec.ts",
+  // 05-03 composite FKs and diagnostics.
+  "tests/ci/diagnostics-script.spec.ts",
+  "tests/ci/fk-edge-cases-inline.spec.ts",
+  // 05-04 delete paths.
+  "tests/integration/delete-paths.spec.ts",
+  // 05-02a clinical split.
+  "tests/ci/clinical-notes-backfill-inline.spec.ts",
+  "tests/security/role-rls.spec.ts",
+  // 05-02b domain policies (acceptance 5) and billing:collect.
+  "tests/patients/receptionist-registration.spec.ts",
+  "tests/billing/collect-permission.spec.ts",
+  // 05-02c storage, lab keys, audit v2.
+  "tests/storage/storage-policies-jwt.spec.ts",
+  "tests/labs/lab-storage-key.spec.ts",
+  "tests/audit/audit-actor.spec.ts",
+  // 05-06 exports and referrals.
+  "tests/dpdp/export-dto.spec.ts",
+  "tests/api/export-scope.spec.ts",
+  // 05-08 integrity (acceptance 6 and 7).
+  "tests/scheduling/no-double-booking.spec.ts",
+  "tests/integration/queue-token-concurrency.spec.ts",
+  "tests/api/v1-slot-conflict.spec.ts",
+  "tests/visits/create-visit-slot-race.spec.ts",
+  // 05-11a…e review fixes (H-VISIT, H-INVITE, M-*, N-*, NF-*).
+  "tests/visits/signed-visit-integrity.spec.ts",
+  "tests/ci/visit-integrity-inline.spec.ts",
+  "tests/visits/duration-bounds.spec.ts",
+  "tests/billing/invoice-totals-db.spec.ts",
+  "tests/audit/log-audit-allowlist.spec.ts",
+  "tests/referrals/referral-consent-write.spec.ts",
+  "tests/db/retry.spec.ts",
+  "tests/scheduling/slot-deadlock-retry.spec.ts",
+  "tests/api/v1-error-texts.spec.ts",
+  "tests/api/v1-visits-no-clinical.spec.ts",
+  "tests/api/v1-patients-no-clinical.spec.ts",
+  "tests/dpdp/export-routes-audit.spec.ts",
+  "tests/dpdp/export-fail-closed.spec.ts",
+  "tests/auth/page-revoked-session.spec.ts",
 ];
 
 const file = process.argv[2];

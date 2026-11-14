@@ -15,6 +15,8 @@ import { generateAndArchivePrescriptionPdf } from "../prescriptions/pdf/generato
 import { PrescriptionPdfPayload } from "../prescriptions/pdf/prescription-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { unaffectedRowsError } from "@/lib/db/errors";
+import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
@@ -24,6 +26,9 @@ import { clientErrorMessage } from "@/lib/errors/client-message";
 
 const SIGNED_CONSULTATION_MESSAGE =
   "This consultation is already signed. Reopen it for amendment to make changes.";
+
+/** The draft was saved but the visit's follow-up could not be cleared (V2-05 05-04: never reported as done). */
+const FOLLOW_UP_CLEAR_FAILED_MESSAGE = "Draft saved, but the follow-up could not be cleared. Please try again.";
 
 /** Completed, cancelled, or signed and not reopened for amendment (reopened = signed_at set, status in_consultation). */
 function isDraftLocked(visit: { status?: string | null; signed_at?: string | null }): boolean {
@@ -119,7 +124,7 @@ export async function saveConsultationDraft(
     // 1. Verify visit exists and belongs to this tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: visit, error: visitFetchErr } = await (supabase.from("visits") as any)
-      .select("id, patient_id, status, vitals, signed_at")
+      .select(`id, patient_id, status, signed_at, ${clinicalNotesEmbed(["vitals"])}`)
       .eq("id", data.visit_id)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -141,15 +146,12 @@ export async function saveConsultationDraft(
     // 2. Determine new status: if waiting, transition to in_consultation
     const updatedStatus = visit.status === "waiting" ? "in_consultation" : undefined;
 
-    // 3. Update the visit row with draft SOAP clinical data
+    // 3. Update the visit row (status, specialty), then the draft SOAP content in clinical_notes (V2-05 05-02a). The
+    // visit write carries the sign-off lock in its filter and goes first, so a draft never lands on a visit that was
+    // signed before this save began; a sign-off racing in between the two writes is the residual V2-09a closes with
+    // the record-immutability rules (R-21).
     const updatePayload: Record<string, unknown> = {
-      vitals: attributeVitals(ctx, data.vitals, visit.vitals),
-      chief_complaints: data.chief_complaints ?? [],
-      clinical_notes: data.clinical_notes ?? null,
       specialty: data.specialty,
-      specialty_data: data.specialty_data ?? {},
-      investigations_advised: data.investigations_advised ?? [],
-      advice: data.advice ?? [],
       updated_at: new Date().toISOString(),
     };
 
@@ -179,6 +181,23 @@ export async function saveConsultationDraft(
       return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
     }
 
+    const { error: notesErr, raw: notesRaw } = await updateClinicalNotes(supabase, ctx.tenantId, data.visit_id, {
+      vitals: attributeVitals(ctx, data.vitals, embeddedClinicalNotes(visit)?.vitals),
+      chief_complaints: (data.chief_complaints ?? []) as unknown as Array<Record<string, unknown>>,
+      clinical_notes: data.clinical_notes ?? null,
+      specialty_data: (data.specialty_data ?? {}) as Record<string, unknown>,
+      investigations_advised: data.investigations_advised ?? [],
+      advice: data.advice ?? [],
+    });
+    if (notesErr) {
+      if (notesErr.code === "FORBIDDEN") {
+        log.warn({ event: "consultation.draft_save.refused", reason: notesErr.reason === "ROW_NOT_AFFECTED" ? "row_not_affected" : "forbidden", requestId: await getRequestId(), tenantId: ctx.tenantId });
+        return { success: false, error: notesErr.message };
+      }
+      log.error({ event: "consultation.draft_save.failed", code: errorTag(notesRaw), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to save draft. Please try again." };
+    }
+
     // 4. Handle follow-up record if provided
     if (data.follow_up?.follow_up_date) {
       await recordFollowUp(ctx, {
@@ -188,12 +207,34 @@ export async function saveConsultationDraft(
         notes: data.follow_up.notes ?? undefined,
       });
     } else {
-      // If doctor selected None / N/A, delete any existing follow_up for this visit
+      // If doctor selected None / N/A, delete any existing follow_up for this visit. RLS may filter the delete
+      // (V2-05 05-04): compare the deleted rows with the visible ones, so a follow-up that is still there is reported.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("follow_ups") as any)
-        .delete()
+      const { data: visibleFollowUps, error: followUpReadErr } = await (supabase.from("follow_ups") as any)
+        .select("id")
         .eq("visit_id", data.visit_id)
         .eq("tenant_id", ctx.tenantId);
+      if (followUpReadErr) {
+        log.error({ event: "consultation.follow_up_clear.failed", code: errorTag(followUpReadErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+        return { success: false, error: FOLLOW_UP_CLEAR_FAILED_MESSAGE };
+      }
+      const visibleCount = Array.isArray(visibleFollowUps) ? visibleFollowUps.length : 0;
+      if (visibleCount > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: deletedFollowUps, error: followUpDeleteErr } = await (supabase.from("follow_ups") as any)
+          .delete()
+          .eq("visit_id", data.visit_id)
+          .eq("tenant_id", ctx.tenantId)
+          .select("id");
+        if (followUpDeleteErr) {
+          log.error({ event: "consultation.follow_up_clear.failed", code: errorTag(followUpDeleteErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+          return { success: false, error: FOLLOW_UP_CLEAR_FAILED_MESSAGE };
+        }
+        if (unaffectedRowsError(deletedFollowUps, visibleCount)) {
+          log.warn({ event: "consultation.follow_up_clear.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+          return { success: false, error: FOLLOW_UP_CLEAR_FAILED_MESSAGE };
+        }
+      }
     }
 
     // 5. Record audit log
@@ -361,7 +402,7 @@ export async function getPatientConsultationHistory(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let visitQuery = (supabase as any)
       .from("visits")
-      .select("id, scheduled_at, created_at, status, specialty, vitals, chief_complaints, clinical_notes, advice")
+      .select(`id, scheduled_at, created_at, status, specialty, ${clinicalNotesEmbed(["vitals", "chief_complaints", "clinical_notes", "advice"])}`)
       .eq("tenant_id", ctx.tenantId)
       .eq("patient_id", patientId)
       .in("status", ["completed", "in_consultation"])
@@ -371,8 +412,10 @@ export async function getPatientConsultationHistory(
       visitQuery = visitQuery.neq("id", currentVisitId);
     }
 
-    const { data: visits, error: visitsErr } = await visitQuery;
+    const { data: visitRows, error: visitsErr } = await visitQuery;
     if (visitsErr) throw visitsErr;
+    // Clinical content from clinical_notes (05-02a); absent (null) where RLS hides it.
+    const visits = (visitRows ?? []).map(withClinicalNotes);
 
     if (!visits || visits.length === 0) {
       return { success: true, encounters: [] };
@@ -484,14 +527,16 @@ async function buildVisitPdfPayload(
   const supabase = ctx.db as any;
   const tenantId = ctx.tenantId;
 
-  const { data: visit } = await supabase
+  const { data: visitRow } = await supabase
     .from("visits")
-    .select("*")
+    .select(`*, ${clinicalNotesEmbed()}`)
     .eq("id", visitId)
     .eq("tenant_id", tenantId)
     .single();
 
-  if (!visit) return null;
+  if (!visitRow) return null;
+  // The clinical content comes from clinical_notes (V2-05 05-02a).
+  const visit = withClinicalNotes(visitRow);
 
   const { data: tenant } = await supabase
     .from("tenants")
@@ -582,7 +627,7 @@ async function buildVisitPdfPayload(
     visit: {
       visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
       vitals: visit.vitals || null,
-      chief_complaints: visit.chief_complaints || [],
+      chief_complaints: (visit.chief_complaints || []) as PrescriptionPdfPayload["visit"]["chief_complaints"],
       clinical_notes: visit.clinical_notes || null,
       specialty: visit.specialty || "general_physician",
     },
@@ -632,7 +677,7 @@ export async function completeAndSignConsultation(
     // 1. Fetch visit and verify access
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("id, status, clinical_notes, patient_id, doctor_id, signed_at")
+      .select(`id, status, patient_id, doctor_id, signed_at, ${clinicalNotesEmbed(["clinical_notes"])}`)
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -655,7 +700,8 @@ export async function completeAndSignConsultation(
       .limit(1);
 
     const hasDiagnosis = diagnoses && diagnoses.length > 0;
-    const hasNotes = Boolean(visit.clinical_notes && visit.clinical_notes.trim().length > 0);
+    const notesText = clinicalContent(embeddedClinicalNotes(visit)).clinical_notes;
+    const hasNotes = Boolean(notesText && notesText.trim().length > 0);
 
     if (!hasDiagnosis && !hasNotes) {
       return {
@@ -763,8 +809,8 @@ export type ReopenVisitForAmendmentResult =
 
 /**
  * Reopens a completed consultation for post-sign-off clinical amendments.
- * Captures an immutable JSON snapshot in `visit_revisions` before transitioning
- * the visit status back to 'in_consultation'.
+ * Writes an amendment row in `visit_revisions` (the database fills its number and its immutable JSON snapshot of the
+ * signed content) before transitioning the visit status back to 'in_consultation'.
  */
 export async function reopenVisitForAmendment(
   ctx: ServiceContext,
@@ -788,10 +834,10 @@ export async function reopenVisitForAmendment(
   const supabase = ctx.db;
 
   try {
-    // 1. Fetch visit - must be completed
+    // 1. Fetch visit - must be completed and signed
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("*")
+      .select("id, status, signed_at")
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -800,91 +846,40 @@ export async function reopenVisitForAmendment(
       return { success: false, error: "Visit record not found or access denied." };
     }
 
-    if (visit.status !== "completed") {
+    // An amendment records a signed version, so the database admits the row only on a signed, completed visit
+    // (V2-05 05-11e, NF-1). A visit completed at the front desk without a sign-off has nothing to amend.
+    if (visit.status !== "completed" || !visit.signed_at) {
       return {
         success: false,
-        error: "Only completed consultations can be reopened for amendment.",
+        error: "Only signed, completed consultations can be reopened for amendment.",
       };
     }
 
-    // 2. Fetch diagnoses
+    // 2. Insert the amendment row. Its revision number (previous + 1) and its snapshot of the signed content (visit,
+    // notes and vitals, diagnoses, every prescription with its items, follow-ups) are filled by the database under the
+    // visit row lock, whatever a client sends (V2-05 05-11d/05-11e, N-2/N-8/NF-2: visit_revisions_actor_guard);
+    // amended_at is the database clock (05-11a). The reopen below is admitted only with this row (NF-1).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: diagnoses } = await (supabase.from("consultation_diagnoses") as any)
-      .select("*")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId);
-
-    // 3. Fetch prescription and items
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rx } = await (supabase.from("prescriptions") as any)
-      .select("*")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let rxItems: any[] = [];
-    if (rx?.id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: items } = await (supabase.from("prescription_items") as any)
-        .select("*")
-        .eq("prescription_id", rx.id)
-        .order("sort_order", { ascending: true });
-      rxItems = items || [];
-    }
-
-    // 4. Calculate next revision number
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: prevRevisions } = await (supabase.from("visit_revisions") as any)
-      .select("revision_number")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .order("revision_number", { ascending: false })
-      .limit(1);
-
-    const nextRevNum =
-      prevRevisions && prevRevisions.length > 0 ? prevRevisions[0].revision_number + 1 : 1;
-
-    // 5. Freeze complete JSON state snapshot
-    const snapshot = {
-      visit: {
-        status: visit.status,
-        vitals: visit.vitals,
-        chief_complaints: visit.chief_complaints,
-        clinical_notes: visit.clinical_notes,
-        specialty: visit.specialty,
-        specialty_data: visit.specialty_data,
-        advice: visit.advice,
-        investigations_advised: visit.investigations_advised,
-        signed_at: visit.signed_at,
-      },
-      diagnoses: diagnoses || [],
-      prescription: rx ? { ...rx, items: rxItems } : null,
-    };
-
-    // 6. Insert immutable snapshot into visit_revisions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: revErr } = await (supabase.from("visit_revisions") as any)
+    const { data: revision, error: revErr } = await (supabase.from("visit_revisions") as any)
       .insert({
         tenant_id: ctx.tenantId,
         visit_id: visitId,
-        revision_number: nextRevNum,
         amended_by: ctx.userId,
-        amended_at: new Date().toISOString(),
         amendment_reason: cleanReason,
-        snapshot,
-      });
+      })
+      .select("revision_number")
+      .single();
 
-    if (revErr) {
+    if (revErr || typeof revision?.revision_number !== "number") {
       log.error({ event: "consultation.amend_revision_insert.failed", code: errorTag(revErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to create audit revision record." };
     }
+    const nextRevNum: number = revision.revision_number;
 
-    // 7. Transition visit back to 'in_consultation'
+    // 3. Transition visit back to 'in_consultation'. The database admits this only after the caller's amendment row
+    // above (V2-05 05-11a, H-VISIT), so a refused write is reported, never a silent success.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("visits") as any)
+    const { error: reopenErr } = await (supabase.from("visits") as any)
       .update({
         status: "in_consultation",
         updated_at: new Date().toISOString(),
@@ -892,7 +887,12 @@ export async function reopenVisitForAmendment(
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId);
 
-    // 8. Record audit trail
+    if (reopenErr) {
+      log.error({ event: "consultation.amend_reopen_update.failed", code: errorTag(reopenErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to reopen visit for amendment." };
+    }
+
+    // 4. Record audit trail
     await recordAudit(ctx, {
       action: "visit.reopen_for_amendment",
       entityType: "visit",
@@ -981,9 +981,10 @@ export async function finalizeVisitAmendment(
         .eq("tenant_id", ctx.tenantId);
     }
 
-    // 4. Update visit status back to 'completed'
+    // 4. Update visit status back to 'completed', re-signed by the caller (the database admits a new signature only
+    // here, on a reopened visit: V2-05 05-11a, H-VISIT).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("visits") as any)
+    const { error: finalizeErr } = await (supabase.from("visits") as any)
       .update({
         status: "completed",
         signed_at: nowIso,
@@ -992,6 +993,11 @@ export async function finalizeVisitAmendment(
       })
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId);
+
+    if (finalizeErr) {
+      log.error({ event: "consultation.amend_finalize_update.failed", code: errorTag(finalizeErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to finalize amendment." };
+    }
 
     // 5. Regenerate and archive stamped amended PDF (v2, v3)
     try {

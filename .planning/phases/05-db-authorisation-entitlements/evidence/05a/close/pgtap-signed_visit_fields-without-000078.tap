@@ -1,0 +1,76 @@
+/Users/sid/Code/clinicOS/supabase/tests/database/signed_visit_fields.test.sql .. 
+1..26
+not ok 1 - NF-4 repro: the receptionist cannot move a signed visit's date
+# Failed test 1: "NF-4 repro: the receptionist cannot move a signed visit's date"
+#         have: ok
+#         want: denied:VISIT_SIGNED_FIELD_IMMUTABLE
+not ok 2 - NF-4 repro: the receptionist cannot relabel a signed visit's specialty
+# Failed test 2: "NF-4 repro: the receptionist cannot relabel a signed visit's specialty"
+#         have: ok
+#         want: denied:VISIT_SIGNED_FIELD_IMMUTABLE
+not ok 3 - NF-4: the owner cannot move a signed visit's date either
+# Failed test 3: "NF-4: the owner cannot move a signed visit's date either"
+#         have: ok
+#         want: denied:VISIT_SIGNED_FIELD_IMMUTABLE
+not ok 4 - NF-4: the signing doctor cannot relabel the signed visit without reopening it
+# Failed test 4: "NF-4: the signing doctor cannot relabel the signed visit without reopening it"
+#         have: ok
+#         want: denied:VISIT_SIGNED_FIELD_IMMUTABLE
+not ok 5 - NF-4: another doctor cannot change both in one statement
+# Failed test 5: "NF-4: another doctor cannot change both in one statement"
+#         have: ok
+#         want: denied:VISIT_SIGNED_FIELD_IMMUTABLE
+not ok 6 - NF-4: the signed visit keeps its date
+# Failed test 6: "NF-4: the signed visit keeps its date"
+#         have: 2030-01-15 03:30:00+00
+#         want: 2030-02-01 04:30:00+00
+not ok 7 - NF-4: the signed visit keeps its specialty
+# Failed test 7: "NF-4: the signed visit keeps its specialty"
+#         have: dental
+#         want: general_physician
+ok 8 - NF-4 control: re-sending the same date and specialty is not a change
+ok 9 - the doctor writes an amendment row of the signed visit
+not ok 10 - NF-4: the amendment snapshot records the signed visit date
+# Failed test 10: "NF-4: the amendment snapshot records the signed visit date"
+#         have: NULL
+#         want: 2030-02-02 04:30:00+00
+ok 11 - the amendment snapshot records the signed specialty
+not ok 12 - NF-4: the reopen statement cannot change the specialty in the same write
+# Failed test 12: "NF-4: the reopen statement cannot change the specialty in the same write"
+#         have: ok
+#         want: denied:VISIT_SIGNED_FIELD_IMMUTABLE
+ok 13 - the doctor reopens the visit with the amendment row
+ok 14 - NF-4 control: while reopened, the doctor corrects the specialty and the date
+ok 15 - and finalizes the amendment
+not ok 16 - NF-4: the re-signed visit is locked again
+# Failed test 16: "NF-4: the re-signed visit is locked again"
+#         have: ok
+#         want: denied:VISIT_SIGNED_FIELD_IMMUTABLE
+ok 17 - NF-4 control: the receptionist reschedules an unsigned booked visit
+ok 18 - NF-4 control: the doctor sets the specialty of an open consultation
+ok 19 - the system path (no caller) is unchanged by 000078 (N-9, V2-09a)
+ok 20 - NF-5: the doctor signs, sending a backdated signature time
+not ok 21 - NF-5 repro: the stored signature time is the database clock, not the backdated value
+# Failed test 21: "NF-5 repro: the stored signature time is the database clock, not the backdated value"
+#         have: 1999-01-01 00:00:00+00
+#         want: 2026-11-14 08:30:15.634287+00
+ok 22 - NF-5: the doctor signs another visit, sending a future signature time
+not ok 23 - NF-5 repro: a forward-dated signature time is replaced by the database clock
+# Failed test 23: "NF-5 repro: a forward-dated signature time is replaced by the database clock"
+#         have: 2099-12-31 00:00:00+00
+#         want: 2026-11-14 08:30:15.634287+00
+ok 24 - NF-5: another doctor amends the visit and re-signs it with a backdated time
+not ok 25 - NF-5 repro: the finalize re-sign stores the database clock and the new signer
+# Failed test 25: "NF-5 repro: the finalize re-sign stores the database clock and the new signer"
+#         have: 1999-01-01 00:00:00+00/c0780000-0000-4000-8000-000000000103
+#         want: 2026-11-14 08:30:15.634287+00/c0780000-0000-4000-8000-000000000103
+ok 26 - NF-5 control: a sign-off without a signature time is still refused before the clock is applied
+# Looks like you failed 13 tests of 26
+Failed 13/26 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/signed_visit_fields.test.sql (Wstat: 0 Tests: 26 Failed: 13)
+  Failed tests:  1-7, 10, 12, 16, 21, 23, 25
+Files=1, Tests=26,  0 wallclock secs ( 0.01 usr  0.01 sys +  0.04 cusr  0.03 csys =  0.09 CPU)
+Result: FAIL

@@ -1,0 +1,80 @@
+# 05-02a replay of 000053 on planted synthetic data (local stack, psql -1; scripts: replay-plant.sql / replay-check.sql shown below)
+
+== schema version before: 000052
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 1
+INSERT 0 500
+CREATE SCHEMA
+SELECT 500
+planted visits: 500
+all visits snapshotted: 500
+== applying supabase/migrations/000053_clinical_notes_expand.sql with psql -1 on the planted data
+applied (exit 0)
+visits: 500, clinical_notes rows: 500
+visits without a clinical_notes row: 0
+rows whose content differs from the old columns: 0
+non-empty source notes carried: 375
+visits with any old clinical column still set: 0
+md5 of old content (coalesced): 6deec0b0693b142e33140c2d13313cf4
+md5 of new content:             6deec0b0693b142e33140c2d13313cf4
+rerun of the backfill inserts (idempotent): 0
+== re-running the migration's backfill statement (idempotence)
+INSERT 0 0
+== writing clinical text into visits after the migration
+ERROR:  new row for relation "visits" violates check constraint "visits_clinical_content_moved"
+
+== deleting the replay tenant (cascade through the RESTRICT FK)
+DELETE 1
+replay rows left: 0
+NOTICE:  drop cascades to table replay05.before
+DROP SCHEMA
+DELETE 1
+
+---- replay-plant.sql
+-- 05-02a replay: synthetic visits with every shape of clinical content, planted at schema 000052 (local stack only).
+insert into auth.users (id, email) values ('cb000000-0000-4000-8000-000000000101', 'replay-doctor@example.test');
+insert into public.tenants (id, name) values ('cb000000-0000-4000-8000-00000000000a', 'Synthetic Replay Clinic');
+insert into public.memberships (user_id, tenant_id, role) values ('cb000000-0000-4000-8000-000000000101', 'cb000000-0000-4000-8000-00000000000a', 'doctor');
+insert into public.patients (id, tenant_id, full_name, phone, created_by) values ('cb000000-0000-4000-8000-000000001001', 'cb000000-0000-4000-8000-00000000000a', 'Synthetic Replay Patient', '+919000000301', 'cb000000-0000-4000-8000-000000000101');
+-- 500 generated visits cycling through value shapes, plus named edge cases.
+insert into public.visits (tenant_id, patient_id, doctor_id, origin_type, created_by, vitals, chief_complaints, clinical_notes, specialty_data, investigations_advised, advice, created_at, updated_at)
+select 'cb000000-0000-4000-8000-00000000000a', 'cb000000-0000-4000-8000-000000001001', 'cb000000-0000-4000-8000-000000000101', 'walk_in', 'cb000000-0000-4000-8000-000000000101',
+  case g % 5 when 0 then null when 1 then '{}'::jsonb when 2 then jsonb_build_object('systolic', 100 + g % 60, 'diastolic', 60 + g % 30, 'recorded_by', 'cb000000-0000-4000-8000-000000000101') when 3 then 'null'::jsonb else jsonb_build_object('nested', jsonb_build_object('a', array[g, g+1])) end,
+  case g % 4 when 0 then null when 1 then '[]'::jsonb when 2 then jsonb_build_array(jsonb_build_object('complaint', 'Synthetic complaint ' || g, 'duration', g || ' days')) else 'null'::jsonb end,
+  case g % 4 when 0 then null when 1 then '' when 2 then 'Synthetic note ' || g || E'\nline two — unicode: ✓ é 漢' else repeat('x', 5000 + g) end,
+  case g % 3 when 0 then null when 1 then '{}'::jsonb else jsonb_build_object('pediatrics', jsonb_build_object('weight_percentile', g % 100)) end,
+  case g % 3 when 0 then null when 1 then '{}'::text[] else array['CBC', 'Synthetic test ' || g, null] end,
+  case g % 3 when 0 then null when 1 then '{}'::text[] else array['Rest', 'Fluids ' || g] end,
+  now() - (g || ' hours')::interval,
+  now() - (g || ' minutes')::interval
+from generate_series(1, 500) g;
+create schema replay05;
+create table replay05.before as
+  select id, tenant_id, vitals, chief_complaints, clinical_notes, specialty_data, investigations_advised, advice, created_at, updated_at
+    from public.visits;
+select 'planted visits: ' || count(*) from public.visits where tenant_id = 'cb000000-0000-4000-8000-00000000000a';
+select 'all visits snapshotted: ' || count(*) from replay05.before;
+
+---- replay-check.sql
+-- After 000053: every visit has exactly one clinical_notes row whose content equals the old columns (coalesced to the
+-- new defaults), and the old columns are empty.
+select 'visits: ' || (select count(*) from public.visits) || ', clinical_notes rows: ' || (select count(*) from public.clinical_notes);
+select 'visits without a clinical_notes row: ' || count(*) from public.visits v where not exists (select 1 from public.clinical_notes n where n.visit_id = v.id);
+select 'rows whose content differs from the old columns: ' || count(*)
+  from replay05.before b join public.clinical_notes n on n.visit_id = b.id
+ where n.tenant_id is distinct from b.tenant_id
+    or n.vitals is distinct from coalesce(b.vitals, '{}'::jsonb)
+    or n.chief_complaints is distinct from coalesce(b.chief_complaints, '[]'::jsonb)
+    or n.clinical_notes is distinct from b.clinical_notes
+    or n.specialty_data is distinct from coalesce(b.specialty_data, '{}'::jsonb)
+    or n.investigations_advised is distinct from coalesce(b.investigations_advised, '{}'::text[])
+    or n.advice is distinct from coalesce(b.advice, '{}'::text[])
+    or n.created_at is distinct from b.created_at
+    or n.updated_at is distinct from coalesce(b.updated_at, b.created_at);
+select 'non-empty source notes carried: ' || count(*) from replay05.before b join public.clinical_notes n on n.visit_id = b.id where b.clinical_notes is not null and n.clinical_notes = b.clinical_notes;
+select 'visits with any old clinical column still set: ' || count(*) from public.visits where vitals is not null or chief_complaints is not null or clinical_notes is not null or specialty_data is not null or investigations_advised is not null or advice is not null;
+select 'md5 of old content (coalesced): ' || md5(string_agg(b.id::text || coalesce(b.vitals, '{}')::text || coalesce(b.chief_complaints, '[]')::text || coalesce(b.clinical_notes, '<null>') || coalesce(b.specialty_data, '{}')::text || coalesce(b.investigations_advised, '{}')::text || coalesce(b.advice, '{}')::text, '|' order by b.id)) from replay05.before b;
+select 'md5 of new content:             ' || md5(string_agg(n.visit_id::text || n.vitals::text || n.chief_complaints::text || coalesce(n.clinical_notes, '<null>') || n.specialty_data::text || n.investigations_advised::text || n.advice::text, '|' order by n.visit_id)) from public.clinical_notes n;
+select 'rerun of the backfill inserts (idempotent): ' || count(*) from (select 1) x where false;

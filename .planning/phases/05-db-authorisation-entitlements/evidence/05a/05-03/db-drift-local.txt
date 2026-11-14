@@ -1,0 +1,2 @@
+# npm run db:drift:local
+local-drift: PASS (0 statement(s), 0 allowlisted: none)

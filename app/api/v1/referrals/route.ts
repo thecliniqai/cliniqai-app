@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { authenticateApiKey, apiKeyServiceContext } from "@/lib/api/auth";
-import { apiSuccess, apiError } from "@/lib/api/envelope";
+import { apiSuccess, apiError, apiDbError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { mapDbError } from "@/lib/db/errors";
 
 /**
  * GET /api/v1/referrals
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (error) {
-      return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
+      return apiDbError(error, rateHeaders);
     }
 
     const total = count || 0;
@@ -84,8 +85,7 @@ export async function GET(req: NextRequest) {
       rateHeaders
     );
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }
 
@@ -178,7 +178,13 @@ export async function POST(req: NextRequest) {
       .eq("is_deleted", false)
       .maybeSingle();
 
-    if (patientErr || !patient) {
+    if (patientErr) {
+
+      return apiDbError(patientErr, rateHeaders);
+
+    }
+
+    if (!patient) {
       return apiError("NOT_FOUND", "Patient not found in active clinic.", 404, undefined, rateHeaders);
     }
 
@@ -190,13 +196,22 @@ export async function POST(req: NextRequest) {
         .eq("tenant_id", session.tenantId)
         .maybeSingle();
 
-      if (visitErr || !visit) {
+      if (visitErr) {
+
+        return apiDbError(visitErr, rateHeaders);
+
+      }
+
+      if (!visit) {
         return apiError("NOT_FOUND", "Referenced visit not found in active clinic.", 404, undefined, rateHeaders);
       }
     }
 
     // 3. Enforce Doctor Guard on referring clinician (D-05, T-06-05)
     const doctorCheck = await validateDoctorAssignment(admin, session.tenantId, referring_doctor_id);
+    if (doctorCheck.dbError) {
+      return apiDbError(doctorCheck.dbError, rateHeaders);
+    }
     if (!doctorCheck.valid) {
       return apiError(
         "FORBIDDEN_CLINICIAN",
@@ -233,7 +248,19 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertErr || !newReferral) {
-      return apiError("DATABASE_ERROR", insertErr?.message || "Failed to create referral.", 500, undefined, rateHeaders);
+      // V2-05 05-06 (migration 000062): the directory/consent trigger refuses a target clinic that is not listed in the
+      // referral directory (or is this clinic) and a history snapshot without consent. Fixed texts only.
+      const reason = mapDbError(insertErr).reason;
+      if (reason === "REFERRAL_TARGET_NOT_LISTED") {
+        return apiError("VALIDATION_ERROR", "Field 'target_tenant_id' must name a clinic listed in the referral directory.", 422, undefined, rateHeaders);
+      }
+      if (reason === "REFERRAL_TARGET_DOCTOR_INVALID") {
+        return apiError("VALIDATION_ERROR", "Field 'target_doctor_id' must name an owner or doctor of the target clinic.", 422, undefined, rateHeaders);
+      }
+      if (reason === "REFERRAL_CONSENT_REQUIRED") {
+        return apiError("CONSENT_REQUIRED", "A consented history snapshot requires 'patient_consents_history_sharing'.", 422, undefined, rateHeaders);
+      }
+      return apiDbError(insertErr, rateHeaders, { event: "api.referrals_insert.failed" });
     }
 
     // 5. Record audit log (D-08)
@@ -254,7 +281,6 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess(newReferral, undefined, 201, rateHeaders);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    return apiDbError(err, rateHeaders);
   }
 }

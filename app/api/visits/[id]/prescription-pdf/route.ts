@@ -5,6 +5,7 @@ import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescriptio
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
+import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 
 export async function GET(
   request: Request,
@@ -13,9 +14,10 @@ export async function GET(
   try {
     const { id: visitId } = await params;
 
-    // 1-2. Authenticate, check the same permission as the in-app prescription preview (getPrescriptionPdfSignedUrl)
+    // 1-2. Authenticate, check the same permission as the in-app prescription preview (getPrescriptionPdfSignedUrl;
+    // prescriptions:view since V2-05 05-02b, the prescriptions RLS key: nurses, admins and the front desk do not read Rx)
     // and resolve the tenant membership server-side (session only, never caller input) — V2-01 F3
-    const resolved = await resolveServiceContext("consultations:view");
+    const resolved = await resolveServiceContext("prescriptions:view");
     if (!resolved.ok) {
       if (resolved.reason === "unauthenticated") {
         return new NextResponse("Unauthorized", { status: 401 });
@@ -34,15 +36,18 @@ export async function GET(
 
     // 3. Fetch visit data under strict tenant isolation
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("*")
+    const { data: visitRow, error: visitErr } = await (supabase.from("visits") as any)
+      .select(`*, ${clinicalNotesEmbed()}`)
       .eq("id", visitId)
       .eq("tenant_id", membership.tenantId)
       .single();
 
-    if (visitErr || !visit) {
+    if (visitErr || !visitRow) {
       return new NextResponse("Visit not found or access denied", { status: 404 });
     }
+    // The clinical content comes from clinical_notes (V2-05 05-02a).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const visit = withClinicalNotes(visitRow) as any;
 
     // 4. Fetch clinic tenant details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -28,13 +28,50 @@ import {
 } from "./pdf/generator";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { mapDbError, type DbErrorMessages } from "@/lib/db/errors";
+import { mapDbError, unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
 import { appError, type Result } from "@/lib/errors/app-error";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Billing use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
 // server action checked before the move, and completeAndBillConsultation calls the consultation, invoice, payment and
 // WhatsApp services with the same context so each callee's own permission check applies.
+// PO-3 (V2-05 05-02b, R-6/R-7): collecting and editing bills needs `billing:collect` (owner, admin, receptionist);
+// doctors and nurses do not collect. A doctor (consultations:edit) may still create the invoice of their OWN visit
+// through Sign & Bill, routed to reception unless they also hold billing:collect (the owner of a solo clinic). The
+// database enforces the same rules (000056 invoices/invoice_items/payments policies); these checks give the fixed
+// FORBIDDEN text before any write.
+
+/** Fixed text for a caller who may not collect payments or edit bills (PO-3). */
+export const BILLING_COLLECT_FORBIDDEN_MESSAGE =
+  "Only the front desk can collect payments. Sign and route the bill to reception instead.";
+
+/** Fixed texts for the invoice item guard's refusals (V2-05 05-11d, N-3: invoice_items_integrity_guard). */
+export const INVOICE_LOCKED_MESSAGE = "A paid or cancelled invoice cannot be changed.";
+export const INVOICE_BELOW_COLLECTED_MESSAGE =
+  "This change would bring the bill to or below the amount already collected, and refunds are not available yet.";
+
+function invoiceItemRefusal(err: { code?: string; message?: string } | null | undefined): string | null {
+  if (err?.code !== "42501") return null;
+  if (err.message === "INVOICE_ITEMS_LOCKED") return INVOICE_LOCKED_MESSAGE;
+  if (err.message === "INVOICE_BELOW_COLLECTED") return INVOICE_BELOW_COLLECTED_MESSAGE;
+  return null;
+}
+
+/**
+ * True when the caller may create the invoice of `visitId`: a collector (billing:collect), or a clinician
+ * (consultations:edit) who is the visit's doctor (Sign & Bill, R-7). Read on the caller's client, in their clinic.
+ */
+async function mayInvoiceVisit(ctx: ServiceContext, visitId: string): Promise<boolean> {
+  if (hasPerm(ctx.role, "billing:collect")) return true;
+  if (!hasPerm(ctx.role, "consultations:edit")) return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db.from("visits") as any)
+    .select("doctor_id")
+    .eq("id", visitId)
+    .eq("tenant_id", ctx.tenantId)
+    .maybeSingle();
+  return !error && !!data && (data as { doctor_id: string | null }).doctor_id === ctx.userId;
+}
 
 export type CreateInvoiceResult =
   | {
@@ -94,9 +131,13 @@ export async function createVisitInvoice(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "appointments:edit");
     const session = ctx;
     const data = parseResult.data;
+
+    // PO-3: a collector, or the visit's own doctor (Sign & Bill). Checked before any write; RLS repeats it.
+    if (!(await mayInvoiceVisit(ctx, data.visit_id))) {
+      return { success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE };
+    }
 
     // The visit must be this clinic's visit of the invoiced patient (P0-13: the FKs and RLS do not check this).
     if (!(await visitInTenant(ctx, data.visit_id, data.patient_id))) {
@@ -342,7 +383,8 @@ export async function recordPayment(
     };
   }
 
-  if (!hasPerm(ctx.role, "appointments:edit")) {
+  // PO-3: only collectors (owner, admin, receptionist) record payments; the payments INSERT policy repeats it (000056).
+  if (!hasPerm(ctx.role, "billing:collect")) {
     return { success: false, error: RECORD_PAYMENT_MESSAGES.FORBIDDEN };
   }
 
@@ -491,7 +533,7 @@ export async function addInvoiceItem(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "appointments:edit");
+    assertPerm(ctx.role, "billing:collect");
     const session = ctx;
     const data = parseResult.data;
 
@@ -532,65 +574,14 @@ export async function addInvoiceItem(
       .single();
 
     if (itemErr || !newItem) {
+      const refused = invoiceItemRefusal(itemErr);
+      if (refused) return { success: false, error: refused };
       log.error({ event: "billing.invoice_item_add.failed", code: errorTag(itemErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to add charge to invoice." };
     }
 
-    // 3. Recalculate invoice totals
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: allItems } = await (supabase.from("invoice_items") as any)
-      .select("total_price")
-      .eq("invoice_id", data.invoice_id)
-      .eq("tenant_id", session.tenantId);
-
-    const newSubtotal =
-      Math.round(
-        ((allItems || []).reduce(
-          (acc: number, curr: { total_price: number }) =>
-            acc + Number(curr.total_price),
-          0
-        ) +
-          Number.EPSILON) *
-          100
-      ) / 100;
-
-    const discount = Number(invoice.discount) || 0;
-    const tax = Number(invoice.tax) || 0;
-    const newTotal = Math.max(
-      0,
-      Math.round((newSubtotal - discount + tax + Number.EPSILON) * 100) / 100
-    );
-
-    // 4. Update payments / status
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: payments } = await (supabase.from("payments") as any)
-      .select("amount")
-      .eq("invoice_id", data.invoice_id)
-      .eq("tenant_id", session.tenantId);
-
-    const totalPaid =
-      Math.round(
-        ((payments || []).reduce(
-          (acc: number, curr: { amount: number }) => acc + Number(curr.amount),
-          0
-        ) +
-          Number.EPSILON) *
-          100
-      ) / 100;
-
-    const isFullyPaid = totalPaid >= newTotal && newTotal > 0;
-    const newStatus = isFullyPaid ? "paid" : "issued";
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("invoices") as any)
-      .update({
-        subtotal: newSubtotal,
-        total_amount: newTotal,
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", data.invoice_id)
-      .eq("tenant_id", session.tenantId);
+    // 3. The invoice's subtotal, total and paid/issued status follow its items in the database
+    // (`invoice_items_sync_invoice`, V2-05 05-11b): members hold no UPDATE on invoices.
 
     await recordAudit(ctx, {
       action: "invoice.item_add",
@@ -619,7 +610,7 @@ export async function deleteInvoiceItem(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "appointments:edit");
+    assertPerm(ctx.role, "billing:collect");
     const session = ctx;
 
     // 1. Fetch item to find invoice_id and verify tenant
@@ -638,79 +629,24 @@ export async function deleteInvoiceItem(
 
     // 2. Delete item
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: delErr } = await (supabase.from("invoice_items") as any)
+    const { data: deleted, error: delErr } = await (supabase.from("invoice_items") as any)
       .delete()
       .eq("id", itemId)
-      .eq("tenant_id", session.tenantId);
+      .eq("tenant_id", session.tenantId)
+      .select("id");
 
     if (delErr) {
-      return { success: false, error: "Failed to delete item." };
+      return { success: false, error: invoiceItemRefusal(delErr) ?? "Failed to delete item." };
+    }
+    // RLS may filter the delete to 0 rows (V2-05 05-04; the DELETE policy needs billing:collect): refuse the no-op
+    // before the totals are recomputed or an audit row is written.
+    const refused = unaffectedRowsError(deleted);
+    if (refused) {
+      log.warn({ event: "billing.item_remove.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: refused.message };
     }
 
-    // 3. Recalculate invoice totals
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invoice } = await (supabase.from("invoices") as any)
-      .select("id, discount, tax")
-      .eq("id", item.invoice_id)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (invoice) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: allItems } = await (supabase.from("invoice_items") as any)
-        .select("total_price")
-        .eq("invoice_id", item.invoice_id)
-        .eq("tenant_id", session.tenantId);
-
-      const newSubtotal =
-        Math.round(
-          ((allItems || []).reduce(
-            (acc: number, curr: { total_price: number }) =>
-              acc + Number(curr.total_price),
-            0
-          ) +
-            Number.EPSILON) *
-            100
-        ) / 100;
-
-      const discount = Number(invoice.discount) || 0;
-      const tax = Number(invoice.tax) || 0;
-      const newTotal = Math.max(
-        0,
-        Math.round((newSubtotal - discount + tax + Number.EPSILON) * 100) / 100
-      );
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: payments } = await (supabase.from("payments") as any)
-        .select("amount")
-        .eq("invoice_id", item.invoice_id)
-        .eq("tenant_id", session.tenantId);
-
-      const totalPaid =
-        Math.round(
-          ((payments || []).reduce(
-            (acc: number, curr: { amount: number }) =>
-              acc + Number(curr.amount),
-            0
-          ) +
-            Number.EPSILON) *
-            100
-        ) / 100;
-
-      const isFullyPaid = totalPaid >= newTotal && newTotal > 0;
-      const newStatus = isFullyPaid ? "paid" : "issued";
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("invoices") as any)
-        .update({
-          subtotal: newSubtotal,
-          total_amount: newTotal,
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", item.invoice_id)
-        .eq("tenant_id", session.tenantId);
-    }
+    // 3. The invoice's totals and status follow in the database (`invoice_items_sync_invoice`, V2-05 05-11b).
 
     await recordAudit(ctx, {
       action: "invoice.item_remove",
@@ -806,6 +742,12 @@ export async function completeAndBillConsultation(
     assertPerm(ctx.role, "consultations:edit");
     const session = ctx;
     const data = parseResult.data;
+
+    // 0. PO-3: collecting at the doctor's desk needs billing:collect (the owner of a solo clinic holds it). A doctor
+    // without it is refused BEFORE anything is signed or billed; the modal offers only "route to reception" to them.
+    if (data.payment_collected && !hasPerm(ctx.role, "billing:collect")) {
+      return { success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE };
+    }
 
     // 1. Sign off and finalize consultation & prescription. IR2-L1: a retry after the sign-off committed but billing
     // failed resumes at billing: a visit already completed and signed by this same user, with no invoice yet, is not
@@ -1251,7 +1193,7 @@ export async function sendConsolidatedConsultationWhatsApp(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "consultations:view");
+    assertPerm(ctx.role, "prescriptions:view");
     const session = ctx;
 
     // 1. Fetch visit and verify tenant access
@@ -1348,8 +1290,14 @@ export async function sendConsolidatedConsultationWhatsApp(
     }
 
     const { data: inv } = await invQuery.maybeSingle();
+    // Only an invoice found in the active clinic is ever linked. A caller-supplied id that is not one is refused, never
+    // passed to create_share_token as given (V2-05 05-01b: that function still binds "any membership" until 05-02c,
+    // so a member of two clinics could otherwise mint a link to the other clinic's receipt).
+    if (input.invoiceId && !inv) {
+      return { success: false, error: "Invoice not found." };
+    }
+    invoiceId = inv?.id;
     if (inv) {
-      invoiceId = inv.id;
       invoiceNumber = inv.invoice_number || "";
       totalAmount = String(inv.total_amount || 0);
     }

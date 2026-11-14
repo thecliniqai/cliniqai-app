@@ -1,0 +1,68 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/integration/delete-paths.spec.ts (8 tests | 2 failed) 964ms
+   ✓ delete paths: no silent no-ops (05-04) > a doctor deletes a draft Rx item: the row is gone and one audit row records it (was: success, row kept) 21ms
+   ✓ delete paths: no silent no-ops (05-04) > a doctor removes a diagnosis: the row is gone (was: success, row kept) 9ms
+   ✓ delete paths: no silent no-ops (05-04) > a receptionist deletes an invoice item: the row is gone and the totals follow (was: success, row kept) 20ms
+   ✓ delete paths: no silent no-ops (05-04) > a doctor's 'no follow-up' draft clears the visit's follow-up (was: success, follow-up kept) 13ms
+   ✓ delete paths: no silent no-ops (05-04) > a receptionist attempting an Rx item delete gets FORBIDDEN: row kept, no audit row 6ms
+   × delete paths: no silent no-ops (05-04) > a doctor past the service guard but refused by RLS (invoice item, billing:collect) gets FORBIDDEN: row kept, no audit, totals untouched 20ms
+     → expected { success: true } to deeply equal { success: false, …(1) }
+   ✓ delete paths: no silent no-ops (05-04) > a session bound to another clinic than the service context (R-42 active tenant) > acting in the same clinic, the dual member (doctor there) deletes an Rx item 71ms
+   × delete paths: no silent no-ops (05-04) > a session bound to another clinic than the service context (R-42 active tenant) > acting in the other clinic, the Rx item and diagnosis deletes are refused with FORBIDDEN, rows kept, no audit row 72ms
+     → expected { success: true } to deeply equal { success: false, …(1) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/delete-paths.spec.ts > delete paths: no silent no-ops (05-04) > a doctor past the service guard but refused by RLS (invoice item, billing:collect) gets FORBIDDEN: row kept, no audit, totals untouched
+AssertionError: expected { success: true } to deeply equal { success: false, …(1) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": "You do not have permission to perform this action.",[39m
+[32m-   "success": false,[39m
+[31m+   "success": true,[39m
+[2m  }[22m
+
+ ❯ tests/integration/delete-paths.spec.ts:190:17
+    188|     const { data: invBefore } = await admin.from("invoices").select("s…
+    189|     const res = await deleteInvoiceItem(ctxFor(doctor), itemId);
+    190|     expect(res).toEqual({ success: false, error: FORBIDDEN });
+       |                 ^
+    191|     expect(await exists("invoice_items", itemId)).toBe(true);
+    192|     const { data: invAfter } = await admin.from("invoices").select("su…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/integration/delete-paths.spec.ts > delete paths: no silent no-ops (05-04) > a session bound to another clinic than the service context (R-42 active tenant) > acting in the other clinic, the Rx item and diagnosis deletes are refused with FORBIDDEN, rows kept, no audit row
+AssertionError: expected { success: true } to deeply equal { success: false, …(1) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": "You do not have permission to perform this action.",[39m
+[32m-   "success": false,[39m
+[31m+   "success": true,[39m
+[2m  }[22m
+
+ ❯ tests/integration/delete-paths.spec.ts:231:57
+    229|       const ctx = await dualCtx(otherClinic.tenantId);
+    230| 
+    231|       expect(await removePrescriptionItem(ctx, itemId)).toEqual({ succ…
+       |                                                         ^
+    232|       expect(await removeConsultationDiagnosis(ctx, diagnosisId, visit…
+    233| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+   Start at  06:03:09
+   Duration  1.58s (transform 156ms, setup 8ms, collect 243ms, tests 964ms, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 2 tenant(s), 5 auth user(s), 0 storage object(s); verified none remain
