@@ -1,0 +1,128 @@
+NotFound: FileSystem.readFile (/Users/sid/.supabase/profile)
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/platform_rpcs.test.sql .. 
+1..80
+ok 1 - RLS is on for platform_admins and platform_audit_log
+ok 2 - neither platform table has a policy (no tenant role reads or writes them)
+ok 3 - anon and authenticated hold no privilege on either platform table
+ok 4 - service_role reads both platform tables and writes neither (audit trail append-only by grants)
+ok 5 - platform has exactly the five RPCs: SECURITY DEFINER, search_path '', EXECUTE for authenticated and service_role only
+ok 6 - is_platform_admin: SECURITY DEFINER, search_path '', EXECUTE for authenticated only
+ok 7 - the actor, reason and admin-audit helpers are executable by no API role
+ok 8 - an active admin with an aal2 session is a platform admin
+ok 9 - the same admin at aal1 is not (MFA required)
+ok 10 - a revoked admin at aal2 is not
+ok 11 - an ordinary user at aal2 is not
+ok 12 - anon cannot call is_platform_admin
+ok 13 - control: every RPC succeeds as postgres with an active admin as p_actor
+not ok 14 - a non-admin authenticated caller is refused by every RPC (forbidden)
+# Failed test 14: "a non-admin authenticated caller is refused by every RPC (forbidden)"
+#     Unexpected records:
+#         ("create_plan_price error:42501:PLATFORM_ACTOR_INVALID")
+#         ("extend_trial error:42501:PLATFORM_ACTOR_INVALID")
+#         ("grant_override error:42501:PLATFORM_ACTOR_INVALID")
+#         ("set_comp error:42501:PLATFORM_ACTOR_INVALID")
+#         ("set_product_availability error:42501:PLATFORM_ACTOR_INVALID")
+not ok 15 - an admin at aal1 is refused by every RPC (forbidden)
+# Failed test 15: "an admin at aal1 is refused by every RPC (forbidden)"
+#     Unexpected records:
+#         ("create_plan_price error:42501:PLATFORM_ACTOR_INVALID")
+#         ("extend_trial error:42501:PLATFORM_ACTOR_INVALID")
+#         ("grant_override error:42501:PLATFORM_ACTOR_INVALID")
+#         ("set_comp error:42501:PLATFORM_ACTOR_INVALID")
+#         ("set_product_availability error:42501:PLATFORM_ACTOR_INVALID")
+not ok 16 - a non-admin JWT caller naming a real admin in p_actor is still refused by every RPC (p_actor is ignored for JWT callers)
+# Failed test 16: "a non-admin JWT caller naming a real admin in p_actor is still refused by every RPC (p_actor is ignored for JWT callers)"
+#     Unexpected records:
+#         ("create_plan_price ok")
+#         ("extend_trial ok")
+#         ("grant_override ok")
+#         ("set_comp ok")
+#         ("set_product_availability ok")
+not ok 17 - a revoked admin at aal2 is refused by every RPC
+# Failed test 17: "a revoked admin at aal2 is refused by every RPC"
+#     Unexpected records:
+#         ("create_plan_price error:42501:PLATFORM_ACTOR_INVALID")
+#         ("extend_trial error:42501:PLATFORM_ACTOR_INVALID")
+#         ("grant_override error:42501:PLATFORM_ACTOR_INVALID")
+#         ("set_comp error:42501:PLATFORM_ACTOR_INVALID")
+#         ("set_product_availability error:42501:PLATFORM_ACTOR_INVALID")
+ok 18 - postgres with a null p_actor is refused by every RPC
+ok 19 - postgres with a revoked admin as p_actor is refused by every RPC
+ok 20 - postgres with a non-admin user as p_actor is refused by every RPC
+ok 21 - service_role with a null p_actor is refused by every RPC
+ok 22 - service_role with an active admin as p_actor succeeds on every RPC
+ok 23 - anon cannot reach the platform schema
+ok 24 - no refused (or rolled-back) call left an audit row
+ok 25 - an aal2 admin may call set_comp
+not ok 26 - the audit row records the CALLER (not the p_actor they passed) and channel ui
+# Failed test 26: "the audit row records the CALLER (not the p_actor they passed) and channel ui"
+#         have: c9b00000-0000-4000-8000-000000000002:sql:subscription.set_comp:c9b00000-0000-4000-8000-00000000000c
+#         want: c9b00000-0000-4000-8000-000000000001:ui:subscription.set_comp:c9b00000-0000-4000-8000-00000000000c
+not ok 27 - the subscription event records the caller too
+# Failed test 27: "the subscription event records the caller too"
+#         have: platform_admin:c9b00000-0000-4000-8000-000000000002:sql
+#         want: platform_admin:c9b00000-0000-4000-8000-000000000001:ui
+ok 28 - set_product_availability(ai_assist, true, public) as postgres is refused: no active price with a provider plan id (acceptance 13)
+ok 29 - ai_assist is unchanged by the refused call
+ok 30 - a price without a provider plan id may be prepared
+ok 31 - a price without a provider plan id does not make the product purchasable
+ok 32 - a provider price scheduled for later is created
+ok 33 - a provider price that is not active yet does not count
+ok 34 - the scheduled version closed the prepared one (one open version per model)
+ok 35 - after create_plan_price with a provider plan id (active now), the product can be made purchasable
+ok 36 - ai_assist is now purchasable and public
+ok 37 - one audit row with before/after, channel sql and the p_actor admin
+ok 38 - the new price derives its charge (49900 @ 1800 bp) and is monthly, GST-exclusive
+ok 39 - each created price has an audit row
+ok 40 - a trial plan can never be made purchasable
+ok 41 - an unknown plan code is not found
+ok 42 - an unknown visibility is invalid input
+ok 43 - withdrawing a product from sale needs no price
+ok 44 - Standard itself cannot be (re)made purchasable until its price carries a provider plan id (V2-13b)
+ok 45 - a new Standard price version is created for a future date
+ok 46 - the seeded Standard price closes exactly when the new version starts (grandfathered rows stay)
+ok 47 - existing subscriptions keep their price row
+ok 48 - a version that does not start after every existing version is refused
+ok 49 - GST-inclusive, non-flat and trial-plan prices are refused (PLAN_PRICE_INVALID)
+ok 50 - a backdated start, a zero amount and a rate above 100 % are invalid input
+ok 51 - extend_trial runs as postgres with an admin p_actor
+ok 52 - extend_trial moves trial_end by the interval
+ok 53 - access_ends_at = the new trial_end + the pending-charge buffer (not cancelling)
+ok 54 - extend_trial bumps the version once
+ok 55 - extend_trial writes exactly one event, with the actor, reason and channel
+ok 56 - extend_trial writes exactly one audit row
+ok 57 - extend_trial on a cancelling trial
+ok 58 - a cancelling trial ends at trial_end with no buffer (nothing is pending)
+ok 59 - extend_trial on a trial that already ran out
+ok 60 - the clinic whose trial had run out has full access again
+ok 61 - extend_trial refuses an incomplete or active clinic, an unknown clinic, a non-positive or > 90-day interval and a blank reason
+ok 62 - set_comp (section 3) made the expired clinic full
+ok 63 - its status stays expired (comp is a flag, not a state)
+ok 64 - set_comp(null) clears the comp
+ok 65 - the expired clinic is locked again once the comp is cleared
+ok 66 - each comp change wrote one event
+ok 67 - set_comp refuses a purged clinic, a past or > 5-year end, and an unknown clinic
+ok 68 - control: an active Standard clinic has no ai.scribe
+ok 69 - grant_override ai.scribe
+ok 70 - grant_override ai.scribe.monthly_drafts 1000
+ok 71 - a second grant of the same key updates it
+ok 72 - the clinic now has ai.scribe with the overriding limit
+ok 73 - one override row per key
+ok 74 - the re-grant's audit row carries before and after
+ok 75 - each grant wrote one event
+ok 76 - grant_override refuses a limit on a boolean key, an enabled limit key without a limit, a past expiry, an unknown key and a purged clinic
+ok 77 - granting and revoking an admin in SQL each wrote an audit row (actor = granted_by; a revocation names the session)
+ok 78 - the revocation row carries the new revoked_at
+ok 79 - an RPC audit row always names its admin
+ok 80 - neither an aal2 admin's JWT nor the service role can write the audit trail or the admin list directly
+# Looks like you failed 6 tests of 80
+Failed 6/80 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/platform_rpcs.test.sql (Wstat: 0 Tests: 80 Failed: 6)
+  Failed tests:  14-17, 26-27
+Files=1, Tests=80,  0 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: FAIL
+error running container: exit 1
