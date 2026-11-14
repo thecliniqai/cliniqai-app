@@ -193,49 +193,6 @@ test.describe("exit paths (fresh nurse each)", () => {
     await expectBackShowsNoPatient(page);
   });
 
-  test("Sign out with the server call held open: the patient screen is hidden and inert before the answer @golden", async ({
-    page,
-    context,
-  }) => {
-    // 06-09b (re-verification N-2). Before: `conceal()` ran only after the server call, so on a slow link the menu said
-    // "Signing out…" over live, clickable patient data for up to 5 s (8 s at worst).
-    await signInFresh(page);
-    const patientPath = new URL(page.url()).pathname;
-    const patientName = readRunData().tenantA.patientName;
-    let release!: () => void;
-    const held = new Promise<void>((resolve) => (release = resolve));
-    let reached = false;
-    await page.route("**/auth/signout", async (route) => {
-      reached = true;
-      await held;
-      // The client may have given up meanwhile (5 s cap) and aborted the request; that is not this test's subject.
-      await route.continue().catch(() => undefined);
-    });
-
-    await (await menuItem(page, "Sign out")).click();
-    await expect.poll(() => reached, { message: "the POST /auth/signout reached the network" }).toBe(true);
-
-    // The server has not answered: the tab is still on the patient page, and nothing of it is visible or usable.
-    expect(new URL(page.url()).pathname).toBe(patientPath);
-    const html = page.locator("html");
-    await expect(html).toHaveCSS("visibility", "hidden");
-    await expect(html).toHaveAttribute("inert", "");
-    await expect(page.getByText(patientName).first()).toBeHidden();
-    const usable = await page.evaluate(() => {
-      const control = document.querySelector<HTMLElement>("main a[href], main button, header button");
-      control?.focus();
-      return { found: control !== null, focused: control !== null && document.activeElement === control };
-    });
-    expect(usable, "an inert page takes no focus").toEqual({ found: true, focused: false });
-    expect(new URL(page.url()).pathname, "still held: the checks above ran during the server call").toBe(patientPath);
-
-    release();
-    await page.waitForURL((url) => url.pathname === "/login");
-    await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
-    await expectPurged(page);
-    expect(await authCookies(context)).toEqual([]);
-  });
-
   test("Sign out of all devices: purged here, the second device loses its session @golden", async ({ page, context, browser }) => {
     const user = await signInFresh(page);
     const device2 = await otherDevice(browser, user);
@@ -291,5 +248,54 @@ test.describe("exit paths (fresh nurse each)", () => {
     await page.goto("/patients");
     await expect(page).toHaveURL((url) => url.pathname === "/login");
     await expect(page.getByText(readRunData().tenantA.patientName)).toHaveCount(0);
+  });
+});
+
+// 06-09b (N-2): the sign-out POST is held with page.route; on WebKit a worker-controlled page sends it past the route
+// (as in 06-tabs-and-devices), so the worker is off here: this case tests the signing-out tab, not the worker.
+test.describe("signing-out tab during a slow server call (no service worker: page.route must see the POST)", () => {
+  test.use({ storageState: { cookies: [], origins: [] }, serviceWorkers: "block" });
+
+  test("Sign out with the server call held open: the patient screen is hidden and inert before the answer @golden", async ({
+    page,
+    context,
+  }) => {
+    // 06-09b (re-verification N-2). Before: `conceal()` ran only after the server call, so on a slow link the menu said
+    // "Signing out…" over live, clickable patient data for up to 5 s (8 s at worst).
+    await uiSignIn(page, await freshMember());
+    await openPatient(page);
+    const patientPath = new URL(page.url()).pathname;
+    const patientName = readRunData().tenantA.patientName;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let reached = false;
+    await page.route("**/auth/signout", async (route) => {
+      reached = true;
+      await held;
+      // The client may have given up meanwhile (5 s cap) and aborted the request; that is not this test's subject.
+      await route.continue().catch(() => undefined);
+    });
+
+    await (await menuItem(page, "Sign out")).click();
+    await expect.poll(() => reached, { message: "the POST /auth/signout reached the network" }).toBe(true);
+
+    // The server has not answered: the tab is still on the patient page, and nothing of it is visible or usable.
+    expect(new URL(page.url()).pathname).toBe(patientPath);
+    const html = page.locator("html");
+    await expect(html).toHaveCSS("visibility", "hidden");
+    await expect(html).toHaveAttribute("inert", "");
+    await expect(page.getByText(patientName).first()).toBeHidden();
+    const usable = await page.evaluate(() => {
+      const control = document.querySelector<HTMLElement>("main a[href], main button, header button");
+      control?.focus();
+      return { found: control !== null, focused: control !== null && document.activeElement === control };
+    });
+    expect(usable, "an inert page takes no focus").toEqual({ found: true, focused: false });
+    expect(new URL(page.url()).pathname, "still held: the checks above ran during the server call").toBe(patientPath);
+
+    release();
+    await page.waitForURL((url) => url.pathname === "/login");
+    await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+    expect(await authCookies(context)).toEqual([]);
   });
 });
