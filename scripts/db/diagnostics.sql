@@ -15,7 +15,7 @@
 --   D1x  every child→parent pair of 000049_composite_fks_expand (tenant parents)
 --   D5x  every doctor reference that 000049 binds to memberships(user_id, tenant_id)
 -- plus V0 (row volume per table, first) and FKNV (foreign keys still NOT VALID, last). Fix plan 05-11a adds D6d, D9t
--- and D5s (the legacy rows 000069 clamps, renumbers or refuses).
+-- and D5s (the legacy rows 000069 clamps, renumbers or refuses); fix plan 05-11d adds D7i, D1p, D11n and D11r.
 -- `prescription_items` has no tenant_id before 000048: its D1x row reads the column through to_jsonb, so it is 0
 -- (not an error) on a database that predates the column.
 
@@ -187,6 +187,31 @@ select count(*) from public.queue_tokens where token_number not between 1 and 99
 -- visits_tenant_signed_by_fkey fails on any; no automatic remedy).
 select count(*) from public.visits v where v.signed_by is not null and not exists
  (select 1 from public.memberships m where m.tenant_id = v.tenant_id and m.user_id = v.signed_by);
+
+-- ---------------------------------------------------------------------------------------------------------------
+-- Additions for fix plan 05-11d (000075-000076). Run before 000076.
+-- ---------------------------------------------------------------------------------------------------------------
+
+\echo '@@ D7i count'
+-- D7i. Invoice items with a negative price or a line total other than round(price * quantity, 2) (000076's VALIDATE
+-- fails on any; no automatic remedy).
+select count(*) from public.invoice_items
+where unit_price < 0 or total_price is distinct from round(unit_price * quantity, 2);
+
+\echo '@@ D1p count'
+-- D1p. Diagnoses whose patient is not their visit's patient (report only; corrected per row with the clinic).
+select count(*) from public.consultation_diagnoses d
+join public.visits v on v.tenant_id = d.tenant_id and v.id = d.visit_id
+where v.patient_id is distinct from d.patient_id;
+
+\echo '@@ D11n count'
+-- D11n. Notice links the 000075 check would refuse (its VALIDATE is a 05-b0 step after this diagnostic).
+select count(*) from public.in_app_notifications
+where link_url is not null and link_url !~ '^/([^/\\[:cntrl:][:space:]][^[:cntrl:][:space:]]*)?$';
+
+\echo '@@ D11r count'
+-- D11r. Amendment numbers above 10000 (only a squatted row can be one; report only).
+select count(*) from public.visit_revisions where revision_number > 10000;
 
 \echo '@@ FKNV count'
 -- Composite-FK state: foreign keys in the app schemas still NOT VALID (0 after 000050).
