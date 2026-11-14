@@ -834,10 +834,10 @@ export async function reopenVisitForAmendment(
   const supabase = ctx.db;
 
   try {
-    // 1. Fetch visit - must be completed
+    // 1. Fetch visit - must be completed and signed
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("id, status")
+      .select("id, status, signed_at")
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -846,17 +846,19 @@ export async function reopenVisitForAmendment(
       return { success: false, error: "Visit record not found or access denied." };
     }
 
-    if (visit.status !== "completed") {
+    // An amendment records a signed version, so the database admits the row only on a signed, completed visit
+    // (V2-05 05-11e, NF-1). A visit completed at the front desk without a sign-off has nothing to amend.
+    if (visit.status !== "completed" || !visit.signed_at) {
       return {
         success: false,
-        error: "Only completed consultations can be reopened for amendment.",
+        error: "Only signed, completed consultations can be reopened for amendment.",
       };
     }
 
     // 2. Insert the amendment row. Its revision number (previous + 1) and its snapshot of the signed content (visit,
-    // notes and vitals, diagnoses, the latest prescription with its items) are filled by the database under the visit
-    // row lock, whatever a client sends (V2-05 05-11d, N-2/N-8: visit_revisions_actor_guard); amended_at is the
-    // database clock (05-11a).
+    // notes and vitals, diagnoses, every prescription with its items, follow-ups) are filled by the database under the
+    // visit row lock, whatever a client sends (V2-05 05-11d/05-11e, N-2/N-8/NF-2: visit_revisions_actor_guard);
+    // amended_at is the database clock (05-11a). The reopen below is admitted only with this row (NF-1).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: revision, error: revErr } = await (supabase.from("visit_revisions") as any)
       .insert({

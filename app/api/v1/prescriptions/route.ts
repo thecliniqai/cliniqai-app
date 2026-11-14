@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Verify visit exists and belongs to active tenant
     const { data: visit, error: visitErr } = await (admin.from("visits") as any)
-      .select("id, patient_id")
+      .select("id, patient_id, status, signed_at")
       .eq("id", visit_id)
       .eq("tenant_id", session.tenantId)
       .maybeSingle();
@@ -190,6 +190,13 @@ export async function POST(req: NextRequest) {
 
     if (!visit) {
       return apiError("NOT_FOUND", "Visit not found in active clinic.", 404, undefined, rateHeaders);
+    }
+
+    // A signed visit gets no new prescription unless it is reopened for amendment: the rule the database applies to
+    // signed-in callers (V2-05 05-11e, NF-2: prescriptions_actor_guard). This route writes with the system client, so
+    // it applies the rule itself.
+    if (visit.signed_at && visit.status !== "in_consultation") {
+      return apiError("VISIT_LOCKED", "Signed visits cannot be modified.", 409, undefined, rateHeaders);
     }
 
     // 3. Enforce Doctor Guard (D-05, T-06-05)

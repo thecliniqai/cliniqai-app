@@ -297,6 +297,12 @@ describe("Prescription Archival, Server-Side React-PDF, & Post-Sign-Off Amendmen
     expect((snap.visit as Record<string, unknown>).status).toBe("completed");
     expect((snap.prescription as Record<string, unknown>).version).toBe(1);
     expect(((snap.prescription as Record<string, unknown>).items as unknown[]).length).toBe(2);
+    // V2-05 05-11e (NF-2): the snapshot holds every prescription of the visit with its items, not only the latest.
+    const allRx = snap.prescriptions as Array<{ version: number; items: Array<{ medicine_name: string }> }>;
+    expect(allRx.map((rx) => rx.version)).toEqual([1]);
+    expect(allRx[0].items.map((i) => i.medicine_name).sort()).toEqual(
+      ((snap.prescription as { items: Array<{ medicine_name: string }> }).items.map((i) => i.medicine_name)).sort()
+    );
 
     // 4. Verify visit status has returned to 'in_consultation' to allow doctor edits
     const { data: reopenedVisit } = await tenantA.client

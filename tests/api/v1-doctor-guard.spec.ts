@@ -577,6 +577,53 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(json.data.prescription_items).toHaveLength(1);
     });
 
+    // V2-05 05-11e (NF-2): no new prescription header on a signed visit unless it is reopened for amendment (a decoy
+    // header would replace the signed medicines in the record and the PDF, which read the latest version).
+    it("refuses a prescription on a signed visit with 409 VISIT_LOCKED and writes no header", async () => {
+      const admin = getAdminClient();
+      const { data: v } = await admin
+        .from("visits")
+        .insert({
+          tenant_id: clinicA.tenantId,
+          patient_id: patientA.id,
+          doctor_id: doctorA.userId,
+          origin_type: "walk_in",
+          status: "completed",
+          signed_at: "2026-11-03T09:00:00.000Z",
+          signed_by: doctorA.userId,
+          created_by: clinicA.userId,
+        })
+        .select("id")
+        .single();
+      const signedId = v!.id;
+      const body = (visitId: string) =>
+        new NextRequest("http://localhost/api/v1/prescriptions", {
+          method: "POST",
+          headers: { authorization: `Bearer ${keyA.rawToken}`, "content-type": "application/json" },
+          body: JSON.stringify({
+            patient_id: patientA.id,
+            doctor_id: doctorA.userId,
+            visit_id: visitId,
+            items: [{ medicine_name: "Synthetic decoy", dosage: "1 tablet", timing: "sos", duration: "1 day" }],
+          }),
+        });
+
+      const res = await createPrescription(body(signedId));
+      const json = await res.json();
+      expect(res.status).toBe(409);
+      expect(json.error.code).toBe("VISIT_LOCKED");
+      const { count } = await admin
+        .from("prescriptions")
+        .select("id", { count: "exact", head: true })
+        .eq("visit_id", signedId);
+      expect(count).toBe(0);
+
+      // Reopened for amendment: a new prescription is accepted, as for a signed-in doctor.
+      await admin.from("visits").update({ status: "in_consultation" }).eq("id", signedId);
+      const reopened = await createPrescription(body(signedId));
+      expect(reopened.status).toBe(201);
+    });
+
     it("GET /api/v1/prescriptions returns paginated list with nested items", async () => {
       const req = new NextRequest(
         `http://localhost/api/v1/prescriptions?visit_id=${visitForPrescription}&page=1&limit=10`,

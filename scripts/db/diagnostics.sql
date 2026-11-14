@@ -15,7 +15,8 @@
 --   D1x  every child→parent pair of 000049_composite_fks_expand (tenant parents)
 --   D5x  every doctor reference that 000049 binds to memberships(user_id, tenant_id)
 -- plus V0 (row volume per table, first) and FKNV (foreign keys still NOT VALID, last). Fix plan 05-11a adds D6d, D9t
--- and D5s (the legacy rows 000069 clamps, renumbers or refuses); fix plan 05-11d adds D7i, D1p, D11n and D11r.
+-- and D5s (the legacy rows 000069 clamps, renumbers or refuses); fix plan 05-11d adds D7i, D1p, D11n and D11r;
+-- 05-11e adds D1f.
 -- `prescription_items` has no tenant_id before 000048: its D1x row reads the column through to_jsonb, so it is 0
 -- (not an error) on a database that predates the column.
 
@@ -212,6 +213,17 @@ where link_url is not null and link_url !~ '^/([^/\\[:cntrl:][:space:]][^[:cntrl
 \echo '@@ D11r count'
 -- D11r. Amendment numbers above 10000 (only a squatted row can be one; report only).
 select count(*) from public.visit_revisions where revision_number > 10000;
+
+-- ---------------------------------------------------------------------------------------------------------------
+-- Addition for fix plan 05-11e (000077, guards only; report only).
+-- ---------------------------------------------------------------------------------------------------------------
+
+\echo '@@ D1f count'
+-- D1f. Follow-ups whose patient is not their visit's patient (000077 refuses new ones; an existing one is corrected
+-- per row with the clinic, the visit being the encounter of record).
+select count(*) from public.follow_ups f
+join public.visits v on v.tenant_id = f.tenant_id and v.id = f.visit_id
+where v.patient_id is distinct from f.patient_id;
 
 \echo '@@ FKNV count'
 -- Composite-FK state: foreign keys in the app schemas still NOT VALID (0 after 000050).
