@@ -151,21 +151,21 @@ select set_eq(
 
 -- 2. log_audit ------------------------------------------------------------------------------------------------------
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000103', null,
-  $$select public.log_audit('c2c00000-0000-4000-8000-00000000000a', 'c2c.probe', 'synthetic', 'c2c00000-0000-4000-8000-000000001002', '{"reason": "probe", "system_actor": "system:forged"}'::jsonb)$$,
+  $$select public.log_audit('c2c00000-0000-4000-8000-00000000000a', 'visit.status_update', 'visit', 'c2c00000-0000-4000-8000-000000001002', '{"reason": "probe", "system_actor": "system:forged"}'::jsonb)$$,
   $$select actor_id::text || '|' || actor_role || '|' || actor_type || '|' || coalesce(api_key_id::text, '-') || '|' || (metadata ? 'system_actor')::text
-      from public.audit_logs where action = 'c2c.probe' and tenant_id = 'c2c00000-0000-4000-8000-00000000000a'$$),
+      from public.audit_logs where action = 'visit.status_update' and tenant_id = 'c2c00000-0000-4000-8000-00000000000a'$$),
   'c2c00000-0000-4000-8000-000000000103|doctor|user|-|false', 'log_audit by a clinic-A doctor records the doctor (id, role, user) and drops system_actor');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000106', null,
-  $$select public.log_audit('c2c00000-0000-4000-8000-00000000000a', 'c2c.probe', 'synthetic', null, null)$$,
-  $$select actor_id::text || '|' || actor_role from public.audit_logs where action = 'c2c.probe' and tenant_id = 'c2c00000-0000-4000-8000-00000000000a'$$),
+  $$select public.log_audit('c2c00000-0000-4000-8000-00000000000a', 'patient.view', 'patient', null, null)$$,
+  $$select actor_id::text || '|' || actor_role from public.audit_logs where action = 'patient.view' and tenant_id = 'c2c00000-0000-4000-8000-00000000000a'$$),
   'c2c00000-0000-4000-8000-000000000106|receptionist', 'log_audit by a receptionist records the receptionist');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000103', null, $$select public.log_audit('c2c00000-0000-4000-8000-00000000000b', 'c2c.probe', 'synthetic', null, null)$$),
   'denied:ACTOR_INVALID', 'log_audit for clinic B by a clinic-A member is refused (42501)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.log_audit('c2c00000-0000-4000-8000-00000000000b', 'c2c.probe', 'synthetic', null, null)$$),
   'denied:ACTOR_INVALID', 'a dual member acting in A cannot audit for B');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b',
-  $$select public.log_audit('c2c00000-0000-4000-8000-00000000000b', 'c2c.probe', 'synthetic', null, null)$$,
-  $$select actor_id::text || '|' || actor_role from public.audit_logs where action = 'c2c.probe' and tenant_id = 'c2c00000-0000-4000-8000-00000000000b'$$),
+  $$select public.log_audit('c2c00000-0000-4000-8000-00000000000b', 'patient.view', 'patient', null, null)$$,
+  $$select actor_id::text || '|' || actor_role from public.audit_logs where action = 'patient.view' and tenant_id = 'c2c00000-0000-4000-8000-00000000000b'$$),
   'c2c00000-0000-4000-8000-000000000301|receptionist', 'a dual member acting in B audits for B with their B role');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', null, $$select public.log_audit('c2c00000-0000-4000-8000-00000000000a', 'c2c.probe', 'synthetic', null, null)$$),
   'denied:ACTOR_INVALID', 'a dual member with no active clinic cannot audit at all');

@@ -187,8 +187,8 @@ select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000103', null,
 
 -- 4. Receiver guard unchanged (regression) -------------------------------------------------------------------------
 select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000202', null,
-  $$update public.referrals set clinical_summary = 'Rewritten by the receiver' where id = 'e0600000-0000-4000-8000-000000001002'$$),
-  'denied:referral_target_update_forbidden', 'the receiving clinic still cannot change the clinical summary');
+  $$update public.referrals set clinical_summary = 'Rewritten by the receiver' where id = 'e0600000-0000-4000-8000-000000001003'$$),
+  'denied:referral_target_update_forbidden', 'the receiving clinic still cannot change the clinical summary (the consented referral: 000074 gates clinical content on consent first)');
 select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000202', null,
   $$update public.referrals set status = 'acknowledged', acknowledged_at = now() where id = 'e0600000-0000-4000-8000-000000001002'$$),
   '1', 'the receiving clinic still acknowledges');

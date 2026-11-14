@@ -229,7 +229,7 @@ describe("M-AUDITSYS: audit_logs writes through PostgREST", () => {
     return data ?? [];
   }
 
-  it("a nurse claiming the system (the reviewer's row) is refused; through log_audit it is the nurse, without system_actor", async () => {
+  it("a nurse claiming the system (the reviewer's row) is refused, and log_audit refuses a payment event outside record_payment (05-11b)", async () => {
     const entityId = randomUUID();
     const { error } = await nurse.client.from("audit_logs").insert({
       tenant_id: owner.tenantId,
@@ -243,16 +243,26 @@ describe("M-AUDITSYS: audit_logs writes through PostgREST", () => {
     });
     expect(error?.code).toBe("42501");
     expect(await auditRow(entityId)).toEqual([]);
-    const { error: rpcError } = await nurse.client.rpc("log_audit", {
+    const { error: forged } = await nurse.client.rpc("log_audit", {
       p_tenant: owner.tenantId,
       p_action: "invoice.payment_recorded",
       p_entity_type: "payment",
       p_entity_id: entityId,
       p_metadata: { system_actor: "system:payment_webhook", invoice_id: entityId },
     });
+    expect(forged).toMatchObject({ code: "42501", message: "AUDIT_ACTION_FORBIDDEN" });
+    expect(await auditRow(entityId)).toEqual([]);
+    // An allow-listed event goes through log_audit as the nurse, without system_actor.
+    const { error: rpcError } = await nurse.client.rpc("log_audit", {
+      p_tenant: owner.tenantId,
+      p_action: "patient.view",
+      p_entity_type: "patient",
+      p_entity_id: entityId,
+      p_metadata: { system_actor: "system:payment_webhook", view_context: "profile" },
+    });
     expect(rpcError).toBeNull();
     expect(await auditRow(entityId)).toEqual([
-      { actor_id: nurse.userId, actor_role: "nurse", actor_type: "user", api_key_id: null, metadata: { invoice_id: entityId } },
+      { actor_id: nurse.userId, actor_role: "nurse", actor_type: "user", api_key_id: null, metadata: { view_context: "profile" } },
     ]);
   });
 
@@ -280,7 +290,7 @@ describe("M-AUDITSYS: audit_logs writes through PostgREST", () => {
     // log_audit has no actor, role, type or key argument at all: the same write is the nurse's.
     const { error: rpcError } = await nurse.client.rpc("log_audit", {
       p_tenant: owner.tenantId,
-      p_action: "patient.updated",
+      p_action: "patient.update",
       p_entity_type: "patient",
       p_entity_id: entityId,
       p_metadata: null as unknown as Record<string, never>,

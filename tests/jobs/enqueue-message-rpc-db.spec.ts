@@ -63,9 +63,9 @@ function args(over: Record<string, unknown> = {}) {
     p_patient_id: patientA.patientId,
     p_visit_id: null,
     p_channel: "whatsapp",
-    // 04-07a: a template every clinic role may queue (patients:view); prescription_ready needs consultations:view.
-    p_message_type: "lab_report_uploaded",
-    p_template_id: "lab_report_uploaded",
+    // A template the receptionist may queue (billing:view; 05-11b IND L4: lab_report_uploaded now needs labs:view).
+    p_message_type: "receipt_issued",
+    p_template_id: "receipt_issued",
     p_template_params: { patient_name: "Synthetic" },
     p_recipient_phone: null,
     p_recipient_user_id: null,
@@ -222,7 +222,7 @@ describe("public.enqueue_message (request path)", () => {
     expect(template.error).toMatchObject({ code: "P0001", message: "TEMPLATE_NOT_ALLOWED" });
     const wrongChannel = await enqueue(receptionistA.client, ownerA.tenantId, {
       p_channel: "sms",
-      p_template_id: "lab_report_uploaded",
+      p_template_id: "receipt_issued",
     });
     expect(wrongChannel.error).toMatchObject({ code: "P0001", message: "TEMPLATE_NOT_ALLOWED" });
 
@@ -243,8 +243,8 @@ describe("public.enqueue_message (request path)", () => {
     const err = await enqueueMessage(ctx, {
       patientId: patientB.patientId,
       channel: "whatsapp",
-      messageType: "lab_report_uploaded",
-      templateId: "lab_report_uploaded",
+      messageType: "receipt_issued",
+      templateId: "receipt_issued",
     }).catch((e) => e);
     expect(err).toBeInstanceOf(EnqueueError);
     expect(err.code).toBe("SUBJECT_MISMATCH");
@@ -254,8 +254,8 @@ describe("public.enqueue_message (request path)", () => {
     const ok = await enqueueMessage(ctx, {
       patientId: patientA.patientId,
       channel: "whatsapp",
-      messageType: "lab_report_uploaded",
-      templateId: "lab_report_uploaded",
+      messageType: "receipt_issued",
+      templateId: "receipt_issued",
     });
     expect(ok).toEqual({ id: expect.any(String), status: "pending", deduped: false });
 
@@ -391,14 +391,17 @@ describe("04-07a: public.enqueue_message permission per template and bounded inp
     adminA = await addMemberToTenant(ownerA.tenantId, "admin");
   });
 
-  /** The permission each request-path call site asserts before it enqueues (lib/permissions/matrix.ts names). */
+  /**
+   * The permission each request-path call site asserts before it enqueues (lib/permissions/matrix.ts names). V2-05
+   * 05-11b (IND L4, migration 000074) realigned the SQL role lists with the 05-02b/05-02c call-site keys.
+   */
   const REQUEST_TEMPLATE_PERMISSION: Record<string, Permission> = {
     appointment_booked: "appointments:edit", // features/visits/scheduling-service.ts bookAppointment
-    prescription_ready: "consultations:view", // features/prescriptions/service.ts sharePrescriptionViaWhatsApp
-    lab_report_uploaded: "patients:view", // features/labs/service.ts (document share)
-    referral_letter_issued: "patients:view", // features/referrals/service.ts (referral share)
-    receipt_issued: "billing:view", // features/billing/service.ts (receipt share)
-    consultation_documents: "consultations:view", // features/billing/service.ts (consolidated share)
+    prescription_ready: "prescriptions:view", // features/prescriptions/service.ts sharePrescriptionViaWhatsApp
+    lab_report_uploaded: "labs:view", // features/labs/service.ts shareLabReportViaWhatsApp
+    referral_letter_issued: "consultations:view", // features/referrals/service.ts shareReferralLetterViaWhatsApp
+    receipt_issued: "billing:view", // features/billing/service.ts shareReceiptViaWhatsApp
+    consultation_documents: "prescriptions:view", // features/billing/service.ts sendConsolidatedConsultationWhatsApp
   };
   const ROLES: UserRole[] = ["owner", "admin", "doctor", "receptionist", "nurse"];
 
@@ -422,6 +425,11 @@ describe("04-07a: public.enqueue_message permission per template and bounded inp
       [receptionistA, "consultation_documents"],
       [nurseA, "receipt_issued"],
       [adminA, "prescription_ready"],
+      // 05-11b (IND L4): nurses lost prescriptions:view, admins/receptionists hold no labs:view or consultations:view.
+      [nurseA, "prescription_ready"],
+      [nurseA, "consultation_documents"],
+      [adminA, "lab_report_uploaded"],
+      [receptionistA, "referral_letter_issued"],
     ] as const) {
       const { error } = await enqueue(who.client, ownerA.tenantId, { p_message_type: template, p_template_id: template });
       expect(error, `${template}`).toMatchObject({ code: "42501", message: "FORBIDDEN" });
@@ -429,7 +437,8 @@ describe("04-07a: public.enqueue_message permission per template and bounded inp
     expect(rowsFor(patientA.patientId)).toHaveLength(before);
     // The roles that hold it may.
     for (const [who, template] of [
-      [nurseA, "prescription_ready"],
+      [doctorA, "prescription_ready"],
+      [nurseA, "lab_report_uploaded"],
       [doctorA, "consultation_documents"],
       [adminA, "receipt_issued"],
       // PO-3 (V2-05 05-01b): receptionists hold billing:view and share receipts.
@@ -467,6 +476,8 @@ describe("04-07a: public.enqueue_message permission per template and bounded inp
 
   it("params: only the template's declared keys, scalar values of at most 256 characters; message_type is the template", async () => {
     const before = rowsFor(patientA.patientId).length;
+    // The nurse's lab-report template (labs:view; the file's default, receipt_issued, is the front desk's since 05-11b).
+    const lab = { p_message_type: "lab_report_uploaded", p_template_id: "lab_report_uploaded" };
     for (const over of [
       { p_template_params: { patient_name: "Synthetic", mobiles: "917000000001" } },
       { p_template_params: { template_id: "ATTACKER_FLOW" } },
@@ -478,11 +489,12 @@ describe("04-07a: public.enqueue_message permission per template and bounded inp
       { p_template_params: { patient_name: "x".repeat(257) } },
       { p_message_type: "appointment_reminder" },
     ]) {
-      const { error } = await enqueue(nurseA.client, ownerA.tenantId, over);
+      const { error } = await enqueue(nurseA.client, ownerA.tenantId, { ...lab, ...over });
       expect(error, JSON.stringify(over).slice(0, 80)).toMatchObject({ code: "P0001", message: "INPUT_INVALID" });
     }
     expect(rowsFor(patientA.patientId)).toHaveLength(before);
     const ok = await enqueue(nurseA.client, ownerA.tenantId, {
+      ...lab,
       p_template_params: { patient_name: "x".repeat(256), clinic_name: "C", document_url: "https://app.example.test/r/x", test_name: 7 },
     });
     expect(ok.error).toBeNull();

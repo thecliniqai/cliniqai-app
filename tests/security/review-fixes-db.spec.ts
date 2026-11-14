@@ -335,6 +335,8 @@ describe("01-08 review fixes (000021)", () => {
         reason_for_referral: "Synthetic reason",
         target_tenant_id: B.owner.tenantId,
         clinical_summary: "Synthetic summary",
+        // 05-11b (IND L6, 000074): clinical content sent to another clinic needs the patient's consent.
+        patient_consents_history_sharing: true,
         pdf_storage_path: `tenants/${A.owner.tenantId}/referrals/placeholder/referral_letter.pdf`,
       });
 

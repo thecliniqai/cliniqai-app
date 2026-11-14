@@ -4,69 +4,77 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
-export type AuditAction =
-  | "patient.create"
-  | "patient.view"
-  | "patient.update"
-  | "patient.consent.granted"
-  | "patient.consent.withdrawn"
-  | "clinic.profile.update"
-  | "visit.create"
-  | "visit.status_update"
-  | "visit.confirm"
-  | "visit.cancel"
-  | "visit.auto_promoted_from_waitlist"
-  | "queue.check_in"
-  | "queue.transition"
-  | "waitlist.add"
-  | "waitlist.promote"
-  | "consultation.draft_save"
-  | "consultation.complete_sign"
-  | "consultation.amend"
-  | "follow_up.record"
-  | "diagnosis.add"
-  | "diagnosis.remove"
-  | "diagnosis.update_note"
-  | "prescription.item_add"
-  | "prescription.item_remove"
-  | "prescription.template_save"
-  | "prescription.generate_pdf"
-  | "visit.complete_and_sign"
-  | "visit.reopen_for_amendment"
-  | "visit.amend_finalized"
-  | "clinic.settings.update"
-  | "user.profile.update"
-  | "staff.member.update"
-  | "invoice.create"
-  | "invoice.item_add"
-  | "invoice.item_remove"
-  | "invoice.payment_recorded"
-  | "invoice.generate_receipt_pdf"
-  | "schedule_block.create"
-  | "schedule_block.delete"
-  | "vitals.record"
-  | "patient_document.upload"
-  | "patient_document.generate_share_token"
-  | "patient_document.delete"
-  | "referral.create"
-  | "referral.acknowledge"
-  | "referral.close_loop"
-  | "prescription.share_whatsapp"
-  | "patient_document.share_whatsapp"
-  | "referral.share_whatsapp"
-  | "invoice.share_whatsapp"
-  | "consultation.share_consolidated_whatsapp"
-  | "dpdp.patient_erasure"
-  | "dpdp.data_export"
-  | "api_key.create"
-  | "api_key.revoke"
-  | "webhook.create"
-  | "webhook.delete"
-  | "appointment.create"
-  | "appointment.reschedule"
-  | "appointment.cancel"
-  | "lab_order.create"
-  | "prescription.create";
+/**
+ * Every audit action the app writes. The user path (`log_audit`) accepts exactly these, without the reserved prefixes
+ * `dpdp.`, `auth.`, `billing.`, `ops.` (except `dpdp.data_export`, which needs exports:create), and refuses anything else
+ * (V2-05 05-11b, INT L-5, migration 000074 `private.audit_client_actions()`; parity: tests/audit/log-audit-allowlist.spec.ts).
+ */
+export const AUDIT_ACTIONS = [
+  "patient.create",
+  "patient.view",
+  "patient.update",
+  "patient.consent.granted",
+  "patient.consent.withdrawn",
+  "clinic.profile.update",
+  "visit.create",
+  "visit.status_update",
+  "visit.confirm",
+  "visit.cancel",
+  "visit.auto_promoted_from_waitlist",
+  "queue.check_in",
+  "queue.transition",
+  "waitlist.add",
+  "waitlist.promote",
+  "consultation.draft_save",
+  "consultation.complete_sign",
+  "consultation.amend",
+  "follow_up.record",
+  "diagnosis.add",
+  "diagnosis.remove",
+  "diagnosis.update_note",
+  "prescription.item_add",
+  "prescription.item_remove",
+  "prescription.template_save",
+  "prescription.generate_pdf",
+  "visit.complete_and_sign",
+  "visit.reopen_for_amendment",
+  "visit.amend_finalized",
+  "clinic.settings.update",
+  "user.profile.update",
+  "staff.member.update",
+  "invoice.create",
+  "invoice.item_add",
+  "invoice.item_remove",
+  "invoice.payment_recorded",
+  "invoice.generate_receipt_pdf",
+  "schedule_block.create",
+  "schedule_block.delete",
+  "vitals.record",
+  "patient_document.upload",
+  "patient_document.generate_share_token",
+  "patient_document.delete",
+  "referral.create",
+  "referral.acknowledge",
+  "referral.close_loop",
+  "prescription.share_whatsapp",
+  "patient_document.share_whatsapp",
+  "referral.share_whatsapp",
+  "invoice.share_whatsapp",
+  "consultation.share_consolidated_whatsapp",
+  "dpdp.patient_erasure",
+  "dpdp.data_export",
+  "api_key.create",
+  "api_key.revoke",
+  "webhook.create",
+  "webhook.delete",
+  "appointment.create",
+  "appointment.reschedule",
+  "appointment.cancel",
+  "lab_order.create",
+  "prescription.create",
+] as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
 export interface RecordAuditParams {
   action: AuditAction;
@@ -96,7 +104,12 @@ export interface RecordAuditParams {
   metadata?: Record<string, unknown>;
 }
 
-const ALLOWED_METADATA_KEYS = new Set([
+/**
+ * The metadata keys an audit row may carry (everything else is dropped here). `log_audit` refuses any other key, and
+ * also `actor_type` / `api_key_id`, which only the API-key path writes (V2-05 05-11b, migration 000074
+ * `private.audit_metadata_keys()`; parity: tests/audit/log-audit-allowlist.spec.ts).
+ */
+export const AUDIT_METADATA_KEYS = [
   "fields_changed",
   "reason",
   "consent_type",
@@ -138,7 +151,9 @@ const ALLOWED_METADATA_KEYS = new Set([
   "actor_type",
   "api_key_id",
   "correlation_id",
-]);
+] as const;
+
+const ALLOWED_METADATA_KEYS = new Set<string>(AUDIT_METADATA_KEYS);
 
 /**
  * Validates metadata to ensure NO clinical notes, diagnosis, or patient PII
