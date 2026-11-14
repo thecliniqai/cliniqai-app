@@ -28,6 +28,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { hasPerm } from "@/lib/permissions";
 import {
+  activeMemberships,
   OPS,
   PRINCIPALS,
   TARGETS,
@@ -57,10 +58,14 @@ const OP_LETTER: Record<Op, string> = { select: "S", insert: "I", update: "U", d
 // Expected outcomes
 // ---------------------------------------------------------------------------------------------------------------------
 
-/** Mirror of `authz.active_tenant_id()`: the header's clinic if a membership, else the sole membership, else none. */
+/**
+ * Mirror of `authz.active_tenant_id()`: the header's clinic if an ACTIVE membership, else the sole active membership,
+ * else none (05-05: removed and suspended memberships count as none).
+ */
 export function activeTenant(p: Principal): TenantKey | null {
-  if (p.header && p.memberships[p.header]) return p.header;
-  const keys = Object.keys(p.memberships) as TenantKey[];
+  const live = activeMemberships(p);
+  if (p.header && live[p.header]) return p.header;
+  const keys = Object.keys(live) as TenantKey[];
   return keys.length === 1 ? keys[0] : null;
 }
 
@@ -105,20 +110,20 @@ export function admits(rule: Rule, p: Principal, t: Target, row: Row): boolean {
       return p.userId !== null && visitDoctorOf(row, rule.via) === q(p.userId);
     case "member": {
       const tenant = rowTenant(t, row, rule.tenantColumn);
-      return tenant !== null && p.memberships[tenant] !== undefined;
+      return tenant !== null && activeMemberships(p)[tenant] !== undefined;
     }
     case "billing": {
       const tenant = rowTenant(t, row, rule.tenantColumn);
-      const role = tenant ? p.memberships[tenant] : undefined;
+      const role = tenant ? activeMemberships(p)[tenant] : undefined;
       return tenant !== null && activeTenant(p) === tenant && (role === "owner" || role === "admin");
     }
     case "full": {
       const tenant = rowTenant(t, row, rule.tenantColumn);
-      return tenant !== null && p.memberships[tenant] !== undefined && activeTenant(p) === tenant;
+      return tenant !== null && activeMemberships(p)[tenant] !== undefined && activeTenant(p) === tenant;
     }
     case "perm": {
       const tenant = rowTenant(t, row, rule.tenantColumn);
-      const role = tenant ? p.memberships[tenant] : undefined;
+      const role = tenant ? activeMemberships(p)[tenant] : undefined;
       return tenant !== null && role !== undefined && activeTenant(p) === tenant && hasPerm(role, rule.perm);
     }
   }
@@ -254,13 +259,18 @@ function baseFixtures(): string[] {
         .join(",\n") +
       ";",
   );
+  // 05-05: every membership carries its status; a removed one also its removal time (CHECK memberships_removed_at_status).
   const memberships = new Map<string, string>();
   for (const p of PRINCIPALS) {
     for (const [tenant, role] of Object.entries(p.memberships) as [TenantKey, string][]) {
-      memberships.set(`${p.userId}/${tenant}`, `  ('${p.userId}', '${TENANT_IDS[tenant]}', '${role}')`);
+      const status = p.statuses?.[tenant] ?? "active";
+      const removedAt = status === "removed" ? "now()" : "null";
+      memberships.set(`${p.userId}/${tenant}`, `  ('${p.userId}', '${TENANT_IDS[tenant]}', '${role}', '${status}', ${removedAt})`);
     }
   }
-  lines.push("insert into public.memberships (user_id, tenant_id, role) values\n" + [...memberships.values()].join(",\n") + ";");
+  lines.push(
+    "insert into public.memberships (user_id, tenant_id, role, status, removed_at) values\n" + [...memberships.values()].join(",\n") + ";",
+  );
   return lines;
 }
 
@@ -330,7 +340,8 @@ export function matrixSql(): string {
   out.push("begin;");
   out.push(`select plan(${all.length});`);
   out.push("");
-  out.push("-- Base fixtures: principals, clinics A and B, memberships (the dual member is a doctor in A, a receptionist in B).");
+  out.push("-- Base fixtures: principals, clinics A and B, memberships (the dual member is a doctor in A, a receptionist in B;");
+  out.push("-- 05-05: a removed owner and a suspended doctor of A, both with a valid JWT).");
   out.push(...baseFixtures());
   out.push("");
   out.push("-- One tenant-A row per target (inserted as postgres; RLS does not apply).");
@@ -474,7 +485,8 @@ export function matrixMd(): string {
   lines.push("Every table and storage class is on its target rule (05-02b clinical/front-desk/financial, 05-02c admin/system,");
   lines.push("storage and grants, 05-04 DELETE); no rule is a legacy \"any membership\" rule. `rpc_only`: the privilege is not");
   lines.push("granted to `anon`/`authenticated` (05-02c grants hardening). `ownVisit`: the row's visit (or its invoice's visit) has");
-  lines.push("the caller as doctor (Sign & Bill, R-7).");
+  lines.push("the caller as doctor (Sign & Bill, R-7). Membership status (05-05, AUTH-05): only an `active` membership counts in");
+  lines.push("the helpers, so a removed or suspended member is refused every cell with a still-valid JWT (acceptance 4).");
   lines.push("");
   lines.push("Principals:");
   lines.push("");

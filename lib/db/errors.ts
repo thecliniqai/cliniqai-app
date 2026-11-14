@@ -69,6 +69,13 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   ENTITLEMENT_KEY_UNKNOWN: "VALIDATION_FAILED",
   PRODUCT_PRICE_REQUIRED: "PRECONDITION_FAILED",
   PRODUCT_STATE_INVALID: "CONFLICT",
+  // V2-05 05-05 (migration 000087): remove_member. The clinic's only active owner; removing oneself; a member already
+  // removed; a revoked invitation (consume_invitation). MEMBER_NOT_FOUND is P0002 (→ NOT_FOUND); STAFF_REMOVE_FORBIDDEN
+  // and OWNER_REQUIRED are 42501 (→ FORBIDDEN by SQLSTATE).
+  LAST_OWNER: "CONFLICT",
+  SELF_REMOVAL: "VALIDATION_FAILED",
+  MEMBER_NOT_ACTIVE: "CONFLICT",
+  INVITATION_REVOKED: "CONFLICT",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

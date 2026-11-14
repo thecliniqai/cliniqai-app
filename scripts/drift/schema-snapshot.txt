@@ -313,6 +313,8 @@ column public.invitations.created_by uuid not_null=t default=- identity=- genera
 column public.invitations.expires_at timestamp with time zone not_null=t default=- identity=- generated=-
 column public.invitations.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
 column public.invitations.invited_address text not_null=t default=- identity=- generated=-
+column public.invitations.revoked_at timestamp with time zone not_null=f default=- identity=- generated=-
+column public.invitations.revoked_by uuid not_null=f default=- identity=- generated=-
 column public.invitations.role text not_null=t default=- identity=- generated=-
 column public.invitations.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.invitations.token_hash text not_null=t default=- identity=- generated=-
@@ -346,8 +348,11 @@ column public.memberships.id uuid not_null=t default=gen_random_uuid() identity=
 column public.memberships.medical_council_reg_no text not_null=f default=- identity=- generated=-
 column public.memberships.phone text not_null=f default=- identity=- generated=-
 column public.memberships.qualifications text not_null=f default=- identity=- generated=-
+column public.memberships.removed_at timestamp with time zone not_null=f default=- identity=- generated=-
+column public.memberships.removed_by uuid not_null=f default=- identity=- generated=-
 column public.memberships.role text not_null=t default=- identity=- generated=-
 column public.memberships.signature_url text not_null=f default=- identity=- generated=-
+column public.memberships.status text not_null=t default='active'::text identity=- generated=-
 column public.memberships.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.memberships.user_id uuid not_null=t default=- identity=- generated=-
 column public.opd_diagnoses.category text not_null=f default=- identity=- generated=-
@@ -896,6 +901,7 @@ constraint public.in_app_notifications.in_app_notifications_tenant_id_fkey FOREI
 constraint public.invitations.invitations_consumed_by_fkey FOREIGN KEY (consumed_by) REFERENCES auth.users(id)
 constraint public.invitations.invitations_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 constraint public.invitations.invitations_pkey PRIMARY KEY (id)
+constraint public.invitations.invitations_revoked_by_fkey FOREIGN KEY (revoked_by) REFERENCES auth.users(id)
 constraint public.invitations.invitations_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'doctor'::text, 'receptionist'::text, 'nurse'::text])))
 constraint public.invitations.invitations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.invitations.invitations_token_hash_key UNIQUE (token_hash)
@@ -915,8 +921,11 @@ constraint public.invoices.invoices_tenant_visit_fkey FOREIGN KEY (tenant_id, vi
 constraint public.invoices.unique_tenant_invoice_number UNIQUE (tenant_id, invoice_number)
 constraint public.memberships.memberships_availability_schedule_shape CHECK (is_valid_weekly_schedule(availability_schedule))
 constraint public.memberships.memberships_pkey PRIMARY KEY (id)
+constraint public.memberships.memberships_removed_at_status CHECK (((status = 'removed'::text) = (removed_at IS NOT NULL)))
+constraint public.memberships.memberships_removed_by_fkey FOREIGN KEY (removed_by) REFERENCES auth.users(id)
 constraint public.memberships.memberships_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'doctor'::text, 'receptionist'::text, 'nurse'::text])))
 constraint public.memberships.memberships_slot_duration_bounds CHECK (((default_slot_duration_minutes IS NULL) OR ((default_slot_duration_minutes >= 5) AND (default_slot_duration_minutes <= 120))))
+constraint public.memberships.memberships_status_check CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'removed'::text])))
 constraint public.memberships.memberships_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.memberships.memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint public.memberships.unique_user_tenant UNIQUE (user_id, tenant_id)
@@ -1167,13 +1176,13 @@ default-privilege public r UPDATE to anon
 default-privilege public r UPDATE to authenticated
 default-privilege public r UPDATE to service_role
 default-privilege public r UPDATE to service_role
-function authz.active_tenant_id() returns uuid lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=583e763c6b66d0f1ae3ee88e5e39f8f7
-function authz.billing_tenant_ids() returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=d01d85a122088ec204be0b08d3a60fb6
-function authz.full_tenant_ids() returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=47eb91c9522613b8c305a3fd924d5abf
-function authz.member_tenant_ids() returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=15cb0eff6891dabc7c14cfbe997831e9
+function authz.active_tenant_id() returns uuid lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=041f8c40151f4459d610300fa5b0d0c6
+function authz.billing_tenant_ids() returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=b4a1a1928d9dba05f91ec2edb03db323
+function authz.full_tenant_ids() returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=ad19f3b956245e00f4352a038f76cc4a
+function authz.member_tenant_ids() returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=8094cc9399e7d93d14e8a75e23f68c42
 function authz.permission_keys() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=f9032f0e1089e1445e3a742918005918
 function authz.role_has_permission(p_role text, p_perm text) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=52690dd0cb8049b6adc57d0444ea83da
-function authz.tenant_ids_with(p_perm text) returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=2929855a76c7c6d0cc83947a0cc818e4
+function authz.tenant_ids_with(p_perm text) returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=d0919a591f797246d43823d0fb648e12
 function billing_internal.entitlement_limit(p_tenant uuid, p_key text, p_now timestamp with time zone) returns bigint lang=sql security_definer=f volatility=s config=search_path="" body_md5=4d7e98bc38ee2e0935456a7d71fce744
 function billing_internal.has_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone) returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=950af52dbeabf38b996b4e397eb100a8
 function billing_internal.resolve_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone, OUT enabled boolean, OUT limit_value bigint) returns record lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=ed44fb47cdda32fe78dfd8ea4e175628
@@ -1264,7 +1273,7 @@ function private.visits_create_clinical_notes() returns trigger lang=plpgsql sec
 function private.visits_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=92bf0cdfd32dc8e73de1889e1d875d73
 function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=3f9364431c0bfd99577d1cf49f87bf8e
 function private.webhook_iso(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cf107b0b69f25a02f89ee3381aca5f4f
-function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6cf9f926eb7b48e65b3dfe85c05df294
+function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4a4cd5776f6ac1007c02ba2cf40030d3
 function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone, claim_order integer) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4a0cbeec1199ea9027c2521a7e2f8138
 function public.clinical_notes_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=e1b92d76263ceb26ffd585604fb44bbb
 function public.communication_metadata_strip_tokens(p jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=699c303067ef7c6e5ac6a23949259380
@@ -1275,7 +1284,7 @@ function public.communication_queue_dead_letter(p_id uuid, p_error_code text) re
 function public.communication_queue_finish(p_id uuid, p_success boolean, p_external_message_id text, p_error text) returns TABLE(new_status text, new_retry_count integer) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=5e068d4ec4a8189aabc84b6715a404aa
 function public.communication_queue_scrub_payload() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=fb0edb07f8fe206c580ea92f55c0dda2
 function public.complete_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=5b1d8a829ebe6feb6dfdba9f9add9361
-function public.consume_invitation(p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=b642c8239b19b6634358f47d9b1dcffe
+function public.consume_invitation(p_token_hash text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=92b75562f7426f47456ccd5f57c38120
 function public.consume_reschedule_token(p_token text, p_new_at timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=6fb989b97bd42e441edb45788719d2e8
 function public.create_clinic_with_owner(p_name text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path=public, pg_temp body_md5=79edd5983ec8e22efe0672f12bb168a6
 function public.create_reschedule_token(p_visit_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=e1b7a0d65ed910109d7ac2f27d5ed901
@@ -1317,10 +1326,12 @@ function public.referral_directory_search(p_query text) returns TABLE(id uuid, n
 function public.referral_source_clinics(p_ids uuid[]) returns TABLE(id uuid, name text, phone text) lang=sql security_definer=t volatility=s config=search_path="" body_md5=09808d6285a2365415daca842756abd2
 function public.referrals_target_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f79e6bdc4f0750532696da1cc28a8f67
 function public.release_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=830646140fd502bc31c9c625ec1568eb
+function public.remove_member(p_membership_id uuid, p_reason text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=67fbd036b4b9718d4988b1a651fd77c3
 function public.reschedule_token_visit(p_token text) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=140605e0bc8e901e9152141bdedbb1b4
 function public.resolve_share_token(p_token text, p_kinds text[]) returns jsonb lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=60bebe306b147fad0da0c1ba83310590
 function public.revoke_share_token(p_token_id uuid) returns timestamp with time zone lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=51b0f9062d5a580902b32cac2b5d1d7c
 function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) returns TABLE(id text, medicine_name text, generic_name text, dose_form text, default_dosage text, default_timing text, default_duration text, is_custom boolean, is_favorite boolean) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bfcbb14840d1397ca3971ef34e80eb0b
+function public.session_is_live() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=093c2711c41fa48f9b09290978b4f826
 function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=87eb41555cfe9a23c14a3355ab1eea35
 function public.share_resource_tenant(p_type text, p_id uuid) returns uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=f202d708281179487dd5ca6d6cf9edb4
 function public.share_token_hash(p_token text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=46b48a816bdde078e25dc7a687214bc5
@@ -1359,6 +1370,8 @@ grant column public.invitations.created_by SELECT to authenticated
 grant column public.invitations.expires_at SELECT to authenticated
 grant column public.invitations.id SELECT to authenticated
 grant column public.invitations.invited_address SELECT to authenticated
+grant column public.invitations.revoked_at SELECT to authenticated
+grant column public.invitations.revoked_by SELECT to authenticated
 grant column public.invitations.role SELECT to authenticated
 grant column public.invitations.tenant_id SELECT to authenticated
 grant column public.memberships.availability_schedule UPDATE to authenticated
@@ -1472,6 +1485,7 @@ grant function public.referral_directory_search(p_query text) EXECUTE to authent
 grant function public.referral_source_clinics(p_ids uuid[]) EXECUTE to authenticated
 grant function public.referrals_target_update_guard() EXECUTE to service_role
 grant function public.release_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
+grant function public.remove_member(p_membership_id uuid, p_reason text) EXECUTE to authenticated
 grant function public.reschedule_token_visit(p_token text) EXECUTE to service_role
 grant function public.resolve_share_token(p_token text, p_kinds text[]) EXECUTE to anon
 grant function public.resolve_share_token(p_token text, p_kinds text[]) EXECUTE to authenticated
@@ -1480,6 +1494,7 @@ grant function public.revoke_share_token(p_token_id uuid) EXECUTE to authenticat
 grant function public.revoke_share_token(p_token_id uuid) EXECUTE to service_role
 grant function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) EXECUTE to authenticated
 grant function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) EXECUTE to service_role
+grant function public.session_is_live() EXECUTE to authenticated
 grant function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) EXECUTE to authenticated
 grant function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) EXECUTE to service_role
 grant function public.share_resource_tenant(p_type text, p_id uuid) EXECUTE to service_role
@@ -2132,12 +2147,14 @@ index public.idx_in_app_notifs_role CREATE INDEX idx_in_app_notifs_role ON publi
 index public.idx_in_app_notifs_user CREATE INDEX idx_in_app_notifs_user ON public.in_app_notifications USING btree (tenant_id, recipient_user_id, is_read, created_at DESC)
 index public.idx_invitations_consumed_by CREATE INDEX idx_invitations_consumed_by ON public.invitations USING btree (consumed_by)
 index public.idx_invitations_created_by CREATE INDEX idx_invitations_created_by ON public.invitations USING btree (created_by)
+index public.idx_invitations_revoked_by CREATE INDEX idx_invitations_revoked_by ON public.invitations USING btree (revoked_by)
 index public.idx_invitations_tenant_id CREATE INDEX idx_invitations_tenant_id ON public.invitations USING btree (tenant_id)
 index public.idx_invitations_token_hash CREATE INDEX idx_invitations_token_hash ON public.invitations USING btree (token_hash)
 index public.idx_invoice_items_tenant_invoice CREATE INDEX idx_invoice_items_tenant_invoice ON public.invoice_items USING btree (tenant_id, invoice_id)
 index public.idx_invoices_tenant_created CREATE INDEX idx_invoices_tenant_created ON public.invoices USING btree (tenant_id, created_at)
 index public.idx_invoices_tenant_patient CREATE INDEX idx_invoices_tenant_patient ON public.invoices USING btree (tenant_id, patient_id)
 index public.idx_invoices_tenant_visit CREATE INDEX idx_invoices_tenant_visit ON public.invoices USING btree (tenant_id, visit_id)
+index public.idx_memberships_removed_by CREATE INDEX idx_memberships_removed_by ON public.memberships USING btree (removed_by)
 index public.idx_memberships_tenant_id CREATE INDEX idx_memberships_tenant_id ON public.memberships USING btree (tenant_id)
 index public.idx_memberships_user_id CREATE INDEX idx_memberships_user_id ON public.memberships USING btree (user_id)
 index public.idx_opd_diagnoses_name_trgm CREATE INDEX idx_opd_diagnoses_name_trgm ON public.opd_diagnoses USING gin (name gin_trgm_ops)

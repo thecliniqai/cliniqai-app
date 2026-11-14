@@ -1028,6 +1028,8 @@ export type Database = {
           expires_at: string;
           id: string;
           invited_address: string;
+          revoked_at: string | null;
+          revoked_by: string | null;
           role: string;
           tenant_id: string;
           token_hash: string;
@@ -1041,6 +1043,8 @@ export type Database = {
           expires_at: string;
           id?: string;
           invited_address: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
           role: string;
           tenant_id: string;
           token_hash: string;
@@ -1053,6 +1057,8 @@ export type Database = {
           expires_at?: string;
           id?: string;
           invited_address?: string;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
           role?: string;
           tenant_id?: string;
           token_hash?: string;
@@ -1198,8 +1204,11 @@ export type Database = {
           medical_council_reg_no: string | null;
           phone: string | null;
           qualifications: string | null;
+          removed_at: string | null;
+          removed_by: string | null;
           role: string;
           signature_url: string | null;
+          status: string;
           tenant_id: string;
           user_id: string;
         };
@@ -1214,8 +1223,11 @@ export type Database = {
           medical_council_reg_no?: string | null;
           phone?: string | null;
           qualifications?: string | null;
+          removed_at?: string | null;
+          removed_by?: string | null;
           role: string;
           signature_url?: string | null;
+          status?: string;
           tenant_id: string;
           user_id: string;
         };
@@ -1229,8 +1241,11 @@ export type Database = {
           medical_council_reg_no?: string | null;
           phone?: string | null;
           qualifications?: string | null;
+          removed_at?: string | null;
+          removed_by?: string | null;
           role?: string;
           signature_url?: string | null;
+          status?: string;
           tenant_id?: string;
           user_id?: string;
         };
@@ -2928,8 +2943,11 @@ export type Database = {
           medical_council_reg_no: string | null;
           phone: string | null;
           qualifications: string | null;
+          removed_at: string | null;
+          removed_by: string | null;
           role: string;
           signature_url: string | null;
+          status: string;
           tenant_id: string;
           user_id: string;
         };
@@ -3266,6 +3284,10 @@ export type Database = {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
       };
+      remove_member: {
+        Args: { p_membership_id: string; p_reason: string };
+        Returns: Json;
+      };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
       resolve_share_token: {
         Args: { p_kinds: string[]; p_token: string };
@@ -3291,6 +3313,7 @@ export type Database = {
           medicine_name: string;
         }[];
       };
+      session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };
       share_object_path: {
         Args: {
           p_owner_id: string;

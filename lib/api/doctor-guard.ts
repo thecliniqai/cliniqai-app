@@ -46,6 +46,8 @@ export async function validateDoctorAssignment(
     .select("id, role, user_id")
     .eq("tenant_id", tenantId)
     .eq("user_id", doctorId.trim())
+    // V2-05 05-05: a removed or suspended doctor is not assignable (reads as "not found in the active clinic").
+    .eq("status", "active")
     .maybeSingle();
 
   if (error) {

@@ -8,7 +8,8 @@ import { resolveServiceContext } from "@/lib/auth/context";
 import { MultipleClinicsSelectionRequiredError, NoClinicMembershipError } from "@/lib/auth/tenant";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 import * as staffService from "./service";
-import type { TenantDoctorInfo, TenantStaffInfo } from "./service";
+import type { RemoveStaffResult, TenantDoctorInfo, TenantStaffInfo } from "./service";
+import { removeStaffSchema } from "./schema";
 import { UserRole } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -158,6 +159,10 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
       if (msg.includes("INVITATION_EMAIL_UNCONFIRMED")) {
         return { success: false, error: "Confirm your email address first, then open the invitation link again." };
       }
+      // V2-05 05-05 (migration 000087): an invitation revoked (e.g. by the inviter's removal) is dead.
+      if (msg.includes("INVITATION_REVOKED")) {
+        return { success: false, error: "This invitation has been withdrawn. Please ask for a new invite." };
+      }
       return { success: false, error: "Failed to accept invitation. Please try again." };
     }
 
@@ -173,7 +178,28 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
   }
 }
 
-export type { TenantDoctorInfo, TenantStaffInfo } from "./service";
+export type { RemoveStaffResult, TenantDoctorInfo, TenantStaffInfo } from "./service";
+
+export type RemoveStaffActionResult = { success: true; result: RemoveStaffResult } | { success: false; error: string };
+
+/**
+ * AUTH-05 (V2-05 05-05): removes a staff member of the caller's active clinic. Authenticates and checks staff:invite
+ * before reading the input; the clinic and the actor come only from the session (the RPC re-derives the clinic from the
+ * target row and binds it to the active clinic). Backend only: the staff UI and journey J-A6 are V2-11's (R-31).
+ */
+export async function removeStaff(input: { membershipId: string; reason: string }): Promise<RemoveStaffActionResult> {
+  const resolved = await resolveServiceContext("staff:invite");
+  if (!resolved.ok) return { success: false, error: resolved.error };
+
+  const parsed = removeStaffSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid input." };
+  }
+
+  const removed = await staffService.removeStaff(resolved.ctx, parsed.data);
+  if (!removed.ok) return { success: false, error: removed.error.message };
+  return { success: true, result: removed.value };
+}
 
 // The acting tenant comes only from the session (ADR-0005 D1). A caller without a membership gets an empty
 // directory, as before.

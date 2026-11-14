@@ -154,6 +154,10 @@ export const FX = {
     doctor2A: id(0x104),
     nurseA: id(0x105),
     receptionistA: id(0x106),
+    /** 05-05: an owner of A whose membership is `removed` (still holding a valid JWT). */
+    removedA: id(0x107),
+    /** 05-05: a doctor of A whose membership is `suspended`. */
+    suspendedA: id(0x108),
     ownerB: id(0x201),
     dual: id(0x301),
   },
@@ -183,6 +187,8 @@ export const TENANT_IDS: Record<TenantKey, string> = { A: FX.tenantA, B: FX.tena
 
 export type DbRole = "authenticated" | "anon";
 export type MemberRole = "owner" | "admin" | "doctor" | "nurse" | "receptionist";
+/** `memberships.status` (05-05, AUTH-05): only `active` counts in the authz helpers. */
+export type MemberStatus = "active" | "suspended" | "removed";
 
 export interface Principal {
   id: string;
@@ -190,8 +196,19 @@ export interface Principal {
   dbRole: DbRole;
   userId: string | null;
   memberships: Partial<Record<TenantKey, MemberRole>>;
+  /** Membership status per clinic (05-05); a clinic not listed is `active`. */
+  statuses?: Partial<Record<TenantKey, Exclude<MemberStatus, "active">>>;
   /** The `x-clinicos-tenant` header (R-42); null = no header (the sole-membership fallback applies). */
   header: TenantKey | null;
+}
+
+/** The principal's ACTIVE memberships: what the helpers see (05-05). A removed or suspended row counts as none. */
+export function activeMemberships(p: Principal): Partial<Record<TenantKey, MemberRole>> {
+  const out: Partial<Record<TenantKey, MemberRole>> = {};
+  for (const [tenant, role] of Object.entries(p.memberships) as [TenantKey, MemberRole][]) {
+    if (!p.statuses?.[tenant]) out[tenant] = role;
+  }
+  return out;
 }
 
 export const PRINCIPALS: readonly Principal[] = [
@@ -207,6 +224,24 @@ export const PRINCIPALS: readonly Principal[] = [
     userId: FX.users.receptionistA,
     memberships: { A: "receptionist" },
     header: null,
+  },
+  {
+    id: "removed_a",
+    label: "removed member of A (owner role, status removed, valid JWT)",
+    dbRole: "authenticated",
+    userId: FX.users.removedA,
+    memberships: { A: "owner" },
+    statuses: { A: "removed" },
+    header: null,
+  },
+  {
+    id: "suspended_a",
+    label: "suspended member of A (doctor role, status suspended, header A)",
+    dbRole: "authenticated",
+    userId: FX.users.suspendedA,
+    memberships: { A: "doctor" },
+    statuses: { A: "suspended" },
+    header: "A",
   },
   { id: "owner_b", label: "owner of B", dbRole: "authenticated", userId: FX.users.ownerB, memberships: { B: "owner" }, header: null },
   { id: "anon", label: "anon", dbRole: "anon", userId: null, memberships: {}, header: null },

@@ -174,6 +174,8 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
     { member: "The clinic's staff list (no contact data beyond what staff:view shows)." },
   "features/staff/actions.ts#inviteStaff": "staff:invite",
   "features/staff/actions.ts#inviteStaffMemberAction": "staff:invite",
+  // V2-05 05-05 (AUTH-05): remove_member re-derives the clinic from the target row and binds it to the active clinic.
+  "features/staff/actions.ts#removeStaff": "staff:invite",
   "features/terminology/actions.ts#addConsultationDiagnosis": "consultations:edit",
   "features/terminology/actions.ts#getVisitDiagnoses": "consultations:view",
   "features/terminology/actions.ts#removeConsultationDiagnosis": "consultations:edit",
@@ -214,6 +216,8 @@ export const LEG3_CONTROL_EXEMPT: Record<string, string> = {
     "AI is off in the test lane (AI_ENABLED=false): the action fails closed before any data access (AI-01), so no input can succeed.",
   "features/clinics/actions.ts#createClinic":
     "Onboarding ({ authenticated }): a successful control would give the shared outsider user a clinic and change the later legs; create_clinic_with_owner is covered by tests/security/membership-guard.spec.ts.",
+  "features/staff/actions.ts#removeStaff":
+    "V2-05 05-05: the world's tenant-A membership is the caller's own, which remove_member refuses (SELF_REMOVAL), and removing any other member of the shared world would change the later legs; the successful path is covered by supabase/tests/database/remove_member.test.sql and tests/integration/auth/remove-member.spec.ts. The forged-id variants still run (B's membership: not found).",
 };
 
 const SESSION_RECEIPT: RouteGuard = { kind: "session", permission: "appointments:view", resource: "invoice" };

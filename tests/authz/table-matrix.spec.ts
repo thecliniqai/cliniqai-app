@@ -112,6 +112,31 @@ describe("the expected outcomes", () => {
     expect(visible).toEqual(["public.tenants select"]);
   });
 
+  // V2-05 05-05 (AUTH-05, acceptance 4): a removed or suspended member keeps a valid JWT but no active membership.
+  it("gives a removed or suspended member no active clinic, even with the header naming it", () => {
+    expect(activeTenant(principal("removed_a"))).toBeNull();
+    expect(activeTenant({ ...principal("removed_a"), header: "A" })).toBeNull();
+    expect(activeTenant(principal("suspended_a"))).toBeNull();
+    // Only the status differs from the live owner/doctor principals: the same principal with an active row is bound to A.
+    expect(activeTenant({ ...principal("removed_a"), statuses: {} })).toBe("A");
+    expect(activeTenant({ ...principal("suspended_a"), statuses: {} })).toBe("A");
+  });
+
+  it("denies a removed or suspended member every tenant cell of every table and storage class (only global data)", () => {
+    for (const id of ["removed_a", "suspended_a"]) {
+      const admittedCells = all
+        .filter((c) => c.principal.id === id && admitted(c.expected))
+        .filter((c) => !kinds(c.target.rules[c.op]).includes("catalogue"))
+        .map((c) => `${targetName(c.target)} ${c.op}`);
+      expect(admittedCells, id).toEqual([]);
+    }
+    // The same principals with an active membership are admitted widely (the status is what denies them).
+    const live = (id: string) =>
+      TARGETS.flatMap((t) => OPS.map((op) => expectedOutcome(t, op, { ...principal(id), statuses: {} }))).filter(admitted).length;
+    expect(live("removed_a")).toBeGreaterThan(100);
+    expect(live("suspended_a")).toBeGreaterThan(50);
+  });
+
   it("uses no `none` rule on a table (05-02c grants hardening: an operation no policy admits holds no privilege)", () => {
     const withNone = TARGETS.filter((t) => t.kind === "table")
       .flatMap((t) => OPS.filter((op) => kinds(t.rules[op]).includes("none")).map((op) => `${targetName(t)} ${op}`));

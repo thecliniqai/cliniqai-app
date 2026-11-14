@@ -40,6 +40,9 @@
  *          platform_audit_log x 4 ops x 11 principals) + platform_rpcs 80 = 4018 (38 files).
  *   3934 — V2-05 05b 05-09c (000086 drop_v1_subscription_tables): 4018 − authz_matrix 88 (2816 → 2728: the dropped
  *          subscriptions and payment_records x 4 ops x 11 principals) + drop_v1_subscriptions 4 = 3934 (39 files).
+ *   4513 — V2-05 05b 05-05 (000087 membership_status): 3934 + authz_matrix 496 (2728 → 3224: 62 targets x 4 ops x 2 new
+ *          principals, removed and suspended) + definer_functions 2 (34 → 36: remove_member legs) + remove_member 81
+ *          = 4513 (40 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -51,7 +54,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 3934;
+export const FLOOR = 4513;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -111,6 +114,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/subscription_invariant.test.sql",
   "supabase/tests/database/platform_rpcs.test.sql",
   "supabase/tests/database/drop_v1_subscriptions.test.sql",
+  // 05-05
+  "supabase/tests/database/remove_member.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

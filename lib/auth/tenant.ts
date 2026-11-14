@@ -57,6 +57,8 @@ export async function getActiveMembership(explicitTenantId?: string): Promise<Ac
     .from("memberships")
     .select("tenant_id, role")
     .eq("user_id", user.id)
+    // V2-05 05-05 (AUTH-05): a removed or suspended membership is not a clinic of the user (RLS hides it as well).
+    .eq("status", "active")
     .returns<Array<{ tenant_id: string; role: UserRole }>>();
 
   if (memError) {

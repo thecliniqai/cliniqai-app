@@ -11,7 +11,7 @@
 --      subject, is refused; the same call acting in B is allowed. 05-10a adds the access-level leg to this file.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(34);
+select plan(36);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -169,6 +169,7 @@ insert into c2c_definer values
   ('public.record_payment', 'bound', 'p_tenant_id = active clinic with billing:collect; system path = service role + closed actor (000072, 05-11b)'),
   ('public.has_permission', 'bound', 'authz.tenant_ids_with: the active clinic (000046)'),
   ('public.referral_directory_search', 'bound', 'consultations:edit in the active clinic; never the active clinic itself (000062, 05-06)'),
+  ('public.remove_member', 'bound', 'target membership''s clinic = active clinic; staff:invite, owner-only for owner/admin targets (000087, 05-05)'),
   -- the member helper
   ('public.current_user_tenant_ids', 'member', 'every clinic of the caller (switcher); no policy or function uses it'),
   ('public.my_tenant_access', 'member', 'SUB §6.2 wrapper: the access level of one of the caller''s own clinics, else null (000083, 05-09a)'),
@@ -182,6 +183,7 @@ insert into c2c_definer values
   ('public.readiness_probe', 'exempt', 'anon readiness probe: booleans only'),
   ('public.ops_ingest_error', 'exempt', 'error ingest: ingest key, no tenant data returned'),
   ('public.is_platform_admin', 'exempt', 'platform admin: own platform_admins row + aal2, not a clinic role (000085, 05-09b)'),
+  ('public.session_is_live', 'exempt', 'the caller''s own JWT session only, no tenant data (000087, 05-05)'),
   -- service_role only (system paths; no session)
   ('public.claim_jobs', 'system', 'job runner'), ('public.complete_job', 'system', 'job runner'),
   ('public.defer_job', 'system', 'job runner'), ('public.fail_job', 'system', 'job runner'),
@@ -250,6 +252,7 @@ select set_eq(
     'public.get_reschedule_context:anon,authenticated,service_role',
     'public.resolve_share_token:anon,authenticated,service_role', 'public.readiness_probe:anon',
     'public.ops_ingest_error:anon,authenticated', 'public.is_platform_admin:authenticated',
+    'public.remove_member:authenticated', 'public.session_is_live:authenticated',
     'public.claim_jobs:service_role', 'public.complete_job:service_role', 'public.defer_job:service_role',
     'public.fail_job:service_role', 'public.release_job:service_role', 'public.start_job:service_role',
     'public.jobs_runner_begin:service_role', 'public.jobs_runner_end:service_role',
@@ -366,6 +369,12 @@ select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0
   'denied:forbidden', 'referral_directory_search: acting in B (receptionist, no consultations:edit) is refused');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.referral_directory_search('Synthetic 05-02c Clinic')$$),
   '1', 'referral_directory_search: acting in A (doctor) the listed clinic B is found');
+select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000a',
+  format('select public.remove_member(%L, %L)', (select id from public.memberships where user_id = 'c2c00000-0000-4000-8000-000000000202' and tenant_id = 'c2c00000-0000-4000-8000-00000000000b'), 'Synthetic reason')),
+  'error:P0002:MEMBER_NOT_FOUND%', 'remove_member: acting in A on a B member is not found (05-05)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  format('select public.remove_member(%L, %L)', (select id from public.memberships where user_id = 'c2c00000-0000-4000-8000-000000000202' and tenant_id = 'c2c00000-0000-4000-8000-00000000000b'), 'Synthetic reason')),
+  '1', 'remove_member: acting in B as its owner the B doctor is removed (05-05)');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', null, $$select count(*)::text from public.current_user_tenant_ids()$$),
   '2', 'current_user_tenant_ids stays the member helper: every clinic of the caller (the switcher)');
 
