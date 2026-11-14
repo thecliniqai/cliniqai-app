@@ -6,13 +6,14 @@ import { getDailyCollectionReport } from "@/features/billing/reports-actions";
 import { CollectionReportsView } from "@/components/billing/collection-reports-view";
 import { createClient } from "@/lib/supabase/server";
 import { getTenantToday } from "@/lib/datetime/server";
+import { withPageAuth } from "@/lib/auth/page";
 
 export const metadata: Metadata = {
   title: "Billing & Financial Reports | ClinicOS",
   description: "Daily collection register, payment breakdown, and financial reports.",
 };
 
-export default async function BillingReportsPage() {
+async function BillingReportsPage() {
   let session;
   try {
     session = await requirePermission("billing:view");
@@ -47,3 +48,6 @@ export default async function BillingReportsPage() {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(BillingReportsPage);

@@ -17,6 +17,7 @@ import {
   SpecialtyData,
   FollowUpInput,
 } from "@/features/consultation/schema";
+import { withPageAuth } from "@/lib/auth/page";
 
 interface ConsultationPageProps {
   params: Promise<{
@@ -24,7 +25,7 @@ interface ConsultationPageProps {
   }>;
 }
 
-export default async function ConsultationPage(props: ConsultationPageProps) {
+async function ConsultationPage(props: ConsultationPageProps) {
   const { id } = await props.params;
   const supabase = await createClient();
 
@@ -156,3 +157,6 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
     />
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(ConsultationPage);

@@ -8,6 +8,7 @@ import { CalendarView } from "@/components/calendar/calendar-view";
 import { TimelineVisit } from "@/components/calendar/doctor-timeline";
 import { isYmd } from "@/lib/datetime";
 import { getTenantToday } from "@/lib/datetime/server";
+import { withPageAuth } from "@/lib/auth/page";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ interface CalendarPageProps {
   }>;
 }
 
-export default async function CalendarPage(props: CalendarPageProps) {
+async function CalendarPage(props: CalendarPageProps) {
   const searchParams = await props.searchParams;
 
   let membership;
@@ -65,3 +66,6 @@ export default async function CalendarPage(props: CalendarPageProps) {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(CalendarPage);
