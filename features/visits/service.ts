@@ -387,15 +387,26 @@ export async function cancelVisit(ctx: ServiceContext, visitId: string): Promise
       return { success: false, error: "Visit is already cancelled." };
     }
 
-    // 2. Mark visit cancelled
+    // A signed consultation is never cancelled (V2-05 05-11a, H-VISIT: the database refuses it too).
+    if (existing.signed_at) {
+      return { success: false, error: "A signed consultation cannot be cancelled." };
+    }
+
+    // 2. Mark visit cancelled. A refused or failed write stops here: no audit row and no waitlist promotion for a
+    // visit that is still booked.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("visits") as any)
+    const { error: cancelError } = await (supabase.from("visits") as any)
       .update({
         status: "cancelled",
         updated_at: new Date().toISOString(),
       })
       .eq("id", visitId)
       .eq("tenant_id", session.tenantId);
+
+    if (cancelError) {
+      log.error({ event: "visits.cancel.failed", code: errorTag(cancelError), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to cancel visit." };
+    }
 
     // 3. Audit cancellation
     await recordAudit(ctx, {

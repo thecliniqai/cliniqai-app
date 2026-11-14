@@ -124,7 +124,7 @@ select set_eq(
     'patients.patients_select', 'patients.patients_insert', 'patients.patients_update',
     'consent_records.consent_records_select', 'consent_records.consent_records_insert',
     'visits.visits_select', 'visits.visits_insert', 'visits.visits_update',
-    'queue_tokens.queue_tokens_select', 'queue_tokens.queue_tokens_insert', 'queue_tokens.queue_tokens_update',
+    'queue_tokens.queue_tokens_select', 'queue_tokens.queue_tokens_update', -- INSERT: issue_queue_token only (05-11a)
     'waitlist_entries.waitlist_entries_select', 'waitlist_entries.waitlist_entries_insert',
     'waitlist_entries.waitlist_entries_update',
     'schedule_blocks.schedule_blocks_select', 'schedule_blocks.schedule_blocks_insert',

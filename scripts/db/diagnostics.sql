@@ -14,7 +14,8 @@
 -- child→parent pair" and plan 05-03 step 5 requires D1 and D5 to be 0 for EVERY composite FK it adds:
 --   D1x  every child→parent pair of 000049_composite_fks_expand (tenant parents)
 --   D5x  every doctor reference that 000049 binds to memberships(user_id, tenant_id)
--- plus V0 (row volume per table, first) and FKNV (foreign keys still NOT VALID, last).
+-- plus V0 (row volume per table, first) and FKNV (foreign keys still NOT VALID, last). Fix plan 05-11a adds D6d, D9t
+-- and D5s (the legacy rows 000069 clamps, renumbers or refuses).
 -- `prescription_items` has no tenant_id before 000048: its D1x row reads the column through to_jsonb, so it is 0
 -- (not an error) on a database that predates the column.
 
@@ -167,6 +168,25 @@ union all select 'doctor_custom_diagnoses.doctor_id', count(*) from public.docto
 union all select 'doctor_custom_medicines.doctor_id', count(*) from public.doctor_custom_medicines t where t.doctor_id is not null and not exists (select 1 from public.memberships m where m.tenant_id = t.tenant_id and m.user_id = t.doctor_id)
 union all select 'doctor_prescription_templates.doctor_id', count(*) from public.doctor_prescription_templates t where t.doctor_id is not null and not exists (select 1 from public.memberships m where m.tenant_id = t.tenant_id and m.user_id = t.doctor_id)
 union all select 'referrals.referring_doctor_id', count(*) from public.referrals t where t.referring_doctor_id is not null and not exists (select 1 from public.memberships m where m.tenant_id = t.tenant_id and m.user_id = t.referring_doctor_id);
+
+-- ---------------------------------------------------------------------------------------------------------------
+-- Additions for fix plan 05-11a (000068-000070): the rows 000069 clamps, renumbers or refuses. Run before 000069.
+-- ---------------------------------------------------------------------------------------------------------------
+
+\echo '@@ D6d count'
+-- D6d. Visit durations outside 5..480 minutes (000069 clamps them; a zero-length slot evaded D6 and the exclusion
+-- constraint, a negative one makes D6's tstzrange raise 22000).
+select count(*) from public.visits where estimated_duration_minutes not between 5 and 480;
+
+\echo '@@ D9t count'
+-- D9t. Queue tokens outside 1..9999 (000069 renumbers them after the day's highest in-range token).
+select count(*) from public.queue_tokens where token_number not between 1 and 9999;
+
+\echo '@@ D5s count'
+-- D5s. Visits signed by a user who is not a member of the visit's clinic (000069's VALIDATE of
+-- visits_tenant_signed_by_fkey fails on any; no automatic remedy).
+select count(*) from public.visits v where v.signed_by is not null and not exists
+ (select 1 from public.memberships m where m.tenant_id = v.tenant_id and m.user_id = v.signed_by);
 
 \echo '@@ FKNV count'
 -- Composite-FK state: foreign keys in the app schemas still NOT VALID (0 after 000050).

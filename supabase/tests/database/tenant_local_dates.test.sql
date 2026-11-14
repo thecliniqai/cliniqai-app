@@ -1,8 +1,9 @@
 -- tenant_local_dates.test.sql — V2-05 plan 05-08 (V2-03 R-33 carry-over; R-19; V2-03 03-05 clinic-date parity).
 -- `queue_tokens.date` and `patient_documents.report_date` no longer default to CURRENT_DATE (the server's UTC date):
 --   1. neither column has a default; both are filled by a BEFORE INSERT trigger;
---   2. an omitted value becomes `tenant_local_date(tenant_id, now())`, for postgres, service_role and a member
---      (authenticated) alike; an explicit value is kept;
+--   2. an omitted value becomes `tenant_local_date(tenant_id, now())`, for postgres and service_role alike; a member's
+--      token comes from issue_queue_token (05-11a: no member INSERT on queue_tokens), dated the same way; an explicit
+--      value is kept;
 --   3. the zone rules of `tenant_local_date` match `lib/datetime` `resolveTimeZone`: IANA names (any case), ECMA-402
 --      UTC offsets read east-positive, and anything unusable (an unknown name, an abbreviation, a blank) falls back to
 --      Asia/Kolkata without an error. The app-side half of the parity is tests/integration/ist-boundaries.spec.ts.
@@ -86,12 +87,13 @@ begin
 end
 $$;
 set local role authenticated;
-select lives_ok($$insert into public.queue_tokens (tenant_id, visit_id, token_number) values
-  ('c0830000-0000-4000-8000-00000000000a', 'c0830000-0000-4000-8000-000000001104', 4)$$,
-  'a receptionist inserts a queue token without a date (the trigger runs as the member)');
+-- Since 05-11a (M-TOKEN) a member holds no INSERT privilege on queue_tokens: the token row and its date come from
+-- issue_queue_token (definer), which dates it tenant_local_date(clinic, now()).
+select lives_ok($$select * from public.issue_queue_token('c0830000-0000-4000-8000-000000001104')$$,
+  'a receptionist checks in through issue_queue_token (members no longer insert token rows)');
 reset role;
 select is((select date from public.queue_tokens where visit_id = 'c0830000-0000-4000-8000-000000001104'),
-  public.tenant_local_date('c0830000-0000-4000-8000-00000000000a', now()), 'authenticated: the omitted date is the clinic-local today');
+  public.tenant_local_date('c0830000-0000-4000-8000-00000000000a', now()), 'authenticated: the token''s date is the clinic-local today');
 
 insert into public.patient_documents (id, tenant_id, patient_id, title, original_filename, storage_path, file_size_bytes, mime_type, uploaded_by) values
   ('c0830000-0000-4000-8000-000000002001', 'c0830000-0000-4000-8000-00000000000a', 'c0830000-0000-4000-8000-000000001001', 'Synthetic report',

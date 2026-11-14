@@ -14,7 +14,7 @@ import { psql } from "../helpers/sql";
 // service calls: seeding runs on the real clock. Rows written under the fake clock belong to the run's tenants and
 // are removed by the tenant cascade in teardown.
 //
-// V2-05 05-08: a queue token's day is no longer chosen by the app. `next_queue_token` returns the clinic-local date
+// V2-05 05-08: a queue token's day is no longer chosen by the app. `issue_queue_token` (05-11a; `next_queue_token` before) returns the clinic-local date
 // that SQL computes from the database clock (`tenant_local_date(tenant, now())`), so a faked app clock cannot move it;
 // the check-in cases below assert that date. The SQL/app parity of the clinic date at the IST boundary (18:30-24:00
 // UTC) is asserted at fixed instants in the last describe block.
@@ -174,7 +174,7 @@ describe("IST day boundaries (00:00-05:30 IST) use the clinic date, not the UTC 
 });
 
 // V2-05 05-08 (V2-03 R-33, 03-05 note): SQL and the app agree on a clinic's "today". `tenant_local_date` (SQL, used by
-// next_queue_token and the date-fill triggers) and `getTenantToday` (lib/datetime/server) are evaluated at the same
+// issue_queue_token and the date-fill triggers) and `getTenantToday` (lib/datetime/server) are evaluated at the same
 // fixed instants, including 18:30-24:00 UTC where the IST date is already the next UTC day (before 05-08, SQL's
 // CURRENT_DATE gave the UTC date there), for the zone values a clinic row may hold.
 describe("clinic date parity: SQL tenant_local_date = app getTenantToday", () => {

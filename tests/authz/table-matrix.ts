@@ -359,13 +359,17 @@ export const TARGETS: readonly Target[] = [
     table: "visits",
     key: ["id"],
     fixture: { id: q(FX.visit), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, origin_type: "'walk_in'", created_by: U.ownerA },
-    insert: { id: q(FX.row(3)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, origin_type: "'walk_in'", created_by: U.ownerA },
+    // 05-11a (M-ACTOR): a signed-in caller inserts a visit only as its creator.
+    insert: { id: q(FX.row(3)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, origin_type: "'walk_in'", created_by: "auth.uid()" },
     update: "status",
     extraRows: [
       { id: q(FX.visit2), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, origin_type: "'walk_in'", created_by: U.ownerA },
     ],
     rules: permSiu("appointments:view", "appointments:edit", rpcOnly),
-    note: "no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03)",
+    note:
+      "no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03). " +
+      "05-11a guard (visit_integrity.test.sql): patient never changes; sign-off only by consultations:edit as the caller; a " +
+      "signed visit's status/doctor change only through the amendment path; a doctor does not reassign doctor_id",
   },
   {
     kind: "table",
@@ -406,13 +410,13 @@ export const TARGETS: readonly Target[] = [
       tenant_id: A,
       visit_id: q(FX.visit),
       revision_number: "2",
-      amended_by: U.ownerA,
+      amended_by: "auth.uid()",
       amendment_reason: "'Synthetic amendment'",
       snapshot: "'{}'::jsonb",
     },
     update: "amendment_reason",
     rules: { select: perm("consultations:view"), insert: perm("consultations:edit"), update: rpcOnly, delete: rpcOnly },
-    note: "append-only amendment history (no UPDATE policy)",
+    note: "append-only amendment history (no UPDATE policy); the author is the caller (05-11a guard)",
   },
   {
     kind: "table",
@@ -441,9 +445,10 @@ export const TARGETS: readonly Target[] = [
     table: "prescriptions",
     key: ["id"],
     fixture: { id: q(FX.prescription), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: U.doctorA },
-    insert: { id: q(FX.row(10)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: U.doctorA, version: "2" },
+    insert: { id: q(FX.row(10)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: "auth.uid()", version: "2" },
     update: "status",
     rules: permSiu("prescriptions:view", "prescriptions:edit", rpcOnly),
+    note: "the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql)",
   },
   {
     kind: "table",
@@ -516,7 +521,10 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(18)), tenant_id: A, visit_id: q(FX.visit), token_number: "1" },
     insert: { id: q(FX.row(19)), tenant_id: A, visit_id: q(FX.visit2), token_number: "2" },
     update: "priority",
-    rules: permSiu("appointments:view", "appointments:edit", rpcOnly),
+    rules: { select: perm("appointments:view"), insert: rpcOnly, update: perm("appointments:edit"), delete: rpcOnly },
+    note:
+      "written by issue_queue_token (SECURITY DEFINER, 05-11a M-TOKEN): no INSERT privilege; UPDATE only of priority, " +
+      "called_at, completed_at (column grant), so token_number/date cannot be forged",
   },
   {
     kind: "table",
@@ -527,7 +535,7 @@ export const TARGETS: readonly Target[] = [
     insert: { tenant_id: A, date: "'2030-01-02'", last_token: "1" },
     update: "last_token",
     rules: { select: rpcOnly, insert: rpcOnly, update: rpcOnly, delete: rpcOnly },
-    note: "written only by next_queue_token (SECURITY DEFINER, appointments:edit in the active clinic; 05-08, R-18): no member may read or rewind the counter (T-05-21)",
+    note: "written only by issue_queue_token (SECURITY DEFINER, appointments:edit in the active clinic; 05-08 R-18, 05-11a): no member may read or rewind the counter (T-05-21)",
   },
   {
     kind: "table",

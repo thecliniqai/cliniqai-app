@@ -31,7 +31,11 @@ select lives_ok($$alter table public.visits add constraint visits_tenant_patient
   'D1: the composite FK is added NOT VALID over the bad row (expand)');
 select throws_ok($$alter table public.visits validate constraint visits_tenant_patient_fkey$$, '23503', null,
   'D1: VALIDATE fails while the cross-tenant visit exists');
+-- Since 05-11a a visit's patient_id is immutable on every path (visits_integrity_guard, H-VISIT): a D1 repair is an
+-- operator step that disables the guard for the one correcting statement.
+alter table public.visits disable trigger visits_integrity_guard;
 select lives_ok($$update public.visits set patient_id = 'ed000000-0000-4000-8000-000000001001' where id = 'ed000000-0000-4000-8000-000000001004'$$, 'D1: the row is corrected to its own clinic''s patient');
+alter table public.visits enable trigger visits_integrity_guard;
 select is((select count(*)::int from visits v join patients p on p.id = v.patient_id where v.tenant_id <> p.tenant_id), 0, 'D1 is 0 after the correction');
 select lives_ok($$alter table public.visits validate constraint visits_tenant_patient_fkey$$, 'D1: VALIDATE succeeds once D1 = 0');
 

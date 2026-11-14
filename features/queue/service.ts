@@ -48,63 +48,31 @@ export async function checkInVisit(
       return { success: false, error: "Visit record not found." };
     }
 
-    // 2. Check if a token already exists for this visit
-    const { data: existingToken } = (await (
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      supabase.from("queue_tokens") as any
-    )
-      .select("*")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", session.tenantId)
-      .maybeSingle()) as { data: QueueToken | null; error: unknown };
-
-    if (existingToken) {
-      return {
-        success: true,
-        tokenNumber: existingToken.token_number,
-        queueTokenId: existingToken.id,
-      };
-    }
-
-    // 3. The next token of the clinic day (V2-05 05-08, R-18): `next_queue_token` takes the clinic from the visit,
-    // checks appointments:edit in the active clinic, advances the per-clinic, per-day counter row atomically (parallel
-    // check-ins get distinct numbers) and returns the day as the clinic-local date computed in SQL
-    // (`tenant_local_date`, the same zone rules as lib/datetime), so the token's number and date come from one place.
-    const { data: tokenRows, error: rpcError } = await supabase.rpc("next_queue_token", { p_visit_id: visitId });
+    // 2. The visit's token (V2-05 05-11a, M-TOKEN): `issue_queue_token` takes the clinic from the visit, checks
+    // appointments:edit in the active clinic and, under a lock on the visit, either returns the token the visit already
+    // has (`reused`: a repeat check-in) or advances the per-clinic, per-day counter and writes the `queue_tokens` row
+    // itself. Members hold no INSERT privilege on `queue_tokens` and cannot write `token_number` or `date`, so a forged
+    // token can no longer stop the clinic's check-ins. The day is the clinic-local date computed in SQL
+    // (`tenant_local_date`, the same zone rules as lib/datetime).
+    const { data: tokenRows, error: rpcError } = await supabase.rpc("issue_queue_token", {
+      p_visit_id: visitId,
+      p_priority: priority,
+    });
     const issued = Array.isArray(tokenRows) ? tokenRows[0] : undefined;
 
-    if (rpcError || !issued || issued.token_number == null || !issued.token_date) {
+    if (rpcError || !issued || issued.token_number == null || !issued.queue_token_id) {
       log.error({ event: "queue.token_generate.failed", code: errorTag(rpcError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to generate queue token." };
     }
     const tokenNumber = issued.token_number;
 
-    // 4. Insert queue_token record
-    const { data: newToken, error: tokenInsertError } = await (
-      supabase.from("queue_tokens") as unknown as {
-        insert: (row: Record<string, unknown>) => {
-          select: (cols: string) => {
-            single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
-          };
-        };
-      }
-    )
-      .insert({
-        tenant_id: session.tenantId,
-        visit_id: visitId,
-        date: issued.token_date,
-        token_number: tokenNumber,
-        priority: priority,
-      })
-      .select("id")
-      .single();
-
-    if (tokenInsertError || !newToken) {
-      log.error({ event: "queue.token_insert.failed", code: errorTag(tokenInsertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to register queue entry." };
+    // A repeat check-in returns the visit's existing token unchanged (no status move, no second audit row).
+    if (issued.reused) {
+      return { success: true, tokenNumber, queueTokenId: issued.queue_token_id };
     }
+    const newToken = { id: issued.queue_token_id };
 
-    // 5. Update visit status to 'waiting'
+    // 3. Update visit status to 'waiting'
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase.from("visits") as any)
       .update({
@@ -114,7 +82,7 @@ export async function checkInVisit(
       .eq("id", visitId)
       .eq("tenant_id", session.tenantId);
 
-    // 6. Record audit log
+    // 4. Record audit log
     await recordAudit(ctx, {
       action: "queue.check_in",
       entityType: "queue_token",

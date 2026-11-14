@@ -930,15 +930,21 @@ export async function reopenVisitForAmendment(
       return { success: false, error: "Failed to create audit revision record." };
     }
 
-    // 7. Transition visit back to 'in_consultation'
+    // 7. Transition visit back to 'in_consultation'. The database admits this only after the caller's amendment row
+    // above (V2-05 05-11a, H-VISIT), so a refused write is reported, never a silent success.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("visits") as any)
+    const { error: reopenErr } = await (supabase.from("visits") as any)
       .update({
         status: "in_consultation",
         updated_at: new Date().toISOString(),
       })
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId);
+
+    if (reopenErr) {
+      log.error({ event: "consultation.amend_reopen_update.failed", code: errorTag(reopenErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to reopen visit for amendment." };
+    }
 
     // 8. Record audit trail
     await recordAudit(ctx, {
@@ -1029,9 +1035,10 @@ export async function finalizeVisitAmendment(
         .eq("tenant_id", ctx.tenantId);
     }
 
-    // 4. Update visit status back to 'completed'
+    // 4. Update visit status back to 'completed', re-signed by the caller (the database admits a new signature only
+    // here, on a reopened visit: V2-05 05-11a, H-VISIT).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("visits") as any)
+    const { error: finalizeErr } = await (supabase.from("visits") as any)
       .update({
         status: "completed",
         signed_at: nowIso,
@@ -1040,6 +1047,11 @@ export async function finalizeVisitAmendment(
       })
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId);
+
+    if (finalizeErr) {
+      log.error({ event: "consultation.amend_finalize_update.failed", code: errorTag(finalizeErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to finalize amendment." };
+    }
 
     // 5. Regenerate and archive stamped amended PDF (v2, v3)
     try {

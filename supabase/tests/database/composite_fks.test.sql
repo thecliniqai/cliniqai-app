@@ -11,7 +11,7 @@
 -- tenant still cascades through children that RESTRICT each other (teardown and purge depend on it).
 -- Each cell runs in a subtransaction that is always rolled back (pg_temp.try); the file rolls back. Synthetic data.
 begin;
-select plan(103);
+select plan(105);
 
 -- Fixtures (synthetic) -------------------------------------------------------------------------------------------
 insert into auth.users (id, email) values ('cf000000-0000-4000-8000-000000000101', 'cfk-doctor-a@example.test'), ('cf000000-0000-4000-8000-000000000201', 'cfk-owner-b@example.test');
@@ -95,6 +95,8 @@ create temp table cfk_case (fk text primary key, tbl text, where_ text, ok jsonb
 insert into cfk_case values
   ('visits_tenant_patient_fkey', 'visits', $w$id = 'cf000000-0000-4000-8000-000000001003'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
   ('visits_tenant_doctor_fkey', 'visits', $w$id = 'cf000000-0000-4000-8000-000000001003'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('doctor_id', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
+  -- 05-11a (H-VISIT, 000068): a visit's signer is a member of its clinic.
+  ('visits_tenant_signed_by_fkey', 'visits', $w$id = 'cf000000-0000-4000-8000-000000001003'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('signed_by', 'cf000000-0000-4000-8000-000000000201'), 'FOREIGN KEY (signed_by, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT', true),
   ('invoices_tenant_patient_fkey', 'invoices', $w$id = 'cf000000-0000-4000-8000-000000001006'$w$, jsonb_build_object('id', gen_random_uuid(), 'invoice_number', 'CFK-0099', 'visit_id', 'cf000000-0000-4000-8000-000000001004'), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
   ('invoices_tenant_visit_fkey', 'invoices', $w$id = 'cf000000-0000-4000-8000-000000001006'$w$, jsonb_build_object('id', gen_random_uuid(), 'invoice_number', 'CFK-0099', 'visit_id', 'cf000000-0000-4000-8000-000000001004'), jsonb_build_object('visit_id', 'cf000000-0000-4000-8000-000000001005'), 'FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT', true),
   ('payments_tenant_invoice_fkey', 'payments', $w$id = 'cf000000-0000-4000-8000-000000002002'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('invoice_id', 'cf000000-0000-4000-8000-000000001007'), 'FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE RESTRICT', true),
@@ -139,7 +141,7 @@ select set_eq(
       from pg_constraint c
      where c.contype = 'f' and c.connamespace = 'public'::regnamespace and cardinality(c.conkey) > 1$$,
   $$select tbl || ' ' || fk || ' ' || defn from cfk_case$$,
-  'the composite tenant FKs are exactly the 38 of 05-03 plus clinical_notes (05-02a) (columns, parent, delete action)');
+  'the composite tenant FKs are exactly the 38 of 05-03 plus clinical_notes (05-02a) and the visit signer (05-11a) (columns, parent, delete action)');
 select is((select count(*)::int from pg_constraint c join pg_namespace n on n.oid = c.connamespace
             where c.contype = 'f' and not c.convalidated and n.nspname in ('public', 'ops', 'private')), 0,
   'no foreign key in public/ops/private is left NOT VALID');
@@ -164,8 +166,8 @@ select is(pg_temp.try(pg_temp.clone(tbl, where_, ok)), 'ok', fk || ': the same r
 select is(pg_temp.try($$insert into public.webhook_delivery_queue (tenant_id, subscription_id, event_type, payload)
                        values ('cf000000-0000-4000-8000-00000000000a', 'cf000000-0000-4000-8000-00000000100f', 'ping', '{}')$$), '23503',
   'M-XTENANT-WH: as postgres (the only writer since V2-04), a tenant-A queue row naming tenant B''s subscription is refused');
-select is(pg_temp.try($$update public.visits set patient_id = 'cf000000-0000-4000-8000-000000001002' where id = 'cf000000-0000-4000-8000-000000001003'$$), '23503',
-  'an UPDATE re-pointing a tenant-A visit at a tenant-B patient is refused too');
+select is(pg_temp.try($$update public.visits set patient_id = 'cf000000-0000-4000-8000-000000001002' where id = 'cf000000-0000-4000-8000-000000001003'$$), '42501',
+  'an UPDATE re-pointing a tenant-A visit at a tenant-B patient is refused too (since 05-11a before the FK: patient_id is immutable)');
 select is(pg_temp.try($$insert into public.prescription_items (tenant_id, prescription_id, medicine_name, dosage, duration)
                        values ('cf000000-0000-4000-8000-00000000000a', 'cf000000-0000-4000-8000-000000001009', 'Synthetic', '1-0-1', '5 days')$$), '23514',
   'prescription_items: a supplied tenant_id that differs from the prescription''s is refused (23514, fill trigger)');

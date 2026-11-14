@@ -2,16 +2,19 @@
 -- acceptance 7 "50 parallel check-ins produce 50 distinct tokens with the IST date" — the date half; the parallel half
 -- is tests/integration/queue-token-concurrency.spec.ts).
 --   1. `tenant_local_date` at the IST day boundary (18:30 UTC) and for a clinic in another zone;
---   2. catalogue: `next_queue_token` is SECURITY DEFINER with search_path '' and a lock_timeout, executable by
---      `authenticated` only; `tenant_local_date` is STABLE and invoker; the counter table has RLS, no policy and no
---      privilege for the API roles;
---   3. `next_queue_token` as a receptionist acting in the visit's clinic: tokens 1, 2, … dated
---      `tenant_local_date(clinic, now())`; a token inserted without the counter is never issued again;
+--   2. catalogue: `issue_queue_token` (05-11a; replaced 05-08's `next_queue_token`, now dropped) is SECURITY DEFINER
+--      with search_path '' and a lock_timeout, executable by `authenticated` only; `tenant_local_date` is STABLE and
+--      invoker; the counter table has RLS, no policy and no privilege for the API roles;
+--   3. `issue_queue_token` as a receptionist acting in the visit's clinic: tokens 1, 2, … dated
+--      `tenant_local_date(clinic, now())`, each with its `queue_tokens` row; a repeat check-in of the same visit
+--      returns its token without advancing the counter (05-11a); a token inserted without the counter is never
+--      issued again;
 --   4. refusals (42501): another clinic's visit, a dual member acting in the other clinic, a visit that does not
---      exist, anon; the counter cannot be read or written by a member.
+--      exist, anon; the counter cannot be read or written by a member; a member cannot insert a token row or write
+--      `token_number` (05-11a M-TOKEN), only the call/complete/priority columns; a token outside 1..9999 is refused.
 -- Synthetic data only; the file rolls back.
 begin;
-select plan(26);
+select plan(34);
 
 insert into auth.users (id, email) values
   ('c0820000-0000-4000-8000-000000000101', 'c082-owner-a@example.test'),
@@ -39,6 +42,8 @@ insert into public.visits (id, tenant_id, patient_id, doctor_id, origin_type, cr
   ('c0820000-0000-4000-8000-000000001101', 'c0820000-0000-4000-8000-00000000000a', 'c0820000-0000-4000-8000-000000001001', 'c0820000-0000-4000-8000-000000000102', 'walk_in', 'c0820000-0000-4000-8000-000000000101'),
   ('c0820000-0000-4000-8000-000000001102', 'c0820000-0000-4000-8000-00000000000a', 'c0820000-0000-4000-8000-000000001001', 'c0820000-0000-4000-8000-000000000102', 'walk_in', 'c0820000-0000-4000-8000-000000000101'),
   ('c0820000-0000-4000-8000-000000001103', 'c0820000-0000-4000-8000-00000000000a', 'c0820000-0000-4000-8000-000000001001', 'c0820000-0000-4000-8000-000000000102', 'walk_in', 'c0820000-0000-4000-8000-000000000101'),
+  ('c0820000-0000-4000-8000-000000001104', 'c0820000-0000-4000-8000-00000000000a', 'c0820000-0000-4000-8000-000000001001', 'c0820000-0000-4000-8000-000000000102', 'walk_in', 'c0820000-0000-4000-8000-000000000101'),
+  ('c0820000-0000-4000-8000-000000002102', 'c0820000-0000-4000-8000-00000000000b', 'c0820000-0000-4000-8000-000000002001', 'c0820000-0000-4000-8000-000000000201', 'walk_in', 'c0820000-0000-4000-8000-000000000201'),
   ('c0820000-0000-4000-8000-000000002101', 'c0820000-0000-4000-8000-00000000000b', 'c0820000-0000-4000-8000-000000002001', 'c0820000-0000-4000-8000-000000000201', 'walk_in', 'c0820000-0000-4000-8000-000000000201');
 
 -- The single value p_sql returns as the user (anon when null) with the x-clinicos-tenant header p_header; a 42501 is
@@ -83,13 +88,15 @@ reset timezone;
 -- 2. Catalogue --------------------------------------------------------------------------------------------------------
 select is(
   (select prosecdef::text || ':' || provolatile::text || ':' || array_to_string(proconfig, ',') from pg_proc
-    where oid = 'public.next_queue_token(uuid)'::regprocedure),
-  'true:v:search_path="",lock_timeout=5s', 'next_queue_token: SECURITY DEFINER, VOLATILE, search_path '''', lock_timeout 5s');
+    where oid = 'public.issue_queue_token(uuid, text)'::regprocedure),
+  'true:v:search_path="",lock_timeout=5s', 'issue_queue_token: SECURITY DEFINER, VOLATILE, search_path '''', lock_timeout 5s');
 select is(
-  array[has_function_privilege('anon', 'public.next_queue_token(uuid)', 'EXECUTE'),
-        has_function_privilege('authenticated', 'public.next_queue_token(uuid)', 'EXECUTE'),
-        has_function_privilege('service_role', 'public.next_queue_token(uuid)', 'EXECUTE')],
-  array[false, true, false], 'next_queue_token: EXECUTE for authenticated only');
+  array[has_function_privilege('anon', 'public.issue_queue_token(uuid, text)', 'EXECUTE'),
+        has_function_privilege('authenticated', 'public.issue_queue_token(uuid, text)', 'EXECUTE'),
+        has_function_privilege('service_role', 'public.issue_queue_token(uuid, text)', 'EXECUTE')],
+  array[false, true, false], 'issue_queue_token: EXECUTE for authenticated only');
+select is(to_regprocedure('public.next_queue_token(uuid)'), null,
+  'next_queue_token is dropped (05-11a: without the INSERT privilege it could only burn the day''s numbers)');
 select is(
   (select prosecdef::text || ':' || provolatile::text || ':' || array_to_string(proconfig, ',') from pg_proc
     where oid = 'public.tenant_local_date(uuid, timestamptz)'::regprocedure),
@@ -111,47 +118,57 @@ select is(
 
 -- 3. Issuing tokens ---------------------------------------------------------------------------------------------------
 select is(pg_temp.val_as('c0820000-0000-4000-8000-000000000103', 'c0820000-0000-4000-8000-00000000000a',
-  $$select row(token_number, token_date)::text from public.next_queue_token('c0820000-0000-4000-8000-000000001101')$$),
-  row(1, public.tenant_local_date('c0820000-0000-4000-8000-00000000000a', now()))::text,
+  $$select row(token_number, token_date, reused)::text from public.issue_queue_token('c0820000-0000-4000-8000-000000001101')$$),
+  row(1, public.tenant_local_date('c0820000-0000-4000-8000-00000000000a', now()), false)::text,
   'receptionist acting in A: token 1, dated the clinic-local today');
+select is(
+  (select row(q.token_number, q.date, q.priority)::text from public.queue_tokens q
+    where q.visit_id = 'c0820000-0000-4000-8000-000000001101'),
+  row(1, public.tenant_local_date('c0820000-0000-4000-8000-00000000000a', now()), 'normal')::text,
+  'the RPC wrote the visit''s queue_tokens row (number, clinic date, default priority)');
 select is(pg_temp.val_as('c0820000-0000-4000-8000-000000000104', 'c0820000-0000-4000-8000-00000000000a',
-  $$select token_number::text from public.next_queue_token('c0820000-0000-4000-8000-000000001102')$$),
+  $$select token_number::text from public.issue_queue_token('c0820000-0000-4000-8000-000000001102', 'urgent')$$),
   '2', 'nurse acting in A (appointments:edit): token 2');
+select is((select priority from public.queue_tokens where visit_id = 'c0820000-0000-4000-8000-000000001102'), 'urgent',
+  'the priority passed to the RPC is stored');
+select is(pg_temp.val_as('c0820000-0000-4000-8000-000000000103', 'c0820000-0000-4000-8000-00000000000a',
+  $$select row(token_number, reused)::text from public.issue_queue_token('c0820000-0000-4000-8000-000000001101')$$),
+  row(1, true)::text, 'a repeat check-in of the same visit returns its token 1 (reused), not a new number');
 select is(
   (select last_token from public.queue_token_counters
     where tenant_id = 'c0820000-0000-4000-8000-00000000000a'
       and date = public.tenant_local_date('c0820000-0000-4000-8000-00000000000a', now())),
-  2, 'the counter row holds the last issued token');
+  2, 'the counter row holds the last issued token (the repeat check-in did not advance it)');
 -- A token written without the counter (a fixture or a system path) is folded in.
 insert into public.queue_tokens (tenant_id, visit_id, date, token_number) values
   ('c0820000-0000-4000-8000-00000000000a', 'c0820000-0000-4000-8000-000000001103',
    public.tenant_local_date('c0820000-0000-4000-8000-00000000000a', now()), 7);
 select is(pg_temp.val_as('c0820000-0000-4000-8000-000000000103', 'c0820000-0000-4000-8000-00000000000a',
-  $$select token_number::text from public.next_queue_token('c0820000-0000-4000-8000-000000001101')$$),
+  $$select token_number::text from public.issue_queue_token('c0820000-0000-4000-8000-000000001104')$$),
   '8', 'a token inserted without the counter (7) is never issued again: next is 8');
 select is(pg_temp.val_as('c0820000-0000-4000-8000-000000000301', 'c0820000-0000-4000-8000-00000000000b',
-  $$select token_number::text from public.next_queue_token('c0820000-0000-4000-8000-000000002101')$$),
+  $$select token_number::text from public.issue_queue_token('c0820000-0000-4000-8000-000000002101')$$),
   '1', 'dual member acting in B: clinic B has its own counter (token 1)');
 -- Another day's counter does not affect today's.
 insert into public.queue_token_counters (tenant_id, date, last_token) values
   ('c0820000-0000-4000-8000-00000000000b', public.tenant_local_date('c0820000-0000-4000-8000-00000000000b', now()) - 1, 40);
 select is(pg_temp.val_as('c0820000-0000-4000-8000-000000000201', 'c0820000-0000-4000-8000-00000000000b',
-  $$select token_number::text from public.next_queue_token('c0820000-0000-4000-8000-000000002101')$$),
+  $$select token_number::text from public.issue_queue_token('c0820000-0000-4000-8000-000000002102')$$),
   '2', 'yesterday''s counter (40) does not affect today''s numbering');
 
 -- 4. Refusals ---------------------------------------------------------------------------------------------------------
 select is(pg_temp.val_as('c0820000-0000-4000-8000-000000000103', 'c0820000-0000-4000-8000-00000000000a',
-  $$select token_number::text from public.next_queue_token('c0820000-0000-4000-8000-000000002101')$$),
+  $$select token_number::text from public.issue_queue_token('c0820000-0000-4000-8000-000000002101')$$),
   'denied:forbidden', 'receptionist of A on clinic B''s visit: 42501 (no appointments:edit in B)');
 select is(pg_temp.val_as('c0820000-0000-4000-8000-000000000301', 'c0820000-0000-4000-8000-00000000000a',
-  $$select token_number::text from public.next_queue_token('c0820000-0000-4000-8000-000000002101')$$),
+  $$select token_number::text from public.issue_queue_token('c0820000-0000-4000-8000-000000002101')$$),
   'denied:forbidden', 'dual member acting in A on clinic B''s visit: 42501 (R-42)');
 select is(pg_temp.val_as('c0820000-0000-4000-8000-000000000103', 'c0820000-0000-4000-8000-00000000000a',
-  $$select token_number::text from public.next_queue_token('c0820000-0000-4000-8000-00000000ffff')$$),
+  $$select token_number::text from public.issue_queue_token('c0820000-0000-4000-8000-00000000ffff')$$),
   'denied:forbidden', 'a visit that does not exist: 42501 (no existence oracle)');
 select alike(pg_temp.val_as(null, null,
-  $$select token_number::text from public.next_queue_token('c0820000-0000-4000-8000-000000001101')$$),
-  'denied:permission denied for function next_queue_token%', 'anon cannot execute next_queue_token');
+  $$select token_number::text from public.issue_queue_token('c0820000-0000-4000-8000-000000001101')$$),
+  'denied:permission denied for function issue_queue_token%', 'anon cannot execute issue_queue_token');
 select alike(pg_temp.val_as('c0820000-0000-4000-8000-000000000101', 'c0820000-0000-4000-8000-00000000000a',
   $$select count(*)::text from public.queue_token_counters$$),
   'denied:permission denied for table queue_token_counters%', 'an owner cannot read the counter');
@@ -163,6 +180,23 @@ select is(
     where tenant_id = 'c0820000-0000-4000-8000-00000000000a'
       and date = public.tenant_local_date('c0820000-0000-4000-8000-00000000000a', now())),
   8, 'the refused calls left the counter unchanged');
+-- 05-11a M-TOKEN: the token row is written by the RPC alone.
+select alike(pg_temp.val_as('c0820000-0000-4000-8000-000000000101', 'c0820000-0000-4000-8000-00000000000a',
+  $$insert into public.queue_tokens (tenant_id, visit_id, date, token_number)
+    values ('c0820000-0000-4000-8000-00000000000a', 'c0820000-0000-4000-8000-000000001103', '2030-01-01', 2147483647)
+    returning token_number::text$$),
+  'denied:permission denied for table queue_tokens%', 'an owner cannot insert a token row (INT M-2: one row stopped the day)');
+select alike(pg_temp.val_as('c0820000-0000-4000-8000-000000000103', 'c0820000-0000-4000-8000-00000000000a',
+  $$update public.queue_tokens set token_number = 9999 where visit_id = 'c0820000-0000-4000-8000-000000001101'
+    returning token_number::text$$),
+  'denied:permission denied for table queue_tokens%', 'a receptionist cannot rewrite token_number');
+select is(pg_temp.val_as('c0820000-0000-4000-8000-000000000103', 'c0820000-0000-4000-8000-00000000000a',
+  $$update public.queue_tokens set called_at = now(), priority = 'vip'
+     where visit_id = 'c0820000-0000-4000-8000-000000001101' returning token_number::text$$),
+  '1', 'a receptionist still calls a token and changes its priority (column grant)');
+select throws_ok($$insert into public.queue_tokens (tenant_id, visit_id, date, token_number) values
+  ('c0820000-0000-4000-8000-00000000000b', 'c0820000-0000-4000-8000-000000002101', '2030-01-01', 10000)$$,
+  '23514', null, 'a token outside 1..9999 is refused even on a system path (queue_tokens_token_range)');
 
 select * from finish();
 rollback;
