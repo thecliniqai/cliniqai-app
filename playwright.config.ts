@@ -25,6 +25,8 @@ const DESIGN = /\/design\//;
 const DESIGN_CAPTURE = /\/design\/(neutral|screens)\//;
 /** Keyboard and axe specs under design/ run in the PR lane on desktop-chrome, not in the design-* projects. */
 const DESIGN_PR_ONLY = /\/design\/(keyboard\/|.*axe)/;
+/** V2-06 06-07: Lighthouse CI (`npm run perf:lhci`, nightly `lhci` job) runs only in the perf-lhci project. */
+const PERF = /\/perf\//;
 
 /** Custom Android tablet (PWA_STRATEGY §9.1): Chromium, Pixel 7 user agent, 800×1280, touch. */
 const androidTablet800 = {
@@ -42,13 +44,13 @@ const ipadMini744 = {
 // PR lane (RL-20): desktop-chrome runs everything; pixel-7 everything except the viewport-owning a11y specs (v1
 // layout failures only as annotated test.fail()); iphone-15 the @golden paths only.
 const prLane: Project[] = [
-  { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] }, testIgnore: [BASELINE, DESIGN_CAPTURE], ...setup },
-  { name: "pixel-7", use: { ...devices["Pixel 7"] }, testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE], ...setup },
+  { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] }, testIgnore: [BASELINE, DESIGN_CAPTURE, PERF], ...setup },
+  { name: "pixel-7", use: { ...devices["Pixel 7"] }, testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF], ...setup },
   {
     name: "iphone-15",
     use: { ...devices["iPhone 15"] },
     grep: GOLDEN,
-    testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE],
+    testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF],
     ...setup,
   },
 ];
@@ -58,7 +60,7 @@ const nightly = (name: string, use: Project["use"]): Project => ({
   name,
   use,
   grep: GOLDEN,
-  testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE],
+  testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF],
   ...setup,
 });
 const nightlyLane: Project[] = [
@@ -105,6 +107,14 @@ const designLane: Project[] = DESIGN_WIDTHS.map((w) => ({
   ...setup,
 }));
 
+// V2-06 06-07 (PWA-09, R-6): Lighthouse CI inside the e2e run, so it measures the guarded server with the run's seeded
+// data and signed-in storage states. Lighthouse drives its own Chromium (Playwright's build), not the Playwright page;
+// the project only needs the setup dependency. Report-only: the spec fails on tool errors, never on a score. No
+// retries: a tool error is reported, not re-run to green (and one run takes several minutes).
+const perfLane: Project[] = [
+  { name: "perf-lhci", use: { ...devices["Desktop Chrome"] }, testMatch: PERF, retries: 0, ...setup },
+];
+
 export default defineConfig({
   testDir: "./tests/e2e",
   // One run lock per local stack (teardown deletes everything the run created): one worker, sequential files.
@@ -141,5 +151,6 @@ export default defineConfig({
     ...nightlyLane,
     ...baselineLane,
     ...designLane,
+    ...perfLane,
   ],
 });
