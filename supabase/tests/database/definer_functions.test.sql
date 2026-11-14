@@ -10,7 +10,7 @@
 --      subject, is refused; the same call acting in B is allowed. 05-10a adds the access-level leg to this file.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(34);
+select plan(36);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -28,9 +28,10 @@ insert into auth.users (id, email) values
   ('c2c00000-0000-4000-8000-000000000301', 'c2c-dual@example.test'),
   ('c2c00000-0000-4000-8000-000000000302', 'c2c-dd@example.test'),
   ('c2c00000-0000-4000-8000-000000000303', 'c2c-dr@example.test');
-insert into public.tenants (id, name) values
-  ('c2c00000-0000-4000-8000-00000000000a', 'Synthetic 05-02c Clinic A'),
-  ('c2c00000-0000-4000-8000-00000000000b', 'Synthetic 05-02c Clinic B');
+-- Clinic B is listed in the referral directory (05-06): it is the in-network target of the referral fixture.
+insert into public.tenants (id, name, referral_directory_listed) values
+  ('c2c00000-0000-4000-8000-00000000000a', 'Synthetic 05-02c Clinic A', false),
+  ('c2c00000-0000-4000-8000-00000000000b', 'Synthetic 05-02c Clinic B', true);
 insert into public.memberships (user_id, tenant_id, role) values
   ('c2c00000-0000-4000-8000-000000000101', 'c2c00000-0000-4000-8000-00000000000a', 'owner'),
   ('c2c00000-0000-4000-8000-000000000102', 'c2c00000-0000-4000-8000-00000000000a', 'admin'),
@@ -159,6 +160,7 @@ insert into c2c_definer values
   ('public.has_permission', 'bound', 'authz.tenant_ids_with: the active clinic (000046)'),
   ('public.current_user_has_role', 'bound', 'legacy helper, body bound to the active clinic (000061)'),
   ('public.current_user_is_admin_or_owner', 'bound', 'legacy helper, body bound to the active clinic (000061)'),
+  ('public.referral_directory_search', 'bound', 'consultations:edit in the active clinic; never the active clinic itself (000062, 05-06)'),
   -- the member helper
   ('public.current_user_tenant_ids', 'member', 'every clinic of the caller (switcher); no policy or function uses it'),
   -- exempt: authorised by something other than a clinic membership
@@ -199,7 +201,8 @@ insert into c2c_definer values
   ('private.enqueue_webhook_internal', 'internal', 'writer behind the bound enqueue RPCs'),
   ('private.message_subject', 'internal', 'subject lookup for the enqueue RPCs'),
   ('private.webhook_event_subject', 'internal', 'subject lookup for the enqueue RPCs'),
-  ('private.visits_create_clinical_notes', 'internal', 'trigger (05-02a)');
+  ('private.visits_create_clinical_notes', 'internal', 'trigger (05-02a)'),
+  ('private.referrals_directory_consent_guard', 'internal', 'trigger: referral target listed + consent (05-06)');
 
 -- 1. ------------------------------------------------------------------------------------------------------------------
 select set_eq(
@@ -246,7 +249,8 @@ select set_eq(
     'public.webhook_delivery_claim:service_role', 'public.webhook_delivery_finish:service_role',
     'private.log_system_audit:service_role',
     'private.enqueue_message_internal:', 'private.enqueue_webhook_internal:', 'private.message_subject:',
-    'private.webhook_event_subject:', 'private.visits_create_clinical_notes:'
+    'private.webhook_event_subject:', 'private.visits_create_clinical_notes:',
+    'public.referral_directory_search:authenticated', 'private.referrals_directory_consent_guard:'
   ]::text[],
   'every definer function has exactly its expected EXECUTE grantees (anon only for the token, probe and ingest paths)'
 );
@@ -343,6 +347,10 @@ select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-
   'false', 'current_user_is_admin_or_owner: acting in A, not B''s owner (before: true)');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b', $$select public.current_user_is_admin_or_owner('c2c00000-0000-4000-8000-00000000000b')::text$$),
   'true', 'current_user_is_admin_or_owner: acting in B, B''s owner');
+select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.referral_directory_search('Synthetic 05-02c Clinic')$$),
+  'denied:forbidden', 'referral_directory_search: acting in B (receptionist, no consultations:edit) is refused');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.referral_directory_search('Synthetic 05-02c Clinic')$$),
+  '1', 'referral_directory_search: acting in A (doctor) the listed clinic B is found');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', null, $$select count(*)::text from public.current_user_tenant_ids()$$),
   '2', 'current_user_tenant_ids stays the member helper: every clinic of the caller (the switcher)');
 

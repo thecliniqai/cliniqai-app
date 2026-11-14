@@ -62,6 +62,7 @@ export type Database = {
           last_used_at: string | null;
           name: string;
           revoked_at: string | null;
+          scopes: string[];
           tenant_id: string;
           updated_at: string;
         };
@@ -75,6 +76,7 @@ export type Database = {
           last_used_at?: string | null;
           name: string;
           revoked_at?: string | null;
+          scopes?: string[];
           tenant_id: string;
           updated_at?: string;
         };
@@ -87,6 +89,7 @@ export type Database = {
           last_used_at?: string | null;
           name?: string;
           revoked_at?: string | null;
+          scopes?: string[];
           tenant_id?: string;
           updated_at?: string;
         };
@@ -2037,6 +2040,7 @@ export type Database = {
           name: string;
           owner_is_practicing_doctor: boolean | null;
           phone: string | null;
+          referral_directory_listed: boolean;
           registration_number: string | null;
           specialties: string[] | null;
           state_medical_council_reg_no: string | null;
@@ -2062,6 +2066,7 @@ export type Database = {
           name: string;
           owner_is_practicing_doctor?: boolean | null;
           phone?: string | null;
+          referral_directory_listed?: boolean;
           registration_number?: string | null;
           specialties?: string[] | null;
           state_medical_council_reg_no?: string | null;
@@ -2086,6 +2091,7 @@ export type Database = {
           name?: string;
           owner_is_practicing_doctor?: boolean | null;
           phone?: string | null;
+          referral_directory_listed?: boolean;
           registration_number?: string | null;
           specialties?: string[] | null;
           state_medical_council_reg_no?: string | null;
@@ -2769,6 +2775,13 @@ export type Database = {
           p_tenant_id: string;
         };
         Returns: Json;
+      };
+      referral_directory_search: {
+        Args: { p_query: string };
+        Returns: {
+          id: string;
+          name: string;
+        }[];
       };
       referral_source_clinics: {
         Args: { p_ids: string[] };

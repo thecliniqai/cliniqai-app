@@ -14,9 +14,9 @@ insert into auth.users (id, email) values
   ('a5a00000-0000-4000-8000-000000000106', 'authz-receptionist-a@example.test'),
   ('a5a00000-0000-4000-8000-000000000201', 'authz-owner-b@example.test'),
   ('a5a00000-0000-4000-8000-000000000301', 'authz-dual@example.test');
-insert into public.tenants (id, name) values
-  ('a5a00000-0000-4000-8000-00000000000a', 'Synthetic Clinic A'),
-  ('a5a00000-0000-4000-8000-00000000000b', 'Synthetic Clinic B');
+insert into public.tenants (id, name, referral_directory_listed) values
+  ('a5a00000-0000-4000-8000-00000000000a', 'Synthetic Clinic A', false),
+  ('a5a00000-0000-4000-8000-00000000000b', 'Synthetic Clinic B', true);
 insert into public.memberships (user_id, tenant_id, role) values
   ('a5a00000-0000-4000-8000-000000000101', 'a5a00000-0000-4000-8000-00000000000a', 'owner'),
   ('a5a00000-0000-4000-8000-000000000102', 'a5a00000-0000-4000-8000-00000000000a', 'admin'),

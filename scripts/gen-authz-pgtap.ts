@@ -245,9 +245,13 @@ function baseFixtures(): string[] {
       [...users].map(([uid, name]) => `  ('${uid}', 'authz-${name.replace(/_/g, "-")}@example.test')`).join(",\n") +
       ";",
   );
+  // Clinic B is listed in the referral directory (05-06): the referral fixture and insert cells name it as the
+  // in-network target, which the directory trigger refuses for an unlisted clinic.
   lines.push(
-    "insert into public.tenants (id, name) values\n" +
-      (Object.keys(TENANT_IDS) as TenantKey[]).map((k) => `  ('${TENANT_IDS[k]}', 'Synthetic Clinic ${k}')`).join(",\n") +
+    "insert into public.tenants (id, name, referral_directory_listed) values\n" +
+      (Object.keys(TENANT_IDS) as TenantKey[])
+        .map((k) => `  ('${TENANT_IDS[k]}', 'Synthetic Clinic ${k}', ${k === "B"})`)
+        .join(",\n") +
       ";",
   );
   const memberships = new Map<string, string>();

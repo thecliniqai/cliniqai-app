@@ -25,6 +25,8 @@ export interface Tenant {
   state_medical_council_reg_no?: string | null;
   gstin?: string | null;
   drug_license_no?: string | null;
+  /** Opt-in to receive in-network referrals (V2-05 05-06; set by clinic:manage, UI in V2-11). */
+  referral_directory_listed?: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -25,9 +25,10 @@ insert into auth.users (id, email) values
   ('d0000000-0000-4000-8000-000000000201', 'dp-owner-b@example.test'),
   ('d0000000-0000-4000-8000-000000000301', 'dp-dual-doctor@example.test'),
   ('d0000000-0000-4000-8000-000000000302', 'dp-dual-desk@example.test');
-insert into public.tenants (id, name) values
-  ('d0000000-0000-4000-8000-00000000000a', 'Synthetic Policies Clinic A'),
-  ('d0000000-0000-4000-8000-00000000000b', 'Synthetic Policies Clinic B');
+-- Clinic B is listed in the referral directory (05-06): it is the in-network target of the referral fixture.
+insert into public.tenants (id, name, referral_directory_listed) values
+  ('d0000000-0000-4000-8000-00000000000a', 'Synthetic Policies Clinic A', false),
+  ('d0000000-0000-4000-8000-00000000000b', 'Synthetic Policies Clinic B', true);
 insert into public.memberships (user_id, tenant_id, role) values
   ('d0000000-0000-4000-8000-000000000101', 'd0000000-0000-4000-8000-00000000000a', 'owner'),
   ('d0000000-0000-4000-8000-000000000102', 'd0000000-0000-4000-8000-00000000000a', 'admin'),

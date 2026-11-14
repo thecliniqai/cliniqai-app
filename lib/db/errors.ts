@@ -48,6 +48,10 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   RATE_LIMITED: "RATE_LIMITED",
   // V2-04 04-03c (migration 000037): ops.replay_job refuses a job that is missing, not dead, or an erased unmatched reply.
   JOB_NOT_REPLAYABLE: "CONFLICT",
+  // V2-05 05-06 (migration 000062): the referrals directory/consent trigger. The target clinic is not listed in the
+  // referral directory (or is the referral's own clinic); a history snapshot without the patient's consent.
+  REFERRAL_TARGET_NOT_LISTED: "VALIDATION_FAILED",
+  REFERRAL_CONSENT_REQUIRED: "VALIDATION_FAILED",
 };
 
 /** Fixed texts keyed by reason (checked first) or by code. */

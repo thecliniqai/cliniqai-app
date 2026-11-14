@@ -137,6 +137,7 @@ column public.api_keys.key_prefix text not_null=t default=- identity=- generated
 column public.api_keys.last_used_at timestamp with time zone not_null=f default=- identity=- generated=-
 column public.api_keys.name text not_null=t default=- identity=- generated=-
 column public.api_keys.revoked_at timestamp with time zone not_null=f default=- identity=- generated=-
+column public.api_keys.scopes text[] not_null=t default='{}'::text[] identity=- generated=-
 column public.api_keys.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.api_keys.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.audit_logs.action text not_null=t default=- identity=- generated=-
@@ -528,6 +529,7 @@ column public.tenants.logo_url text not_null=f default=- identity=- generated=-
 column public.tenants.name text not_null=t default=- identity=- generated=-
 column public.tenants.owner_is_practicing_doctor boolean not_null=f default=true identity=- generated=-
 column public.tenants.phone text not_null=f default=- identity=- generated=-
+column public.tenants.referral_directory_listed boolean not_null=t default=false identity=- generated=-
 column public.tenants.registration_number text not_null=f default=- identity=- generated=-
 column public.tenants.specialties text[] not_null=f default='{}'::text[] identity=- generated=-
 column public.tenants.state_medical_council_reg_no text not_null=f default=- identity=- generated=-
@@ -708,6 +710,7 @@ constraint public.api_key_usage_daily.api_key_usage_daily_tenant_id_fkey FOREIGN
 constraint public.api_keys.api_keys_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint public.api_keys.api_keys_key_hash_key UNIQUE (key_hash)
 constraint public.api_keys.api_keys_pkey PRIMARY KEY (id)
+constraint public.api_keys.api_keys_scopes_known CHECK ((scopes <@ ARRAY['exports:create'::text]))
 constraint public.api_keys.api_keys_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.api_keys.api_keys_tenant_id_id_key UNIQUE (tenant_id, id)
 constraint public.audit_logs.audit_logs_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id)
@@ -1021,6 +1024,7 @@ function private.message_params_ok(p_params jsonb, p_allowed text[], p_max integ
 function private.message_subject(p_patient_id uuid, p_visit_id uuid, OUT visit_tenant uuid, OUT visit_patient uuid, OUT patient_tenant uuid) returns record lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=ebd0a35b0126da7755b4a29aa82d2881
 function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=c91f5ac2da43fc2875f7d2db37311254
 function private.payments_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9d07a669cf91ce75b6839f73f1d5c6b0
+function private.referrals_directory_consent_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=8283e53929cfb287a9694a08cdd62f50
 function private.request_message_metadata_ok(p_metadata jsonb, p_visit_id uuid) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=374c3225f829fce968531847028b2a9c
 function private.session_age_fresh_seconds() returns integer lang=sql security_definer=f volatility=i config=search_path="" body_md5=c24ae58647ff07129cfb1f22e8a2d93d
 function private.session_age_non_mailbox_methods() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=e87c54c10462bf2088aa50f3d398b3a2
@@ -1077,6 +1081,7 @@ function public.permission_matrix() returns TABLE(role text, perm text) lang=sql
 function public.prescription_items_fill_tenant() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8d8857c616ef2a290542986d2df34fee
 function public.readiness_probe(p_expected_migration text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=9f9173b2ceaa83871c8578e0a619a107
 function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) returns jsonb lang=plpgsql security_definer=f volatility=v config=lock_timeout=2s,search_path="" body_md5=878110fd0d3c56d93bee17f16e65c057
+function public.referral_directory_search(p_query text) returns TABLE(id uuid, name text) lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=783421be63887859903f9dba77ee449f
 function public.referral_source_clinics(p_ids uuid[]) returns TABLE(id uuid, name text, phone text) lang=sql security_definer=t volatility=s config=search_path="" body_md5=09808d6285a2365415daca842756abd2
 function public.referrals_target_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f79e6bdc4f0750532696da1cc28a8f67
 function public.release_job(p_id uuid, p_lease_token uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=830646140fd502bc31c9c625ec1568eb
@@ -1208,6 +1213,7 @@ grant function public.prescription_items_fill_tenant() EXECUTE to service_role
 grant function public.readiness_probe(p_expected_migration text) EXECUTE to anon
 grant function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) EXECUTE to authenticated
 grant function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) EXECUTE to service_role
+grant function public.referral_directory_search(p_query text) EXECUTE to authenticated
 grant function public.referral_source_clinics(p_ids uuid[]) EXECUTE to authenticated
 grant function public.referrals_target_update_guard() EXECUTE to service_role
 grant function public.release_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
@@ -2095,6 +2101,7 @@ trigger public.memberships.memberships_profile_update_guard CREATE TRIGGER membe
 trigger public.patients.patients_clinical_fields_guard CREATE TRIGGER patients_clinical_fields_guard BEFORE UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION patients_clinical_fields_guard()
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
 trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
+trigger public.referrals.referrals_directory_consent_guard CREATE TRIGGER referrals_directory_consent_guard BEFORE INSERT OR UPDATE OF target_tenant_id, tenant_id, consented_history_snapshot, patient_consents_history_sharing ON public.referrals FOR EACH ROW EXECUTE FUNCTION private.referrals_directory_consent_guard()
 trigger public.referrals.referrals_target_update_guard CREATE TRIGGER referrals_target_update_guard BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION referrals_target_update_guard()
 trigger public.visits.visits_create_clinical_notes CREATE TRIGGER visits_create_clinical_notes AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_create_clinical_notes()
 trigger public.webhook_delivery_queue.webhook_delivery_queue_enqueue_job CREATE TRIGGER webhook_delivery_queue_enqueue_job AFTER INSERT ON public.webhook_delivery_queue FOR EACH ROW EXECUTE FUNCTION ops.webhook_delivery_enqueue_job()
