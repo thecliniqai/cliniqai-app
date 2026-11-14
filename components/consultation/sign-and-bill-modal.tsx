@@ -585,6 +585,7 @@ export function SignAndBillModal({
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
+                        aria-label="Collect fee at the doctor's desk"
                         checked={paymentCollected}
                         onChange={(e) => setPaymentCollected(e.target.checked)}
                         className="sr-only peer"
