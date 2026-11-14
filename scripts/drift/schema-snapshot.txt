@@ -414,6 +414,7 @@ column public.prescription_items.medicine_name text not_null=t default=- identit
 column public.prescription_items.prescription_id uuid not_null=t default=- identity=- generated=-
 column public.prescription_items.sort_order integer not_null=t default=0 identity=- generated=-
 column public.prescription_items.special_instructions text not_null=f default=- identity=- generated=-
+column public.prescription_items.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.prescription_items.timing text not_null=f default=- identity=- generated=-
 column public.prescriptions.amendment_reason text not_null=f default=- identity=- generated=-
 column public.prescriptions.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
@@ -691,16 +692,17 @@ constraint ops.quota_snapshots.quota_snapshots_storage_bytes_check CHECK ((stora
 constraint ops.settings.settings_key_check CHECK ((key ~ '^[a-z][a-z0-9_]{0,62}$'::text))
 constraint ops.settings.settings_pkey PRIMARY KEY (key)
 constraint ops.settings.settings_value_check CHECK (((char_length(value) >= 1) AND (char_length(value) <= 200)))
-constraint public.api_key_usage_daily.api_key_usage_daily_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
 constraint public.api_key_usage_daily.api_key_usage_daily_pkey PRIMARY KEY (api_key_id, date)
+constraint public.api_key_usage_daily.api_key_usage_daily_tenant_api_key_fkey FOREIGN KEY (tenant_id, api_key_id) REFERENCES api_keys(tenant_id, id) ON DELETE CASCADE
 constraint public.api_key_usage_daily.api_key_usage_daily_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.api_keys.api_keys_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint public.api_keys.api_keys_key_hash_key UNIQUE (key_hash)
 constraint public.api_keys.api_keys_pkey PRIMARY KEY (id)
 constraint public.api_keys.api_keys_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.api_keys.api_keys_tenant_id_id_key UNIQUE (tenant_id, id)
 constraint public.audit_logs.audit_logs_actor_id_fkey FOREIGN KEY (actor_id) REFERENCES auth.users(id)
-constraint public.audit_logs.audit_logs_api_key_id_fkey FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE SET NULL
 constraint public.audit_logs.audit_logs_pkey PRIMARY KEY (id)
+constraint public.audit_logs.audit_logs_tenant_api_key_fkey FOREIGN KEY (tenant_id, api_key_id) REFERENCES api_keys(tenant_id, id) ON DELETE SET NULL (api_key_id)
 constraint public.audit_logs.audit_logs_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.cdci_brands.cdci_brands_pkey PRIMARY KEY (id)
 constraint public.cdci_drug_forms.cdci_drug_forms_pkey PRIMARY KEY (id)
@@ -710,52 +712,57 @@ constraint public.cdci_products.cdci_products_pkey PRIMARY KEY (id)
 constraint public.cdci_routes.cdci_routes_pkey PRIMARY KEY (id)
 constraint public.cdci_substances.cdci_substances_pkey PRIMARY KEY (id)
 constraint public.cdci_suppliers.cdci_suppliers_pkey PRIMARY KEY (id)
-constraint public.communication_queue.communication_queue_appointment_id_fkey FOREIGN KEY (appointment_id) REFERENCES visits(id) ON DELETE SET NULL
 constraint public.communication_queue.communication_queue_channel_check CHECK ((channel = ANY (ARRAY['whatsapp'::text, 'sms'::text, 'in_app'::text])))
 constraint public.communication_queue.communication_queue_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL
 constraint public.communication_queue.communication_queue_dedupe_key_length CHECK (((char_length(dedupe_key) >= 1) AND (char_length(dedupe_key) <= 200)))
-constraint public.communication_queue.communication_queue_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 constraint public.communication_queue.communication_queue_pkey PRIMARY KEY (id)
 constraint public.communication_queue.communication_queue_recipient_user_id_fkey FOREIGN KEY (recipient_user_id) REFERENCES auth.users(id) ON DELETE SET NULL
 constraint public.communication_queue.communication_queue_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'sent'::text, 'delivered'::text, 'read'::text, 'failed'::text, 'cancelled'::text, 'dead_letter'::text])))
+constraint public.communication_queue.communication_queue_tenant_appointment_fkey FOREIGN KEY (tenant_id, appointment_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (appointment_id)
 constraint public.communication_queue.communication_queue_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-constraint public.consent_records.consent_records_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+constraint public.communication_queue.communication_queue_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
 constraint public.consent_records.consent_records_pkey PRIMARY KEY (id)
 constraint public.consent_records.consent_records_recorded_by_fkey FOREIGN KEY (recorded_by) REFERENCES auth.users(id)
 constraint public.consent_records.consent_records_status_check CHECK ((status = ANY (ARRAY['granted'::text, 'withdrawn'::text])))
 constraint public.consent_records.consent_records_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-constraint public.consultation_diagnoses.consultation_diagnoses_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+constraint public.consent_records.consent_records_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
 constraint public.consultation_diagnoses.consultation_diagnoses_pkey PRIMARY KEY (id)
 constraint public.consultation_diagnoses.consultation_diagnoses_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-constraint public.consultation_diagnoses.consultation_diagnoses_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE
+constraint public.consultation_diagnoses.consultation_diagnoses_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
+constraint public.consultation_diagnoses.consultation_diagnoses_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
 constraint public.consultations.consultations_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
-constraint public.consultations.consultations_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 constraint public.consultations.consultations_pkey PRIMARY KEY (id)
+constraint public.consultations.consultations_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT
 constraint public.consultations.consultations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.consultations.consultations_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
 constraint public.doctor_custom_diagnoses.doctor_custom_diagnoses_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
 constraint public.doctor_custom_diagnoses.doctor_custom_diagnoses_pkey PRIMARY KEY (id)
+constraint public.doctor_custom_diagnoses.doctor_custom_diagnoses_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT
 constraint public.doctor_custom_diagnoses.doctor_custom_diagnoses_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.doctor_custom_diagnoses.uq_doctor_custom_diagnoses UNIQUE (tenant_id, doctor_id, diagnosis_name)
 constraint public.doctor_custom_medicines.doctor_custom_medicines_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
 constraint public.doctor_custom_medicines.doctor_custom_medicines_pkey PRIMARY KEY (id)
+constraint public.doctor_custom_medicines.doctor_custom_medicines_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT
 constraint public.doctor_custom_medicines.doctor_custom_medicines_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.doctor_custom_medicines.uq_doctor_custom_medicines UNIQUE (tenant_id, doctor_id, medicine_name)
 constraint public.doctor_prescription_templates.doctor_prescription_templates_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
 constraint public.doctor_prescription_templates.doctor_prescription_templates_pkey PRIMARY KEY (id)
+constraint public.doctor_prescription_templates.doctor_prescription_templates_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT
 constraint public.doctor_prescription_templates.doctor_prescription_templates_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.document_share_tokens.document_share_tokens_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
-constraint public.document_share_tokens.document_share_tokens_document_id_fkey FOREIGN KEY (document_id) REFERENCES patient_documents(id) ON DELETE CASCADE
 constraint public.document_share_tokens.document_share_tokens_pkey PRIMARY KEY (id)
 constraint public.document_share_tokens.document_share_tokens_resource_type_check CHECK ((resource_type = ANY (ARRAY['patient_document'::text, 'prescription'::text, 'invoice'::text, 'referral'::text, 'appointment'::text])))
+constraint public.document_share_tokens.document_share_tokens_tenant_document_fkey FOREIGN KEY (tenant_id, document_id) REFERENCES patient_documents(tenant_id, id) ON DELETE CASCADE
 constraint public.document_share_tokens.document_share_tokens_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.document_share_tokens.document_share_tokens_token_hash_key UNIQUE (token_hash)
 constraint public.document_share_tokens.document_share_tokens_token_hash_shape CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))
 constraint public.follow_ups.follow_ups_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
-constraint public.follow_ups.follow_ups_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 constraint public.follow_ups.follow_ups_pkey PRIMARY KEY (id)
 constraint public.follow_ups.follow_ups_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'attended'::text, 'cancelled'::text, 'missed'::text])))
+constraint public.follow_ups.follow_ups_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT
 constraint public.follow_ups.follow_ups_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-constraint public.follow_ups.follow_ups_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE SET NULL
+constraint public.follow_ups.follow_ups_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
+constraint public.follow_ups.follow_ups_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)
 constraint public.in_app_notifications.in_app_notifications_category_check CHECK ((category = ANY (ARRAY['clinical'::text, 'queue'::text, 'billing'::text, 'system'::text])))
 constraint public.in_app_notifications.in_app_notifications_pkey PRIMARY KEY (id)
 constraint public.in_app_notifications.in_app_notifications_recipient_role_check CHECK ((recipient_role = ANY (ARRAY['doctor'::text, 'receptionist'::text, 'admin'::text, 'owner'::text, 'nurse'::text])))
@@ -767,16 +774,17 @@ constraint public.invitations.invitations_pkey PRIMARY KEY (id)
 constraint public.invitations.invitations_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'admin'::text, 'doctor'::text, 'receptionist'::text, 'nurse'::text])))
 constraint public.invitations.invitations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.invitations.invitations_token_hash_key UNIQUE (token_hash)
-constraint public.invoice_items.invoice_items_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
 constraint public.invoice_items.invoice_items_item_type_check CHECK ((item_type = ANY (ARRAY['consultation'::text, 'procedure'::text, 'medicine'::text, 'other'::text])))
 constraint public.invoice_items.invoice_items_pkey PRIMARY KEY (id)
 constraint public.invoice_items.invoice_items_quantity_check CHECK ((quantity > 0))
 constraint public.invoice_items.invoice_items_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-constraint public.invoices.invoices_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+constraint public.invoice_items.invoice_items_tenant_invoice_fkey FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
 constraint public.invoices.invoices_pkey PRIMARY KEY (id)
 constraint public.invoices.invoices_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'issued'::text, 'paid'::text, 'cancelled'::text])))
 constraint public.invoices.invoices_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-constraint public.invoices.invoices_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE
+constraint public.invoices.invoices_tenant_id_id_key UNIQUE (tenant_id, id)
+constraint public.invoices.invoices_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
+constraint public.invoices.invoices_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
 constraint public.invoices.unique_tenant_invoice_number UNIQUE (tenant_id, invoice_number)
 constraint public.memberships.memberships_availability_schedule_shape CHECK (is_valid_weekly_schedule(availability_schedule))
 constraint public.memberships.memberships_pkey PRIMARY KEY (id)
@@ -787,47 +795,51 @@ constraint public.memberships.memberships_user_id_fkey FOREIGN KEY (user_id) REF
 constraint public.memberships.unique_user_tenant UNIQUE (user_id, tenant_id)
 constraint public.opd_diagnoses.opd_diagnoses_pkey PRIMARY KEY (id)
 constraint public.patient_documents.patient_documents_document_type_check CHECK ((document_type = ANY (ARRAY['lab_report'::text, 'imaging'::text, 'prescription_scan'::text, 'other'::text])))
-constraint public.patient_documents.patient_documents_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 constraint public.patient_documents.patient_documents_pkey PRIMARY KEY (id)
 constraint public.patient_documents.patient_documents_storage_path_shape CHECK ((share_object_path('patient_document'::text, tenant_id, patient_id, storage_path) IS NOT NULL))
 constraint public.patient_documents.patient_documents_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.patient_documents.patient_documents_tenant_id_id_key UNIQUE (tenant_id, id)
+constraint public.patient_documents.patient_documents_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
+constraint public.patient_documents.patient_documents_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)
 constraint public.patient_documents.patient_documents_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES auth.users(id)
-constraint public.patient_documents.patient_documents_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE SET NULL
 constraint public.patients.patients_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 constraint public.patients.patients_pkey PRIMARY KEY (id)
 constraint public.patients.patients_preferred_language_check CHECK ((preferred_language = ANY (ARRAY['en'::text, 'mr'::text])))
 constraint public.patients.patients_sex_check CHECK ((sex = ANY (ARRAY['male'::text, 'female'::text, 'other'::text])))
 constraint public.patients.patients_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.patients.patients_tenant_id_id_key UNIQUE (tenant_id, id)
 constraint public.payment_records.payment_records_pkey PRIMARY KEY (id)
 constraint public.payment_records.payment_records_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.payments.payments_amount_check CHECK ((amount > (0)::numeric))
-constraint public.payments.payments_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
 constraint public.payments.payments_payment_method_check CHECK ((payment_method = ANY (ARRAY['cash'::text, 'upi'::text, 'card'::text])))
 constraint public.payments.payments_pkey PRIMARY KEY (id)
 constraint public.payments.payments_recorded_by_fkey FOREIGN KEY (recorded_by) REFERENCES auth.users(id)
 constraint public.payments.payments_recorded_by_one_actor CHECK (((recorded_by IS NULL) <> (recorded_by_system IS NULL)))
 constraint public.payments.payments_recorded_by_system_known CHECK (((recorded_by_system IS NULL) OR (recorded_by_system = 'system:payment_webhook'::text)))
 constraint public.payments.payments_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.payments.payments_tenant_invoice_fkey FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE RESTRICT
 constraint public.prescription_items.prescription_items_pkey PRIMARY KEY (id)
-constraint public.prescription_items.prescription_items_prescription_id_fkey FOREIGN KEY (prescription_id) REFERENCES prescriptions(id) ON DELETE CASCADE
+constraint public.prescription_items.prescription_items_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.prescription_items.prescription_items_tenant_prescription_fkey FOREIGN KEY (tenant_id, prescription_id) REFERENCES prescriptions(tenant_id, id) ON DELETE CASCADE
 constraint public.prescriptions.prescriptions_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
 constraint public.prescriptions.prescriptions_letterhead_mode_check CHECK ((letterhead_mode = ANY (ARRAY['blank_paper'::text, 'preprinted_letterhead'::text])))
-constraint public.prescriptions.prescriptions_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 constraint public.prescriptions.prescriptions_pdf_storage_path_shape CHECK (((pdf_storage_path IS NULL) OR (share_object_path('prescription'::text, tenant_id, visit_id, pdf_storage_path) IS NOT NULL)))
 constraint public.prescriptions.prescriptions_pkey PRIMARY KEY (id)
 constraint public.prescriptions.prescriptions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'amended'::text, 'cancelled'::text])))
+constraint public.prescriptions.prescriptions_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT
 constraint public.prescriptions.prescriptions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-constraint public.prescriptions.prescriptions_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE
+constraint public.prescriptions.prescriptions_tenant_id_id_key UNIQUE (tenant_id, id)
+constraint public.prescriptions.prescriptions_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
+constraint public.prescriptions.prescriptions_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
 constraint public.prescriptions.uq_prescriptions_visit_version UNIQUE (tenant_id, visit_id, version)
 constraint public.queue_tokens.queue_tokens_pkey PRIMARY KEY (id)
 constraint public.queue_tokens.queue_tokens_priority_check CHECK ((priority = ANY (ARRAY['normal'::text, 'urgent'::text, 'vip'::text])))
 constraint public.queue_tokens.queue_tokens_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-constraint public.queue_tokens.queue_tokens_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE
+constraint public.queue_tokens.queue_tokens_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
 constraint public.queue_tokens.queue_tokens_visit_id_key UNIQUE (visit_id)
 constraint public.queue_tokens.uq_tenant_date_token UNIQUE (tenant_id, date, token_number)
 constraint public.referrals.referrals_closed_by_fkey FOREIGN KEY (closed_by) REFERENCES auth.users(id)
 constraint public.referrals.referrals_letterhead_mode_check CHECK ((letterhead_mode = ANY (ARRAY['blank_paper'::text, 'preprinted_letterhead'::text])))
-constraint public.referrals.referrals_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 constraint public.referrals.referrals_pdf_storage_path_shape CHECK (((pdf_storage_path IS NULL) OR (share_object_path('referral'::text, tenant_id, id, pdf_storage_path) IS NOT NULL)))
 constraint public.referrals.referrals_pkey PRIMARY KEY (id)
 constraint public.referrals.referrals_referral_type_check CHECK ((referral_type = ANY (ARRAY['out_of_network'::text, 'in_network'::text])))
@@ -836,11 +848,15 @@ constraint public.referrals.referrals_status_check CHECK ((status = ANY (ARRAY['
 constraint public.referrals.referrals_target_doctor_id_fkey FOREIGN KEY (target_doctor_id) REFERENCES auth.users(id) ON DELETE SET NULL
 constraint public.referrals.referrals_target_tenant_id_fkey FOREIGN KEY (target_tenant_id) REFERENCES tenants(id) ON DELETE SET NULL
 constraint public.referrals.referrals_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.referrals.referrals_tenant_id_id_key UNIQUE (tenant_id, id)
+constraint public.referrals.referrals_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
+constraint public.referrals.referrals_tenant_referring_doctor_fkey FOREIGN KEY (referring_doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT
+constraint public.referrals.referrals_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)
 constraint public.referrals.referrals_urgency_check CHECK ((urgency = ANY (ARRAY['routine'::text, 'priority'::text, 'urgent'::text])))
-constraint public.referrals.referrals_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE SET NULL
 constraint public.schedule_blocks.schedule_blocks_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 constraint public.schedule_blocks.schedule_blocks_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id) ON DELETE CASCADE
 constraint public.schedule_blocks.schedule_blocks_pkey PRIMARY KEY (id)
+constraint public.schedule_blocks.schedule_blocks_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT
 constraint public.schedule_blocks.schedule_blocks_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.subscriptions.subscriptions_pkey PRIMARY KEY (id)
 constraint public.subscriptions.subscriptions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'past_due'::text, 'canceled'::text, 'trialing'::text])))
@@ -854,32 +870,36 @@ constraint public.visit_revisions.uq_visit_revisions_number UNIQUE (visit_id, re
 constraint public.visit_revisions.visit_revisions_amended_by_fkey FOREIGN KEY (amended_by) REFERENCES auth.users(id)
 constraint public.visit_revisions.visit_revisions_pkey PRIMARY KEY (id)
 constraint public.visit_revisions.visit_revisions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-constraint public.visit_revisions.visit_revisions_visit_id_fkey FOREIGN KEY (visit_id) REFERENCES visits(id) ON DELETE CASCADE
+constraint public.visit_revisions.visit_revisions_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
 constraint public.visits.visits_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 constraint public.visits.visits_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
 constraint public.visits.visits_origin_type_check CHECK ((origin_type = ANY (ARRAY['scheduled'::text, 'walk_in'::text])))
-constraint public.visits.visits_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 constraint public.visits.visits_pkey PRIMARY KEY (id)
 constraint public.visits.visits_signed_by_fkey FOREIGN KEY (signed_by) REFERENCES auth.users(id)
 constraint public.visits.visits_specialty_check CHECK ((specialty = ANY (ARRAY['general_physician'::text, 'dental'::text, 'pediatrics'::text])))
 constraint public.visits.visits_status_check CHECK ((status = ANY (ARRAY['booked'::text, 'confirmed'::text, 'waiting'::text, 'in_consultation'::text, 'completed'::text, 'cancelled'::text, 'no_show'::text])))
+constraint public.visits.visits_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT
 constraint public.visits.visits_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.visits.visits_tenant_id_id_key UNIQUE (tenant_id, id)
+constraint public.visits.visits_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
 constraint public.waitlist_entries.waitlist_entries_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 constraint public.waitlist_entries.waitlist_entries_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
-constraint public.waitlist_entries.waitlist_entries_patient_id_fkey FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
 constraint public.waitlist_entries.waitlist_entries_pkey PRIMARY KEY (id)
-constraint public.waitlist_entries.waitlist_entries_promoted_visit_id_fkey FOREIGN KEY (promoted_visit_id) REFERENCES visits(id)
 constraint public.waitlist_entries.waitlist_entries_status_check CHECK ((status = ANY (ARRAY['waiting'::text, 'promoted'::text, 'expired'::text, 'cancelled'::text])))
+constraint public.waitlist_entries.waitlist_entries_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT
 constraint public.waitlist_entries.waitlist_entries_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.waitlist_entries.waitlist_entries_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
+constraint public.waitlist_entries.waitlist_entries_tenant_promoted_visit_fkey FOREIGN KEY (tenant_id, promoted_visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
 constraint public.webhook_delivery_queue.webhook_delivery_queue_event_key_length CHECK (((char_length(event_key) >= 1) AND (char_length(event_key) <= 200)))
 constraint public.webhook_delivery_queue.webhook_delivery_queue_last_error_length CHECK ((char_length(last_error) <= 200))
 constraint public.webhook_delivery_queue.webhook_delivery_queue_pkey PRIMARY KEY (id)
 constraint public.webhook_delivery_queue.webhook_delivery_queue_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'delivered'::text, 'failed'::text])))
-constraint public.webhook_delivery_queue.webhook_delivery_queue_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES webhook_subscriptions(id) ON DELETE CASCADE
 constraint public.webhook_delivery_queue.webhook_delivery_queue_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.webhook_delivery_queue.webhook_delivery_queue_tenant_subscription_fkey FOREIGN KEY (tenant_id, subscription_id) REFERENCES webhook_subscriptions(tenant_id, id) ON DELETE CASCADE
 constraint public.webhook_subscriptions.webhook_subscriptions_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL
 constraint public.webhook_subscriptions.webhook_subscriptions_pkey PRIMARY KEY (id)
 constraint public.webhook_subscriptions.webhook_subscriptions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.webhook_subscriptions.webhook_subscriptions_tenant_id_id_key UNIQUE (tenant_id, id)
 default-privilege public S SELECT to anon
 default-privilege public S SELECT to anon
 default-privilege public S SELECT to authenticated
@@ -1057,6 +1077,7 @@ function public.ops_alert_notified(p_alert_id uuid, p_provider_message_id text, 
 function public.ops_alert_payload(p_alert_id uuid) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=8d54f08aef54ac1a27cd288c2f95d33f
 function public.ops_ingest_error(p_ingest_key text, p_event jsonb) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=1s,search_path="" body_md5=99745b9b2a82906f1411d1d22c67e4aa
 function public.permission_matrix() returns TABLE(role text, perm text) lang=sql security_definer=f volatility=i config=search_path="" body_md5=39ee865d6f01342a333f400391c113a5
+function public.prescription_items_fill_tenant() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8d8857c616ef2a290542986d2df34fee
 function public.readiness_probe(p_expected_migration text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=9f9173b2ceaa83871c8578e0a619a107
 function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) returns jsonb lang=plpgsql security_definer=f volatility=v config=lock_timeout=2s,search_path="" body_md5=ee29373c00ebe6fc1e499ccf6fe4af59
 function public.referral_source_clinics(p_ids uuid[]) returns TABLE(id uuid, name text, phone text) lang=sql security_definer=t volatility=s config=search_path="" body_md5=bded9c4fde92a62b2ad3a33057d6df6f
@@ -1182,6 +1203,7 @@ grant function public.ops_ingest_error(p_ingest_key text, p_event jsonb) EXECUTE
 grant function public.ops_ingest_error(p_ingest_key text, p_event jsonb) EXECUTE to authenticated
 grant function public.permission_matrix() EXECUTE to authenticated
 grant function public.permission_matrix() EXECUTE to service_role
+grant function public.prescription_items_fill_tenant() EXECUTE to service_role
 grant function public.readiness_probe(p_expected_migration text) EXECUTE to anon
 grant function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) EXECUTE to authenticated
 grant function public.record_payment(p_tenant_id uuid, p_invoice_id uuid, p_amount numeric, p_method text, p_reference text, p_command_id uuid, p_notes text, p_system_actor text) EXECUTE to service_role
@@ -2240,6 +2262,7 @@ index ops.settings_pkey CREATE UNIQUE INDEX settings_pkey ON ops.settings USING 
 index public.api_key_usage_daily_pkey CREATE UNIQUE INDEX api_key_usage_daily_pkey ON public.api_key_usage_daily USING btree (api_key_id, date)
 index public.api_keys_key_hash_key CREATE UNIQUE INDEX api_keys_key_hash_key ON public.api_keys USING btree (key_hash)
 index public.api_keys_pkey CREATE UNIQUE INDEX api_keys_pkey ON public.api_keys USING btree (id)
+index public.api_keys_tenant_id_id_key CREATE UNIQUE INDEX api_keys_tenant_id_id_key ON public.api_keys USING btree (tenant_id, id)
 index public.audit_logs_pkey CREATE UNIQUE INDEX audit_logs_pkey ON public.audit_logs USING btree (id)
 index public.cdci_brands_pkey CREATE UNIQUE INDEX cdci_brands_pkey ON public.cdci_brands USING btree (id)
 index public.cdci_drug_forms_pkey CREATE UNIQUE INDEX cdci_drug_forms_pkey ON public.cdci_drug_forms USING btree (id)
@@ -2260,12 +2283,14 @@ index public.doctor_prescription_templates_pkey CREATE UNIQUE INDEX doctor_presc
 index public.document_share_tokens_pkey CREATE UNIQUE INDEX document_share_tokens_pkey ON public.document_share_tokens USING btree (id)
 index public.document_share_tokens_token_hash_key CREATE UNIQUE INDEX document_share_tokens_token_hash_key ON public.document_share_tokens USING btree (token_hash)
 index public.follow_ups_pkey CREATE UNIQUE INDEX follow_ups_pkey ON public.follow_ups USING btree (id)
+index public.idx_api_key_usage_daily_tenant_api_key CREATE INDEX idx_api_key_usage_daily_tenant_api_key ON public.api_key_usage_daily USING btree (tenant_id, api_key_id)
 index public.idx_api_key_usage_tenant CREATE INDEX idx_api_key_usage_tenant ON public.api_key_usage_daily USING btree (tenant_id, date)
 index public.idx_api_keys_hash CREATE INDEX idx_api_keys_hash ON public.api_keys USING btree (key_hash)
 index public.idx_api_keys_prefix CREATE INDEX idx_api_keys_prefix ON public.api_keys USING btree (key_prefix) WHERE (revoked_at IS NULL)
 index public.idx_api_keys_tenant CREATE INDEX idx_api_keys_tenant ON public.api_keys USING btree (tenant_id)
 index public.idx_audit_logs_api_key CREATE INDEX idx_audit_logs_api_key ON public.audit_logs USING btree (api_key_id) WHERE (api_key_id IS NOT NULL)
 index public.idx_audit_logs_entity CREATE INDEX idx_audit_logs_entity ON public.audit_logs USING btree (entity_type, entity_id)
+index public.idx_audit_logs_tenant_api_key CREATE INDEX idx_audit_logs_tenant_api_key ON public.audit_logs USING btree (tenant_id, api_key_id)
 index public.idx_audit_logs_tenant_occurred CREATE INDEX idx_audit_logs_tenant_occurred ON public.audit_logs USING btree (tenant_id, occurred_at DESC, id DESC)
 index public.idx_cdci_brand_trgm CREATE INDEX idx_cdci_brand_trgm ON public.cdci_medicines_search USING gin (brand_name gin_trgm_ops)
 index public.idx_cdci_generic_trgm CREATE INDEX idx_cdci_generic_trgm ON public.cdci_medicines_search USING gin (generic_name gin_trgm_ops)
@@ -2275,17 +2300,23 @@ index public.idx_comm_queue_failed_updated CREATE INDEX idx_comm_queue_failed_up
 index public.idx_comm_queue_processing_updated CREATE INDEX idx_comm_queue_processing_updated ON public.communication_queue USING btree (updated_at) WHERE (status = 'processing'::text)
 index public.idx_comm_queue_tenant CREATE INDEX idx_comm_queue_tenant ON public.communication_queue USING btree (tenant_id, created_at DESC)
 index public.idx_communication_queue_external_msg_id CREATE INDEX idx_communication_queue_external_msg_id ON public.communication_queue USING btree (external_message_id)
+index public.idx_communication_queue_tenant_appointment CREATE INDEX idx_communication_queue_tenant_appointment ON public.communication_queue USING btree (tenant_id, appointment_id)
+index public.idx_communication_queue_tenant_patient CREATE INDEX idx_communication_queue_tenant_patient ON public.communication_queue USING btree (tenant_id, patient_id)
 index public.idx_consent_records_tenant_patient CREATE INDEX idx_consent_records_tenant_patient ON public.consent_records USING btree (tenant_id, patient_id, recorded_at DESC, id DESC)
 index public.idx_consultation_diagnoses_tenant_patient CREATE INDEX idx_consultation_diagnoses_tenant_patient ON public.consultation_diagnoses USING btree (tenant_id, patient_id)
 index public.idx_consultation_diagnoses_tenant_visit CREATE INDEX idx_consultation_diagnoses_tenant_visit ON public.consultation_diagnoses USING btree (tenant_id, visit_id)
 index public.idx_consultations_icd10 CREATE INDEX idx_consultations_icd10 ON public.consultations USING btree (icd10_code)
+index public.idx_consultations_tenant_doctor CREATE INDEX idx_consultations_tenant_doctor ON public.consultations USING btree (tenant_id, doctor_id)
 index public.idx_consultations_tenant_patient CREATE INDEX idx_consultations_tenant_patient ON public.consultations USING btree (tenant_id, patient_id)
 index public.idx_doc_tokens_tenant CREATE INDEX idx_doc_tokens_tenant ON public.document_share_tokens USING btree (tenant_id)
 index public.idx_doctor_custom_diagnoses_tenant_doctor CREATE INDEX idx_doctor_custom_diagnoses_tenant_doctor ON public.doctor_custom_diagnoses USING btree (tenant_id, doctor_id)
 index public.idx_doctor_custom_medicines_tenant_doctor CREATE INDEX idx_doctor_custom_medicines_tenant_doctor ON public.doctor_custom_medicines USING btree (tenant_id, doctor_id, medicine_name)
 index public.idx_doctor_prescription_templates_tenant_doctor CREATE INDEX idx_doctor_prescription_templates_tenant_doctor ON public.doctor_prescription_templates USING btree (tenant_id, doctor_id)
+index public.idx_document_share_tokens_tenant_document CREATE INDEX idx_document_share_tokens_tenant_document ON public.document_share_tokens USING btree (tenant_id, document_id)
 index public.idx_follow_ups_tenant_date_status CREATE INDEX idx_follow_ups_tenant_date_status ON public.follow_ups USING btree (tenant_id, follow_up_date, status)
+index public.idx_follow_ups_tenant_doctor CREATE INDEX idx_follow_ups_tenant_doctor ON public.follow_ups USING btree (tenant_id, doctor_id)
 index public.idx_follow_ups_tenant_patient CREATE INDEX idx_follow_ups_tenant_patient ON public.follow_ups USING btree (tenant_id, patient_id)
+index public.idx_follow_ups_tenant_visit CREATE INDEX idx_follow_ups_tenant_visit ON public.follow_ups USING btree (tenant_id, visit_id)
 index public.idx_in_app_notifs_role CREATE INDEX idx_in_app_notifs_role ON public.in_app_notifications USING btree (tenant_id, recipient_role, is_read, created_at DESC)
 index public.idx_in_app_notifs_user CREATE INDEX idx_in_app_notifs_user ON public.in_app_notifications USING btree (tenant_id, recipient_user_id, is_read, created_at DESC)
 index public.idx_invitations_tenant_id CREATE INDEX idx_invitations_tenant_id ON public.invitations USING btree (tenant_id)
@@ -2299,6 +2330,7 @@ index public.idx_memberships_user_id CREATE INDEX idx_memberships_user_id ON pub
 index public.idx_opd_diagnoses_name_trgm CREATE INDEX idx_opd_diagnoses_name_trgm ON public.opd_diagnoses USING gin (name gin_trgm_ops)
 index public.idx_opd_diagnoses_specialties CREATE INDEX idx_opd_diagnoses_specialties ON public.opd_diagnoses USING gin (specialties)
 index public.idx_patient_documents_tenant_patient_date CREATE INDEX idx_patient_documents_tenant_patient_date ON public.patient_documents USING btree (tenant_id, patient_id, report_date DESC)
+index public.idx_patient_documents_tenant_visit CREATE INDEX idx_patient_documents_tenant_visit ON public.patient_documents USING btree (tenant_id, visit_id)
 index public.idx_patient_documents_visit CREATE INDEX idx_patient_documents_visit ON public.patient_documents USING btree (visit_id)
 index public.idx_patients_tenant_active CREATE INDEX idx_patients_tenant_active ON public.patients USING btree (tenant_id, is_deleted)
 index public.idx_patients_tenant_created_at CREATE INDEX idx_patients_tenant_created_at ON public.patients USING btree (tenant_id, created_at)
@@ -2309,12 +2341,18 @@ index public.idx_payment_records_tenant_id CREATE INDEX idx_payment_records_tena
 index public.idx_payments_tenant_invoice CREATE INDEX idx_payments_tenant_invoice ON public.payments USING btree (tenant_id, invoice_id)
 index public.idx_payments_tenant_recorded CREATE INDEX idx_payments_tenant_recorded ON public.payments USING btree (tenant_id, recorded_at)
 index public.idx_prescription_items_prescription_sort CREATE INDEX idx_prescription_items_prescription_sort ON public.prescription_items USING btree (prescription_id, sort_order)
+index public.idx_prescription_items_tenant_prescription CREATE INDEX idx_prescription_items_tenant_prescription ON public.prescription_items USING btree (tenant_id, prescription_id)
+index public.idx_prescriptions_tenant_doctor CREATE INDEX idx_prescriptions_tenant_doctor ON public.prescriptions USING btree (tenant_id, doctor_id)
 index public.idx_prescriptions_tenant_patient CREATE INDEX idx_prescriptions_tenant_patient ON public.prescriptions USING btree (tenant_id, patient_id)
 index public.idx_prescriptions_tenant_visit CREATE INDEX idx_prescriptions_tenant_visit ON public.prescriptions USING btree (tenant_id, visit_id)
 index public.idx_queue_tokens_tenant_date CREATE INDEX idx_queue_tokens_tenant_date ON public.queue_tokens USING btree (tenant_id, date, token_number)
+index public.idx_queue_tokens_tenant_visit CREATE INDEX idx_queue_tokens_tenant_visit ON public.queue_tokens USING btree (tenant_id, visit_id)
 index public.idx_referrals_patient CREATE INDEX idx_referrals_patient ON public.referrals USING btree (patient_id)
 index public.idx_referrals_target_tenant_status CREATE INDEX idx_referrals_target_tenant_status ON public.referrals USING btree (target_tenant_id, status) WHERE (target_tenant_id IS NOT NULL)
+index public.idx_referrals_tenant_patient CREATE INDEX idx_referrals_tenant_patient ON public.referrals USING btree (tenant_id, patient_id)
+index public.idx_referrals_tenant_referring_doctor CREATE INDEX idx_referrals_tenant_referring_doctor ON public.referrals USING btree (tenant_id, referring_doctor_id)
 index public.idx_referrals_tenant_status_sent CREATE INDEX idx_referrals_tenant_status_sent ON public.referrals USING btree (tenant_id, status, sent_at DESC)
+index public.idx_referrals_tenant_visit CREATE INDEX idx_referrals_tenant_visit ON public.referrals USING btree (tenant_id, visit_id)
 index public.idx_referrals_visit CREATE INDEX idx_referrals_visit ON public.referrals USING btree (visit_id)
 index public.idx_schedule_blocks_tenant_doctor_time CREATE INDEX idx_schedule_blocks_tenant_doctor_time ON public.schedule_blocks USING btree (tenant_id, doctor_id, start_time, end_time)
 index public.idx_schedule_blocks_tenant_time CREATE INDEX idx_schedule_blocks_tenant_time ON public.schedule_blocks USING btree (tenant_id, start_time, end_time)
@@ -2326,7 +2364,11 @@ index public.idx_visits_tenant_doctor_sched CREATE INDEX idx_visits_tenant_docto
 index public.idx_visits_tenant_patient CREATE INDEX idx_visits_tenant_patient ON public.visits USING btree (tenant_id, patient_id)
 index public.idx_visits_tenant_specialty CREATE INDEX idx_visits_tenant_specialty ON public.visits USING btree (tenant_id, specialty)
 index public.idx_visits_tenant_status CREATE INDEX idx_visits_tenant_status ON public.visits USING btree (tenant_id, status)
+index public.idx_waitlist_entries_tenant_doctor CREATE INDEX idx_waitlist_entries_tenant_doctor ON public.waitlist_entries USING btree (tenant_id, doctor_id)
+index public.idx_waitlist_entries_tenant_patient CREATE INDEX idx_waitlist_entries_tenant_patient ON public.waitlist_entries USING btree (tenant_id, patient_id)
+index public.idx_waitlist_entries_tenant_promoted_visit CREATE INDEX idx_waitlist_entries_tenant_promoted_visit ON public.waitlist_entries USING btree (tenant_id, promoted_visit_id)
 index public.idx_waitlist_tenant_date_status CREATE INDEX idx_waitlist_tenant_date_status ON public.waitlist_entries USING btree (tenant_id, target_date, status)
+index public.idx_webhook_delivery_queue_tenant_subscription CREATE INDEX idx_webhook_delivery_queue_tenant_subscription ON public.webhook_delivery_queue USING btree (tenant_id, subscription_id)
 index public.idx_webhook_queue_failed_updated CREATE INDEX idx_webhook_queue_failed_updated ON public.webhook_delivery_queue USING btree (updated_at) WHERE (status = 'failed'::text)
 index public.idx_webhook_queue_processing_updated CREATE INDEX idx_webhook_queue_processing_updated ON public.webhook_delivery_queue USING btree (updated_at) WHERE (status = 'processing'::text)
 index public.idx_webhook_queue_status_retry CREATE INDEX idx_webhook_queue_status_retry ON public.webhook_delivery_queue USING btree (status, next_retry_at)
@@ -2339,18 +2381,23 @@ index public.invitations_token_hash_key CREATE UNIQUE INDEX invitations_token_ha
 index public.invoice_items_pkey CREATE UNIQUE INDEX invoice_items_pkey ON public.invoice_items USING btree (id)
 index public.invoices_one_live_per_visit CREATE UNIQUE INDEX invoices_one_live_per_visit ON public.invoices USING btree (tenant_id, visit_id) WHERE (status <> 'cancelled'::text)
 index public.invoices_pkey CREATE UNIQUE INDEX invoices_pkey ON public.invoices USING btree (id)
+index public.invoices_tenant_id_id_key CREATE UNIQUE INDEX invoices_tenant_id_id_key ON public.invoices USING btree (tenant_id, id)
 index public.memberships_pkey CREATE UNIQUE INDEX memberships_pkey ON public.memberships USING btree (id)
 index public.opd_diagnoses_pkey CREATE UNIQUE INDEX opd_diagnoses_pkey ON public.opd_diagnoses USING btree (id)
 index public.patient_documents_pkey CREATE UNIQUE INDEX patient_documents_pkey ON public.patient_documents USING btree (id)
+index public.patient_documents_tenant_id_id_key CREATE UNIQUE INDEX patient_documents_tenant_id_id_key ON public.patient_documents USING btree (tenant_id, id)
 index public.patients_pkey CREATE UNIQUE INDEX patients_pkey ON public.patients USING btree (id)
+index public.patients_tenant_id_id_key CREATE UNIQUE INDEX patients_tenant_id_id_key ON public.patients USING btree (tenant_id, id)
 index public.payment_records_pkey CREATE UNIQUE INDEX payment_records_pkey ON public.payment_records USING btree (id)
 index public.payments_pkey CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (id)
 index public.payments_tenant_command_id CREATE UNIQUE INDEX payments_tenant_command_id ON public.payments USING btree (tenant_id, command_id) WHERE (command_id IS NOT NULL)
 index public.prescription_items_pkey CREATE UNIQUE INDEX prescription_items_pkey ON public.prescription_items USING btree (id)
 index public.prescriptions_pkey CREATE UNIQUE INDEX prescriptions_pkey ON public.prescriptions USING btree (id)
+index public.prescriptions_tenant_id_id_key CREATE UNIQUE INDEX prescriptions_tenant_id_id_key ON public.prescriptions USING btree (tenant_id, id)
 index public.queue_tokens_pkey CREATE UNIQUE INDEX queue_tokens_pkey ON public.queue_tokens USING btree (id)
 index public.queue_tokens_visit_id_key CREATE UNIQUE INDEX queue_tokens_visit_id_key ON public.queue_tokens USING btree (visit_id)
 index public.referrals_pkey CREATE UNIQUE INDEX referrals_pkey ON public.referrals USING btree (id)
+index public.referrals_tenant_id_id_key CREATE UNIQUE INDEX referrals_tenant_id_id_key ON public.referrals USING btree (tenant_id, id)
 index public.schedule_blocks_pkey CREATE UNIQUE INDEX schedule_blocks_pkey ON public.schedule_blocks USING btree (id)
 index public.subscriptions_pkey CREATE UNIQUE INDEX subscriptions_pkey ON public.subscriptions USING btree (id)
 index public.subscriptions_tenant_id_key CREATE UNIQUE INDEX subscriptions_tenant_id_key ON public.subscriptions USING btree (tenant_id)
@@ -2366,10 +2413,12 @@ index public.uq_tenant_date_token CREATE UNIQUE INDEX uq_tenant_date_token ON pu
 index public.uq_visit_revisions_number CREATE UNIQUE INDEX uq_visit_revisions_number ON public.visit_revisions USING btree (visit_id, revision_number)
 index public.visit_revisions_pkey CREATE UNIQUE INDEX visit_revisions_pkey ON public.visit_revisions USING btree (id)
 index public.visits_pkey CREATE UNIQUE INDEX visits_pkey ON public.visits USING btree (id)
+index public.visits_tenant_id_id_key CREATE UNIQUE INDEX visits_tenant_id_id_key ON public.visits USING btree (tenant_id, id)
 index public.waitlist_entries_pkey CREATE UNIQUE INDEX waitlist_entries_pkey ON public.waitlist_entries USING btree (id)
 index public.webhook_delivery_queue_pkey CREATE UNIQUE INDEX webhook_delivery_queue_pkey ON public.webhook_delivery_queue USING btree (id)
 index public.webhook_delivery_queue_subscription_event_key CREATE UNIQUE INDEX webhook_delivery_queue_subscription_event_key ON public.webhook_delivery_queue USING btree (subscription_id, event_key) WHERE (event_key IS NOT NULL)
 index public.webhook_subscriptions_pkey CREATE UNIQUE INDEX webhook_subscriptions_pkey ON public.webhook_subscriptions USING btree (id)
+index public.webhook_subscriptions_tenant_id_id_key CREATE UNIQUE INDEX webhook_subscriptions_tenant_id_id_key ON public.webhook_subscriptions USING btree (tenant_id, id)
 policy public.api_key_usage_daily.api_key_usage_owner_admin cmd=* permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_key_usage_daily.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_key_usage_daily.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text])))))
 policy public.api_keys.api_keys_owner_admin cmd=* permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_keys.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text]))))) check=(EXISTS ( SELECT 1    FROM membership   WHERE ((memberships.tenant_id = api_keys.tenant_id) AND (memberships.user_id = auth.uid()) AND (memberships.role = ANY (ARRAY['owner'::text, 'admin'::text])))))
 policy public.audit_logs.audit_logs_insert_member cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))
@@ -2541,5 +2590,6 @@ trigger public.communication_queue.communication_queue_enqueue_job CREATE TRIGGE
 trigger public.communication_queue.communication_queue_scrub_payload CREATE TRIGGER communication_queue_scrub_payload BEFORE INSERT OR UPDATE ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION communication_queue_scrub_payload()
 trigger public.memberships.memberships_profile_update_guard CREATE TRIGGER memberships_profile_update_guard BEFORE UPDATE ON public.memberships FOR EACH ROW EXECUTE FUNCTION memberships_profile_update_guard()
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
+trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
 trigger public.referrals.referrals_target_update_guard CREATE TRIGGER referrals_target_update_guard BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION referrals_target_update_guard()
 trigger public.webhook_delivery_queue.webhook_delivery_queue_enqueue_job CREATE TRIGGER webhook_delivery_queue_enqueue_job AFTER INSERT ON public.webhook_delivery_queue FOR EACH ROW EXECUTE FUNCTION ops.webhook_delivery_enqueue_job()

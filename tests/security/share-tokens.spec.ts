@@ -12,6 +12,7 @@ import { generateRescheduleToken } from "@/features/appointments/system";
 import * as enqueueModule from "@/lib/jobs/enqueue";
 import { shareTokenHash } from "../helpers/share-tokens";
 import { jsonObject } from "../helpers/db";
+import { plantLegacyRow } from "../helpers/sql";
 
 // V2-01 plan 01-04 (P0-04; SEC-05, ARC-05, F7(a)); SECURITY_VERIFICATION_PLAN TC-TOK-01..06. Local stack, real
 // clients; the admin client only seeds rows (including deliberately mis-bound tokens) and reads results.
@@ -286,13 +287,21 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
     });
 
     it("a tenant-A token pointing at tenant B's lab document is a 404 on the report view", async () => {
-      const token = await seedToken({
+      const row = {
         tenant_id: A.owner.tenantId,
         resource_type: "patient_document",
         document_id: B.documentId,
         resource_id: B.documentId,
         created_by: A.owner.userId,
-      });
+      };
+      // Since 05-03 the composite FK (tenant_id, document_id) refuses this row for every writer; a token from before
+      // 05-03 is planted with FK triggers off to prove the routes' tenant binding still holds.
+      await expect(seedToken(row)).rejects.toThrow(/document_share_tokens_tenant_document_fkey/);
+      const token = randomBytes(32).toString("hex");
+      plantLegacyRow(
+        `insert into public.document_share_tokens (token_hash, tenant_id, resource_type, document_id, resource_id, created_by) ` +
+          `values ('${shareTokenHash(token)}', '${row.tenant_id}', 'patient_document', '${row.document_id}', '${row.resource_id}', '${row.created_by}')`
+      );
       const res = await reportGet(token);
       expect(res.status).toBe(404);
       expectNoInternals(await res.text(), A, B);

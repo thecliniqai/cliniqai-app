@@ -123,6 +123,12 @@ interface RowSeed {
   patientPhone: string;
   /** Target clinic of the seeded referral (A: itself, so the inbound-referral actions have a row to act on). */
   referralTarget: string | null;
+  /**
+   * False for a caller with no membership in `tenantId` (the `outsider` of the { authenticated } actions): the seeded
+   * schedule block then belongs to the clinic's doctor, because since V2-05 05-03 a block's doctor must be a member of
+   * its clinic (composite FK to memberships).
+   */
+  callerIsMember?: boolean;
 }
 
 /** One row in every table an entry point takes an id for, in `seed.tenantId`. */
@@ -188,7 +194,7 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
     }),
     insertRow(admin, "schedule_blocks", {
       tenant_id: t,
-      doctor_id: seed.caller.userId,
+      doctor_id: seed.callerIsMember === false ? u : seed.caller.userId,
       start_time: blockStart.toISOString(),
       end_time: new Date(blockStart.getTime() + 3_600_000).toISOString(),
       reason: "Synthetic block",
@@ -259,6 +265,7 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
       total_price: 500,
     }),
     insertRow(admin, "prescription_items", {
+      tenant_id: t,
       prescription_id: prescription,
       medicine_name: "Synthetic Tablet 500",
       dosage: "1-0-1",
@@ -365,10 +372,10 @@ export async function seedGuardWorld(label: string): Promise<GuardWorld> {
   const memberships = new Map<string, string>();
   const aRows = async (caller: Caller): Promise<TenantRowIds> => {
     let own = memberships.get(caller.userId);
+    const isMember = Object.values(roles).some((r) => r.userId === caller.userId) ||
+      Object.values(dual).some((r) => r.userId === caller.userId);
     if (!own) {
       // A caller without an A membership (the `outsider` of the { authenticated } actions) gets the owner's.
-      const isMember = Object.values(roles).some((r) => r.userId === caller.userId) ||
-        Object.values(dual).some((r) => r.userId === caller.userId);
       own = await membershipId(admin, ownerA.tenantId, isMember ? caller.userId : ownerA.userId);
       memberships.set(caller.userId, own);
     }
@@ -380,6 +387,7 @@ export async function seedGuardWorld(label: string): Promise<GuardWorld> {
       patientName: `Synthetic Guard Patient A ${randomUUID().slice(0, 8)}`,
       patientPhone: syntheticPhone(),
       referralTarget: ownerA.tenantId,
+      callerIsMember: isMember,
     });
   };
 

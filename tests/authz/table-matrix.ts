@@ -94,6 +94,11 @@ export interface TableTarget {
   insertSetup?: string;
   /** The operations `anon` holds the privilege for, when fewer than `authenticated` (e.g. "S"; "" = none). */
   anon?: string;
+  /**
+   * The fixture row has children whose composite FK is ON DELETE RESTRICT (05-03): a DELETE the rule admits is refused
+   * with 23503 (the matrix shows `R`). 05-04 replaces the parent DELETE policies, after which no rule admits it.
+   */
+  restrictDelete?: true;
   /** The row's tenant when the table has no `tenant_id` column. */
   tenant?: Sql;
   rules: Rules;
@@ -333,7 +338,9 @@ export const TARGETS: readonly Target[] = [
     extraRows: [
       { id: q(FX.visit2), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, origin_type: "'walk_in'", created_by: U.ownerA },
     ],
+    restrictDelete: true,
     rules: memberSiu(legacyOwnerAdmin()),
+    note: "the fixture visit has RESTRICT children (05-03): the legacy owner/admin DELETE policy admits it, the FK refuses it (R); 05-04 drops visits_delete_member",
   },
   {
     kind: "table",
@@ -397,12 +404,25 @@ export const TARGETS: readonly Target[] = [
     schema: "public",
     table: "prescription_items",
     key: ["id"],
-    tenant: A,
-    fixture: { id: q(FX.row(11)), prescription_id: q(FX.prescription), medicine_name: "'Synthetic medicine'", dosage: "'1-0-1'", duration: "'5 days'" },
-    insert: { id: q(FX.row(12)), prescription_id: q(FX.prescription), medicine_name: "'Synthetic medicine'", dosage: "'1-0-1'", duration: "'5 days'" },
+    fixture: {
+      id: q(FX.row(11)),
+      tenant_id: A,
+      prescription_id: q(FX.prescription),
+      medicine_name: "'Synthetic medicine'",
+      dosage: "'1-0-1'",
+      duration: "'5 days'",
+    },
+    insert: {
+      id: q(FX.row(12)),
+      tenant_id: A,
+      prescription_id: q(FX.prescription),
+      medicine_name: "'Synthetic medicine'",
+      dosage: "'1-0-1'",
+      duration: "'5 days'",
+    },
     update: "medicine_name",
     rules: memberSiu(legacyOwnerAdmin()),
-    note: "no tenant_id column until 05-03: scoped through the prescription",
+    note: "tenant_id since 05-03 (filled from the prescription, composite FK); policies still scope through the prescription until 05-02b",
   },
   {
     kind: "table",

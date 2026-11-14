@@ -134,7 +134,7 @@ export async function seedSignedPrescription(input: {
   must(
     await admin
       .from("prescription_items")
-      .insert({ prescription_id: rx.id, medicine_name: input.medicineName, dosage: "1-0-1", duration: "5 days", sort_order: 0 })
+      .insert({ tenant_id: input.tenantId, prescription_id: rx.id, medicine_name: input.medicineName, dosage: "1-0-1", duration: "5 days", sort_order: 0 })
       .select("id")
       .single(),
     "prescription item insert",

@@ -46,8 +46,11 @@ export const MATRIX_SQL = "supabase/tests/database/authz_matrix.test.sql";
 export const COMPLETENESS_SQL = "supabase/tests/database/authz_completeness.test.sql";
 export const MATRIX_MD = ".planning/phases/05-db-authorisation-entitlements/AUTHZ-MATRIX.md";
 
-/** `error:22P02`: only a storage target's `legacyCastError` (BACKEND C9, transitional until 05-02c). */
-export type Outcome = "1" | "0" | "ok" | "denied" | "error:22P02";
+/**
+ * `error:22P02`: only a storage target's `legacyCastError` (BACKEND C9, transitional until 05-02c).
+ * `error:23503`: only a table target's `restrictDelete` (05-03): the rule admits the DELETE, the RESTRICT FK of a child refuses it.
+ */
+export type Outcome = "1" | "0" | "ok" | "denied" | "error:22P02" | "error:23503";
 
 const OP_LETTER: Record<Op, string> = { select: "S", insert: "I", update: "U", delete: "D" };
 
@@ -137,7 +140,7 @@ export function expectedOutcome(t: Target, op: Op, p: Principal): Outcome {
   const visible = admits(t.rules.select, p, t, row);
   if (!visible && castError) return "error:22P02";
   if (op === "select") return visible ? "1" : "0";
-  if (visible && admits(t.rules[op], p, t, row)) return "1";
+  if (visible && admits(t.rules[op], p, t, row)) return op === "delete" && t.kind === "table" && t.restrictDelete ? "error:23503" : "1";
   return castError && t.rules[op].kind !== "none" ? "error:22P02" : "0";
 }
 
@@ -406,7 +409,7 @@ function ruleText(rule: Rule): string {
   }
 }
 
-const SYMBOL: Record<Outcome, string> = { "1": "Y", ok: "Y", "0": "-", denied: "X", "error:22P02": "E" };
+const SYMBOL: Record<Outcome, string> = { "1": "Y", ok: "Y", "0": "-", denied: "X", "error:22P02": "E", "error:23503": "R" };
 
 export function matrixMd(): string {
   const lines: string[] = [];
@@ -420,7 +423,7 @@ export function matrixMd(): string {
   lines.push("");
   lines.push("Legend: `Y` admitted (row visible / inserted / affected) · `-` filtered by RLS (0 rows) · `X` refused with 42501");
   lines.push("(no privilege, RLS WITH CHECK or a guard trigger) · `E` 22P02 from the legacy storage-key cast (BACKEND C9, no access;");
-  lines.push("fixed in 05-02c).");
+  lines.push("fixed in 05-02c) · `R` the policy admits the DELETE but a child's RESTRICT foreign key refuses it (23503, 05-03).");
   lines.push("");
   lines.push(
     "`legacy_member` / `legacy_owner_admin` are today's tenant-only policies (any membership, the active clinic ignored);",

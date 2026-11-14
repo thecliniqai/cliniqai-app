@@ -24,6 +24,7 @@ import {
   deliveryPayload,
   deliveryRow,
   insertDelivery,
+  plantForgedDelivery,
   recordingRequest,
   runHandlerOnce,
   subscribe,
@@ -106,9 +107,14 @@ describe("webhook dispatch hardening (03-13d), through the webhook.deliver handl
       expect(data).toBeNull();
     });
 
-    it("a forged row (service role) naming B's subscription is refused by the handler without sending (pinned and fetch seams)", async () => {
+    it("since 05-03 even the service role cannot write a row naming B's subscription (composite FK, 23503)", async () => {
+      const victim = await subscribe(b.tenantId, b.userId, ["payment.recorded"], { host: "victim-b3.example.test", path: "/hook" });
+      await expect(insertDelivery(a.tenantId, victim.id, { event_type: "payment.recorded" })).rejects.toThrow("insert delivery failed: 23503");
+    });
+
+    it("a forged row from before 05-03 naming B's subscription is refused by the handler without sending (pinned and fetch seams)", async () => {
       const victim = await subscribe(b.tenantId, b.userId, ["payment.recorded"], { host: "victim-b2.example.test", path: "/hook" });
-      const forged = await insertDelivery(a.tenantId, victim.id, { event_type: "payment.recorded" });
+      const forged = plantForgedDelivery(a.tenantId, victim.id, "payment.recorded");
       const transport = recordingRequest(200);
       const send = vi.fn(async () => new Response("ok", { status: 200 }));
 
@@ -119,7 +125,7 @@ describe("webhook dispatch hardening (03-13d), through the webhook.deliver handl
       expect(deliveryRow(forged)).toMatchObject({ status: "failed", responseStatus: 403 });
 
       // The injected-fetch seam enforces the same rule.
-      const again = await insertDelivery(a.tenantId, victim.id);
+      const again = plantForgedDelivery(a.tenantId, victim.id);
       const viaFetch = await runHandlerOnce(again, { resolve: async () => [PUBLIC_IP], fetch: send });
       expect(send).not.toHaveBeenCalled();
       expect(viaFetch).toMatchObject({ outcome: "dead" });

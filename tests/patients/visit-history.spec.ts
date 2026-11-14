@@ -148,6 +148,7 @@ describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", 
       signed_at: daysAgo(2),
     });
     await insertRow("prescription_items", {
+      tenant_id: ownerA.tenantId,
       prescription_id: rxId,
       medicine_name: "Paracetamol 650mg",
       generic_name: "Paracetamol",

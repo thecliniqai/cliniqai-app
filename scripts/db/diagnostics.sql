@@ -14,8 +14,23 @@
 -- child→parent pair" and plan 05-03 step 5 requires D1 and D5 to be 0 for EVERY composite FK it adds:
 --   D1x  every child→parent pair of 000049_composite_fks_expand (tenant parents)
 --   D5x  every doctor reference that 000049 binds to memberships(user_id, tenant_id)
+-- plus V0 (row volume per table, first) and FKNV (foreign keys still NOT VALID, last).
 -- `prescription_items` has no tenant_id before 000048: its D1x row reads the column through to_jsonb, so it is 0
 -- (not an error) on a database that predates the column.
+
+\echo '@@ V0 pairs'
+-- V0. Volume (not in §3): rows per table the checks read, so a report shows it did not run on an empty database.
+select 'tenants' t, count(*) from public.tenants
+union all select 'memberships', count(*) from public.memberships
+union all select 'patients', count(*) from public.patients
+union all select 'visits', count(*) from public.visits
+union all select 'invoices', count(*) from public.invoices
+union all select 'payments', count(*) from public.payments
+union all select 'prescriptions', count(*) from public.prescriptions
+union all select 'prescription_items', count(*) from public.prescription_items
+union all select 'patient_documents', count(*) from public.patient_documents
+union all select 'communication_queue', count(*) from public.communication_queue
+union all select 'webhook_delivery_queue', count(*) from public.webhook_delivery_queue;
 
 \echo '@@ D0 rows'
 -- D0. Migration history actually applied (drift check vs repo 000001–000018)

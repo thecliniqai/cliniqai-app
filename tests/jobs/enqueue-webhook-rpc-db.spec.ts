@@ -27,7 +27,7 @@ import {
   type DualMemberUser,
   type SeededTenant,
 } from "../helpers/tenants";
-import { psql } from "../helpers/sql";
+import { plantLegacyRow, psql } from "../helpers/sql";
 import { consultationDraftInput } from "../helpers/fixtures";
 import { getOrCreateDraftPrescription } from "@/features/prescriptions/service";
 import { completeAndSignConsultation, saveConsultationDraft } from "@/features/consultation/service";
@@ -494,14 +494,17 @@ describe("04-07a: prescription.issued at signing; lab_result.ready for a consist
   it("lab_result.ready: a document whose visit is another patient's, or whose patient is another clinic's, is refused", async () => {
     const other = await seedPatient(ownerA.tenantId, ownerA.userId);
     const foreign = await seedPatient(ownerB.tenantId, ownerB.userId);
-    const doc = (tenant: string, patient: string, visit: string | null) =>
-      psql(
+    const doc = (tenant: string, patient: string, visit: string | null, run: (sql: string) => string[] = psql) =>
+      run(
         `insert into public.patient_documents (tenant_id, patient_id, visit_id, title, storage_path, original_filename, mime_type, ` +
           `file_size_bytes, uploaded_by) values ('${tenant}', '${patient}', ${visit ? `'${visit}'` : "null"}, 'Synthetic CBC', ` +
           `'tenants/${tenant}/patients/${patient}/labs/synthetic-${letters(6)}.pdf', 'synthetic.pdf', 'application/pdf', 10, '${ownerA.userId}') returning id`
       )[0];
     const mismatchedVisit = doc(ownerA.tenantId, patientA.patientId, other.visitId);
-    const foreignPatient = doc(ownerA.tenantId, foreign.patientId, null);
+    // Since 05-03 the composite FK refuses another clinic's patient outright; the row is planted as one from before
+    // 05-03 (FK triggers off) to prove the RPC's own consistency check still holds.
+    expect(() => doc(ownerA.tenantId, foreign.patientId, null)).toThrow(/patient_documents_tenant_patient_fkey/);
+    const foreignPatient = doc(ownerA.tenantId, foreign.patientId, null, plantLegacyRow);
     for (const id of [mismatchedVisit, foreignPatient]) {
       expect((await enqueue(receptionistA.client, receptionistA.tenantId, "lab_result.ready", id)).error).toMatchObject({
         code: "P0001",

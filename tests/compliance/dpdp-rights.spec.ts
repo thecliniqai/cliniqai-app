@@ -140,6 +140,7 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
 
     await admin.from("prescription_items").insert([
       {
+        tenant_id: tenantA.tenantId,
         prescription_id: prescriptionId,
         medicine_name: "Metformin",
         generic_name: "Metformin Hydrochloride",
@@ -150,6 +151,7 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
         special_instructions: "Take with water",
       },
       {
+        tenant_id: tenantA.tenantId,
         prescription_id: prescriptionId,
         medicine_name: "Telmisartan",
         generic_name: "Telmisartan",

@@ -197,6 +197,7 @@ describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-m
         signed_at: minutesAgo(25),
       });
       await insertRow("prescription_items", {
+        tenant_id: ownerA.tenantId,
         prescription_id: rxId,
         medicine_name: "Azithromycin 500mg",
         dosage: "1-0-0",

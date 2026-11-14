@@ -79,18 +79,18 @@ export async function getDailyCollectionReport(
         reference_number,
         notes,
         recorded_at,
-        invoices:invoice_id (
+        invoices:invoices!payments_tenant_invoice_fkey (
           id,
           invoice_number,
           total_amount,
           status,
           visit_id,
           patient_id,
-          patients:patient_id (
+          patients:patients!invoices_tenant_patient_fkey (
             full_name,
             phone
           ),
-          visits:visit_id (
+          visits:visits!invoices_tenant_visit_fkey (
             doctor_id
           )
         )

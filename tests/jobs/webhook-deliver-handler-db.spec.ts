@@ -31,6 +31,7 @@ import {
   deliveryRow,
   insertDelivery,
   makeDeliveryDue,
+  plantForgedDelivery,
   privateDns,
   recordingRequest,
   runHandlerOnce,
@@ -177,8 +178,10 @@ describe("delivery outcomes", () => {
 
   it("a forged row naming another clinic's subscription → failed/403, no POST, a tenant-mismatch warning", async () => {
     const victim = await subscribe(ownerB.tenantId, ownerB.userId, ["payment.recorded"]);
-    // Written with the service role: members can no longer insert rows (000036), so this is the only way to forge one.
-    const id = await insertDelivery(ownerA.tenantId, victim.id, { event_type: "payment.recorded" });
+    // Since 05-03 the composite FK refuses such a row for every writer, the service role included (members lost the
+    // INSERT in 000036); a row from before 05-03 is planted with FK triggers off to prove the handler check still holds.
+    await expect(insertDelivery(ownerA.tenantId, victim.id, { event_type: "payment.recorded" })).rejects.toThrow("23503");
+    const id = plantForgedDelivery(ownerA.tenantId, victim.id, "payment.recorded");
     const transport = recordingRequest(200);
     const out: string[] = [];
     const capture = ((chunk: unknown) => {
