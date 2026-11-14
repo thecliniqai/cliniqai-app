@@ -14,6 +14,7 @@ import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { enableApiV1ForFile } from "../helpers/api-v1";
 import { clinicalNotesOf, seedClinicalNotes } from "../helpers/clinical-notes";
+import { listInReferralDirectory } from "../helpers/referral-directory";
 
 enableApiV1ForFile();
 
@@ -852,7 +853,40 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(json.error.message).toContain("patient consent");
     });
 
+    it("rejects an in-network referral to a clinic not in the referral directory with a fixed 422 (05-06)", async () => {
+      const req = new NextRequest("http://localhost/api/v1/referrals", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${keyA.rawToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          patient_id: patientA.id,
+          referring_doctor_id: doctorA.userId,
+          referral_type: "in_network",
+          target_tenant_id: clinicB.tenantId,
+          referred_to_name: "Dr. Arvind Gupta",
+          reason_for_referral: "Persistent knee pain post trauma",
+          patient_consents_history_sharing: true,
+        }),
+      });
+
+      const res = await createReferral(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(422);
+      expect(json.error.code).toBe("VALIDATION_ERROR");
+      expect(json.error.message).toBe("Field 'target_tenant_id' must name a clinic listed in the referral directory.");
+      const { count } = await getAdminClient()
+        .from("referrals")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", clinicA.tenantId)
+        .eq("target_tenant_id", clinicB.tenantId);
+      expect(count).toBe(0);
+    });
+
     it("creates in-network referral when patient consent is granted", async () => {
+      await listInReferralDirectory(clinicB.tenantId);
       const req = new NextRequest("http://localhost/api/v1/referrals", {
         method: "POST",
         headers: {

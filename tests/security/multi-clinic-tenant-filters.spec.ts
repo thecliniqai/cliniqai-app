@@ -24,6 +24,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { signInActingIn } from "../helpers/active-tenant";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { insertReturningId, rowById, type IdTable } from "../helpers/db";
+import { listInReferralDirectory } from "../helpers/referral-directory";
 import type { Tables, TablesInsert } from "@/types/database";
 
 const admin = getAdminClient();
@@ -185,6 +186,9 @@ describe("AR-M2b: a member of clinics A and C, acting in A, cannot reach C's row
         referred_to_name: "Synthetic Specialist",
         reason_for_referral: "Synthetic reason",
       });
+    // Both targets are listed in the referral directory (05-06: an unlisted target is refused).
+    await listInReferralDirectory(ownerC.tenantId);
+    await listInReferralDirectory(ownerA.tenantId);
     const toC = await referral(ownerC.tenantId);
     const toA = await referral(ownerA.tenantId);
     expect((await acknowledgeReferral(ctxA, toC)).success).toBe(false);

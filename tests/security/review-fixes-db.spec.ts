@@ -21,6 +21,7 @@ import { acknowledgeReferral, getReferralSignedUrl } from "@/features/referrals/
 import * as enqueueModule from "@/lib/jobs/enqueue";
 import { shareTokenHash } from "../helpers/share-tokens";
 import { jsonObject } from "../helpers/db";
+import { listInReferralDirectory } from "../helpers/referral-directory";
 import { hasPerm } from "@/lib/permissions";
 
 // V2-01 plan 01-08 (review fixes, migration 000021). Local stack, real clients; the admin client only seeds rows and
@@ -323,6 +324,7 @@ describe("01-08 review fixes (000021)", () => {
 
   describe("AR-M1: shared object path bound to the resource; receiving clinic may only acknowledge", () => {
     it("the receiving clinic cannot rewrite pdf_storage_path or clinical fields, but can acknowledge", async () => {
+      await listInReferralDirectory(B.owner.tenantId); // 05-06: the target must be listed in the referral directory
       const r1 = await insertRow("referrals", {
         tenant_id: A.owner.tenantId,
         patient_id: A.patientId,

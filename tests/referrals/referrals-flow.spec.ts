@@ -4,6 +4,8 @@ import { createReferralSchema, closeReferralLoopSchema } from "@/features/referr
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
 import { seedClinicalNotes } from "../helpers/clinical-notes";
+import { getAdminClient } from "../helpers/supabase-admin";
+import { listInReferralDirectory } from "../helpers/referral-directory";
 
 describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -157,7 +159,40 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
   });
 
   describe("3. In-Network Referral, DPDP Consent & Loop Closure Lifecycle", () => {
+    it("refuses an in-network referral to a clinic not in the referral directory, leaving no referral or consent record (05-06)", async () => {
+      const res = await createReferral(ctxFor(tenantA), {
+        patient_id: patientAId,
+        referral_type: "in_network",
+        target_tenant_id: tenantB.tenantId,
+        referred_to_name: "Dr. Ananya Roy",
+        reason_for_referral: "Urgent consultation for secondary evaluation",
+        urgency: "urgent",
+        patient_consents_history_sharing: true,
+        letterhead_mode: "blank_paper",
+      });
+      expect(res).toEqual({
+        success: false,
+        error: "That clinic is not in the referral directory. Check the clinic ID with the partner clinic.",
+      });
+
+      const admin = getAdminClient();
+      const { count: referrals } = await admin
+        .from("referrals")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantA.tenantId)
+        .eq("target_tenant_id", tenantB.tenantId);
+      expect(referrals).toBe(0);
+      // Before 05-06 the consent record was written before the referral insert, so a refused referral left one behind.
+      const { count: consents } = await admin
+        .from("consent_records")
+        .select("id", { count: "exact", head: true })
+        .eq("patient_id", patientAId)
+        .eq("consent_type", "referral_history_sharing");
+      expect(consents).toBe(0);
+    });
+
     it("creates in-network referral and logs DPDP consent entry in consent_records", async () => {
+      await listInReferralDirectory(tenantB.tenantId);
       const res = await createReferral(
         ctxFor(tenantA),
         {

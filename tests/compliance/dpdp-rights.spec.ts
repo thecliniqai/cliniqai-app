@@ -62,6 +62,7 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
         key_prefix: secretA.keyPrefix,
         key_hash: secretA.keyHash,
         created_by: tenantA.userId,
+        scopes: ["exports:create"], // the /api/v1 export requires the scope (05-06; tests/api/export-scope.spec.ts)
       })
       .select("id")
       .single();
@@ -76,6 +77,7 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
         key_prefix: secretB.keyPrefix,
         key_hash: secretB.keyHash,
         created_by: tenantB.userId,
+        scopes: ["exports:create"], // the /api/v1 export requires the scope (05-06; tests/api/export-scope.spec.ts)
       })
       .select("id")
       .single();
