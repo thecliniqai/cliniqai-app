@@ -177,6 +177,16 @@ column public.cdci_substances.id text not_null=t default=- identity=- generated=
 column public.cdci_substances.substance_name text not_null=t default=- identity=- generated=-
 column public.cdci_suppliers.id text not_null=t default=- identity=- generated=-
 column public.cdci_suppliers.supplier_name text not_null=t default=- identity=- generated=-
+column public.clinical_notes.advice text[] not_null=t default='{}'::text[] identity=- generated=-
+column public.clinical_notes.chief_complaints jsonb not_null=t default='[]'::jsonb identity=- generated=-
+column public.clinical_notes.clinical_notes text not_null=f default=- identity=- generated=-
+column public.clinical_notes.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
+column public.clinical_notes.investigations_advised text[] not_null=t default='{}'::text[] identity=- generated=-
+column public.clinical_notes.specialty_data jsonb not_null=t default='{}'::jsonb identity=- generated=-
+column public.clinical_notes.tenant_id uuid not_null=t default=- identity=- generated=-
+column public.clinical_notes.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
+column public.clinical_notes.visit_id uuid not_null=t default=- identity=- generated=-
+column public.clinical_notes.vitals jsonb not_null=t default='{}'::jsonb identity=- generated=-
 column public.communication_queue.appointment_id uuid not_null=f default=- identity=- generated=-
 column public.communication_queue.channel text not_null=t default=- identity=- generated=-
 column public.communication_queue.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
@@ -712,6 +722,10 @@ constraint public.cdci_products.cdci_products_pkey PRIMARY KEY (id)
 constraint public.cdci_routes.cdci_routes_pkey PRIMARY KEY (id)
 constraint public.cdci_substances.cdci_substances_pkey PRIMARY KEY (id)
 constraint public.cdci_suppliers.cdci_suppliers_pkey PRIMARY KEY (id)
+constraint public.clinical_notes.clinical_notes_pkey PRIMARY KEY (visit_id)
+constraint public.clinical_notes.clinical_notes_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.clinical_notes.clinical_notes_tenant_id_visit_id_key UNIQUE (tenant_id, visit_id)
+constraint public.clinical_notes.clinical_notes_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
 constraint public.communication_queue.communication_queue_channel_check CHECK ((channel = ANY (ARRAY['whatsapp'::text, 'sms'::text, 'in_app'::text])))
 constraint public.communication_queue.communication_queue_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL
 constraint public.communication_queue.communication_queue_dedupe_key_length CHECK (((char_length(dedupe_key) >= 1) AND (char_length(dedupe_key) <= 200)))
@@ -871,6 +885,7 @@ constraint public.visit_revisions.visit_revisions_amended_by_fkey FOREIGN KEY (a
 constraint public.visit_revisions.visit_revisions_pkey PRIMARY KEY (id)
 constraint public.visit_revisions.visit_revisions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.visit_revisions.visit_revisions_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
+constraint public.visits.visits_clinical_content_moved CHECK ((((vitals IS NULL) OR (vitals = '{}'::jsonb)) AND ((chief_complaints IS NULL) OR (chief_complaints = '[]'::jsonb)) AND (clinical_notes IS NULL) AND ((specialty_data IS NULL) OR (specialty_data = '{}'::jsonb)) AND ((investigations_advised IS NULL) OR (investigations_advised = '{}'::text[])) AND ((advice IS NULL) OR (advice = '{}'::text[]))))
 constraint public.visits.visits_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 constraint public.visits.visits_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
 constraint public.visits.visits_origin_type_check CHECK ((origin_type = ANY (ARRAY['scheduled'::text, 'walk_in'::text])))
@@ -1033,10 +1048,12 @@ function private.request_message_metadata_ok(p_metadata jsonb, p_visit_id uuid) 
 function private.session_age_fresh_seconds() returns integer lang=sql security_definer=f volatility=i config=search_path="" body_md5=c24ae58647ff07129cfb1f22e8a2d93d
 function private.session_age_non_mailbox_methods() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=e87c54c10462bf2088aa50f3d398b3a2
 function private.session_age_token_hook(event jsonb) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=3c2be7b2ca884766fb76799d75601c71
+function private.visits_create_clinical_notes() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=94f806265257f3a3c569fbef346a1a91
 function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=3f9364431c0bfd99577d1cf49f87bf8e
 function private.webhook_iso(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cf107b0b69f25a02f89ee3381aca5f4f
 function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4b9a79b32cd6254b22017731a27dde2a
 function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone, claim_order integer) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=4a0cbeec1199ea9027c2521a7e2f8138
+function public.clinical_notes_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=80cb453835200fd330f6a9e6eb67fd21
 function public.communication_metadata_strip_tokens(p jsonb) returns jsonb lang=sql security_definer=f volatility=i config=search_path="" body_md5=699c303067ef7c6e5ac6a23949259380
 function public.communication_payload_redact(p jsonb) returns jsonb lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=e5a03ebc6b0a124b256fe7c73d684772
 function public.communication_queue_apply_dlr(p_external_message_id text, p_status text, p_at timestamp with time zone, p_reason_code text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e24095fda52f0c8d19095845be9f31f1
@@ -1141,6 +1158,7 @@ grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to ser
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to authenticated
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to service_role
 grant function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) EXECUTE to service_role
+grant function public.clinical_notes_guard() EXECUTE to service_role
 grant function public.communication_metadata_strip_tokens(p jsonb) EXECUTE to service_role
 grant function public.communication_payload_redact(p jsonb) EXECUTE to service_role
 grant function public.communication_queue_apply_dlr(p_external_message_id text, p_status text, p_at timestamp with time zone, p_reason_code text) EXECUTE to service_role
@@ -1509,6 +1527,16 @@ grant table public.cdci_suppliers TRUNCATE to service_role
 grant table public.cdci_suppliers UPDATE to anon
 grant table public.cdci_suppliers UPDATE to authenticated
 grant table public.cdci_suppliers UPDATE to service_role
+grant table public.clinical_notes DELETE to service_role
+grant table public.clinical_notes INSERT to service_role
+grant table public.clinical_notes MAINTAIN to service_role
+grant table public.clinical_notes REFERENCES to service_role
+grant table public.clinical_notes SELECT to authenticated
+grant table public.clinical_notes SELECT to service_role
+grant table public.clinical_notes TRIGGER to service_role
+grant table public.clinical_notes TRUNCATE to service_role
+grant table public.clinical_notes UPDATE to authenticated
+grant table public.clinical_notes UPDATE to service_role
 grant table public.communication_queue DELETE to service_role
 grant table public.communication_queue INSERT to service_role
 grant table public.communication_queue MAINTAIN to service_role
@@ -2272,6 +2300,8 @@ index public.cdci_products_pkey CREATE UNIQUE INDEX cdci_products_pkey ON public
 index public.cdci_routes_pkey CREATE UNIQUE INDEX cdci_routes_pkey ON public.cdci_routes USING btree (id)
 index public.cdci_substances_pkey CREATE UNIQUE INDEX cdci_substances_pkey ON public.cdci_substances USING btree (id)
 index public.cdci_suppliers_pkey CREATE UNIQUE INDEX cdci_suppliers_pkey ON public.cdci_suppliers USING btree (id)
+index public.clinical_notes_pkey CREATE UNIQUE INDEX clinical_notes_pkey ON public.clinical_notes USING btree (visit_id)
+index public.clinical_notes_tenant_id_visit_id_key CREATE UNIQUE INDEX clinical_notes_tenant_id_visit_id_key ON public.clinical_notes USING btree (tenant_id, visit_id)
 index public.communication_queue_pkey CREATE UNIQUE INDEX communication_queue_pkey ON public.communication_queue USING btree (id)
 index public.communication_queue_tenant_dedupe_key CREATE UNIQUE INDEX communication_queue_tenant_dedupe_key ON public.communication_queue USING btree (tenant_id, dedupe_key) WHERE (dedupe_key IS NOT NULL)
 index public.consent_records_pkey CREATE UNIQUE INDEX consent_records_pkey ON public.consent_records USING btree (id)
@@ -2437,6 +2467,8 @@ policy public.cdci_products.cdci_products_select cmd=r permissive=t roles=authen
 policy public.cdci_routes.cdci_routes_select cmd=r permissive=t roles=authenticated using=true check=-
 policy public.cdci_substances.cdci_substances_select cmd=r permissive=t roles=authenticated using=true check=-
 policy public.cdci_suppliers.cdci_suppliers_select cmd=r permissive=t roles=authenticated using=true check=-
+policy public.clinical_notes.clinical_notes_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('consultations:view'::text) AS tenant_ids_with)) check=-
+policy public.clinical_notes.clinical_notes_update cmd=w permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('vitals:edit'::text) AS tenant_ids_with))) check=((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) OR (tenant_id IN ( SELECT authz.tenant_ids_with('vitals:edit'::text) AS tenant_ids_with)))
 policy public.communication_queue.communication_queue_select_member cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=-
 policy public.consent_records.consent_records_insert_member cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids))
 policy public.consent_records.consent_records_select_member cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT current_user_tenant_ids() AS current_user_tenant_ids)) check=-
@@ -2567,6 +2599,7 @@ relation public.cdci_products kind=r rls=t force_rls=f
 relation public.cdci_routes kind=r rls=t force_rls=f
 relation public.cdci_substances kind=r rls=t force_rls=f
 relation public.cdci_suppliers kind=r rls=t force_rls=f
+relation public.clinical_notes kind=r rls=t force_rls=f
 relation public.communication_queue kind=r rls=t force_rls=f
 relation public.consent_records kind=r rls=t force_rls=f
 relation public.consultation_diagnoses kind=r rls=t force_rls=f
@@ -2603,6 +2636,7 @@ trigger ops.jobs.jobs_message_dead CREATE TRIGGER jobs_message_dead AFTER UPDATE
 trigger ops.jobs.jobs_reply_unmatched_redact CREATE TRIGGER jobs_reply_unmatched_redact BEFORE UPDATE ON ops.jobs FOR EACH ROW WHEN (((new.kind = 'message.reply_unmatched'::text) AND (new.status <> ALL (ARRAY['pending'::text, 'running'::text])))) EXECUTE FUNCTION ops.redact_reply_unmatched_payload()
 trigger ops.jobs.jobs_webhook_dead CREATE TRIGGER jobs_webhook_dead AFTER UPDATE OF status ON ops.jobs FOR EACH ROW WHEN (((new.status = 'dead'::text) AND (old.status IS DISTINCT FROM 'dead'::text) AND (new.kind = 'webhook.deliver'::text))) EXECUTE FUNCTION ops.webhook_job_dead()
 trigger public.audit_logs.audit_logs_actor_guard CREATE TRIGGER audit_logs_actor_guard BEFORE INSERT ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION private.audit_logs_actor_guard()
+trigger public.clinical_notes.clinical_notes_guard CREATE TRIGGER clinical_notes_guard BEFORE UPDATE ON public.clinical_notes FOR EACH ROW EXECUTE FUNCTION clinical_notes_guard()
 trigger public.communication_queue.communication_queue_apply_early_dlr CREATE TRIGGER communication_queue_apply_early_dlr AFTER UPDATE OF external_message_id ON public.communication_queue FOR EACH ROW WHEN (((new.external_message_id IS NOT NULL) AND (old.external_message_id IS DISTINCT FROM new.external_message_id))) EXECUTE FUNCTION ops.communication_queue_apply_early_dlr()
 trigger public.communication_queue.communication_queue_enqueue_job CREATE TRIGGER communication_queue_enqueue_job AFTER INSERT ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION ops.communication_queue_enqueue_job()
 trigger public.communication_queue.communication_queue_scrub_payload CREATE TRIGGER communication_queue_scrub_payload BEFORE INSERT OR UPDATE ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION communication_queue_scrub_payload()
@@ -2610,4 +2644,5 @@ trigger public.memberships.memberships_profile_update_guard CREATE TRIGGER membe
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
 trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
 trigger public.referrals.referrals_target_update_guard CREATE TRIGGER referrals_target_update_guard BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION referrals_target_update_guard()
+trigger public.visits.visits_create_clinical_notes CREATE TRIGGER visits_create_clinical_notes AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_create_clinical_notes()
 trigger public.webhook_delivery_queue.webhook_delivery_queue_enqueue_job CREATE TRIGGER webhook_delivery_queue_enqueue_job AFTER INSERT ON public.webhook_delivery_queue FOR EACH ROW EXECUTE FUNCTION ops.webhook_delivery_enqueue_job()

@@ -8,6 +8,7 @@ import { Patient } from "@/lib/db/types";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -296,9 +297,9 @@ export async function getPatientVisitHistory(
 
     // 1. Fetch all visits for this patient within the active tenant, reverse chronologically
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visits, error: visitsErr } = await (supabase.from("visits") as any)
+    const { data: visitRows, error: visitsErr } = await (supabase.from("visits") as any)
       .select(
-        "id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, reason_for_visit, vitals, chief_complaints, clinical_notes, specialty, investigations_advised, advice, created_at, updated_at"
+        `id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, reason_for_visit, specialty, created_at, updated_at, ${clinicalNotesEmbed()}`
       )
       .eq("tenant_id", session.tenantId)
       .eq("patient_id", patientId)
@@ -308,6 +309,8 @@ export async function getPatientVisitHistory(
       log.error({ event: "patients.visit_history_query.failed", code: errorTag(visitsErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return [];
     }
+    // Clinical content from clinical_notes (V2-05 05-02a): absent (null) for a role without consultations:view.
+    const visits: any[] | null = visitRows ? visitRows.map(withClinicalNotes) : null;
 
     if (!visits || visits.length === 0) {
       return [];

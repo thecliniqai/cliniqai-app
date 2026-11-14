@@ -5,6 +5,7 @@ import { PrescriptionPdfPayload } from "@/features/prescriptions/pdf/prescriptio
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
+import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 
 export async function GET(
   request: Request,
@@ -34,15 +35,18 @@ export async function GET(
 
     // 3. Fetch visit data under strict tenant isolation
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("*")
+    const { data: visitRow, error: visitErr } = await (supabase.from("visits") as any)
+      .select(`*, ${clinicalNotesEmbed()}`)
       .eq("id", visitId)
       .eq("tenant_id", membership.tenantId)
       .single();
 
-    if (visitErr || !visit) {
+    if (visitErr || !visitRow) {
       return new NextResponse("Visit not found or access denied", { status: 404 });
     }
+    // The clinical content comes from clinical_notes (V2-05 05-02a).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const visit = withClinicalNotes(visitRow) as any;
 
     // 4. Fetch clinic tenant details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

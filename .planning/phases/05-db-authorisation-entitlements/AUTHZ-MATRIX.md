@@ -47,6 +47,10 @@ Principals:
 | `public.visits` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
 | `public.visits` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
 | `public.visits` | D | none | - | - | - | - | - | - | - | - | - | - | - |
+| `public.clinical_notes` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | X | Y | - | - |
+| `public.clinical_notes` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.clinical_notes` | U | (perm(consultations:edit) OR perm(vitals:edit)) | Y | - | Y | Y | Y | - | - | X | Y | - | - |
+| `public.clinical_notes` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.visit_revisions` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
 | `public.visit_revisions` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
 | `public.visit_revisions` | U | none | - | - | - | - | - | - | - | - | - | - | - |
@@ -234,6 +238,7 @@ Notes:
 - `public.memberships`: fixture row = the second doctor's membership; profile columns only (column grants + guard trigger)
 - `public.invitations`: INSERT: owner/admin, created_by = caller; owner/admin roles only by an owner (000019; RPC only after 05-07a)
 - `public.visits`: no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03)
+- `public.clinical_notes`: 05-02a (R-2, R-3, R-5): one row per visit, created by a definer trigger with fixed content; UPDATE of any column but `vitals` needs consultations:edit (clinical_notes_guard, 42501; clinical_notes.test.sql)
 - `public.consultations`: dead table (R-34), dropped in V2-09b
 - `public.prescription_items`: tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U still scope through the prescription until 05-02b
 - `public.invoice_items`: DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op)

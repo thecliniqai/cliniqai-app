@@ -9,6 +9,7 @@ import { isDateOnly } from "@/lib/utils/filter-values";
 import { dayWindowUtc, ymdOf } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 import { Visit, VisitStatus } from "@/lib/db/types";
+import { clinicalNotesEmbed, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 import {
   visitsFilterSchema,
   VisitsFilterInput,
@@ -556,7 +557,7 @@ export async function getClinicVisitsRegister(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let query = (supabase.from("visits") as any)
       .select(
-        "id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, reason_for_visit, vitals, chief_complaints, clinical_notes, specialty, investigations_advised, advice, created_at, updated_at"
+        `id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, reason_for_visit, specialty, created_at, updated_at, ${clinicalNotesEmbed(["vitals", "chief_complaints", "clinical_notes", "advice"])}`
       )
       .eq("tenant_id", session.tenantId)
       .gte("created_at", startIso)
@@ -819,8 +820,9 @@ export async function getClinicVisitsRegister(
     }
 
     // 7. Assemble items
+    // Clinical content from clinical_notes (05-02a): null for a role that may not read it.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const mappedVisits: ClinicVisitRegisterItem[] = paginatedRows.map((v: any) => {
+    const mappedVisits: ClinicVisitRegisterItem[] = paginatedRows.map(withClinicalNotes).map((v: any) => {
       const pat = patientMap.get(v.patient_id) || {
         id: v.patient_id,
         full_name: "Patient",
@@ -942,17 +944,19 @@ export async function recordVisitVitals(
       recorded_by: session.userId,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: updateError } = await (supabase.from("visits") as any)
-      .update({
-        vitals: vitalsToSave,
-        updated_at: nowIso,
-      })
-      .eq("id", visitId)
-      .eq("tenant_id", session.tenantId);
+    // Vitals live in clinical_notes (V2-05 05-02a, R-3): a nurse may change `vitals` only (guard trigger); a visit the
+    // caller may not change (another clinic, a role without vitals:edit) affects 0 rows and is refused, never reported
+    // as recorded.
+    const { error: updateError, raw } = await updateClinicalNotes(supabase, session.tenantId, visitId, {
+      vitals: vitalsToSave as Record<string, unknown>,
+    });
 
     if (updateError) {
-      log.error({ event: "visits.vitals_update.failed", code: errorTag(updateError), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      if (updateError.code === "FORBIDDEN") {
+        log.warn({ event: "visits.vitals_update.refused", reason: updateError.reason === "ROW_NOT_AFFECTED" ? "row_not_affected" : "forbidden", requestId: await getRequestId(), tenantId: ctx.tenantId });
+        return { success: false, error: updateError.message };
+      }
+      log.error({ event: "visits.vitals_update.failed", code: errorTag(raw), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to record patient vitals." };
     }
 

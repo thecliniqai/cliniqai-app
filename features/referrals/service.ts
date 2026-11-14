@@ -17,6 +17,7 @@ import { enqueueMessage } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
+import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 
 /**
  * Creates a clinical referral (either out-of-network specialist or in-network partner clinic).
@@ -81,12 +82,15 @@ export async function createReferral(
     if (input.referral_type === "in_network" && input.patient_consents_history_sharing) {
       // Query past 5 encounters
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: pastVisits } = await (supabase.from("visits") as any)
-        .select("id, created_at, chief_complaints, vitals, specialty")
+      const { data: pastVisitRows } = await (supabase.from("visits") as any)
+        .select(`id, created_at, specialty, ${clinicalNotesEmbed(["chief_complaints", "vitals"])}`)
         .eq("patient_id", input.patient_id)
         .eq("tenant_id", session.tenantId)
         .order("created_at", { ascending: false })
         .limit(5);
+      // Complaints and vitals come from clinical_notes (V2-05 05-02a).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pastVisits: any[] | null = pastVisitRows ? pastVisitRows.map(withClinicalNotes) : null;
 
       const encounterList: ConsentedHistorySnapshot["encounters"] = [];
 

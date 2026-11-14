@@ -8,6 +8,7 @@ import {
 import { getVisitDiagnoses } from "@/features/terminology/actions";
 import { getVisitPrescription } from "@/features/prescriptions/actions";
 import { ConsultationWorkspace } from "@/components/consultation/consultation-workspace";
+import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes } from "@/lib/db/clinical-notes";
 import {
   Vitals,
   ChiefComplaintItem,
@@ -43,13 +44,8 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
       doctor_id,
       status,
       scheduled_at,
-      vitals,
-      chief_complaints,
-      clinical_notes,
       specialty,
-      specialty_data,
-      investigations_advised,
-      advice,
+      ${clinicalNotesEmbed()},
       patient:patients (
         id,
         full_name,
@@ -122,6 +118,10 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
     uhid: patientRaw.national_health_id || (patientRaw.id ? patientRaw.id.slice(0, 8).toUpperCase() : null),
   };
 
+  // The clinical content lives in clinical_notes (V2-05 05-02a): every field null when RLS hides the row (a role
+  // without consultations:view), so the workspace renders it as absent.
+  const notes = clinicalContent(embeddedClinicalNotes(visitRow));
+
   const visit = {
     id: visitRow.id,
     patient_id: visitRow.patient_id,
@@ -129,13 +129,13 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
     status: visitRow.status,
     scheduled_at: visitRow.scheduled_at,
     token_number: tokenRow?.token_number ?? null,
-    vitals: (visitRow.vitals as Vitals | null) ?? null,
-    chief_complaints: (visitRow.chief_complaints as ChiefComplaintItem[] | null) ?? null,
-    clinical_notes: visitRow.clinical_notes,
+    vitals: (notes.vitals as Vitals | null) ?? null,
+    chief_complaints: (notes.chief_complaints as ChiefComplaintItem[] | null) ?? null,
+    clinical_notes: notes.clinical_notes,
     specialty: (visitRow.specialty as ClinicalSpecialty) ?? "general_physician",
-    specialty_data: (visitRow.specialty_data as SpecialtyData | null) ?? null,
-    investigations_advised: visitRow.investigations_advised ?? [],
-    advice: visitRow.advice ?? [],
+    specialty_data: (notes.specialty_data as SpecialtyData | null) ?? null,
+    investigations_advised: notes.investigations_advised ?? [],
+    advice: notes.advice ?? [],
     follow_up: followUpRow
       ? ({
           follow_up_date: followUpRow.follow_up_date,

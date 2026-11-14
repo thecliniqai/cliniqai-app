@@ -87,7 +87,10 @@ export interface TableTarget {
   key: string[];
   /** The tenant-A fixture row, inserted as `postgres` before the cells (the rules are evaluated against it). */
   fixture: Row;
-  /** The base fixtures (tenants, principals' memberships) already hold the fixture row: do not insert it again. */
+  /**
+   * The fixture row already exists: the base fixtures (tenants, principals' memberships) hold it, or a trigger on an
+   * earlier target's fixture created it (clinical_notes: one row per visit). Do not insert it again.
+   */
   inBase?: true;
   /** More tenant-A rows inserted right after the fixture (parents other fixtures or INSERT cells need). */
   extraRows?: Row[];
@@ -342,6 +345,27 @@ export const TARGETS: readonly Target[] = [
     ],
     rules: memberSiu(none),
     note: "no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03)",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "clinical_notes",
+    key: ["visit_id"],
+    // Created by the visits_create_clinical_notes trigger when the visits fixture above is inserted (05-02a, R-5).
+    fixture: { visit_id: q(FX.visit), tenant_id: A },
+    inBase: true,
+    insert: { visit_id: q(FX.row(61)), tenant_id: A },
+    update: "vitals",
+    anon: "",
+    rules: {
+      select: perm("consultations:view"),
+      insert: rpcOnly,
+      update: any(perm("consultations:edit"), perm("vitals:edit")),
+      delete: rpcOnly,
+    },
+    note:
+      "05-02a (R-2, R-3, R-5): one row per visit, created by a definer trigger with fixed content; UPDATE of any column " +
+      "but `vitals` needs consultations:edit (clinical_notes_guard, 42501; clinical_notes.test.sql)",
   },
   {
     kind: "table",

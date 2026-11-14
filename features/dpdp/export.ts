@@ -5,6 +5,7 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
 
 export interface DpdpArchiveMetadata {
   standard: "DPDP_ACT_2023_RIGHT_TO_ACCESS";
@@ -85,11 +86,14 @@ export async function exportPatientDpdpArchive(
 
   // 3. Fetch Encounters (visits) with vitals and clinical notes
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: encounters } = await (supabase.from("visits") as any)
-    .select("*")
+  const { data: encounterRows } = await (supabase.from("visits") as any)
+    .select(`*, ${clinicalNotesEmbed()}`)
     .eq("patient_id", patientId)
     .eq("tenant_id", tenantId)
     .order("scheduled_at", { ascending: false });
+  // Vitals and clinical notes come from clinical_notes (V2-05 05-02a), under the same field names as before.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const encounters: any[] | null = encounterRows ? encounterRows.map(withClinicalNotes) : null;
 
   // 4. Fetch Prescriptions with nested prescription_items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

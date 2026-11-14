@@ -7,6 +7,14 @@ import { getSystemDb } from "@/lib/supabase/system";
 import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import {
+  CLINICAL_NOTE_FIELDS,
+  clinicalContent,
+  clinicalNotesEmbed,
+  updateClinicalNotes,
+  withClinicalNotes,
+  type ClinicalContent,
+} from "@/lib/db/clinical-notes";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -71,11 +79,13 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const { data: visit, error } = await (admin.from("visits") as any)
-      .select("*")
+    const { data: visitRow, error } = await (admin.from("visits") as any)
+      .select(`*, ${clinicalNotesEmbed()}`)
       .eq("id", id)
       .eq("tenant_id", session.tenantId)
       .maybeSingle();
+    // Same response fields as before V2-05 05-02a: the clinical content now comes from clinical_notes.
+    const visit: any = visitRow ? withClinicalNotes(visitRow) : null;
 
     if (error) {
       return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
@@ -141,11 +151,12 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   try {
     // 1. Fetch existing encounter
-    const { data: existingVisit, error: fetchErr } = await (admin.from("visits") as any)
-      .select("*")
+    const { data: existingRow, error: fetchErr } = await (admin.from("visits") as any)
+      .select(`*, ${clinicalNotesEmbed(["clinical_notes"])}`)
       .eq("id", id)
       .eq("tenant_id", session.tenantId)
       .maybeSingle();
+    const existingVisit: any = existingRow ? withClinicalNotes(existingRow) : null;
 
     if (fetchErr) {
       return apiError("DATABASE_ERROR", fetchErr.message, 500, undefined, rateHeaders);
@@ -200,12 +211,18 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // The clinical content is written to clinical_notes (V2-05 05-02a), BEFORE the visit write: a body the database
+    // refuses (e.g. a non-array investigations_advised) must not leave the visit completed without the notes the
+    // clinical safety check above counted. The lock was checked on the read above and is repeated in the visit
+    // write's filter; a sign-off racing in between the two writes is the residual V2-07/V2-09a close (one command).
+    const notesPatch: Record<string, any> = {};
+
     if (clinical_notes !== undefined) {
-      updateData.clinical_notes = clinical_notes;
+      notesPatch.clinical_notes = clinical_notes;
     }
 
     if (chief_complaints !== undefined) {
-      updateData.chief_complaints = Array.isArray(chief_complaints)
+      notesPatch.chief_complaints = Array.isArray(chief_complaints)
         ? chief_complaints
         : typeof chief_complaints === "string" && chief_complaints.trim()
         ? [{ complaint: chief_complaints.trim() }]
@@ -213,15 +230,27 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     }
 
     if (vitals !== undefined) {
-      updateData.vitals = vitals;
+      // The table's columns are NOT NULL: an explicit null clears to the empty value, as the visits default did.
+      notesPatch.vitals = vitals ?? {};
     }
 
     if (advice !== undefined) {
-      updateData.advice = advice;
+      notesPatch.advice = advice;
     }
 
     if (investigations_advised !== undefined) {
-      updateData.investigations_advised = investigations_advised;
+      notesPatch.investigations_advised = investigations_advised;
+    }
+
+    let notesContent: ClinicalContent | undefined;
+    if (Object.keys(notesPatch).length > 0) {
+      const notesWrite = await updateClinicalNotes(admin, session.tenantId, id, notesPatch);
+      if (notesWrite.error || !notesWrite.content) {
+        // AR2-Info (I2): a fixed message; the database text is neither returned nor logged (only its code).
+        log.error({ event: "api.visit_update.failed", code: errorTag(notesWrite.raw ?? notesWrite.error?.code), requestId: await getRequestId() });
+        return apiError("DATABASE_ERROR", "Failed to update visit.", 500, undefined, rateHeaders);
+      }
+      notesContent = notesWrite.content;
     }
 
     // The lock is part of the filter, so a visit signed between the read above and this write matches 0 rows.
@@ -239,10 +268,25 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return apiError("DATABASE_ERROR", "Failed to update visit.", 500, undefined, rateHeaders);
     }
 
-    const updatedVisit = Array.isArray(updatedRows) ? updatedRows[0] : null;
-    if (!updatedVisit) {
+    const updatedVisitRow = Array.isArray(updatedRows) ? updatedRows[0] : null;
+    if (!updatedVisitRow) {
       return visitLocked(rateHeaders);
     }
+
+    if (!notesContent) {
+      const { data: notesRow, error: notesReadErr } = await (admin.from("clinical_notes") as any)
+        .select(CLINICAL_NOTE_FIELDS.join(", "))
+        .eq("visit_id", id)
+        .eq("tenant_id", session.tenantId)
+        .maybeSingle();
+      if (notesReadErr) {
+        log.error({ event: "api.visit_update.failed", code: errorTag(notesReadErr), requestId: await getRequestId() });
+        return apiError("DATABASE_ERROR", "Failed to update visit.", 500, undefined, rateHeaders);
+      }
+      notesContent = clinicalContent(notesRow);
+    }
+    // Same response fields as before: the visit row with its clinical content.
+    const updatedVisit = { ...updatedVisitRow, ...notesContent };
 
     // 4. Audit log update (D-08)
     try {

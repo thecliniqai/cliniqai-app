@@ -9,6 +9,7 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { dayWindowUtc, isYmd, todayInTz } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
+import { clinicalNotesEmbed, embeddedClinicalNotes } from "@/lib/db/clinical-notes";
 
 interface CabinPageProps {
   searchParams: Promise<{
@@ -81,8 +82,7 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
       scheduled_at,
       created_at,
       reason_for_visit,
-      vitals,
-      chief_complaints,
+      ${clinicalNotesEmbed(["vitals"])},
       patient:patients (
         id,
         full_name,
@@ -137,7 +137,8 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
       reason_for_visit: row.reason_for_visit,
       token_number: queueToken?.token_number ?? null,
       priority: queueToken?.priority ?? "normal",
-      vitals: row.vitals || null,
+      // Triage vitals from clinical_notes (V2-05 05-02a); null when hidden or absent.
+      vitals: embeddedClinicalNotes(row)?.vitals || null,
       patient: {
         id: patientRaw?.id || row.patient_id,
         full_name: patientRaw?.full_name || "Unknown Patient",

@@ -16,6 +16,7 @@ import { PrescriptionPdfPayload } from "../prescriptions/pdf/prescription-docume
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { unaffectedRowsError } from "@/lib/db/errors";
+import { clinicalContent, clinicalNotesEmbed, embeddedClinicalNotes, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
@@ -123,7 +124,7 @@ export async function saveConsultationDraft(
     // 1. Verify visit exists and belongs to this tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: visit, error: visitFetchErr } = await (supabase.from("visits") as any)
-      .select("id, patient_id, status, vitals, signed_at")
+      .select(`id, patient_id, status, signed_at, ${clinicalNotesEmbed(["vitals"])}`)
       .eq("id", data.visit_id)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -145,15 +146,12 @@ export async function saveConsultationDraft(
     // 2. Determine new status: if waiting, transition to in_consultation
     const updatedStatus = visit.status === "waiting" ? "in_consultation" : undefined;
 
-    // 3. Update the visit row with draft SOAP clinical data
+    // 3. Update the visit row (status, specialty), then the draft SOAP content in clinical_notes (V2-05 05-02a). The
+    // visit write carries the sign-off lock in its filter and goes first, so a draft never lands on a visit that was
+    // signed before this save began; a sign-off racing in between the two writes is the residual V2-09a closes with
+    // the record-immutability rules (R-21).
     const updatePayload: Record<string, unknown> = {
-      vitals: attributeVitals(ctx, data.vitals, visit.vitals),
-      chief_complaints: data.chief_complaints ?? [],
-      clinical_notes: data.clinical_notes ?? null,
       specialty: data.specialty,
-      specialty_data: data.specialty_data ?? {},
-      investigations_advised: data.investigations_advised ?? [],
-      advice: data.advice ?? [],
       updated_at: new Date().toISOString(),
     };
 
@@ -181,6 +179,23 @@ export async function saveConsultationDraft(
     if (!Array.isArray(updatedRows) || updatedRows.length === 0) {
       // Signed (or closed) between the read above and this write.
       return { success: false, error: SIGNED_CONSULTATION_MESSAGE };
+    }
+
+    const { error: notesErr, raw: notesRaw } = await updateClinicalNotes(supabase, ctx.tenantId, data.visit_id, {
+      vitals: attributeVitals(ctx, data.vitals, embeddedClinicalNotes(visit)?.vitals),
+      chief_complaints: (data.chief_complaints ?? []) as unknown as Array<Record<string, unknown>>,
+      clinical_notes: data.clinical_notes ?? null,
+      specialty_data: (data.specialty_data ?? {}) as Record<string, unknown>,
+      investigations_advised: data.investigations_advised ?? [],
+      advice: data.advice ?? [],
+    });
+    if (notesErr) {
+      if (notesErr.code === "FORBIDDEN") {
+        log.warn({ event: "consultation.draft_save.refused", reason: notesErr.reason === "ROW_NOT_AFFECTED" ? "row_not_affected" : "forbidden", requestId: await getRequestId(), tenantId: ctx.tenantId });
+        return { success: false, error: notesErr.message };
+      }
+      log.error({ event: "consultation.draft_save.failed", code: errorTag(notesRaw), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to save draft. Please try again." };
     }
 
     // 4. Handle follow-up record if provided
@@ -387,7 +402,7 @@ export async function getPatientConsultationHistory(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let visitQuery = (supabase as any)
       .from("visits")
-      .select("id, scheduled_at, created_at, status, specialty, vitals, chief_complaints, clinical_notes, advice")
+      .select(`id, scheduled_at, created_at, status, specialty, ${clinicalNotesEmbed(["vitals", "chief_complaints", "clinical_notes", "advice"])}`)
       .eq("tenant_id", ctx.tenantId)
       .eq("patient_id", patientId)
       .in("status", ["completed", "in_consultation"])
@@ -397,8 +412,10 @@ export async function getPatientConsultationHistory(
       visitQuery = visitQuery.neq("id", currentVisitId);
     }
 
-    const { data: visits, error: visitsErr } = await visitQuery;
+    const { data: visitRows, error: visitsErr } = await visitQuery;
     if (visitsErr) throw visitsErr;
+    // Clinical content from clinical_notes (05-02a); absent (null) where RLS hides it.
+    const visits = (visitRows ?? []).map(withClinicalNotes);
 
     if (!visits || visits.length === 0) {
       return { success: true, encounters: [] };
@@ -510,14 +527,16 @@ async function buildVisitPdfPayload(
   const supabase = ctx.db as any;
   const tenantId = ctx.tenantId;
 
-  const { data: visit } = await supabase
+  const { data: visitRow } = await supabase
     .from("visits")
-    .select("*")
+    .select(`*, ${clinicalNotesEmbed()}`)
     .eq("id", visitId)
     .eq("tenant_id", tenantId)
     .single();
 
-  if (!visit) return null;
+  if (!visitRow) return null;
+  // The clinical content comes from clinical_notes (V2-05 05-02a).
+  const visit = withClinicalNotes(visitRow);
 
   const { data: tenant } = await supabase
     .from("tenants")
@@ -608,7 +627,7 @@ async function buildVisitPdfPayload(
     visit: {
       visit_date: ymdOf(visit.scheduled_at || visit.created_at || new Date(), resolveTimeZone(tenant?.timezone)),
       vitals: visit.vitals || null,
-      chief_complaints: visit.chief_complaints || [],
+      chief_complaints: (visit.chief_complaints || []) as PrescriptionPdfPayload["visit"]["chief_complaints"],
       clinical_notes: visit.clinical_notes || null,
       specialty: visit.specialty || "general_physician",
     },
@@ -658,7 +677,7 @@ export async function completeAndSignConsultation(
     // 1. Fetch visit and verify access
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("id, status, clinical_notes, patient_id, doctor_id, signed_at")
+      .select(`id, status, patient_id, doctor_id, signed_at, ${clinicalNotesEmbed(["clinical_notes"])}`)
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId)
       .single();
@@ -681,7 +700,8 @@ export async function completeAndSignConsultation(
       .limit(1);
 
     const hasDiagnosis = diagnoses && diagnoses.length > 0;
-    const hasNotes = Boolean(visit.clinical_notes && visit.clinical_notes.trim().length > 0);
+    const notesText = clinicalContent(embeddedClinicalNotes(visit)).clinical_notes;
+    const hasNotes = Boolean(notesText && notesText.trim().length > 0);
 
     if (!hasDiagnosis && !hasNotes) {
       return {
@@ -816,15 +836,17 @@ export async function reopenVisitForAmendment(
   try {
     // 1. Fetch visit - must be completed
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
-      .select("*")
+    const { data: visitRow, error: visitErr } = await (supabase.from("visits") as any)
+      .select(`*, ${clinicalNotesEmbed()}`)
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId)
       .single();
 
-    if (visitErr || !visit) {
+    if (visitErr || !visitRow) {
       return { success: false, error: "Visit record not found or access denied." };
     }
+    // The snapshot's clinical content comes from clinical_notes (V2-05 05-02a).
+    const visit = withClinicalNotes(visitRow);
 
     if (visit.status !== "completed") {
       return {

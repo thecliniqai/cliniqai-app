@@ -8,6 +8,7 @@ import { dayWindowUtc } from "@/lib/datetime";
 import { getTenantTimeZone, getTenantToday } from "@/lib/datetime/server";
 import { QueuePriority, QueueToken, Visit, Patient } from "@/lib/db/types";
 import type { QueueItem } from "@/components/queue/queue-card";
+import { clinicalNotesEmbed, embeddedClinicalNotes, CLINICAL_NOTES_EMBED_KEY } from "@/lib/db/clinical-notes";
 import { getTenantDoctorMap } from "@/features/staff/service";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -239,6 +240,8 @@ export async function transitionQueueState(
 interface QueueRow extends Visit {
   patients?: Patient | null;
   queue_tokens?: QueueToken | QueueToken[] | null;
+  /** The visit's clinical_notes row (vitals only); null when RLS hides it (receptionist, admin; V2-05 05-02a). */
+  [CLINICAL_NOTES_EMBED_KEY]?: unknown;
 }
 
 export type GetQueueResult = { success: true; items: QueueItem[] } | { success: false; error: string };
@@ -276,7 +279,7 @@ export async function getQueueForDate(
         };
       };
     })
-      .select("*, patients(*), queue_tokens(*)")
+      .select(`*, patients(*), queue_tokens(*), ${clinicalNotesEmbed(["vitals"])}`)
       .eq("tenant_id", session.tenantId)
       .or(`scheduled_at.gte.${startOfDay},created_at.gte.${startOfDay}`)
       .or(`scheduled_at.lt.${endOfDay},created_at.lt.${endOfDay}`);
@@ -307,11 +310,12 @@ export async function getQueueForDate(
         : row.queue_tokens || null;
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { patients, queue_tokens: _qt, ...visitData } = row;
+      const { patients, queue_tokens: _qt, [CLINICAL_NOTES_EMBED_KEY]: _notes, ...visitData } = row;
       const resolvedDocName = row.doctor_id ? doctorMap[row.doctor_id] : null;
 
       return {
-        visit: visitData as Visit,
+        // Triage vitals come from clinical_notes (05-02a): null for a role that may not read them.
+        visit: { ...(visitData as Visit), vitals: embeddedClinicalNotes(row)?.vitals ?? null },
         patient: patients || null,
         queueToken: queueToken || null,
         doctorName: resolvedDocName || (row.doctor_id ? "Doctor" : "Clinic"),

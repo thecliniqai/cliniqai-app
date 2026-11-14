@@ -171,6 +171,23 @@ export type VisitStatus =
 
 export type ClinicalSpecialty = "general_physician" | "dental" | "pediatrics";
 
+/**
+ * The clinical content of a visit (`public.clinical_notes`, V2-05 05-02a): one row per visit, column names as `visits`
+ * had them (R-4). Hidden by RLS from roles without `consultations:view`; read/write it through `lib/db/clinical-notes`.
+ */
+export interface ClinicalNotes {
+  visit_id: string;
+  tenant_id: string;
+  vitals: Record<string, unknown>;
+  chief_complaints: Array<Record<string, unknown>>;
+  clinical_notes: string | null;
+  specialty_data: Record<string, unknown>;
+  investigations_advised: string[];
+  advice: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Visit {
   id: string;
   tenant_id: string;
@@ -182,13 +199,7 @@ export interface Visit {
   estimated_duration_minutes: number;
   reason_for_visit: string | null;
   is_overbooked: boolean;
-  vitals?: Record<string, unknown> | null;
-  chief_complaints?: Array<Record<string, unknown>> | null;
-  clinical_notes?: string | null;
   specialty?: ClinicalSpecialty;
-  specialty_data?: Record<string, unknown> | null;
-  investigations_advised?: string[];
-  advice?: string[];
   current_revision?: number;
   signed_at?: string | null;
   signed_by?: string | null;

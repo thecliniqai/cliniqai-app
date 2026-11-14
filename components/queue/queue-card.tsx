@@ -5,8 +5,11 @@ import { Visit, QueueToken, Patient } from "@/lib/db/types";
 import { StatusActions } from "./status-actions";
 import { Clock, Stethoscope, CreditCard, HeartPulse, Activity } from "lucide-react";
 
+/** A queue visit with its triage vitals (from clinical_notes since V2-05 05-02a; null when hidden or not recorded). */
+export type QueueVisit = Visit & { vitals?: Record<string, unknown> | null };
+
 export interface QueueItem {
-  visit: Visit;
+  visit: QueueVisit;
   patient?: Patient | null;
   queueToken?: QueueToken | null;
   doctorName?: string | null;

@@ -121,6 +121,7 @@ const FINAL_DELETE: Record<string, string> = {
   "public.invitations": "rpc_only",
   "public.patients": "none",
   "public.visits": "none",
+  "public.clinical_notes": "rpc_only",
   "public.visit_revisions": "none",
   "public.consultations": "none",
   "public.consultation_diagnoses": "perm(consultations:edit)",

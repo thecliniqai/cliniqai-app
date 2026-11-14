@@ -319,6 +319,61 @@ export type Database = {
         };
         Relationships: [];
       };
+      clinical_notes: {
+        Row: {
+          advice: string[];
+          chief_complaints: NonNullable<Json>;
+          clinical_notes: string | null;
+          created_at: string;
+          investigations_advised: string[];
+          specialty_data: NonNullable<Json>;
+          tenant_id: string;
+          updated_at: string;
+          visit_id: string;
+          vitals: NonNullable<Json>;
+        };
+        ComputedFields: never;
+        Insert: {
+          advice?: string[];
+          chief_complaints?: NonNullable<Json>;
+          clinical_notes?: string | null;
+          created_at?: string;
+          investigations_advised?: string[];
+          specialty_data?: NonNullable<Json>;
+          tenant_id: string;
+          updated_at?: string;
+          visit_id: string;
+          vitals?: NonNullable<Json>;
+        };
+        Update: {
+          advice?: string[];
+          chief_complaints?: NonNullable<Json>;
+          clinical_notes?: string | null;
+          created_at?: string;
+          investigations_advised?: string[];
+          specialty_data?: NonNullable<Json>;
+          tenant_id?: string;
+          updated_at?: string;
+          visit_id?: string;
+          vitals?: NonNullable<Json>;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clinical_notes_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "clinical_notes_tenant_visit_fkey";
+            columns: ["tenant_id", "visit_id"];
+            isOneToOne: false;
+            referencedRelation: "visits";
+            referencedColumns: ["tenant_id", "id"];
+          },
+        ];
+      };
       communication_queue: {
         Row: {
           appointment_id: string | null;

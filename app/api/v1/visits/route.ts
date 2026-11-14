@@ -7,6 +7,7 @@ import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { CLINICAL_NOTES_EMBED_KEY, clinicalNotesEmbed, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
 
 /**
  * GET /api/v1/visits
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
   try {
     let query = (admin.from("visits") as any)
       .select(
-        "id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, estimated_duration_minutes, reason_for_visit, is_overbooked, vitals, chief_complaints, clinical_notes, specialty, created_by, created_at, updated_at",
+        `id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, estimated_duration_minutes, reason_for_visit, is_overbooked, specialty, created_by, created_at, updated_at, ${clinicalNotesEmbed(["vitals", "chief_complaints", "clinical_notes"])}`,
         { count: "exact" }
       )
       .eq("tenant_id", session.tenantId);
@@ -79,9 +80,17 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { data: visits, count, error } = await query
+    const { data: visitRows, count, error } = await query
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
+
+    // Same response fields as before V2-05 05-02a: vitals, chief complaints and notes now come from clinical_notes.
+    const visits = (visitRows || []).map((row: any) => {
+      const { vitals, chief_complaints, clinical_notes } = withClinicalNotes(row);
+      const { [CLINICAL_NOTES_EMBED_KEY]: _notes, ...visit } = row;
+      void _notes;
+      return { ...visit, vitals, chief_complaints, clinical_notes };
+    });
 
     if (error) {
       return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
@@ -196,14 +205,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Insert into public.visits
-    const { data: newVisit, error: insertErr } = await (admin.from("visits") as any)
+    const { data: newVisitRow, error: insertErr } = await (admin.from("visits") as any)
       .insert({
         tenant_id: session.tenantId,
         patient_id,
         doctor_id,
         origin_type: originType,
         reason_for_visit: reason_for_visit || null,
-        chief_complaints: formattedComplaints,
         status: visitStatus,
         scheduled_at: scheduled_at || null,
         estimated_duration_minutes:
@@ -215,9 +223,20 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
-    if (insertErr || !newVisit) {
+    if (insertErr || !newVisitRow) {
       return apiError("DATABASE_ERROR", insertErr?.message || "Failed to create visit.", 500, undefined, rateHeaders);
     }
+
+    // 4b. The chief complaints go to the visit's clinical_notes row (created by the insert trigger; V2-05 05-02a). The
+    // response keeps its fields: the visit row with its clinical content.
+    const notesWrite = await updateClinicalNotes(admin, session.tenantId, newVisitRow.id, {
+      chief_complaints: formattedComplaints,
+    });
+    if (notesWrite.error || !notesWrite.content) {
+      log.error({ event: "api.visit_notes_create.failed", code: errorTag(notesWrite.raw ?? notesWrite.error?.code), requestId: await getRequestId() });
+      return apiError("DATABASE_ERROR", "Failed to create visit.", 500, undefined, rateHeaders);
+    }
+    const newVisit = { ...newVisitRow, ...notesWrite.content };
 
     // 5. Audit log mutation (D-08)
     try {
