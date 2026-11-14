@@ -204,3 +204,112 @@ describe("the DELETE column (final since 05-04)", () => {
     expect(outcome("public.prescription_items", "dual_no_hdr")).toBe("0");
   });
 });
+
+/**
+ * The clinical, front-desk and financial tables are on their TARGET S/I/U rules since 05-02b (000054-000056; 05-PLAN
+ * "Target policy matrix"); none may fall back to a legacy rule. 05-02c moves the remaining admin/system tables.
+ */
+const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
+  "public.patients": ["perm(patients:view)", "perm(patients:edit)", "perm(patients:edit)"],
+  "public.consent_records": ["perm(patients:view)", "perm(patients:edit)", "none"],
+  "public.visits": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
+  "public.queue_tokens": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
+  "public.waitlist_entries": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
+  "public.schedule_blocks": [
+    "perm(appointments:view)",
+    "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
+    "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
+  ],
+  "public.follow_ups": [
+    "perm(appointments:view)",
+    "(perm(appointments:edit) OR perm(consultations:edit))",
+    "(perm(appointments:edit) OR perm(consultations:edit))",
+  ],
+  "public.communication_queue": ["perm(appointments:view)", "rpc_only", "rpc_only"],
+  "public.consultation_diagnoses": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
+  "public.consultations": ["perm(consultations:view)", "perm(consultations:edit)", "perm(consultations:edit)"],
+  "public.visit_revisions": ["perm(consultations:view)", "perm(consultations:edit)", "none"],
+  "public.prescriptions": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)"],
+  "public.prescription_items": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)"],
+  "public.doctor_custom_diagnoses": [
+    "perm(consultations:view)",
+    "perm(consultations:edit) AND self(doctor_id)",
+    "perm(consultations:edit) AND self(doctor_id)",
+  ],
+  "public.doctor_custom_medicines": [
+    "perm(consultations:view)",
+    "perm(consultations:edit) AND self(doctor_id)",
+    "perm(consultations:edit) AND self(doctor_id)",
+  ],
+  "public.doctor_prescription_templates": [
+    "perm(consultations:view)",
+    "perm(consultations:edit) AND self(doctor_id)",
+    "perm(consultations:edit) AND self(doctor_id)",
+  ],
+  "public.referrals": [
+    "(perm(consultations:view) OR perm(consultations:view @target_tenant_id))",
+    "perm(consultations:edit)",
+    "(perm(consultations:edit) OR perm(consultations:edit @target_tenant_id))",
+  ],
+  "public.invoices": [
+    "(perm(billing:view) OR perm(consultations:edit) AND ownVisit)",
+    "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit)",
+    "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit)",
+  ],
+  "public.invoice_items": [
+    "(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))",
+    "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice))",
+    "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice))",
+  ],
+  "public.payments": ["(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))", "perm(billing:collect)", "none"],
+};
+
+describe("the clinical, front-desk and financial S/I/U rules (target since 05-02b)", () => {
+  const byName = new Map(TARGETS.map((t) => [targetName(t), t]));
+  const outcome = (target: string, op: "select" | "insert" | "update" | "delete", principalId: string) => {
+    const t = byName.get(target);
+    if (!t) throw new Error(`no target ${target}`);
+    return expectedOutcome(t, op, principal(principalId));
+  };
+
+  it("gives each of the 20 tables its planned SELECT / INSERT / UPDATE rule, with no legacy kind", () => {
+    const actual = Object.fromEntries(
+      Object.keys(TARGET_SIU_05_02B).map((name) => {
+        const t = byName.get(name);
+        if (!t) throw new Error(`no target ${name}`);
+        return [name, [ruleText(t.rules.select), ruleText(t.rules.insert), ruleText(t.rules.update)]];
+      }),
+    );
+    expect(actual).toEqual(TARGET_SIU_05_02B);
+    for (const name of Object.keys(TARGET_SIU_05_02B)) {
+      const t = byName.get(name)!;
+      const legacy = (["select", "insert", "update"] as const).filter((op) =>
+        kinds(t.rules[op]).some((k) => k === "legacy_member" || k === "legacy_owner_admin"),
+      );
+      expect(legacy, name).toEqual([]);
+    }
+  });
+
+  it("has the plan's example cells (05-02b 'Tests that fail without the change')", () => {
+    expect(outcome("public.patients", "insert", "receptionist_a")).toBe("ok");
+    expect(outcome("public.payments", "insert", "doctor_a")).toBe("denied");
+    expect(outcome("public.payments", "insert", "nurse_a")).toBe("denied");
+    expect(outcome("public.payments", "insert", "receptionist_a")).toBe("ok");
+    expect(outcome("public.invoices", "select", "nurse_a")).toBe("0");
+    expect(outcome("public.invoices", "select", "doctor_a")).toBe("1");
+    expect(outcome("public.invoices", "select", "doctor2_a")).toBe("0");
+    expect(outcome("public.prescriptions", "select", "receptionist_a")).toBe("0");
+    expect(outcome("public.prescriptions", "select", "nurse_a")).toBe("0");
+    expect(outcome("public.clinical_notes", "select", "admin_a")).toBe("0");
+    expect(outcome("public.consultation_diagnoses", "select", "admin_a")).toBe("0");
+    expect(outcome("public.consultation_diagnoses", "select", "receptionist_a")).toBe("0");
+  });
+
+  it("denies the dual member acting in B every one of these clinic-A rows (R-42 multi-membership leg)", () => {
+    const leaks = cells()
+      .filter((c) => c.principal.id === "dual_hdr_b" && TARGET_SIU_05_02B[targetName(c.target)] !== undefined)
+      .filter((c) => admitted(c.expected))
+      .map((c) => `${targetName(c.target)} ${c.op}`);
+    expect(leaks).toEqual([]);
+  });
+});
