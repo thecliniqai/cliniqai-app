@@ -765,7 +765,7 @@ export const TARGETS: readonly Target[] = [
       title: "'Synthetic'",
       message: "'Synthetic'",
     },
-    update: "title",
+    update: "is_read",
     rules: {
       select: all(self("recipient_user_id"), full),
       insert: rpcOnly,
@@ -774,7 +774,8 @@ export const TARGETS: readonly Target[] = [
     },
     note:
       "05-02c (T-05-11): a notice addressed to a user is theirs alone (the fixture); unaddressed notices go to their " +
-      "role or everyone in the active clinic (admin_policies.test.sql); no user-client writer",
+      "role or everyone in the active clinic (admin_policies.test.sql); no user-client writer; UPDATE only of is_read/read_at " +
+      "(05-11b M-NOTICE, api_keys_notices_columns.test.sql)",
   },
   {
     kind: "table",
@@ -811,9 +812,12 @@ export const TARGETS: readonly Target[] = [
       key_hash: "repeat('b', 64)",
       created_by: U.ownerA,
     },
-    insert: { id: q(FX.row(45)), tenant_id: A, name: "'Synthetic key 2'", key_prefix: "'authz'", key_hash: "repeat('c', 64)", created_by: U.ownerA },
+    insert: { id: q(FX.row(45)), tenant_id: A, name: "'Synthetic key 2'", key_prefix: "'authz'", key_hash: "repeat('c', 64)", created_by: "auth.uid()" },
     update: "name",
-    rules: clinicManage,
+    rules: { select: perm("clinic:manage"), insert: perm("clinic:manage"), update: perm("clinic:manage"), delete: rpcOnly },
+    note:
+      "05-11b M-APIKEY: created_by is the caller; members update only name and revoked_at (never cleared); keys are " +
+      "revoked, never deleted (audit attribution survives); api_keys_notices_columns.test.sql",
   },
   {
     kind: "table",

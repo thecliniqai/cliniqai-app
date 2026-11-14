@@ -10,6 +10,8 @@
 --   5. `tenants.referral_directory_listed` (default false) is set through the clinic:manage UPDATE policy;
 --   6. `api_keys.scopes` is a closed set (exports:create), default empty; adding a scope needs its permission in the
 --      key's active clinic (000067 `api_keys_scope_guard`: an admin cannot give a key exports:create, ruling 01-09).
+--      Since 000073 (05-11b, M-APIKEY) members update only a key's name and revocation: scopes are set at creation
+--      (guarded) or by a system writer.
 -- Every probe runs in a subtransaction that is always rolled back; the file rolls back. Synthetic data only.
 begin;
 select plan(48);
@@ -265,16 +267,16 @@ select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000102', null,
   '1', 'an admin still creates an unscoped key');
 select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000102', null,
   $$update public.api_keys set scopes = array['exports:create'] where id = 'e0600000-0000-4000-8000-000000003002'$$),
-  'denied:API_KEY_SCOPE_FORBIDDEN', 'an admin cannot add the scope to a key');
+  'denied:permission denied for table api_keys', 'an admin cannot add the scope to a key (no UPDATE on scopes since 000073)');
 select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000102', null,
   $$update public.api_keys set scopes = '{}' where id = 'e0600000-0000-4000-8000-000000003001'$$),
-  '1', 'an admin may remove the scope');
+  'denied:permission denied for table api_keys', 'nor remove it (000073: scopes are not member-updatable)');
 select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000102', null,
-  $$update public.api_keys set name = 'Renamed', scopes = scopes where id = 'e0600000-0000-4000-8000-000000003001'$$),
-  '1', 'an admin may edit a scoped key without adding a scope');
+  $$update public.api_keys set name = 'Renamed' where id = 'e0600000-0000-4000-8000-000000003001'$$),
+  '1', 'an admin may rename a scoped key');
 select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000101', null,
   $$update public.api_keys set scopes = array['exports:create'] where id = 'e0600000-0000-4000-8000-000000003002'$$),
-  '1', 'the owner adds the scope');
+  'denied:permission denied for table api_keys', 'the owner creates scoped keys but does not add scopes to existing ones (000073)');
 select is(pg_temp.try($$update public.api_keys set scopes = array['exports:create'] where id = 'e0600000-0000-4000-8000-000000003002'$$),
   'ok', 'a system writer (no JWT user: the runbook path) is not limited');
 

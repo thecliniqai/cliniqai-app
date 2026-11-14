@@ -174,7 +174,7 @@ select set_eq(
 -- 2. The DELETE policy catalogue ----------------------------------------------------------------------------------
 select set_eq(
   $$select tablename::text, policyname::text from pg_policies where schemaname = 'public' and cmd in ('DELETE', 'ALL')$$,
-  $$values ('api_key_usage_daily', 'api_key_usage_daily_delete'), ('api_keys', 'api_keys_delete'),
+  $$values ('api_key_usage_daily', 'api_key_usage_daily_delete'),
            ('consultation_diagnoses', 'consultation_diagnoses_delete'),
            ('doctor_custom_diagnoses', 'doctor_custom_diagnoses_delete'),
            ('doctor_custom_medicines', 'doctor_custom_medicines_delete'),

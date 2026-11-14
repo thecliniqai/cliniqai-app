@@ -155,7 +155,7 @@ const FINAL_DELETE: Record<string, string> = {
   "public.in_app_notifications": "self(recipient_user_id) AND full",
   "public.tenant_messaging_config": "rpc_only",
   "public.audit_logs": "rpc_only",
-  "public.api_keys": "perm(clinic:manage)",
+  "public.api_keys": "rpc_only", // 05-11b M-APIKEY: keys are revoked, never deleted
   "public.api_key_usage_daily": "perm(clinic:manage)",
   "public.webhook_subscriptions": "perm(clinic:manage)",
   "public.webhook_delivery_queue": "rpc_only",
@@ -337,7 +337,7 @@ const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
   ],
   "public.tenant_messaging_config": ["perm(clinic:view)", "perm(clinic:manage)", "perm(clinic:manage)", "rpc_only"],
   "public.audit_logs": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
-  "public.api_keys": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
+  "public.api_keys": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "rpc_only"],
   "public.api_key_usage_daily": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
   "public.webhook_subscriptions": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
   "public.webhook_delivery_queue": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
