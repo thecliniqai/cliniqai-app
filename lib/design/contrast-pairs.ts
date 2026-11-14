@@ -228,4 +228,12 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   { group: "06-02a primitives", fg: "--color-border-control", bg: "--color-canvas", min: 3, note: "switch off track" },
   { group: "06-02a primitives", fg: "--color-accent", bg: "--color-canvas", min: 3, note: "switch on track, checked box" },
   { group: "06-02a primitives", fg: "--color-fg-muted", bg: "--color-surface-soft", min: 4.5, note: "Kbd" },
+  // 06-02b overlays: the pairs menus, tooltips, toasts and the command list draw (06-UI-SPEC "06-02b Overlays").
+  { group: "06-02b overlays", fg: "--color-surface", bg: "--color-fg", min: 4.5, note: "tooltip and toast text on Midnight" },
+  { group: "06-02b overlays", fg: "--color-fg", bg: "--color-surface-muted", min: 4.5, note: "highlighted menu row" },
+  { group: "06-02b overlays", fg: "--color-danger-fg", bg: "--color-surface-muted", min: 4.5, note: "highlighted destructive menu row" },
+  { group: "06-02b overlays", fg: "--color-fg-icon", bg: "--color-surface-muted", min: 3, note: "menu row icon, highlighted" },
+  { group: "06-02b overlays", fg: "--color-fg", bg: "--color-selected", min: 4.5, note: "active command option" },
+  { group: "06-02b overlays", fg: "--color-accent", bg: "--color-selected", min: 3, note: "active option's 2 px inset bar" },
+  { group: "06-02b overlays", fg: "--color-border-strong", bg: "--color-surface", min: 1, note: "drawer handle (decorative, aria-hidden)" },
 ];
