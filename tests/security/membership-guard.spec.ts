@@ -343,7 +343,6 @@ describe("P0-02 membership guard (000019)", () => {
     it("a tenant-A owner cannot call the generators or drug search for tenant B", async () => {
       const calls: Array<[string, Record<string, unknown>]> = [
         ["generate_tenant_invoice_number", { p_tenant_id: ownerB.tenantId }],
-        ["generate_daily_queue_token", { p_tenant_id: ownerB.tenantId, p_date: "2026-11-12" }],
         [
           "search_medicines",
           { p_query: "Dolo", p_doctor_id: ownerB.userId, p_tenant_id: ownerB.tenantId, p_limit: 5 },
@@ -371,13 +370,6 @@ describe("P0-02 membership guard (000019)", () => {
       expect(inv.error).toBeNull();
       expect(inv.data).toMatch(/^INV-\d{4}-\d{5}$/);
 
-      const q = await rpc(owner.client, "generate_daily_queue_token", {
-        p_tenant_id: owner.tenantId,
-        p_date: "2026-11-12",
-      });
-      expect(q.error).toBeNull();
-      expect(q.data).toBe(1);
-
       const s = await rpc(owner.client, "search_medicines", {
         p_query: "Dolo",
         p_doctor_id: owner.userId,
@@ -394,11 +386,11 @@ describe("P0-02 membership guard (000019)", () => {
       });
       const calls: Array<[string, Record<string, unknown>]> = [
         ["generate_tenant_invoice_number", { p_tenant_id: owner.tenantId }],
-        ["generate_daily_queue_token", { p_tenant_id: owner.tenantId, p_date: "2026-11-12" }],
+        // issue_queue_token replaced generate_daily_queue_token (05-11a); 05-b0 dropped the old generator and the
+        // legacy current_user_has_role / current_user_is_admin_or_owner helpers (contract_05a.test.sql).
+        ["issue_queue_token", { p_visit_id: randomUUID(), p_priority: "normal" }],
         ["search_medicines", { p_query: "x", p_doctor_id: owner.userId, p_tenant_id: owner.tenantId, p_limit: 1 }],
         ["current_user_tenant_ids", {}],
-        ["current_user_is_admin_or_owner", { p_tenant_id: owner.tenantId }],
-        ["current_user_has_role", { p_tenant_id: owner.tenantId, p_roles: ["owner"] }],
         ["change_member_role", { p_membership_id: randomUUID(), p_role: "owner" }],
         ["consume_invitation", { p_token_hash: "0".repeat(64) }],
         ["create_clinic_with_owner", { p_name: "Anon Clinic" }],

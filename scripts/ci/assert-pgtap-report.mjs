@@ -30,8 +30,11 @@
  *          + 05-11b invitation_binding 14, billing_rpc_only 25, api_keys_notices_columns 26, actor_bindings_audit 34
  *          + 05-11d reverify_integrity 61 + 05-11e amendment_snapshot 60 + 05a close signed_visit_fields 26
  *          = 3343. The floor is the measured total (not 95 %): one dropped test, or one dropped file, fails the gate.
- * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); 05b appends its files at
- * the 05b close.
+ *   3355 — V2-05 05b 05-b0 (000079 contract_05a): 3343 − 6 definer_functions legs of the three dropped functions
+ *          (generate_daily_queue_token, current_user_has_role, current_user_is_admin_or_owner; 40 → 34)
+ *          + contract_05a 18 = 3355 (32 files).
+ * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
+ * files and raises the floor in the same commit (05b execution rule).
  *
  * Usage: node scripts/ci/assert-pgtap-report.mjs <report.tap> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -41,7 +44,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 3343;
+export const FLOOR = 3355;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -90,6 +93,9 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/amendment_snapshot.test.sql",
   // 05a gate close (000078)
   "supabase/tests/database/signed_visit_fields.test.sql",
+  // V2-05 05b, per plan.
+  // 05-b0
+  "supabase/tests/database/contract_05a.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

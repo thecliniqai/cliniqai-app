@@ -2182,16 +2182,12 @@ export type Database = {
       };
       visits: {
         Row: {
-          advice: string[] | null;
-          chief_complaints: Json | null;
-          clinical_notes: string | null;
           created_at: string;
           created_by: string;
           current_revision: number;
           doctor_id: string;
           estimated_duration_minutes: number;
           id: string;
-          investigations_advised: string[] | null;
           is_overbooked: boolean;
           metadata: NonNullable<Json>;
           origin_type: string;
@@ -2201,24 +2197,18 @@ export type Database = {
           signed_at: string | null;
           signed_by: string | null;
           specialty: string;
-          specialty_data: Json | null;
           status: string;
           tenant_id: string;
           updated_at: string;
-          vitals: Json | null;
         };
         ComputedFields: never;
         Insert: {
-          advice?: string[] | null;
-          chief_complaints?: Json | null;
-          clinical_notes?: string | null;
           created_at?: string;
           created_by: string;
           current_revision?: number;
           doctor_id: string;
           estimated_duration_minutes?: number;
           id?: string;
-          investigations_advised?: string[] | null;
           is_overbooked?: boolean;
           metadata?: NonNullable<Json>;
           origin_type: string;
@@ -2228,23 +2218,17 @@ export type Database = {
           signed_at?: string | null;
           signed_by?: string | null;
           specialty?: string;
-          specialty_data?: Json | null;
           status?: string;
           tenant_id: string;
           updated_at?: string;
-          vitals?: Json | null;
         };
         Update: {
-          advice?: string[] | null;
-          chief_complaints?: Json | null;
-          clinical_notes?: string | null;
           created_at?: string;
           created_by?: string;
           current_revision?: number;
           doctor_id?: string;
           estimated_duration_minutes?: number;
           id?: string;
-          investigations_advised?: string[] | null;
           is_overbooked?: boolean;
           metadata?: NonNullable<Json>;
           origin_type?: string;
@@ -2254,11 +2238,9 @@ export type Database = {
           signed_at?: string | null;
           signed_by?: string | null;
           specialty?: string;
-          specialty_data?: Json | null;
           status?: string;
           tenant_id?: string;
           updated_at?: string;
-          vitals?: Json | null;
         };
         Relationships: [
           {
@@ -2614,14 +2596,6 @@ export type Database = {
           token: string;
         }[];
       };
-      current_user_has_role: {
-        Args: { p_roles: string[]; p_tenant_id: string };
-        Returns: boolean;
-      };
-      current_user_is_admin_or_owner: {
-        Args: { p_tenant_id: string };
-        Returns: boolean;
-      };
       current_user_tenant_ids: {
         Args: Record<PropertyKey, never>;
         Returns: string[];
@@ -2704,10 +2678,6 @@ export type Database = {
           p_retryable: boolean;
         };
         Returns: string;
-      };
-      generate_daily_queue_token: {
-        Args: { p_date: string; p_tenant_id: string };
-        Returns: number;
       };
       generate_tenant_invoice_number: {
         Args: { p_tenant_id: string };

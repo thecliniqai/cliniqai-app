@@ -548,16 +548,12 @@ column public.visit_revisions.revision_number integer not_null=t default=- ident
 column public.visit_revisions.snapshot jsonb not_null=t default=- identity=- generated=-
 column public.visit_revisions.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.visit_revisions.visit_id uuid not_null=t default=- identity=- generated=-
-column public.visits.advice text[] not_null=f default='{}'::text[] identity=- generated=-
-column public.visits.chief_complaints jsonb not_null=f default='[]'::jsonb identity=- generated=-
-column public.visits.clinical_notes text not_null=f default=- identity=- generated=-
 column public.visits.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.visits.created_by uuid not_null=t default=- identity=- generated=-
 column public.visits.current_revision integer not_null=t default=1 identity=- generated=-
 column public.visits.doctor_id uuid not_null=t default=- identity=- generated=-
 column public.visits.estimated_duration_minutes integer not_null=t default=15 identity=- generated=-
 column public.visits.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
-column public.visits.investigations_advised text[] not_null=f default='{}'::text[] identity=- generated=-
 column public.visits.is_overbooked boolean not_null=t default=false identity=- generated=-
 column public.visits.metadata jsonb not_null=t default='{}'::jsonb identity=- generated=-
 column public.visits.origin_type text not_null=t default=- identity=- generated=-
@@ -567,11 +563,9 @@ column public.visits.scheduled_at timestamp with time zone not_null=f default=- 
 column public.visits.signed_at timestamp with time zone not_null=f default=- identity=- generated=-
 column public.visits.signed_by uuid not_null=f default=- identity=- generated=-
 column public.visits.specialty text not_null=t default='general_physician'::text identity=- generated=-
-column public.visits.specialty_data jsonb not_null=f default='{}'::jsonb identity=- generated=-
 column public.visits.status text not_null=t default='booked'::text identity=- generated=-
 column public.visits.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.visits.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
-column public.visits.vitals jsonb not_null=f default='{}'::jsonb identity=- generated=-
 column public.waitlist_entries.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.waitlist_entries.created_by uuid not_null=t default=- identity=- generated=-
 column public.waitlist_entries.doctor_id uuid not_null=f default=- identity=- generated=-
@@ -785,7 +779,7 @@ constraint public.follow_ups.follow_ups_tenant_id_fkey FOREIGN KEY (tenant_id) R
 constraint public.follow_ups.follow_ups_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
 constraint public.follow_ups.follow_ups_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)
 constraint public.in_app_notifications.in_app_notifications_category_check CHECK ((category = ANY (ARRAY['clinical'::text, 'queue'::text, 'billing'::text, 'system'::text])))
-constraint public.in_app_notifications.in_app_notifications_link_url_relative CHECK (((link_url IS NULL) OR (link_url ~ '^/([^/\\[:cntrl:][:space:]][^[:cntrl:][:space:]]*)?$'::text))) NOT VALID
+constraint public.in_app_notifications.in_app_notifications_link_url_relative CHECK (((link_url IS NULL) OR (link_url ~ '^/([^/\\[:cntrl:][:space:]][^[:cntrl:][:space:]]*)?$'::text)))
 constraint public.in_app_notifications.in_app_notifications_pkey PRIMARY KEY (id)
 constraint public.in_app_notifications.in_app_notifications_recipient_role_check CHECK ((recipient_role = ANY (ARRAY['doctor'::text, 'receptionist'::text, 'admin'::text, 'owner'::text, 'nurse'::text])))
 constraint public.in_app_notifications.in_app_notifications_recipient_user_id_fkey FOREIGN KEY (recipient_user_id) REFERENCES auth.users(id) ON DELETE CASCADE
@@ -899,7 +893,6 @@ constraint public.visit_revisions.visit_revisions_amended_by_fkey FOREIGN KEY (a
 constraint public.visit_revisions.visit_revisions_pkey PRIMARY KEY (id)
 constraint public.visit_revisions.visit_revisions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.visit_revisions.visit_revisions_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
-constraint public.visits.visits_clinical_content_moved CHECK ((((vitals IS NULL) OR (vitals = '{}'::jsonb)) AND ((chief_complaints IS NULL) OR (chief_complaints = '[]'::jsonb)) AND (clinical_notes IS NULL) AND ((specialty_data IS NULL) OR (specialty_data = '{}'::jsonb)) AND ((investigations_advised IS NULL) OR (investigations_advised = '{}'::text[])) AND ((advice IS NULL) OR (advice = '{}'::text[]))))
 constraint public.visits.visits_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 constraint public.visits.visits_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
 constraint public.visits.visits_duration_range CHECK (((estimated_duration_minutes >= 5) AND (estimated_duration_minutes <= 480)))
@@ -1079,8 +1072,6 @@ function public.consume_reschedule_token(p_token text, p_new_at timestamp with t
 function public.create_clinic_with_owner(p_name text) returns uuid lang=plpgsql security_definer=t volatility=v config=search_path=public, pg_temp body_md5=79edd5983ec8e22efe0672f12bb168a6
 function public.create_reschedule_token(p_visit_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=e1b7a0d65ed910109d7ac2f27d5ed901
 function public.create_share_token(p_resource_type text, p_resource_id uuid) returns TABLE(token text, expires_at timestamp with time zone) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=5a55786a2434b4ad75cf1656650f04d3
-function public.current_user_has_role(p_tenant_id uuid, p_roles text[]) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=96cfc6dc53b1a47db14ec2fe20e2a4f1
-function public.current_user_is_admin_or_owner(p_tenant_id uuid) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=4847e0b72d4d5d9b3e658638ce2ed697
 function public.current_user_tenant_ids() returns SETOF uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=28e76ed00248e93c3f6838260fc44d28
 function public.defer_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=588bfd998e2106774df3635ecc72a1b3
 function public.enqueue_message(p_tenant_id uuid, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=5e04c416b7055986c2f2b5e190c7ef5a
@@ -1089,7 +1080,6 @@ function public.enqueue_unmatched_reply_system(p_system_actor text, p_to text, p
 function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_subject_id uuid, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=3c0449ce352d6d267f1f9d9e3004e770
 function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=9f64efd50a5521effcf80061d1428ae7
 function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b4be2145ebfab4c5c7a731763c7314c3
-function public.generate_daily_queue_token(p_tenant_id uuid, p_date date) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=15142a878438b75048d1477b4b82cada
 function public.generate_tenant_invoice_number(p_tenant_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ce8c24338edcc5187bb52527bab05206
 function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=afb9de521bf3ac8044f6e3c001869559
 function public.get_tenant_table_rls_policies() returns TABLE(table_name text, rls_enabled boolean, policy_name text, roles text[], cmd text, qual text, with_check text) lang=sql security_definer=t volatility=v config=search_path=public, pg_catalog, pg_temp body_md5=5693109bf28e5720a7b582d33270fc6b
@@ -1203,10 +1193,6 @@ grant function public.create_clinic_with_owner(p_name text) EXECUTE to service_r
 grant function public.create_reschedule_token(p_visit_id uuid) EXECUTE to service_role
 grant function public.create_share_token(p_resource_type text, p_resource_id uuid) EXECUTE to authenticated
 grant function public.create_share_token(p_resource_type text, p_resource_id uuid) EXECUTE to service_role
-grant function public.current_user_has_role(p_tenant_id uuid, p_roles text[]) EXECUTE to authenticated
-grant function public.current_user_has_role(p_tenant_id uuid, p_roles text[]) EXECUTE to service_role
-grant function public.current_user_is_admin_or_owner(p_tenant_id uuid) EXECUTE to authenticated
-grant function public.current_user_is_admin_or_owner(p_tenant_id uuid) EXECUTE to service_role
 grant function public.current_user_tenant_ids() EXECUTE to authenticated
 grant function public.current_user_tenant_ids() EXECUTE to service_role
 grant function public.defer_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retry_at timestamp with time zone) EXECUTE to service_role
@@ -1216,8 +1202,6 @@ grant function public.enqueue_unmatched_reply_system(p_system_actor text, p_to t
 grant function public.enqueue_webhook_event(p_tenant_id uuid, p_event_type text, p_subject_id uuid, p_subscription_id uuid) EXECUTE to authenticated
 grant function public.enqueue_webhook_event_system(p_system_actor text, p_event_type text, p_subject_id uuid) EXECUTE to service_role
 grant function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) EXECUTE to service_role
-grant function public.generate_daily_queue_token(p_tenant_id uuid, p_date date) EXECUTE to authenticated
-grant function public.generate_daily_queue_token(p_tenant_id uuid, p_date date) EXECUTE to service_role
 grant function public.generate_tenant_invoice_number(p_tenant_id uuid) EXECUTE to authenticated
 grant function public.generate_tenant_invoice_number(p_tenant_id uuid) EXECUTE to service_role
 grant function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) EXECUTE to anon
