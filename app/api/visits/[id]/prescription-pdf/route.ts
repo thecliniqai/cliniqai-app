@@ -14,9 +14,10 @@ export async function GET(
   try {
     const { id: visitId } = await params;
 
-    // 1-2. Authenticate, check the same permission as the in-app prescription preview (getPrescriptionPdfSignedUrl)
+    // 1-2. Authenticate, check the same permission as the in-app prescription preview (getPrescriptionPdfSignedUrl;
+    // prescriptions:view since V2-05 05-02b, the prescriptions RLS key: nurses, admins and the front desk do not read Rx)
     // and resolve the tenant membership server-side (session only, never caller input) — V2-01 F3
-    const resolved = await resolveServiceContext("consultations:view");
+    const resolved = await resolveServiceContext("prescriptions:view");
     if (!resolved.ok) {
       if (resolved.reason === "unauthenticated") {
         return new NextResponse("Unauthorized", { status: 401 });

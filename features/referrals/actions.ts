@@ -9,6 +9,9 @@ import { ReferralItem, CreateReferralInput, CloseReferralLoopInput } from "./typ
 // Each action authenticates and checks permission before it reads any input and derives the tenant and actor from
 // the session (ADR-0005 D1), then delegates to the server-only service. Actions that threw on an authentication or
 // permission failure still throw; the others return their existing failure shape.
+// V2-05 05-02b: referrals are clinical (target matrix: consultations:view / consultations:edit, both clinics); the
+// writes and the letter reads use those keys, the register lists stay patients:view (RLS returns only what the role
+// may read, so a front-desk register is simply empty).
 
 function revalidate(path: string, type?: "page") {
   try {
@@ -24,7 +27,7 @@ function revalidate(path: string, type?: "page") {
 export async function createReferral(
   input: CreateReferralInput
 ): Promise<{ success: boolean; referral?: Referral; signedUrl?: string; error?: string }> {
-  const ctx = await requireServiceContext("patients:edit");
+  const ctx = await requireServiceContext("consultations:edit");
   const result = await referralsService.createReferral(ctx, input);
   if (result.success) {
     revalidate("/referrals");
@@ -53,7 +56,7 @@ export async function getInboundReferrals(): Promise<{ success: boolean; referra
  * Marks an inbound referral as acknowledged by the receiving clinic.
  */
 export async function acknowledgeReferral(referralId: string): Promise<{ success: boolean; error?: string }> {
-  const ctx = await requireServiceContext("patients:edit");
+  const ctx = await requireServiceContext("consultations:edit");
   const result = await referralsService.acknowledgeReferral(ctx, referralId);
   if (result.success) revalidate("/referrals");
   return result;
@@ -63,7 +66,7 @@ export async function acknowledgeReferral(referralId: string): Promise<{ success
  * Closes the referral loop with the receiving clinic's notes.
  */
 export async function closeReferralLoop(input: CloseReferralLoopInput): Promise<{ success: boolean; error?: string }> {
-  const ctx = await requireServiceContext("patients:edit");
+  const ctx = await requireServiceContext("consultations:edit");
   const result = await referralsService.closeReferralLoop(ctx, input);
   if (result.success) {
     revalidate("/referrals");
@@ -78,7 +81,7 @@ export async function closeReferralLoop(input: CloseReferralLoopInput): Promise<
 export async function getReferralSignedUrl(
   referralId: string
 ): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
-  const ctx = await requireServiceContext("patients:view");
+  const ctx = await requireServiceContext("consultations:view");
   return referralsService.getReferralSignedUrl(ctx, referralId);
 }
 
@@ -98,7 +101,7 @@ export async function getPatientReferrals(
 export async function shareReferralLetterViaWhatsApp(
   referralId: string
 ): Promise<{ success: boolean; shareUrl?: string; token?: string; error?: string }> {
-  const resolved = await resolveServiceContext("patients:view");
+  const resolved = await resolveServiceContext("consultations:view");
   if (!resolved.ok) return { success: false, error: resolved.error };
   return referralsService.shareReferralLetterViaWhatsApp(resolved.ctx, referralId);
 }

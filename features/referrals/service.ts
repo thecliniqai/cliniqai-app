@@ -40,7 +40,7 @@ export async function createReferral(
   }
 
   const supabase = ctx.db;
-  assertPerm(ctx.role, "patients:edit");
+  assertPerm(ctx.role, "consultations:edit");
   const session = ctx;
 
   try {
@@ -377,7 +377,7 @@ export async function acknowledgeReferral(
   }
 
   const supabase = ctx.db;
-  assertPerm(ctx.role, "patients:edit");
+  assertPerm(ctx.role, "consultations:edit");
   const session = ctx;
 
   try {
@@ -431,7 +431,7 @@ export async function closeReferralLoop(
   }
 
   const supabase = ctx.db;
-  assertPerm(ctx.role, "patients:edit");
+  assertPerm(ctx.role, "consultations:edit");
   const session = ctx;
 
   try {
@@ -481,7 +481,7 @@ export async function getReferralSignedUrl(
   referralId: string
 ): Promise<{ success: boolean; signedUrl?: string; error?: string }> {
   const supabase = ctx.db;
-  assertPerm(ctx.role, "patients:view");
+  assertPerm(ctx.role, "consultations:view");
   const session = ctx;
 
   try {
@@ -566,7 +566,7 @@ export async function shareReferralLetterViaWhatsApp(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "patients:view");
+    assertPerm(ctx.role, "consultations:view");
     const session = ctx;
 
     // 1. Fetch referral record joined with patient and tenant

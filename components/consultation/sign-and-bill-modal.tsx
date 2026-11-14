@@ -35,6 +35,12 @@ interface SignAndBillModalProps {
   medicinesCount: number;
   followUpDate?: string | null;
   defaultFee?: number;
+  /**
+   * PO-3 (V2-05 05-02b): the signed-in user holds `billing:collect` (the owner of a solo clinic). Without it the
+   * "collect at the desk" option is not offered and the bill is routed to reception; the server refuses a collection
+   * from anyone else regardless (completeAndBillConsultation), so this only shapes the form.
+   */
+  canCollect?: boolean;
   onSaveDraftBeforeSign: () => Promise<{ success: boolean; error?: string } | void> | void;
 }
 
@@ -48,6 +54,7 @@ export function SignAndBillModal({
   medicinesCount,
   followUpDate,
   defaultFee = 500,
+  canCollect = false,
   onSaveDraftBeforeSign,
 }: SignAndBillModalProps) {
   const router = useRouter();
@@ -55,7 +62,8 @@ export function SignAndBillModal({
 
   const [consultationFee, setConsultationFee] = useState<number>(defaultFee);
   const [discount, setDiscount] = useState<number>(0);
-  const [paymentCollected, setPaymentCollected] = useState<boolean>(true);
+  const [paymentCollected, setPaymentCollected] = useState<boolean>(canCollect);
+  const collecting = canCollect && paymentCollected;
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "card">("cash");
   const [referenceNumber, setReferenceNumber] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +88,7 @@ export function SignAndBillModal({
 
   useEffect(() => {
     if (isOpen) {
+      setPaymentCollected(canCollect);
       setCompletedResult(null);
       setError(null);
       setRxWaStatus("idle");
@@ -87,7 +96,7 @@ export function SignAndBillModal({
       setInvWaStatus("idle");
       setInvWaError(null);
     }
-  }, [isOpen]);
+  }, [isOpen, canCollect]);
 
   const handleSendPrescriptionWhatsApp = async () => {
     if (!completedResult?.visitId || isSendingRxWa) return;
@@ -153,7 +162,7 @@ export function SignAndBillModal({
           consultation_fee: consultationFee,
           additional_items: [],
           discount: discount,
-          payment_collected: paymentCollected,
+          payment_collected: collecting,
           payment_method: paymentMethod,
           reference_number: referenceNumber.trim() || undefined,
         });
@@ -546,7 +555,21 @@ export function SignAndBillModal({
                   <span className="text-lg font-bold text-gray-900">₹{totalPayable}</span>
                 </div>
 
-                {/* Payment Collection Toggle */}
+                {/* Payment Collection Toggle (collectors only, PO-3); everyone else routes the bill to reception */}
+                {!canCollect ? (
+                  <div
+                    role="note"
+                    className="p-3.5 rounded-xl border border-gray-200 bg-white flex items-start gap-2.5"
+                  >
+                    <Receipt className="w-4 h-4 text-gray-500 shrink-0 mt-0.5" aria-hidden="true" />
+                    <div>
+                      <span className="text-xs font-semibold text-gray-900 block">Payment at reception</span>
+                      <span className="text-[11px] text-gray-600">
+                        The bill is sent to the front desk; the patient pays at reception.
+                      </span>
+                    </div>
+                  </div>
+                ) : (
                 <div className="p-3.5 rounded-xl border border-gray-200 bg-white space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -632,6 +655,7 @@ export function SignAndBillModal({
                     </div>
                   )}
                 </div>
+                )}
               </div>
 
               {/* Action Footer */}
@@ -655,7 +679,7 @@ export function SignAndBillModal({
                   <span>
                     {isPending
                       ? "Finalizing..."
-                      : paymentCollected
+                      : collecting
                       ? `Sign & Collect ₹${totalPayable}`
                       : "Sign & Route to Reception"}
                   </span>

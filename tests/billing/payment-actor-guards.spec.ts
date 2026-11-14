@@ -19,6 +19,9 @@ import { psqlSession } from "../helpers/sql";
 let admin: TestDb;
 let owner: SeededTenant;
 let nurse: SeededTenant;
+// PO-3 (V2-05 05-02b): only billing:collect holders write payments; the H-PAY and savepoint cases run as the front desk
+// (they were the nurse's while every member could collect). The audit cases below keep the nurse.
+let collector: SeededTenant;
 let other: SeededTenant; // a member of another clinic only (the reviewer's u2)
 
 async function seedInvoice(t: SeededTenant, total: number): Promise<string> {
@@ -59,6 +62,7 @@ beforeAll(async () => {
   admin = getAdminClient();
   owner = await seedTenantWithOwner("Guard Clinic A");
   nurse = await addMemberToTenant(owner.tenantId, "nurse");
+  collector = await addMemberToTenant(owner.tenantId, "receptionist");
   other = await seedTenantWithOwner("Guard Clinic C");
   await insertReturningId(admin, "webhook_subscriptions", {
     tenant_id: owner.tenantId,
@@ -71,9 +75,9 @@ beforeAll(async () => {
 });
 
 describe("H-PAY: direct payments INSERT through PostgREST", () => {
-  it("a nurse naming another user in recorded_by is stored as the nurse (actor forced to auth.uid())", async () => {
+  it("a receptionist naming another user in recorded_by is stored as the receptionist (actor forced to auth.uid())", async () => {
     const invoiceId = await seedInvoice(owner, 100);
-    const { error } = await nurse.client.from("payments").insert({
+    const { error } = await collector.client.from("payments").insert({
       tenant_id: owner.tenantId,
       invoice_id: invoiceId,
       amount: 1,
@@ -82,13 +86,13 @@ describe("H-PAY: direct payments INSERT through PostgREST", () => {
     });
     expect(error).toBeNull();
     const rows = await paymentsOf(invoiceId);
-    expect(rows.map((r) => [r.recorded_by, r.recorded_by_system])).toEqual([[nurse.userId, null]]);
+    expect(rows.map((r) => [r.recorded_by, r.recorded_by_system])).toEqual([[collector.userId, null]]);
   });
 
   it("the reviewer's forged command: a direct insert carrying a command id is refused, and the RPC then does not replay it", async () => {
     const invoiceId = await seedInvoice(owner, 100);
     const commandId = randomUUID();
-    const { error } = await nurse.client.from("payments").insert({
+    const { error } = await collector.client.from("payments").insert({
       tenant_id: owner.tenantId,
       invoice_id: invoiceId,
       amount: 99999,
@@ -100,7 +104,7 @@ describe("H-PAY: direct payments INSERT through PostgREST", () => {
     expect(error?.message).toBe("COMMAND_ID_RPC_ONLY");
     expect(await paymentsOf(invoiceId)).toEqual([]);
 
-    const replay = await nurse.client.rpc("record_payment", {
+    const replay = await collector.client.rpc("record_payment", {
       p_tenant_id: owner.tenantId,
       p_invoice_id: invoiceId,
       p_amount: 99999,
@@ -125,7 +129,7 @@ describe("H-PAY: direct payments INSERT through PostgREST", () => {
       recorded_by: owner.userId,
       command_id: commandId,
     });
-    const { data, error } = await nurse.client.rpc("record_payment", {
+    const { data, error } = await collector.client.rpc("record_payment", {
       p_tenant_id: owner.tenantId,
       p_invoice_id: invoiceId,
       p_amount: 40,
@@ -159,21 +163,21 @@ describe("H-PAY: direct payments INSERT through PostgREST", () => {
       p_reference: "",
       p_command_id: randomUUID(),
     };
-    const first = await nurse.client.rpc("record_payment", args);
+    const first = await collector.client.rpc("record_payment", args);
     expect(first.error).toBeNull();
-    const second = await nurse.client.rpc("record_payment", args);
+    const second = await collector.client.rpc("record_payment", args);
     expect(second.error).toBeNull();
     expect((second.data as { replayed: boolean; payment_id: string }).replayed).toBe(true);
     expect((second.data as { payment_id: string }).payment_id).toBe((first.data as { payment_id: string }).payment_id);
     const rows = await paymentsOf(invoiceId);
-    expect(rows.map((r) => [r.recorded_by, r.command_id])).toEqual([[nurse.userId, args.p_command_id]]);
+    expect(rows.map((r) => [r.recorded_by, r.command_id])).toEqual([[collector.userId, args.p_command_id]]);
   });
 });
 
 describe("Low: record_payment inside a savepoint (outbox subject check)", () => {
   it("succeeds inside SAVEPOINT and writes its outbox row; the marker does not outlive the call", async () => {
     const invoiceId = await seedInvoice(owner, 100);
-    const claims = JSON.stringify({ sub: nurse.userId, role: "authenticated" });
+    const claims = JSON.stringify({ sub: collector.userId, role: "authenticated" });
     const out = psqlSession([
       "begin",
       "set local role authenticated",
@@ -190,7 +194,7 @@ describe("Low: record_payment inside a savepoint (outbox subject check)", () => 
   });
 
   it("succeeds inside a plpgsql exception block", () => {
-    const claims = JSON.stringify({ sub: nurse.userId, role: "authenticated" });
+    const claims = JSON.stringify({ sub: collector.userId, role: "authenticated" });
     return seedInvoice(owner, 50).then((invoiceId) => {
       const out = psqlSession([
         "begin",

@@ -545,7 +545,7 @@ export async function getPrescriptionPdfSignedUrl(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "consultations:view");
+    assertPerm(ctx.role, "prescriptions:view");
 
     // 1. Fetch prescription record
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -705,7 +705,7 @@ export async function sharePrescriptionViaWhatsApp(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "consultations:view");
+    assertPerm(ctx.role, "prescriptions:view");
 
     // 1. Fetch prescription record joined with patient and tenant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

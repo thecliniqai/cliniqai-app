@@ -25,6 +25,7 @@ import {
 import { getAdminClient } from "../helpers/supabase-admin";
 import { insertReturningId, type TestDb } from "../helpers/db";
 import { ctxFor } from "../helpers/context";
+import { signInActingIn } from "../helpers/active-tenant";
 import { psql, psqlAsync } from "../helpers/sql";
 
 const RPC_SIGNATURE = "public.record_payment(uuid, uuid, numeric, text, text, uuid, text, text)";
@@ -292,8 +293,9 @@ describe("record_payment: one transaction under the caller's RLS", () => {
     });
     expect(await paymentsOf(invoiceId)).toEqual([]);
 
-    // Acting in A, the same user can.
-    const inA = await rpc(dual.client, { p_tenant_id: tenantA.tenantId, p_invoice_id: invoiceId, p_amount: 100 });
+    // Acting in A (the app's client names the cookie's clinic in x-clinicos-tenant, R-42), the same user can.
+    const actingInA = await signInActingIn(dual.userEmail, tenantA.tenantId);
+    const inA = await rpc(actingInA, { p_tenant_id: tenantA.tenantId, p_invoice_id: invoiceId, p_amount: 100 });
     expect(inA.error).toBeNull();
   });
 
@@ -306,11 +308,14 @@ describe("record_payment: one transaction under the caller's RLS", () => {
   });
 });
 
-describe("record_payment: role matrix derived from ROLE_PERMISSIONS (appointments:edit)", () => {
+describe("record_payment: role matrix derived from ROLE_PERMISSIONS (billing:collect since V2-05 05-02b)", () => {
   const roles = Object.keys(ROLE_PERMISSIONS) as UserRole[];
   const allowed = roles.filter((r) => hasPerm(r, "appointments:edit"));
 
-  it("the function's role list equals the roles the matrix allows", () => {
+  // The function's own role check still mirrors appointments:edit (000027/000029); 05-02c replaces it with
+  // has_permission('billing:collect'). Since 05-02b the payments INSERT and invoices policies (000056, PO-3) already
+  // decide who pays: the per-role case below asserts that effective rule.
+  it("the function's own role list still equals the appointments:edit roles (replaced in 05-02c)", () => {
     const def = psql(`select pg_get_functiondef('${RPC_SIGNATURE}'::regprocedure)`).join("\n");
     const lists = [...def.matchAll(/ARRAY\[([^\]]*)\]/g)].map((m) => m[1]);
     expect(lists).toHaveLength(1);
@@ -318,19 +323,22 @@ describe("record_payment: role matrix derived from ROLE_PERMISSIONS (appointment
     expect(sqlRoles.sort()).toEqual([...allowed].sort());
   });
 
-  it.each(roles)("%s: succeeds iff the matrix grants appointments:edit; the outbox row is written for every role", async (role) => {
+  it.each(roles)("%s: succeeds iff the matrix grants billing:collect (PO-3); the outbox row is written for every collector", async (role) => {
     const member = role === "owner" ? tenantA : await addMemberToTenant(tenantA.tenantId, role);
     const invoiceId = await seedInvoice(tenantA, 200);
     const { data, error } = await rpc(member.client, { p_invoice_id: invoiceId, p_amount: 200 });
 
-    if (hasPerm(role, "appointments:edit")) {
+    if (hasPerm(role, "billing:collect")) {
       expect(error).toBeNull();
       const paymentId = (data as { payment_id: string }).payment_id;
       expect(await auditOf([paymentId])).toMatchObject([{ actor_id: member.userId, actor_role: role, actor_type: "user" }]);
       // The outbox tables are owner/admin-only under RLS; the definer fan-out still writes the row for every role.
       expect(await outboxOf(paymentId)).toHaveLength(1);
     } else {
-      expect(mapDbError(error).code).toBe("FORBIDDEN");
+      // Doctors and nurses do not read another doctor's invoice at all (000056: billing:view, or the visit's own
+      // doctor), so the locked lookup finds nothing; a doctor's own-visit attempt is refused by the payments INSERT
+      // policy (42501, tests/billing/collect-permission.spec.ts).
+      expect(mapDbError(error).code).toBe("NOT_FOUND");
       expect(await paymentsOf(invoiceId)).toEqual([]);
     }
   });

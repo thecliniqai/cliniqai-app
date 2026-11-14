@@ -90,6 +90,8 @@ export interface ConsultationWorkspaceProps {
     uhid?: string | null;
   };
   pastEncounters?: PastVisitEncounter[];
+  /** The signed-in user holds `billing:collect` (PO-3, V2-05 05-02b): Sign & Bill may collect at the desk. */
+  canCollectPayment?: boolean;
 }
 
 const COMMON_INVESTIGATIONS = [
@@ -126,6 +128,7 @@ export function ConsultationWorkspace({
   visit,
   patient,
   pastEncounters = [],
+  canCollectPayment = false,
 }: ConsultationWorkspaceProps) {
   const timeZone = useClinicTimeZone();
   const clinicToday = todayInTz(timeZone);
@@ -1295,6 +1298,7 @@ export function ConsultationWorkspace({
         diagnosesCount={visit.diagnoses?.length || 1}
         medicinesCount={visit.prescription_items?.length || 0}
         followUpDate={followUpInterval === "none" ? null : (followUpDate || null)}
+        canCollect={canCollectPayment}
         onSaveDraftBeforeSign={() => handleSaveDraft(false)}
       />
 

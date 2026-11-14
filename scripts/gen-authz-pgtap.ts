@@ -73,6 +73,19 @@ function rowTenant(t: Target, row: Row, column?: string): TenantKey | null {
   return tenantOfLiteral(t.tenant ?? row.tenant_id);
 }
 
+/** Every fixture row (fixture + extra rows) of a table target, by `schema.table`. */
+function fixtureRowsOf(qualified: string): Row[] {
+  const t = TARGETS.find((x): x is TableTarget => x.kind === "table" && `${x.schema}.${x.table}` === qualified);
+  return t ? [t.fixture, ...(t.extraRows ?? [])] : [];
+}
+
+/** `ownVisit`: the doctor of the visit the row names (directly, or through its invoice), from the fixtures. */
+function visitDoctorOf(row: Row, via: "visit_id" | "invoice_id"): Sql | undefined {
+  const visitId = via === "visit_id" ? row.visit_id : fixtureRowsOf("public.invoices").find((i) => i.id === row.invoice_id)?.visit_id;
+  if (visitId === undefined) return undefined;
+  return fixtureRowsOf("public.visits").find((v) => v.id === visitId)?.doctor_id;
+}
+
 export function admits(rule: Rule, p: Principal, t: Target, row: Row): boolean {
   switch (rule.kind) {
     case "all":
@@ -86,6 +99,8 @@ export function admits(rule: Rule, p: Principal, t: Target, row: Row): boolean {
       return false;
     case "self":
       return p.userId !== null && (row[rule.column] === q(p.userId) || row[rule.column] === "auth.uid()");
+    case "ownVisit":
+      return p.userId !== null && visitDoctorOf(row, rule.via) === q(p.userId);
     case "legacy_member":
     case "member": {
       const tenant = rowTenant(t, row, rule.tenantColumn);
@@ -400,6 +415,8 @@ export function ruleText(rule: Rule): string {
       return `perm(${rule.perm}${rule.tenantColumn ? ` @${rule.tenantColumn}` : ""})`;
     case "self":
       return `self(${rule.column})`;
+    case "ownVisit":
+      return rule.via === "visit_id" ? "ownVisit" : "ownVisit(@invoice)";
     case "member":
     case "billing":
     case "full":
@@ -430,7 +447,9 @@ export function matrixMd(): string {
   lines.push(
     "`legacy_member` / `legacy_owner_admin` are today's tenant-only policies (any membership, the active clinic ignored);",
   );
-  lines.push("05-02b/05-02c move every table to its target rule and delete both kinds. The DELETE rows are final since 05-04.");
+  lines.push("05-02b/05-02c move every table to its target rule and delete both kinds. The DELETE rows are final since 05-04;");
+  lines.push("the clinical, front-desk and financial tables are on their target rules since 05-02b. `ownVisit`: the row's visit");
+  lines.push("(or its invoice's visit) has the caller as doctor (Sign & Bill, R-7).");
   lines.push("");
   lines.push("Principals:");
   lines.push("");

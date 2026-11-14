@@ -19,6 +19,7 @@ import {
 } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
+import { signInActingIn } from "../helpers/active-tenant";
 import { insertReturningId, type IdTable } from "../helpers/db";
 import type { TablesInsert } from "@/types/database";
 
@@ -253,12 +254,18 @@ describe("Clinic Visits Register & Filters (Plan 03.2-02 / REQ-diagnosis-visit-m
     });
 
     it("scopes the register to the context's tenant even for a user whose RLS reaches both tenants", async () => {
-      const inA = ctxFor({ userId: dual.userId, tenantId: ownerA.tenantId, role: dual.roleInA, client: dual.client });
-      const inB = ctxFor({ userId: dual.userId, tenantId: ownerB.tenantId, role: dual.roleInB, client: dual.client });
+      // Each context's client names its clinic in x-clinicos-tenant, as the app's createClient() does (R-42; the
+      // policies are bound to the active clinic since 05-02b).
+      const clientInA = await signInActingIn(dual.userEmail, ownerA.tenantId);
+      const clientInB = await signInActingIn(dual.userEmail, ownerB.tenantId);
+      const inA = ctxFor({ userId: dual.userId, tenantId: ownerA.tenantId, role: dual.roleInA, client: clientInA });
+      const inB = ctxFor({ userId: dual.userId, tenantId: ownerB.tenantId, role: dual.roleInB, client: clientInB });
 
       const asA = await getClinicVisitsRegister(inA, filter);
       expect(asA.visits.map((v) => v.id)).toEqual([v3, v2, v1]);
-      expect(asA.metrics.totalBilledRevenue).toBe(1000);
+      // A doctor reads only the invoices of their own visits (05-02b, PO-3 / R-7): none of these are theirs.
+      expect(asA.metrics.totalBilledRevenue).toBe(0);
+      expect(asA.visits.every((v) => v.invoice === null || v.invoice === undefined)).toBe(true);
 
       // The same JWT does reach B's rows when acting in B, so A's result is the service's tenant scoping.
       const asB = await getClinicVisitsRegister(inB, filter);

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/auth/tenant";
+import { hasPerm } from "@/lib/permissions";
 import {
   getPatientConsultationHistory,
   PastVisitEncounter,
@@ -151,6 +152,7 @@ export default async function ConsultationPage(props: ConsultationPageProps) {
       visit={visit}
       patient={patient}
       pastEncounters={pastEncounters}
+      canCollectPayment={hasPerm(membership.role, "billing:collect")}
     />
   );
 }

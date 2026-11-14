@@ -35,6 +35,31 @@ import { clientErrorMessage } from "@/lib/errors/client-message";
 // Billing use-cases. Tenant and actor come only from `ctx` (ADR-0005 D1); each use-case checks the permission its
 // server action checked before the move, and completeAndBillConsultation calls the consultation, invoice, payment and
 // WhatsApp services with the same context so each callee's own permission check applies.
+// PO-3 (V2-05 05-02b, R-6/R-7): collecting and editing bills needs `billing:collect` (owner, admin, receptionist);
+// doctors and nurses do not collect. A doctor (consultations:edit) may still create the invoice of their OWN visit
+// through Sign & Bill, routed to reception unless they also hold billing:collect (the owner of a solo clinic). The
+// database enforces the same rules (000056 invoices/invoice_items/payments policies); these checks give the fixed
+// FORBIDDEN text before any write.
+
+/** Fixed text for a caller who may not collect payments or edit bills (PO-3). */
+export const BILLING_COLLECT_FORBIDDEN_MESSAGE =
+  "Only the front desk can collect payments. Sign and route the bill to reception instead.";
+
+/**
+ * True when the caller may create the invoice of `visitId`: a collector (billing:collect), or a clinician
+ * (consultations:edit) who is the visit's doctor (Sign & Bill, R-7). Read on the caller's client, in their clinic.
+ */
+async function mayInvoiceVisit(ctx: ServiceContext, visitId: string): Promise<boolean> {
+  if (hasPerm(ctx.role, "billing:collect")) return true;
+  if (!hasPerm(ctx.role, "consultations:edit")) return false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (ctx.db.from("visits") as any)
+    .select("doctor_id")
+    .eq("id", visitId)
+    .eq("tenant_id", ctx.tenantId)
+    .maybeSingle();
+  return !error && !!data && (data as { doctor_id: string | null }).doctor_id === ctx.userId;
+}
 
 export type CreateInvoiceResult =
   | {
@@ -94,9 +119,13 @@ export async function createVisitInvoice(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "appointments:edit");
     const session = ctx;
     const data = parseResult.data;
+
+    // PO-3: a collector, or the visit's own doctor (Sign & Bill). Checked before any write; RLS repeats it.
+    if (!(await mayInvoiceVisit(ctx, data.visit_id))) {
+      return { success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE };
+    }
 
     // The visit must be this clinic's visit of the invoiced patient (P0-13: the FKs and RLS do not check this).
     if (!(await visitInTenant(ctx, data.visit_id, data.patient_id))) {
@@ -342,7 +371,8 @@ export async function recordPayment(
     };
   }
 
-  if (!hasPerm(ctx.role, "appointments:edit")) {
+  // PO-3: only collectors (owner, admin, receptionist) record payments; the payments INSERT policy repeats it (000056).
+  if (!hasPerm(ctx.role, "billing:collect")) {
     return { success: false, error: RECORD_PAYMENT_MESSAGES.FORBIDDEN };
   }
 
@@ -491,7 +521,7 @@ export async function addInvoiceItem(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "appointments:edit");
+    assertPerm(ctx.role, "billing:collect");
     const session = ctx;
     const data = parseResult.data;
 
@@ -619,7 +649,7 @@ export async function deleteInvoiceItem(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "appointments:edit");
+    assertPerm(ctx.role, "billing:collect");
     const session = ctx;
 
     // 1. Fetch item to find invoice_id and verify tenant
@@ -814,6 +844,12 @@ export async function completeAndBillConsultation(
     assertPerm(ctx.role, "consultations:edit");
     const session = ctx;
     const data = parseResult.data;
+
+    // 0. PO-3: collecting at the doctor's desk needs billing:collect (the owner of a solo clinic holds it). A doctor
+    // without it is refused BEFORE anything is signed or billed; the modal offers only "route to reception" to them.
+    if (data.payment_collected && !hasPerm(ctx.role, "billing:collect")) {
+      return { success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE };
+    }
 
     // 1. Sign off and finalize consultation & prescription. IR2-L1: a retry after the sign-off committed but billing
     // failed resumes at billing: a visit already completed and signed by this same user, with no invoice yet, is not
@@ -1259,7 +1295,7 @@ export async function sendConsolidatedConsultationWhatsApp(
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "consultations:view");
+    assertPerm(ctx.role, "prescriptions:view");
     const session = ctx;
 
     // 1. Fetch visit and verify tenant access

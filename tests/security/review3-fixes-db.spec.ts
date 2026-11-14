@@ -370,18 +370,21 @@ describe("01-10 review round 3 fixes (000024)", () => {
   });
 
   describe("AR3-N2: one live invoice per visit", () => {
+    // V2-05 05-02b (PO-3): doctors do not collect, so the Sign & Bill that collects is the solo-clinic owner's (who
+    // holds billing:collect and is the visit's doctor here); the doctor's routed-to-reception path is covered in
+    // tests/billing/collect-permission.spec.ts.
     async function draftedVisit(): Promise<string> {
       const visitId = await insertRow("visits", {
         tenant_id: A.owner.tenantId,
         patient_id: A.patientId,
-        doctor_id: A.members.doctor.userId,
+        doctor_id: A.owner.userId,
         origin_type: "scheduled",
         status: "in_consultation",
         scheduled_at: new Date(Date.now() + 5 * 86_400_000).toISOString(),
         created_by: A.owner.userId,
       });
       const saved = await saveConsultationDraft(
-        ctxFor(A.members.doctor),
+        ctxFor(A.owner),
         consultationDraftInput({ visit_id: visitId, clinical_notes: "Synthetic note." })
       );
       if (!saved.success) throw new Error("draft seed failed");
@@ -389,7 +392,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
     }
 
     const bill = (visitId: string) =>
-      completeAndBillConsultation(ctxFor(A.members.doctor), {
+      completeAndBillConsultation(ctxFor(A.owner), {
         visit_id: visitId,
         patient_id: A.patientId,
         consultation_fee: 500,
@@ -436,7 +439,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("createVisitInvoice on a visit that already has one returns the existing invoice", async () => {
       const visitId = await draftedVisit();
-      const first = await createVisitInvoice(ctxFor(A.members.doctor), invoiceInput(visitId));
+      const first = await createVisitInvoice(ctxFor(A.owner), invoiceInput(visitId));
       expect(first.success).toBe(true);
       const second = await createVisitInvoice(ctxFor(A.members.receptionist), invoiceInput(visitId));
       expect(second.success).toBe(true);
@@ -448,7 +451,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
       expect(await invoices(visitId)).toHaveLength(1);
     });
 
-    it("two concurrent Sign & Bill requests by the same doctor create one invoice and at most one payment", async () => {
+    it("two concurrent Sign & Bill requests by the same signer create one invoice and at most one payment", async () => {
       const visitId = await draftedVisit();
       const results = await Promise.all([bill(visitId), bill(visitId)]);
       expect(results.some((r) => r.success)).toBe(true);
@@ -459,7 +462,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("two concurrent resumes after the sign-off create one invoice and exactly one payment", async () => {
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.members.doctor), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId)).success).toBe(true);
 
       const results = await Promise.all([bill(visitId), bill(visitId)]);
       expect(results.some((r) => r.success && !r.alreadyBilled)).toBe(true);
@@ -473,7 +476,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("the losing request gets the existing invoice as 'already billed' (the shape the modal shows), and no payment", async () => {
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.members.doctor), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId)).success).toBe(true);
       const first = await bill(visitId);
       expect(first.success).toBe(true);
       const [invoice] = await invoices(visitId);
@@ -484,7 +487,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
       // The race window: this request read "no invoice yet" just before the other request's insert committed.
       // Its first invoices read is answered as of that moment; everything after runs on the real database.
       let stale = true;
-      const real = A.members.doctor.client;
+      const real = A.owner.client;
       const raced = new Proxy(real, {
         get(target, prop) {
           if (prop === "from") {
@@ -504,7 +507,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
         },
       });
 
-      const res = await completeAndBillConsultation({ ...ctxFor(A.members.doctor), db: raced as never }, {
+      const res = await completeAndBillConsultation({ ...ctxFor(A.owner), db: raced as never }, {
         visit_id: visitId,
         patient_id: A.patientId,
         consultation_fee: 500,
@@ -535,7 +538,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
     it("a voided (cancelled) invoice can be re-issued, by createVisitInvoice and by a Sign & Bill retry", async () => {
       const visitId = await draftedVisit();
-      expect((await completeAndSignConsultation(ctxFor(A.members.doctor), visitId)).success).toBe(true);
+      expect((await completeAndSignConsultation(ctxFor(A.owner), visitId)).success).toBe(true);
       const first = await bill(visitId);
       expect(first.success).toBe(true);
       const [original] = await invoices(visitId);

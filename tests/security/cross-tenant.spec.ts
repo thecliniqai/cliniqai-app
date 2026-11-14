@@ -4,6 +4,7 @@ import {
   DualTenantEcosystem,
 } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { signInActingIn } from "../helpers/active-tenant";
 import { assertRlsCatalog, TENANT_OWNED_TABLES } from "../helpers/rls";
 import {
   getActiveMembership,
@@ -235,11 +236,12 @@ describe("Cross-Tenant Security Proof & Operational Hardening (REQ-multi-tenancy
       expect(tenantIds).toContain(ecosystem.tenantB.tenantId);
     });
 
-    it("proves dual user querying in Tenant A context receives only Tenant A data when filtered", async () => {
-      const { data: pA } = await ecosystem.dualUser.client
-        .from("patients")
-        .select("id, tenant_id")
-        .eq("tenant_id", ecosystem.tenantA.tenantId);
+    // Since V2-05 05-02b the patients policies are bound to the ACTIVE clinic (the x-clinicos-tenant header the app's
+    // client sends from the clinic cookie, R-42): a context is the client acting in that clinic, and it reads only it,
+    // even without a tenant filter; with no header and two memberships it reads nothing.
+    it("proves dual user querying in Tenant A context receives only Tenant A data", async () => {
+      const inA = await signInActingIn(ecosystem.dualUser.userEmail, ecosystem.tenantA.tenantId);
+      const { data: pA } = await inA.from("patients").select("id, tenant_id");
 
       expect(pA?.length).toBeGreaterThan(0);
       for (const p of pA || []) {
@@ -247,16 +249,19 @@ describe("Cross-Tenant Security Proof & Operational Hardening (REQ-multi-tenancy
       }
     });
 
-    it("proves dual user querying in Tenant B context receives only Tenant B data when filtered", async () => {
-      const { data: pB } = await ecosystem.dualUser.client
-        .from("patients")
-        .select("id, tenant_id")
-        .eq("tenant_id", ecosystem.tenantB.tenantId);
+    it("proves dual user querying in Tenant B context receives only Tenant B data", async () => {
+      const inB = await signInActingIn(ecosystem.dualUser.userEmail, ecosystem.tenantB.tenantId);
+      const { data: pB } = await inB.from("patients").select("id, tenant_id");
 
       expect(pB?.length).toBeGreaterThan(0);
       for (const p of pB || []) {
         expect(p.tenant_id).toBe(ecosystem.tenantB.tenantId);
       }
+    });
+
+    it("a dual user with no active clinic named reads no patient at all", async () => {
+      const { data } = await ecosystem.dualUser.client.from("patients").select("id");
+      expect(data).toEqual([]);
     });
   });
 

@@ -17,6 +17,7 @@ import {
 } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
+import { signInActingIn } from "../helpers/active-tenant";
 import { insertReturningId, type IdTable } from "../helpers/db";
 import type { TablesInsert } from "@/types/database";
 import { seedClinicalNotes } from "../helpers/clinical-notes";
@@ -223,8 +224,12 @@ describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", 
 
   it("scopes to the context's tenant even for a user whose RLS reaches both tenants", async () => {
     const dual = await createDualMembershipUser(ownerA.tenantId, "doctor", ownerB.tenantId, "receptionist");
-    const inA = ctxFor({ userId: dual.userId, tenantId: ownerA.tenantId, role: dual.roleInA, client: dual.client });
-    const inB = ctxFor({ userId: dual.userId, tenantId: ownerB.tenantId, role: dual.roleInB, client: dual.client });
+    // Each context's client names its clinic in x-clinicos-tenant, as the app's createClient() does (R-42; the
+    // policies are bound to the active clinic since 05-02b).
+    const clientInA = await signInActingIn(dual.userEmail, ownerA.tenantId);
+    const clientInB = await signInActingIn(dual.userEmail, ownerB.tenantId);
+    const inA = ctxFor({ userId: dual.userId, tenantId: ownerA.tenantId, role: dual.roleInA, client: clientInA });
+    const inB = ctxFor({ userId: dual.userId, tenantId: ownerB.tenantId, role: dual.roleInB, client: clientInB });
 
     // The same JWT can read B's visit when acting in B ...
     expect((await getPatientVisitHistory(inB, patientB)).map((v) => v.id)).toEqual([visitB]);

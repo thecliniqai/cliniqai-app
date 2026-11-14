@@ -313,13 +313,16 @@ describe("P0-13: every server action is in the guard manifest and guarded", () =
         const dual = world.dual.receptionist;
         const rows = await world.aRows({ userId: dual.userId, role: "receptionist" });
         expect(rows.patient).toBeTruthy();
-        slot.client = dual.client;
+        // The app's client names the cookie's clinic in `x-clinicos-tenant` (R-42); patients are bound to it since
+        // 05-02b, so each half of the check uses a client acting in that clinic, as `createClient()` would build it.
         try {
           slot.activeTenant = world.tenantA;
+          slot.client = await signInActingIn(dual.userEmail, world.tenantA);
           const inA = await getPatients();
           expect(inA.length).toBeGreaterThan(0);
           expect(inA.every((p) => p.tenant_id === world.tenantA)).toBe(true);
           slot.activeTenant = world.b.tenant;
+          slot.client = await signInActingIn(dual.userEmail, world.b.tenant);
           const inB = await getPatients();
           expect(inB.some((p) => p.tenant_id === world.b.tenant)).toBe(true);
         } finally {

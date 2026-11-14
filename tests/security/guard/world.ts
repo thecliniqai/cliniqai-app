@@ -381,7 +381,9 @@ export async function seedGuardWorld(label: string): Promise<GuardWorld> {
     }
     return seedTenantRows(admin, {
       tenantId: ownerA.tenantId,
-      doctorUser: roles.doctor.userId,
+      // A calling doctor gets rows of their OWN visits (05-02b, R-7: a doctor reads and bills only the visits they are
+      // the doctor of), so the positive control of a doctor acting in A (leg 3b's dual doctor) is a legitimate call.
+      doctorUser: isMember && caller.role === "doctor" ? caller.userId : roles.doctor.userId,
       caller,
       membership: own,
       patientName: `Synthetic Guard Patient A ${randomUUID().slice(0, 8)}`,

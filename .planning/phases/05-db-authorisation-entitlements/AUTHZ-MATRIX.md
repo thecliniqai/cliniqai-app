@@ -9,7 +9,9 @@ Legend: `Y` admitted (row visible / inserted / affected) · `-` filtered by RLS 
 fixed in 05-02c).
 
 `legacy_member` / `legacy_owner_admin` are today's tenant-only policies (any membership, the active clinic ignored);
-05-02b/05-02c move every table to its target rule and delete both kinds. The DELETE rows are final since 05-04.
+05-02b/05-02c move every table to its target rule and delete both kinds. The DELETE rows are final since 05-04;
+the clinical, front-desk and financial tables are on their target rules since 05-02b. `ownVisit`: the row's visit
+(or its invoice's visit) has the caller as doctor (Sign & Bill, R-7).
 
 Principals:
 
@@ -39,68 +41,68 @@ Principals:
 | `public.invitations` | I | self(created_by) AND legacy_owner_admin | Y | Y | X | X | X | X | X | X | X | X | X |
 | `public.invitations` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invitations` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.patients` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.patients` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.patients` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.patients` | S | perm(patients:view) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
+| `public.patients` | I | perm(patients:edit) | Y | Y | Y | Y | Y | Y | X | X | Y | X | X |
+| `public.patients` | U | perm(patients:edit) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
 | `public.patients` | D | none | - | - | - | - | - | - | - | - | - | - | - |
-| `public.visits` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.visits` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.visits` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.visits` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
+| `public.visits` | I | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | X | X | Y | X | X |
+| `public.visits` | U | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
 | `public.visits` | D | none | - | - | - | - | - | - | - | - | - | - | - |
 | `public.clinical_notes` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | X | Y | - | - |
 | `public.clinical_notes` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.clinical_notes` | U | (perm(consultations:edit) OR perm(vitals:edit)) | Y | - | Y | Y | Y | - | - | X | Y | - | - |
 | `public.clinical_notes` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.visit_revisions` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.visit_revisions` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
+| `public.visit_revisions` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | Y | - | - |
+| `public.visit_revisions` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | Y | X | X |
 | `public.visit_revisions` | U | none | - | - | - | - | - | - | - | - | - | - | - |
 | `public.visit_revisions` | D | none | - | - | - | - | - | - | - | - | - | - | - |
-| `public.consultations` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.consultations` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.consultations` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.consultations` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | Y | - | - |
+| `public.consultations` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | Y | X | X |
+| `public.consultations` | U | perm(consultations:edit) | Y | - | Y | Y | - | - | - | - | Y | - | - |
 | `public.consultations` | D | none | - | - | - | - | - | - | - | - | - | - | - |
-| `public.consultation_diagnoses` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.consultation_diagnoses` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.consultation_diagnoses` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.consultation_diagnoses` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | Y | - | - |
+| `public.consultation_diagnoses` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | Y | X | X |
+| `public.consultation_diagnoses` | U | perm(consultations:edit) | Y | - | Y | Y | - | - | - | - | Y | - | - |
 | `public.consultation_diagnoses` | D | perm(consultations:edit) | Y | - | Y | Y | - | - | - | - | Y | - | - |
-| `public.prescriptions` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.prescriptions` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.prescriptions` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.prescriptions` | S | perm(prescriptions:view) | Y | - | Y | Y | - | - | - | - | Y | - | - |
+| `public.prescriptions` | I | perm(prescriptions:edit) | Y | X | Y | Y | X | X | X | X | Y | X | X |
+| `public.prescriptions` | U | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | - | Y | - | - |
 | `public.prescriptions` | D | none | - | - | - | - | - | - | - | - | - | - | - |
-| `public.prescription_items` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.prescription_items` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.prescription_items` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.prescription_items` | S | perm(prescriptions:view) | Y | - | Y | Y | - | - | - | - | Y | - | - |
+| `public.prescription_items` | I | perm(prescriptions:edit) | Y | X | Y | Y | X | X | X | X | Y | X | X |
+| `public.prescription_items` | U | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | - | Y | - | - |
 | `public.prescription_items` | D | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | - | Y | - | - |
-| `public.invoices` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.invoices` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.invoices` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.invoices` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit) | Y | Y | Y | - | - | Y | - | - | - | - | - |
+| `public.invoices` | I | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit) | Y | Y | Y | X | X | Y | X | X | X | X | X |
+| `public.invoices` | U | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit) | Y | Y | Y | - | - | Y | - | - | - | - | - |
 | `public.invoices` | D | none | - | - | - | - | - | - | - | - | - | - | - |
-| `public.invoice_items` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.invoice_items` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.invoice_items` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.invoice_items` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | - | - | Y | - | - | - | - | - |
+| `public.invoice_items` | I | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | X | X | Y | X | X | X | X | X |
+| `public.invoice_items` | U | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | - | - | Y | - | - | - | - | - |
 | `public.invoice_items` | D | perm(billing:collect) | Y | Y | - | - | - | Y | - | - | - | - | - |
-| `public.payments` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.payments` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
+| `public.payments` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | - | - | Y | - | - | - | - | - |
+| `public.payments` | I | perm(billing:collect) | Y | Y | X | X | X | Y | X | X | X | X | X |
 | `public.payments` | U | none | - | - | - | - | - | - | - | - | - | - | - |
 | `public.payments` | D | none | - | - | - | - | - | - | - | - | - | - | - |
-| `public.queue_tokens` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.queue_tokens` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.queue_tokens` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.queue_tokens` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
+| `public.queue_tokens` | I | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | X | X | Y | X | X |
+| `public.queue_tokens` | U | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
 | `public.queue_tokens` | D | none | - | - | - | - | - | - | - | - | - | - | - |
-| `public.waitlist_entries` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.waitlist_entries` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.waitlist_entries` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.waitlist_entries` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
+| `public.waitlist_entries` | I | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | X | X | Y | X | X |
+| `public.waitlist_entries` | U | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
 | `public.waitlist_entries` | D | none | - | - | - | - | - | - | - | - | - | - | - |
-| `public.schedule_blocks` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.schedule_blocks` | I | legacy_member AND (self(doctor_id) OR legacy_owner_admin) | Y | Y | X | Y | X | X | X | X | X | X | X |
-| `public.schedule_blocks` | U | legacy_member AND (self(created_by) OR self(doctor_id) OR legacy_owner_admin) | Y | Y | - | Y | Y | - | - | - | - | - | - |
+| `public.schedule_blocks` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
+| `public.schedule_blocks` | I | (self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage)) | Y | Y | X | Y | X | X | X | X | X | X | X |
+| `public.schedule_blocks` | U | (self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage)) | Y | Y | - | Y | - | - | - | - | - | - | - |
 | `public.schedule_blocks` | D | (self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage)) | Y | Y | - | Y | - | - | - | - | - | - | - |
-| `public.follow_ups` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.follow_ups` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.follow_ups` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.follow_ups` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
+| `public.follow_ups` | I | (perm(appointments:edit) OR perm(consultations:edit)) | Y | Y | Y | Y | Y | Y | X | X | Y | X | X |
+| `public.follow_ups` | U | (perm(appointments:edit) OR perm(consultations:edit)) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
 | `public.follow_ups` | D | perm(consultations:edit) | Y | - | Y | Y | - | - | - | - | Y | - | - |
-| `public.consent_records` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.consent_records` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
+| `public.consent_records` | S | perm(patients:view) | Y | Y | Y | Y | Y | Y | - | - | Y | - | - |
+| `public.consent_records` | I | perm(patients:edit) | Y | Y | Y | Y | Y | Y | X | X | Y | X | X |
 | `public.consent_records` | U | none | - | - | - | - | - | - | - | - | - | - | - |
 | `public.consent_records` | D | none | - | - | - | - | - | - | - | - | - | - | - |
 | `public.patient_documents` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
@@ -111,23 +113,23 @@ Principals:
 | `public.document_share_tokens` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.document_share_tokens` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.document_share_tokens` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.referrals` | S | (legacy_member OR legacy_member(@target_tenant_id)) | Y | Y | Y | Y | Y | Y | Y | - | Y | Y | Y |
-| `public.referrals` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.referrals` | U | (legacy_member OR legacy_member(@target_tenant_id)) | Y | Y | Y | Y | Y | Y | Y | - | Y | Y | Y |
+| `public.referrals` | S | (perm(consultations:view) OR perm(consultations:view @target_tenant_id)) | Y | - | Y | Y | Y | - | Y | - | Y | - | - |
+| `public.referrals` | I | perm(consultations:edit) | Y | X | Y | Y | X | X | X | X | Y | X | X |
+| `public.referrals` | U | (perm(consultations:edit) OR perm(consultations:edit @target_tenant_id)) | Y | - | Y | Y | - | - | Y | - | Y | - | - |
 | `public.referrals` | D | none | - | - | - | - | - | - | - | - | - | - | - |
-| `public.doctor_custom_diagnoses` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.doctor_custom_diagnoses` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.doctor_custom_diagnoses` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.doctor_custom_diagnoses` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | Y | - | - |
+| `public.doctor_custom_diagnoses` | I | perm(consultations:edit) AND self(doctor_id) | X | X | Y | X | X | X | X | X | X | X | X |
+| `public.doctor_custom_diagnoses` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | - | - |
 | `public.doctor_custom_diagnoses` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | - | - |
-| `public.doctor_custom_medicines` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.doctor_custom_medicines` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.doctor_custom_medicines` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.doctor_custom_medicines` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | Y | - | - |
+| `public.doctor_custom_medicines` | I | perm(consultations:edit) AND self(doctor_id) | X | X | Y | X | X | X | X | X | X | X | X |
+| `public.doctor_custom_medicines` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | - | - |
 | `public.doctor_custom_medicines` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | - | - |
-| `public.doctor_prescription_templates` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
-| `public.doctor_prescription_templates` | I | legacy_member | Y | Y | Y | Y | Y | Y | X | X | Y | Y | Y |
-| `public.doctor_prescription_templates` | U | legacy_member | Y | Y | Y | Y | Y | Y | - | - | Y | Y | Y |
+| `public.doctor_prescription_templates` | S | perm(consultations:view) | Y | - | Y | Y | Y | - | - | - | Y | - | - |
+| `public.doctor_prescription_templates` | I | perm(consultations:edit) AND self(doctor_id) | X | X | Y | X | X | X | X | X | X | X | X |
+| `public.doctor_prescription_templates` | U | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | - | - |
 | `public.doctor_prescription_templates` | D | perm(consultations:edit) AND self(doctor_id) | - | - | Y | - | - | - | - | - | - | - | - |
-| `public.communication_queue` | S | legacy_member | Y | Y | Y | Y | Y | Y | - | X | Y | Y | Y |
+| `public.communication_queue` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | X | Y | - | - |
 | `public.communication_queue` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.communication_queue` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.communication_queue` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
@@ -237,15 +239,18 @@ Notes:
 - `public.tenants`: clinics are created by create_clinic_with_owner (definer RPC)
 - `public.memberships`: fixture row = the second doctor's membership; profile columns only (column grants + guard trigger)
 - `public.invitations`: INSERT: owner/admin, created_by = caller; owner/admin roles only by an owner (000019; RPC only after 05-07a)
+- `public.patients`: 05-02b: receptionists register patients (P0-14, PO-3); a change to allergies/chronic_conditions needs consultations:view (patients_clinical_fields_guard, 42501, R-8; front_desk_policies.test.sql)
 - `public.visits`: no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03)
 - `public.clinical_notes`: 05-02a (R-2, R-3, R-5): one row per visit, created by a definer trigger with fixed content; UPDATE of any column but `vitals` needs consultations:edit (clinical_notes_guard, 42501; clinical_notes.test.sql)
+- `public.visit_revisions`: append-only amendment history (no UPDATE policy)
 - `public.consultations`: dead table (R-34), dropped in V2-09b
-- `public.prescription_items`: tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U still scope through the prescription until 05-02b
+- `public.prescription_items`: tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U on it since 05-02b (no subquery)
+- `public.invoices`: 05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill)
 - `public.invoice_items`: DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op)
-- `public.payments`: column-level INSERT grant; the actor guard stamps recorded_by
+- `public.payments`: column-level INSERT grant; the actor guard stamps recorded_by; doctors and nurses do not collect (PO-3, 05-02b)
 - `public.schedule_blocks`: fixture row: the second doctor's block, created by the nurse
 - `public.document_share_tokens`: minted by definer RPCs only
-- `public.referrals`: fixture row: A refers to B (in network), so B's members read it and update its status
+- `public.referrals`: fixture row: A refers to B (in network), so B's clinicians read it and acknowledge it (referrals_target_update_guard limits the target to the status); directory and consent on INSERT are 05-06's
 - `public.communication_queue`: V2-04 000035: writes revoked from API roles (enqueue RPCs only); authenticated keeps column-level SELECT
 - `public.in_app_notifications`: any member reads any colleague's notifications today (own-row S/U in 05-02c, T-05-11); DELETE own row since 05-04
 - `public.audit_logs`: the actor guard (000029) stamps actor_id; log_audit + INSERT revoke in 05-02c (T-05-12)

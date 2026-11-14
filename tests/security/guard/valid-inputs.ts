@@ -96,7 +96,9 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
       consultation_fee: 500,
       additional_items: [],
       discount: 0,
-      payment_collected: true,
+      // PO-3 (05-02b): the least-privileged holder of consultations:edit is a doctor, who routes the fee to reception;
+      // a doctor's collection is refused (tests/billing/collect-permission.spec.ts).
+      payment_collected: false,
       payment_method: "cash",
       reference_number: null,
       ...acting(a),

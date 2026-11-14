@@ -222,14 +222,16 @@ describe("delete paths: no silent no-ops (05-04)", () => {
       expect(await exists("prescription_items", itemId)).toBe(false);
     });
 
-    it("acting in the other clinic, the Rx item and diagnosis deletes are refused with FORBIDDEN, rows kept, no audit row", async () => {
+    it("acting in the other clinic, the Rx item and diagnosis deletes are refused, rows kept, no audit row", async () => {
       const itemId = await rxItem();
       const diagnosisId = await diagnosis();
       const rxAudits = await auditCount("prescription.item_remove", prescriptionId);
       const ctx = await dualCtx(otherClinic.tenantId);
 
-      expect(await removePrescriptionItem(ctx, itemId)).toEqual({ success: false, error: FORBIDDEN });
-      expect(await removeConsultationDiagnosis(ctx, diagnosisId, visitId)).toEqual({ success: false, error: FORBIDDEN });
+      // Since 05-02b the SELECT policies are bound to the active clinic too, so the rows are not even visible from the
+      // other clinic: the services refuse at their first read (before 05-02b: visible, then the DELETE filtered → FORBIDDEN).
+      expect(await removePrescriptionItem(ctx, itemId)).toEqual({ success: false, error: "Prescription item not found." });
+      expect((await removeConsultationDiagnosis(ctx, diagnosisId, visitId)).success).toBe(false);
 
       expect(await exists("prescription_items", itemId)).toBe(true);
       expect(await exists("consultation_diagnoses", diagnosisId)).toBe(true);
