@@ -1,0 +1,3 @@
+Running 231 tests using 1 worker
+  9 skipped
+  222 passed (2.2m)

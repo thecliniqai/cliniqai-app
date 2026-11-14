@@ -1,0 +1,50 @@
+$ node scripts/ci/route-js.mjs --out <evidence>/route-js   (clean worktree at 87dc215, npm run e2e:build, .next BUILD_ID FUuw6Nco310ZwwUEH_jy-)
+route-js: framework root 128.8 kB gz (6 files)
+route-js: / 158.3 kB gz (route-specific 29.4; budget 200) ok
+route-js: /billing/register 158.3 kB gz (route-specific 29.4; budget 150) over
+route-js: /billing/reports 164.4 kB gz (route-specific 35.5; budget 150) over
+route-js: /cabin 164.7 kB gz (route-specific 35.8; budget 150) over
+route-js: /calendar 186.1 kB gz (route-specific 57.3; budget 150) over
+route-js: /clinic/new 144.5 kB gz (route-specific 15.7; budget 150) ok
+route-js: /consultation/[id] 213.0 kB gz (route-specific 84.2; budget 200) over
+route-js: /forgot-password 234.6 kB gz (route-specific 105.8; budget 150) over
+route-js: /join 227.0 kB gz (route-specific 98.2; budget 150) over
+route-js: /login 234.3 kB gz (route-specific 105.5; budget 150) over
+route-js: /patients 161.7 kB gz (route-specific 32.8; budget 150) over
+route-js: /patients/[id] 195.5 kB gz (route-specific 66.7; budget 150) over
+route-js: /patients/new 177.0 kB gz (route-specific 48.2; budget 150) over
+route-js: /profile 183.1 kB gz (route-specific 54.3; budget 150) over
+route-js: /queue 188.6 kB gz (route-specific 59.8; budget 150) over
+route-js: /r/[token] 133.4 kB gz (route-specific 4.6; budget 150) ok
+route-js: /referrals 164.2 kB gz (route-specific 35.4; budget 150) over
+route-js: /reports/view 133.4 kB gz (route-specific 4.6; budget 150) ok
+route-js: /reschedule/[token] 138.9 kB gz (route-specific 10.1; budget 150) ok
+route-js: /settings/billing 158.3 kB gz (route-specific 29.4; budget 150) over
+route-js: /settings/clinic 170.2 kB gz (route-specific 41.4; budget 150) over
+route-js: /settings/developer 169.0 kB gz (route-specific 40.2; budget 150) over
+route-js: /staff 169.3 kB gz (route-specific 40.5; budget 150) over
+route-js: /visits 167.1 kB gz (route-specific 38.3; budget 150) over
+route-js: 24 route(s), 19 over budget (report-only)
+exit 0
+
+$ node scripts/ci/route-js.mjs --enforce   (stderr only)
+route-js: OVER /billing/register 158.3 kB > 150 kB
+route-js: OVER /billing/reports 164.4 kB > 150 kB
+route-js: OVER /cabin 164.7 kB > 150 kB
+route-js: OVER /calendar 186.1 kB > 150 kB
+route-js: OVER /consultation/[id] 213.0 kB > 200 kB
+route-js: OVER /forgot-password 234.6 kB > 150 kB
+route-js: OVER /join 227.0 kB > 150 kB
+route-js: OVER /login 234.3 kB > 150 kB
+route-js: OVER /patients 161.7 kB > 150 kB
+route-js: OVER /patients/[id] 195.5 kB > 150 kB
+route-js: OVER /patients/new 177.0 kB > 150 kB
+route-js: OVER /profile 183.1 kB > 150 kB
+route-js: OVER /queue 188.6 kB > 150 kB
+route-js: OVER /referrals 164.2 kB > 150 kB
+route-js: OVER /settings/billing 158.3 kB > 150 kB
+route-js: OVER /settings/clinic 170.2 kB > 150 kB
+route-js: OVER /settings/developer 169.0 kB > 150 kB
+route-js: OVER /staff 169.3 kB > 150 kB
+route-js: OVER /visits 167.1 kB > 150 kB
+exit 1
