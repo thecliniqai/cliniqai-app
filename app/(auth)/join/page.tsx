@@ -54,7 +54,7 @@ function JoinClinicContent() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50/70 flex flex-col justify-center items-center p-4">
+    <main className="min-h-app bg-gray-50/70 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl p-6 sm:p-10 shadow-theme-sm space-y-6">
         <div className="text-center flex flex-col items-center">
           <div className="w-12 h-12 rounded-2xl bg-accent-subtle border border-accent-border text-accent-fg flex items-center justify-center mb-4 shadow-2xs">
@@ -111,7 +111,7 @@ export default function JoinClinicPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-gray-50/70 flex items-center justify-center">
+        <div className="min-h-app bg-gray-50/70 flex items-center justify-center">
           <p className="text-sm text-gray-500">Loading invitation…</p>
         </div>
       }

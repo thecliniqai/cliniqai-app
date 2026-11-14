@@ -34,7 +34,7 @@ export default function NewClinicPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-50/70 flex items-center justify-center p-4">
+    <main className="min-h-app bg-gray-50/70 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white p-8 sm:p-10 rounded-2xl border border-gray-200 shadow-theme-sm">
         <div className="mb-8 text-center flex flex-col items-center">
           <div className="w-12 h-12 rounded-2xl bg-accent text-white flex items-center justify-center mb-4 shadow-theme-xs">

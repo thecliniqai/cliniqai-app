@@ -7,7 +7,7 @@ export function Samples() {
       <p className="text-[11px]">small</p>
       <p className="text-gray-500 hover:text-fg">palette</p>
       <span className="bg-v1-blue-500">raw token outside the primitives</span>
-      <main className="md:min-h-screen">tall</main>
+      <main className="md:min-h-app">tall, the dvh utility (not a finding)</main>
       <Link href="/patients">
         <button type="button">Open</button>
       </Link>

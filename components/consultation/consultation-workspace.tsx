@@ -457,7 +457,7 @@ export function ConsultationWorkspace({
   };
 
   return (
-    <div className="min-h-screen bg-canvas pb-24 text-gray-900 w-full">
+    <div className="min-h-app bg-canvas pb-24 text-gray-900 w-full">
       {/* 1. STICKY TOP WORKSPACE HEADER (z-30) */}
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-2xs">
         <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">

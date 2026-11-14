@@ -34,7 +34,6 @@ describe("UI policy", () => {
     ["px-font", S, 7, "text-[11px]"],
     ["raw-palette", S, 8, "text-gray-500"],
     ["raw-palette", S, 9, "bg-v1-blue-500"],
-    ["screen-height", S, 10, "md:min-h-screen"],
     ["link-wraps-button", S, 12, "<Link> wraps <button>"],
     ["window-dialog", S, 14, "window.confirm()"],
     ["ai-sdk-import", "lib/ai-call.ts", 2, "ai"],
@@ -58,6 +57,16 @@ describe("UI policy", () => {
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("FAIL brand-utility components/legacy.tsx:3 focus:border-brand-500");
     expect(r.stdout).toContain("ui-policy: FAIL (1 enforced finding(s))");
+  });
+
+  it("a 100vh height class fails the enforced screen-height rule (exit 1, file:line); min-h-app/h-app pass (06-04a)", () => {
+    const r = run("screen-height");
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("FAIL screen-height components/tall.tsx:5 min-h-screen");
+    expect(r.stderr).toContain("FAIL screen-height components/tall.tsx:6 md:h-screen");
+    expect(r.stderr).toContain("FAIL screen-height components/tall.tsx:7 max-h-[100vh]");
+    expect(r.stderr).not.toContain("tall.tsx:8");
+    expect(r.stdout).toContain("ui-policy: FAIL (3 enforced finding(s))");
   });
 
   it("discovers rules from the rules directory without a central list", () => {

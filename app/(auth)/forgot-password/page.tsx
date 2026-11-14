@@ -181,10 +181,10 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <main className="min-h-screen w-full flex flex-col lg:flex-row bg-white">
+    <main className="min-h-app w-full flex flex-col lg:flex-row bg-white">
       <ClinicShowcasePanel />
 
-      <div className="w-full lg:w-1/2 min-h-screen flex items-center justify-center p-6 sm:p-12 xl:p-16 bg-white">
+      <div className="w-full lg:w-1/2 min-h-app flex items-center justify-center p-6 sm:p-12 xl:p-16 bg-white">
         <div className="w-full max-w-md mx-auto space-y-7">
           <AuthMobileBrand />
 

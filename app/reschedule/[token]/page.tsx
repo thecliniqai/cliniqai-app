@@ -127,7 +127,7 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="min-h-app bg-canvas flex items-center justify-center p-4">
         <div className="max-w-[480px] w-full bg-white rounded-xl border border-border p-8 text-center space-y-3 shadow-xs">
           <div className="w-8 h-8 border-3 border-accent border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-sm text-fg-secondary font-medium">Loading appointment options...</p>
@@ -138,7 +138,7 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
 
   if (error && !appointment) {
     return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="min-h-app bg-canvas flex items-center justify-center p-4">
         <div className="max-w-[480px] w-full bg-white rounded-xl border border-amber-200 bg-amber-50/50 p-6 text-center shadow-xs">
           <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6" />
@@ -152,7 +152,7 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
 
   if (confirmedNewTime && appointment) {
     return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="min-h-app bg-canvas flex items-center justify-center p-4">
         <div className="max-w-[480px] w-full bg-white rounded-xl border border-border p-6 text-center space-y-5 shadow-xs">
           <div className="w-14 h-14 rounded-full bg-emerald-50 text-success-fg flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-8 h-8" />
@@ -205,7 +205,7 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-canvas py-8 px-4">
+    <div className="min-h-app bg-canvas py-8 px-4">
       <main className="max-w-[480px] w-full mx-auto space-y-4">
         {/* Clinic & Doctor Header */}
         <header className="bg-white rounded-xl border border-border p-5 shadow-xs">

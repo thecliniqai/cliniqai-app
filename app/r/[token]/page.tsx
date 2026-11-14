@@ -22,7 +22,7 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
 
   if (!isPlausibleToken(token)) {
     return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="min-h-app bg-canvas flex items-center justify-center p-4">
         <div className="max-w-[480px] w-full bg-white rounded-xl border border-border p-6 text-center shadow-xs">
           <div className="w-12 h-12 rounded-full bg-danger-bg text-danger-fg flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6" />
@@ -43,7 +43,7 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
   if (resolved.status !== "ok") {
     const clinicPhone = resolved.status === "revoked" || resolved.status === "expired" ? resolved.clinic?.phone : null;
     return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center p-4">
+      <div className="min-h-app bg-canvas flex items-center justify-center p-4">
         <div className="max-w-[480px] w-full bg-white rounded-xl border border-amber-200 bg-amber-50/50 p-6 text-center shadow-xs">
           <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6" />
@@ -96,7 +96,7 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
   const isImage = mimeType.startsWith("image/");
 
   return (
-    <div className="min-h-screen bg-canvas py-8 px-4 flex flex-col justify-between">
+    <div className="min-h-app bg-canvas py-8 px-4 flex flex-col justify-between">
       <main className="max-w-[480px] w-full mx-auto space-y-4">
         {/* Clinic Header */}
         <header className="bg-white rounded-xl border border-border p-5 shadow-xs">

@@ -20,7 +20,7 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
 
   if (!isPlausibleToken(token)) {
     return (
-      <div className="min-h-screen bg-sunken flex items-center justify-center p-4">
+      <div className="min-h-app bg-sunken flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl border border-border p-8 text-center shadow-sm">
           <div className="w-12 h-12 rounded-full bg-danger-bg text-danger-fg flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6" />
@@ -41,7 +41,7 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
 
   if (resolved.status !== "ok" || !signed) {
     return (
-      <div className="min-h-screen bg-sunken flex items-center justify-center p-4">
+      <div className="min-h-app bg-sunken flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl border border-border p-8 text-center shadow-sm">
           <div className="w-12 h-12 rounded-full bg-danger-bg text-danger-fg flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6" />
@@ -86,7 +86,7 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
   });
 
   return (
-    <div className="min-h-screen bg-sunken text-fg">
+    <div className="min-h-app bg-sunken text-fg">
       {/* Top Clinic Branding Bar */}
       <header className="bg-white border-b border-border sticky top-0 z-20 shadow-xs">
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">

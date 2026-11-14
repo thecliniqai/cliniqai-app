@@ -11,7 +11,7 @@ import {
 
 export function ClinicShowcasePanel() {
   return (
-    <div className="hidden lg:flex lg:w-1/2 min-h-screen bg-slate-50/70 border-r border-gray-200 relative overflow-hidden flex-col justify-between p-10 xl:p-14 select-none">
+    <div className="hidden lg:flex lg:w-1/2 min-h-app bg-slate-50/70 border-r border-gray-200 relative overflow-hidden flex-col justify-between p-10 xl:p-14 select-none">
       {/* Decorative Blueprint Background Grid Pattern */}
       <div
         className="absolute inset-0 pointer-events-none opacity-40"
