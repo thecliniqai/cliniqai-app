@@ -15,6 +15,8 @@
  *   - api-v1 (PO-16, AR2-H2): switch off → 404 with an empty body at the handler, even with a staff session; switch
  *     on and no key → 401 (docs and openapi.json are public by design when on);
  *   - public-health: JSON keys within the committed allowlist, nothing of tenant B;
+ *   - public-asset (06-09b, `/sw.js`): anonymous 200 with the declared content type, no data access, no cookie, no ids
+ *     or tenant B values; a signed-in member gets the byte-identical body;
  *   - signout (03-12b, T-03-13): cross-origin / cross-site / signal-less 403 and an unknown scope 400 with no
  *     `auth.signOut` call (a throwaway user's session survives); signed out 303 → `/login` with `Clear-Site-Data`.
  * None of the denial legs writes anything (row counts); the cross-tenant leg leaves every tenant B row unchanged.
@@ -36,6 +38,7 @@ import {
   countRows,
   cronRouteLeg,
   healthRouteLeg,
+  publicAssetRouteLeg,
   runnerRouteLegs,
   webhookSignatureRouteLegs,
   publicTokenRouteLegs,
@@ -206,6 +209,11 @@ describe("P0-13: every route handler is in the guard manifest and guarded", () =
 
       it.each(ofKind("public-health"))("public-health: %s", async (_k, c, guard) => {
         const violations = await healthRouteLeg(slot, c, guard, world);
+        expect(violations, report(violations)).toEqual([]);
+      });
+
+      it.each(ofKind("public-asset"))("public-asset: %s", async (_k, c, guard) => {
+        const violations = await publicAssetRouteLeg(slot, c, guard, world);
         expect(violations, report(violations)).toEqual([]);
       });
 

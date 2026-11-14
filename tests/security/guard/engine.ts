@@ -1014,6 +1014,30 @@ export async function healthRouteLeg(
   return out;
 }
 
+/**
+ * `public-asset` route (06-09b): anonymous 200 with the declared content type, no data access, no cookie, no ids or
+ * tenant B values; a signed-in member gets the byte-identical body (nothing personalised) and no data access either.
+ */
+export async function publicAssetRouteLeg(
+  slot: RequestSlot,
+  c: RouteCase,
+  guard: Extract<RouteGuard, { kind: "public-asset" }>,
+  world: GuardWorld
+): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const anon = await callRoute(slot, anonClient(), c);
+  const member = await callRoute(slot, world.roles.owner.client, c);
+  for (const [leg, r] of [["anonymous", anon], ["signed-in member", member]] as const) {
+    out.push(...expectStatus(c, leg, r, [200]), ...expectNoIds(c, leg, r), ...expectNoB(c, leg, r, world));
+    out.push(...expectNoAccess(c, leg, r));
+    const type = r.headers.get("content-type") ?? "";
+    if (!type.startsWith(guard.contentType)) out.push(routeV(c, leg, `content-type ${type || "(none)"}, expected ${guard.contentType}`));
+    if (r.headers.get("set-cookie")) out.push(routeV(c, leg, "sets a cookie"));
+  }
+  if (member.body !== anon.body) out.push(routeV(c, "signed-in member", "body differs from the anonymous one (personalised)"));
+  return out;
+}
+
 /** Formats violations for an assertion message (one per line). */
 export function report(violations: Violation[]): string {
   return violations.map((v) => `${v.key} [${v.leg}] ${v.detail}`).join("\n");
