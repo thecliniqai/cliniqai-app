@@ -10,8 +10,9 @@ import { InviteStaffForm } from "@/components/staff/invite-staff-form";
 import { StaffList } from "@/components/staff/staff-list";
 import { Membership } from "@/lib/db/types";
 import { Users, UserPlus, Mail, ShieldCheck } from "lucide-react";
+import { withPageAuth } from "@/lib/auth/page";
 
-export default async function StaffPage() {
+async function StaffPage() {
   const supabase = await createClient();
   const membership = await getActiveMembership();
   const isOwnerOrAdmin = membership.role === "owner" || membership.role === "admin";
@@ -160,3 +161,5 @@ export default async function StaffPage() {
   );
 }
 
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(StaffPage);

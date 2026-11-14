@@ -1,0 +1,3 @@
+pgtap-report-gate: files=28 tests=3196 passed=3196 failed=0 skipped/todo=0 floor=13 required=2
+pgtap-report-gate: PASS
+gate=0

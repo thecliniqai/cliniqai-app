@@ -56,6 +56,8 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   // referral directory (or is the referral's own clinic); a history snapshot without the patient's consent.
   REFERRAL_TARGET_NOT_LISTED: "VALIDATION_FAILED",
   REFERRAL_CONSENT_REQUIRED: "VALIDATION_FAILED",
+  // V2-05 05-11b (migration 000074): a referral's target doctor is not an owner/doctor of the target clinic.
+  REFERRAL_TARGET_DOCTOR_INVALID: "VALIDATION_FAILED",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

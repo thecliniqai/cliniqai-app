@@ -1,0 +1,83 @@
+1..26
+not ok 1 - an admin cannot re-key the owner's export-scoped key (RLS M-1 repro)
+# Failed test 1: "an admin cannot re-key the owner's export-scoped key (RLS M-1 repro)"
+#         have: 1
+#         want: denied:permission denied for table api_keys
+not ok 2 - nor re-attribute it
+# Failed test 2: "nor re-attribute it"
+#         have: 1
+#         want: denied:permission denied for table api_keys
+not ok 3 - scopes are not updatable by members
+# Failed test 3: "scopes are not updatable by members"
+#         have: 1
+#         want: denied:permission denied for table api_keys
+not ok 4 - a revoked key cannot be un-revoked
+# Failed test 4: "a revoked key cannot be un-revoked"
+#         have: 1
+#         want: denied:API_KEY_REVOKED
+not ok 5 - nor its revocation time moved, even by the owner
+# Failed test 5: "nor its revocation time moved, even by the owner"
+#         have: 1
+#         want: denied:API_KEY_REVOKED
+not ok 6 - keys are revoked, never deleted (INT L-6: audit attribution survives)
+# Failed test 6: "keys are revoked, never deleted (INT L-6: audit attribution survives)"
+#         have: 1
+#         want: denied:permission denied for table api_keys
+not ok 7 - a key cannot be created in the owner's name
+# Failed test 7: "a key cannot be created in the owner's name"
+#         have: 1
+#         want: denied:API_KEY_ACTOR_INVALID
+ok 8 - the 000067 scope rule still holds on INSERT
+ok 9 - an admin creates a key in their own name (createApiKey)
+ok 10 - and revokes a key (revokeApiKey)
+ok 11 - and renames one
+ok 12 - the v1 authenticator (service role) still stamps last_used_at
+not ok 13 - with the privilege (a definer path or a wider grant) a session still cannot re-key
+# Failed test 13: "with the privilege (a definer path or a wider grant) a session still cannot re-key"
+#         have: 1
+#         want: denied:API_KEY_IMMUTABLE
+not ok 14 - nor re-attribute
+# Failed test 14: "nor re-attribute"
+#         have: 1
+#         want: denied:API_KEY_IMMUTABLE
+ok 15 - nor add a scope
+not ok 16 - catalogue: members update name, revoked_at, updated_at only
+# Failed test 16: "catalogue: members update name, revoked_at, updated_at only"
+#         have: created_at,created_by,id,key_hash,key_prefix,last_used_at,name,revoked_at,scopes,tenant_id,updated_at
+#         want: name,revoked_at,updated_at
+not ok 17 - catalogue: no DELETE privilege or policy on api_keys
+# Failed test 17: "catalogue: no DELETE privilege or policy on api_keys"
+not ok 18 - catalogue: the guard fires on every INSERT and UPDATE, not only UPDATE OF scopes
+# Failed test 18: "catalogue: the guard fires on every INSERT and UPDATE, not only UPDATE OF scopes"
+#         have: CREATE TRIGGER api_keys_scope_guard BEFORE INSERT OR UPDATE OF scopes ON public.api_keys FOR EACH ROW EXECUTE FUNCTION private.api_keys_scope_guard()
+#         want: CREATE TRIGGER api_keys_scope_guard BEFORE INSERT OR UPDATE ON public.api_keys FOR EACH ROW EXECUTE FUNCTION private.api_keys_scope_guard()
+not ok 19 - a receptionist cannot rewrite a broadcast notice (RLS M-2 repro)
+# Failed test 19: "a receptionist cannot rewrite a broadcast notice (RLS M-2 repro)"
+#         have: 1
+#         want: denied:permission denied for table in_app_notifications
+not ok 20 - nor the reception notice owners and admins also see
+# Failed test 20: "nor the reception notice owners and admins also see"
+#         have: 1
+#         want: denied:permission denied for table in_app_notifications
+not ok 21 - nor re-address one
+# Failed test 21: "nor re-address one"
+#         have: denied:new row violates row-level security policy for table "in_app_notifications"
+#         want: denied:permission denied for table in_app_notifications
+ok 22 - marking a notice read still works (markNotificationRead)
+not ok 23 - catalogue: members update the read state only
+# Failed test 23: "catalogue: members update the read state only"
+#         have: category,created_at,event_type,id,is_read,link_url,message,metadata,read_at,recipient_role,recipient_user_id,tenant_id,title
+#         want: is_read,read_at
+not ok 24 - the UPDATE policy's WITH CHECK is its USING (the recipient rule), not only the tenant
+# Failed test 24: "the UPDATE policy's WITH CHECK is its USING (the recipient rule), not only the tenant"
+#         have: false
+#         want: true
+not ok 25 - a new notice cannot link off the app (absolute URL)
+# Failed test 25: "a new notice cannot link off the app (absolute URL)"
+#       caught: no exception
+#       wanted: 23514
+not ok 26 - nor protocol-relative
+# Failed test 26: "nor protocol-relative"
+#       caught: no exception
+#       wanted: 23514
+# Looks like you failed 19 tests of 26

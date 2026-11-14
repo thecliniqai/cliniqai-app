@@ -1,0 +1,514 @@
+HEAD 57824b0 db 000074
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ✓ tests/jobs/enqueue-message-rpc-db.spec.ts (24 tests) 2900ms
+   ✓ communication_queue contract (members only read status columns) > catalogue: no write privilege for API roles; writers not executable by API roles; definer + empty search_path  329ms
+ ❯ tests/security/review2-fixes-db.spec.ts (21 tests | 1 failed) 2293ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-H1: encoded dot segments in stored paths > attack step 1 is refused: a member cannot store the payload on their own lab document (CHECK 23514) 50ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-H1: encoded dot segments in stored paths > the prescription and referral path columns refuse encoded or foreign paths; derived paths are accepted 18ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-H1: encoded dot segments in stored paths > the resolver's path rule (share_object_path, used by share_token_resource) returns NULL for the payload 4ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-H1: encoded dot segments in stored paths > a well-formed own path still signs (no regression) 15ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-L1: share tokens are stored only as SHA-256 hashes > the raw token is returned once; the row holds only its hash and members cannot read a raw token 19ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-L1: share tokens are stored only as SHA-256 hashes > reschedule links: only the hash is stored and the raw link still works once 19ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-L4: reschedule links act only on booked or confirmed visits (000023) > a link issued while booked cannot move the visit once waiting 34ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-L4: reschedule links act only on booked or confirmed visits (000023) > a link issued while booked cannot move the visit once in_consultation 20ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-L4: reschedule links act only on booked or confirmed visits (000023) > a confirmed visit can still be rescheduled 9ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-L2: the queue cannot move a signed or closed visit > a completed, signed visit is not moved back to in_consultation (any role with appointments:edit) 12ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-L2: the queue cannot move a signed or closed visit > a visit reopened for amendment (signed, in_consultation) is not completed by the queue 7ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-L2: the queue cannot move a signed or closed visit > cancelled visits stay cancelled; open visits still move forward; completing a completed visit is a no-op 53ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-L5: deleteLabDocument > deletes this patient's object and does not put the storage path in the audit row 90ms
+   ✓ 01-09 review round 2 fixes (000022) > AR2-L5: deleteLabDocument > a stored key outside the patient's prefix is never passed to storage 1ms
+   ✓ 01-09 review round 2 fixes (000022) > IR2-L1: Sign & Bill resumes at billing after a partial failure > signed by this doctor with no invoice yet: the retry creates the invoice without re-signing 206ms
+   ✓ 01-09 review round 2 fixes (000022) > IR2-L1: Sign & Bill resumes at billing after a partial failure > a visit signed by someone else is not billed through this flow 76ms
+   ✓ 01-09 review round 2 fixes (000022) > IR2-L4 / IR-L3: staff edit by an admin > an admin clearing a doctor's credentials gets an explicit refusal and nothing changes 181ms
+   ✓ 01-09 review round 2 fixes (000022) > IR2-L4 / IR-L3: staff edit by an admin > IR-L3: an admin's role change to or from owner/admin is refused before any write 296ms
+   ✓ 01-09 review round 2 fixes (000022) > IR2-L4 / IR-L3: staff edit by an admin > IR-L3: an invalid profile with a role change leaves the role unchanged 288ms
+   ✓ 01-09 review round 2 fixes (000022) > IR2-L4 / IR-L3: staff edit by an admin > IR-L3: when the profile write fails, the role RPC is never called 0ms
+   × 01-09 review round 2 fixes (000022) > AR2-Info (I2): the v1 visit PATCH never returns or logs database text > a database error on update answers a fixed message and logs only the error code 14ms
+     → expected 403 to be 500 // Object.is equality
+ ✓ tests/auth/invite.spec.ts (8 tests) 1412ms
+ ✓ tests/billing/payment-actor-guards.spec.ts (9 tests) 777ms
+ ✓ tests/api/v1-error-texts.spec.ts (149 tests) 795ms
+ ✓ tests/billing/invoice-totals-db.spec.ts (6 tests) 616ms
+ ✓ tests/audit/log-audit-allowlist.spec.ts (7 tests) 451ms
+ ✓ tests/security/guard-actions.spec.ts (625 tests) 59942ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > every inventoried export is a runtime function of its module  323ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > app/(dashboard)/settings/clinic/actions.ts#updateClinicProfileAction  305ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/ai/actions.ts#getFrequentPrescriptionsAction  2021ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/ai/actions.ts#getPatientCatchUpSummaryAction  2131ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/api-keys/actions.ts#revokeApiKey  312ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#addInvoiceItem  848ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#completeAndBillConsultation  2348ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#createVisitInvoice  673ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#getInvoiceReceiptPdfSignedUrl  615ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#getVisitBillingDetails  646ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#recordPayment  1350ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#sendConsolidatedConsultationWhatsApp  1243ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/clinics/actions.ts#createClinic  862ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/clinics/profile.ts#updateClinicProfile  371ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/labs/actions.ts#uploadLabDocument  504ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/notifications/actions.ts#getInAppNotifications  859ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/patients/actions.ts#createPatient  336ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/patients/actions.ts#getPatient  341ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/patients/actions.ts#updatePatient  497ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/prescriptions/actions.ts#addPrescriptionItem  357ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/prescriptions/actions.ts#getOrCreateDraftPrescription  341ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/prescriptions/actions.ts#getPrescriptionPdfSignedUrl  449ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/referrals/actions.ts#closeReferralLoop  520ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/referrals/actions.ts#createReferral  654ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/settings/actions.ts#updateStaffMember  333ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/settings/actions.ts#updateStatutorySettings  733ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/settings/actions.ts#updateUserProfile  319ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/terminology/actions.ts#searchDiagnoses  738ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/visits/actions.ts#getClinicVisitsRegister  644ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/visits/actions.ts#recordVisitVitals  653ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/visits/scheduling.ts#bookAppointment  302ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/ai/actions.ts#getFrequentPrescriptionsAction  581ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/ai/actions.ts#getPatientCatchUpSummaryAction  501ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/billing/actions.ts#completeAndBillConsultation  446ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/billing/actions.ts#sendConsolidatedConsultationWhatsApp  653ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/notifications/actions.ts#getInAppNotifications  480ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/settings/actions.ts#updateStatutorySettings  396ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/terminology/actions.ts#searchDiagnoses  406ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/visits/actions.ts#getClinicVisitsRegister  631ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/visits/actions.ts#recordVisitVitals  484ms
+ ✓ tests/security/p1-34-lint-gates.spec.ts (150 tests) 28914ms
+   ✓ P1-34 boundary lint gates: bypass fixtures fail lint > a server action importing the system factory  635ms
+   ✓ P1-34 boundary lint gates: the real tree > app code carries 0 boundary messages  4505ms
+   ✓ P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > the real tree: 1 service-role factory, 0 boundary messages, every system importer allowed  11950ms
+   ✓ P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-checks.json) > 04-03c: the ADR-0005 exception register holds only the /api/v1 entry (smaller than V2-03's)  11260ms
+ ✓ tests/ops/backup-roundtrip-db.spec.ts (2 tests) 27313ms
+   ✓ backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the stand-in) > uploads an age archive that only the two recipients' keys open, holding the dump, the objects and the manifest  13459ms
+   ✓ backup.sh BACKUP_ENV=local (dump + Storage sync + age + upload to the stand-in) > a failed step exits non-zero, records a `failed` row with a machine code and uploads nothing  7974ms
+ ✓ tests/ci/hosted-dump-diff.spec.ts (3 tests) 12914ms
+   ✓ hosted dump drift tool > reports no drift for a schema-only dump of the local database  5910ms
+   ✓ hosted dump drift tool > names a column the dump has and the migrations do not  5813ms
+ ✓ tests/security/p0-12-lint-gates.spec.ts (53 tests) 13390ms
+   ✓ P0-12: provider and direct senders outside the runner fail lint > provider-factory-import.ts at features/patients/service.ts  685ms
+   ✓ P0-12: the real tree > app code carries 0 P0-12 messages (census: boundary_messages[P0-12] = 0)  12369ms
+ ✓ tests/integration/auth/password-auth.spec.ts (12 tests) 9049ms
+   ✓ AUTH-04a password sign-in (local stack) > a normal login, and a failed one, send 0 emails (Mailpit)  1647ms
+   ✓ AUTH-04a password sign-in (local stack) > self-service signup is disabled: no user is created and no email is sent  1544ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > sends exactly one code-only email for an existing account and none for an unknown one  3190ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a recovery code sets a new password, is single-use, and signs out other sessions  564ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > a password the policy rejects does not use up the code  402ms
+   ✓ AUTH-04a forgot password with a recovery code (PKCE client, local stack + Mailpit) > reusing the current password is mapped, and the update can be retried on the recovery session  432ms
+ ✓ tests/integration/auth/send-email-hook-dedupe-db.spec.ts (6 tests) 8126ms
+   ✓ Send Email hook: shared webhook-id record across instances (R-43) > the same signed delivery on two instances sends exactly one email (before: two)  1642ms
+   ✓ Send Email hook: shared webhook-id record across instances (R-43) > a first attempt that fails at the provider: the retry on another instance sends once  1666ms
+   ✓ Send Email hook: shared webhook-id record across instances (R-43) > another instance sending the same id right now → 409 hook error and nothing sent  1567ms
+   ✓ Send Email hook: shared webhook-id record across instances (R-43) > the shared store failing does not block the email (fails open) and logs a code only  1566ms
+   ✓ Send Email hook: shared webhook-id record across instances (R-43) > an id of an unexpected shape skips the shared layer (still sent once, no row)  1588ms
+ ✓ tests/billing/record-payment-rpc.spec.ts (36 tests) 7449ms
+   ✓ record_payment: invariants > a held invoice lock makes the call fail fast with CONFLICT/LOCK_TIMEOUT (lock_timeout 2s), not hang  5062ms
+ ✓ tests/jobs/parallel-dispatch-db.spec.ts (12 tests) 6651ms
+   ✓ runJobs over the live queue > 8 parallel runners over 200 jobs in 3 tenants handle each job exactly once  364ms
+   ✓ tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > re-verifier's repro: 10 tenants × 40 jobs from 30 minutes ago, an 11th tenant's one job from 1 minute ago → served within 2 batches  757ms
+   ✓ tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > bound: with 23 backlogged tenants every one is served within ceil(23 / 10) = 3 batches  1472ms
+   ✓ tenant rotation across more tenants than a batch (04-07d, re-verification N-1) > through the real runner with the route's configuration: the 11th tenant's job runs among the first 2 batches (20 jobs)  764ms
+   ✓ hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > re-checker's probe #8: 10 tenants × 40 jobs + a victim, 12 s bound, 1.5 s per job (8 of 10 fit a pass) → the victim runs within 2 passes  765ms
+   ✓ hand-backs and batch order through the real runner (04-07e, adversarial re-check N-1b) > the same at 1.0 s per job (11 fit a pass, so batch 2 is cut short): the victim runs within 2 passes  749ms
+   ✓ 8 parallel runners over 200 queued messages (04-03a, real message.send handler) > send each message exactly once: 200 provider calls, 200 distinct rows, 0 duplicates  705ms
+ ✓ tests/scheduling/slot-deadlock-retry.spec.ts (5 tests) 6421ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/visits: the deadlock victim → 409 SLOT_CONFLICT (before: 500)  1209ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > POST /api/v1/appointments: the deadlock victim → 409 SLOT_CONFLICT (before: 500)  1205ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > PATCH /api/v1/appointments/:id: the deadlock victim → 409 SLOT_CONFLICT, the visit keeps its time (before: 500)  1187ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > patient reschedule link: the deadlock victim → 409 slot taken, the link stays usable (before: 404 not found)  1202ms
+   ✓ slot writers under a forced deadlock: the loser gets the taken slot (05-11c, INT L-3) > createVisit (app booking, receptionist under RLS): the deadlock victim → the taken-slot conflict  1196ms
+ ✓ tests/integration/auth/mailpit-sender.spec.ts (7 tests) 6162ms
+   ✓ Send Email hook path → Mailpit (local stack) > recovery: exactly one code email reaches Mailpit for the user, carrying the payload's code and no link  1545ms
+   ✓ Send Email hook path → Mailpit (local stack) > magiclink: 200 and zero emails in Mailpit (A00-1)  1514ms
+   ✓ Send Email hook path → Mailpit (local stack) > password_changed_notification: exactly one code-free notice in Mailpit  1543ms
+   ✓ Send Email hook path → Mailpit (local stack) > a bad signature sends nothing to Mailpit  1521ms
+ ✓ tests/jobs/run-route.spec.ts (29 tests) 6053ms
+   ✓ POST /api/jobs/run: refusals before any database access > no configured secret: even `Bearer undefined` and the old secret are refused  654ms
+   ✓ POST /api/jobs/run: refusals before any database access > a signed-in clinic owner's session cookie without the bearer → 401 (no role is a runner)  502ms
+ ✓ tests/ops/drill-lib-db.spec.ts (8 tests) 5473ms
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > the checks file (no meta-command) passes all 13 checks through the restricted session with the live counts  408ms
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > drill_authz_matrix (V2-05 05-01b, R-11): the generated RLS matrix passes through the restricted session and leaves nothing behind  1673ms
+   ✓ drill-lib.sh: every drill session is restricted and archive values reach SQL only quoted (04-07e, N-2b) > route 2: in a database whose own setting turns standard_conforming_strings off, the session runs with it on and a hostile table key is only a name  446ms
+   ✓ the restore role cannot run COPY … PROGRAM (04-07e, L-F: the server-side control) > postgres (the role the restore connects as) holds neither superuser nor pg_execute_server_program, cannot grant it, and COPY … PROGRAM is refused  690ms
+ ✓ tests/integration/auth/auth00-recheck-kit.spec.ts (14 tests) 5330ms
+ ✓ tests/ops/restore-guards.spec.ts (55 tests) 2357ms
+   ✓ sql-guard.ts: what psql would execute as a meta-command > the CLI names file and line only, never the line's content, and exits 1 / 0 / 2  780ms
+   ✓ sql-guard.ts does not depend on standard_conforming_strings or the client encoding (04-07d, N-2) > --emit-dir writes restore copies with only pg_dump's \restrict lines turned into comments, and nothing when refused  612ms
+   ✓ run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts > 04-07e (N-2b): refuses an authenticated archive whose manifest holds a meta-command in a count or a table key, before any SQL runs  301ms
+   ✓ run.sh refuses an unauthenticated archive and meta-command SQL before the drill stack starts > refuses an authenticated archive whose SQL holds a psql meta-command, before any SQL runs or a stack starts  439ms
+ ✓ tests/jobs/enqueue-webhook-rpc-db.spec.ts (23 tests) 4608ms
+   ✓ closed event set, subject state and idempotency > visit.completed and appointment.cancelled need the visit in that state; the data comes from the visit row  398ms
+   ✓ contract: members cannot write the delivery table (M-XTENANT-WH, T-04-25) > catalogue: writers not executable by API roles; RPC grants as designed; definer + empty search_path  713ms
+   ✓ 04-07a: prescription.issued at signing; lab_result.ready for a consistent document > the app flow: the empty draft queues nothing; signing the consultation queues the one event  402ms
+ ✓ tests/auth/send-email-hook.spec.ts (28 tests) 3674ms
+   ✓ 03-13a: webhook-id dedupe and the SES time budget > a provider that hangs is aborted at the 3500 ms budget: 500 well inside GoTrue's 5000 ms hook timeout  3516ms
+ ✓ tests/jobs/alert-notify-db.spec.ts (10 tests) 3579ms
+   ✓ alert.notify → Mailpit > a patient's dead-lettered message raises dead_letter; the email carries no patient or owner identifier  695ms
+   ✓ alert.notify → Mailpit > no input of the shared scrub vectors survives into the email, as a detail value or as a key  336ms
+   ✓ alert.notify: channel and failure handling > R-51: provider down → no email, notified_at null; provider back → the next evaluation sends exactly one  797ms
+ ✓ tests/ops/check-ops-report.spec.ts (36 tests) 3560ms
+   ✓ check-ops-report.ts (CLI) > not JSON -> exit 1; unreadable file, unknown requirement or no file -> exit 2  465ms
+ ✓ tests/jobs/alerts-db.spec.ts (35 tests) 3112ms
+   ✓ access: nothing reachable from an API role > no API role executes the evaluator or a rule; the handler RPCs are service_role only  347ms
+   ✓ access: nothing reachable from an API role > every new function is SECURITY DEFINER with an empty search_path  344ms
+ ✓ tests/integration/ist-boundaries.spec.ts (21 tests) 3262ms
+ ✓ tests/ci/migration-immutability.spec.ts (20 tests) 3284ms
+ ✓ tests/security/guard-routes.spec.ts (56 tests) 3260ms
+ ✓ tests/auth/send-email-hook-resend.spec.ts (6 tests) 3034ms
+   ✓ Send Email hook with EMAIL_PROVIDER=resend (04-00b) > a hung Resend answers 500 (resend_timeout) inside the hook budget, before GoTrue's timeout  3003ms
+ ✓ tests/jobs/webhook-deliver-handler-db.spec.ts (15 tests) 2692ms
+   ✓ delivery outcomes > successive failures follow 1 m, 5 m, 15 m, 1 h and the fifth is terminal (V2-03 curve, now in SQL)  359ms
+   ✓ delivery outcomes > a row with max_retries = 50 stops after 5 attempts (03-13d cap, review E-8)  313ms
+   ✓ concurrency (T-04-07) > 8 parallel runners over 120 deliveries → 120 POSTs, each delivery exactly once, every job done at attempt 1  408ms
+ ✓ tests/ops/heartbeat-quota-db.spec.ts (14 tests) 2391ms
+   ✓ weekly quota summary email (committed, Mailpit) > sends exactly one email naming the levels and the egress reminder; then resolves and sends nothing more  360ms
+   ✓ access: the new tables and functions are closed to every API role > tables: RLS on, no policy, no privilege for anon, authenticated or service_role  574ms
+   ✓ access: the new tables and functions are closed to every API role > functions: SECURITY DEFINER with an empty search_path, executable by no API role and not by PUBLIC  661ms
+ ✓ tests/messaging/inbound-retry-db.spec.ts (13 tests) 2970ms
+   ✓ delivery reports: an early report is kept; the failure note carries a code (IND L2, B L-6) > a Delivered report that beats the sender's finish write is applied when the id is written (before: lost)  311ms
+ ✓ tests/ci/ai-l1-greps.spec.ts (18 tests) 2937ms
+ ✓ tests/observability/error-sink-scrub-db.spec.ts (79 tests) 4853ms
+ ✓ tests/security/guard-canary.spec.ts (6 tests) 2667ms
+   ✓ P0-13 canary: an unguarded action and route are caught > (d) leg 3 forging one reference at a time, with a positive control (02-06, IR-F2/AR-M2a) > forging every B id at once misses the unchecked second reference; one at a time reaches it  350ms
+ ✓ tests/ops/restore-psql-restricted-db.spec.ts (3 tests) 2224ms
+   ✓ psql-restricted.sh: psql refuses every meta-command in the archive's SQL (04-07d, N-2) > the re-verifier's standard_conforming_strings repro: refused, exit 3, the shell command never runs  315ms
+   ✓ psql-restricted.sh: psql refuses every meta-command in the archive's SQL (04-07d, N-2) > the guard's restore copy of a pg_dump-shaped file restores in restricted mode (COPY data and its terminator work)  711ms
+ ✓ tests/config/env-boot.spec.ts (12 tests) 2451ms
+   ✓ boot: instrumentation.ts register() (every server instance) > refuses a staging profile carrying the local stack's opaque keys, naming both and no value (04-00 L-3)  720ms
+   ✓ boot: instrumentation.ts register() (every server instance) > the same staging profile with run-time-built hosted keys boots; the local tiers keep their keys (04-00 L-3)  774ms
+ ✓ tests/integration/auth/auth-config-applied.spec.ts (6 tests) 2604ms
+   ✓ AUTH-02: the local GoTrue runs the auth policy (local column) > a second recovery request for the same address within 60 s is refused with over_email_send_rate_limit  1694ms
+   ✓ AUTH-02: the local GoTrue runs the auth policy (local column) > a password change sends the code-free 'password changed' security notification  356ms
+ ✓ tests/messaging/inbound-dedupe-db.spec.ts (21 tests) 2448ms
+ ✓ tests/storage/storage-policies-jwt.spec.ts (8 tests) 2291ms
+ ✓ tests/auth/session-age-token-hook-db.spec.ts (53 tests) 2093ms
+ ✓ tests/jobs/runner-review-fixes-db.spec.ts (7 tests) 2060ms
+   ✓ M-ATTEMPT: a crash between claim and start spends no attempt > a job with max_attempts 1 survives repeated crashes after its claim and then runs once  459ms
+   ✓ L-2: a timed-out handler keeps its lease and cannot complete after a re-claim > the abandoned run blocks other runners until the lease expires, and its late `done` is refused  929ms
+ ✓ tests/integration/auth/change-password.spec.ts (6 tests) 2031ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a breached new password is refused with the catalogue copy and the password is unchanged  330ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a valid change: the new password signs in, the old one fails, another session's refresh fails, this one stays  586ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > a fresh recovery session (within 10 minutes) may change the password  369ms
+   ✓ changePasswordAction (local stack, FT-05 on against the loopback fake range API) > with the check off (the lane default) a fixture password is not looked up  342ms
+ ✓ tests/security/review-fixes-db.spec.ts (19 tests) 1956ms
+ ✓ tests/jobs/delivery-reap-db.spec.ts (5 tests) 1904ms
+   ✓ delivery-row reaper > a row stuck in processing after a crash is reclaimed and then sent exactly once  371ms
+   ✓ delivery-row reaper > 04-07b: a crash on attempt 3 of 5 still sends; polling while the row is held spends no attempt  759ms
+ ✓ tests/ci/staging-scripts.spec.ts (67 tests) 1530ms
+ ✓ tests/jobs/reaper-db.spec.ts (11 tests) 1491ms
+ ✓ tests/jobs/queue-grants-db.spec.ts (10 tests) 1750ms
+   ✓ catalogue: the contract holds > anon holds no privilege on either queue table (table or column level)  645ms
+   ✓ catalogue: the contract holds > authenticated holds SELECT only (no write privilege at table or column level)  569ms
+ ✓ tests/jobs/scheduler-migration-db.spec.ts (29 tests) 1668ms
+   ✓ 000033: exposure of net, Vault and the scheduler functions (R-16 as built, T-04-02) > no API role may execute the scheduler functions or use cron; anon and authenticated cannot read Vault  367ms
+ ✓ tests/integration/auth/reset-completion.spec.ts (5 tests) 1689ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > a breached password is refused (code already used, retry on the same session); a clear one signs out other sessions  664ms
+   ✓ setNewPasswordAction after a recovery code (local stack + Mailpit) > R-35 / H-AUTH: reset completion revokes the recovery session; its tokens then fail on a direct GoTrue PUT /auth/v1/user  388ms
+ ✓ tests/security/review3-fixes-db.spec.ts (16 tests) 1534ms
+ ✓ tests/ops/restore-drill-checks-db.spec.ts (5 tests) 1449ms
+   ✓ restore_drill_checks.sql on the primary local stack > passes with the manifest values computed live: 13 checks ok, nothing persists  309ms
+   ✓ restore_drill_checks.sql on the primary local stack > fails when the restore path does not re-create a schedule, or re-creates jobs-kick active (04-07c, M-RESTORE)  402ms
+ ✓ tests/jobs/replay-job-db.spec.ts (5 tests) 1269ms
+   ✓ ops.replay_job (R-35) > a dead message.send job and its dead-lettered row go back to pending; the runner then sends once  319ms
+ ✓ tests/ci/inventory-gate.spec.ts (3 tests) 1537ms
+   ✓ inventory gate (F14) > exits 1 and names the module when a "use server" export takes an override or an acting tenant  545ms
+   ✓ inventory gate (F14) > exits 1 on entry points it cannot inventory: inline "use server", route.{js,jsx,tsx,mjs}, a JS action module (02-06)  489ms
+   ✓ inventory gate (F14) > exits 0 on an action that takes only target ids  501ms
+ ✓ tests/api/v1-doctor-guard.spec.ts (33 tests) 1440ms
+ ✓ tests/jobs/message-send-handler-db.spec.ts (6 tests) 1130ms
+   ✓ message.send handler > an eligible WhatsApp booking failing twice queues exactly one SMS fallback; the last failure dead-letters once  335ms
+ ✓ tests/messaging/msg91-webhook.spec.ts (21 tests) 1438ms
+ ✓ tests/api/webhooks-outbox.spec.ts (24 tests) 1375ms
+ ✓ tests/jobs/backfill-db.spec.ts (4 tests) 1535ms
+   ✓ ops.backfill_delivery_jobs (R-38) > a row stuck in processing for more than 240 s becomes failed/outcome_unknown first, then gets its job  394ms
+   ✓ ops.backfill_delivery_jobs (R-38) > webhook rows: pending and reaper-failed rows get a job; a terminal failed row does not  682ms
+ ✓ tests/security/webhook-lockdown.spec.ts (47 tests) 1409ms
+ ✓ tests/billing/collect-permission.spec.ts (12 tests) 1495ms
+ ✓ tests/security/p0-01-forged-overrides.spec.ts (14 tests) 1352ms
+ ✓ tests/integration/auth/session-age-token-hook.spec.ts (4 tests) 1398ms
+   ✓ Custom Access Token hook on the local GoTrue (03-13e) > an unknown amr method fails closed: allowed while fresh, refused past 600 s  429ms
+ ✓ tests/integration/consultation-service-guards.spec.ts (9 tests) 1052ms
+ ✓ tests/security/dpdp-export-route.spec.ts (5 tests) 1067ms
+ ✓ tests/ci/auth00-recheck-cli.spec.ts (17 tests) 1077ms
+   ✓ the command line refuses before any request > 03-13a: the opt-in probes are bounded (stale wait 601..890 s, email-cap probe 1..70) → usage (exit 2)  660ms
+ ✓ tests/observability/error-sink-db.spec.ts (27 tests) 1152ms
+stderr | tests/api/proxy-session.spec.ts > 03-06 proxy session refresh (@supabase/ssr 0.12, getClaims) > 03-12b: a session that cannot be refreshed is redirected and its stale auth cookie deleted
+AuthApiError: Refresh token is not valid
+    at handleError (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:145:9)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _handleRequest (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:239:5)
+    at _request (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:200:16)
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/GoTrueClient.ts:4790:18
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/helpers.ts:242:26 {
+  __isAuthError: true,
+  status: 400,
+  code: 'validation_failed'
+}
+AuthApiError: Refresh token is not valid
+    at handleError (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:145:9)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _handleRequest (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:239:5)
+    at _request (/Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/fetch.ts:200:16)
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/GoTrueClient.ts:4790:18
+    at /Users/sid/Code/clinicOS/node_modules/@supabase/auth-js/src/lib/helpers.ts:242:26 {
+  __isAuthError: true,
+  status: 400,
+  code: 'validation_failed'
+}
+
+ ✓ tests/api/proxy-session.spec.ts (9 tests) 1059ms
+   ✓ 03-13a H-AUTH: the proxy ends an emailed-code session older than 600 s > a Server Action POST and an /api call on a stale recovery session run signed out (no auth cookie forwarded)  413ms
+ ✓ tests/setup/teardown.spec.ts (3 tests) 1050ms
+   ✓ teardown leak check > flags a run user's row in a tenant outside the run, and only that  1006ms
+ ✓ tests/visits/clinic-visits-register.spec.ts (8 tests) 1012ms
+ ✓ tests/integration/demo-clinic-seed.spec.ts (3 tests) 1059ms
+   ✓ demo clinic seeding core (local stack) > creates the clinic, five staff with the five roles and three synthetic patients  460ms
+   ✓ demo clinic seeding core (local stack) > is idempotent: a second run keeps the clinic, adds no patients and sets the new password  461ms
+ ✓ tests/auth/signout-route.spec.ts (21 tests) 1064ms
+ ✓ tests/patients/visit-history.spec.ts (4 tests) 986ms
+ ✓ tests/jobs/claim-grants-db.spec.ts (11 tests) 931ms
+   ✓ catalog: definer functions with a pinned search_path, ops functions closed > public runner RPCs: service_role only; ops functions: no API role  331ms
+ ✓ tests/security/role-rls.spec.ts (15 tests) 904ms
+ ✓ tests/referrals/referral-consent-write.spec.ts (2 tests) 645ms
+ ✓ tests/integration/delete-paths.spec.ts (8 tests) 1057ms
+ ✓ tests/security/membership-guard.spec.ts (26 tests) 933ms
+ ✓ tests/patients/receptionist-registration.spec.ts (7 tests) 862ms
+ ✓ tests/api/readiness-probe-db.spec.ts (8 tests) 802ms
+   ✓ readiness_probe(p_expected_migration) (migrations 000025, 000029) > each flag is an indexed check: with sequential scans off, no plan scans a queue table  308ms
+   ✓ readiness_probe(p_expected_migration) (migrations 000025, 000029) > 04-04: each job flag answers its condition (seeded in a rolled-back session), never a count  355ms
+ ✓ tests/ci/inventory-guards.spec.ts (11 tests) 891ms
+   ✓ inventory: route handler methods > finds every app route module in the default scan  889ms
+ ✓ tests/jobs/alert-drill-db.spec.ts (1 test) 748ms
+   ✓ alert drill (local): dead drill job → dead_letter alert → alert.notify → one email > drill.always_fail dies after two passes, raises dead_letter and mails the ops inbox exactly once  565ms
+ ✓ tests/security/cross-tenant.spec.ts (21 tests) 865ms
+ ✓ tests/security/multi-clinic-tenant-filters.spec.ts (7 tests) 813ms
+ ✓ tests/integration/queue-token-concurrency.spec.ts (2 tests) 893ms
+   ✓ 50 parallel check-ins (05-08, acceptance 7) > produces tokens 1…50, all distinct, every one dated the clinic-local (IST) date computed in SQL  338ms
+ ✓ tests/ops/backup-runs-db.spec.ts (15 tests) 797ms
+ ✓ tests/security/p0-13-lint-gates.spec.ts (7 tests) 836ms
+   ✓ P0-13 lint gates > fails lint on an inline "use server" action  763ms
+ ✓ tests/api/v1-crud.spec.ts (17 tests) 770ms
+ ✓ tests/security/cross-tenant-refs.spec.ts (12 tests) 872ms
+ ✓ tests/api/webhook-dispatch-hardening.spec.ts (9 tests) 781ms
+ ✓ tests/ci/workflow-policy.spec.ts (72 tests) 840ms
+   ✓ workflow policy: environment, secret-name and workflow_run bypasses (04-07c) > backup-alert.yml against a fork PR's spoofed 'Staging backup' run (review C L-2) > a genuine failed scheduled or dispatched run of backup.yml opens the issue  489ms
+ ✓ tests/compliance/dpdp-rights.spec.ts (16 tests) 728ms
+ ✓ tests/integration/prescription-versioning.spec.ts (6 tests) 667ms
+ ✓ tests/ops/ops-report-db.spec.ts (16 tests) 753ms
+ ✓ tests/ops/manifest-guard.spec.ts (22 tests) 873ms
+   ✓ manifest-guard.ts: archive-controlled manifest values are validated before use (04-07e, N-2b) > the CLI writes the validated copy (exit 0), refuses without writing (exit 1) and never prints a refused value  870ms
+ ✓ tests/authz/active-tenant-carrier.spec.ts (7 tests) 754ms
+ ✓ tests/ops/quota-level-db.spec.ts (18 tests) 641ms
+ ✓ tests/security/override-lint-gates.spec.ts (19 tests) 826ms
+   ✓ P0-01 lint gates: "use server" exports > fails lint on client-override.ts (a clientOverride parameter)  659ms
+ ✓ tests/messaging/sms-recipient-exploit-db.spec.ts (4 tests) 893ms
+   ✓ H-SMS: a member cannot make the runner send SMS to arbitrary numbers (review B H-1) > an existing hostile row is sent only to the patient, with the fixed template, sender and short_url; a hostile WhatsApp row gets no SMS fallback  395ms
+ ✓ tests/security/pdf-route-guards.spec.ts (5 tests) 768ms
+ ✓ tests/jobs/runner.spec.ts (21 tests) 726ms
+   ✓ runJobs: 04-07b review fixes > L-2: a handler that ignores its abort is abandoned with its lease kept; it is finished under its token only when it settles  586ms
+ ✓ tests/ops/backup-evidence.spec.ts (9 tests) 591ms
+   ✓ evidence --check > CLI: --listing writes the artifact; --check exits 0 on it and 1 on a tampered copy  587ms
+ ✓ tests/audit/audit-actor.spec.ts (5 tests) 712ms
+ ✓ tests/security/share-tokens.spec.ts (22 tests) 573ms
+ ✓ tests/ci/recheck-args.spec.ts (12 tests) 613ms
+   ✓ re-check dispatch inputs reach the kit's arguments > in-range values become --stale-wait-seconds / --email-cap-probe (CLI: the kit's argv, no shell)  438ms
+ ✓ tests/ci/auth-policy.spec.ts (14 tests) 650ms
+ ✓ tests/scheduling/no-double-booking.spec.ts (4 tests) 647ms
+ ✓ tests/scheduling/schedule-block-guards.spec.ts (4 tests) 588ms
+ ✓ tests/visits/duration-bounds.spec.ts (18 tests) 595ms
+ ✓ tests/ci/schema-snapshot.spec.ts (15 tests) 512ms
+ ✓ tests/dpdp/export-routes-audit.spec.ts (12 tests) 662ms
+ ✓ tests/integration/multi-tenancy.spec.ts (6 tests) 555ms
+ ✓ tests/ci/diagnostics-script.spec.ts (15 tests) 513ms
+   ✓ diagnostics.sql on the local stack finds planted violations > a cross-tenant visit and a non-member doctor each count once more than the clean run  508ms
+ ✓ tests/integration/visits.spec.ts (6 tests) 322ms
+ ✓ tests/labs/lab-storage-key.spec.ts (4 tests) 506ms
+ ✓ tests/ci/tests-typecheck.spec.ts (3 tests) 504ms
+   ✓ test type-checking (RL-13) > fails a deliberately mistyped spec and passes a well-typed one using the Vitest globals  487ms
+ ✓ tests/api/v1-visits-no-clinical.spec.ts (13 tests) 472ms
+ ✓ tests/referrals/referrals-flow.spec.ts (14 tests) 491ms
+ ✓ tests/visits/signed-visit-integrity.spec.ts (4 tests) 442ms
+ ✓ tests/labs/lab-documents.spec.ts (12 tests) 438ms
+ ✓ tests/integration/receipt-reports.spec.ts (4 tests) 519ms
+ ✓ tests/integration/consultation-flow.spec.ts (10 tests) 565ms
+ ✓ tests/security/p0-01-action-sweep.spec.ts (114 tests) 603ms
+ ✓ tests/audit/audit-logging.spec.ts (4 tests) 520ms
+ ✓ tests/integration/subscription.spec.ts (3 tests) 480ms
+ ✓ tests/auth/resend-sender.spec.ts (24 tests) 438ms
+   ✓ ResendEmailSender: timeouts and aborts > over real HTTP: a hung Resend answer becomes resend_timeout after the configured deadline, not later  302ms
+ ✓ tests/ops/ops-cleanup-db.spec.ts (10 tests) 499ms
+ ✓ tests/ops/ensure-schedules-db.spec.ts (5 tests) 378ms
+ ✓ tests/security/auth-lint-gates.spec.ts (6 tests) 684ms
+   ✓ AUTH-01 lint gates > fails lint on otp-create-user.ts (OTP sign-in with user creation)  638ms
+ ✓ tests/api/v1-slot-conflict.spec.ts (4 tests) 447ms
+ ✓ tests/integration/cabin-consultation-launch.spec.ts (2 tests) 338ms
+ ✓ tests/ops/manifest-compare.spec.ts (6 tests) 453ms
+   ✓ compare-manifest.ts CLI and parsers > hashes the storage dir, parses the psql TSVs, exits 0 on a match and 1 naming the table on a mismatch  450ms
+ ✓ tests/integration/per-visit-billing.spec.ts (5 tests) 337ms
+ ✓ tests/security/review-fixes-app.spec.ts (14 tests) 384ms
+stdout | tests/integration/cdci-search.spec.ts > CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-tenancy)
+✓ Seeded 200 OPD drugs fixture in 10ms
+
+stdout | tests/integration/cdci-search.spec.ts > CDCI Drug Search & Multi-Tenant Isolation (REQ-prescribing, REQ-multi-tenancy) > 4. Drug search latency benchmark executes under 100ms on database tier
+Drug search roundtrip latency: 5.7ms
+
+ ✓ tests/integration/cdci-search.spec.ts (6 tests) 340ms
+ ✓ tests/api/export-scope.spec.ts (6 tests) 370ms
+ ✓ tests/api/v1-auth.spec.ts (7 tests) 333ms
+ ✓ tests/jobs/alert-review-fixes-db.spec.ts (7 tests) 434ms
+ ✓ tests/api/v1-performance.spec.ts (5 tests) 341ms
+ ✓ tests/ci/env-example.spec.ts (3 tests) 352ms
+ ✓ tests/observability/on-request-error.spec.ts (5 tests) 303ms
+ ✓ tests/scheduling/calendar-waitlist.spec.ts (5 tests) 292ms
+ ✓ tests/dpdp/export-dto.spec.ts (7 tests) 348ms
+ ✓ tests/messaging/provider-selection.spec.ts (7 tests) 414ms
+ ✓ tests/ci/ci-scripts.spec.ts (7 tests) 439ms
+ ✓ tests/integration/queue-flow.spec.ts (4 tests) 312ms
+ ✓ tests/compliance/consent.spec.ts (3 tests) 355ms
+ ✓ tests/auth/page-revoked-session.spec.ts (13 tests) 211ms
+ ✓ tests/referrals/referral-source-clinics.spec.ts (7 tests) 277ms
+ ✓ tests/ci/pgtap-report.spec.ts (11 tests) 249ms
+ ✓ tests/ops/backup-script-guards.spec.ts (12 tests) 248ms
+ ✓ tests/api/rate-limiting.spec.ts (5 tests) 267ms
+ ✓ tests/security/no-raw-error-responses.spec.ts (24 tests) 211ms
+ ✓ tests/labs/tokenized-sharing.spec.ts (6 tests) 181ms
+ ✓ tests/patients/dedup.spec.ts (6 tests) 174ms
+ ✓ tests/messaging/provider-timeouts-and-synthetic.spec.ts (24 tests) 200ms
+ ✓ tests/ci/vitest-report-gate.spec.ts (9 tests) 194ms
+ ✓ tests/security/system-db.spec.ts (12 tests) 179ms
+ ✓ tests/setup/test-env-guard.spec.ts (83 tests) 167ms
+ ✓ tests/ci/doc-grep-gate.spec.ts (7 tests) 183ms
+ ✓ tests/ci/local-drift.spec.ts (8 tests) 152ms
+stderr | tests/messaging/msg91-contract.spec.ts > the lane stays offline around MSW > a request MSW does not handle never reaches MSG91 (its socket dials 127.0.0.1); other hosts stay refused
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • POST https://control.msg91.com/api/v5/flow/
+
+  • Request body: {"template_id":"flow_template_1","sender":"synthetic-sender","short_url":"0","mobiles":"919812300045"}
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ tests/messaging/msg91-contract.spec.ts (24 tests) 155ms
+ ✓ tests/ci/env-files-gate.spec.ts (5 tests) 197ms
+ ✓ tests/ci/audit-gate.spec.ts (7 tests) 141ms
+ ✓ tests/api/v1-system-client-order.spec.ts (4 tests) 126ms
+ ✓ tests/auth/ses-sender.spec.ts (7 tests) 114ms
+ ✓ tests/api/api-v1-switch.spec.ts (57 tests) 109ms
+ ✓ tests/auth/pwned.spec.ts (13 tests) 91ms
+ ✓ tests/api/health-probes.spec.ts (15 tests) 96ms
+ ✓ tests/ci/playwright-summary.spec.ts (3 tests) 65ms
+ ✓ tests/setup/next-env-flag.spec.ts (2 tests) 59ms
+ ✓ tests/ci/auth-config-hosted.spec.ts (11 tests) 30ms
+stderr | tests/setup/msw-loopback.spec.ts > MSW 3 window with local stack traffic > concurrent local RPCs pass through; an unhandled MSG91 request still fails
+[MSW] Error: intercepted a request without a matching request handler:
+
+  • POST https://control.msg91.com/api/v5/flow
+
+  • Request body: {}
+
+If you still wish to intercept this unhandled request, please create a request handler for it.
+Read more: https://mswjs.io/docs/http/intercepting-requests
+
+ ✓ tests/setup/msw-loopback.spec.ts (1 test) 43ms
+ ✓ tests/setup/e2e-app-env.spec.ts (14 tests) 33ms
+ ✓ tests/config/env-schema.spec.ts (256 tests) 31ms
+ ✓ tests/api/webhook-ssrf.spec.ts (61 tests) 8ms
+ ✓ tests/observability/logger.spec.ts (26 tests) 23ms
+ ✓ tests/utils/datetime.spec.ts (17 tests) 14ms
+ ✓ tests/permissions/has-permission-parity.spec.ts (8 tests) 16ms
+ ✓ tests/ops/drill-evidence-and-workflows.spec.ts (9 tests) 6ms
+ ✓ tests/observability/sink-flood.spec.ts (3 tests) 13ms
+ ✓ tests/security/ai-containment.spec.ts (18 tests) 12ms
+ ✓ tests/observability/scrub.spec.ts (146 tests) 13ms
+ ✓ tests/scheduling/availability-blocks.spec.ts (24 tests) 12ms
+ ✓ tests/integration/calendar-scheduling-ux.spec.ts (12 tests) 12ms
+ ✓ tests/authz/table-matrix.spec.ts (21 tests) 12ms
+ ✓ tests/visits/visit-service-guards.spec.ts (7 tests) 13ms
+ ✓ tests/patients/phone-search.spec.ts (11 tests) 11ms
+ ✓ tests/ai/prescription-suggestions.spec.ts (6 tests) 23ms
+ ✓ tests/billing/billing-error-messages.spec.ts (5 tests) 9ms
+ ✓ tests/api/proxy-matcher.spec.ts (24 tests) 10ms
+ ✓ tests/observability/request-id.spec.ts (12 tests) 8ms
+ ✓ tests/components/phone-input.spec.ts (16 tests) 8ms
+ ✓ tests/components/doctor-availability.spec.ts (11 tests) 7ms
+ ✓ tests/auth/password-service.spec.ts (23 tests) 8ms
+ ✓ tests/authz/generator-drift.spec.ts (4 tests) 12ms
+ ✓ tests/observability/diag-route.spec.ts (5 tests) 6ms
+ ✓ tests/messaging/tokenized-sharing.spec.ts (6 tests) 6ms
+ ✓ tests/observability/no-raw-error-logging.spec.ts (4 tests) 6ms
+ ✓ tests/ai/ai-gateway.spec.ts (20 tests) 6ms
+ ✓ tests/auth/password-schemas-and-errors.spec.ts (48 tests) 7ms
+ ✓ tests/messaging/messaging-provider.spec.ts (11 tests) 6ms
+ ✓ tests/messaging/msg91-provider.spec.ts (26 tests) 6ms
+ ✓ tests/security/share-path-encoding.spec.ts (21 tests) 4ms
+ ✓ tests/notifications/in-app-notifications.spec.ts (12 tests) 5ms
+ ✓ tests/observability/console-scrub.spec.ts (6 tests) 5ms
+ ✓ tests/api/openapi.spec.ts (3 tests) 4ms
+ ✓ tests/jobs/alert-email.spec.ts (50 tests) 5ms
+ ✓ tests/messaging/outbox-queue.spec.ts (10 tests) 4ms
+ ✓ tests/security/invite-token-lockout.spec.ts (4 tests) 4ms
+ ✓ tests/messaging/msg91-sync-templates.spec.ts (14 tests) 5ms
+ ✓ tests/consultation/schemas.spec.ts (11 tests) 3ms
+ ✓ tests/messaging/sink-provider.spec.ts (2 tests) 4ms
+ ✓ tests/ci/test-pgtap-script.spec.ts (10 tests) 4ms
+ ✓ tests/storage/storage-provider.spec.ts (14 tests) 4ms
+ ✓ tests/auth/public-paths.spec.ts (60 tests) 6ms
+ ✓ tests/dental/odontogram.spec.ts (7 tests) 4ms
+ ✓ tests/auth/password-flows-captcha.spec.ts (14 tests) 4ms
+ ✓ tests/db/error-map.spec.ts (43 tests) 4ms
+ ✓ tests/dpdp/export-fail-closed.spec.ts (9 tests) 3ms
+ ✓ tests/visits/create-visit-slot-race.spec.ts (4 tests) 3ms
+ ✓ tests/prescriptions/dosage.spec.ts (13 tests) 3ms
+ ✓ tests/settings/settings-service-guards.spec.ts (6 tests) 3ms
+ ✓ tests/ci/visit-integrity-inline.spec.ts (11 tests) 3ms
+ ✓ tests/settings/profile-and-credentials.spec.ts (8 tests) 3ms
+ ✓ tests/auth/safe-next.spec.ts (85 tests) 3ms
+ ✓ tests/jobs/runner-auth.spec.ts (31 tests) 3ms
+ ✓ tests/auth/session-age.spec.ts (39 tests) 2ms
+ ✓ tests/patients/schema.spec.ts (7 tests) 2ms
+ ✓ tests/billing/schemas.spec.ts (4 tests) 2ms
+ ✓ tests/utils/phone.spec.ts (28 tests) 2ms
+ ✓ tests/security/pii-scrubber.spec.ts (8 tests) 2ms
+ ✓ tests/messaging/two-way-bot.spec.ts (9 tests) 2ms
+ ✓ tests/storage/no-service-role-fallback.spec.ts (5 tests) 2ms
+ ✓ tests/ops/quota-alert-email.spec.ts (4 tests) 2ms
+ ✓ tests/auth/rbac.spec.ts (7 tests) 2ms
+ ✓ tests/pediatrics/who-growth.spec.ts (7 tests) 2ms
+ ✓ tests/ai/gateway-tools.spec.ts (3 tests) 2ms
+ ✓ tests/ci/pgtap-legacy-inline.spec.ts (3 tests) 1ms
+ ✓ tests/ci/clinical-notes-backfill-inline.spec.ts (3 tests) 1ms
+ ✓ tests/db/retry.spec.ts (6 tests) 1ms
+ ✓ tests/billing/sign-and-bill-outcome.spec.ts (3 tests) 1ms
+ ✓ tests/utils/synthetic-phones.spec.ts (2 tests) 1ms
+ ✓ tests/ci/known-bug-match.spec.ts (3 tests) 1ms
+ ✓ tests/ci/fk-edge-cases-inline.spec.ts (1 test) 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/security/review2-fixes-db.spec.ts > 01-09 review round 2 fixes (000022) > AR2-Info (I2): the v1 visit PATCH never returns or logs database text > a database error on update answers a fixed message and logs only the error code
+AssertionError: expected 403 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 403
+
+ ❯ tests/security/review2-fixes-db.spec.ts:670:28
+    668|           { params: Promise.resolve({ id: visitId }) }
+    669|         );
+    670|         expect(res.status).toBe(500);
+       |                            ^
+    671|         const body = await res.text();
+    672|         expect(body).not.toMatch(/malformed|array literal|12345/i);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 246 passed (247)
+      Tests  1 failed | 4862 passed (4863)
+   Start at  10:55:50
+   Duration  412.74s (transform 2.01s, setup 1.22s, collect 17.30s, tests 372.94s, environment 13ms, prepare 5.03s)
+
+[teardown] removed run data: 207 tenant(s), 412 auth user(s), 1411 storage object(s); verified none remain
+exit=1

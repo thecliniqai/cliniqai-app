@@ -1,0 +1,156 @@
+
+ RUN  v3.2.7 <scratchpad>/wt
+
+{"ts":"2026-11-14T05:12:02.118Z","level":"error","event":"queue.token_insert.failed","tenantId":"bce87871-80a1-490d-b84d-e5e4a0b00d4b","code":"23505"}
+ ❯ tests/integration/queue-token-concurrency.spec.ts (2 tests | 2 failed) 920ms
+   × 50 parallel check-ins (05-08, acceptance 7) > produces tokens 1…50, all distinct, every one dated the clinic-local (IST) date computed in SQL 371ms
+     → expected 50 to be +0 // Object.is equality
+   × 50 parallel check-ins (05-08, acceptance 7) > a repeat check-in of the same visit (two desks at once) reuses the visit's token 85ms
+     → expected { success: false, …(1) } to match object { success: true }
+(1 matching property omitted from actual)
+ ❯ tests/visits/signed-visit-integrity.spec.ts (4 tests | 4 failed) 455ms
+   × signed visits keep their patient, signer and status (05-11a) > a receptionist cannot move a signed visit to another patient or forge its sign-off (INT H-1) 8ms
+     → expected [ Array(1) ] to be null
+   × signed visits keep their patient, signer and status (05-11a) > a receptionist cannot sign an open visit in a doctor's name (RLS M-3) 4ms
+     → expected undefined to be '42501' // Object.is equality
+   × signed visits keep their patient, signer and status (05-11a) > a doctor cannot take a colleague's visit, so cannot reach its invoice (IND M2, RLS L-1) 5ms
+     → expected undefined to be '42501' // Object.is equality
+   × signed visits keep their patient, signer and status (05-11a) > cancelVisit refuses a signed consultation: no cancel, no audit row, no waitlist promotion 23ms
+     → expected { success: true, …(3) } to deeply equal { success: false, …(1) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/queue-token-concurrency.spec.ts > 50 parallel check-ins (05-08, acceptance 7) > produces tokens 1…50, all distinct, every one dated the clinic-local (IST) date computed in SQL
+AssertionError: expected 50 to be +0 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 50[39m
+
+ ❯ tests/integration/queue-token-concurrency.spec.ts:93:33
+     91|     // token row, so the insert barrier is never reached.
+     92|     expect(tokenRpc.arrived).toBe(CHECK_INS);
+     93|     expect(tokenInsert.arrived).toBe(0);
+       |                                 ^
+     94| 
+     95|     const failures = results.filter((r) => !r.success);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/integration/queue-token-concurrency.spec.ts > 50 parallel check-ins (05-08, acceptance 7) > a repeat check-in of the same visit (two desks at once) reuses the visit's token
+AssertionError: expected { success: false, …(1) } to match object { success: true }
+(1 matching property omitted from actual)
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "success": true,[39m
+[31m+   "success": false,[39m
+[2m  }[22m
+
+ ❯ tests/integration/queue-token-concurrency.spec.ts:159:15
+    157|     const [a, b] = await Promise.all(contexts.map((ctx) => checkInVisi…
+    158| 
+    159|     expect(a).toMatchObject({ success: true });
+       |               ^
+    160|     expect(b).toMatchObject({ success: true });
+    161|     if (!a.success || !b.success) return;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/visits/signed-visit-integrity.spec.ts > signed visits keep their patient, signer and status (05-11a) > a receptionist cannot move a signed visit to another patient or forge its sign-off (INT H-1)
+AssertionError: expected [ Array(1) ] to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+[
+  {
+    "id": "2dc3d382-64e5-497a-975d-b88b7ba1d225",
+  },
+]
+
+ ❯ tests/visits/signed-visit-integrity.spec.ts:98:18
+     96|       .eq("id", signedVisit)
+     97|       .select("id");
+     98|     expect(data).toBeNull();
+       |                  ^
+     99|     expect(error?.code).toBe("42501");
+    100|     expect(await visitRow(signedVisit)).toEqual({
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/visits/signed-visit-integrity.spec.ts > signed visits keep their patient, signer and status (05-11a) > a receptionist cannot sign an open visit in a doctor's name (RLS M-3)
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+[32m- Expected:[39m 
+"42501"
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ tests/visits/signed-visit-integrity.spec.ts:114:25
+    112|       .eq("id", openVisit)
+    113|       .select("id");
+    114|     expect(error?.code).toBe("42501");
+       |                         ^
+    115|     expect(await visitRow(openVisit)).toMatchObject({ status: "waiting…
+    116|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  tests/visits/signed-visit-integrity.spec.ts > signed visits keep their patient, signer and status (05-11a) > a doctor cannot take a colleague's visit, so cannot reach its invoice (IND M2, RLS L-1)
+AssertionError: expected undefined to be '42501' // Object.is equality
+
+[32m- Expected:[39m 
+"42501"
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ tests/visits/signed-visit-integrity.spec.ts:120:25
+    118|   it("a doctor cannot take a colleague's visit, so cannot reach its in…
+    119|     const { error } = await doctor2.client.from("visits").update({ doc…
+    120|     expect(error?.code).toBe("42501");
+       |                         ^
+    121|     expect(await visitRow(openVisit)).toMatchObject({ doctor_id: owner…
+    122|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  tests/visits/signed-visit-integrity.spec.ts > signed visits keep their patient, signer and status (05-11a) > cancelVisit refuses a signed consultation: no cancel, no audit row, no waitlist promotion
+AssertionError: expected { success: true, …(3) } to deeply equal { success: false, …(1) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "error": "A signed consultation cannot be cancelled.",[39m
+[32m-   "success": false,[39m
+[31m+   "autoPromoted": true,[39m
+[31m+   "promotedPatientId": "c1214d3a-2be1-4fba-8283-256a568964e9",[39m
+[31m+   "replacementVisitId": "b5188b07-73ea-4a34-b1d5-80c287d8467f",[39m
+[31m+   "success": true,[39m
+[2m  }[22m
+
+ ❯ tests/visits/signed-visit-integrity.spec.ts:126:17
+    124|   it("cancelVisit refuses a signed consultation: no cancel, no audit r…
+    125|     const res = await cancelVisit(ctxFor(reception), signedVisit);
+    126|     expect(res).toEqual({ success: false, error: "A signed consultatio…
+       |                 ^
+    127|     expect(await visitRow(signedVisit)).toMatchObject({ status: "compl…
+    128| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  6 failed (6)
+   Start at  10:42:00
+   Duration  1.95s (transform 91ms, setup 14ms, collect 144ms, tests 1.37s, environment 0ms, prepare 44ms)
+
+[teardown] removed run data: 2 tenant(s), 6 auth user(s), 0 storage object(s); verified none remain

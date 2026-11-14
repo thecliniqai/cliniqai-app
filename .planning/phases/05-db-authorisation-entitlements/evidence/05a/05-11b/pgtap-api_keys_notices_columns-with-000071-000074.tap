@@ -1,0 +1,27 @@
+1..26
+ok 1 - an admin cannot re-key the owner's export-scoped key (RLS M-1 repro)
+ok 2 - nor re-attribute it
+ok 3 - scopes are not updatable by members
+ok 4 - a revoked key cannot be un-revoked
+ok 5 - nor its revocation time moved, even by the owner
+ok 6 - keys are revoked, never deleted (INT L-6: audit attribution survives)
+ok 7 - a key cannot be created in the owner's name
+ok 8 - the 000067 scope rule still holds on INSERT
+ok 9 - an admin creates a key in their own name (createApiKey)
+ok 10 - and revokes a key (revokeApiKey)
+ok 11 - and renames one
+ok 12 - the v1 authenticator (service role) still stamps last_used_at
+ok 13 - with the privilege (a definer path or a wider grant) a session still cannot re-key
+ok 14 - nor re-attribute
+ok 15 - nor add a scope
+ok 16 - catalogue: members update name, revoked_at, updated_at only
+ok 17 - catalogue: no DELETE privilege or policy on api_keys
+ok 18 - catalogue: the guard fires on every INSERT and UPDATE, not only UPDATE OF scopes
+ok 19 - a receptionist cannot rewrite a broadcast notice (RLS M-2 repro)
+ok 20 - nor the reception notice owners and admins also see
+ok 21 - nor re-address one
+ok 22 - marking a notice read still works (markNotificationRead)
+ok 23 - catalogue: members update the read state only
+ok 24 - the UPDATE policy's WITH CHECK is its USING (the recipient rule), not only the tenant
+ok 25 - a new notice cannot link off the app (absolute URL)
+ok 26 - nor protocol-relative

@@ -7,6 +7,7 @@ import {
 import { emptyVisitsRegister } from "@/features/visits/service";
 import { DatePreset } from "@/features/visits/schema";
 import { VisitsRegisterView } from "@/components/visits/visits-register-view";
+import { withPageAuth } from "@/lib/auth/page";
 
 interface VisitsPageProps {
   searchParams: Promise<{
@@ -21,7 +22,7 @@ interface VisitsPageProps {
   }>;
 }
 
-export default async function VisitsPage(props: VisitsPageProps) {
+async function VisitsPage(props: VisitsPageProps) {
   const searchParams = await props.searchParams;
   const membership = await getActiveMembership();
 
@@ -88,3 +89,6 @@ export default async function VisitsPage(props: VisitsPageProps) {
     />
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(VisitsPage);

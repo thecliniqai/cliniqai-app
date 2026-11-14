@@ -2,8 +2,9 @@ import { getSubscriptionOverview } from "@/features/billing/subscription";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { CreditCard, Receipt, Calendar, CheckCircle2 } from "lucide-react";
+import { withPageAuth } from "@/lib/auth/page";
 
-export default async function BillingSettingsPage() {
+async function BillingSettingsPage() {
   let overview;
   try {
     overview = await getSubscriptionOverview();
@@ -134,3 +135,5 @@ export default async function BillingSettingsPage() {
   );
 }
 
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(BillingSettingsPage);

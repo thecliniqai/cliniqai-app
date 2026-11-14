@@ -254,6 +254,9 @@ export async function POST(req: NextRequest) {
       if (reason === "REFERRAL_TARGET_NOT_LISTED") {
         return apiError("VALIDATION_ERROR", "Field 'target_tenant_id' must name a clinic listed in the referral directory.", 422, undefined, rateHeaders);
       }
+      if (reason === "REFERRAL_TARGET_DOCTOR_INVALID") {
+        return apiError("VALIDATION_ERROR", "Field 'target_doctor_id' must name an owner or doctor of the target clinic.", 422, undefined, rateHeaders);
+      }
       if (reason === "REFERRAL_CONSENT_REQUIRED") {
         return apiError("CONSENT_REQUIRED", "A consented history snapshot requires 'patient_consents_history_sharing'.", 422, undefined, rateHeaders);
       }

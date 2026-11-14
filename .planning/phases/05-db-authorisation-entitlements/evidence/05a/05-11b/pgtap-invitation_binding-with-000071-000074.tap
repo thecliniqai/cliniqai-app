@@ -1,0 +1,15 @@
+1..14
+ok 1 - an admin cannot read the owner invitation's token_hash (H-INVITE)
+ok 2 - not even the owner reads a token_hash back
+ok 3 - nor filter on it (no oracle)
+ok 4 - the staff page columns stay readable for staff:invite
+ok 5 - catalogue: no SELECT on token_hash for authenticated (INSERT kept), nothing for anon
+ok 6 - the admin's second account cannot redeem the owner invitation (H-INVITE repro)
+ok 7 - and is not a member of the clinic
+ok 8 - nor can the admin's own account
+ok 9 - the invited address with an unconfirmed email cannot redeem yet
+ok 10 - an unknown hash keeps its message
+ok 11 - the invitee (confirmed, address equal ignoring case) redeems it and gets the clinic id
+ok 12 - with the invited role
+ok 13 - and the invitation records who consumed it
+ok 14 - a second redemption is refused

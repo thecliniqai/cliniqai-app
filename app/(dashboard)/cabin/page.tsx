@@ -10,6 +10,7 @@ import { getRequestId } from "@/lib/log/request-id";
 import { dayWindowUtc, isYmd, todayInTz } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 import { clinicalNotesEmbed, embeddedClinicalNotes } from "@/lib/db/clinical-notes";
+import { withPageAuth } from "@/lib/auth/page";
 
 interface CabinPageProps {
   searchParams: Promise<{
@@ -18,7 +19,7 @@ interface CabinPageProps {
   }>;
 }
 
-export default async function DoctorCabinPage(props: CabinPageProps) {
+async function DoctorCabinPage(props: CabinPageProps) {
   const searchParams = await props.searchParams;
   const supabase = await createClient();
 
@@ -195,3 +196,6 @@ export default async function DoctorCabinPage(props: CabinPageProps) {
     </div>
   );
 }
+
+// A missing or revoked session in the loader redirects to /login (V2-05 05-11c), never a server error.
+export default withPageAuth(DoctorCabinPage);

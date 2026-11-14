@@ -1,0 +1,105 @@
+1..34
+not ok 1 - a receptionist cannot record a consent as given by the owner (RLS M-3 repro)
+# Failed test 1: "a receptionist cannot record a consent as given by the owner (RLS M-3 repro)"
+#         have: 1
+#         want: denied:ACTOR_INVALID
+ok 2 - in their own name it is recorded (the app's write)
+ok 3 - a system writer (no session) is not limited
+not ok 4 - a doctor cannot send a referral as another doctor (RLS M-3 repro)
+# Failed test 4: "a doctor cannot send a referral as another doctor (RLS M-3 repro)"
+#         have: 1
+#         want: denied:ACTOR_INVALID
+ok 5 - in their own name it is sent
+not ok 6 - nor take over a colleague's referral
+# Failed test 6: "nor take over a colleague's referral"
+#         have: 1
+#         want: denied:ACTOR_INVALID
+not ok 7 - nor close a referral in a colleague's name
+# Failed test 7: "nor close a referral in a colleague's name"
+#         have: 1
+#         want: denied:ACTOR_INVALID
+ok 8 - closing it in their own name works (closeReferralLoop), also on an older row without consent
+ok 9 - the target clinic still acknowledges an older referral
+not ok 10 - the target doctor cannot be a doctor of another clinic (RLS L-3 repro)
+# Failed test 10: "the target doctor cannot be a doctor of another clinic (RLS L-3 repro)"
+#         have: 1
+#         want: error:P0001:REFERRAL_TARGET_DOCTOR_INVALID
+not ok 11 - nor a receptionist of the target clinic
+# Failed test 11: "nor a receptionist of the target clinic"
+#         have: 1
+#         want: error:P0001:REFERRAL_TARGET_DOCTOR_INVALID
+not ok 12 - nor anyone without a target clinic
+# Failed test 12: "nor anyone without a target clinic"
+#         have: 1
+#         want: error:P0001:REFERRAL_TARGET_DOCTOR_INVALID
+ok 13 - a doctor of the target clinic is accepted
+not ok 14 - an in-network clinical summary needs the patient's consent (IND L6 repro)
+# Failed test 14: "an in-network clinical summary needs the patient's consent (IND L6 repro)"
+#         have: 1
+#         want: error:P0001:REFERRAL_CONSENT_REQUIRED
+not ok 15 - so does a provisional diagnosis
+# Failed test 15: "so does a provisional diagnosis"
+#         have: 1
+#         want: error:P0001:REFERRAL_CONSENT_REQUIRED
+not ok 16 - and a medications snapshot
+# Failed test 16: "and a medications snapshot"
+#         have: 1
+#         want: error:P0001:REFERRAL_CONSENT_REQUIRED
+not ok 17 - and advised investigations
+# Failed test 17: "and advised investigations"
+#         have: 1
+#         want: error:P0001:REFERRAL_CONSENT_REQUIRED
+ok 18 - with consent it is sent
+ok 19 - an out-of-network letter (no target clinic) needs no in-system consent
+not ok 20 - adding clinical content to an in-network referral later needs consent too
+# Failed test 20: "adding clinical content to an in-network referral later needs consent too"
+#         have: 1
+#         want: error:P0001:REFERRAL_CONSENT_REQUIRED
+not ok 21 - a receptionist cannot plant a completed DPDP export (INT L-5 repro)
+# Failed test 21: "a receptionist cannot plant a completed DPDP export (INT L-5 repro)"
+#         have: 1
+#         want: denied:AUDIT_ACTION_FORBIDDEN
+ok 22 - the owner (exports:create) audits the in-app export
+not ok 23 - an erasure event for a patient who is not erased is refused, even for the owner
+# Failed test 23: "an erasure event for a patient who is not erased is refused, even for the owner"
+#         have: 1
+#         want: denied:AUDIT_ACTION_FORBIDDEN
+ok 24 - after the soft delete, a patients:edit holder records the erasure (erasePatientRecord's order)
+not ok 25 - auth.
+# Failed test 25: "auth."
+#         have: 1
+#         want: denied:AUDIT_ACTION_FORBIDDEN
+not ok 26 - billing.
+# Failed test 26: "billing."
+#         have: 1
+#         want: denied:AUDIT_ACTION_FORBIDDEN
+not ok 27 - ops.
+# Failed test 27: "ops."
+#         have: 1
+#         want: denied:AUDIT_ACTION_FORBIDDEN
+not ok 28 - a payment audit row is written only inside record_payment
+# Failed test 28: "a payment audit row is written only inside record_payment"
+#         have: 1
+#         want: denied:AUDIT_ACTION_FORBIDDEN
+not ok 29 - an action the app never writes is refused
+# Failed test 29: "an action the app never writes is refused"
+#         have: 1
+#         want: error:P0001:INPUT_INVALID
+not ok 30 - a metadata key outside the allow-list is refused
+# Failed test 30: "a metadata key outside the allow-list is refused"
+#         have: 1
+#         want: error:P0001:INPUT_INVALID
+not ok 31 - an object value is refused
+# Failed test 31: "an object value is refused"
+#         have: 1
+#         want: error:P0001:INPUT_INVALID
+not ok 32 - a string value over 500 characters is refused (metadata cap)
+# Failed test 32: "a string value over 500 characters is refused (metadata cap)"
+#         have: 1
+#         want: error:P0001:INPUT_INVALID
+ok 33 - an allow-listed event is recorded as the caller, system_actor dropped
+not ok 34 - each request template admits the roles holding its call site's permission (IND L4)
+# Failed test 34: "each request template admits the roles holding its call site's permission (IND L4)"
+#         have: appointment_booked=admin+doctor+nurse+owner+receptionist,consultation_documents=doctor+nurse+owner,lab_report_uploaded=admin+doctor+nurse+owner+receptionist,prescription_ready=doctor+nurse+owner,receipt_issued=admin+owner+receptionist,referral_letter_issued=admin+doctor+nurse+owner+receptionist
+#         want: appointment_booked=admin+doctor+nurse+owner+receptionist,consultation_documents=doctor+owner,lab_report_uploaded=doctor+nurse+owner,prescription_ready=doctor+owner,receipt_issued=admin+owner+receptionist,referral_letter_issued=doctor+nurse+owner
+# Looks like you failed 23 tests of 34

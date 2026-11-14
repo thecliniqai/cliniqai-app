@@ -1,0 +1,314 @@
+HEAD 33b6076 db 000074
+
+> clinicos@0.1.0 e2e:pr
+> playwright test --project=desktop-chrome --project=pixel-7 --project=iphone-15
+
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 81ms
+[WebServer] ✓ Running next.config.ts took 24ms
+
+Running 229 tests using 1 worker
+
+  ✓    1 [setup] › tests/e2e/auth.setup.ts:10:8 › owner signs in through the login UI (668ms)
+  ✓    2 [setup] › tests/e2e/auth.setup.ts:10:8 › admin signs in through the login UI (396ms)
+  ✓    3 [setup] › tests/e2e/auth.setup.ts:10:8 › doctor signs in through the login UI (558ms)
+  ✓    4 [setup] › tests/e2e/auth.setup.ts:10:8 › nurse signs in through the login UI (358ms)
+  ✓    5 [setup] › tests/e2e/auth.setup.ts:10:8 › receptionist signs in through the login UI (346ms)
+  ✓    6 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:100:11 › clinical split screens at 360px › doctor › consultation shows the note and vitals from clinical_notes (360px) (896ms)
+  ✓    7 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:114:11 › clinical split screens at 360px › nurse › queue card shows the vitals summary (360px) (534ms)
+  ✓    8 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:128:11 › clinical split screens at 360px › receptionist › queue shows the visit without its vitals (360px) (516ms)
+  ✓    9 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:138:11 › clinical split screens at 360px › receptionist › consultation URL renders no note and no "undefined" (P1-07 open) (360px) (749ms)
+  ✓   10 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:100:11 › clinical split screens at 820px › doctor › consultation shows the note and vitals from clinical_notes (820px) (784ms)
+  ✓   11 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:114:11 › clinical split screens at 820px › nurse › queue card shows the vitals summary (820px) (578ms)
+  ✓   12 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:128:11 › clinical split screens at 820px › receptionist › queue shows the visit without its vitals (820px) (570ms)
+  ✓   13 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:138:11 › clinical split screens at 820px › receptionist › consultation URL renders no note and no "undefined" (P1-07 open) (820px) (764ms)
+  ✓   14 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:100:11 › clinical split screens at 1280px › doctor › consultation shows the note and vitals from clinical_notes (1280px) (784ms)
+  ✓   15 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:114:11 › clinical split screens at 1280px › nurse › queue card shows the vitals summary (1280px) (692ms)
+  ✓   16 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:128:11 › clinical split screens at 1280px › receptionist › queue shows the visit without its vitals (1280px) (694ms)
+  ✓   17 [desktop-chrome] › tests/e2e/a11y/clinical-split-screens.spec.ts:138:11 › clinical split screens at 1280px › receptionist › consultation URL renders no note and no "undefined" (P1-07 open) (1280px) (772ms)
+  ✓   18 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:80:11 › Lab Reports tab at 360px › receptionist (no labs:view) › shows the clinical-staff notice and no upload (360px) (618ms)
+  ✓   19 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:93:11 › Lab Reports tab at 360px › doctor (labs:edit) › keeps the upload, no notice (360px) (568ms)
+  ✓   20 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:80:11 › Lab Reports tab at 820px › receptionist (no labs:view) › shows the clinical-staff notice and no upload (820px) (523ms)
+  ✓   21 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:93:11 › Lab Reports tab at 820px › doctor (labs:edit) › keeps the upload, no notice (820px) (545ms)
+  ✓   22 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:80:11 › Lab Reports tab at 1280px › receptionist (no labs:view) › shows the clinical-staff notice and no upload (1280px) (583ms)
+  ✓   23 [desktop-chrome] › tests/e2e/a11y/lab-reports-screens.spec.ts:93:11 › Lab Reports tab at 1280px › doctor (labs:edit) › keeps the upload, no notice (1280px) (541ms)
+[WebServer] {"ts":"2026-11-14T05:54:17.757Z","level":"info","event":"auth.password.changed","requestId":"d7f96b8d-ca82-47ca-bceb-d5a697b3e362","userId":"1fb0456b-21dc-412b-93f5-9abb2d5f56f8","action":"set_new_password"}
+  ✓   24 [desktop-chrome] › tests/e2e/a11y/reset-screens.spec.ts:49:9 › R8 blocking: forgot-password code step (8 digits) and the signed-out done step › reset screens at 360px: 0 serious/critical (1.2s)
+[WebServer] {"ts":"2026-11-14T05:54:18.974Z","level":"info","event":"auth.password.changed","requestId":"5fc64663-c980-4c8e-bae6-a90a67ac0243","userId":"53c555b3-ad6d-463b-8ce7-a8f5d2ae7e55","action":"set_new_password"}
+  ✓   25 [desktop-chrome] › tests/e2e/a11y/reset-screens.spec.ts:49:9 › R8 blocking: forgot-password code step (8 digits) and the signed-out done step › reset screens at 820px: 0 serious/critical (1.2s)
+[WebServer] {"ts":"2026-11-14T05:54:20.166Z","level":"info","event":"auth.password.changed","requestId":"443dcf8d-cd4d-46d7-9525-8bd25e64ea5a","userId":"9f99c5ac-761f-4dfa-9405-9d6c639f69cd","action":"set_new_password"}
+  ✓   26 [desktop-chrome] › tests/e2e/a11y/reset-screens.spec.ts:49:9 › R8 blocking: forgot-password code step (8 digits) and the signed-out done step › reset screens at 1280px: 0 serious/critical (1.3s)
+  ✓   27 [desktop-chrome] › tests/e2e/a11y/sign-and-bill-screens.spec.ts:99:11 › Sign & Bill modal at 360px › doctor › no collection: the bill is routed to reception (360px) (1.0s)
+  ✓   28 [desktop-chrome] › tests/e2e/a11y/sign-and-bill-screens.spec.ts:114:11 › Sign & Bill modal at 360px › owner (solo clinic, billing:collect) › collects at the desk by default, may route to reception (360px) (1.0s)
+  ✓   29 [desktop-chrome] › tests/e2e/a11y/sign-and-bill-screens.spec.ts:99:11 › Sign & Bill modal at 820px › doctor › no collection: the bill is routed to reception (820px) (1.1s)
+  ✓   30 [desktop-chrome] › tests/e2e/a11y/sign-and-bill-screens.spec.ts:114:11 › Sign & Bill modal at 820px › owner (solo clinic, billing:collect) › collects at the desk by default, may route to reception (820px) (1.0s)
+  ✓   31 [desktop-chrome] › tests/e2e/a11y/sign-and-bill-screens.spec.ts:99:11 › Sign & Bill modal at 1280px › doctor › no collection: the bill is routed to reception (1280px) (989ms)
+  ✓   32 [desktop-chrome] › tests/e2e/a11y/sign-and-bill-screens.spec.ts:114:11 › Sign & Bill modal at 1280px › owner (solo clinic, billing:collect) › collects at the desk by default, may route to reception (1280px) (1.1s)
+  ✓   33 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:62:11 › R8 blocking: auth pages with the Turnstile widget › login at 360px with the widget: 0 serious/critical (555ms)
+  ✓   34 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:62:11 › R8 blocking: auth pages with the Turnstile widget › login at 820px with the widget: 0 serious/critical (558ms)
+  ✓   35 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:62:11 › R8 blocking: auth pages with the Turnstile widget › login at 1280px with the widget: 0 serious/critical (625ms)
+  ✓   36 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:62:11 › R8 blocking: auth pages with the Turnstile widget › forgot-password at 360px with the widget: 0 serious/critical (585ms)
+  ✓   37 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:62:11 › R8 blocking: auth pages with the Turnstile widget › forgot-password at 820px with the widget: 0 serious/critical (576ms)
+  ✓   38 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:62:11 › R8 blocking: auth pages with the Turnstile widget › forgot-password at 1280px with the widget: 0 serious/critical (623ms)
+  ✓   39 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:85:9 › R8 blocking: auth pages with the Turnstile widget › login at 360px with the widget failed: 0 serious/critical (572ms)
+  ✓   40 [desktop-chrome] › tests/e2e/a11y/turnstile-screens.spec.ts:85:9 › R8 blocking: auth pages with the Turnstile widget › forgot-password at 360px with the widget failed: 0 serious/critical (588ms)
+  ✓   41 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › login at 360px: 0 serious/critical axe violations (721ms)
+  ✓   42 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › login at 820px: 0 serious/critical axe violations (716ms)
+  ✓   43 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › login at 1280px: 0 serious/critical axe violations (774ms)
+  ✓   44 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › forgot-password at 360px: 0 serious/critical axe violations (686ms)
+  ✓   45 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › forgot-password at 820px: 0 serious/critical axe violations (746ms)
+  ✓   46 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › forgot-password at 1280px: 0 serious/critical axe violations (766ms)
+  ✓   47 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › join (incomplete link) at 360px: 0 serious/critical axe violations (281ms)
+  ✓   48 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › join (incomplete link) at 820px: 0 serious/critical axe violations (280ms)
+  ✓   49 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › join (incomplete link) at 1280px: 0 serious/critical axe violations (282ms)
+  ✓   50 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › join (signed out) at 360px: 0 serious/critical axe violations (285ms)
+  ✓   51 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › join (signed out) at 820px: 0 serious/critical axe violations (290ms)
+  ✓   52 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › join (signed out) at 1280px: 0 serious/critical axe violations (290ms)
+  ✓   53 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:111:9 › R8 blocking: 03-12a password screens › forgot-password set-a-new-password step at 360px: 0 serious/critical (854ms)
+  ✓   54 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:111:9 › R8 blocking: 03-12a password screens › forgot-password set-a-new-password step at 820px: 0 serious/critical (845ms)
+  ✓   55 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:111:9 › R8 blocking: 03-12a password screens › forgot-password set-a-new-password step at 1280px: 0 serious/critical (827ms)
+  ✓   56 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:133:11 › R8 blocking: 03-12a password screens › profile change-password form (nurse) › change-password form at 360px: 0 serious/critical (818ms)
+  ✓   57 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:133:11 › R8 blocking: 03-12a password screens › profile change-password form (nurse) › change-password form at 820px: 0 serious/critical (779ms)
+  ✓   58 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:133:11 › R8 blocking: 03-12a password screens › profile change-password form (nurse) › change-password form at 1280px: 0 serious/critical (792ms)
+  ✓   59 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:173:7 › R8 report-only: V2-01-touched v1 components (owner) › staff invite form (363ms)
+  ✓   60 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:179:7 › R8 report-only: V2-01-touched v1 components (owner) › staff edit modal (509ms)
+  ✓   61 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:186:7 › R8 report-only: V2-01-touched v1 components (owner) › DPDP export control on the patient page (450ms)
+  ✓   62 [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:196:7 › R8 report-only: V2-01-touched v1 components (doctor) › Sign & Bill modal (532ms)
+  ✓   63 [desktop-chrome] › tests/e2e/auth/j-a3-login.spec.ts:26:5 › J-A3: wrong password → generic copy; right password → the role's home (613ms)
+  ✓   64 [desktop-chrome] › tests/e2e/auth/j-a3-login.spec.ts:40:5 › J-A3: ?next=/patients is honoured after sign-in (424ms)
+  ✓   65 [desktop-chrome] › tests/e2e/auth/j-a3-login.spec.ts:46:5 › J-A3: signed out, /patients?x=1 → proxy sends to /login?next=… → sign-in returns to /patients?x=1 (371ms)
+  ✓   66 [desktop-chrome] › tests/e2e/auth/j-a3-login.spec.ts:61:5 › J-A3: unsafe next values land on the default page (1.5s)
+[WebServer] {"ts":"2026-11-14T05:54:48.165Z","level":"info","event":"auth.password.rejected","userId":"8a5ea203-7514-469c-85b3-ef3f66e1ddf4","action":"set_new_password","reason":"pwned_password"}
+[WebServer] {"ts":"2026-11-14T05:54:48.417Z","level":"info","event":"auth.password.changed","requestId":"2066913a-8e0a-4abd-961c-158c43428195","userId":"8a5ea203-7514-469c-85b3-ef3f66e1ddf4","action":"set_new_password"}
+  ✓   67 [desktop-chrome] › tests/e2e/auth/j-a4-reset.spec.ts:25:5 › J-A4: reset refuses a breached password with the catalogue copy, accepts a clear one, signs other devices out (2.6s)
+[WebServer] {"ts":"2026-11-14T05:54:50.932Z","level":"info","event":"auth.password.rejected","userId":"9de58c32-87fe-49c9-aeb5-68f59d9a24da","action":"change_password","reason":"pwned_password"}
+[WebServer] {"ts":"2026-11-14T05:54:51.151Z","level":"info","event":"auth.password.changed","requestId":"09534f27-7e88-44b0-9d37-57fa8ba0d00b","userId":"9de58c32-87fe-49c9-aeb5-68f59d9a24da","action":"change_password"}
+  ✓   68 [desktop-chrome] › tests/e2e/auth/j-a5-change-password.spec.ts:23:5 › J-A5: change password refuses a breached password, accepts a clear one and signs the other device out (2.4s)
+[WebServer] {"ts":"2026-11-14T05:54:52.293Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+[WebServer] {"ts":"2026-11-14T05:54:52.305Z","level":"info","event":"auth.email.sent","requestId":"cb6072b6-a50a-4014-8a7f-f455ff1c7200","action":"recovery","module":"auth.email.mailpit","count":1}
+[WebServer] {"ts":"2026-11-14T05:54:52.305Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.send_email_hook"}
+[WebServer] {"ts":"2026-11-14T05:54:52.320Z","level":"info","event":"auth.email.dropped","requestId":"99ab3e66-cd5b-434a-831f-39f35cf818f6","action":"magiclink","module":"auth.email","reason":"magiclink"}
+  ✓   69 [desktop-chrome] › tests/e2e/auth/send-email-hook.spec.ts:52:5 › a signed recovery call sends exactly one code email to Mailpit; magiclink sends none (1.6s)
+[WebServer] {"ts":"2026-11-14T05:54:53.850Z","level":"warn","event":"auth.email.refused","requestId":"f423f7de-b723-4c7f-ae4a-c17a2d7a41ca","module":"auth.email","reason":"bad_signature","status":401}
+[WebServer] {"ts":"2026-11-14T05:54:53.855Z","level":"warn","event":"auth.email.refused","requestId":"a04751a4-00c5-488f-bc68-25c3591f0413","module":"auth.email","reason":"bad_signature","status":401}
+  ✓   70 [desktop-chrome] › tests/e2e/auth/send-email-hook.spec.ts:73:5 › unsigned and wrongly signed calls are refused with 401 and send nothing (1.5s)
+[WebServer] {"ts":"2026-11-14T05:54:56.322Z","level":"info","event":"auth.signout.done","requestId":"16165fde-46ef-402e-b00f-89c7a947882a","module":"auth.signout","reason":"local"}
+  ✓   71 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:77:5 › Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in (1.7s)
+[WebServer] {"ts":"2026-11-14T05:54:58.010Z","level":"info","event":"auth.signout.done","requestId":"17818380-067f-4789-a5aa-7aee586238cd","module":"auth.signout","reason":"global"}
+  ✓   72 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:119:5 › Sign out of all devices: every session of the user ends (1.2s)
+[WebServer] {"ts":"2026-11-14T05:54:58.782Z","level":"warn","event":"auth.signout.refused","requestId":"7ec0cfd1-b1a8-4864-a84b-a9fae3731c98","module":"auth.signout","reason":"cross_origin","status":403}
+  ✓   73 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:137:5 › GET is 405 and a cross-origin POST is 403; the session survives both (607ms)
+  ✓   74 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 360px: both items visible, 0 serious/critical axe violations (471ms)
+  ✓   75 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 820px: both items visible, 0 serious/critical axe violations (497ms)
+  ✓   76 [desktop-chrome] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 1280px: both items visible, 0 serious/critical axe violations (495ms)
+  ✓   77 [desktop-chrome] › tests/e2e/auth/turnstile.spec.ts:63:5 › sign-in renders the widget with the build's site key and sends a fresh token on every attempt (825ms)
+  ✓   78 [desktop-chrome] › tests/e2e/auth/turnstile.spec.ts:91:5 › the reset request sends the widget's token to /recover (418ms)
+  ✓   79 [desktop-chrome] › tests/e2e/auth/turnstile.spec.ts:120:7 › with Cloudflare's always-fail test key the forms are refused before any request › sign-in (393ms)
+  ✓   80 [desktop-chrome] › tests/e2e/auth/turnstile.spec.ts:134:7 › with Cloudflare's always-fail test key the forms are refused before any request › reset request (397ms)
+  ✓   81 [desktop-chrome] › tests/e2e/auth/turnstile.spec.ts:147:5 › a widget script that does not load leaves sign-in refused with the 'could not load' copy (209ms)
+  ✓   82 [desktop-chrome] › tests/e2e/auth/turnstile.spec.ts:161:5 › an expired token shows the expiry copy and is replaced before sign-in (716ms)
+[WebServer] {"ts":"2026-11-14T05:55:03.556Z","level":"info","event":"db.system_acquired","module":"app/api/jobs/run","reason":"jobs.run"}
+[WebServer] {"ts":"2026-11-14T05:55:03.574Z","level":"info","event":"jobs.run.completed","durationMs":18,"count":1}
+  ✓   83 [desktop-chrome] › tests/e2e/jobs/run-route.spec.ts:59:5 › the runner route refuses a call without the bearer and runs a drill job with it (266ms)
+  ✓   84 [desktop-chrome] › tests/e2e/jobs/run-route.spec.ts:92:5 › GET /api/jobs/run is 405 with Allow: POST and runs nothing (168ms)
+  ✓   85 [desktop-chrome] › tests/e2e/journeys/journey-01-password-login.spec.ts:15:5 › the setup project signed every role in through the login UI @golden (1ms)
+  ✓   86 [desktop-chrome] › tests/e2e/journeys/journey-01-password-login.spec.ts:22:5 › a wrong password is refused: fixed error, still on /login, no session @golden (424ms)
+  ✓   87 [desktop-chrome] › tests/e2e/journeys/journey-01-password-login.spec.ts:53:5 › the forgot-password forms are POST and wait for hydration (no credential can reach a URL) (138ms)
+  ✘   88 [desktop-chrome] › tests/e2e/journeys/journey-08-role-restrictions.spec.ts:41:7 › receptionist › direct URL to a consultation is not served (known v1 gap P1-07) (240ms)
+  ✓   89 [desktop-chrome] › tests/e2e/journeys/journey-08-role-restrictions.spec.ts:58:7 › receptionist › signing a consultation from the direct URL is refused by the server (374ms)
+  ✓   90 [desktop-chrome] › tests/e2e/journeys/journey-08-role-restrictions.spec.ts:73:7 › receptionist › saving clinic settings is refused by the server; the clinic is unchanged (416ms)
+  ✓   91 [desktop-chrome] › tests/e2e/journeys/journey-08-role-restrictions.spec.ts:94:7 › nurse › adding a medicine is refused by the server; no prescription item is written (517ms)
+  ✓   92 [desktop-chrome] › tests/e2e/journeys/journey-08-role-restrictions.spec.ts:115:7 › doctor › billing reports are refused by the server (redirected away) (487ms)
+  ✓   93 [desktop-chrome] › tests/e2e/journeys/journey-09-clinic-isolation.spec.ts:73:9 › clinic A owner › owner: clinic B's patient and visit URLs are refused with no B data in DOM or network (529ms)
+  ✓   94 [desktop-chrome] › tests/e2e/journeys/journey-09-clinic-isolation.spec.ts:73:9 › clinic A doctor › doctor: clinic B's patient and visit URLs are refused with no B data in DOM or network (481ms)
+  ✓   95 [desktop-chrome] › tests/e2e/journeys/journey-09-clinic-isolation.spec.ts:73:9 › clinic A receptionist › receptionist: clinic B's patient and visit URLs are refused with no B data in DOM or network (453ms)
+  ✓   96 [desktop-chrome] › tests/e2e/m0/book-appointment.spec.ts:32:5 › book a free slot → booked visit at that time, visible on the calendar (729ms)
+  ✓   97 [desktop-chrome] › tests/e2e/m0/book-appointment.spec.ts:57:5 › overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked (943ms)
+  ✘   98 [desktop-chrome] › tests/e2e/m0/book-appointment.spec.ts:101:7 › owner › overbook path with a new patient creates exactly one patient (known v1 bug F-04) (740ms)
+  ✓   99 [desktop-chrome] › tests/e2e/m0/cancel-appointment.spec.ts:24:5 › cancel a booked visit → cancelled, slot free again for a booking without override (1.0s)
+[WebServer] [e2e-net-guard] blocked non-loopback connection to ""
+  ✓  100 [desktop-chrome] › tests/e2e/m0/checkout-collect.spec.ts:28:5 › bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF (1.4s)
+  ✓  101 [desktop-chrome] › tests/e2e/m0/consult-rx-finish.spec.ts:37:5 › doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF (1.9s)
+  ✘  102 [desktop-chrome] › tests/e2e/m0/consult-rx-finish.spec.ts:123:5 › a signed prescription is read-only in the workspace (known v1 gap P1-03) (5.2s)
+  ✓  103 [desktop-chrome] › tests/e2e/m0/register-patient.spec.ts:33:9 › M0 flow: register patient › owner › owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list @golden (720ms)
+  ✓  104 [desktop-chrome] › tests/e2e/m0/register-patient.spec.ts:62:9 › M0 flow: register patient › receptionist › receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed) (374ms)
+  ✓  105 [desktop-chrome] › tests/e2e/m0/walk-in-token.spec.ts:18:5 › walk-in for an existing patient → waiting visit + next queue token, visible in the queue @golden (1.3s)
+[WebServer] ⨯ DiagnosticError [DIAG_SYNTHETIC]: Diagnostic error (synthetic): contact [EMAIL], mobile [PHONE REDACTED], link /r/[TOKEN]?[QUERY] duplicate key value violates unique constraint "patients_phone_key" Key (phone)=([REDACTED])
+[WebServer]     at .next/server/chunks/_0702m-vaqspuv._.js:1
+[WebServer]     at node:internal/async_local_storage/async_context_frame:59
+[WebServer]     at node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5
+[WebServer]     at node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5
+[WebServer]     at node_modules/next/dist/server/lib/trace/tracer.js:196
+[WebServer]     at node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5
+[WebServer]     at node:internal/async_local_storage/async_context_frame:63
+[WebServer]     at node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5
+[WebServer]     at node:internal/async_local_storage/async_context_frame:63
+[WebServer]     at node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5
+[WebServer] {"ts":"2026-11-14T05:55:22.350Z","level":"error","event":"request.error","requestId":"2494dd3b-5a08-4431-97ad-789618e98c8d","route":"/api/diag/error","code":"DIAG_SYNTHETIC"}
+  ✓  106 [desktop-chrome] › tests/e2e/observability/error-sink.spec.ts:32:5 › a thrown server error lands in ops.error_events once, scrubbed, under the response's request id (123ms)
+  ✓  107 [desktop-chrome] › tests/e2e/observability/error-sink.spec.ts:83:5 › the diagnostic route refuses a missing or wrong bearer (401) and other methods (405) (6ms)
+  ✓  108 [desktop-chrome] › tests/e2e/security/cron-routes-removed.spec.ts:15:7 › /api/cron/dispatch-communications: GET and POST answer 404, with or without a bearer (10ms)
+  ✓  109 [desktop-chrome] › tests/e2e/security/cron-routes-removed.spec.ts:15:7 › /api/cron/webhooks: GET and POST answer 404, with or without a bearer (6ms)
+  ✓  110 [desktop-chrome] › tests/e2e/security/network-block.spec.ts:10:5 › a page request to a non-loopback host is aborted and its host recorded (138ms)
+  ✘  111 [desktop-chrome] › tests/e2e/security/network-block.spec.ts:27:5 › a test whose page reached for a non-loopback host fails (162ms)
+  ✓  112 [desktop-chrome] › tests/e2e/security/proxy-session-refresh.spec.ts:74:5 › the proxy refreshes an expired session on a page request and returns the new cookie (555ms)
+  ✓  113 [desktop-chrome] › tests/e2e/security/request-id.spec.ts:11:5 › two GET /api/health calls return two different request-id UUIDs (6ms)
+  ✓  114 [desktop-chrome] › tests/e2e/security/request-id.spec.ts:23:5 › a spoofed inbound x-request-id is replaced (5ms)
+  ✓  115 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:46:5 › the dashboard route enumeration found the dashboard pages (0ms)
+  ✓  116 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, / is redirected by the proxy to /login?next=… with no tenant data (214ms)
+  ✓  117 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /billing/register is redirected by the proxy to /login?next=… with no tenant data (194ms)
+  ✓  118 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /billing/reports is redirected by the proxy to /login?next=… with no tenant data (193ms)
+  ✓  119 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /cabin is redirected by the proxy to /login?next=… with no tenant data (193ms)
+  ✓  120 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /calendar is redirected by the proxy to /login?next=… with no tenant data (196ms)
+  ✓  121 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /consultation/[id] is redirected by the proxy to /login?next=… with no tenant data (213ms)
+  ✓  122 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /patients is redirected by the proxy to /login?next=… with no tenant data (194ms)
+  ✓  123 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /patients/[id] is redirected by the proxy to /login?next=… with no tenant data (193ms)
+  ✓  124 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /patients/new is redirected by the proxy to /login?next=… with no tenant data (194ms)
+  ✓  125 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /profile is redirected by the proxy to /login?next=… with no tenant data (210ms)
+  ✓  126 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /queue is redirected by the proxy to /login?next=… with no tenant data (188ms)
+  ✓  127 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /referrals is redirected by the proxy to /login?next=… with no tenant data (211ms)
+  ✓  128 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /settings/billing is redirected by the proxy to /login?next=… with no tenant data (213ms)
+  ✓  129 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /settings/clinic is redirected by the proxy to /login?next=… with no tenant data (225ms)
+  ✓  130 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /settings/developer is redirected by the proxy to /login?next=… with no tenant data (193ms)
+  ✓  131 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /staff is redirected by the proxy to /login?next=… with no tenant data (210ms)
+  ✓  132 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /visits is redirected by the proxy to /login?next=… with no tenant data (210ms)
+  ✓  133 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:83:5 › OA-5: the signed-out sweep left no error in the sink (no 'Unauthenticated' render errors) (84ms)
+  ✓  134 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:92:5 › 03-13a (review D L-4): a page path ending in an image extension still runs the proxy (default deny + request id) (12ms)
+[WebServer] {"ts":"2026-11-14T05:55:27.082Z","level":"info","event":"auth.signout.done","requestId":"76e9dce0-004f-454f-bf5a-58058251e6f4","module":"auth.signout","reason":"local"}
+[WebServer] {"ts":"2026-11-14T05:55:27.102Z","level":"warn","event":"auth.email.refused","requestId":"b18f7d76-57fe-4595-9f98-93505fdb0a07","module":"auth.email","reason":"bad_signature","status":401}
+  ✓  135 [desktop-chrome] › tests/e2e/security/unauth-pages.spec.ts:114:5 › public paths stay reachable without a session (never redirected to /login) (110ms)
+  ✓  136 [desktop-chrome] › tests/e2e/settings/developer-test-ping.spec.ts:78:5 › the owner's test ping is queued: status line, one ping row and one job; axe and layout at 360/820/1280 (1.9s)
+  ✓  137 [desktop-chrome] › tests/e2e/smoke.spec.ts:13:9 › owner session › owner opens the app on its landing page @golden (162ms)
+  ✓  138 [desktop-chrome] › tests/e2e/smoke.spec.ts:13:9 › admin session › admin opens the app on its landing page @golden (153ms)
+  ✓  139 [desktop-chrome] › tests/e2e/smoke.spec.ts:13:9 › doctor session › doctor opens the app on its landing page @golden (205ms)
+  ✓  140 [desktop-chrome] › tests/e2e/smoke.spec.ts:13:9 › nurse session › nurse opens the app on its landing page @golden (171ms)
+  ✓  141 [desktop-chrome] › tests/e2e/smoke.spec.ts:13:9 › receptionist session › receptionist opens the app on its landing page @golden (150ms)
+  ✓  142 [pixel-7] › tests/e2e/auth/j-a3-login.spec.ts:26:5 › J-A3: wrong password → generic copy; right password → the role's home (675ms)
+  ✓  143 [pixel-7] › tests/e2e/auth/j-a3-login.spec.ts:40:5 › J-A3: ?next=/patients is honoured after sign-in (425ms)
+  ✓  144 [pixel-7] › tests/e2e/auth/j-a3-login.spec.ts:46:5 › J-A3: signed out, /patients?x=1 → proxy sends to /login?next=… → sign-in returns to /patients?x=1 (401ms)
+  ✓  145 [pixel-7] › tests/e2e/auth/j-a3-login.spec.ts:61:5 › J-A3: unsafe next values land on the default page (1.5s)
+[WebServer] {"ts":"2026-11-14T05:55:34.210Z","level":"info","event":"auth.password.rejected","userId":"0f52c814-2395-473a-a229-63b9f2d165e0","action":"set_new_password","reason":"pwned_password"}
+[WebServer] {"ts":"2026-11-14T05:55:34.465Z","level":"info","event":"auth.password.changed","requestId":"cb6db4e9-0a9a-4d8e-be6f-27d4b783b891","userId":"0f52c814-2395-473a-a229-63b9f2d165e0","action":"set_new_password"}
+  ✓  146 [pixel-7] › tests/e2e/auth/j-a4-reset.spec.ts:25:5 › J-A4: reset refuses a breached password with the catalogue copy, accepts a clear one, signs other devices out (2.7s)
+[WebServer] {"ts":"2026-11-14T05:55:36.986Z","level":"info","event":"auth.password.rejected","userId":"06127376-0a53-4aba-9d89-1493fc0835c9","action":"change_password","reason":"pwned_password"}
+[WebServer] {"ts":"2026-11-14T05:55:37.199Z","level":"info","event":"auth.password.changed","requestId":"8b21292b-7b21-4416-a2fa-5605c738ffd5","userId":"06127376-0a53-4aba-9d89-1493fc0835c9","action":"change_password"}
+  ✓  147 [pixel-7] › tests/e2e/auth/j-a5-change-password.spec.ts:23:5 › J-A5: change password refuses a breached password, accepts a clear one and signs the other device out (2.4s)
+  -  148 [pixel-7] › tests/e2e/auth/send-email-hook.spec.ts:52:5 › a signed recovery call sends exactly one code email to Mailpit; magiclink sends none
+  -  149 [pixel-7] › tests/e2e/auth/send-email-hook.spec.ts:73:5 › unsigned and wrongly signed calls are refused with 401 and send nothing
+[WebServer] {"ts":"2026-11-14T05:55:39.331Z","level":"info","event":"auth.signout.done","requestId":"aa2eb77b-f500-42de-a992-6e6b9c8be260","module":"auth.signout","reason":"local"}
+  ✓  150 [pixel-7] › tests/e2e/auth/signout.spec.ts:77:5 › Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in (1.4s)
+[WebServer] {"ts":"2026-11-14T05:55:40.733Z","level":"info","event":"auth.signout.done","requestId":"18eaeb7e-53e4-4a67-9894-9f17e833bd39","module":"auth.signout","reason":"global"}
+  ✓  151 [pixel-7] › tests/e2e/auth/signout.spec.ts:119:5 › Sign out of all devices: every session of the user ends (1.2s)
+[WebServer] {"ts":"2026-11-14T05:55:41.537Z","level":"warn","event":"auth.signout.refused","requestId":"65f08e6b-646c-434f-a2bc-5ef62fb423ec","module":"auth.signout","reason":"cross_origin","status":403}
+  ✓  152 [pixel-7] › tests/e2e/auth/signout.spec.ts:137:5 › GET is 405 and a cross-origin POST is 403; the session survives both (630ms)
+  -  153 [pixel-7] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 360px: both items visible, 0 serious/critical axe violations
+  -  154 [pixel-7] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 820px: both items visible, 0 serious/critical axe violations
+  -  155 [pixel-7] › tests/e2e/auth/signout.spec.ts:168:9 › user menu with the sign-out items › at 1280px: both items visible, 0 serious/critical axe violations
+  ✓  156 [pixel-7] › tests/e2e/auth/turnstile.spec.ts:63:5 › sign-in renders the widget with the build's site key and sends a fresh token on every attempt (815ms)
+  ✓  157 [pixel-7] › tests/e2e/auth/turnstile.spec.ts:91:5 › the reset request sends the widget's token to /recover (393ms)
+  ✓  158 [pixel-7] › tests/e2e/auth/turnstile.spec.ts:120:7 › with Cloudflare's always-fail test key the forms are refused before any request › sign-in (394ms)
+  ✓  159 [pixel-7] › tests/e2e/auth/turnstile.spec.ts:134:7 › with Cloudflare's always-fail test key the forms are refused before any request › reset request (408ms)
+  ✓  160 [pixel-7] › tests/e2e/auth/turnstile.spec.ts:147:5 › a widget script that does not load leaves sign-in refused with the 'could not load' copy (204ms)
+  ✓  161 [pixel-7] › tests/e2e/auth/turnstile.spec.ts:161:5 › an expired token shows the expiry copy and is replaced before sign-in (766ms)
+  -  162 [pixel-7] › tests/e2e/jobs/run-route.spec.ts:59:5 › the runner route refuses a call without the bearer and runs a drill job with it
+  -  163 [pixel-7] › tests/e2e/jobs/run-route.spec.ts:92:5 › GET /api/jobs/run is 405 with Allow: POST and runs nothing
+  ✓  164 [pixel-7] › tests/e2e/journeys/journey-01-password-login.spec.ts:15:5 › the setup project signed every role in through the login UI @golden (1ms)
+  ✓  165 [pixel-7] › tests/e2e/journeys/journey-01-password-login.spec.ts:22:5 › a wrong password is refused: fixed error, still on /login, no session @golden (439ms)
+  ✓  166 [pixel-7] › tests/e2e/journeys/journey-01-password-login.spec.ts:53:5 › the forgot-password forms are POST and wait for hydration (no credential can reach a URL) (205ms)
+  ✘  167 [pixel-7] › tests/e2e/journeys/journey-08-role-restrictions.spec.ts:41:7 › receptionist › direct URL to a consultation is not served (known v1 gap P1-07) (263ms)
+  ✓  168 [pixel-7] › tests/e2e/journeys/journey-08-role-restrictions.spec.ts:58:7 › receptionist › signing a consultation from the direct URL is refused by the server (455ms)
+  ✓  169 [pixel-7] › tests/e2e/journeys/journey-08-role-restrictions.spec.ts:73:7 › receptionist › saving clinic settings is refused by the server; the clinic is unchanged (333ms)
+  ✓  170 [pixel-7] › tests/e2e/journeys/journey-08-role-restrictions.spec.ts:94:7 › nurse › adding a medicine is refused by the server; no prescription item is written (554ms)
+  ✓  171 [pixel-7] › tests/e2e/journeys/journey-08-role-restrictions.spec.ts:115:7 › doctor › billing reports are refused by the server (redirected away) (518ms)
+  ✓  172 [pixel-7] › tests/e2e/journeys/journey-09-clinic-isolation.spec.ts:73:9 › clinic A owner › owner: clinic B's patient and visit URLs are refused with no B data in DOM or network (522ms)
+  ✓  173 [pixel-7] › tests/e2e/journeys/journey-09-clinic-isolation.spec.ts:73:9 › clinic A doctor › doctor: clinic B's patient and visit URLs are refused with no B data in DOM or network (557ms)
+  ✓  174 [pixel-7] › tests/e2e/journeys/journey-09-clinic-isolation.spec.ts:73:9 › clinic A receptionist › receptionist: clinic B's patient and visit URLs are refused with no B data in DOM or network (471ms)
+  ✓  175 [pixel-7] › tests/e2e/m0/book-appointment.spec.ts:32:5 › book a free slot → booked visit at that time, visible on the calendar (766ms)
+  ✓  176 [pixel-7] › tests/e2e/m0/book-appointment.spec.ts:57:5 › overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked (912ms)
+  ✘  177 [pixel-7] › tests/e2e/m0/book-appointment.spec.ts:101:7 › owner › overbook path with a new patient creates exactly one patient (known v1 bug F-04) (734ms)
+  ✓  178 [pixel-7] › tests/e2e/m0/cancel-appointment.spec.ts:24:5 › cancel a booked visit → cancelled, slot free again for a booking without override (1.1s)
+  ✓  179 [pixel-7] › tests/e2e/m0/checkout-collect.spec.ts:28:5 › bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF (1.3s)
+  ✓  180 [pixel-7] › tests/e2e/m0/consult-rx-finish.spec.ts:37:5 › doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF (1.9s)
+  ✘  181 [pixel-7] › tests/e2e/m0/consult-rx-finish.spec.ts:123:5 › a signed prescription is read-only in the workspace (known v1 gap P1-03) (5.3s)
+  ✓  182 [pixel-7] › tests/e2e/m0/register-patient.spec.ts:33:9 › M0 flow: register patient › owner › owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list @golden (709ms)
+  ✓  183 [pixel-7] › tests/e2e/m0/register-patient.spec.ts:62:9 › M0 flow: register patient › receptionist › receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed) (436ms)
+  ✓  184 [pixel-7] › tests/e2e/m0/walk-in-token.spec.ts:18:5 › walk-in for an existing patient → waiting visit + next queue token, visible in the queue @golden (1.4s)
+  -  185 [pixel-7] › tests/e2e/observability/error-sink.spec.ts:32:5 › a thrown server error lands in ops.error_events once, scrubbed, under the response's request id
+  -  186 [pixel-7] › tests/e2e/observability/error-sink.spec.ts:83:5 › the diagnostic route refuses a missing or wrong bearer (401) and other methods (405)
+  ✓  187 [pixel-7] › tests/e2e/security/cron-routes-removed.spec.ts:15:7 › /api/cron/dispatch-communications: GET and POST answer 404, with or without a bearer (7ms)
+  ✓  188 [pixel-7] › tests/e2e/security/cron-routes-removed.spec.ts:15:7 › /api/cron/webhooks: GET and POST answer 404, with or without a bearer (6ms)
+  ✓  189 [pixel-7] › tests/e2e/security/network-block.spec.ts:10:5 › a page request to a non-loopback host is aborted and its host recorded (135ms)
+  ✘  190 [pixel-7] › tests/e2e/security/network-block.spec.ts:27:5 › a test whose page reached for a non-loopback host fails (140ms)
+  ✓  191 [pixel-7] › tests/e2e/security/proxy-session-refresh.spec.ts:74:5 › the proxy refreshes an expired session on a page request and returns the new cookie (523ms)
+  ✓  192 [pixel-7] › tests/e2e/security/request-id.spec.ts:11:5 › two GET /api/health calls return two different request-id UUIDs (4ms)
+  ✓  193 [pixel-7] › tests/e2e/security/request-id.spec.ts:23:5 › a spoofed inbound x-request-id is replaced (3ms)
+  ✓  194 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:46:5 › the dashboard route enumeration found the dashboard pages (0ms)
+  ✓  195 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, / is redirected by the proxy to /login?next=… with no tenant data (194ms)
+  ✓  196 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /billing/register is redirected by the proxy to /login?next=… with no tenant data (213ms)
+  ✓  197 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /billing/reports is redirected by the proxy to /login?next=… with no tenant data (174ms)
+  ✓  198 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /cabin is redirected by the proxy to /login?next=… with no tenant data (175ms)
+  ✓  199 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /calendar is redirected by the proxy to /login?next=… with no tenant data (191ms)
+  ✓  200 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /consultation/[id] is redirected by the proxy to /login?next=… with no tenant data (259ms)
+  ✓  201 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /patients is redirected by the proxy to /login?next=… with no tenant data (195ms)
+  ✓  202 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /patients/[id] is redirected by the proxy to /login?next=… with no tenant data (191ms)
+  ✓  203 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /patients/new is redirected by the proxy to /login?next=… with no tenant data (193ms)
+  ✓  204 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /profile is redirected by the proxy to /login?next=… with no tenant data (195ms)
+  ✓  205 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /queue is redirected by the proxy to /login?next=… with no tenant data (193ms)
+  ✓  206 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /referrals is redirected by the proxy to /login?next=… with no tenant data (221ms)
+  ✓  207 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /settings/billing is redirected by the proxy to /login?next=… with no tenant data (193ms)
+  ✓  208 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /settings/clinic is redirected by the proxy to /login?next=… with no tenant data (191ms)
+  ✓  209 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /settings/developer is redirected by the proxy to /login?next=… with no tenant data (193ms)
+  ✓  210 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /staff is redirected by the proxy to /login?next=… with no tenant data (192ms)
+  ✓  211 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:52:7 › signed out, /visits is redirected by the proxy to /login?next=… with no tenant data (192ms)
+  ✓  212 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:83:5 › OA-5: the signed-out sweep left no error in the sink (no 'Unauthenticated' render errors) (68ms)
+  ✓  213 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:92:5 › 03-13a (review D L-4): a page path ending in an image extension still runs the proxy (default deny + request id) (10ms)
+[WebServer] {"ts":"2026-11-14T05:56:08.532Z","level":"info","event":"auth.signout.done","requestId":"2a9512ed-4def-4a87-86aa-24bafe5c3faf","module":"auth.signout","reason":"local"}
+[WebServer] {"ts":"2026-11-14T05:56:08.543Z","level":"warn","event":"auth.email.refused","requestId":"c6d4f2a0-5fb7-41e1-857a-de3f43b7405f","module":"auth.email","reason":"bad_signature","status":401}
+  ✓  214 [pixel-7] › tests/e2e/security/unauth-pages.spec.ts:114:5 › public paths stay reachable without a session (never redirected to /login) (60ms)
+  ✓  215 [pixel-7] › tests/e2e/settings/developer-test-ping.spec.ts:78:5 › the owner's test ping is queued: status line, one ping row and one job; axe and layout at 360/820/1280 (2.0s)
+  ✓  216 [pixel-7] › tests/e2e/smoke.spec.ts:13:9 › owner session › owner opens the app on its landing page @golden (191ms)
+  ✓  217 [pixel-7] › tests/e2e/smoke.spec.ts:13:9 › admin session › admin opens the app on its landing page @golden (176ms)
+  ✓  218 [pixel-7] › tests/e2e/smoke.spec.ts:13:9 › doctor session › doctor opens the app on its landing page @golden (238ms)
+  ✓  219 [pixel-7] › tests/e2e/smoke.spec.ts:13:9 › nurse session › nurse opens the app on its landing page @golden (175ms)
+  ✓  220 [pixel-7] › tests/e2e/smoke.spec.ts:13:9 › receptionist session › receptionist opens the app on its landing page @golden (181ms)
+  ✓  221 [iphone-15] › tests/e2e/journeys/journey-01-password-login.spec.ts:15:5 › the setup project signed every role in through the login UI @golden (2ms)
+  ✓  222 [iphone-15] › tests/e2e/journeys/journey-01-password-login.spec.ts:22:5 › a wrong password is refused: fixed error, still on /login, no session @golden (1.9s)
+  ✓  223 [iphone-15] › tests/e2e/m0/register-patient.spec.ts:33:9 › M0 flow: register patient › owner › owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list @golden (1.1s)
+  ✓  224 [iphone-15] › tests/e2e/m0/walk-in-token.spec.ts:18:5 › walk-in for an existing patient → waiting visit + next queue token, visible in the queue @golden (1.7s)
+  ✓  225 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › owner session › owner opens the app on its landing page @golden (277ms)
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+  ✓  226 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › admin session › admin opens the app on its landing page @golden (377ms)
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+  ✓  227 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › doctor session › doctor opens the app on its landing page @golden (369ms)
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+  ✓  228 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › nurse session › nurse opens the app on its landing page @golden (266ms)
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+  ✓  229 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › receptionist session › receptionist opens the app on its landing page @golden (269ms)
+[WebServer] Error [ECONNRESET]: aborted
+[WebServer]     at node:_http_server:845
+[WebServer]     at node:_http_server:839
+[WebServer]     at node:events:520
+[WebServer]     at node:net:346
+[e2e teardown] removed run data: 2 tenant(s), 23 auth user(s), 6 storage object(s); verified none remain
+
+  9 skipped
+  220 passed (2.3m)
+exit=0
