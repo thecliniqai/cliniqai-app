@@ -21,15 +21,18 @@ function declarations(body: string): Map<string, string> {
   return out;
 }
 
-const blocks = [...CSS.matchAll(/@theme(\s+inline)?\s*\{([^}]*)\}/g)];
+const blocks = [...CSS.matchAll(/@theme(?:\s+(inline|static))?\s*\{([^}]*)\}/g)];
 const raw = new Map<string, string>();
 const semantic = new Map<string, string>();
-for (const b of blocks) for (const [k, v] of declarations(b[2])) (b[1] ? semantic : raw).set(k, v);
+const component = new Map<string, string>();
+for (const b of blocks) {
+  for (const [k, v] of declarations(b[2])) (b[1] === "inline" ? semantic : b[1] === "static" ? component : raw).set(k, v);
+}
 
 const LITERAL_COLOR = /^(#[0-9a-f]{3,8}|oklch\([^)]*\)|rgb\([^)]*\))$/i;
 
 function resolve(name: string, seen: string[] = []): string {
-  const value = semantic.get(name) ?? raw.get(name);
+  const value = semantic.get(name) ?? component.get(name) ?? raw.get(name);
   if (value === undefined) throw new Error(`${[...seen, name].join(" -> ")} is not defined`);
   const ref = /^var\((--[a-z0-9-]+)\)$/.exec(value);
   return ref ? resolve(ref[1], [...seen, name]) : value;

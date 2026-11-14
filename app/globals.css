@@ -43,6 +43,7 @@
 
   /* 06-01b tracer: the approved CliniQ Blue (V2-DX 3a78a5d cliniq-ai.css primary-600) */
   --color-primary-600: #246bce;
+  --color-white: #ffffff;
 
   --color-v1-green-50: #eaf7f0;
   --color-v1-green-200: #bde5cf;
@@ -179,6 +180,11 @@
   --spacing-rail: 4rem;
   --spacing-sidebar: 14.5rem;
   --spacing-control: 2.75rem; /* 44 px: the touch-target floor */
+}
+
+/* 4. COMPONENT (06-01b): emitted at runtime whether or not a utility uses them */
+@theme static {
+  --pwa-icon-tile: var(--color-white);
 }
 
 body {

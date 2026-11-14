@@ -1,8 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- V2-06 06-05 provisional app icon master (Wave A; 06-01b replaces it with the approved CliniQ AI mark).
-       Tile = the accent token, glyph = fg-on-accent (lib/design/tokens.ts mirror); the "Q" is outlined paths, no font.
-       scripts/design/render-icons.mjs renders the PNGs from this file (the maskable and Apple icons with rx 0). -->
-  <rect id="tile" width="512" height="512" rx="112" fill="#1769e0"/>
-  <path id="glyph" fill="#ffffff" fill-rule="evenodd" d="M256 120a124 124 0 1 1 0 248a124 124 0 1 1 0-248zM256 164a80 80 0 1 0 0 160a80 80 0 1 0 0-160z"/>
-  <path id="glyph-tail" fill="#ffffff" d="M296 326l30-30l72 72l-30 30z"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"><g transform="translate(0.90 -0.46) scale(0.6798)"><defs><linearGradient id="cq21" x1="0" y1="1" x2="1" y2="0" gradientUnits="objectBoundingBox"><stop offset="0" stop-color="#246BCE"/><stop offset="1" stop-color="#2CBDAF"/></linearGradient></defs><path d="M32.51 79.38 A36 36 0 1 1 81.65 51.01" fill="none" stroke="url(#cq21)" stroke-width="13" stroke-linecap="round"/><path d="M34 28 V42 C34 53 40 58 46 58 C52 58 58 53 58 42 V28" fill="none" stroke="#0B1A42" stroke-width="7.5" stroke-linecap="round"/><path d="M46 58 V64 C46 75 53 82 63 82 H70" fill="none" stroke="#0B1A42" stroke-width="7.5" stroke-linecap="round"/><circle cx="78" cy="82" r="7" fill="none" stroke="#0B1A42" stroke-width="6.5"/></g></svg>
