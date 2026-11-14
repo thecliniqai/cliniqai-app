@@ -1,8 +1,26 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React from "react";
+import Link from "next/link";
+import { DropdownMenu as MenuPrimitive } from "radix-ui";
 import { cn } from "@/lib/utils";
+import { MENU_ITEM, MENU_ITEM_DANGER } from "@/lib/ui/variants";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator } from "./dropdown-menu";
 
+/**
+ * Dropdown: the v1 API (`Dropdown` with a `trigger` and `DropdownItem` children) over the V2 DropdownMenu (V2-06
+ * 06-02b; closes the 03-12b carry-over for the user menu). What v1 lacked and the adapter now gives: the trigger has
+ * `aria-haspopup="menu"`, `aria-expanded` and `aria-controls`; Enter / Space / ArrowDown open the menu on its first
+ * item; arrows move between items (wrapping), typing jumps to a matching item, Escape closes it and focus returns to the
+ * trigger; outside clicks close it.
+ *
+ * - `trigger`: one element (a `<button>`) used as the trigger itself; any other node is wrapped in a button.
+ * - `DropdownItem type="submit"` (the sign-out forms): selecting it submits its form and the menu stays open, because
+ *   closing would unmount the form before its submit event and cancel the submission. The submit handler takes over
+ *   (`hardSignOut()` conceals the page and navigates).
+ * - `DropdownLink`: a navigation item that is itself the link (no button inside a link).
+ * - `aria-disabled` on an item disables it (skipped by the arrows, not selectable).
+ */
 export interface DropdownProps {
   trigger: React.ReactNode;
   align?: "left" | "right";
@@ -11,82 +29,89 @@ export interface DropdownProps {
   children: React.ReactNode;
 }
 
-export function Dropdown({
-  trigger,
-  align = "right",
-  className,
-  menuClassName,
-  children,
-}: DropdownProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen]);
-
+export function Dropdown({ trigger, align = "right", className, menuClassName, children }: DropdownProps) {
+  const triggerElement = React.isValidElement(trigger) ? (
+    trigger
+  ) : (
+    <button type="button" className="cursor-pointer">
+      {trigger}
+    </button>
+  );
   return (
-    <div ref={containerRef} className={cn("relative inline-block text-left", className)}>
-      <div onClick={() => setIsOpen((prev) => !prev)} className="cursor-pointer">
-        {trigger}
-      </div>
-
-      {isOpen && (
-        <div
-          role="menu"
-          aria-orientation="vertical"
-          className={cn(
-            "absolute z-50 mt-2 min-w-[200px] rounded-xl border border-gray-200 bg-white py-1.5 shadow-theme-md transition-all",
-            align === "right" ? "end-0 origin-top-right" : "start-0 origin-top-left",
-            menuClassName
-          )}
-          onClick={() => setIsOpen(false)}
-        >
+    <div className={cn("relative inline-block text-left", className)}>
+      <DropdownMenu>
+        <MenuPrimitive.Trigger asChild>{triggerElement}</MenuPrimitive.Trigger>
+        <DropdownMenuContent align={align === "right" ? "end" : "start"} className={menuClassName}>
           {children}
-        </div>
-      )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
 
-export function DropdownItem({
+function isTruthyAria(value: React.AriaAttributes["aria-disabled"]): boolean {
+  return value === true || value === "true";
+}
+
+export const DropdownItem = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { icon?: React.ReactNode; danger?: boolean }
+>(function DropdownItem(
+  { className, children, icon, danger = false, type = "button", disabled, onClick, "aria-disabled": ariaDisabled, ...props },
+  ref,
+) {
+  const submit = type === "submit";
+  return (
+    <MenuPrimitive.Item
+      asChild
+      disabled={Boolean(disabled) || isTruthyAria(ariaDisabled)}
+      onSelect={(event) => {
+        // Keep the menu (and so the form) mounted: the click's default action submits the form after this handler.
+        if (submit) event.preventDefault();
+      }}
+    >
+      <button
+        ref={ref}
+        type={type}
+        onClick={onClick}
+        className={cn(MENU_ITEM, danger && MENU_ITEM_DANGER, className)}
+        {...props}
+      >
+        {icon && (
+          <span aria-hidden="true" className="flex shrink-0 items-center">
+            {icon}
+          </span>
+        )}
+        <span className="min-w-0 flex-1">{children}</span>
+      </button>
+    </MenuPrimitive.Item>
+  );
+});
+
+/** A navigation item: the link is the menu item. */
+export function DropdownLink({
+  href,
+  icon,
   className,
   children,
-  icon,
-  danger = false,
-  ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+}: {
+  href: string;
   icon?: React.ReactNode;
-  danger?: boolean;
+  className?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <button
-      role="menuitem"
-      className={cn(
-        "w-full px-4 py-2.5 text-start text-sm flex items-center gap-2.5 transition-colors cursor-pointer",
-        danger
-          ? "text-danger-fg hover:bg-rose-50"
-          : "text-gray-700 hover:bg-gray-50 hover:text-gray-900",
-        className
-      )}
-      {...props}
-    >
-      {icon && <span className="shrink-0">{icon}</span>}
-      <span className="grow">{children}</span>
-    </button>
+    <MenuPrimitive.Item asChild>
+      <Link href={href} className={cn(MENU_ITEM, className)}>
+        {icon && (
+          <span aria-hidden="true" className="flex shrink-0 items-center">
+            {icon}
+          </span>
+        )}
+        <span className="min-w-0 flex-1">{children}</span>
+      </Link>
+    </MenuPrimitive.Item>
   );
 }
+
+export const DropdownSeparator = DropdownMenuSeparator;

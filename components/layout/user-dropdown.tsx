@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { Dropdown, DropdownItem } from "@/components/ui/dropdown";
+import { Dropdown, DropdownItem, DropdownLink, DropdownSeparator } from "@/components/ui/dropdown";
 import { LogOut, Building, Shield, User, MonitorSmartphone, Users } from "lucide-react";
-import Link from "next/link";
 import { hardSignOut } from "@/lib/auth/hard-sign-out";
+import { cn } from "@/lib/utils";
+import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 
 export interface UserDropdownProps {
   userEmail: string;
@@ -22,6 +23,10 @@ export interface UserDropdownProps {
  *
  * The forms stop the click from reaching the menu's close handler: closing unmounts the form before its submit event,
  * which would cancel the submission.
+ *
+ * V2-06 06-02b (03-12b carry-over): the menu is the DropdownMenu adapter, so the account button announces
+ * `aria-expanded`, the arrows move through the items (wrapping), Escape closes and focus returns to the button, and a
+ * submit item keeps the menu (and its form) mounted while the form submits. The links are menu items themselves.
  */
 function SignOutForm({
   scope,
@@ -46,20 +51,6 @@ function SignOutForm({
   );
 }
 
-/** A navigation item of the menu: the link itself is the menuitem (no button nested in a link). */
-function MenuLink({ href, icon, children }: { href: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      role="menuitem"
-      className="w-full px-4 py-2.5 text-start text-sm flex items-center gap-2.5 transition-colors text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-    >
-      <span className="shrink-0">{icon}</span>
-      <span className="grow">{children}</span>
-    </Link>
-  );
-}
-
 export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps) {
   const [signingOut, setSigningOut] = useState<"local" | "global" | "switch" | null>(null);
 
@@ -80,43 +71,47 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
       type="button"
       aria-haspopup="menu"
       aria-label={`Account menu (${userEmail})`}
-      className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-ring"
+      className={cn(
+        "flex cursor-pointer items-center gap-2 rounded-lg p-1 hover:bg-surface-muted data-[state=open]:bg-surface-muted",
+        TRANSITION,
+        FOCUS_RING,
+      )}
     >
-      <span className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center font-semibold text-xs shadow-theme-xs">
+      <span className="flex size-9 items-center justify-center rounded-full bg-accent text-label font-semibold text-fg-on-accent">
         {initials}
       </span>
-      <span className="hidden sm:block text-start text-xs">
-        <span className="block font-medium text-gray-900 truncate max-w-[120px]">{userEmail}</span>
-        <span className="block text-gray-600 capitalize">{role}</span>
+      <span className="hidden text-start text-label sm:block">
+        <span className="block max-w-[120px] truncate font-medium text-fg">{userEmail}</span>
+        <span className="block text-fg-secondary capitalize">{role}</span>
       </span>
     </button>
   );
 
   return (
-    <Dropdown trigger={trigger} align="right" menuClassName="w-56 p-1.5">
-      <div role="none" className="px-3 py-2 border-b border-gray-100 mb-1">
-        <p className="text-xs font-semibold text-gray-900 truncate">{userEmail}</p>
-        <p className="text-[11px] text-gray-500 flex items-center gap-1 mt-0.5 capitalize">
-          <Shield className="w-3 h-3 text-accent" />
+    <Dropdown trigger={trigger} align="right" menuClassName="w-56">
+      <div role="none" className="mb-1 border-b border-border px-2.5 py-2">
+        <p className="truncate text-label font-semibold text-fg">{userEmail}</p>
+        <p className="mt-0.5 flex items-center gap-1 text-caption text-fg-muted capitalize">
+          <Shield className="size-3 text-fg-icon" aria-hidden="true" />
           <span>{role} · {tenantName}</span>
         </p>
       </div>
 
-      <MenuLink href="/profile" icon={<User className="w-4 h-4 text-gray-500" aria-hidden="true" />}>
+      <DropdownLink href="/profile" icon={<User aria-hidden="true" />}>
         My Profile
-      </MenuLink>
+      </DropdownLink>
 
       {(role === "owner" || role === "admin") && (
-        <MenuLink href="/settings/clinic" icon={<Building className="w-4 h-4 text-gray-500" aria-hidden="true" />}>
+        <DropdownLink href="/settings/clinic" icon={<Building aria-hidden="true" />}>
           Clinic Profile
-        </MenuLink>
+        </DropdownLink>
       )}
 
-      <div role="separator" className="my-1 border-t border-gray-100" />
+      <DropdownSeparator />
 
       <DropdownItem
         type="button"
-        icon={<Users className="w-4 h-4 text-fg-muted" aria-hidden="true" />}
+        icon={<Users aria-hidden="true" />}
         aria-disabled={signingOut !== null || undefined}
         onClick={(event) => {
           event.stopPropagation();
@@ -129,7 +124,7 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
         scope="local"
         pending={signingOut !== null}
         onSubmit={(event) => signOut(event, "local")}
-        icon={<LogOut className="w-4 h-4 text-danger-fg" aria-hidden="true" />}
+        icon={<LogOut aria-hidden="true" />}
       >
         {signingOut === "local" ? "Signing out…" : "Sign out"}
       </SignOutForm>
@@ -137,7 +132,7 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
         scope="global"
         pending={signingOut !== null}
         onSubmit={(event) => signOut(event, "global")}
-        icon={<MonitorSmartphone className="w-4 h-4 text-danger-fg" aria-hidden="true" />}
+        icon={<MonitorSmartphone aria-hidden="true" />}
       >
         {signingOut === "global" ? "Signing out…" : "Sign out of all devices"}
       </SignOutForm>

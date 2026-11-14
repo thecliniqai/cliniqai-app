@@ -25,6 +25,7 @@ import { storageStatePath } from "../support/run-data";
 import { expectSignedOut, freshMember, guardedContext, otherDevice, uiSignIn } from "../support/password-journeys";
 import { publicEnv } from "@/lib/env";
 import { logOffset, readLogFrom, SERVER_STDOUT_LOG } from "../support/server-log";
+import { settleAnimations } from "../support/settle";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -199,6 +200,8 @@ test.describe("user menu with the sign-out items", () => {
         await expect(page.getByRole("menuitem", { name, exact: true })).toBeVisible();
         await expect(page.getByRole("menuitem", { name, exact: true })).toBeInViewport();
       }
+      // 06-02b: the menu fades in (200 ms); scan the settled frame (06-02a flake rule).
+      await settleAnimations(page);
       const results = await new AxeBuilder({ page }).withTags(TAGS).include('[role="menu"]').include('button[aria-label^="Account menu"]').analyze();
       await testInfo.attach(`axe-user-menu-${size.width}.json`, {
         body: JSON.stringify({ url: results.url, violations: results.violations }, null, 2),

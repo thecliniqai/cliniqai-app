@@ -13,11 +13,14 @@ import { expect, test, waitForServiceWorker } from "./fixtures";
 import { storageStatePath } from "../support/run-data";
 import { ROOT } from "../support/app-env";
 import { DESIGN_WIDTHS } from "../design/support/widths";
+import { settleAnimations } from "../support/settle";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
 const OUT = path.join(ROOT, "design-captures/06-05");
 
 async function axeBlocking(page: Page, testInfo: TestInfo, label: string, include?: string) {
+  // 06-02b: menus and overlays fade in (200 ms); scan the settled frame, never one mid-fade (06-02a flake rule).
+  await settleAnimations(page);
   let builder = new AxeBuilder({ page }).withTags(TAGS);
   if (include) builder = builder.include(include);
   const results = await builder.analyze();
