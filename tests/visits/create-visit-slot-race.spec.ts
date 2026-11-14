@@ -76,10 +76,12 @@ describe("createVisit: the slot race (05-08)", () => {
     expect(res).toMatchObject({ success: false, conflict: true, reason: SLOT_TAKEN_REASON });
   });
 
-  it("a second deadlock is not retried again and stays a generic failure", async () => {
+  // 05-11c (INT L-3): only an overlapping concurrent slot write makes a visit insert the deadlock victim, and that write
+  // went on, so a deadlock that survives the one retry is the taken slot (before: a generic failure).
+  it("a second deadlock is not retried again and is reported as the taken slot", async () => {
     const { db, inserts } = dbAnswering([DEADLOCK, DEADLOCK]);
     const res = await createVisit(mockCtx(db), input);
     expect(inserts).toHaveLength(2);
-    expect(res).toEqual({ success: false, error: "Failed to schedule visit in database." });
+    expect(res).toEqual({ success: false, conflict: true, code: "CONFLICT", reason: SLOT_TAKEN_REASON, error: SLOT_TAKEN_MESSAGE });
   });
 });

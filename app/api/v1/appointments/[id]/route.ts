@@ -5,6 +5,7 @@ import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
 import { isSlotTakenError } from "@/features/visits/service";
+import { retryOnDeadlock } from "@/lib/db/retry";
 import { recordAudit } from "@/lib/audit/audit";
 
 interface RouteContext {
@@ -174,12 +175,14 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data: updated, error: updateErr } = await (admin.from("visits") as any)
+    // A deadlock victim of a concurrent overlapping slot write is retried once (`retryOnDeadlock`, V2-05 05-11c); a
+    // residual deadlock counts as the taken slot (`isSlotTakenError`).
+    const { data: updated, error: updateErr } = await retryOnDeadlock<{ data: any; error: any }>(() => (admin.from("visits") as any)
       .update(updatePayload)
       .eq("id", id)
       .eq("tenant_id", session.tenantId)
       .select()
-      .single();
+      .single());
 
     if (isSlotTakenError(updateErr)) {
       // Booked by someone else after the slot check above (V2-05 05-08: the visits_no_double_booking constraint).

@@ -6,6 +6,7 @@ import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
 import { isSlotTakenError } from "@/features/visits/service";
+import { retryOnDeadlock } from "@/lib/db/retry";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { CLINICAL_NOTES_EMBED_KEY, clinicalNotesEmbed, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
@@ -205,8 +206,9 @@ export async function POST(req: NextRequest) {
       formattedComplaints = [{ complaint: chief_complaints.trim() }];
     }
 
-    // 4. Insert into public.visits
-    const { data: newVisitRow, error: insertErr } = await (admin.from("visits") as any)
+    // 4. Insert into public.visits. A deadlock victim of a concurrent overlapping slot write is retried once
+    // (`retryOnDeadlock`, V2-05 05-11c); a residual deadlock counts as the taken slot (`isSlotTakenError`).
+    const { data: newVisitRow, error: insertErr } = await retryOnDeadlock<{ data: any; error: any }>(() => (admin.from("visits") as any)
       .insert({
         tenant_id: session.tenantId,
         patient_id,
@@ -222,7 +224,7 @@ export async function POST(req: NextRequest) {
         created_by: session.userId,
       })
       .select()
-      .single();
+      .single());
 
     if (isSlotTakenError(insertErr)) {
       // A scheduled visit overlapping another non-overbooked one of the doctor (V2-05 05-08: visits_no_double_booking).

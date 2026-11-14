@@ -24,6 +24,9 @@ describe("mapDbError: SQLSTATE table", () => {
     ["23514 check", { code: "23514", message: 'new row violates check constraint "payments_amount_check"', details: ROW_DETAIL }, "CONFLICT", "PAYMENTS_AMOUNT_CHECK"],
     ["23P01 exclusion", { code: "23P01", message: 'conflicting key value violates exclusion constraint "visits_no_overlap"' }, "CONFLICT", "VISITS_NO_OVERLAP"],
     ["55P03 lock timeout", { code: "55P03", message: "canceling statement due to lock timeout" }, "CONFLICT", "LOCK_TIMEOUT"],
+    // V2-05 05-11c (INT L-3): a deadlock victim or a serialization failure lost to a concurrent write (retry-safe).
+    ["40P01 deadlock", { code: "40P01", message: "deadlock detected", details: "Process 101 waits for ShareLock on transaction 9" }, "CONFLICT", "CONCURRENT_WRITE"],
+    ["40001 serialization failure", { code: "40001", message: "could not serialize access due to concurrent update" }, "CONFLICT", "CONCURRENT_WRITE"],
     ["P0001 OVERPAYMENT", { code: "P0001", message: "OVERPAYMENT" }, "CONFLICT", "OVERPAYMENT"],
     ["P0001 INVOICE_NOT_PAYABLE", { code: "P0001", message: "INVOICE_NOT_PAYABLE" }, "CONFLICT", "INVOICE_NOT_PAYABLE"],
     ["P0001 ACTOR_INVALID", { code: "P0001", message: "ACTOR_INVALID" }, "FORBIDDEN", "ACTOR_INVALID"],

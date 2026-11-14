@@ -13,6 +13,8 @@ import { appError, isAppErrorReason, type AppError, type AppErrorCode } from "@/
  * |                     | unregistered reason → CONFLICT                                            |
  * | P0002               | NOT_FOUND, reason = the raised reason                                     |
  * | 55P03               | CONFLICT, reason LOCK_TIMEOUT (an RPC's lock_timeout expired)             |
+ * | 40P01, 40001        | CONFLICT, reason CONCURRENT_WRITE (deadlock victim / serialization        |
+ * |                     | failure: a concurrent write won; retrying is safe; V2-05 05-11c)          |
  * | anything else       | INTERNAL                                                                  |
  *
  * The returned message is always a fixed text (the caller's `messages` or the default for the code): never the
@@ -54,6 +56,9 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   REFERRAL_CONSENT_REQUIRED: "VALIDATION_FAILED",
 };
 
+/** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */
+export const CONCURRENT_WRITE = "CONCURRENT_WRITE";
+
 /** Fixed texts keyed by reason (checked first) or by code. */
 export type DbErrorMessages = Partial<Record<AppErrorCode | string, string>>;
 
@@ -86,6 +91,9 @@ function classify(err: DbErrorLike): { code: AppErrorCode; reason?: string } {
       return { code: "NOT_FOUND", reason: raisedReason(err) };
     case "55P03":
       return { code: "CONFLICT", reason: "LOCK_TIMEOUT" };
+    case "40P01":
+    case "40001":
+      return { code: "CONFLICT", reason: CONCURRENT_WRITE };
     default:
       return { code: "INTERNAL" };
   }

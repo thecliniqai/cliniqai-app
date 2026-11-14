@@ -23,6 +23,7 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 import { mapDbError, type DbErrorLike } from "@/lib/db/errors";
+import { isDeadlock, retryOnDeadlock } from "@/lib/db/retry";
 import type { AppErrorCode } from "@/lib/errors/app-error";
 
 // Visit use-cases. The acting tenant and user come only from `ctx` (ADR-0005 D1); each use-case checks the same
@@ -49,9 +50,13 @@ export const SLOT_TAKEN_REASON = "VISITS_NO_DOUBLE_BOOKING";
 export const SLOT_TAKEN_MESSAGE =
   "This slot was just booked for the doctor. Pick another time, or confirm the overbooking.";
 
-/** True when a visit write was refused because the doctor's slot is taken ({@link SLOT_TAKEN_REASON}). */
+/**
+ * True when a visit write was refused because the doctor's slot is taken ({@link SLOT_TAKEN_REASON}). A deadlock (40P01)
+ * that survived the one {@link retryOnDeadlock} retry counts as taken too: only a concurrent write of an overlapping slot
+ * produces one on a slot write, and that write went on (V2-05 05-11c).
+ */
 export function isSlotTakenError(err: DbErrorLike | null | undefined): boolean {
-  return mapDbError(err).reason === SLOT_TAKEN_REASON;
+  return isDeadlock(err) || mapDbError(err).reason === SLOT_TAKEN_REASON;
 }
 
 export type CreateVisitResult =
@@ -100,7 +105,7 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
     // Insert visit under RLS. Two concurrent inserts of conflicting slots can both find the other's not-yet-committed
     // row while checking `visits_no_double_booking`; PostgreSQL then aborts one of them as a deadlock (40P01) instead
     // of 23P01. The other transaction goes on and commits, so one retry answers definitively: 23P01 (the slot is
-    // taken) or, if the other failed, the booking itself (V2-05 05-08).
+    // taken) or, if the other failed, the booking itself (V2-05 05-08; the shared helper since 05-11c).
     const insertVisit = () => (
       supabase.from("visits") as unknown as {
         insert: (row: Record<string, unknown>) => {
@@ -124,14 +129,12 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
       })
       .select("id")
       .single();
-    let { data: newVisit, error: insertError } = await insertVisit();
-    if (insertError?.code === "40P01") ({ data: newVisit, error: insertError } = await insertVisit());
+    const { data: newVisit, error: insertError } = await retryOnDeadlock(insertVisit);
 
     if (insertError || !newVisit) {
-      const mapped = mapDbError(insertError, { [SLOT_TAKEN_REASON]: SLOT_TAKEN_MESSAGE });
-      if (mapped.reason === SLOT_TAKEN_REASON) {
+      if (isSlotTakenError(insertError)) {
         // Expected under concurrency (two desks booking one slot): not an error to alert on.
-        return { success: false, error: mapped.message, conflict: true, code: mapped.code, reason: mapped.reason };
+        return { success: false, error: SLOT_TAKEN_MESSAGE, conflict: true, code: "CONFLICT", reason: SLOT_TAKEN_REASON };
       }
       log.error({ event: "visits.create_insert.failed", code: errorTag(insertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to schedule visit in database." };
