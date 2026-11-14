@@ -1,5 +1,5 @@
 {
- "generated_by": "tests/e2e/design/overlays-axe.spec.ts (PR lane, desktop-chrome) on the build of ee5d15b",
+ "generated_by": "tests/e2e/design/overlays-axe.spec.ts (PR lane, desktop-chrome) on the build of 13556fe",
  "widths": {
   "360": {
    "dialog": {
@@ -217,7 +217,7 @@
      "x": 110,
      "y": 142,
      "width": 600,
-     "height": 367
+     "height": 427
     }
    },
    "modal-adapter": {
@@ -339,7 +339,7 @@
      "x": 290,
      "y": 98,
      "width": 600,
-     "height": 367
+     "height": 371
     }
    },
    "modal-adapter": {
@@ -461,7 +461,7 @@
      "x": 340,
      "y": 96,
      "width": 600,
-     "height": 367
+     "height": 371
     }
    },
    "modal-adapter": {
