@@ -14,6 +14,9 @@ node_modules
 /test-results
 # V2-06 design-lane captures (tests/e2e/design/**): outside test-results/, which Playwright empties on every run
 /design-captures
+# V2-06 06-07: route-JS report output (CI `build` job artifact) and Lighthouse CI's working directory
+/route-js
+.lighthouseci/
 playwright-report
 blob-report
 # Playwright per-run seed data and signed-in storage states (V2-02 02-03a); never committed
