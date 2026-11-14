@@ -1,0 +1,22 @@
+{
+  "screen": "consultation-doctor-820",
+  "baseline_rules": [
+    "button-name",
+    "color-contrast",
+    "select-name",
+    "target-size"
+  ],
+  "serious_or_critical": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "nodes": 15
+    },
+    {
+      "id": "select-name",
+      "impact": "critical",
+      "nodes": 1
+    }
+  ],
+  "horizontal_scroll": false
+}

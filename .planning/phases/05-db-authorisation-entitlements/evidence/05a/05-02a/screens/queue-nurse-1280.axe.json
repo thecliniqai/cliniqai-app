@@ -1,0 +1,14 @@
+{
+  "screen": "queue-nurse-1280",
+  "baseline_rules": [
+    "color-contrast"
+  ],
+  "serious_or_critical": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "nodes": 3
+    }
+  ],
+  "horizontal_scroll": false
+}

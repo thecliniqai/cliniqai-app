@@ -1,0 +1,638 @@
+# 05-02a: the affected specs run against the pre-switch app files (git checkout 70c59d6 -- <14 app files>) with schema 000053; files restored with git checkout HEAD afterwards
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T01:25:42.604Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.629Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.639Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.648Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.657Z","level":"error","event":"api.v1.failed","requestId":"097dee3d-1c48-49c9-b6f7-a2c6825a8afe","reason":"database_error","status":500}
+{"ts":"2026-11-14T01:25:42.661Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.670Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.682Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+········xx·{"ts":"2026-11-14T01:25:42.690Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.700Z","level":"error","event":"api.visit_update.failed","code":"23514"}
+{"ts":"2026-11-14T01:25:42.700Z","level":"error","event":"api.v1.failed","requestId":"7cb67a0d-715d-4b6d-92a0-c5258524c9bd","reason":"database_error","status":500}
+{"ts":"2026-11-14T01:25:42.713Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.724Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.731Z","level":"error","event":"api.visit_update.failed","code":"23514"}
+{"ts":"2026-11-14T01:25:42.731Z","level":"error","event":"api.v1.failed","requestId":"b72e7ba3-a3cc-4c6c-8c67-925c67b5b262","reason":"database_error","status":500}
+{"ts":"2026-11-14T01:25:42.732Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.738Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.746Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.756Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.778Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+·xx·x···{"ts":"2026-11-14T01:25:42.795Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.803Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.810Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.817Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.824Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.837Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.845Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.856Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.866Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.873Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.881Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.889Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+····{"ts":"2026-11-14T01:25:42.900Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.907Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.913Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.922Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.933Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.949Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.968Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:42.981Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+··{"ts":"2026-11-14T01:25:43.002Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:43.011Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:43.022Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:43.030Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:43.042Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:43.049Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:43.064Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:43.075Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:43.089Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:43.100Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+··············{"ts":"2026-11-14T01:25:44.327Z","level":"error","event":"consultation.draft_save.failed","tenantId":"3ed575a1-9d38-40f5-a35b-2d2a7a4adb7e","code":"23514"}
+··x{"ts":"2026-11-14T01:25:44.434Z","level":"error","event":"visits.vitals_update.failed","tenantId":"3ed575a1-9d38-40f5-a35b-2d2a7a4adb7e","code":"23514"}
+{"ts":"2026-11-14T01:25:44.461Z","level":"error","event":"consultation.draft_save.failed","tenantId":"3ed575a1-9d38-40f5-a35b-2d2a7a4adb7e","code":"23514"}
+··xx·{"ts":"2026-11-14T01:25:45.287Z","level":"error","event":"consultation.draft_save.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"23514"}
+{"ts":"2026-11-14T01:25:45.306Z","level":"error","event":"visits.vitals_update.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"23514"}
+{"ts":"2026-11-14T01:25:45.313Z","level":"error","event":"visits.vitals_update.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"23514"}
+{"ts":"2026-11-14T01:25:45.316Z","level":"error","event":"consultation.draft_save.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"23514"}
+{"ts":"2026-11-14T01:25:45.323Z","level":"error","event":"consultation.draft_save.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"23514"}
+{"ts":"2026-11-14T01:25:45.323Z","level":"error","event":"consultation.sign.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"PermissionDeniedError"}
+{"ts":"2026-11-14T01:25:45.324Z","level":"error","event":"consultation.amend_finalize.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"PermissionDeniedError"}
+{"ts":"2026-11-14T01:25:45.324Z","level":"error","event":"consultation.sign.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"PermissionDeniedError"}
+{"ts":"2026-11-14T01:25:45.324Z","level":"error","event":"consultation.amend_finalize.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"PermissionDeniedError"}
+{"ts":"2026-11-14T01:25:45.332Z","level":"error","event":"consultation.draft_save.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"23514"}
+{"ts":"2026-11-14T01:25:45.341Z","level":"error","event":"consultation.draft_save.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"23514"}
+{"ts":"2026-11-14T01:25:45.354Z","level":"error","event":"consultation.draft_save.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"23514"}
+{"ts":"2026-11-14T01:25:45.363Z","level":"error","event":"consultation.draft_save.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"23514"}
+{"ts":"2026-11-14T01:25:45.374Z","level":"error","event":"consultation.draft_save.failed","tenantId":"a8f7f52c-f66e-4cee-a8d1-553c03cc6308","code":"23514"}
+xxx··xxxx{"ts":"2026-11-14T01:25:46.382Z","level":"error","event":"visits.vitals_update.failed","tenantId":"e2c259c3-4d08-4105-9162-61379a05546f","code":"23514"}
+···········xxxx····x·{"ts":"2026-11-14T01:25:48.106Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:48.125Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:48.162Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+{"ts":"2026-11-14T01:25:48.187Z","level":"info","event":"db.system_acquired","module":"app/api/v1","reason":"api_v1"}
+························{"ts":"2026-11-14T01:25:48.791Z","level":"error","event":"consultation.draft_save.failed","tenantId":"3c4195f7-cba8-4d5e-a391-79cc2af2837a","code":"23514"}
+x·{"ts":"2026-11-14T01:25:49.363Z","level":"error","event":"consultation.draft_save.failed","tenantId":"da641cb9-a494-4283-80ea-2d28c8fa09c9","code":"23514"}
+····x···x········x·····{"ts":"2026-11-14T01:25:50.657Z","level":"error","event":"consultation.draft_save.failed","tenantId":"f4286004-2d40-452b-a080-b75bf4944d25","code":"23514"}
+{"ts":"2026-11-14T01:25:50.669Z","level":"error","event":"consultation.draft_save.failed","tenantId":"f4286004-2d40-452b-a080-b75bf4944d25","code":"23514"}
+{"ts":"2026-11-14T01:25:50.669Z","level":"error","event":"auth.context_resolve.failed","code":"Error"}
+{"ts":"2026-11-14T01:25:50.670Z","level":"error","event":"auth.membership_lookup.failed","userId":"27f0d530-0b70-46e3-b3db-a1f39481f7ba","code":"23502"}
+{"ts":"2026-11-14T01:25:50.671Z","level":"error","event":"auth.context_resolve.failed","code":"Error"}
+{"ts":"2026-11-14T01:25:50.672Z","level":"error","event":"notifications.list_query.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"23502"}
+{"ts":"2026-11-14T01:25:50.672Z","level":"error","event":"notifications.mark_all_read_query.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"23502"}
+{"ts":"2026-11-14T01:25:50.672Z","level":"error","event":"notifications.list.failed","code":"Error"}
+{"ts":"2026-11-14T01:25:50.673Z","level":"error","event":"referrals.outbound_list_query.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"23502"}
+{"ts":"2026-11-14T01:25:50.673Z","level":"error","event":"referrals.patient_list_query.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"23502"}
+{"ts":"2026-11-14T01:25:50.673Z","level":"error","event":"referrals.outbound_list.failed","code":"Error"}
+{"ts":"2026-11-14T01:25:50.674Z","level":"error","event":"settings.clinic_update.failed","code":"Error"}
+·····xx·······{"ts":"2026-11-14T01:25:51.206Z","level":"error","event":"consultation.draft_save.failed","tenantId":"6f40cac9-5e17-44ad-a3de-7a129fd20110","code":"23514"}
+x·{"ts":"2026-11-14T01:25:51.322Z","level":"error","event":"visits.vitals.failed","tenantId":"1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d","code":"PermissionDeniedError"}
+{"ts":"2026-11-14T01:25:51.323Z","level":"warn","event":"datetime.tenant_tz.failed","tenantId":"00000000-0000-4000-8000-0000000000a1","code":"TypeError"}
+xx·····
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 29 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/api/v1-doctor-guard.spec.ts > Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-05, T-06-07) > 2. POST /api/v1/visits (Encounter Creation with Doctor Guard) > creates walk-in visit with valid doctor and verified created_by FK
+AssertionError: expected 500 to be 201 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 201[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-doctor-guard.spec.ts:218:26
+    216|       const json = await res.json();
+    217| 
+    218|       expect(res.status).toBe(201);
+       |                          ^
+    219|       expect(json.data.id).toBeDefined();
+    220|       expect(json.data.origin_type).toBe("walk_in");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/29]⎯
+
+ FAIL  tests/api/v1-doctor-guard.spec.ts > Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-05, T-06-07) > 3. GET /api/v1/visits (Query & Filtering) > returns paginated visits scoped to tenant
+AssertionError: expected 0 to be greater than 0
+ ❯ tests/api/v1-doctor-guard.spec.ts:248:32
+    246|       expect(res.status).toBe(200);
+    247|       expect(Array.isArray(json.data)).toBe(true);
+    248|       expect(json.data.length).toBeGreaterThan(0);
+       |                                ^
+    249|       expect(json.meta.page).toBe(1);
+    250|       expect(json.meta.limit).toBe(10);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/29]⎯
+
+ FAIL  tests/api/v1-doctor-guard.spec.ts > Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-05, T-06-07) > 4. PATCH /api/v1/visits/[id] (Clinical Safety & Completion Guard) > permits completion when clinical notes are supplied in the patch body
+AssertionError: expected 500 to be 200 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-doctor-guard.spec.ts:326:26
+    324|       const json = await res.json();
+    325| 
+    326|       expect(res.status).toBe(200);
+       |                          ^
+    327|       expect(json.data.status).toBe("completed");
+    328|       expect(json.data.clinical_notes).toBe("Patient advised complete …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/29]⎯
+
+ FAIL  tests/api/v1-doctor-guard.spec.ts > Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-05, T-06-07) > 4. PATCH /api/v1/visits/[id] (Clinical Safety & Completion Guard) > rejects any PATCH of the completed visit with 409 VISIT_LOCKED and leaves the row unchanged
+AssertionError: expected 'in_consultation' to be 'completed' // Object.is equality
+
+Expected: [32m"completed"[39m
+Received: [31m"in_consultation"[39m
+
+ ❯ tests/api/v1-doctor-guard.spec.ts:359:30
+    357|     it("rejects any PATCH of the completed visit with 409 VISIT_LOCKED…
+    358|       const before = await readVisit(activeVisitId);
+    359|       expect(before?.status).toBe("completed");
+       |                              ^
+    360| 
+    361|       for (const body of [
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/29]⎯
+
+ FAIL  tests/api/v1-doctor-guard.spec.ts > Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-05, T-06-07) > 4. PATCH /api/v1/visits/[id] (Clinical Safety & Completion Guard) > still patches an open visit, and rejects an unknown status value with 422
+AssertionError: expected 500 to be 200 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 500[39m
+
+ ❯ tests/api/v1-doctor-guard.spec.ts:432:25
+    430|         params: Promise.resolve({ id: openId }),
+    431|       });
+    432|       expect(ok.status).toBe(200);
+       |                         ^
+    433|       const after = await readVisit(openId);
+    434|       expect(after?.status).toBe("in_consultation");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/29]⎯
+
+ FAIL  tests/compliance/dpdp-rights.spec.ts > DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D-16) > Task 1: DPDP Right to Access Dual-Format Data Export > exportPatientDpdpArchive compiles demographics, visits, prescriptions, documents, billing, and consent
+AssertionError: expected null to be 'Blood glucose moderately controlled. …' // Object.is equality
+
+[32m- Expected:[39m 
+"Blood glucose moderately controlled. Maintain current dosage."
+
+[31m+ Received:[39m 
+null
+
+ ❯ tests/compliance/dpdp-rights.spec.ts:264:51
+    262|       expect(bundle.encounters[0].reason_for_visit).toBe("Quarterly di…
+    263|       // The encounter's clinical content is exported from clinical_no…
+    264|       expect(bundle.encounters[0].clinical_notes).toBe("Blood glucose …
+       |                                                   ^
+    265|       expect(bundle.encounters[0].vitals).toMatchObject({ systolic: 12…
+    266|       expect(bundle.encounters[0]).not.toHaveProperty("notes");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/29]⎯
+
+ FAIL  tests/labs/lab-documents.spec.ts > Lab Reports & Records Management (REQ-lab-records) > 4. Consultation Cabin Lab Recommendations & Requisition PDF > persists advised investigations to visit via consultation draft
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/labs/lab-documents.spec.ts:208:32
+    206|       );
+    207| 
+    208|       expect(draftRes.success).toBe(true);
+       |                                ^
+    209| 
+    210|       // 3. Verify database row has investigations_advised array
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/29]⎯
+
+ FAIL  tests/integration/cabin-consultation-launch.spec.ts > Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visit-management, REQ-multi-tenancy) > 1. Schedules a visit, checks in patient into queue, transitions to in_consultation, and saves clinical draft
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/integration/cabin-consultation-launch.spec.ts:102:30
+    100|     );
+    101| 
+    102|     expect(draftRes.success).toBe(true);
+       |                              ^
+    103| 
+    104|     // Verify vitals and notes persisted in the visit's clinical_notes…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/29]⎯
+
+ FAIL  tests/integration/consultation-flow.spec.ts > Consultation Lifecycle & Clinical Data Progression (REQ-consultation-workspace, REQ-prescribing, REQ-multi-tenancy) > 5. Doctor records chief complaints, clinical examination notes, and specialty data (dental odontogram)
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/integration/consultation-flow.spec.ts:187:30
+    185|     );
+    186| 
+    187|     expect(draftRes.success).toBe(true);
+       |                              ^
+    188| 
+    189|     const { data: visitOnly } = await tenantA.client.from("visits").se…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/29]⎯
+
+ FAIL  tests/integration/consultation-flow.spec.ts > Consultation Lifecycle & Clinical Data Progression (REQ-consultation-workspace, REQ-prescribing, REQ-multi-tenancy) > 9. Complete consultation: transitions status directly to 'completed' and verifies history retrieval
+AssertionError: expected 'general_physician' to be 'dental' // Object.is equality
+
+Expected: [32m"[7md[27men[7mtal[27m"[39m
+Received: [31m"[7mg[27men[7meral_physician[27m"[39m
+
+ ❯ tests/integration/consultation-flow.spec.ts:381:35
+    379|       expect(encounter.visitId).toBe(visitAId);
+    380|       expect(encounter.status).toBe("completed");
+    381|       expect(encounter.specialty).toBe("dental");
+       |                                   ^
+    382|       expect(encounter.diagnoses).toHaveLength(2);
+    383|       expect(encounter.prescriptions).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/29]⎯
+
+ FAIL  tests/integration/consultation-service-guards.spec.ts > consultation service guards (01-01c) > F6: vitals attribution in saveConsultationDraft > ignores a caller-sent recorded_by and attributes new measurements to the acting doctor
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/integration/consultation-service-guards.spec.ts:80:27
+     78|         })
+     79|       );
+     80|       expect(res.success).toBe(true);
+       |                           ^
+     81| 
+     82|       const vitals = await storedVitals(visitId);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/29]⎯
+
+ FAIL  tests/integration/consultation-service-guards.spec.ts > consultation service guards (01-01c) > F6: vitals attribution in saveConsultationDraft > keeps the nurse's attribution when the doctor re-saves the same readings
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/integration/consultation-service-guards.spec.ts:90:32
+     88|       const visitId = await newVisit();
+     89|       const recorded = await recordVisitVitals(ctxFor(nurse), visitId,…
+     90|       expect(recorded.success).toBe(true);
+       |                                ^
+     91|       expect((await storedVitals(visitId)).recorded_by).toBe(nurse.use…
+     92| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/29]⎯
+
+ FAIL  tests/integration/consultation-service-guards.spec.ts > consultation service guards (01-01c) > F6: vitals attribution in saveConsultationDraft > re-attributes to the doctor when the doctor changes a reading
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/integration/consultation-service-guards.spec.ts:117:27
+    115|         })
+    116|       );
+    117|       expect(res.success).toBe(true);
+       |                           ^
+    118|       const vitals = await storedVitals(visitId);
+    119|       expect(vitals.systolic).toBe(124);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/29]⎯
+
+ FAIL  tests/integration/consultation-service-guards.spec.ts > consultation service guards (01-01c) > permission checks inside the services > lets the doctor sign and bill; signer and audit actor are the session doctor
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/integration/consultation-service-guards.spec.ts:174:27
+    172|         payment_method: "cash",
+    173|       });
+    174|       expect(res.success).toBe(true);
+       |                           ^
+    175| 
+    176|       const { data: visit } = await owner.client.from("visits").select…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/29]⎯
+
+ FAIL  tests/integration/consultation-service-guards.spec.ts > consultation service guards (01-01c) > P1-23: completeAndSignConsultation > emits visit.completed with the visit's patient_id and the visit doctor (not the signer)
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/integration/consultation-service-guards.spec.ts:229:27
+    227|       // The owner signs a visit assigned to `doctor`.
+    228|       const res = await completeAndSignConsultation(ctxFor(owner), vis…
+    229|       expect(res.success).toBe(true);
+       |                           ^
+    230| 
+    231|       const events = await completedEventsFor(visitId);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/29]⎯
+
+ FAIL  tests/integration/consultation-service-guards.spec.ts > consultation service guards (01-01c) > P1-23: completeAndSignConsultation > refuses a second sign-off: signer, signed_at and the outbox are unchanged
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/integration/consultation-service-guards.spec.ts:248:84
+    246|       const visitId = await newVisit();
+    247|       await saveConsultationDraft(ctxFor(doctor), consultationDraftInp…
+    248|       expect((await completeAndSignConsultation(ctxFor(doctor), visitI…
+       |                                                                                    ^
+    249| 
+    250|       const { data: before } = await owner.client
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/29]⎯
+
+ FAIL  tests/integration/consultation-service-guards.spec.ts > consultation service guards (01-01c) > P1-23: completeAndSignConsultation > refuses to sign a visit reopened for amendment (signed_at still set)
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/integration/consultation-service-guards.spec.ts:278:84
+    276|       const visitId = await newVisit();
+    277|       await saveConsultationDraft(ctxFor(doctor), consultationDraftInp…
+    278|       expect((await completeAndSignConsultation(ctxFor(doctor), visitI…
+       |                                                                                    ^
+    279|       expect(
+    280|         (await reopenVisitForAmendment(ctxFor(doctor), visitId, "Synth…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/29]⎯
+
+ FAIL  tests/referrals/referrals-flow.spec.ts > Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals) > 3. In-Network Referral, DPDP Consent & Loop Closure Lifecycle > creates in-network referral and logs DPDP consent entry in consent_records
+AssertionError: expected {} to match object { systolic: 142, pulse: 78 }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- {[39m
+[32m-   "pulse": 78,[39m
+[32m-   "systolic": 142,[39m
+[32m- }[39m
+[31m+ {}[39m
+
+ ❯ tests/referrals/referrals-flow.spec.ts:189:47
+    187|         expect(snapshot.encounters.length).toBeGreaterThanOrEqual(1);
+    188|         // The shared complaints and vitals are read from clinical_not…
+    189|         expect(snapshot.encounters[0].vitals).toMatchObject({ systolic…
+       |                                               ^
+    190|         expect(snapshot.encounters[0].chief_complaints).toEqual([
+    191|           { symptom: "Exertional chest heaviness", duration_val: 2, du…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/29]⎯
+
+ FAIL  tests/security/p0-01-forged-overrides.spec.ts > P0-01 forged overrides at the action layer > TC-SA-10..: a role-escalating forged session does not lift the action's permission check > receptionist and nurse cannot sign, amend or prescribe; the visit and prescription are unchanged
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/security/p0-01-forged-overrides.spec.ts:226:117
+    224|       const visitId = await newVisitA();
+    225|       actAs(doctorA);
+    226|       expect((await call(saveConsultationDraft, { visit_id: visitId, c…
+       |                                                                                                                     ^
+    227|         true
+    228|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/29]⎯
+
+ FAIL  tests/security/p0-01-forged-overrides.spec.ts > P0-01 forged overrides at the action layer > TC-SA-30: the recorded actor is always the session user > recordVisitVitals: recorded_by is the nurse even when the input names another user
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/security/p0-01-forged-overrides.spec.ts:313:27
+    311|         { userId: ownerA.userId, tenantId: ownerA.tenantId, role: "own…
+    312|       );
+    313|       expect(res.success).toBe(true);
+       |                           ^
+    314|       // Vitals live in clinical_notes (V2-05 05-02a).
+    315|       const { data } = await admin.from("clinical_notes").select("vita…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/29]⎯
+
+ FAIL  tests/security/p0-01-forged-overrides.spec.ts > P0-01 forged overrides at the action layer > TC-SA-30: the recorded actor is always the session user > signing: the visit signer, the prescription's doctor and the audit actor are the session doctor
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/security/p0-01-forged-overrides.spec.ts:323:117
+    321|       actAs(doctorA);
+    322|       const forgedActor = { userId: ownerA.userId, tenantId: ownerA.te…
+    323|       expect((await call(saveConsultationDraft, { visit_id: visitId, c…
+       |                                                                                                                     ^
+    324|         true
+    325|       );
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/29]⎯
+
+ FAIL  tests/security/review-fixes-app.spec.ts > 01-08 review fixes, app-only items > signed consultation overwrite: saveConsultationDraft refuses a completed or signed visit > a visit reopened for amendment (signed, in_consultation) still saves drafts
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/security/review-fixes-app.spec.ts:173:27
+    171|         clinical_notes: "Amended synthetic note.",
+    172|       } as never);
+    173|       expect(res.success).toBe(true);
+       |                           ^
+    174|       expect((await notesOf(id)).clinical_notes).toBe("Amended synthet…
+    175|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/29]⎯
+
+ FAIL  tests/security/review-fixes-app.spec.ts > 01-08 review fixes, app-only items > signed consultation overwrite: saveConsultationDraft refuses a completed or signed visit > an unsigned in-progress visit still saves drafts
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/security/review-fixes-app.spec.ts:180:27
+    178|       const id = await visit({ status: "in_consultation" });
+    179|       const res = await saveConsultationDraft(ctxFor(doctor), { visit_…
+    180|       expect(res.success).toBe(true);
+       |                           ^
+    181|     });
+    182|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/29]⎯
+
+ FAIL  tests/security/role-rls.spec.ts > clinical_notes RLS through PostgREST (05-02a, acceptance 2) > services a receptionist reaches render clinical data as absent > patient visit history: the receptionist gets the visit without its note or vitals; the doctor gets both
+AssertionError: expected {} to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+{}
+
+ ❯ tests/security/role-rls.spec.ts:225:36
+    223|       expect(mine).toBeDefined();
+    224|       expect(mine!.clinical_notes ?? null).toBeNull();
+    225|       expect(mine!.vitals ?? null).toBeNull();
+       |                                    ^
+    226|       expect(JSON.stringify(asReceptionist)).not.toContain(NOTE);
+    227| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/29]⎯
+
+ FAIL  tests/security/role-rls.spec.ts > clinical_notes RLS through PostgREST (05-02a, acceptance 2) > services a receptionist reaches render clinical data as absent > queue: the receptionist sees the visit without vitals; the nurse sees the vitals
+AssertionError: expected {} to be null
+
+[32m- Expected:[39m 
+null
+
+[31m+ Received:[39m 
+{}
+
+ ❯ tests/security/role-rls.spec.ts:242:39
+    240|       const n = asNurse.items.find((i) => i.visit.id === visitId);
+    241|       expect(r).toBeDefined();
+    242|       expect(r!.visit.vitals ?? null).toBeNull();
+       |                                       ^
+    243|       expect(n?.visit.vitals).toEqual(VITALS);
+    244|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/29]⎯
+
+ FAIL  tests/security/role-rls.spec.ts > clinical_notes RLS through PostgREST (05-02a, acceptance 2) > services a receptionist reaches render clinical data as absent > recordVisitVitals by the nurse lands in clinical_notes; a receptionist is refused before any write
+AssertionError: expected false to be true // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+ ❯ tests/security/role-rls.spec.ts:249:27
+    247|       const visit2 = await newVisit();
+    248|       const res = await recordVisitVitals(ctxFor(nurse), visit2, { sys…
+    249|       expect(res.success).toBe(true);
+       |                           ^
+    250|       const stored = await clinicalNotesOf(visit2);
+    251|       expect(stored.vitals).toMatchObject({ systolic: 118, pulse: 66, …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/29]⎯
+
+ FAIL  tests/security/role-rls.spec.ts > clinical_notes RLS through PostgREST (05-02a, acceptance 2) > services a receptionist reaches render clinical data as absent > recordVisitVitals for another clinic's visit is refused, never reported as recorded
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ tests/security/role-rls.spec.ts:260:27
+    258|     it("recordVisitVitals for another clinic's visit is refused, never…
+    259|       const res = await recordVisitVitals(ctxFor(otherOwner), visitId,…
+    260|       expect(res.success).toBe(false);
+       |                           ^
+    261|       expect((await clinicalNotesOf(visitId)).vitals).toEqual(VITALS);
+    262|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/29]⎯
+
+ FAIL  tests/visits/visit-service-guards.spec.ts > recordVisitVitals: the recorder is always the session user (ADR-0005 D1, SEC-02) > ignores a caller-sent recorded_by and stores and audits the session user
+TypeError: Cannot read properties of undefined (reading 'recorded_by')
+ ❯ tests/visits/visit-service-guards.spec.ts:60:68
+     58|     // Vitals are written to clinical_notes (05-02a), never to visits.
+     59|     const notesUpdate = db.updates.find((u) => u.table === "clinical_n…
+     60|     expect((notesUpdate?.values.vitals as { recorded_by: string }).rec…
+       |                                                                    ^
+     61|     expect(db.updates.filter((u) => u.table === "visits")).toEqual([]);
+     62| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/29]⎯
+
+ FAIL  tests/visits/visit-service-guards.spec.ts > recordVisitVitals: the recorder is always the session user (ADR-0005 D1, SEC-02) > refuses, without an audit row, a vitals write that RLS filtered to 0 rows (V2-05 05-02a)
+AssertionError: expected true to be false // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+ ❯ tests/visits/visit-service-guards.spec.ts:73:25
+     71|     const res = await recordVisitVitals(ctx, VISIT_ID, { systolic: 120…
+     72| 
+     73|     expect(res.success).toBe(false);
+       |                         ^
+     74|     if (!res.success) expect(res.error).toBe("You do not have permissi…
+     75|     expect(db.inserts.filter((i) => i.table === "audit_logs")).toEqual…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/29]⎯
+
+
+ Test Files  11 failed | 1 passed (12)
+      Tests  29 failed | 120 passed (149)
+   Start at  06:55:41
+   Duration  10.26s (transform 272ms, setup 59ms, collect 1.16s, tests 7.67s, environment 1ms, prepare 232ms)
+
+[teardown] removed run data: 20 tenant(s), 41 auth user(s), 5 storage object(s); verified none remain
