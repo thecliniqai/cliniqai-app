@@ -1,0 +1,802 @@
+{
+  "360": {
+    "route": "/dev/ui",
+    "width": 360,
+    "section": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 21
+    },
+    "medicineListOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 24
+    },
+    "doseBuilderOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 21
+    },
+    "horizontalScroll": false,
+    "pageScrolledByList": false,
+    "undersizedControls": [],
+    "minTarget": 44,
+    "fields": [
+      {
+        "name": "radix-_R_ehminpfivbH2_",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": "search",
+        "vital": false
+      },
+      {
+        "name": "Systolic",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Diastolic",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-pulse",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-temperature",
+        "fontSize": 16,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "_R_1kminpfivb_-spo2",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-respRate",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Weight",
+        "fontSize": 16,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Height",
+        "fontSize": 16,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-sugar",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "done",
+        "vital": true
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "radix-_R_1lminpfivbH2_",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": "search",
+        "vital": false
+      },
+      {
+        "name": "_R_2tmminpfivb_",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "_R_15mminpfivb_",
+        "fontSize": 16,
+        "inputMode": "text",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "_R_1dmminpfivb_-age",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "Age unit",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      }
+    ]
+  },
+  "820": {
+    "route": "/dev/ui",
+    "width": 820,
+    "section": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 21
+    },
+    "medicineListOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 24
+    },
+    "doseBuilderOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 21
+    },
+    "horizontalScroll": false,
+    "pageScrolledByList": false,
+    "undersizedControls": [],
+    "minTarget": 44,
+    "fields": [
+      {
+        "name": "radix-_R_ehminpfivbH2_",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": "search",
+        "vital": false
+      },
+      {
+        "name": "Systolic",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Diastolic",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-pulse",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-temperature",
+        "fontSize": 16,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "_R_1kminpfivb_-spo2",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-respRate",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Weight",
+        "fontSize": 16,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Height",
+        "fontSize": 16,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-sugar",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "done",
+        "vital": true
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "radix-_R_1lminpfivbH2_",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": "search",
+        "vital": false
+      },
+      {
+        "name": "_R_2tmminpfivb_",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "_R_15mminpfivb_",
+        "fontSize": 16,
+        "inputMode": "text",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "_R_1dmminpfivb_-age",
+        "fontSize": 16,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "Age unit",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      }
+    ]
+  },
+  "1180": {
+    "route": "/dev/ui",
+    "width": 1180,
+    "section": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 21
+    },
+    "medicineListOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 24
+    },
+    "doseBuilderOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 21
+    },
+    "horizontalScroll": false,
+    "pageScrolledByList": false,
+    "undersizedControls": [],
+    "minTarget": 24,
+    "fields": [
+      {
+        "name": "radix-_R_ehminpfivbH2_",
+        "fontSize": 14,
+        "inputMode": null,
+        "enterKeyHint": "search",
+        "vital": false
+      },
+      {
+        "name": "Systolic",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Diastolic",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-pulse",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-temperature",
+        "fontSize": 14,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "_R_1kminpfivb_-spo2",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-respRate",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Weight",
+        "fontSize": 14,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Height",
+        "fontSize": 14,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-sugar",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "done",
+        "vital": true
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "radix-_R_1lminpfivbH2_",
+        "fontSize": 14,
+        "inputMode": null,
+        "enterKeyHint": "search",
+        "vital": false
+      },
+      {
+        "name": "_R_2tmminpfivb_",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "_R_15mminpfivb_",
+        "fontSize": 14,
+        "inputMode": "text",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "_R_1dmminpfivb_-age",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "Age unit",
+        "fontSize": 14,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      }
+    ]
+  },
+  "1280": {
+    "route": "/dev/ui",
+    "width": 1280,
+    "section": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 21
+    },
+    "medicineListOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 24
+    },
+    "doseBuilderOpen": {
+      "seriousOrCritical": [],
+      "violations": [],
+      "passes": 21
+    },
+    "horizontalScroll": false,
+    "pageScrolledByList": false,
+    "undersizedControls": [],
+    "minTarget": 24,
+    "fields": [
+      {
+        "name": "radix-_R_ehminpfivbH2_",
+        "fontSize": 14,
+        "inputMode": null,
+        "enterKeyHint": "search",
+        "vital": false
+      },
+      {
+        "name": "Systolic",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Diastolic",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-pulse",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-temperature",
+        "fontSize": 14,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "_R_1kminpfivb_-spo2",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-respRate",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Weight",
+        "fontSize": 14,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "Height",
+        "fontSize": 14,
+        "inputMode": "decimal",
+        "enterKeyHint": "next",
+        "vital": true
+      },
+      {
+        "name": "_R_1kminpfivb_-sugar",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "done",
+        "vital": true
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "radix-_R_1lminpfivbH2_",
+        "fontSize": 14,
+        "inputMode": null,
+        "enterKeyHint": "search",
+        "vital": false
+      },
+      {
+        "name": "_R_2tmminpfivb_",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "_R_15mminpfivb_",
+        "fontSize": 14,
+        "inputMode": "text",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "_R_1dmminpfivb_-age",
+        "fontSize": 14,
+        "inputMode": "numeric",
+        "enterKeyHint": "next",
+        "vital": false
+      },
+      {
+        "name": "Age unit",
+        "fontSize": 14,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      },
+      {
+        "name": "",
+        "fontSize": 16,
+        "inputMode": null,
+        "enterKeyHint": null,
+        "vital": false
+      }
+    ]
+  }
+}

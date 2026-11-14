@@ -1,0 +1,11 @@
+Mutant check for the Command scroll fix (bd68021), 2026-11-14T22:33:12Z, this worktree, e2e lane lock.
+Mutant: scrollWithinCommandList() starts with  if (el.isConnected) { Element.prototype.scrollIntoView.call(el, { block: "nearest" }); return; }  (cmdk's own page-scrolling call restored); e2e:build of that tree, then:
+npx playwright test tests/e2e/design/keyboard/clinical-b.spec.ts -g "loads at the top|five keys" --project=desktop-chrome --retries=0
+  1) [desktop-chrome] › tests/e2e/design/keyboard/clinical-b.spec.ts:52:5 › the gallery loads at the top: no inline Command (cmdk) scrolls the page to itself 
+    Expected: 0
+    Received: 4758
+    test-results/design-keyboard-clinical-b-9f76e--scrolls-the-page-to-itself-desktop-chrome/test-failed-1.png
+  1 failed
+  6 passed (7.8s)
+
+The file was restored from the committed version afterwards (git status clean) and the tree rebuilt before the lane runs.
