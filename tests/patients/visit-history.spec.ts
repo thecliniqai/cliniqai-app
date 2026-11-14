@@ -19,6 +19,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
 import { insertReturningId, type IdTable } from "../helpers/db";
 import type { TablesInsert } from "@/types/database";
+import { seedClinicalNotes } from "../helpers/clinical-notes";
 
 function insertRow<T extends IdTable>(table: T, row: TablesInsert<T>): Promise<string> {
   return insertReturningId(getAdminClient(), table, row);
@@ -99,12 +100,15 @@ describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", 
       created_at: daysAgo(2),
       reason_for_visit: "Synthetic fever",
       specialty: "general_physician",
+      created_by: ownerA.userId,
+    });
+    // The clinical content lives in the visit's clinical_notes row (V2-05 05-02a).
+    await seedClinicalNotes(olderVisitA, {
       vitals: { systolic: 120, diastolic: 80, pulse: 72 },
       chief_complaints: [{ symptom: "Fever", duration_val: 3, duration_unit: "days" }],
       clinical_notes: "Synthetic note one.",
       investigations_advised: ["CBC"],
       advice: ["Rest"],
-      created_by: ownerA.userId,
     });
     newerVisitA = await insertRow("visits", {
       tenant_id: ownerA.tenantId,

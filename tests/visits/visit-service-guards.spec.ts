@@ -10,13 +10,14 @@ const TENANT_ID = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
 const VISIT_ID = "0c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f";
 
 /** A fake client that records every write and every `.or()` filter string. */
-function recordingClient() {
+function recordingClient(notesRows: Array<Record<string, unknown>> = [{ visit_id: VISIT_ID }]) {
   const updates: Array<{ table: string; values: Record<string, unknown> }> = [];
   const inserts: Array<{ table: string; row: Record<string, unknown> }> = [];
   const orFilters: string[] = [];
   const from = vi.fn((table: string) => {
     const chain: Record<string, unknown> = {};
-    const result = { data: [], error: null };
+    // The clinical_notes write (V2-05 05-02a) asks for the affected rows; `notesRows` stands in for what RLS lets through.
+    const result = { data: table === "clinical_notes" ? notesRows : [], error: null };
     for (const m of ["select", "eq", "lte", "gte", "order"]) chain[m] = () => chain;
     chain.or = (filter: string) => {
       orFilters.push(filter);
@@ -54,11 +55,24 @@ describe("recordVisitVitals: the recorder is always the session user (ADR-0005 D
     expect(res.vitals.recorded_by).toBe(NURSE_ID);
     expect(res.vitals.bmi).toBe(22.9);
 
-    const visitUpdate = db.updates.find((u) => u.table === "visits");
-    expect((visitUpdate?.values.vitals as { recorded_by: string }).recorded_by).toBe(NURSE_ID);
+    // Vitals are written to clinical_notes (05-02a), never to visits.
+    const notesUpdate = db.updates.find((u) => u.table === "clinical_notes");
+    expect((notesUpdate?.values.vitals as { recorded_by: string }).recorded_by).toBe(NURSE_ID);
+    expect(db.updates.filter((u) => u.table === "visits")).toEqual([]);
 
     const audit = db.inserts.find((i) => i.table === "audit_logs");
     expect(audit?.row).toMatchObject({ actor_id: NURSE_ID, tenant_id: TENANT_ID, action: "vitals.record" });
+  });
+
+  it("refuses, without an audit row, a vitals write that RLS filtered to 0 rows (V2-05 05-02a)", async () => {
+    const db = recordingClient([]);
+    const ctx = mockCtx(db.client, { userId: NURSE_ID, tenantId: TENANT_ID, role: "nurse" });
+
+    const res = await recordVisitVitals(ctx, VISIT_ID, { systolic: 120, diastolic: 80 });
+
+    expect(res.success).toBe(false);
+    if (!res.success) expect(res.error).toBe("You do not have permission to perform this action.");
+    expect(db.inserts.filter((i) => i.table === "audit_logs")).toEqual([]);
   });
 
   it("denies a receptionist (no vitals:edit) without touching the database", async () => {

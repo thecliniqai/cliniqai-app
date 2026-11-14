@@ -208,9 +208,10 @@ describe("Lab Reports & Records Management (REQ-lab-records)", () => {
       expect(draftRes.success).toBe(true);
 
       // 3. Verify database row has investigations_advised array
-      const { data: updatedVisit } = await (tenantA.client.from("visits") as any)
+      // In the visit's clinical_notes row (V2-05 05-02a), read through RLS.
+      const { data: updatedVisit } = await (tenantA.client.from("clinical_notes") as any)
         .select("investigations_advised")
-        .eq("id", visitId)
+        .eq("visit_id", visitId)
         .single();
 
       expect(updatedVisit?.investigations_advised).toEqual(advisedTests);

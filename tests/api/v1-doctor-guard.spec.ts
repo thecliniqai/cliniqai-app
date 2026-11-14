@@ -13,6 +13,7 @@ import { seedTenantWithOwner, addMemberToTenant, createUnlinkedUser } from "../h
 import { createApiKeySecret } from "@/lib/api/auth";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { enableApiV1ForFile } from "../helpers/api-v1";
+import { clinicalNotesOf, seedClinicalNotes } from "../helpers/clinical-notes";
 
 enableApiV1ForFile();
 
@@ -218,6 +219,9 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(json.data.id).toBeDefined();
       expect(json.data.origin_type).toBe("walk_in");
       expect(json.data.status).toBe("waiting");
+      // The complaints are stored in the visit's clinical_notes row (V2-05 05-02a); the response keeps the field.
+      expect(json.data.chief_complaints).toEqual(["Sneezing", "Runny nose"]);
+      expect((await clinicalNotesOf(json.data.id)).chief_complaints).toEqual(["Sneezing", "Runny nose"]);
       expect(json.data.doctor_id).toBe(doctorA.userId);
       expect(json.data.patient_id).toBe(patientA.id);
       expect(json.data.created_by).toBe(clinicA.userId);
@@ -322,6 +326,7 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(res.status).toBe(200);
       expect(json.data.status).toBe("completed");
       expect(json.data.clinical_notes).toBe("Patient advised complete rest and adequate hydration.");
+      expect((await clinicalNotesOf(activeVisitId)).clinical_notes).toBe("Patient advised complete rest and adequate hydration.");
       expect(json.data.signed_at).toBeDefined();
       expect(json.data.signed_by).toBe(clinicA.userId);
     });
@@ -338,13 +343,15 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       });
     }
 
+    /** The visit's state with its clinical note (from clinical_notes since V2-05 05-02a). */
     async function readVisit(visitId: string) {
       const { data } = await getAdminClient()
         .from("visits")
-        .select("status, clinical_notes, signed_at, signed_by, updated_at")
+        .select("status, signed_at, signed_by, updated_at")
         .eq("id", visitId)
         .single();
-      return data;
+      const notes = await clinicalNotesOf(visitId);
+      return data ? { ...data, clinical_notes: notes.clinical_notes, notes_updated_at: notes.updated_at } : null;
     }
 
     it("rejects any PATCH of the completed visit with 409 VISIT_LOCKED and leaves the row unchanged", async () => {
@@ -380,7 +387,6 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
           doctor_id: doctorA.userId,
           origin_type: "walk_in",
           status: "in_consultation",
-          clinical_notes: "Signed synthetic note.",
           signed_at: signedAt,
           signed_by: doctorA.userId,
           created_by: clinicA.userId,
@@ -388,6 +394,7 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
         .select("id")
         .single();
       const reopenedId = v!.id;
+      await seedClinicalNotes(reopenedId, { clinical_notes: "Signed synthetic note." });
       const before = await readVisit(reopenedId);
 
       const res = await patchVisitById(patchReq(reopenedId, { clinical_notes: "tamper" }), {

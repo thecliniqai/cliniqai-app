@@ -15,6 +15,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { ctxFor } from "../helpers/context";
 import { enableApiV1ForFile } from "../helpers/api-v1";
 import { jsonObject } from "../helpers/db";
+import { seedClinicalNotes } from "../helpers/clinical-notes";
 
 enableApiV1ForFile();
 
@@ -112,14 +113,17 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
         status: "completed",
         scheduled_at: new Date().toISOString(),
         reason_for_visit: "Quarterly diabetes follow-up",
-        chief_complaints: [{ symptom: "Mild dizziness", duration_val: 3, duration_unit: "days" }],
-        vitals: { systolic: 128, diastolic: 82, pulse: 74, temperature: 98.4, spo2: 99, weight: 72 },
-        clinical_notes: "Blood glucose moderately controlled. Maintain current dosage.",
         created_by: tenantA.userId,
       })
       .select("id")
       .single();
     visitId = visit!.id;
+    // The clinical content lives in the visit's clinical_notes row (V2-05 05-02a).
+    await seedClinicalNotes(visitId, {
+      chief_complaints: [{ symptom: "Mild dizziness", duration_val: 3, duration_unit: "days" }],
+      vitals: { systolic: 128, diastolic: 82, pulse: 74, temperature: 98.4, spo2: 99, weight: 72 },
+      clinical_notes: "Blood glucose moderately controlled. Maintain current dosage.",
+    });
 
     // 6. Seed prescription with items
     const { data: rx } = await admin
@@ -256,6 +260,10 @@ describe("DPDP Act 2023 Compliance & Patient Privacy Rights (D-13, D-14, D-15, D
 
       expect(bundle.encounters.length).toBeGreaterThanOrEqual(1);
       expect(bundle.encounters[0].reason_for_visit).toBe("Quarterly diabetes follow-up");
+      // The encounter's clinical content is exported from clinical_notes under the same field names (05-02a).
+      expect(bundle.encounters[0].clinical_notes).toBe("Blood glucose moderately controlled. Maintain current dosage.");
+      expect(bundle.encounters[0].vitals).toMatchObject({ systolic: 128, pulse: 74 });
+      expect(bundle.encounters[0]).not.toHaveProperty("notes");
 
       expect(bundle.prescriptions.length).toBeGreaterThanOrEqual(1);
       const items = (bundle.prescriptions[0] as any).prescription_items;

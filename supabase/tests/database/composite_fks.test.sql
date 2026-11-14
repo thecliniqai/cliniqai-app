@@ -11,7 +11,7 @@
 -- tenant still cascades through children that RESTRICT each other (teardown and purge depend on it).
 -- Each cell runs in a subtransaction that is always rolled back (pg_temp.try); the file rolls back. Synthetic data.
 begin;
-select plan(101);
+select plan(103);
 
 -- Fixtures (synthetic) -------------------------------------------------------------------------------------------
 insert into auth.users (id, email) values ('cf000000-0000-4000-8000-000000000101', 'cfk-doctor-a@example.test'), ('cf000000-0000-4000-8000-000000000201', 'cfk-owner-b@example.test');
@@ -68,6 +68,10 @@ insert into public.communication_queue (id, tenant_id, patient_id, appointment_i
 insert into public.referrals (id, tenant_id, patient_id, visit_id, referral_type, referring_doctor_id, referred_to_name, reason_for_referral) values ('cf000000-0000-4000-8000-000000002023', 'cf000000-0000-4000-8000-00000000000a', 'cf000000-0000-4000-8000-000000001001', 'cf000000-0000-4000-8000-000000001010', 'out_of_network', 'cf000000-0000-4000-8000-000000000101', 'Synthetic specialist', 'Synthetic reason');
 insert into public.audit_logs (tenant_id, api_key_id, actor_role, action, entity_type) values ('cf000000-0000-4000-8000-00000000000a', 'cf000000-0000-4000-8000-000000001011', 'api_key', 'cfk.setnull', 'synthetic');
 
+-- 05-02a: every visit gets a clinical_notes row (trigger). Remove those of the visits the clinical_notes clone case
+-- names (1004 = the control's visit, 1005 = tenant B's), and of 1010 (it must keep only SET NULL children, section 5).
+delete from public.clinical_notes where visit_id in ('cf000000-0000-4000-8000-000000001004', 'cf000000-0000-4000-8000-000000001005', 'cf000000-0000-4000-8000-000000001010');
+
 -- Helpers ----------------------------------------------------------------------------------------------------------
 -- Runs one statement in a subtransaction that is ALWAYS rolled back; returns 'ok' or the SQLSTATE it raised.
 create function pg_temp.try(p_sql text) returns text language plpgsql as $f$
@@ -111,6 +115,7 @@ insert into cfk_case values
   ('communication_queue_tenant_patient_fkey', 'communication_queue', $w$id = 'cf000000-0000-4000-8000-000000002009'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
   ('communication_queue_tenant_appointment_fkey', 'communication_queue', $w$id = 'cf000000-0000-4000-8000-000000002009'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('appointment_id', 'cf000000-0000-4000-8000-000000001005'), 'FOREIGN KEY (tenant_id, appointment_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (appointment_id)', true),
   ('queue_tokens_tenant_visit_fkey', 'queue_tokens', $w$id = 'cf000000-0000-4000-8000-00000000200a'$w$, jsonb_build_object('id', gen_random_uuid(), 'visit_id', 'cf000000-0000-4000-8000-000000001004', 'token_number', 2), jsonb_build_object('visit_id', 'cf000000-0000-4000-8000-000000001005'), 'FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT', true),
+  ('clinical_notes_tenant_visit_fkey', 'clinical_notes', $w$visit_id = 'cf000000-0000-4000-8000-000000001003'$w$, jsonb_build_object('visit_id', 'cf000000-0000-4000-8000-000000001004'), jsonb_build_object('visit_id', 'cf000000-0000-4000-8000-000000001005'), 'FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT', true),
   ('visit_revisions_tenant_visit_fkey', 'visit_revisions', $w$id = 'cf000000-0000-4000-8000-00000000200b'$w$, jsonb_build_object('id', gen_random_uuid(), 'revision_number', 2), jsonb_build_object('visit_id', 'cf000000-0000-4000-8000-000000001005'), 'FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT', true),
   ('waitlist_entries_tenant_patient_fkey', 'waitlist_entries', $w$id = 'cf000000-0000-4000-8000-00000000200c'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('patient_id', 'cf000000-0000-4000-8000-000000001002'), 'FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT', true),
   ('waitlist_entries_tenant_promoted_visit_fkey', 'waitlist_entries', $w$id = 'cf000000-0000-4000-8000-00000000200c'$w$, jsonb_build_object('id', gen_random_uuid()), jsonb_build_object('promoted_visit_id', 'cf000000-0000-4000-8000-000000001005'), 'FOREIGN KEY (tenant_id, promoted_visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT', true),
@@ -134,7 +139,7 @@ select set_eq(
       from pg_constraint c
      where c.contype = 'f' and c.connamespace = 'public'::regnamespace and cardinality(c.conkey) > 1$$,
   $$select tbl || ' ' || fk || ' ' || defn from cfk_case$$,
-  'the composite tenant FKs are exactly the 38 of 05-03 (columns, parent, delete action)');
+  'the composite tenant FKs are exactly the 38 of 05-03 plus clinical_notes (05-02a) (columns, parent, delete action)');
 select is((select count(*)::int from pg_constraint c join pg_namespace n on n.oid = c.connamespace
             where c.contype = 'f' and not c.convalidated and n.nspname in ('public', 'ops', 'private')), 0,
   'no foreign key in public/ops/private is left NOT VALID');

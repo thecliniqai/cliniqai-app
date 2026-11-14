@@ -3,6 +3,7 @@ import { createReferral, getOutboundReferrals, getInboundReferrals, acknowledgeR
 import { createReferralSchema, closeReferralLoopSchema } from "@/features/referrals/schema";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { ctxFor } from "../helpers/context";
+import { seedClinicalNotes } from "../helpers/clinical-notes";
 
 describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -39,16 +40,23 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
     patientAId = patient.id;
 
     // Seed past visit for Vikram Malhotra
-    await (tenantA.client.from("visits") as any).insert({
-      tenant_id: tenantA.tenantId,
-      patient_id: patientAId,
-      doctor_id: tenantA.userId,
-      origin_type: "walk_in",
-      status: "completed",
-      estimated_duration_minutes: 20,
+    const { data: pastVisit, error: pastVisitErr } = await (tenantA.client.from("visits") as any)
+      .insert({
+        tenant_id: tenantA.tenantId,
+        patient_id: patientAId,
+        doctor_id: tenantA.userId,
+        origin_type: "walk_in",
+        status: "completed",
+        estimated_duration_minutes: 20,
+        created_by: tenantA.userId,
+      })
+      .select("id")
+      .single();
+    if (pastVisitErr || !pastVisit) throw new Error(`Failed to seed visit: ${pastVisitErr?.message}`);
+    // Its complaints and vitals live in the visit's clinical_notes row (V2-05 05-02a).
+    await seedClinicalNotes(pastVisit.id, {
       vitals: { systolic: 142, diastolic: 92, pulse: 78, temperature: 98.4 },
       chief_complaints: [{ symptom: "Exertional chest heaviness", duration_val: 2, duration_unit: "weeks" }],
-      created_by: tenantA.userId,
     });
   });
 
@@ -177,6 +185,11 @@ describe("Referrals Lifecycle & DPDP Consent Compliance (REQ-referrals)", () => 
         const snapshot = res.referral.consented_history_snapshot as any;
         expect(snapshot.consented_by_patient).toBe(true);
         expect(snapshot.encounters.length).toBeGreaterThanOrEqual(1);
+        // The shared complaints and vitals are read from clinical_notes (V2-05 05-02a).
+        expect(snapshot.encounters[0].vitals).toMatchObject({ systolic: 142, pulse: 78 });
+        expect(snapshot.encounters[0].chief_complaints).toEqual([
+          { symptom: "Exertional chest heaviness", duration_val: 2, duration_unit: "weeks" },
+        ]);
       }
 
       // Verify DPDP consent record is recorded in consent_records table

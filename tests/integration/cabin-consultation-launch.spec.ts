@@ -101,11 +101,11 @@ describe("Cabin & Live Queue Consultation Launch Integration (REQ-diagnosis-visi
 
     expect(draftRes.success).toBe(true);
 
-    // Verify vitals and notes persisted under visit
+    // Verify vitals and notes persisted in the visit's clinical_notes row (V2-05 05-02a), read through RLS
     const { data: updatedVisit } = await tenantA.client
-      .from("visits")
+      .from("clinical_notes")
       .select("vitals, clinical_notes")
-      .eq("id", visitAId)
+      .eq("visit_id", visitAId)
       .single();
 
     expect(updatedVisit?.vitals).toMatchObject({ systolic: 122, pulse: 76 });

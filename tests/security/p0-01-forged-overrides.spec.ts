@@ -311,7 +311,8 @@ describe("P0-01 forged overrides at the action layer", () => {
         { userId: ownerA.userId, tenantId: ownerA.tenantId, role: "owner" }
       );
       expect(res.success).toBe(true);
-      const { data } = await admin.from("visits").select("vitals").eq("id", visitId).single();
+      // Vitals live in clinical_notes (V2-05 05-02a).
+      const { data } = await admin.from("clinical_notes").select("vitals").eq("visit_id", visitId).single();
       expect((data?.vitals as { recorded_by?: string }).recorded_by).toBe(nurseA.userId);
     });
 

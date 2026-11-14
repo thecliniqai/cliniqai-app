@@ -39,7 +39,8 @@ describe("consultation service guards (01-01c)", () => {
   }
 
   async function storedVitals(visitId: string): Promise<Record<string, unknown>> {
-    const { data } = await owner.client.from("visits").select("vitals").eq("id", visitId).single();
+    // Vitals live in clinical_notes (V2-05 05-02a).
+    const { data } = await owner.client.from("clinical_notes").select("vitals").eq("visit_id", visitId).single();
     return (data?.vitals ?? {}) as Record<string, unknown>;
   }
 
