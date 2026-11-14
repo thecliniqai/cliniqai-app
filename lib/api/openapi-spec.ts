@@ -155,6 +155,8 @@ export function generateOpenApiSpec(): OpenApiSpec {
         put: {
           tags: ["Patients"],
           summary: "Update patient record",
+          description:
+            "API keys have no clinical access: a body with allergies or chronic_conditions is refused with 403 CLINICAL_ACCESS_DENIED and nothing is written.",
           requestBody: {
             required: true,
             content: {
