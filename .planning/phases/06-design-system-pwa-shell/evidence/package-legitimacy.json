@@ -8581,6 +8581,78 @@
         ]
       },
       "problems": []
+    },
+    "06-02b": {
+      "generated_by": "node scripts/ci/package-legitimacy.mjs",
+      "generated_at": "2026-11-14T17:33:28.127Z",
+      "base_ref": "1d7651f",
+      "base_commit": "1d7651fc5f7e55b32e64d814bee1f63a8800eed4",
+      "lockfile_sha256": "d939dc7a0790a18fb0e1c6505405905175e3a18e043a27857821f47ee29313d7",
+      "node": "v24.13.0",
+      "npm": "11.6.2",
+      "flagged_for_po": [],
+      "packages": [
+        {
+          "lock_path": "node_modules/cmdk",
+          "name": "cmdk",
+          "version": "1.1.1",
+          "previous_version": null,
+          "dev": false,
+          "optional": false,
+          "repository_url": "git+https://github.com/pacocoursey/cmdk.git",
+          "registry_integrity": "sha512-Vsv7kFaXm+ptHDMZ7izaRsP70GgrW9NBNGswt9OZaVBLlE0SNpDq8eu/VGXyF9r7M0azK3Wy7OlYXsuyYLFzHg==",
+          "lock_integrity": "sha512-Vsv7kFaXm+ptHDMZ7izaRsP70GgrW9NBNGswt9OZaVBLlE0SNpDq8eu/VGXyF9r7M0azK3Wy7OlYXsuyYLFzHg==",
+          "integrity_matches": true,
+          "lock_has_install_script": false,
+          "install_scripts": [],
+          "declared_scripts": [
+            "build",
+            "dev"
+          ],
+          "published": "2025-03-14T19:21:16.194Z",
+          "age_days": 609,
+          "deprecated": null,
+          "flagged_for_po": false
+        },
+        {
+          "lock_path": "node_modules/sonner",
+          "name": "sonner",
+          "version": "2.0.8",
+          "previous_version": null,
+          "dev": false,
+          "optional": false,
+          "repository_url": "git+https://github.com/emilkowalski/sonner.git",
+          "registry_integrity": "sha512-UM/ByIoFra8yzV75n1o0Puu0bw5U/9UNnDacrJNspekBewIfsQ3D6ez1nvlWpt7aTsO6rujQtifBpycwIivqlg==",
+          "lock_integrity": "sha512-UM/ByIoFra8yzV75n1o0Puu0bw5U/9UNnDacrJNspekBewIfsQ3D6ez1nvlWpt7aTsO6rujQtifBpycwIivqlg==",
+          "integrity_matches": true,
+          "lock_has_install_script": false,
+          "install_scripts": [],
+          "declared_scripts": [
+            "build",
+            "dev",
+            "dev:test",
+            "dev:website",
+            "format",
+            "test",
+            "type-check"
+          ],
+          "published": "2026-08-09T08:46:10.174Z",
+          "age_days": 97,
+          "deprecated": null,
+          "flagged_for_po": false
+        }
+      ],
+      "audit_signatures": {
+        "exit_code": 0,
+        "invalid": [],
+        "missing": [],
+        "summary": [
+          "audited 987 packages in 4s",
+          "987 packages have verified registry signatures",
+          "267 packages have verified attestations"
+        ]
+      },
+      "problems": []
     }
   }
 }
