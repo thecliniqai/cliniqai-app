@@ -1,20 +1,75 @@
 @import "tailwindcss";
 
+/*
+ * clinicOS design tokens: the ONLY source of colour, type and size values (DESIGN_SYSTEM §2.4, §10).
+ *
+ * Three layers (V2-06 plan 06-01a):
+ *   1. RAW (`@theme`, `--color-v1-*`): the v1 colours today's screens render, copied exactly (v1-equivalent,
+ *      provisional). Components never use these; 06-01b replaces this block with the G2-D-approved palette.
+ *   2. SEMANTIC (`@theme inline`): what a colour means. Components and the colour codemod use only these utilities
+ *      (bg-canvas, text-fg-muted, border-accent, ring-ring …). 06-01b re-points them at the approved palette.
+ *   3. STRUCTURAL (`@theme`): type scale, elevation, motion and shell sizes whose names collide with no Tailwind
+ *      default in use, so nothing renders differently. The radii and font family stay v1 here (raw layer); their
+ *      approved values land in 06-01b.
+ *
+ * The Tailwind default palette stays available until the palette reset (M5, V2-11); the UI policy reports its use.
+ * lib/design/tokens.ts mirrors the few values non-CSS code needs (tests/design/tokens.spec.ts keeps them equal).
+ */
+
+/* 1. RAW: v1-equivalent palette (provisional; values from the v1 classes scripts/design/color-map.json maps) */
 @theme {
   --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  --color-brand-25: #f6faff;
-  --color-brand-50: #eaf2ff;
-  --color-brand-100: #d5e6ff;
-  --color-brand-200: #b3d4ff;
-  --color-brand-300: #80baff;
-  --color-brand-400: #4797ff;
-  --color-brand-500: #1769e0;
-  --color-brand-600: #0f5ab8;
-  --color-brand-700: #0b4c9c;
-  --color-brand-800: #0d3f7f;
-  --color-brand-900: #0f3668;
-  --color-brand-950: #0a2245;
+  --color-v1-white: #ffffff;
+  --color-v1-canvas: #f7f6f3;
+  --color-v1-ink-900: #1a1a1a;
+  --color-v1-gray-50: #f8fafc;
+  --color-v1-gray-100: #f3f4f6;
+  --color-v1-gray-200: #e5e7eb;
+  --color-v1-gray-300: oklch(87.2% 0.01 258.338); /* Tailwind gray-300: v1 input borders */
+  --color-v1-gray-400: oklch(70.7% 0.022 261.325); /* Tailwind gray-400: v1 text-gray-400 */
+  --color-v1-gray-500: #6b7280;
+  --color-v1-gray-600: #4b5563;
+
+  --color-v1-blue-25: #f4f8ff;
+  --color-v1-blue-50: #eaf2ff;
+  --color-v1-blue-100: #d5e6ff;
+  --color-v1-blue-150: #bfd8ff;
+  --color-v1-blue-200: #b3d4ff;
+  --color-v1-blue-500: #1769e0;
+  --color-v1-blue-550: #155cc0;
+  --color-v1-blue-600: #0f5ab8;
+  --color-v1-blue-700: #0b4c9c;
+
+  --color-v1-green-50: #eaf7f0;
+  --color-v1-green-200: #bde5cf;
+  --color-v1-green-700: #18794e;
+  --color-v1-amber-50: #fff5e5;
+  --color-v1-amber-200: #f3d39a;
+  --color-v1-amber-700: #9a5b00;
+  --color-v1-red-50: #ffedec;
+  --color-v1-red-200: #f8b4b4;
+  --color-v1-red-700: #b42318;
+
+  /* v1 visit-status badges (components/queue/queue-card.tsx; Tailwind palette values) */
+  --color-v1-badge-gray-50: oklch(98.5% 0.002 247.839);
+  --color-v1-badge-gray-100: oklch(96.7% 0.003 264.542);
+  --color-v1-badge-gray-500: oklch(55.1% 0.027 264.364);
+  --color-v1-badge-gray-700: oklch(37.3% 0.034 259.733);
+  --color-v1-badge-amber-50: oklch(98.7% 0.022 95.277);
+  --color-v1-badge-amber-700: oklch(55.5% 0.163 48.998);
+  --color-v1-badge-emerald-50: oklch(97.9% 0.021 166.113);
+  --color-v1-badge-emerald-700: oklch(50.8% 0.118 165.612);
+
+  --color-v1-scrim: rgb(0 0 0 / 0.4);
+
+  /* v1 radii. The v1 `:root` block set these five, and Tailwind's rounded-* utilities read them, so they were live
+     (not dead like the rest of that block): kept here with the v1 values; 06-01b sets the approved radii. */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
   --shadow-theme-xs: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
   --shadow-theme-sm: 0px 1px 3px 0px rgba(16, 24, 40, 0.1), 0px 1px 2px 0px rgba(16, 24, 40, 0.06);
@@ -22,46 +77,110 @@
   --shadow-theme-lg: 0px 12px 16px -4px rgba(16, 24, 40, 0.08), 0px 4px 6px -2px rgba(16, 24, 40, 0.03);
 }
 
-:root {
-  /* Canonical DESIGN.md tokens */
-  --brand-primary: #1769E0;
-  --brand-hover: #0F5AB8;
-  --brand-active: #0B4C9C;
-  --brand-soft: #EAF2FF;
+/* 2. SEMANTIC: components use ONLY these (DESIGN_SYSTEM §2.3; names of the G2-D token file where §2.3 has none) */
+@theme inline {
+  --color-canvas: var(--color-v1-canvas);
+  --color-surface: var(--color-v1-white);
+  --color-sunken: var(--color-v1-gray-50);
+  --color-selected: var(--color-v1-blue-100);
 
-  --canvas-bg: #F7F6F3;
-  --surface-card: #FFFFFF;
-  --surface-subtle: #F0EFEA;
-  
-  --text-primary: #1A1A1A;
-  --text-secondary: #52565B;
-  --text-muted: #73777D;
-  --text-inverse: #FFFFFF;
+  --color-fg: var(--color-v1-ink-900);
+  --color-fg-secondary: var(--color-v1-gray-600);
+  --color-fg-muted: var(--color-v1-gray-500);
+  --color-fg-subtle: var(--color-v1-gray-400);
+  --color-fg-placeholder: var(--color-v1-gray-400);
+  --color-fg-disabled: var(--color-v1-gray-400);
+  --color-fg-on-accent: var(--color-v1-white);
 
-  --border-default: #E4E5E7;
-  --border-subtle: #ECEDEF;
-  --border-focus: #1769E0;
+  --color-border: var(--color-v1-gray-200);
+  --color-border-subtle: var(--color-v1-gray-100);
+  --color-border-control: var(--color-v1-gray-300);
 
-  --status-success: #18794E;
-  --status-success-bg: #EAF7F0;
-  --status-warning: #9A5B00;
-  --status-warning-bg: #FFF5E5;
-  --status-error: #B42318;
-  --status-error-bg: #FDECEA;
-  --status-error-border: #F2B8B5;
-  --status-info: #1769E0;
-  --status-info-bg: #EAF2FF;
+  --color-accent: var(--color-v1-blue-500);
+  --color-accent-hover: var(--color-v1-blue-550);
+  --color-accent-pressed: var(--color-v1-blue-700);
+  --color-accent-subtle: var(--color-v1-blue-50);
+  --color-accent-tint: var(--color-v1-blue-25);
+  --color-accent-fg: var(--color-v1-blue-600);
+  --color-accent-border: var(--color-v1-blue-200);
+  --color-ring: var(--color-v1-blue-500);
 
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --color-success-bg: var(--color-v1-green-50);
+  --color-success-fg: var(--color-v1-green-700);
+  --color-success-border: var(--color-v1-green-200);
+  --color-success-solid: var(--color-v1-green-700);
+  --color-warning-bg: var(--color-v1-amber-50);
+  --color-warning-fg: var(--color-v1-amber-700);
+  --color-warning-border: var(--color-v1-amber-200);
+  --color-warning-solid: var(--color-v1-amber-700);
+  --color-danger-bg: var(--color-v1-red-50);
+  --color-danger-fg: var(--color-v1-red-700);
+  --color-danger-border: var(--color-v1-red-200);
+  --color-danger-solid: var(--color-v1-red-700);
+  --color-info-bg: var(--color-v1-blue-50);
+  --color-info-fg: var(--color-v1-blue-500);
+  --color-info-border: var(--color-v1-blue-150);
+  --color-info-solid: var(--color-v1-blue-500);
+
+  --color-status-booked-bg: var(--color-v1-badge-gray-100);
+  --color-status-booked-fg: var(--color-v1-badge-gray-700);
+  --color-status-waiting-bg: var(--color-v1-badge-amber-50);
+  --color-status-waiting-fg: var(--color-v1-badge-amber-700);
+  --color-status-with-doctor-bg: var(--color-v1-blue-50);
+  --color-status-with-doctor-fg: var(--color-v1-blue-500);
+  --color-status-to-bill-bg: var(--color-v1-badge-gray-50);
+  --color-status-to-bill-fg: var(--color-v1-badge-gray-500);
+  --color-status-done-bg: var(--color-v1-badge-emerald-50);
+  --color-status-done-fg: var(--color-v1-badge-emerald-700);
+  --color-status-no-show-bg: var(--color-v1-red-50);
+  --color-status-no-show-fg: var(--color-v1-red-700);
+  --color-status-cancelled-bg: var(--color-v1-badge-gray-50);
+  --color-status-cancelled-fg: var(--color-v1-badge-gray-500);
+
+  --color-alert-allergy-bg: var(--color-v1-red-700);
+  --color-alert-allergy-fg: var(--color-v1-white);
+  --color-scrim: var(--color-v1-scrim);
+}
+
+/* 3. STRUCTURAL: no site uses these names yet (DESIGN_SYSTEM §3.2, §4.4-§4.5; shell sizes for 06-04) */
+@theme {
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.125rem;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.25rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-title-3: 1.125rem;
+  --text-title-3--line-height: 1.625rem;
+  --text-title-2: 1.25rem;
+  --text-title-2--line-height: 1.75rem;
+  --text-title-1: 1.5rem;
+  --text-title-1--line-height: 2rem;
+  --text-display: 1.875rem;
+  --text-display--line-height: 2.375rem;
+  --text-token: 1.75rem;
+  --text-token--line-height: 2rem;
+
+  --shadow-popover: 0 1px 2px rgb(28 27 24 / 0.06), 0 4px 12px rgb(28 27 24 / 0.08);
+  --shadow-overlay: 0 16px 40px rgb(28 27 24 / 0.16), 0 2px 6px rgb(28 27 24 / 0.06);
+
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-sheet: 240ms;
+
+  --spacing-bar: 3.5rem;
+  --spacing-bottom-bar: 4rem;
+  --spacing-rail: 4rem;
+  --spacing-sidebar: 14.5rem;
+  --spacing-control: 2.75rem; /* 44 px: the touch-target floor */
 }
 
 body {
-  background-color: var(--canvas-bg);
-  color: var(--text-primary);
+  background-color: var(--color-canvas);
+  color: var(--color-fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;

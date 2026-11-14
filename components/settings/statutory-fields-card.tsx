@@ -60,7 +60,7 @@ export function StatutoryFieldsCard({ initialTenant, onSaved }: StatutoryFieldsC
     <Card className="border border-gray-200 shadow-xs">
       <CardHeader>
         <div className="flex items-center gap-2">
-          <Building2 className="w-5 h-5 text-[#1769E0]" />
+          <Building2 className="w-5 h-5 text-accent" />
           <CardTitle className="text-xl font-semibold text-gray-900">
             Statutory Clinic Registrations & Licenses
           </CardTitle>
@@ -159,7 +159,7 @@ export function StatutoryFieldsCard({ initialTenant, onSaved }: StatutoryFieldsC
 
           {/* Informational Callout */}
           <div className="p-3 rounded-xl bg-gray-50 border border-gray-100 flex items-start gap-2.5 text-xs text-gray-600">
-            <Info className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+            <Info className="w-4 h-4 text-fg-subtle shrink-0 mt-0.5" />
             <span>
               Optional fields. When provided, these details automatically render on official
               prescriptions, receipts, and clinical referral documents.
@@ -171,7 +171,7 @@ export function StatutoryFieldsCard({ initialTenant, onSaved }: StatutoryFieldsC
             <Button
               type="submit"
               disabled={isPending}
-              className="h-10 px-5 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] font-semibold text-xs shadow-theme-xs cursor-pointer flex items-center gap-2"
+              className="h-10 px-5 rounded-xl bg-accent text-white hover:bg-accent-hover font-semibold text-xs shadow-theme-xs cursor-pointer flex items-center gap-2"
             >
               {isPending ? (
                 <>

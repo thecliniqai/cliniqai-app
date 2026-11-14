@@ -33,7 +33,7 @@ export function Badge({
 
   const colorStyles = {
     light: {
-      primary: "bg-[#EAF2FF] text-[#1769E0] border border-[#1769E0]/20",
+      primary: "bg-accent-subtle text-accent border border-accent/20",
       success: "bg-emerald-50 text-emerald-700 border border-emerald-200",
       warning: "bg-amber-50 text-amber-700 border border-amber-200",
       error: "bg-rose-50 text-rose-700 border border-rose-200",
@@ -41,10 +41,10 @@ export function Badge({
       gray: "bg-gray-100 text-gray-700 border border-gray-200",
     },
     solid: {
-      primary: "bg-[#1769E0] text-white",
-      success: "bg-[#18794E] text-white",
-      warning: "bg-[#9A5B00] text-white",
-      error: "bg-[#B42318] text-white",
+      primary: "bg-accent text-white",
+      success: "bg-success-solid text-white",
+      warning: "bg-warning-solid text-white",
+      error: "bg-danger-solid text-white",
       info: "bg-sky-600 text-white",
       gray: "bg-gray-700 text-white",
     },

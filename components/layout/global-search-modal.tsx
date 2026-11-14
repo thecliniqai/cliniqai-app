@@ -136,7 +136,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
       >
         {/* Search Input Bar */}
         <div className="relative flex items-center border-b border-gray-200 px-4 py-3.5 bg-white">
-          <Search className="w-5 h-5 text-gray-400 shrink-0 me-3" />
+          <Search className="w-5 h-5 text-fg-subtle shrink-0 me-3" />
           <input
             ref={inputRef}
             type="text"
@@ -144,10 +144,10 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleInputKeyDown}
             placeholder="Search patients by name, phone, or ABHA ID..."
-            className="w-full text-base bg-transparent text-gray-900 placeholder:text-gray-400 focus:outline-none"
+            className="w-full text-base bg-transparent text-gray-900 placeholder:text-fg-placeholder focus:outline-none"
           />
           {loading && (
-            <Loader2 className="w-4 h-4 text-[#1769E0] animate-spin shrink-0 me-2" />
+            <Loader2 className="w-4 h-4 text-accent animate-spin shrink-0 me-2" />
           )}
           {query && !loading && (
             <button
@@ -156,7 +156,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                 setQuery("");
                 inputRef.current?.focus();
               }}
-              className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 me-2"
+              className="p-1 rounded-md text-fg-subtle hover:text-gray-600 hover:bg-gray-100 transition-colors shrink-0 me-2"
               aria-label="Clear query"
             >
               <X className="w-4 h-4" />
@@ -165,7 +165,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="text-xs font-medium text-gray-400 hover:text-gray-600 px-2 py-1 rounded bg-gray-100 border border-gray-200 shrink-0"
+            className="text-xs font-medium text-fg-subtle hover:text-gray-600 px-2 py-1 rounded bg-gray-100 border border-gray-200 shrink-0"
           >
             ESC
           </button>
@@ -176,7 +176,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
           {/* Default state when query is empty */}
           {!query.trim() && (
             <div className="py-10 px-6 text-center">
-              <div className="w-12 h-12 rounded-full bg-blue-50 text-[#1769E0] flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 rounded-full bg-blue-50 text-accent flex items-center justify-center mx-auto mb-3">
                 <Search className="w-6 h-6" />
               </div>
               <h4 className="text-sm font-semibold text-gray-900 mb-1">
@@ -185,7 +185,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
               <p className="text-xs text-gray-500 max-w-sm mx-auto">
                 Type a patient name, phone number (e.g. 9876543210), or National Health ID (ABHA) to instantly locate records.
               </p>
-              <div className="mt-5 flex items-center justify-center gap-4 text-[11px] text-gray-400">
+              <div className="mt-5 flex items-center justify-center gap-4 text-[11px] text-fg-subtle">
                 <span>
                   <strong className="text-gray-600 font-medium">↑↓</strong> Navigate
                 </span>
@@ -204,7 +204,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
           {/* Loading state indicator */}
           {query.trim() && loading && results.length === 0 && (
             <div className="py-12 text-center text-xs text-gray-500 flex flex-col items-center gap-2">
-              <Loader2 className="w-5 h-5 text-[#1769E0] animate-spin" />
+              <Loader2 className="w-5 h-5 text-accent animate-spin" />
               <span>Searching patient records...</span>
             </div>
           )}
@@ -212,9 +212,9 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
           {/* Results list */}
           {query.trim() && results.length > 0 && (
             <div className="space-y-1">
-              <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 flex items-center justify-between">
+              <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle flex items-center justify-between">
                 <span>Patients ({results.length})</span>
-                <span className="normal-case text-gray-400 text-[10px]">
+                <span className="normal-case text-fg-subtle text-[10px]">
                   Press Enter to open profile
                 </span>
               </div>
@@ -235,7 +235,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                       <div
                         className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
                           isSelected
-                            ? "bg-[#1769E0] text-white"
+                            ? "bg-accent text-white"
                             : "bg-gray-100 text-gray-700"
                         }`}
                       >
@@ -270,7 +270,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                           {patient.abha_id && (
                             <>
                               <span>•</span>
-                              <span className="truncate max-w-[140px] text-gray-400">
+                              <span className="truncate max-w-[140px] text-fg-subtle">
                                 {patient.abha_id}
                               </span>
                             </>
@@ -282,7 +282,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
                     <div className="flex items-center gap-2 shrink-0 ms-3">
                       <span
                         className={`text-xs font-medium flex items-center gap-1 ${
-                          isSelected ? "text-[#1769E0]" : "text-gray-400"
+                          isSelected ? "text-accent" : "text-fg-subtle"
                         }`}
                       >
                         <span>View</span>
@@ -298,7 +298,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
           {/* No results empty state */}
           {query.trim() && !loading && results.length === 0 && (
             <div className="py-10 px-6 text-center">
-              <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-2.5">
+              <div className="w-10 h-10 rounded-full bg-gray-100 text-fg-subtle flex items-center justify-center mx-auto mb-2.5">
                 <User className="w-5 h-5" />
               </div>
               <h4 className="text-sm font-semibold text-gray-900 mb-1">
@@ -310,7 +310,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
               <Link
                 href="/patients/new"
                 onClick={onClose}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg text-white bg-[#1769E0] hover:bg-[#1253b3] transition-colors shadow-theme-xs"
+                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg text-white bg-accent hover:bg-accent-hover transition-colors shadow-theme-xs"
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>Register &quot;{query}&quot; as New Patient</span>
@@ -329,20 +329,20 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
               <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[10px] font-mono">
                 ↓
               </kbd>
-              <span className="text-gray-400 ms-0.5">navigate</span>
+              <span className="text-fg-subtle ms-0.5">navigate</span>
             </span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-[10px] font-mono">
                 ↵
               </kbd>
-              <span className="text-gray-400 ms-0.5">select</span>
+              <span className="text-fg-subtle ms-0.5">select</span>
             </span>
           </div>
 
           <Link
             href="/patients/new"
             onClick={onClose}
-            className="flex items-center gap-1 font-medium text-[#1769E0] hover:underline cursor-pointer"
+            className="flex items-center gap-1 font-medium text-accent hover:underline cursor-pointer"
           >
             <UserPlus className="w-3 h-3" />
             <span>New Patient Intake</span>

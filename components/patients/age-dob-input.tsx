@@ -114,7 +114,7 @@ export function AgeDobInput({
         </div>
       </div>
       {error && (
-        <p className="text-xs text-[#B42318] font-medium mt-0.5">
+        <p className="text-xs text-danger-fg font-medium mt-0.5">
           {error}
         </p>
       )}

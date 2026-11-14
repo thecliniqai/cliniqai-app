@@ -20,14 +20,14 @@ export function Alert({
   children,
 }: AlertProps) {
   const icons = {
-    info: <Info className="w-5 h-5 text-[#1769E0] shrink-0" />,
-    success: <CheckCircle2 className="w-5 h-5 text-[#18794E] shrink-0" />,
-    warning: <AlertTriangle className="w-5 h-5 text-[#9A5B00] shrink-0" />,
-    error: <AlertCircle className="w-5 h-5 text-[#B42318] shrink-0" />,
+    info: <Info className="w-5 h-5 text-info-fg shrink-0" />,
+    success: <CheckCircle2 className="w-5 h-5 text-success-fg shrink-0" />,
+    warning: <AlertTriangle className="w-5 h-5 text-warning-fg shrink-0" />,
+    error: <AlertCircle className="w-5 h-5 text-danger-fg shrink-0" />,
   };
 
   const typeStyles = {
-    info: "bg-[#EAF2FF] border-[#BFD8FF] text-[#1769E0]",
+    info: "bg-info-bg border-info-border text-info-fg",
     success: "bg-emerald-50 border-emerald-200 text-emerald-800",
     warning: "bg-amber-50 border-amber-200 text-amber-800",
     error: "bg-rose-50 border-rose-200 text-rose-800",

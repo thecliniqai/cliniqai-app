@@ -31,14 +31,14 @@ export function Field({
         className="text-sm font-medium text-gray-700 flex items-center gap-1 select-none"
       >
         <span>{label}</span>
-        {required && <span className="text-[#B42318] text-xs font-bold">*</span>}
+        {required && <span className="text-danger-fg text-xs font-bold">*</span>}
       </label>
       {children}
       {displayHelp && !error && (
         <p className="text-xs text-gray-500 mt-0.5">{displayHelp}</p>
       )}
       {error && (
-        <p id={`${htmlFor}-error`} className="text-xs text-[#B42318] font-medium mt-0.5">
+        <p id={`${htmlFor}-error`} className="text-xs text-danger-fg font-medium mt-0.5">
           {error}
         </p>
       )}

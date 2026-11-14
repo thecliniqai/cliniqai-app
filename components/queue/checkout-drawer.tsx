@@ -361,14 +361,14 @@ export function CheckoutDrawer({
         {/* Drawer Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50/80">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center border border-[#1769E0]/20 shadow-2xs">
+            <div className="w-10 h-10 rounded-xl bg-accent-subtle text-accent flex items-center justify-center border border-accent/20 shadow-2xs">
               <Receipt className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-gray-900">Patient Checkout & Billing</h2>
                 {queueToken && (
-                  <span className="px-2 py-0.5 text-xs font-bold rounded-md bg-[#EAF2FF] text-[#1769E0] border border-[#1769E0]/20">
+                  <span className="px-2 py-0.5 text-xs font-bold rounded-md bg-accent-subtle text-accent border border-accent/20">
                     Token #{queueToken.token_number}
                   </span>
                 )}
@@ -380,7 +380,7 @@ export function CheckoutDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-fg-subtle hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
             aria-label="Close drawer"
           >
             <X className="w-5 h-5" />
@@ -415,14 +415,14 @@ export function CheckoutDrawer({
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-sm text-gray-900">{patient.full_name}</span>
                   {patient.sex && (
-                    <span className="text-xs text-gray-400 capitalize">({patient.sex})</span>
+                    <span className="text-xs text-fg-subtle capitalize">({patient.sex})</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
                   {patient.age != null && <span>{patient.age} yrs</span>}
                   {patient.phone && <span>· {patient.phone}</span>}
                   {doctorName && (
-                    <span className="flex items-center gap-1 text-[#1769E0] font-medium">
+                    <span className="flex items-center gap-1 text-accent font-medium">
                       · <Stethoscope className="w-3 h-3" /> {doctorName}
                     </span>
                   )}
@@ -431,7 +431,7 @@ export function CheckoutDrawer({
             </div>
 
             <div className="text-end">
-              <span className="text-[11px] font-semibold uppercase text-gray-400 block tracking-wider">
+              <span className="text-[11px] font-semibold uppercase text-fg-subtle block tracking-wider">
                 Visit Status
               </span>
               <span
@@ -451,7 +451,7 @@ export function CheckoutDrawer({
 
           {loadingBilling ? (
             <div className="p-8 text-center space-y-3">
-              <Loader2 className="w-6 h-6 animate-spin text-[#1769E0] mx-auto" />
+              <Loader2 className="w-6 h-6 animate-spin text-accent mx-auto" />
               <p className="text-xs text-gray-500">Loading billing encounter details...</p>
             </div>
           ) : isCompleted || (invoice && balanceDue === 0 && invoice.status === "paid") ? (
@@ -471,7 +471,7 @@ export function CheckoutDrawer({
               <div className="p-5 rounded-2xl border border-gray-200 bg-white space-y-4 shadow-2xs">
                 <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                   <div>
-                    <span className="text-xs font-semibold text-gray-400 block uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-fg-subtle block uppercase tracking-wider">
                       Tax Invoice & Receipt
                     </span>
                     <span className="text-sm font-bold text-gray-900">
@@ -489,7 +489,7 @@ export function CheckoutDrawer({
                     <div key={item.id} className="py-2.5 flex items-center justify-between">
                       <div>
                         <span className="font-semibold text-gray-800 block">{item.description}</span>
-                        <span className="text-[11px] text-gray-400 capitalize">
+                        <span className="text-[11px] text-fg-subtle capitalize">
                           {item.item_type} · Qty {item.quantity} × ₹{item.unit_price}
                         </span>
                       </div>
@@ -517,7 +517,7 @@ export function CheckoutDrawer({
                 {/* Past Payments List */}
                 {payments.length > 0 && (
                   <div className="pt-3 border-t border-gray-100">
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block mb-2">
+                    <span className="text-[11px] font-bold text-fg-subtle uppercase tracking-wider block mb-2">
                       Payment Transactions
                     </span>
                     <div className="space-y-1.5">
@@ -530,7 +530,7 @@ export function CheckoutDrawer({
                             {p.payment_method === "cash" ? (
                               <Banknote className="w-4 h-4 text-emerald-600" />
                             ) : p.payment_method === "upi" ? (
-                              <QrCode className="w-4 h-4 text-[#1769E0]" />
+                              <QrCode className="w-4 h-4 text-accent" />
                             ) : (
                               <CreditCard className="w-4 h-4 text-purple-600" />
                             )}
@@ -539,7 +539,7 @@ export function CheckoutDrawer({
                                 {p.payment_method} Payment
                               </span>
                               {p.reference_number && (
-                                <span className="text-[10px] text-gray-400 block font-mono">
+                                <span className="text-[10px] text-fg-subtle block font-mono">
                                   Ref: {p.reference_number}
                                 </span>
                               )}
@@ -607,7 +607,7 @@ export function CheckoutDrawer({
                     <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">
                       Encounter Itemization
                     </h3>
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <p className="text-xs text-fg-subtle mt-0.5">
                       {invoice ? `Invoice #${invoice.invoice_number}` : "Configure consultation and procedure charges"}
                     </p>
                   </div>
@@ -630,7 +630,7 @@ export function CheckoutDrawer({
                   <div className="space-y-2">
                     <Field label="OPD Consultation Fee (₹)" htmlFor="consultationFee" required>
                       <div className="relative">
-                        <span className="absolute start-3 top-2.5 text-gray-400 font-semibold text-sm">₹</span>
+                        <span className="absolute start-3 top-2.5 text-fg-subtle font-semibold text-sm">₹</span>
                         <Input
                           id="consultationFee"
                           type="number"
@@ -644,7 +644,7 @@ export function CheckoutDrawer({
                     </Field>
 
                     <div className="flex items-center gap-1.5 pt-1">
-                      <span className="text-[11px] text-gray-400 font-medium">Quick fee:</span>
+                      <span className="text-[11px] text-fg-subtle font-medium">Quick fee:</span>
                       {[300, 500, 800, 1000].map((fee) => (
                         <button
                           key={fee}
@@ -653,7 +653,7 @@ export function CheckoutDrawer({
                           className={cn(
                             "px-2 py-0.5 text-[11px] font-semibold rounded-md border transition-colors cursor-pointer",
                             consultationFee === fee
-                              ? "bg-[#EAF2FF] text-[#1769E0] border-[#1769E0]"
+                              ? "bg-accent-subtle text-accent border-accent"
                               : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
                           )}
                         >
@@ -679,7 +679,7 @@ export function CheckoutDrawer({
                           >
                             <div>
                               <span className="font-semibold text-gray-900 block">{item.description}</span>
-                              <span className="text-[11px] text-gray-400 capitalize">
+                              <span className="text-[11px] text-fg-subtle capitalize">
                                 {item.item_type} · Qty {item.quantity} × ₹{item.unit_price}
                               </span>
                             </div>
@@ -689,7 +689,7 @@ export function CheckoutDrawer({
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveItem(-1, item.id)}
-                                  className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  className="p-1 rounded-lg text-fg-subtle hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                                   title="Remove charge"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -700,7 +700,7 @@ export function CheckoutDrawer({
                         ))}
                       </div>
                     ) : (
-                      <div className="p-3 text-center text-xs text-gray-400 border border-dashed rounded-xl">
+                      <div className="p-3 text-center text-xs text-fg-subtle border border-dashed rounded-xl">
                         No items found on this invoice.
                       </div>
                     )
@@ -719,7 +719,7 @@ export function CheckoutDrawer({
                               <button
                                 type="button"
                                 onClick={() => handleRemoveItem(idx)}
-                                className="p-1 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                className="p-1 rounded-lg text-fg-subtle hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                                 title="Remove charge"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -738,7 +738,7 @@ export function CheckoutDrawer({
                     <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
                       Add Additional Service / Procedure
                     </span>
-                    {isAddingItem && <Loader2 className="w-3.5 h-3.5 animate-spin text-[#1769E0]" />}
+                    {isAddingItem && <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />}
                   </div>
 
                   {/* Quick suggestion chips */}
@@ -749,11 +749,11 @@ export function CheckoutDrawer({
                         type="button"
                         onClick={() => handleAddProcedure(qs.description, qs.fee)}
                         disabled={isAddingItem}
-                        className="px-2.5 py-1 rounded-lg bg-white border border-gray-200 hover:border-[#1769E0] text-gray-700 hover:text-[#1769E0] text-[11px] font-medium transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-white border border-gray-200 hover:border-accent text-gray-700 hover:text-accent text-[11px] font-medium transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
                       >
-                        <Plus className="w-3 h-3 text-[#1769E0]" />
+                        <Plus className="w-3 h-3 text-accent" />
                         <span>{qs.description}</span>
-                        <span className="text-gray-400 font-semibold">(₹{qs.fee})</span>
+                        <span className="text-fg-subtle font-semibold">(₹{qs.fee})</span>
                       </button>
                     ))}
                   </div>
@@ -770,7 +770,7 @@ export function CheckoutDrawer({
                     </div>
                     <div className="col-span-3">
                       <div className="relative">
-                        <span className="absolute start-2.5 top-2.5 text-gray-400 text-xs font-semibold">₹</span>
+                        <span className="absolute start-2.5 top-2.5 text-fg-subtle text-xs font-semibold">₹</span>
                         <Input
                           type="number"
                           placeholder="Fee"
@@ -806,7 +806,7 @@ export function CheckoutDrawer({
                 {!invoice && (
                   <Field label="Special Discount (₹)" htmlFor="checkoutDiscount">
                     <div className="relative">
-                      <span className="absolute start-3 top-2.5 text-gray-400 font-semibold text-sm">₹</span>
+                      <span className="absolute start-3 top-2.5 text-fg-subtle font-semibold text-sm">₹</span>
                       <Input
                         id="checkoutDiscount"
                         type="number"
@@ -868,7 +868,7 @@ export function CheckoutDrawer({
                         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">
                           Collect Payment
                         </h3>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-xs text-fg-subtle mt-0.5">
                           Specify payment mode and record transaction receipt
                         </p>
                       </div>
@@ -917,7 +917,7 @@ export function CheckoutDrawer({
                           className={cn(
                             "p-3 rounded-xl border flex flex-col items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer shadow-2xs",
                             paymentMethod === "cash"
-                              ? "bg-[#EAF2FF] border-[#1769E0] text-[#1769E0] ring-1 ring-[#1769E0]"
+                              ? "bg-accent-subtle border-accent text-accent ring-1 ring-accent"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}
                         >
@@ -931,11 +931,11 @@ export function CheckoutDrawer({
                           className={cn(
                             "p-3 rounded-xl border flex flex-col items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer shadow-2xs",
                             paymentMethod === "upi"
-                              ? "bg-[#EAF2FF] border-[#1769E0] text-[#1769E0] ring-1 ring-[#1769E0]"
+                              ? "bg-accent-subtle border-accent text-accent ring-1 ring-accent"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}
                         >
-                          <QrCode className="w-5 h-5 text-[#1769E0]" />
+                          <QrCode className="w-5 h-5 text-accent" />
                           <span>UPI / QR</span>
                         </button>
 
@@ -945,7 +945,7 @@ export function CheckoutDrawer({
                           className={cn(
                             "p-3 rounded-xl border flex flex-col items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer shadow-2xs",
                             paymentMethod === "card"
-                              ? "bg-[#EAF2FF] border-[#1769E0] text-[#1769E0] ring-1 ring-[#1769E0]"
+                              ? "bg-accent-subtle border-accent text-accent ring-1 ring-accent"
                               : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
                           )}
                         >
@@ -1002,7 +1002,7 @@ export function CheckoutDrawer({
                     <Button
                       type="submit"
                       disabled={isPending || amountToPay <= 0}
-                      className="h-11 px-6 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] font-semibold text-xs shadow-theme-xs cursor-pointer flex items-center gap-2"
+                      className="h-11 px-6 rounded-xl bg-accent text-white hover:bg-accent-hover font-semibold text-xs shadow-theme-xs cursor-pointer flex items-center gap-2"
                     >
                       {isPending ? (
                         <>
@@ -1033,7 +1033,7 @@ export function CheckoutDrawer({
                       setIsCompleted(true);
                       onSuccess();
                     }}
-                    className="h-11 px-6 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] font-semibold text-xs cursor-pointer"
+                    className="h-11 px-6 rounded-xl bg-accent text-white hover:bg-accent-hover font-semibold text-xs cursor-pointer"
                   >
                     Mark Visit Completed
                   </Button>

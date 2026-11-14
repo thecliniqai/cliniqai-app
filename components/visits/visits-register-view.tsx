@@ -210,14 +210,14 @@ export function VisitsRegisterView({
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
               Total Encounters
             </span>
-            <span className="p-1.5 rounded-lg bg-blue-50 text-[#1769E0]">
+            <span className="p-1.5 rounded-lg bg-blue-50 text-accent">
               <Users className="w-4 h-4" />
             </span>
           </div>
           <p className="text-2xl font-bold text-gray-900 mt-2 tabular-nums">
             {metrics.totalVisits}
           </p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Filtered time period</span>
+          <span className="text-[11px] text-fg-subtle mt-1 block">Filtered time period</span>
         </div>
 
         <div className="p-4 rounded-xl border border-gray-200 bg-white shadow-xs">
@@ -264,7 +264,7 @@ export function VisitsRegisterView({
           <p className="text-2xl font-bold text-gray-900 mt-2 tabular-nums">
             ₹{metrics.totalBilledRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
           </p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Consultations & fees</span>
+          <span className="text-[11px] text-fg-subtle mt-1 block">Consultations & fees</span>
         </div>
       </div>
 
@@ -292,7 +292,7 @@ export function VisitsRegisterView({
                   className={cn(
                     "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer",
                     active
-                      ? "bg-[#1769E0] text-white shadow-theme-xs font-semibold"
+                      ? "bg-accent text-white shadow-theme-xs font-semibold"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900"
                   )}
                 >
@@ -304,13 +304,13 @@ export function VisitsRegisterView({
 
           {/* Search bar */}
           <form onSubmit={handleSearchSubmit} className="relative w-full md:w-72">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-fg-subtle absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search patient, phone, UHID..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1769E0]/20 focus:border-[#1769E0] transition-all bg-white"
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent transition-all bg-white"
             />
           </form>
         </div>
@@ -324,7 +324,7 @@ export function VisitsRegisterView({
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="px-2.5 py-1 text-xs rounded-lg border border-gray-300 bg-white focus:outline-none focus:border-[#1769E0]"
+                className="px-2.5 py-1 text-xs rounded-lg border border-gray-300 bg-white focus:outline-none focus:border-accent"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -333,7 +333,7 @@ export function VisitsRegisterView({
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="px-2.5 py-1 text-xs rounded-lg border border-gray-300 bg-white focus:outline-none focus:border-[#1769E0]"
+                className="px-2.5 py-1 text-xs rounded-lg border border-gray-300 bg-white focus:outline-none focus:border-accent"
               />
             </div>
             <Button
@@ -359,7 +359,7 @@ export function VisitsRegisterView({
             <select
               value={currentFilters.doctorId || "all"}
               onChange={(e) => updateFilters({ doctor: e.target.value })}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-[#1769E0] cursor-pointer"
+              className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-accent cursor-pointer"
             >
               <option value="all">All Doctors</option>
               {activeDoctors.map((doc) => (
@@ -376,7 +376,7 @@ export function VisitsRegisterView({
             <select
               value={currentFilters.status || "all"}
               onChange={(e) => updateFilters({ status: e.target.value })}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-[#1769E0] cursor-pointer"
+              className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-accent cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="waiting">Waiting</option>
@@ -392,7 +392,7 @@ export function VisitsRegisterView({
             <select
               value={currentFilters.specialty || "all"}
               onChange={(e) => updateFilters({ specialty: e.target.value })}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-[#1769E0] cursor-pointer"
+              className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 bg-white text-gray-800 focus:outline-none focus:border-accent cursor-pointer"
             >
               <option value="all">All Specialties</option>
               <option value="general_physician">General Physician</option>
@@ -407,7 +407,7 @@ export function VisitsRegisterView({
             onClick={resetFilters}
             className="ml-auto inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 font-medium px-2 py-1 rounded hover:bg-gray-100 transition-colors cursor-pointer"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-gray-400" />
+            <RotateCcw className="w-3.5 h-3.5 text-fg-subtle" />
             Reset Filters
           </button>
         </div>
@@ -417,7 +417,7 @@ export function VisitsRegisterView({
       <div className="rounded-2xl border border-gray-200 bg-white shadow-xs overflow-hidden">
         {initialVisits.length === 0 ? (
           <div className="p-12 text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto">
+            <div className="w-12 h-12 rounded-full bg-gray-100 text-fg-subtle flex items-center justify-center mx-auto">
               <Calendar className="w-6 h-6" />
             </div>
             <h3 className="text-sm font-semibold text-gray-900">No Patient Visits Found</h3>
@@ -474,7 +474,7 @@ export function VisitsRegisterView({
                           </span>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {visit.token_number && (
-                              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-[#1769E0] font-mono font-bold text-[10px]">
+                              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-accent font-mono font-bold text-[10px]">
                                 #{visit.token_number}
                               </span>
                             )}
@@ -488,7 +488,7 @@ export function VisitsRegisterView({
                         <div className="space-y-0.5">
                           <Link
                             href={`/patients/${visit.patient.id}`}
-                            className="font-semibold text-gray-900 hover:text-[#1769E0] transition-colors"
+                            className="font-semibold text-gray-900 hover:text-accent transition-colors"
                           >
                             {visit.patient.full_name}
                           </Link>
@@ -508,7 +508,7 @@ export function VisitsRegisterView({
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <div className="space-y-0.5">
                           <p className="font-medium text-gray-900 flex items-center gap-1">
-                            <Stethoscope className="w-3 h-3 text-[#1769E0]" />
+                            <Stethoscope className="w-3 h-3 text-accent" />
                             {visit.doctor.full_name}
                           </p>
                           {visit.doctor.specialty ? (
@@ -542,7 +542,7 @@ export function VisitsRegisterView({
                               {visit.reason_for_visit}
                             </span>
                           ) : (
-                            <span className="text-gray-400 italic">General Consultation</span>
+                            <span className="text-fg-subtle italic">General Consultation</span>
                           )}
                         </div>
                       </td>
@@ -551,8 +551,8 @@ export function VisitsRegisterView({
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         {hasRx ? (
                           <div className="space-y-1">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-[#1769E0] font-medium text-[11px]">
-                              <Pill className="w-3 h-3 text-[#1769E0]" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-accent font-medium text-[11px]">
+                              <Pill className="w-3 h-3 text-accent" />
                               {visit.prescription?.item_count} {visit.prescription?.item_count === 1 ? "med" : "meds"}
                             </span>
                             {visit.prescription?.signed_at && (
@@ -560,7 +560,7 @@ export function VisitsRegisterView({
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-400 italic">—</span>
+                          <span className="text-fg-subtle italic">—</span>
                         )}
                       </td>
 
@@ -582,7 +582,7 @@ export function VisitsRegisterView({
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-400 italic">Not billed</span>
+                          <span className="text-fg-subtle italic">Not billed</span>
                         )}
                       </td>
 

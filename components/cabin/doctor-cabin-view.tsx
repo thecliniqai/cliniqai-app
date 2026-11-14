@@ -129,7 +129,7 @@ export function DoctorCabinView({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-200 shadow-theme-xs">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-[#EAF2FF] text-[#1769E0] flex items-center justify-center shadow-theme-xs">
+            <div className="w-10 h-10 rounded-xl bg-accent-subtle text-accent flex items-center justify-center shadow-theme-xs">
               <Stethoscope className="w-5 h-5" />
             </div>
             <div>
@@ -162,7 +162,7 @@ export function DoctorCabinView({
                   value={selectedDoctor}
                   onChange={(e) => handleDoctorChange(e.target.value)}
                   disabled={isPending}
-                  className="h-10 text-xs font-semibold rounded-xl border border-gray-200 bg-gray-50/70 hover:bg-gray-50 text-gray-800 ps-3 pe-8 appearance-none focus:outline-none focus:ring-2 focus:ring-[#1769E0]/20 focus:border-[#1769E0] cursor-pointer shadow-2xs"
+                  className="h-10 text-xs font-semibold rounded-xl border border-gray-200 bg-gray-50/70 hover:bg-gray-50 text-gray-800 ps-3 pe-8 appearance-none focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent cursor-pointer shadow-2xs"
                 >
                   <option value="all">All Doctors (Clinic Overview)</option>
                   {doctors.map((d) => (
@@ -171,12 +171,12 @@ export function DoctorCabinView({
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="w-4 h-4 text-gray-400 absolute end-2.5 top-3 pointer-events-none" />
+                <ChevronDown className="w-4 h-4 text-fg-subtle absolute end-2.5 top-3 pointer-events-none" />
               </div>
             </div>
           ) : (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs font-semibold text-gray-700">
-              <User className="w-4 h-4 text-[#1769E0]" />
+              <User className="w-4 h-4 text-accent" />
               <span>{doctorName}</span>
             </div>
           )}
@@ -190,7 +190,7 @@ export function DoctorCabinView({
             className="h-10 px-3 rounded-xl border-gray-200 text-gray-600 hover:text-gray-900 hover:bg-gray-50 shadow-2xs cursor-pointer"
             title="Refresh Cabin Queue"
           >
-            <RotateCw className={cn("w-4 h-4", isPending && "animate-spin text-[#1769E0]")} />
+            <RotateCw className={cn("w-4 h-4", isPending && "animate-spin text-accent")} />
           </Button>
         </div>
       </div>
@@ -202,7 +202,7 @@ export function DoctorCabinView({
           className={cn(
             "p-4 rounded-xl border transition-all shadow-theme-xs flex items-center justify-between",
             inCabinCount > 0
-              ? "bg-[#EAF2FF]/60 border-[#B2CCFF]"
+              ? "bg-accent-subtle/60 border-accent-border"
               : "bg-white border-gray-200"
           )}
         >
@@ -216,8 +216,8 @@ export function DoctorCabinView({
             className={cn(
               "w-10 h-10 rounded-xl flex items-center justify-center",
               inCabinCount > 0
-                ? "bg-[#1769E0] text-white shadow-theme-xs"
-                : "bg-gray-100 text-gray-400"
+                ? "bg-accent text-white shadow-theme-xs"
+                : "bg-gray-100 text-fg-subtle"
             )}
           >
             <Stethoscope className="w-5 h-5" />
@@ -253,10 +253,10 @@ export function DoctorCabinView({
 
       {/* Active Consultation Alert Banner */}
       {activeVisit && (
-        <div className="p-5 rounded-2xl bg-gradient-to-r from-[#EAF2FF] to-blue-50/70 border-2 border-[#1769E0]/40 shadow-theme-xs relative overflow-hidden">
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-accent-subtle to-blue-50/70 border-2 border-accent/40 shadow-theme-xs relative overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-[#1769E0] text-white flex items-center justify-center shrink-0 shadow-theme-xs">
+              <div className="w-12 h-12 rounded-xl bg-accent text-white flex items-center justify-center shrink-0 shadow-theme-xs">
                 <Stethoscope className="w-6 h-6 animate-pulse" />
               </div>
               <div>
@@ -265,7 +265,7 @@ export function DoctorCabinView({
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                     In Consultation Now
                   </span>
-                  <span className="text-xs font-bold text-[#1769E0] bg-white px-2 py-0.5 rounded-md border border-[#B2CCFF]">
+                  <span className="text-xs font-bold text-accent bg-white px-2 py-0.5 rounded-md border border-accent-border">
                     Token #{activeVisit.token_number != null ? String(activeVisit.token_number).padStart(2, "0") : "--"}
                   </span>
                 </div>
@@ -285,7 +285,7 @@ export function DoctorCabinView({
             <div className="flex items-center gap-3">
               <Link
                 href={`/consultation/${activeVisit.id}`}
-                className="h-11 px-6 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] font-semibold text-sm shadow-theme-xs transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+                className="h-11 px-6 rounded-xl bg-accent text-white hover:bg-accent-hover font-semibold text-sm shadow-theme-xs transition-all flex items-center gap-2 shrink-0 cursor-pointer"
               >
                 <Stethoscope className="w-4 h-4" />
                 <span>Resume Consultation</span>
@@ -304,7 +304,7 @@ export function DoctorCabinView({
             className={cn(
               "pb-3 text-sm font-semibold transition-colors relative cursor-pointer flex items-center gap-2",
               activeTab === "waiting"
-                ? "text-[#1769E0]"
+                ? "text-accent"
                 : "text-gray-500 hover:text-gray-900"
             )}
           >
@@ -313,14 +313,14 @@ export function DoctorCabinView({
               className={cn(
                 "px-2 py-0.5 text-xs rounded-full font-bold",
                 activeTab === "waiting"
-                  ? "bg-[#EAF2FF] text-[#1769E0]"
+                  ? "bg-accent-subtle text-accent"
                   : "bg-gray-100 text-gray-600"
               )}
             >
               {waitingCount}
             </span>
             {activeTab === "waiting" && (
-              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#1769E0] rounded-t-full" />
+              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-accent rounded-t-full" />
             )}
           </button>
 
@@ -330,7 +330,7 @@ export function DoctorCabinView({
             className={cn(
               "pb-3 text-sm font-semibold transition-colors relative cursor-pointer flex items-center gap-2",
               activeTab === "completed"
-                ? "text-[#1769E0]"
+                ? "text-accent"
                 : "text-gray-500 hover:text-gray-900"
             )}
           >
@@ -339,14 +339,14 @@ export function DoctorCabinView({
               className={cn(
                 "px-2 py-0.5 text-xs rounded-full font-bold",
                 activeTab === "completed"
-                  ? "bg-[#EAF2FF] text-[#1769E0]"
+                  ? "bg-accent-subtle text-accent"
                   : "bg-gray-100 text-gray-600"
               )}
             >
               {totalPatientsSeen}
             </span>
             {activeTab === "completed" && (
-              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-[#1769E0] rounded-t-full" />
+              <span className="absolute bottom-0 inset-x-0 h-0.5 bg-accent rounded-t-full" />
             )}
           </button>
         </div>
@@ -357,7 +357,7 @@ export function DoctorCabinView({
         <div>
           {waitingVisits.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center shadow-theme-xs">
-              <div className="w-12 h-12 rounded-full bg-blue-50 text-[#1769E0] flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 rounded-full bg-blue-50 text-accent flex items-center justify-center mx-auto mb-3">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <h3 className="text-base font-semibold text-gray-900">
@@ -370,7 +370,7 @@ export function DoctorCabinView({
               <div className="mt-5 flex justify-center gap-3">
                 <Link
                   href="/queue"
-                  className="text-xs text-[#1769E0] font-semibold hover:underline flex items-center gap-1"
+                  className="text-xs text-accent font-semibold hover:underline flex items-center gap-1"
                 >
                   <span>Open Front Desk Live Queue</span>
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -395,7 +395,7 @@ export function DoctorCabinView({
               <p className="text-sm font-medium text-gray-700">
                 No consultations completed yet today.
               </p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-fg-subtle mt-1">
                 Completed patient visits and finalized prescriptions will be listed here.
               </p>
             </div>
@@ -440,7 +440,7 @@ export function DoctorCabinView({
                       href={`/consultation/${visit.id}`}
                       className="h-9 px-3.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs"
                     >
-                      <Stethoscope className="w-3.5 h-3.5 text-[#1769E0]" />
+                      <Stethoscope className="w-3.5 h-3.5 text-accent" />
                       <span>Review Visit</span>
                     </Link>
 
@@ -475,7 +475,7 @@ export function DoctorCabinView({
                         href={`/api/visits/${visit.id}/prescription-pdf`}
                         target="_blank"
                         rel="noreferrer"
-                        className="h-9 px-3 rounded-xl bg-[#EAF2FF] hover:bg-[#d6e5ff] text-[#1769E0] font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs"
+                        className="h-9 px-3 rounded-xl bg-accent-subtle hover:bg-selected text-accent font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-2xs"
                         title="Print / View Signed PDF Prescription"
                       >
                         <Printer className="w-3.5 h-3.5" />

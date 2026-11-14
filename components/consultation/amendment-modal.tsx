@@ -116,7 +116,7 @@ export function AmendmentModal({
           <button
             onClick={onClose}
             disabled={submitting}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer disabled:opacity-50"
+            className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer disabled:opacity-50"
             aria-label="Close amendment dialog"
           >
             <X className="w-5 h-5" />
@@ -139,10 +139,10 @@ export function AmendmentModal({
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Added antibiotic following patient's callback regarding persistent high fever"
               disabled={submitting}
-              className={`w-full p-3 text-sm rounded-xl border transition-colors outline-none resize-none focus:ring-2 focus:ring-[#1769E0]/20 ${
+              className={`w-full p-3 text-sm rounded-xl border transition-colors outline-none resize-none focus:ring-2 focus:ring-ring/20 ${
                 reason.length > 0 && !isReasonValid
                   ? "border-amber-400 focus:border-amber-500"
-                  : "border-gray-300 focus:border-[#1769E0]"
+                  : "border-gray-300 focus:border-accent"
               }`}
             />
             <div className="flex items-center justify-between mt-1.5 text-xs">
@@ -155,7 +155,7 @@ export function AmendmentModal({
               >
                 Minimum 10 characters required ({reason.trim().length}/10)
               </span>
-              <span className="text-gray-400">Permanently stamped on ℞ PDF</span>
+              <span className="text-fg-subtle">Permanently stamped on ℞ PDF</span>
             </div>
           </div>
 

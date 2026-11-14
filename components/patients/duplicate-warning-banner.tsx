@@ -78,7 +78,7 @@ export function DuplicateWarningBanner({
                   variant="secondary"
                   size="sm"
                   onClick={() => onUseExisting(m.patient.id)}
-                  startIcon={<UserCheck className="w-3.5 h-3.5 text-[#1769E0]" />}
+                  startIcon={<UserCheck className="w-3.5 h-3.5 text-accent" />}
                 >
                   Use Patient
                 </Button>
@@ -88,7 +88,7 @@ export function DuplicateWarningBanner({
                     type="button"
                     variant="secondary"
                     size="sm"
-                    startIcon={<UserCheck className="w-3.5 h-3.5 text-[#1769E0]" />}
+                    startIcon={<UserCheck className="w-3.5 h-3.5 text-accent" />}
                   >
                     View Record
                   </Button>

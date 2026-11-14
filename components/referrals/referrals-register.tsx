@@ -132,25 +132,25 @@ export function ReferralsRegister({
     switch (status) {
       case "sent":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFF5E5] text-[#9A5B00] border border-[#F3D39A]">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-warning-bg text-warning-fg border border-warning-border">
             Sent
           </span>
         );
       case "acknowledged":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#EAF2FF] text-[#1769E0] border border-[#BFD8FF]">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-accent-subtle text-accent border border-accent-border">
             Acknowledged
           </span>
         );
       case "completed":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#EAF7F0] text-[#18794E] border border-[#BDE5CF]">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-success-bg text-success-fg border border-success-border">
             Completed
           </span>
         );
       case "cancelled":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#FFEDEC] text-[#BA1A1A] border border-[#FFDAD6]">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-danger-bg text-danger-fg border border-danger-border">
             Cancelled
           </span>
         );
@@ -167,13 +167,13 @@ export function ReferralsRegister({
     switch (urgency) {
       case "urgent":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#FFEDEC] text-[#BA1A1A] border border-[#FFDAD6]">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-danger-bg text-danger-fg border border-danger-border">
             URGENT
           </span>
         );
       case "priority":
         return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#FFF5E5] text-[#9A5B00] border border-[#F3D39A]">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-warning-bg text-warning-fg border border-warning-border">
             Priority
           </span>
         );
@@ -213,7 +213,7 @@ export function ReferralsRegister({
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            <ArrowUpRight className="h-4 w-4 text-[#1769E0]" />
+            <ArrowUpRight className="h-4 w-4 text-accent" />
             <span>Outbound Referrals</span>
             <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-gray-100 text-gray-700">
               {outboundList.length}
@@ -260,7 +260,7 @@ export function ReferralsRegister({
       <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-2xs flex flex-col md:flex-row md:items-center gap-3">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-fg-subtle" />
           <input
             type="text"
             value={search}
@@ -270,7 +270,7 @@ export function ReferralsRegister({
                 ? "Search by patient name, phone, specialist, facility..."
                 : "Search by patient name, originating clinic..."
             }
-            className="w-full min-h-[44px] pl-9 pr-3 rounded-xl border border-gray-200 text-xs text-gray-900 placeholder:text-gray-400 bg-[#F8FAFC] focus:bg-white focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+            className="w-full min-h-[44px] pl-9 pr-3 rounded-xl border border-gray-200 text-xs text-gray-900 placeholder:text-fg-placeholder bg-sunken focus:bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -279,7 +279,7 @@ export function ReferralsRegister({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="min-h-[44px] px-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+            className="min-h-[44px] px-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
           >
             <option value="all">All Statuses</option>
             <option value="sent">Sent</option>
@@ -292,7 +292,7 @@ export function ReferralsRegister({
           <select
             value={urgencyFilter}
             onChange={(e) => setUrgencyFilter(e.target.value)}
-            className="min-h-[44px] px-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+            className="min-h-[44px] px-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
           >
             <option value="all">All Urgencies</option>
             <option value="routine">Routine</option>
@@ -306,7 +306,7 @@ export function ReferralsRegister({
       {filteredList.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-2xs">
           <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-            <Share2 className="h-6 w-6 text-gray-400" />
+            <Share2 className="h-6 w-6 text-fg-subtle" />
           </div>
           <h3 className="text-sm font-bold text-gray-900">
             {search || statusFilter !== "all" || urgencyFilter !== "all"
@@ -327,7 +327,7 @@ export function ReferralsRegister({
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-gray-200 bg-[#F8FAFC]">
+                <tr className="border-b border-gray-200 bg-sunken">
                   <th className="py-3.5 px-4 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
                     Patient
                   </th>
@@ -358,11 +358,11 @@ export function ReferralsRegister({
                     <td className="py-3.5 px-4">
                       <Link
                         href={`/patients/${item.patient_id}`}
-                        className="font-bold text-gray-900 hover:text-[#1769E0] transition-colors"
+                        className="font-bold text-gray-900 hover:text-accent transition-colors"
                       >
                         {item.patient?.full_name || "Patient"}
                       </Link>
-                      <div className="text-[11px] text-gray-400 mt-0.5">
+                      <div className="text-[11px] text-fg-subtle mt-0.5">
                         {item.patient?.age ? `${item.patient.age}y` : ""}
                         {item.patient?.sex ? ` • ${item.patient.sex.toUpperCase()}` : ""}
                         {item.patient?.phone ? ` • ${item.patient.phone}` : ""}
@@ -389,7 +389,7 @@ export function ReferralsRegister({
                             {item.originating_clinic?.name || "Partner Clinic"}
                           </div>
                           {item.originating_clinic?.phone && (
-                            <div className="text-[11px] text-gray-400">
+                            <div className="text-[11px] text-fg-subtle">
                               Ph: {item.originating_clinic.phone}
                             </div>
                           )}
@@ -458,7 +458,7 @@ export function ReferralsRegister({
                               <button
                                 type="button"
                                 onClick={() => setSelectedForLoopClosure(item)}
-                                className="min-h-[36px] px-3 rounded-lg bg-[#1769E0] hover:bg-[#155cc0] text-white font-semibold text-[11px] inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                                className="min-h-[36px] px-3 rounded-lg bg-accent hover:bg-accent-hover text-white font-semibold text-[11px] inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
                                 title="Record specialist findings and mark completed"
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -491,7 +491,7 @@ export function ReferralsRegister({
                               <button
                                 type="button"
                                 onClick={() => setSelectedForHistory(item)}
-                                className="min-h-[36px] px-2.5 rounded-lg border border-blue-200 bg-[#EAF2FF] hover:bg-blue-100 text-[#1769E0] font-semibold text-[11px] inline-flex items-center gap-1 transition-colors"
+                                className="min-h-[36px] px-2.5 rounded-lg border border-blue-200 bg-accent-subtle hover:bg-blue-100 text-accent font-semibold text-[11px] inline-flex items-center gap-1 transition-colors"
                               >
                                 <ShieldCheck className="h-3.5 w-3.5" />
                                 <span>Consented History</span>
@@ -525,11 +525,11 @@ export function ReferralsRegister({
                   <div>
                     <Link
                       href={`/patients/${item.patient_id}`}
-                      className="font-bold text-sm text-gray-900 hover:text-[#1769E0]"
+                      className="font-bold text-sm text-gray-900 hover:text-accent"
                     >
                       {item.patient?.full_name || "Patient"}
                     </Link>
-                    <div className="text-[11px] text-gray-400 mt-0.5">
+                    <div className="text-[11px] text-fg-subtle mt-0.5">
                       {item.patient?.phone ? `${item.patient.phone} • ` : ""}
                       {new Date(item.sent_at).toLocaleDateString()}
                     </div>
@@ -550,7 +550,7 @@ export function ReferralsRegister({
                 </div>
 
                 {item.status === "completed" && item.closure_notes && (
-                  <div className="p-2.5 rounded-lg bg-[#EAF7F0] border border-[#BDE5CF] text-xs text-[#18794E]">
+                  <div className="p-2.5 rounded-lg bg-success-bg border border-success-border text-xs text-success-fg">
                     <span className="font-bold">Loop Closed: </span>
                     {item.closure_notes}
                   </div>
@@ -572,7 +572,7 @@ export function ReferralsRegister({
                       <button
                         type="button"
                         onClick={() => setSelectedForLoopClosure(item)}
-                        className="min-h-[38px] px-3 rounded-lg bg-[#1769E0] text-white text-xs font-semibold flex items-center gap-1"
+                        className="min-h-[38px] px-3 rounded-lg bg-accent text-white text-xs font-semibold flex items-center gap-1"
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         <span>Close Loop</span>
@@ -618,9 +618,9 @@ export function ReferralsRegister({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 overflow-y-auto"
         >
           <div className="bg-white rounded-2xl shadow-theme-lg border border-gray-200 max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-[#EAF2FF]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-accent-subtle">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-[#1769E0]" />
+                <ShieldCheck className="h-5 w-5 text-accent" />
                 <div>
                   <h3 className="text-sm font-bold text-gray-900">
                     DPDP Consented Clinical History
@@ -633,7 +633,7 @@ export function ReferralsRegister({
               <button
                 type="button"
                 onClick={() => setSelectedForHistory(null)}
-                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700"
+                className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg text-fg-subtle hover:text-gray-700"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -660,7 +660,7 @@ export function ReferralsRegister({
                   return (
                     <div
                       key={enc.visit_id || i}
-                      className="p-3.5 rounded-xl border border-gray-200 bg-[#F8FAFC] space-y-2"
+                      className="p-3.5 rounded-xl border border-gray-200 bg-sunken space-y-2"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-gray-900">

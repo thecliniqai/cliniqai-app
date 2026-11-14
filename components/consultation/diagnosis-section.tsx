@@ -254,7 +254,7 @@ export function DiagnosisSection({
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-brand-600" aria-hidden="true" />
+          <FileText className="h-5 w-5 text-accent-fg" aria-hidden="true" />
           <h3 className="text-sm font-bold text-gray-900">
             Diagnosis & Clinical Coding (ICD-11 / SNOMED CT)
           </h3>
@@ -313,11 +313,11 @@ export function DiagnosisSection({
                 {isAdded ? (
                   <CheckCircle2 className="h-3 w-3 text-emerald-600" />
                 ) : (
-                  <Plus className="h-3 w-3 text-gray-400" />
+                  <Plus className="h-3 w-3 text-fg-subtle" />
                 )}
                 <span>{item.name}</span>
                 {item.icd11 && (
-                  <span className="text-[10px] text-gray-400 font-mono">[{item.icd11}]</span>
+                  <span className="text-[10px] text-fg-subtle font-mono">[{item.icd11}]</span>
                 )}
               </button>
             );
@@ -328,7 +328,7 @@ export function DiagnosisSection({
       {/* Fast Autocomplete Search Bar */}
       <div className="relative">
         <div className="relative">
-          <Search className="h-4 w-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <Search className="h-4 w-4 text-fg-subtle absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           <input
             ref={searchInputRef}
             type="text"
@@ -339,13 +339,13 @@ export function DiagnosisSection({
               if (searchResults.length > 0) setIsDropdownOpen(true);
             }}
             placeholder="Search diagnosis name, ICD-11, SNOMED CT, or custom condition..."
-            className="w-full min-h-[44px] pl-10 pr-10 rounded-lg border border-gray-300 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 bg-white"
+            className="w-full min-h-[44px] pl-10 pr-10 rounded-lg border border-gray-300 text-xs text-gray-900 placeholder:text-fg-placeholder focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring bg-white"
           />
           {query && (
             <button
               type="button"
               onClick={() => setQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-fg-subtle hover:text-gray-600 rounded"
               aria-label="Clear diagnosis search"
             >
               <X className="h-3.5 w-3.5" />
@@ -389,7 +389,7 @@ export function DiagnosisSection({
                     )}
                   </div>
                   {item.category && (
-                    <span className="text-[11px] text-gray-400 block truncate">
+                    <span className="text-[11px] text-fg-subtle block truncate">
                       {item.category}
                     </span>
                   )}
@@ -415,13 +415,13 @@ export function DiagnosisSection({
               <button
                 type="button"
                 onClick={() => handleAddDiagnosis(query.trim(), null, null, true, false)}
-                className="w-full min-h-[44px] p-3 text-left hover:bg-brand-50/60 bg-gray-50/50 flex items-center gap-2 transition-colors text-brand-700"
+                className="w-full min-h-[44px] p-3 text-left hover:bg-accent-subtle/60 bg-gray-50/50 flex items-center gap-2 transition-colors text-accent-fg"
               >
-                <Plus className="h-4 w-4 text-brand-600" />
+                <Plus className="h-4 w-4 text-accent-fg" />
                 <span className="text-xs font-semibold">
                   + Add custom diagnosis: &quot;{query.trim()}&quot;
                 </span>
-                <span className="text-[11px] text-gray-400 ml-auto font-normal">
+                <span className="text-[11px] text-fg-subtle ml-auto font-normal">
                   Saves to personal doctor catalog
                 </span>
               </button>
@@ -491,7 +491,7 @@ export function DiagnosisSection({
                         disabled={disabled}
                         onClick={() => handleRemoveDiagnosis(item.id)}
                         aria-label="Remove diagnosis"
-                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-fg-subtle hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -521,7 +521,7 @@ export function DiagnosisSection({
                           }
                         }}
                         placeholder="e.g. Mild flare-up, symptoms onset 3 days ago"
-                        className="flex-1 min-h-[36px] px-2.5 rounded border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-brand-500"
+                        className="flex-1 min-h-[36px] px-2.5 rounded border border-gray-300 text-xs text-gray-900 focus:outline-none focus:border-accent"
                         autoFocus
                       />
                       <button

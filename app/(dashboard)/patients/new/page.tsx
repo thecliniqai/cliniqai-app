@@ -149,7 +149,7 @@ export default function NewPatientPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <User className="w-4 h-4 text-[#1769E0]" />
+              <User className="w-4 h-4 text-accent" />
               <span>Basic Demographics</span>
             </CardTitle>
             <p className="text-xs text-gray-500">

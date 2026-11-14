@@ -165,7 +165,7 @@ export function PdfPreviewModal({
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-fg-subtle hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
               aria-label="Close prescription preview"
             >
               <X className="w-5 h-5" />
@@ -177,9 +177,9 @@ export function PdfPreviewModal({
         <div className="flex-1 bg-gray-100 p-4 overflow-hidden flex items-center justify-center relative">
           {loading && (
             <div className="flex flex-col items-center justify-center gap-3 text-gray-500">
-              <Loader2 className="w-8 h-8 animate-spin text-[#1769E0]" />
+              <Loader2 className="w-8 h-8 animate-spin text-accent" />
               <p className="text-sm font-medium">Compiling prescription PDF...</p>
-              <p className="text-xs text-gray-400">Rendering high-resolution A4 vectors</p>
+              <p className="text-xs text-fg-subtle">Rendering high-resolution A4 vectors</p>
             </div>
           )}
 
@@ -219,7 +219,7 @@ export function PdfPreviewModal({
                 href={signedUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#1769E0] font-medium hover:underline inline-flex items-center gap-1"
+                className="text-accent font-medium hover:underline inline-flex items-center gap-1"
               >
                 Open in new tab
               </a>

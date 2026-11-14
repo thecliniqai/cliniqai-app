@@ -78,7 +78,7 @@ export function GPSystemicReview({ data, onChange, disabled }: GPSystemicReviewP
       <div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-brand-600" aria-hidden="true" />
+            <Activity className="h-4 w-4 text-accent-fg" aria-hidden="true" />
             <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
               General Physical Examination (PICCLe)
             </h4>
@@ -124,7 +124,7 @@ export function GPSystemicReview({ data, onChange, disabled }: GPSystemicReviewP
                   <span className="text-[10px] text-gray-500 truncate">{description}</span>
                   <span
                     className={`text-[10px] font-medium uppercase tracking-wider ml-1 ${
-                      isPresent ? "text-amber-700 font-semibold" : "text-gray-400"
+                      isPresent ? "text-amber-700 font-semibold" : "text-fg-subtle"
                     }`}
                   >
                     {isPresent ? "Present" : "Absent"}
@@ -139,7 +139,7 @@ export function GPSystemicReview({ data, onChange, disabled }: GPSystemicReviewP
       {/* Systemic Examination (CVS, RS, PA, CNS) */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Stethoscope className="h-4 w-4 text-brand-600" aria-hidden="true" />
+          <Stethoscope className="h-4 w-4 text-accent-fg" aria-hidden="true" />
           <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
             Systemic Examination
           </h4>
@@ -147,7 +147,7 @@ export function GPSystemicReview({ data, onChange, disabled }: GPSystemicReviewP
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* CVS */}
-          <div className="rounded-lg border border-gray-200 bg-white p-3.5 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500 transition-colors">
+          <div className="rounded-lg border border-gray-200 bg-white p-3.5 focus-within:border-accent focus-within:ring-1 focus-within:ring-ring transition-colors">
             <div className="flex items-center gap-1.5 mb-1.5">
               <Heart className="h-3.5 w-3.5 text-rose-500" aria-hidden="true" />
               <label
@@ -164,12 +164,12 @@ export function GPSystemicReview({ data, onChange, disabled }: GPSystemicReviewP
               value={systemic.cvs ?? ""}
               onChange={(e) => handleSystemicChange("cvs", e.target.value)}
               placeholder="S1 S2 heard, no murmurs"
-              className="w-full text-xs text-gray-900 placeholder:text-gray-400 bg-transparent resize-y focus:outline-none"
+              className="w-full text-xs text-gray-900 placeholder:text-fg-placeholder bg-transparent resize-y focus:outline-none"
             />
           </div>
 
           {/* RS */}
-          <div className="rounded-lg border border-gray-200 bg-white p-3.5 focus-within:border-brand-500 focus-within:ring-1 focus-brand-500 transition-colors">
+          <div className="rounded-lg border border-gray-200 bg-white p-3.5 focus-within:border-accent focus-within:ring-1 transition-colors">
             <div className="flex items-center gap-1.5 mb-1.5">
               <Wind className="h-3.5 w-3.5 text-sky-500" aria-hidden="true" />
               <label
@@ -186,12 +186,12 @@ export function GPSystemicReview({ data, onChange, disabled }: GPSystemicReviewP
               value={systemic.rs ?? ""}
               onChange={(e) => handleSystemicChange("rs", e.target.value)}
               placeholder="Bilateral vesicular breath sounds, no added sounds"
-              className="w-full text-xs text-gray-900 placeholder:text-gray-400 bg-transparent resize-y focus:outline-none"
+              className="w-full text-xs text-gray-900 placeholder:text-fg-placeholder bg-transparent resize-y focus:outline-none"
             />
           </div>
 
           {/* PA (Per Abdomen) */}
-          <div className="rounded-lg border border-gray-200 bg-white p-3.5 focus-within:border-brand-500 focus-within:ring-1 focus-brand-500 transition-colors">
+          <div className="rounded-lg border border-gray-200 bg-white p-3.5 focus-within:border-accent focus-within:ring-1 transition-colors">
             <div className="flex items-center gap-1.5 mb-1.5">
               <ShieldAlert className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
               <label
@@ -208,12 +208,12 @@ export function GPSystemicReview({ data, onChange, disabled }: GPSystemicReviewP
               value={systemic.pa ?? ""}
               onChange={(e) => handleSystemicChange("pa", e.target.value)}
               placeholder="Soft, non-tender, no organomegaly"
-              className="w-full text-xs text-gray-900 placeholder:text-gray-400 bg-transparent resize-y focus:outline-none"
+              className="w-full text-xs text-gray-900 placeholder:text-fg-placeholder bg-transparent resize-y focus:outline-none"
             />
           </div>
 
           {/* CNS */}
-          <div className="rounded-lg border border-gray-200 bg-white p-3.5 focus-within:border-brand-500 focus-within:ring-1 focus-brand-500 transition-colors">
+          <div className="rounded-lg border border-gray-200 bg-white p-3.5 focus-within:border-accent focus-within:ring-1 transition-colors">
             <div className="flex items-center gap-1.5 mb-1.5">
               <Brain className="h-3.5 w-3.5 text-purple-500" aria-hidden="true" />
               <label
@@ -230,7 +230,7 @@ export function GPSystemicReview({ data, onChange, disabled }: GPSystemicReviewP
               value={systemic.cns ?? ""}
               onChange={(e) => handleSystemicChange("cns", e.target.value)}
               placeholder="Conscious, oriented, no focal neurological deficits"
-              className="w-full text-xs text-gray-900 placeholder:text-gray-400 bg-transparent resize-y focus:outline-none"
+              className="w-full text-xs text-gray-900 placeholder:text-fg-placeholder bg-transparent resize-y focus:outline-none"
             />
           </div>
         </div>

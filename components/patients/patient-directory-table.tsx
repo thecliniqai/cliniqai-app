@@ -126,7 +126,7 @@ export function PatientDirectoryTable({
       <CardHeader className="py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <Users className="w-4 h-4 text-[#1769E0]" />
+            <Users className="w-4 h-4 text-accent" />
             <span>Patient Records</span>
           </CardTitle>
           <span className="text-xs text-gray-500">
@@ -138,9 +138,9 @@ export function PatientDirectoryTable({
 
         {/* Search input field */}
         <div className="relative w-full sm:w-72 md:w-80">
-          <span className="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-gray-400">
+          <span className="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none text-fg-subtle">
             {isSearchingRemote ? (
-              <Loader2 className="w-4 h-4 text-[#1769E0] animate-spin" />
+              <Loader2 className="w-4 h-4 text-accent animate-spin" />
             ) : (
               <Search className="w-4 h-4" />
             )}
@@ -150,13 +150,13 @@ export function PatientDirectoryTable({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by name, phone, or ABHA..."
-            className="w-full h-9 ps-9 pe-8 text-xs rounded-lg border border-gray-200 bg-gray-50/60 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#1769E0] focus:bg-white transition-colors"
+            className="w-full h-9 ps-9 pe-8 text-xs rounded-lg border border-gray-200 bg-gray-50/60 text-gray-900 placeholder:text-fg-placeholder focus:outline-none focus:border-accent focus:bg-white transition-colors"
           />
           {hasSearch && (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="absolute inset-y-0 end-0 flex items-center pe-2.5 text-gray-400 hover:text-gray-600 cursor-pointer"
+              className="absolute inset-y-0 end-0 flex items-center pe-2.5 text-fg-subtle hover:text-gray-600 cursor-pointer"
               aria-label="Clear search"
             >
               <X className="w-4 h-4" />
@@ -187,7 +187,7 @@ export function PatientDirectoryTable({
           </div>
         ) : displayedPatients.length === 0 ? (
           <div className="py-12 text-center">
-            <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-2.5">
+            <div className="w-10 h-10 rounded-full bg-gray-100 text-fg-subtle flex items-center justify-center mx-auto mb-2.5">
               <Search className="w-5 h-5" />
             </div>
             <h4 className="text-sm font-semibold text-gray-900 mb-1">
@@ -234,12 +234,12 @@ export function PatientDirectoryTable({
                     <TableCell>
                       <Link
                         href={`/patients/${p.id}`}
-                        className="font-semibold text-gray-900 hover:text-[#1769E0] transition-colors flex items-center gap-2 group"
+                        className="font-semibold text-gray-900 hover:text-accent transition-colors flex items-center gap-2 group"
                       >
                         <span>{p.full_name}</span>
-                        <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-[#1769E0] transition-opacity" />
+                        <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-accent transition-opacity" />
                       </Link>
-                      <span className="text-xs text-gray-400 font-mono">
+                      <span className="text-xs text-fg-subtle font-mono">
                         ID: {p.id.slice(0, 8)}
                       </span>
                     </TableCell>
@@ -262,7 +262,7 @@ export function PatientDirectoryTable({
                           <span>{p.abha_id}</span>
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400 italic">Unlinked</span>
+                        <span className="text-xs text-fg-subtle italic">Unlinked</span>
                       )}
                     </TableCell>
                     <TableCell>

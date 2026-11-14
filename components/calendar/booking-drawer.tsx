@@ -235,7 +235,7 @@ export function BookingDrawer({
         {/* Drawer Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-500 border border-brand-100">
+            <div className="w-10 h-10 rounded-xl bg-accent-subtle flex items-center justify-center text-accent border border-accent-border">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
@@ -251,7 +251,7 @@ export function BookingDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close drawer"
-            className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+            className="p-1.5 text-fg-subtle hover:text-gray-700 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -290,7 +290,7 @@ export function BookingDrawer({
                     onChange={(e) => setTime(e.target.value)}
                     required
                   />
-                  <Clock className="w-4 h-4 text-gray-400 absolute right-3 top-3.5 pointer-events-none" />
+                  <Clock className="w-4 h-4 text-fg-subtle absolute right-3 top-3.5 pointer-events-none" />
                 </div>
               </Field>
             </div>
@@ -301,7 +301,7 @@ export function BookingDrawer({
                   id="appt-doctor"
                   value={doctorId}
                   onChange={(e) => setDoctorId(e.target.value)}
-                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent"
                 >
                   {doctors.map((doc) => (
                     <option key={doc.id} value={doc.id}>
@@ -317,7 +317,7 @@ export function BookingDrawer({
                   id="appt-duration"
                   value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
-                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                  className="w-full h-11 px-3 text-sm rounded-lg border border-gray-300 bg-white text-gray-900 shadow-theme-xs focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent"
                 >
                   <option value={15}>15 Minutes</option>
                   <option value={20}>20 Minutes</option>
@@ -350,7 +350,7 @@ export function BookingDrawer({
                 }}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
                   tab === "search"
-                    ? "border-brand-500 text-brand-500"
+                    ? "border-accent text-accent"
                     : "border-transparent text-gray-500 hover:text-gray-900"
                 }`}
               >
@@ -366,7 +366,7 @@ export function BookingDrawer({
                 }}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
                   tab === "new"
-                    ? "border-brand-500 text-brand-500"
+                    ? "border-accent text-accent"
                     : "border-transparent text-gray-500 hover:text-gray-900"
                 }`}
               >
@@ -386,14 +386,14 @@ export function BookingDrawer({
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
-                    <Search className="w-4 h-4 text-gray-400 absolute right-3 top-3.5 pointer-events-none" />
+                    <Search className="w-4 h-4 text-fg-subtle absolute right-3 top-3.5 pointer-events-none" />
                   </div>
                 </Field>
 
                 {chosenPatient ? (
-                  <div className="p-3.5 bg-brand-50 border border-brand-200 rounded-xl flex items-center justify-between">
+                  <div className="p-3.5 bg-accent-subtle border border-accent-border rounded-xl flex items-center justify-between">
                     <div>
-                      <div className="text-[11px] font-bold text-brand-700 uppercase tracking-wider">
+                      <div className="text-[11px] font-bold text-accent-fg uppercase tracking-wider">
                         Selected Patient
                       </div>
                       <div className="text-sm font-bold text-gray-900 mt-0.5">
@@ -431,7 +431,7 @@ export function BookingDrawer({
                                 {p.phone} • {p.age != null ? `Age ${p.age}` : "Age N/A"}
                               </div>
                             </div>
-                            <UserCheck className="w-4 h-4 text-brand-500 shrink-0" />
+                            <UserCheck className="w-4 h-4 text-accent shrink-0" />
                           </button>
                         ))}
                       </div>

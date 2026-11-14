@@ -47,9 +47,9 @@ export function SingleRevealKeyModal({
     >
       <div className="space-y-6">
         {/* Amber Security Warning Banner (06-UI-SPEC.md §1.3) */}
-        <div className="bg-[#FFF5E5] border border-[#F3D39A] rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-[#9A5B00] shrink-0 mt-0.5" />
-          <div className="text-sm text-[#9A5B00] leading-relaxed">
+        <div className="bg-warning-bg border border-warning-border rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-warning-fg shrink-0 mt-0.5" />
+          <div className="text-sm text-warning-fg leading-relaxed">
             <span className="font-semibold block mb-0.5">Save this secret key now:</span>
             For security reasons, this raw API key will never be displayed again. If you lose this key, you will need to generate a new one.
           </div>

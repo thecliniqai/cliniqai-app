@@ -132,7 +132,7 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-[#1769E0] border border-blue-100">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-accent border border-blue-100">
                 <User className="w-4 h-4" />
               </div>
               <div>
@@ -150,7 +150,7 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
             {/* Full Name */}
             <Field label="Full Name" htmlFor="profile_full_name" required>
               <div className="relative">
-                <span className="absolute start-3 top-2.5 text-gray-400">
+                <span className="absolute start-3 top-2.5 text-fg-subtle">
                   <User className="w-4 h-4" />
                 </span>
                 <Input
@@ -178,7 +178,7 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
             {/* Email Address (Read-only) */}
             <Field label="Login Email" htmlFor="profile_email">
               <div className="relative">
-                <span className="absolute start-3 top-2.5 text-gray-400">
+                <span className="absolute start-3 top-2.5 text-fg-subtle">
                   <Mail className="w-4 h-4" />
                 </span>
                 <Input
@@ -194,7 +194,7 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
             {/* Active Clinic (Read-only) */}
             <Field label="Active Clinic / Practice" htmlFor="profile_clinic">
               <div className="relative">
-                <span className="absolute start-3 top-2.5 text-gray-400">
+                <span className="absolute start-3 top-2.5 text-fg-subtle">
                   <Building2 className="w-4 h-4" />
                 </span>
                 <Input
@@ -236,7 +236,7 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
                 required
               >
                 <div className="relative">
-                  <span className="absolute start-3 top-2.5 text-gray-400">
+                  <span className="absolute start-3 top-2.5 text-fg-subtle">
                     <ShieldCheck className="w-4 h-4" />
                   </span>
                   <Input
@@ -254,14 +254,14 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
               {/* Default Specialty */}
               <Field label="Primary Clinical Specialty" htmlFor="profile_specialty">
                 <div className="relative">
-                  <span className="absolute start-3 top-2.5 text-gray-400">
+                  <span className="absolute start-3 top-2.5 text-fg-subtle">
                     <Stethoscope className="w-4 h-4" />
                   </span>
                   <select
                     id="profile_specialty"
                     value={defaultSpecialty}
                     onChange={(e) => setDefaultSpecialty(e.target.value)}
-                    className="w-full h-10 ps-9 pe-3 rounded-xl border border-gray-300 bg-white text-sm font-medium text-gray-900 focus:outline-none focus:border-[#1769E0] focus:ring-1 focus:ring-[#1769E0]"
+                    className="w-full h-10 ps-9 pe-3 rounded-xl border border-gray-300 bg-white text-sm font-medium text-gray-900 focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                   >
                     <option value="general_physician">General Physician</option>
                     <option value="dental">Dental</option>
@@ -298,7 +298,7 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
                     key={deg}
                     type="button"
                     onClick={() => addDegreeChip(deg)}
-                    className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white border border-blue-200 text-[#1769E0] hover:bg-blue-50 transition-colors cursor-pointer"
+                    className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white border border-blue-200 text-accent hover:bg-blue-50 transition-colors cursor-pointer"
                   >
                     +{deg}
                   </button>
@@ -308,7 +308,7 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
 
             {/* Prescription Preview Banner */}
             <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 flex items-start gap-3 text-xs text-gray-600">
-              <Stethoscope className="w-4 h-4 text-[#1769E0] shrink-0 mt-0.5" />
+              <Stethoscope className="w-4 h-4 text-accent shrink-0 mt-0.5" />
               <div>
                 <span className="font-semibold text-gray-800 block">
                   How this appears on patient documents:
@@ -333,7 +333,7 @@ export function UserProfileForm({ user, membership, clinicName }: UserProfileFor
         <Button
           type="submit"
           disabled={isPending}
-          className="h-11 px-6 rounded-xl bg-[#1769E0] text-white hover:bg-[#155cc0] font-semibold text-sm shadow-theme-xs cursor-pointer flex items-center gap-2"
+          className="h-11 px-6 rounded-xl bg-accent text-white hover:bg-accent-hover font-semibold text-sm shadow-theme-xs cursor-pointer flex items-center gap-2"
         >
           <Save className="w-4 h-4" />
           <span>{isPending ? "Saving Profile..." : "Save Profile Settings"}</span>
