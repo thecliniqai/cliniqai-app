@@ -69,6 +69,53 @@ export class ExportScopeMissingError extends PermissionDeniedError {
   }
 }
 
+/**
+ * A section of the archive could not be read (V2-05 05a review INT L-1, plan 05-11c). A Right-to-Access answer must be
+ * complete: the export fails closed (the routes answer 500 with a fixed text) and no "completed" audit row is written.
+ * `cause` stays on the server (log its tag, never the object).
+ */
+export class ExportIncompleteError extends Error {
+  readonly reason = "EXPORT_INCOMPLETE";
+  constructor(
+    readonly section: string,
+    cause: unknown
+  ) {
+    super("The patient export could not be completed.", { cause });
+    this.name = "ExportIncompleteError";
+  }
+}
+
+type QueryResult = { data: unknown; error: unknown };
+
+/** The rows of one archive section, or {@link ExportIncompleteError} when its query failed. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sectionRows(section: string, result: QueryResult): any[] {
+  if (result.error) throw new ExportIncompleteError(section, result.error);
+  return Array.isArray(result.data) ? result.data : [];
+}
+
+/** PostgREST's "no row" answer to `.single()`: the patient is not visible to the caller (→ not found). */
+const NO_ROW = "PGRST116";
+
+/**
+ * The one compliance audit row of a DPDP export (`dpdp.data_export`, status "completed"). Written exactly once per
+ * export, after the archive (and, for a PDF, the document) was produced: the service writes it for a JSON export
+ * unless `skipAudit`; the routes pass `skipAudit` for a PDF and call this after rendering (05-11c: the PDF path wrote
+ * two rows before). A failure to write it is logged, not raised (the archive was produced).
+ */
+export async function recordDpdpExportAudit(ctx: ServiceContext, patientId: string, format: "json" | "pdf"): Promise<void> {
+  try {
+    await recordAudit(ctx, {
+      action: "dpdp.data_export",
+      entityType: "patient",
+      entityId: patientId,
+      metadata: { format, status: "completed" },
+    });
+  } catch (auditErr) {
+    log.warn({ event: "dpdp.export_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+  }
+}
+
 export function dpdpExportPermission(ctx: Pick<ServiceContext, "actorType">): "exports:create" | "patients:view" {
   return ctx.actorType === "api_key" ? "patients:view" : DPDP_EXPORT_PERMISSION;
 }
@@ -108,71 +155,97 @@ export async function exportPatientDpdpArchive(
     .eq("tenant_id", tenantId)
     .single();
 
-  if (patientError || !patient) {
+  // A failed read is not "not found": the export fails closed (05-11c, INT L-1).
+  if (patientError && (patientError as { code?: string }).code !== NO_ROW) {
+    throw new ExportIncompleteError("patient", patientError);
+  }
+  if (!patient) {
     throw new Error("Patient not found or unauthorized.", { cause: patientError });
   }
 
+  // Every section below fails the whole export when its query fails (05-11c, INT L-1): before, an error was dropped
+  // (`data ?? []`) and the archive shipped with 200 and a "completed" audit row while missing whole sections.
+
   // 2. Clinic name and statutory registrations (export metadata only)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: tenant } = await (supabase.from("tenants") as any)
+  const tenantResult = await (supabase.from("tenants") as any)
     .select("name, clinical_establishment_reg_no, state_medical_council_reg_no, gstin, drug_license_no")
     .eq("id", tenantId)
     .single();
+  if (tenantResult.error) throw new ExportIncompleteError("clinic", tenantResult.error);
+  const tenant = tenantResult.data;
 
   // 3. Encounters (visits) with their clinical_notes content (V2-05 05-02a), flattened under the same field names
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: encounterRows } = await (supabase.from("visits") as any)
-    .select(`${exportColumns("encounter")}, ${clinicalNotesEmbed()}`)
-    .eq("patient_id", patientId)
-    .eq("tenant_id", tenantId)
-    .order("scheduled_at", { ascending: false });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const encounters: any[] | null = encounterRows ? encounterRows.map(withClinicalNotes) : null;
+  const encounterRows = sectionRows(
+    "encounters",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("visits") as any)
+      .select(`${exportColumns("encounter")}, ${clinicalNotesEmbed()}`)
+      .eq("patient_id", patientId)
+      .eq("tenant_id", tenantId)
+      .order("scheduled_at", { ascending: false })
+  );
+  const encounters = encounterRows.map(withClinicalNotes);
 
   // 4. Prescriptions with their items
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: prescriptions } = await (supabase.from("prescriptions") as any)
-    .select(`${exportColumns("prescription")}, prescription_items(${exportColumns("prescriptionItem")})`)
-    .eq("patient_id", patientId)
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: false });
+  const prescriptions = sectionRows(
+    "prescriptions",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("prescriptions") as any)
+      .select(`${exportColumns("prescription")}, prescription_items(${exportColumns("prescriptionItem")})`)
+      .eq("patient_id", patientId)
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false })
+  );
 
   // 5. Lab reports and diagnostic documents (metadata only)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: documents } = await (supabase.from("patient_documents") as any)
-    .select(exportColumns("document"))
-    .eq("patient_id", patientId)
-    .eq("tenant_id", tenantId)
-    .order("report_date", { ascending: false });
+  const documents = sectionRows(
+    "documents",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("patient_documents") as any)
+      .select(exportColumns("document"))
+      .eq("patient_id", patientId)
+      .eq("tenant_id", tenantId)
+      .order("report_date", { ascending: false })
+  );
 
   // 6. Billing: invoices with items, and their payments
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: invoices } = await (supabase.from("invoices") as any)
-    .select(`${exportColumns("invoice")}, invoice_items(${exportColumns("invoiceItem")})`)
-    .eq("patient_id", patientId)
-    .eq("tenant_id", tenantId)
-    .order("created_at", { ascending: false });
+  const invoices = sectionRows(
+    "invoices",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("invoices") as any)
+      .select(`${exportColumns("invoice")}, invoice_items(${exportColumns("invoiceItem")})`)
+      .eq("patient_id", patientId)
+      .eq("tenant_id", tenantId)
+      .order("created_at", { ascending: false })
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const invoiceIds = (invoices || []).map((inv: any) => inv.id);
+  const invoiceIds = invoices.map((inv: any) => inv.id);
   let payments: unknown[] = [];
   if (invoiceIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: paymentsData } = await (supabase.from("payments") as any)
-      .select(exportColumns("payment"))
-      .eq("tenant_id", tenantId)
-      .in("invoice_id", invoiceIds)
-      .order("recorded_at", { ascending: false });
-    payments = paymentsData || [];
+    payments = sectionRows(
+      "payments",
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("payments") as any)
+        .select(exportColumns("payment"))
+        .eq("tenant_id", tenantId)
+        .in("invoice_id", invoiceIds)
+        .order("recorded_at", { ascending: false })
+    );
   }
 
   // 7. Consent records
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: consentRecords } = await (supabase.from("consent_records") as any)
-    .select(exportColumns("consentRecord"))
-    .eq("patient_id", patientId)
-    .eq("tenant_id", tenantId)
-    .order("recorded_at", { ascending: false });
+  const consentRecords = sectionRows(
+    "consent_records",
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase.from("consent_records") as any)
+      .select(exportColumns("consentRecord"))
+      .eq("patient_id", patientId)
+      .eq("tenant_id", tenantId)
+      .order("recorded_at", { ascending: false })
+  );
 
   const exportMetadata: DpdpArchiveMetadata = {
     standard: "DPDP_ACT_2023_RIGHT_TO_ACCESS",
@@ -192,30 +265,19 @@ export async function exportPatientDpdpArchive(
     export_metadata: exportMetadata,
     ...toExportDtos({
       patient,
-      encounters: encounters || [],
-      prescriptions: prescriptions || [],
-      documents: documents || [],
-      invoices: invoices || [],
+      encounters,
+      prescriptions,
+      documents,
+      invoices,
       payments,
-      consentRecords: consentRecords || [],
+      consentRecords,
     }),
   };
 
-  // 8. Log compliance audit event
+  // 8. Log compliance audit event (only for a complete archive; a PDF caller passes skipAudit and records it after
+  // rendering, so each export has exactly one row)
   if (!options?.skipAudit) {
-    try {
-      await recordAudit(ctx, {
-        action: "dpdp.data_export",
-        entityType: "patient",
-        entityId: patientId,
-        metadata: {
-          format: options?.format || "json",
-          status: "completed",
-        },
-      });
-    } catch (auditErr) {
-      log.warn({ event: "dpdp.export_audit.failed", code: errorTag(auditErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-    }
+    await recordDpdpExportAudit(ctx, patientId, options?.format || "json");
   }
 
   return bundle;

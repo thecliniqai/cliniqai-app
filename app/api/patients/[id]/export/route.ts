@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { CONTEXT_FAILURE_MESSAGE, resolveServiceContext } from "@/lib/auth/context";
-import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive } from "@/features/dpdp/export";
+import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive, recordDpdpExportAudit } from "@/features/dpdp/export";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
-import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -45,7 +44,9 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
   let bundle: Awaited<ReturnType<typeof exportPatientDpdpArchive>>;
   try {
-    bundle = await exportPatientDpdpArchive(ctx, id, { format, skipAudit: false });
+    // One audit row per export (05-11c): the service writes it for JSON; a PDF is audited below, once rendered. An
+    // unreadable section fails the whole export (ExportIncompleteError → the fixed 500 below, no audit row).
+    bundle = await exportPatientDpdpArchive(ctx, id, { format, skipAudit: format === "pdf" });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message.startsWith("Patient not found")) {
@@ -63,16 +64,7 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       log.error({ event: "dpdp.export_pdf_render.failed", code: errorTag(err), requestId: await getRequestId() });
       return NextResponse.json({ error: "Export failed. Please try again." }, { status: 500 });
     }
-    try {
-      await recordAudit(ctx, {
-        action: "dpdp.data_export",
-        entityType: "patient",
-        entityId: id,
-        metadata: { format: "pdf", status: "completed" },
-      });
-    } catch (auditErr) {
-      log.warn({ event: "dpdp.export_pdf_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
-    }
+    await recordDpdpExportAudit(ctx, id, "pdf");
     return new Response(new Uint8Array(pdfBuffer), {
       status: 200,
       headers: {

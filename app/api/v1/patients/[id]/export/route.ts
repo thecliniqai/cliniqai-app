@@ -5,10 +5,9 @@ import { apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { requireServiceContext, type ServiceContext } from "@/lib/auth/context";
 import { getSystemDb } from "@/lib/supabase/system";
-import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive } from "@/features/dpdp/export";
+import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive, recordDpdpExportAudit } from "@/features/dpdp/export";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
-import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -75,28 +74,16 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
   const format = req.nextUrl.searchParams.get("format") || "json";
   try {
+    // One audit row per export (05-11c, INT L-1): the service writes it for JSON; a PDF is audited once rendered. An
+    // unreadable section fails the whole export (ExportIncompleteError → the fixed 500 below, no audit row).
     const bundle = await exportPatientDpdpArchive(ctx, id, {
       format: format === "pdf" ? "pdf" : "json",
-      skipAudit: false,
+      skipAudit: format === "pdf",
     });
 
     if (format === "pdf") {
       const pdfBuffer = await generateDpdpMedicalSummaryPdf(bundle);
-
-      // Record audit log for PDF compilation
-      try {
-        await recordAudit(ctx, {
-          action: "dpdp.data_export",
-          entityType: "patient",
-          entityId: id,
-          metadata: {
-            format: "pdf",
-            status: "completed",
-          },
-        });
-      } catch (auditErr) {
-        log.warn({ event: "api.patient_export_audit.failed", code: errorTag(auditErr), requestId: await getRequestId() });
-      }
+      await recordDpdpExportAudit(ctx, id, "pdf");
 
       const uint8 = new Uint8Array(pdfBuffer);
       return new Response(uint8, {
