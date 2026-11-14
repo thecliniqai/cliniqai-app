@@ -7,6 +7,9 @@
  * 192, a 512 and a maskable 512 icon whose PNG header sizes match what it declares. Before 06-05: no manifest, no
  * worker, no offline page, and the proxy's default deny answered 307 → `/login?next=…`.
  *
+ * 06-01b: the manifest carries the CliniQ AI brand (name and short name "CliniQ AI", theme and background `#FFFFFF`,
+ * the approved token values) and `/offline` names the product (before: "ClinicQ" and the Wave A colours).
+ *
  * The same requests as a locked tenant's owner and receptionist (V2-05 05-10b fixtures) are written and run with 06-06
  * after the 05b merge-in (plan revision 2026-11-14).
  */
@@ -46,8 +49,11 @@ test("signed out: /manifest.webmanifest answers 200 application/manifest+json wi
     theme_color: expect.stringMatching(/^#[0-9a-f]{6}$/i),
     background_color: expect.stringMatching(/^#[0-9a-f]{6}$/i),
   });
-  expect(typeof manifest.name).toBe("string");
+  expect(manifest.name).toBe("CliniQ AI");
+  expect(manifest.short_name).toBe("CliniQ AI");
   expect((manifest.short_name as string).length).toBeLessThanOrEqual(12);
+  expect((manifest.theme_color as string).toLowerCase()).toBe("#ffffff");
+  expect((manifest.background_color as string).toLowerCase()).toBe("#ffffff");
   expect(manifest).not.toHaveProperty("orientation");
   expect(manifest).not.toHaveProperty("shortcuts");
 });
@@ -71,7 +77,11 @@ test("signed out: /sw.js, /offline, /icon.svg and /apple-icon.png answer 200 wit
 
   const offline = await getNoRedirect(request, "/offline");
   expect(offline.headers()["content-type"]).toMatch(/^text\/html/);
-  expect(await offline.text()).toContain("Patient data isn");
+  const offlineHtml = await offline.text();
+  expect(offlineHtml).toContain("Patient data isn");
+  expect(offlineHtml).toContain("CliniQ AI");
+  expect(offlineHtml).toMatch(/<title>Offline · CliniQ AI<\/title>/);
+  expect(offlineHtml).not.toContain("ClinicQ");
 
   const svg = await getNoRedirect(request, "/icon.svg");
   expect(svg.headers()["content-type"]).toMatch(/^image\/svg\+xml/);
@@ -86,7 +96,9 @@ test("the root document links the manifest, the icons and the PWA viewport (no p
   expect(html).toMatch(/<link rel="manifest" href="\/manifest\.webmanifest"/);
   expect(html).toMatch(/<link rel="icon" href="\/icon\.svg[^"]*"[^>]*type="image\/svg\+xml"/);
   expect(html).toMatch(/<link rel="apple-touch-icon" href="\/apple-icon\.png[^"]*"/);
-  expect(html).toMatch(/<meta name="theme-color" content="#[0-9a-f]{6}"/i);
+  expect(html).toMatch(/<meta name="theme-color" content="#ffffff"/i);
+  expect(html).toMatch(/<title>CliniQ AI<\/title>|<title>[^<]* · CliniQ AI<\/title>/);
+  expect(html).toMatch(/<meta name="apple-mobile-web-app-title" content="CliniQ AI"/);
   expect(html).toMatch(/<meta name="mobile-web-app-capable" content="yes"/);
   const viewport = /<meta name="viewport" content="([^"]+)"/.exec(html)?.[1] ?? "";
   expect(viewport).toContain("viewport-fit=cover");
