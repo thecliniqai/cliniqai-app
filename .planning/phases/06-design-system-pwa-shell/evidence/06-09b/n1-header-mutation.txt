@@ -1,0 +1,7 @@
+   ✓ PDF route guards (F1, F3) > refuses the prescription PDF to a role without prescriptions:view (receptionist, nurse → 403) 56ms
+   ✓ PDF route guards (F1, F3) > lets a role with prescriptions:view past the gate (doctor → 404 for a missing visit, not 403) 50ms
+   ✓ PDF route guards (F1, F3) > lets every clinic role with appointments:view reach the receipt lookup (receptionist → 404 for a missing invoice) 37ms
+   × PDF route guards (F1, F3) > 06-09b (N-1): a served prescription or receipt PDF, inline or download, is `private` and `no-store` 155ms
+     → prescription: expected [ 'no-cache' ] to deeply equal ArrayContaining ["private", "no-store"]
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+      Tests  1 failed | 5 passed (6)
