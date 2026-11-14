@@ -6,11 +6,19 @@
  * Before 000072 the doctor of a visit could PATCH its invoice to `paid` (or zero its total) through the Data API with no
  * payment, audit or outbox row, and a collector could POST a payment row directly, bypassing record_payment. Now no
  * member updates invoices or inserts payments; the services' charge edits still move the totals and the status
- * (computed in the database), and paying still works through record_payment. Synthetic data only.
+ * (computed in the database), and paying still works through record_payment. 05-11d (N-3, migration 000075): line
+ * totals are computed, a paid invoice's items are locked, and a bill with payments is never lowered to the amount
+ * collected, so only record_payment settles an invoice. Synthetic data only.
  */
 import { randomUUID } from "node:crypto";
 import { beforeAll, describe, expect, it } from "vitest";
-import { addInvoiceItem, deleteInvoiceItem, recordPayment } from "@/features/billing/service";
+import {
+  addInvoiceItem,
+  deleteInvoiceItem,
+  INVOICE_BELOW_COLLECTED_MESSAGE,
+  INVOICE_LOCKED_MESSAGE,
+  recordPayment,
+} from "@/features/billing/service";
 import { ctxFor } from "../helpers/context";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { insertReturningId, type TestDb } from "../helpers/db";
@@ -136,6 +144,53 @@ describe("M-INVOICE: invoices and payments are not writable through the Data API
   });
 });
 
+describe("N-3 (05-11d): a doctor cannot settle or zero an invoice through its items (PostgREST, the re-verifier's probes)", () => {
+  it("MI5: after a part payment, the doctor's item edit down to the amount collected is refused; the invoice is not paid", async () => {
+    const { invoiceId, itemId } = await seedBilledVisit(500);
+    expect(
+      await recordPayment(ctxFor(receptionist), { invoice_id: invoiceId, amount: 100, payment_method: "cash" })
+    ).toMatchObject({ success: true, status: "issued" });
+    const { data, error } = await doctor.client
+      .from("invoice_items")
+      .update({ unit_price: 100, total_price: 100 })
+      .eq("id", itemId)
+      .select("id");
+    expect(data).toBeNull();
+    expect(error).toMatchObject({ code: "42501", message: "INVOICE_BELOW_COLLECTED" });
+    expect(await invoiceState(invoiceId)).toBe("500/500/issued");
+  });
+
+  it("MI6/MI7: a negative charge is refused and a typed line total is replaced by price x quantity", async () => {
+    const { invoiceId } = await seedBilledVisit(500);
+    const negative = await doctor.client.from("invoice_items").insert({
+      tenant_id: owner.tenantId,
+      invoice_id: invoiceId,
+      item_type: "other",
+      description: "Synthetic credit",
+      unit_price: -500,
+      quantity: 1,
+      total_price: -500,
+    });
+    expect(negative.error?.code).toBe("23514");
+    const typed = await doctor.client
+      .from("invoice_items")
+      .insert({
+        tenant_id: owner.tenantId,
+        invoice_id: invoiceId,
+        item_type: "procedure",
+        description: "Synthetic procedure",
+        unit_price: 500,
+        quantity: 1,
+        total_price: 1,
+      })
+      .select("total_price")
+      .single();
+    expect(typed.error).toBeNull();
+    expect(Number(typed.data?.total_price)).toBe(500);
+    expect(await invoiceState(invoiceId)).toBe("1000/1000/issued");
+  });
+});
+
 describe("M-INVOICE: the app's billing paths still work", () => {
   it("adding and removing charges moves the totals and the paid/issued status; paying goes through record_payment", async () => {
     const { invoiceId } = await seedBilledVisit(500);
@@ -155,6 +210,8 @@ describe("M-INVOICE: the app's billing paths still work", () => {
     expect(paid).toMatchObject({ success: true, status: "paid", totalPaid: 800, balanceDue: 0 });
     expect(await invoiceState(invoiceId)).toBe("800/800/paid");
 
+    // 05-11d (N-3): a paid invoice's charges are locked (no adjustment or refund path before V2-10). Before, a later
+    // charge reopened the balance and removing it "settled" the invoice again without a payment.
     const extra = await addInvoiceItem(ctx, {
       invoice_id: invoiceId,
       item_type: "other",
@@ -162,13 +219,39 @@ describe("M-INVOICE: the app's billing paths still work", () => {
       unit_price: 100,
       quantity: 1,
     });
-    expect(extra.success).toBe(true);
-    expect(await invoiceState(invoiceId)).toBe("900/900/issued");
-
-    const removed = await deleteInvoiceItem(ctx, extra.item!.id);
-    expect(removed).toEqual({ success: true });
+    expect(extra).toEqual({ success: false, error: INVOICE_LOCKED_MESSAGE });
     expect(await invoiceState(invoiceId)).toBe("800/800/paid");
     expect(await paymentCount(invoiceId)).toBe(1);
+  });
+
+  it("checkout with an advance: a charge added after a part payment, a removal that leaves a balance, then the rest is collected (05-11d)", async () => {
+    const { invoiceId, itemId } = await seedBilledVisit(500);
+    const ctx = ctxFor(receptionist);
+
+    const advance = await recordPayment(ctx, { invoice_id: invoiceId, amount: 200, payment_method: "cash" });
+    expect(advance).toMatchObject({ success: true, status: "issued", totalPaid: 200, balanceDue: 300 });
+
+    const dressing = await addInvoiceItem(ctx, {
+      invoice_id: invoiceId,
+      item_type: "procedure",
+      description: "Synthetic dressing",
+      unit_price: 150,
+      quantity: 1,
+    });
+    expect(dressing.success).toBe(true);
+    expect(await invoiceState(invoiceId)).toBe("650/650/issued");
+
+    // Removing the consultation fee would bring the bill (150) below the ₹200 already collected: refused.
+    expect(await deleteInvoiceItem(ctx, itemId)).toEqual({ success: false, error: INVOICE_BELOW_COLLECTED_MESSAGE });
+    expect(await invoiceState(invoiceId)).toBe("650/650/issued");
+
+    // Removing the dressing leaves ₹300 due: allowed.
+    expect(await deleteInvoiceItem(ctx, dressing.item!.id)).toEqual({ success: true });
+    expect(await invoiceState(invoiceId)).toBe("500/500/issued");
+
+    const rest = await recordPayment(ctx, { invoice_id: invoiceId, amount: 300, payment_method: "upi" });
+    expect(rest).toMatchObject({ success: true, status: "paid", totalPaid: 500, balanceDue: 0 });
+    expect(await invoiceState(invoiceId)).toBe("500/500/paid");
   });
 
   it("a doctor's recordPayment is still refused (billing:collect), and nothing is written", async () => {

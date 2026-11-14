@@ -145,16 +145,19 @@ select is(pg_temp.as_user('b11b0000-0000-4000-8000-000000000202', 'b11b0000-0000
   pg_temp.pay_sql(450, 'b11b0000-0000-4000-8000-00000000c005'), true),
   '1', 'the balance is paid through record_payment');
 select is(pg_temp.invoice_state(), '650.00/650.00/paid', 'the invoice is paid');
+-- 05-11d (N-3): a paid invoice's items are locked (no adjustment or refund path before V2-10), and the totals trigger
+-- never promotes an invoice to paid (reverify_integrity.test.sql). Before: a later charge reopened the balance and
+-- removing it "settled" the invoice again without a payment.
 select is(pg_temp.as_user('b11b0000-0000-4000-8000-000000000202', 'b11b0000-0000-4000-8000-00000000020a',
   $$insert into public.invoice_items (id, tenant_id, invoice_id, item_type, description, unit_price, quantity, total_price)
     values ('b11b0000-0000-4000-8000-000000002009', 'b11b0000-0000-4000-8000-00000000020a',
             'b11b0000-0000-4000-8000-000000002005', 'other', 'Synthetic extra', 100, 1, 100)$$, true),
-  '1', 'a later charge is added');
-select is(pg_temp.invoice_state(), '750.00/750.00/issued', 'and reopens the balance (issued)');
+  'denied:INVOICE_ITEMS_LOCKED', 'a later charge on the paid invoice is refused (05-11d)');
+select is(pg_temp.invoice_state(), '650.00/650.00/paid', 'and the paid invoice is unchanged');
 select is(pg_temp.as_user('b11b0000-0000-4000-8000-000000000202', 'b11b0000-0000-4000-8000-00000000020a',
-  $$delete from public.invoice_items where id = 'b11b0000-0000-4000-8000-000000002009'$$, true),
-  '1', 'removing that charge');
-select is(pg_temp.invoice_state(), '650.00/650.00/paid', 'settles it again');
+  $$delete from public.invoice_items where id = 'b11b0000-0000-4000-8000-000000002008'$$, true),
+  'denied:INVOICE_ITEMS_LOCKED', 'so is removing one of its charges');
+select is(pg_temp.invoice_state(), '650.00/650.00/paid', 'it stays paid with its total');
 
 -- 4. catalogue -----------------------------------------------------------------------------------------------------
 select ok(not has_table_privilege('authenticated', 'public.invoices', 'UPDATE')

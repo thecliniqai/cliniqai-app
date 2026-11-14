@@ -177,11 +177,12 @@ async function runTenantIds(admin: SupabaseClient, since: string, userIds: strin
     for (const row of m ?? []) ids.add(row.tenant_id as string);
   }
   // Never delete a tenant that predates the run: a pre-existing tenant joined by a run user is a leak, not run data.
-  if (ids.size) {
+  // Chunked like the leak checks: one `in` list of every run tenant id passes the gateway's URL limit (~200 ids).
+  for (const part of chunks([...ids], TENANT_CHUNK)) {
     const { data: old, error: oErr } = await admin
       .from("tenants")
       .select("id")
-      .in("id", [...ids])
+      .in("id", part)
       .lt("created_at", since);
     if (oErr) throw new Error(`teardown: checking tenant ages failed: ${oErr.message}`);
     for (const row of old ?? []) ids.delete(row.id as string);

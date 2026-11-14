@@ -1,0 +1,64 @@
+# db version: 000076, with supabase/migrations/000077_amendment_snapshot_integrity.sql applied inside the same rolled-back transaction
+# test file: supabase/tests/database/amendment_snapshot.test.sql as committed in 2a7b1b9
+1..60
+ok 1 - NF-1 route A repro: a doctor cannot write an amendment row on an unsigned visit
+ok 2 - the doctor writes the final note
+ok 3 - and signs the visit
+ok 4 - NF-1 route A repro: a row taken before the signature does not reopen the signed visit
+ok 5 - so the signed note cannot be replaced
+ok 6 - nor the signed Rx item deleted
+ok 7 - the signed note is intact
+ok 8 - a row written now, after the signature, is admitted
+ok 9 - and it is a snapshot of the signed note
+ok 10 - that row reopens the visit
+ok 11 - route B: the doctor writes an amendment row on his signed visit
+ok 12 - and reopens it
+ok 13 - NF-1 route B repro: another doctor cannot write a row while the amendment is open
+ok 14 - the doctor makes his final edit
+ok 15 - and finalizes
+ok 16 - NF-1 route B repro: a row taken while the visit was open does not reopen the re-signed version
+ok 17 - no snapshot of the re-signed version exists yet
+ok 18 - the other doctor writes a row of the re-signed version
+ok 19 - which snapshots the re-signed note
+ok 20 - and only then reopens it (current_revision moves past every row)
+ok 21 - the other doctor finalizes
+ok 22 - two doctors each write a row of the same signature
+ok 23 - the first row does not block the other doctor's reopen (either row is a faithful snapshot)
+ok 24 - finalized again
+ok 25 - the unused row of the earlier signature is spent
+ok 26 - a legacy row with a malformed snapshot reopens nothing (no 22007 either)
+ok 27 - NF-2 route C repro: no new prescription header on a signed visit
+ok 28 - route C: the other doctor writes an amendment row
+ok 29 - NF-2: the snapshot holds every prescription of the visit
+ok 30 - NF-2 route C repro: including the signed medicines under the decoy
+ok 31 - the amendment reopens the visit
+ok 32 - the signed medicine is removed during the amendment
+ok 33 - NF-2 route C repro: a snapshot still holds the signed medicine
+ok 34 - a header can be added while the visit is reopened for amendment
+ok 35 - and on an open visit (control)
+ok 36 - NF-3 repro: a signed visit's follow-up cannot be moved to another patient
+ok 37 - NF-3 repro: nor rescheduled while the visit is signed
+ok 38 - NF-3: nor deleted
+ok 39 - a follow-up is added while a visit is reopened for amendment (V6)
+ok 40 - and on V4 while reopened
+ok 41 - NF-3: but not on a signed visit
+ok 42 - NF-3: a follow-up names its visit's own patient
+ok 43 - NF-3: a follow-up's patient never changes, on a system path either
+ok 44 - the doctor schedules a follow-up on an open visit (recordFollowUp)
+ok 45 - and changes it while the visit is open
+ok 46 - the front desk reschedules a follow-up of an open visit
+ok 47 - and books a follow-up with no visit
+ok 48 - the doctor clears an open visit's follow-up (the "None" choice)
+ok 49 - the doctor writes the first amendment row
+ok 50 - its snapshot holds every signed Rx item
+ok 51 - and the signed note and follow-up
+ok 52 - the doctor reopens the visit
+ok 53 - and amends the note, an Rx item and the follow-up, and bumps the Rx version (finalizeVisitAmendment)
+ok 54 - the first amendment is finalized
+ok 55 - the second amendment row
+ok 56 - holds the first amended, re-signed version
+ok 57 - the second reopen
+ok 58 - the second amendment is finalized
+ok 59 - the first snapshot still holds the original signed note
+ok 60 - the app's latest-version read still finds the amended prescription
+# summary (grep): ok=60 not_ok=0

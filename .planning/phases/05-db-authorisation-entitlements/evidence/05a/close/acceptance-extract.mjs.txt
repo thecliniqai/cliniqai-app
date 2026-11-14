@@ -1,0 +1,122 @@
+#!/usr/bin/env node
+// 05a gate: per-criterion tool output. Reads the phase-evidence outputs in <evidence-dir> (full-run-<n>.json from the
+// Vitest JSON reporter, pgtap-run-<n>.tap from `npm run test:pgtap`) and prints, for every 05a acceptance criterion,
+// each named spec / pgTAP file with its passed/total counts per run. Prints counts only (no test data).
+// Usage (copy to a .mjs file outside .planning; the repo lints .planning as app code): node acceptance-extract.mjs <evidence-dir> [runs=2]
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+// Run from the repository root: the gate parser is the repo's own scripts/ci/assert-pgtap-report.mjs.
+const { checkPgTapReport } = await import(pathToFileURL(resolve("scripts/ci/assert-pgtap-report.mjs")).href);
+
+const dir = resolve(process.argv[2] ?? ".");
+const runs = Number(process.argv[3] ?? 2);
+
+const CRITERIA = [
+  ["A1 pgTAP matrix covers 100% of tenant tables and passes (05a: roles x full)", {
+    pgtap: ["authz_completeness", "authz_matrix", "authz_helpers", "delete_rules", "domain_policies", "admin_policies", "storage_policies", "grants", "definer_functions"],
+    vitest: ["tests/authz/table-matrix.spec.ts", "tests/authz/generator-drift.spec.ts", "tests/ci/pgtap-report.spec.ts"],
+  }],
+  ["A2 receptionist PostgREST read of clinical_notes denied (PO-3)", {
+    pgtap: ["clinical_notes", "clinical_notes_backfill"],
+    vitest: ["tests/security/role-rls.spec.ts"],
+  }],
+  ["A3 cross-tenant child insert fails", {
+    pgtap: ["composite_fks", "migration_edge_cases_fk"],
+    vitest: ["tests/security/cross-tenant-refs.spec.ts"],
+  }],
+  ["A5 receptionist can register a patient", {
+    pgtap: ["authz_matrix"],
+    vitest: ["tests/patients/receptionist-registration.spec.ts"],
+  }],
+  ["A6 two overlapping non-overbooked appointments cannot both be inserted", {
+    pgtap: ["scheduling_exclusion", "migration_edge_cases_overlap"],
+    vitest: ["tests/scheduling/no-double-booking.spec.ts", "tests/visits/create-visit-slot-race.spec.ts", "tests/api/v1-slot-conflict.spec.ts"],
+  }],
+  ["A7 50 parallel check-ins -> 50 distinct tokens with the IST date", {
+    pgtap: ["queue_tokens", "tenant_local_dates"],
+    vitest: ["tests/integration/queue-token-concurrency.spec.ts"],
+  }],
+  ["Roadmap test: has_permission parity unit test", {
+    pgtap: ["authz_helpers"],
+    vitest: ["tests/permissions/has-permission-parity.spec.ts"],
+  }],
+  ["Roadmap test: migration tests on a copy seeded with the diagnostics' edge cases (FK + overlap + visit integrity)", {
+    pgtap: ["migration_edge_cases_fk", "migration_edge_cases_overlap", "migration_edge_cases_visit_integrity"],
+    vitest: ["tests/ci/diagnostics-script.spec.ts", "tests/ci/fk-edge-cases-inline.spec.ts", "tests/ci/visit-integrity-inline.spec.ts"],
+  }],
+  ["P1-08 RESTRICT + DELETE policies (05-04)", {
+    pgtap: ["delete_rules", "composite_fks"],
+    vitest: ["tests/integration/delete-paths.spec.ts"],
+  }],
+  ["P1-10 / P1-11 referrals directory + consent, exports:create + minimal DTOs (05-06)", {
+    pgtap: ["referrals_rules"],
+    vitest: ["tests/dpdp/export-dto.spec.ts", "tests/api/export-scope.spec.ts", "tests/referrals/referral-consent-write.spec.ts"],
+  }],
+  ["P1-04 trigger part + audit v2 (05-02c)", {
+    pgtap: ["audit_v2", "actor_bindings_audit"],
+    vitest: ["tests/audit/audit-actor.spec.ts", "tests/audit/log-audit-allowlist.spec.ts"],
+  }],
+  ["V2-03 handovers: active-tenant binding (multi-membership), record_payment, lab keys, statement timeouts", {
+    pgtap: ["definer_functions", "grants", "storage_policies", "billing_rpc_only"],
+    vitest: ["tests/authz/active-tenant-carrier.spec.ts", "tests/billing/record-payment-rpc.spec.ts", "tests/billing/collect-permission.spec.ts", "tests/labs/lab-storage-key.spec.ts", "tests/storage/storage-policies-jwt.spec.ts"],
+  }],
+  ["P2-08 FK indexes + V2-03 R-33 tenant-local dates (05-08)", {
+    pgtap: ["fk_indexes", "tenant_local_dates"],
+    vitest: [],
+  }],
+  ["05a review fixes (H-VISIT, H-INVITE, M-*, N-*, NF-1..5)", {
+    pgtap: ["visit_integrity", "invitation_binding", "billing_rpc_only", "api_keys_notices_columns", "actor_bindings_audit", "reverify_integrity", "amendment_snapshot", "signed_visit_fields"],
+    vitest: ["tests/visits/signed-visit-integrity.spec.ts", "tests/billing/invoice-totals-db.spec.ts", "tests/api/v1-visits-no-clinical.spec.ts", "tests/api/v1-patients-no-clinical.spec.ts", "tests/auth/page-revoked-session.spec.ts"],
+  }],
+];
+
+const vitestRuns = [];
+const pgtapRuns = [];
+for (let n = 1; n <= runs; n++) {
+  const vf = join(dir, `full-run-${n}.json`);
+  const pf = join(dir, `pgtap-run-${n}.tap`);
+  vitestRuns.push(existsSync(vf) ? JSON.parse(readFileSync(vf, "utf8")) : null);
+  pgtapRuns.push(existsSync(pf) ? checkPgTapReport(readFileSync(pf, "utf8")) : null);
+}
+
+const vitestCounts = (report, spec) => {
+  if (!report) return "no report";
+  const file = report.testResults.find((t) => t.name.endsWith(`/${spec}`));
+  if (!file) return "MISSING";
+  const total = file.assertionResults.length;
+  const passed = file.assertionResults.filter((a) => a.status === "passed").length;
+  return `${passed}/${total}${passed === total && total > 0 ? "" : " NOT ALL PASSED"}`;
+};
+const pgtapCounts = (report, name) => {
+  if (!report) return "no report";
+  const f = report.files.find((x) => x.name.endsWith(`/${name}.test.sql`));
+  if (!f) return "MISSING";
+  return `${f.passed}/${f.planned}${f.passed === f.planned && f.ran === f.planned ? "" : " NOT ALL PASSED"}`;
+};
+
+let bad = 0;
+for (const [title, { pgtap, vitest }] of CRITERIA) {
+  console.log(`\n${title}`);
+  for (const p of pgtap) {
+    const c = pgtapRuns.map((r) => pgtapCounts(r, p));
+    if (c.some((x) => /MISSING|NOT|no report/.test(x))) bad++;
+    console.log(`  pgTAP  ${p}.test.sql  ${c.map((x, i) => `run${i + 1}=${x}`).join("  ")}`);
+  }
+  for (const v of vitest) {
+    const c = vitestRuns.map((r) => vitestCounts(r, v));
+    if (c.some((x) => /MISSING|NOT|no report/.test(x))) bad++;
+    console.log(`  vitest ${v}  ${c.map((x, i) => `run${i + 1}=${x}`).join("  ")}`);
+  }
+}
+for (let n = 0; n < runs; n++) {
+  const v = vitestRuns[n];
+  const p = pgtapRuns[n];
+  console.log(
+    `\nrun${n + 1}: vitest ${v ? `files=${v.numTotalTestSuites ?? "?"} tests=${v.numTotalTests} passed=${v.numPassedTests} failed=${v.numFailedTests} pending=${v.numPendingTests} todo=${v.numTodoTests} success=${v.success}` : "no report"}` +
+      `; pgTAP ${p ? `files=${p.counts.files} tests=${p.counts.total} passed=${p.counts.passed} gate=${p.problems.length ? "FAIL" : "PASS"}` : "no report"}`,
+  );
+}
+console.log(`\nacceptance-extract: ${bad === 0 ? "every named spec and pgTAP file passed in every run" : `${bad} item(s) missing or not all passed`}`);
+process.exit(bad === 0 ? 0 : 1);

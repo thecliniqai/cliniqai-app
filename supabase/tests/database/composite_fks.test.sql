@@ -171,8 +171,8 @@ select is(pg_temp.try($$update public.visits set patient_id = 'cf000000-0000-400
 select is(pg_temp.try($$insert into public.prescription_items (tenant_id, prescription_id, medicine_name, dosage, duration)
                        values ('cf000000-0000-4000-8000-00000000000a', 'cf000000-0000-4000-8000-000000001009', 'Synthetic', '1-0-1', '5 days')$$), '23514',
   'prescription_items: a supplied tenant_id that differs from the prescription''s is refused (23514, fill trigger)');
-select is(pg_temp.try($$update public.prescription_items set prescription_id = 'cf000000-0000-4000-8000-000000001009' where id = 'cf000000-0000-4000-8000-000000002003'$$), '23503',
-  'prescription_items: re-pointing a tenant-A item at tenant B''s prescription is refused (composite FK)');
+select is(pg_temp.try($$update public.prescription_items set prescription_id = 'cf000000-0000-4000-8000-000000001009' where id = 'cf000000-0000-4000-8000-000000002003'$$), '42501',
+  'prescription_items: re-pointing a tenant-A item at tenant B''s prescription is refused (since 05-11d before the FK: an item''s keys are immutable)');
 insert into public.prescription_items (id, prescription_id, medicine_name, dosage, duration) values ('cf000000-0000-4000-8000-000000002030', 'cf000000-0000-4000-8000-000000001008', 'Synthetic', '1-0-1', '5 days');
 select is((select tenant_id from public.prescription_items where id = 'cf000000-0000-4000-8000-000000002030'), 'cf000000-0000-4000-8000-00000000000a'::uuid,
   'prescription_items: an insert without tenant_id (the app path) gets its prescription''s tenant');

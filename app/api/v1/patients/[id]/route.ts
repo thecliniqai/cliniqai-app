@@ -7,6 +7,7 @@ import { z } from "zod";
 import { INDIAN_MOBILE_REGEX, toE164, extractTenDigits } from "@/lib/utils/phone";
 import { recordAudit } from "@/lib/audit/audit";
 import { erasePatientRecord } from "@/features/dpdp/erasure";
+import { hasPatientClinicalField, PATIENT_CLINICAL_ACCESS_DENIED } from "@/lib/api/patient-dto";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -32,8 +33,7 @@ const patientUpdateSchema = z.object({
   age: z.number().int().min(0).max(130).optional().nullable(),
   sex: z.enum(["male", "female", "other"]).optional().nullable(),
   address: z.record(z.unknown()).optional().nullable(),
-  allergies: z.array(z.string()).optional(),
-  chronic_conditions: z.array(z.string()).optional(),
+  // allergies / chronic_conditions are clinical: refused before parsing (05-11d, N-6).
   emergency_contact: z.record(z.unknown()).optional().nullable(),
   abha_id: z.string().optional().nullable(),
 });
@@ -92,6 +92,8 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
  * PUT /api/v1/patients/[id]
  * Updates patient demographics scoped to active tenant.
  * Records audit trail with actor_type: 'api_key'.
+ * A body with `allergies` or `chronic_conditions` → 403 CLINICAL_ACCESS_DENIED, nothing written (V2-05 05-11d, N-6:
+ * API keys hold no clinical access, R-9; in the app these fields need consultations:view, R-8).
  */
 export async function PUT(req: NextRequest, { params }: RouteContext) {
   const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
@@ -121,6 +123,11 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
     body = await req.json();
   } catch {
     return apiError("INVALID_JSON", "Request body must be valid JSON.", 400, undefined, rateHeaders);
+  }
+
+  // Clinical fields are refused, never silently dropped, before anything is read (N-6).
+  if (hasPatientClinicalField(body)) {
+    return apiError(PATIENT_CLINICAL_ACCESS_DENIED.code, PATIENT_CLINICAL_ACCESS_DENIED.message, 403, undefined, rateHeaders);
   }
 
   const parseResult = patientUpdateSchema.safeParse(body);

@@ -45,6 +45,18 @@ import { clientErrorMessage } from "@/lib/errors/client-message";
 export const BILLING_COLLECT_FORBIDDEN_MESSAGE =
   "Only the front desk can collect payments. Sign and route the bill to reception instead.";
 
+/** Fixed texts for the invoice item guard's refusals (V2-05 05-11d, N-3: invoice_items_integrity_guard). */
+export const INVOICE_LOCKED_MESSAGE = "A paid or cancelled invoice cannot be changed.";
+export const INVOICE_BELOW_COLLECTED_MESSAGE =
+  "This change would bring the bill to or below the amount already collected, and refunds are not available yet.";
+
+function invoiceItemRefusal(err: { code?: string; message?: string } | null | undefined): string | null {
+  if (err?.code !== "42501") return null;
+  if (err.message === "INVOICE_ITEMS_LOCKED") return INVOICE_LOCKED_MESSAGE;
+  if (err.message === "INVOICE_BELOW_COLLECTED") return INVOICE_BELOW_COLLECTED_MESSAGE;
+  return null;
+}
+
 /**
  * True when the caller may create the invoice of `visitId`: a collector (billing:collect), or a clinician
  * (consultations:edit) who is the visit's doctor (Sign & Bill, R-7). Read on the caller's client, in their clinic.
@@ -562,6 +574,8 @@ export async function addInvoiceItem(
       .single();
 
     if (itemErr || !newItem) {
+      const refused = invoiceItemRefusal(itemErr);
+      if (refused) return { success: false, error: refused };
       log.error({ event: "billing.invoice_item_add.failed", code: errorTag(itemErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to add charge to invoice." };
     }
@@ -622,7 +636,7 @@ export async function deleteInvoiceItem(
       .select("id");
 
     if (delErr) {
-      return { success: false, error: "Failed to delete item." };
+      return { success: false, error: invoiceItemRefusal(delErr) ?? "Failed to delete item." };
     }
     // RLS may filter the delete to 0 rows (V2-05 05-04; the DELETE policy needs billing:collect): refuse the no-op
     // before the totals are recomputed or an audit row is written.

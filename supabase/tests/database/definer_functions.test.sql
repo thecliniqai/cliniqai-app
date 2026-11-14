@@ -205,7 +205,9 @@ insert into c2c_definer values
   ('private.webhook_event_subject', 'internal', 'subject lookup for the enqueue RPCs'),
   ('private.visits_create_clinical_notes', 'internal', 'trigger (05-02a)'),
   ('private.referrals_directory_consent_guard', 'internal', 'trigger: referral target listed + consent (05-06); actor, target doctor, consent coverage (000074, 05-11b)'),
-  ('private.invoice_items_sync_invoice', 'internal', 'trigger: invoice totals and status follow its items (000072, 05-11b)');
+  ('private.invoice_items_sync_invoice', 'internal', 'trigger: invoice totals and status follow its items (000072, 05-11b); never promotes to paid (000075, 05-11d)'),
+  ('private.invoice_items_integrity_guard', 'internal', 'trigger: computed line total, keys, paid/collected locks (000075, 05-11d)'),
+  ('private.visit_revisions_actor_guard', 'internal', 'trigger: amendment author, database snapshot and number (000068/000075, 05-11a/05-11d)');
 
 -- 1. ------------------------------------------------------------------------------------------------------------------
 select set_eq(
@@ -255,7 +257,8 @@ select set_eq(
     'private.enqueue_message_internal:', 'private.enqueue_webhook_internal:', 'private.message_subject:',
     'private.webhook_event_subject:', 'private.visits_create_clinical_notes:',
     'public.referral_directory_search:authenticated', 'private.referrals_directory_consent_guard:',
-    'public.record_payment:authenticated,service_role', 'private.invoice_items_sync_invoice:'
+    'public.record_payment:authenticated,service_role', 'private.invoice_items_sync_invoice:',
+    'private.invoice_items_integrity_guard:', 'private.visit_revisions_actor_guard:'
   ]::text[],
   'every definer function has exactly its expected EXECUTE grantees (anon only for the token, probe and ingest paths)'
 );
