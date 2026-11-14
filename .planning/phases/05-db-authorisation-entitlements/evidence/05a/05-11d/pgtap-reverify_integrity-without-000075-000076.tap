@@ -1,0 +1,207 @@
+# db version: 000074
+# HEAD: 505d10e (05-11d test file in the tree, migrations 000075-000076 NOT applied)
+/Users/sid/Code/clinicOS/supabase/tests/database/reverify_integrity.test.sql .. 
+1..61
+not ok 1 - N-1 repro: a doctor cannot move a signed Rx item onto another patient's Rx
+# Failed test 1: "N-1 repro: a doctor cannot move a signed Rx item onto another patient's Rx"
+#         have: ok
+#         want: denied:PRESCRIPTION_ITEM_KEY_IMMUTABLE
+not ok 2 - an Rx item's keys are immutable on a system path too
+# Failed test 2: "an Rx item's keys are immutable on a system path too"
+#       caught: 23503: insert or update on table "prescription_items" violates foreign key constraint "prescription_items_tenant_prescription_fkey"
+#       wanted: 42501: PRESCRIPTION_ITEM_KEY_IMMUTABLE
+not ok 3 - N-1 repro: a doctor cannot move a signed diagnosis to another visit
+# Failed test 3: "N-1 repro: a doctor cannot move a signed diagnosis to another visit"
+#         have: ok
+#         want: denied:DIAGNOSIS_KEY_IMMUTABLE
+not ok 4 - N-1 repro: nor to another visit and patient together
+# Failed test 4: "N-1 repro: nor to another visit and patient together"
+#         have: ok
+#         want: denied:DIAGNOSIS_KEY_IMMUTABLE
+not ok 5 - a diagnosis's keys are immutable on a system path too
+# Failed test 5: "a diagnosis's keys are immutable on a system path too"
+#       caught: no exception
+#       wanted: 42501
+not ok 6 - a diagnosis cannot name a patient other than its visit's
+# Failed test 6: "a diagnosis cannot name a patient other than its visit's"
+#         have: ok
+#         want: denied:DIAGNOSIS_PATIENT_MISMATCH
+ok 7 - control: the doctor records a diagnosis for the open visit's own patient
+not ok 8 - N-1 repro: a signed Rx item cannot be edited
+# Failed test 8: "N-1 repro: a signed Rx item cannot be edited"
+#         have: ok
+#         want: denied:PRESCRIPTION_ITEM_VISIT_SIGNED
+not ok 9 - N-1 repro: nor deleted, even by the signing doctor
+# Failed test 9: "N-1 repro: nor deleted, even by the signing doctor"
+#         have: ok
+#         want: denied:PRESCRIPTION_ITEM_VISIT_SIGNED
+not ok 10 - nor can an item be added to a signed Rx
+# Failed test 10: "nor can an item be added to a signed Rx"
+#         have: ok
+#         want: denied:PRESCRIPTION_ITEM_VISIT_SIGNED
+not ok 11 - a signed visit's diagnosis cannot be edited
+# Failed test 11: "a signed visit's diagnosis cannot be edited"
+#         have: ok
+#         want: denied:DIAGNOSIS_VISIT_SIGNED
+not ok 12 - nor deleted
+# Failed test 12: "nor deleted"
+#         have: ok
+#         want: denied:DIAGNOSIS_VISIT_SIGNED
+not ok 13 - nor can one be added to a signed visit
+# Failed test 13: "nor can one be added to a signed visit"
+#         have: ok
+#         want: denied:DIAGNOSIS_VISIT_SIGNED
+ok 14 - control: the items of an open visit stay editable
+not ok 15 - the signed item is unchanged
+# Failed test 15: "the signed item is unchanged"
+#         have: NULL
+#         want: Synthetic Amoxicillin/1-0-1
+not ok 16 - N-8 repro: a squatted number is ignored; the row gets previous + 1
+# Failed test 16: "N-8 repro: a squatted number is ignored; the row gets previous + 1"
+#         have: 2147483647
+#         want: 1
+not ok 17 - N-2 repro: a '{}' snapshot is replaced by the signed note
+# Failed test 17: "N-2 repro: a '{}' snapshot is replaced by the signed note"
+#         have: NULL
+#         want: Synthetic signed note 05-11d
+not ok 18 - N-2: the snapshot holds the signed vitals
+# Failed test 18: "N-2: the snapshot holds the signed vitals"
+#         have: NULL
+#         want: 120/80
+not ok 19 - N-2: and the signed diagnoses and Rx items
+# Failed test 19: "N-2: and the signed diagnoses and Rx items"
+#         have: NULL
+#         want: Synthetic signed diagnosis/Synthetic Amoxicillin
+not ok 20 - N-2: and the signature it amends
+# Failed test 20: "N-2: and the signature it amends"
+#         have: NULL
+#         want: c11d0000-0000-4000-8000-000000000102
+not ok 21 - the next amendment is numbered 2 (a client 1 is ignored)
+# Failed test 21: "the next amendment is numbered 2 (a client 1 is ignored)"
+#         have: 1
+#         want: 2
+ok 22 - N-8: the squat does not block the doctor's reopen
+not ok 23 - a reopened visit's Rx items are editable (amendment path)
+# Failed test 23: "a reopened visit's Rx items are editable (amendment path)"
+#         have: none
+#         want: ok
+not ok 24 - and its diagnoses
+# Failed test 24: "and its diagnoses"
+#         have: none
+#         want: ok
+ok 25 - the doctor finalizes the amendment
+not ok 26 - after finalizing, the items are locked again
+# Failed test 26: "after finalizing, the items are locked again"
+#         have: none
+#         want: denied:PRESCRIPTION_ITEM_VISIT_SIGNED
+not ok 27 - a second amendment is numbered 3
+# Failed test 27: "a second amendment is numbered 3"
+#         have: 2
+#         want: 3
+not ok 28 - its snapshot is the amended, re-signed content
+# Failed test 28: "its snapshot is the amended, re-signed content"
+#         have: NULL
+#         want: 1-1-1
+not ok 29 - on a system path too the snapshot and number come from the database
+# Failed test 29: "on a system path too the snapshot and number come from the database"
+#         have: true/99
+#         want: false/4
+not ok 30 - another clinic's owner is refused before anything is read
+# Failed test 30: "another clinic's owner is refused before anything is read"
+#         have: denied:new row violates row-level security policy for table "visit_revisions"
+#         want: denied:AMENDMENT_FORBIDDEN
+not ok 31 - N-3 repro (MI6): a negative charge is refused
+# Failed test 31: "N-3 repro (MI6): a negative charge is refused"
+#         have: ok
+#         want: error:23514
+not ok 32 - N-3 repro (MI7): the line total is price x quantity, not the typed 1
+# Failed test 32: "N-3 repro (MI7): the line total is price x quantity, not the typed 1"
+#         have: 1.00
+#         want: 200.00
+not ok 33 - the invoice follows
+# Failed test 33: "the invoice follows"
+#         have: -199.00/0.00/issued
+#         want: 500.00/500.00/issued
+not ok 34 - an UPDATE of the line total alone is recomputed too
+# Failed test 34: "an UPDATE of the line total alone is recomputed too"
+#         have: 1.00
+#         want: 300.00
+ok 35 - the receptionist collects ₹100 of ₹500 through record_payment
+not ok 36 - N-3 repro (MI5): the doctor cannot lower the bill to what was collected
+# Failed test 36: "N-3 repro (MI5): the doctor cannot lower the bill to what was collected"
+#         have: ok
+#         want: denied:INVOICE_BELOW_COLLECTED
+not ok 37 - the invoice is unchanged, not paid
+# Failed test 37: "the invoice is unchanged, not paid"
+#         have: 100.00/100.00/paid
+#         want: 500.00/500.00/issued
+ok 38 - a reduction that leaves a balance due is still allowed
+not ok 39 - a collector cannot remove the charge that was partly paid either (no refund path)
+# Failed test 39: "a collector cannot remove the charge that was partly paid either (no refund path)"
+#         have: ok
+#         want: denied:INVOICE_BELOW_COLLECTED
+not ok 40 - the balance is collected through record_payment: paid
+# Failed test 40: "the balance is collected through record_payment: paid"
+#         have: error:P0001
+#         want: paid
+not ok 41 - a paid invoice's items cannot be added to
+# Failed test 41: "a paid invoice's items cannot be added to"
+#         have: ok
+#         want: denied:INVOICE_ITEMS_LOCKED
+not ok 42 - or changed
+# Failed test 42: "or changed"
+#         have: none
+#         want: denied:INVOICE_ITEMS_LOCKED
+not ok 43 - the paid invoice is intact
+# Failed test 43: "the paid invoice is intact"
+#         have: 100.00/100.00/paid
+#         want: 400.00/400.00/paid
+not ok 44 - an item never moves to another invoice (every path)
+# Failed test 44: "an item never moves to another invoice (every path)"
+#       caught: no exception
+#       wanted: 42501
+not ok 45 - items brought down to the amount paid (system path) leave the invoice issued: only record_payment sets paid
+# Failed test 45: "items brought down to the amount paid (system path) leave the invoice issued: only record_payment sets paid"
+#         have: -498.00/0.00/issued
+#         want: 200.00/200.00/issued
+ok 46 - a doctor who is not the visit's doctor is refused by the item policy, as before (the guard reveals nothing)
+not ok 47 - catalogue: both invoice item CHECKs are validated (000076)
+# Failed test 47: "catalogue: both invoice item CHECKs are validated (000076)"
+#         have: 0
+#         want: 2
+not ok 48 - N-5 repro: a receptionist cannot register a patient as created by the owner
+# Failed test 48: "N-5 repro: a receptionist cannot register a patient as created by the owner"
+#         have: ok
+#         want: denied:ACTOR_INVALID
+ok 49 - control: as itself it can
+not ok 50 - N-5 repro: created_by never changes
+# Failed test 50: "N-5 repro: created_by never changes"
+#         have: ok
+#         want: denied:ACTOR_INVALID
+ok 51 - control: other demographics stay editable
+not ok 52 - N-7 repro: "/<TAB>/host" is refused
+# Failed test 52: "N-7 repro: "/<TAB>/host" is refused"
+#       caught: no exception
+#       wanted: 23514
+not ok 53 - a newline after the slash is refused
+# Failed test 53: "a newline after the slash is refused"
+#       caught: no exception
+#       wanted: 23514
+not ok 54 - a control character anywhere is refused
+# Failed test 54: "a control character anywhere is refused"
+#       caught: no exception
+#       wanted: 23514
+ok 55 - a protocol-relative link stays refused
+ok 56 - the app's in-app links are accepted
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 50/61 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/reverify_integrity.test.sql (Wstat: 768 (exited 3) Tests: 56 Failed: 45)
+  Failed tests:  1-6, 8-13, 15-21, 23-24, 26-34, 36-37, 39-45
+                47-48, 50, 52-54
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 61 tests but ran 56.
+Files=1, Tests=56,  0 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: FAIL

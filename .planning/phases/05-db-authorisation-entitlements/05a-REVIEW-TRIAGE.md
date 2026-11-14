@@ -58,5 +58,12 @@ lookups report a database failure as an error, not 404; the second-deadlock spec
 consent failure withdraws the referral (single transaction via RPC in V2-11). 05-11a: prescriber = caller (strict);
 doctor reassignment refused for doctors only. 05-11b: `record_payment` SECURITY DEFINER; scopes set at key creation
 only; `reason_for_referral` not consent-gated; `dpdp.*` audit actions accepted only from their own paths.
-Assigned: v1 `/prescriptions`, `/referrals`, `/lab-orders` clinical content → P1-37 (v1 off everywhere, PO-16);
+Assigned: v1 `/prescriptions`, `/referrals`, `/lab-orders` and `/patients` (allergies and chronic conditions: read, and write at creation; PUT refuses them since 05-11d) clinical content → P1-37 (v1 off everywhere, PO-16);
 shared read state of role/broadcast notices → V2-11; `link_url` CHECK VALIDATE → 05-b0; 000070 deploy order → 05-b0 runbook.
+
+## Re-verification (`reviews/v205a-review-reverify.md`, commit `505d10e`)
+
+H-VISIT, H-INVITE, M-ACTOR, M-DURATION, M-TOKEN, M-NOTICE and M-APIKEY are closed. M-SIGNED, M-INVOICE and M-APINOTES
+had follow-on findings, fixed in **05-11d** (000075-000076): N-1, N-2, N-3, N-5, N-6, N-7 and N-8. Deferred: N-4 → V2-09a
+with V2-08 (the queue "Done" button and checkout complete unsigned visits by design, so the rule is not local; see the
+05-11d record, Deviation 1); N-9 → V2-09a / P1-37 invariant. The Mediums (N-1, N-2, N-3, N-6) get a fresh re-verification.
