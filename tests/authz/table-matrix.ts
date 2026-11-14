@@ -346,12 +346,13 @@ export const TARGETS: readonly Target[] = [
     table: "patients",
     key: ["id"],
     fixture: { id: q(FX.patient), tenant_id: A, full_name: "'Synthetic Patient'", phone: "'+919000000001'", created_by: U.ownerA },
-    insert: { id: q(FX.row(2)), tenant_id: A, full_name: "'Synthetic Insert'", phone: "'+919000000002'", created_by: U.ownerA },
+    insert: { id: q(FX.row(2)), tenant_id: A, full_name: "'Synthetic Insert'", phone: "'+919000000002'", created_by: "auth.uid()" },
     update: "full_name",
     rules: permSiu("patients:view", "patients:edit", rpcOnly),
     note:
       "05-02b: receptionists register patients (P0-14, PO-3); a change to allergies/chronic_conditions needs " +
-      "consultations:view (patients_clinical_fields_guard, 42501, R-8; front_desk_policies.test.sql)",
+      "consultations:view (patients_clinical_fields_guard, 42501, R-8; front_desk_policies.test.sql). 05-11d (N-5): " +
+      "created_by = caller on INSERT and never changed (patients_actor_guard, 42501 ACTOR_INVALID)",
   },
   {
     kind: "table",
@@ -416,7 +417,9 @@ export const TARGETS: readonly Target[] = [
     },
     update: "amendment_reason",
     rules: { select: perm("consultations:view"), insert: perm("consultations:edit"), update: rpcOnly, delete: rpcOnly },
-    note: "append-only amendment history (no UPDATE policy); the author is the caller (05-11a guard)",
+    note:
+      "append-only amendment history (no UPDATE policy); the author is the caller (05-11a guard); the snapshot and the " +
+      "number are filled by the database (05-11d, N-2/N-8)",
   },
   {
     kind: "table",
@@ -438,6 +441,10 @@ export const TARGETS: readonly Target[] = [
     insert: { id: q(FX.row(9)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), diagnosis_name: "'Synthetic diagnosis'" },
     update: "diagnosis_name",
     rules: permSiu("consultations:view", "consultations:edit", perm("consultations:edit")),
+    note:
+      "05-11d (N-1): keys never change; a signed-in caller records a diagnosis only for its visit's patient and writes " +
+      "diagnoses only while the visit is unsigned or reopened (consultation_diagnoses_integrity_guard; " +
+      "reverify_integrity.test.sql). The fixture visit is unsigned",
   },
   {
     kind: "table",
@@ -473,7 +480,10 @@ export const TARGETS: readonly Target[] = [
     },
     update: "medicine_name",
     rules: permSiu("prescriptions:view", "prescriptions:edit", perm("prescriptions:edit")),
-    note: "tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U on it since 05-02b (no subquery)",
+    note:
+      "tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U on it since 05-02b (no subquery). " +
+      "05-11d (N-1): keys never change; items are written only while the visit is unsigned or reopened " +
+      "(prescription_items_integrity_guard; reverify_integrity.test.sql). The fixture visit is unsigned",
   },
   {
     kind: "table",
@@ -503,7 +513,11 @@ export const TARGETS: readonly Target[] = [
       update: billingWrite(ownVisitOfInvoice),
       delete: perm("billing:collect"),
     },
-    note: "DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op)",
+    note:
+      "DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op). " +
+      "05-11d (N-3): line total = price x quantity (computed), price >= 0, keys never change; no write to a paid or " +
+      "cancelled invoice's items, and an invoice with payments is never lowered to the amount collected " +
+      "(invoice_items_integrity_guard; reverify_integrity.test.sql). The fixture invoice is draft with a zero item",
   },
   {
     kind: "table",

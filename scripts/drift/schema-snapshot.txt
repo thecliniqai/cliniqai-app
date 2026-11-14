@@ -785,7 +785,7 @@ constraint public.follow_ups.follow_ups_tenant_id_fkey FOREIGN KEY (tenant_id) R
 constraint public.follow_ups.follow_ups_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
 constraint public.follow_ups.follow_ups_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)
 constraint public.in_app_notifications.in_app_notifications_category_check CHECK ((category = ANY (ARRAY['clinical'::text, 'queue'::text, 'billing'::text, 'system'::text])))
-constraint public.in_app_notifications.in_app_notifications_link_url_relative CHECK (((link_url IS NULL) OR (link_url ~ '^/([^/\\]|$)'::text))) NOT VALID
+constraint public.in_app_notifications.in_app_notifications_link_url_relative CHECK (((link_url IS NULL) OR (link_url ~ '^/([^/\\[:cntrl:][:space:]][^[:cntrl:][:space:]]*)?$'::text))) NOT VALID
 constraint public.in_app_notifications.in_app_notifications_pkey PRIMARY KEY (id)
 constraint public.in_app_notifications.in_app_notifications_recipient_role_check CHECK ((recipient_role = ANY (ARRAY['doctor'::text, 'receptionist'::text, 'admin'::text, 'owner'::text, 'nurse'::text])))
 constraint public.in_app_notifications.in_app_notifications_recipient_user_id_fkey FOREIGN KEY (recipient_user_id) REFERENCES auth.users(id) ON DELETE CASCADE
@@ -801,6 +801,8 @@ constraint public.invoice_items.invoice_items_pkey PRIMARY KEY (id)
 constraint public.invoice_items.invoice_items_quantity_check CHECK ((quantity > 0))
 constraint public.invoice_items.invoice_items_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.invoice_items.invoice_items_tenant_invoice_fkey FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE CASCADE
+constraint public.invoice_items.invoice_items_total_matches CHECK ((total_price = round((unit_price * (quantity)::numeric), 2)))
+constraint public.invoice_items.invoice_items_unit_price_nonnegative CHECK ((unit_price >= (0)::numeric))
 constraint public.invoices.invoices_pkey PRIMARY KEY (id)
 constraint public.invoices.invoices_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'issued'::text, 'paid'::text, 'cancelled'::text])))
 constraint public.invoices.invoices_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
@@ -1032,17 +1034,21 @@ function private.audit_client_actions() returns text[] lang=sql security_definer
 function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=398fea5d583e2a0c02e276e519b2be57
 function private.audit_metadata_keys() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=eaa923de229821ba8f13c1dde459513a
 function private.consent_records_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8031128a7ee603d5caf94f85055911d8
+function private.consultation_diagnoses_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=c353346d6ed1c9ef1952dc689e48e1c8
 function private.enqueue_message_internal(p_tenant_id uuid, p_patient_id uuid, p_visit_id uuid, p_channel text, p_message_type text, p_template_id text, p_template_params jsonb, p_recipient_phone text, p_recipient_user_id uuid, p_metadata jsonb, p_run_at timestamp with time zone, p_dedupe_key text, p_created_by uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=f13ae355890d673b3b7a7fa235e0a32d
 function private.enqueue_webhook_internal(p_tenant_id uuid, p_event_type text, p_data jsonb, p_event_key text, p_subscription_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=763d49ebad50197b2e663c0d616f3020
 function private.indian_mobile_national(p_phone text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=2a5aa7a4e8b1d1466066904166db237e
-function private.invoice_items_sync_invoice() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=70bb574a8f37dc92947aadded6859c7c
+function private.invoice_items_integrity_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=2a62bf04efb8ac06230fed9f6d077d7a
+function private.invoice_items_sync_invoice() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=b82d3d630d44c615bd5dcf0368ba1bf8
 function private.invoices_insert_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9e99b683ef5df552abc6ed4429d5f956
 function private.log_system_audit(p_tenant uuid, p_system_actor text, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=43454c84b959bca41bce09ae79e83f95
 function private.message_params_ok(p_params jsonb, p_allowed text[], p_max integer) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=e10f676cdbfd121d4e73600b2347b949
 function private.message_subject(p_patient_id uuid, p_visit_id uuid, OUT visit_tenant uuid, OUT visit_patient uuid, OUT patient_tenant uuid) returns record lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=ebd0a35b0126da7755b4a29aa82d2881
 function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=c91f5ac2da43fc2875f7d2db37311254
 function private.patient_documents_fill_report_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=7e2b1e557d54c545d6796e572df71ba8
+function private.patients_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9137400efeb88466beca8d4531b92f6e
 function private.payments_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9d07a669cf91ce75b6839f73f1d5c6b0
+function private.prescription_items_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=e794336ea9b12c5dea79c77db4782de8
 function private.prescriptions_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=259bb5557ceb43aa38bbdd61e20265eb
 function private.queue_tokens_fill_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8ea5b43572ff835d2a842c29c4954ef9
 function private.referrals_directory_consent_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=a5359403a017da1c1a914506a6c8f23c
@@ -1051,7 +1057,7 @@ function private.session_age_fresh_seconds() returns integer lang=sql security_d
 function private.session_age_non_mailbox_methods() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=e87c54c10462bf2088aa50f3d398b3a2
 function private.session_age_token_hook(event jsonb) returns jsonb lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=3c2be7b2ca884766fb76799d75601c71
 function private.share_invoice_allowed(p_tenant uuid, p_invoice uuid) returns boolean lang=sql security_definer=f volatility=s config=search_path="" body_md5=0d7decea17a88bcad93da79e0b7cea6b
-function private.visit_revisions_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=44304a4c072a36c0d164ebb38b919db0
+function private.visit_revisions_actor_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=315dd8e2592926900ac464dd7b52d33a
 function private.visits_create_clinical_notes() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=94f806265257f3a3c569fbef346a1a91
 function private.visits_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=5395404649e09627dec6900ac5f5d62f
 function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=3f9364431c0bfd99577d1cf49f87bf8e
@@ -2169,13 +2175,17 @@ trigger public.communication_queue.communication_queue_apply_early_dlr CREATE TR
 trigger public.communication_queue.communication_queue_enqueue_job CREATE TRIGGER communication_queue_enqueue_job AFTER INSERT ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION ops.communication_queue_enqueue_job()
 trigger public.communication_queue.communication_queue_scrub_payload CREATE TRIGGER communication_queue_scrub_payload BEFORE INSERT OR UPDATE ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION communication_queue_scrub_payload()
 trigger public.consent_records.consent_records_actor_guard CREATE TRIGGER consent_records_actor_guard BEFORE INSERT ON public.consent_records FOR EACH ROW EXECUTE FUNCTION private.consent_records_actor_guard()
+trigger public.consultation_diagnoses.consultation_diagnoses_integrity_guard CREATE TRIGGER consultation_diagnoses_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.consultation_diagnoses FOR EACH ROW EXECUTE FUNCTION private.consultation_diagnoses_integrity_guard()
+trigger public.invoice_items.invoice_items_integrity_guard CREATE TRIGGER invoice_items_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.invoice_items FOR EACH ROW EXECUTE FUNCTION private.invoice_items_integrity_guard()
 trigger public.invoice_items.invoice_items_sync_invoice CREATE TRIGGER invoice_items_sync_invoice AFTER INSERT OR DELETE OR UPDATE ON public.invoice_items FOR EACH ROW EXECUTE FUNCTION private.invoice_items_sync_invoice()
 trigger public.invoices.invoices_insert_guard CREATE TRIGGER invoices_insert_guard BEFORE INSERT ON public.invoices FOR EACH ROW EXECUTE FUNCTION private.invoices_insert_guard()
 trigger public.memberships.memberships_profile_update_guard CREATE TRIGGER memberships_profile_update_guard BEFORE UPDATE ON public.memberships FOR EACH ROW EXECUTE FUNCTION memberships_profile_update_guard()
 trigger public.patient_documents.patient_documents_fill_report_date CREATE TRIGGER patient_documents_fill_report_date BEFORE INSERT ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_fill_report_date()
+trigger public.patients.patients_actor_guard CREATE TRIGGER patients_actor_guard BEFORE INSERT OR UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_actor_guard()
 trigger public.patients.patients_clinical_fields_guard CREATE TRIGGER patients_clinical_fields_guard BEFORE UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION patients_clinical_fields_guard()
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
 trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
+trigger public.prescription_items.prescription_items_integrity_guard CREATE TRIGGER prescription_items_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION private.prescription_items_integrity_guard()
 trigger public.prescriptions.prescriptions_actor_guard CREATE TRIGGER prescriptions_actor_guard BEFORE INSERT OR UPDATE ON public.prescriptions FOR EACH ROW EXECUTE FUNCTION private.prescriptions_actor_guard()
 trigger public.queue_tokens.queue_tokens_fill_date CREATE TRIGGER queue_tokens_fill_date BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.queue_tokens_fill_date()
 trigger public.referrals.referrals_directory_consent_guard CREATE TRIGGER referrals_directory_consent_guard BEFORE INSERT OR UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION private.referrals_directory_consent_guard()
