@@ -1,0 +1,44 @@
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/invitations_v2.test.sql ...... 
+# Failed test 22: "a receptionist (no staff:invite) cannot invite"
+#         have: {"id": "75489a6f-2102-4b6d-a778-5d9d908bccee", "deduped": true, "expires_at": "2026-11-17T22:41:57.928205+00:00"}
+#         want: denied:STAFF_INVITE_FORBIDDEN
+# Failed test 23: "a removed admin (valid JWT) cannot invite (05-05 status)"
+#         have: {"id": "75489a6f-2102-4b6d-a778-5d9d908bccee", "deduped": true, "expires_at": "2026-11-17T22:41:57.928205+00:00"}
+#         want: denied:STAFF_INVITE_FORBIDDEN
+# Failed test 24: "a dual member acting in A cannot invite into B, where they are the owner (R-42)"
+#         have: {"id": "f693e031-a5fc-429c-898a-70d385cdee78", "deduped": false, "expires_at": "2026-11-17T22:41:57.928205+00:00"}
+#         want: denied:STAFF_INVITE_FORBIDDEN
+# Failed test 45: "a receptionist cannot resend"
+#         have: {"id": "09378b37-b187-4018-a95a-291aabb793a2", "expires_at": "2026-11-17T22:41:57.928205+00:00", "token_version": 3}
+#         want: denied:STAFF_INVITE_FORBIDDEN
+# Looks like you failed 4 tests of 75
+Failed 4/75 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql ... 
+# Failed test 36: "invite_staff: acting in A, inviting into B (where the caller is the owner) is refused (05-07a)"
+#         have: 1
+#         want: denied:STAFF_INVITE_FORBIDDEN
+# Looks like you failed 1 test of 40
+Failed 1/40 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/admin_policies.test.sql ...... 
+# Failed test 16: "a receptionist cannot invite"
+#         have: 1
+#         want: denied:STAFF_INVITE_FORBIDDEN
+# Failed test 17: "B's owner acting in A cannot invite into B"
+#         have: 1
+#         want: denied:STAFF_INVITE_FORBIDDEN
+# Looks like you failed 2 tests of 32
+Failed 2/32 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/invitation_binding.test.sql .. ok
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/invitations_v2.test.sql    (Wstat: 0 Tests: 75 Failed: 4)
+  Failed tests:  22-24, 45
+/Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql (Wstat: 0 Tests: 40 Failed: 1)
+  Failed test:  36
+/Users/sid/Code/clinicOS/supabase/tests/database/admin_policies.test.sql    (Wstat: 0 Tests: 32 Failed: 2)
+  Failed tests:  16-17
+Files=4, Tests=161,  1 wallclock secs ( 0.01 usr  0.01 sys +  0.01 cusr  0.01 csys =  0.04 CPU)
+Result: FAIL
+error running container: exit 1

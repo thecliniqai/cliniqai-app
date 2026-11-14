@@ -1,0 +1,70 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/security/invite-token-lockout.spec.ts (4 tests | 4 failed) 6ms
+   × inviteStaff never exposes the invitation token > returns only the invitation id when NODE_ENV=production 4ms
+     → expected { success: false, …(1) } to deeply equal { success: true, …(1) }
+   × inviteStaff never exposes the invitation token > returns only the invitation id when NODE_ENV=development 0ms
+     → expected { success: false, …(1) } to deeply equal { success: true, …(1) }
+   × inviteStaff never exposes the invitation token > returns only the invitation id when NODE_ENV=test 0ms
+     → expected { success: false, …(1) } to deeply equal { success: true, …(1) }
+   × inviteStaff never exposes the invitation token > handles FormData input the same way 0ms
+     → expected { success: false, …(1) } to deeply equal { success: true, …(1) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/security/invite-token-lockout.spec.ts > inviteStaff never exposes the invitation token > returns only the invitation id when NODE_ENV=production
+ FAIL  tests/security/invite-token-lockout.spec.ts > inviteStaff never exposes the invitation token > returns only the invitation id when NODE_ENV=development
+ FAIL  tests/security/invite-token-lockout.spec.ts > inviteStaff never exposes the invitation token > returns only the invitation id when NODE_ENV=test
+AssertionError: expected { success: false, …(1) } to deeply equal { success: true, …(1) }
+
+- Expected
++ Received
+
+  {
+-   "inviteId": "inv-mock-uuid-456",
+-   "success": true,
++   "error": "Unable to create staff invitation. Please try again.",
++   "success": false,
+  }
+
+ ❯ tests/security/invite-token-lockout.spec.ts:65:22
+     63|       const result = await inviteStaffMemberAction({ email: "colleague…
+     64| 
+     65|       expect(result).toEqual({ success: true, inviteId: "inv-mock-uuid…
+       |                      ^
+     66|       // One invite_staff call with the session clinic, the address an…
+     67|       // nothing is inserted directly (the INSERT privilege is revoked…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/security/invite-token-lockout.spec.ts > inviteStaff never exposes the invitation token > handles FormData input the same way
+AssertionError: expected { success: false, …(1) } to deeply equal { success: true, …(1) }
+
+- Expected
++ Received
+
+  {
+-   "inviteId": "inv-mock-uuid-456",
+-   "success": true,
++   "error": "Unable to create staff invitation. Please try again.",
++   "success": false,
+  }
+
+ ❯ tests/security/invite-token-lockout.spec.ts:86:20
+     84|     const result = await inviteStaffMemberAction(formData);
+     85| 
+     86|     expect(result).toEqual({ success: true, inviteId: "inv-mock-uuid-4…
+       |                    ^
+     87|     for (const spy of spies) expect(spy.mock.calls).toHaveLength(0);
+     88|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  04:21:24
+   Duration  390ms (transform 100ms, setup 9ms, collect 61ms, tests 6ms, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 0 tenant(s), 0 auth user(s), 0 storage object(s); verified none remain

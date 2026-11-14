@@ -1,0 +1,4 @@
+not ok 54 - peek: an expired invitation
+# Failed test 54: "peek: an expired invitation"
+not ok 58 - an expired invitation is refused
+# Failed test 58: "an expired invitation is refused"
