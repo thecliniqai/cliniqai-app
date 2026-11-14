@@ -50,9 +50,10 @@ describe("Cross-Tenant Security Proof & Operational Hardening (REQ-multi-tenancy
     });
 
     it("proves Tenant A cannot read Tenant B rows from 'invitations'", async () => {
+      // token_hash is not readable by members (05-11b, H-INVITE): select the readable columns.
       const { data, error } = await ecosystem.tenantA.owner.client
         .from("invitations")
-        .select("*")
+        .select("id, tenant_id, role, invited_address")
         .eq("id", ecosystem.tenantB.invitationId);
 
       expect(error).toBeNull();

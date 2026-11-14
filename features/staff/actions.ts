@@ -148,6 +148,16 @@ export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult
       if (msg.includes("Invalid invitation token")) {
         return { success: false, error: "Invalid invitation link." };
       }
+      // V2-05 05-11b (H-INVITE, migration 000071): only the invited address may accept, once it is confirmed.
+      if (msg.includes("INVITATION_EMAIL_MISMATCH")) {
+        return {
+          success: false,
+          error: "This invitation was sent to a different email address. Sign in with that address to accept it.",
+        };
+      }
+      if (msg.includes("INVITATION_EMAIL_UNCONFIRMED")) {
+        return { success: false, error: "Confirm your email address first, then open the invitation link again." };
+      }
       return { success: false, error: "Failed to accept invitation. Please try again." };
     }
 
