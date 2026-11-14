@@ -67,3 +67,29 @@ H-VISIT, H-INVITE, M-ACTOR, M-DURATION, M-TOKEN, M-NOTICE and M-APIKEY are close
 had follow-on findings, fixed in **05-11d** (000075-000076): N-1, N-2, N-3, N-5, N-6, N-7 and N-8. Deferred: N-4 → V2-09a
 with V2-08 (the queue "Done" button and checkout complete unsigned visits by design, so the rule is not local; see the
 05-11d record, Deviation 1); N-9 → V2-09a / P1-37 invariant. The Mediums (N-1, N-2, N-3, N-6) get a fresh re-verification.
+
+## Re-check of 05-11d (`reviews/v205a-review-recheck-05-11d.md`, commit `903df53`)
+
+N-1, N-3 and N-6 are closed; N-2 was partial. New findings NF-1 and NF-2 (Medium) and NF-3 (Low) were fixed in **05-11e**
+(000077) and re-checked.
+
+## Final re-check of 05-11e (`reviews/v205a-review-recheck-05-11e.md`, commit `d7e0501`)
+
+NF-1, NF-2 and NF-3 are **closed**. New: 0 High, 0 Medium, 2 Low, 2 Info. Under the PO delivery-speed ruling
+(VERIFICATION_LOG 2026-11-14) the two Lows were cheap and local, so they were fixed at the 05a close with no extra review
+round:
+
+| ID | Finding | Fix | Where |
+|---|---|---|---|
+| NF-4 (Low) | Any `appointments:edit` holder could move a signed visit's `scheduled_at` or relabel its `specialty` with no amendment row; the snapshot did not hold `scheduled_at` | User path: both fields are locked while the visit is signed and `completed` (42501 `VISIT_SIGNED_FIELD_IMMUTABLE`), editable only while reopened; the snapshot's `visit` object holds `scheduled_at` | 000078, `signed_visit_fields.test.sql` (13 of 26 fail at 000077) |
+| NF-5 (Low) | The signature time was the caller's value (back- or forward-dated signatures) | A user-path signature change stores `signed_at = now()` | 000078, same file |
+
+Assigned (Info, no change in 05a):
+
+| ID | Item | Owner |
+|---|---|---|
+| I-1 | Another doctor's empty Rx header (`prescriptions_insert` needs only `prescriptions:edit` and binds `doctor_id` to the caller, not to the visit's doctor) becomes the latest-version Rx of an unsigned visit. The snapshot is faithful; the display problem is R-21's. The header RPC should bind header creation to the visit's doctor or to the amendment author | V2-09a (with the Rx header lock, R-21) |
+| I-2 | A database that ran 000075–000076 with real users could hold a 05-11d row taken of the current signature after an NF-2 decoy; under 000077 it still reopens the visit with a snapshot lacking `prescriptions`. No v2 production database exists | V2-09a; if a v2 database with real data is ever migrated, 05-b0 bumps `current_revision` past existing rows once |
+| `reason_for_visit` | The re-checker suggested also locking it on a signed visit "if the record view shows it" | V2-09a (record immutability) |
+
+The pgTAP gate `FLOOR` / `REQUIRED_FILES` row above is done (05a close: 31 required files, floor 3343).

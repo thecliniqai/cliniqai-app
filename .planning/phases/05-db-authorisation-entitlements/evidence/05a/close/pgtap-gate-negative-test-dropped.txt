@@ -1,0 +1,6 @@
+# 05a gate negative proof 2: one test dropped from a required file (fk_indexes.test.sql: the visits.doctor_id assertion removed and plan(4) -> plan(3) for one real `npm run test:pgtap` run, then restored; git tree clean afterwards)
+# gate commit: 13217bb
+$ node scripts/ci/assert-pgtap-report.mjs <that run's report>
+pgtap-report-gate: files=31 tests=3342 passed=3342 failed=0 skipped/todo=0 floor=3343 required=31
+FAIL total 3342 is below the floor 3343 (suite shrank?)
+exit=1
