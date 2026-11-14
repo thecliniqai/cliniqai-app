@@ -11,6 +11,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { clearPassword, freshMember, mailCount, newestCode } from "../support/password-journeys";
+import { settleAnimations } from "../support/settle";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -31,6 +32,7 @@ function seriousOrCritical(results: AxeResults) {
 }
 
 async function check(page: Page, testInfo: TestInfo, name: string, width: number): Promise<void> {
+  await settleAnimations(page); // never scan a control mid-fade (06-02a Button colour transitions)
   const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
   await testInfo.attach(`axe-${name}.json`, {
     body: JSON.stringify({ url: results.url, violations: results.violations }, null, 2),

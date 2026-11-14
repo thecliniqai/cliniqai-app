@@ -13,6 +13,7 @@ import path from "node:path";
 import { expect, test } from "../fixtures";
 import { ROOT } from "../support/app-env";
 import { storageStatePath } from "../support/run-data";
+import { settleAnimations } from "../support/settle";
 import { DESIGN_WIDTHS } from "./support/widths";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
@@ -33,6 +34,7 @@ test.describe("signed in", () => {
       expect(response?.status()).toBe(200);
       await expect(page.getByRole("heading", { level: 1, name: "Component gallery" })).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
+      await settleAnimations(page);
 
       const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
       const blocking = results.violations

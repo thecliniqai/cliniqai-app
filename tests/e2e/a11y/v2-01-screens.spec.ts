@@ -16,6 +16,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { readRunData, storageStatePath } from "../support/run-data";
+import { settleAnimations } from "../support/settle";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
 const BLOCKING_IMPACTS = new Set(["serious", "critical"]);
@@ -75,8 +76,9 @@ test.describe("R8 blocking: V2-01 auth pages", () => {
         await page.setViewportSize(size);
         await page.goto(authPage.path);
         await authPage.ready(page);
-        // Credential forms keep submit disabled until hydration, then fade it in (150 ms opacity transition).
-        // Scan the settled page the user sees, not a frame mid-transition (02-06 hydration guard).
+        // Credential forms keep submit disabled until hydration, then fade it to its enabled look (v1: opacity; the
+        // 06-02a Button: a 120 ms colour transition). Scan the settled page the user sees, not a frame mid-transition
+        // (02-06 hydration guard; 06-02a: wait for every finite animation, not only opacity).
         const submits = page.locator('button[type="submit"]');
         if (await submits.count()) {
           await expect(submits.first()).toBeEnabled();
@@ -84,6 +86,7 @@ test.describe("R8 blocking: V2-01 auth pages", () => {
             .poll(() => submits.first().evaluate((el) => getComputedStyle(el).opacity))
             .toBe("1");
         }
+        await settleAnimations(page);
 
         const results = await new AxeBuilder({ page }).withTags(TAGS).analyze();
         await attach(testInfo, `${authPage.name}-${size.width}`, results);
@@ -103,6 +106,7 @@ async function settle(page: Page): Promise<void> {
     await expect(submits.first()).toBeEnabled();
     await expect.poll(() => submits.first().evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
   }
+  await settleAnimations(page);
 }
 
 // --- Blocking: 03-12a password screens ---------------------------------------------------------------------------
@@ -136,6 +140,8 @@ test.describe("R8 blocking: 03-12a password screens", () => {
         const form = page.locator('form[aria-labelledby="change-password-title"]');
         await expect(form.getByRole("button", { name: "Change password" })).toBeEnabled();
         await expect.poll(() => form.getByRole("button", { name: "Change password" }).evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+        // The enabled button fades in from the disabled look (120 ms colours); a mid-fade frame failed contrast once.
+        await settleAnimations(page);
 
         const results = await new AxeBuilder({ page }).withTags(TAGS).include('form[aria-labelledby="change-password-title"]').analyze();
         await attach(testInfo, `profile-change-password-${size.width}`, results);

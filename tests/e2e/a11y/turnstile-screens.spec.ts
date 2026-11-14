@@ -12,6 +12,7 @@ import AxeBuilder from "@axe-core/playwright";
 import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { TURNSTILE_ALWAYS_FAIL_SITE_KEY } from "../../setup/test-env";
+import { settleAnimations } from "../support/settle";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -40,6 +41,7 @@ async function settle(page: Page): Promise<void> {
   const submit = page.locator('button[type="submit"]').first();
   await expect(submit).toBeEnabled();
   await expect.poll(() => submit.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+  await settleAnimations(page); // the 06-02a Button fades its colours in; never scan a mid-fade frame
 }
 
 async function check(page: Page, testInfo: TestInfo, name: string, width: number): Promise<void> {
