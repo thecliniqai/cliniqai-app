@@ -97,8 +97,11 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
       return { success: false, error: "Doctor not found in this clinic." };
     }
 
-    // Insert visit under RLS
-    const { data: newVisit, error: insertError } = await (
+    // Insert visit under RLS. Two concurrent inserts of conflicting slots can both find the other's not-yet-committed
+    // row while checking `visits_no_double_booking`; PostgreSQL then aborts one of them as a deadlock (40P01) instead
+    // of 23P01. The other transaction goes on and commits, so one retry answers definitively: 23P01 (the slot is
+    // taken) or, if the other failed, the booking itself (V2-05 05-08).
+    const insertVisit = () => (
       supabase.from("visits") as unknown as {
         insert: (row: Record<string, unknown>) => {
           select: (cols: string) => {
@@ -121,6 +124,8 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
       })
       .select("id")
       .single();
+    let { data: newVisit, error: insertError } = await insertVisit();
+    if (insertError?.code === "40P01") ({ data: newVisit, error: insertError } = await insertVisit());
 
     if (insertError || !newVisit) {
       const mapped = mapDbError(insertError, { [SLOT_TAKEN_REASON]: SLOT_TAKEN_MESSAGE });
