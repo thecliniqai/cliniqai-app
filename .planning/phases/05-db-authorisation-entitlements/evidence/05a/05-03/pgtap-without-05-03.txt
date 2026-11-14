@@ -1,0 +1,428 @@
+# pgTAP lane on a stack reset WITHOUT 000047-000051 (files held aside, schema at 000046), `npm run test:pgtap`, 2026-11-13T23:59:59Z
+# 37 of 37 cross-tenant negative cells report 'ok' (row inserted) instead of 23503; the edge-case file cannot even find the constraint
+
+> clinicos@0.1.0 test:pgtap
+> node --import tsx scripts/test-pgtap.mjs /private/tmp/claude-501/-Users-sid-Code-clinicOS/***/scratchpad/runs/pgtap-without.tap
+
+NotFound: FileSystem.readFile (<home>/.supabase/profile)
+Connecting to local database...
+<home>/Code/clinicOS/supabase/tests/database/authz_completeness.test.sql ................. 
+1..4
+ok 1 - every public table (tenant and global) has a row in tests/authz/table-matrix.ts, and nothing else
+ok 2 - every ops / billing_internal / platform table with a tenant_id has a row in the matrix, and nothing else
+ok 3 - every storage bucket has its path classes in the matrix, and nothing else
+ok 4 - RLS is enabled on every public table
+ok
+<home>/Code/clinicOS/supabase/tests/database/authz_helpers.test.sql ...................... 
+1..77
+ok 1 - authz.permission_keys() exists
+ok 2 - permission_keys returns text[]
+ok 3 - permission_keys is IMMUTABLE
+ok 4 - permission_keys is SECURITY INVOKER
+ok 5 - permission_keys: search_path is empty
+ok 6 - authz.role_has_permission(text, text) exists
+ok 7 - role_has_permission returns boolean
+ok 8 - role_has_permission is IMMUTABLE
+ok 9 - role_has_permission is SECURITY INVOKER
+ok 10 - role_has_permission: search_path is empty
+ok 11 - authz.active_tenant_id() exists
+ok 12 - active_tenant_id returns uuid
+ok 13 - active_tenant_id is STABLE
+ok 14 - active_tenant_id is SECURITY DEFINER
+ok 15 - active_tenant_id: search_path is empty
+ok 16 - authz.member_tenant_ids() exists
+ok 17 - member_tenant_ids returns setof uuid
+ok 18 - member_tenant_ids is STABLE
+ok 19 - member_tenant_ids is SECURITY DEFINER
+ok 20 - member_tenant_ids: search_path is empty
+ok 21 - authz.full_tenant_ids() exists
+ok 22 - full_tenant_ids returns setof uuid
+ok 23 - full_tenant_ids is STABLE
+ok 24 - full_tenant_ids is SECURITY DEFINER
+ok 25 - full_tenant_ids: search_path is empty
+ok 26 - authz.tenant_ids_with(text) exists
+ok 27 - tenant_ids_with returns setof uuid
+ok 28 - tenant_ids_with is STABLE
+ok 29 - tenant_ids_with is SECURITY DEFINER
+ok 30 - tenant_ids_with: search_path is empty
+ok 31 - authz.billing_tenant_ids() exists
+ok 32 - billing_tenant_ids returns setof uuid
+ok 33 - billing_tenant_ids is STABLE
+ok 34 - billing_tenant_ids is SECURITY DEFINER
+ok 35 - billing_tenant_ids: search_path is empty
+ok 36 - public.has_permission(uuid, text) exists
+ok 37 - has_permission returns boolean
+ok 38 - has_permission is STABLE
+ok 39 - has_permission is SECURITY DEFINER
+ok 40 - has_permission: search_path is empty
+ok 41 - public.permission_matrix() exists
+ok 42 - permission_matrix returns a table
+ok 43 - permission_matrix is IMMUTABLE
+ok 44 - permission_matrix is SECURITY INVOKER
+ok 45 - permission_matrix: search_path is empty
+ok 46 - public.current_user_tenant_ids() keeps its signature
+ok 47 - current_user_tenant_ids returns setof uuid
+ok 48 - current_user_tenant_ids is STABLE
+ok 49 - current_user_tenant_ids is SECURITY DEFINER
+ok 50 - current_user_tenant_ids: search_path is empty
+ok 51 - USAGE on schema authz: authenticated and service_role only (not anon, not PUBLIC)
+ok 52 - EXECUTE grants are exact: no PUBLIC or anon grant on any authz function or entry point
+ok 53 - receptionist holds billing:collect (PO-3)
+ok 54 - receptionist holds patients:edit (PO-3, P0-14)
+ok 55 - doctor does not hold billing:collect (PO-3)
+ok 56 - receptionist does not hold consultations:view
+ok 57 - owner holds every known key
+ok 58 - an unknown (misspelt) key is denied to everyone, owner included
+ok 59 - an unknown role holds nothing
+ok 60 - permission_keys lists the 20 keys and never the wildcard
+ok 61 - dual member, header A: active tenant is A
+ok 62 - dual member, header A: full_tenant_ids = {A}
+ok 63 - dual member, header A: has_permission(B, patients:view) is false (03-07 finding 2)
+ok 64 - dual member, header A: has_permission(A, consultations:edit) is true (doctor in A)
+ok 65 - dual member, header B: active tenant is B
+ok 66 - dual member, header B: tenant_ids_with(billing:collect) = {B}
+ok 67 - dual member, header B: has_permission(A, consultations:edit) is false
+ok 68 - dual member, header naming a non-member clinic: no active tenant, no full tenants
+ok 69 - dual member, malformed header: null, no error
+ok 70 - dual member, request.headers not JSON: null, no error
+ok 71 - dual member, no header (two memberships): no active tenant, nothing with patients:view
+ok 72 - dual member: member_tenant_ids still lists both clinics (switcher)
+ok 73 - current_user_tenant_ids() equals member_tenant_ids() (legacy policies keep their meaning)
+ok 74 - single-clinic owner, no header: billing_tenant_ids = {A} (sole membership)
+ok 75 - single-clinic owner, header naming B: still A only (B not theirs)
+ok 76 - anon cannot execute authz functions (no USAGE)
+ok 77 - anon cannot execute has_permission (EXECUTE revoked)
+ok
+psql:<home>/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql:40: ERROR:  column "tenant_id" of relation "prescription_items" does not exist
+LINE 1: insert into public.prescription_items (id, tenant_id, prescr...
+                                                   ^
+<home>/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql ....................... 
+1..2200
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 2200/2200 subtests 
+psql:<home>/Code/clinicOS/supabase/tests/database/composite_fks.test.sql:171: ERROR:  column "tenant_id" does not exist
+LINE 1: select is((select tenant_id from public.prescription_items w...
+                          ^
+<home>/Code/clinicOS/supabase/tests/database/composite_fks.test.sql ...................... 
+1..101
+not ok 1 - the composite tenant FKs are exactly the 38 of 05-03 (columns, parent, delete action)
+# Failed test 1: "the composite tenant FKs are exactly the 38 of 05-03 (columns, parent, delete action)"
+#     Missing records:
+#         ("queue_tokens queue_tokens_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT")
+#         ("api_key_usage_daily api_key_usage_daily_tenant_api_key_fkey FOREIGN KEY (tenant_id, api_key_id) REFERENCES api_keys(tenant_id, id) ON DELETE CASCADE")
+#         ("patient_documents patient_documents_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)")
+#         ("consultations consultations_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("patient_documents patient_documents_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("prescriptions prescriptions_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT")
+#         ("audit_logs audit_logs_tenant_api_key_fkey FOREIGN KEY (tenant_id, api_key_id) REFERENCES api_keys(tenant_id, id) ON DELETE SET NULL (api_key_id)")
+#         ("waitlist_entries waitlist_entries_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT")
+#         ("communication_queue communication_queue_tenant_appointment_fkey FOREIGN KEY (tenant_id, appointment_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (appointment_id)")
+#         ("consultation_diagnoses consultation_diagnoses_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT")
+#         ("webhook_delivery_queue webhook_delivery_queue_tenant_subscription_fkey FOREIGN KEY (tenant_id, subscription_id) REFERENCES webhook_subscriptions(tenant_id, id) ON DELETE CASCADE")
+#         ("communication_queue communication_queue_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("prescriptions prescriptions_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT")
+#         ("follow_ups follow_ups_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)")
+#         ("consultations consultations_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT")
+#         ("prescriptions prescriptions_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("invoices invoices_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT")
+#         ("visits visits_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT")
+#         ("invoice_items invoice_items_tenant_invoice_fkey FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE CASCADE")
+#         ("prescription_items prescription_items_tenant_prescription_fkey FOREIGN KEY (tenant_id, prescription_id) REFERENCES prescriptions(tenant_id, id) ON DELETE CASCADE")
+#         ("waitlist_entries waitlist_entries_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("referrals referrals_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("follow_ups follow_ups_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("document_share_tokens document_share_tokens_tenant_document_fkey FOREIGN KEY (tenant_id, document_id) REFERENCES patient_documents(tenant_id, id) ON DELETE CASCADE")
+#         ("follow_ups follow_ups_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT")
+#         ("consent_records consent_records_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("waitlist_entries waitlist_entries_tenant_promoted_visit_fkey FOREIGN KEY (tenant_id, promoted_visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT")
+#         ("doctor_custom_medicines doctor_custom_medicines_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT")
+#         ("consultation_diagnoses consultation_diagnoses_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("invoices invoices_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("visits visits_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT")
+#         ("referrals referrals_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)")
+#         ("doctor_prescription_templates doctor_prescription_templates_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT")
+#         ("doctor_custom_diagnoses doctor_custom_diagnoses_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT")
+#         ("schedule_blocks schedule_blocks_tenant_doctor_fkey FOREIGN KEY (doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT")
+#         ("visit_revisions visit_revisions_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT")
+#         ("payments payments_tenant_invoice_fkey FOREIGN KEY (tenant_id, invoice_id) REFERENCES invoices(tenant_id, id) ON DELETE RESTRICT")
+#         ("referrals referrals_tenant_referring_doctor_fkey FOREIGN KEY (referring_doctor_id, tenant_id) REFERENCES memberships(user_id, tenant_id) ON DELETE RESTRICT")
+ok 2 - no foreign key in public/ops/private is left NOT VALID
+not ok 3 - the 28 replaced single-column FKs to tenant parents are dropped
+# Failed test 3: "the 28 replaced single-column FKs to tenant parents are dropped"
+#     Unexpected records:
+#         (api_key_usage_daily_api_key_id_fkey)
+#         (audit_logs_api_key_id_fkey)
+#         (communication_queue_appointment_id_fkey)
+#         (communication_queue_patient_id_fkey)
+#         (consent_records_patient_id_fkey)
+#         (consultation_diagnoses_patient_id_fkey)
+#         (consultation_diagnoses_visit_id_fkey)
+#         (consultations_patient_id_fkey)
+#         (document_share_tokens_document_id_fkey)
+#         (follow_ups_patient_id_fkey)
+#         (follow_ups_visit_id_fkey)
+#         (invoice_items_invoice_id_fkey)
+#         (invoices_patient_id_fkey)
+#         (invoices_visit_id_fkey)
+#         (patient_documents_patient_id_fkey)
+#         (patient_documents_visit_id_fkey)
+#         (payments_invoice_id_fkey)
+#         (prescription_items_prescription_id_fkey)
+#         (prescriptions_patient_id_fkey)
+#         (prescriptions_visit_id_fkey)
+#         (queue_tokens_visit_id_fkey)
+#         (referrals_patient_id_fkey)
+#         (referrals_visit_id_fkey)
+#         (visit_revisions_visit_id_fkey)
+#         (visits_patient_id_fkey)
+#         (waitlist_entries_patient_id_fkey)
+#         (waitlist_entries_promoted_visit_id_fkey)
+#         (webhook_delivery_queue_subscription_id_fkey)
+ok 4 - referrals.target_tenant_id stays a single-column FK (cross-tenant by design)
+not ok 5 - api_key_usage_daily_tenant_api_key_fkey: a tenant-A api_key_usage_daily row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 5: "api_key_usage_daily_tenant_api_key_fkey: a tenant-A api_key_usage_daily row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 6 - audit_logs_tenant_api_key_fkey: a tenant-A audit_logs row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 6: "audit_logs_tenant_api_key_fkey: a tenant-A audit_logs row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 7 - communication_queue_tenant_appointment_fkey: a tenant-A communication_queue row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 7: "communication_queue_tenant_appointment_fkey: a tenant-A communication_queue row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 8 - communication_queue_tenant_patient_fkey: a tenant-A communication_queue row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 8: "communication_queue_tenant_patient_fkey: a tenant-A communication_queue row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 9 - consent_records_tenant_patient_fkey: a tenant-A consent_records row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 9: "consent_records_tenant_patient_fkey: a tenant-A consent_records row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 10 - consultation_diagnoses_tenant_patient_fkey: a tenant-A consultation_diagnoses row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 10: "consultation_diagnoses_tenant_patient_fkey: a tenant-A consultation_diagnoses row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 11 - consultation_diagnoses_tenant_visit_fkey: a tenant-A consultation_diagnoses row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 11: "consultation_diagnoses_tenant_visit_fkey: a tenant-A consultation_diagnoses row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 12 - consultations_tenant_doctor_fkey: a tenant-A consultations row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 12: "consultations_tenant_doctor_fkey: a tenant-A consultations row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 13 - consultations_tenant_patient_fkey: a tenant-A consultations row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 13: "consultations_tenant_patient_fkey: a tenant-A consultations row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 14 - doctor_custom_diagnoses_tenant_doctor_fkey: a tenant-A doctor_custom_diagnoses row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 14: "doctor_custom_diagnoses_tenant_doctor_fkey: a tenant-A doctor_custom_diagnoses row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 15 - doctor_custom_medicines_tenant_doctor_fkey: a tenant-A doctor_custom_medicines row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 15: "doctor_custom_medicines_tenant_doctor_fkey: a tenant-A doctor_custom_medicines row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 16 - doctor_prescription_templates_tenant_doctor_fkey: a tenant-A doctor_prescription_templates row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 16: "doctor_prescription_templates_tenant_doctor_fkey: a tenant-A doctor_prescription_templates row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 17 - document_share_tokens_tenant_document_fkey: a tenant-A document_share_tokens row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 17: "document_share_tokens_tenant_document_fkey: a tenant-A document_share_tokens row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 18 - follow_ups_tenant_doctor_fkey: a tenant-A follow_ups row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 18: "follow_ups_tenant_doctor_fkey: a tenant-A follow_ups row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 19 - follow_ups_tenant_patient_fkey: a tenant-A follow_ups row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 19: "follow_ups_tenant_patient_fkey: a tenant-A follow_ups row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 20 - follow_ups_tenant_visit_fkey: a tenant-A follow_ups row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 20: "follow_ups_tenant_visit_fkey: a tenant-A follow_ups row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 21 - invoice_items_tenant_invoice_fkey: a tenant-A invoice_items row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 21: "invoice_items_tenant_invoice_fkey: a tenant-A invoice_items row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 22 - invoices_tenant_patient_fkey: a tenant-A invoices row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 22: "invoices_tenant_patient_fkey: a tenant-A invoices row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 23 - invoices_tenant_visit_fkey: a tenant-A invoices row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 23: "invoices_tenant_visit_fkey: a tenant-A invoices row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 24 - patient_documents_tenant_patient_fkey: a tenant-A patient_documents row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 24: "patient_documents_tenant_patient_fkey: a tenant-A patient_documents row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 25 - patient_documents_tenant_visit_fkey: a tenant-A patient_documents row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 25: "patient_documents_tenant_visit_fkey: a tenant-A patient_documents row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 26 - payments_tenant_invoice_fkey: a tenant-A payments row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 26: "payments_tenant_invoice_fkey: a tenant-A payments row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 27 - prescriptions_tenant_doctor_fkey: a tenant-A prescriptions row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 27: "prescriptions_tenant_doctor_fkey: a tenant-A prescriptions row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 28 - prescriptions_tenant_patient_fkey: a tenant-A prescriptions row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 28: "prescriptions_tenant_patient_fkey: a tenant-A prescriptions row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 29 - prescriptions_tenant_visit_fkey: a tenant-A prescriptions row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 29: "prescriptions_tenant_visit_fkey: a tenant-A prescriptions row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 30 - queue_tokens_tenant_visit_fkey: a tenant-A queue_tokens row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 30: "queue_tokens_tenant_visit_fkey: a tenant-A queue_tokens row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 31 - referrals_tenant_patient_fkey: a tenant-A referrals row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 31: "referrals_tenant_patient_fkey: a tenant-A referrals row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 32 - referrals_tenant_referring_doctor_fkey: a tenant-A referrals row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 32: "referrals_tenant_referring_doctor_fkey: a tenant-A referrals row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 33 - referrals_tenant_visit_fkey: a tenant-A referrals row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 33: "referrals_tenant_visit_fkey: a tenant-A referrals row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 34 - schedule_blocks_tenant_doctor_fkey: a tenant-A schedule_blocks row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 34: "schedule_blocks_tenant_doctor_fkey: a tenant-A schedule_blocks row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 35 - visit_revisions_tenant_visit_fkey: a tenant-A visit_revisions row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 35: "visit_revisions_tenant_visit_fkey: a tenant-A visit_revisions row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 36 - visits_tenant_doctor_fkey: a tenant-A visits row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 36: "visits_tenant_doctor_fkey: a tenant-A visits row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 37 - visits_tenant_patient_fkey: a tenant-A visits row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 37: "visits_tenant_patient_fkey: a tenant-A visits row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 38 - waitlist_entries_tenant_doctor_fkey: a tenant-A waitlist_entries row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 38: "waitlist_entries_tenant_doctor_fkey: a tenant-A waitlist_entries row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 39 - waitlist_entries_tenant_patient_fkey: a tenant-A waitlist_entries row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 39: "waitlist_entries_tenant_patient_fkey: a tenant-A waitlist_entries row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 40 - waitlist_entries_tenant_promoted_visit_fkey: a tenant-A waitlist_entries row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 40: "waitlist_entries_tenant_promoted_visit_fkey: a tenant-A waitlist_entries row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+not ok 41 - webhook_delivery_queue_tenant_subscription_fkey: a tenant-A webhook_delivery_queue row naming tenant B's parent / a non-member doctor is refused (23503)
+# Failed test 41: "webhook_delivery_queue_tenant_subscription_fkey: a tenant-A webhook_delivery_queue row naming tenant B's parent / a non-member doctor is refused (23503)"
+#         have: ok
+#         want: 23503
+ok 42 - api_key_usage_daily_tenant_api_key_fkey: the same row within tenant A inserts (control)
+ok 43 - audit_logs_tenant_api_key_fkey: the same row within tenant A inserts (control)
+ok 44 - communication_queue_tenant_appointment_fkey: the same row within tenant A inserts (control)
+ok 45 - communication_queue_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 46 - consent_records_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 47 - consultation_diagnoses_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 48 - consultation_diagnoses_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 49 - consultations_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 50 - consultations_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 51 - doctor_custom_diagnoses_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 52 - doctor_custom_medicines_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 53 - doctor_prescription_templates_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 54 - document_share_tokens_tenant_document_fkey: the same row within tenant A inserts (control)
+ok 55 - follow_ups_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 56 - follow_ups_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 57 - follow_ups_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 58 - invoice_items_tenant_invoice_fkey: the same row within tenant A inserts (control)
+ok 59 - invoices_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 60 - invoices_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 61 - patient_documents_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 62 - patient_documents_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 63 - payments_tenant_invoice_fkey: the same row within tenant A inserts (control)
+ok 64 - prescription_items_tenant_prescription_fkey: the same row within tenant A inserts (control)
+ok 65 - prescriptions_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 66 - prescriptions_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 67 - prescriptions_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 68 - queue_tokens_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 69 - referrals_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 70 - referrals_tenant_referring_doctor_fkey: the same row within tenant A inserts (control)
+ok 71 - referrals_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 72 - schedule_blocks_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 73 - visit_revisions_tenant_visit_fkey: the same row within tenant A inserts (control)
+ok 74 - visits_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 75 - visits_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 76 - waitlist_entries_tenant_doctor_fkey: the same row within tenant A inserts (control)
+ok 77 - waitlist_entries_tenant_patient_fkey: the same row within tenant A inserts (control)
+ok 78 - waitlist_entries_tenant_promoted_visit_fkey: the same row within tenant A inserts (control)
+ok 79 - webhook_delivery_queue_tenant_subscription_fkey: the same row within tenant A inserts (control)
+not ok 80 - M-XTENANT-WH: as postgres (the only writer since V2-04), a tenant-A queue row naming tenant B's subscription is refused
+# Failed test 80: "M-XTENANT-WH: as postgres (the only writer since V2-04), a tenant-A queue row naming tenant B's subscription is refused"
+#         have: ok
+#         want: 23503
+not ok 81 - an UPDATE re-pointing a tenant-A visit at a tenant-B patient is refused too
+# Failed test 81: "an UPDATE re-pointing a tenant-A visit at a tenant-B patient is refused too"
+#         have: ok
+#         want: 23503
+not ok 82 - prescription_items: a supplied tenant_id that differs from the prescription's is refused (23514, fill trigger)
+# Failed test 82: "prescription_items: a supplied tenant_id that differs from the prescription's is refused (23514, fill trigger)"
+#         have: 42703
+#         want: 23514
+not ok 83 - prescription_items: re-pointing a tenant-A item at tenant B's prescription is refused (composite FK)
+# Failed test 83: "prescription_items: re-pointing a tenant-A item at tenant B's prescription is refused (composite FK)"
+#         have: ok
+#         want: 23503
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 61/101 subtests 
+psql:<home>/Code/clinicOS/supabase/tests/database/memberships_bounds_cleanup.test.sql:111: NOTICE:  constraint "memberships_slot_duration_bounds" of relation "memberships" does not exist, skipping
+psql:<home>/Code/clinicOS/supabase/tests/database/memberships_bounds_cleanup.test.sql:116: NOTICE:  constraint "memberships_availability_schedule_shape" of relation "memberships" does not exist, skipping
+<home>/Code/clinicOS/supabase/tests/database/memberships_bounds_cleanup.test.sql ......... 
+1..7
+ok 1 - control: the slot-length CHECK fails on the planted rows without the clean-up
+ok 2 - slot length 180 is clamped to 120
+ok 3 - a valid schedule is not changed
+ok 4 - slot length 3 is clamped to 5
+ok 5 - a malformed schedule is reset to the column default
+ok 6 - an in-range slot length is not changed
+ok 7 - memberships_slot_duration_bounds and memberships_availability_schedule_shape are present and validated
+ok
+psql:<home>/Code/clinicOS/supabase/tests/database/migration_edge_cases_fk.test.sql:26: ERROR:  constraint "visits_tenant_patient_fkey" of relation "visits" does not exist
+<home>/Code/clinicOS/supabase/tests/database/migration_edge_cases_fk.test.sql ............ 
+1..21
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 21/21 subtests 
+<home>/Code/clinicOS/supabase/tests/database/search_medicines_extension_schema.test.sql .. 
+1..6
+ok 1 - pg_trgm is installed
+ok 2 - precondition: the probe matches only through similarity()
+ok 3 - control: the stale function fails once pg_trgm moved (undefined_function)
+ok 4 - search_medicines calls extensions.similarity after re-resolution
+ok 5 - search_medicines keeps search_path = ''
+ok 6 - search_medicines returns the trigram-only match with pg_trgm in extensions
+ok
+
+Test Summary Report
+-------------------
+<home>/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql                     (Wstat: 768 (exited 3) Tests: 0 Failed: 0)
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 2200 tests but ran 0.
+<home>/Code/clinicOS/supabase/tests/database/composite_fks.test.sql                    (Wstat: 768 (exited 3) Tests: 83 Failed: 43)
+  Failed tests:  1, 3, 5-41, 80-83
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 101 tests but ran 83.
+<home>/Code/clinicOS/supabase/tests/database/migration_edge_cases_fk.test.sql          (Wstat: 768 (exited 3) Tests: 0 Failed: 0)
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 21 tests but ran 0.
+Files=7, Tests=177,  0 wallclock secs ( 0.01 usr  0.02 sys +  0.02 cusr  0.02 csys =  0.07 CPU)
+Result: FAIL
+error running container: exit 1
+[test:pgtap] report: /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/runs/pgtap-without.tap (exit 1)
