@@ -72,9 +72,9 @@ export default function ForgotPasswordPage() {
   // Leaving the page with an unfinished reset ends the recovery session on this device.
   useEffect(() => {
     return () => {
-      if (pendingRecovery.current) void abandonReset(supabase);
+      if (pendingRecovery.current) void abandonReset();
     };
-  }, [supabase]);
+  }, []);
 
   const sendCode = async (turnstile: React.RefObject<TurnstileFieldHandle | null>) => {
     setError(null);
@@ -154,7 +154,7 @@ export default function ForgotPasswordPage() {
   // The recovery session is older than the 10-minute bound (A00-5): end it here and start again with a new code.
   const restartAfterStaleSession = async (message: string) => {
     setCodeAccepted(false);
-    await abandonReset(supabase);
+    await abandonReset();
     setCode("");
     setNewPasswordValue("");
     setConfirmPassword("");
@@ -167,7 +167,7 @@ export default function ForgotPasswordPage() {
   // recovery session included; clearing this device's copy as well covers a revocation that did not reach GoTrue.
   const finish = async (otherSessionsSignedOut: boolean) => {
     setCodeAccepted(false);
-    await abandonReset(supabase);
+    await abandonReset();
     setStep("done");
     setNotice(otherSessionsSignedOut ? null : "We could not sign out your other devices. Sign out on them too.");
   };
@@ -175,7 +175,7 @@ export default function ForgotPasswordPage() {
   const handleCancel = async () => {
     if (codeAccepted) {
       setCodeAccepted(false);
-      await abandonReset(supabase);
+      await abandonReset();
     }
     router.replace("/login");
   };
