@@ -134,7 +134,7 @@ function DatesSpecimens() {
         note="Weeks start on Sunday (en-IN). Today in blue, the picked day filled; days outside min/max are disabled."
       >
         <Specimen label="Inline, 12 Nov 2026 picked" state="selected">
-          <div className="rounded-lg border border-border p-3">
+          <div className="max-w-full rounded-lg border border-border p-3 touch:p-2">
             <Calendar value={inline} onValueChange={setInline} min="2026-11-03" max="2026-12-20" />
           </div>
           <Value id="calendar-inline-value">{inline ?? "none"}</Value>

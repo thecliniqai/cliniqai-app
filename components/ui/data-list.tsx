@@ -72,7 +72,7 @@ export function DataList<Row>({
           ref={list}
           aria-label={label}
           aria-busy={loading || undefined}
-          className="divide-y divide-border rounded-md border border-border bg-surface"
+          className="divide-y divide-border rounded-md border border-border bg-surface text-body-sm"
         >
           {loading &&
             Array.from({ length: SKELETON_ROWS }, (_, i) => (
