@@ -34,6 +34,7 @@ import { EditPatientModal } from "./edit-patient-modal";
 import { PatientLabDocuments } from "./patient-lab-documents";
 import { CreateReferralModal } from "@/components/referrals/create-referral-modal";
 import { getReferralSignedUrl } from "@/features/referrals/actions";
+import { isViewLinkFresh } from "@/lib/storage/view-link";
 import { ConsentSection } from "@/app/(dashboard)/patients/[id]/consent-section";
 import { DpdpExportActions } from "./dpdp-export-actions";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,8 @@ export function PatientDetailView({
     id: string;
     doctorName: string;
     signedUrl?: string;
+    /** When `signedUrl` was signed: it lives 5 minutes (06-09b N-1), so an older one is re-signed before use. */
+    signedAt?: number;
   } | null>(null);
   const [isOpeningNoticePdf, setIsOpeningNoticePdf] = useState(false);
 
@@ -259,7 +262,8 @@ export function PatientDetailView({
               type="button"
               disabled={isOpeningNoticePdf}
               onClick={async () => {
-                let url = recentReferralNotice.signedUrl;
+                const held = recentReferralNotice;
+                let url = held.signedUrl && held.signedAt && isViewLinkFresh(held.signedAt) ? held.signedUrl : undefined;
                 if (!url) {
                   setIsOpeningNoticePdf(true);
                   try {
@@ -267,7 +271,7 @@ export function PatientDetailView({
                     if (res.success && res.signedUrl) {
                       url = res.signedUrl;
                       setRecentReferralNotice((prev) =>
-                        prev ? { ...prev, signedUrl: res.signedUrl } : null
+                        prev ? { ...prev, signedUrl: res.signedUrl, signedAt: Date.now() } : null
                       );
                     }
                   } catch {
@@ -625,6 +629,7 @@ export function PatientDetailView({
             id: ref.id,
             doctorName: ref.referred_to_name,
             signedUrl,
+            signedAt: Date.now(),
           });
         }}
       />

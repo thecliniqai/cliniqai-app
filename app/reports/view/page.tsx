@@ -74,6 +74,9 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
   };
   const patientName = doc.patient_name || "Patient";
   const signedUrl = signed.signedUrl;
+  // 06-09b (N-1): the signed link above feeds the preview, which loads at once, and expires 5 minutes after signing.
+  // Download goes through the token route, which checks the token again and signs a new link on every click.
+  const downloadHref = `/api/reports/view?${new URLSearchParams({ token, download: "true" }).toString()}`;
 
   const isPdf = doc.mime_type === "application/pdf" || doc.original_filename.toLowerCase().endsWith(".pdf");
   const isImage = doc.mime_type.startsWith("image/");
@@ -118,7 +121,7 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
               <p className="text-xs text-fg-muted">Original file: {doc.original_filename}</p>
             </div>
             <a
-              href={signedUrl}
+              href={downloadHref}
               download={doc.original_filename}
               target="_blank"
               rel="noopener noreferrer"
@@ -196,7 +199,7 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
                 <FileText className="w-12 h-12 text-fg-subtle mx-auto mb-3" />
                 <p className="text-sm font-medium text-fg mb-2">Preview not available for this file format.</p>
                 <a
-                  href={signedUrl}
+                  href={downloadHref}
                   download={doc.original_filename}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline"
                 >

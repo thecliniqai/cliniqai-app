@@ -6,7 +6,7 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { visitInTenant } from "@/lib/auth/tenant-refs";
 import { Referral } from "@/lib/db/types";
-import { getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
+import { getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { createReferralSchema, closeReferralLoopSchema, acknowledgeReferralSchema } from "./schema";
 import { ReferralItem, CreateReferralInput, CloseReferralLoopInput, ConsentedHistorySnapshot } from "./types";
 import { generateAndArchiveReferralPdf } from "./pdf/generator";
@@ -517,7 +517,7 @@ export async function closeReferralLoop(
 }
 
 /**
- * Returns a short-lived (3600s) signed URL for the referral letter PDF.
+ * Returns a short-lived (5-minute, `VIEW_LINK_TTL_SECONDS`; 06-09b N-1) signed URL for the referral letter PDF.
  */
 export async function getReferralSignedUrl(
   ctx: ServiceContext,
@@ -550,7 +550,7 @@ export async function getReferralSignedUrl(
     const { signedUrl } = await getSignedUrl(
       {
         path: referralLetterPath(referral.tenant_id, referral.id),
-        expiresInSeconds: 3600,
+        expiresInSeconds: VIEW_LINK_TTL_SECONDS,
         bucket: "clinic-records",
       },
       storageProvider

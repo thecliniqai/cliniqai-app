@@ -12,6 +12,7 @@ import {
 
 export * from "./types";
 export * from "./supabase-provider";
+export * from "./view-link";
 
 let defaultProviderInstance: StorageProvider | null = null;
 

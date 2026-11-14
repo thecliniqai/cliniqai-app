@@ -4,7 +4,7 @@ import React from "react";
 import { pdf } from "@react-pdf/renderer";
 import { recordAudit } from "@/lib/audit/audit";
 import type { ServiceContext } from "@/lib/auth/context";
-import { uploadFile, getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
+import { uploadFile, getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import {
   PrescriptionDocument,
   PrescriptionPdfPayload,
@@ -40,7 +40,7 @@ async function streamToBuffer(stream: unknown): Promise<Buffer> {
 /**
  * Compiles an electronic prescription into an A4 PDF document on the server,
  * uploads it via the unified storage abstraction (lib/storage/),
- * generates a 3600-second signed URL, and records a compliance audit log entry.
+ * generates a 5-minute signed URL (`VIEW_LINK_TTL_SECONDS`, 06-09b N-1), and records a compliance audit log entry.
  */
 export async function generateAndArchivePrescriptionPdf(
   ctx: ServiceContext,
@@ -119,11 +119,11 @@ export async function generateAndArchivePrescriptionPdf(
       .eq("tenant_id", payload.tenant_id);
   }
 
-  // 5. Generate secure, time-limited signed URL (3600s TTL)
+  // 5. Generate secure, time-limited signed URL (5-minute view link)
   const { signedUrl } = await getSignedUrl(
     {
       path: storagePath,
-      expiresInSeconds: 3600,
+      expiresInSeconds: VIEW_LINK_TTL_SECONDS,
       bucket: "prescriptions",
     },
     storageProvider

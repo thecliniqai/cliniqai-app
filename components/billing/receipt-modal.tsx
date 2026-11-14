@@ -79,19 +79,21 @@ export function ReceiptModal({ isOpen, onClose, invoiceId }: ReceiptModalProps) 
 
   if (!isOpen) return null;
 
+  // The signed storage link only feeds the preview, which loads at once: it expires 5 minutes after signing (06-09b
+  // N-1). Print-in-a-tab and Download use the same-origin receipt route instead, which compiles the receipt on every
+  // request and answers `private, no-store`, so a modal left open longer still works.
   const handlePrint = () => {
     if (iframeRef.current?.contentWindow) {
       iframeRef.current.contentWindow.focus();
       iframeRef.current.contentWindow.print();
-    } else if (signedUrl) {
-      window.open(signedUrl, "_blank");
+    } else {
+      window.open(`/api/invoices/${invoiceId}/receipt-pdf`, "_blank");
     }
   };
 
   const handleDownload = () => {
-    const url = signedUrl || `/api/invoices/${invoiceId}/receipt-pdf?download=true`;
     const downloadLink = document.createElement("a");
-    downloadLink.href = url.includes("?") ? `${url}&download=true` : `${url}?download=true`;
+    downloadLink.href = `/api/invoices/${invoiceId}/receipt-pdf?download=true`;
     downloadLink.download = `Receipt-${invoiceNumber || invoiceId.slice(0, 8)}.pdf`;
     downloadLink.target = "_blank";
     document.body.appendChild(downloadLink);

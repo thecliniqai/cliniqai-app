@@ -15,6 +15,7 @@ import {
 import { createReferral, getReferralSignedUrl } from "@/features/referrals/actions";
 import { Referral, ReferralType, ReferralUrgency, LetterheadMode } from "@/lib/db/types";
 import { reportClientError } from "@/lib/log/client";
+import { isViewLinkFresh } from "@/lib/storage/view-link";
 
 export interface CreateReferralModalProps {
   patientId: string;
@@ -85,6 +86,8 @@ export function CreateReferralModal({
   const [createdResult, setCreatedResult] = useState<{
     referral: Referral;
     signedUrl?: string;
+    /** When `signedUrl` was signed: it lives 5 minutes (06-09b N-1), so an older one is re-signed before use. */
+    signedAt?: number;
   } | null>(null);
 
   if (!isOpen) return null;
@@ -97,14 +100,15 @@ export function CreateReferralModal({
 
   const handlePrintLetter = async () => {
     if (!createdResult) return;
-    let url = createdResult.signedUrl;
+    const held = createdResult;
+    let url = held.signedUrl && held.signedAt && isViewLinkFresh(held.signedAt) ? held.signedUrl : undefined;
     if (!url) {
       setIsOpeningPdf(true);
       try {
         const res = await getReferralSignedUrl(createdResult.referral.id);
         if (res.success && res.signedUrl) {
           url = res.signedUrl;
-          setCreatedResult((prev) => (prev ? { ...prev, signedUrl: res.signedUrl } : null));
+          setCreatedResult((prev) => (prev ? { ...prev, signedUrl: res.signedUrl, signedAt: Date.now() } : null));
         } else {
           setError(res.error || "Failed to retrieve referral letter PDF.");
           setIsOpeningPdf(false);
@@ -182,6 +186,7 @@ export function CreateReferralModal({
       setCreatedResult({
         referral: res.referral,
         signedUrl: res.signedUrl,
+        signedAt: Date.now(),
       });
       setIsSubmitting(false);
     } catch (err: unknown) {

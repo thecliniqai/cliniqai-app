@@ -7,7 +7,7 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { FOREIGN_REFERENCE_MESSAGE, visitInTenant } from "@/lib/auth/tenant-refs";
 import { recordAudit } from "@/lib/audit/audit";
 import { PatientDocument } from "@/lib/db/types";
-import { uploadFile, getSignedUrl, deleteFile, getStorageProviderForDb } from "@/lib/storage";
+import { uploadFile, getSignedUrl, deleteFile, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { isPatientStoragePath } from "@/lib/storage/tenant-path";
 import { uploadLabDocumentSchema, generateShareTokenSchema } from "./schema";
 import { LabDocumentItem, ShareTokenResult, DeleteLabDocumentResult } from "./types";
@@ -225,7 +225,8 @@ export async function getPatientDocuments(
 }
 
 /**
- * Generates a short-lived 3600-second signed URL for authorized staff to view/download a document.
+ * Generates a short-lived signed URL (`VIEW_LINK_TTL_SECONDS`, 5 minutes; 06-09b N-1) for authorized staff to
+ * view/download a document. The caller opens it at once.
  */
 export async function getDocumentSignedUrl(
   ctx: ServiceContext,
@@ -259,7 +260,7 @@ export async function getDocumentSignedUrl(
       {
         path: doc.storage_path,
         bucket: "clinic-records",
-        expiresInSeconds: 3600,
+        expiresInSeconds: VIEW_LINK_TTL_SECONDS,
         // The readable name (R-45) is only the download name; the key holds ids only.
         downloadFilename: formatAmendedFilename(doc.patient?.full_name ?? "Patient", doc.original_filename, doc.report_date),
       },

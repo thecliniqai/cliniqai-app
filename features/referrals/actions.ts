@@ -76,7 +76,7 @@ export async function closeReferralLoop(input: CloseReferralLoopInput): Promise<
 }
 
 /**
- * Returns a short-lived (3600s) signed URL for the referral letter PDF.
+ * Returns a short-lived (5-minute, `VIEW_LINK_TTL_SECONDS`) signed URL for the referral letter PDF.
  */
 export async function getReferralSignedUrl(
   referralId: string

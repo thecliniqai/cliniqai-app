@@ -6,7 +6,7 @@ import { recordAudit } from "@/lib/audit/audit";
 import type { ServiceContext } from "@/lib/auth/context";
 import { Database } from "@/lib/db/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { uploadFile, getSignedUrl, getStorageProviderForDb } from "@/lib/storage";
+import { uploadFile, getSignedUrl, getStorageProviderForDb, VIEW_LINK_TTL_SECONDS } from "@/lib/storage";
 import { ReceiptDocument, ReceiptPdfPayload } from "./receipt-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -39,7 +39,7 @@ async function streamToBuffer(stream: unknown): Promise<Buffer> {
 /**
  * Compiles a clinic payment receipt into an A4 PDF document on the server,
  * uploads it via the unified storage abstraction (lib/storage/),
- * generates a 3600-second signed URL, and records an audit log entry.
+ * generates a 5-minute signed URL (`VIEW_LINK_TTL_SECONDS`, 06-09b N-1), and records an audit log entry.
  */
 export async function generateAndArchiveReceiptPdf(
   ctx: ServiceContext,
@@ -108,13 +108,13 @@ async function renderAndArchiveReceipt(
     // can continue to return signed URL / buffer if bucket error
   }
 
-  // 5. Generate secure, time-limited signed URL (3600s TTL)
+  // 5. Generate secure, time-limited signed URL (5-minute view link)
   let signedUrl = "";
   try {
     const signedResult = await getSignedUrl(
       {
         path: storagePath,
-        expiresInSeconds: 3600,
+        expiresInSeconds: VIEW_LINK_TTL_SECONDS,
         bucket: "prescriptions",
       },
       storageProvider
