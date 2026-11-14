@@ -61,6 +61,8 @@ jobs:
         run: npm run inventory -- --out inventory.json
       - name: AI-06 L1 policy checks
         run: npm run ci:ai-l1
+      - name: UI policy (DESIGN_SYSTEM §10; report mode, enforced rules fail)
+        run: npm run ci:ui-policy -- --summary "$GITHUB_STEP_SUMMARY"
       # V2-03 03-01 (I-07, R-15): .env.example is generated from lib/env.ts; this compares without printing it.
       - name: .env.example matches the env schema
         run: node scripts/ci/env-example.mjs --check
