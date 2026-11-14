@@ -376,6 +376,34 @@ body {
   padding-right: env(safe-area-inset-right, 0px);
 }
 
+/*
+ * Touch variant (06-UI-SPEC CD-04; V2-06 06-02a). "Touch" = a coarse pointer or a viewport below 1024 px, the approved
+ * system's rule (`sketch.css` at 3a78a5d): every interactive control reaches the 44 px floor (`touch:min-h-control`)
+ * and inputs draw 16 px text (`touch:text-base`); desktop fine pointers keep the dense 36/32/28 px sizes. Block form:
+ * the one-line form splits the media list at its comma and silently drops the `max-width` half.
+ */
+@custom-variant touch {
+  @media (pointer: coarse), (max-width: 1023px) {
+    @slot;
+  }
+}
+
+/*
+ * Focus treatment (06-UI-SPEC "Focus treatment"; 06-02a). The ring (`ring`, 2 px) always sits outside the control on
+ * a 2 px white halo: 3.99:1 on the halo, 1.29:1 on CliniQ Blue, so it never sits on a blue fill. Primitives write
+ * `focus-visible:focus-ring`. `focus-ring-inset` (CD-12) is for full-bleed rows inside clipping containers only.
+ */
+@utility focus-ring {
+  outline: var(--focus-ring-width) solid var(--color-ring);
+  outline-offset: var(--focus-ring-offset);
+  box-shadow: 0 0 0 var(--focus-ring-offset) var(--color-ring-halo);
+}
+
+@utility focus-ring-inset {
+  outline: var(--focus-ring-width) solid var(--color-ring);
+  outline-offset: calc(var(--focus-ring-width) * -1);
+}
+
 /* Custom scrollbars */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
