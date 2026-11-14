@@ -68,10 +68,10 @@ afterEach(() => {
 });
 
 describe("hardSignOut", () => {
-  it("server revoked: cleanups → announce → POST /auth/signout as a fetch caller → purge → replace /login; no local fallback", async () => {
+  it("server revoked: cleanups → conceal → announce → POST /auth/signout as a fetch caller → purge → replace /login; no local fallback", async () => {
     const { d, calls, bodies, headers } = deps(revoked);
     await hardSignOut("user", d);
-    expect(calls).toEqual(["cleanups", "announce", "fetch /auth/signout POST", "conceal", "purge", "replace /login"]);
+    expect(calls).toEqual(["cleanups", "conceal", "announce", "fetch /auth/signout POST", "conceal", "purge", "replace /login"]);
     expect(bodies).toEqual(["scope=local"]);
     expect(headers[0]).toMatchObject({ "x-clinicos-signout": "fetch" });
   });
@@ -100,6 +100,7 @@ describe("hardSignOut", () => {
     await done;
     expect(calls).toEqual([
       "cleanups",
+      "conceal",
       "announce",
       "fetch /auth/signout POST",
       "signOutLocally local",
@@ -131,6 +132,7 @@ describe("hardSignOut", () => {
     await hardSignOut("user", d);
     expect(calls).toEqual([
       "cleanups",
+      "conceal",
       "announce",
       "fetch /auth/signout POST",
       "signOutLocally local",
@@ -260,7 +262,7 @@ describe("hardSignOut", () => {
       },
     });
     await hardSignOut("user", d);
-    expect(calls).toEqual(["fetch /auth/signout POST", "conceal", "replace /login"]);
+    expect(calls).toEqual(["conceal", "fetch /auth/signout POST", "conceal", "replace /login"]);
   });
 
   it("'recovery' (the forgot-password page) signs out and purges but neither hides the page nor navigates", async () => {
@@ -311,13 +313,38 @@ describe("hardSignOut", () => {
     expect(calls.at(-1)).toBe(`replace ${PARTIAL_SIGN_OUT_TARGET}`);
   });
 
-  it("hides the page before the purge and the navigation, so a navigation the browser refuses leaves nothing on screen", async () => {
+  it("hides the page again before the purge and the navigation, so a navigation the browser refuses leaves nothing on screen", async () => {
     const { d, calls } = deps(async () => {
       throw new TypeError("offline");
     });
     await hardSignOut("user", d);
-    expect(calls.indexOf("conceal")).toBeGreaterThan(calls.indexOf("expireAuthCookies"));
-    expect(calls.indexOf("conceal")).toBeLessThan(calls.indexOf("purge"));
+    expect(calls.lastIndexOf("conceal")).toBeGreaterThan(calls.indexOf("expireAuthCookies"));
+    expect(calls.lastIndexOf("conceal")).toBeLessThan(calls.indexOf("purge"));
+  });
+
+  it("06-09b N-2: the page is hidden right after the cleanups, while the server call is still open", async () => {
+    let release!: () => void;
+    const { d, calls } = deps(
+      (input, init) => new Promise<Response>((resolve) => (release = () => void revoked(input, init).then(resolve))),
+    );
+    const done = hardSignOut("user", d);
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    // The server has not answered yet: the page is already hidden, nothing else has happened.
+    expect(calls).toEqual(["cleanups", "conceal", "announce", "fetch /auth/signout POST"]);
+    release();
+    await done;
+    expect(calls.at(-1)).toBe("replace /login");
+  });
+
+  it("06-09b N-2: hanging cleanups delay the hiding by their 2 s budget at most, never by the server call", async () => {
+    vi.useFakeTimers();
+    const { d, calls } = deps(never, { runCleanups: never as unknown as () => Promise<void> });
+    const done = hardSignOut("switch", d);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(calls).toEqual(["conceal", "announce", "fetch /auth/signout POST"]);
+    await vi.advanceTimersByTimeAsync(5000 + 3000 + 3000);
+    await done;
+    expect(calls.at(-1)).toBe("replace /login");
   });
 
   it("refuses an unknown reason", () => {

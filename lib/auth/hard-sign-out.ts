@@ -9,7 +9,9 @@ import { reportClientError } from "@/lib/log/client";
  * A L-3; T-03-13, T-06-03). Browser-only.
  *
  * Order (no step can hold the exit: every await is raced against a real timer, and steps 1 to 4 share one deadline):
- * 1. `runCleanups("signout")`: Realtime unsubscribes, in-flight aborts, in-memory state (`lib/pwa/cleanup.ts`).
+ * 1. `runCleanups("signout")`: Realtime unsubscribes, in-flight aborts, in-memory state (`lib/pwa/cleanup.ts`). Then
+ *    the page's content is hidden and made inert (every reason except `recovery`; 06-09b, re-verification N-2), so no
+ *    patient data stays on screen or usable while the server call below is in flight.
  * 2. `announceSignOut()`: every other tab of the origin purges and leaves too (`lib/pwa/auth-broadcast.ts`).
  * 3. `POST /auth/signout` as a fetch caller (header {@link SIGN_OUT_FETCH_HEADER}; `scope=global` only for
  *    "everywhere"): GoTrue revokes the session, the auth cookies are deleted, `Clear-Site-Data: "cache"`. The route
@@ -20,8 +22,8 @@ import { reportClientError } from "@/lib/log/client";
  * 4. Only when the server call failed (offline, timeout, refused): the browser client's `auth.signOut` with the same
  *    scope (the only client `signOut` allowed: `signout-guard` UI-policy rule), and every Supabase auth cookie expired
  *    in the browser (they are JS-readable with @supabase/ssr), so this device is signed out even with no network.
- * 5. Always (a `finally`): the page's content is hidden and made inert (if the navigation below cannot happen, e.g. a
- *    browser that refuses it offline, no patient data stays on screen), then `purgeDeviceState()` (caches outside the
+ * 5. Always (a `finally`): the page's content is hidden and made inert again (the backstop for step 1's; if the
+ *    navigation below cannot happen, e.g. a browser that refuses it offline, no patient data stays on screen), then `purgeDeviceState()` (caches outside the
  *    allowlist, `sessionStorage`, non-preference `localStorage`, IndexedDB), then `location.replace(target)`: a hard
  *    navigation (no React tree with patient data survives; Back does not return to this entry). Offline, the service
  *    worker answers with `/offline`.
@@ -176,6 +178,16 @@ async function signOutSteps(state: RunState, deps: HardSignOutDeps): Promise<"do
   const cleaned = await within(() => deps.runCleanups(), CLEANUP_BUDGET_MS);
   if (cleaned instanceof Error) reportClientError("auth.hard_sign_out_cleanup", cleaned);
   if (state.over) return "partial";
+
+  // 06-09b (re-verification N-2): the patient screen goes away now, not after the server call (up to 5 s on a slow
+  // link, 8 s at worst). `run()`'s final conceal stays as the backstop. "recovery" keeps its page (no navigation).
+  if (state.reason !== "recovery") {
+    try {
+      deps.conceal();
+    } catch (err) {
+      reportClientError("auth.hard_sign_out_conceal", err);
+    }
+  }
 
   try {
     deps.announce();
