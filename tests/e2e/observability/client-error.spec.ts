@@ -16,6 +16,25 @@
 import { expect, test } from "../fixtures";
 import { storageStatePath } from "../support/run-data";
 import { psql } from "../../helpers/sql";
+import { readLogFrom, SERVER_STDERR_LOG } from "../support/server-log";
+import { CLIENT_REPEAT_WINDOW_MS } from "@/lib/observability/client-render-event";
+
+/**
+ * 06-09a (C L-1): the server drops a repeat of the same key within a minute, per server instance. Other specs (the
+ * route-state specs) throw the same diagnostic error on this one e2e server, so this test first waits until a minute
+ * has passed since the server last let this key through (its `client.render_error` log line), else its own report would
+ * be a dropped repeat and no row would appear.
+ */
+async function waitOutRepeatWindow(): Promise<void> {
+  const last = readLogFrom(SERVER_STDERR_LOG, 0)
+    .split("\n")
+    .filter((line) => line.includes('"event":"client.render_error"') && line.includes(`"code":"${NAME}"`))
+    .map((line) => Date.parse((JSON.parse(line) as { ts: string }).ts))
+    .at(-1);
+  if (last === undefined) return;
+  const wait = last + CLIENT_REPEAT_WINDOW_MS + 1_000 - Date.now();
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+}
 
 /** Mirrors app/(dashboard)/diag/client-error/trigger.tsx `DIAG_CLIENT_MESSAGE` (values that must never appear). */
 const SYNTHETIC = ["+919000000000", "9000000000", "diag.client@example.com", "Diagnostic client render error"];
@@ -34,6 +53,8 @@ function rowsJson(): Array<Record<string, unknown>> {
 
 test("a client render error shows the boundary without its message and lands in ops.error_events once", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== ONE_DEVICE, "server-side sink, proven once (see the file comment)");
+  test.slow();
+  await waitOutRepeatWindow();
   psql(`delete from ops.error_events where error_name = '${NAME}'`);
 
   await page.goto("/diag/client-error");
