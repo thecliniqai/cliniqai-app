@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DEFAULT_VISIT_DURATION_MINUTES, visitDurationSchema } from "./duration";
 import { addDaysYmd, dayWindowUtc, isYmd, rangeWindowUtc, startOfMonthYmd, todayInTz } from "@/lib/datetime";
 
 export const datePresetEnum = z.enum([
@@ -154,7 +155,7 @@ export const bookAppointmentSchema = z.object({
   patient_id: z.string().uuid("Invalid patient ID"),
   doctor_id: z.string().uuid("Invalid doctor ID"),
   scheduled_at: z.string().datetime({ offset: true }),
-  estimated_duration_minutes: z.number().int().min(5).max(180).default(15),
+  estimated_duration_minutes: visitDurationSchema.default(DEFAULT_VISIT_DURATION_MINUTES),
   reason_for_visit: z.string().max(500).nullable().optional(),
   is_overbooked: z.boolean().default(false),
   override_off_duty: z.boolean().optional().default(false),

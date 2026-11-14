@@ -6,6 +6,7 @@ import { getSystemDb } from "@/lib/supabase/system";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
 import { isSlotTakenError } from "@/features/visits/service";
 import { retryOnDeadlock } from "@/lib/db/retry";
+import { apiVisitDuration, VISIT_DURATION_API_MESSAGE } from "@/features/visits/duration";
 import { recordAudit } from "@/lib/audit/audit";
 
 /**
@@ -141,9 +142,11 @@ export async function POST(req: NextRequest) {
     return apiError("VALIDATION_ERROR", "Field 'scheduled_at' must be a valid ISO 8601 date timestamp.", 422, undefined, rateHeaders);
   }
 
-  const duration = typeof estimated_duration_minutes === "number" && estimated_duration_minutes > 0
-    ? estimated_duration_minutes
-    : 15;
+  // The same bounds as the app and the database (`visits_duration_range`, V2-05 05-11a/05-11c M-DURATION).
+  const duration = apiVisitDuration(estimated_duration_minutes);
+  if (duration === null) {
+    return apiError("VALIDATION_ERROR", VISIT_DURATION_API_MESSAGE, 422, undefined, rateHeaders);
+  }
 
   try {
     // 1. Verify patient exists and belongs to active tenant

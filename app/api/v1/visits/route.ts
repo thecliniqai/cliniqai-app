@@ -7,6 +7,7 @@ import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
 import { isSlotTakenError } from "@/features/visits/service";
 import { retryOnDeadlock } from "@/lib/db/retry";
+import { apiVisitDuration, VISIT_DURATION_API_MESSAGE } from "@/features/visits/duration";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { CLINICAL_NOTES_EMBED_KEY, clinicalNotesEmbed, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
@@ -170,6 +171,12 @@ export async function POST(req: NextRequest) {
     return apiError("VALIDATION_ERROR", "Field 'doctor_id' is required.", 400, undefined, rateHeaders);
   }
 
+  // The same bounds as the app and the database (`visits_duration_range`, V2-05 05-11a/05-11c M-DURATION).
+  const duration = apiVisitDuration(estimated_duration_minutes);
+  if (duration === null) {
+    return apiError("VALIDATION_ERROR", VISIT_DURATION_API_MESSAGE, 422, undefined, rateHeaders);
+  }
+
   const originType = origin_type === "scheduled" ? "scheduled" : "walk_in";
   const visitStatus = status === "in_consultation" ? "in_consultation" : "waiting";
 
@@ -217,10 +224,7 @@ export async function POST(req: NextRequest) {
         reason_for_visit: reason_for_visit || null,
         status: visitStatus,
         scheduled_at: scheduled_at || null,
-        estimated_duration_minutes:
-          typeof estimated_duration_minutes === "number" && estimated_duration_minutes > 0
-            ? estimated_duration_minutes
-            : 15,
+        estimated_duration_minutes: duration,
         created_by: session.userId,
       })
       .select()

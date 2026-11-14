@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { DEFAULT_VISIT_DURATION_MINUTES, visitDurationSchema } from "./duration";
 import { assertPerm } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
@@ -34,7 +35,7 @@ const createVisitSchema = z.object({
   doctor_id: z.string().uuid("Invalid doctor ID"),
   origin_type: z.enum(["scheduled", "walk_in"]),
   scheduled_at: z.string().datetime({ offset: true }).nullable().optional(),
-  estimated_duration_minutes: z.number().int().min(5).max(180).default(15),
+  estimated_duration_minutes: visitDurationSchema.default(DEFAULT_VISIT_DURATION_MINUTES),
   reason_for_visit: z.string().max(500).nullable().optional(),
   is_overbooked: z.boolean().default(false),
 });
