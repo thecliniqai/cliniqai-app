@@ -8653,6 +8653,55 @@
         ]
       },
       "problems": []
+    },
+    "06-02c": {
+      "generated_by": "node scripts/ci/package-legitimacy.mjs",
+      "generated_at": "2026-11-14T19:43:46.388Z",
+      "base_ref": "9e721fe",
+      "base_commit": "9e721fe61b7342df9251f24d59ffd0567da87f9f",
+      "lockfile_sha256": "a49bf470c5dc8ebe2f1025b0b5d4039a41498d32d37f331aa08c7a67f140b5fd",
+      "node": "v24.13.0",
+      "npm": "11.6.2",
+      "flagged_for_po": [],
+      "packages": [
+        {
+          "lock_path": "node_modules/react-day-picker",
+          "name": "react-day-picker",
+          "version": "10.0.2",
+          "previous_version": null,
+          "dev": false,
+          "optional": false,
+          "repository_url": "git+https://github.com/gpbl/react-day-picker.git",
+          "registry_integrity": "sha512-QetiKtZWE9Uaw/pM/SYNv6WPYOTRnSJ2puL0GgwkmUFMIwiY0dtjH1W4B7DOVXVNQM0ZOClGpH/heOfBSzWeiA==",
+          "lock_integrity": "sha512-QetiKtZWE9Uaw/pM/SYNv6WPYOTRnSJ2puL0GgwkmUFMIwiY0dtjH1W4B7DOVXVNQM0ZOClGpH/heOfBSzWeiA==",
+          "integrity_matches": true,
+          "lock_has_install_script": false,
+          "install_scripts": [],
+          "declared_scripts": [
+            "build",
+            "build:cjs",
+            "build:css",
+            "build:esm",
+            "prepublish",
+            "typecheck"
+          ],
+          "published": "2026-09-30T09:03:29.525Z",
+          "age_days": 45,
+          "deprecated": null,
+          "flagged_for_po": false
+        }
+      ],
+      "audit_signatures": {
+        "exit_code": 0,
+        "invalid": [],
+        "missing": [],
+        "summary": [
+          "audited 988 packages in 4s",
+          "988 packages have verified registry signatures",
+          "268 packages have verified attestations"
+        ]
+      },
+      "problems": []
     }
   }
 }
