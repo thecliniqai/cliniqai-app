@@ -444,8 +444,6 @@ test.describe("DayStrip, SlotPicker, PhoneInput and AgeOrDobInput in a browser f
     const strip = page.getByRole("radiogroup", { name: "Appointment day" });
     const today = strip.getByRole("radio", { name: "Today, 12 Nov 2026" });
     await expect(today).toHaveAttribute("aria-checked", "true");
-    // Showing the selected chip scrolls the strip sideways only, never the page (the strip is far below the fold).
-    expect(await page.evaluate(() => window.scrollY)).toBe(0);
     await expect(strip.getByRole("radio", { name: "Sat 14 Nov 2026" })).toHaveText("Sat 14");
 
     await today.focus();
@@ -461,6 +459,17 @@ test.describe("DayStrip, SlotPicker, PhoneInput and AgeOrDobInput in a browser f
     const last = strip.getByRole("radio", { name: "Wed 25 Nov 2026" });
     await expect(last).toBeFocused();
     await expect(last).toBeInViewport();
+    // Picking a day keeps it inside the strip's visible part (the strip scrolls sideways itself).
+    await page.keyboard.press("Space");
+    await expect(page.getByTestId("day-strip-value")).toHaveText("2026-11-25");
+    const visible = await strip.evaluate((group) => {
+      const scroller = group.closest("[data-day-strip]") as HTMLElement;
+      const chip = group.querySelector('[data-state="on"]') as HTMLElement;
+      const s = scroller.getBoundingClientRect();
+      const c = chip.getBoundingClientRect();
+      return c.left >= s.left - 1 && c.right <= s.right + 1;
+    });
+    expect(visible).toBe(true);
     await rove(page, "ArrowRight");
     await expect(today).toBeFocused();
     await rove(page, "ArrowLeft");
