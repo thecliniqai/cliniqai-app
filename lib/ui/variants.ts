@@ -176,12 +176,13 @@ export const SWITCH_THUMB =
   "pointer-events-none block size-4 translate-x-0.5 rounded-pill bg-surface transition-transform duration-(--duration-fast) ease-out motion-reduce:transition-none data-[state=checked]:translate-x-4";
 
 /**
- * SegmentedControl: track surface-muted, padding 2, radius-md; segments 28 / 44 touch, radius-sm, body-sm 500. The
- * selected segment's hairline yields to the focus halo while it has keyboard focus (both are box-shadows).
+ * SegmentedControl: track surface-muted, padding 2, radius-md; segments 28 / 44 × 44 touch (CD-03), radius-sm,
+ * body-sm 500. The selected segment's hairline yields to the focus halo while it has keyboard focus (both are
+ * box-shadows).
  */
 export const SEGMENTED_TRACK = "inline-flex max-w-full gap-0.5 overflow-x-auto rounded-md bg-surface-muted p-0.5";
 export const SEGMENTED_ITEM =
-  "inline-flex min-h-7 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2.5 text-body-sm font-medium text-fg-secondary hover:text-fg touch:min-h-control data-[state=checked]:bg-surface data-[state=checked]:text-fg data-[state=checked]:not-focus-visible:shadow-hairline disabled:cursor-not-allowed disabled:text-fg-disabled";
+  "inline-flex min-h-7 flex-1 shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-2.5 text-body-sm font-medium text-fg-secondary hover:text-fg touch:min-h-control touch:min-w-control data-[state=checked]:bg-surface data-[state=checked]:text-fg data-[state=checked]:not-focus-visible:shadow-hairline disabled:cursor-not-allowed disabled:text-fg-disabled";
 export const SEGMENTED_COUNT = "text-label tabular-nums text-fg-muted group-data-[state=checked]:text-fg";
 
 export type ChipVariant = "chip" | "tile" | "option";
