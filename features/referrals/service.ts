@@ -24,6 +24,8 @@ import { mapDbError } from "@/lib/db/errors";
 const REFERRAL_INSERT_MESSAGES = {
   REFERRAL_TARGET_NOT_LISTED: "That clinic is not in the referral directory. Check the clinic ID with the partner clinic.",
   REFERRAL_CONSENT_REQUIRED: "Clinical history can only be shared with the patient's consent.",
+  // 05-11b (000074): the target doctor must be an owner or doctor of the target clinic.
+  REFERRAL_TARGET_DOCTOR_INVALID: "That doctor does not practise at the selected clinic. Choose a doctor of that clinic.",
 } as const;
 
 /**
@@ -187,7 +189,7 @@ export async function createReferral(
       // The directory/consent trigger (V2-05 05-06, migration 000062) refuses a target clinic that is not listed in
       // the referral directory (or is this clinic) and a history snapshot without the patient's consent.
       const mapped = mapDbError(insertErr, REFERRAL_INSERT_MESSAGES);
-      if (mapped.reason === "REFERRAL_TARGET_NOT_LISTED" || mapped.reason === "REFERRAL_CONSENT_REQUIRED") {
+      if (mapped.reason && mapped.reason in REFERRAL_INSERT_MESSAGES) {
         return { success: false, error: mapped.message };
       }
       log.error({ event: "referrals.create_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });

@@ -130,4 +130,15 @@ describe("referral consent write is checked (05-11c, IND L7)", () => {
     expect(await consentsOf(patientId)).toBe(1);
     expect(await consentAudits()).toBe(auditsBefore + 1);
   }, 60_000);
+  // 05-11b (000074) raises REFERRAL_TARGET_DOCTOR_INVALID; 05-11c gives it a fixed user text (before: generic failure).
+  it("a target doctor who is not an owner/doctor of the target clinic → the fixed message, nothing stored", async () => {
+    const patientId = await seedPatient();
+    const res = await createReferral(ctxFor(A), { ...referralInput(patientId), target_doctor_id: A.userId });
+    expect(res).toEqual({
+      success: false,
+      error: "That doctor does not practise at the selected clinic. Choose a doctor of that clinic.",
+    });
+    expect(await referralsOf(patientId)).toEqual([]);
+    expect(await consentsOf(patientId)).toBe(0);
+  }, 60_000);
 });
