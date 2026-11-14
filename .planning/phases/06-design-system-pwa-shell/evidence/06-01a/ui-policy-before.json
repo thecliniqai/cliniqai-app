@@ -1,0 +1,72 @@
+{
+  "generatedBy": "scripts/ci/ui-policy.mjs",
+  "tree": "git archive 745a6b7 (plan base) app components features lib",
+  "files": 327,
+  "rules": [
+    {
+      "id": "ai-sdk-import",
+      "mode": "report",
+      "count": 0,
+      "files": 0,
+      "baseline": null,
+      "delta": null
+    },
+    {
+      "id": "arbitrary-color",
+      "mode": "report",
+      "count": 775,
+      "files": 70,
+      "baseline": null,
+      "delta": null
+    },
+    {
+      "id": "brand-utility",
+      "mode": "enforce",
+      "count": 183,
+      "files": 17,
+      "baseline": null,
+      "delta": null
+    },
+    {
+      "id": "link-wraps-button",
+      "mode": "report",
+      "count": 31,
+      "files": 9,
+      "baseline": null,
+      "delta": null
+    },
+    {
+      "id": "px-font",
+      "mode": "report",
+      "count": 282,
+      "files": 52,
+      "baseline": null,
+      "delta": null
+    },
+    {
+      "id": "raw-palette",
+      "mode": "report",
+      "count": 3780,
+      "files": 100,
+      "baseline": null,
+      "delta": null
+    },
+    {
+      "id": "screen-height",
+      "mode": "report",
+      "count": 20,
+      "files": 10,
+      "baseline": null,
+      "delta": null
+    },
+    {
+      "id": "window-dialog",
+      "mode": "report",
+      "count": 27,
+      "files": 8,
+      "baseline": null,
+      "delta": null
+    }
+  ],
+  "textGray400": 247
+}

@@ -1,0 +1,560 @@
+{
+  "generatedBy": "scripts/design/codemod-colors.mjs",
+  "mode": "write",
+  "totals": {
+    "filesChanged": 86,
+    "replacements": 1201,
+    "byRule": {
+      "hex": 771,
+      "gray400": 250,
+      "brand": 180
+    }
+  },
+  "files": {
+    "app/(auth)/forgot-password/page.tsx": {
+      "hex": 7,
+      "gray400": 1
+    },
+    "app/(auth)/join/page.tsx": {
+      "brand": 3,
+      "hex": 3
+    },
+    "app/(auth)/login/page.tsx": {
+      "hex": 3
+    },
+    "app/(dashboard)/page.tsx": {
+      "hex": 11,
+      "gray400": 1
+    },
+    "app/(dashboard)/patients/[id]/consent-section.tsx": {
+      "hex": 19,
+      "gray400": 2
+    },
+    "app/(dashboard)/patients/new/page.tsx": {
+      "hex": 1
+    },
+    "app/(dashboard)/settings/billing/page.tsx": {
+      "brand": 3,
+      "gray400": 1
+    },
+    "app/(dashboard)/settings/developer/page.tsx": {
+      "hex": 1
+    },
+    "app/(dashboard)/staff/page.tsx": {
+      "brand": 3
+    },
+    "app/(onboarding)/clinic/new/page.tsx": {
+      "brand": 4,
+      "gray400": 1
+    },
+    "app/r/[token]/page.tsx": {
+      "hex": 30,
+      "gray400": 1
+    },
+    "app/reports/view/page.tsx": {
+      "hex": 64
+    },
+    "app/reschedule/[token]/page.tsx": {
+      "hex": 49
+    },
+    "components/auth/auth-form-parts.tsx": {
+      "hex": 7,
+      "gray400": 1
+    },
+    "components/auth/clinic-showcase-panel.tsx": {
+      "hex": 6
+    },
+    "components/cabin/doctor-cabin-view.tsx": {
+      "hex": 30,
+      "gray400": 3
+    },
+    "components/cabin/my-queue-card.tsx": {
+      "hex": 12,
+      "gray400": 13
+    },
+    "components/calendar/block-time-modal.tsx": {
+      "hex": 2
+    },
+    "components/calendar/booking-drawer.tsx": {
+      "brand": 15,
+      "gray400": 3
+    },
+    "components/calendar/calendar-view.tsx": {
+      "hex": 5,
+      "gray400": 1
+    },
+    "components/calendar/doctor-timeline.tsx": {
+      "gray400": 4,
+      "brand": 13,
+      "hex": 2
+    },
+    "components/calendar/soft-block-override-dialog.tsx": {
+      "hex": 2
+    },
+    "components/calendar/waitlist-drawer.tsx": {
+      "gray400": 2,
+      "brand": 11
+    },
+    "components/consultation/ai-scribe-modal.tsx": {
+      "hex": 8,
+      "gray400": 3
+    },
+    "components/consultation/amendment-modal.tsx": {
+      "gray400": 2,
+      "hex": 2
+    },
+    "components/consultation/chief-complaints-section.tsx": {
+      "hex": 11,
+      "gray400": 6
+    },
+    "components/consultation/consultation-workspace.tsx": {
+      "hex": 18,
+      "brand": 35,
+      "gray400": 6
+    },
+    "components/consultation/diagnosis-section.tsx": {
+      "brand": 7,
+      "gray400": 8
+    },
+    "components/consultation/frequent-rx-chips.tsx": {
+      "gray400": 2,
+      "brand": 4
+    },
+    "components/consultation/patient-history-drawer.tsx": {
+      "hex": 6,
+      "gray400": 3
+    },
+    "components/consultation/pdf-preview-modal.tsx": {
+      "gray400": 2,
+      "hex": 2
+    },
+    "components/consultation/prescription-builder.tsx": {
+      "brand": 29,
+      "gray400": 8
+    },
+    "components/consultation/sign-and-bill-modal.tsx": {
+      "gray400": 7,
+      "hex": 33
+    },
+    "components/consultation/specialty/dental-odontogram.tsx": {
+      "brand": 11,
+      "gray400": 8
+    },
+    "components/consultation/specialty/gp-systemic-review.tsx": {
+      "brand": 7,
+      "gray400": 5
+    },
+    "components/consultation/specialty/pediatrics-tools.tsx": {
+      "brand": 14,
+      "gray400": 7
+    },
+    "components/consultation/vitals-block.tsx": {
+      "hex": 10,
+      "gray400": 8
+    },
+    "components/dashboard/nav.tsx": {
+      "hex": 10
+    },
+    "components/layout/app-header.tsx": {
+      "gray400": 2
+    },
+    "components/layout/app-layout-shell.tsx": {
+      "hex": 1
+    },
+    "components/layout/app-sidebar.tsx": {
+      "hex": 8,
+      "gray400": 4
+    },
+    "components/layout/global-search-modal.tsx": {
+      "gray400": 12,
+      "hex": 8
+    },
+    "components/layout/user-dropdown.tsx": {
+      "hex": 5
+    },
+    "components/notifications/notification-bell.tsx": {
+      "hex": 3
+    },
+    "components/notifications/notification-drawer.tsx": {
+      "hex": 17,
+      "gray400": 3
+    },
+    "components/patients/age-dob-input.tsx": {
+      "hex": 1
+    },
+    "components/patients/dpdp-export-actions.tsx": {
+      "hex": 2
+    },
+    "components/patients/duplicate-warning-banner.tsx": {
+      "hex": 2
+    },
+    "components/patients/edit-patient-modal.tsx": {
+      "hex": 1
+    },
+    "components/patients/patient-detail-view.tsx": {
+      "hex": 20,
+      "gray400": 11
+    },
+    "components/patients/patient-directory-table.tsx": {
+      "hex": 5,
+      "gray400": 6
+    },
+    "components/patients/patient-lab-documents.tsx": {
+      "hex": 28,
+      "gray400": 5
+    },
+    "components/patients/patient-visit-history.tsx": {
+      "hex": 15,
+      "gray400": 8
+    },
+    "components/profile/change-password-form.tsx": {
+      "hex": 1
+    },
+    "components/profile/doctor-availability-card.tsx": {
+      "hex": 9,
+      "gray400": 4
+    },
+    "components/profile/user-profile-form.tsx": {
+      "hex": 7,
+      "gray400": 5
+    },
+    "components/queue/checkout-drawer.tsx": {
+      "hex": 33,
+      "gray400": 18
+    },
+    "components/queue/queue-card.tsx": {
+      "hex": 3,
+      "gray400": 3
+    },
+    "components/queue/queue-view.tsx": {
+      "brand": 8,
+      "gray400": 1
+    },
+    "components/queue/status-actions.tsx": {
+      "gray400": 1,
+      "hex": 6
+    },
+    "components/queue/triage-vitals-modal.tsx": {
+      "gray400": 6
+    },
+    "components/queue/walk-in-drawer.tsx": {
+      "brand": 10,
+      "gray400": 2
+    },
+    "components/referrals/close-loop-modal.tsx": {
+      "hex": 8,
+      "gray400": 3
+    },
+    "components/referrals/create-referral-modal.tsx": {
+      "hex": 54,
+      "gray400": 4
+    },
+    "components/referrals/referrals-register.tsx": {
+      "hex": 40,
+      "gray400": 7
+    },
+    "components/settings/clinic-profile-form.tsx": {
+      "hex": 26,
+      "gray400": 4
+    },
+    "components/settings/developer/api-key-table.tsx": {
+      "hex": 9,
+      "gray400": 2
+    },
+    "components/settings/developer/create-webhook-modal.tsx": {
+      "hex": 4
+    },
+    "components/settings/developer/revoke-key-modal.tsx": {
+      "hex": 1
+    },
+    "components/settings/developer/single-reveal-key-modal.tsx": {
+      "hex": 4
+    },
+    "components/settings/developer/webhook-delivery-logs-drawer.tsx": {
+      "hex": 6,
+      "gray400": 7
+    },
+    "components/settings/developer/webhook-subscription-list.tsx": {
+      "hex": 8,
+      "gray400": 3
+    },
+    "components/settings/statutory-fields-card.tsx": {
+      "hex": 3,
+      "gray400": 1
+    },
+    "components/staff/edit-staff-modal.tsx": {
+      "hex": 14,
+      "gray400": 5
+    },
+    "components/staff/staff-list.tsx": {
+      "brand": 3,
+      "hex": 1
+    },
+    "components/ui/alert.tsx": {
+      "hex": 7
+    },
+    "components/ui/badge.tsx": {
+      "hex": 7
+    },
+    "components/ui/button.tsx": {
+      "hex": 12
+    },
+    "components/ui/dropdown.tsx": {
+      "hex": 1
+    },
+    "components/ui/field.tsx": {
+      "hex": 2
+    },
+    "components/ui/input.tsx": {
+      "gray400": 3,
+      "hex": 5
+    },
+    "components/ui/modal.tsx": {
+      "gray400": 1
+    },
+    "components/ui/phone-input.tsx": {
+      "hex": 5,
+      "gray400": 1
+    },
+    "components/ui/select.tsx": {
+      "hex": 5,
+      "gray400": 1
+    },
+    "components/visits/read-only-encounter-modal.tsx": {
+      "hex": 6
+    },
+    "components/visits/visits-register-view.tsx": {
+      "hex": 14,
+      "gray400": 8
+    }
+  },
+  "unmapped": [
+    {
+      "file": "app/(dashboard)/patients/[id]/consent-section.tsx",
+      "line": 156,
+      "token": "hover:bg-[#146340]",
+      "prop": "bg",
+      "hex": "#146340",
+      "reason": "success button hover (patients consent section); replaced by the 06-02a Button primitive"
+    },
+    {
+      "file": "components/patients/patient-visit-history.tsx",
+      "line": 232,
+      "token": "hover:bg-[#ffeacc]",
+      "prop": "bg",
+      "hex": "#ffeacc",
+      "reason": "warning chip hover (patient visit history); replaced by the 06-03a status/chip patterns"
+    },
+    {
+      "file": "components/ui/button.tsx",
+      "line": 45,
+      "token": "hover:bg-[#912018]",
+      "prop": "bg",
+      "hex": "#912018",
+      "reason": "danger button hover (components/ui/button.tsx); the 06-02a Button primitive owns danger hover/pressed"
+    },
+    {
+      "file": "components/ui/button.tsx",
+      "line": 45,
+      "token": "active:bg-[#7A271A]",
+      "prop": "bg",
+      "hex": "#7a271a",
+      "reason": "danger button pressed (components/ui/button.tsx); the 06-02a Button primitive owns danger hover/pressed"
+    }
+  ],
+  "collapses": [
+    {
+      "semantic": "accent",
+      "sources": {
+        "#1769e0": 391,
+        "#0f5ab8": 4
+      }
+    },
+    {
+      "semantic": "accent-border",
+      "sources": {
+        "#d5e6ff": 6,
+        "#b3d4ff": 13,
+        "#b2ccff": 11,
+        "#80baff": 5,
+        "#bfd8ff": 3
+      }
+    },
+    {
+      "semantic": "accent-fg",
+      "sources": {
+        "#0f5ab8": 29,
+        "#0b4c9c": 11,
+        "#0a2245": 1,
+        "#0d3f7f": 6
+      }
+    },
+    {
+      "semantic": "accent-hover",
+      "sources": {
+        "#0f5ab8": 8,
+        "#155cc0": 28,
+        "#1255b8": 1,
+        "#0b4c9c": 1,
+        "#1455b3": 1,
+        "#1253b3": 1
+      }
+    },
+    {
+      "semantic": "accent-pressed",
+      "sources": {
+        "#0d4496": 1,
+        "#0b4c9c": 2
+      }
+    },
+    {
+      "semantic": "accent-tint",
+      "sources": {
+        "#f9fbff": 1,
+        "#f4f8ff": 2
+      }
+    },
+    {
+      "semantic": "border",
+      "sources": {
+        "#e5e7eb": 17,
+        "#e5e4e0": 1,
+        "#e4e5e7": 7
+      }
+    },
+    {
+      "semantic": "danger-border",
+      "sources": {
+        "#f8b4b4": 3,
+        "#ffdad6": 3
+      }
+    },
+    {
+      "semantic": "danger-fg",
+      "sources": {
+        "#b42318": 11,
+        "#dc2626": 1,
+        "#ba1a1a": 11
+      }
+    },
+    {
+      "semantic": "danger-solid",
+      "sources": {
+        "#b42318": 15,
+        "#ba1a1a": 1
+      }
+    },
+    {
+      "semantic": "fg",
+      "sources": {
+        "#111827": 30,
+        "#1a1a1a": 2
+      }
+    },
+    {
+      "semantic": "fg-secondary",
+      "sources": {
+        "#4b5563": 19,
+        "#555": 2,
+        "#52565b": 4
+      }
+    },
+    {
+      "semantic": "fg-subtle",
+      "sources": {
+        "tw-gray-400": 226,
+        "#9ca3af": 8
+      }
+    },
+    {
+      "semantic": "selected",
+      "sources": {
+        "#d6e5ff": 2,
+        "#d5e6ff": 1
+      }
+    },
+    {
+      "semantic": "success-fg",
+      "sources": {
+        "#18794e": 8,
+        "#16a34a": 3
+      }
+    },
+    {
+      "semantic": "sunken",
+      "sources": {
+        "#f6f7f9": 3,
+        "#f9fafb": 4,
+        "#f3f4f6": 1,
+        "#f8fafc": 11,
+        "#f0efea": 1,
+        "#f1f2f4": 2
+      }
+    }
+  ],
+  "semanticUse": {
+    "accent": 395,
+    "accent-border": 38,
+    "accent-fg": 47,
+    "accent-hover": 40,
+    "accent-pressed": 3,
+    "accent-subtle": 77,
+    "accent-tint": 3,
+    "border": 25,
+    "border-subtle": 3,
+    "canvas": 21,
+    "danger-bg": 11,
+    "danger-border": 6,
+    "danger-fg": 23,
+    "danger-solid": 16,
+    "fg": 32,
+    "fg-disabled": 1,
+    "fg-muted": 15,
+    "fg-placeholder": 23,
+    "fg-secondary": 25,
+    "fg-subtle": 234,
+    "info-bg": 1,
+    "info-border": 1,
+    "info-fg": 2,
+    "ring": 76,
+    "selected": 3,
+    "success-bg": 6,
+    "success-border": 5,
+    "success-fg": 11,
+    "success-solid": 3,
+    "sunken": 22,
+    "warning-bg": 10,
+    "warning-border": 9,
+    "warning-fg": 12,
+    "warning-solid": 2
+  },
+  "outOfScope": [
+    {
+      "file": "features/billing/pdf/receipt-document.tsx",
+      "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes (print layouts are DESIGN_SYSTEM §7.10, V2-09b/V2-10)",
+      "inlineHexLiterals": 44
+    },
+    {
+      "file": "features/dpdp/pdf/medical-summary-doc.tsx",
+      "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes",
+      "inlineHexLiterals": 47
+    },
+    {
+      "file": "features/prescriptions/pdf/prescription-document.tsx",
+      "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes",
+      "inlineHexLiterals": 40
+    },
+    {
+      "file": "features/referrals/pdf/referral-letter-document.tsx",
+      "reason": "react-pdf document: inline style objects in PDF space, not Tailwind classes",
+      "inlineHexLiterals": 53
+    }
+  ],
+  "inlineHexReported": [
+    {
+      "file": "components/consultation/specialty/dental-odontogram.tsx",
+      "inlineHexLiterals": 22,
+      "reason": "SVG drawing colours (inline hex literals); V2-09b rebuilds dental. Its Tailwind classes are in scope and migrated."
+    }
+  ]
+}
