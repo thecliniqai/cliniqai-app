@@ -230,7 +230,10 @@ export function CommandDialog({
           )}
         >
           <DialogPrimitive.Title className="sr-only">{title}</DialogPrimitive.Title>
-          <div className="flex min-h-0 flex-1 flex-col max-md:[&_[data-command-input]]:pr-12">{children}</div>
+          {/* The list takes the rest of the panel (full screen on phones, up to 70 dvh above) instead of its 320 px cap. */}
+          <div className="flex min-h-0 flex-1 flex-col max-md:[&_[data-command-input]]:pr-12 [&_[cmdk-list]]:max-h-none [&>[cmdk-root]]:flex-1">
+            {children}
+          </div>
           {/* Phones: a Close button in the header row, after the input in the tab order. */}
           <DialogPrimitive.Close asChild>
             <IconButton

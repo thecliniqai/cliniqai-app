@@ -210,7 +210,8 @@ for (const { width, height } of DESIGN_WIDTHS) {
     expect(Math.round(toastBox.width), "at most 400 px wide").toBeLessThanOrEqual(400);
     await error.getByRole("button", { name: "Dismiss" }).click();
 
-    // The gallery's overlay section as a page capture (the reviewer's 360 / 1280 set).
+    // The gallery's overlay section as a page capture (the reviewer's 360 / 1280 set), once the info toast has left.
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 10_000 });
     await settleAnimations(page);
     await page.locator('[data-gallery-section="overlays"]').screenshot({ path: path.join(OUT, `gallery-overlays-${width}.png`) });
     fs.writeFileSync(path.join(OUT, `axe-overlays-${width}.json`), `${JSON.stringify({ route: "/dev/ui", width, summary }, null, 2)}\n`);

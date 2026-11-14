@@ -666,7 +666,7 @@ function CommandGroupSection() {
       </Specimen>
       <Specimen label="Loading" state="loading" className="w-full sm:w-72">
         <Command label="Commands (loading)" className="w-full rounded-lg border border-border" shouldFilter={false}>
-          <CommandInput placeholder="Search patients, queue and actions" defaultValue="9876" />
+          <CommandInput placeholder="Search patients, queue and actions" />
           <CommandLoading />
           {/* The listbox the input controls; empty while the results load. */}
           <CommandList className="max-h-40" />
