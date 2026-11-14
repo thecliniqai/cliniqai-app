@@ -1,0 +1,10 @@
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5 failed
+    [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › join (signed out) at 360px: 0 serious/critical axe violations 
+    [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › join (signed out) at 820px: 0 serious/critical axe violations 
+    [desktop-chrome] › tests/e2e/a11y/v2-01-screens.spec.ts:74:11 › R8 blocking: V2-01 auth pages › join (signed out) at 1280px: 0 serious/critical axe violations 
+    [desktop-chrome] › tests/e2e/auth/join-invite.spec.ts:78:7 › /join (invitation) › a pending invitation: clinic, role, masked address, set-password form; axe and layout at 360/820/1280 
+    [pixel-7] › tests/e2e/auth/join-invite.spec.ts:78:7 › /join (invitation) › a pending invitation: clinic, role, masked address, set-password form; axe and layout at 360/820/1280 
+  9 skipped
+  223 passed (2.6m)

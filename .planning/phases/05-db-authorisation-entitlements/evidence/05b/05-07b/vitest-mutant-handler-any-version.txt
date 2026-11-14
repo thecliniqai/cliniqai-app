@@ -1,0 +1,6 @@
+   × email.invite handler > a stale token_version (the invitation was resent) mints nothing, sends nothing, completes 53ms
+     → expected [ { …(5) } ] to have a length of +0 but got 1
+ FAIL  tests/jobs/email-invite-handler.spec.ts > email.invite handler > a stale token_version (the invitation was resent) mints nothing, sends nothing, completes
+AssertionError: expected [ { …(5) } ] to have a length of +0 but got 1
+ Test Files  1 failed | 1 passed (2)
+      Tests  1 failed | 9 passed (10)
