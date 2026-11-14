@@ -20,6 +20,7 @@ import { ctxFor } from "../helpers/context";
 import { signInActingIn } from "../helpers/active-tenant";
 import { insertReturningId, type IdTable } from "../helpers/db";
 import type { TablesInsert } from "@/types/database";
+import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
 import { seedClinicalNotes } from "../helpers/clinical-notes";
 
 function insertRow<T extends IdTable>(table: T, row: TablesInsert<T>): Promise<string> {
@@ -134,7 +135,8 @@ describe("Patient Clinical Visit History (Plan 03.2-01 / REQ-patient-records)", 
       created_by: ownerB.userId,
     });
 
-    await insertRow("queue_tokens", { tenant_id: ownerA.tenantId, visit_id: olderVisitA, token_number: 14 });
+    // The token date is explicit since 05-08 (no SQL default; the fill trigger would give the same clinic date).
+    await insertRow("queue_tokens", { tenant_id: ownerA.tenantId, visit_id: olderVisitA, token_number: 14, date: todayInTz(DEFAULT_CLINIC_TZ) });
     await insertRow("consultation_diagnoses", {
       tenant_id: ownerA.tenantId,
       visit_id: olderVisitA,

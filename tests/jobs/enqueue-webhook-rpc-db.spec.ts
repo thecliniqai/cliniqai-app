@@ -504,8 +504,11 @@ describe("04-07a: prescription.issued at signing; lab_result.ready for a consist
     const doc = (tenant: string, patient: string, visit: string | null, run: (sql: string) => string[] = psql) =>
       run(
         `insert into public.patient_documents (tenant_id, patient_id, visit_id, title, storage_path, original_filename, mime_type, ` +
-          `file_size_bytes, uploaded_by) values ('${tenant}', '${patient}', ${visit ? `'${visit}'` : "null"}, 'Synthetic CBC', ` +
-          `'tenants/${tenant}/patients/${patient}/labs/synthetic-${letters(6)}.pdf', 'synthetic.pdf', 'application/pdf', 10, '${ownerA.userId}') returning id`
+          `file_size_bytes, uploaded_by, report_date) values ('${tenant}', '${patient}', ${visit ? `'${visit}'` : "null"}, 'Synthetic CBC', ` +
+          `'tenants/${tenant}/patients/${patient}/labs/synthetic-${letters(6)}.pdf', 'synthetic.pdf', 'application/pdf', 10, '${ownerA.userId}', ` +
+          // Explicit: plantLegacyRow (session_replication_role = replica) skips every trigger, including the 05-08
+          // report_date fill trigger, and the column has no default since 05-08.
+          `current_date) returning id`
       )[0];
     const mismatchedVisit = doc(ownerA.tenantId, patientA.patientId, other.visitId);
     // Since 05-03 the composite FK refuses another clinic's patient outright; the row is planted as one from before

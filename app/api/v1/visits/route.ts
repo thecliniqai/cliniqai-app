@@ -5,6 +5,7 @@ import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
+import { isSlotTakenError } from "@/features/visits/service";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { CLINICAL_NOTES_EMBED_KEY, clinicalNotesEmbed, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
@@ -223,6 +224,16 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
+    if (isSlotTakenError(insertErr)) {
+      // A scheduled visit overlapping another non-overbooked one of the doctor (V2-05 05-08: visits_no_double_booking).
+      return apiError(
+        "SLOT_CONFLICT",
+        "The requested visit time conflicts with an existing booking for this doctor.",
+        409,
+        undefined,
+        rateHeaders
+      );
+    }
     if (insertErr || !newVisitRow) {
       return apiError("DATABASE_ERROR", insertErr?.message || "Failed to create visit.", 500, undefined, rateHeaders);
     }

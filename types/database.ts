@@ -1283,7 +1283,7 @@ export type Database = {
           notes?: string | null;
           original_filename: string;
           patient_id: string;
-          report_date?: string;
+          report_date: string;
           storage_path: string;
           tenant_id: string;
           title: string;
@@ -1671,6 +1671,36 @@ export type Database = {
           },
         ];
       };
+      queue_token_counters: {
+        Row: {
+          date: string;
+          last_token: number;
+          tenant_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          date: string;
+          last_token: number;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          date?: string;
+          last_token?: number;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "queue_token_counters_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       queue_tokens: {
         Row: {
           called_at: string | null;
@@ -1688,7 +1718,7 @@ export type Database = {
           called_at?: string | null;
           completed_at?: string | null;
           created_at?: string;
-          date?: string;
+          date: string;
           id?: string;
           priority?: string;
           tenant_id: string;
@@ -2735,6 +2765,13 @@ export type Database = {
         };
         Returns: number;
       };
+      next_queue_token: {
+        Args: { p_visit_id: string };
+        Returns: {
+          token_date: string;
+          token_number: number;
+        }[];
+      };
       normalize_indian_phone_e164: {
         Args: { raw_phone: string };
         Returns: string;
@@ -2849,6 +2886,11 @@ export type Database = {
         Args: { p_id: string; p_lease_token: string };
         Returns: number;
       };
+      tenant_local_date: {
+        Args: { p_at: string; p_tenant: string };
+        Returns: string;
+      };
+      visit_slot: { Args: { p_at: string; p_mins: number }; Returns: unknown };
       webhook_delivery_claim: {
         Args: { p_id: string };
         Returns: {

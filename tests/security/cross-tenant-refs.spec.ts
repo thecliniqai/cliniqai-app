@@ -26,6 +26,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
 import { insertReturningId, type IdTable } from "../helpers/db";
 import type { TablesInsert } from "@/types/database";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 const admin = getAdminClient();
 const TABLES = ["visits", "waitlist_entries", "consent_records", "follow_ups", "consultation_diagnoses", "referrals",
@@ -48,7 +49,8 @@ async function seedPatientAndVisit(owner: SeededTenant, label: string) {
     doctor_id: owner.userId,
     origin_type: "scheduled",
     status: "booked",
-    scheduled_at: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+    // A slot of its own (05-08: overlapping scheduled visits of one doctor are refused).
+    scheduled_at: seedSlotIso(),
     created_by: owner.userId,
   });
   return { patient, visit };

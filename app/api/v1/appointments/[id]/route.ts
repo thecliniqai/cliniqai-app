@@ -4,6 +4,7 @@ import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
+import { isSlotTakenError } from "@/features/visits/service";
 import { recordAudit } from "@/lib/audit/audit";
 
 interface RouteContext {
@@ -180,6 +181,16 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
       .select()
       .single();
 
+    if (isSlotTakenError(updateErr)) {
+      // Booked by someone else after the slot check above (V2-05 05-08: the visits_no_double_booking constraint).
+      return apiError(
+        "SLOT_CONFLICT",
+        "The requested rescheduled time slot conflicts with an existing booking.",
+        409,
+        undefined,
+        rateHeaders
+      );
+    }
     if (updateErr || !updated) {
       return apiError("DATABASE_ERROR", updateErr?.message || "Failed to update appointment", 500, undefined, rateHeaders);
     }

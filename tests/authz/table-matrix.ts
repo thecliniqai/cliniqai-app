@@ -521,6 +521,17 @@ export const TARGETS: readonly Target[] = [
   {
     kind: "table",
     schema: "public",
+    table: "queue_token_counters",
+    key: ["tenant_id", "date"],
+    fixture: { tenant_id: A, date: "'2030-01-01'", last_token: "1" },
+    insert: { tenant_id: A, date: "'2030-01-02'", last_token: "1" },
+    update: "last_token",
+    rules: { select: rpcOnly, insert: rpcOnly, update: rpcOnly, delete: rpcOnly },
+    note: "written only by next_queue_token (SECURITY DEFINER, appointments:edit in the active clinic; 05-08, R-18): no member may read or rewind the counter (T-05-21)",
+  },
+  {
+    kind: "table",
+    schema: "public",
     table: "waitlist_entries",
     key: ["id"],
     fixture: { id: q(FX.row(20)), tenant_id: A, patient_id: q(FX.patient), target_date: "'2030-01-01'", created_by: U.ownerA },

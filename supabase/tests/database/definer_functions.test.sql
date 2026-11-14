@@ -10,7 +10,7 @@
 --      subject, is refused; the same call acting in B is allowed. 05-10a adds the access-level leg to this file.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(36);
+select plan(38);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -154,6 +154,7 @@ insert into c2c_definer values
   ('private.outbox_payment_recorded', 'bound', 'a session''s payment in the active clinic (000061)'),
   ('public.referral_source_clinics', 'bound', 'consultations:view in the active clinic (000061)'),
   ('public.generate_daily_queue_token', 'bound', 'appointments:edit in the active clinic (000061)'),
+  ('public.next_queue_token', 'bound', 'visit''s clinic = active clinic with appointments:edit (000064, 05-08)'),
   ('public.generate_tenant_invoice_number', 'bound', 'billing:collect or consultations:edit, active clinic (000056)'),
   ('public.search_medicines', 'bound', 'the active clinic (000061)'),
   ('public.log_audit', 'bound', 'p_tenant = active clinic (000060)'),
@@ -225,6 +226,7 @@ select set_eq(
     'public.revoke_share_token:authenticated,service_role', 'public.enqueue_message:authenticated',
     'public.enqueue_webhook_event:authenticated', 'private.outbox_payment_recorded:authenticated,service_role',
     'public.referral_source_clinics:authenticated', 'public.generate_daily_queue_token:authenticated,service_role',
+    'public.next_queue_token:authenticated',
     'public.generate_tenant_invoice_number:authenticated,service_role', 'public.search_medicines:authenticated,service_role',
     'public.log_audit:authenticated', 'public.has_permission:authenticated,service_role',
     'public.current_user_has_role:authenticated,service_role', 'public.current_user_is_admin_or_owner:authenticated,service_role',
@@ -323,6 +325,10 @@ select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0
   'denied:forbidden', 'generate_daily_queue_token: acting in A for B is refused');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.generate_daily_queue_token('c2c00000-0000-4000-8000-00000000000b', '2030-01-01')$$),
   '1', 'generate_daily_queue_token: acting in B it answers');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.next_queue_token('c2c00000-0000-4000-8000-000000002002')$$),
+  'denied:forbidden', 'next_queue_token: acting in A on clinic B''s visit is refused (05-08)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.next_queue_token('c2c00000-0000-4000-8000-000000002002')$$),
+  '1', 'next_queue_token: acting in B a token is issued (05-08)');
 select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.search_medicines('para', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', 1)$$),
   'denied:forbidden', 'search_medicines: acting in A in B''s catalogue is refused');
 select matches(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.search_medicines('para', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', 1)$$),

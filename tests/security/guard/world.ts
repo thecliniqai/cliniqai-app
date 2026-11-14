@@ -24,6 +24,7 @@ import { addMemberToTenant, createUnlinkedUser, seedTenantWithOwner, type Seeded
 import { insertReturningId, type TestDb } from "../../helpers/db";
 import type { TablesInsert } from "@/types/database";
 import { DEFAULT_CLINIC_TZ, todayInTz } from "@/lib/datetime";
+import { nextSeedSlotMinutes } from "../../helpers/seed-slots";
 
 /** One row id per table an entry point takes an id for, plus the tenant, a user and a membership. */
 export interface TenantRowIds {
@@ -145,8 +146,10 @@ export async function seedTenantRows(admin: TestDb, seed: RowSeed): Promise<Tena
   const t = seed.tenantId;
   const u = seed.doctorUser;
   const tag = randomUUID().replace(/-/g, "").slice(0, 10);
-  // Random future minutes keep every seeded slot apart, so a booking control never collides with an earlier seed.
-  const offset = Math.floor(Math.random() * 20_000);
+  // Future minutes that keep every seeded slot apart (a random base, then a 20-minute step per seed): since V2-05 05-08
+  // two overlapping scheduled visits of the doctor are refused (visits_no_double_booking), and a booking control never
+  // collides with an earlier seed.
+  const offset = nextSeedSlotMinutes();
   // The block sits on a known UTC date (5 days ahead, 06:00-11:00 UTC start, same date in IST), so a by-date read finds it.
   const now = new Date();
   const blockStart = new Date(

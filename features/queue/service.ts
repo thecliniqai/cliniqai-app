@@ -5,7 +5,7 @@ import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { isDateOnly } from "@/lib/utils/filter-values";
 import { dayWindowUtc } from "@/lib/datetime";
-import { getTenantTimeZone, getTenantToday } from "@/lib/datetime/server";
+import { getTenantTimeZone } from "@/lib/datetime/server";
 import { QueuePriority, QueueToken, Visit, Patient } from "@/lib/db/types";
 import type { QueueItem } from "@/components/queue/queue-card";
 import { clinicalNotesEmbed, embeddedClinicalNotes, CLINICAL_NOTES_EMBED_KEY } from "@/lib/db/clinical-notes";
@@ -31,9 +31,6 @@ export async function checkInVisit(
   try {
     assertPerm(ctx.role, "appointments:edit");
     const session = ctx;
-    // The token's day is the clinic date in the tenant's zone (V2-03 03-05); the SQL `DEFAULT CURRENT_DATE` is
-    // never relied on (R-33; V2-05 05-08 owns the counter rework).
-    const { today } = await getTenantToday(supabase, session.tenantId);
 
     // 1. Verify visit belongs to tenant and get current state
     // By id AND the active clinic: RLS admits every clinic the user belongs to, so a member of two clinics acting in
@@ -69,20 +66,18 @@ export async function checkInVisit(
       };
     }
 
-    // 3. Atomically generate daily sequential token number via RPC
-    const { data: tokenNumber, error: rpcError } = await (
-      supabase as unknown as {
-        rpc: (name: string, args: Record<string, unknown>) => Promise<{ data: number | null; error: { message: string } | null }>;
-      }
-    ).rpc("generate_daily_queue_token", {
-      p_tenant_id: session.tenantId,
-      p_date: today,
-    });
+    // 3. The next token of the clinic day (V2-05 05-08, R-18): `next_queue_token` takes the clinic from the visit,
+    // checks appointments:edit in the active clinic, advances the per-clinic, per-day counter row atomically (parallel
+    // check-ins get distinct numbers) and returns the day as the clinic-local date computed in SQL
+    // (`tenant_local_date`, the same zone rules as lib/datetime), so the token's number and date come from one place.
+    const { data: tokenRows, error: rpcError } = await supabase.rpc("next_queue_token", { p_visit_id: visitId });
+    const issued = Array.isArray(tokenRows) ? tokenRows[0] : undefined;
 
-    if (rpcError || tokenNumber == null) {
+    if (rpcError || !issued || issued.token_number == null || !issued.token_date) {
       log.error({ event: "queue.token_generate.failed", code: errorTag(rpcError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to generate queue token." };
     }
+    const tokenNumber = issued.token_number;
 
     // 4. Insert queue_token record
     const { data: newToken, error: tokenInsertError } = await (
@@ -97,7 +92,7 @@ export async function checkInVisit(
       .insert({
         tenant_id: session.tenantId,
         visit_id: visitId,
-        date: today,
+        date: issued.token_date,
         token_number: tokenNumber,
         priority: priority,
       })

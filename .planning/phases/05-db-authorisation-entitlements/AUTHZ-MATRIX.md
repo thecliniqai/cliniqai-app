@@ -88,6 +88,10 @@ Principals:
 | `public.queue_tokens` | I | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | X | X | Y | X | X |
 | `public.queue_tokens` | U | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | - | X | Y | - | - |
 | `public.queue_tokens` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.queue_token_counters` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.queue_token_counters` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.queue_token_counters` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.queue_token_counters` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.waitlist_entries` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | X | Y | - | - |
 | `public.waitlist_entries` | I | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | X | X | Y | X | X |
 | `public.waitlist_entries` | U | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | - | X | Y | - | - |
@@ -255,6 +259,7 @@ Notes:
 - `public.invoices`: 05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill)
 - `public.invoice_items`: DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op)
 - `public.payments`: column-level INSERT grant; the actor guard stamps recorded_by; doctors and nurses do not collect (PO-3, 05-02b)
+- `public.queue_token_counters`: written only by next_queue_token (SECURITY DEFINER, appointments:edit in the active clinic; 05-08, R-18): no member may read or rewind the counter (T-05-21)
 - `public.schedule_blocks`: fixture row: the second doctor's block, created by the nurse
 - `public.patient_documents`: 05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class
 - `public.document_share_tokens`: minted by definer RPCs only; SELECT by resource_type (the fixture is a patient_document link: labs:view; prescription prescriptions:view, invoice billing:view, referral consultations:view: admin_policies.test.sql)

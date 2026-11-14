@@ -362,7 +362,7 @@ column public.patient_documents.mime_type text not_null=t default=- identity=- g
 column public.patient_documents.notes text not_null=f default=- identity=- generated=-
 column public.patient_documents.original_filename text not_null=t default=- identity=- generated=-
 column public.patient_documents.patient_id uuid not_null=t default=- identity=- generated=-
-column public.patient_documents.report_date date not_null=t default=CURRENT_DATE identity=- generated=-
+column public.patient_documents.report_date date not_null=t default=- identity=- generated=-
 column public.patient_documents.storage_path text not_null=t default=- identity=- generated=-
 column public.patient_documents.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.patient_documents.title text not_null=t default=- identity=- generated=-
@@ -440,10 +440,14 @@ column public.prescriptions.tenant_id uuid not_null=t default=- identity=- gener
 column public.prescriptions.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.prescriptions.version integer not_null=t default=1 identity=- generated=-
 column public.prescriptions.visit_id uuid not_null=t default=- identity=- generated=-
+column public.queue_token_counters.date date not_null=t default=- identity=- generated=-
+column public.queue_token_counters.last_token integer not_null=t default=- identity=- generated=-
+column public.queue_token_counters.tenant_id uuid not_null=t default=- identity=- generated=-
+column public.queue_token_counters.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.queue_tokens.called_at timestamp with time zone not_null=f default=- identity=- generated=-
 column public.queue_tokens.completed_at timestamp with time zone not_null=f default=- identity=- generated=-
 column public.queue_tokens.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
-column public.queue_tokens.date date not_null=t default=CURRENT_DATE identity=- generated=-
+column public.queue_tokens.date date not_null=t default=- identity=- generated=-
 column public.queue_tokens.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
 column public.queue_tokens.priority text not_null=t default='normal'::text identity=- generated=-
 column public.queue_tokens.tenant_id uuid not_null=t default=- identity=- generated=-
@@ -849,6 +853,9 @@ constraint public.prescriptions.prescriptions_tenant_id_id_key UNIQUE (tenant_id
 constraint public.prescriptions.prescriptions_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
 constraint public.prescriptions.prescriptions_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE RESTRICT
 constraint public.prescriptions.uq_prescriptions_visit_version UNIQUE (tenant_id, visit_id, version)
+constraint public.queue_token_counters.queue_token_counters_last_token_check CHECK ((last_token >= 0))
+constraint public.queue_token_counters.queue_token_counters_pkey PRIMARY KEY (tenant_id, date)
+constraint public.queue_token_counters.queue_token_counters_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.queue_tokens.queue_tokens_pkey PRIMARY KEY (id)
 constraint public.queue_tokens.queue_tokens_priority_check CHECK ((priority = ANY (ARRAY['normal'::text, 'urgent'::text, 'vip'::text])))
 constraint public.queue_tokens.queue_tokens_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
@@ -891,6 +898,7 @@ constraint public.visit_revisions.visit_revisions_tenant_visit_fkey FOREIGN KEY 
 constraint public.visits.visits_clinical_content_moved CHECK ((((vitals IS NULL) OR (vitals = '{}'::jsonb)) AND ((chief_complaints IS NULL) OR (chief_complaints = '[]'::jsonb)) AND (clinical_notes IS NULL) AND ((specialty_data IS NULL) OR (specialty_data = '{}'::jsonb)) AND ((investigations_advised IS NULL) OR (investigations_advised = '{}'::text[])) AND ((advice IS NULL) OR (advice = '{}'::text[]))))
 constraint public.visits.visits_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 constraint public.visits.visits_doctor_id_fkey FOREIGN KEY (doctor_id) REFERENCES auth.users(id)
+constraint public.visits.visits_no_double_booking EXCLUDE USING gist (tenant_id WITH =, doctor_id WITH =, visit_slot(scheduled_at, estimated_duration_minutes) WITH &&) WHERE (((origin_type = 'scheduled'::text) AND (scheduled_at IS NOT NULL) AND (NOT is_overbooked) AND (status <> ALL (ARRAY['cancelled'::text, 'no_show'::text]))))
 constraint public.visits.visits_origin_type_check CHECK ((origin_type = ANY (ARRAY['scheduled'::text, 'walk_in'::text])))
 constraint public.visits.visits_pkey PRIMARY KEY (id)
 constraint public.visits.visits_signed_by_fkey FOREIGN KEY (signed_by) REFERENCES auth.users(id)
@@ -1023,7 +1031,9 @@ function private.log_system_audit(p_tenant uuid, p_system_actor text, p_action t
 function private.message_params_ok(p_params jsonb, p_allowed text[], p_max integer) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=e10f676cdbfd121d4e73600b2347b949
 function private.message_subject(p_patient_id uuid, p_visit_id uuid, OUT visit_tenant uuid, OUT visit_patient uuid, OUT patient_tenant uuid) returns record lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=ebd0a35b0126da7755b4a29aa82d2881
 function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=c91f5ac2da43fc2875f7d2db37311254
+function private.patient_documents_fill_report_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=7e2b1e557d54c545d6796e572df71ba8
 function private.payments_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9d07a669cf91ce75b6839f73f1d5c6b0
+function private.queue_tokens_fill_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8ea5b43572ff835d2a842c29c4954ef9
 function private.referrals_directory_consent_guard() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=8283e53929cfb287a9694a08cdd62f50
 function private.request_message_metadata_ok(p_metadata jsonb, p_visit_id uuid) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=374c3225f829fce968531847028b2a9c
 function private.session_age_fresh_seconds() returns integer lang=sql security_definer=f volatility=i config=search_path="" body_md5=c24ae58647ff07129cfb1f22e8a2d93d
@@ -1072,6 +1082,7 @@ function public.jobs_runner_begin(p_worker text, p_source text) returns bigint l
 function public.jobs_runner_end(p_run_id bigint, p_claimed integer, p_done integer, p_retried integer, p_dead integer, p_ok boolean, p_error_code text) returns void lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=7555a20bdb505e6274917ef194da5e12
 function public.log_audit(p_tenant uuid, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) returns bigint lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=224dbe6c5c77d91d34648541e39c0101
 function public.memberships_profile_update_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=51a190e31251f3d6b271c6761b80e297
+function public.next_queue_token(p_visit_id uuid) returns TABLE(token_number integer, token_date date) lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=bb58aa5c31333bc777d5a729470fe12d
 function public.normalize_indian_phone_e164(raw_phone text) returns text lang=plpgsql security_definer=f volatility=i config=- body_md5=498b95e13d2569704d35dd5d0a6569ed
 function public.ops_alert_notified(p_alert_id uuid, p_provider_message_id text, p_seq integer) returns boolean lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=298e7bdd6c125b654f910a39def7cfc6
 function public.ops_alert_payload(p_alert_id uuid) returns jsonb lang=sql security_definer=t volatility=s config=search_path="" body_md5=8d54f08aef54ac1a27cd288c2f95d33f
@@ -1096,6 +1107,8 @@ function public.share_token_object(p_token text, p_kinds text[]) returns jsonb l
 function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=49ba9f24043600e599c87b27216a5e2b
 function public.share_type_roles(p_type text) returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=fbfbeb6ae6fd3fb8ce2ee9d41c23b5b5
 function public.start_job(p_id uuid, p_lease_token uuid) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=643c9082f0a2c4993b6a14af853fcffe
+function public.tenant_local_date(p_tenant uuid, p_at timestamp with time zone) returns date lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=37da67f026e0f7eb758481de0c10f21a
+function public.visit_slot(p_at timestamp with time zone, p_mins integer) returns tstzrange lang=sql security_definer=f volatility=i config=search_path="" body_md5=e4a78976db24c3e25f52b7e407ede353
 function public.webhook_delivery_claim(p_id uuid) returns TABLE(id uuid, tenant_id uuid, subscription_id uuid, event_type text, payload text, retry_count integer, max_retries integer, subscription_tenant_id uuid, endpoint_url text, signing_secret text, is_active boolean) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=e478b0593cdc926c110d41ce14d2e526
 function public.webhook_delivery_finish(p_id uuid, p_success boolean, p_status_code integer, p_error_code text, p_duration_ms integer, p_retryable boolean) returns TABLE(new_status text, next_retry_at timestamp with time zone) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=cdd25042f6bc5f0539b0ca8d7d361f3f
 grant column public.communication_queue.appointment_id SELECT to authenticated
@@ -1198,6 +1211,7 @@ grant function public.jobs_runner_begin(p_worker text, p_source text) EXECUTE to
 grant function public.jobs_runner_end(p_run_id bigint, p_claimed integer, p_done integer, p_retried integer, p_dead integer, p_ok boolean, p_error_code text) EXECUTE to service_role
 grant function public.log_audit(p_tenant uuid, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) EXECUTE to authenticated
 grant function public.memberships_profile_update_guard() EXECUTE to service_role
+grant function public.next_queue_token(p_visit_id uuid) EXECUTE to authenticated
 grant function public.normalize_indian_phone_e164(raw_phone text) EXECUTE to PUBLIC
 grant function public.normalize_indian_phone_e164(raw_phone text) EXECUTE to anon
 grant function public.normalize_indian_phone_e164(raw_phone text) EXECUTE to authenticated
@@ -1233,6 +1247,10 @@ grant function public.share_token_object(p_token text, p_kinds text[]) EXECUTE t
 grant function public.share_token_resource(p_tenant_id uuid, p_type text, p_resource_id uuid) EXECUTE to service_role
 grant function public.share_type_roles(p_type text) EXECUTE to service_role
 grant function public.start_job(p_id uuid, p_lease_token uuid) EXECUTE to service_role
+grant function public.tenant_local_date(p_tenant uuid, p_at timestamp with time zone) EXECUTE to authenticated
+grant function public.tenant_local_date(p_tenant uuid, p_at timestamp with time zone) EXECUTE to service_role
+grant function public.visit_slot(p_at timestamp with time zone, p_mins integer) EXECUTE to authenticated
+grant function public.visit_slot(p_at timestamp with time zone, p_mins integer) EXECUTE to service_role
 grant function public.webhook_delivery_claim(p_id uuid) EXECUTE to service_role
 grant function public.webhook_delivery_finish(p_id uuid, p_success boolean, p_status_code integer, p_error_code text, p_duration_ms integer, p_retryable boolean) EXECUTE to service_role
 grant schema authz USAGE to authenticated
@@ -1585,6 +1603,14 @@ grant table public.prescriptions TRIGGER to service_role
 grant table public.prescriptions TRUNCATE to service_role
 grant table public.prescriptions UPDATE to authenticated
 grant table public.prescriptions UPDATE to service_role
+grant table public.queue_token_counters DELETE to service_role
+grant table public.queue_token_counters INSERT to service_role
+grant table public.queue_token_counters MAINTAIN to service_role
+grant table public.queue_token_counters REFERENCES to service_role
+grant table public.queue_token_counters SELECT to service_role
+grant table public.queue_token_counters TRIGGER to service_role
+grant table public.queue_token_counters TRUNCATE to service_role
+grant table public.queue_token_counters UPDATE to service_role
 grant table public.queue_tokens DELETE to service_role
 grant table public.queue_tokens INSERT to authenticated
 grant table public.queue_tokens INSERT to service_role
@@ -1768,9 +1794,11 @@ index public.document_share_tokens_token_hash_key CREATE UNIQUE INDEX document_s
 index public.follow_ups_pkey CREATE UNIQUE INDEX follow_ups_pkey ON public.follow_ups USING btree (id)
 index public.idx_api_key_usage_daily_tenant_api_key CREATE INDEX idx_api_key_usage_daily_tenant_api_key ON public.api_key_usage_daily USING btree (tenant_id, api_key_id)
 index public.idx_api_key_usage_tenant CREATE INDEX idx_api_key_usage_tenant ON public.api_key_usage_daily USING btree (tenant_id, date)
+index public.idx_api_keys_created_by CREATE INDEX idx_api_keys_created_by ON public.api_keys USING btree (created_by)
 index public.idx_api_keys_hash CREATE INDEX idx_api_keys_hash ON public.api_keys USING btree (key_hash)
 index public.idx_api_keys_prefix CREATE INDEX idx_api_keys_prefix ON public.api_keys USING btree (key_prefix) WHERE (revoked_at IS NULL)
 index public.idx_api_keys_tenant CREATE INDEX idx_api_keys_tenant ON public.api_keys USING btree (tenant_id)
+index public.idx_audit_logs_actor_id CREATE INDEX idx_audit_logs_actor_id ON public.audit_logs USING btree (actor_id)
 index public.idx_audit_logs_api_key CREATE INDEX idx_audit_logs_api_key ON public.audit_logs USING btree (api_key_id) WHERE (api_key_id IS NOT NULL)
 index public.idx_audit_logs_entity CREATE INDEX idx_audit_logs_entity ON public.audit_logs USING btree (entity_type, entity_id)
 index public.idx_audit_logs_tenant_api_key CREATE INDEX idx_audit_logs_tenant_api_key ON public.audit_logs USING btree (tenant_id, api_key_id)
@@ -1782,26 +1810,38 @@ index public.idx_comm_queue_dispatch CREATE INDEX idx_comm_queue_dispatch ON pub
 index public.idx_comm_queue_failed_updated CREATE INDEX idx_comm_queue_failed_updated ON public.communication_queue USING btree (updated_at) WHERE (status = ANY (ARRAY['failed'::text, 'dead_letter'::text]))
 index public.idx_comm_queue_processing_updated CREATE INDEX idx_comm_queue_processing_updated ON public.communication_queue USING btree (updated_at) WHERE (status = 'processing'::text)
 index public.idx_comm_queue_tenant CREATE INDEX idx_comm_queue_tenant ON public.communication_queue USING btree (tenant_id, created_at DESC)
+index public.idx_communication_queue_created_by CREATE INDEX idx_communication_queue_created_by ON public.communication_queue USING btree (created_by)
 index public.idx_communication_queue_external_msg_id CREATE INDEX idx_communication_queue_external_msg_id ON public.communication_queue USING btree (external_message_id)
+index public.idx_communication_queue_recipient_user_id CREATE INDEX idx_communication_queue_recipient_user_id ON public.communication_queue USING btree (recipient_user_id)
 index public.idx_communication_queue_tenant_appointment CREATE INDEX idx_communication_queue_tenant_appointment ON public.communication_queue USING btree (tenant_id, appointment_id)
 index public.idx_communication_queue_tenant_patient CREATE INDEX idx_communication_queue_tenant_patient ON public.communication_queue USING btree (tenant_id, patient_id)
+index public.idx_consent_records_recorded_by CREATE INDEX idx_consent_records_recorded_by ON public.consent_records USING btree (recorded_by)
 index public.idx_consent_records_tenant_patient CREATE INDEX idx_consent_records_tenant_patient ON public.consent_records USING btree (tenant_id, patient_id, recorded_at DESC, id DESC)
 index public.idx_consultation_diagnoses_tenant_patient CREATE INDEX idx_consultation_diagnoses_tenant_patient ON public.consultation_diagnoses USING btree (tenant_id, patient_id)
 index public.idx_consultation_diagnoses_tenant_visit CREATE INDEX idx_consultation_diagnoses_tenant_visit ON public.consultation_diagnoses USING btree (tenant_id, visit_id)
+index public.idx_consultations_doctor_id CREATE INDEX idx_consultations_doctor_id ON public.consultations USING btree (doctor_id)
 index public.idx_consultations_icd10 CREATE INDEX idx_consultations_icd10 ON public.consultations USING btree (icd10_code)
 index public.idx_consultations_tenant_doctor CREATE INDEX idx_consultations_tenant_doctor ON public.consultations USING btree (tenant_id, doctor_id)
 index public.idx_consultations_tenant_patient CREATE INDEX idx_consultations_tenant_patient ON public.consultations USING btree (tenant_id, patient_id)
 index public.idx_doc_tokens_tenant CREATE INDEX idx_doc_tokens_tenant ON public.document_share_tokens USING btree (tenant_id)
+index public.idx_doctor_custom_diagnoses_doctor_id CREATE INDEX idx_doctor_custom_diagnoses_doctor_id ON public.doctor_custom_diagnoses USING btree (doctor_id)
 index public.idx_doctor_custom_diagnoses_tenant_doctor CREATE INDEX idx_doctor_custom_diagnoses_tenant_doctor ON public.doctor_custom_diagnoses USING btree (tenant_id, doctor_id)
+index public.idx_doctor_custom_medicines_doctor_id CREATE INDEX idx_doctor_custom_medicines_doctor_id ON public.doctor_custom_medicines USING btree (doctor_id)
 index public.idx_doctor_custom_medicines_tenant_doctor CREATE INDEX idx_doctor_custom_medicines_tenant_doctor ON public.doctor_custom_medicines USING btree (tenant_id, doctor_id, medicine_name)
+index public.idx_doctor_prescription_templates_doctor_id CREATE INDEX idx_doctor_prescription_templates_doctor_id ON public.doctor_prescription_templates USING btree (doctor_id)
 index public.idx_doctor_prescription_templates_tenant_doctor CREATE INDEX idx_doctor_prescription_templates_tenant_doctor ON public.doctor_prescription_templates USING btree (tenant_id, doctor_id)
+index public.idx_document_share_tokens_created_by CREATE INDEX idx_document_share_tokens_created_by ON public.document_share_tokens USING btree (created_by)
 index public.idx_document_share_tokens_tenant_document CREATE INDEX idx_document_share_tokens_tenant_document ON public.document_share_tokens USING btree (tenant_id, document_id)
+index public.idx_follow_ups_doctor_id CREATE INDEX idx_follow_ups_doctor_id ON public.follow_ups USING btree (doctor_id)
 index public.idx_follow_ups_tenant_date_status CREATE INDEX idx_follow_ups_tenant_date_status ON public.follow_ups USING btree (tenant_id, follow_up_date, status)
 index public.idx_follow_ups_tenant_doctor CREATE INDEX idx_follow_ups_tenant_doctor ON public.follow_ups USING btree (tenant_id, doctor_id)
 index public.idx_follow_ups_tenant_patient CREATE INDEX idx_follow_ups_tenant_patient ON public.follow_ups USING btree (tenant_id, patient_id)
 index public.idx_follow_ups_tenant_visit CREATE INDEX idx_follow_ups_tenant_visit ON public.follow_ups USING btree (tenant_id, visit_id)
+index public.idx_in_app_notifications_recipient_user_id CREATE INDEX idx_in_app_notifications_recipient_user_id ON public.in_app_notifications USING btree (recipient_user_id)
 index public.idx_in_app_notifs_role CREATE INDEX idx_in_app_notifs_role ON public.in_app_notifications USING btree (tenant_id, recipient_role, is_read, created_at DESC)
 index public.idx_in_app_notifs_user CREATE INDEX idx_in_app_notifs_user ON public.in_app_notifications USING btree (tenant_id, recipient_user_id, is_read, created_at DESC)
+index public.idx_invitations_consumed_by CREATE INDEX idx_invitations_consumed_by ON public.invitations USING btree (consumed_by)
+index public.idx_invitations_created_by CREATE INDEX idx_invitations_created_by ON public.invitations USING btree (created_by)
 index public.idx_invitations_tenant_id CREATE INDEX idx_invitations_tenant_id ON public.invitations USING btree (tenant_id)
 index public.idx_invitations_token_hash CREATE INDEX idx_invitations_token_hash ON public.invitations USING btree (token_hash)
 index public.idx_invoice_items_tenant_invoice CREATE INDEX idx_invoice_items_tenant_invoice ON public.invoice_items USING btree (tenant_id, invoice_id)
@@ -1814,39 +1854,55 @@ index public.idx_opd_diagnoses_name_trgm CREATE INDEX idx_opd_diagnoses_name_trg
 index public.idx_opd_diagnoses_specialties CREATE INDEX idx_opd_diagnoses_specialties ON public.opd_diagnoses USING gin (specialties)
 index public.idx_patient_documents_tenant_patient_date CREATE INDEX idx_patient_documents_tenant_patient_date ON public.patient_documents USING btree (tenant_id, patient_id, report_date DESC)
 index public.idx_patient_documents_tenant_visit CREATE INDEX idx_patient_documents_tenant_visit ON public.patient_documents USING btree (tenant_id, visit_id)
+index public.idx_patient_documents_uploaded_by CREATE INDEX idx_patient_documents_uploaded_by ON public.patient_documents USING btree (uploaded_by)
 index public.idx_patient_documents_visit CREATE INDEX idx_patient_documents_visit ON public.patient_documents USING btree (visit_id)
+index public.idx_patients_created_by CREATE INDEX idx_patients_created_by ON public.patients USING btree (created_by)
 index public.idx_patients_tenant_active CREATE INDEX idx_patients_tenant_active ON public.patients USING btree (tenant_id, is_deleted)
 index public.idx_patients_tenant_created_at CREATE INDEX idx_patients_tenant_created_at ON public.patients USING btree (tenant_id, created_at)
 index public.idx_patients_tenant_id CREATE INDEX idx_patients_tenant_id ON public.patients USING btree (tenant_id)
 index public.idx_patients_tenant_name CREATE INDEX idx_patients_tenant_name ON public.patients USING btree (tenant_id, full_name)
 index public.idx_patients_tenant_phone CREATE INDEX idx_patients_tenant_phone ON public.patients USING btree (tenant_id, phone)
 index public.idx_payment_records_tenant_id CREATE INDEX idx_payment_records_tenant_id ON public.payment_records USING btree (tenant_id)
+index public.idx_payments_recorded_by CREATE INDEX idx_payments_recorded_by ON public.payments USING btree (recorded_by)
 index public.idx_payments_tenant_invoice CREATE INDEX idx_payments_tenant_invoice ON public.payments USING btree (tenant_id, invoice_id)
 index public.idx_payments_tenant_recorded CREATE INDEX idx_payments_tenant_recorded ON public.payments USING btree (tenant_id, recorded_at)
 index public.idx_prescription_items_prescription_sort CREATE INDEX idx_prescription_items_prescription_sort ON public.prescription_items USING btree (prescription_id, sort_order)
 index public.idx_prescription_items_tenant_prescription CREATE INDEX idx_prescription_items_tenant_prescription ON public.prescription_items USING btree (tenant_id, prescription_id)
+index public.idx_prescriptions_doctor_id CREATE INDEX idx_prescriptions_doctor_id ON public.prescriptions USING btree (doctor_id)
 index public.idx_prescriptions_tenant_doctor CREATE INDEX idx_prescriptions_tenant_doctor ON public.prescriptions USING btree (tenant_id, doctor_id)
 index public.idx_prescriptions_tenant_patient CREATE INDEX idx_prescriptions_tenant_patient ON public.prescriptions USING btree (tenant_id, patient_id)
 index public.idx_prescriptions_tenant_visit CREATE INDEX idx_prescriptions_tenant_visit ON public.prescriptions USING btree (tenant_id, visit_id)
 index public.idx_queue_tokens_tenant_date CREATE INDEX idx_queue_tokens_tenant_date ON public.queue_tokens USING btree (tenant_id, date, token_number)
 index public.idx_queue_tokens_tenant_visit CREATE INDEX idx_queue_tokens_tenant_visit ON public.queue_tokens USING btree (tenant_id, visit_id)
+index public.idx_referrals_closed_by CREATE INDEX idx_referrals_closed_by ON public.referrals USING btree (closed_by)
 index public.idx_referrals_patient CREATE INDEX idx_referrals_patient ON public.referrals USING btree (patient_id)
+index public.idx_referrals_referring_doctor_id CREATE INDEX idx_referrals_referring_doctor_id ON public.referrals USING btree (referring_doctor_id)
+index public.idx_referrals_target_doctor_id CREATE INDEX idx_referrals_target_doctor_id ON public.referrals USING btree (target_doctor_id)
+index public.idx_referrals_target_tenant_id CREATE INDEX idx_referrals_target_tenant_id ON public.referrals USING btree (target_tenant_id)
 index public.idx_referrals_target_tenant_status CREATE INDEX idx_referrals_target_tenant_status ON public.referrals USING btree (target_tenant_id, status) WHERE (target_tenant_id IS NOT NULL)
 index public.idx_referrals_tenant_patient CREATE INDEX idx_referrals_tenant_patient ON public.referrals USING btree (tenant_id, patient_id)
 index public.idx_referrals_tenant_referring_doctor CREATE INDEX idx_referrals_tenant_referring_doctor ON public.referrals USING btree (tenant_id, referring_doctor_id)
 index public.idx_referrals_tenant_status_sent CREATE INDEX idx_referrals_tenant_status_sent ON public.referrals USING btree (tenant_id, status, sent_at DESC)
 index public.idx_referrals_tenant_visit CREATE INDEX idx_referrals_tenant_visit ON public.referrals USING btree (tenant_id, visit_id)
 index public.idx_referrals_visit CREATE INDEX idx_referrals_visit ON public.referrals USING btree (visit_id)
+index public.idx_schedule_blocks_created_by CREATE INDEX idx_schedule_blocks_created_by ON public.schedule_blocks USING btree (created_by)
+index public.idx_schedule_blocks_doctor_id CREATE INDEX idx_schedule_blocks_doctor_id ON public.schedule_blocks USING btree (doctor_id)
 index public.idx_schedule_blocks_tenant_doctor_time CREATE INDEX idx_schedule_blocks_tenant_doctor_time ON public.schedule_blocks USING btree (tenant_id, doctor_id, start_time, end_time)
 index public.idx_schedule_blocks_tenant_time CREATE INDEX idx_schedule_blocks_tenant_time ON public.schedule_blocks USING btree (tenant_id, start_time, end_time)
 index public.idx_subscriptions_tenant_id CREATE INDEX idx_subscriptions_tenant_id ON public.subscriptions USING btree (tenant_id)
 index public.idx_tenants_created_at CREATE INDEX idx_tenants_created_at ON public.tenants USING btree (created_at)
+index public.idx_visit_revisions_amended_by CREATE INDEX idx_visit_revisions_amended_by ON public.visit_revisions USING btree (amended_by)
 index public.idx_visit_revisions_tenant_visit CREATE INDEX idx_visit_revisions_tenant_visit ON public.visit_revisions USING btree (tenant_id, visit_id)
+index public.idx_visits_created_by CREATE INDEX idx_visits_created_by ON public.visits USING btree (created_by)
+index public.idx_visits_doctor_id CREATE INDEX idx_visits_doctor_id ON public.visits USING btree (doctor_id)
+index public.idx_visits_signed_by CREATE INDEX idx_visits_signed_by ON public.visits USING btree (signed_by)
 index public.idx_visits_tenant_created CREATE INDEX idx_visits_tenant_created ON public.visits USING btree (tenant_id, created_at DESC)
 index public.idx_visits_tenant_doctor_sched CREATE INDEX idx_visits_tenant_doctor_sched ON public.visits USING btree (tenant_id, doctor_id, scheduled_at)
 index public.idx_visits_tenant_patient CREATE INDEX idx_visits_tenant_patient ON public.visits USING btree (tenant_id, patient_id)
 index public.idx_visits_tenant_specialty CREATE INDEX idx_visits_tenant_specialty ON public.visits USING btree (tenant_id, specialty)
 index public.idx_visits_tenant_status CREATE INDEX idx_visits_tenant_status ON public.visits USING btree (tenant_id, status)
+index public.idx_waitlist_entries_created_by CREATE INDEX idx_waitlist_entries_created_by ON public.waitlist_entries USING btree (created_by)
+index public.idx_waitlist_entries_doctor_id CREATE INDEX idx_waitlist_entries_doctor_id ON public.waitlist_entries USING btree (doctor_id)
 index public.idx_waitlist_entries_tenant_doctor CREATE INDEX idx_waitlist_entries_tenant_doctor ON public.waitlist_entries USING btree (tenant_id, doctor_id)
 index public.idx_waitlist_entries_tenant_patient CREATE INDEX idx_waitlist_entries_tenant_patient ON public.waitlist_entries USING btree (tenant_id, patient_id)
 index public.idx_waitlist_entries_tenant_promoted_visit CREATE INDEX idx_waitlist_entries_tenant_promoted_visit ON public.waitlist_entries USING btree (tenant_id, promoted_visit_id)
@@ -1858,6 +1914,7 @@ index public.idx_webhook_queue_status_retry CREATE INDEX idx_webhook_queue_statu
 index public.idx_webhook_queue_sub CREATE INDEX idx_webhook_queue_sub ON public.webhook_delivery_queue USING btree (subscription_id)
 index public.idx_webhook_queue_tenant CREATE INDEX idx_webhook_queue_tenant ON public.webhook_delivery_queue USING btree (tenant_id)
 index public.idx_webhook_subs_tenant CREATE INDEX idx_webhook_subs_tenant ON public.webhook_subscriptions USING btree (tenant_id)
+index public.idx_webhook_subscriptions_created_by CREATE INDEX idx_webhook_subscriptions_created_by ON public.webhook_subscriptions USING btree (created_by)
 index public.in_app_notifications_pkey CREATE UNIQUE INDEX in_app_notifications_pkey ON public.in_app_notifications USING btree (id)
 index public.invitations_pkey CREATE UNIQUE INDEX invitations_pkey ON public.invitations USING btree (id)
 index public.invitations_token_hash_key CREATE UNIQUE INDEX invitations_token_hash_key ON public.invitations USING btree (token_hash)
@@ -1877,6 +1934,7 @@ index public.payments_tenant_command_id CREATE UNIQUE INDEX payments_tenant_comm
 index public.prescription_items_pkey CREATE UNIQUE INDEX prescription_items_pkey ON public.prescription_items USING btree (id)
 index public.prescriptions_pkey CREATE UNIQUE INDEX prescriptions_pkey ON public.prescriptions USING btree (id)
 index public.prescriptions_tenant_id_id_key CREATE UNIQUE INDEX prescriptions_tenant_id_id_key ON public.prescriptions USING btree (tenant_id, id)
+index public.queue_token_counters_pkey CREATE UNIQUE INDEX queue_token_counters_pkey ON public.queue_token_counters USING btree (tenant_id, date)
 index public.queue_tokens_pkey CREATE UNIQUE INDEX queue_tokens_pkey ON public.queue_tokens USING btree (id)
 index public.queue_tokens_visit_id_key CREATE UNIQUE INDEX queue_tokens_visit_id_key ON public.queue_tokens USING btree (visit_id)
 index public.referrals_pkey CREATE UNIQUE INDEX referrals_pkey ON public.referrals USING btree (id)
@@ -1895,6 +1953,7 @@ index public.uq_prescriptions_visit_version CREATE UNIQUE INDEX uq_prescriptions
 index public.uq_tenant_date_token CREATE UNIQUE INDEX uq_tenant_date_token ON public.queue_tokens USING btree (tenant_id, date, token_number)
 index public.uq_visit_revisions_number CREATE UNIQUE INDEX uq_visit_revisions_number ON public.visit_revisions USING btree (visit_id, revision_number)
 index public.visit_revisions_pkey CREATE UNIQUE INDEX visit_revisions_pkey ON public.visit_revisions USING btree (id)
+index public.visits_no_double_booking CREATE INDEX visits_no_double_booking ON public.visits USING gist (tenant_id, doctor_id, visit_slot(scheduled_at, estimated_duration_minutes)) WHERE ((origin_type = 'scheduled'::text) AND (scheduled_at IS NOT NULL) AND (NOT is_overbooked) AND (status <> ALL (ARRAY['cancelled'::text, 'no_show'::text])))
 index public.visits_pkey CREATE UNIQUE INDEX visits_pkey ON public.visits USING btree (id)
 index public.visits_tenant_id_id_key CREATE UNIQUE INDEX visits_tenant_id_id_key ON public.visits USING btree (tenant_id, id)
 index public.waitlist_entries_pkey CREATE UNIQUE INDEX waitlist_entries_pkey ON public.waitlist_entries USING btree (id)
@@ -2078,6 +2137,7 @@ relation public.payment_records kind=r rls=t force_rls=f
 relation public.payments kind=r rls=t force_rls=f
 relation public.prescription_items kind=r rls=t force_rls=f
 relation public.prescriptions kind=r rls=t force_rls=f
+relation public.queue_token_counters kind=r rls=t force_rls=f
 relation public.queue_tokens kind=r rls=t force_rls=f
 relation public.referrals kind=r rls=t force_rls=f
 relation public.schedule_blocks kind=r rls=t force_rls=f
@@ -2098,9 +2158,11 @@ trigger public.communication_queue.communication_queue_apply_early_dlr CREATE TR
 trigger public.communication_queue.communication_queue_enqueue_job CREATE TRIGGER communication_queue_enqueue_job AFTER INSERT ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION ops.communication_queue_enqueue_job()
 trigger public.communication_queue.communication_queue_scrub_payload CREATE TRIGGER communication_queue_scrub_payload BEFORE INSERT OR UPDATE ON public.communication_queue FOR EACH ROW EXECUTE FUNCTION communication_queue_scrub_payload()
 trigger public.memberships.memberships_profile_update_guard CREATE TRIGGER memberships_profile_update_guard BEFORE UPDATE ON public.memberships FOR EACH ROW EXECUTE FUNCTION memberships_profile_update_guard()
+trigger public.patient_documents.patient_documents_fill_report_date CREATE TRIGGER patient_documents_fill_report_date BEFORE INSERT ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_fill_report_date()
 trigger public.patients.patients_clinical_fields_guard CREATE TRIGGER patients_clinical_fields_guard BEFORE UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION patients_clinical_fields_guard()
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
 trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
+trigger public.queue_tokens.queue_tokens_fill_date CREATE TRIGGER queue_tokens_fill_date BEFORE INSERT ON public.queue_tokens FOR EACH ROW EXECUTE FUNCTION private.queue_tokens_fill_date()
 trigger public.referrals.referrals_directory_consent_guard CREATE TRIGGER referrals_directory_consent_guard BEFORE INSERT OR UPDATE OF target_tenant_id, tenant_id, consented_history_snapshot, patient_consents_history_sharing ON public.referrals FOR EACH ROW EXECUTE FUNCTION private.referrals_directory_consent_guard()
 trigger public.referrals.referrals_target_update_guard CREATE TRIGGER referrals_target_update_guard BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION referrals_target_update_guard()
 trigger public.visits.visits_create_clinical_notes CREATE TRIGGER visits_create_clinical_notes AFTER INSERT ON public.visits FOR EACH ROW EXECUTE FUNCTION private.visits_create_clinical_notes()

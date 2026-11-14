@@ -22,6 +22,7 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { unaffectedRowsError } from "@/lib/db/errors";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import type { AppErrorCode } from "@/lib/errors/app-error";
 
 // Scheduling use-cases (blocks, slot checks, booking). Tenant and actor come only from `ctx` (ADR-0005 D1); each
 // use-case checks the permission its server action checked before the move.
@@ -401,6 +402,9 @@ export type BookAppointmentResult =
       isBlocked?: boolean;
       conflictingVisit?: Visit | null;
       error: string;
+      /** CONFLICT with reason VISITS_NO_DOUBLE_BOOKING when the database refused the slot (V2-05 05-08). */
+      code?: AppErrorCode;
+      reason?: string;
     };
 
 /**
@@ -481,6 +485,12 @@ export async function bookAppointment(ctx: ServiceContext, input: BookAppointmen
   });
 
   if (!visitRes.success) {
+    if (visitRes.conflict) {
+      // The slot was free at the check above but another booking won the race: the `visits_no_double_booking`
+      // exclusion constraint refused this insert (V2-05 05-08, acceptance 6). Reported like an occupied slot, so the
+      // booking drawer offers the overbook confirmation.
+      return { success: false, conflict: true, error: visitRes.error, code: visitRes.code, reason: visitRes.reason };
+    }
     return {
       success: false,
       error: visitRes.error,

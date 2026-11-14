@@ -22,6 +22,8 @@ import { recordVitalsInputSchema, type RecordVitalsInput, type Vitals } from "@/
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { mapDbError, type DbErrorLike } from "@/lib/db/errors";
+import type { AppErrorCode } from "@/lib/errors/app-error";
 
 // Visit use-cases. The acting tenant and user come only from `ctx` (ADR-0005 D1); each use-case checks the same
 // permission its server action checked before the move, so service→service chains are checked too.
@@ -38,9 +40,31 @@ const createVisitSchema = z.object({
 
 export type CreateVisitInput = z.infer<typeof createVisitSchema>;
 
+/**
+ * The reason a visit insert carries when the doctor's slot was taken between the slot check and the insert: the
+ * `visits_no_double_booking` exclusion constraint (V2-05 05-08, DB-08) refuses a second overlapping, non-overbooked
+ * scheduled visit with SQLSTATE 23P01, which `mapDbError` maps to CONFLICT with the constraint name as the reason.
+ */
+export const SLOT_TAKEN_REASON = "VISITS_NO_DOUBLE_BOOKING";
+export const SLOT_TAKEN_MESSAGE =
+  "This slot was just booked for the doctor. Pick another time, or confirm the overbooking.";
+
+/** True when a visit write was refused because the doctor's slot is taken ({@link SLOT_TAKEN_REASON}). */
+export function isSlotTakenError(err: DbErrorLike | null | undefined): boolean {
+  return mapDbError(err).reason === SLOT_TAKEN_REASON;
+}
+
 export type CreateVisitResult =
   | { success: true; visitId: string }
-  | { success: false; error: string; fieldErrors?: Record<string, string[]> };
+  | {
+      success: false;
+      error: string;
+      fieldErrors?: Record<string, string[]>;
+      /** Set when the slot was taken (CONFLICT, reason {@link SLOT_TAKEN_REASON}). */
+      conflict?: true;
+      code?: AppErrorCode;
+      reason?: string;
+    };
 
 export async function createVisit(ctx: ServiceContext, input: CreateVisitInput): Promise<CreateVisitResult> {
   const supabase = ctx.db;
@@ -78,7 +102,7 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
       supabase.from("visits") as unknown as {
         insert: (row: Record<string, unknown>) => {
           select: (cols: string) => {
-            single: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
+            single: () => Promise<{ data: { id: string } | null; error: { code?: string; message: string } | null }>;
           };
         };
       }
@@ -99,6 +123,11 @@ export async function createVisit(ctx: ServiceContext, input: CreateVisitInput):
       .single();
 
     if (insertError || !newVisit) {
+      const mapped = mapDbError(insertError, { [SLOT_TAKEN_REASON]: SLOT_TAKEN_MESSAGE });
+      if (mapped.reason === SLOT_TAKEN_REASON) {
+        // Expected under concurrency (two desks booking one slot): not an error to alert on.
+        return { success: false, error: mapped.message, conflict: true, code: mapped.code, reason: mapped.reason };
+      }
       log.error({ event: "visits.create_insert.failed", code: errorTag(insertError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to schedule visit in database." };
     }

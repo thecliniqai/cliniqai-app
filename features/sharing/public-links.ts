@@ -149,6 +149,10 @@ export async function consumeRescheduleToken(token: string, newScheduledAt: stri
     p_token: token,
     p_new_at: newScheduledAt,
   });
+  // The function's own overlap check uses the doctor's default slot length; a visit longer than that can still overlap,
+  // and the visits_no_double_booking constraint (V2-05 05-08) then refuses the update (23P01). The transaction rolls
+  // back, so the token stays usable: report it as the taken slot it is.
+  if (error && (error as { code?: string }).code === "23P01") return { status: "slot_taken" };
   if (error || !data || typeof data !== "object" || Array.isArray(data)) {
     if (error) log.error({ event: "sharing.reschedule_consume.failed", code: errorTag(error), requestId: await getRequestId() });
     return { status: "not_found" };

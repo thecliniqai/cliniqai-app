@@ -4,6 +4,7 @@ import { apiSuccess, apiError } from "@/lib/api/envelope";
 import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { getSystemDb } from "@/lib/supabase/system";
 import { checkSlotAvailability } from "@/features/visits/scheduling-service";
+import { isSlotTakenError } from "@/features/visits/service";
 import { recordAudit } from "@/lib/audit/audit";
 
 /**
@@ -241,6 +242,16 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
+    if (isSlotTakenError(insertErr)) {
+      // Booked by someone else after the slot check above (V2-05 05-08: the visits_no_double_booking constraint).
+      return apiError(
+        "SLOT_CONFLICT",
+        "The requested appointment slot conflicts with an existing booking for this doctor.",
+        409,
+        undefined,
+        rateHeaders
+      );
+    }
     if (insertErr || !visit) {
       return apiError("DATABASE_ERROR", insertErr?.message || "Failed to create appointment", 500, undefined, rateHeaders);
     }
