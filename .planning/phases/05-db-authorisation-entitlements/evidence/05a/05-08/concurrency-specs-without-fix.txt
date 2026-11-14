@@ -1,0 +1,328 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+{"ts":"2026-11-14T03:25:06.709Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.709Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.714Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.715Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.715Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.715Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.715Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.715Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.715Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.717Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.724Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.724Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.725Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.725Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.730Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.730Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.730Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.730Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.733Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.733Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.733Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.734Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.739Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.740Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.740Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.740Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.740Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.740Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.740Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.741Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.741Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.741Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.741Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.741Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.741Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.742Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.743Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+{"ts":"2026-11-14T03:25:06.743Z","level":"error","event":"queue.token_insert.failed","tenantId":"b13a8cb3-fe1a-4b01-9b2f-f988899a9976","code":"23505"}
+ ❯ tests/integration/queue-token-concurrency.spec.ts (1 test | 1 failed) 670ms
+   × 50 parallel check-ins (05-08, acceptance 7) > produces tokens 1…50, all distinct, every one dated the clinic-local (IST) date computed in SQL 270ms
+     → expected [ { success: false, …(1) }, …(48) ] to deeply equal []
+ ❯ tests/scheduling/no-double-booking.spec.ts (4 tests | 2 failed) 635ms
+   × no double booking under concurrency (05-08, acceptance 6) > two receptionists book the same slot in parallel: exactly one succeeds, the other gets CONFLICT (before: both stored) 49ms
+     → expected [ { success: true, …(1) }, …(1) ] to have a length of 1 but got 2
+   × no double booking under concurrency (05-08, acceptance 6) > overlapping slots (10:00 and 10:05) booked in parallel: exactly one succeeds 23ms
+     → expected [ { success: true, …(1) }, …(1) ] to have a length of 1 but got 2
+   ✓ no double booking under concurrency (05-08, acceptance 6) > back-to-back slots booked in parallel both succeed (the slot is half-open) 20ms
+   ✓ no double booking under concurrency (05-08, acceptance 6) > an intentional overbooking in parallel is stored next to the regular booking 18ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/integration/queue-token-concurrency.spec.ts > 50 parallel check-ins (05-08, acceptance 7) > produces tokens 1…50, all distinct, every one dated the clinic-local (IST) date computed in SQL
+AssertionError: expected [ { success: false, …(1) }, …(48) ] to deeply equal []
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+   {[39m
+[31m+     "error": "Failed to register queue entry.",[39m
+[31m+     "success": false,[39m
+[31m+   },[39m
+[31m+ ][39m
+
+ ❯ tests/integration/queue-token-concurrency.spec.ts:90:22
+     88| 
+     89|     const failures = results.filter((r) => !r.success);
+     90|     expect(failures).toEqual([]);
+       |                      ^
+     91|     const numbers = results.map((r) => (r.success ? r.tokenNumber : Na…
+     92|     expect(numbers).toEqual(Array.from({ length: CHECK_INS }, (_, i) =…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/scheduling/no-double-booking.spec.ts > no double booking under concurrency (05-08, acceptance 6) > two receptionists book the same slot in parallel: exactly one succeeds, the other gets CONFLICT (before: both stored)
+AssertionError: expected [ { success: true, …(1) }, …(1) ] to have a length of 1 but got 2
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 2[39m
+
+ ❯ expectOneWinner tests/scheduling/no-double-booking.spec.ts:83:18
+     81|     const wins = results.filter((r) => r.success);
+     82|     const losses = results.filter((r): r is Extract<BookAppointmentRes…
+     83|     expect(wins).toHaveLength(1);
+       |                  ^
+     84|     expect(losses).toHaveLength(1);
+     85|     // The loser passed the slot check (the barrier proves it) and was…
+ ❯ tests/scheduling/no-double-booking.spec.ts:101:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/scheduling/no-double-booking.spec.ts > no double booking under concurrency (05-08, acceptance 6) > overlapping slots (10:00 and 10:05) booked in parallel: exactly one succeeds
+AssertionError: expected [ { success: true, …(1) }, …(1) ] to have a length of 1 but got 2
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 2[39m
+
+ ❯ expectOneWinner tests/scheduling/no-double-booking.spec.ts:83:18
+     81|     const wins = results.filter((r) => r.success);
+     82|     const losses = results.filter((r): r is Extract<BookAppointmentRes…
+     83|     expect(wins).toHaveLength(1);
+       |                  ^
+     84|     expect(losses).toHaveLength(1);
+     85|     // The loser passed the slot check (the barrier proves it) and was…
+ ❯ tests/scheduling/no-double-booking.spec.ts:112:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 2 passed (5)
+   Start at  08:55:05
+   Duration  1.91s (transform 93ms, setup 13ms, collect 147ms, tests 1.30s, environment 0ms, prepare 42ms)
+
+[teardown] removed run data: 2 tenant(s), 7 auth user(s), 0 storage object(s); verified none remain
