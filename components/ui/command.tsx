@@ -22,12 +22,22 @@ import { IconButton } from "./icon-button";
  * hairline, `shadow-overlay`, scrim; full screen below 768 px with a Close button. Escape closes it and focus returns
  * to the opener.
  */
-export const Command = React.forwardRef<
-  React.ElementRef<typeof CommandPrimitive>,
-  React.ComponentPropsWithoutRef<typeof CommandPrimitive>
->(function Command({ className, loop = true, ...props }, ref) {
+export interface CommandProps extends React.ComponentPropsWithoutRef<typeof CommandPrimitive> {
+  /**
+   * Inline comboboxes whose list opens and closes (06-03b RxEntryRow, PatientPicker): the input's `aria-expanded`.
+   * cmdk 1.1.1 always writes `aria-expanded="true"`, which tells a screen reader a list is showing when none is. Leave
+   * undefined for an always-open list (the palette).
+   */
+  expanded?: boolean;
+}
+
+export const Command = React.forwardRef<React.ElementRef<typeof CommandPrimitive>, CommandProps>(function Command(
+  { className, loop = true, expanded, ...props },
+  ref,
+) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   useActiveDescendantSync(rootRef);
+  useExpandedSync(rootRef, expanded);
   return (
     <CommandPrimitive
       ref={(node) => {
@@ -75,6 +85,53 @@ function useActiveDescendantSync(rootRef: React.RefObject<HTMLDivElement | null>
     return () => observer.disconnect();
   }, [rootRef]);
 }
+
+/** Keeps the combobox input's `aria-expanded` on `expanded` (cmdk sets it to "true" on every mount). */
+function useExpandedSync(rootRef: React.RefObject<HTMLDivElement | null>, expanded: boolean | undefined) {
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || expanded === undefined) return;
+    const value = String(expanded);
+    const apply = () => {
+      const input = root.querySelector<HTMLInputElement>("[cmdk-input]");
+      if (input && input.getAttribute("aria-expanded") !== value) input.setAttribute("aria-expanded", value);
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-expanded"] });
+    return () => observer.disconnect();
+  }, [rootRef, expanded]);
+}
+
+/**
+ * cmdk 1.1.1 brings the active option into view with `element.scrollIntoView({ block: "nearest" })` (and the first
+ * group's heading with it), also when it auto-selects the first option on mount. `scrollIntoView` scrolls every
+ * scrollable ancestor, the page included: `/dev/ui` loaded scrolled to its inline Command (scrollY 4758 at 1280 px,
+ * evidence/06-02c/scroll-probe.txt), and a consult would jump to its Rx combobox on load. The items and headings here
+ * get their own `scrollIntoView` that scrolls only the list (`[cmdk-list]`) they sit in, so arrow keys still keep the
+ * active option visible inside the list while the page stays where the user left it.
+ */
+export function scrollWithinCommandList(el: HTMLElement): void {
+  const list = el.closest<HTMLElement>("[cmdk-list]");
+  if (!list) return;
+  const l = list.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  if (r.top < l.top) list.scrollTop -= l.top - r.top;
+  else if (r.bottom > l.bottom) list.scrollTop += r.bottom - l.bottom;
+}
+
+function confineScroll(el: HTMLElement | null): void {
+  if (!el || Object.prototype.hasOwnProperty.call(el, "scrollIntoView")) return;
+  Object.defineProperty(el, "scrollIntoView", { configurable: true, value: () => scrollWithinCommandList(el) });
+}
+
+/** Forwards a node to a forwarded ref (outside render: React calls ref callbacks at commit). */
+function assignRef<T>(ref: React.ForwardedRef<T>, node: T | null): void {
+  if (typeof ref === "function") ref(node);
+  else if (ref) ref.current = node;
+}
+
+const pickHeading = (node: HTMLElement) => node.querySelector<HTMLElement>("[cmdk-group-heading]");
 
 export const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
@@ -135,7 +192,10 @@ export const CommandGroup = React.forwardRef<
 >(function CommandGroup({ className, ...props }, ref) {
   return (
     <CommandPrimitive.Group
-      ref={ref}
+      ref={(node) => {
+        if (node) confineScroll(pickHeading(node));
+        assignRef(ref, node);
+      }}
       className={cn(
         "py-1 [&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-1.5 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-caption [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-caps [&_[cmdk-group-heading]]:text-fg-muted [&_[cmdk-group-heading]]:uppercase",
         className,
@@ -156,13 +216,18 @@ export interface CommandItemProps extends React.ComponentPropsWithoutRef<typeof 
   icon?: React.ReactNode;
   /** Trailing hint for the Enter action ("Open", "Add to queue"). */
   hint?: React.ReactNode;
+  /** Rows whose text may wrap (patient names are never ellipsized, 06-UI-SPEC CD-13); default one truncated line. */
+  multiline?: boolean;
 }
 
 export const CommandItem = React.forwardRef<React.ElementRef<typeof CommandPrimitive.Item>, CommandItemProps>(
-  function CommandItem({ className, icon, hint, children, ...props }, ref) {
+  function CommandItem({ className, icon, hint, multiline = false, children, ...props }, ref) {
     return (
       <CommandPrimitive.Item
-        ref={ref}
+        ref={(node) => {
+          confineScroll(node);
+          assignRef(ref, node);
+        }}
         className={cn(
           "relative flex min-h-control-dense cursor-pointer items-center gap-2 rounded-sm px-2.5 text-body-sm text-fg select-none touch:min-h-control",
           "data-[selected=true]:bg-selected data-[selected=true]:shadow-[inset_2px_0_0_var(--color-accent)]",
@@ -177,7 +242,7 @@ export const CommandItem = React.forwardRef<React.ElementRef<typeof CommandPrimi
             {icon}
           </span>
         )}
-        <span className="min-w-0 flex-1 truncate">{children}</span>
+        <span className={cn("min-w-0 flex-1", multiline ? "py-1.5" : "truncate")}>{children}</span>
         {hint && <span className="shrink-0 text-caption text-fg-muted">{hint}</span>}
       </CommandPrimitive.Item>
     );
