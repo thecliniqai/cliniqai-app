@@ -62,6 +62,13 @@ describe("schema snapshot on the local stack (catches what migra and a public-on
       ["create policy drift_probe on storage.objects for select to anon using (true)"],
       /^\+ policy storage\.objects\.drift_probe cmd=r permissive=t roles=anon using=true check=-$/,
     ],
+    [
+      // V2-05 05-02c: a dashboard edit of an existing per-class storage policy (here: the Rx class opened to every
+      // signed-in user) is drift, line for line.
+      "a changed storage policy (the Rx class read rule loosened)",
+      ["alter policy prescriptions_rx_select on storage.objects using (bucket_id = 'prescriptions')"],
+      /^\+ policy storage\.objects\.prescriptions_rx_select cmd=r permissive=t roles=authenticated using=\(bucket_id = 'prescriptions'::text\) check=-$/,
+    ],
   ])("%s is drift (exit 1, the line named)", (_label, changes, line) => {
     const changed = snapshotWith(changes);
     const judged = judgeSnapshot(changed, { expected: baseline });
