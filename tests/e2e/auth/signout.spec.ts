@@ -68,10 +68,10 @@ async function openUserMenu(page: Page): Promise<void> {
 
 /**
  * Clicks a sign-out item; returns the sign-out POST (its form body) and the scopes the server completed for it.
- * V2-06 06-05: with JavaScript the menu signs out through `hardSignOut()`, a `fetch` with `redirect: "manual"`;
- * Chromium reports that request to Playwright as failed once the 303 arrives (an opaque redirect), so the outcome is
- * read from the server's `auth.signout.done` log line, and the route's own 303 + `Clear-Site-Data` answer is
- * asserted on a direct POST in the last test of this file.
+ * V2-06 06-05: with JavaScript the menu signs out through `hardSignOut()`, a `fetch`; the outcome is read from the
+ * server's `auth.signout.done` log line (06-05: Chromium reported the opaque-redirect fetch as failed; since 06-09a the
+ * fetch gets a 200/502 JSON answer, but the log line stays the one source for every device), and the route's own
+ * 303 + `Clear-Site-Data` answer to a form post is asserted on a direct POST in the last test of this file.
  */
 async function signOutVia(page: Page, item: "Sign out" | "Sign out of all devices") {
   await openUserMenu(page);
