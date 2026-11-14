@@ -274,6 +274,7 @@ function targetFixtures(): string[] {
     const qualified = `${t.schema}.${t.table}`;
     if (!t.inBase) lines.push(`${insertSql(qualified, t.fixture)};`);
     for (const extra of t.extraRows ?? []) lines.push(`${insertSql(qualified, extra)};`);
+    if (t.fixtureSql) lines.push(`${t.fixtureSql};`);
   }
   return lines;
 }

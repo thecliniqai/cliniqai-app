@@ -33,6 +33,9 @@
  *   3355 — V2-05 05b 05-b0 (000079 contract_05a): 3343 − 6 definer_functions legs of the three dropped functions
  *          (generate_daily_queue_token, current_user_has_role, current_user_is_admin_or_owner; 40 → 34)
  *          + contract_05a 18 = 3355 (32 files).
+ *   3850 — V2-05 05b 05-09a (000080-000084 SUB-01): 3355 + authz_matrix 352 (2376 → 2728: 8 new tables x 4 ops x 11
+ *          principals) + billing_access 45 + billing_entitlements 30 + billing_catalogue 30 + billing_grants 24
+ *          + subscription_invariant 14 = 3850 (37 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -44,7 +47,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 3355;
+export const FLOOR = 3850;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -96,6 +99,12 @@ export const REQUIRED_FILES = [
   // V2-05 05b, per plan.
   // 05-b0
   "supabase/tests/database/contract_05a.test.sql",
+  // 05-09a
+  "supabase/tests/database/billing_access.test.sql",
+  "supabase/tests/database/billing_entitlements.test.sql",
+  "supabase/tests/database/billing_catalogue.test.sql",
+  "supabase/tests/database/billing_grants.test.sql",
+  "supabase/tests/database/subscription_invariant.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

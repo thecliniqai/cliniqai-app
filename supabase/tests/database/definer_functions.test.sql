@@ -163,6 +163,8 @@ insert into c2c_definer values
   ('public.referral_directory_search', 'bound', 'consultations:edit in the active clinic; never the active clinic itself (000062, 05-06)'),
   -- the member helper
   ('public.current_user_tenant_ids', 'member', 'every clinic of the caller (switcher); no policy or function uses it'),
+  ('public.my_tenant_access', 'member', 'SUB §6.2 wrapper: the access level of one of the caller''s own clinics, else null (000083, 05-09a)'),
+  ('public.my_entitlements', 'member', 'SUB §6.2 wrapper: entitlements of one of the caller''s own clinics, else no rows (000083, 05-09a)'),
   -- exempt: authorised by something other than a clinic membership
   ('public.consume_invitation', 'exempt', 'invitation token (creates the membership; 05-07a rework)'),
   ('public.create_clinic_with_owner', 'exempt', 'onboarding: creates the clinic and the caller''s first membership'),
@@ -205,7 +207,8 @@ insert into c2c_definer values
   ('private.referrals_directory_consent_guard', 'internal', 'trigger: referral target listed + consent (05-06); actor, target doctor, consent coverage (000074, 05-11b)'),
   ('private.invoice_items_sync_invoice', 'internal', 'trigger: invoice totals and status follow its items (000072, 05-11b); never promotes to paid (000075, 05-11d)'),
   ('private.invoice_items_integrity_guard', 'internal', 'trigger: computed line total, keys, paid/collected locks (000075, 05-11d)'),
-  ('private.visit_revisions_actor_guard', 'internal', 'trigger: amendment author, database snapshot and number (000068/000075, 05-11a/05-11d)');
+  ('private.visit_revisions_actor_guard', 'internal', 'trigger: amendment author, database snapshot and number (000068/000075, 05-11a/05-11d)'),
+  ('private.tenants_create_subscription', 'internal', 'trigger: every new clinic gets one incomplete tenant_subscriptions row (000082, 05-09a, R-24)');
 
 -- 1. ------------------------------------------------------------------------------------------------------------------
 select set_eq(
@@ -232,6 +235,7 @@ select set_eq(
     'public.generate_tenant_invoice_number:authenticated,service_role', 'public.search_medicines:authenticated,service_role',
     'public.log_audit:authenticated', 'public.has_permission:authenticated,service_role',
     'public.current_user_tenant_ids:authenticated,service_role',
+    'public.my_tenant_access:authenticated', 'public.my_entitlements:authenticated',
     'public.consume_invitation:authenticated,service_role', 'public.create_clinic_with_owner:authenticated,service_role',
     'public.consume_reschedule_token:anon,authenticated,service_role',
     'public.get_reschedule_context:anon,authenticated,service_role',
@@ -255,7 +259,8 @@ select set_eq(
     'private.webhook_event_subject:', 'private.visits_create_clinical_notes:',
     'public.referral_directory_search:authenticated', 'private.referrals_directory_consent_guard:',
     'public.record_payment:authenticated,service_role', 'private.invoice_items_sync_invoice:',
-    'private.invoice_items_integrity_guard:', 'private.visit_revisions_actor_guard:'
+    'private.invoice_items_integrity_guard:', 'private.visit_revisions_actor_guard:',
+    'private.tenants_create_subscription:'
   ]::text[],
   'every definer function has exactly its expected EXECUTE grantees (anon only for the token, probe and ingest paths)'
 );

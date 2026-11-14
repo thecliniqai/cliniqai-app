@@ -161,6 +161,14 @@ const FINAL_DELETE: Record<string, string> = {
   "public.webhook_delivery_queue": "rpc_only",
   "public.subscriptions": "rpc_only",
   "public.payment_records": "rpc_only",
+  "public.plans": "rpc_only",
+  "public.plan_prices": "rpc_only",
+  "public.entitlement_keys": "rpc_only",
+  "public.plan_entitlements": "rpc_only",
+  "public.tenant_entitlement_overrides": "rpc_only",
+  "public.tenant_subscriptions": "rpc_only",
+  "public.subscription_events": "rpc_only",
+  "public.platform_settings": "rpc_only",
   "public.cdci_brands": "rpc_only",
   "public.cdci_drug_forms": "rpc_only",
   "public.cdci_generics": "rpc_only",
@@ -401,5 +409,76 @@ describe("the admin/system tables and the storage classes (target since 05-02c)"
     expect(outcome("public.audit_logs", "insert", "owner_a")).toBe("denied");
     expect(outcome("public.memberships", "select", "receptionist_a")).toBe("1");
     expect(outcome("public.tenants", "select", "dual_no_hdr")).toBe("1");
+  });
+});
+
+/**
+ * SUB-01 (05-09a, migrations 000081-000084; 05-PLAN "Target policy matrix" rows for the subscription tables, R-10,
+ * R-26, R-40; AI_STRATEGY.md §4.6 write protection): the catalogue is readable by signed-in users and written by no API
+ * role; the clinic's subscription and its events are readable by the owner and admin of the active clinic only;
+ * overrides and platform settings have no tenant access.
+ */
+const TARGET_05_09A: Record<string, [string, string, string, string]> = {
+  "public.plans": ["catalogue", "rpc_only", "rpc_only", "rpc_only"],
+  "public.plan_prices": ["catalogue", "rpc_only", "rpc_only", "rpc_only"],
+  "public.entitlement_keys": ["catalogue", "rpc_only", "rpc_only", "rpc_only"],
+  "public.plan_entitlements": ["catalogue", "rpc_only", "rpc_only", "rpc_only"],
+  "public.tenant_entitlement_overrides": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+  "public.tenant_subscriptions": ["billing", "rpc_only", "rpc_only", "rpc_only"],
+  "public.subscription_events": ["billing", "rpc_only", "rpc_only", "rpc_only"],
+  "public.platform_settings": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+};
+
+describe("the subscription tables (SUB-01, since 05-09a)", () => {
+  const byName = new Map(TARGETS.map((t) => [targetName(t), t]));
+  const outcome = (target: string, op: "select" | "insert" | "update" | "delete", principalId: string) => {
+    const t = byName.get(target);
+    if (!t) throw new Error(`no target ${target}`);
+    return expectedOutcome(t, op, principal(principalId));
+  };
+
+  it("gives each its planned rule for every operation", () => {
+    const actual = Object.fromEntries(
+      Object.keys(TARGET_05_09A).map((name) => {
+        const t = byName.get(name);
+        if (!t) throw new Error(`no target ${name}`);
+        return [name, OPS.map((op) => ruleText(t.rules[op]))];
+      }),
+    );
+    expect(actual).toEqual(TARGET_05_09A);
+  });
+
+  it("lets only the owner and admin of the active clinic read its subscription and events", () => {
+    for (const target of ["public.tenant_subscriptions", "public.subscription_events"]) {
+      const readers = PRINCIPALS.filter((p) => outcome(target, "select", p.id) === "1").map((p) => p.id);
+      expect(readers, target).toEqual(["owner_a", "admin_a"]);
+    }
+  });
+
+  it("lets every signed-in user, and no anon caller, read the visible catalogue; nobody writes it", () => {
+    for (const target of ["public.plans", "public.plan_prices", "public.entitlement_keys", "public.plan_entitlements"]) {
+      expect(outcome(target, "select", "owner_b"), target).toBe("1");
+      expect(outcome(target, "select", "receptionist_a"), target).toBe("1");
+      expect(outcome(target, "select", "anon"), target).toBe("denied");
+      for (const op of ["insert", "update", "delete"] as const) {
+        for (const p of PRINCIPALS) expect(outcome(target, op, p.id), `${target} ${op} ${p.id}`).toBe("denied");
+      }
+    }
+  });
+
+  it("gives no principal any access to overrides or platform settings", () => {
+    for (const target of ["public.tenant_entitlement_overrides", "public.platform_settings"]) {
+      for (const op of OPS) {
+        for (const p of PRINCIPALS) expect(outcome(target, op, p.id), `${target} ${op} ${p.id}`).toBe("denied");
+      }
+    }
+  });
+
+  it("seeds the fixture clinics' subscriptions as trialing (05-10a evaluates the access level against them)", () => {
+    const t = byName.get("public.tenant_subscriptions");
+    if (!t || t.kind !== "table") throw new Error("public.tenant_subscriptions missing");
+    expect(t.inBase).toBe(true);
+    expect(t.fixtureSql).toMatch(/set status = 'trialing'/);
+    expect(cellSql(t, "select").sql).toContain("public.tenant_subscriptions");
   });
 });

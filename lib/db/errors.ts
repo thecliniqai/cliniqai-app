@@ -58,6 +58,11 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   REFERRAL_CONSENT_REQUIRED: "VALIDATION_FAILED",
   // V2-05 05-11b (migration 000074): a referral's target doctor is not an owner/doctor of the target clinic.
   REFERRAL_TARGET_DOCTOR_INVALID: "VALIDATION_FAILED",
+  // V2-05 05-09a (migration 000083): billing_internal.start_trial (service role) refuses a clinic that is not
+  // `incomplete`, a second trial, and a price that is inactive or not a purchasable base plan with a trial.
+  SUBSCRIPTION_STATE_INVALID: "CONFLICT",
+  TRIAL_ALREADY_CONSUMED: "CONFLICT",
+  PLAN_PRICE_INVALID: "VALIDATION_FAILED",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */
