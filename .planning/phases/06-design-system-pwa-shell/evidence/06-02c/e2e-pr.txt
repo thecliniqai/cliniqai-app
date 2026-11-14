@@ -1,0 +1,55 @@
+npm run e2e:pr -- --retries=0 (projects desktop-chrome, pixel-7, iphone-15) on the build of 5ed20e6 (this worktree, e2e lane lock), 2026-11-14
+stats: expected=374 unexpected=0 flaky=0 skipped=102 duration_ms=376511
+tests with more than one result (retried): 0
+desktop-chrome: {'expected': 255}
+iphone-15: {'expected': 18}
+pixel-7: {'expected': 96, 'skipped': 102}
+setup: {'expected': 5}
+06-02c specs and the specs touching 06-02c files (non-skipped):
+  desktop-chrome design/data-dates-axe.spec.ts :: data and date sections at 360px: axe clean, the right data form, target sizes, calendar popover -> expected
+  desktop-chrome design/data-dates-axe.spec.ts :: data and date sections at 820px: axe clean, the right data form, target sizes, calendar popover -> expected
+  desktop-chrome design/data-dates-axe.spec.ts :: data and date sections at 1180px: axe clean, the right data form, target sizes, calendar popover -> expected
+  desktop-chrome design/data-dates-axe.spec.ts :: data and date sections at 1280px: axe clean, the right data form, target sizes, calendar popover -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 360px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 820px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 1180px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui at 1280px: axe clean, no horizontal scroll -> expected
+  desktop-chrome design/gallery-axe.spec.ts :: /dev/ui is not served without a session -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: at 23:30 IST the calendar's today is the clinic's 12 Nov; arrows, Home/End and PageUp/PageDown move; Enter picks it; focus returns to the field -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: the Today / Tomorrow chips and the max bound use the clinic's date, not the browser's -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: a day picked at 23:30 IST stays that day (no UTC cut), and at 00:30 IST today is already the next day -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: at 00:30 IST the calendar opens on 13 Nov (UTC is still on 12 Nov) -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: dd/mm/yyyy: slashes come by themselves, d/m/yyyy is read, a non-date shows how to fix it, clearing clears -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: sortable headers are buttons; Enter and Space toggle aria-sort and the order; numbers align right -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: states: loading (5 skeleton rows, announced), empty, error with Retry, stale with Retry -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: below lg the same model is a two-line list; Load more adds rows and focus moves to the first new one -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: Pagination: Next and Previous by keyboard, Indian grouping, the disabled end hands focus to the other button -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: search waits 200 ms after typing, Escape and Clear search empty it and keep focus -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: removing a filter by keyboard moves focus to the next one; + Filter opens its popover; Clear all lands on + Filter -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: pulses only when motion is allowed -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: DayStrip: Today is the clinic's day; arrows rove and wrap, Home/End jump, Space picks -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: SlotPicker: a radiogroup per part of the day, full slots hidden until shown, an overbooking warns -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: PhoneInput: +91 adornment, digits only up to 10, a pasted +91 number is reduced to its 10 digits -> expected
+  desktop-chrome design/keyboard/data-and-dates.spec.ts :: AgeOrDobInput: age gives an approximate DOB, months below 2 years, DOB gives the age on the clinic's date -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: overbook path with a new patient creates exactly one patient (known v1 bug F-04) -> expected
+  pixel-7 m0/book-appointment.spec.ts :: overbook path with a new patient creates exactly one patient (known v1 bug F-04) -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: book a free slot → booked visit at that time, visible on the calendar -> expected
+  desktop-chrome m0/book-appointment.spec.ts :: overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked -> expected
+  pixel-7 m0/book-appointment.spec.ts :: book a free slot → booked visit at that time, visible on the calendar -> expected
+  pixel-7 m0/book-appointment.spec.ts :: overbook path: a taken slot asks for confirmation; confirming books it flagged overbooked -> expected
+  desktop-chrome m0/cancel-appointment.spec.ts :: cancel a booked visit → cancelled, slot free again for a booking without override -> expected
+  pixel-7 m0/cancel-appointment.spec.ts :: cancel a booked visit → cancelled, slot free again for a booking without override -> expected
+  desktop-chrome m0/checkout-collect.spec.ts :: bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF -> expected
+  pixel-7 m0/checkout-collect.spec.ts :: bill a completed visit, collect cash then UPI balance → invoice paid, two payments, receipt PDF -> expected
+  desktop-chrome m0/consult-rx-finish.spec.ts :: doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF -> expected
+  desktop-chrome m0/consult-rx-finish.spec.ts :: a signed prescription is read-only in the workspace (known v1 gap P1-03) -> expected
+  pixel-7 m0/consult-rx-finish.spec.ts :: doctor consults a waiting patient, prescribes two medicines and signs → completed visit, sealed Rx v1, PDF -> expected
+  pixel-7 m0/consult-rx-finish.spec.ts :: a signed prescription is read-only in the workspace (known v1 gap P1-03) -> expected
+  desktop-chrome m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  pixel-7 m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  iphone-15 m0/register-patient.spec.ts :: owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list -> expected
+  desktop-chrome m0/register-patient.spec.ts :: receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed) -> expected
+  pixel-7 m0/register-patient.spec.ts :: receptionist registers a patient → one patients row (E.164 phone) in tenant A (PO-3; v1 bug F-01 fixed) -> expected
+  desktop-chrome m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected
+  pixel-7 m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected
+  iphone-15 m0/walk-in-token.spec.ts :: walk-in for an existing patient → waiting visit + next queue token, visible in the queue -> expected

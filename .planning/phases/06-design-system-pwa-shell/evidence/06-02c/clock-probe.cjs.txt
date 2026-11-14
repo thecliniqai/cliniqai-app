@@ -1,0 +1,45 @@
+// Probe (06-02c): TZDate (@date-fns/tz) in Chromium with timezoneId Pacific/Kiritimati (UTC+14), instant 2026-11-12T18:00Z
+// (= 23:30 IST, 12 Nov). Expected in Asia/Kolkata: date 12, hour 23. Three clocks: real, Playwright page.clock, and
+// a constructor-preserving frozen Date (Reflect.construct with new.target, prototype shared with the native Date).
+const { chromium } = require(process.argv[2] + "/node_modules/playwright");
+const AT = Date.parse("2026-11-12T18:00:00Z");
+(async () => {
+  const b = await chromium.launch();
+  for (const mode of ["real clock", "page.clock.setFixedTime", "subclass FrozenDate", "Reflect.construct FrozenDate"]) {
+    const ctx = await b.newContext({ timezoneId: "Pacific/Kiritimati" });
+    const p = await ctx.newPage();
+    if (mode === "page.clock.setFixedTime") await p.clock.setFixedTime(new Date(AT));
+    if (mode === "subclass FrozenDate")
+      await p.addInitScript((ms) => {
+        const Native = Date;
+        class FrozenDate extends Native {
+          constructor(...a) { if (a.length === 0) super(ms); else super(...a); }
+          static now() { return ms; }
+        }
+        globalThis.Date = FrozenDate;
+      }, AT);
+    if (mode === "Reflect.construct FrozenDate")
+      await p.addInitScript((ms) => {
+        const Native = Date;
+        function FrozenDate(...a) {
+          if (!new.target) return Native();
+          return Reflect.construct(Native, a.length === 0 ? [ms] : a, new.target);
+        }
+        FrozenDate.prototype = Native.prototype;
+        FrozenDate.now = () => ms;
+        FrozenDate.parse = Native.parse;
+        FrozenDate.UTC = Native.UTC;
+        globalThis.Date = FrozenDate;
+      }, AT);
+    await p.route("http://probe.test/", (r) => r.fulfill({ contentType: "text/html", body: "<p>probe</p>" }));
+    await p.goto("http://probe.test/");
+    await p.addScriptTag({ path: process.argv[3] });
+    const r = await p.evaluate((at) => {
+      const z = new window.TZDate(at, "Asia/Kolkata");
+      return { kolkataDate: z.getDate(), kolkataHour: z.getHours(), nowIsAt: Date.now() === at };
+    }, AT);
+    console.log(`${mode.padEnd(30)} TZDate(18:00Z, Asia/Kolkata) -> date ${r.kolkataDate}, hour ${r.kolkataHour}; Date.now() frozen: ${r.nowIsAt}`);
+    await ctx.close();
+  }
+  await b.close();
+})();

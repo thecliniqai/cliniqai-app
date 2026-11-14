@@ -1,0 +1,7 @@
+06-02c clock probe (tool output, 2026-11-14T20:17:52Z): why tests/e2e/design/keyboard/data-and-dates.spec.ts freezes time with its own Date stand-in
+Command: node clock-probe.cjs <repo> <TZDate bundle> (Chromium from node_modules/playwright; @date-fns/tz 1.5.0 bundled to an IIFE with esbuild; no app server involved)
+
+real clock                     TZDate(18:00Z, Asia/Kolkata) -> date 12, hour 23; Date.now() frozen: false
+page.clock.setFixedTime        TZDate(18:00Z, Asia/Kolkata) -> date 13, hour 8; Date.now() frozen: true
+subclass FrozenDate            TZDate(18:00Z, Asia/Kolkata) -> date 13, hour 8; Date.now() frozen: true
+Reflect.construct FrozenDate   TZDate(18:00Z, Asia/Kolkata) -> date 12, hour 23; Date.now() frozen: true

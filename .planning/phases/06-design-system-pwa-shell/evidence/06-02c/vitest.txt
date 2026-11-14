@@ -1,0 +1,20 @@
+npx vitest run (full lane, shared local stack) at 0d19d0d, 2026-11-14
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+ Test Files  3 failed | 273 passed (276)
+      Tests  8 failed | 5676 passed (5684)
+
+Failed tests (none in or touching an 06-02c file):
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ FAIL  tests/security/membership-guard.spec.ts > P0-02 membership guard (000019) > SEC-09: SECURITY DEFINER functions check the tenant > a tenant-A owner cannot call the generators or drug search for tenant B
+ FAIL  tests/security/membership-guard.spec.ts > P0-02 membership guard (000019) > SEC-09: SECURITY DEFINER functions check the tenant > an anon-key client without a session cannot execute any of the functions
+ FAIL  tests/security/membership-guard.spec.ts > P0-02 membership guard (000019) > SEC-09: SECURITY DEFINER functions check the tenant > the caller's own tenant still works
+ FAIL  tests/security/role-rls.spec.ts > clinical_notes RLS through PostgREST (05-02a, acceptance 2) > SELECT > a receptionist still reads the visit row, whose legacy clinical columns hold only empty values
+ FAIL  tests/security/role-rls.spec.ts > clinical_notes RLS through PostgREST (05-02a, acceptance 2) > writes > a visit a receptionist books gets exactly one empty clinical_notes row; content cannot ride along
+ FAIL  tests/security/role-rls.spec.ts > clinical_notes RLS through PostgREST (05-02a, acceptance 2) > writes > nobody can put clinical content back into visits (the CHECK refuses it, 23514)
+
+Why: the shared stack is ahead of this branch. 'npx supabase migration list --local' lists 000079-000084 applied on the stack and absent from supabase/migrations here (V2-05b work, merged in later per the execution protocol).
+- membership-guard SEC-09 (3): PGRST202 'Could not find the function public.generate_daily_queue_token(p_date, p_tenant_id) in the schema cache' (the stack's signature differs).
+- role-rls clinical_notes (3): PGRST204 instead of 23514 (the stack no longer has the legacy visits clinical columns the test writes).
+- hosted-dump-diff (2): known since 06-05 (recorded in the 06-02a record).
+Nothing in this plan touches SQL, RLS, the security or CI specs, or the schema: 'git diff --stat 9e721fe..HEAD -- supabase tests/security tests/ci' prints: [] (empty = no change). Re-run after the 05b merge-in, when branch and stack match.
