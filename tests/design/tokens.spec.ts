@@ -73,10 +73,10 @@ describe("app/globals.css token layers", () => {
     }
   });
 
-  it("the semantic layer only references the raw v1 layer (values live in one place)", () => {
+  it("the semantic layer only references the raw layer (values live in one place)", () => {
     expect(semantic.size).toBeGreaterThanOrEqual(DESIGN_SYSTEM_SEMANTICS.length);
     for (const [name, value] of semantic) {
-      expect(value, name).toMatch(/^var\(--color-v1-[a-z0-9-]+\)$/);
+      expect(value, name).toMatch(/^var\(--color-[a-z0-9-]+\)$/);
       expect(raw.has(value.slice(4, -1)), `${name} -> ${value} is defined`).toBe(true);
     }
   });

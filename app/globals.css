@@ -41,6 +41,9 @@
   --color-v1-blue-600: #0f5ab8;
   --color-v1-blue-700: #0b4c9c;
 
+  /* 06-01b tracer: the approved CliniQ Blue (V2-DX 3a78a5d cliniq-ai.css primary-600) */
+  --color-primary-600: #246bce;
+
   --color-v1-green-50: #eaf7f0;
   --color-v1-green-200: #bde5cf;
   --color-v1-green-700: #18794e;
@@ -96,7 +99,7 @@
   --color-border-subtle: var(--color-v1-gray-100);
   --color-border-control: var(--color-v1-gray-300);
 
-  --color-accent: var(--color-v1-blue-500);
+  --color-accent: var(--color-primary-600);
   --color-accent-hover: var(--color-v1-blue-550);
   --color-accent-pressed: var(--color-v1-blue-700);
   --color-accent-subtle: var(--color-v1-blue-50);

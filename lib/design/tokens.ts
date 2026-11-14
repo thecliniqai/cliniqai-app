@@ -14,7 +14,7 @@ export interface TokenMirror {
 export const TOKEN_MIRROR = {
   themeColor: { cssVar: "--color-surface", value: "#ffffff" },
   backgroundColor: { cssVar: "--color-canvas", value: "#f7f6f3" },
-  iconTile: { cssVar: "--color-accent", value: "#1769e0" },
+  iconTile: { cssVar: "--color-v1-blue-500", value: "#1769e0" }, // 06-01b tracer: the Wave A tile until step 5
   iconGlyph: { cssVar: "--color-fg-on-accent", value: "#ffffff" },
 } as const satisfies Record<string, TokenMirror>;
 
