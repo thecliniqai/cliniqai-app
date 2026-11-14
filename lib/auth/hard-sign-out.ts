@@ -20,9 +20,11 @@ import { reportClientError } from "@/lib/log/client";
  * 4. Only when the server call failed (offline, timeout, refused): the browser client's `auth.signOut` with the same
  *    scope (the only client `signOut` allowed: `signout-guard` UI-policy rule), and every Supabase auth cookie expired
  *    in the browser (they are JS-readable with @supabase/ssr), so this device is signed out even with no network.
- * 5. Always (a `finally`): `purgeDeviceState()` (caches outside the allowlist, `sessionStorage`, non-preference
- *    `localStorage`, IndexedDB), then `location.replace(target)`: a hard navigation (no React tree with patient data
- *    survives; Back does not return to this entry). Offline, the service worker answers with `/offline`.
+ * 5. Always (a `finally`): the page's content is hidden and made inert (if the navigation below cannot happen, e.g. a
+ *    browser that refuses it offline, no patient data stays on screen), then `purgeDeviceState()` (caches outside the
+ *    allowlist, `sessionStorage`, non-preference `localStorage`, IndexedDB), then `location.replace(target)`: a hard
+ *    navigation (no React tree with patient data survives; Back does not return to this entry). Offline, the service
+ *    worker answers with `/offline`.
  *
  * "Sign out of all devices" never reports success it did not get: when neither the route nor the browser client got
  * GoTrue to revoke every session, this device is still signed out and the target is `/login?signout=partial`, where
@@ -67,8 +69,16 @@ export interface HardSignOutDeps {
   /** The browser client's `auth.signOut({ scope })`; true only when GoTrue confirmed it. */
   signOutLocally: (scope: SignOutScope) => Promise<boolean>;
   expireAuthCookies: () => void;
+  /** Hides the page and makes it inert (no patient data on screen while, or if, the navigation does not happen). */
+  conceal: () => void;
   purge: () => Promise<{ failed: string[] }>;
   replace: (url: string) => void;
+}
+
+/** Hides `document` and makes it inert (also used by a tab that follows another tab's sign-out). */
+export function concealDocument(doc: Document = document): void {
+  doc.documentElement.style.visibility = "hidden";
+  doc.documentElement.setAttribute("inert", "");
 }
 
 function browserDeps(): HardSignOutDeps {
@@ -88,6 +98,7 @@ function browserDeps(): HardSignOutDeps {
         if (name && SUPABASE_AUTH_COOKIE.test(name)) document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
       }
     },
+    conceal: () => concealDocument(),
     purge: () => purgeDeviceState(),
     replace: (url) => window.location.replace(url),
   };
@@ -202,6 +213,13 @@ async function run(state: RunState, deps: HardSignOutDeps): Promise<void> {
         deps.expireAuthCookies();
       } catch (err) {
         reportClientError("auth.hard_sign_out_cookies", err);
+      }
+    }
+    if (state.reason !== "recovery") {
+      try {
+        deps.conceal();
+      } catch (err) {
+        reportClientError("auth.hard_sign_out_conceal", err);
       }
     }
     const purged = await within(() => deps.purge(), PURGE_TIMEOUT_MS);

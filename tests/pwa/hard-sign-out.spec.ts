@@ -40,6 +40,9 @@ function deps(fetchImpl: HardSignOutDeps["fetch"], overrides: Partial<HardSignOu
     expireAuthCookies: () => {
       calls.push("expireAuthCookies");
     },
+    conceal: () => {
+      calls.push("conceal");
+    },
     purge: async () => {
       calls.push("purge");
       return { failed: [] };
@@ -68,7 +71,7 @@ describe("hardSignOut", () => {
   it("server revoked: cleanups → announce → POST /auth/signout as a fetch caller → purge → replace /login; no local fallback", async () => {
     const { d, calls, bodies, headers } = deps(revoked);
     await hardSignOut("user", d);
-    expect(calls).toEqual(["cleanups", "announce", "fetch /auth/signout POST", "purge", "replace /login"]);
+    expect(calls).toEqual(["cleanups", "announce", "fetch /auth/signout POST", "conceal", "purge", "replace /login"]);
     expect(bodies).toEqual(["scope=local"]);
     expect(headers[0]).toMatchObject({ "x-clinicos-signout": "fetch" });
   });
@@ -101,6 +104,7 @@ describe("hardSignOut", () => {
       "fetch /auth/signout POST",
       "signOutLocally local",
       "expireAuthCookies",
+      "conceal",
       "purge",
       "replace /login",
     ]);
@@ -131,6 +135,7 @@ describe("hardSignOut", () => {
       "fetch /auth/signout POST",
       "signOutLocally local",
       "expireAuthCookies",
+      "conceal",
       "purge",
       "replace /login",
     ]);
@@ -215,7 +220,7 @@ describe("hardSignOut", () => {
     const done = hardSignOut("user", d);
     await vi.advanceTimersByTimeAsync(3000);
     await done;
-    expect(calls.slice(-3)).toEqual(["expireAuthCookies", "purge", "replace /login"]);
+    expect(calls.slice(-4)).toEqual(["expireAuthCookies", "conceal", "purge", "replace /login"]);
   });
 
   it("a purge that never settles is given up after 3 s: the navigation still happens", async () => {
@@ -239,7 +244,7 @@ describe("hardSignOut", () => {
       },
     );
     await hardSignOut("user", d);
-    expect(calls.slice(-3)).toEqual(["expireAuthCookies", "purge", "replace /login"]);
+    expect(calls.slice(-4)).toEqual(["expireAuthCookies", "conceal", "purge", "replace /login"]);
   });
 
   it("failing cleanups, announce and purge do not stop the sign-out", async () => {
@@ -255,10 +260,10 @@ describe("hardSignOut", () => {
       },
     });
     await hardSignOut("user", d);
-    expect(calls).toEqual(["fetch /auth/signout POST", "replace /login"]);
+    expect(calls).toEqual(["fetch /auth/signout POST", "conceal", "replace /login"]);
   });
 
-  it("'recovery' (the forgot-password page) signs out and purges but does not navigate", async () => {
+  it("'recovery' (the forgot-password page) signs out and purges but neither hides the page nor navigates", async () => {
     const { d, calls } = deps(revoked);
     await hardSignOut("recovery", d);
     expect(calls).toEqual(["cleanups", "announce", "fetch /auth/signout POST", "purge"]);
@@ -304,6 +309,15 @@ describe("hardSignOut", () => {
     await first;
     expect(bodies).toEqual(["scope=local"]);
     expect(calls.at(-1)).toBe(`replace ${PARTIAL_SIGN_OUT_TARGET}`);
+  });
+
+  it("hides the page before the purge and the navigation, so a navigation the browser refuses leaves nothing on screen", async () => {
+    const { d, calls } = deps(async () => {
+      throw new TypeError("offline");
+    });
+    await hardSignOut("user", d);
+    expect(calls.indexOf("conceal")).toBeGreaterThan(calls.indexOf("expireAuthCookies"));
+    expect(calls.indexOf("conceal")).toBeLessThan(calls.indexOf("purge"));
   });
 
   it("refuses an unknown reason", () => {

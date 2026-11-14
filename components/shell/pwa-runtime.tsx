@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { registerServiceWorker } from "@/lib/pwa/register-sw";
 import { onSignOutElsewhere } from "@/lib/pwa/auth-broadcast";
-import { followSignOutElsewhere } from "@/lib/auth/hard-sign-out";
+import { concealDocument, followSignOutElsewhere } from "@/lib/auth/hard-sign-out";
 import { OfflineBanner } from "@/components/shell/offline-banner";
 
 /**
@@ -25,8 +25,7 @@ export function PwaRuntime({ swEnabled }: { swEnabled: boolean }) {
     () =>
       onSignOutElsewhere(() => {
         // Patient data off the screen before anything else (the purge and the navigation take a moment).
-        document.documentElement.style.visibility = "hidden";
-        document.documentElement.setAttribute("inert", "");
+        concealDocument();
         void followSignOutElsewhere();
       }),
     [],

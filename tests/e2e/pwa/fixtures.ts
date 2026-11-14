@@ -5,6 +5,13 @@
  * request the context sees (`context.on("request")`, service-worker requests included) and FAILS the test on any
  * non-loopback URL (the local Turnstile stub's script URL excepted: the base fixture answers it locally).
  *
+ * 06-09a: on WebKit, a page the worker controls sends its subresource requests through the worker, and those requests
+ * are NOT seen by `context.route`/`page.route` (probe: evidence/06-09a/webkit-sw-routing-probe.txt). After a sign-out
+ * the worker controls `/login`, so its Turnstile script went to the real Cloudflare (and loaded its challenge frame)
+ * instead of the local stub. Every PWA context therefore also gets a dead proxy with a loopback bypass: a request the
+ * route never saw fails on this machine instead of leaving it. A spec that must intercept the app's own requests
+ * (`page.route` aborts) does not need the worker and turns it off (`test.use({ serviceWorkers: "block" })`).
+ *
  * Helpers read the device state the PWA specs assert on: every Cache Storage URL, storage keys, IndexedDB names.
  */
 import type { BrowserContext, Page } from "@playwright/test";
@@ -15,9 +22,15 @@ interface PwaFixtures {
   requestedUrls: string[];
 }
 
+/** A proxy nothing listens on (port 9, discard): every non-loopback request that escaped routing fails locally. */
+export const DEAD_PROXY = { server: "http://127.0.0.1:9", bypass: "127.0.0.1,localhost" };
+
 export const test = base.extend<PwaFixtures>({
   serviceWorkers: async ({}, provide) => {
     await provide("allow");
+  },
+  proxy: async ({}, provide) => {
+    await provide(DEAD_PROXY);
   },
   requestedUrls: [
     async ({ context }, provide) => {
