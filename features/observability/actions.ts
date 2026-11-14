@@ -7,7 +7,10 @@
  * an uncaught render error without a digest. Membership-only (`resolveServiceContext()` with no permission): every
  * member's screens can fail, and the report carries no tenant data. The caller sends two strings, the error's class
  * name and the route pattern; the stored row is built by `lib/observability/client-render-event.ts` (no message, no
- * frames, no query, no concrete path). Answers `{ ok }` only, never a message or anything stored.
+ * frames, no query, no concrete path; since 06-09a M-ERRCAP only listed class names and the dashboard's own route
+ * patterns are kept, so nothing typed by the caller is logged or stored). Answers `{ ok }` only, never a message or
+ * anything stored. A key repeated within a minute on this instance is dropped without a log line (C L-1); the first
+ * report refused by the per-instance daily key cap writes one `observability.sink.client_cap_reached` line (C L-2).
  */
 import { z } from "zod";
 import { resolveServiceContext } from "@/lib/auth/context";
@@ -15,8 +18,9 @@ import type { AppEnv } from "@/lib/env";
 import { deploymentInfo, serverEnv } from "@/lib/env-server";
 import { log } from "@/lib/log";
 import {
-  admitClientKey,
+  admitClientReport,
   buildClientRenderEvent,
+  CLIENT_KEYS_PER_DAY,
   MAX_CLIENT_NAME,
   MAX_CLIENT_ROUTE,
 } from "@/lib/observability/client-render-event";
@@ -41,7 +45,12 @@ export async function reportClientRenderError(report: { name: string; route: str
     // An environment the schema refuses never booted in a deployment; keep the event, tier unknown → development.
   }
   const event = buildClientRenderEvent(parsed.data, { environment, release: deploymentInfo().release });
+  const admission = admitClientReport(event);
+  if (admission === "cap-reached") {
+    log.warn({ event: "observability.sink.client_cap_reached", module: "observability.client", count: CLIENT_KEYS_PER_DAY });
+  }
+  if (admission !== "new" && admission !== "repeat") return { ok: true };
   log.warn({ event: "client.render_error", route: event.route_path ?? undefined, code: event.error_name });
-  if (admitClientKey(event) && admitToSink(event)) await sendErrorEvent(event);
+  if (admitToSink(event)) await sendErrorEvent(event);
   return { ok: true };
 }

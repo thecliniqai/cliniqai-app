@@ -93,6 +93,11 @@ client errors are not sent; only uncaught render errors reach the sink (for 06-S
 9. Coordinator note (V2-05 reset the shared database twice): every e2e run seeds its own run data in global setup, and
    the DB-backed Vitest specs seed their own tenants; `seed:local` was not needed and not run.
 
+9. **06-09a addendum (review C Info I-3, M-1).** Deviation 5 (the onboarding boundary does not report) and deviation 3
+   (`{ ok }`) stand and are the ones review C named. Deviation 6's per-instance budget did not bound the database's
+   shared daily cap on serverless (review C M-1); 06-09a replaced it with closed class-name and route-pattern lists
+   plus a per-key repeat debounce (`06-09a-REVIEW-FIXES.md`).
+
 ## For the Wave A adversarial review (C: client errors and PHI)
 
 - Residual by design: a member can still store made-up but name-shaped strings (≤ 50 keys per instance and day; more

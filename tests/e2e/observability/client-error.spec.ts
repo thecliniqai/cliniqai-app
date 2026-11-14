@@ -5,8 +5,10 @@
  * while rendering. The dashboard's error boundary shows the error state without the error's message (which carries
  * synthetic identifier-shaped values) and reports the error once: exactly one `ops.error_events` row with
  * `error_name = client.DiagClientRenderError`, the route pattern, `route_type = render`, an empty message and no
- * frames, and none of the synthetic values anywhere in the row. "Try again" recovers; a second throw is the same row
- * counted twice (one report per boundary render). Before 06-04a: no row (production `reportClientError` is a no-op).
+ * frames, and none of the synthetic values anywhere in the row. "Try again" recovers; a second throw is reported again
+ * (one report per boundary render), and since 06-09a (C L-1) the server drops that repeat of the same key within a
+ * minute: the row still counts 1 and no second log line is written. Before 06-04a: no row (production
+ * `reportClientError` is a no-op).
  *
  * Desktop Chromium only: the sink is server-side and device-independent, and the row is per fingerprint and day, so a
  * second device running in parallel would change the count under this test.
@@ -65,7 +67,12 @@ test("a client render error shows the boundary without its message and lands in 
   await expect(page.getByRole("button", { name: "Throw a render error" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Something went wrong" })).toHaveCount(0);
 
+  const repeat = page.waitForResponse(
+    (r) => r.request().method() === "POST" && new URL(r.url()).pathname === "/diag/client-error" && Boolean(r.request().headers()["next-action"]),
+  );
   await page.getByRole("button", { name: "Throw a render error" }).click();
   await expect(page.getByRole("heading", { name: "Something went wrong" })).toBeVisible();
-  await expect.poll(() => rowsJson().map((r) => r.count), { timeout: 10_000 }).toEqual([2]);
+  expect((await repeat).status()).toBe(200);
+  // 06-09a C L-1: the same key again within a minute is dropped on the server (no write, no log line).
+  expect(rowsJson().map((r) => r.count)).toEqual([1]);
 });
