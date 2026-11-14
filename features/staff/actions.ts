@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/permissions/guards";
-import { hashInviteToken } from "./invite";
+import { acceptInvite as acceptInviteFlow, type AcceptInviteResult } from "@/features/auth/invite-flows";
 import { resolveServiceContext } from "@/lib/auth/context";
 import { MultipleClinicsSelectionRequiredError, NoClinicMembershipError } from "@/lib/auth/tenant";
 import { clientErrorMessage } from "@/lib/errors/client-message";
@@ -11,7 +11,7 @@ import * as staffService from "./service";
 import type { RemoveStaffResult, TenantDoctorInfo, TenantStaffInfo } from "./service";
 import { removeStaffSchema } from "./schema";
 import { UserRole } from "@/lib/db/types";
-import { errorTag, log } from "@/lib/log";
+import { errorTag, log, logWord } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { mapDbError, type DbErrorMessages } from "@/lib/db/errors";
 
@@ -113,78 +113,92 @@ export async function inviteStaff(
  */
 export const inviteStaffMemberAction = inviteStaff;
 
-export type AcceptInviteResult =
-  | { success: true; tenantId: string }
+export type { AcceptInviteResult } from "@/features/auth/invite-flows";
+
+/**
+ * The signed-in invitee accepts (AUTH-06): `consume_invitation` binds the membership to `auth.uid()`, and only a
+ * confirmed account whose email is the invited address may redeem (000071/000088). The flow lives in
+ * features/auth/invite-flows.ts (05-07b); this action keeps its manifest entry.
+ */
+export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult> {
+  return acceptInviteFlow(rawToken);
+}
+
+export type InvitationActionResult =
+  | { success: true; invitationId: string; expiresAt: string }
+  | { success: false; error: string };
+export type RevokeInvitationActionResult =
+  | { success: true; invitationId: string; revokedAt: string }
   | { success: false; error: string };
 
-export async function acceptInvite(rawToken: string): Promise<AcceptInviteResult> {
-  if (!rawToken || rawToken.trim() === "") {
-    return {
-      success: false,
-      error: "Missing or invalid invitation token.",
-    };
-  }
+/** Fixed texts for the resend/revoke refusals (05-07a reasons); never database text. */
+const INVITATION_MANAGE_MESSAGES: DbErrorMessages = {
+  OWNER_REQUIRED: "Only a clinic owner can manage an owner or admin invitation.",
+  INVITATION_NOT_FOUND: "Invitation not found.",
+  INVITATION_NOT_PENDING: "This invitation is no longer pending.",
+  NOT_FOUND: "Invitation not found.",
+  FORBIDDEN: "You do not have permission to manage invitations.",
+  CONFLICT: "This invitation is no longer pending.",
+  INPUT_INVALID: "Invalid invitation.",
+  INTERNAL: "Unable to update the invitation. Please try again.",
+};
 
-  const supabase = await createClient();
-  const tokenHash = hashInviteToken(rawToken.trim());
+const invitationIdSchema = z.object({ invitationId: z.string().uuid("Invalid invitation.") });
 
-  try {
-    // Authenticate before any database call (ADR-0005 V1); the RPC re-checks auth.uid() and binds the membership to it.
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return { success: false, error: "Sign in to accept this invitation." };
+type InvitationRpc = (
+  name: "resend_invitation" | "revoke_invitation",
+  args: { p_invitation_id: string },
+) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>;
+
+async function manageInvitation(
+  fn: "resend_invitation" | "revoke_invitation",
+  input: { invitationId: string },
+): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; error: string }> {
+  const resolved = await resolveServiceContext("staff:invite");
+  if (!resolved.ok) return { ok: false, error: resolved.error };
+  const parsed = invitationIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid invitation." };
+
+  // The RPC re-derives the clinic from the invitation row and binds it to the active clinic (05-07a); the session's
+  // role there must hold staff:invite, and owner/admin invitations need an owner. A resend mints nothing here: it bumps
+  // token_version (the old link is dead) and enqueues one email.invite job for the new version.
+  const { data, error } = await (resolved.ctx.db.rpc as unknown as InvitationRpc)(fn, {
+    p_invitation_id: parsed.data.invitationId,
+  });
+  if (error) {
+    if (error.code === "42501" && error.message === "OWNER_REQUIRED") {
+      return { ok: false, error: INVITATION_MANAGE_MESSAGES.OWNER_REQUIRED as string };
     }
-
-    const { data: tenantId, error } = await (
-      supabase.rpc as unknown as (
-        name: string,
-        args: { p_token_hash: string }
-      ) => Promise<{ data: string | null; error: { message: string } | null }>
-    )("consume_invitation", {
-      p_token_hash: tokenHash,
-    });
-
-    if (error || !tenantId) {
-      const msg = error?.message || "";
-      if (msg.includes("already been used")) {
-        return { success: false, error: "This invitation has already been used." };
-      }
-      if (msg.includes("expired")) {
-        return { success: false, error: "This invitation has expired. Please ask for a new invite." };
-      }
-      if (msg.includes("Invalid invitation token")) {
-        return { success: false, error: "Invalid invitation link." };
-      }
-      // V2-05 05-11b (H-INVITE, migration 000071): only the invited address may accept, once it is confirmed.
-      if (msg.includes("INVITATION_EMAIL_MISMATCH")) {
-        return {
-          success: false,
-          error: "This invitation was sent to a different email address. Sign in with that address to accept it.",
-        };
-      }
-      if (msg.includes("INVITATION_EMAIL_UNCONFIRMED")) {
-        return { success: false, error: "Confirm your email address first, then open the invitation link again." };
-      }
-      // V2-05 05-05 (migration 000087): an invitation revoked (e.g. by the inviter's removal) is dead.
-      if (msg.includes("INVITATION_REVOKED")) {
-        return { success: false, error: "This invitation has been withdrawn. Please ask for a new invite." };
-      }
-      return { success: false, error: "Failed to accept invitation. Please try again." };
+    const mapped = mapDbError(error, INVITATION_MANAGE_MESSAGES);
+    if (mapped.code === "INTERNAL") {
+      log.error({ event: "staff.invitation_manage.failed", action: logWord(fn), code: errorTag(error), requestId: await getRequestId() });
     }
-
-    return {
-      success: true,
-      tenantId: tenantId as string,
-    };
-  } catch {
-    return {
-      success: false,
-      error: "Failed to accept invitation. Please try again.",
-    };
+    return { ok: false, error: mapped.message };
   }
+  if (data === null || typeof data !== "object") return { ok: false, error: INVITATION_MANAGE_MESSAGES.INTERNAL as string };
+  return { ok: true, data: data as Record<string, unknown> };
+}
+
+/** AUTH-06 (05-07b): sends the invitation again with a new link (the previous link stops working at once). */
+export async function resendInvite(input: { invitationId: string }): Promise<InvitationActionResult> {
+  const result = await manageInvitation("resend_invitation", input);
+  if (!result.ok) return { success: false, error: result.error };
+  const { id, expires_at: expiresAt } = result.data;
+  if (typeof id !== "string" || typeof expiresAt !== "string") {
+    return { success: false, error: INVITATION_MANAGE_MESSAGES.INTERNAL as string };
+  }
+  return { success: true, invitationId: id, expiresAt };
+}
+
+/** AUTH-06 (05-07b): withdraws a pending invitation (its link stops working at once). */
+export async function revokeInvite(input: { invitationId: string }): Promise<RevokeInvitationActionResult> {
+  const result = await manageInvitation("revoke_invitation", input);
+  if (!result.ok) return { success: false, error: result.error };
+  const { id, revoked_at: revokedAt } = result.data;
+  if (typeof id !== "string" || typeof revokedAt !== "string") {
+    return { success: false, error: INVITATION_MANAGE_MESSAGES.INTERNAL as string };
+  }
+  return { success: true, invitationId: id, revokedAt };
 }
 
 export type { RemoveStaffResult, TenantDoctorInfo, TenantStaffInfo } from "./service";

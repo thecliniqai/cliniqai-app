@@ -92,7 +92,10 @@ async function load(c: ActionCase) {
 }
 
 /** No membership needed: onboarding/invitation (`authenticated`) and own-account actions (`self`, 03-12a). */
-const isAuthenticatedOnly = (g: ActionGuard | undefined) => typeof g === "object" && ("authenticated" in g || "self" in g);
+const isAuthenticatedOnly = (g: ActionGuard | undefined) =>
+  typeof g === "object" && ("authenticated" in g || "self" in g || "publicToken" in g);
+/** 05-07b: callable without a session; a single-use token in the input is the authorisation. */
+const isPublicToken = (g: ActionGuard | undefined) => typeof g === "object" && "publicToken" in g;
 const isSelf = (g: ActionGuard | undefined) => typeof g === "object" && "self" in g;
 const leg3Role = (g: ActionGuard) => leastPrivilegedHolding(typeof g === "string" ? g : null);
 
@@ -177,7 +180,9 @@ describe("P0-13: every server action is in the guard manifest and guarded", () =
       });
 
       it.each(cases.map(label))("%s", async (_k, c) => {
-        const violations = await unauthenticatedActionLeg(slot, c, await load(c), world.b);
+        const violations = await unauthenticatedActionLeg(slot, c, await load(c), world.b, {
+          publicToken: isPublicToken(ACTION_GUARDS[c.key]),
+        });
         expect(violations, report(violations)).toEqual([]);
       });
 

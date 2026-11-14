@@ -19,13 +19,22 @@
  *     authenticates from the cookie session itself. Legs: unauthenticated; cross-tenant (as the outsider); and the
  *     `self` leg: the input names no user, tenant or row (password fields only) and a signed-in call with forged ids
  *     touches nothing but `auth` and returns nothing of tenant B.
+ *   - `{ publicToken: reason }` (V2-05 05-07b): callable WITHOUT a session by design; a single-use token in the input
+ *     is the authorisation (invite acceptance by a new invitee). No static guard call. Legs: unauthenticated (a forged
+ *     token is refused with no request-client data access; any fixed message), cross-tenant (as the outsider), and
+ *     the `publicToken` leg (signed out, signed in, every forged token refused, nothing written).
  *
  * Routes (`"file#METHOD"`), by category (see `RouteGuard`). Adding an entry is a security decision: say why in the
  * PR and get the adversarial second review (CLAUDE.md DoD 6).
  */
 import type { Permission } from "@/lib/permissions";
 
-export type ActionGuard = Permission | { member: string } | { authenticated: string } | { self: string };
+export type ActionGuard =
+  | Permission
+  | { member: string }
+  | { authenticated: string }
+  | { self: string }
+  | { publicToken: string };
 
 /** Which of tenant B's seeded rows a session route's `[id]` gets in the cross-tenant leg. */
 export type BResource = "invoice" | "patient" | "visit";
@@ -79,6 +88,8 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/api-keys/actions.ts#createApiKey": "clinic:manage",
   "features/api-keys/actions.ts#listApiKeys": "clinic:manage",
   "features/api-keys/actions.ts#revokeApiKey": "clinic:manage",
+  "features/auth/actions.ts#acceptInviteWithPasswordAction":
+    { publicToken: "V2-05 05-07b (AUTH-06): a new invitee sets a password from the /join link; no session exists. The invitation token (64 hex, stored as SHA-256) is the authorisation, after server-side Turnstile, the password policy and FT-05; the account is created only for the invited address." },
   "features/auth/actions.ts#changePasswordAction":
     { self: "Changes the session user's own password (current + new); FT-05 and the A00-5 10-minute bound apply." },
   "features/auth/actions.ts#setNewPasswordAction":
@@ -176,6 +187,10 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/staff/actions.ts#inviteStaffMemberAction": "staff:invite",
   // V2-05 05-05 (AUTH-05): remove_member re-derives the clinic from the target row and binds it to the active clinic.
   "features/staff/actions.ts#removeStaff": "staff:invite",
+  // V2-05 05-07b (AUTH-06): resend_invitation / revoke_invitation re-derive the clinic from the invitation row and bind
+  // it to the active clinic; owner/admin invitations need an owner.
+  "features/staff/actions.ts#resendInvite": "staff:invite",
+  "features/staff/actions.ts#revokeInvite": "staff:invite",
   "features/terminology/actions.ts#addConsultationDiagnosis": "consultations:edit",
   "features/terminology/actions.ts#getVisitDiagnoses": "consultations:view",
   "features/terminology/actions.ts#removeConsultationDiagnosis": "consultations:edit",
@@ -212,6 +227,12 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
  * The spec fails on an entry for an action that is not in ACTION_GUARDS or has no reference to forge.
  */
 export const LEG3_CONTROL_EXEMPT: Record<string, string> = {
+  "features/auth/actions.ts#acceptInviteWithPasswordAction":
+    "V2-05 05-07b: public, token-gated; a successful control needs a freshly minted invitation token, a Turnstile pass and a new account, and would create a membership in the shared world. The success paths are covered by tests/integration/auth/accept-invite.spec.ts; the forged variants still run.",
+  "features/staff/actions.ts#resendInvite":
+    "V2-05 05-07b: the guard world holds no invitation, and a resend would enqueue an email.invite job in the shared world; the success path (new version, old link dead, exactly one more email) is covered by supabase/tests/database/invitations_v2.test.sql and tests/integration/auth/invite-delivery.spec.ts. The forged-id variants still run (B's ids: not found).",
+  "features/staff/actions.ts#revokeInvite":
+    "V2-05 05-07b: the guard world holds no invitation; the success path is covered by supabase/tests/database/invitations_v2.test.sql and tests/integration/auth/invite-delivery.spec.ts. The forged-id variants still run (B's ids: not found).",
   "features/ai/actions.ts#getPatientCatchUpSummaryAction":
     "AI is off in the test lane (AI_ENABLED=false): the action fails closed before any data access (AI-01), so no input can succeed.",
   "features/clinics/actions.ts#createClinic":

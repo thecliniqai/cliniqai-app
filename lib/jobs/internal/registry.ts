@@ -6,6 +6,7 @@
 import { serverEnv } from "@/lib/env-server";
 import { ALERT_NOTIFY_HANDLERS } from "./handlers/alert-notify";
 import { DRILL_HANDLERS } from "./handlers/drill";
+import { EMAIL_INVITE_HANDLERS } from "./handlers/email-invite";
 import { MESSAGE_REPLY_UNMATCHED_HANDLERS } from "./handlers/message-reply-unmatched";
 import { MESSAGE_SEND_HANDLERS } from "./handlers/message-send";
 import { WEBHOOK_DELIVER_HANDLERS } from "./handlers/webhook-deliver";
@@ -13,10 +14,11 @@ import type { HandlerMap } from "./types";
 
 /**
  * The production handlers. 04-03a: `message.send`; 04-03b: `webhook.deliver`; 04-03c: `message.reply_unmatched`;
- * 04-04: `alert.notify`.
+ * 04-04: `alert.notify`; V2-05 05-07b: `email.invite`.
  */
 const PRODUCTION_HANDLERS: HandlerMap = {
   ...ALERT_NOTIFY_HANDLERS,
+  ...EMAIL_INVITE_HANDLERS,
   ...MESSAGE_SEND_HANDLERS,
   ...MESSAGE_REPLY_UNMATCHED_HANDLERS,
   ...WEBHOOK_DELIVER_HANDLERS,

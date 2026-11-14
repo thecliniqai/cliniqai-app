@@ -3187,6 +3187,10 @@ export type Database = {
         Args: { p_dedupe_key: string; p_outcome: string; p_provider: string };
         Returns: undefined;
       };
+      invitation_accept_context: {
+        Args: { p_token_hash: string };
+        Returns: Json;
+      };
       invitation_issue_token: {
         Args: { p_invitation_id: string; p_token_version: number };
         Returns: string;

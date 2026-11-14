@@ -1315,6 +1315,7 @@ function public.get_tenant_table_rls_policies() returns TABLE(table_name text, r
 function public.has_permission(p_tenant uuid, p_perm text) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=ae413fcc266ead95670d107f176ce0b3
 function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d9eb45e242d8aa1a81b281a32b433a6e
 function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6e09b6c645bd991920f556c59af2d9bd
+function public.invitation_accept_context(p_token_hash text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=6dc072c1db3d1aae564e620d94a1693d
 function public.invitation_issue_token(p_invitation_id uuid, p_token_version integer) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=2f4be3c0b9b9dc42244f7a1b17c156c8
 function public.invite_staff(p_tenant uuid, p_email text, p_role text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=ddb8d2fecad1d00b2f2b67874f3572ad
 function public.is_platform_admin() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=af70fe3e8a794856bb34c32b19b5d4d6
@@ -1472,6 +1473,7 @@ grant function public.has_permission(p_tenant uuid, p_perm text) EXECUTE to auth
 grant function public.has_permission(p_tenant uuid, p_perm text) EXECUTE to service_role
 grant function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) EXECUTE to service_role
 grant function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) EXECUTE to service_role
+grant function public.invitation_accept_context(p_token_hash text) EXECUTE to service_role
 grant function public.invitation_issue_token(p_invitation_id uuid, p_token_version integer) EXECUTE to service_role
 grant function public.invite_staff(p_tenant uuid, p_email text, p_role text) EXECUTE to authenticated
 grant function public.is_platform_admin() EXECUTE to authenticated

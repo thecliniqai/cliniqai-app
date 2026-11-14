@@ -16,7 +16,7 @@
  */
 import fs from "node:fs";
 import { randomInt, randomUUID } from "node:crypto";
-import { E2E_PWNED_RANGE_PORT, assertLocalTestEnv } from "../setup/test-env";
+import { E2E_PWNED_RANGE_PORT, E2E_TURNSTILE_VERIFY_PORT, assertLocalTestEnv } from "../setup/test-env";
 import { ensureLocalErrorIngestKey } from "../setup/error-sink-key";
 import { pauseCronJobs, resumeCronJobs } from "../setup/cron-pause";
 import { releaseRunLock, startRun, teardownRun, type RunMarker } from "../setup/teardown";
@@ -24,6 +24,7 @@ import { addMemberToTenant, seededUserPassword, seedTenantWithOwner, type Seeded
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ROOT } from "./support/app-env";
 import { startPwnedRangeServer, type PwnedRangeServer } from "./support/pwned-range-server";
+import { startTurnstileVerifyServer, type TurnstileVerifyServer } from "./support/turnstile-verify-server";
 import { AUTH_DIR, RUN_FILE, RUN_PASSWORD_VAR, type RunData, type RunTenant } from "./support/run-data";
 
 /**
@@ -131,11 +132,13 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   ensureLocalErrorIngestKey(ROOT);
   const marker = await startRun(ROOT);
   let range: PwnedRangeServer | null = null;
+  let siteverify: TurnstileVerifyServer | null = null;
   const stop = async () => {
     try {
       await finish(marker);
     } finally {
       await range?.close();
+      await siteverify?.close();
     }
   };
   try {
@@ -143,6 +146,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     pauseCronJobs(ROOT);
     // V2-03 03-12a (FT-05): the e2e server's range API (PWNED_API_BASE_URL); fixed port, loopback only.
     range = await startPwnedRangeServer({ port: E2E_PWNED_RANGE_PORT });
+    // V2-05 05-07b (R-46): the e2e server's Turnstile siteverify for invite acceptance (TURNSTILE_VERIFY_URL).
+    siteverify = await startTurnstileVerifyServer({ port: E2E_TURNSTILE_VERIFY_PORT, hostname: "127.0.0.1" });
     const run = await seed(randomUUID().slice(0, 8));
     fs.mkdirSync(AUTH_DIR, { recursive: true });
     fs.writeFileSync(RUN_FILE, `${JSON.stringify(run, null, 2)}\n`);

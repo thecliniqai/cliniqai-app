@@ -34,6 +34,10 @@ export const REASON_OWNER = {
   "billing.record_payment_system": "features/billing/system",
   // V2-04 04-03c (R-43, proposed ADR-0005 A3): the Send Email hook's shared webhook-id record, after the signature check.
   "auth.send_email_hook": "features/auth/system",
+  // V2-05 05-07b (R-44, proposed ADR-0005 A4): invite acceptance creates or completes the invitee's account through the
+  // Auth admin API and redeems the invitation for it, reached only through features/auth/invite-flows.ts after the
+  // token, Turnstile, password-policy and Pwned Passwords checks.
+  "auth.invite_accept": "features/auth/system",
 } as const satisfies Record<string, string>;
 
 export type SystemDbReason = keyof typeof REASON_OWNER;

@@ -235,6 +235,12 @@ const REQUIRED_FILES = [
   "tests/dpdp/export-routes-audit.spec.ts",
   "tests/dpdp/export-fail-closed.spec.ts",
   "tests/auth/page-revoked-session.spec.ts",
+  // 05b: 05-05 membership removal (acceptance 4); 05-07b invitations (acceptance 10), invite acceptance, Turnstile.
+  "tests/integration/auth/remove-member.spec.ts",
+  "tests/integration/auth/invite-delivery.spec.ts",
+  "tests/integration/auth/accept-invite.spec.ts",
+  "tests/jobs/email-invite-handler.spec.ts",
+  "tests/auth/turnstile-verify.spec.ts",
 ];
 
 const file = process.argv[2];

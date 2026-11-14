@@ -50,5 +50,23 @@ export const en = {
       success: "Password changed. Other devices were signed out.",
       successOthersRemain: "Password changed, but we could not sign out your other devices.",
     },
+    // V2-05 05-07b (AUTH-06): the /join page and invite acceptance. Fixed texts only; never database or provider text.
+    invite: {
+      title: "Join your clinic",
+      intro: "Accept your invitation to the clinic team on ClinicOS.",
+      incomplete: "This invitation link is incomplete. Ask your clinic to send it again.",
+      not_found: "This invitation link is not valid. Ask your clinic to send a new one.",
+      expired: "This invitation has expired. Ask your clinic to send a new one.",
+      revoked: "This invitation has been withdrawn. Ask your clinic for a new invite.",
+      used: "This invitation has already been used. Sign in to continue.",
+      sign_in_to_accept: "Already have a ClinicOS account? Sign in, then open this link again to accept.",
+      set_password_intro: "New to ClinicOS? Choose a password to create your account and join the clinic.",
+      account_exists: "An account already exists for this address. Sign in, then open this link again to accept.",
+      email_mismatch: "This invitation was sent to a different email address. Sign in with that address to accept it.",
+      already_member: "You are already a member of this clinic.",
+      captcha_unconfigured: "Invitation sign-up is not available right now. Ask your clinic to contact support.",
+      accepted: "Your account is ready. Sign in with your new password.",
+      accept_failed: "We couldn't accept this invitation. Try again.",
+    },
   },
 } as const;

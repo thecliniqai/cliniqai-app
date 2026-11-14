@@ -45,6 +45,8 @@
  *          = 4513 (40 files).
  *   4592 — V2-05 05b 05-07a (000088 invitations_v2): 4513 + definer_functions 4 (36 → 40: invite_staff, resend and
  *          revoke legs) + invitations_v2 75 = 4592 (41 files; the matrix keeps 3224 cells, invitations INSERT → rpc_only).
+ *   4609 — V2-05 05b 05-07b (000089 invitation_accept_context): 4592 + invitation_accept_context 17 = 4609 (42 files;
+ *          definer_functions keeps 40 cases, its classification and grant lists gain the new service-role function).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -56,7 +58,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 4592;
+export const FLOOR = 4609;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -120,6 +122,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/remove_member.test.sql",
   // 05-07a
   "supabase/tests/database/invitations_v2.test.sql",
+  // 05-07b
+  "supabase/tests/database/invitation_accept_context.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

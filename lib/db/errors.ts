@@ -81,6 +81,8 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   // 42501 (→ FORBIDDEN by SQLSTATE).
   ALREADY_MEMBER: "CONFLICT",
   INVITATION_NOT_PENDING: "CONFLICT",
+  // V2-05 05-07b (migration 000089): invitation_accept_context found two live accounts for the invited address.
+  INVITATION_ACCOUNT_AMBIGUOUS: "CONFLICT",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

@@ -64,6 +64,7 @@ describe("mapDbError: SQLSTATE table", () => {
     // V2-05 05-07a (000088): invitations v2.
     ["P0001 ALREADY_MEMBER (05-07a)", { code: "P0001", message: "ALREADY_MEMBER" }, "CONFLICT", "ALREADY_MEMBER"],
     ["P0001 INVITATION_NOT_PENDING (05-07a)", { code: "P0001", message: "INVITATION_NOT_PENDING" }, "CONFLICT", "INVITATION_NOT_PENDING"],
+    ["P0001 INVITATION_ACCOUNT_AMBIGUOUS (05-07b)", { code: "P0001", message: "INVITATION_ACCOUNT_AMBIGUOUS" }, "CONFLICT", "INVITATION_ACCOUNT_AMBIGUOUS"],
     ["P0002 INVITATION_NOT_FOUND (05-07a)", { code: "P0002", message: "INVITATION_NOT_FOUND" }, "NOT_FOUND", "INVITATION_NOT_FOUND"],
     ["42501 SYSTEM_ONLY (05-07a)", { code: "42501", message: "SYSTEM_ONLY" }, "FORBIDDEN", undefined],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],

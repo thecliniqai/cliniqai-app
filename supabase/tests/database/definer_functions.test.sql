@@ -217,6 +217,7 @@ insert into c2c_definer values
   ('private.log_system_audit', 'system', 'record_payment system path (000060)'),
   ('public.invitation_issue_token', 'system', 'email.invite handler: mints the token at send time (000088, 05-07a, R-30)'),
   ('public.consume_invitation_for', 'system', 'invite acceptance system path, address-bound (000088, 05-07a)'),
+  ('public.invitation_accept_context', 'system', 'invite acceptance system path: the invited address and its account (000089, 05-07b, R-44)'),
   ('private.invitation_audit', 'internal', 'audit writer behind the invitation RPCs (000088, 05-07a)'),
   -- internal: no API role may execute them (called by the definer wrappers or as triggers)
   ('private.enqueue_message_internal', 'internal', 'writer behind the bound enqueue RPCs'),
@@ -265,6 +266,7 @@ select set_eq(
     'public.invite_staff:authenticated', 'public.resend_invitation:authenticated',
     'public.revoke_invitation:authenticated', 'public.peek_invitation:anon,authenticated',
     'public.invitation_issue_token:service_role', 'public.consume_invitation_for:service_role',
+    'public.invitation_accept_context:service_role',
     'private.invitation_audit:',
     'public.claim_jobs:service_role', 'public.complete_job:service_role', 'public.defer_job:service_role',
     'public.fail_job:service_role', 'public.release_job:service_role', 'public.start_job:service_role',
