@@ -59,6 +59,17 @@ describe("mapDbError: SQLSTATE table", () => {
     expect(serialised).not.toContain("+91");
   });
 
+  it("23P01 from visits_no_double_booking (V2-05 05-08) → CONFLICT, reason = the constraint, the caller's fixed text", () => {
+    const err = {
+      code: "23P01",
+      message: 'conflicting key value violates exclusion constraint "visits_no_double_booking"',
+      details: "Key (tenant_id, doctor_id, public.visit_slot(scheduled_at, estimated_duration_minutes))=(...) conflicts with existing key",
+    };
+    const mapped = mapDbError(err, { VISITS_NO_DOUBLE_BOOKING: "Synthetic slot-taken text." });
+    expect(mapped).toEqual(appError("CONFLICT", { message: "Synthetic slot-taken text.", reason: "VISITS_NO_DOUBLE_BOOKING" }));
+    expect(JSON.stringify(mapped)).not.toContain("Key (");
+  });
+
   it("null, undefined and non-objects map to INTERNAL", () => {
     for (const err of [null, undefined, "boom" as unknown as null, 42 as unknown as null]) {
       expect(mapDbError(err)).toEqual({ code: "INTERNAL", message: DEFAULT_APP_ERROR_MESSAGES.INTERNAL });
