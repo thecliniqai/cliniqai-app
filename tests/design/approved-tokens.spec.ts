@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { TOKEN_MIRROR } from "@/lib/design/tokens";
 import { appTokens, approvedTokens, normalise, resolve } from "../../scripts/design/contrast.mjs";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -29,8 +30,8 @@ const approved = approvedTokens(
 ) as Map<string, string>;
 const app = appTokens(read(path.join(ROOT, "app/globals.css"))) as Map<string, string>;
 
-/** Tracer (step 1): the action colour. Step 2 widens this to every approved name. */
-const COMPARED = ["--color-accent"];
+/** Every custom property of the merged approved set (244 names at 3a78a5d). */
+const COMPARED = [...approved.keys()];
 
 describe("approved CliniQ AI tokens", () => {
   it("the evidence copies are the approved files (SHA-256 of the revision note)", () => {
@@ -39,6 +40,22 @@ describe("approved CliniQ AI tokens", () => {
 
   it("the approved accent is CliniQ Blue #246BCE", () => {
     expect(resolve(approved, "--color-accent")).toBe("#246bce");
+  });
+
+  it("compares the whole approved set: palette, semantics, AI-02, status hues, type, radii, shadows, components, PWA", () => {
+    expect(COMPARED.length).toBe(244);
+    for (const name of ["--color-ai-glyph", "--color-status-with-doctor-border", "--font-display", "--radius-xl", "--pwa-theme-color"]) {
+      expect(COMPARED).toContain(name);
+    }
+    expect(resolve(approved, "--color-status-with-doctor-border")).toBe("#11998d");
+    expect(resolve(approved, "--radius-xl")).toBe("20px");
+  });
+
+  it("the token mirror equals the approved PWA colours (#FFFFFF for theme, background and icon tile)", () => {
+    expect(TOKEN_MIRROR.themeColor).toEqual({ cssVar: "--pwa-theme-color", value: resolve(approved, "--pwa-theme-color") });
+    expect(TOKEN_MIRROR.backgroundColor).toEqual({ cssVar: "--pwa-background-color", value: resolve(approved, "--pwa-background-color") });
+    expect(TOKEN_MIRROR.iconTile).toEqual({ cssVar: "--pwa-icon-tile", value: resolve(approved, "--pwa-icon-tile") });
+    expect(new Set(Object.values(TOKEN_MIRROR).map((m) => m.value))).toEqual(new Set(["#ffffff"]));
   });
 
   it.each(COMPARED)("%s in app/globals.css resolves to the approved value", (name) => {

@@ -2,7 +2,8 @@
  * The token layers of app/globals.css (V2-06 plan 06-01a steps 2-3; DESIGN_SYSTEM §2.3-§2.4, §10).
  *
  * Parses the CSS the app ships and checks: every DESIGN_SYSTEM §2.3 semantic name (CSS spelling of §2.4) is defined
- * in `@theme inline` and resolves to a raw palette value; the semantic layer holds references only; every semantic the
+ * in `@theme inline` and resolves to a raw palette value; the semantic layer holds references (or an approved literal
+ * colour, 06-01b); the component layer is `@theme static`; every semantic the
  * codemod table can write exists (a missing one would render nothing); lib/design/tokens.ts equals the CSS; the v1
  * brand scale and the dead `:root` block are gone; `body` paints with semantic variables.
  */
@@ -76,11 +77,11 @@ describe("app/globals.css token layers", () => {
     }
   });
 
-  it("the semantic layer only references the raw layer (values live in one place)", () => {
+  it("the semantic layer references the raw layer (values live in one place)", () => {
     expect(semantic.size).toBeGreaterThanOrEqual(DESIGN_SYSTEM_SEMANTICS.length);
     for (const [name, value] of semantic) {
-      expect(value, name).toMatch(/^var\(--color-[a-z0-9-]+\)$/);
-      expect(raw.has(value.slice(4, -1)), `${name} -> ${value} is defined`).toBe(true);
+      if (!value.startsWith("var(")) continue; // approved literal status hues and the scrim (06-01b)
+      expect(raw.has(value.slice(4, -1)), `${name} -> ${value} is defined in the raw layer`).toBe(true);
     }
   });
 
@@ -107,16 +108,16 @@ describe("app/globals.css token layers", () => {
     }
   });
 
-  it("keeps the v1 radii the old :root block applied and the v1 font (approved values land in 06-01b)", () => {
-    // The v1 :root block overrode Tailwind's --radius-xs…xl, which every rounded-* utility reads: deleting it without
-    // keeping these would change every rounded corner (the neutral screenshot diff caught it).
-    expect(Object.fromEntries([...raw].filter(([k]) => k.startsWith("--radius-")))).toEqual({
-      "--radius-xs": "4px",
-      "--radius-sm": "6px",
-      "--radius-md": "8px",
-      "--radius-lg": "12px",
-      "--radius-xl": "16px",
-    });
-    expect(raw.get("--font-sans")).toMatch(/^Inter,/);
+  it("has no v1 raw layer left and keeps the semantic layer to references (or an approved literal colour)", () => {
+    expect(CSS).not.toMatch(/--color-v1-/);
+    for (const [name, value] of semantic) expect(value, name).toMatch(/^var\(--color-[a-z0-9-]+\)$|^#[0-9a-f]{6}$|^rgb\([^)]*\)$/);
+  });
+
+  it("the component layer (@theme static) only aliases tokens or holds sizes and approved literals", () => {
+    expect(component.size).toBeGreaterThan(40);
+    for (const name of component.keys()) {
+      expect(name, name).not.toMatch(/^--color-/);
+      expect(() => resolve(name), name).not.toThrow();
+    }
   });
 });
