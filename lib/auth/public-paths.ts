@@ -25,6 +25,8 @@ export const PUBLIC_PAGE_PREFIXES = [
   // here would make install fail (or cache a login page). The icons are single-segment image files, which the proxy
   // matcher already skips.
   "/manifest.webmanifest",
+  "/sw.js",
+  "/offline",
 ] as const;
 
 /**

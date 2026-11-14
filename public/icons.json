@@ -1,0 +1,31 @@
+{
+  "$comment": "Rendered by scripts/design/render-icons.mjs from app/icon.svg; do not edit.",
+  "master": "app/icon.svg",
+  "masterSha256": "a03fc35385e1405f31f205f2e85e6291bc2ac75d5dc69b5123e7372ffc75110d",
+  "outputs": [
+    {
+      "file": "public/icon-192.png",
+      "width": 192,
+      "height": 192,
+      "purpose": "any"
+    },
+    {
+      "file": "public/icon-512.png",
+      "width": 512,
+      "height": 512,
+      "purpose": "any"
+    },
+    {
+      "file": "public/icon-maskable-512.png",
+      "width": 512,
+      "height": 512,
+      "purpose": "full-bleed"
+    },
+    {
+      "file": "app/apple-icon.png",
+      "width": 180,
+      "height": 180,
+      "purpose": "full-bleed"
+    }
+  ]
+}

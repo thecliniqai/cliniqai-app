@@ -83,7 +83,7 @@ const PAGES = FILES.filter((f) => f.kind === "page");
 const ROUTES = FILES.filter((f) => f.kind === "route");
 
 /** The public pages R-28 names, by directory. Anything else must be protected. */
-const PUBLIC_DIRS = ["app/(auth)/", "app/r/", "app/reports/", "app/reschedule/"];
+const PUBLIC_DIRS = ["app/(auth)/", "app/r/", "app/reports/", "app/reschedule/", "app/offline/"];
 const PROTECTED_DIRS = ["app/(dashboard)/", "app/(onboarding)/"];
 
 describe("03-12b public paths (enumerated from app/)", () => {
@@ -109,6 +109,7 @@ describe("03-12b public paths (enumerated from app/)", () => {
       "app/(auth)/forgot-password",
       "app/(auth)/join",
       "app/(auth)/login",
+      "app/offline",
       "app/r/[token]",
       "app/reports/view",
       "app/reschedule/[token]",
@@ -137,15 +138,24 @@ describe("03-12b public paths (enumerated from app/)", () => {
     expect(ASSETS.map((a) => a.pattern)).toEqual(
       expect.arrayContaining([
         "/manifest.webmanifest",
+        "/sw.js",
+        "/icon.svg",
+        "/apple-icon.png",
+        "/icon-192.png",
+        "/icon-512.png",
+        "/icon-maskable-512.png",
       ]),
     );
-    for (const asset of ASSETS) {
+    // `public/icons.json` is the icon renderer's record (master SHA-256, sizes), not something a browser fetches; signed
+    // out it is default-denied like any other unknown path (fails closed). Any other new public file must be reachable.
+    const NOT_FETCHED_BY_BROWSERS = ["/icons.json"];
+    for (const asset of ASSETS.filter((a) => !NOT_FETCHED_BY_BROWSERS.includes(a.pattern))) {
       const skipsProxy = !unstable_doesMiddlewareMatch({ config, url: asset.url });
       expect(skipsProxy || !pageNeedsSession(asset.url), `${asset.file} would be redirected signed out`).toBe(true);
     }
     // The three non-image assets run the proxy and are public by prefix; every public/ file stays one segment deep
     // (a nested file would run the proxy and be redirected).
-    for (const url of ["/manifest.webmanifest"]) {
+    for (const url of ["/manifest.webmanifest", "/sw.js", "/offline"]) {
       expect(unstable_doesMiddlewareMatch({ config, url }), url).toBe(true);
       expect(pageNeedsSession(url), url).toBe(false);
     }
@@ -186,6 +196,8 @@ describe("03-12b public paths (enumerated from app/)", () => {
       "/join",
       "/auth/signout",
       "/manifest.webmanifest",
+      "/sw.js",
+      "/offline",
     ]) {
       expect(pageNeedsSession(p), p).toBe(false);
     }
@@ -194,6 +206,9 @@ describe("03-12b public paths (enumerated from app/)", () => {
   it("encoded separators and dot segments cannot make a protected page public", () => {
     for (const p of [
       "/r/..%2Fpatients",
+      "/offline/..%2Fpatients",
+      "/offline%2F..%2Fpatients",
+      "/sw.js/..%2F..%2Fpatients",
       "/manifest.webmanifest/..%2Fqueue",
       "/r/x%2F..%2F..%2Fpatients",
       "/r%2F..%2Fpatients",

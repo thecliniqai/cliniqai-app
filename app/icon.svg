@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- V2-06 06-05 provisional app icon master (Wave A; 06-01b replaces it with the approved CliniQ AI mark).
+       Tile = the accent token, glyph = fg-on-accent (lib/design/tokens.ts mirror); the "Q" is outlined paths, no font.
+       scripts/design/render-icons.mjs renders the PNGs from this file (the maskable and Apple icons with rx 0). -->
+  <rect id="tile" width="512" height="512" rx="112" fill="#1769e0"/>
+  <path id="glyph" fill="#ffffff" fill-rule="evenodd" d="M256 120a124 124 0 1 1 0 248a124 124 0 1 1 0-248zM256 164a80 80 0 1 0 0 160a80 80 0 1 0 0-160z"/>
+  <path id="glyph-tail" fill="#ffffff" d="M296 326l30-30l72 72l-30 30z"/>
+</svg>
