@@ -1,0 +1,21 @@
+/Users/sid/Code/clinicOS/supabase/tests/database/billing_grants.test.sql .. 
+1..24
+not ok 1 - the loop sees the billing_internal functions (sanity)
+# Failed test 1: "the loop sees the billing_internal functions (sanity)"
+#     '0'
+#         >=
+#     '5'
+ok 2 - authenticated cannot execute any billing_internal function (acceptance 9)
+ok 3 - anon cannot execute any billing_internal function
+ok 4 - PUBLIC holds EXECUTE on no billing_internal function
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 21/24 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/billing_grants.test.sql (Wstat: 768 (exited 3) Tests: 4 Failed: 1)
+  Failed test:  1
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 24 tests but ran 4.
+Files=1, Tests=4,  0 wallclock secs ( 0.01 usr +  0.00 sys =  0.01 CPU)
+Result: FAIL

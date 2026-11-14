@@ -1,0 +1,17 @@
+/Users/sid/Code/clinicOS/supabase/tests/database/subscription_invariant.test.sql .. 
+1..14
+not ok 1 - tenants_create_subscription: enabled, FOR EACH ROW, AFTER INSERT, SECURITY DEFINER, search_path ''
+# Failed test 1: "tenants_create_subscription: enabled, FOR EACH ROW, AFTER INSERT, SECURITY DEFINER, search_path ''"
+#         have: NULL
+#         want: (O,t,t,t,t,t)
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 14/14 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/subscription_invariant.test.sql (Wstat: 768 (exited 3) Tests: 1 Failed: 1)
+  Failed test:  1
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 14 tests but ran 1.
+Files=1, Tests=1,  0 wallclock secs ( 0.01 usr +  0.01 sys =  0.02 CPU)
+Result: FAIL
