@@ -86,27 +86,6 @@ export interface Invitation {
   created_at: string;
 }
 
-export interface Subscription {
-  id: string;
-  tenant_id: string;
-  plan: string;
-  amount_inr: number;
-  status: "active" | "past_due" | "canceled" | "trialing";
-  current_period_end: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PaymentRecord {
-  id: string;
-  tenant_id: string;
-  amount_inr: number;
-  paid_at: string;
-  method: string;
-  reference: string;
-  created_at: string;
-}
-
 export interface Patient {
   id: string;
   tenant_id: string;

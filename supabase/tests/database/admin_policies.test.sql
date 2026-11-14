@@ -32,6 +32,14 @@ insert into auth.users (id, email) values
 insert into public.tenants (id, name) values
   ('c2c00000-0000-4000-8000-00000000000a', 'Synthetic 05-02c Clinic A'),
   ('c2c00000-0000-4000-8000-00000000000b', 'Synthetic 05-02c Clinic B');
+-- V2-05 05-09c (R-25, acceptance 11 preparation): this file's clinics are trialing on the Standard price, so they keep
+-- full access once the RLS helpers read the access level (05-10a). Clinics created in this transaction only.
+update public.tenant_subscriptions s
+   set status = 'trialing', trial_start = now(), trial_end = now() + interval '14 days',
+       access_ends_at = now() + interval '15 days', trial_consumed = true,
+       plan_price_id = (select pp.id from public.plan_prices pp join public.plans p on p.id = pp.plan_id
+                         where p.code = 'standard' order by pp.active_from limit 1)
+ where s.tenant_id in (select t.id from public.tenants t where t.created_at = now()) and s.status = 'incomplete';
 insert into public.memberships (user_id, tenant_id, role) values
   ('c2c00000-0000-4000-8000-000000000101', 'c2c00000-0000-4000-8000-00000000000a', 'owner'),
   ('c2c00000-0000-4000-8000-000000000102', 'c2c00000-0000-4000-8000-00000000000a', 'admin'),
@@ -150,8 +158,7 @@ select set_eq(
       where schemaname = 'public' and cmd <> 'DELETE'
         and tablename in ('tenants', 'memberships', 'invitations', 'api_keys', 'api_key_usage_daily',
                           'webhook_subscriptions', 'webhook_delivery_queue', 'tenant_messaging_config',
-                          'in_app_notifications', 'document_share_tokens', 'patient_documents', 'audit_logs',
-                          'subscriptions', 'payment_records') $$,
+                          'in_app_notifications', 'document_share_tokens', 'patient_documents', 'audit_logs') $$,
   array[
     'tenants.tenants_select', 'tenants.tenants_update',
     'memberships.memberships_select', 'memberships.memberships_update',
@@ -168,10 +175,9 @@ select set_eq(
     'document_share_tokens.document_share_tokens_select',
     'patient_documents.patient_documents_select', 'patient_documents.patient_documents_insert',
     'patient_documents.patient_documents_update',
-    'audit_logs.audit_logs_select',
-    'subscriptions.subscriptions_select', 'payment_records.payment_records_select'
+    'audit_logs.audit_logs_select'
   ]::text[],
-  'the admin/system tables have exactly the S/I/U policies of 000057/000060'
+  'the admin/system tables have exactly the S/I/U policies of 000057/000060 (the v1 subscriptions/payment_records were dropped in 000086, 05-09c)'
 );
 select is_empty(
   $$ select tablename || '.' || policyname from pg_policies

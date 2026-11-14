@@ -400,13 +400,6 @@ column public.patients.status text not_null=f default='active'::text identity=- 
 column public.patients.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.patients.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.patients.whatsapp_opt_out boolean not_null=t default=false identity=- generated=-
-column public.payment_records.amount_inr integer not_null=t default=- identity=- generated=-
-column public.payment_records.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
-column public.payment_records.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
-column public.payment_records.method text not_null=t default='upi'::text identity=- generated=-
-column public.payment_records.paid_at timestamp with time zone not_null=t default=now() identity=- generated=-
-column public.payment_records.reference text not_null=t default=- identity=- generated=-
-column public.payment_records.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.payments.amount numeric(10,2) not_null=t default=- identity=- generated=-
 column public.payments.command_id uuid not_null=f default=- identity=- generated=-
 column public.payments.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
@@ -570,14 +563,6 @@ column public.subscription_events.subject text not_null=t default='base'::text i
 column public.subscription_events.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.subscription_events.to_status text not_null=f default=- identity=- generated=-
 column public.subscription_events.type text not_null=t default=- identity=- generated=-
-column public.subscriptions.amount_inr integer not_null=t default=1000 identity=- generated=-
-column public.subscriptions.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
-column public.subscriptions.current_period_end timestamp with time zone not_null=t default=(now() + '30 days'::interval) identity=- generated=-
-column public.subscriptions.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
-column public.subscriptions.plan text not_null=t default='standard'::text identity=- generated=-
-column public.subscriptions.status text not_null=t default='active'::text identity=- generated=-
-column public.subscriptions.tenant_id uuid not_null=t default=- identity=- generated=-
-column public.subscriptions.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.tenant_entitlement_overrides.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.tenant_entitlement_overrides.enabled boolean not_null=t default=- identity=- generated=-
 column public.tenant_entitlement_overrides.expires_at timestamp with time zone not_null=f default=- identity=- generated=-
@@ -950,8 +935,6 @@ constraint public.patients.patients_preferred_language_check CHECK ((preferred_l
 constraint public.patients.patients_sex_check CHECK ((sex = ANY (ARRAY['male'::text, 'female'::text, 'other'::text])))
 constraint public.patients.patients_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.patients.patients_tenant_id_id_key UNIQUE (tenant_id, id)
-constraint public.payment_records.payment_records_pkey PRIMARY KEY (id)
-constraint public.payment_records.payment_records_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.payments.payments_amount_check CHECK ((amount > (0)::numeric))
 constraint public.payments.payments_payment_method_check CHECK ((payment_method = ANY (ARRAY['cash'::text, 'upi'::text, 'card'::text])))
 constraint public.payments.payments_pkey PRIMARY KEY (id)
@@ -1073,10 +1056,6 @@ constraint public.subscription_events.subscription_events_subject_check CHECK ((
 constraint public.subscription_events.subscription_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.subscription_events.subscription_events_to_status_check CHECK (((to_status IS NULL) OR (to_status = ANY (ARRAY['incomplete'::text, 'trialing'::text, 'active'::text, 'past_due'::text, 'expired'::text, 'archived'::text, 'purged'::text]))))
 constraint public.subscription_events.subscription_events_type_check CHECK ((type ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){0,3}$'::text))
-constraint public.subscriptions.subscriptions_pkey PRIMARY KEY (id)
-constraint public.subscriptions.subscriptions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'past_due'::text, 'canceled'::text, 'trialing'::text])))
-constraint public.subscriptions.subscriptions_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
-constraint public.subscriptions.subscriptions_tenant_id_key UNIQUE (tenant_id)
 constraint public.tenant_entitlement_overrides.tenant_entitlement_overrides_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES auth.users(id) ON DELETE SET NULL
 constraint public.tenant_entitlement_overrides.tenant_entitlement_overrides_key_fkey FOREIGN KEY (key) REFERENCES entitlement_keys(key) ON DELETE RESTRICT
 constraint public.tenant_entitlement_overrides.tenant_entitlement_overrides_limit_value_check CHECK (((limit_value IS NULL) OR (limit_value >= 0)))
@@ -1311,7 +1290,7 @@ function public.enqueue_webhook_event_system(p_system_actor text, p_event_type t
 function public.fail_job(p_id uuid, p_lease_token uuid, p_error_code text, p_retryable boolean, p_retry_at timestamp with time zone) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=b4be2145ebfab4c5c7a731763c7314c3
 function public.generate_tenant_invoice_number(p_tenant_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ce8c24338edcc5187bb52527bab05206
 function public.get_reschedule_context(p_token text, p_from timestamp with time zone, p_to timestamp with time zone) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=afb9de521bf3ac8044f6e3c001869559
-function public.get_tenant_table_rls_policies() returns TABLE(table_name text, rls_enabled boolean, policy_name text, roles text[], cmd text, qual text, with_check text) lang=sql security_definer=t volatility=v config=search_path=public, pg_catalog, pg_temp body_md5=5693109bf28e5720a7b582d33270fc6b
+function public.get_tenant_table_rls_policies() returns TABLE(table_name text, rls_enabled boolean, policy_name text, roles text[], cmd text, qual text, with_check text) lang=sql security_definer=t volatility=v config=search_path=public, pg_catalog, pg_temp body_md5=ef59d2e5f5d66d16af6acd6bd1d2d539
 function public.has_permission(p_tenant uuid, p_perm text) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=ae413fcc266ead95670d107f176ce0b3
 function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d9eb45e242d8aa1a81b281a32b433a6e
 function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6e09b6c645bd991920f556c59af2d9bd
@@ -1832,15 +1811,6 @@ grant table public.patients TRIGGER to service_role
 grant table public.patients TRUNCATE to service_role
 grant table public.patients UPDATE to authenticated
 grant table public.patients UPDATE to service_role
-grant table public.payment_records DELETE to service_role
-grant table public.payment_records INSERT to service_role
-grant table public.payment_records MAINTAIN to service_role
-grant table public.payment_records REFERENCES to service_role
-grant table public.payment_records SELECT to authenticated
-grant table public.payment_records SELECT to service_role
-grant table public.payment_records TRIGGER to service_role
-grant table public.payment_records TRUNCATE to service_role
-grant table public.payment_records UPDATE to service_role
 grant table public.payments DELETE to service_role
 grant table public.payments INSERT to service_role
 grant table public.payments MAINTAIN to service_role
@@ -1956,15 +1926,6 @@ grant table public.subscription_events REFERENCES to service_role
 grant table public.subscription_events SELECT to authenticated
 grant table public.subscription_events SELECT to service_role
 grant table public.subscription_events TRIGGER to service_role
-grant table public.subscriptions DELETE to service_role
-grant table public.subscriptions INSERT to service_role
-grant table public.subscriptions MAINTAIN to service_role
-grant table public.subscriptions REFERENCES to service_role
-grant table public.subscriptions SELECT to authenticated
-grant table public.subscriptions SELECT to service_role
-grant table public.subscriptions TRIGGER to service_role
-grant table public.subscriptions TRUNCATE to service_role
-grant table public.subscriptions UPDATE to service_role
 grant table public.tenant_entitlement_overrides DELETE to service_role
 grant table public.tenant_entitlement_overrides INSERT to service_role
 grant table public.tenant_entitlement_overrides MAINTAIN to service_role
@@ -2191,7 +2152,6 @@ index public.idx_patients_tenant_created_at CREATE INDEX idx_patients_tenant_cre
 index public.idx_patients_tenant_id CREATE INDEX idx_patients_tenant_id ON public.patients USING btree (tenant_id)
 index public.idx_patients_tenant_name CREATE INDEX idx_patients_tenant_name ON public.patients USING btree (tenant_id, full_name)
 index public.idx_patients_tenant_phone CREATE INDEX idx_patients_tenant_phone ON public.patients USING btree (tenant_id, phone)
-index public.idx_payment_records_tenant_id CREATE INDEX idx_payment_records_tenant_id ON public.payment_records USING btree (tenant_id)
 index public.idx_payments_recorded_by CREATE INDEX idx_payments_recorded_by ON public.payments USING btree (recorded_by)
 index public.idx_payments_tenant_invoice CREATE INDEX idx_payments_tenant_invoice ON public.payments USING btree (tenant_id, invoice_id)
 index public.idx_payments_tenant_recorded CREATE INDEX idx_payments_tenant_recorded ON public.payments USING btree (tenant_id, recorded_at)
@@ -2225,7 +2185,6 @@ index public.idx_schedule_blocks_doctor_id CREATE INDEX idx_schedule_blocks_doct
 index public.idx_schedule_blocks_tenant_doctor_time CREATE INDEX idx_schedule_blocks_tenant_doctor_time ON public.schedule_blocks USING btree (tenant_id, doctor_id, start_time, end_time)
 index public.idx_schedule_blocks_tenant_time CREATE INDEX idx_schedule_blocks_tenant_time ON public.schedule_blocks USING btree (tenant_id, start_time, end_time)
 index public.idx_subscription_events_tenant CREATE INDEX idx_subscription_events_tenant ON public.subscription_events USING btree (tenant_id, occurred_at)
-index public.idx_subscriptions_tenant_id CREATE INDEX idx_subscriptions_tenant_id ON public.subscriptions USING btree (tenant_id)
 index public.idx_tenant_entitlement_overrides_granted_by CREATE INDEX idx_tenant_entitlement_overrides_granted_by ON public.tenant_entitlement_overrides USING btree (granted_by)
 index public.idx_tenant_entitlement_overrides_key CREATE INDEX idx_tenant_entitlement_overrides_key ON public.tenant_entitlement_overrides USING btree (key)
 index public.idx_tenant_subscriptions_plan_price_id CREATE INDEX idx_tenant_subscriptions_plan_price_id ON public.tenant_subscriptions USING btree (plan_price_id)
@@ -2268,7 +2227,6 @@ index public.patient_documents_pkey CREATE UNIQUE INDEX patient_documents_pkey O
 index public.patient_documents_tenant_id_id_key CREATE UNIQUE INDEX patient_documents_tenant_id_id_key ON public.patient_documents USING btree (tenant_id, id)
 index public.patients_pkey CREATE UNIQUE INDEX patients_pkey ON public.patients USING btree (id)
 index public.patients_tenant_id_id_key CREATE UNIQUE INDEX patients_tenant_id_id_key ON public.patients USING btree (tenant_id, id)
-index public.payment_records_pkey CREATE UNIQUE INDEX payment_records_pkey ON public.payment_records USING btree (id)
 index public.payments_pkey CREATE UNIQUE INDEX payments_pkey ON public.payments USING btree (id)
 index public.payments_tenant_command_id CREATE UNIQUE INDEX payments_tenant_command_id ON public.payments USING btree (tenant_id, command_id) WHERE (command_id IS NOT NULL)
 index public.plan_entitlements_pkey CREATE UNIQUE INDEX plan_entitlements_pkey ON public.plan_entitlements USING btree (plan_id, key)
@@ -2289,8 +2247,6 @@ index public.referrals_pkey CREATE UNIQUE INDEX referrals_pkey ON public.referra
 index public.referrals_tenant_id_id_key CREATE UNIQUE INDEX referrals_tenant_id_id_key ON public.referrals USING btree (tenant_id, id)
 index public.schedule_blocks_pkey CREATE UNIQUE INDEX schedule_blocks_pkey ON public.schedule_blocks USING btree (id)
 index public.subscription_events_pkey CREATE UNIQUE INDEX subscription_events_pkey ON public.subscription_events USING btree (id)
-index public.subscriptions_pkey CREATE UNIQUE INDEX subscriptions_pkey ON public.subscriptions USING btree (id)
-index public.subscriptions_tenant_id_key CREATE UNIQUE INDEX subscriptions_tenant_id_key ON public.subscriptions USING btree (tenant_id)
 index public.tenant_entitlement_overrides_pkey CREATE UNIQUE INDEX tenant_entitlement_overrides_pkey ON public.tenant_entitlement_overrides USING btree (id)
 index public.tenant_entitlement_overrides_tenant_key CREATE UNIQUE INDEX tenant_entitlement_overrides_tenant_key ON public.tenant_entitlement_overrides USING btree (tenant_id, key)
 index public.tenant_messaging_config_pkey CREATE UNIQUE INDEX tenant_messaging_config_pkey ON public.tenant_messaging_config USING btree (id)
@@ -2381,7 +2337,6 @@ policy public.patient_documents.patient_documents_update cmd=w permissive=t role
 policy public.patients.patients_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with))
 policy public.patients.patients_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:view'::text) AS tenant_ids_with)) check=-
 policy public.patients.patients_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('patients:edit'::text) AS tenant_ids_with))
-policy public.payment_records.payment_records_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
 policy public.payments.payments_select cmd=r permissive=t roles=authenticated using=((tenant_id IN ( SELECT authz.tenant_ids_with('billing:view'::text) AS tenant_ids_with)) OR ((tenant_id IN ( SELECT authz.tenant_ids_with('consultations:edit'::text) AS tenant_ids_with)) AND (EXISTS ( SELECT 1    FROM (invoices i      JOIN visits v ON (((v.tenant_id = i.tenant_id) AND (v.id = i.visit_id))))   WHERE ((i.tenant_id = payments.tenant_id) AND (i.id = payments.invoice_id) AND (v.doctor_id = ( SELECT auth.uid() AS uid))))))) check=-
 policy public.plan_entitlements.plan_entitlements_select cmd=r permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM plans p   WHERE ((p.id = plan_entitlements.plan_id) AND (p.visibility <> 'hidden'::text)))) check=-
 policy public.plan_prices.plan_prices_select cmd=r permissive=t roles=authenticated using=(EXISTS ( SELECT 1    FROM plans p   WHERE ((p.id = plan_prices.plan_id) AND (p.visibility <> 'hidden'::text)))) check=-
@@ -2405,7 +2360,6 @@ policy public.schedule_blocks.schedule_blocks_insert cmd=a permissive=t roles=au
 policy public.schedule_blocks.schedule_blocks_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:view'::text) AS tenant_ids_with)) check=-
 policy public.schedule_blocks.schedule_blocks_update cmd=w permissive=t roles=authenticated using=(((doctor_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))) check=(((doctor_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)))
 policy public.subscription_events.subscription_events_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.billing_tenant_ids() AS billing_tenant_ids)) check=-
-policy public.subscriptions.subscriptions_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=-
 policy public.tenant_messaging_config.tenant_messaging_config_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
 policy public.tenant_messaging_config.tenant_messaging_config_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:view'::text) AS tenant_ids_with)) check=-
 policy public.tenant_messaging_config.tenant_messaging_config_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
@@ -2489,7 +2443,6 @@ relation public.memberships kind=r rls=t force_rls=f
 relation public.opd_diagnoses kind=r rls=t force_rls=f
 relation public.patient_documents kind=r rls=t force_rls=f
 relation public.patients kind=r rls=t force_rls=f
-relation public.payment_records kind=r rls=t force_rls=f
 relation public.payments kind=r rls=t force_rls=f
 relation public.plan_entitlements kind=r rls=t force_rls=f
 relation public.plan_prices kind=r rls=t force_rls=f
@@ -2504,7 +2457,6 @@ relation public.queue_tokens kind=r rls=t force_rls=f
 relation public.referrals kind=r rls=t force_rls=f
 relation public.schedule_blocks kind=r rls=t force_rls=f
 relation public.subscription_events kind=r rls=t force_rls=f
-relation public.subscriptions kind=r rls=t force_rls=f
 relation public.tenant_entitlement_overrides kind=r rls=t force_rls=f
 relation public.tenant_messaging_config kind=r rls=t force_rls=f
 relation public.tenant_subscriptions kind=r rls=t force_rls=f

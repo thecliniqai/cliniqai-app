@@ -159,8 +159,6 @@ const FINAL_DELETE: Record<string, string> = {
   "public.api_key_usage_daily": "perm(clinic:manage)",
   "public.webhook_subscriptions": "perm(clinic:manage)",
   "public.webhook_delivery_queue": "rpc_only",
-  "public.subscriptions": "rpc_only",
-  "public.payment_records": "rpc_only",
   "public.plans": "rpc_only",
   "public.plan_prices": "rpc_only",
   "public.entitlement_keys": "rpc_only",
@@ -352,8 +350,6 @@ const TARGET_SIU_05_02C: Record<string, [string, string, string, string]> = {
   "public.api_key_usage_daily": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
   "public.webhook_subscriptions": ["perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)", "perm(clinic:manage)"],
   "public.webhook_delivery_queue": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
-  "public.subscriptions": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
-  "public.payment_records": ["perm(clinic:manage)", "rpc_only", "rpc_only", "rpc_only"],
   "storage:prescriptions/rx": ["perm(prescriptions:view)", "perm(prescriptions:edit)", "perm(prescriptions:edit)", "none"],
   "storage:prescriptions/receipt": [
     "(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))",

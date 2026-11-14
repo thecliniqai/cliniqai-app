@@ -13,10 +13,11 @@
  *   - `STAGING_SECRET_KEY` is a hosted secret key (`sb_secret_…`; a local-stack JWT is refused);
  *   - `STAGING_SEED_PASSWORD` has at least 16 characters (staging is reachable from the internet; it is never
  *     generated, printed or stored by this script).
- * Never reads any `.env*` file. Prints the clinic name, the five login emails and counts only.
+ * Never reads any `.env*` file. Prints the clinic name, the five login emails and counts only (including one line of
+ * clinics per access level, V2-05 05-09c).
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { DEMO_CLINIC_NAME, resetDemoClinic, seedDemoClinic } from "./seed/demo-clinic";
+import { accessSummary, DEMO_CLINIC_NAME, formatAccessSummary, resetDemoClinic, seedDemoClinic } from "./seed/demo-clinic";
 import { REF_VAR, stagingTargetProblems } from "./staging/target-guard.mjs";
 
 const TAG = "[seed:staging]";
@@ -65,6 +66,8 @@ async function main(): Promise<number> {
   console.log(`${TAG} "${DEMO_CLINIC_NAME}" ready on staging ${env[REF_VAR]} (${patientsCreated} synthetic patient(s) created).`);
   console.log(`${TAG} logins (password sign-in; the password is STAGING_SEED_PASSWORD in the staging Environment):`);
   for (const s of staff) console.log(`  ${s.role.padEnd(12)} ${s.email}`);
+  // V2-05 05-09c (05-P3): after the re-seed every staging clinic should be full; counts only, never names or ids.
+  console.log(`${TAG} ${formatAccessSummary(await accessSummary(admin))}`);
   return 0;
 }
 

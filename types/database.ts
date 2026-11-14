@@ -1454,45 +1454,6 @@ export type Database = {
           },
         ];
       };
-      payment_records: {
-        Row: {
-          amount_inr: number;
-          created_at: string;
-          id: string;
-          method: string;
-          paid_at: string;
-          reference: string;
-          tenant_id: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          amount_inr: number;
-          created_at?: string;
-          id?: string;
-          method?: string;
-          paid_at?: string;
-          reference: string;
-          tenant_id: string;
-        };
-        Update: {
-          amount_inr?: number;
-          created_at?: string;
-          id?: string;
-          method?: string;
-          paid_at?: string;
-          reference?: string;
-          tenant_id?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "payment_records_tenant_id_fkey";
-            columns: ["tenant_id"];
-            isOneToOne: false;
-            referencedRelation: "tenants";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       payments: {
         Row: {
           amount: number;
@@ -2289,48 +2250,6 @@ export type Database = {
             foreignKeyName: "subscription_events_tenant_id_fkey";
             columns: ["tenant_id"];
             isOneToOne: false;
-            referencedRelation: "tenants";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      subscriptions: {
-        Row: {
-          amount_inr: number;
-          created_at: string;
-          current_period_end: string;
-          id: string;
-          plan: string;
-          status: string;
-          tenant_id: string;
-          updated_at: string;
-        };
-        ComputedFields: never;
-        Insert: {
-          amount_inr?: number;
-          created_at?: string;
-          current_period_end?: string;
-          id?: string;
-          plan?: string;
-          status?: string;
-          tenant_id: string;
-          updated_at?: string;
-        };
-        Update: {
-          amount_inr?: number;
-          created_at?: string;
-          current_period_end?: string;
-          id?: string;
-          plan?: string;
-          status?: string;
-          tenant_id?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "subscriptions_tenant_id_fkey";
-            columns: ["tenant_id"];
-            isOneToOne: true;
             referencedRelation: "tenants";
             referencedColumns: ["id"];
           },

@@ -81,9 +81,10 @@ export const TENANT_TABLES = [
   "api_key_usage_daily", "api_keys", "audit_logs", "communication_queue", "consent_records", "consultation_diagnoses",
   "consultations", "doctor_custom_diagnoses", "doctor_custom_medicines", "doctor_prescription_templates",
   "document_share_tokens", "follow_ups", "in_app_notifications", "invitations", "invoice_items", "invoices",
-  "memberships", "patient_documents", "patients", "payment_records", "payments", "prescriptions", "queue_tokens",
-  "referrals", "schedule_blocks", "subscriptions", "tenant_messaging_config", "visit_revisions", "visits",
-  "waitlist_entries", "webhook_delivery_queue", "webhook_subscriptions",
+  "memberships", "patient_documents", "patients", "payments", "prescriptions", "queue_tokens",
+  "referrals", "schedule_blocks", "subscription_events", "tenant_entitlement_overrides", "tenant_messaging_config",
+  "tenant_subscriptions", "visit_revisions", "visits", "waitlist_entries", "webhook_delivery_queue",
+  "webhook_subscriptions",
 ] as const;
 
 /** Every table a guarded entry point could write: the tenant tables plus `tenants` and `prescription_items`. */

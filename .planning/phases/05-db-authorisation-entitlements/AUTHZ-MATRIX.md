@@ -164,14 +164,6 @@ Principals:
 | `public.webhook_delivery_queue` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.webhook_delivery_queue` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.webhook_delivery_queue` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.subscriptions` | S | perm(clinic:manage) | Y | Y | - | - | - | - | - | X | - | - | - |
-| `public.subscriptions` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.subscriptions` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.subscriptions` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.payment_records` | S | perm(clinic:manage) | Y | Y | - | - | - | - | - | X | - | - | - |
-| `public.payment_records` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.payment_records` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.payment_records` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.plans` | S | catalogue | Y | Y | Y | Y | Y | Y | Y | X | Y | Y | Y |
 | `public.plans` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.plans` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
@@ -314,8 +306,6 @@ Notes:
 - `public.audit_logs`: INSERT revoked: users write through log_audit (actor forced, active clinic, 05-02c T-05-12; audit_v2.test.sql)
 - `public.api_keys`: 05-11b M-APIKEY: created_by is the caller; members update only name and revoked_at (never cleared); keys are revoked, never deleted (audit attribution survives); api_keys_notices_columns.test.sql
 - `public.webhook_delivery_queue`: V2-04 000036: SELECT only (delivery logs); writes by enqueue RPCs and the runner
-- `public.subscriptions`: v1 table, dropped in 05-09c
-- `public.payment_records`: v1 table, dropped in 05-09c
 - `public.plans`: product catalogue: SELECT for signed-in users where visibility <> 'hidden' (hidden rows: billing_catalogue.test.sql); writes by migrations, the service role and platform RPCs (05-09b)
 - `public.plan_prices`: versioned prices: SELECT where the plan is not hidden; never written by an API role (AI §4.6)
 - `public.entitlement_keys`: feature and limit keys (AI §6.2): readable by signed-in users
