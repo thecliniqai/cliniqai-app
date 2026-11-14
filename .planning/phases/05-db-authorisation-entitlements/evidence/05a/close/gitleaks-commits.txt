@@ -1,0 +1,13 @@
+# gitleaks v8.30.1 (docker zricethezav/gitleaks, repo config .gitleaks.toml), 2026-11-14T08:42:02Z
+## git --log-opts=ec0d337..961ba82 (the 05a close code, gate and docs commits)
+
+    ○
+    │╲
+    │ ○
+    ○ ░
+    ░    gitleaks
+
+[90m8:42AM[0m [32mINF[0m [1m5 commits scanned.[0m
+[90m8:42AM[0m [32mINF[0m [1mscanned ~56460 bytes (56.46 KB) in 242ms[0m
+[90m8:42AM[0m [32mINF[0m [1mno leaks found[0m
+exit=0
