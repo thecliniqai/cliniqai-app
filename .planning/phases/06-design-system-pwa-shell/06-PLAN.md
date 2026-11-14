@@ -2,25 +2,20 @@
 phase: 06
 roadmap_id: V2-06
 name: Design system, frontend foundation & PWA shell
-gate: G3 (isolated Claude design reviewer + PO screenshot approval; adversarial reviews for the PWA/auth/PHI parts). G2-D (V2-DX) is a precondition of Wave B only.
+gate: "G3 (isolated Claude design reviewer + PO screenshot approval; adversarial reviews only for the PWA/auth/PHI parts, PO ruling 2026-11-14). G2-D (V2-DX) is a precondition of Wave B only; signed off 2026-11-13, CliniQ AI brand theme 2026-11-14 (revision note)."
 requirements: [P1-28 (M1-M3), P2-02, PWA-01, PWA-02, PWA-03 (shell part), PWA-04, PWA-05 (client side), PWA-07, PWA-08b (specs 1-6, 8, 10, 11), PWA-09 (report-only), AI-02, AI-16 (deferred to V2-09b, R-10), V2-03 handovers to V2-06 (React Compiler rules back to error, client error capture R-29, user-menu dropdown focus management, hardSignOut), V2-05 handover (PWA asset non-redirect cases for locked users, 05-10b)]
 plans: [06-01a, 06-07, 06-04a, 06-05, 06-06, 06-09a, 06-01b, 06-02a, 06-02b, 06-02c, 06-03a, 06-03b, 06-04b, 06-08, 06-09b]
-waves: {1: [06-01a], 2: [06-07, 06-04a, 06-05], 3: [06-06], A-review: [06-09a], 4: [06-01b], 5: [06-02a], 6: [06-02b], 7: [06-02c], 8: [06-03a], 9: [06-03b], 10: [06-04b], 11: [06-08], close: [06-09b]}
+waves: {1: [06-01a], 2: [06-07, 06-04a, 06-05], 3: [06-06], A-review: [06-09a], 4: [06-01b], 5: [06-02a], 6: [06-02b], 7: [06-02c], 8: [06-03a], 9: [06-03b], 10: [06-04b], 11: [06-08], close: [06-09b]}   # wave 3 runs after the 05b merge-in: it may land after waves 4-9, always before wave 10
+waits_for_05b: [06-06, "06-05 spec 1 locked-user leg (delivered with 06-06)"]   # PO ruling 2026-11-14 item 4: need 05b code (05-05, 05-09a, 05-10a, 05-10b)
 pre_g2d: [06-01a, 06-07, 06-04a, 06-05, 06-06, 06-09a]   # Wave A: execute and merge into the phase branch without G2-D
-
-> **G2-D signed off 2026-11-13 (PO):** direction **A "Calm Confidence — Botanical Teal"**, round-3 component system and
-> consult structure, typeface **Inter** (vendored, `next/font/local`). Source of truth: branch
-> `v2/phase-dx-design-exploration` at `e95b8b5` (`.planning/sketches/themes/clinic-paper.css`, `006-components/`,
-> `004-consult/`). Everything stays tokenised (colour, type, font) so the PO can change it from real usage; direction
-> B remains as `direction-b.css`. 06-01b consumes `clinic-paper.css` unchanged; numeric contexts: proportional figures
-> for doses, tabular for tables and amounts.
-post_g2d: [06-01b, 06-02a, 06-02b, 06-02c, 06-03a, 06-03b, 06-04b, 06-08, 06-09b]   # Wave B: precondition = G2-D row recorded (06-P2)
-source: docs/v2/V2_MASTER_ROADMAP.md §1.2 (PO-15, PO-19, PO-20, PO-21), §10.1-10.2 (P1-28, P2-02, PWA-01…09, AI-02, AI-16), §12.2 (V2-DX, V2-06), §16 (G2-D, G3); docs/v2/DESIGN_SYSTEM.md; docs/v2/PWA_STRATEGY.md §3-§6, §9, §10; docs/v2/FRONTEND_MIGRATION_PLAN.md M1-M3; docs/v2/INFORMATION_ARCHITECTURE.md §3.2-§3.7; docs/v2/AI_STRATEGY.md §5.3; docs/v2/VERIFICATION_LOG.md R5, O7; .planning/PO-ACTIONS.md D-1; .planning/phases/03-platform-hygiene/{03-WAVE-NOTES.md, 03-SUMMARY.md} (V2-06 handovers); .planning/phases/05-db-authorisation-entitlements/05-PLAN.md (05-10a, 05-10b handovers)
-research: 06-RESEARCH.md (rulings adopted; deviations listed at the end)
-depends_on_phase: V2-05 part 05b branch tip (stacked; PO direction). Real code dependencies are listed under "Dependencies on V2-04 / V2-05 code"; everything else in Wave A needs only V2-03 as shipped.
-base_commit: tip of v2/phase-05b-membership-entitlements at branch time (recorded in 06-SUMMARY)
-branch: v2/phase-06-design-system-pwa-shell (from the 05b branch) -> PR targets the 05b branch; retargeted to feature/v2 when 05b merges (merge commits only, never rebase; V2-05 R-1 pattern)
-po_direction: PO unavailable; Claude acts as CTO under delegation (rulings below, PO confirms at the gate, 06-P7). External steps never block local work. PO decisions 2026-11-13 applied: Vercel stays on Hobby until go-live (no Skew Protection on staging, function duration ≤ 60 s), email via Resend (not used by V2-06), the repository stays public until go-live (every committed or uploaded artefact is public).
+post_g2d: [06-01b, 06-02a, 06-02b, 06-02c, 06-03a, 06-03b, 06-04b, 06-08, 06-09b]   # Wave B: precondition = G2-D record incl. the 3a78a5d addendum (Execution protocol)
+approved_design: "v2/phase-dx-design-exploration at 3a78a5d (PR #7 head): .planning/sketches/themes/clinic-paper.css + themes/cliniq-ai.css (CliniQ AI brand theme), themes/fonts/{Inter,Manrope}-*, 002-icon/{icon,icon-maskable}.svg; SHA-256 list in the revision note"
+source: docs/v2/V2_MASTER_ROADMAP.md §1.2 (PO-15, PO-19, PO-20, PO-21), §10.1-10.2 (P1-28, P2-02, PWA-01…09, AI-02, AI-16), §12.2 (V2-DX, V2-06), §16 (G2-D, G3); docs/v2/DESIGN_SYSTEM.md; docs/v2/PWA_STRATEGY.md §3-§6, §9, §10; docs/v2/FRONTEND_MIGRATION_PLAN.md M1-M3; docs/v2/INFORMATION_ARCHITECTURE.md §3.2-§3.7; docs/v2/AI_STRATEGY.md §5.3; docs/v2/VERIFICATION_LOG.md R5, O7, G2-D design sign-off (2026-11-13), PO ruling CliniQ AI brand name (2026-11-14), PO ruling delivery speed (2026-11-14); .planning/PO-ACTIONS.md D-1; .planning/phases/03-platform-hygiene/{03-WAVE-NOTES.md, 03-SUMMARY.md} (V2-06 handovers); .planning/phases/05-db-authorisation-entitlements/05-PLAN.md (05-10a, 05-10b handovers)
+research: 06-RESEARCH.md (rulings adopted; deviations listed at the end; superseded facts listed at its top)
+depends_on_phase: "V2-05: branched from the 05a tip; the 05b tip is merged in later with merge commits (PO ruling 2026-11-14). Real code dependencies are listed under 'Dependencies on V2-04 / V2-05 code'; everything else needs only V2-03 as shipped."
+base_commit: "57824b0 (05a tip on v2/phase-05-db-authorisation-entitlements, the branch V2-05 actually uses; includes the speed ruling; recorded again in 06-SUMMARY)"
+branch: "v2/phase-06-design-system-pwa-shell (from the 05a tip) -> PR targets the V2-05 branch; the 05b tip is merged in (merge commit) before 06-06 and again before the gate; retargeted to feature/v2 when V2-05 merges (merge commits only, never rebase; V2-05 R-1 pattern)"
+po_direction: "PO unavailable; Claude acts as CTO under delegation (rulings below, PO confirms at the gate, 06-P7). External steps never block local work. PO decisions 2026-11-13 applied: Vercel stays on Hobby until go-live (no Skew Protection on staging, function duration ≤ 60 s), email via Resend (not used by V2-06), the repository stays public until go-live (every committed or uploaded artefact is public). PO rulings 2026-11-14 applied: CliniQ AI brand theme and name, delivery speed (revision note)."
 must_haves:
   truths:
     - "Every component and the codemodded v1 screens style through semantic tokens in app/globals.css only; changing the approved palette edits one file"
@@ -32,11 +27,13 @@ must_haves:
     - "A changed deployment id shows 'A new version is ready · Reload' and never reloads over unsaved input; a locked tenant is moved to its locked page with the session kept"
     - "axe reports 0 serious or critical issues on /dev/ui at 360/820/1180/1280, and every interactive primitive passes its keyboard and focus spec"
     - "The M0 characterisation suite stays green on every plan"
+    - "From 06-01b on, the token values equal the approved CliniQ AI theme (clinic-paper.css overridden by cliniq-ai.css at 3a78a5d), body text renders in Inter and titles in Manrope from local files, and the manifest, titles and icons carry the name 'CliniQ AI', the approved mark and theme/background colour #FFFFFF"
   artifacts:
     - app/globals.css (raw → semantic → structural layers), lib/design/tokens.ts, scripts/design/{codemod-colors.mjs,color-map.json,neutral-diff.mjs,render-icons.mjs,contrast.mjs}
     - scripts/ci/ui-policy.mjs + scripts/ci/ui-policy/rules/*.mjs (report mode; brand-utility, screen-height and signout-guard enforced)
     - scripts/ci/route-js.mjs, scripts/ci/route-js-budgets.json, tests/e2e/perf/lhci.spec.ts
     - app/manifest.ts, app/icon.svg, app/apple-icon.png, public/{sw.js,icon-192.png,icon-512.png,icon-maskable-512.png}, app/offline/page.tsx
+    - app/fonts/{Inter,Manrope}-{latin,latin-ext}-wght.woff2 + licences + PROVENANCE.md, app/fonts/fonts.ts, lib/design/brand.ts, components/brand/brand-mark.tsx, scripts/design/brand/icon-maskable.svg (06-01b)
     - lib/auth/hard-sign-out.ts, lib/pwa/**, components/shell/**, app/api/session-status/route.ts
     - app/**/loading.tsx|error.tsx|not-found.tsx, app/global-error.tsx, features/observability/actions.ts
     - components/ui/** (Radix/shadcn primitives), components/clinical/**, app/dev/ui/**, lib/nav/nav-for-role.ts
@@ -52,12 +49,112 @@ must_haves:
 
 # Phase 06 (V2-06): Design system, frontend foundation & PWA shell — plan
 
+## Revision 2026-11-14: CliniQ AI brand theme, delivery-speed ruling, shared lanes
+
+**Why.** This plan was written before the G2-D details were final. G2-D was signed off on 2026-11-13
+(`docs/v2/VERIFICATION_LOG.md`, "G2-D design sign-off (2026-11-13)": direction A, typeface Inter, the round-3
+component system and consult structure, everything kept tokenised). On 2026-11-14 the PO replaced the round-3 teal
+palette with the **CliniQ AI brand theme** ("PO ruling: CliniQ AI is a fixed brand name (2026-11-14)": the brand theme
+from Claude Design "supersedes the round-3 teal default for G2-D"; V2-DX round 4 `d2e399f`; With-doctor border
+`#11998D` by PO decision in `3a78a5d`). The same day the PO's delivery-speed ruling changed review depth and let V2-06
+run alongside V2-05b ("PO ruling: delivery speed (2026-11-14)"). This plan's own rule applies: Wave A stays
+value-neutral, and only the affected Wave B steps change. Wave A text changes only for the 05b schedule and the shared
+lanes.
+
+The 2026-11-13 sign-off note, moved here from the front matter (where it broke YAML parsing). It stays as the record;
+the brand theme supersedes its palette:
+> **G2-D signed off 2026-11-13 (PO):** direction **A "Calm Confidence — Botanical Teal"**, round-3 component system and
+> consult structure, typeface **Inter** (vendored, `next/font/local`). Source of truth: branch
+> `v2/phase-dx-design-exploration` at `e95b8b5` (`.planning/sketches/themes/clinic-paper.css`, `006-components/`,
+> `004-consult/`). Everything stays tokenised (colour, type, font) so the PO can change it from real usage; direction
+> B remains as `direction-b.css`. 06-01b consumes `clinic-paper.css` unchanged; numeric contexts: proportional figures
+> for doses, tabular for tables and amounts.
+
+**Approved design input for Wave B:** branch `v2/phase-dx-design-exploration` at **`3a78a5d`** (PR #7 head).
+`cliniq-ai.css` loads after `clinic-paper.css` and uses the same token names, so the approved value of a token is the
+brand file's value where it sets one, otherwise the base file's value. `clinic-paper.css` is byte-identical to the
+sign-off commit `e95b8b5`. SHA-256 values below are tool output (`git show 3a78a5d:.planning/sketches/<path> | shasum
+-a 256`, 2026-11-14). 06-01b checks every copied file against this table:
+
+| Path under `.planning/sketches/` | SHA-256 | Use in V2-06 |
+|---|---|---|
+| `themes/clinic-paper.css` | `4acc7dffe4951bbd8c60bc5a4ceb605728c3991186690b3e3875ce0128cf5bd4` | Base tokens: structure, type scale, components, AI/Preview |
+| `themes/cliniq-ai.css` | `6557d4c8c91e35d67a31597521f25c10f27a51da742a2689051c5a02ad600a21` | Brand overrides: palette, status hues, `--font-display`, radii, shadows, PWA colours |
+| `themes/clinic-paper.theme.css` | `979cb0f926fa8e0fbb118acbfe15c33e737a121ab13d944ac058119a02a52e43` | Generated list of the merged names (179); a cross-check only, not copied |
+| `themes/fonts/Inter-latin-wght.woff2` | `f052ee44c3728dfd23aba8a4567150bc314d23903026fbb6ad089422c2df56af` | Body/UI face, Latin (48,444 bytes) |
+| `themes/fonts/Inter-latin-ext-wght.woff2` | `48f540fb71166bf65a0fe187a71fad500c43143d3e2e42038f527e38c786e90f` | Body/UI face, Latin Extended, includes ₹ (74,328 bytes) |
+| `themes/fonts/Inter-OFL.txt` | `18aabf190848725e2576eefb5c29ba06aac1029d02132252a7f312eac2e50cf3` | Inter licence |
+| `themes/fonts/Manrope-latin-wght.woff2` | `69379a4a2e4bc31a7e3e3db66951692fef0c8c00ca0aba63668331004559a886` | Display face (titles, prices, token numbers), Latin, includes ₹ (24,472 bytes) |
+| `themes/fonts/Manrope-latin-ext-wght.woff2` | `78e9f6cf3867ffb2daa80d211eea9ecaacff15c715ff27bc5c24b26d621a9ea3` | Display face, Latin Extended (14,756 bytes) |
+| `themes/fonts/Manrope-OFL.txt` | `05e0d611afd8398bb3285d05eceaf2fbebbb42d930afaa5c40dca1c4254aae26` | Manrope licence |
+| `002-icon/icon.svg` | `d00c53383cf1b983e3a43d211bdf3b885b8838ac128d3edc13df0f76218cd179` | App icon master: white tile, full-colour mark |
+| `002-icon/icon-maskable.svg` | `ae10346ea5b93d7ef61d2ab1d6fe0c7d922e6d790ef3fed4b32d79b01e16af53` | Maskable master: full-bleed white tile, mark inside the 80 % safe zone |
+
+**Brand values (both files applied, base then brand).**
+- CliniQ Blue `#246BCE` (`primary-600`, used for `accent`); hover `#1D58AB`, pressed `#1B4A8C`, subtle `#EEF5FD`.
+- Midnight `#0B1A42` (`mineral-900`, used for `fg`). Slate neutrals `#F7F9FC`…`#465268` keep the old `mineral-*` raw
+  names. Canvas and surface are white.
+- Focus ring `#3A80D9`, drawn on a 2 px white halo.
+- Each visit status has its own hue, and none uses the primary blue:
+  - Booked violet: `#F3EFFD`/`#5B34B5`, border `#7C5CD6`.
+  - Waiting amber: `#FDF3E2`/`#8A5710`.
+  - With doctor Care Teal: `#EAFBF8`/`#0D6962`, border `--color-teal-550` `#11998D` (3.29:1 on its wash).
+  - To bill green: `#E8F5EE`/`#177A45`.
+  - Done slate: `#F1F4F9`/`#465268`, border `#7E8BA2`.
+  - No-show red: `#FDECEC`/`#B42828`.
+  - Cancelled: outlined grey, a white pill with `#5C6981` text and a 1 px inset `border-control` ring, so it never
+    reads as Done.
+- Next-up row `#F2FCFA`. Offline banner Midnight.
+- Radii 6/10/14/20 px. Shadows tinted Midnight.
+- `--font-sans` is Inter (body and UI); `--font-display` is Manrope (titles, display text, prices, token numbers).
+- PWA `theme_color`, `background_color` and icon tile are all `#FFFFFF`. Product and home-screen name: "CliniQ AI".
+- V2-DX contrast at `3a78a5d`: 169/169 gated pairs pass.
+
+**Provenance (recorded again in `app/fonts/PROVENANCE.md` and `public/icons.json`).**
+- *Brand assets.* The PO's CliniQ AI brand kit v1.0 and the "CliniQ AI Design System" (Claude Design) became the PO's
+  patch `cliniq-ai-brand-theme.patch` (made against `71e65e0`), which was applied verbatim as `d2e399f` and then
+  `3a78a5d`.
+- *The kit itself is not copied.* It sits in the git-excluded `docs/design-v2/` as reference only, and nothing in it is
+  copied into a commit. V2-06 copies the two icon masters and the fonts from `3a78a5d` with `git show` (binary-safe).
+- *The geometry matches the kit.* The masters' mark equals the kit's `02-mark/svg/cliniq-ai-mark-color.svg`, and the
+  small mark of `shared/proto.js` `mark()` equals `cliniq-ai-mark-small-color.svg` (path data compared, 2026-11-14).
+- *Inter.* From rsms/inter via `@fontsource-variable/inter` 5.2.5, unmodified (`inter-latin-wght-normal.woff2`,
+  `inter-latin-ext-wght-normal.woff2`; same bytes as V2-DX `shared/fonts-trial/SHA256SUMS`). Licence SIL OFL 1.1.
+  The vendored `Inter-OFL.txt` starts with the line "Google Inc." and has no "Inter Project Authors" copyright line,
+  as shipped by that package. It is kept verbatim (Open for the PO, item 5).
+- *Manrope.* From google/fonts `ofl/manrope/Manrope[wght].ttf` (variable, weights 200-800), fetched 2026-11-14 and
+  subset to woff2 with fontTools (latin, latin-ext, all layout features), as recorded in V2-DX
+  `themes/fonts/PROVENANCE.txt`. Licence SIL OFL 1.1, no Reserved Font Name.
+- *Glyph coverage* (fontconfig `fc-query`, 2026-11-14): ₹ (U+20B9) is in Inter's latin-ext file but not its latin
+  file. Manrope's latin file has it.
+
+**What this revision changes**
+1. **Brand (Wave B).**
+   - 06-01b is rewritten: both approved token files, Inter + Manrope, the brand mark, the icon set, the manifest name
+     and colours, and "CliniQ AI" on the surfaces V2-06 creates.
+   - Step-level edits elsewhere: 06-02a (focus ring on its halo, brand mark in the gallery), 06-03a (status hues,
+     Cancelled outline, token numbers in Manrope, next-up row), 06-04b (brand mark in the shell, titles in Manrope),
+     06-08 (G2-D reference = the `3a78a5d` evidence).
+   - Supporting sections: the dependency table, PO actions, risks, rulings (R-4, R-24, R-25 revised; R-37…R-43 new),
+     threat rows T-06-14/T-06-19 plus T-06-21, and the source audit.
+2. **Speed ruling.**
+   - Review depth follows risk (Execution protocol, Wave A review checkpoint, phase close).
+   - Lows go to the backlog unless they are cheap.
+   - V2-06 runs alongside V2-05b: the branch comes from the 05a tip and the 05b tip is merged in later. 06-06 and the
+     locked-user leg of 06-05 spec 1 wait for 05b code.
+3. **Shared lanes.** One local Supabase stack and one e2e server, with the e2e lock (Execution protocol).
+4. **Housekeeping.** The front matter parses again.
+
+**Unchanged:** scope, requirements, and Wave A values and steps. 06-05's provisional teal "Q" tile and working name
+"ClinicQ" stay as Wave A placeholders, and 06-01b replaces them in one commit (PO-15: nobody installs before G6). Wave A
+prose that names IBM Plex or teal (06-01a step 2, 06-05) is historical rationale. Where it differs, 06-01b wins.
+
 ## Basis and split (2026-11-13)
 
 Written against the research (`06-RESEARCH.md`, read-only at `118b3ae`), the code of V2-03 as shipped (on the V2-04
-branch, `9dae791`), and the V2-04 and V2-05 plans (V2-06 stacks on them). V2-DX has not produced its evidence yet: it
-runs now on `v2/phase-dx-design-exploration` in its own worktree, and its `.planning/sketches/themes/clinic-paper.css`
-is the literal input of 06-01b. The phase is split by the one gate that matters:
+branch, `9dae791`), and the V2-04 and V2-05 plans (V2-06 stacks on them). V2-DX has since run on
+`v2/phase-dx-design-exploration` and G2-D is signed off (revision note above). Its `themes/clinic-paper.css` +
+`themes/cliniq-ai.css` at `3a78a5d` are the literal input of 06-01b. The phase is split by the one gate that matters:
 
 - **Wave A (no G2-D needed):** 06-01a value-neutral semantic tokens + v1 hex codemod + report-mode guards; 06-07 bundle
   report + Lighthouse CI report-only; 06-04a route states, `dvh`/safe-area utilities, client error capture; 06-05
@@ -100,7 +197,10 @@ the leg itself runs in 06-06); **06-06** `/api/session-status` `accessLevel` (05
 `billing_internal.tenant_access_level` through 05-10a's `lib/auth/tenant.ts`), the locked destinations
 `/billing/locked`, `/billing/locked/staff`, `/onboarding/billing` (05-10b) and the `SUBSCRIPTION_LOCKED` app error code
 (05-10a `APP_ERROR_CODES`). Use the names as merged; if they differ from 05-PLAN, follow the code and note it in
-06-SUMMARY. 06-01a, 06-07 and 06-04a need nothing from V2-04 or V2-05.
+06-SUMMARY. 06-01a, 06-07 and 06-04a need nothing from V2-04 or V2-05. *Revision 2026-11-14 (speed ruling):* the branch
+starts from the 05a tip, so these 05b dependencies are met only after the orchestrator merges the 05b tip in. 06-06
+waits for that merge, and the locked-user leg of 06-05 spec 1 is delivered with 06-06. All other plans, Wave B
+included, need only 05a.
 
 **No migration in V2-06.** Client error capture fits the existing `ops.error_events` contract (R-3). A plan that finds
 it needs a schema change stops and raises it.
@@ -124,26 +224,50 @@ it needs a schema change stops and raises it.
 - Implementer agents **may** run `npx vitest`, `npm run test:db`, `npm run e2e:build`, `npm run e2e:pr`,
   `npm run e2e:baseline`, `npm run e2e:design` (added by 06-01a), `npm run perf:lhci` (added by 06-07; loopback only),
   `node scripts/design/*.mjs`, `node scripts/ci/{ui-policy,route-js,ai-l1-greps}.mjs`,
-  `npx supabase start|stop|db reset --local|gen types --local`, `npm run seed:local`.
+  `npx supabase start|status|gen types --local`, `npm run seed:local`. Never `npx supabase db reset`, `supabase stop` or
+  `npm run seed:local -- --reset`, because the stack is shared with V2-05b (see "Shared local stack and e2e lane").
 - Implementers **must not**: `git push`, open/retarget/merge PRs, change GitHub/Vercel/Supabase-hosted settings,
   dispatch any workflow, run any CLI command with `--linked` or `db push`, run `seed:cdci*`, `seed:diagnoses`,
   `msg91:*`, anything with `--env-file=.env`, `scripts/seed-staging.ts` or `scripts/staging/*`; run `npx shadcn` or any
   installer other than the exact pins in this plan's dependency table (from the plan that owns `package.json` in that
-  wave); download fonts or images (06-01b copies the font files from the G2-D-approved V2-DX commit). Never open or
-  print `.env*`. Delete `.planning/dev-messages.txt` if a run recreates it.
+  wave); download fonts or images. 06-01b copies the font files and the two icon masters from the approved V2-DX
+  commit `3a78a5d`. Nothing is copied from the git-excluded brand kit in `docs/design-v2/`, which is reference only.
+  Never open or print `.env*`. Delete `.planning/dev-messages.txt` if a run recreates it.
 - **Worktrees, never a branch switch.** Other phases' agents use the primary checkout. V2-06 work happens in worktrees
   of `v2/phase-06-design-system-pwa-shell`. V2-DX files are read with `git show <approved sha>:<path>` (binary-safe
   with `> file`), never by checking out or merging the V2-DX branch.
-- **Shared local stack and e2e lane.** One local stack; at most one plan per wave resets it (V2-06 has no migration,
-  so no plan needs to). The e2e server is single-instance (port 3100, one `.next`), so e2e runs inside a wave are
-  serialised; if contention costs more than it saves, the orchestrator runs wave 2 sequentially.
+- **Shared local stack and e2e lane (revised 2026-11-14: V2-06 runs alongside V2-05b).**
+  - *One local Supabase stack serves both phases.* V2-06 has no migration and never runs `npx supabase db reset`,
+    `supabase stop` or `seed:local -- --reset`. `npx supabase start` does nothing if the stack is already up.
+  - *The stack can be ahead of this branch.* It carries whatever schema V2-05 applied last, so until the 05b tip is
+    merged in it can hold migrations this branch lacks. The schema-coupled checks then report the difference: the
+    local-stack leg of `tests/ci/schema-snapshot.spec.ts`, and `schema_current` in
+    `tests/api/readiness-probe-db.spec.ts`. The executor records that output and the migration numbers it names, and
+    changes nothing. The gate evidence runs (`phase-evidence.mjs`) are taken after the merge-in, when branch and stack
+    match.
+  - *Interrupted runs.* A run cut off by a V2-05 reset is repeated after the reset and noted. It is not a flaky test.
+  - *One e2e server* on 127.0.0.1:3100 (`playwright.config.ts`, `reuseExistingServer: false`). **Before any e2e run**
+    (`npm run e2e:pr`, `e2e:design`, `e2e:baseline`, `perf:lhci`, `node scripts/design/neutral-diff.mjs capture`, any
+    `npx playwright test`) the executor:
+    1. Takes the lane lock: `mkdir /private/tmp/claude-501/-Users-sid-Code-clinicOS/97b5a715-150e-4316-bfca-6aa56dca516e/scratchpad/e2e-lane.lock`.
+       This is atomic and fails while another lane holds the lock. On success, write a file `owner` inside it (phase,
+       plan, worktree path, UTC start time). If `mkdir` fails, retry every 30 s. After 30 min, report to the
+       orchestrator. Never remove a lock you did not take.
+    2. Checks that nothing listens on 3100: `lsof -nP -iTCP:3100 -sTCP:LISTEN` prints nothing. If something does,
+       release the lock and report. Never kill another lane's server.
+    3. Runs the e2e command, then releases the lock on success and on failure (`rm -r` of the lock directory, for
+       example from a shell `trap … EXIT`).
+  - *No lock needed* for `npm run e2e:build` (each worktree has its own `.next` and the build binds no port),
+    `render-icons.mjs` (`file:` only) or Vitest.
+  - If lock waits cost more than parallel plans save, the orchestrator runs a wave's plans one after another.
 - **File ownership.** Plans in one wave touch disjoint files (order table). A plan that must edit a file owned by its
   wave partner stops that edit and records it in `06-WAVE-NOTES.md` for the wave merge.
 - **Tracer first.** Step 1 of every plan is the thinnest end-to-end path through every layer the plan touches, with a
   real test; later steps expand from it.
 - **Per-plan done:** `npm run typecheck`, `npx eslint .` (0 errors), `npm run inventory`, `node scripts/ci/ui-policy.mjs`
   (from 06-01a on; enforced rules 0), `npm run ci:ai-l1`, the plan's tests, the full Vitest lane (`npm run test:db`)
-  once at the end, and `npm run e2e:build && npm run e2e:pr` (every V2-06 plan touches UI, routes or the proxy).
+  once at the end, and `npm run e2e:build && npm run e2e:pr` (every V2-06 plan touches UI, routes or the proxy), the
+  e2e run under the lane lock.
 - **UI checks (DoD 3).** Every plan with UI captures its screens at **360, 820, 1180 and 1280 px** with the `design-*`
   Playwright projects (06-01a) into `test-results/design/<plan>/`, asserts no horizontal scroll at those widths, and runs
   axe (wcag2a, wcag2aa, wcag21aa, wcag22aa; the M0 tags) with **0 serious/critical** on the screens the plan adds or
@@ -167,14 +291,42 @@ it needs a schema change stops and raises it.
 - **gitleaks after commit.** Before handing back: `docker run --rm -v "$PWD":/repo -w /repo zricethezav/gitleaks:v8.30.1
   git --redact --no-banner --config .gitleaks.toml .` prints "no leaks found". A false positive gets an exact-fingerprint
   line in `.gitleaksignore` with a reason, never a quote of the flagged string. Test secrets are built at run time.
-- **Wave B precondition.** Before 06-01b starts: (1) the G2-D row exists in `docs/v2/VERIFICATION_LOG.md` with the PO's
-  verbatim answer, the approved V2-DX commit SHA and the SHA-256 of `clinic-paper.css` and each font file (06-P2);
-  (2) the orchestrator runs `/gsd-ui-phase 06` to turn the approved sandbox into `06-UI-SPEC.md`; (3) if the UI-SPEC
-  changes a Wave B detail (a component's states, the 1180 Today variant, chip colours), the planner adds a dated revision
-  note at the top of this file and edits only the affected Wave B steps; scope does not change without the PO.
-- **Orchestrator:** create the branch from the 05b tip; push after every wave; open the phase PR as **draft** after
-  wave 2 (CI proves the public-path and SW changes on Linux); run the Wave A reviews after wave 3 (see "Wave A review
-  checkpoint"); merge only after G3 and the PO's approval.
+- **Wave B precondition (revised 2026-11-14).** Before 06-01b starts:
+  1. *The G2-D record names the approved state.* The G2-D row (2026-11-13) and the CliniQ AI ruling (2026-11-14)
+     exist. The G2-D row still names `e95b8b5` and direction A, so the orchestrator appends one G2-D addendum line to
+     `docs/v2/VERIFICATION_LOG.md`. It names `3a78a5d` (PR #7 head) and the SHA-256 list of the revision note,
+     produced again by `git show 3a78a5d:<path> | shasum -a 256`. This records the PO's 2026-11-13/14 decisions and
+     is not a new decision; Open for the PO item 1 lets the PO object.
+  2. *UI-SPEC.* The orchestrator runs `/gsd-ui-phase 06` against the brand theme at `3a78a5d` (the sketches' default,
+     not `?dir=a`/`?dir=b`) to produce `06-UI-SPEC.md`.
+  3. *Changes from the UI-SPEC.* If the UI-SPEC changes a Wave B detail (a component's states, the 1180 Today variant,
+     chip colours), the planner adds a dated revision note at the top of this file and edits only the affected Wave B
+     steps. Scope does not change without the PO.
+- **Orchestrator (revised 2026-11-14).**
+  - *Branch.* It exists from the 05a tip (`57824b0`).
+  - *05b merge-in.* Once 05-05, 05-09a, 05-10a and 05-10b are committed on the V2-05 branch, merge that tip in with a
+    merge commit (never rebase or squash). On the merge, run typecheck, the full Vitest lane and `e2e:pr` (under the
+    lock) before 06-06 starts. Merge the final 05b tip again before the gate.
+  - *Expected conflicts on a merge-in:*
+    - `app/(dashboard)/layout.tsx`: 06-05's `PwaRuntime` mount against 05-10b's access redirect. Keep both.
+    - `tests/security/guard-manifest.ts` and `tests/security/guard/engine.ts`: additive entries. Keep both.
+    - `tests/auth/public-paths.spec.ts`.
+    - List each resolution in 06-SUMMARY.
+  - *PR and reviews.* Push after every wave. Open the phase PR as **draft** after wave 2 (base: the V2-05 branch), so
+    CI proves the public-path and SW changes on Linux. Run the Wave A reviews per "Wave A review checkpoint". Merge
+    only after G3 and the PO's approval.
+- **Review depth (PO ruling 2026-11-14, delivery speed item 1).**
+  - *Security-sensitive parts get adversarial reviews and a fresh re-verification of their Highs.* In V2-06 these are:
+    - 06-05: the service worker, public paths, proxy headers, `hardSignOut` and purge, the sign-out guard.
+    - 06-06: `/api/session-status`, the lock and update client, the deployment-id env.
+    - 06-04a: client error capture (PHI).
+    - 06-04b: the palette patient search and the server-side nav role resolution.
+  - *Everything else is UI or tooling* (tokens, codemod, report tools, primitives, clinical components, gallery,
+    shell layout, brand assets). It gets one independent review, plus the isolated design reviewer that G3 requires.
+    There is no re-check round unless a review finds a High.
+  - *Highs and Mediums* are fixed with a test that fails without the fix.
+  - *Lows* (item 3) are fixed in the current fix plan only if cheap and local. Otherwise they become a backlog row with
+    an owner phase, with no second review pass. V2-14 (full security verification) is the backstop.
 
 ## Execution order
 
@@ -184,9 +336,9 @@ it needs a schema change stops and raises it.
 | 2 | **06-07** route-JS report + M0 report fix + Lighthouse CI (nightly, report-only) | S | 06-01a | `scripts/ci/route-js.mjs`, `scripts/ci/route-js-budgets.json`, `scripts/m0-baseline-report.mjs`, `tests/ci/route-js.spec.ts`, `lint-fixtures/route-js/**`, `tests/e2e/perf/**`, `scripts/perf/**`, `tests/ci/lhci-config.spec.ts`, `playwright.config.ts`, `package.json`/lock, `.github/workflows/{ci,nightly}.yml`, `.gitignore`, `docs/runbooks/performance.md` | Measurement only; independent of the PWA work |
 | 2 | **06-04a** route states + `dvh`/safe-area + client error capture | S-M | 06-01a | `app/**/{loading,error,not-found}.tsx`, `app/global-error.tsx`, `app/(dashboard)/diag/client-error/**`, `components/shell/{route-error,route-skeleton}.tsx`, `lib/errors/client-error-kind.ts`, `features/observability/actions.ts`, the 20 `min-h-screen`/`h-screen` sites, `app/globals.css`, `scripts/ci/ui-policy/rules/screen-height.mjs`, `tests/security/guard-manifest.ts`, `tests/e2e/shell/route-states.spec.ts`, `tests/e2e/observability/client-error.spec.ts`, `tests/observability/client-error-action-db.spec.ts`, `tests/errors/client-error-kind.spec.ts` | No design values; boundaries must exist before 06-06's skew/lock reactions |
 | 2 | **06-05** manifest, provisional icon, SW, `/offline`, `hardSignOut()`, `no-store`, public assets | M | 06-01a | `app/layout.tsx`, `app/manifest.ts`, `app/icon.svg`, `app/apple-icon.png`, `public/**`, `app/offline/**`, `scripts/design/render-icons.mjs`, `next.config.ts`, `proxy.ts`, `lib/auth/public-paths.ts`, `tests/auth/public-paths.spec.ts`, `lib/auth/hard-sign-out.ts`, `lib/pwa/{register-sw,cleanup,online,device-prefs,purge}.ts`, `components/shell/{pwa-runtime,offline-banner}.tsx`, `app/(dashboard)/layout.tsx`, `components/layout/user-dropdown.tsx`, `scripts/ci/ui-policy/rules/signout-guard.mjs`, `lint-fixtures/ui-policy/signout-guard/**`, `tests/ci/ui-policy-signout-guard.spec.ts`, `tests/pwa/**`, `tests/e2e/pwa/**`, `docs/runbooks/pwa.md` | The installable, PHI-safe base 06-06 builds on |
-| 3 | **06-06** install UX, update toast, skew guard, `/api/session-status`, lock client | S-M | 06-05, 06-04a; V2-05 05-09a/05-10a/05-10b | `app/api/session-status/route.ts`, `lib/auth/access-redirect.ts`, `app/(dashboard)/layout.tsx`, `lib/pwa/{session-status,update,skew,lock,dirty-guard,install,platform}.ts`, `components/shell/{pwa-runtime,update-toast,install-entry,install-sheet,install-card}.tsx`, `components/layout/user-dropdown.tsx`, `app/(dashboard)/page.tsx`, `next.config.ts`, `lib/env.ts`, `lib/env-server.ts`, env-guard files, `tests/e2e/support/app-env.ts`, `.env.example`, `tests/security/guard-manifest.ts`, `tests/security/guard/engine.ts`, `playwright.config.ts`, `tests/e2e/pwa/{05,06,10}-*.spec.ts`, `tests/api/session-status*.spec.ts`, `tests/pwa/**`, `docs/runbooks/pwa.md` | Needs the runtime, the exit helper and the boundaries |
-| A-review | Wave A reviews → **06-09a** review fixes | — | waves 1-3 | files named by the triage | Security review while the PWA code is fresh, independent of G2-D |
-| 4 | **06-01b** approved values, local IBM Plex, AI/Smart Assist tokens + chips, approved icon | S | **G2-D (06-P2)**, 06-05 | `app/globals.css`, `lib/design/tokens.ts`, `app/fonts/**`, `app/layout.tsx`, `app/icon.svg`, `app/apple-icon.png`, `public/icon-*.png`, `components/clinical/ai-*.tsx`, `components/clinical/smart-assist-label.tsx`, `components/consultation/ai-scribe-modal.tsx`, `scripts/ci/ai-l1-greps.mjs`, `tests/ci/ai-l1-greps.spec.ts`, `lint-fixtures/ai-l1/**`, `scripts/design/contrast.mjs`, `lib/design/contrast-pairs.ts`, `tests/design/{approved-tokens,contrast}.spec.ts`, `tests/e2e/design/fonts.spec.ts` | The direction; everything after builds on approved values |
+| 3 (after the 05b merge-in) | **06-06** install UX, update toast, skew guard, `/api/session-status`, lock client; + the locked-user leg of 06-05 spec 1 | S-M | 06-05, 06-04a; **the 05b tip merged in** (05-05, 05-09a, 05-10a, 05-10b) | `tests/e2e/pwa/01-manifest.spec.ts` (locked-user leg), `lib/design/brand.ts` (only if 06-01b has not created it), `app/api/session-status/route.ts`, `lib/auth/access-redirect.ts`, `app/(dashboard)/layout.tsx`, `lib/pwa/{session-status,update,skew,lock,dirty-guard,install,platform}.ts`, `components/shell/{pwa-runtime,update-toast,install-entry,install-sheet,install-card}.tsx`, `components/layout/user-dropdown.tsx`, `app/(dashboard)/page.tsx`, `next.config.ts`, `lib/env.ts`, `lib/env-server.ts`, env-guard files, `tests/e2e/support/app-env.ts`, `.env.example`, `tests/security/guard-manifest.ts`, `tests/security/guard/engine.ts`, `playwright.config.ts`, `tests/e2e/pwa/{05,06,10}-*.spec.ts`, `tests/api/session-status*.spec.ts`, `tests/pwa/**`, `docs/runbooks/pwa.md` | Needs the runtime, the exit helper, the boundaries and 05b's access level. May land after waves 4-9 and always before 06-04b. Never runs at the same time as 06-01b (shared `01-manifest.spec.ts`) or 06-02b (`user-dropdown.tsx`); its other files are disjoint from Wave B |
+| A-review | Wave A reviews → **06-09a** review fixes | — | wave 2 (independent, A, C); 06-06 (B) | files named by the triage | Security review while the PWA code is fresh, independent of G2-D. The reviews are read-only, so Wave B may start while they run |
+| 4 | **06-01b** approved CliniQ AI values, local Inter + Manrope, AI/Smart Assist tokens + chips, brand mark, icon set, manifest name and colours | S-M | **G2-D record incl. the `3a78a5d` addendum**, 06-05 | `app/globals.css`, `lib/design/{tokens,brand}.ts`, `app/fonts/**`, `app/layout.tsx`, `app/manifest.ts`, `app/offline/page.tsx`, `app/icon.svg`, `app/apple-icon.png`, `public/icon-*.png`, `public/icons.json`, `scripts/design/render-icons.mjs`, `scripts/design/brand/icon-maskable.svg`, `components/brand/brand-mark.tsx`, `components/clinical/ai-*.tsx`, `components/clinical/smart-assist-label.tsx`, `components/consultation/ai-scribe-modal.tsx`, `scripts/ci/ai-l1-greps.mjs`, `tests/ci/ai-l1-greps.spec.ts`, `lint-fixtures/ai-l1/**`, `scripts/design/contrast.mjs`, `lib/design/contrast-pairs.ts`, `tests/design/{tokens,approved-tokens,contrast,brand-mark}.spec.ts`, `tests/e2e/design/fonts.spec.ts`, `tests/e2e/pwa/01-manifest.spec.ts` (name and colour assertions) | The direction; everything after builds on approved values |
 | 5 | **06-02a** form primitives (2a) + input kinds (PWA-07) + `/dev/ui` | M | 06-01b | `components/ui/{button,icon-button,kbd,input,textarea,field,label,native-select,checkbox,radio-group,switch,segmented-control,chip-group}.tsx`, `lib/ui/**`, `app/dev/ui/**`, `lib/dev/gallery.ts`, `package.json`/lock (`radix-ui`), `tests/design/**` (new files), `tests/e2e/design/{gallery-axe,input-modes,keyboard/forms}.spec.ts`, `tests/e2e/pwa/04-offline.spec.ts` | Gallery and the input contract first |
 | 6 | **06-02b** overlays + menus + tabs + toast + command (2b); `Modal`/`Dropdown` adapters | M | 06-02a | `components/ui/{dialog,alert-dialog,sheet,drawer,responsive-sheet,popover,tooltip,dropdown-menu,tabs,toast,command,modal,dropdown}.tsx`, `app/dev/ui/**`, `package.json`/lock (`cmdk`, `sonner`), `components/layout/user-dropdown.tsx` (only if the adapter needs it), `tests/e2e/design/keyboard/overlays.spec.ts`, `tests/e2e/shell/user-menu-keyboard.spec.ts` | Fixes focus traps of the 10 `<Modal>` users and the user menu |
 | 7 | **06-02c** data display (2c) + date/time and identity inputs (2d) | M | 06-02b | `components/ui/{data-table,data-list,pagination,search-field,filter-chip,skeleton,empty-state,alert,banner,date-field,calendar,day-strip,slot-picker,phone-input,age-or-dob-input}.tsx`, `lib/ui/age.ts`, `app/dev/ui/**`, `package.json`/lock (`react-day-picker`), `tests/design/age.spec.ts`, `tests/e2e/design/keyboard/data-and-dates.spec.ts` | Completes the primitive set the clinical components use |
@@ -206,6 +358,13 @@ Cross-wave hot files and their owners in order: `app/globals.css` 06-01a → 06-
 `docs/runbooks/pwa.md` 06-05 → 06-06; `app/dev/ui/**` 06-02a → 06-02b → 06-02c → 06-03a → 06-03b → 06-04b;
 `scripts/ci/ui-policy/rules/**` 06-01a → 06-04a (`screen-height`) ∥ 06-05 (`signout-guard`, new file);
 `scripts/ci/ai-l1-greps.mjs` 06-01b; `scripts/ci/assert-vitest-report.mjs` 06-08.
+*Revision 2026-11-14 additions:*
+- `app/manifest.ts`, `app/offline/page.tsx`, `app/icon.svg`, `app/apple-icon.png`, `public/icon-*.png`,
+  `public/icons.json` and `scripts/design/render-icons.mjs`: 06-05 → 06-01b.
+- `tests/e2e/pwa/01-manifest.spec.ts`: 06-05, then 06-01b and 06-06 in execution order (never at the same time).
+- `lib/design/brand.ts`: whichever of 06-01b and 06-06 runs first creates it; the other reuses it.
+- `components/layout/user-dropdown.tsx`: 06-01a → 06-05 → {06-06, 06-02b in execution order} → 06-04b.
+- `app/(dashboard)/layout.tsx`: 06-05 → (05b merge-in) → 06-06 → 06-04b. 06-06 before 06-04b is a hard order.
 
 ## New dependencies and pinned artefacts (CLAUDE.md: reason required)
 
@@ -216,7 +375,10 @@ Cross-wave hot files and their owners in order: `app/globals.css` 06-01a → 06-
 | `cmdk` | **1.1.1** exact | 06-02b | Command palette and Combobox listbox semantics (`aria-activedescendant`, typeahead) | OK; its `@radix-ui/react-dialog` dependency dedupes under `radix-ui`; PO confirms (06-P5) |
 | `sonner` | **2.0.8** exact | 06-02b | Toast queue with `role="status"`/`alert` live regions and stacking | OK, no dependencies; PO confirms (06-P5) |
 | `react-day-picker` | **10.0.2** exact | 06-02c | Calendar grid with locale and keyboard grid navigation for DateField | OK; depends on `date-fns ^4.1.0` and `@date-fns/tz ^1.4.1`, satisfied by the existing pins 4.4.0 / 1.5.0 (no second copy; checked in the lockfile diff); PO confirms (06-P5) |
-| IBM Plex Sans woff2 (400/500/600, Latin) + `OFL.txt` | the bytes vendored by V2-DX in `.planning/sketches/themes/fonts/` at the G2-D-approved commit; SHA-256 recorded in the G2-D row | 06-01b | `next/font/local` (no build-time network; the e2e build is network-guarded); DESIGN_SYSTEM §3.1 | SIL OFL 1.1; the PO approves the SHA-256 list with G2-D (06-P2) and confirms it with 06-P5 |
+| Inter variable woff2, Latin + Latin Extended (`Inter-latin-wght.woff2`, `Inter-latin-ext-wght.woff2`) + `Inter-OFL.txt` | The bytes at `3a78a5d` in `.planning/sketches/themes/fonts/`; SHA-256 in the revision note | 06-01b | Body and UI face (G2-D 2026-11-13). Loaded with `next/font/local`, so the build needs no network (the e2e build is network-guarded) | SIL OFL 1.1. rsms/inter via `@fontsource-variable/inter` 5.2.5, unmodified. Licence-text header note in the revision note. PO confirms with 06-P5 |
+| Manrope variable woff2, Latin + Latin Extended (`Manrope-latin-wght.woff2`, `Manrope-latin-ext-wght.woff2`) + `Manrope-OFL.txt` | Same commit and folder; SHA-256 in the revision note | 06-01b | Display face for titles, display text, prices and token numbers (CliniQ AI brand theme; the logo's face) | SIL OFL 1.1, no Reserved Font Name. Subset by V2-DX on 2026-11-14 from google/fonts `ofl/manrope/Manrope[wght].ttf` with fontTools (latin, latin-ext), per `themes/fonts/PROVENANCE.txt`. PO confirms with 06-P5 |
+| CliniQ AI icon masters `icon.svg`, `icon-maskable.svg` | `3a78a5d` `.planning/sketches/002-icon/`; SHA-256 in the revision note | 06-01b | App icon, SVG favicon and maskable icon. Not a package: R-24 renders the PNGs from these masters | From the PO's CliniQ AI brand kit v1.0 via the PO's patch, applied verbatim in V2-DX `d2e399f`. Mark geometry equals the kit's mark files. PO confirms with 06-P5 |
+| IBM Plex Sans / Sans Devanagari woff2 (vendored by V2-DX) | not used | — | Superseded by Inter at G2-D (2026-11-13). No Devanagari face loads in V2-06 (no Hindi renders); the stack keeps the family names as a fallback | — |
 | `class-variance-authority` | not added | — | Plain typed variant maps instead (research: optional, avoid) | — |
 | `@serwist/turbopack` | not added | — | Hand-written `public/sw.js` (R-12) | — |
 | `@testing-library/*`, `jsdom` | not added | — | Keyboard and focus behaviour is tested in a real browser on `/dev/ui` (R-14) | — |
@@ -491,6 +653,14 @@ P1-28 M3 "`loading.tsx`, `error.tsx`, `not-found.tsx` for every route group"; PW
 The icon is PO-19's accepted default (teal `#0E716B` tile, "Q" glyph); nobody installs before G6 (PO-15), so 06-01b
 swaps it in one commit if G2-D changes it. Everything else here is behaviour and security, fixed by PWA_STRATEGY.
 
+*Revision 2026-11-14:*
+- G2-D did change the icon. 06-01b replaces the icon, the working name "ClinicQ" and the manifest colours with the
+  CliniQ AI brand (revision note). The steps below stay as written, because Wave A is value-neutral and the icon
+  pipeline (`render-icons.mjs`, `public/icons.json`, `--check`) is reused unchanged in shape.
+- The locked-user leg of spec 1 needs V2-05b's locked fixtures, so it is written and run with 06-06 after the 05b
+  merge-in (PO ruling 2026-11-14). This plan ships spec 1's signed-out cases.
+- This plan's code is security-sensitive (adversarial review A).
+
 ### Files
 `app/layout.tsx`; `app/manifest.ts`; `app/icon.svg` (master, outlined glyph, no font); `app/apple-icon.png`;
 `public/{sw.js,icon-192.png,icon-512.png,icon-maskable-512.png}`; `scripts/design/render-icons.mjs`;
@@ -581,7 +751,8 @@ swaps it in one commit if G2-D changes it. Everything else here is behaviour and
   `/offline`, every manifest icon, `/icon.svg` and `/apple-icon.png` answer 200 with `maxRedirects: 0` and the right
   content type; the manifest has the PWA §3.1 fields and a 192, a 512 and a maskable 512 icon whose PNG header sizes
   match; the same requests with a **locked tenant owner's** and a **locked receptionist's** storage state (V2-05 05-10b
-  fixtures) answer 200 with no redirect (before: 307 to `/login?next=…`).
+  fixtures) answer 200 with no redirect (before: 307 to `/login?next=…`). *This locked-user leg is written and run
+  with 06-06, after the 05b merge-in (revision 2026-11-14).*
 - `02-installable.spec.ts` (spec 2; Chromium only): after sign-in and SW activation, CDP
   `Page.getInstallabilityErrors` returns `[]`; the result JSON is saved as the installability report (before: errors —
   no manifest, no SW).
@@ -620,14 +791,26 @@ swaps it in one commit if G2-D changes it. Everything else here is behaviour and
 "Chrome reports the app installable" (spec 2); "the cache-audit spec finds no authenticated response in Cache Storage"
 (spec 5 browse part); "every sign-out path clears caches and storage" (spec 5 exit paths here; expired and removed in
 06-06; idle in V2-11 when its timer exists, PWA §10); PWA-01, PWA-02; V2-05 05-10b handover (locked-user PWA asset
-cases).
+cases, delivered with 06-06 after the 05b merge-in).
 
 ---
 
-## 06-06 Install UX, update toast, skew guard, `/api/session-status`, lock handling client side (PWA-04, PWA-05 client side, PWA-08b specs 6 and 10, PWA §3.7, §6; R-16, R-21, R-28, R-29) · S-M · Wave 3 · no G2-D
+## 06-06 Install UX, update toast, skew guard, `/api/session-status`, lock handling client side (PWA-04, PWA-05 client side, PWA-08b specs 6 and 10, PWA §3.7, §6; R-16, R-21, R-28, R-29) · S-M · Wave 3 · no G2-D · waits for the 05b merge-in
 
 The install sheet is only low-fidelity in V2-DX; its copy and logic are fixed by PWA_STRATEGY §6, so it ships now with
 semantic tokens and is restyled by nothing but token values at 06-01b.
+
+*Precondition (revision 2026-11-14, speed ruling item 4; the executor asserts it before step 1):*
+- The 05b tip is merged into this branch: `git merge-base --is-ancestor <05b tip> HEAD`.
+- The merged code provides what this plan uses:
+  - 05-10a's access level through `lib/auth/tenant.ts`, and `APP_ERROR_CODES` with `SUBSCRIPTION_LOCKED`.
+  - 05-10b's `/billing/locked`, `/billing/locked/staff` and `/onboarding/billing`, plus the locked and onboarding
+    fixtures in `tests/helpers/tenants.ts`.
+  - 05-05's `remove_member`.
+- Use the names as merged and record differences in 06-SUMMARY (K-10). If 05b is not merged in, stop.
+
+This plan can run after some Wave B plans. Whichever of 06-01b and 06-06 runs first creates `lib/design/brand.ts`
+(`PRODUCT_NAME = "CliniQ AI"`), and the other reuses it. This plan is security-sensitive (adversarial review B).
 
 ### Files
 `app/api/session-status/route.ts`; `lib/auth/access-redirect.ts` (the role × access level → destination function,
@@ -640,12 +823,13 @@ extracted from V2-05 05-10b's `app/(dashboard)/layout.tsx` so the layout and the
 `tests/security/guard-manifest.ts`, `tests/security/guard/engine.ts` (route kind `session-status`);
 `playwright.config.ts` (project `pwa-ipados`); `tests/api/session-status-db.spec.ts`;
 `tests/pwa/{platform,dirty-guard,update}.spec.ts`; `tests/e2e/pwa/{06-update,10-ipados}.spec.ts`; extends
-`tests/e2e/pwa/05-cache-audit.spec.ts` (expired and removed legs); `docs/runbooks/pwa.md`.
+`tests/e2e/pwa/05-cache-audit.spec.ts` (expired and removed legs) and `tests/e2e/pwa/01-manifest.spec.ts` (06-05's
+locked-user leg); `lib/design/brand.ts` (only if 06-01b has not created it); `docs/runbooks/pwa.md`.
 
 ### Steps
 1. **Tracer:** `GET /api/session-status` (authenticated, `no-store`) returning `deploymentId` + `accessLevel` +
    `redirect`, polled once by `PwaRuntime` on load, with `session-status-db.spec.ts` proving the owner of a `full`
-   tenant gets `{ accessLevel: "full", redirect: null }`. Then 2-7.
+   tenant gets `{ accessLevel: "full", redirect: null }`. Then 2-8.
 2. **Deployment id (R-21):** env names `NEXT_DEPLOYMENT_ID` and `VERCEL_DEPLOYMENT_ID` (optional, shape
    `^[A-Za-z0-9_-]{1,64}$`) through the env-key checklist; `next.config.ts` sets `deploymentId` to
    `NEXT_DEPLOYMENT_ID ?? VERCEL_DEPLOYMENT_ID` (Next then adds `?dpl=` to static assets, the
@@ -691,7 +875,14 @@ extracted from V2-05 05-10b's `app/(dashboard)/layout.tsx` so the layout and the
    consult, checkout): from the second signed-in browser session (`clinicos.pref.signedInSessions`, incremented once
    per browser session), dismissible for 30 days (`clinicos.pref.installDismissedUntil`), hidden when installed or in
    standalone. The More-sheet entry is added with the shell (06-04b); "Install app"/"Check for updates" on the Profile
-   page are V2-11 (PWA §10).
+   page are V2-11 (PWA §10). The sheet and card name the product with `PRODUCT_NAME` from `lib/design/brand.ts`, as in
+   the approved V2-DX install surface at `3a78a5d`: "Install CliniQ AI on this device" and "Add CliniQ AI to your Home
+   Screen". The brand mark (`components/brand/brand-mark.tsx`, 44 px) is shown if 06-01b has landed; otherwise 06-04b
+   adds it when it re-homes the install entry.
+8. **06-05 spec 1, locked-user leg (moved here, revision 2026-11-14):** add to `tests/e2e/pwa/01-manifest.spec.ts` the
+   same requests with a locked tenant owner's and a locked receptionist's storage state (05-10b fixtures):
+   `/manifest.webmanifest`, `/sw.js`, `/offline`, every manifest icon, `/icon.svg` and `/apple-icon.png` answer 200
+   with `maxRedirects: 0`.
 
 ### Tests that fail without the change
 - `session-status-db.spec.ts`: signed out → 401; signed in without membership → 403; owner of a `full` tenant → 200,
@@ -716,6 +907,8 @@ extracted from V2-05 05-10b's `app/(dashboard)/layout.tsx` so the layout and the
   from host and path only. `dirty-guard.spec.ts`: input marks the form dirty, submit/reset clear it.
   `update.spec.ts`: mismatch detection ignores a missing `data-dpl-id` (development) instead of looping.
 - `env-schema.spec.ts`: a deployment id with spaces or 65 characters is refused in every tier; both names are optional.
+- `01-manifest.spec.ts` (locked-user leg, spec 1): as a locked owner and a locked receptionist, every PWA asset answers
+  200 with no redirect. Before the change: a 307 to a locked page or to `/login`.
 
 ### UI checks
 Update toast, skew notice, install sheet, in-app-browser guidance and the Today install card at
@@ -724,53 +917,186 @@ checkout drawer (asserted in `10-ipados.spec.ts` and a desktop-chrome case).
 
 ### Acceptance mapping
 PWA-04; PWA-05 client side (update toast, skew guard, `/api/session-status`, `SUBSCRIPTION_LOCKED` reaction, Realtime
-cleanup hook); "every sign-out path clears caches and storage" (expired, removed); specs 6 and 10.
+cleanup hook); "every sign-out path clears caches and storage" (expired, removed); specs 6 and 10; V2-05 05-10b
+handover (spec 1 locked-user leg).
 
 ---
 
-## Wave A review checkpoint (after wave 3; does not wait for G2-D)
+## Wave A review checkpoint (does not wait for G2-D; revised 2026-11-14 for the speed ruling and the 05b schedule)
 
-The security-sensitive code of V2-06 is all in Wave A. The orchestrator runs, into
-`.planning/phases/06-design-system-pwa-shell/reviews/`: an independent review of the Wave A diff
-(`v206-review-wave-a-independent.md`); adversarial reviews (A) service worker, public paths, proxy `no-store`,
-`hardSignOut`, purge, sign-out guard (06-05) → `v206-review-adversarial-sw-signout.md`; (B) `/api/session-status`, the
-lock/skew/update client, deployment-id env (06-06) → `…-session-status.md`; (C) client error capture and the diag page
-(06-04a) → `…-client-errors-phi.md`. Triage in `06-09a-REVIEW-TRIAGE.md`; fixes in plan **06-09a** on this branch with a
-regression test each; Highs get a fresh re-verification review. The phase-close reviews later cover only what changed
-since (plus the Wave B diff).
+Most of V2-06's security-sensitive code is in Wave A (PWA, auth, PHI), so it keeps adversarial reviews (Execution
+protocol, "Review depth"). 06-01a and 06-07 (tokens, codemod, report tools) are not security-sensitive and get only
+the independent review. All reports go to `.planning/phases/06-design-system-pwa-shell/reviews/`.
+
+- **After wave 2:**
+  - an independent review of the waves 1-2 diff → `v206-review-wave-a-independent.md`;
+  - adversarial review (A): service worker, public paths, proxy `no-store`, `hardSignOut`, purge, sign-out guard
+    (06-05) → `v206-review-adversarial-sw-signout.md`;
+  - adversarial review (C): client error capture and the diag page (06-04a) → `…-client-errors-phi.md`.
+- **After 06-06** (which waits for the 05b merge-in):
+  - adversarial review (B): `/api/session-status`, the lock/skew/update client, deployment-id env, and the spec 1
+    locked-user leg → `…-session-status.md`;
+  - the independent reviewer's pass over the 06-06 diff, appended to the independent report.
+- **Triage** goes in `06-09a-REVIEW-TRIAGE.md`. Fixes land in plan **06-09a** on this branch, each with a regression
+  test that fails without it:
+  - Highs from A, B or C get a fresh re-verification review.
+  - Lows are fixed only when cheap and local. Otherwise they go to a "Backlog" table in the triage file with an owner
+    phase, with no second review pass. They are copied to the roadmap backlog at phase close.
+- **06-09a runs in two passes.** Pass 1 fixes the post-wave-2 findings. Pass 2 fixes B's findings and lands before
+  06-04b.
+- **Ordering with Wave B.** The reviews are read-only, so the orchestrator may start 06-01b while they run. 06-09a then
+  executes between two Wave B plans, never at the same time as a plan that owns one of its files.
+- **Phase close.** The phase-close reviews cover only what changed since 06-09a, plus the Wave B diff.
 
 ---
 
-## 06-01b Approved values, local IBM Plex, AI/Smart Assist tokens and chips, approved icon (P1-28 M1 rest, AI-02, PO-19, PO-21; R-4, R-7, R-9, R-13) · S · Wave 4 · **needs G2-D**
+## 06-01b Approved CliniQ AI values, local Inter + Manrope, AI/Smart Assist tokens and chips, brand mark, icon set, manifest name and colours (P1-28 M1 rest, AI-02, PO-19 as superseded by the brand, PO-21; R-4, R-7, R-9, R-13, R-24, R-41…R-43) · S-M · Wave 4 · **needs G2-D (signed off)**
 
-*Precondition (executor asserts before step 1):* the G2-D row in `docs/v2/VERIFICATION_LOG.md` names the approved
-V2-DX commit SHA and the SHA-256 of `clinic-paper.css` and each font file, and `06-UI-SPEC.md` exists. If not, stop.
+*Revised 2026-11-14 for the CliniQ AI brand theme (revision note at the top).* This plan is UI: it gets one independent
+review and no re-check round unless a High is found. The brand assets and fonts are supply-chain items: their SHA-256
+values are checked here, and the PO confirms them in 06-P5.
+
+*Precondition (the executor asserts it before step 1):*
+1. The G2-D record names `3a78a5d`: the G2-D row, the CliniQ AI ruling and the addendum line from the Wave B
+   precondition.
+2. `git cat-file -e 3a78a5d` succeeds (the commit is in the local object store; never check out or merge the V2-DX
+   branch).
+3. Every path in the revision note's table hashes to its listed SHA-256 (`git show 3a78a5d:<path> | shasum -a 256`).
+4. `06-UI-SPEC.md` exists.
+
+If any check fails, stop and report.
 
 ### Files
-`app/globals.css`; `lib/design/tokens.ts`; `app/fonts/{IBMPlexSans-Regular,IBMPlexSans-Medium,IBMPlexSans-SemiBold}.woff2`
-(+ `OFL.txt`; Mono only if G2-D approved it); `app/layout.tsx` (font variables); `app/icon.svg`, `app/apple-icon.png`,
-`public/icon-*.png`, `public/icons.json` (only if G2-D changed the icon); `components/clinical/{ai-assist-chip,ai-preview-chip,ai-coming-soon-row,smart-assist-label}.tsx`;
-`components/consultation/ai-scribe-modal.tsx`; `scripts/ci/ai-l1-greps.mjs`, `tests/ci/ai-l1-greps.spec.ts`,
-`lint-fixtures/ai-l1/**`; `scripts/design/contrast.mjs`, `lib/design/contrast-pairs.ts`;
-`tests/design/{approved-tokens,contrast}.spec.ts`; `tests/e2e/design/fonts.spec.ts`;
-`.planning/phases/06-design-system-pwa-shell/evidence/06-01b/clinic-paper.approved.css` (verbatim copy, SHA-256 checked).
+- Tokens: `app/globals.css`; `lib/design/tokens.ts`; `tests/design/tokens.spec.ts` (06-01a's spec, adjusted for the
+  approved layers).
+- Brand name: `lib/design/brand.ts` (`PRODUCT_NAME`; create it if 06-06 has not).
+- Fonts: `app/fonts/{Inter-latin-wght,Inter-latin-ext-wght,Manrope-latin-wght,Manrope-latin-ext-wght}.woff2`,
+  `app/fonts/{Inter-OFL.txt,Manrope-OFL.txt,PROVENANCE.md}`, `app/fonts/fonts.ts` (the four `localFont()` calls).
+- Root layout and manifest: `app/layout.tsx` (font classes, title, `appleWebApp`, `viewport.themeColor`);
+  `app/manifest.ts` (name, short name, colours from the token mirror).
+- Brand mark and offline page: `components/brand/brand-mark.tsx`; `app/offline/page.tsx` (brand mark and name).
+- Icons: `app/icon.svg` and `scripts/design/brand/icon-maskable.svg` (the two approved masters, verbatim);
+  `scripts/design/render-icons.mjs` (two masters, opaque Apple icon); `app/apple-icon.png`, `public/icon-192.png`,
+  `public/icon-512.png`, `public/icon-maskable-512.png`, `public/icons.json`.
+- AI labels: `components/clinical/{ai-assist-chip,ai-preview-chip,ai-coming-soon-row,smart-assist-label}.tsx`;
+  `components/consultation/ai-scribe-modal.tsx`; `scripts/ci/ai-l1-greps.mjs`, `tests/ci/ai-l1-greps.spec.ts`,
+  `lint-fixtures/ai-l1/**`.
+- Contrast: `scripts/design/contrast.mjs`, `lib/design/contrast-pairs.ts`.
+- Tests: `tests/design/{approved-tokens,contrast,brand-mark}.spec.ts`; `tests/e2e/design/fonts.spec.ts`;
+  `tests/e2e/pwa/01-manifest.spec.ts` (name, colours, `/offline` brand).
+- Evidence: `.planning/phases/06-design-system-pwa-shell/evidence/06-01b/{clinic-paper,cliniq-ai}.approved.css`
+  (verbatim copies, SHA-256 checked).
 
 ### Steps
-1. **Tracer:** copy the approved `clinic-paper.css` with `git show <sha>:.planning/sketches/themes/clinic-paper.css`
-   into the evidence folder, verify its SHA-256 against the G2-D row, set `accent` from it in `app/globals.css`, and make
-   `approved-tokens.spec.ts` compare that one token. Then 2-6.
-2. **Values:** replace the `--color-v1-*` raw layer with the approved raw palette (DESIGN_SYSTEM §2.1 names: `paper`,
-   `sunken`, `ink-*`, `line*`, `primary-*`, `success/warning/danger/info/violet/slate-*`, `focus`, plus the approved
-   `ai-*` family) and point every semantic at it; add the AI-02 semantics `ai-bg`, `ai-fg`, `ai-border`, `smart-fg`,
-   `preview-bg`, `preview-fg`; set DESIGN_SYSTEM radii and elevation; light only (`color-scheme: light`, R-7). If a
-   semantic name in the approved file differs from §2.4's, the approved value goes onto the §2.4 name and the mapping is
-   recorded in 06-SUMMARY; if the direction needs a semantic the components cannot express, stop and raise it.
-   `lib/design/tokens.ts` gets the approved `theme_color` (`#FFFFFF`) and `background_color` (`paper`).
-3. **Fonts (R-4):** copy the approved woff2 files (binary `git show … > file`), verify SHA-256, wire
-   `next/font/local` (`display: "swap"`, `adjustFontFallback`, variable `--font-plex-sans`), `--font-sans` per §2.4.
-   IBM Plex Sans Devanagari is **not** loaded (no Hindi renders in v2.0 yet; PWA §3.9 allows it only where Hindi
-   renders). If the V2-DX glyph check found no ₹ (U+20B9) in the Latin subset, the fallback stack renders it (recorded).
-4. **AI-02 (AI_STRATEGY §5.3, PO-21):** `ai-assist-chip.tsx` ("AI Assist" + `Sparkles`), `ai-preview-chip.tsx` ("Preview"
+1. **Tracer.**
+   - Copy `themes/clinic-paper.css` and `themes/cliniq-ai.css` from `3a78a5d` with `git show` into
+     `evidence/06-01b/`, and verify both SHA-256 values against the revision note.
+   - Set `accent` in `app/globals.css` to the approved value (CliniQ Blue `#246BCE` through `primary-600`).
+   - Make `approved-tokens.spec.ts` compare that one token against the merged approved set.
+
+   Then steps 2-7.
+2. **Values (the merged approved set).**
+   - *Merge rule.* The approved value of each custom property is `cliniq-ai.css`'s value where it sets one, otherwise
+     `clinic-paper.css`'s, with `var()` chains resolved. That is the cascade the sketches render.
+   - *Raw layer.* Replace the `--color-v1-*` raw layer with the approved raw palette **under the approved raw names**.
+     Raw names are never used outside `globals.css` (DESIGN_SYSTEM §2.3), and keeping them makes the parsed comparison
+     exact. The names: `white`; `mineral-*` (they now hold the slate values); `primary-*` (CliniQ Blue); `teal-*`
+     (Care Teal, including `teal-550` `#11998D`); `brass-*`; `success|warning|danger|info-*`; `focus`, `focus-halo`.
+   - *Semantic layer.* Point every semantic at the raw layer, including:
+     - the AI-02 tokens `ai-bg`, `ai-fg`, `ai-border`, `ai-glyph`, `smart-fg`, `preview-*`;
+     - the per-status hues and borders (revision note), with `status-with-doctor-border` →
+       `teal-550`. Status values that the brand file sets as literal hexes (Booked violet) may stay literal in the
+       semantic line: the comparison resolves values, not spelling.
+   - *Extra names.* Approved semantic names beyond §2.4 (`surface-soft`, `surface-muted`, `hover`, `fg-secondary`,
+     `fg-icon`, `border-strong`, `accent-tint`, `accent-border`, `accent-disabled`, `accent-2*`, `ring-halo`,
+     `ring-glow`, `alert-unrecorded-*`, `finding-*`, `status-*-border`) are added. The list is recorded in 06-SUMMARY
+     (K-3).
+   - *Structure.* `--font-sans` (Inter stack), `--font-display` (Manrope stack), `--font-features`
+     (`"cv11", "ss01"`, applied on `body`), `--font-mono`, the type scale `--text-*` (round-3 sizes, 14 px desktop
+     body, 16 px inputs), `--font-weight-*`, radii `--radius-sm|md|lg|xl` 6/10/14/20 px plus `--radius-pill`, and
+     `--shadow-hairline|card|popover|overlay` (tinted Midnight).
+   - *Component tokens.* `--button-*`, `--tile-*`, `--nav-*`, `--lane-*`, `--row-*`, `--wait-*`, `--chip-*`,
+     `--banner-*`, `--focus-ring-*` and `--pwa-*` go in an `@theme static` block (Tailwind 4.3.3), so they exist at
+     runtime before any utility uses them.
+   - *Not copied.*
+     - The IBM Plex `@font-face` rules in `clinic-paper.css`: no token names IBM Plex Sans since G2-D.
+     - The prototype-only selectors in `cliniq-ai.css` (`.title-1`, `.title-2`, `.display`, `.token`,
+       `.tb-title h1`, `.today-head .phone-title h1`, `.card h2`, `.price b`, `.lf-head h1`, `.sheet-mock h2`,
+       `.chip-cancelled`). Their rules become component behaviour instead:
+       - "Manrope for titles, display text, prices and token numbers at 700; title-1, display and token at 800; token
+         letter-spacing −0.02em; everything else Inter" becomes the `font-display` utility plus
+         `--text-title-1--font-weight` and similar entries on the type scale, applied by the components that render
+         those elements (06-02a…06-04b, per `06-UI-SPEC.md`). v1 screens keep Inter headings until they are rebuilt.
+       - The Cancelled outline becomes StatusChip's cancelled variant (06-03a).
+   - *Numeric contexts (G2-D follow-up).* `tabular-nums` for tables and amounts; proportional figures for doses such
+     as "1-0-1".
+   - *Theme.* Light only (`color-scheme: light`, R-7).
+   - *06-01a's spec.* Narrow `tests/design/tokens.spec.ts` only where the approved layers require it. It still forbids
+     the dead v1 variables and `--color-brand-*`. The `@theme static` block is the only allowed non-`@theme` variable
+     block.
+   - *Escalation.* If the approved set needs a semantic the components cannot express, stop and raise it.
+   - *Token mirror.* `lib/design/tokens.ts`: `themeColor` `#FFFFFF` (`--pwa-theme-color`), `backgroundColor`
+     `#FFFFFF` (`--pwa-background-color`), `iconTile` `#FFFFFF` (`--pwa-icon-tile`). `iconGlyph` is removed, because
+     the approved masters carry their own brand colours.
+3. **Fonts (R-4 as revised, R-43).**
+   - *Copy and verify.* Copy the four woff2 files and the two licence files from `3a78a5d` `themes/fonts/` with
+     binary-safe `git show … > app/fonts/<name>` and verify each SHA-256.
+   - *Provenance.* Write `app/fonts/PROVENANCE.md`: per file, upstream source and version, licence, SHA-256, the
+     approved commit, and the Inter licence-header note (revision note).
+   - *Why four `localFont()` calls.* `app/fonts/fonts.ts` makes one `next/font/local` call per subset file.
+     `next/font/local` applies `declarations` to every face of a call and has no per-file `unicode-range` (checked in
+     `node_modules/next` 16.4.6, `dist/compiled/@next/font/dist/local/{validate-local-font-function-call,loader}.js`).
+   - *Settings for each call:*
+     - `declarations: [{ prop: "font-family", value: "'Inter'" }, { prop: "unicode-range", value: <the range of the
+       matching approved @font-face> }]`. The fixed family name merges the two subsets of each family into one
+       family.
+     - Ranges come from `clinic-paper.css` for Inter and `cliniq-ai.css` for Manrope, copied verbatim.
+     - `weight` `"100 900"` (Inter) or `"200 800"` (Manrope); `display: "swap"`; `adjustFontFallback: "Arial"`.
+     - `preload: true` for the two latin files, `false` for the two latin-ext files.
+     - A `variable` class per call, all four applied on `<html>`.
+   - *Stacks.* `--font-sans` and `--font-display` keep the approved stacks, with the generated `'Inter Fallback'` /
+     `'Manrope Fallback'` faces inserted after the family names.
+   - *Not loaded.* IBM Plex Sans Devanagari and Noto Sans Devanagari stay in the stack as names only and are not
+     loaded (no Hindi renders in v2.0; PWA §3.9).
+   - *₹ (U+20B9).* It is in Inter's latin-ext file and Manrope's latin file, so a page with ₹ in body text also
+     loads Inter's latin-ext file (K-12).
+4. **Brand name, manifest and titles** (PO ruling 2026-11-14; approved V2-DX `002-icon` page: home-screen name
+   "CliniQ AI", `theme_color` and `background_color` `#FFFFFF`).
+   - `lib/design/brand.ts` exports `PRODUCT_NAME = "CliniQ AI"`, exact case. The AI-06 L1 checker masks exactly this
+     string (`BRAND_NAME` in `scripts/ci/ai-l1-greps.mjs`); any other spelling would be checked as AI copy.
+   - `app/manifest.ts`: `name` and `short_name` `PRODUCT_NAME` (9 characters, within PWA §3.1's 12); `theme_color`
+     and `background_color` from the mirror (`#FFFFFF`).
+   - `app/layout.tsx`: `metadata.title` `{ default: PRODUCT_NAME, template: "%s · CliniQ AI" }` (D-7 unchanged: no
+     patient names), `appleWebApp.title` `PRODUCT_NAME`, `viewport.themeColor` `#FFFFFF`.
+   - `/offline`: the brand mark (56 px, decorative next to the name), "CliniQ AI" in `font-display`, and
+     `metadata.title` "Offline" (the tab reads "Offline · CliniQ AI").
+   - Only surfaces V2-06 creates change. Strings elsewhere that name the product ("ClinicOS"/"ClinicQ" in email and
+     WhatsApp templates, PDFs, API docs, webhook headers, the v1 login panel) are out of scope (R-41, Open for the PO).
+5. **Brand mark and icon set (R-24 as revised, R-42).**
+   - *Masters.* `app/icon.svg` ← `002-icon/icon.svg` at `3a78a5d`, verbatim: the white tile with the full-colour
+     mark. It serves as the SVG favicon and as the master for 192, 512 and Apple 180.
+     `scripts/design/brand/icon-maskable.svg` ← `002-icon/icon-maskable.svg`, verbatim: a full-bleed white tile with
+     the mark inside the 80 % safe zone (V2-DX measured 184.8 of 204.8 px). It is the master for
+     `public/icon-maskable-512.png` and lives outside `app/` so Next never treats it as a metadata icon.
+   - *`render-icons.mjs`.*
+     - It takes both masters.
+     - `app/apple-icon.png` is a 180×180 opaque square with the transparent corners filled with `iconTile` (iOS rounds
+       corners itself, brand kit `04-app-icons/README.txt`).
+     - `public/icons.json` records both masters' SHA-256.
+     - `--check` also fails if an Apple-icon corner pixel is not opaque.
+   - *Not used.* The Midnight and CliniQ Blue tile variants (`icon-alt-b-paper.svg`, `icon-alt-c-ink.svg`): the app is
+     light only (R-7) and the blue tile is for marketing. Logo lockups (horizontal, stacked, wordmark) are not used by
+     any V2-06 surface and are not vendored.
+   - *`components/brand/brand-mark.tsx`.*
+     - An inline SVG of the mark. Geometry comes from `shared/proto.js` `mark()` at `3a78a5d`, which equals the brand
+       kit's mark files.
+     - The full mark draws at `size` ≥ 32 px and the small mark below 32 px (brand kit rule).
+     - It has `role="img"` and `aria-label={PRODUCT_NAME}` unless `decorative`, in which case `aria-hidden="true"`.
+     - The gradient id comes from `useId()`, so two marks on one page never share an id.
+     - The colours stay literal in this one file (the ring gradient `#246BCE`→`#2CBDAF` and the Midnight stethoscope),
+       because the brand forbids recolouring the logo. If a UI-policy rule reports them, that rule gets a documented
+       exception for this file only.
+6. **AI-02 (AI_STRATEGY §5.3, PO-21):** `ai-assist-chip.tsx` ("AI Assist" + `Sparkles`), `ai-preview-chip.tsx` ("Preview"
    chip + the note "AI features are in preview and not yet offered as a paid product"), `ai-coming-soon-row.tsx`
    ("AI features: Coming soon", muted, no price, no button), `smart-assist-label.tsx` (`Zap`, "Smart Assist", or
    nothing where G2-D chose no label). Each in its own file with no price copy, added to `LLM_FEATURE_FILES` in
@@ -778,23 +1104,55 @@ V2-DX commit SHA and the SHA-256 of `clinic-paper.css` and each font file, and `
    puts them next to a price (research Pitfall 7). The scribe modal uses the AI Assist and Preview chips and the note
    instead of its hand-made sparkle header; when the scribe renders stays as it is (entitlement gating is V2-12). The
    "Coming soon" row is placed on the billing page by SUB-08 (V2-13b); here it exists in the gallery (06-02a).
-5. **Contrast as a test:** `scripts/design/contrast.mjs` computes WCAG 2.2 relative-luminance ratios from
-   `app/globals.css` for the pairs in `lib/design/contrast-pairs.ts` (every text token on canvas/surface/sunken/selected,
-   status chip fg/bg, chip and alert pairs, `fg-on-accent` on accent/danger, the focus ring against canvas and surface,
-   control borders against surface); writes `evidence/06-01b/contrast.md` (tool output).
-6. **Icon:** if G2-D changed the icon, replace `app/icon.svg` and re-run `node scripts/design/render-icons.mjs`;
-   `--check` passes.
+7. **Contrast as a test.** `scripts/design/contrast.mjs` computes WCAG 2.2 relative-luminance ratios from
+   `app/globals.css` for the pairs in `lib/design/contrast-pairs.ts` and writes `evidence/06-01b/contrast.md` (tool
+   output). The pairs:
+   - at least every gated pair of V2-DX's `v2-dx-evidence/contrast.md` at `3a78a5d` (169) that maps to an app token;
+   - every text token on canvas, surface, sunken and selected;
+   - each status pill's fg on its wash, and each status border on canvas and on its own wash (With doctor
+     `#11998D` on `#EAFBF8`: 3.29:1);
+   - chip and alert pairs;
+   - `fg-on-accent` on accent, hover, pressed and danger;
+   - Midnight on the slate surfaces;
+   - the focus ring against canvas and surface;
+   - control borders against surface.
 
 ### Tests that fail without the change
-- `approved-tokens.spec.ts`: every raw and semantic value in `app/globals.css` equals the approved file (parsed, not
-  text-compared); the evidence copy's SHA-256 equals the G2-D row's; the token mirror equals the CSS (before: v1
-  values differ).
-- `contrast.spec.ts`: every listed text pair ≥ 4.5:1 (≥ 3:1 for large text and non-text), the focus ring ≥ 3:1 against
-  canvas and surface (it sits outside controls with a 2 px offset: research found it 1.01:1 on `primary-600`) (before:
-  `fg-subtle` = v1 gray-400 fails on white).
-- `fonts.spec.ts` (e2e): on `/login`, `document.fonts.check('16px "IBM Plex Sans"')` is true; at most 2 font files are
-  requested on first load, all from `/_next/static/media/` on loopback; the computed `font-family` of body text starts
-  with the Plex family.
+- `approved-tokens.spec.ts`:
+  - Every custom property of the merged approved set (both evidence copies parsed in cascade order, `var()` chains
+    resolved, not text-compared) exists in `app/globals.css` with the same resolved value. The only exclusions are
+    the non-property rules listed in step 2.
+  - Both evidence copies' SHA-256 equal the revision note's.
+  - The token mirror equals the CSS (`#FFFFFF` ×3).
+  - Before the change: v1 values differ and the brand names are missing.
+- `contrast.spec.ts`:
+  - Every listed text pair is ≥ 4.5:1 (≥ 3:1 for large text and non-text).
+  - The focus ring `#3A80D9` is ≥ 3:1 against canvas and surface (3.99:1 on white). It is 1.29:1 against CliniQ Blue,
+    so it must sit outside controls on the 2 px white `ring-halo`, and the report says so.
+  - Before the change: `fg-subtle` = v1 gray-400 fails on white.
+- `brand-mark.spec.ts` (Vitest, `react-dom/server` `renderToStaticMarkup` with `createElement`, the pattern of
+  `tests/components/phone-input.spec.ts`; no jsdom):
+  - `size` 24 renders the small geometry (no earpiece circles); 36 renders the full geometry.
+  - Two marks in one tree get distinct gradient ids, and each ring's `url(#…)` names its own gradient.
+  - The accessible name is "CliniQ AI"; `decorative` gives `aria-hidden="true"` and no name.
+  - Before the change: no component.
+- `render-icons.mjs --check` passes:
+  - PNG sizes are 192, 512, 512 (maskable) and 180.
+  - Both master hashes equal `public/icons.json`, and those equal the revision note's.
+  - The Apple icon's corners are opaque.
+- `01-manifest.spec.ts` (extended, spec 1):
+  - The manifest's `name` and `short_name` are "CliniQ AI", and `theme_color` and `background_color` are `#FFFFFF`.
+  - Signed-out `/offline` shows "CliniQ AI" and has the `<title>` "Offline · CliniQ AI".
+  - Before the change: "ClinicQ" and the Wave A values.
+- `fonts.spec.ts` (e2e, desktop-chrome):
+  - On `/login` after `document.fonts.ready`, a loaded `FontFace` with family "Inter" exists, and the computed
+    `font-family` of body text starts with "Inter".
+  - At most 2 font files are requested on first load (the two preloaded latin files), all from
+    `/_next/static/media/` on loopback. No Plex or Devanagari file is requested.
+  - Injecting a "₹" text node into the body loads the Inter face whose `unicodeRange` covers U+20B9 (status
+    `loaded`), so ₹ is drawn by Inter and not by a fallback.
+  - On `/offline`, the product name's computed `font-family` starts with "Manrope" and a Manrope face is loaded.
+  - Before the change: no `@font-face` exists, and the system font renders.
 - `ai-l1-greps.spec.ts` (extended): the chip files pass L1-R4/R5; a fixture file holding the Coming soon row and
   "₹1,499 + GST" fails L1-R6; a fixture using "AI Assist" outside the allowed files fails L1-R5 (before: the chip files
   fail R5).
@@ -804,12 +1162,15 @@ V2-DX commit SHA and the SHA-256 of `clinic-paper.css` and each font file, and `
   that rebuilds the screen).
 
 ### UI checks
-The M0 routes at 360/820/1180/1280 with `neutral-diff.mjs compare` in report mode (expected change, for the PO's G3
-review); axe on the M0 routes (counts above).
+- The M0 routes at 360/820/1180/1280, with `neutral-diff.mjs compare` in report mode. The change is expected (new
+  palette, Inter, radii 6/10/14/20) and is there for the PO's G3 review.
+- `/offline` with the brand mark at the four widths.
+- axe on the M0 routes (counts above) and on `/offline`.
 
 ### Acceptance mapping
-P1-28 M1 tokens and fonts with approved values; AI-02 tokens, glyphs, Preview chip and note, Coming soon treatment,
-CI grep; PO-19 icon and theme colour.
+P1-28 M1 tokens and fonts with the approved CliniQ AI values; AI-02 tokens, glyphs, Preview chip and note, Coming
+soon treatment, CI grep; PO-19 as superseded by the brand: name "CliniQ AI", mark, icon set, theme and background
+colour `#FFFFFF`.
 
 ---
 
@@ -837,16 +1198,25 @@ CI grep; PO-19 icon and theme colour.
    while `useOnlineStatus()` is offline with an `aria-describedby` reason), Kbd, Input, Textarea, Field (wires `id`,
    label, hint and error into `aria-describedby`, `aria-invalid`), Label, NativeSelect (named; fixes M0 `select-name`),
    Checkbox, RadioGroup, Switch (Radix), SegmentedControl, ChipGroup (roving focus). Typed variant maps, no CVA.
+   *Revision 2026-11-14:*
+   - The primary button is CliniQ Blue (`accent`) with white text. Hover and pressed use `accent-hover` and
+     `accent-pressed`.
+   - Focus is drawn the approved way on every primitive: `outline: var(--focus-ring-width) solid var(--color-ring)`,
+     `outline-offset: var(--focus-ring-offset)` and a `box-shadow` halo in `ring-halo`. The ring is 1.29:1 against
+     CliniQ Blue, so it never sits inside or on a blue control.
 4. **Input kinds (PWA-07, PWA §3.5):** `Input kind` ∈ `tel | otp | email | password-current | password-new | pincode |
    numeric | decimal | search | name` sets `type`, `inputMode`, `autoComplete`, `enterKeyHint`, `autoCapitalize` from
    `lib/ui/input-kind.ts`; text 16 px; 44 px height.
 5. **AI section:** the 06-01b chips and the Coming soon row rendered in `sections/ai.tsx` (a file in
-   `LLM_FEATURE_FILES`, no price copy).
+   `LLM_FEATURE_FILES`, no price copy). *Revision 2026-11-14:* a Brand row in `sections/forms.tsx` shows `BrandMark` at
+   16, 24, 32, 36 and 56 px (the full/small switch at 32 px) and a title, a price and a token number in `font-display`
+   next to body text in Inter, so the G3 reviewer sees the approved type pairing.
 
 ### Tests that fail without the change
 - `keyboard/forms.spec.ts` (desktop-chrome, real browser, R-14): per primitive — Tab order, Enter/Space, arrow keys
   in RadioGroup/SegmentedControl/ChipGroup (roving focus, wrap), Space toggles Checkbox/Switch with `aria-checked`,
-  disabled controls are skipped, focus ring visible (computed outline ≥ 2 px).
+  disabled controls are skipped, focus ring visible (computed outline ≥ 2 px in the `ring` colour, with a positive
+  offset).
 - `input-modes.spec.ts` (PWA-07 guard, behavioural): every numeric-like kind rendered in the gallery has `inputMode`
   and `enterKeyHint`; every input's computed `font-size` ≥ 16 px and height ≥ 44 px.
 - `gallery-axe.spec.ts`: axe 0 serious/critical on `/dev/ui` at 360/820/1180/1280.
@@ -950,6 +1320,13 @@ P1-28 M2 2c/2d (MoneyInput with V2-10, R-15); gallery axe and keyboard (2c/2d pa
    AllergyBanner (`alert-allergy-*`, `role="alert"` only when allergies exist), TokenChip (`--text-token`, tabular),
    QueueRow (actions always visible, ≥ 44 px), SaveStatus (Saved/Saving/Couldn't save · Retry, `aria-live`),
    ShareButton (Web Share where supported, a user action; D-6: nothing stored).
+   *Revision 2026-11-14 (CliniQ AI brand theme):*
+   - StatusChip uses the approved per-status hues through `status-<state>-{bg,fg,border}`. No state uses the primary
+     blue. The With-doctor border is `teal-550` `#11998D`.
+   - The Cancelled variant is outlined: a white fill, `status-cancelled-fg` text and a 1 px inset `border-control`
+     ring, so it never reads as the filled slate Done chip. This replaces the prototype's `.chip-cancelled`.
+   - TokenChip draws the number in `font-display` (Manrope 800, letter-spacing −0.02em, tabular).
+   - The QueueRow for the patient called next uses `--row-next-bg` (Care Teal tint).
 
 ### Tests that fail without the change
 - `visit-status.spec.ts`: every status string used in `features/**` and `components/**` (collected by the spec from the
@@ -1018,6 +1395,13 @@ P1-28 M2 2e (rest; InvoiceLines with V2-10, R-15).
    (`router.back()`, or the nav parent when there is no history, e.g. a fresh standalone launch); `lib/pwa/resume.ts`
    refetches live views (`/`, `/queue`, `/calendar`, `/cabin`) with `router.refresh()` on `visibilitychange` → visible
    and `online`; offline banner, update toast (moved onto `sonner`, R-29) and install entry mounted here.
+   *Revision 2026-11-14 (approved shell at `3a78a5d`, `shared/proto.js` `shell()`):*
+   - The Sidebar shows `BrandMark` (36 px) beside the clinic block (clinic name and place).
+   - The Rail shows `BrandMark` (36 px).
+   - The top-bar screen title uses `font-display`.
+   - The offline banner uses `--banner-offline-*` (Midnight).
+   - Active nav items use `--nav-active-*`.
+   - If 06-06 landed before 06-01b, this plan adds `BrandMark` (44 px) to the install sheet it re-homes.
 4. **Command palette (IA §3.7, DESIGN_SYSTEM §7.9):** ⌘K/Ctrl+K and the top-bar search; groups Patients (server action
    `searchPatientsForPalette(query)`: permission `patients:view`, tenant from the session, projection id, name, age/sex,
    last 4 phone digits only; guard-manifest entry), Today queue matches, Actions (role-filtered), Navigate
@@ -1069,7 +1453,9 @@ PWA-03 shell (Back, keyboard-aware bars, refetch on resume); spec 8; M3 "Charact
    of 06-04b for owner and receptionist, `/offline`, the install sheet, the update toast, the error/not-found/loading
    states, at 360/820/1180/1280, PNG, into `evidence/06-08/screens/<width>/`; `screenshot-index.mjs` writes
    `evidence/06-08/screens/README.md` (a table per width linking each PNG, the G2-D reference screen for each, and the
-   axe result). Synthetic data only (the repository is public).
+   axe result). The G2-D references are the brand-theme captures at `3a78a5d`
+   (`.planning/sketches/v2-dx-evidence/screens/**`, linked by commit and path, not copied). Synthetic data only (the
+   repository is public).
 4. **Report gate:** REQUIRED_FILES gains every Vitest spec added in V2-06; FLOOR raised with the arithmetic in the same
    commit.
 
@@ -1090,7 +1476,7 @@ PWA-03 shell (Back, keyboard-aware bars, refetch on resume); spec 8; M3 "Charact
 | # | Acceptance item | Plan(s) | Proof (tool output) | Needs G2-D? | Status at the gate |
 |---|---|---|---|---|---|
 | 1 | axe shows 0 serious or critical issues on the gallery | 06-02a/b/c, 06-03a/b, 06-04b, 06-08 | `gallery-axe.spec.ts` at 360/820/1180/1280 in the CI PR lane (desktop-chrome) + the axe column of `evidence/06-08/screens/README.md` | yes | Done in CI |
-| 2 | screenshots at 360/820/1180/1280 (the V2-DX widths) match the G2-D direction and are approved by the PO | 06-01b, 06-08 (+ every UI plan's captures) | `evidence/06-08/screens/**` + index; isolated design reviewer's notes (`reviews/v206-review-design.md`) | yes | **PO approval (06-P6)** |
+| 2 | screenshots at 360/820/1180/1280 (the V2-DX widths) match the G2-D direction and are approved by the PO | 06-01b, 06-08 (+ every UI plan's captures) | `evidence/06-08/screens/**` + index against the CliniQ AI brand-theme references at `3a78a5d`; isolated design reviewer's notes (`reviews/v206-review-design.md`) | yes | **PO approval (06-P6)** |
 | 3 | the grep guards, including the AI-02 "AI" copy grep, are in report mode | 06-01a (UI policy report mode + jsx-a11y warn), 06-01b (AI chips in the L1 allowlist), 06-04a/06-05 (two rules enforced) | CI `static` step summary; `evidence/06-08/ui-policy.json`; `npm run ci:ai-l1` | no | Done; the L1 AI grep stays **blocking** (stricter than report mode, R-13) |
 | 4 | v1 screens still work (M0 e2e green) | every plan | `npm run e2e:pr` per plan; CI e2e job with 0 retried tests | no | Done in CI |
 | 5 | Chrome reports the app installable | 06-05 (+06-01b icon) | `02-installable.spec.ts` (CDP `Page.getInstallabilityErrors` = `[]`) + `evidence/installability.json` | no | Done in CI |
@@ -1132,7 +1518,10 @@ sign-out purge per exit path; 0 `min-h-screen`/`h-screen` (06-04a, enforced); LH
 | REQ AI-16 | help search, vitals flags "if time permits" | deferred to V2-09b (R-10; roadmap allows "V2-06 / V2-09b") |
 | CONTEXT (locked) | R5: no primitive before G2-D | Wave B precondition (06-01b onward), R-1 |
 | CONTEXT (locked) | O7: Next 16 decision before 06-02 | satisfied (V2-03 03-06, Next 16.4.6) |
-| CONTEXT (locked) | PO-19 ClinicQ, teal tile "Q"; PO-20 "₹1,499 + GST"; PO-21 no purchasable AI; PO-15 big bang | 06-05 icon, 06-01b chips (no price, L1-R6), R-8 |
+| CONTEXT (locked) | PO-19 ClinicQ, teal tile "Q" (superseded at G2-D by the CliniQ AI brand, PO ruling 2026-11-14); PO-20 "₹1,499 + GST"; PO-21 no purchasable AI; PO-15 big bang | 06-05 provisional icon → 06-01b brand name, mark and icon set; 06-01b chips (no price, L1-R6), R-8 |
+| PO 2026-11-14 (G2-D brand theme) | CliniQ AI values (CliniQ Blue, Midnight, per-status hues, `teal-550` border), Inter + Manrope local fonts, radii 6/10/14/20, brand mark, icon set, manifest `#FFFFFF`, name "CliniQ AI" | 06-01b; details in 06-02a (focus, gallery brand row), 06-03a (status chips, token numbers), 06-04b (shell mark, titles), 06-08 (references) |
+| PO 2026-11-14 (delivery speed) | review depth by risk; Lows to backlog unless cheap; V2-06 alongside V2-05b (from the 05a tip, 05b tip merged in; 06-06 and the spec 1 locked-user leg wait for 05b) | Execution protocol ("Review depth", "Orchestrator"), Wave A review checkpoint, phase close step 4, 06-06 precondition; R-37…R-39 |
+| Shared lanes (2026-11-14) | one local Supabase stack (no reset by V2-06), one e2e server on 3100, lane lock | Execution protocol ("Shared local stack and e2e lane"), R-40 |
 | RESEARCH | rulings OQ1-OQ11, pitfalls 1-16, G2-D split, token architecture, patterns 1-8 | adopted as R-1…R-12 and the plans; deviations listed below |
 | Carry-over (03-06) | React Compiler rules back to `error` | 06-08 (R-30) |
 | Carry-over (V2-03 R-29) | client error capture | 06-04a (R-3) |
@@ -1145,33 +1534,17 @@ sign-out purge per exit path; 0 `min-h-screen`/`h-screen` (06-04a, enforced); LH
 ## PO actions for this phase
 
 The orchestrator copies these into `.planning/PO-ACTIONS.md` under "V2-06 Design system & PWA shell", replacing D-1
-(06-P1 + 06-P2 supersede it). No secret appears here. **Order:** 06-P1 → 06-P2 as soon as V2-DX's evidence is ready
-(it gates Wave B only; Wave A never waits); 06-P4 any time after wave 2; 06-P5 after wave 7; at the gate 06-P6, 06-P7.
-Only 06-P2 blocks work (Wave B); 06-P4/06-P5 block the merge; 06-P6/06-P7 are the gate.
+(06-P1 + 06-P2 supersede it). No secret appears here. **Order (revised 2026-11-14):** 06-P1 and 06-P2 are done (G2-D);
+06-P4 any time after wave 2; 06-P5 after wave 7; at the gate 06-P6, 06-P7. 06-P4/06-P5 block the merge; 06-P6/06-P7
+are the gate. Nothing here blocks work.
 
-- [ ] **06-P1 · G2-D step 1: walk through the V2-DX evidence**
-  - *Do / where:* open `.planning/sketches/v2-dx-evidence/README.md` on the V2-DX PR (branch
-    `v2/phase-dx-design-exploration`; Claude posts the PR link and the commit SHA here when DX-04 and the isolated design
-    review are done). About 45-60 minutes: screens at 360/744/820/1180/1280, the contrast report, the walkthrough videos
-    of the counted flows, the design reviewer's report.
-  - *Values:* none.
-  - *Why:* roadmap R5 and §16 G2-D: the direction is approved from rendered evidence before any primitive is built.
-  - *Unblocks:* 06-P2.
-  - *Verify (Claude):* none (06-P2 records the outcome).
-
-- [ ] **06-P2 · G2-D step 2: answer the eight questions and sign off**
-  - *Do / where:* reply in the chat with an answer per item of the README checklist: (1) "Clinic Paper" palette
-    approve/change; (2) IBM Plex Sans 400/500/600, Devanagari only where Hindi renders; (3) icon, `theme_color #FFFFFF`,
-    `background_color #F6F5F1` (or an alternate); (4) Today at 1180: two-pane or 3 lanes (820: two-pane proposed);
-    (5) Consult layouts at 360/820/1180/1280; (6) AI Assist chip colour and sparkle, Smart Assist `Zap` or no label,
-    "Preview" chip and note copy, "Coming soon" row; (7) "₹1,499 + GST" and "₹1,768.82 per month incl. 18% GST";
-    (8) the low-fidelity surfaces are acceptable as the brief for V2-06, V2-13b and V2-13c. Then merge the V2-DX PR when
-    you merge PRs (V2-06 reads the approved commit directly and does not wait for that merge).
-  - *Values:* your answers (verbatim).
-  - *Why:* G2-D gate (roadmap §16); D-1 in PO-ACTIONS.
-  - *Unblocks:* Wave B (06-01b onward), `/gsd-ui-phase 06`.
-  - *Verify (Claude):* writes the G2-D row in `docs/v2/VERIFICATION_LOG.md` with your verbatim answer, the approved
-    commit SHA and `shasum -a 256` of `clinic-paper.css` and each font file (tool output), ticks D-1/06-P2.
+- [x] **06-P1 · G2-D step 1: walk through the V2-DX evidence.** Done: PR #7. The G2-D row is dated 2026-11-13.
+- [x] **06-P2 · G2-D step 2: sign off.** Done:
+  - Direction, Inter, component system and consult structure approved 2026-11-13 (G2-D row).
+  - The CliniQ AI brand theme superseded the teal palette on 2026-11-14 (CliniQ AI ruling; V2-DX `d2e399f`;
+    With-doctor border `#11998D` in `3a78a5d`).
+  - Remaining record step (Claude, no PO time): the G2-D addendum line naming `3a78a5d` and the SHA-256 list (Wave B
+    precondition 1). Open for the PO, item 1, lets you object to `3a78a5d`.
 
 - [ ] **06-P3 · Optional: show the prototypes to one or two clinic users (PO-13)**
   - *Do / where:* share the screenshots or the walkthrough videos (synthetic data only) and pass their remarks on.
@@ -1188,8 +1561,10 @@ Only 06-P2 blocks work (Wave B); 06-P4/06-P5 block the merge; 06-P6/06-P7 are th
 
 - [ ] **06-P5 · Confirm the Wave B packages and font files (E14-style)**
   - *Do / where:* same file, sections `06-02a`, `06-02b`, `06-02c`: `radix-ui@1.8.1`, `cmdk@1.1.1`, `sonner@2.0.8`,
-    `react-day-picker@10.0.2` (all research-audit OK, no install scripts); and the IBM Plex woff2 SHA-256 list from the
-    G2-D row (SIL OFL 1.1).
+    `react-day-picker@10.0.2` (all research-audit OK, no install scripts). Also confirm the font and brand files of the
+    revision note's SHA-256 table: the Inter and Manrope woff2 and licence files (SIL OFL 1.1; provenance in
+    `app/fonts/PROVENANCE.md`) and the two icon masters (`app/icon.svg`, `scripts/design/brand/icon-maskable.svg`;
+    `public/icons.json`).
   - *Why:* as 06-P4.
   - *Unblocks:* the merge.
   - *Verify (Claude):* confirmation recorded.
@@ -1206,22 +1581,26 @@ Only 06-P2 blocks work (Wave B); 06-P4/06-P5 block the merge; 06-P6/06-P7 are th
   errors: dashboard boundaries only, class name and route pattern), R-8 (no URL renames, no flags), R-10 (AI-16 to
   V2-09b), R-13 (AI grep stays blocking), R-14 (keyboard tests in a real browser), R-15 (MoneyInput and InvoiceLines to
   V2-10), R-16 (lock reaction by poll and error checks; per-form handling with the V2-07/V2-08 command hook), R-21
-  (Hobby: in-app skew guard only), R-23 (manifest link stays on token pages), R-31 (small text sizes left to M5), and
-  the proposed CLAUDE.md Commands update. *Verify:* your confirmation recorded in VERIFICATION_LOG's gate section.
+  (Hobby: in-app skew guard only), R-23 (manifest link stays on token pages), R-31 (small text sizes left to M5), the
+  2026-11-14 rulings R-37…R-43 (review depth, Lows, the 05b overlap, shared lanes, product name scope, icon and theme
+  colour source, per-subset font calls), and the proposed CLAUDE.md Commands update. *Verify:* your confirmation
+  recorded in VERIFICATION_LOG's gate section.
 
 **No PO action needed for:** Vercel (manifest URLs are relative, `id: "/"`; no domain needed; Skew Protection is a
-production-plan check at V2-15), font licences (OFL), real devices (PWA-10 real-device checklist is V2-15), staging
+production-plan check at V2-15), font licences (OFL; one licence-text note is Open for the PO item 5), real devices
+(PWA-10 real-device checklist is V2-15), staging
 settings (no new env value is required on staging: Vercel supplies `VERCEL_DEPLOYMENT_ID`).
 
 ## Phase close
 
-1. **Report gate:** `REQUIRED_FILES` in `scripts/ci/assert-vitest-report.mjs` gains `tests/design/{tokens,codemod,approved-tokens,contrast,input-kind,gallery,age}.spec.ts`,
+1. **Report gate:** `REQUIRED_FILES` in `scripts/ci/assert-vitest-report.mjs` gains `tests/design/{tokens,codemod,approved-tokens,contrast,brand-mark,input-kind,gallery,age}.spec.ts`,
    `tests/ci/{ui-policy,ui-policy-signout-guard,route-js,lhci-config,react-compiler-waivers}.spec.ts`,
    `tests/pwa/{purge,device-prefs,sw-allowlist,platform,dirty-guard,update}.spec.ts`,
    `tests/errors/client-error-kind.spec.ts`, `tests/observability/client-error-action-db.spec.ts`,
    `tests/api/session-status-db.spec.ts`, `tests/clinical/{visit-status,vitals}.spec.ts`, `tests/nav/nav-for-role.spec.ts`;
    FLOOR raised with the arithmetic in the same commit (06-08).
-2. **Local evidence (tool-produced):** `npm run typecheck`, `npx eslint .`, `npm run inventory`, `npm run ci:ai-l1`,
+2. **Local evidence (tool-produced; after the final 05b merge-in, so branch and stack match; e2e runs under the lane
+   lock):** `npm run typecheck`, `npx eslint .`, `npm run inventory`, `npm run ci:ai-l1`,
    `npm run ci:ui-policy -- --json`, `npm run ci:audit`; `node scripts/phase-evidence.mjs
    .planning/phases/06-design-system-pwa-shell/evidence 2`; gitleaks output; `npm run e2e:build && npm run e2e:pr` JSON
    report; `npm run e2e:design` (screenshot set + index); `npm run perf:lhci` (scrubbed summary); `node
@@ -1231,23 +1610,46 @@ settings (no new env value is required on staging: Vercel supplies `VERCEL_DEPLO
    scripts/phase-evidence.mjs .planning/phases/06-design-system-pwa-shell/evidence --ci-run <id>`. The nightly LHCI and
    design lanes run on `feature/v2` only (schedules run on the default branch); their first runs are recorded after the
    merge, and until then the local runs above stand.
-4. **Reviews (CLAUDE.md DoD 6)** into `reviews/`: the Wave A reviews (above) re-checked for files changed since; an
-   independent review of the full diff (`v206-review-independent.md`); the **isolated design reviewer** for G3
-   (`v206-review-design.md`: screenshot set vs the G2-D evidence, contrast report, gallery axe, the
-   DESIGN_SYSTEM §6-§8 rules); an adversarial review (D) of the Wave B parts touching data or auth: the palette search
-   projection and guard entry, the shell's role resolution and nav, the scribe chip change (`…-shell-palette.md`); then
-   `/gsd-secure-phase` over T-06-01…T-06-SC (`v206-secure-phase.md`). Triage in `06-09b-REVIEW-TRIAGE.md`; fixes in
-   plan **06-09b** with regression tests; Highs re-verified by a fresh reviewer. Review reports are committed to a
-   public repository: they describe fixed issues and accepted risks without exploit steps for anything left open.
+4. **Reviews (CLAUDE.md DoD 6; revised 2026-11-14 for the review-depth ruling)** into `reviews/`:
+   - (a) one independent review of the Wave B diff and of any Wave A file changed since 06-09a →
+     `v206-review-independent.md`;
+   - (b) the **isolated design reviewer** for G3 → `v206-review-design.md`: the screenshot set against the
+     brand-theme evidence at `3a78a5d`, the contrast report, gallery axe, the DESIGN_SYSTEM §6-§8 rules, and the
+     brand-kit rules for the mark (minimum size, small mark below 32 px, no recolouring).
+
+   (a) and (b) are the reviews of Wave B's UI work; there is no re-check round unless one of them finds a High.
+   - (c) adversarial review (D), only of the security-sensitive Wave B parts → `…-shell-palette.md`: the palette patient
+     search (server action, `patients:view`, session tenant, four-field projection: PHI) with its guard entry, and the
+     shell's server-side role resolution and `navForRole` (permissions). The scribe chip change is UI copy, covered by
+     (a) and the blocking L1 grep, so it leaves (D). Also an adversarial re-check of Wave A's security files (`sw.js`,
+     `proxy.ts`, public paths, `hard-sign-out.ts`, purge, session status, the client-error action), but only if one
+     changed since 06-09a;
+   - (d) `/gsd-secure-phase` over T-06-01…T-06-SC → `v206-secure-phase.md`.
+
+   Triage goes in `06-09b-REVIEW-TRIAGE.md`; fixes land in plan **06-09b** with regression tests. Highs from (c) or (d)
+   are re-verified by a fresh reviewer. Lows are fixed only if cheap and local; otherwise they go to the backlog with
+   an owner phase, and V2-14 is the backstop. Review reports are committed to a public repository: they describe
+   fixed issues and accepted risks without exploit steps for anything left open.
 5. **Documents:** `06-SUMMARY.md` (per plan, deviations, M0 locator adaptations, the codemod collapses, the client-error
    split, deferrals with owners: idle sign-out spec leg V2-11; spec 7 V2-07/V2-08; spec 9 and the billing-page Coming
    soon row V2-13b; tablet two-pane V2-08/V2-09b; MoneyInput, InvoiceLines and `lib/money` V2-10; AI-16 V2-09b; LHCI and
    budgets blocking, Skew Protection check V2-15; CSP directives V2-14; palette reset and small text M5/V2-11; Profile
-   "Install app"/"Check for updates" V2-11); `06-VERIFICATION.md` (the acceptance table with CI run link + commit SHA +
+   "Install app"/"Check for updates" V2-11; review Lows moved to the backlog, each with its owner phase; the 05b
+   merge-in commits and their conflict resolutions; the schema-coupled spec outputs recorded while the shared stack was
+   ahead of the branch); `06-VERIFICATION.md` (the acceptance table with CI run link + commit SHA +
    evidence file per row; 06-P6 pending until approved); the V2-06 gate entry in `docs/v2/VERIFICATION_LOG.md`; proposed
    doc errata for PO approval (not applied): FMP M3 redirect map and `ui_v2` flag superseded by R-8; FMP M2 MoneyInput
    and InvoiceLines moved to V2-10; IA §3.3 `/settings/plan` → `/settings/billing`; IA §3.7 Assist group removed (AI-01);
-   DESIGN_SYSTEM §4.6 dark `themeColor` removed (light only); PWA §3.9 measurement method on Turbopack.
+   DESIGN_SYSTEM §4.6 dark `themeColor` removed (light only); PWA §3.9 measurement method on Turbopack. Added
+   2026-11-14, from G2-D and the CliniQ AI ruling:
+   - DESIGN_SYSTEM §1 and §2.1-§2.4: Clinic Teal → the CliniQ AI palette (CliniQ Blue, Midnight, slate neutrals,
+     per-status hues, Care Teal for With doctor).
+   - DESIGN_SYSTEM §3.1: IBM Plex → Inter for body and Manrope for display, with `next/font/local`.
+   - DESIGN_SYSTEM §4.3: radii 6/10/14/20 px.
+   - DESIGN_SYSTEM §4.6: the icon is the CliniQ AI mark on a white tile.
+   - PWA_STRATEGY §3.1: `name`/`short_name` "CliniQ AI" and `background_color` `#FFFFFF`.
+   - PWA_STRATEGY D1 and D-7 examples ("Patient · CliniQ AI").
+   - Roadmap PO-19: name and icon superseded by the brand.
 6. **Proposed CLAUDE.md Commands update (PO approves, 06-P7):** add `npm run e2e:design` (design lanes, screenshots),
    `npm run perf:lhci` (Lighthouse on the local e2e server, loopback only), `npm run ci:ui-policy`,
    `node scripts/ci/route-js.mjs` (after a build); note that `/dev/ui` is the component gallery (not in production).
@@ -1272,22 +1674,23 @@ settings (no new env value is required on staging: Vercel supplies `VERCEL_DEPLO
 | T-06-11 | Info disclosure | `/dev/ui` reachable in production, or showing real data | medium | mitigate | `notFound()` in the production tier (unit-tested), default-deny session, synthetic fixtures only, no data access (06-02a) |
 | T-06-12 | Info disclosure | the repository is public: committed screenshots, Lighthouse reports or artifacts expose a session cookie or real data | high | mitigate | synthetic data only; Lighthouse `extraHeaders` removed and cookie values redacted before upload/commit, asserted by the spec; config in git-ignored temp paths; storage states never committed (06-07, 06-08) |
 | T-06-13 | Info disclosure | Lighthouse or the PWA specs send requests off the machine | medium | mitigate | `--host-resolver-rules` loopback-only; filesystem upload (never public storage); PWA fixture fails on any non-loopback request incl. SW-originated (06-05, 06-07) |
-| T-06-14 | Tampering | supply chain: `radix-ui`, `cmdk`, `sonner`, `react-day-picker`, `@lhci/cli` (+ `lighthouse`), font files | high | mitigate | exact pins, legitimacy record, `npm audit signatures`, no install scripts, older LHCI pin; font SHA-256 from the G2-D-approved commit; PO confirmations 06-P4/06-P5 |
+| T-06-14 | Tampering | supply chain: `radix-ui`, `cmdk`, `sonner`, `react-day-picker`, `@lhci/cli` (+ `lighthouse`), the Inter and Manrope font files, the brand SVG masters | high | mitigate | exact pins, legitimacy record, `npm audit signatures`, no install scripts, older LHCI pin; fonts and masters copied only from the approved commit `3a78a5d` with SHA-256 checked against the revision note (06-01b precondition, `approved-tokens`/`render-icons --check`); nothing copied from the git-excluded brand kit; PO confirmations 06-P4/06-P5 |
 | T-06-15 | Repudiation / integrity | an automatic update reload discards typed clinical input | medium | mitigate | safe-point apply only with no dirty form and no command in flight; skew notice never reloads by itself; spec 6 (06-06) |
 | T-06-16 | Elevation | the nav shows destinations a role cannot use (F-01 class) or derives role on the client | medium | mitigate | `navForRole` from the permission matrix in the server layout; unit + per-role e2e; server guards unchanged (06-04b) |
 | T-06-17 | Info disclosure | palette patient search over-fetches or persists results | medium | mitigate | server action with `patients:view`, session tenant, four-field projection; no storage of queries/results; guard-manifest entry (06-04b) |
 | T-06-18 | Spoofing | in-app-browser "Open in Chrome" link built from attacker-influenced input | low | mitigate | `intent://` built from `location.host` and `location.pathname` only, no query (06-06) |
-| T-06-19 | Info disclosure | PHI in page titles, the manifest, the offline page or error pages (app switcher, D-7) | medium | mitigate | title template "%s · ClinicQ" with static titles; static manifest and `/offline`; error UIs show no message; spec 5 title check (06-04a, 06-05) |
+| T-06-19 | Info disclosure | PHI in page titles, the manifest, the offline page or error pages (app switcher, D-7) | medium | mitigate | title template "%s · ClinicQ" (06-05), "%s · CliniQ AI" from 06-01b, with static titles; static manifest and `/offline`; error UIs show no message; spec 5 title check (06-04a, 06-05) |
 | T-06-20 | DoS | Cache Storage growth across deploys (`?dpl=` changes static URLs) | low | mitigate | 200-entry cap with eviction; old caches deleted on `activate` (06-05) |
+| T-06-21 | Tampering (evidence integrity) | an e2e run tests another lane's server on port 3100, or a DB test runs against a stack mid-reset or ahead of the branch, and records a false green or red (V2-06 runs alongside V2-05b) | medium | mitigate | lane lock + port check before every e2e run; `reuseExistingServer: false`; V2-06 never resets the stack; schema-coupled outputs recorded, not "fixed"; gate evidence taken after the final 05b merge-in (Execution protocol, R-40) |
 | T-06-SC | Tampering | npm installs and vendored binaries | high | mitigate | research legitimacy audit, exact pins, `[SUS]` `@lhci/cli` 0.16.x avoided (0.15.1), human confirmation 06-P4/06-P5 before merge |
 
 ## Risks
 
 | # | Risk | L | I | Mitigation |
 |---|---|---|---|---|
-| K-1 | G2-D slips (V2-DX not yet run) | M | M | Wave A and its reviews proceed without it; Wave B waits; 06-P1/06-P2 sized at about an hour of PO time |
+| K-1 | G2-D slips (V2-DX not yet run) | — | — | **Closed 2026-11-14:** signed off 2026-11-13; brand theme 2026-11-14; only the `3a78a5d` addendum (a record) remains |
 | K-2 | The codemod mis-maps a semantic use (blue as "info", red as "danger" vs "error text") | M | M | property-aware table, per-file report, 0.5 % neutral diff with every collapse listed; approved values only in 06-01b |
-| K-3 | `clinic-paper.css` names differ from DESIGN_SYSTEM §2.4 names | M | L | 06-01b maps values onto §2.4 names and records the mapping; stop and raise if a semantic is missing |
+| K-3 | The approved files' names differ from DESIGN_SYSTEM §2.4 (raw `mineral-*`/`primary-*`/`teal-*` instead of §2.1's; extra semantics such as `surface-soft`, `status-*-border`) | H | L | 06-01b keeps the approved raw names (internal to `globals.css`) and adds the extra semantics, recording the list; stop and raise if a semantic is missing; DESIGN_SYSTEM errata proposed at close |
 | K-4 | Research A4: Set-Cookie/Clear-Site-Data not applied to a `redirect: "manual"` fetch | L | H | spec 5 asserts the cookies are gone; if not, `hardSignOut` purges first and then submits the form POST as a navigation (documented fallback) |
 | K-5 | Research A3: SW requests bypass `context.route` in Chromium | M | L | the SW fetches same-origin only by construction; PWA fixture fails on any non-loopback request it sees |
 | K-6 | LHCI 0.15.1 cannot drive Playwright's current Chromium | M | L | fallback 0.16.0 recorded and confirmed by the PO (06-P4); report-only, never a gate |
@@ -1296,9 +1699,12 @@ settings (no new env value is required on staging: Vercel supplies `VERCEL_DEPLO
 | K-9 | The new shell moves elements M0 specs click | M | M | v1 accessible names kept (R-8); locator-only adaptations, listed; assertions never changed |
 | K-10 | V2-05 merged names differ from 05-PLAN (`my_tenant_access`, `SUBSCRIPTION_LOCKED`, locked fixtures) | L | M | use the merged code, note it in 06-SUMMARY; stop if behaviour differs |
 | K-11 | Hobby staging has no Skew Protection; long-open tablets hit removed Server Actions after a deploy | H | L | in-app skew guard and update toast (06-06), never reloading over input; production plan check at V2-15 |
-| K-12 | IBM Plex Latin subset lacks ₹ (research A2) | M | L | fallback stack renders it; recorded from the V2-DX glyph check |
+| K-12 | Inter's latin file lacks ₹ (U+20B9; it is in the latin-ext file, `fc-query` 2026-11-14), so pages with ₹ in body text load a third font file (Inter latin + latin-ext + Manrope latin) against PWA §3.9's "≤ 2 font files" | H | L | ₹ still renders in Inter (asserted in `fonts.spec.ts`); the 2-file check is asserted on `/login`; LHCI's font-count assertion is `warn` (report-only until V2-15), where the budget or a merged subset is decided |
 | K-13 | Older Android WebViews lack `dvh` | M | L | `min-h-app`/`h-app` emit the vh value first as a fallback |
-| K-14 | Parallel wave-2 plans contend for the single e2e lane | H | L | e2e runs serialised; the orchestrator may run wave 2 sequentially |
+| K-14 | Parallel plans, and V2-05b's executors, contend for the single e2e lane (port 3100) | H | L | the lane lock (Execution protocol); the orchestrator may run a wave sequentially |
+| K-15 | 05b slips, so 06-06 and the spec 1 locked-user leg wait | M | M | Wave B 06-01b…06-03b proceed (they need only 05a); 06-04b waits for 06-06; the 05b merge-in is a merge commit, never a rebase |
+| K-16 | The shared stack is ahead of the branch (05b migrations) or is reset by V2-05 during a V2-06 run | H | L | V2-06 never resets; schema-coupled specs recorded, not changed; interrupted runs repeated; gate evidence after the final 05b merge-in (T-06-21) |
+| K-17 | Merge-in conflicts with 05b (`app/(dashboard)/layout.tsx`, guard manifest and engine, public-paths spec) | H | L | keep both sides; run typecheck, Vitest and `e2e:pr` on the merge before 06-06; resolutions listed in 06-SUMMARY |
 
 ## Rulings (agent acting as CTO under PO delegation; PO confirms at the gate, 06-P7)
 
@@ -1307,10 +1713,10 @@ settings (no new env value is required on staging: Vercel supplies `VERCEL_DEPLO
 | R-1 | R5 applied literally: no primitive, clinical component, shell or approved value before the G2-D row exists; Wave A covers everything else | Research OQ1; changing R5 needs the PO |
 | R-2 | Split 06-01 → 06-01a/06-01b, 06-02 → 06-02a/b/c, 06-03 → 06-03a/b, 06-04 → 06-04a/06-04b; add 06-08 close-out and review-fix plans 06-09a/06-09b | Research OQ2; one implementer session per plan; G2-D split |
 | R-3 | Client error capture: dashboard and onboarding boundaries only, member-guarded action, `client.<Name>` + route pattern, `route_type = "render"`, no message/frames/request id, digest-bearing errors not re-sent; no migration | Research OQ3 refined: digest errors are already in the sink via `onRequestError`; the existing ingest contract accepts this shape; actions must authenticate |
-| R-4 | Fonts: `next/font/local` with the V2-DX-vendored Plex files (Sans 400/500/600 Latin; Mono only if approved); Devanagari not loaded until Hindi renders | Research OQ4; network-guarded build; PWA §3.9 two-file budget |
+| R-4 | Fonts (revised 2026-11-14): `next/font/local` with the V2-DX-vendored **Inter** (body/UI) and **Manrope** (display) variable files at `3a78a5d`, Latin + Latin Extended each; latin files preloaded, latin-ext on demand by `unicode-range`; Devanagari not loaded until Hindi renders | Research OQ4; G2-D (Inter) and the CliniQ AI brand theme (Manrope); network-guarded build; PWA §3.9 budget (K-12) |
 | R-5 | Bundle budgets: PWA §3.9 numbers kept as V2-15 targets, report-only now, route-specific JS reported next to totals | Research OQ5; Turbopack framework floor 128.8 kB |
 | R-6 | LHCI exact-pinned devDependency, nightly only, filesystem upload, host-resolver lockdown, inside the Playwright e2e run | Research OQ6; reuses the guarded server, seed and storage states |
-| R-7 | Light theme only; `themeColor #FFFFFF` | Research OQ7; DESIGN_SYSTEM §2.4, PRD |
+| R-7 | Light theme only; `themeColor #FFFFFF` (and, from 06-01b, `background_color #FFFFFF`, the approved `--pwa-background-color`) | Research OQ7; DESIGN_SYSTEM §2.4, PRD; V2-DX `002-icon` at `3a78a5d` |
 | R-8 | No URL renames and no `ui_v2` flags in V2-06; v1 URLs and accessible names inside the new shell; IA URLs arrive with each workflow phase | Research OQ8; PO-15 big bang; keeps M0 specs stable |
 | R-9 | AI colour token chosen by the PO at G2-D from V2-DX's proposal with contrast proof | Research OQ9 |
 | R-10 | AI-16 deferred to V2-09b | Research OQ10; roadmap "if time permits", backlog "V2-06 / V2-09b"; vitals flags belong to the consult rebuild |
@@ -1327,8 +1733,8 @@ settings (no new env value is required on staging: Vercel supplies `VERCEL_DEPLO
 | R-21 | `deploymentId` = `NEXT_DEPLOYMENT_ID ?? VERCEL_DEPLOYMENT_ID`; on Vercel Hobby (staging until go-live) the in-app skew guard is the only skew control | PO 2026-11-13 (Hobby); PWA §3.7 makes the in-app guard mandatory anyway |
 | R-22 | 06-01a acceptance: ≤ 0.5 % differing pixels (channel delta > 8/255) per screen at 360/820/1180/1280, every collapse listed; scope 48 hex values + `brand-*` + `text-gray-400`; raw palette classes stay (reported) until M5 | Research Pitfall 2; value-neutral proof by tool |
 | R-23 | The manifest link stays on public token pages; install UI only inside the authenticated shell | Suppressing it needs a second root layout; PWA §3.1 rates it P3 and harmless |
-| R-24 | Icons rendered from an outlined SVG master with Playwright's Chromium | No image library; deterministic, font-free |
-| R-25 | One branch stacked on 05b, one PR, draft after wave 2; Wave A reviews at the end of Wave A; merge order V2-04 → 05a → 05b → V2-06 with merge commits | PO direction (stacking); V2-05 R-1 pattern; security review independent of G2-D timing |
+| R-24 | Icons rendered from outlined SVG masters with Playwright's Chromium (revised 2026-11-14: two masters, the approved `icon.svg` and `icon-maskable.svg` copied verbatim from `3a78a5d`; Apple icon made opaque) | No image library; deterministic, font-free; the approved maskable geometry is its own file |
+| R-25 | One branch, one PR, draft after wave 2 (revised 2026-11-14): branched from the **05a tip**, the 05b tip merged in with merge commits before 06-06 and before the gate; PR base = the V2-05 branch; merge order V2-04 → 05a → 05b → V2-06 with merge commits | PO ruling 2026-11-14 (delivery speed, item 4); V2-05 R-1 pattern; security review independent of G2-D timing |
 | R-26 | `/dev/ui` is available in every tier except production and needs a session | DESIGN_SYSTEM §10 ("development and preview"); default deny |
 | R-27 | Screenshot capture in the `design-*` projects (`npm run e2e:design`, nightly after merge); gallery axe and keyboard specs in the PR lane | PR-lane time (K-8) |
 | R-28 | Update auto-apply only at the next route change with no dirty form and no registered command in flight | PWA §3.7 step 4; never reload over input |
@@ -1340,6 +1746,13 @@ settings (no new env value is required on staging: Vercel supplies `VERCEL_DEPLO
 | R-34 | `/settings/billing`, not `/settings/plan` | Research Pitfall 15; SUB-08 and the existing route |
 | R-35 | The command palette has no Assist/AI group | AI-01 removed the copilot; research Pitfall 16 |
 | R-36 | The Today install card counts browser sessions in `clinicos.pref.signedInSessions` (a number, D-3 preference) | PWA §6.1 "from the user's second signed-in session"; no identifier stored |
+| R-37 | Review depth by risk: adversarial reviews and fresh re-verification only for 06-05, 06-06, 06-04a and the palette/nav parts of 06-04b; everything else gets one independent review (plus the G3 design reviewer) and no re-check round without a High | PO ruling 2026-11-14 item 1; CLAUDE.md DoD 6 security-sensitive list |
+| R-38 | Lows fixed in 06-09a/06-09b only when cheap and local; otherwise a backlog row with an owner phase, no second review pass; Highs and Mediums unchanged | PO ruling 2026-11-14 item 3; V2-14 is the backstop |
+| R-39 | V2-06 runs alongside V2-05b: base `57824b0` (05a tip); 06-06 and the spec 1 locked-user leg wait for the 05b merge-in; Wave B 06-01b…06-03b need only 05a; 06-06 always precedes 06-04b | PO ruling 2026-11-14 item 4 |
+| R-40 | Shared lanes: one local Supabase stack (V2-06 never resets or stops it), one e2e server on 3100 guarded by the `e2e-lane.lock` directory and a port check before every e2e run | Two phases execute at once on one machine; `reuseExistingServer: false` would otherwise fail or test the wrong server |
+| R-41 | "CliniQ AI" (exact case, `PRODUCT_NAME`) replaces "ClinicQ" only on the surfaces V2-06 creates (manifest, titles, `/offline`, install sheet/card, shell); other product-name strings are out of scope (Open for the PO) | PO ruling 2026-11-14 (fixed brand name, masked by the L1 checker); scope unchanged |
+| R-42 | Icons, favicon and theme colour follow the approved V2-DX `002-icon` page (white-tile icon also as the SVG favicon; `theme_color` and `background_color` `#FFFFFF`), not the brand kit's sample web snippets (`#246BCE` theme colour, mark-small favicon) | G2-D evidence is the approved state; the kit is reference only; both alternatives are one-file changes (Open for the PO) |
+| R-43 | One `next/font/local` call per subset file with a fixed `font-family` and the approved `unicode-range` | `next/font/local` applies `declarations` to every face of one call (Next 16.4.6 source); keeps the approved per-subset loading |
 
 ## Deviations from the research and the roadmap
 
@@ -1356,8 +1769,47 @@ client-side mapping (T-06-17).
 **PO 2026-11-13:** Hobby staging → in-app skew guard only (R-21); public repository → Lighthouse cookie scrub and the
 "no session material in artifacts" invariant (T-06-12).
 
+**Revision 2026-11-14:**
+- The G2-D input is the CliniQ AI brand theme at `3a78a5d` (two token files, Inter + Manrope, the brand icon masters),
+  not `clinic-paper.css` alone with IBM Plex.
+- `background_color` is `#FFFFFF`, not `#F6F5F1` (R-7).
+- The manifest name becomes "CliniQ AI" in 06-01b (R-41).
+- Two icon masters (R-24). One font call per subset (R-43).
+- The branch comes from the 05a tip, with 05b merged in later (R-25, R-39).
+- Review depth by risk and Lows to the backlog (R-37, R-38).
+- Shared lanes with a lock (R-40).
+
 ## Open for the PO (not blocking)
-1. 06-P1 → 06-P2 (G2-D) as soon as V2-DX's evidence is posted; Wave A does not wait for it.
-2. 06-P4 after wave 2 and 06-P5 after wave 7 (merge blockers only).
-3. At the gate: 06-P6 (screenshot set) and 06-P7 (rulings, deviations, CLAUDE.md Commands update).
+1. **Approved state for the record.** The G2-D row still names `e95b8b5` (direction A). Before 06-01b, Claude appends
+   an addendum naming `3a78a5d` (PR #7 head: the brand theme plus the With-doctor border `#11998D`) and its SHA-256
+   list. Object if a different V2-DX commit is the approved one.
+2. **Theme colour.** V2-06 uses the approved V2-DX value `#FFFFFF`: the status bar merges with the white top bar. The
+   brand kit's sample `site.webmanifest`/`HEAD-SNIPPET.html` use CliniQ Blue `#246BCE`, which the V2-DX icon page
+   listed as the alternative. Switching is one token (`--pwa-theme-color`) (R-42).
+3. **Favicon.** `app/icon.svg` is the approved white-tile icon, which the V2-DX icon page also shows at 16 px. The
+   brand kit's rule is "mark-small below 32 px" (`03-favicon/favicon.svg`: transparent, with Midnight strokes that are
+   weaker on dark browser tabs). Say if you want the kit favicon; it is one vendored file with its provenance (R-42).
+4. **Product name outside V2-06's surfaces (R-41).** These strings still say "ClinicOS"/"ClinicQ" and need owner
+   phases:
+   - auth email templates and Mailpit (`lib/email/**`);
+   - WhatsApp templates (`lib/messaging/templates/**`): registered with MSG91/Meta, so a rename needs template
+     re-approval;
+   - the prescription and referral PDFs;
+   - the OpenAPI title and the `/api/v1/docs` page;
+   - the webhook headers `X-ClinicQ-Signature` and `User-Agent: ClinicQ-Webhook/1.0`: a client-visible contract, so
+     a rename breaks integrators;
+   - the developer settings page;
+   - the v1 login showcase panel and form parts (`components/auth/*`); the v1 sidebar's "ClinicOS" goes away with
+     06-04b's shell;
+   - the token page footer ("CliniQ").
+
+   Suggested owners: auth emails and login V2-11; WhatsApp, API and webhooks V2-12; PDFs V2-09c/V2-10.
+5. **Inter licence text.** The vendored `Inter-OFL.txt` (from `@fontsource-variable/inter` 5.2.5) starts with "Google
+   Inc." and has no "Inter Project Authors" copyright line. V2-06 keeps it verbatim and records this in
+   `app/fonts/PROVENANCE.md`. The alternative is to have rsms/inter's own `OFL.txt` fetched once, a network fetch that
+   implementer sessions may not do, before the merge.
+6. **Doc errata from G2-D** (DESIGN_SYSTEM palette, fonts, radii and icon; PWA_STRATEGY name and background; PO-19)
+   are proposed at phase close for your approval, not applied (Phase close step 5).
+7. 06-P4 after wave 2 and 06-P5 after wave 7 (merge blockers only; 06-P5 now covers Inter, Manrope and the icon masters).
+8. At the gate: 06-P6 (screenshot set) and 06-P7 (rulings incl. R-37…R-43, deviations, CLAUDE.md Commands update).
 
