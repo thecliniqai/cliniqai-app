@@ -1,0 +1,28 @@
+{
+  "screen": "owner-1280",
+  "baseline_rules": [
+    "button-name",
+    "color-contrast",
+    "select-name",
+    "target-size"
+  ],
+  "serious_or_critical_page": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "nodes": 22
+    }
+  ],
+  "serious_or_critical_dialog": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "nodes": 3,
+      "targets": [
+        ".border-blue-100.p-2.shadow-2xs:nth-child(1) > .block.uppercase.text-\\[10px\\]",
+        ".border-blue-100.p-2.shadow-2xs:nth-child(2) > .block.uppercase.text-\\[10px\\]",
+        ".border-blue-100.p-2.shadow-2xs:nth-child(3) > .block.uppercase.text-\\[10px\\]"
+      ]
+    }
+  ]
+}
