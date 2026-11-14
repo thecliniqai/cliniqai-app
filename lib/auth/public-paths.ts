@@ -20,6 +20,11 @@ export const PUBLIC_PAGE_PREFIXES = [
   "/reschedule",
   // Auth route handlers outside /api (`POST /auth/signout` must work with an expired or missing session).
   "/auth",
+  // PWA public assets (PWA_STRATEGY §3.1 rule; V2-06 06-05): static and PHI-free. Browsers fetch the manifest without
+  // credentials, and the service worker precaches `/offline` and the manifest with `credentials: "omit"`; a redirect
+  // here would make install fail (or cache a login page). The icons are single-segment image files, which the proxy
+  // matcher already skips.
+  "/manifest.webmanifest",
 ] as const;
 
 /**
