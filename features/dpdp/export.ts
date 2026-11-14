@@ -1,11 +1,12 @@
 import "server-only";
 
-import { assertPerm } from "@/lib/permissions";
+import { assertPerm, PermissionDeniedError } from "@/lib/permissions";
 import type { ServiceContext } from "@/lib/auth/context";
 import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
+import { exportColumns, toExportDtos } from "./export-dto";
 
 export interface DpdpArchiveMetadata {
   standard: "DPDP_ACT_2023_RIGHT_TO_ACCESS";
@@ -45,15 +46,48 @@ export interface ExportPatientDpdpArchiveOptions {
  * Strictly scoped to the acting tenant (`ctx.tenantId`, ADR-0005 D1) and `patientId`; runs on `ctx.db`, so a staff
  * session reads under RLS and only the `/api/v1` register path reads with its own client.
  *
- * Permission (ruling 01-09): a staff session needs `exports:create` (owner only today; a full-record export by any role
- * is an exfiltration path; V2-05 P1-01 may widen it to admin). The `/api/v1` API-key principal (actorType
- * "api_key", role "admin" by D-02) keeps `patients:view`, its behaviour before the ruling; that route is off by
- * default (PO-16) and its scope is revisited in P1-37.
+ * Permission (ruling 01-09, V2-05 05-06 P1-11): `exports:create` on both paths. A staff session needs the
+ * `exports:create` permission (owner only today). The `/api/v1` API-key principal (actorType "api_key", role "admin"
+ * by D-02) keeps the `patients:view` role check AND needs the `exports:create` scope on its key
+ * (`api_keys.scopes`, migration 000062; checked here, so every caller of the service is covered); a key without it
+ * gets `ExportScopeMissingError` (a `PermissionDeniedError`, 403). That route stays off in production (PO-16).
+ *
+ * The payload is built only through `export-dto.ts` (explicit allow-list per entity, used for the selected columns
+ * and for the copy into the bundle): no storage paths, token hashes, staff ids or internal columns.
  */
 export const DPDP_EXPORT_PERMISSION = "exports:create" as const;
 
+/** The API-key scope the `/api/v1` export requires (`api_keys.scopes`). */
+export const DPDP_EXPORT_SCOPE = "exports:create" as const;
+
+/** An API key without {@link DPDP_EXPORT_SCOPE}: a permission denial (403 on the route). */
+export class ExportScopeMissingError extends PermissionDeniedError {
+  readonly reason = "EXPORT_SCOPE_MISSING";
+  constructor() {
+    super("This API key does not have the exports:create scope.");
+    this.name = "ExportScopeMissingError";
+  }
+}
+
 export function dpdpExportPermission(ctx: Pick<ServiceContext, "actorType">): "exports:create" | "patients:view" {
   return ctx.actorType === "api_key" ? "patients:view" : DPDP_EXPORT_PERMISSION;
+}
+
+/** An API-key principal must hold the export scope on its (unrevoked, same-clinic) key; other principals pass. */
+async function assertExportScope(ctx: ServiceContext): Promise<void> {
+  if (ctx.actorType !== "api_key") return;
+  if (!ctx.apiKeyId) throw new ExportScopeMissingError();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: key, error } = await (ctx.db.from("api_keys") as any)
+    .select("scopes")
+    .eq("id", ctx.apiKeyId)
+    .eq("tenant_id", ctx.tenantId)
+    .is("revoked_at", null)
+    .maybeSingle();
+  const scopes: unknown = key?.scopes;
+  if (error || !Array.isArray(scopes) || !scopes.includes(DPDP_EXPORT_SCOPE)) {
+    throw new ExportScopeMissingError();
+  }
 }
 
 export async function exportPatientDpdpArchive(
@@ -62,13 +96,14 @@ export async function exportPatientDpdpArchive(
   options?: ExportPatientDpdpArchiveOptions
 ): Promise<DpdpExportBundle> {
   assertPerm(ctx.role, dpdpExportPermission(ctx));
+  await assertExportScope(ctx);
   const supabase = ctx.db;
   const tenantId = ctx.tenantId;
 
-  // 1. Fetch Patient demographics (must belong to tenantId)
+  // 1. Patient demographics (must belong to tenantId)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: patient, error: patientError } = await (supabase.from("patients") as any)
-    .select("*")
+    .select(exportColumns("patient"))
     .eq("id", patientId)
     .eq("tenant_id", tenantId)
     .single();
@@ -77,66 +112,64 @@ export async function exportPatientDpdpArchive(
     throw new Error("Patient not found or unauthorized.", { cause: patientError });
   }
 
-  // 2. Fetch Tenant / Clinic info
+  // 2. Clinic name and statutory registrations (export metadata only)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: tenant } = await (supabase.from("tenants") as any)
-    .select("*")
+    .select("name, clinical_establishment_reg_no, state_medical_council_reg_no, gstin, drug_license_no")
     .eq("id", tenantId)
     .single();
 
-  // 3. Fetch Encounters (visits) with vitals and clinical notes
+  // 3. Encounters (visits) with their clinical_notes content (V2-05 05-02a), flattened under the same field names
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: encounterRows } = await (supabase.from("visits") as any)
-    .select(`*, ${clinicalNotesEmbed()}`)
+    .select(`${exportColumns("encounter")}, ${clinicalNotesEmbed()}`)
     .eq("patient_id", patientId)
     .eq("tenant_id", tenantId)
     .order("scheduled_at", { ascending: false });
-  // Vitals and clinical notes come from clinical_notes (V2-05 05-02a), under the same field names as before.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const encounters: any[] | null = encounterRows ? encounterRows.map(withClinicalNotes) : null;
 
-  // 4. Fetch Prescriptions with nested prescription_items
+  // 4. Prescriptions with their items
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: prescriptions } = await (supabase.from("prescriptions") as any)
-    .select("*, prescription_items(*)")
+    .select(`${exportColumns("prescription")}, prescription_items(${exportColumns("prescriptionItem")})`)
     .eq("patient_id", patientId)
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
-  // 5. Fetch Lab Reports & Diagnostic Documents
+  // 5. Lab reports and diagnostic documents (metadata only)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: documents } = await (supabase.from("patient_documents") as any)
-    .select("*")
+    .select(exportColumns("document"))
     .eq("patient_id", patientId)
     .eq("tenant_id", tenantId)
     .order("report_date", { ascending: false });
 
-  // 6. Fetch Billing: Invoices and Payments (per OpenCode review requirement)
+  // 6. Billing: invoices with items, and their payments
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: invoices } = await (supabase.from("invoices") as any)
-    .select("*, invoice_items(*)")
+    .select(`${exportColumns("invoice")}, invoice_items(${exportColumns("invoiceItem")})`)
     .eq("patient_id", patientId)
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const invoiceIds = (invoices || []).map((inv: any) => inv.id);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let payments: any[] = [];
+  let payments: unknown[] = [];
   if (invoiceIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: paymentsData } = await (supabase.from("payments") as any)
-      .select("*")
+      .select(exportColumns("payment"))
       .eq("tenant_id", tenantId)
       .in("invoice_id", invoiceIds)
       .order("recorded_at", { ascending: false });
     payments = paymentsData || [];
   }
 
-  // 7. Fetch Immutable Consent Records
+  // 7. Consent records
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: consentRecords } = await (supabase.from("consent_records") as any)
-    .select("*")
+    .select(exportColumns("consentRecord"))
     .eq("patient_id", patientId)
     .eq("tenant_id", tenantId)
     .order("recorded_at", { ascending: false });
@@ -157,15 +190,15 @@ export async function exportPatientDpdpArchive(
 
   const bundle: DpdpExportBundle = {
     export_metadata: exportMetadata,
-    patient,
-    encounters: encounters || [],
-    prescriptions: prescriptions || [],
-    documents: documents || [],
-    billing: {
+    ...toExportDtos({
+      patient,
+      encounters: encounters || [],
+      prescriptions: prescriptions || [],
+      documents: documents || [],
       invoices: invoices || [],
-      payments: payments || [],
-    },
-    consent_records: consentRecords || [],
+      payments,
+      consentRecords: consentRecords || [],
+    }),
   };
 
   // 8. Log compliance audit event

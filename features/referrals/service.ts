@@ -18,6 +18,13 @@ import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clinicalNotesEmbed, withClinicalNotes } from "@/lib/db/clinical-notes";
+import { mapDbError } from "@/lib/db/errors";
+
+/** Fixed texts for the referral directory/consent trigger's reasons (migration 000062). */
+const REFERRAL_INSERT_MESSAGES = {
+  REFERRAL_TARGET_NOT_LISTED: "That clinic is not in the referral directory. Check the clinic ID with the partner clinic.",
+  REFERRAL_CONSENT_REQUIRED: "Clinical history can only be shared with the patient's consent.",
+} as const;
 
 /**
  * Creates a clinical referral (either out-of-network specialist or in-network partner clinic).
@@ -137,25 +144,6 @@ export async function createReferral(
         consented_by_patient: true,
         encounters: encounterList,
       };
-
-      // Record DPDP consent in consent_records
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("consent_records") as any).insert({
-        tenant_id: session.tenantId,
-        patient_id: input.patient_id,
-        consent_type: "referral_history_sharing",
-        status: "granted",
-        recorded_by: session.userId,
-        note: `DPDP consent granted for referral to clinic ${input.target_tenant_id}`,
-      });
-
-      await recordAudit(ctx, {
-        action: "patient.consent.granted",
-        entityType: "consent",
-        metadata: {
-          consent_type: "referral_history_sharing",
-        },
-      });
     }
 
     // 5. Insert referral record
@@ -188,8 +176,36 @@ export async function createReferral(
       .single();
 
     if (insertErr || !referral) {
+      // The directory/consent trigger (V2-05 05-06, migration 000062) refuses a target clinic that is not listed in
+      // the referral directory (or is this clinic) and a history snapshot without the patient's consent.
+      const mapped = mapDbError(insertErr, REFERRAL_INSERT_MESSAGES);
+      if (mapped.reason === "REFERRAL_TARGET_NOT_LISTED" || mapped.reason === "REFERRAL_CONSENT_REQUIRED") {
+        return { success: false, error: mapped.message };
+      }
       log.error({ event: "referrals.create_insert.failed", code: errorTag(insertErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to create referral." };
+    }
+
+    // 5b. Record the DPDP consent only once the referral exists (before 05-06 it was written first, so a refused
+    // referral left a consent record behind).
+    if (consentedSnapshot) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase.from("consent_records") as any).insert({
+        tenant_id: session.tenantId,
+        patient_id: input.patient_id,
+        consent_type: "referral_history_sharing",
+        status: "granted",
+        recorded_by: session.userId,
+        note: `DPDP consent granted for referral to clinic ${input.target_tenant_id}`,
+      });
+
+      await recordAudit(ctx, {
+        action: "patient.consent.granted",
+        entityType: "consent",
+        metadata: {
+          consent_type: "referral_history_sharing",
+        },
+      });
     }
 
     // 6. Generate and archive branded PDF referral letter

@@ -6,6 +6,7 @@ import { checkRateLimit, getRateLimitHeaders } from "@/lib/api/rate-limiter";
 import { requireServiceContext, type ServiceContext } from "@/lib/auth/context";
 import { getSystemDb } from "@/lib/supabase/system";
 import { DPDP_EXPORT_PERMISSION, exportPatientDpdpArchive } from "@/features/dpdp/export";
+import { PermissionDeniedError } from "@/lib/permissions";
 import { generateDpdpMedicalSummaryPdf } from "@/features/dpdp/pdf/generator";
 import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
@@ -21,8 +22,11 @@ interface RouteContext {
  * - format=json: Structured machine-readable JSON archive including billing records
  * - format=pdf: Publication-grade clinical Medical Summary PDF
  * Supports either API key Bearer auth (register path, ADR-0005; the key principal keeps patients:view, see
- * `dpdpExportPermission`) or an authenticated staff cookie session with exports:create (ruling 01-09). A staff session reads with its own user-JWT client (RLS applies); only the API key path uses the
- * service-role client, and in both cases the tenant and actor come from the verified credential.
+ * `dpdpExportPermission`, and since V2-05 05-06 the key needs the `exports:create` scope: without it → 403) or an
+ * authenticated staff cookie session with exports:create (ruling 01-09). A staff session reads with its own user-JWT
+ * client (RLS applies); only the API key path uses the service-role client, and in both cases the tenant and actor
+ * come from the verified credential. The payload is the allow-listed DTO bundle (`features/dpdp/export-dto.ts`).
+ * Error bodies are fixed texts: nothing from the database reaches the caller.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
   // Off with the `/api/v1` switch on both auth paths (AR2-H2: checked here as well as in the middleware).
@@ -116,10 +120,14 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
       },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    if (message.includes("not found") || message.includes("unauthorized")) {
+    if (err instanceof PermissionDeniedError) {
+      return apiError("FORBIDDEN", "This credential may not export patient records.", 403, undefined, rateHeaders);
+    }
+    const message = err instanceof Error ? err.message : "";
+    if (message.startsWith("Patient not found")) {
       return apiError("NOT_FOUND", "Patient not found or unauthorized.", 404, undefined, rateHeaders);
     }
-    return apiError("DATABASE_ERROR", message, 500, undefined, rateHeaders);
+    log.error({ event: "api.patient_export.failed", code: errorTag(err), requestId: await getRequestId() });
+    return apiError("DATABASE_ERROR", "Export failed. Please try again.", 500, undefined, rateHeaders);
   }
 }

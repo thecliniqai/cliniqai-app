@@ -209,7 +209,8 @@ export function generateOpenApiSpec(): OpenApiSpec {
         get: {
           tags: ["Patients"],
           summary: "Export patient data (DPDP Right to Access)",
-          description: "Generates either a complete machine-readable JSON archive or a clinic-branded consolidated Medical Summary PDF.",
+          description:
+            "Generates either an allow-listed machine-readable JSON archive or a clinic-branded consolidated Medical Summary PDF. The API key needs the exports:create scope.",
           responses: {
             "200": {
               description: "Export archive (application/json or application/pdf)",
@@ -218,6 +219,7 @@ export function generateOpenApiSpec(): OpenApiSpec {
                 "application/pdf": { schema: { type: "string", format: "binary" } },
               },
             },
+            "403": { description: "The API key does not have the exports:create scope" },
             "404": { $ref: "#/components/responses/NotFound" },
           },
         },

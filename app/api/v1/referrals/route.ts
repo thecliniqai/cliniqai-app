@@ -7,6 +7,7 @@ import { validateDoctorAssignment } from "@/lib/api/doctor-guard";
 import { recordAudit } from "@/lib/audit/audit";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { mapDbError } from "@/lib/db/errors";
 
 /**
  * GET /api/v1/referrals
@@ -233,7 +234,17 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertErr || !newReferral) {
-      return apiError("DATABASE_ERROR", insertErr?.message || "Failed to create referral.", 500, undefined, rateHeaders);
+      // V2-05 05-06 (migration 000062): the directory/consent trigger refuses a target clinic that is not listed in the
+      // referral directory (or is this clinic) and a history snapshot without consent. Fixed texts only.
+      const reason = mapDbError(insertErr).reason;
+      if (reason === "REFERRAL_TARGET_NOT_LISTED") {
+        return apiError("VALIDATION_ERROR", "Field 'target_tenant_id' must name a clinic listed in the referral directory.", 422, undefined, rateHeaders);
+      }
+      if (reason === "REFERRAL_CONSENT_REQUIRED") {
+        return apiError("CONSENT_REQUIRED", "A consented history snapshot requires 'patient_consents_history_sharing'.", 422, undefined, rateHeaders);
+      }
+      log.error({ event: "api.referrals_insert.failed", code: errorTag(insertErr), requestId: await getRequestId() });
+      return apiError("DATABASE_ERROR", "Failed to create referral.", 500, undefined, rateHeaders);
     }
 
     // 5. Record audit log (D-08)
