@@ -67,7 +67,14 @@ export interface DeviceState {
   indexedDbNames: string[];
 }
 
-/** Reads Cache Storage, local/session storage and IndexedDB as the page's origin sees them. */
+/**
+ * Reads Cache Storage, local/session storage and IndexedDB as the page's origin sees them.
+ *
+ * Read it on a SETTLED device, never while a purge may still be deleting caches: `caches.open()` is open-or-create, so a
+ * cache that `caches.keys()` listed and a purge deleted a moment later comes back, empty, under the same name (flake
+ * l6-webkit-cache-internal-error: IND L-6 saw its `rogue-cache` "survive" that way on Linux WebKit). Wait for the purge
+ * with {@link storageKeys} (no Cache Storage access), then read this once.
+ */
 export async function deviceState(page: Page): Promise<DeviceState> {
   return page.evaluate(async () => {
     const cacheNames = await caches.keys();
@@ -88,6 +95,18 @@ export async function deviceState(page: Page): Promise<DeviceState> {
       sessionKeys: keys(sessionStorage),
       indexedDbNames: dbs.map((d) => d.name ?? ""),
     };
+  });
+}
+
+/**
+ * `localStorage` and `sessionStorage` keys only: no Cache Storage access, so it can poll while a purge runs. The purge
+ * (lib/pwa/purge.ts) empties Cache Storage first, then sessionStorage, then localStorage: once the keys show the purge,
+ * its Cache Storage step has finished (or failed, which {@link deviceState} afterwards reveals).
+ */
+export async function storageKeys(page: Page): Promise<{ localKeys: string[]; sessionKeys: string[] }> {
+  return page.evaluate(() => {
+    const keys = (s: Storage) => Array.from({ length: s.length }, (_, i) => s.key(i) ?? "");
+    return { localKeys: keys(localStorage), sessionKeys: keys(sessionStorage) };
   });
 }
 

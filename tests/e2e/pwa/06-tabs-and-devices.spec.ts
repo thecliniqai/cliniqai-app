@@ -17,6 +17,7 @@ import {
   authCookies,
   deviceState,
   expect,
+  storageKeys,
   test,
   waitForServiceWorker,
 } from "./fixtures";
@@ -67,8 +68,9 @@ test("M-TABS: signing out in one tab sends the other tab to /login within 2 s, p
   );
   await page.waitForURL((url) => url.pathname === "/login");
   expect(await authCookies(context)).toEqual([]);
-  // The tab that heard the signal purged too (sessionStorage is per tab).
-  expect((await deviceState(tab2)).sessionKeys).toEqual([]);
+  // The tab that heard the signal purged too (sessionStorage is per tab). Storage keys only: the /login purges may still
+  // be running, and deviceState must not touch Cache Storage then (see storageKeys).
+  expect((await storageKeys(tab2)).sessionKeys).toEqual([]);
 });
 
 // These two cases intercept the app's own calls with page.route; on WebKit a worker-controlled page sends them past the
@@ -149,13 +151,18 @@ test("IND L-6: a session ended without hardSignOut purges the device on arrival 
   await context.clearCookies();
   await page.goto("/patients");
   await expect(page).toHaveURL((url) => url.pathname === "/login");
+  // Wait for the purges (this tab's on arrival, the other tab's before it leaves) WITHOUT touching Cache Storage: a read
+  // racing them re-created, empty, the `rogue-cache` a purge had just deleted (deviceState's caches.open), and CI's read
+  // in that window failed with WebKit's "TypeError: Internal error". The purge empties Cache Storage before storage.
   await expect
-    .poll(async () => (await deviceState(page)).localKeys)
+    .poll(async () => (await storageKeys(page)).localKeys)
     .toEqual(["clinicos.pref.density"]);
-  expect((await deviceState(page)).cacheNames).not.toContain("rogue-cache");
   await expect(tab2).toHaveURL((url) => url.pathname === "/login", {
     timeout: 2_000,
   });
+  const purged = await deviceState(page);
+  expect(purged.cacheNames).not.toContain("rogue-cache");
+  expect(purged.cacheUrls.filter((u) => u.endsWith(":/api/patients"))).toEqual([]);
   await expect(tab2.getByText(readRunData().tenantA.patientName)).toHaveCount(
     0
   );
