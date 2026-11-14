@@ -8,14 +8,16 @@
 --   4. `referral_directory_search`: consultations:edit in the active clinic; listed clinics only, never the caller's
 --      own; `id` and `name` only; at most 20 rows; short queries return nothing; LIKE wildcards are literal;
 --   5. `tenants.referral_directory_listed` (default false) is set through the clinic:manage UPDATE policy;
---   6. `api_keys.scopes` is a closed set (exports:create), default empty.
+--   6. `api_keys.scopes` is a closed set (exports:create), default empty; adding a scope needs its permission in the
+--      key's active clinic (000067 `api_keys_scope_guard`: an admin cannot give a key exports:create, ruling 01-09).
 -- Every probe runs in a subtransaction that is always rolled back; the file rolls back. Synthetic data only.
 begin;
-select plan(40);
+select plan(48);
 
 -- Fixtures (synthetic, inlined) --------------------------------------------------------------------------------------
 insert into auth.users (id, email) values
   ('e0600000-0000-4000-8000-000000000101', 'rr-owner-a@example.test'),
+  ('e0600000-0000-4000-8000-000000000102', 'rr-admin-a@example.test'),
   ('e0600000-0000-4000-8000-000000000103', 'rr-doctor-a@example.test'),
   ('e0600000-0000-4000-8000-000000000105', 'rr-nurse-a@example.test'),
   ('e0600000-0000-4000-8000-000000000106', 'rr-receptionist-a@example.test'),
@@ -33,6 +35,7 @@ select ('e0600000-0000-4000-8000-0000000100' || lpad(g::text, 2, '0'))::uuid, 'S
 from generate_series(1, 25) g;
 insert into public.memberships (user_id, tenant_id, role) values
   ('e0600000-0000-4000-8000-000000000101', 'e0600000-0000-4000-8000-00000000000a', 'owner'),
+  ('e0600000-0000-4000-8000-000000000102', 'e0600000-0000-4000-8000-00000000000a', 'admin'),
   ('e0600000-0000-4000-8000-000000000103', 'e0600000-0000-4000-8000-00000000000a', 'doctor'),
   ('e0600000-0000-4000-8000-000000000105', 'e0600000-0000-4000-8000-00000000000a', 'nurse'),
   ('e0600000-0000-4000-8000-000000000106', 'e0600000-0000-4000-8000-00000000000a', 'receptionist'),
@@ -51,6 +54,13 @@ insert into public.referrals (id, tenant_id, patient_id, referral_type, referrin
   ('e0600000-0000-4000-8000-000000001003', 'e0600000-0000-4000-8000-00000000000a', 'e0600000-0000-4000-8000-000000001001',
    'in_network', 'e0600000-0000-4000-8000-000000000103', 'Synthetic Clinic B', 'Synthetic reason',
    'e0600000-0000-4000-8000-00000000000b', true, '{"encounters": []}'::jsonb);
+
+-- Two API keys of A: one with the export scope, one without.
+insert into public.api_keys (id, tenant_id, name, key_prefix, key_hash, created_by, scopes) values
+  ('e0600000-0000-4000-8000-000000003001', 'e0600000-0000-4000-8000-00000000000a', 'Synthetic scoped key',
+   'rr-prefix-05', repeat('e', 64), 'e0600000-0000-4000-8000-000000000101', array['exports:create']),
+  ('e0600000-0000-4000-8000-000000003002', 'e0600000-0000-4000-8000-00000000000a', 'Synthetic unscoped key',
+   'rr-prefix-06', repeat('f', 64), 'e0600000-0000-4000-8000-000000000101', '{}');
 
 -- Helpers ----------------------------------------------------------------------------------------------------------
 -- As postgres: p_sql in a subtransaction that is ALWAYS rolled back; 'ok' or '<sqlstate>:<message>'.
@@ -233,10 +243,40 @@ select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000201', null,
 -- 7. API key scopes ------------------------------------------------------------------------------------------------
 select col_default_is('public', 'api_keys', 'scopes', '{}'::text[], 'an API key has no scope by default');
 select is(pg_temp.try($$insert into public.api_keys (tenant_id, name, key_prefix, key_hash, created_by, scopes) values
-  ('e0600000-0000-4000-8000-00000000000a', 'Synthetic key', 'clq_live_synth01', repeat('a', 64),
+  ('e0600000-0000-4000-8000-00000000000a', 'Synthetic key', 'rr-prefix-01', repeat('a', 64),
    'e0600000-0000-4000-8000-000000000101', array['admin'])$$),
   '23514:new row for relation "api_keys" violates check constraint "api_keys_scopes_known"',
   'an unknown scope is refused (closed set)');
+-- Granting a scope needs its permission in the key's (active) clinic: exports:create is the owner's (ruling 01-09).
+select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000101', null,
+  $$insert into public.api_keys (tenant_id, name, key_prefix, key_hash, created_by, scopes) values
+    ('e0600000-0000-4000-8000-00000000000a', 'Synthetic owner key', 'rr-prefix-02', repeat('b', 64),
+     'e0600000-0000-4000-8000-000000000101', array['exports:create'])$$),
+  '1', 'the owner (exports:create) creates a scoped key');
+select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000102', null,
+  $$insert into public.api_keys (tenant_id, name, key_prefix, key_hash, created_by, scopes) values
+    ('e0600000-0000-4000-8000-00000000000a', 'Synthetic admin key', 'rr-prefix-03', repeat('c', 64),
+     'e0600000-0000-4000-8000-000000000102', array['exports:create'])$$),
+  'denied:API_KEY_SCOPE_FORBIDDEN', 'an admin (clinic:manage, no exports:create) cannot create a scoped key');
+select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000102', null,
+  $$insert into public.api_keys (tenant_id, name, key_prefix, key_hash, created_by) values
+    ('e0600000-0000-4000-8000-00000000000a', 'Synthetic admin key', 'rr-prefix-04', repeat('d', 64),
+     'e0600000-0000-4000-8000-000000000102')$$),
+  '1', 'an admin still creates an unscoped key');
+select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000102', null,
+  $$update public.api_keys set scopes = array['exports:create'] where id = 'e0600000-0000-4000-8000-000000003002'$$),
+  'denied:API_KEY_SCOPE_FORBIDDEN', 'an admin cannot add the scope to a key');
+select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000102', null,
+  $$update public.api_keys set scopes = '{}' where id = 'e0600000-0000-4000-8000-000000003001'$$),
+  '1', 'an admin may remove the scope');
+select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000102', null,
+  $$update public.api_keys set name = 'Renamed', scopes = scopes where id = 'e0600000-0000-4000-8000-000000003001'$$),
+  '1', 'an admin may edit a scoped key without adding a scope');
+select is(pg_temp.as_user('e0600000-0000-4000-8000-000000000101', null,
+  $$update public.api_keys set scopes = array['exports:create'] where id = 'e0600000-0000-4000-8000-000000003002'$$),
+  '1', 'the owner adds the scope');
+select is(pg_temp.try($$update public.api_keys set scopes = array['exports:create'] where id = 'e0600000-0000-4000-8000-000000003002'$$),
+  'ok', 'a system writer (no JWT user: the runbook path) is not limited');
 
 select * from finish();
 rollback;
