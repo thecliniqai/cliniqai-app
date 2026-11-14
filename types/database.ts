@@ -2282,6 +2282,13 @@ export type Database = {
             referencedRelation: "patients";
             referencedColumns: ["tenant_id", "id"];
           },
+          {
+            foreignKeyName: "visits_tenant_signed_by_fkey";
+            columns: ["signed_by", "tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "memberships";
+            referencedColumns: ["user_id", "tenant_id"];
+          },
         ];
       };
       waitlist_entries: {
@@ -2739,6 +2746,15 @@ export type Database = {
         Args: { p_schedule: Json };
         Returns: boolean;
       };
+      issue_queue_token: {
+        Args: { p_priority?: string; p_visit_id: string };
+        Returns: {
+          queue_token_id: string;
+          reused: boolean;
+          token_date: string;
+          token_number: number;
+        }[];
+      };
       jobs_runner_begin: {
         Args: { p_source: string; p_worker: string };
         Returns: number;
@@ -2764,13 +2780,6 @@ export type Database = {
           p_tenant: string;
         };
         Returns: number;
-      };
-      next_queue_token: {
-        Args: { p_visit_id: string };
-        Returns: {
-          token_date: string;
-          token_number: number;
-        }[];
       };
       normalize_indian_phone_e164: {
         Args: { raw_phone: string };

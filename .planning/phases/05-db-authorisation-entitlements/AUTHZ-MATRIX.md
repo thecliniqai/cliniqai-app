@@ -74,18 +74,18 @@ Principals:
 | `public.prescription_items` | D | perm(prescriptions:edit) | Y | - | Y | Y | - | - | - | X | Y | - | - |
 | `public.invoices` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit) | Y | Y | Y | - | - | Y | - | X | - | - | - |
 | `public.invoices` | I | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit) | Y | Y | Y | X | X | Y | X | X | X | X | X |
-| `public.invoices` | U | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit) | Y | Y | Y | - | - | Y | - | X | - | - | - |
+| `public.invoices` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invoices` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.invoice_items` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | - | - | Y | - | X | - | - | - |
 | `public.invoice_items` | I | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | X | X | Y | X | X | X | X | X |
 | `public.invoice_items` | U | (perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | - | - | Y | - | X | - | - | - |
 | `public.invoice_items` | D | perm(billing:collect) | Y | Y | - | - | - | Y | - | X | - | - | - |
 | `public.payments` | S | (perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice)) | Y | Y | Y | - | - | Y | - | X | - | - | - |
-| `public.payments` | I | perm(billing:collect) | Y | Y | X | X | X | Y | X | X | X | X | X |
+| `public.payments` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.payments` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.payments` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_tokens` | S | perm(appointments:view) | Y | Y | Y | Y | Y | Y | - | X | Y | - | - |
-| `public.queue_tokens` | I | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | X | X | Y | X | X |
+| `public.queue_tokens` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_tokens` | U | perm(appointments:edit) | Y | Y | Y | Y | Y | Y | - | X | Y | - | - |
 | `public.queue_tokens` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.queue_token_counters` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
@@ -151,7 +151,7 @@ Principals:
 | `public.api_keys` | S | perm(clinic:manage) | Y | Y | - | - | - | - | - | X | - | - | - |
 | `public.api_keys` | I | perm(clinic:manage) | Y | Y | X | X | X | X | X | X | X | X | X |
 | `public.api_keys` | U | perm(clinic:manage) | Y | Y | - | - | - | - | - | X | - | - | - |
-| `public.api_keys` | D | perm(clinic:manage) | Y | Y | - | - | - | - | - | X | - | - | - |
+| `public.api_keys` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.api_key_usage_daily` | S | perm(clinic:manage) | Y | Y | - | - | - | - | - | X | - | - | - |
 | `public.api_key_usage_daily` | I | perm(clinic:manage) | Y | Y | X | X | X | X | X | X | X | X | X |
 | `public.api_key_usage_daily` | U | perm(clinic:manage) | Y | Y | - | - | - | - | - | X | - | - | - |
@@ -251,22 +251,26 @@ Notes:
 - `public.memberships`: fixture row = the second doctor's membership; SELECT own rows in any clinic (switcher) or the active clinic's staff; UPDATE profile columns only (column grants + memberships_profile_update_guard)
 - `public.invitations`: INSERT: staff:invite, created_by = caller; owner/admin roles only by an owner (admin_policies.test.sql; RPC only after 05-07a)
 - `public.patients`: 05-02b: receptionists register patients (P0-14, PO-3); a change to allergies/chronic_conditions needs consultations:view (patients_clinical_fields_guard, 42501, R-8; front_desk_policies.test.sql)
-- `public.visits`: no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03)
+- `public.visits`: no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03). 05-11a guard (visit_integrity.test.sql): patient never changes; sign-off only by consultations:edit as the caller; a signed visit's status/doctor change only through the amendment path; a doctor does not reassign doctor_id
 - `public.clinical_notes`: 05-02a (R-2, R-3, R-5): one row per visit, created by a definer trigger with fixed content; UPDATE of any column but `vitals` needs consultations:edit (clinical_notes_guard, 42501; clinical_notes.test.sql)
-- `public.visit_revisions`: append-only amendment history (no UPDATE policy)
+- `public.visit_revisions`: append-only amendment history (no UPDATE policy); the author is the caller (05-11a guard)
 - `public.consultations`: dead table (R-34), dropped in V2-09b
+- `public.prescriptions`: the prescriber is the caller; doctor, visit and patient never change (05-11a guard, visit_integrity.test.sql)
 - `public.prescription_items`: tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U on it since 05-02b (no subquery)
-- `public.invoices`: 05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill)
+- `public.invoices`: 05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill). 05-11b (M-INVOICE): no UPDATE privilege; totals and status follow the items (invoice_items_sync_invoice), paid only through record_payment; an INSERT starts draft/issued with the formula's total (billing_rpc_only.test.sql)
 - `public.invoice_items`: DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op)
-- `public.payments`: column-level INSERT grant; the actor guard stamps recorded_by; doctors and nurses do not collect (PO-3, 05-02b)
-- `public.queue_token_counters`: written only by next_queue_token (SECURITY DEFINER, appointments:edit in the active clinic; 05-08, R-18): no member may read or rewind the counter (T-05-21)
+- `public.payments`: written only by record_payment (SECURITY DEFINER, billing:collect in the active clinic; 05-11b M-INVOICE); doctors and nurses do not collect (PO-3)
+- `public.queue_tokens`: written by issue_queue_token (SECURITY DEFINER, 05-11a M-TOKEN): no INSERT privilege; UPDATE only of priority, called_at, completed_at (column grant), so token_number/date cannot be forged
+- `public.queue_token_counters`: written only by issue_queue_token (SECURITY DEFINER, appointments:edit in the active clinic; 05-08 R-18, 05-11a): no member may read or rewind the counter (T-05-21)
 - `public.schedule_blocks`: fixture row: the second doctor's block, created by the nurse
+- `public.consent_records`: recorded_by is the caller (05-11b M-ACTOR, consent_records_actor_guard)
 - `public.patient_documents`: 05-02c (05-02b handover): labs:view / labs:edit, with the lab guards and the lab storage class
 - `public.document_share_tokens`: minted by definer RPCs only; SELECT by resource_type (the fixture is a patient_document link: labs:view; prescription prescriptions:view, invoice billing:view, referral consultations:view: admin_policies.test.sql)
 - `public.referrals`: fixture row: A refers to B (in network), so B's clinicians read it and acknowledge it (referrals_target_update_guard limits the target to the status); directory and consent on INSERT are 05-06's
 - `public.communication_queue`: V2-04 000035: writes revoked from API roles (enqueue RPCs only); authenticated keeps column-level SELECT
-- `public.in_app_notifications`: 05-02c (T-05-11): a notice addressed to a user is theirs alone (the fixture); unaddressed notices go to their role or everyone in the active clinic (admin_policies.test.sql); no user-client writer
+- `public.in_app_notifications`: 05-02c (T-05-11): a notice addressed to a user is theirs alone (the fixture); unaddressed notices go to their role or everyone in the active clinic (admin_policies.test.sql); no user-client writer; UPDATE only of is_read/read_at (05-11b M-NOTICE, api_keys_notices_columns.test.sql)
 - `public.audit_logs`: INSERT revoked: users write through log_audit (actor forced, active clinic, 05-02c T-05-12; audit_v2.test.sql)
+- `public.api_keys`: 05-11b M-APIKEY: created_by is the caller; members update only name and revoked_at (never cleared); keys are revoked, never deleted (audit attribution survives); api_keys_notices_columns.test.sql
 - `public.webhook_delivery_queue`: V2-04 000036: SELECT only (delivery logs); writes by enqueue RPCs and the runner
 - `public.subscriptions`: v1 table, dropped in 05-09c
 - `public.payment_records`: v1 table, dropped in 05-09c
