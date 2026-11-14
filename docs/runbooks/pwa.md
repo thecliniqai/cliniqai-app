@@ -41,31 +41,18 @@ from `proxy.ts` (D-4), so the browser's HTTP cache does not keep them either.
 
 ## Kill switch
 
-If a deployed worker misbehaves (serves something it must not, or breaks navigation), deploy this body as
-`public/sw.js` **verbatim**. Browsers fetch `/sw.js` with no HTTP cache, install it at once, and it deletes every cache,
-unregisters itself and reloads open windows so they run without a worker. Keep it deployed until the fixed worker is
-ready (at least one full working day, so long-open tablets pick it up), then deploy the fixed worker with bumped cache
-names. `tests/pwa/sw-allowlist.spec.ts` parses and runs the block between the markers; do not edit it here without
-keeping that test green.
+If a deployed worker misbehaves (serves something it must not, or breaks navigation), deploy
+`scripts/pwa/kill-switch-sw.js` **unchanged** as `public/sw.js`:
 
-<!-- kill-switch:begin -->
-```js
-/* clinicOS service worker KILL SWITCH (docs/runbooks/pwa.md). Deletes every cache and unregisters itself. */
-"use strict";
-self.addEventListener("install", () => {
-  self.skipWaiting();
-});
-self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    (async () => {
-      for (const name of await caches.keys()) await caches.delete(name);
-      await self.registration.unregister();
-      for (const client of await self.clients.matchAll({ type: "window" })) client.navigate(client.url);
-    })(),
-  );
-});
+```sh
+cp scripts/pwa/kill-switch-sw.js public/sw.js   # then commit, review and deploy as usual
 ```
-<!-- kill-switch:end -->
+
+Browsers fetch `/sw.js` with no HTTP cache, install it at once, and it deletes every cache, unregisters itself and
+reloads open windows so they run without a worker. Keep it deployed until the fixed worker is ready (at least one full
+working day, so long-open tablets pick it up), then deploy the fixed worker with bumped cache names.
+`tests/pwa/sw-allowlist.spec.ts` runs the kill-switch file in a `node:vm` sandbox (takes over at once, deletes every
+cache, unregisters, reloads windows, answers nothing).
 
 ## Sign-out and the device purge
 

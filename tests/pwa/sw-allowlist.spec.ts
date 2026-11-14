@@ -5,10 +5,10 @@
  * on a redirect or a non-200) and `/_next/static/**` (cache-first, capped). Navigations are answered from the network
  * and never stored (offline → the precached `/offline`). Everything else gets no `respondWith`: API, RSC (`?_rsc=` or
  * `RSC: 1`), auth and share-token paths, `/_next/image`, cross-origin and non-GET requests. Before 06-05 there was no
- * worker. The runbook's kill-switch body parses, deletes every cache and unregisters.
+ * worker. The kill-switch worker (scripts/pwa/kill-switch-sw.js) parses, deletes every cache and unregisters.
  */
 import { describe, expect, it } from "vitest";
-import { killSwitchSource, loadWorker, req, response, SW_SOURCE } from "./sw-harness";
+import { KILL_SWITCH_SOURCE, loadWorker, req, response, SW_SOURCE } from "./sw-harness";
 
 const PRECACHE = ["/offline", "/manifest.webmanifest", "/icon-192.png", "/icon-512.png", "/icon-maskable-512.png"];
 const STATIC_HEADERS = { "cache-control": "public, max-age=31536000, immutable" };
@@ -160,9 +160,9 @@ describe("sw.js messages", () => {
   });
 });
 
-describe("kill switch (docs/runbooks/pwa.md)", () => {
+describe("kill switch (scripts/pwa/kill-switch-sw.js, deployed per the PWA runbook)", () => {
   it("parses, takes over at once, deletes every cache, unregisters and reloads open windows", async () => {
-    const sw = loadWorker(killSwitchSource(), { windowClients: ["http://127.0.0.1:3100/patients"] });
+    const sw = loadWorker(KILL_SWITCH_SOURCE(), { windowClients: ["http://127.0.0.1:3100/patients"] });
     for (const name of ["static-v1", "shell-v1", "anything"]) await sw.caches.open(name);
     await sw.install();
     expect(sw.skipWaitingCalls).toBe(1);

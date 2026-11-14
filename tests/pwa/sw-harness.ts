@@ -230,10 +230,5 @@ export function loadWorker(source: string, opts: { navigationPreload?: boolean; 
 
 export const SW_SOURCE = () => fs.readFileSync(path.join(process.cwd(), "public/sw.js"), "utf8");
 
-/** The kill-switch body kept verbatim in docs/runbooks/pwa.md (the fenced block after the "kill-switch" marker). */
-export function killSwitchSource(): string {
-  const doc = fs.readFileSync(path.join(process.cwd(), "docs/runbooks/pwa.md"), "utf8");
-  const match = /<!-- kill-switch:begin -->\s*```js\n([\s\S]*?)```\s*<!-- kill-switch:end -->/.exec(doc);
-  if (!match) throw new Error("docs/runbooks/pwa.md: no kill-switch block between the markers");
-  return match[1];
-}
+/** The kill-switch worker the runbook tells operators to deploy as `public/sw.js` (scripts/pwa/kill-switch-sw.js). */
+export const KILL_SWITCH_SOURCE = () => fs.readFileSync(path.join(process.cwd(), "scripts/pwa/kill-switch-sw.js"), "utf8");
