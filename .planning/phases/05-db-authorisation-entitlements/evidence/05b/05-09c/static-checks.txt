@@ -1,0 +1,10 @@
+# 05-09c static checks (tree = ed96f8d; exit codes from the tools)
+typecheck exit=0
+eslint --quiet exit=0
+inventory exit=0
+> node scripts/ci/local-drift.mjs
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+schema-snapshot: PASS (local: 2499 lines equal the committed snapshot)
+authz:gen: generated outputs equal the generator (tests/authz/generator-drift.spec.ts and table-matrix.spec.ts in the full run)
+migration-immutability: migration-immutability: PASS (base 663b5d1 @ 663b5d1 [--base]; 85 applied unchanged; 1 new above 85)
+seed:local after the 000086 reset: [seed:local] access summary: full=1 locked=0 onboarding=0

@@ -4,7 +4,8 @@
 -- 1. Shape: the table, its keys, RLS on, privileges (authenticated SELECT/UPDATE only, anon nothing), the two policies,
 --    the definer trigger function closed to the API roles.
 -- 2. Every visit gets exactly one clinical_notes row at insert, with fixed empty content, also when a receptionist books
---    it; no caller can put clinical content into `visits` any more (VALID CHECK, 23514 for each moved column).
+--    it; no caller can put clinical content into `visits` any more: 05-02a's VALID CHECK (23514) until 05-b0, which
+--    dropped the six columns (000079), so each write is now 42703 (undefined column).
 -- 3. Real principals (JWT claims + the x-clinicos-tenant header, R-42): SELECT needs consultations:view (doctor, nurse,
 --    owner: 1 row; receptionist, admin, clinic B's owner, the dual member acting in B: 0); UPDATE needs
 --    consultations:edit, or vitals:edit for `vitals` only (nurse: vitals → 1 row, anything else → 42501).
@@ -26,6 +27,14 @@ insert into auth.users (id, email) values
 insert into public.tenants (id, name) values
   ('c0000000-0000-4000-8000-00000000000a', 'Synthetic Notes Clinic A'),
   ('c0000000-0000-4000-8000-00000000000b', 'Synthetic Notes Clinic B');
+-- V2-05 05-09c (R-25, acceptance 11 preparation): this file's clinics are trialing on the Standard price, so they keep
+-- full access once the RLS helpers read the access level (05-10a). Clinics created in this transaction only.
+update public.tenant_subscriptions s
+   set status = 'trialing', trial_start = now(), trial_end = now() + interval '14 days',
+       access_ends_at = now() + interval '15 days', trial_consumed = true,
+       plan_price_id = (select pp.id from public.plan_prices pp join public.plans p on p.id = pp.plan_id
+                         where p.code = 'standard' order by pp.active_from limit 1)
+ where s.tenant_id in (select t.id from public.tenants t where t.created_at = now()) and s.status = 'incomplete';
 insert into public.memberships (user_id, tenant_id, role) values
   ('c0000000-0000-4000-8000-000000000101', 'c0000000-0000-4000-8000-00000000000a', 'owner'),
   ('c0000000-0000-4000-8000-000000000102', 'c0000000-0000-4000-8000-00000000000a', 'admin'),
@@ -145,22 +154,24 @@ select is(pg_temp.as_user_then('c0000000-0000-4000-8000-000000000105',
   'a receptionist booking a visit creates its one clinical_notes row, with the fixed empty content (T-05-03)');
 select is(pg_temp.as_user('c0000000-0000-4000-8000-000000000105', null,
   $$insert into public.visits (tenant_id, patient_id, doctor_id, origin_type, created_by, clinical_notes) values ('c0000000-0000-4000-8000-00000000000a', 'c0000000-0000-4000-8000-000000001001', 'c0000000-0000-4000-8000-000000000103', 'walk_in', 'c0000000-0000-4000-8000-000000000105', 'Injected note')$$),
-  'error:23514', 'a receptionist cannot inject notes through the visit insert (visits_clinical_content_moved)');
+  'error:42703', 'a receptionist cannot inject notes through the visit insert (the column is gone, 05-b0)');
 select throws_ok($$update public.visits set clinical_notes = 'Synthetic' where id = 'c0000000-0000-4000-8000-000000001011'$$,
-  '23514', null, 'writing clinical_notes into visits fails (23514)');
+  '42703', null, 'writing clinical_notes into visits fails (42703, dropped by 05-b0)');
 select throws_ok($$update public.visits set vitals = '{"pulse": 80}' where id = 'c0000000-0000-4000-8000-000000001011'$$,
-  '23514', null, 'writing vitals into visits fails (23514)');
+  '42703', null, 'writing vitals into visits fails (42703, dropped by 05-b0)');
 select throws_ok($$update public.visits set chief_complaints = '[{"complaint": "x"}]' where id = 'c0000000-0000-4000-8000-000000001011'$$,
-  '23514', null, 'writing chief_complaints into visits fails (23514)');
+  '42703', null, 'writing chief_complaints into visits fails (42703, dropped by 05-b0)');
 select throws_ok($$update public.visits set specialty_data = '{"a": 1}' where id = 'c0000000-0000-4000-8000-000000001011'$$,
-  '23514', null, 'writing specialty_data into visits fails (23514)');
+  '42703', null, 'writing specialty_data into visits fails (42703, dropped by 05-b0)');
 select throws_ok($$update public.visits set investigations_advised = array['CBC'] where id = 'c0000000-0000-4000-8000-000000001011'$$,
-  '23514', null, 'writing investigations_advised into visits fails (23514)');
+  '42703', null, 'writing investigations_advised into visits fails (42703, dropped by 05-b0)');
 select throws_ok($$update public.visits set advice = array['Rest'] where id = 'c0000000-0000-4000-8000-000000001011'$$,
-  '23514', null, 'writing advice into visits fails (23514)');
-select is(pg_temp.try($$update public.visits set vitals = '{}', chief_complaints = '[]', specialty_data = '{}', investigations_advised = '{}', advice = '{}', clinical_notes = null where id = 'c0000000-0000-4000-8000-000000001011'$$),
-  'ok', 'control: the empty values (the column defaults) are still accepted on visits');
-select ok((select convalidated from pg_constraint where conname = 'visits_clinical_content_moved'), 'visits_clinical_content_moved is VALID');
+  '42703', null, 'writing advice into visits fails (42703, dropped by 05-b0)');
+select is(pg_temp.try($$update public.visits set reason_for_visit = 'Synthetic follow-up' where id = 'c0000000-0000-4000-8000-000000001011'$$),
+  'ok', 'control: the visit row itself is still writable');
+select is_empty($$ select attname from pg_attribute where attrelid = 'public.visits'::regclass and not attisdropped
+                    and attname in ('vitals', 'chief_complaints', 'clinical_notes', 'specialty_data', 'investigations_advised', 'advice') $$,
+  'none of the six moved columns is left on visits (05-b0 contract)');
 
 -- 3. SELECT by role -------------------------------------------------------------------------------------------------
 select is(pg_temp.as_user('c0000000-0000-4000-8000-000000000101', null, $$select * from public.clinical_notes where visit_id = 'c0000000-0000-4000-8000-000000001011'$$), '1', 'owner reads the note');
@@ -172,8 +183,8 @@ select is(pg_temp.as_user('c0000000-0000-4000-8000-000000000201', null, $$select
 select is(pg_temp.as_user('c0000000-0000-4000-8000-000000000301', 'c0000000-0000-4000-8000-00000000000a', $$select * from public.clinical_notes where visit_id = 'c0000000-0000-4000-8000-000000001011'$$), '1', 'dual member acting in A (doctor) reads the note');
 select is(pg_temp.as_user('c0000000-0000-4000-8000-000000000301', 'c0000000-0000-4000-8000-00000000000b', $$select * from public.clinical_notes where visit_id = 'c0000000-0000-4000-8000-000000001011'$$), '0', 'dual member acting in B (receptionist) reads 0 rows of A');
 select is(pg_temp.as_user(null, null, $$select * from public.clinical_notes$$), 'denied:permission denied for table clinical_notes', 'anon has no privilege');
-select is(pg_temp.as_user('c0000000-0000-4000-8000-000000000105', null, $$select * from public.visits where id = 'c0000000-0000-4000-8000-000000001011' and clinical_notes is null and (vitals is null or vitals = '{}')$$),
-  '1', 'the receptionist still reads the visit row, whose legacy clinical columns are empty');
+select is(pg_temp.as_user('c0000000-0000-4000-8000-000000000105', null, $$select * from public.visits where id = 'c0000000-0000-4000-8000-000000001011'$$),
+  '1', 'the receptionist still reads the visit row (no clinical column left on it since 05-b0)');
 
 -- 4. UPDATE by role (R-3: nurses record vitals only) -------------------------------------------------------------
 select is(pg_temp.as_user('c0000000-0000-4000-8000-000000000104', null, $$update public.clinical_notes set vitals = '{"pulse": 90}' where visit_id = 'c0000000-0000-4000-8000-000000001011'$$), '1', 'nurse updates vitals (1 row)');

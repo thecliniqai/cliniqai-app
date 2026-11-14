@@ -20,6 +20,14 @@ insert into auth.users (id, email) values
   ('b11b0000-0000-4000-8000-000000000203', 'b11b-bill-doctor@example.test'),
   ('b11b0000-0000-4000-8000-000000000204', 'b11b-bill-nurse@example.test');
 insert into public.tenants (id, name) values ('b11b0000-0000-4000-8000-00000000020a', 'Synthetic 05-11b Billing Clinic');
+-- V2-05 05-09c (R-25, acceptance 11 preparation): this file's clinics are trialing on the Standard price, so they keep
+-- full access once the RLS helpers read the access level (05-10a). Clinics created in this transaction only.
+update public.tenant_subscriptions s
+   set status = 'trialing', trial_start = now(), trial_end = now() + interval '14 days',
+       access_ends_at = now() + interval '15 days', trial_consumed = true,
+       plan_price_id = (select pp.id from public.plan_prices pp join public.plans p on p.id = pp.plan_id
+                         where p.code = 'standard' order by pp.active_from limit 1)
+ where s.tenant_id in (select t.id from public.tenants t where t.created_at = now()) and s.status = 'incomplete';
 insert into public.memberships (user_id, tenant_id, role) values
   ('b11b0000-0000-4000-8000-000000000201', 'b11b0000-0000-4000-8000-00000000020a', 'owner'),
   ('b11b0000-0000-4000-8000-000000000202', 'b11b0000-0000-4000-8000-00000000020a', 'receptionist'),

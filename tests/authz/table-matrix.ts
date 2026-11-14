@@ -93,8 +93,9 @@ export interface TableTarget {
   /** The tenant-A fixture row, inserted as `postgres` before the cells (the rules are evaluated against it). */
   fixture: Row;
   /**
-   * The fixture row already exists: the base fixtures (tenants, principals' memberships) hold it, or a trigger on an
-   * earlier target's fixture created it (clinical_notes: one row per visit). Do not insert it again.
+   * The fixture row already exists: the base fixtures (tenants, principals' memberships) hold it, a trigger on an
+   * earlier target's fixture created it (clinical_notes: one row per visit; tenant_subscriptions: one row per clinic,
+   * 05-09a), or a migration seeded it (platform_settings, 05-09a). Do not insert it again.
    */
   inBase?: true;
   /** More tenant-A rows inserted right after the fixture (parents other fixtures or INSERT cells need). */
@@ -105,6 +106,11 @@ export interface TableTarget {
   update: string;
   /** SQL run as `postgres` inside the INSERT cell's subtransaction first (e.g. free a one-row-per-tenant slot). */
   insertSetup?: string;
+  /**
+   * SQL run as `postgres` right after the fixture rows exist (e.g. to shape a row a trigger created: 05-09a sets the
+   * `tenant_subscriptions` rows of clinics A and B to `trialing`, so the 05-10a access level is `full` for both).
+   */
+  fixtureSql?: Sql;
   /** The row's tenant when the table has no `tenant_id` column. */
   tenant?: Sql;
   rules: Rules;
@@ -904,28 +910,137 @@ export const TARGETS: readonly Target[] = [
     rules: selectOnly(perm("clinic:manage")),
     note: "V2-04 000036: SELECT only (delivery logs); writes by enqueue RPCs and the runner",
   },
+  // SUB-01 (05-09a, migrations 000081-000084): the catalogue, the clinic's subscription, events, overrides, settings.
   {
     kind: "table",
     schema: "public",
-    table: "subscriptions",
+    table: "plans",
     key: ["id"],
-    fixture: { id: q(FX.row(49)), tenant_id: A },
-    insert: { id: q(FX.row(50)), tenant_id: A },
-    insertSetup: `delete from public.subscriptions where tenant_id = ${A}`,
-    update: "status",
-    rules: selectOnly(perm("clinic:manage")),
-    note: "v1 table, dropped in 05-09c",
+    fixture: {
+      id: q(FX.row(63)),
+      code: "'authz_fixture'",
+      kind: "'addon'",
+      category: "'core'",
+      name: "'Synthetic fixture plan'",
+      visibility: "'public'",
+    },
+    insert: {
+      id: q(FX.row(64)),
+      code: "'authz_insert'",
+      kind: "'addon'",
+      category: "'core'",
+      name: "'Synthetic insert plan'",
+      visibility: "'public'",
+    },
+    update: "name",
+    rules: catalogueRules,
+    note: "product catalogue: SELECT for signed-in users where visibility <> 'hidden' (hidden rows: billing_catalogue.test.sql); writes by migrations, the service role and platform RPCs (05-09b)",
   },
   {
     kind: "table",
     schema: "public",
-    table: "payment_records",
+    table: "plan_prices",
     key: ["id"],
-    fixture: { id: q(FX.row(51)), tenant_id: A, amount_inr: "1000", reference: "'SYN-1'" },
-    insert: { id: q(FX.row(52)), tenant_id: A, amount_inr: "1000", reference: "'SYN-2'" },
-    update: "reference",
-    rules: selectOnly(perm("clinic:manage")),
-    note: "v1 table, dropped in 05-09c",
+    fixture: { id: q(FX.row(65)), plan_id: q(FX.row(63)), billing_model: "'metered'", base_amount_paise: "0", tax_rate_bp: "0" },
+    insert: { id: q(FX.row(66)), plan_id: q(FX.row(63)), billing_model: "'metered'", base_amount_paise: "0", tax_rate_bp: "0" },
+    update: "unit",
+    rules: catalogueRules,
+    note: "versioned prices: SELECT where the plan is not hidden; never written by an API role (AI §4.6)",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "entitlement_keys",
+    key: ["key"],
+    fixture: { key: "'authz.fixture'", kind: "'boolean'", description: "'Synthetic key'", owner_doc: "'tests/authz/table-matrix.ts'" },
+    insert: { key: "'authz.insert'", kind: "'boolean'", description: "'Synthetic key'", owner_doc: "'tests/authz/table-matrix.ts'" },
+    update: "description",
+    rules: catalogueRules,
+    note: "feature and limit keys (AI §6.2): readable by signed-in users",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "plan_entitlements",
+    key: ["plan_id", "key"],
+    fixture: { plan_id: q(FX.row(63)), key: "'authz.fixture'", enabled: "true" },
+    insert: { plan_id: q(FX.row(63)), key: "'core.*'", enabled: "true" },
+    update: "enabled",
+    rules: catalogueRules,
+    note: "which plan enables which key: SELECT where the plan is not hidden",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "tenant_entitlement_overrides",
+    key: ["id"],
+    fixture: { id: q(FX.row(67)), tenant_id: A, key: "'authz.fixture'", enabled: "true", reason: "'Synthetic override'" },
+    insert: { id: q(FX.row(68)), tenant_id: A, key: "'core.*'", enabled: "true", reason: "'Synthetic override'" },
+    update: "reason",
+    rules: opsRules,
+    note: "per-clinic grants: no tenant access at all (SUB §7.1); platform.grant_override (05-09b) or the service role",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "tenant_subscriptions",
+    key: ["tenant_id"],
+    fixture: { tenant_id: A },
+    inBase: true,
+    fixtureSql:
+      "update public.tenant_subscriptions set status = 'trialing', " +
+      "plan_price_id = (select pp.id from public.plan_prices pp join public.plans p on p.id = pp.plan_id where p.code = 'standard' order by pp.active_from limit 1), " +
+      "trial_start = now() - interval '1 day', trial_end = now() + interval '13 days', access_ends_at = now() + interval '14 days', " +
+      `trial_consumed = true where tenant_id in (${A}, ${q(FX.tenantB)})`,
+    insert: { tenant_id: q(FX.tenantB), status: "'incomplete'" },
+    update: "status",
+    rules: selectOnly(billing),
+    note: "one row per clinic, created `incomplete` by the tenants trigger (R-24; fixture clinics A and B set `trialing`); SELECT: owner/admin of the active clinic (authz.billing_tenant_ids, R-26); written only by transition RPCs",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "subscription_events",
+    key: ["id"],
+    fixture: { id: q(FX.row(69)), tenant_id: A, type: "'authz.fixture'", actor_type: "'system'" },
+    insert: { id: q(FX.row(70)), tenant_id: A, type: "'authz.insert'", actor_type: "'system'" },
+    update: "reason",
+    rules: selectOnly(billing),
+    note: "append-only by grants (Pitfall 5): SELECT for owner/admin of the active clinic; no API role writes",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "platform_settings",
+    key: ["id"],
+    fixture: { id: "true" },
+    inBase: true,
+    insert: { id: "false" },
+    update: "sac",
+    rules: opsRules,
+    note: "the single settings row (seeded by 000084): no tenant access",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "platform_admins",
+    key: ["user_id"],
+    fixture: { user_id: U.ownerB },
+    insert: { user_id: U.adminA },
+    update: "revoked_at",
+    rules: opsRules,
+    note: "platform admins (SUB §9.2, 05-09b): not a tenant role; no API-role access (granted and revoked in SQL, audited by trigger); read through is_platform_admin()",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "platform_audit_log",
+    key: ["id"],
+    fixture: { id: q(FX.row(71)), actor_id: U.ownerB, channel: "'sql'", action: "'authz.fixture'" },
+    insert: { id: q(FX.row(72)), actor_id: U.ownerB, channel: "'ui'", action: "'authz.insert'" },
+    update: "action",
+    rules: opsRules,
+    note: "platform audit trail (SUB §9.2, 05-09b): append-only by grants, written only by the platform.* RPCs and the platform_admins trigger; no API-role access",
   },
   cdci("cdci_brands", "brand_name"),
   cdci("cdci_drug_forms", "form_name"),

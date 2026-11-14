@@ -31,10 +31,26 @@ insert into public.tenants (id, name, referral_directory_listed) values
   ('e0600000-0000-4000-8000-00000000000b', 'Synthetic Referral Clinic B', true),
   ('e0600000-0000-4000-8000-00000000000c', 'Synthetic Referral Clinic C', false),
   ('e0600000-0000-4000-8000-00000000000d', 'Synthetic Referral Clinic D', true);
+-- V2-05 05-09c (R-25, acceptance 11 preparation): this file's clinics are trialing on the Standard price, so they keep
+-- full access once the RLS helpers read the access level (05-10a). Clinics created in this transaction only.
+update public.tenant_subscriptions s
+   set status = 'trialing', trial_start = now(), trial_end = now() + interval '14 days',
+       access_ends_at = now() + interval '15 days', trial_consumed = true,
+       plan_price_id = (select pp.id from public.plan_prices pp join public.plans p on p.id = pp.plan_id
+                         where p.code = 'standard' order by pp.active_from limit 1)
+ where s.tenant_id in (select t.id from public.tenants t where t.created_at = now()) and s.status = 'incomplete';
 -- 25 listed clinics for the row cap.
 insert into public.tenants (id, name, referral_directory_listed)
 select ('e0600000-0000-4000-8000-0000000100' || lpad(g::text, 2, '0'))::uuid, 'Synthetic Referral Bulk ' || lpad(g::text, 2, '0'), true
 from generate_series(1, 25) g;
+-- V2-05 05-09c (R-25, acceptance 11 preparation): this file's clinics are trialing on the Standard price, so they keep
+-- full access once the RLS helpers read the access level (05-10a). Clinics created in this transaction only.
+update public.tenant_subscriptions s
+   set status = 'trialing', trial_start = now(), trial_end = now() + interval '14 days',
+       access_ends_at = now() + interval '15 days', trial_consumed = true,
+       plan_price_id = (select pp.id from public.plan_prices pp join public.plans p on p.id = pp.plan_id
+                         where p.code = 'standard' order by pp.active_from limit 1)
+ where s.tenant_id in (select t.id from public.tenants t where t.created_at = now()) and s.status = 'incomplete';
 insert into public.memberships (user_id, tenant_id, role) values
   ('e0600000-0000-4000-8000-000000000101', 'e0600000-0000-4000-8000-00000000000a', 'owner'),
   ('e0600000-0000-4000-8000-000000000102', 'e0600000-0000-4000-8000-00000000000a', 'admin'),

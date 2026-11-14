@@ -1,7 +1,15 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { seedTenantWithOwner, addMemberToTenant } from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { psql } from "../helpers/sql";
 
+/**
+ * Subscription & billing RLS boundary (REQ-multi-tenancy, REQ-nfr-security), rewritten off the v1 `subscriptions` /
+ * `payment_records` tables (dropped in V2-05 05-09c, migration 000086) onto `tenant_subscriptions` and
+ * `subscription_events` (05-09a): the owner and the admin of the active clinic read the clinic's one subscription row
+ * and its events; a doctor (or nurse, receptionist) reads 0 rows; another clinic's owner reads 0 rows. Real JWT clients
+ * against the local stack.
+ */
 describe("Subscription & Billing RLS Boundary (REQ-multi-tenancy, REQ-nfr-security)", () => {
   let tenantA: Awaited<ReturnType<typeof seedTenantWithOwner>>;
   let tenantB: Awaited<ReturnType<typeof seedTenantWithOwner>>;
@@ -9,90 +17,96 @@ describe("Subscription & Billing RLS Boundary (REQ-multi-tenancy, REQ-nfr-securi
 
   beforeAll(async () => {
     tenantA = await seedTenantWithOwner("Apex Healthcare");
-    tenantB = await seedTenantWithOwner("Beacon Clinic");
+    tenantB = await seedTenantWithOwner("Beacon Clinic", { subscription: { status: "active" } });
 
-    // Seed standard subscription and payments for Tenant A
-    await admin.from("subscriptions").insert({
-      tenant_id: tenantA.tenantId,
-      plan: "standard",
-      amount_inr: 1000,
-      status: "active",
-      current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    });
-
-    await admin.from("payment_records").insert([
-      {
-        tenant_id: tenantA.tenantId,
-        amount_inr: 1000,
-        method: "upi",
-        reference: "UPI/TXN/10001",
-      },
-      {
-        tenant_id: tenantA.tenantId,
-        amount_inr: 1000,
-        method: "card",
-        reference: "CARD/TXN/10002",
-      },
+    const { error } = await admin.from("subscription_events").insert([
+      { tenant_id: tenantA.tenantId, type: "test.subscription_spec", actor_type: "system" },
+      { tenant_id: tenantA.tenantId, type: "test.subscription_spec", actor_type: "system" },
+      { tenant_id: tenantB.tenantId, type: "test.subscription_spec", actor_type: "system" },
     ]);
+    expect(error).toBeNull();
   });
 
-  it("proves Tenant A's owner can read their own subscription and payment records", async () => {
-    const { data: sub, error: subErr } = await tenantA.client
-      .from("subscriptions")
-      .select("*")
-      .eq("tenant_id", tenantA.tenantId)
-      .single();
+  it("proves Tenant A's owner and admin can read their own subscription and its events", async () => {
+    const adminA = await addMemberToTenant(tenantA.tenantId, "admin");
+    for (const reader of [tenantA.client, adminA.client]) {
+      const { data: sub, error: subErr } = await reader
+        .from("tenant_subscriptions")
+        .select("tenant_id, status, plan_price_id")
+        .eq("tenant_id", tenantA.tenantId)
+        .single();
 
-    expect(subErr).toBeNull();
-    expect(sub?.amount_inr).toBe(1000);
-    expect(sub?.plan).toBe("standard");
+      expect(subErr).toBeNull();
+      expect(sub?.status).toBe("trialing");
+      expect(sub?.plan_price_id).not.toBeNull();
 
-    const { data: payments, error: payErr } = await tenantA.client
-      .from("payment_records")
-      .select("*")
-      .eq("tenant_id", tenantA.tenantId);
+      const { data: events, error: evErr } = await reader
+        .from("subscription_events")
+        .select("tenant_id")
+        .eq("type", "test.subscription_spec");
 
-    expect(payErr).toBeNull();
-    expect(payments?.length).toBe(2);
+      expect(evErr).toBeNull();
+      expect(events).toEqual([{ tenant_id: tenantA.tenantId }, { tenant_id: tenantA.tenantId }]);
+    }
   });
 
-  it("proves a doctor in Tenant A receives 0 rows when attempting to query billing tables directly (RLS)", async () => {
-    const doctorA = await addMemberToTenant(tenantA.tenantId, "doctor");
+  it("proves a doctor, nurse or receptionist in Tenant A receives 0 rows from the billing tables (RLS)", async () => {
+    for (const role of ["doctor", "nurse", "receptionist"] as const) {
+      const member = await addMemberToTenant(tenantA.tenantId, role);
 
-    // Doctor querying subscriptions directly
-    const { data: sub, error: subErr } = await doctorA.client
-      .from("subscriptions")
-      .select("*")
-      .eq("tenant_id", tenantA.tenantId);
+      const { data: sub, error: subErr } = await member.client
+        .from("tenant_subscriptions")
+        .select("*")
+        .eq("tenant_id", tenantA.tenantId);
 
-    expect(subErr).toBeNull();
-    expect(sub?.length).toBe(0);
+      expect(subErr).toBeNull();
+      expect(sub, role).toHaveLength(0);
 
-    // Doctor querying payment records directly
-    const { data: payments, error: payErr } = await doctorA.client
-      .from("payment_records")
-      .select("*")
-      .eq("tenant_id", tenantA.tenantId);
+      const { data: events, error: evErr } = await member.client
+        .from("subscription_events")
+        .select("*")
+        .eq("tenant_id", tenantA.tenantId);
 
-    expect(payErr).toBeNull();
-    expect(payments?.length).toBe(0);
+      expect(evErr).toBeNull();
+      expect(events, role).toHaveLength(0);
+    }
   });
 
   it("proves Tenant B's owner receives 0 rows when attempting to read Tenant A's billing data (Cross-tenant RLS)", async () => {
-    // Tenant B owner querying Tenant A's subscription
+    const own = await tenantB.client.from("tenant_subscriptions").select("status").eq("tenant_id", tenantB.tenantId);
+    expect(own.data).toEqual([{ status: "active" }]);
+
     const { data: sub } = await tenantB.client
-      .from("subscriptions")
+      .from("tenant_subscriptions")
       .select("*")
       .eq("tenant_id", tenantA.tenantId);
 
     expect(sub?.length).toBe(0);
 
-    // Tenant B owner querying Tenant A's payments
-    const { data: payments } = await tenantB.client
-      .from("payment_records")
+    const { data: events } = await tenantB.client
+      .from("subscription_events")
       .select("*")
       .eq("tenant_id", tenantA.tenantId);
 
-    expect(payments?.length).toBe(0);
+    expect(events?.length).toBe(0);
+  });
+
+  it("proves no member can write the subscription or its events (no write privilege for API roles)", async () => {
+    const upd = await tenantA.client
+      .from("tenant_subscriptions")
+      .update({ status: "active" })
+      .eq("tenant_id", tenantA.tenantId);
+    expect(upd.error?.code).toBe("42501");
+
+    const ins = await tenantA.client
+      .from("subscription_events")
+      .insert({ tenant_id: tenantA.tenantId, type: "test.forged", actor_type: "owner" });
+    expect(ins.error?.code).toBe("42501");
+  });
+
+  it("proves the v1 subscription tables are gone (000086)", () => {
+    expect(psql("select to_regclass('public.subscriptions') is null, to_regclass('public.payment_records') is null")).toEqual([
+      "t|t",
+    ]);
   });
 });

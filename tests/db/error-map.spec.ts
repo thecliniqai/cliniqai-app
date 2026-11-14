@@ -50,6 +50,10 @@ describe("mapDbError: SQLSTATE table", () => {
     ["P0001 JOB_NOT_REPLAYABLE", { code: "P0001", message: "JOB_NOT_REPLAYABLE" }, "CONFLICT", "JOB_NOT_REPLAYABLE"],
     // 05-11b (000074): the referral target-doctor guard.
     ["P0001 REFERRAL_TARGET_DOCTOR_INVALID", { code: "P0001", message: "REFERRAL_TARGET_DOCTOR_INVALID" }, "VALIDATION_FAILED", "REFERRAL_TARGET_DOCTOR_INVALID"],
+    ["P0001 ENTITLEMENT_KEY_UNKNOWN (05-09b)", { code: "P0001", message: "ENTITLEMENT_KEY_UNKNOWN" }, "VALIDATION_FAILED", "ENTITLEMENT_KEY_UNKNOWN"],
+    ["P0001 PRODUCT_PRICE_REQUIRED (05-09b)", { code: "P0001", message: "PRODUCT_PRICE_REQUIRED" }, "PRECONDITION_FAILED", "PRODUCT_PRICE_REQUIRED"],
+    ["P0001 PRODUCT_STATE_INVALID (05-09b)", { code: "P0001", message: "PRODUCT_STATE_INVALID" }, "CONFLICT", "PRODUCT_STATE_INVALID"],
+    ["42501 PLATFORM_ADMIN_REQUIRED (05-09b)", { code: "42501", message: "PLATFORM_ADMIN_REQUIRED" }, "FORBIDDEN", undefined],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],

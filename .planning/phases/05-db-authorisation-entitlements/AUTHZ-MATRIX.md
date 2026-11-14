@@ -164,14 +164,46 @@ Principals:
 | `public.webhook_delivery_queue` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.webhook_delivery_queue` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.webhook_delivery_queue` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.subscriptions` | S | perm(clinic:manage) | Y | Y | - | - | - | - | - | X | - | - | - |
-| `public.subscriptions` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.subscriptions` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.subscriptions` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.payment_records` | S | perm(clinic:manage) | Y | Y | - | - | - | - | - | X | - | - | - |
-| `public.payment_records` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.payment_records` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
-| `public.payment_records` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.plans` | S | catalogue | Y | Y | Y | Y | Y | Y | Y | X | Y | Y | Y |
+| `public.plans` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.plans` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.plans` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.plan_prices` | S | catalogue | Y | Y | Y | Y | Y | Y | Y | X | Y | Y | Y |
+| `public.plan_prices` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.plan_prices` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.plan_prices` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.entitlement_keys` | S | catalogue | Y | Y | Y | Y | Y | Y | Y | X | Y | Y | Y |
+| `public.entitlement_keys` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.entitlement_keys` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.entitlement_keys` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.plan_entitlements` | S | catalogue | Y | Y | Y | Y | Y | Y | Y | X | Y | Y | Y |
+| `public.plan_entitlements` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.plan_entitlements` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.plan_entitlements` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.tenant_entitlement_overrides` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.tenant_entitlement_overrides` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.tenant_entitlement_overrides` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.tenant_entitlement_overrides` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.tenant_subscriptions` | S | billing | Y | Y | - | - | - | - | - | X | - | - | - |
+| `public.tenant_subscriptions` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.tenant_subscriptions` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.tenant_subscriptions` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.subscription_events` | S | billing | Y | Y | - | - | - | - | - | X | - | - | - |
+| `public.subscription_events` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.subscription_events` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.subscription_events` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_settings` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_settings` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_settings` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_settings` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_admins` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_admins` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_admins` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_admins` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_audit_log` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_audit_log` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_audit_log` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_audit_log` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.cdci_brands` | S | catalogue | Y | Y | Y | Y | Y | Y | Y | X | Y | Y | Y |
 | `public.cdci_brands` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.cdci_brands` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
@@ -274,8 +306,16 @@ Notes:
 - `public.audit_logs`: INSERT revoked: users write through log_audit (actor forced, active clinic, 05-02c T-05-12; audit_v2.test.sql)
 - `public.api_keys`: 05-11b M-APIKEY: created_by is the caller; members update only name and revoked_at (never cleared); keys are revoked, never deleted (audit attribution survives); api_keys_notices_columns.test.sql
 - `public.webhook_delivery_queue`: V2-04 000036: SELECT only (delivery logs); writes by enqueue RPCs and the runner
-- `public.subscriptions`: v1 table, dropped in 05-09c
-- `public.payment_records`: v1 table, dropped in 05-09c
+- `public.plans`: product catalogue: SELECT for signed-in users where visibility <> 'hidden' (hidden rows: billing_catalogue.test.sql); writes by migrations, the service role and platform RPCs (05-09b)
+- `public.plan_prices`: versioned prices: SELECT where the plan is not hidden; never written by an API role (AI §4.6)
+- `public.entitlement_keys`: feature and limit keys (AI §6.2): readable by signed-in users
+- `public.plan_entitlements`: which plan enables which key: SELECT where the plan is not hidden
+- `public.tenant_entitlement_overrides`: per-clinic grants: no tenant access at all (SUB §7.1); platform.grant_override (05-09b) or the service role
+- `public.tenant_subscriptions`: one row per clinic, created `incomplete` by the tenants trigger (R-24; fixture clinics A and B set `trialing`); SELECT: owner/admin of the active clinic (authz.billing_tenant_ids, R-26); written only by transition RPCs
+- `public.subscription_events`: append-only by grants (Pitfall 5): SELECT for owner/admin of the active clinic; no API role writes
+- `public.platform_settings`: the single settings row (seeded by 000084): no tenant access
+- `public.platform_admins`: platform admins (SUB §9.2, 05-09b): not a tenant role; no API-role access (granted and revoked in SQL, audited by trigger); read through is_platform_admin()
+- `public.platform_audit_log`: platform audit trail (SUB §9.2, 05-09b): append-only by grants, written only by the platform.* RPCs and the platform_admins trigger; no API-role access
 - `public.cdci_brands`: global reference data: SELECT for every signed-in user
 - `public.cdci_drug_forms`: global reference data: SELECT for every signed-in user
 - `public.cdci_generics`: global reference data: SELECT for every signed-in user

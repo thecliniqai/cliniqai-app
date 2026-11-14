@@ -1,0 +1,25 @@
+# First pgTAP probe under the flip (before the fixture seeding fix), 20 files red, tree = ed96f8d minus the 20 fixture updates
+/Users/sid/Code/clinicOS/supabase/tests/database/actor_bindings_audit.test.sql                (Wstat: 0 Tests: 34 Failed: 11)
+/Users/sid/Code/clinicOS/supabase/tests/database/admin_policies.test.sql                      (Wstat: 0 Tests: 32 Failed: 16)
+/Users/sid/Code/clinicOS/supabase/tests/database/amendment_snapshot.test.sql                  (Wstat: 0 Tests: 60 Failed: 57)
+/Users/sid/Code/clinicOS/supabase/tests/database/api_keys_notices_columns.test.sql            (Wstat: 0 Tests: 26 Failed: 6)
+/Users/sid/Code/clinicOS/supabase/tests/database/audit_v2.test.sql                            (Wstat: 0 Tests: 24 Failed: 2)
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_helpers.test.sql                       (Wstat: 0 Tests: 77 Failed: 4)
+/Users/sid/Code/clinicOS/supabase/tests/database/billing_rpc_only.test.sql                    (Wstat: 0 Tests: 25 Failed: 14)
+/Users/sid/Code/clinicOS/supabase/tests/database/clinical_notes.test.sql                      (Wstat: 0 Tests: 53 Failed: 16)
+/Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql                   (Wstat: 0 Tests: 34 Failed: 10)
+/Users/sid/Code/clinicOS/supabase/tests/database/delete_rules.test.sql                        (Wstat: 0 Tests: 35 Failed: 5)
+/Users/sid/Code/clinicOS/supabase/tests/database/domain_policies.test.sql                     (Wstat: 0 Tests: 42 Failed: 23)
+/Users/sid/Code/clinicOS/supabase/tests/database/invitation_binding.test.sql                  (Wstat: 0 Tests: 14 Failed: 1)
+/Users/sid/Code/clinicOS/supabase/tests/database/queue_tokens.test.sql                        (Wstat: 0 Tests: 34 Failed: 11)
+/Users/sid/Code/clinicOS/supabase/tests/database/referrals_rules.test.sql                     (Wstat: 0 Tests: 48 Failed: 22)
+/Users/sid/Code/clinicOS/supabase/tests/database/reverify_integrity.test.sql                  (Wstat: 0 Tests: 61 Failed: 40)
+/Users/sid/Code/clinicOS/supabase/tests/database/scheduling_exclusion.test.sql                (Wstat: 0 Tests: 26 Failed: 2)
+/Users/sid/Code/clinicOS/supabase/tests/database/signed_visit_fields.test.sql                 (Wstat: 0 Tests: 26 Failed: 23)
+/Users/sid/Code/clinicOS/supabase/tests/database/storage_policies.test.sql                    (Wstat: 0 Tests: 46 Failed: 15)
+/Users/sid/Code/clinicOS/supabase/tests/database/tenant_local_dates.test.sql                  (Wstat: 0 Tests: 20 Failed: 2)
+/Users/sid/Code/clinicOS/supabase/tests/database/visit_integrity.test.sql                     (Wstat: 0 Tests: 45 Failed: 34)
+
+# Second probe after seeding those fixtures trialing (same tree as the commit's pgTAP files)
+pgtap-report-gate: files=39 tests=3934 passed=3934 failed=0 skipped/todo=0 floor=3934 required=39
+pgtap-report-gate: PASS

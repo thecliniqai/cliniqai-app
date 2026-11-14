@@ -1,7 +1,8 @@
 -- clinical_notes_backfill.test.sql — V2-05 plan 05-02a (roadmap V2-05 "migration tests on a copy seeded with the
 -- diagnostics' edge cases", clinical-split half; R-2, R-4).
 --
--- On this transaction's copy of the schema the 05-02a state is undone (the CHECK dropped, the insert trigger disabled),
+-- On this transaction's copy of the schema the 05-02a state is undone (the six columns 05-b0 dropped re-added with their
+-- pre-000053 types and defaults, the insert trigger disabled),
 -- visits carrying every shape of clinical content are planted as they existed before 000053 (SQL NULL, JSON null,
 -- empty and populated values, unicode, long text, arrays with NULL elements), and 000053's backfill, clear and CHECK
 -- statements are replayed VERBATIM (pinned byte-identical to the migration by tests/ci/clinical-notes-backfill-inline
@@ -15,8 +16,15 @@ insert into public.tenants (id, name) values ('cf100000-0000-4000-8000-000000000
 insert into public.memberships (user_id, tenant_id, role) values ('cf100000-0000-4000-8000-000000000101', 'cf100000-0000-4000-8000-00000000000a', 'doctor');
 insert into public.patients (id, tenant_id, full_name, phone, created_by) values ('cf100000-0000-4000-8000-000000001001', 'cf100000-0000-4000-8000-00000000000a', 'Synthetic Backfill Patient', '+919000000501', 'cf100000-0000-4000-8000-000000000101');
 
--- Back to the pre-000053 shape of visits for this transaction.
-alter table public.visits drop constraint visits_clinical_content_moved;
+-- Back to the pre-000053 shape of visits for this transaction (000079, 05-b0, dropped the columns and their CHECK;
+-- types and defaults as they were before 000053).
+alter table public.visits
+  add column vitals jsonb default '{}'::jsonb,
+  add column chief_complaints jsonb default '[]'::jsonb,
+  add column clinical_notes text,
+  add column specialty_data jsonb default '{}'::jsonb,
+  add column investigations_advised text[] default '{}'::text[],
+  add column advice text[] default '{}'::text[];
 alter table public.visits disable trigger visits_create_clinical_notes;
 delete from public.clinical_notes;
 

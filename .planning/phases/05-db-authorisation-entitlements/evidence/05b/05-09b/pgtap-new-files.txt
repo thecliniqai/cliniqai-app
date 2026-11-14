@@ -1,0 +1,5 @@
+supabase/tests/database/platform_rpcs.test.sql planned=80 ok=80 not_ok=0
+supabase/tests/database/authz_matrix.test.sql planned=2816 ok=2816 not_ok=0
+supabase/tests/database/authz_completeness.test.sql planned=6 ok=6 not_ok=0
+supabase/tests/database/definer_functions.test.sql planned=34 ok=34 not_ok=0
+supabase/tests/database/billing_grants.test.sql planned=24 ok=24 not_ok=0

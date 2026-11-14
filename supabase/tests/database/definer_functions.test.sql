@@ -5,12 +5,13 @@
 --      token-scoped / onboarding / anon-system exemptions, service_role-only, and internal (no API grant);
 --   2. the exact EXECUTE grantees of every definer function in public and private (anon only where listed);
 --   3. every SECURITY DEFINER function in the app schemas has a pinned search_path ('' or ending in pg_temp);
---   4. no definer function calls a legacy "any membership" helper (other than the helpers' own definitions);
+--   4. no definer function calls a legacy "any membership" helper (05-b0 dropped `current_user_has_role`,
+--      `current_user_is_admin_or_owner` and `generate_daily_queue_token`, with their rows and legs here; 000079);
 --   5. dual-member legs: a user who belongs to clinics A and B, acting in A (x-clinicos-tenant header) on a clinic-B
 --      subject, is refused; the same call acting in B is allowed. 05-10a adds the access-level leg to this file.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(40);
+select plan(34);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -32,6 +33,14 @@ insert into auth.users (id, email) values
 insert into public.tenants (id, name, referral_directory_listed) values
   ('c2c00000-0000-4000-8000-00000000000a', 'Synthetic 05-02c Clinic A', false),
   ('c2c00000-0000-4000-8000-00000000000b', 'Synthetic 05-02c Clinic B', true);
+-- V2-05 05-09c (R-25, acceptance 11 preparation): this file's clinics are trialing on the Standard price, so they keep
+-- full access once the RLS helpers read the access level (05-10a). Clinics created in this transaction only.
+update public.tenant_subscriptions s
+   set status = 'trialing', trial_start = now(), trial_end = now() + interval '14 days',
+       access_ends_at = now() + interval '15 days', trial_consumed = true,
+       plan_price_id = (select pp.id from public.plan_prices pp join public.plans p on p.id = pp.plan_id
+                         where p.code = 'standard' order by pp.active_from limit 1)
+ where s.tenant_id in (select t.id from public.tenants t where t.created_at = now()) and s.status = 'incomplete';
 insert into public.memberships (user_id, tenant_id, role) values
   ('c2c00000-0000-4000-8000-000000000101', 'c2c00000-0000-4000-8000-00000000000a', 'owner'),
   ('c2c00000-0000-4000-8000-000000000102', 'c2c00000-0000-4000-8000-00000000000a', 'admin'),
@@ -153,18 +162,17 @@ insert into c2c_definer values
   ('public.enqueue_webhook_event', 'bound', 'p_tenant_id = active clinic; ping clinic:manage (000061)'),
   ('private.outbox_payment_recorded', 'bound', 'a session''s payment in the active clinic (000061)'),
   ('public.referral_source_clinics', 'bound', 'consultations:view in the active clinic (000061)'),
-  ('public.generate_daily_queue_token', 'bound', 'appointments:edit in the active clinic (000061)'),
   ('public.issue_queue_token', 'bound', 'visit''s clinic = active clinic with appointments:edit (000068, 05-11a; replaced next_queue_token)'),
   ('public.generate_tenant_invoice_number', 'bound', 'billing:collect or consultations:edit, active clinic (000056)'),
   ('public.search_medicines', 'bound', 'the active clinic (000061)'),
   ('public.log_audit', 'bound', 'p_tenant = active clinic (000060); action and metadata allow-lists (000074, 05-11b)'),
   ('public.record_payment', 'bound', 'p_tenant_id = active clinic with billing:collect; system path = service role + closed actor (000072, 05-11b)'),
   ('public.has_permission', 'bound', 'authz.tenant_ids_with: the active clinic (000046)'),
-  ('public.current_user_has_role', 'bound', 'legacy helper, body bound to the active clinic (000061)'),
-  ('public.current_user_is_admin_or_owner', 'bound', 'legacy helper, body bound to the active clinic (000061)'),
   ('public.referral_directory_search', 'bound', 'consultations:edit in the active clinic; never the active clinic itself (000062, 05-06)'),
   -- the member helper
   ('public.current_user_tenant_ids', 'member', 'every clinic of the caller (switcher); no policy or function uses it'),
+  ('public.my_tenant_access', 'member', 'SUB §6.2 wrapper: the access level of one of the caller''s own clinics, else null (000083, 05-09a)'),
+  ('public.my_entitlements', 'member', 'SUB §6.2 wrapper: entitlements of one of the caller''s own clinics, else no rows (000083, 05-09a)'),
   -- exempt: authorised by something other than a clinic membership
   ('public.consume_invitation', 'exempt', 'invitation token (creates the membership; 05-07a rework)'),
   ('public.create_clinic_with_owner', 'exempt', 'onboarding: creates the clinic and the caller''s first membership'),
@@ -173,6 +181,7 @@ insert into c2c_definer values
   ('public.resolve_share_token', 'exempt', 'anon, share-link token'),
   ('public.readiness_probe', 'exempt', 'anon readiness probe: booleans only'),
   ('public.ops_ingest_error', 'exempt', 'error ingest: ingest key, no tenant data returned'),
+  ('public.is_platform_admin', 'exempt', 'platform admin: own platform_admins row + aal2, not a clinic role (000085, 05-09b)'),
   -- service_role only (system paths; no session)
   ('public.claim_jobs', 'system', 'job runner'), ('public.complete_job', 'system', 'job runner'),
   ('public.defer_job', 'system', 'job runner'), ('public.fail_job', 'system', 'job runner'),
@@ -207,7 +216,8 @@ insert into c2c_definer values
   ('private.referrals_directory_consent_guard', 'internal', 'trigger: referral target listed + consent (05-06); actor, target doctor, consent coverage (000074, 05-11b)'),
   ('private.invoice_items_sync_invoice', 'internal', 'trigger: invoice totals and status follow its items (000072, 05-11b); never promotes to paid (000075, 05-11d)'),
   ('private.invoice_items_integrity_guard', 'internal', 'trigger: computed line total, keys, paid/collected locks (000075, 05-11d)'),
-  ('private.visit_revisions_actor_guard', 'internal', 'trigger: amendment author, database snapshot and number (000068/000075, 05-11a/05-11d)');
+  ('private.visit_revisions_actor_guard', 'internal', 'trigger: amendment author, database snapshot and number (000068/000075, 05-11a/05-11d)'),
+  ('private.tenants_create_subscription', 'internal', 'trigger: every new clinic gets one incomplete tenant_subscriptions row (000082, 05-09a, R-24)');
 
 -- 1. ------------------------------------------------------------------------------------------------------------------
 select set_eq(
@@ -229,17 +239,17 @@ select set_eq(
     'public.change_member_role:authenticated,service_role', 'public.create_share_token:authenticated,service_role',
     'public.revoke_share_token:authenticated,service_role', 'public.enqueue_message:authenticated',
     'public.enqueue_webhook_event:authenticated', 'private.outbox_payment_recorded:authenticated,service_role',
-    'public.referral_source_clinics:authenticated', 'public.generate_daily_queue_token:authenticated,service_role',
+    'public.referral_source_clinics:authenticated',
     'public.issue_queue_token:authenticated',
     'public.generate_tenant_invoice_number:authenticated,service_role', 'public.search_medicines:authenticated,service_role',
     'public.log_audit:authenticated', 'public.has_permission:authenticated,service_role',
-    'public.current_user_has_role:authenticated,service_role', 'public.current_user_is_admin_or_owner:authenticated,service_role',
     'public.current_user_tenant_ids:authenticated,service_role',
+    'public.my_tenant_access:authenticated', 'public.my_entitlements:authenticated',
     'public.consume_invitation:authenticated,service_role', 'public.create_clinic_with_owner:authenticated,service_role',
     'public.consume_reschedule_token:anon,authenticated,service_role',
     'public.get_reschedule_context:anon,authenticated,service_role',
     'public.resolve_share_token:anon,authenticated,service_role', 'public.readiness_probe:anon',
-    'public.ops_ingest_error:anon,authenticated',
+    'public.ops_ingest_error:anon,authenticated', 'public.is_platform_admin:authenticated',
     'public.claim_jobs:service_role', 'public.complete_job:service_role', 'public.defer_job:service_role',
     'public.fail_job:service_role', 'public.release_job:service_role', 'public.start_job:service_role',
     'public.jobs_runner_begin:service_role', 'public.jobs_runner_end:service_role',
@@ -258,7 +268,8 @@ select set_eq(
     'private.webhook_event_subject:', 'private.visits_create_clinical_notes:',
     'public.referral_directory_search:authenticated', 'private.referrals_directory_consent_guard:',
     'public.record_payment:authenticated,service_role', 'private.invoice_items_sync_invoice:',
-    'private.invoice_items_integrity_guard:', 'private.visit_revisions_actor_guard:'
+    'private.invoice_items_integrity_guard:', 'private.visit_revisions_actor_guard:',
+    'private.tenants_create_subscription:'
   ]::text[],
   'every definer function has exactly its expected EXECUTE grantees (anon only for the token, probe and ingest paths)'
 );
@@ -327,10 +338,6 @@ select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000
   '0', 'referral_source_clinics: acting in A, clinic A is not a source of A''s incoming referrals');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.referral_source_clinics(array['c2c00000-0000-4000-8000-00000000000a']::uuid[])$$),
   '1', 'referral_source_clinics: acting in B (the target), A is listed');
-select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select public.generate_daily_queue_token('c2c00000-0000-4000-8000-00000000000b', '2030-01-01')$$),
-  'denied:forbidden', 'generate_daily_queue_token: acting in A for B is refused');
-select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.generate_daily_queue_token('c2c00000-0000-4000-8000-00000000000b', '2030-01-01')$$),
-  '1', 'generate_daily_queue_token: acting in B it answers');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select token_number from public.issue_queue_token('c2c00000-0000-4000-8000-000000002002')$$),
   'denied:forbidden', 'issue_queue_token: acting in A on clinic B''s visit is refused (05-08, 05-11a)');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select token_number from public.issue_queue_token('c2c00000-0000-4000-8000-000000002002')$$),
@@ -355,14 +362,6 @@ select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-
   'false', 'has_permission: acting in A, nothing in B');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.has_permission('c2c00000-0000-4000-8000-00000000000b', 'patients:view')::text$$),
   'true', 'has_permission: acting in B, granted');
-select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select public.current_user_has_role('c2c00000-0000-4000-8000-00000000000b', array['doctor'])::text$$),
-  'false', 'current_user_has_role: acting in A, no role in B (before: true, any membership)');
-select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.current_user_has_role('c2c00000-0000-4000-8000-00000000000b', array['doctor'])::text$$),
-  'true', 'current_user_has_role: acting in B, the B role');
-select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000a', $$select public.current_user_is_admin_or_owner('c2c00000-0000-4000-8000-00000000000b')::text$$),
-  'false', 'current_user_is_admin_or_owner: acting in A, not B''s owner (before: true)');
-select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b', $$select public.current_user_is_admin_or_owner('c2c00000-0000-4000-8000-00000000000b')::text$$),
-  'true', 'current_user_is_admin_or_owner: acting in B, B''s owner');
 select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.referral_directory_search('Synthetic 05-02c Clinic')$$),
   'denied:forbidden', 'referral_directory_search: acting in B (receptionist, no consultations:edit) is refused');
 select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.referral_directory_search('Synthetic 05-02c Clinic')$$),

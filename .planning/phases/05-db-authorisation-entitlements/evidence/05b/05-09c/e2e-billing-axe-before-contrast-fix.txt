@@ -1,0 +1,39 @@
+272:    Error: serious/critical axe violations in the billing page content
+273-
+274-    expect(received).toEqual(expected) // deep equality
+275-
+276-    - Expected  -  1
+277-    + Received  + 10
+278-
+279-    - Array []
+280-    + Array [
+281-    +   Object {
+282-    +     "help": "Elements must meet minimum color contrast ratio thresholds",
+283-    +     "id": "color-contrast",
+284-    +     "impact": "serious",
+285-    +     "targets": Array [
+286-    +       ".mt-0\\.5",
+287-    +     ],
+288-    +   },
+289-    + ]
+290-
+--
+293:    > 44 |   expect(seriousOrCritical(results), "serious/critical axe violations in the billing page content").toEqual([]);
+294-         |                                                                                                     ^
+295-      45 |   if (width === 360) {
+296-      46 |     const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+297-      47 |     expect(scrolls, "horizontal scroll at 360px").toBe(false);
+298-        at check (/Users/sid/Code/clinicOS/tests/e2e/a11y/settings-billing-screens.spec.ts:44:101)
+299-        at /Users/sid/Code/clinicOS/tests/e2e/a11y/settings-billing-screens.spec.ts:72:7
+300-
+301-    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+302-    test-results/a11y-settings-billing-scre-c82a5--and-layout-at-360-820-1280-desktop-chrome/test-failed-1.png
+303-    ────────────────────────────────────────────────────────────────────────────────────────────────
+304-
+305-    Error Context: test-results/a11y-settings-billing-scre-c82a5--and-layout-at-360-820-1280-desktop-chrome/error-context.md
+306-
+307-    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+308-    test-results/a11y-settings-billing-scre-c82a5--and-layout-at-360-820-1280-desktop-chrome/trace.zip
+309-    Usage:
+310-
+311-        npx playwright show-trace test-results/a11y-settings-billing-scre-c82a5--and-layout-at-360-820-1280-desktop-chrome/trace.zip
