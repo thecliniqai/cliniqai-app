@@ -1,0 +1,49 @@
+{
+ "generated_by": "tests/e2e/design/gallery-axe.spec.ts (PR lane, desktop-chrome) on the build of ee5d15b",
+ "widths": {
+  "360": {
+   "sections": [
+    "forms",
+    "overlays",
+    "ai"
+   ],
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "passes": 31
+  },
+  "820": {
+   "sections": [
+    "forms",
+    "overlays",
+    "ai"
+   ],
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "passes": 30
+  },
+  "1180": {
+   "sections": [
+    "forms",
+    "overlays",
+    "ai"
+   ],
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "passes": 30
+  },
+  "1280": {
+   "sections": [
+    "forms",
+    "overlays",
+    "ai"
+   ],
+   "horizontalScroll": false,
+   "seriousOrCritical": [],
+   "violations": [],
+   "passes": 30
+  }
+ }
+}

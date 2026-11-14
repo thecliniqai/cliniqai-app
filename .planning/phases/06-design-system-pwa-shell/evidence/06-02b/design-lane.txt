@@ -1,0 +1,109 @@
+npm run e2e:design -- --retries=0 (design-360/820/1180/1280) on the build of ee5d15b, 2026-11-14
+stats: expected=105 unexpected=0 flaky=0 skipped=16 duration_ms=89342
+tests with more than one result (retried): 0
+design-1180: {'skipped': 4, 'expected': 25}
+design-1280: {'skipped': 4, 'expected': 25}
+design-360: {'skipped': 4, 'expected': 25}
+design-820: {'skipped': 4, 'expected': 25}
+setup: {'expected': 5}
+06-02b specs and the specs 06-02b touched (non-skipped):
+  design-360 design/input-modes.spec.ts :: input kinds and control sizes on /dev/ui -> expected
+  design-820 design/input-modes.spec.ts :: input kinds and control sizes on /dev/ui -> expected
+  design-1180 design/input-modes.spec.ts :: input kinds and control sizes on /dev/ui -> expected
+  design-1280 design/input-modes.spec.ts :: input kinds and control sizes on /dev/ui -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /login -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /login -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /login -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /login -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /forgot-password -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /forgot-password -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /forgot-password -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /forgot-password -> expected
+  design-360 design/neutral/capture.spec.ts :: capture / -> expected
+  design-820 design/neutral/capture.spec.ts :: capture / -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture / -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture / -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /billing/register -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /billing/register -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /billing/register -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /billing/register -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /billing/reports -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /billing/reports -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /billing/reports -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /billing/reports -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /cabin -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /cabin -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /cabin -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /cabin -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /calendar -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /calendar -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /calendar -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /calendar -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /consultation/[id] -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /consultation/[id] -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /consultation/[id] -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /consultation/[id] -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /diag/client-error -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /diag/client-error -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /diag/client-error -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /diag/client-error -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /patients -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /patients -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /patients -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /patients -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /patients/[id] -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /patients/[id] -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /patients/[id] -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /patients/[id] -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /patients/new -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /patients/new -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /patients/new -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /patients/new -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /profile -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /profile -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /profile -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /profile -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /queue -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /queue -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /queue -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /queue -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /referrals -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /referrals -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /referrals -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /referrals -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /settings/billing -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /settings/billing -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /settings/billing -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /settings/billing -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /settings/clinic -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /settings/clinic -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /settings/clinic -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /settings/clinic -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /settings/developer -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /settings/developer -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /settings/developer -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /settings/developer -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /staff -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /staff -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /staff -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /staff -> expected
+  design-360 design/neutral/capture.spec.ts :: capture /visits -> expected
+  design-820 design/neutral/capture.spec.ts :: capture /visits -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture /visits -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture /visits -> expected
+  design-360 design/neutral/capture.spec.ts :: capture flow-walk-in-drawer -> expected
+  design-820 design/neutral/capture.spec.ts :: capture flow-walk-in-drawer -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture flow-walk-in-drawer -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture flow-walk-in-drawer -> expected
+  design-360 design/neutral/capture.spec.ts :: capture flow-booking-drawer -> expected
+  design-820 design/neutral/capture.spec.ts :: capture flow-booking-drawer -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture flow-booking-drawer -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture flow-booking-drawer -> expected
+  design-360 design/neutral/capture.spec.ts :: capture flow-sign-and-bill-modal -> expected
+  design-820 design/neutral/capture.spec.ts :: capture flow-sign-and-bill-modal -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture flow-sign-and-bill-modal -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture flow-sign-and-bill-modal -> expected
+  design-360 design/neutral/capture.spec.ts :: capture flow-checkout-drawer -> expected
+  design-820 design/neutral/capture.spec.ts :: capture flow-checkout-drawer -> expected
+  design-1180 design/neutral/capture.spec.ts :: capture flow-checkout-drawer -> expected
+  design-1280 design/neutral/capture.spec.ts :: capture flow-checkout-drawer -> expected
