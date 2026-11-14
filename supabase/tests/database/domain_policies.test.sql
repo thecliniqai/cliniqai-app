@@ -131,9 +131,9 @@ select set_eq(
     'schedule_blocks.schedule_blocks_update',
     'follow_ups.follow_ups_select', 'follow_ups.follow_ups_insert', 'follow_ups.follow_ups_update',
     'communication_queue.communication_queue_select',
-    'invoices.invoices_select', 'invoices.invoices_insert', 'invoices.invoices_update',
+    'invoices.invoices_select', 'invoices.invoices_insert',
     'invoice_items.invoice_items_select', 'invoice_items.invoice_items_insert', 'invoice_items.invoice_items_update',
-    'payments.payments_select', 'payments.payments_insert'
+    'payments.payments_select'
   ]::text[],
   'the S/I/U policies of the 20 domain tables are exactly the 05-02b set (no leftover *_member / *_tenant policy)'
 );

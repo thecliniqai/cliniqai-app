@@ -566,61 +566,8 @@ export async function addInvoiceItem(
       return { success: false, error: "Failed to add charge to invoice." };
     }
 
-    // 3. Recalculate invoice totals
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: allItems } = await (supabase.from("invoice_items") as any)
-      .select("total_price")
-      .eq("invoice_id", data.invoice_id)
-      .eq("tenant_id", session.tenantId);
-
-    const newSubtotal =
-      Math.round(
-        ((allItems || []).reduce(
-          (acc: number, curr: { total_price: number }) =>
-            acc + Number(curr.total_price),
-          0
-        ) +
-          Number.EPSILON) *
-          100
-      ) / 100;
-
-    const discount = Number(invoice.discount) || 0;
-    const tax = Number(invoice.tax) || 0;
-    const newTotal = Math.max(
-      0,
-      Math.round((newSubtotal - discount + tax + Number.EPSILON) * 100) / 100
-    );
-
-    // 4. Update payments / status
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: payments } = await (supabase.from("payments") as any)
-      .select("amount")
-      .eq("invoice_id", data.invoice_id)
-      .eq("tenant_id", session.tenantId);
-
-    const totalPaid =
-      Math.round(
-        ((payments || []).reduce(
-          (acc: number, curr: { amount: number }) => acc + Number(curr.amount),
-          0
-        ) +
-          Number.EPSILON) *
-          100
-      ) / 100;
-
-    const isFullyPaid = totalPaid >= newTotal && newTotal > 0;
-    const newStatus = isFullyPaid ? "paid" : "issued";
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from("invoices") as any)
-      .update({
-        subtotal: newSubtotal,
-        total_amount: newTotal,
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", data.invoice_id)
-      .eq("tenant_id", session.tenantId);
+    // 3. The invoice's subtotal, total and paid/issued status follow its items in the database
+    // (`invoice_items_sync_invoice`, V2-05 05-11b): members hold no UPDATE on invoices.
 
     await recordAudit(ctx, {
       action: "invoice.item_add",
@@ -685,70 +632,7 @@ export async function deleteInvoiceItem(
       return { success: false, error: refused.message };
     }
 
-    // 3. Recalculate invoice totals
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: invoice } = await (supabase.from("invoices") as any)
-      .select("id, discount, tax")
-      .eq("id", item.invoice_id)
-      .eq("tenant_id", session.tenantId)
-      .single();
-
-    if (invoice) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: allItems } = await (supabase.from("invoice_items") as any)
-        .select("total_price")
-        .eq("invoice_id", item.invoice_id)
-        .eq("tenant_id", session.tenantId);
-
-      const newSubtotal =
-        Math.round(
-          ((allItems || []).reduce(
-            (acc: number, curr: { total_price: number }) =>
-              acc + Number(curr.total_price),
-            0
-          ) +
-            Number.EPSILON) *
-            100
-        ) / 100;
-
-      const discount = Number(invoice.discount) || 0;
-      const tax = Number(invoice.tax) || 0;
-      const newTotal = Math.max(
-        0,
-        Math.round((newSubtotal - discount + tax + Number.EPSILON) * 100) / 100
-      );
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: payments } = await (supabase.from("payments") as any)
-        .select("amount")
-        .eq("invoice_id", item.invoice_id)
-        .eq("tenant_id", session.tenantId);
-
-      const totalPaid =
-        Math.round(
-          ((payments || []).reduce(
-            (acc: number, curr: { amount: number }) =>
-              acc + Number(curr.amount),
-            0
-          ) +
-            Number.EPSILON) *
-            100
-        ) / 100;
-
-      const isFullyPaid = totalPaid >= newTotal && newTotal > 0;
-      const newStatus = isFullyPaid ? "paid" : "issued";
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("invoices") as any)
-        .update({
-          subtotal: newSubtotal,
-          total_amount: newTotal,
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", item.invoice_id)
-        .eq("tenant_id", session.tenantId);
-    }
+    // 3. The invoice's totals and status follow in the database (`invoice_items_sync_invoice`, V2-05 05-11b).
 
     await recordAudit(ctx, {
       action: "invoice.item_remove",

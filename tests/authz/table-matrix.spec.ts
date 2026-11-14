@@ -257,14 +257,15 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   "public.invoices": [
     "(perm(billing:view) OR perm(consultations:edit) AND ownVisit)",
     "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit)",
-    "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit)",
+    "rpc_only", // 05-11b M-INVOICE: totals and status are derived; paid only through record_payment
   ],
   "public.invoice_items": [
     "(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))",
     "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice))",
     "(perm(billing:collect) OR perm(consultations:edit) AND ownVisit(@invoice))",
   ],
-  "public.payments": ["(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))", "perm(billing:collect)", "rpc_only"],
+  // 05-11b M-INVOICE: payments are written only by record_payment (billing:collect, SECURITY DEFINER).
+  "public.payments": ["(perm(billing:view) OR perm(consultations:edit) AND ownVisit(@invoice))", "rpc_only", "rpc_only"],
 };
 
 describe("the clinical, front-desk and financial S/I/U rules (target since 05-02b)", () => {
@@ -290,7 +291,10 @@ describe("the clinical, front-desk and financial S/I/U rules (target since 05-02
     expect(outcome("public.patients", "insert", "receptionist_a")).toBe("ok");
     expect(outcome("public.payments", "insert", "doctor_a")).toBe("denied");
     expect(outcome("public.payments", "insert", "nurse_a")).toBe("denied");
-    expect(outcome("public.payments", "insert", "receptionist_a")).toBe("ok");
+    // 05-11b (M-INVOICE): not even a collector inserts a payment directly; record_payment is the only writer.
+    expect(outcome("public.payments", "insert", "receptionist_a")).toBe("denied");
+    expect(outcome("public.invoices", "update", "doctor_a")).toBe("denied");
+    expect(outcome("public.invoices", "update", "receptionist_a")).toBe("denied");
     expect(outcome("public.invoices", "select", "nurse_a")).toBe("0");
     expect(outcome("public.invoices", "select", "doctor_a")).toBe("1");
     expect(outcome("public.invoices", "select", "doctor2_a")).toBe("0");

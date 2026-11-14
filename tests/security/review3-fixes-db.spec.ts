@@ -272,8 +272,9 @@ describe("01-10 review round 3 fixes (000024)", () => {
       const refused = await enqueueMessage(ctxFor(A.members.receptionist), {
         patientId: A.patientId,
         channel: "whatsapp",
-        messageType: "lab_report_uploaded",
-        templateId: "lab_report_uploaded",
+        // 05-11b (IND L4): the receptionist's template (billing:view); lab reports need labs:view.
+        messageType: "receipt_issued",
+        templateId: "receipt_issued",
         templateParams: { document_url: LINK },
         metadata: tokenMetadata,
       }).catch((e) => e);
@@ -304,8 +305,9 @@ describe("01-10 review round 3 fixes (000024)", () => {
       const queued = await enqueueMessage(ctxFor(A.members.receptionist), {
         patientId: A.patientId,
         channel: "whatsapp",
-        messageType: "lab_report_uploaded",
-        templateId: "lab_report_uploaded",
+        // 05-11b (IND L4): the receptionist's template (billing:view); lab reports need labs:view.
+        messageType: "receipt_issued",
+        templateId: "receipt_issued",
         templateParams: { document_url: LINK, patient_name: "scrub" },
         metadata: { buttons: [{ id: "b", text: "View", url: LINK }] },
       });
@@ -325,8 +327,9 @@ describe("01-10 review round 3 fixes (000024)", () => {
       const queued = await enqueueMessage(ctxFor(A.members.receptionist), {
         patientId: A.patientId,
         channel: "whatsapp",
-        messageType: "lab_report_uploaded",
-        templateId: "lab_report_uploaded",
+        // 05-11b (IND L4): the receptionist's template (billing:view); lab reports need labs:view.
+        messageType: "receipt_issued",
+        templateId: "receipt_issued",
         templateParams: { document_url: LINK },
       });
       const refusing: MessagingProvider = {
@@ -343,7 +346,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
         .contains("metadata", { queue_id: queued.id });
       expect(alerts).toHaveLength(1);
       const alert = alerts![0] as { message: string; metadata: Record<string, unknown> };
-      expect(alert.metadata).toMatchObject({ queue_id: queued.id, message_type: "lab_report_uploaded" });
+      expect(alert.metadata).toMatchObject({ queue_id: queued.id, message_type: "receipt_issued" });
       expect(JSON.stringify(alert)).not.toContain(A.phone.replace("+91", ""));
     });
 
@@ -351,8 +354,9 @@ describe("01-10 review round 3 fixes (000024)", () => {
       const queued = await enqueueMessage(ctxFor(A.members.receptionist), {
         patientId: A.patientId,
         channel: "whatsapp",
-        messageType: "lab_report_uploaded",
-        templateId: "lab_report_uploaded",
+        // 05-11b (IND L4): the receptionist's template (billing:view); lab reports need labs:view.
+        messageType: "receipt_issued",
+        templateId: "receipt_issued",
         templateParams: { document_url: LINK },
       });
       await runMessages(recordingProvider(), `${WORKER}-audit`);
@@ -367,7 +371,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
         .eq("entity_id", queued.id);
       expect(audits).toHaveLength(1);
       const metadata = (audits![0] as { metadata: Record<string, unknown> }).metadata;
-      expect(metadata).toMatchObject({ queue_id: queued.id, message_type: "lab_report_uploaded" });
+      expect(metadata).toMatchObject({ queue_id: queued.id, message_type: "receipt_issued" });
       expect(metadata).not.toHaveProperty("recipient_phone");
       expect(JSON.stringify(metadata)).not.toContain(A.phone.replace("+91", ""));
     });
@@ -547,7 +551,9 @@ describe("01-10 review round 3 fixes (000024)", () => {
       expect(first.success).toBe(true);
       const [original] = await invoices(visitId);
 
-      const voided = await A.owner.client.from("invoices").update({ status: "cancelled" }).eq("id", original.id);
+      // No member updates invoices since 05-11b (M-INVOICE, 000072) and the app has no void path yet: the void is the
+      // service role's (what a future void command would do).
+      const voided = await admin.from("invoices").update({ status: "cancelled" }).eq("id", original.id);
       expect(voided.error).toBeNull();
 
       // Sign & Bill retry by the signing doctor re-bills the visit once the only invoice is void.
@@ -562,7 +568,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
 
       // Void that one too; checkout's createVisitInvoice issues a fresh one.
       const live = all.find((i) => i.status !== "cancelled")!;
-      await A.owner.client.from("invoices").update({ status: "cancelled" }).eq("id", live.id);
+      await admin.from("invoices").update({ status: "cancelled" }).eq("id", live.id);
       const reissued = await createVisitInvoice(ctxFor(A.members.receptionist), invoiceInput(visitId));
       expect(reissued.success).toBe(true);
       if (reissued.success) expect(reissued.existing).toBeFalsy();

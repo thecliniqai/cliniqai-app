@@ -483,8 +483,11 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.invoice), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), invoice_number: "'AUTHZ-0001'" },
     insert: { id: q(FX.row(13)), tenant_id: A, visit_id: q(FX.visit2), patient_id: q(FX.patient), invoice_number: "'AUTHZ-0002'" },
     update: "status",
-    rules: { select: billingRead(ownVisit), insert: billingWrite(ownVisit), update: billingWrite(ownVisit), delete: rpcOnly },
-    note: "05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill)",
+    rules: { select: billingRead(ownVisit), insert: billingWrite(ownVisit), update: rpcOnly, delete: rpcOnly },
+    note:
+      "05-02b (PO-3, R-7): collectors (billing:collect) bill; a doctor reads and bills only their own visit (Sign & Bill). " +
+      "05-11b (M-INVOICE): no UPDATE privilege; totals and status follow the items (invoice_items_sync_invoice), paid only " +
+      "through record_payment; an INSERT starts draft/issued with the formula's total (billing_rpc_only.test.sql)",
   },
   {
     kind: "table",
@@ -510,8 +513,8 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(16)), tenant_id: A, invoice_id: q(FX.invoice), amount: "100", payment_method: "'cash'", recorded_by: U.ownerA },
     insert: { id: q(FX.row(17)), tenant_id: A, invoice_id: q(FX.invoice), amount: "50", payment_method: "'cash'" },
     update: "notes",
-    rules: { select: billingRead(ownVisitOfInvoice), insert: perm("billing:collect"), update: rpcOnly, delete: rpcOnly },
-    note: "column-level INSERT grant; the actor guard stamps recorded_by; doctors and nurses do not collect (PO-3, 05-02b)",
+    rules: { select: billingRead(ownVisitOfInvoice), insert: rpcOnly, update: rpcOnly, delete: rpcOnly },
+    note: "written only by record_payment (SECURITY DEFINER, billing:collect in the active clinic; 05-11b M-INVOICE); doctors and nurses do not collect (PO-3)",
   },
   {
     kind: "table",

@@ -5,6 +5,10 @@
  * invariants, the payment, the status transition, the audit row (actor = auth.uid()) and the `payment.recorded` outbox
  * rows commit together or not at all. The system path runs the same function through `getSystemDb(reason)` with an
  * explicit system actor. Synthetic data only.
+ *
+ * Since V2-05 05-11b (M-INVOICE, migration 000072) the function is SECURITY DEFINER: members hold no INSERT on payments
+ * and no UPDATE on invoices, so record_payment is the only way to pay. Its own checks bind it (session, active clinic,
+ * billing:collect; service role + closed system actor), as the cases below still prove.
  */
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -567,11 +571,11 @@ describe("record_payment: privileges", () => {
     expect(await paymentsOf(invoiceId)).toEqual([]);
   });
 
-  it("catalog: INVOKER, empty search_path, lock_timeout; EXECUTE for authenticated and service_role only; the definer helper is not anon-executable", () => {
+  it("catalog: DEFINER (05-11b), empty search_path, lock_timeout; EXECUTE for authenticated and service_role only; the definer helper is not anon-executable", () => {
     const [prosecdef, config] = psql(
       `select prosecdef, array_to_string(proconfig, ',') from pg_proc where oid = '${RPC_SIGNATURE}'::regprocedure`
     )[0].split("|");
-    expect(prosecdef).toBe("f");
+    expect(prosecdef).toBe("t");
     expect(config.split(",").sort()).toEqual(['lock_timeout=2s', 'search_path=""']);
 
     const privileges = (fn: string) =>

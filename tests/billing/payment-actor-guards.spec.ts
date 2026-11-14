@@ -6,6 +6,8 @@
  *
  * - H-PAY: a direct `payments` INSERT cannot name another actor in `recorded_by` (forced to auth.uid()) and cannot
  *   carry a command id (only record_payment writes one); record_payment never replays another actor's row as its own.
+ *   Since V2-05 05-11b (M-INVOICE, migration 000072) the direct INSERT is refused outright (privilege revoked; paying
+ *   is record_payment only); the 000029 actor guard stays behind the revoke.
  * - M-AUDITSYS: a direct `audit_logs` INSERT cannot claim the system, another user, an API key or another role. Since
  *   V2-05 05-02c (R-20) the direct INSERT is refused outright (privilege revoked) and a user's row goes through
  *   `log_audit`, which takes the actor from the session; the 000029 guard stays behind the revoke (audit_v2.test.sql).
@@ -77,18 +79,22 @@ beforeAll(async () => {
 });
 
 describe("H-PAY: direct payments INSERT through PostgREST", () => {
-  it("a receptionist naming another user in recorded_by is stored as the receptionist (actor forced to auth.uid())", async () => {
+  it("a receptionist cannot insert a payment directly at all (05-11b: record_payment only), naming anyone", async () => {
     const invoiceId = await seedInvoice(owner, 100);
-    const { error } = await collector.client.from("payments").insert({
-      tenant_id: owner.tenantId,
-      invoice_id: invoiceId,
-      amount: 1,
-      payment_method: "cash",
-      recorded_by: other.userId,
-    });
-    expect(error).toBeNull();
-    const rows = await paymentsOf(invoiceId);
-    expect(rows.map((r) => [r.recorded_by, r.recorded_by_system])).toEqual([[collector.userId, null]]);
+    for (const recordedBy of [other.userId, collector.userId]) {
+      const { error } = await collector.client.from("payments").insert({
+        tenant_id: owner.tenantId,
+        invoice_id: invoiceId,
+        amount: 1,
+        payment_method: "cash",
+        recorded_by: recordedBy,
+      });
+      expect(error?.code).toBe("42501");
+      expect(error?.message).toBe("permission denied for table payments");
+    }
+    expect(await paymentsOf(invoiceId)).toEqual([]);
+    const { data: inv } = await admin.from("invoices").select("status").eq("id", invoiceId).single();
+    expect(inv?.status).toBe("issued");
   });
 
   it("the reviewer's forged command: a direct insert carrying a command id is refused, and the RPC then does not replay it", async () => {
@@ -103,7 +109,7 @@ describe("H-PAY: direct payments INSERT through PostgREST", () => {
       command_id: commandId,
     });
     expect(error?.code).toBe("42501");
-    expect(error?.message).toBe("COMMAND_ID_RPC_ONLY");
+    expect(error?.message).toBe("permission denied for table payments");
     expect(await paymentsOf(invoiceId)).toEqual([]);
 
     const replay = await collector.client.rpc("record_payment", {

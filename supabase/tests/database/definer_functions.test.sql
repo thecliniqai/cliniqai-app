@@ -10,7 +10,7 @@
 --      subject, is refused; the same call acting in B is allowed. 05-10a adds the access-level leg to this file.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(38);
+select plan(40);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -157,7 +157,8 @@ insert into c2c_definer values
   ('public.issue_queue_token', 'bound', 'visit''s clinic = active clinic with appointments:edit (000068, 05-11a; replaced next_queue_token)'),
   ('public.generate_tenant_invoice_number', 'bound', 'billing:collect or consultations:edit, active clinic (000056)'),
   ('public.search_medicines', 'bound', 'the active clinic (000061)'),
-  ('public.log_audit', 'bound', 'p_tenant = active clinic (000060)'),
+  ('public.log_audit', 'bound', 'p_tenant = active clinic (000060); action and metadata allow-lists (000074, 05-11b)'),
+  ('public.record_payment', 'bound', 'p_tenant_id = active clinic with billing:collect; system path = service role + closed actor (000072, 05-11b)'),
   ('public.has_permission', 'bound', 'authz.tenant_ids_with: the active clinic (000046)'),
   ('public.current_user_has_role', 'bound', 'legacy helper, body bound to the active clinic (000061)'),
   ('public.current_user_is_admin_or_owner', 'bound', 'legacy helper, body bound to the active clinic (000061)'),
@@ -203,7 +204,8 @@ insert into c2c_definer values
   ('private.message_subject', 'internal', 'subject lookup for the enqueue RPCs'),
   ('private.webhook_event_subject', 'internal', 'subject lookup for the enqueue RPCs'),
   ('private.visits_create_clinical_notes', 'internal', 'trigger (05-02a)'),
-  ('private.referrals_directory_consent_guard', 'internal', 'trigger: referral target listed + consent (05-06)');
+  ('private.referrals_directory_consent_guard', 'internal', 'trigger: referral target listed + consent (05-06); actor, target doctor, consent coverage (000074, 05-11b)'),
+  ('private.invoice_items_sync_invoice', 'internal', 'trigger: invoice totals and status follow its items (000072, 05-11b)');
 
 -- 1. ------------------------------------------------------------------------------------------------------------------
 select set_eq(
@@ -252,7 +254,8 @@ select set_eq(
     'private.log_system_audit:service_role',
     'private.enqueue_message_internal:', 'private.enqueue_webhook_internal:', 'private.message_subject:',
     'private.webhook_event_subject:', 'private.visits_create_clinical_notes:',
-    'public.referral_directory_search:authenticated', 'private.referrals_directory_consent_guard:'
+    'public.referral_directory_search:authenticated', 'private.referrals_directory_consent_guard:',
+    'public.record_payment:authenticated,service_role', 'private.invoice_items_sync_invoice:'
   ]::text[],
   'every definer function has exactly its expected EXECUTE grantees (anon only for the token, probe and ingest paths)'
 );
@@ -339,8 +342,12 @@ select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000
   '1', 'generate_tenant_invoice_number: acting in B it answers');
 select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select public.log_audit('c2c00000-0000-4000-8000-00000000000b', 'c2c.probe', 'synthetic', null, null)$$),
   'denied:ACTOR_INVALID', 'log_audit: acting in A for B is refused');
-select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.log_audit('c2c00000-0000-4000-8000-00000000000b', 'c2c.probe', 'synthetic', null, null)$$),
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.log_audit('c2c00000-0000-4000-8000-00000000000b', 'patient.view', 'patient', null, null)$$),
   '1', 'log_audit: acting in B it writes');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select public.record_payment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000002005', 1, 'cash', '', null)$$),
+  'error:P0002:INVOICE_NOT_FOUND', 'record_payment: acting in A on clinic B''s invoice is not found (000072 definer, 05-11b)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.record_payment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000002005', 1, 'cash', '', null)$$),
+  '1', 'record_payment: acting in B (receptionist there, billing:collect) it records');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select public.has_permission('c2c00000-0000-4000-8000-00000000000b', 'patients:view')::text$$),
   'false', 'has_permission: acting in A, nothing in B');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.has_permission('c2c00000-0000-4000-8000-00000000000b', 'patients:view')::text$$),
