@@ -566,6 +566,24 @@ const boundaryDirectivePlugin = {
   },
 };
 
+/**
+ * V2-06 06-01a (DESIGN_SYSTEM §8, §10; report mode): every rule of eslint-plugin-jsx-a11y's `recommended` set at
+ * "warn", options kept. The plugin object is the one eslint-config-next already registers (read from the imported
+ * config array, no second import of the package). V2-06 primitives and the screen rebuilds (V2-08…V2-11) bring the
+ * count down; warnings never fail `npm run lint`.
+ */
+const JSX_A11Y_REPORT_RULES = (() => {
+  const plugin = nextCoreWebVitals.find((c) => c.plugins?.["jsx-a11y"])?.plugins["jsx-a11y"];
+  const recommended = plugin?.configs?.recommended?.rules;
+  if (!recommended) throw new Error("eslint.config.mjs: eslint-config-next no longer registers jsx-a11y with a recommended config");
+  return Object.fromEntries(
+    Object.entries(recommended).map(([rule, level]) => [
+      rule,
+      Array.isArray(level) ? (level[0] === "off" || level[0] === 0 ? level : ["warn", ...level.slice(1)]) : level === "off" || level === 0 ? level : "warn",
+    ]),
+  );
+})();
+
 const eslintConfig = [
   {
     ignores: [
@@ -610,6 +628,7 @@ const eslintConfig = [
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/purity": "warn",
       "react-hooks/immutability": "warn",
+      ...JSX_A11Y_REPORT_RULES,
     },
   },
   {
