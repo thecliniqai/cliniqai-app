@@ -809,8 +809,8 @@ export type ReopenVisitForAmendmentResult =
 
 /**
  * Reopens a completed consultation for post-sign-off clinical amendments.
- * Captures an immutable JSON snapshot in `visit_revisions` before transitioning
- * the visit status back to 'in_consultation'.
+ * Writes an amendment row in `visit_revisions` (the database fills its number and its immutable JSON snapshot of the
+ * signed content) before transitioning the visit status back to 'in_consultation'.
  */
 export async function reopenVisitForAmendment(
   ctx: ServiceContext,
@@ -836,17 +836,15 @@ export async function reopenVisitForAmendment(
   try {
     // 1. Fetch visit - must be completed
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: visitRow, error: visitErr } = await (supabase.from("visits") as any)
-      .select(`*, ${clinicalNotesEmbed()}`)
+    const { data: visit, error: visitErr } = await (supabase.from("visits") as any)
+      .select("id, status")
       .eq("id", visitId)
       .eq("tenant_id", ctx.tenantId)
       .single();
 
-    if (visitErr || !visitRow) {
+    if (visitErr || !visit) {
       return { success: false, error: "Visit record not found or access denied." };
     }
-    // The snapshot's clinical content comes from clinical_notes (V2-05 05-02a).
-    const visit = withClinicalNotes(visitRow);
 
     if (visit.status !== "completed") {
       return {
@@ -855,82 +853,28 @@ export async function reopenVisitForAmendment(
       };
     }
 
-    // 2. Fetch diagnoses
+    // 2. Insert the amendment row. Its revision number (previous + 1) and its snapshot of the signed content (visit,
+    // notes and vitals, diagnoses, the latest prescription with its items) are filled by the database under the visit
+    // row lock, whatever a client sends (V2-05 05-11d, N-2/N-8: visit_revisions_actor_guard); amended_at is the
+    // database clock (05-11a).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: diagnoses } = await (supabase.from("consultation_diagnoses") as any)
-      .select("*")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId);
-
-    // 3. Fetch prescription and items
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: rx } = await (supabase.from("prescriptions") as any)
-      .select("*")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .order("version", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let rxItems: any[] = [];
-    if (rx?.id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: items } = await (supabase.from("prescription_items") as any)
-        .select("*")
-        .eq("prescription_id", rx.id)
-        .order("sort_order", { ascending: true });
-      rxItems = items || [];
-    }
-
-    // 4. Calculate next revision number
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: prevRevisions } = await (supabase.from("visit_revisions") as any)
-      .select("revision_number")
-      .eq("visit_id", visitId)
-      .eq("tenant_id", ctx.tenantId)
-      .order("revision_number", { ascending: false })
-      .limit(1);
-
-    const nextRevNum =
-      prevRevisions && prevRevisions.length > 0 ? prevRevisions[0].revision_number + 1 : 1;
-
-    // 5. Freeze complete JSON state snapshot
-    const snapshot = {
-      visit: {
-        status: visit.status,
-        vitals: visit.vitals,
-        chief_complaints: visit.chief_complaints,
-        clinical_notes: visit.clinical_notes,
-        specialty: visit.specialty,
-        specialty_data: visit.specialty_data,
-        advice: visit.advice,
-        investigations_advised: visit.investigations_advised,
-        signed_at: visit.signed_at,
-      },
-      diagnoses: diagnoses || [],
-      prescription: rx ? { ...rx, items: rxItems } : null,
-    };
-
-    // 6. Insert immutable snapshot into visit_revisions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: revErr } = await (supabase.from("visit_revisions") as any)
+    const { data: revision, error: revErr } = await (supabase.from("visit_revisions") as any)
       .insert({
         tenant_id: ctx.tenantId,
         visit_id: visitId,
-        revision_number: nextRevNum,
         amended_by: ctx.userId,
-        amended_at: new Date().toISOString(),
         amendment_reason: cleanReason,
-        snapshot,
-      });
+      })
+      .select("revision_number")
+      .single();
 
-    if (revErr) {
+    if (revErr || typeof revision?.revision_number !== "number") {
       log.error({ event: "consultation.amend_revision_insert.failed", code: errorTag(revErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to create audit revision record." };
     }
+    const nextRevNum: number = revision.revision_number;
 
-    // 7. Transition visit back to 'in_consultation'. The database admits this only after the caller's amendment row
+    // 3. Transition visit back to 'in_consultation'. The database admits this only after the caller's amendment row
     // above (V2-05 05-11a, H-VISIT), so a refused write is reported, never a silent success.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: reopenErr } = await (supabase.from("visits") as any)
@@ -946,7 +890,7 @@ export async function reopenVisitForAmendment(
       return { success: false, error: "Failed to reopen visit for amendment." };
     }
 
-    // 8. Record audit trail
+    // 4. Record audit trail
     await recordAudit(ctx, {
       action: "visit.reopen_for_amendment",
       entityType: "visit",
