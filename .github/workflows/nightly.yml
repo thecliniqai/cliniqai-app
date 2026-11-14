@@ -97,6 +97,56 @@ jobs:
         if: ${{ always() }}
         run: npx supabase stop --no-backup
 
+  # V2-06 06-07 (PWA-09, PWA_STRATEGY §3.9, ruling R-6): Lighthouse CI, report-only, on Login, Today, Patients and
+  # Consult. Runs inside the e2e run (`npm run perf:lhci`, project perf-lhci): the guarded server on 127.0.0.1:3100, the
+  # run's synthetic seed and the signed-in storage states. Chrome resolves only loopback names; results go to the
+  # filesystem only, and the spec strips the Cookie header out of every report before anything is uploaded (the
+  # repository and its artifacts are public). Fails only on a tool error, never on a score; V2-15 makes it blocking.
+  lhci:
+    name: lhci
+    if: ${{ (inputs.lane || 'nightly') == 'nightly' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium (Lighthouse drives Playwright's build)
+        run: npx playwright install --with-deps chromium
+      - name: Start the local Supabase stack
+        # IR-F8: image pulls hit registry rate limits; retry with cleanup and backoff (bounded: 3 attempts).
+        run: >-
+          node scripts/ci/retry.mjs --attempts 3 --delay 30 --cleanup "npx supabase stop --no-backup"
+          -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
+      - name: e2e build
+        run: npm run e2e:build
+      - name: Lighthouse CI (report-only, loopback only)
+        run: npm run perf:lhci
+      - name: Summary (four routes)
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f test-results/lhci/summary.md ]; then
+            cat test-results/lhci/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Lighthouse CI: no summary (tool error; see the job log)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      # Only a completed run is published: summary.json is written after the scrub and its checks.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && hashFiles('test-results/lhci/summary.json') != '' }}
+        with:
+          name: lhci
+          path: test-results/lhci/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Stop the local stack
+        if: ${{ always() }}
+        run: npx supabase stop --no-backup
+
   # Full dependency audit including dev dependencies: report only (the PR gate is production deps, high/critical).
   audit-full:
     name: audit-full
@@ -170,7 +220,7 @@ jobs:
   # One open "Nightly failing" issue opened by this bot: created on the first failure, commented on every later one.
   report-failure:
     name: report-failure
-    needs: [e2e-nightly, audit-full, backup-roundtrip]
+    needs: [e2e-nightly, lhci, audit-full, backup-roundtrip]
     if: ${{ failure() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
