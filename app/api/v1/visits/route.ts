@@ -10,12 +10,13 @@ import { retryOnDeadlock } from "@/lib/db/retry";
 import { apiVisitDuration, VISIT_DURATION_API_MESSAGE } from "@/features/visits/duration";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { CLINICAL_NOTES_EMBED_KEY, clinicalNotesEmbed, updateClinicalNotes, withClinicalNotes } from "@/lib/db/clinical-notes";
+import { CLINICAL_ACCESS_DENIED, hasClinicalField, V1_VISIT_COLUMNS } from "@/lib/api/visit-dto";
 
 /**
  * GET /api/v1/visits
  * List visits (walk-in and scheduled encounters) grounded in public.visits.
  * Filters: patient_id, doctor_id, status, start_date, end_date. Standard page/limit pagination.
+ * No clinical content (V2-05 05-11c, R-9): only `V1_VISIT_COLUMNS` (lib/api/visit-dto.ts).
  */
 export async function GET(req: NextRequest) {
   const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
@@ -54,10 +55,7 @@ export async function GET(req: NextRequest) {
 
   try {
     let query = (admin.from("visits") as any)
-      .select(
-        `id, tenant_id, patient_id, doctor_id, origin_type, status, scheduled_at, estimated_duration_minutes, reason_for_visit, is_overbooked, specialty, created_by, created_at, updated_at, ${clinicalNotesEmbed(["vitals", "chief_complaints", "clinical_notes"])}`,
-        { count: "exact" }
-      )
+      .select(V1_VISIT_COLUMNS, { count: "exact" })
       .eq("tenant_id", session.tenantId);
 
     if (patientId) {
@@ -83,17 +81,9 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { data: visitRows, count, error } = await query
+    const { data: visits, count, error } = await query
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
-
-    // Same response fields as before V2-05 05-02a: vitals, chief complaints and notes now come from clinical_notes.
-    const visits = (visitRows || []).map((row: any) => {
-      const { vitals, chief_complaints, clinical_notes } = withClinicalNotes(row);
-      const { [CLINICAL_NOTES_EMBED_KEY]: _notes, ...visit } = row;
-      void _notes;
-      return { ...visit, vitals, chief_complaints, clinical_notes };
-    });
 
     if (error) {
       return apiError("DATABASE_ERROR", error.message, 500, undefined, rateHeaders);
@@ -124,6 +114,7 @@ export async function GET(req: NextRequest) {
  * Create a new clinical visit (walk-in or consultation).
  * Enforces Doctor Guard (D-05) ensuring doctor_id belongs to active clinic and holds 'doctor' or 'owner' role.
  * Grounded in public.visits with created_by = session.userId.
+ * A body with clinical content (e.g. `chief_complaints`) → 403 CLINICAL_ACCESS_DENIED (V2-05 05-11c, R-9).
  */
 export async function POST(req: NextRequest) {
   const auth = await authenticateApiKey(req, () => getSystemDb("api_v1"));
@@ -153,12 +144,16 @@ export async function POST(req: NextRequest) {
     return apiError("INVALID_JSON", "Request body must be valid JSON.", 400, undefined, rateHeaders);
   }
 
+  // API keys have no clinical access (R-9; IND M5): clinical content is refused, never silently dropped.
+  if (hasClinicalField(body)) {
+    return apiError(CLINICAL_ACCESS_DENIED.code, CLINICAL_ACCESS_DENIED.message, 403, undefined, rateHeaders);
+  }
+
   const {
     patient_id,
     doctor_id,
     origin_type,
     reason_for_visit,
-    chief_complaints,
     status,
     scheduled_at,
     estimated_duration_minutes,
@@ -205,15 +200,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Format chief complaints as JSONB
-    let formattedComplaints: any[] = [];
-    if (Array.isArray(chief_complaints)) {
-      formattedComplaints = chief_complaints;
-    } else if (typeof chief_complaints === "string" && chief_complaints.trim()) {
-      formattedComplaints = [{ complaint: chief_complaints.trim() }];
-    }
-
-    // 4. Insert into public.visits. A deadlock victim of a concurrent overlapping slot write is retried once
+    // 3. Insert into public.visits. A deadlock victim of a concurrent overlapping slot write is retried once
     // (`retryOnDeadlock`, V2-05 05-11c); a residual deadlock counts as the taken slot (`isSlotTakenError`).
     const { data: newVisitRow, error: insertErr } = await retryOnDeadlock<{ data: any; error: any }>(() => (admin.from("visits") as any)
       .insert({
@@ -227,7 +214,7 @@ export async function POST(req: NextRequest) {
         estimated_duration_minutes: duration,
         created_by: session.userId,
       })
-      .select()
+      .select(V1_VISIT_COLUMNS)
       .single());
 
     if (isSlotTakenError(insertErr)) {
@@ -243,19 +230,9 @@ export async function POST(req: NextRequest) {
     if (insertErr || !newVisitRow) {
       return apiError("DATABASE_ERROR", insertErr?.message || "Failed to create visit.", 500, undefined, rateHeaders);
     }
+    const newVisit = newVisitRow;
 
-    // 4b. The chief complaints go to the visit's clinical_notes row (created by the insert trigger; V2-05 05-02a). The
-    // response keeps its fields: the visit row with its clinical content.
-    const notesWrite = await updateClinicalNotes(admin, session.tenantId, newVisitRow.id, {
-      chief_complaints: formattedComplaints,
-    });
-    if (notesWrite.error || !notesWrite.content) {
-      log.error({ event: "api.visit_notes_create.failed", code: errorTag(notesWrite.raw ?? notesWrite.error?.code), requestId: await getRequestId() });
-      return apiError("DATABASE_ERROR", "Failed to create visit.", 500, undefined, rateHeaders);
-    }
-    const newVisit = { ...newVisitRow, ...notesWrite.content };
-
-    // 5. Audit log mutation (D-08)
+    // 4. Audit log mutation (D-08)
     try {
       await recordAudit(apiKeyServiceContext(session, admin), {
           action: "visit.create",

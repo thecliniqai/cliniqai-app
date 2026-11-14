@@ -209,7 +209,6 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
           doctor_id: doctorA.userId,
           origin_type: "walk_in",
           reason_for_visit: "Seasonal Allergies",
-          chief_complaints: ["Sneezing", "Runny nose"],
         }),
       });
 
@@ -220,9 +219,8 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       expect(json.data.id).toBeDefined();
       expect(json.data.origin_type).toBe("walk_in");
       expect(json.data.status).toBe("waiting");
-      // The complaints are stored in the visit's clinical_notes row (V2-05 05-02a); the response keeps the field.
-      expect(json.data.chief_complaints).toEqual(["Sneezing", "Runny nose"]);
-      expect((await clinicalNotesOf(json.data.id)).chief_complaints).toEqual(["Sneezing", "Runny nose"]);
+      // V2-05 05-11c (R-9): API keys carry no clinical content; complaints are refused (tests/api/v1-visits-no-clinical.spec.ts).
+      expect(json.data).not.toHaveProperty("chief_complaints");
       expect(json.data.doctor_id).toBe(doctorA.userId);
       expect(json.data.patient_id).toBe(patientA.id);
       expect(json.data.created_by).toBe(clinicA.userId);
@@ -288,7 +286,8 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       activeVisitId = v!.id;
     });
 
-    it("rejects transitioning status to 'completed' without diagnosis or clinical notes (T-06-07)", async () => {
+    // V2-05 05-11c (R-9, IND M4): completing signs the visit, a clinical act an API key may not perform.
+    it("rejects transitioning status to 'completed' with 403 CLINICAL_ACCESS_DENIED", async () => {
       const req = new NextRequest(`http://localhost/api/v1/visits/${activeVisitId}`, {
         method: "PATCH",
         headers: {
@@ -303,33 +302,10 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       const res = await patchVisitById(req, { params: Promise.resolve({ id: activeVisitId }) });
       const json = await res.json();
 
-      expect(res.status).toBe(422);
-      expect(json.error.code).toBe("CLINICAL_SAFETY_VIOLATION");
-      expect(json.error.message).toContain("diagnosis or clinical note");
-    });
-
-    it("permits completion when clinical notes are supplied in the patch body", async () => {
-      const req = new NextRequest(`http://localhost/api/v1/visits/${activeVisitId}`, {
-        method: "PATCH",
-        headers: {
-          authorization: `Bearer ${keyA.rawToken}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          status: "completed",
-          clinical_notes: "Patient advised complete rest and adequate hydration.",
-        }),
-      });
-
-      const res = await patchVisitById(req, { params: Promise.resolve({ id: activeVisitId }) });
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.data.status).toBe("completed");
-      expect(json.data.clinical_notes).toBe("Patient advised complete rest and adequate hydration.");
-      expect((await clinicalNotesOf(activeVisitId)).clinical_notes).toBe("Patient advised complete rest and adequate hydration.");
-      expect(json.data.signed_at).toBeDefined();
-      expect(json.data.signed_by).toBe(clinicA.userId);
+      expect(res.status).toBe(403);
+      expect(json.error.code).toBe("CLINICAL_ACCESS_DENIED");
+      const { data: after } = await getAdminClient().from("visits").select("status, signed_at").eq("id", activeVisitId).single();
+      expect(after).toEqual({ status: "in_consultation", signed_at: null });
     });
 
     // V2-01 01-05 (DB-13/API-04, R10): completed or signed visits are read-only through the API.
@@ -356,25 +332,36 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
     }
 
     it("rejects any PATCH of the completed visit with 409 VISIT_LOCKED and leaves the row unchanged", async () => {
-      const before = await readVisit(activeVisitId);
+      // Completed (signed) in the app; an API key cannot complete a visit (05-11c).
+      const { data: done } = await getAdminClient()
+        .from("visits")
+        .insert({
+          tenant_id: clinicA.tenantId,
+          patient_id: patientA.id,
+          doctor_id: doctorA.userId,
+          origin_type: "walk_in",
+          status: "completed",
+          signed_at: "2026-11-02T09:00:00.000Z",
+          signed_by: doctorA.userId,
+          created_by: clinicA.userId,
+        })
+        .select("id")
+        .single();
+      const completedId = done!.id;
+      await seedClinicalNotes(completedId, { clinical_notes: "Signed synthetic note." });
+      const before = await readVisit(completedId);
       expect(before?.status).toBe("completed");
 
-      for (const body of [
-        { clinical_notes: "tamper" },
-        { status: "waiting" },
-        { status: "completed", clinical_notes: "re-sign attempt" },
-        { status: "cancelled" },
-        {},
-      ]) {
-        const res = await patchVisitById(patchReq(activeVisitId, body), {
-          params: Promise.resolve({ id: activeVisitId }),
+      for (const body of [{ status: "waiting" }, { status: "cancelled" }, {}]) {
+        const res = await patchVisitById(patchReq(completedId, body), {
+          params: Promise.resolve({ id: completedId }),
         });
         const json = await res.json();
         expect(res.status).toBe(409);
         expect(json.error.code).toBe("VISIT_LOCKED");
       }
 
-      expect(await readVisit(activeVisitId)).toEqual(before);
+      expect(await readVisit(completedId)).toEqual(before);
     });
 
     it("rejects a PATCH of a signed visit reopened for amendment (signed_at set, in_consultation)", async () => {
@@ -398,7 +385,7 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
       await seedClinicalNotes(reopenedId, { clinical_notes: "Signed synthetic note." });
       const before = await readVisit(reopenedId);
 
-      const res = await patchVisitById(patchReq(reopenedId, { clinical_notes: "tamper" }), {
+      const res = await patchVisitById(patchReq(reopenedId, { status: "cancelled" }), {
         params: Promise.resolve({ id: reopenedId }),
       });
       const json = await res.json();
@@ -427,13 +414,12 @@ describe("Clinical Doctor Guard & Visits REST API (D-02, D-05, D-06, D-08, T-06-
         .single();
       const openId = v!.id;
 
-      const ok = await patchVisitById(patchReq(openId, { status: "in_consultation", clinical_notes: "Open note." }), {
+      const ok = await patchVisitById(patchReq(openId, { status: "in_consultation" }), {
         params: Promise.resolve({ id: openId }),
       });
       expect(ok.status).toBe(200);
       const after = await readVisit(openId);
       expect(after?.status).toBe("in_consultation");
-      expect(after?.clinical_notes).toBe("Open note.");
       expect(after?.signed_at).toBeNull();
 
       const bad = await patchVisitById(patchReq(openId, { status: "archived" }), {
