@@ -4,11 +4,13 @@
  *
  * A fresh synthetic member (never a shared seeded role: `global` would end their sessions) signs in through the login
  * UI on two browser contexts ("devices"). From the user menu:
- * - "Sign out": the POST answers 303 → `/login` with `Clear-Site-Data: "cache"`; the auth cookie is gone; the old
+ * - "Sign out": the menu posts `scope=local` and the server completes it (since V2-06 06-05 through `hardSignOut()`,
+ *   whose `fetch` the server log confirms); the browser lands on `/login`; the auth cookie is gone; the old
  *   refresh token fails at GoTrue (`refresh_token_not_found`) and the old access token no longer passes `getUser`
  *   (server-side revocation); replaying the old cookie to the app lands on `/login`; the other device stays signed in.
  * - "Sign out of all devices": both devices are signed out.
- * GET is 405 and a cross-origin POST is 403 (the session survives). The open menu (nurse session, never used to sign
+ * GET is 405 and a cross-origin POST is 403 (the session survives); a same-origin POST (the route itself, also the
+ * no-JavaScript form fallback) answers 303 → `/login` with `Clear-Site-Data: "cache"` and deletes the cookies. The open menu (nurse session, never used to sign
  * out) passes axe (0 serious/critical) at 360, 820 and 1280 px with no horizontal scroll at 360 (desktop-chrome; the
  * spec sets its own viewport).
  *
@@ -22,6 +24,7 @@ import { E2E_BASE_URL } from "../support/app-env";
 import { storageStatePath } from "../support/run-data";
 import { expectSignedOut, freshMember, guardedContext, otherDevice, uiSignIn } from "../support/password-journeys";
 import { publicEnv } from "@/lib/env";
+import { logOffset, readLogFrom, SERVER_STDOUT_LOG } from "../support/server-log";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -63,15 +66,28 @@ async function openUserMenu(page: Page): Promise<void> {
   await expect(page.getByRole("menu")).toBeVisible();
 }
 
-/** Clicks a sign-out item and returns the sign-out POST's response (the 303 itself, not the followed page). */
+/**
+ * Clicks a sign-out item; returns the sign-out POST (its form body) and the scopes the server completed for it.
+ * V2-06 06-05: with JavaScript the menu signs out through `hardSignOut()`, a `fetch` with `redirect: "manual"`;
+ * Chromium reports that request to Playwright as failed once the 303 arrives (an opaque redirect), so the outcome is
+ * read from the server's `auth.signout.done` log line, and the route's own 303 + `Clear-Site-Data` answer is
+ * asserted on a direct POST in the last test of this file.
+ */
 async function signOutVia(page: Page, item: "Sign out" | "Sign out of all devices") {
   await openUserMenu(page);
-  const [response] = await Promise.all([
-    page.waitForResponse((r) => new URL(r.url()).pathname === "/auth/signout" && r.request().method() === "POST"),
+  const offset = logOffset(SERVER_STDOUT_LOG);
+  const [request] = await Promise.all([
+    page.waitForRequest((r) => new URL(r.url()).pathname === "/auth/signout" && r.method() === "POST"),
     page.getByRole("menuitem", { name: item, exact: true }).click(),
   ]);
   await page.waitForURL((url) => url.pathname === "/login");
-  return response;
+  const done = async () =>
+    readLogFrom(SERVER_STDOUT_LOG, offset)
+      .split("\n")
+      .filter((line) => line.includes('"event":"auth.signout.done"'))
+      .map((line) => (JSON.parse(line) as { reason: string }).reason);
+  await expect.poll(done).toHaveLength(1);
+  return { postData: request.postData(), serverScopes: await done() };
 }
 
 test("Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue, other device still signed in", async ({
@@ -85,11 +101,9 @@ test("Sign out: 303 with Clear-Site-Data, cookie gone, tokens revoked at GoTrue,
   const before = await sessionOf(context);
   const oldCookies = await authCookies(context);
 
-  const response = await signOutVia(page, "Sign out");
-  expect(response.status()).toBe(303);
-  expect((await response.allHeaders())["clear-site-data"]).toBe('"cache"');
-  expect(new URL(response.headers()["location"], E2E_BASE_URL).pathname).toBe("/login");
-  expect(response.request().postData()).toBe("scope=local");
+  const signOut = await signOutVia(page, "Sign out");
+  expect(signOut.postData).toBe("scope=local");
+  expect(signOut.serverScopes).toEqual(["local"]);
 
   // The browser holds no auth cookie any more.
   expect(await authCookies(context)).toEqual([]);
@@ -122,10 +136,9 @@ test("Sign out of all devices: every session of the user ends", async ({ page, b
   const device2 = await otherDevice(browser, user);
   const theirs = await sessionOf(device2.context);
 
-  const response = await signOutVia(page, "Sign out of all devices");
-  expect(response.status()).toBe(303);
-  expect((await response.allHeaders())["clear-site-data"]).toBe('"cache"');
-  expect(response.request().postData()).toBe("scope=global");
+  const signOut = await signOutVia(page, "Sign out of all devices");
+  expect(signOut.postData).toBe("scope=global");
+  expect(signOut.serverScopes).toEqual(["global"]);
 
   const refreshed = await gotrue().auth.refreshSession({ refresh_token: theirs.refresh_token });
   expect(refreshed.error?.code).toBe("refresh_token_not_found");
@@ -134,7 +147,7 @@ test("Sign out of all devices: every session of the user ends", async ({ page, b
   await device2.context.close();
 });
 
-test("GET is 405 and a cross-origin POST is 403; the session survives both", async ({ page, context }) => {
+test("GET is 405 and a cross-origin POST is 403 (the session survives); a same-origin POST is 303 with Clear-Site-Data", async ({ page, context }) => {
   const user = await freshMember();
   await uiSignIn(page, user);
 
@@ -151,6 +164,18 @@ test("GET is 405 and a cross-origin POST is 403; the session survives both", asy
   await page.goto("/patients");
   await expect(page).toHaveURL((url) => url.pathname === "/patients");
   expect((await authCookies(context)).length).toBeGreaterThan(0);
+
+  // The route itself (also the no-JavaScript form fallback): a same-origin POST answers 303 → /login with
+  // `Clear-Site-Data: "cache"` and deletes the session cookies.
+  const own = await context.request.post("/auth/signout", {
+    maxRedirects: 0,
+    headers: { origin: new URL(E2E_BASE_URL).origin },
+    form: { scope: "local" },
+  });
+  expect(own.status()).toBe(303);
+  expect(own.headers()["clear-site-data"]).toBe('"cache"');
+  expect(new URL(own.headers()["location"], E2E_BASE_URL).pathname).toBe("/login");
+  expect(await authCookies(context)).toEqual([]);
 });
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];

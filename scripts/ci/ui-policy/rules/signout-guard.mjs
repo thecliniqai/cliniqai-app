@@ -37,7 +37,7 @@ function propertyNameText(name) {
   return null;
 }
 
-export default {
+const signoutGuard = {
   id: "signout-guard",
   mode: "enforce",
   reason: "signOut outside hardSignOut() skips the device purge (PWA_STRATEGY §4 D-5); call hardSignOut(reason).",
@@ -63,3 +63,5 @@ export default {
     return out;
   },
 };
+
+export default signoutGuard;

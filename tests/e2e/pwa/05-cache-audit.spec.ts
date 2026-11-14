@@ -139,8 +139,9 @@ async function openPatient(page: Page) {
 
 /**
  * The scopes of the `POST /auth/signout` calls the server completed after `offset` (its `auth.signout.done` log lines).
- * Read from the e2e server's log because Chromium does not report a page's fetch that falls through a controlling
- * service worker as a page or context network event, so `waitForResponse` never sees `hardSignOut`'s POST here.
+ * Read from the e2e server's log: `hardSignOut`'s POST is a `fetch` with `redirect: "manual"`; the page sees the 303 as
+ * an opaque redirect (and the cookie deletions apply), but Playwright reports the request as failed (`net::ERR_ABORTED`)
+ * and emits no response event (probe: evidence/06-05/signout-fetch-probe.txt).
  */
 function serverSignOuts(offset: number): string[] {
   return readLogFrom(SERVER_STDOUT_LOG, offset)

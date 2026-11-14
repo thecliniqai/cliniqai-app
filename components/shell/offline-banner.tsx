@@ -14,7 +14,7 @@ export function OfflineBanner() {
   return (
     <div role="status" aria-live="polite" data-offline-banner="" className="fixed inset-x-0 bottom-0 z-[60] pointer-events-none">
       {online ? null : (
-        <p className="pointer-events-auto flex items-center justify-center gap-2 bg-fg px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] text-center text-body-sm text-surface">
+        <p className="pointer-events-auto flex items-center justify-center gap-2 bg-fg px-4 pt-2.5 pb-safe text-center text-body-sm text-surface">
           <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             You&apos;re offline{since ? ` · showing data from ${since}` : ""}. Changes are disabled until you reconnect.

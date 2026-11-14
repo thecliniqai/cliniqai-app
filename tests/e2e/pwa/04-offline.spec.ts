@@ -17,17 +17,19 @@ test("offline: a navigation shows the /offline page; Today keeps its rows and sh
   await waitForServiceWorker(page);
   await page.reload(); // a controlled load, so the page's static assets are in static-v1 for the offline render
   const banner = page.getByRole("status").filter({ hasText: "You're offline" });
-  await expect(page.getByText(patientName).first()).toBeVisible();
+  const main = page.getByRole("main");
+  await expect(main.getByText(/E2E Synthetic/).first()).toBeVisible();
+  const onScreen = await main.innerText(); // Today's rows (synthetic patients of this run)
   await expect(banner).toHaveCount(0);
 
   await context.setOffline(true);
   await expect(banner).toBeVisible();
   await expect(banner).toContainText(/You're offline · showing data from \d{1,2}:\d{2}\s?(am|pm)\. Changes are disabled until you reconnect\./i);
-  await expect(page.getByText(patientName).first()).toBeVisible();
+  expect(await main.innerText(), "the rows already on screen stay (held in memory)").toBe(onScreen);
 
   await context.setOffline(false);
   await expect(banner).toHaveCount(0);
-  await expect(page.getByText(patientName).first()).toBeVisible();
+  expect(await main.innerText()).toBe(onScreen);
 
   await context.setOffline(true);
   await page.goto("/patients");
@@ -35,5 +37,6 @@ test("offline: a navigation shows the /offline page; Today keeps its rows and sh
   await expect(page.getByText("Patient data isn't stored on this device. Reconnect to continue.")).toBeVisible();
   await expect(page.getByRole("link", { name: "Retry" })).toHaveAttribute("href", "/");
   await expect(page.getByText(patientName)).toHaveCount(0);
+  await expect(page.getByText(/E2E Synthetic/)).toHaveCount(0);
   await context.setOffline(false);
 });

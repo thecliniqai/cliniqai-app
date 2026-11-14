@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function OfflinePage() {
   return (
-    <main className="min-h-dvh bg-canvas text-fg flex items-center justify-center px-6 py-10">
+    <main className="min-h-app bg-canvas text-fg flex items-center justify-center px-6 py-10">
       <div className="w-full max-w-sm text-center">
         <p className="text-title-3 font-semibold text-accent-fg">ClinicQ</p>
         <h1 className="mt-6 text-title-1 font-semibold">You&apos;re offline</h1>
