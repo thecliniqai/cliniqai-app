@@ -18,6 +18,7 @@ import { generateAndArchivePrescriptionPdf } from "./pdf/generator";
 import { PrescriptionPdfPayload } from "./pdf/prescription-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { unaffectedRowsError } from "@/lib/db/errors";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
@@ -298,13 +299,22 @@ export async function removePrescriptionItem(
       return { success: false, error: "Prescription item not found." };
     }
 
+    // RLS may filter the delete to 0 rows (V2-05 05-04): ask for the deleted row and refuse a no-op, so no success and
+    // no audit row are reported for an item that is still there.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteErr } = await (supabase.from("prescription_items") as any)
+    const { data: deleted, error: deleteErr } = await (supabase.from("prescription_items") as any)
       .delete()
-      .eq("id", itemId);
+      .eq("id", itemId)
+      .eq("tenant_id", ctx.tenantId)
+      .select("id");
 
     if (deleteErr) {
       return { success: false, error: "Failed to delete prescription item." };
+    }
+    const refused = unaffectedRowsError(deleted);
+    if (refused) {
+      log.warn({ event: "prescriptions.item_remove.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: refused.message };
     }
 
     await recordAudit(ctx, {

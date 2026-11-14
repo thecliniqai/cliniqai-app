@@ -65,7 +65,7 @@ export async function generateDocumentShareToken(documentId: string): Promise<Sh
  * Deletes a lab report document from storage and database under multi-tenant RLS checks.
  */
 export async function deleteLabDocument(documentId: string): Promise<DeleteLabDocumentResult> {
-  const resolved = await resolveServiceContext("patients:edit");
+  const resolved = await resolveServiceContext("labs:edit");
   if (!resolved.ok) return { success: false, error: resolved.error };
   const result = await labsService.deleteLabDocument(resolved.ctx, documentId);
   // The patient id is not part of the result; revalidate every patient page (same data the old path refreshed).

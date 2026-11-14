@@ -9,7 +9,7 @@
  * tables to their target rules.
  */
 import { describe, expect, it } from "vitest";
-import { activeTenant, cellSql, cells, expectedOutcome } from "../../scripts/gen-authz-pgtap";
+import { activeTenant, cellSql, cells, expectedOutcome, ruleText } from "../../scripts/gen-authz-pgtap";
 import { OPS, PRINCIPALS, TARGETS, targetName, type Rule } from "./table-matrix";
 
 const admitted = (o: string) => o === "1" || o === "ok";
@@ -108,5 +108,98 @@ describe("the expected outcomes", () => {
       )
       .map((c) => `${targetName(c.target)} ${c.op}`);
     expect(viaOther).toEqual([]);
+  });
+});
+
+/**
+ * The DELETE column is final since 05-04 (migration 000052 owns every DELETE policy; 05-02a/b/c change only S/I/U).
+ * Each table's rule is the 05-PLAN "Target policy matrix" DELETE column; a new table must decide its DELETE here.
+ */
+const FINAL_DELETE: Record<string, string> = {
+  "public.tenants": "none",
+  "public.memberships": "rpc_only",
+  "public.invitations": "rpc_only",
+  "public.patients": "none",
+  "public.visits": "none",
+  "public.visit_revisions": "none",
+  "public.consultations": "none",
+  "public.consultation_diagnoses": "perm(consultations:edit)",
+  "public.prescriptions": "none",
+  "public.prescription_items": "perm(prescriptions:edit)",
+  "public.invoices": "none",
+  "public.invoice_items": "perm(billing:collect)",
+  "public.payments": "none",
+  "public.queue_tokens": "none",
+  "public.waitlist_entries": "none",
+  "public.schedule_blocks": "(self(doctor_id) AND perm(appointments:edit) OR perm(clinic:manage))",
+  "public.follow_ups": "perm(consultations:edit)",
+  "public.consent_records": "none",
+  "public.patient_documents": "perm(labs:edit)",
+  "public.document_share_tokens": "rpc_only",
+  "public.referrals": "none",
+  "public.doctor_custom_diagnoses": "perm(consultations:edit) AND self(doctor_id)",
+  "public.doctor_custom_medicines": "perm(consultations:edit) AND self(doctor_id)",
+  "public.doctor_prescription_templates": "perm(consultations:edit) AND self(doctor_id)",
+  "public.communication_queue": "rpc_only",
+  "public.in_app_notifications": "self(recipient_user_id) AND full",
+  "public.tenant_messaging_config": "none",
+  "public.audit_logs": "none",
+  "public.api_keys": "perm(clinic:manage)",
+  "public.api_key_usage_daily": "perm(clinic:manage)",
+  "public.webhook_subscriptions": "perm(clinic:manage)",
+  "public.webhook_delivery_queue": "rpc_only",
+  "public.subscriptions": "none",
+  "public.payment_records": "none",
+  "public.cdci_brands": "none",
+  "public.cdci_drug_forms": "none",
+  "public.cdci_generics": "none",
+  "public.cdci_medicines_search": "none",
+  "public.cdci_products": "none",
+  "public.cdci_routes": "none",
+  "public.cdci_substances": "none",
+  "public.cdci_suppliers": "none",
+  "public.opd_diagnoses": "none",
+  "ops.jobs": "rpc_only",
+  "ops.error_events": "rpc_only",
+};
+
+describe("the DELETE column (final since 05-04)", () => {
+  const tables = TARGETS.filter((t) => t.kind === "table");
+
+  it("gives every table target its planned DELETE rule, and lists no table that is not a target", () => {
+    const actual = Object.fromEntries(tables.map((t) => [targetName(t), ruleText(t.rules.delete)]));
+    expect(actual).toEqual(FINAL_DELETE);
+  });
+
+  it("uses no transitional legacy rule for DELETE on any table", () => {
+    const legacy = tables
+      .filter((t) => kinds(t.rules.delete).some((k) => k === "legacy_member" || k === "legacy_owner_admin"))
+      .map(targetName);
+    expect(legacy).toEqual([]);
+  });
+
+  it("lets no member delete clinical or financial history: visits, prescriptions, invoices, payments, patients", () => {
+    for (const name of ["public.visits", "public.prescriptions", "public.invoices", "public.payments", "public.patients"]) {
+      const deleters = cells()
+        .filter((c) => targetName(c.target) === name && c.op === "delete" && admitted(c.expected))
+        .map((c) => c.principal.id);
+      expect(deleters, name).toEqual([]);
+    }
+  });
+
+  it("admits the three former silent no-ops for the role that performs them, in the active clinic only", () => {
+    const outcome = (target: string, principalId: string) => {
+      const t = TARGETS.find((x) => targetName(x) === target);
+      if (!t) throw new Error(`no target ${target}`);
+      return expectedOutcome(t, "delete", principal(principalId));
+    };
+    expect(outcome("public.prescription_items", "doctor_a")).toBe("1");
+    expect(outcome("public.consultation_diagnoses", "doctor_a")).toBe("1");
+    expect(outcome("public.invoice_items", "receptionist_a")).toBe("1");
+    expect(outcome("public.prescription_items", "receptionist_a")).toBe("0");
+    expect(outcome("public.invoice_items", "doctor_a")).toBe("0");
+    expect(outcome("public.prescription_items", "dual_hdr_a")).toBe("1");
+    expect(outcome("public.prescription_items", "dual_hdr_b")).toBe("0");
+    expect(outcome("public.prescription_items", "dual_no_hdr")).toBe("0");
   });
 });

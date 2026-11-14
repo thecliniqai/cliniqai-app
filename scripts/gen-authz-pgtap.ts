@@ -46,11 +46,8 @@ export const MATRIX_SQL = "supabase/tests/database/authz_matrix.test.sql";
 export const COMPLETENESS_SQL = "supabase/tests/database/authz_completeness.test.sql";
 export const MATRIX_MD = ".planning/phases/05-db-authorisation-entitlements/AUTHZ-MATRIX.md";
 
-/**
- * `error:22P02`: only a storage target's `legacyCastError` (BACKEND C9, transitional until 05-02c).
- * `error:23503`: only a table target's `restrictDelete` (05-03): the rule admits the DELETE, the RESTRICT FK of a child refuses it.
- */
-export type Outcome = "1" | "0" | "ok" | "denied" | "error:22P02" | "error:23503";
+/** `error:22P02`: only a storage target's `legacyCastError` (BACKEND C9, transitional until 05-02c). */
+export type Outcome = "1" | "0" | "ok" | "denied" | "error:22P02";
 
 const OP_LETTER: Record<Op, string> = { select: "S", insert: "I", update: "U", delete: "D" };
 
@@ -104,6 +101,10 @@ export function admits(rule: Rule, p: Principal, t: Target, row: Row): boolean {
       const role = tenant ? p.memberships[tenant] : undefined;
       return tenant !== null && activeTenant(p) === tenant && (role === "owner" || role === "admin");
     }
+    case "full": {
+      const tenant = rowTenant(t, row, rule.tenantColumn);
+      return tenant !== null && p.memberships[tenant] !== undefined && activeTenant(p) === tenant;
+    }
     case "perm": {
       const tenant = rowTenant(t, row, rule.tenantColumn);
       const role = tenant ? p.memberships[tenant] : undefined;
@@ -140,7 +141,7 @@ export function expectedOutcome(t: Target, op: Op, p: Principal): Outcome {
   const visible = admits(t.rules.select, p, t, row);
   if (!visible && castError) return "error:22P02";
   if (op === "select") return visible ? "1" : "0";
-  if (visible && admits(t.rules[op], p, t, row)) return op === "delete" && t.kind === "table" && t.restrictDelete ? "error:23503" : "1";
+  if (visible && admits(t.rules[op], p, t, row)) return "1";
   return castError && t.rules[op].kind !== "none" ? "error:22P02" : "0";
 }
 
@@ -389,7 +390,7 @@ export function completenessSql(): string {
 // AUTHZ-MATRIX.md
 // ---------------------------------------------------------------------------------------------------------------------
 
-function ruleText(rule: Rule): string {
+export function ruleText(rule: Rule): string {
   switch (rule.kind) {
     case "all":
       return rule.rules.map(ruleText).join(" AND ");
@@ -401,6 +402,7 @@ function ruleText(rule: Rule): string {
       return `self(${rule.column})`;
     case "member":
     case "billing":
+    case "full":
     case "legacy_member":
     case "legacy_owner_admin":
       return `${rule.kind}${rule.tenantColumn ? `(@${rule.tenantColumn})` : ""}`;
@@ -409,7 +411,7 @@ function ruleText(rule: Rule): string {
   }
 }
 
-const SYMBOL: Record<Outcome, string> = { "1": "Y", ok: "Y", "0": "-", denied: "X", "error:22P02": "E", "error:23503": "R" };
+const SYMBOL: Record<Outcome, string> = { "1": "Y", ok: "Y", "0": "-", denied: "X", "error:22P02": "E" };
 
 export function matrixMd(): string {
   const lines: string[] = [];
@@ -423,12 +425,12 @@ export function matrixMd(): string {
   lines.push("");
   lines.push("Legend: `Y` admitted (row visible / inserted / affected) · `-` filtered by RLS (0 rows) · `X` refused with 42501");
   lines.push("(no privilege, RLS WITH CHECK or a guard trigger) · `E` 22P02 from the legacy storage-key cast (BACKEND C9, no access;");
-  lines.push("fixed in 05-02c) · `R` the policy admits the DELETE but a child's RESTRICT foreign key refuses it (23503, 05-03).");
+  lines.push("fixed in 05-02c).");
   lines.push("");
   lines.push(
     "`legacy_member` / `legacy_owner_admin` are today's tenant-only policies (any membership, the active clinic ignored);",
   );
-  lines.push("05-02b/05-02c move every table to its target rule and delete both kinds.");
+  lines.push("05-02b/05-02c move every table to its target rule and delete both kinds. The DELETE rows are final since 05-04.");
   lines.push("");
   lines.push("Principals:");
   lines.push("");

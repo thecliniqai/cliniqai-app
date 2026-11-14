@@ -15,6 +15,7 @@ import { formatAmendedFilename } from "./utils";
 import { enqueueMessage, enqueueWebhookEvent } from "@/lib/jobs/enqueue";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { unaffectedRowsError } from "@/lib/db/errors";
 import { getTenantToday } from "@/lib/datetime/server";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
@@ -336,7 +337,8 @@ export async function deleteLabDocument(ctx: ServiceContext, documentId: string)
   const supabase = ctx.db;
 
   try {
-    assertPerm(ctx.role, "patients:edit");
+    // labs:edit: the same key as the DELETE policy (000052); before 05-04 the guard was patients:edit.
+    assertPerm(ctx.role, "labs:edit");
     const session = ctx;
 
     // 1. Fetch document storage path
@@ -351,9 +353,29 @@ export async function deleteLabDocument(ctx: ServiceContext, documentId: string)
       return { success: false, error: "Document not found or access denied." };
     }
 
-    // 2. Delete the storage object, only when the stored key is this patient's own (AR2-L5: same rule as
+    // 2. Delete the database record first (V2-05 05-04): RLS may filter it to 0 rows (the DELETE policy needs
+    // labs:edit), and a refused delete must leave both the row and its file in place, with no success and no audit row.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: deleted, error: deleteErr } = await (supabase.from("patient_documents") as any)
+      .delete()
+      .eq("id", documentId)
+      .eq("tenant_id", session.tenantId)
+      .select("id");
+
+    if (deleteErr) {
+      log.error({ event: "labs.document_delete.failed", code: errorTag(deleteErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: "Failed to delete document from database." };
+    }
+    const refused = unaffectedRowsError(deleted);
+    if (refused) {
+      log.warn({ event: "labs.document_delete.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: refused.message };
+    }
+
+    // 3. Delete the storage object, only when the stored key is this patient's own (AR2-L5: same rule as
     // getDocumentSignedUrl). A key outside tenants/<tenant>/patients/<patient>/ is never acted on (with R2's bucket-wide
-    // credentials it could name any object); the row is still removed.
+    // credentials it could name any object). A storage failure leaves an orphaned object (logged), never a row that
+    // points at a missing file.
     const ownKey = isPatientStoragePath(session.tenantId, doc.patient_id, doc.storage_path);
     if (ownKey) {
       const storageProvider = getStorageProviderForDb(ctx.db, "clinic-records");
@@ -370,18 +392,6 @@ export async function deleteLabDocument(ctx: ServiceContext, documentId: string)
       }
     } else {
       log.warn({ event: "labs.delete_storage.skipped", requestId: await getRequestId(), tenantId: ctx.tenantId });
-    }
-
-    // 3. Delete database record
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteErr } = await (supabase.from("patient_documents") as any)
-      .delete()
-      .eq("id", documentId)
-      .eq("tenant_id", session.tenantId);
-
-    if (deleteErr) {
-      log.error({ event: "labs.document_delete.failed", code: errorTag(deleteErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
-      return { success: false, error: "Failed to delete document from database." };
     }
 
     // 4. Audit logging

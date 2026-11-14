@@ -28,7 +28,7 @@ import {
 } from "./pdf/generator";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
-import { mapDbError, type DbErrorMessages } from "@/lib/db/errors";
+import { mapDbError, unaffectedRowsError, type DbErrorMessages } from "@/lib/db/errors";
 import { appError, type Result } from "@/lib/errors/app-error";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
@@ -638,13 +638,21 @@ export async function deleteInvoiceItem(
 
     // 2. Delete item
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: delErr } = await (supabase.from("invoice_items") as any)
+    const { data: deleted, error: delErr } = await (supabase.from("invoice_items") as any)
       .delete()
       .eq("id", itemId)
-      .eq("tenant_id", session.tenantId);
+      .eq("tenant_id", session.tenantId)
+      .select("id");
 
     if (delErr) {
       return { success: false, error: "Failed to delete item." };
+    }
+    // RLS may filter the delete to 0 rows (V2-05 05-04; the DELETE policy needs billing:collect): refuse the no-op
+    // before the totals are recomputed or an audit row is written.
+    const refused = unaffectedRowsError(deleted);
+    if (refused) {
+      log.warn({ event: "billing.item_remove.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: refused.message };
     }
 
     // 3. Recalculate invoice totals

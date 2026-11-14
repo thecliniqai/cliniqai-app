@@ -15,7 +15,8 @@
  * and `anon` denial. The transitional kinds `legacy_member` (today's `tenant_id IN current_user_tenant_ids()`, i.e. any
  * membership, whatever the active clinic) and `legacy_owner_admin` (today's inline owner/admin EXISTS) describe the
  * pre-V2-05 policies; 05-02b/05-02c switch each table to its target rule (05-PLAN "Target policy matrix") and 05-02c
- * deletes the two legacy kinds from `Rule`, so a leftover cannot compile. Later plans add row extras (`ownVisit`,
+ * deletes the two legacy kinds from `Rule`, so a leftover cannot compile. The DELETE column is FINAL since 05-04
+ * (migration 000052, which owns every DELETE policy): `tests/authz/table-matrix.spec.ts` pins it. Later plans add row extras (`ownVisit`,
  * `vitalsOnly`) when the first policy needs them; `self(<column>)` already covers `ownDoctor` and `recipient`.
  *
  * Fixture values are SQL literals (synthetic only: no PHI, no secret-shaped strings).
@@ -33,6 +34,8 @@ export type PermKey = Exclude<Permission, "*">;
  *   perm(key)           the row's tenant is the caller's ACTIVE tenant and the caller's role there grants `key`
  *   member              the caller has any membership in the row's tenant (switcher reads: tenants, own memberships)
  *   billing             the row's tenant is the active tenant and the caller is its owner or admin
+ *   full                the row's tenant is the caller's ACTIVE tenant, any role (`authz.full_tenant_ids()`; 05-10a adds
+ *                       the access level)
  *   self(column)        the row's `column` is the caller's user id (an INSERT row may give `auth.uid()`)
  *   catalogue           every signed-in user (global reference data)
  *   none                the role holds the table privilege but no policy admits anyone (SELECT/UPDATE/DELETE affect
@@ -47,6 +50,7 @@ export type Rule =
   | { kind: "perm"; perm: PermKey; tenantColumn?: string }
   | { kind: "member"; tenantColumn?: string }
   | { kind: "billing"; tenantColumn?: string }
+  | { kind: "full"; tenantColumn?: string }
   | { kind: "self"; column: string }
   | { kind: "catalogue" }
   | { kind: "none" }
@@ -59,6 +63,7 @@ export type Rule =
 export const perm = (key: PermKey, tenantColumn?: string): Rule => ({ kind: "perm", perm: key, tenantColumn });
 export const member = (tenantColumn?: string): Rule => ({ kind: "member", tenantColumn });
 export const billing: Rule = { kind: "billing" };
+export const full: Rule = { kind: "full" };
 export const self = (column: string): Rule => ({ kind: "self", column });
 export const catalogue: Rule = { kind: "catalogue" };
 export const none: Rule = { kind: "none" };
@@ -94,11 +99,6 @@ export interface TableTarget {
   insertSetup?: string;
   /** The operations `anon` holds the privilege for, when fewer than `authenticated` (e.g. "S"; "" = none). */
   anon?: string;
-  /**
-   * The fixture row has children whose composite FK is ON DELETE RESTRICT (05-03): a DELETE the rule admits is refused
-   * with 23503 (the matrix shows `R`). 05-04 replaces the parent DELETE policies, after which no rule admits it.
-   */
-  restrictDelete?: true;
   /** The row's tenant when the table has no `tenant_id` column. */
   tenant?: Sql;
   rules: Rules;
@@ -230,12 +230,14 @@ export const PRINCIPALS: readonly Principal[] = [
 
 const memberAll: Rules = { select: legacyMember(), insert: legacyMember(), update: legacyMember(), delete: legacyMember() };
 const memberSiu = (del: Rule): Rules => ({ select: legacyMember(), insert: legacyMember(), update: legacyMember(), delete: del });
-const ownerAdminAll: Rules = {
+const ownerAdminSiu = (del: Rule): Rules => ({
   select: legacyOwnerAdmin(),
   insert: legacyOwnerAdmin(),
   update: legacyOwnerAdmin(),
-  delete: legacyOwnerAdmin(),
-};
+  delete: del,
+});
+/** `doctor_custom_*` DELETE (05-04): the doctor's own row, with consultations:edit in the active clinic. */
+const ownConsultationRow: Rule = all(perm("consultations:edit"), self("doctor_id"));
 const catalogueRules: Rules = { select: catalogue, insert: none, update: none, delete: none };
 const opsRules: Rules = { select: rpcOnly, insert: rpcOnly, update: rpcOnly, delete: rpcOnly };
 
@@ -338,9 +340,8 @@ export const TARGETS: readonly Target[] = [
     extraRows: [
       { id: q(FX.visit2), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, origin_type: "'walk_in'", created_by: U.ownerA },
     ],
-    restrictDelete: true,
-    rules: memberSiu(legacyOwnerAdmin()),
-    note: "the fixture visit has RESTRICT children (05-03): the legacy owner/admin DELETE policy admits it, the FK refuses it (R); 05-04 drops visits_delete_member",
+    rules: memberSiu(none),
+    note: "no member deletes a visit (05-04 dropped visits_delete_member); its clinical and financial children RESTRICT (05-03)",
   },
   {
     kind: "table",
@@ -376,7 +377,7 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(6)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA },
     insert: { id: q(FX.row(7)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA },
     update: "chief_complaint",
-    rules: memberAll,
+    rules: memberSiu(none),
     note: "dead table (R-34), dropped in V2-09b",
   },
   {
@@ -387,7 +388,7 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(8)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), diagnosis_name: "'Synthetic diagnosis'" },
     insert: { id: q(FX.row(9)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), diagnosis_name: "'Synthetic diagnosis'" },
     update: "diagnosis_name",
-    rules: memberSiu(legacyOwnerAdmin()),
+    rules: memberSiu(perm("consultations:edit")),
   },
   {
     kind: "table",
@@ -397,7 +398,7 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.prescription), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: U.doctorA },
     insert: { id: q(FX.row(10)), tenant_id: A, visit_id: q(FX.visit), patient_id: q(FX.patient), doctor_id: U.doctorA, version: "2" },
     update: "status",
-    rules: memberSiu(legacyOwnerAdmin()),
+    rules: memberSiu(none),
   },
   {
     kind: "table",
@@ -421,8 +422,8 @@ export const TARGETS: readonly Target[] = [
       duration: "'5 days'",
     },
     update: "medicine_name",
-    rules: memberSiu(legacyOwnerAdmin()),
-    note: "tenant_id since 05-03 (filled from the prescription, composite FK); policies still scope through the prescription until 05-02b",
+    rules: memberSiu(perm("prescriptions:edit")),
+    note: "tenant_id since 05-03 (filled from the prescription, composite FK); S/I/U still scope through the prescription until 05-02b",
   },
   {
     kind: "table",
@@ -442,8 +443,8 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(14)), tenant_id: A, invoice_id: q(FX.invoice), item_type: "'consultation'", description: "'Synthetic item'" },
     insert: { id: q(FX.row(15)), tenant_id: A, invoice_id: q(FX.invoice), item_type: "'consultation'", description: "'Synthetic item'" },
     update: "description",
-    rules: memberSiu(none),
-    note: "no DELETE policy: the service's item delete is a silent no-op (fixed in 05-04)",
+    rules: memberSiu(perm("billing:collect")),
+    note: "DELETE billing:collect since 05-04 (before: no DELETE policy, the service's item delete was a silent no-op)",
   },
   {
     kind: "table",
@@ -464,7 +465,7 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(18)), tenant_id: A, visit_id: q(FX.visit), token_number: "1" },
     insert: { id: q(FX.row(19)), tenant_id: A, visit_id: q(FX.visit2), token_number: "2" },
     update: "priority",
-    rules: memberSiu(legacyOwnerAdmin()),
+    rules: memberSiu(none),
   },
   {
     kind: "table",
@@ -474,7 +475,7 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(20)), tenant_id: A, patient_id: q(FX.patient), target_date: "'2030-01-01'", created_by: U.ownerA },
     insert: { id: q(FX.row(21)), tenant_id: A, patient_id: q(FX.patient), target_date: "'2030-01-02'", created_by: U.ownerA },
     update: "status",
-    rules: memberSiu(legacyOwnerAdmin()),
+    rules: memberSiu(none),
   },
   {
     kind: "table",
@@ -502,7 +503,7 @@ export const TARGETS: readonly Target[] = [
       select: legacyMember(),
       insert: all(legacyMember(), any(self("doctor_id"), legacyOwnerAdmin())),
       update: all(legacyMember(), any(self("created_by"), self("doctor_id"), legacyOwnerAdmin())),
-      delete: all(legacyMember(), any(self("created_by"), self("doctor_id"), legacyOwnerAdmin())),
+      delete: any(all(self("doctor_id"), perm("appointments:edit")), perm("clinic:manage")),
     },
     note: "fixture row: the second doctor's block, created by the nurse",
   },
@@ -514,7 +515,7 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(24)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, follow_up_date: "'2030-01-01'" },
     insert: { id: q(FX.row(25)), tenant_id: A, patient_id: q(FX.patient), doctor_id: U.doctorA, follow_up_date: "'2030-01-02'" },
     update: "notes",
-    rules: memberSiu(legacyOwnerAdmin()),
+    rules: memberSiu(perm("consultations:edit")),
   },
   {
     kind: "table",
@@ -568,7 +569,7 @@ export const TARGETS: readonly Target[] = [
       uploaded_by: U.ownerA,
     },
     update: "title",
-    rules: memberAll,
+    rules: memberSiu(perm("labs:edit")),
   },
   {
     kind: "table",
@@ -612,7 +613,7 @@ export const TARGETS: readonly Target[] = [
       select: any(legacyMember(), legacyMember("target_tenant_id")),
       insert: legacyMember(),
       update: any(legacyMember(), legacyMember("target_tenant_id")),
-      delete: legacyMember(),
+      delete: none,
     },
     note: "fixture row: A refers to B (in network), so B's members read it and update its status",
   },
@@ -624,7 +625,7 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(33)), tenant_id: A, doctor_id: U.doctorA, diagnosis_name: "'Synthetic custom diagnosis'" },
     insert: { id: q(FX.row(34)), tenant_id: A, doctor_id: U.doctorA, diagnosis_name: "'Synthetic custom diagnosis 2'" },
     update: "diagnosis_name",
-    rules: memberAll,
+    rules: memberSiu(ownConsultationRow),
   },
   {
     kind: "table",
@@ -634,7 +635,7 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(35)), tenant_id: A, doctor_id: U.doctorA, medicine_name: "'Synthetic custom medicine'" },
     insert: { id: q(FX.row(36)), tenant_id: A, doctor_id: U.doctorA, medicine_name: "'Synthetic custom medicine 2'" },
     update: "medicine_name",
-    rules: memberAll,
+    rules: memberSiu(ownConsultationRow),
   },
   {
     kind: "table",
@@ -644,7 +645,7 @@ export const TARGETS: readonly Target[] = [
     fixture: { id: q(FX.row(37)), tenant_id: A, doctor_id: U.doctorA, template_name: "'Synthetic template'" },
     insert: { id: q(FX.row(38)), tenant_id: A, doctor_id: U.doctorA, template_name: "'Synthetic template 2'" },
     update: "template_name",
-    rules: memberAll,
+    rules: memberSiu(ownConsultationRow),
   },
   {
     kind: "table",
@@ -689,8 +690,8 @@ export const TARGETS: readonly Target[] = [
       message: "'Synthetic'",
     },
     update: "title",
-    rules: memberAll,
-    note: "any member reads any colleague's notifications today (own-row policy in 05-02c, T-05-11)",
+    rules: memberSiu(all(self("recipient_user_id"), full)),
+    note: "any member reads any colleague's notifications today (own-row S/U in 05-02c, T-05-11); DELETE own row since 05-04",
   },
   {
     kind: "table",
@@ -701,7 +702,7 @@ export const TARGETS: readonly Target[] = [
     insert: { id: q(FX.row(44)), tenant_id: A },
     insertSetup: `delete from public.tenant_messaging_config where tenant_id = ${A}`,
     update: "whatsapp_enabled",
-    rules: memberAll,
+    rules: memberSiu(none),
   },
   {
     kind: "table",
@@ -729,7 +730,7 @@ export const TARGETS: readonly Target[] = [
     },
     insert: { id: q(FX.row(45)), tenant_id: A, name: "'Synthetic key 2'", key_prefix: "'authz'", key_hash: "repeat('c', 64)", created_by: U.ownerA },
     update: "name",
-    rules: ownerAdminAll,
+    rules: ownerAdminSiu(perm("clinic:manage")),
   },
   {
     kind: "table",
@@ -739,7 +740,7 @@ export const TARGETS: readonly Target[] = [
     fixture: { tenant_id: A, api_key_id: q(FX.apiKey), date: "'2030-01-01'" },
     insert: { tenant_id: A, api_key_id: q(FX.apiKey), date: "'2030-01-02'" },
     update: "request_count",
-    rules: ownerAdminAll,
+    rules: ownerAdminSiu(perm("clinic:manage")),
   },
   {
     kind: "table",
@@ -761,7 +762,7 @@ export const TARGETS: readonly Target[] = [
       signing_secret: "repeat('s', 32)",
     },
     update: "is_active",
-    rules: ownerAdminAll,
+    rules: ownerAdminSiu(perm("clinic:manage")),
   },
   {
     kind: "table",

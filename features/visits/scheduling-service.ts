@@ -20,6 +20,7 @@ import { isSlotWithinShifts, getTimePartsFromISO } from "./scheduling-utils";
 import { createVisit } from "./service";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { unaffectedRowsError } from "@/lib/db/errors";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
 // Scheduling use-cases (blocks, slot checks, booking). Tenant and actor come only from `ctx` (ADR-0005 D1); each
@@ -159,14 +160,21 @@ export async function deleteScheduleBlock(ctx: ServiceContext, blockId: string):
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: delError } = await (supabase.from("schedule_blocks") as any)
+    const { data: deleted, error: delError } = await (supabase.from("schedule_blocks") as any)
       .delete()
       .eq("id", blockId)
-      .eq("tenant_id", session.tenantId);
+      .eq("tenant_id", session.tenantId)
+      .select("id");
 
     if (delError) {
       log.error({ event: "visits.schedule_block_delete_query.failed", code: errorTag(delError), requestId: await getRequestId(), tenantId: ctx.tenantId });
       return { success: false, error: "Failed to delete schedule block." };
+    }
+    // RLS may filter the delete to 0 rows (V2-05 05-04): never report a block that is still there as deleted.
+    const refused = unaffectedRowsError(deleted);
+    if (refused) {
+      log.warn({ event: "visits.schedule_block_delete.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+      return { success: false, error: refused.message };
     }
 
     await recordAudit(ctx, {

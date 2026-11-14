@@ -156,7 +156,7 @@ describe("server error branches log the event and code, never the raw error (03-
   });
 
   it("labs write: deleteLabDocument row delete failure", async () => {
-    // A stored key outside this patient's prefix: the storage object is skipped, the row delete fails.
+    // The row delete fails. Since V2-05 05-04 the row is deleted first, so the storage step is never reached.
     const db = fakeDb((table, op) => {
       if (table !== "patient_documents") return { data: null, error: null };
       if (op === "select") {
@@ -173,7 +173,7 @@ describe("server error branches log the event and code, never the raw error (03-
     expect(result).toEqual({ success: false, error: "Failed to delete document from database." });
     // The PHI check first: before the sweep it fails on the raw text, not only on the missing event.
     expectNoRawError();
-    expect(linesFor("labs.delete_storage.skipped")).toHaveLength(1);
+    expect(linesFor("labs.delete_storage.skipped")).toHaveLength(0);
     const [line] = linesFor("labs.document_delete.failed");
     expect(line).toMatchObject({ level: "error", code: "23505", requestId: REQUEST_ID, tenantId: TENANT_ID });
   });

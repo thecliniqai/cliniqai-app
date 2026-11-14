@@ -15,6 +15,7 @@ import { generateAndArchivePrescriptionPdf } from "../prescriptions/pdf/generato
 import { PrescriptionPdfPayload } from "../prescriptions/pdf/prescription-document";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { unaffectedRowsError } from "@/lib/db/errors";
 import { resolveTimeZone, ymdOf } from "@/lib/datetime";
 import { clientErrorMessage } from "@/lib/errors/client-message";
 
@@ -24,6 +25,9 @@ import { clientErrorMessage } from "@/lib/errors/client-message";
 
 const SIGNED_CONSULTATION_MESSAGE =
   "This consultation is already signed. Reopen it for amendment to make changes.";
+
+/** The draft was saved but the visit's follow-up could not be cleared (V2-05 05-04: never reported as done). */
+const FOLLOW_UP_CLEAR_FAILED_MESSAGE = "Draft saved, but the follow-up could not be cleared. Please try again.";
 
 /** Completed, cancelled, or signed and not reopened for amendment (reopened = signed_at set, status in_consultation). */
 function isDraftLocked(visit: { status?: string | null; signed_at?: string | null }): boolean {
@@ -188,12 +192,34 @@ export async function saveConsultationDraft(
         notes: data.follow_up.notes ?? undefined,
       });
     } else {
-      // If doctor selected None / N/A, delete any existing follow_up for this visit
+      // If doctor selected None / N/A, delete any existing follow_up for this visit. RLS may filter the delete
+      // (V2-05 05-04): compare the deleted rows with the visible ones, so a follow-up that is still there is reported.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("follow_ups") as any)
-        .delete()
+      const { data: visibleFollowUps, error: followUpReadErr } = await (supabase.from("follow_ups") as any)
+        .select("id")
         .eq("visit_id", data.visit_id)
         .eq("tenant_id", ctx.tenantId);
+      if (followUpReadErr) {
+        log.error({ event: "consultation.follow_up_clear.failed", code: errorTag(followUpReadErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+        return { success: false, error: FOLLOW_UP_CLEAR_FAILED_MESSAGE };
+      }
+      const visibleCount = Array.isArray(visibleFollowUps) ? visibleFollowUps.length : 0;
+      if (visibleCount > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: deletedFollowUps, error: followUpDeleteErr } = await (supabase.from("follow_ups") as any)
+          .delete()
+          .eq("visit_id", data.visit_id)
+          .eq("tenant_id", ctx.tenantId)
+          .select("id");
+        if (followUpDeleteErr) {
+          log.error({ event: "consultation.follow_up_clear.failed", code: errorTag(followUpDeleteErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+          return { success: false, error: FOLLOW_UP_CLEAR_FAILED_MESSAGE };
+        }
+        if (unaffectedRowsError(deletedFollowUps, visibleCount)) {
+          log.warn({ event: "consultation.follow_up_clear.refused", reason: "row_not_affected", requestId: await getRequestId(), tenantId: ctx.tenantId });
+          return { success: false, error: FOLLOW_UP_CLEAR_FAILED_MESSAGE };
+        }
+      }
     }
 
     // 5. Record audit log

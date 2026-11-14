@@ -25,6 +25,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { buildInventory } from "@/scripts/inventory-server-actions";
 import { getAdminClient } from "../helpers/supabase-admin";
+import { signInActingIn } from "../helpers/active-tenant";
 import { ACTION_GUARDS, LEG3_CONTROL_EXEMPT, type ActionGuard } from "./guard-manifest";
 import {
   actionCases,
@@ -327,10 +328,18 @@ describe("P0-13: every server action is in the guard manifest and guarded", () =
         }
       }, 60_000);
 
+      // The app's user client sends the active clinic (`x-clinicos-tenant` from the cookie, R-42); the mocked slot client
+      // must do the same, or a policy bound to the active clinic (05-04 DELETE rules onward) sees no clinic at all.
+      const actingInA = new Map<string, Awaited<ReturnType<typeof signInActingIn>>>();
+      const clientActingInA = async (email: string) => {
+        if (!actingInA.has(email)) actingInA.set(email, await signInActingIn(email, world.tenantA));
+        return actingInA.get(email)!;
+      };
+
       it.each(inClinic.map(label))("%s", async (_k, c) => {
         const role = leg3Role(ACTION_GUARDS[c.key]);
         const dual = world.dual[role];
-        const caller = { userId: dual.userId, role, client: dual.client };
+        const caller = { userId: dual.userId, role, client: await clientActingInA(dual.userEmail) };
         const violations = await perReferenceLegs(c, await load(c), world, caller, world.tenantA, "dual member in A");
         expect(violations, report(violations)).toEqual([]);
       }, 180_000);

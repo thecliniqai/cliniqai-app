@@ -92,3 +92,19 @@ export function mapDbError(err: DbErrorLike | null | undefined, messages: DbErro
   const message = (reason !== undefined ? messages[reason] : undefined) ?? messages[code];
   return appError(code, { message, reason });
 }
+
+/** Reason of {@link unaffectedRowsError}: the write matched no row the caller may change. */
+export const ROW_NOT_AFFECTED = "ROW_NOT_AFFECTED";
+
+/**
+ * A DELETE (or UPDATE) that RLS may filter (V2-05 05-04, R-22, T-05-07). PostgREST answers a write whose rows the
+ * caller's policies exclude with success and 0 rows, so a service that only checks `error` reports a silent no-op as
+ * done (research Pitfall 11). Request the affected rows with `.select("id")` on the write and pass them here: fewer
+ * than `expected` → FORBIDDEN with reason {@link ROW_NOT_AFFECTED} (the service read the row first, so it exists for
+ * the caller; their role in the active clinic may not change it). Write the audit row only when this returns null.
+ */
+export function unaffectedRowsError(rows: unknown, expected = 1, messages: DbErrorMessages = {}): AppError | null {
+  const affected = Array.isArray(rows) ? rows.length : 0;
+  if (affected >= expected) return null;
+  return appError("FORBIDDEN", { message: messages[ROW_NOT_AFFECTED] ?? messages.FORBIDDEN, reason: ROW_NOT_AFFECTED });
+}

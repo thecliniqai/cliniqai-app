@@ -452,7 +452,8 @@ describe("01-09 review round 2 fixes (000022)", () => {
             },
             error: null,
           });
-          chain.then = (resolve: (v: unknown) => unknown) => resolve({ error: null });
+          // The row delete asks for the deleted rows (V2-05 05-04: 0 rows is a refusal): report the one row deleted.
+          chain.then = (resolve: (v: unknown) => unknown) => resolve({ data: [{ id: docId }], error: null });
           chain.insert = async () => ({ error: null });
           void table;
           return chain;
