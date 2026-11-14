@@ -37,6 +37,12 @@ import ts from "typescript";
 const LLM_FEATURE_FILES = new Set([
   "components/consultation/ai-scribe-modal.tsx",
   "components/consultation/returning-patient-catchup.tsx",
+  // AI-02 labels (V2-06 06-01b): each in its own file with no price copy, so L1-R6 still fails any file that puts
+  // them next to a price.
+  "components/clinical/ai-assist-chip.tsx",
+  "components/clinical/ai-preview-chip.tsx",
+  "components/clinical/ai-coming-soon-row.tsx",
+  "components/clinical/smart-assist-label.tsx",
 ]);
 const MAX_WAIVER_DAYS = 90;
 const SOURCE_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;

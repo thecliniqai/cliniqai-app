@@ -11,6 +11,8 @@ import {
   FileText,
   HelpCircle,
 } from "lucide-react";
+import { AiAssistChip } from "@/components/clinical/ai-assist-chip";
+import { AiPreviewChip, AiPreviewNote } from "@/components/clinical/ai-preview-chip";
 import { generateSoapAction } from "@/features/ai/actions";
 import { SoapDraft, AnonymizedPatientContext } from "@/lib/ai/types";
 
@@ -88,19 +90,20 @@ export function AiScribeModal({
     >
       <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-canvas">
-          <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center shadow-2xs">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <div>
-              <h2 id="ai-scribe-modal-title" className="text-base font-semibold text-gray-900">
-                AI Clinical Scribe — Shorthand
+        {/* AI-02 labels (V2-06 06-01b): the AI Assist and Preview chips and the preview note, not a hand-made header. */}
+        <div className="flex items-start justify-between gap-3 px-6 py-4 border-b border-gray-100 bg-canvas">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 id="ai-scribe-modal-title" className="text-base font-semibold text-fg">
+                Clinical Scribe — Shorthand
               </h2>
-              <p className="text-xs text-gray-500">
-                Type shorthand. Scribe drafts notes for your approval.
-              </p>
+              <AiAssistChip />
+              <AiPreviewChip />
             </div>
+            <p className="mt-1 text-xs text-fg-muted">
+              Type shorthand. Scribe drafts notes for your approval.
+            </p>
+            <AiPreviewNote className="mt-0.5" />
           </div>
           <button
             type="button"
