@@ -18,11 +18,21 @@ import { isSameOriginRequest } from "@/lib/auth/same-origin";
  *   neither signal, gets 403 and nothing is touched (no client is created).
  * - Form field `scope`: `local` (default, this device) or `global` (every device of the user); anything else 400.
  * - No session: still 303 → `/login` (idempotent).
+ * - Fetch callers (V2-06 06-09a H-WEBKIT, M-EVERYWHERE): `hardSignOut()` sends the header `x-clinicos-signout: fetch`
+ *   and gets JSON, never a redirect: 200 `{ scope, revoked: true }` when GoTrue revoked, 502 `{ scope, revoked: false }`
+ *   when it could not (this device's cookies are deleted anyway). WebKit never settles a `redirect: "manual"` fetch of
+ *   a 303 carrying `Clear-Site-Data`, so a redirect answer left iPhones on the patient screen.
+ * - Form posts (no JavaScript): 303 → `/login`, or `/login?signout=partial` when a `global` revocation failed, so
+ *   "Sign out of all devices" never reports a success it did not get.
  *
  * The full PWA "hard sign-out" (cache + IndexedDB wipe, `hardSignOut()`) is V2-06 (PWA-02).
  */
 
 const MODULE = "auth.signout";
+/** Same values as `lib/auth/hard-sign-out.ts` (`SIGN_OUT_FETCH_HEADER`/`_VALUE`); restated so the route has no client import. */
+const FETCH_HEADER = "x-clinicos-signout";
+const FETCH_VALUE = "fetch";
+const SIGNED_OUT_HEADERS = { "clear-site-data": '"cache"', "cache-control": "no-store" } as const;
 const SCOPES = ["local", "global"] as const;
 type Scope = (typeof SCOPES)[number];
 
@@ -90,13 +100,15 @@ export async function POST(request: NextRequest): Promise<Response> {
   // this device is signed out regardless.
   if (failed) await dropAuthCookies();
 
-  log.info({ event: "auth.signout.done", requestId, module: MODULE, reason: scope });
+  const fetchCaller = request.headers.get(FETCH_HEADER) === FETCH_VALUE;
+  const status = fetchCaller ? (failed ? 502 : 200) : 303;
+  // `status` 502 = this device signed out, GoTrue's revocation failed (the `auth.signout.failed` line above has why).
+  log.info({ event: "auth.signout.done", requestId, module: MODULE, reason: scope, status });
+  if (fetchCaller) {
+    return NextResponse.json({ scope, revoked: !failed }, { status, headers: SIGNED_OUT_HEADERS });
+  }
   return new NextResponse(null, {
-    status: 303,
-    headers: {
-      location: "/login",
-      "clear-site-data": '"cache"',
-      "cache-control": "no-store",
-    },
+    status,
+    headers: { location: failed && scope === "global" ? "/login?signout=partial" : "/login", ...SIGNED_OUT_HEADERS },
   });
 }

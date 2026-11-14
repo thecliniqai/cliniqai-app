@@ -1,26 +1,41 @@
 /**
- * `hardSignOut()` order and fallbacks (V2-06 06-05; PWA_STRATEGY §4 D-5; T-06-03), with injected stand-ins. The
- * browser proof of every exit path is tests/e2e/pwa/05-cache-audit.spec.ts; this spec pins the branches that are hard
- * to provoke there (a refused or hanging server call, a hanging local sign-out, a failing cleanup or purge).
+ * `hardSignOut()` order and fallbacks (V2-06 06-05; PWA_STRATEGY §4 D-5; T-06-03; 06-09a H-WEBKIT, M-EVERYWHERE,
+ * M-TABS, A L-3, IND L-1), with injected stand-ins. The browser proof of every exit path is
+ * tests/e2e/pwa/05-cache-audit.spec.ts (also on WebKit since 06-09a); this spec pins the branches that are hard to
+ * provoke there: a server call that never settles (WebKit's behaviour before 06-09a), a hanging local sign-out, purge
+ * or cleanup, a GoTrue revocation that failed, a stronger reason arriving during a run, and no AbortSignal.timeout.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { hardSignOut, SUPABASE_AUTH_COOKIE, serverSignedOut, type HardSignOutDeps } from "@/lib/auth/hard-sign-out";
+import {
+  followSignOutElsewhere,
+  hardSignOut,
+  PARTIAL_SIGN_OUT_TARGET,
+  readServerOutcome,
+  SUPABASE_AUTH_COOKIE,
+  type HardSignOutDeps,
+} from "@/lib/auth/hard-sign-out";
 import { registerCleanup, runCleanups } from "@/lib/pwa/cleanup";
 
 function deps(fetchImpl: HardSignOutDeps["fetch"], overrides: Partial<HardSignOutDeps> = {}) {
   const calls: string[] = [];
   const bodies: string[] = [];
+  const headers: Array<Record<string, string>> = [];
   const d: HardSignOutDeps = {
     runCleanups: async () => {
       calls.push("cleanups");
     },
+    announce: () => {
+      calls.push("announce");
+    },
     fetch: async (input, init) => {
-      calls.push(`fetch ${String(input)} ${init?.method} redirect=${init?.redirect}`);
+      calls.push(`fetch ${String(input)} ${init?.method}`);
       bodies.push(String(init?.body));
+      headers.push(init?.headers as Record<string, string>);
       return fetchImpl(input, init);
     },
-    signOutLocally: async () => {
-      calls.push("signOutLocally");
+    signOutLocally: async (scope) => {
+      calls.push(`signOutLocally ${scope}`);
+      return true;
     },
     expireAuthCookies: () => {
       calls.push("expireAuthCookies");
@@ -34,21 +49,28 @@ function deps(fetchImpl: HardSignOutDeps["fetch"], overrides: Partial<HardSignOu
     },
     ...overrides,
   };
-  return { d, calls, bodies };
+  return { d, calls, bodies, headers };
 }
 
-const opaqueRedirect = async () => ({ type: "opaqueredirect", status: 0 }) as Response;
+/** The route's answers to a fetch caller (app/auth/signout/route.ts). */
+const revoked = async (_input: RequestInfo | URL, init?: RequestInit) =>
+  Response.json({ scope: new URLSearchParams(String(init?.body)).get("scope"), revoked: true }, { status: 200 });
+const notRevoked = async (_input: RequestInfo | URL, init?: RequestInit) =>
+  Response.json({ scope: new URLSearchParams(String(init?.body)).get("scope"), revoked: false }, { status: 502 });
+const never = () => new Promise<Response>(() => {});
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("hardSignOut", () => {
-  it("server sign-out succeeded: cleanups → POST /auth/signout (manual redirect) → purge → replace /login; no local fallback", async () => {
-    const { d, calls, bodies } = deps(opaqueRedirect);
+  it("server revoked: cleanups → announce → POST /auth/signout as a fetch caller → purge → replace /login; no local fallback", async () => {
+    const { d, calls, bodies, headers } = deps(revoked);
     await hardSignOut("user", d);
-    expect(calls).toEqual(["cleanups", "fetch /auth/signout POST redirect=manual", "purge", "replace /login"]);
+    expect(calls).toEqual(["cleanups", "announce", "fetch /auth/signout POST", "purge", "replace /login"]);
     expect(bodies).toEqual(["scope=local"]);
+    expect(headers[0]).toMatchObject({ "x-clinicos-signout": "fetch" });
   });
 
   it("'everywhere' posts scope=global; every other reason posts scope=local", async () => {
@@ -58,11 +80,44 @@ describe("hardSignOut", () => {
       ["expired", "local"],
       ["removed", "local"],
       ["idle", "local"],
+      ["recovery", "local"],
     ] as const) {
-      const { d, bodies } = deps(opaqueRedirect);
+      const { d, bodies } = deps(revoked);
       await hardSignOut(reason, d);
       expect(bodies, reason).toEqual([`scope=${scope}`]);
     }
+  });
+
+  it("H-WEBKIT: a server call that never settles (and no AbortSignal.timeout) is given up after 5 s; local fallback, purge, replace", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("AbortSignal", { ...AbortSignal, timeout: undefined });
+    const { d, calls } = deps(never);
+    const done = hardSignOut("user", d);
+    await vi.advanceTimersByTimeAsync(5000);
+    await done;
+    expect(calls).toEqual([
+      "cleanups",
+      "announce",
+      "fetch /auth/signout POST",
+      "signOutLocally local",
+      "expireAuthCookies",
+      "purge",
+      "replace /login",
+    ]);
+  });
+
+  it("H-WEBKIT: every step stuck at once still leaves within the deadline plus the purge cap (cookies expired)", async () => {
+    vi.useFakeTimers();
+    const { d, calls } = deps(never, {
+      runCleanups: never as unknown as () => Promise<void>,
+      signOutLocally: never as unknown as () => Promise<boolean>,
+      purge: never as unknown as () => Promise<{ failed: string[] }>,
+    });
+    const done = hardSignOut("user", d);
+    await vi.advanceTimersByTimeAsync(2000 + 5000 + 3000 + 3000);
+    await done;
+    expect(calls.filter((c) => c === "replace /login")).toHaveLength(1);
+    expect(calls).toContain("expireAuthCookies");
   });
 
   it("offline (fetch rejects): signs out locally, expires the auth cookies, still purges and navigates", async () => {
@@ -72,21 +127,81 @@ describe("hardSignOut", () => {
     await hardSignOut("user", d);
     expect(calls).toEqual([
       "cleanups",
-      "fetch /auth/signout POST redirect=manual",
-      "signOutLocally",
+      "announce",
+      "fetch /auth/signout POST",
+      "signOutLocally local",
       "expireAuthCookies",
       "purge",
       "replace /login",
     ]);
   });
 
-  it("a refused answer (403 cross-origin, 500) counts as not signed out on the server: local fallback runs", async () => {
-    for (const status of [403, 500]) {
-      const { d, calls } = deps(async () => ({ type: "basic", status }) as Response);
+  it("a refused or unexpected answer (403, 500, an old 303, HTML 200) counts as failed: local fallback runs", async () => {
+    const answers: Array<() => Promise<Response>> = [
+      async () => new Response(null, { status: 403 }),
+      async () => new Response(null, { status: 500 }),
+      async () => ({ type: "opaqueredirect", status: 0, json: async () => ({}) }) as unknown as Response,
+      async () => new Response("<html></html>", { status: 200 }),
+    ];
+    for (const answer of answers) {
+      const { d, calls } = deps(answer);
       await hardSignOut("user", d);
-      expect(calls, String(status)).toContain("signOutLocally");
-      expect(calls, String(status)).toContain("expireAuthCookies");
+      expect(calls).toContain("signOutLocally local");
+      expect(calls).toContain("expireAuthCookies");
     }
+  });
+
+  describe("M-EVERYWHERE: 'Sign out of all devices' never reports a success it did not get", () => {
+    it("server revoked every session: plain /login", async () => {
+      const { d, calls } = deps(revoked);
+      await hardSignOut("everywhere", d);
+      expect(calls.at(-1)).toBe("replace /login");
+    });
+
+    it("GoTrue could not revoke (route 502): this device is signed out, the target says so", async () => {
+      const { d, calls } = deps(notRevoked);
+      await hardSignOut("everywhere", d);
+      expect(calls).not.toContain("signOutLocally global");
+      expect(calls.at(-1)).toBe(`replace ${PARTIAL_SIGN_OUT_TARGET}`);
+    });
+
+    it("the route is unreachable but the browser client revokes globally: plain /login", async () => {
+      const { d, calls } = deps(async () => {
+        throw new TypeError("Failed to fetch");
+      });
+      await hardSignOut("everywhere", d);
+      expect(calls).toContain("signOutLocally global");
+      expect(calls.at(-1)).toBe("replace /login");
+    });
+
+    it("neither the route nor the browser client could revoke: partial", async () => {
+      const { d, calls } = deps(
+        async () => {
+          throw new TypeError("Failed to fetch");
+        },
+        { signOutLocally: async () => false },
+      );
+      await hardSignOut("everywhere", d);
+      expect(calls).toContain("expireAuthCookies");
+      expect(calls.at(-1)).toBe(`replace ${PARTIAL_SIGN_OUT_TARGET}`);
+    });
+
+    it("everything timed out: partial (and cookies expired)", async () => {
+      vi.useFakeTimers();
+      const { d, calls } = deps(never, { signOutLocally: never as unknown as () => Promise<boolean> });
+      const done = hardSignOut("everywhere", d);
+      await vi.advanceTimersByTimeAsync(8000 + 3000);
+      await done;
+      expect(calls).toContain("expireAuthCookies");
+      expect(calls.at(-1)).toBe(`replace ${PARTIAL_SIGN_OUT_TARGET}`);
+    });
+
+    it("a local-scope 502 (this device signed out, revocation failed) is not reported to the user", async () => {
+      const { d, calls } = deps(notRevoked);
+      await hardSignOut("user", d);
+      expect(calls.at(-1)).toBe("replace /login");
+      expect(calls).not.toContain("signOutLocally local");
+    });
   });
 
   it("a hanging local sign-out is given up after 3 s; cookies are expired and the purge still runs", async () => {
@@ -95,12 +210,21 @@ describe("hardSignOut", () => {
       async () => {
         throw new TypeError("offline");
       },
-      { signOutLocally: () => new Promise<void>(() => {}) },
+      { signOutLocally: () => new Promise<boolean>(() => {}) },
     );
     const done = hardSignOut("user", d);
     await vi.advanceTimersByTimeAsync(3000);
     await done;
     expect(calls.slice(-3)).toEqual(["expireAuthCookies", "purge", "replace /login"]);
+  });
+
+  it("a purge that never settles is given up after 3 s: the navigation still happens", async () => {
+    vi.useFakeTimers();
+    const { d, calls } = deps(revoked, { purge: never as unknown as () => Promise<{ failed: string[] }> });
+    const done = hardSignOut("user", d);
+    await vi.advanceTimersByTimeAsync(3000);
+    await done;
+    expect(calls.at(-1)).toBe("replace /login");
   });
 
   it("offline with the supabase-js chunk not loadable (local sign-out rejects): cookies are still expired", async () => {
@@ -118,9 +242,12 @@ describe("hardSignOut", () => {
     expect(calls.slice(-3)).toEqual(["expireAuthCookies", "purge", "replace /login"]);
   });
 
-  it("failing cleanups and a failing purge do not stop the sign-out", async () => {
-    const { d, calls } = deps(opaqueRedirect, {
+  it("failing cleanups, announce and purge do not stop the sign-out", async () => {
+    const { d, calls } = deps(revoked, {
       runCleanups: async () => {
+        throw new Error("boom");
+      },
+      announce: () => {
         throw new Error("boom");
       },
       purge: async () => {
@@ -128,14 +255,22 @@ describe("hardSignOut", () => {
       },
     });
     await hardSignOut("user", d);
-    expect(calls).toEqual(["fetch /auth/signout POST redirect=manual", "replace /login"]);
+    expect(calls).toEqual(["fetch /auth/signout POST", "replace /login"]);
+  });
+
+  it("'recovery' (the forgot-password page) signs out and purges but does not navigate", async () => {
+    const { d, calls } = deps(revoked);
+    await hardSignOut("recovery", d);
+    expect(calls).toEqual(["cleanups", "announce", "fetch /auth/signout POST", "purge"]);
   });
 
   it("a second call while one runs returns the same run (one POST)", async () => {
     let release!: () => void;
-    const { d, calls } = deps(() => new Promise<Response>((resolve) => (release = () => resolve({ type: "opaqueredirect", status: 0 } as Response))));
+    const { d, calls } = deps(
+      (input, init) => new Promise<Response>((resolve) => (release = () => void revoked(input, init).then(resolve))),
+    );
     const first = hardSignOut("user", d);
-    const second = hardSignOut("everywhere", d);
+    const second = hardSignOut("switch", d);
     expect(second).toBe(first);
     await vi.waitFor(() => expect(release).toBeTypeOf("function"));
     release();
@@ -143,16 +278,75 @@ describe("hardSignOut", () => {
     expect(calls.filter((c) => c.startsWith("fetch"))).toHaveLength(1);
   });
 
+  it("A L-3: 'everywhere' arriving before the server call is sent escalates the run to scope=global", async () => {
+    let releaseCleanups!: () => void;
+    const { d, bodies, calls } = deps(revoked, {
+      runCleanups: () => new Promise<void>((resolve) => (releaseCleanups = resolve)),
+    });
+    const first = hardSignOut("user", d);
+    await vi.waitFor(() => expect(releaseCleanups).toBeTypeOf("function"));
+    expect(hardSignOut("everywhere", d)).toBe(first);
+    releaseCleanups();
+    await first;
+    expect(bodies).toEqual(["scope=global"]);
+    expect(calls.at(-1)).toBe("replace /login");
+  });
+
+  it("A L-3: 'everywhere' arriving after a local call went out is not dropped: the user is told (partial)", async () => {
+    let release!: () => void;
+    const { d, bodies, calls } = deps(
+      (input, init) => new Promise<Response>((resolve) => (release = () => void revoked(input, init).then(resolve))),
+    );
+    const first = hardSignOut("user", d);
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    expect(hardSignOut("everywhere", d)).toBe(first);
+    release();
+    await first;
+    expect(bodies).toEqual(["scope=local"]);
+    expect(calls.at(-1)).toBe(`replace ${PARTIAL_SIGN_OUT_TARGET}`);
+  });
+
   it("refuses an unknown reason", () => {
-    expect(() => hardSignOut("whatever" as never, deps(opaqueRedirect).d)).toThrow(/unknown sign-out reason/);
+    expect(() => hardSignOut("whatever" as never, deps(revoked).d)).toThrow(/unknown sign-out reason/);
   });
 });
 
-describe("serverSignedOut and the auth-cookie pattern", () => {
-  it("only the route's redirect counts as success", () => {
-    expect(serverSignedOut({ type: "opaqueredirect", status: 0 })).toBe(true);
-    expect(serverSignedOut({ type: "basic", status: 303 })).toBe(true);
-    for (const status of [200, 400, 403, 500]) expect(serverSignedOut({ type: "basic", status })).toBe(false);
+describe("M-TABS: a tab that hears another tab's sign-out", () => {
+  it("runs the cleanups and the purge and leaves for /login, with no server call", async () => {
+    const calls: string[] = [];
+    await followSignOutElsewhere({
+      runCleanups: async () => void calls.push("cleanups"),
+      purge: async () => {
+        calls.push("purge");
+        return { failed: [] };
+      },
+      replace: (url) => void calls.push(`replace ${url}`),
+    });
+    expect(calls).toEqual(["cleanups", "purge", "replace /login"]);
+  });
+
+  it("leaves even when the purge never settles", async () => {
+    vi.useFakeTimers();
+    const calls: string[] = [];
+    const done = followSignOutElsewhere({
+      runCleanups: async () => undefined,
+      purge: never as unknown as () => Promise<{ failed: string[] }>,
+      replace: (url) => void calls.push(`replace ${url}`),
+    });
+    await vi.advanceTimersByTimeAsync(3000);
+    await done;
+    expect(calls).toEqual(["replace /login"]);
+  });
+});
+
+describe("readServerOutcome and the auth-cookie pattern", () => {
+  it("200 {revoked:true} → revoked; 502 {revoked:false} → here-only; anything else → failed", async () => {
+    expect(await readServerOutcome(Response.json({ revoked: true }))).toBe("revoked");
+    expect(await readServerOutcome(Response.json({ revoked: false }, { status: 502 }))).toBe("here-only");
+    expect(await readServerOutcome(Response.json({ revoked: false }))).toBe("failed");
+    expect(await readServerOutcome(Response.json({ revoked: true }, { status: 502 }))).toBe("failed");
+    expect(await readServerOutcome(new Response("<html>", { status: 200 }))).toBe("failed");
+    for (const status of [303, 400, 403, 500]) expect(await readServerOutcome(new Response(null, { status }))).toBe("failed");
   });
 
   it.each([

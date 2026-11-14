@@ -7,6 +7,11 @@
  * user. Cross-origin and malformed calls are refused before any client exists. No session still answers 303. When
  * GoTrue cannot revoke, the auth cookies are deleted anyway. GET is not exported (Next answers 405).
  *
+ * V2-06 06-09a (H-WEBKIT, M-EVERYWHERE): a fetch caller (`x-clinicos-signout: fetch`, what `hardSignOut()` sends) gets
+ * JSON, never a redirect (WebKit never settles a manual-redirect fetch of a 303 with Clear-Site-Data): 200
+ * `{ revoked: true }`, or 502 `{ revoked: false }` when GoTrue could not revoke. A form post whose global revocation
+ * failed lands on `/login?signout=partial` instead of a plain `/login`.
+ *
  * Synthetic users only; tokens are compared, never printed.
  */
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
@@ -222,6 +227,56 @@ describe("03-12b POST /auth/signout", () => {
     expect(res.status).toBe(303);
     expect(res.headers.get("clear-site-data")).toBe('"cache"');
     expect(jar.deleted.sort()).toEqual(["sb-127-auth-token", "sb-127-auth-token-code-verifier", "sb-127-auth-token.0"]);
+  });
+});
+
+describe("06-09a fetch callers and a failed global revocation", () => {
+  const FETCH = { "x-clinicos-signout": "fetch" };
+  const failingGoTrue = () => ({
+    auth: { signOut: async () => ({ error: Object.assign(new Error("upstream"), { code: "unexpected_failure", status: 502 }) }) },
+  });
+
+  it("a fetch caller whose session GoTrue revoked gets 200 JSON with Clear-Site-Data, not a redirect", async () => {
+    const user = await createUnlinkedUser();
+    const other = await secondSession(user.userEmail);
+    const theirs = await tokensOf(other);
+    slot.client = user.client;
+    const res = await route.POST(post({ origin: APP_ORIGIN, ...FETCH }, { scope: "global" }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("clear-site-data")).toBe('"cache"');
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toEqual({ scope: "global", revoked: true });
+    expect(await refreshFails(theirs.refresh)).toBe("refresh_token_not_found");
+  });
+
+  it("a fetch caller whose revocation failed gets 502 { revoked: false }; this device's cookies are deleted anyway", async () => {
+    slot.client = failingGoTrue();
+    jar.cookies = [{ name: "sb-127-auth-token", value: "x" }];
+    for (const scope of ["global", "local"]) {
+      jar.deleted = [];
+      const res = await route.POST(post({ origin: APP_ORIGIN, ...FETCH }, { scope }));
+      expect(res.status, scope).toBe(502);
+      expect(res.headers.get("location")).toBeNull();
+      expect(await res.json()).toEqual({ scope, revoked: false });
+      expect(jar.deleted).toEqual(["sb-127-auth-token"]);
+    }
+  });
+
+  it("a form post whose GLOBAL revocation failed lands on /login?signout=partial; a failed local one on /login", async () => {
+    slot.client = failingGoTrue();
+    const global = await route.POST(post({ origin: APP_ORIGIN }, { scope: "global" }));
+    expect(global.status).toBe(303);
+    expect(global.headers.get("location")).toBe("/login?signout=partial");
+    const local = await route.POST(post({ origin: APP_ORIGIN }, { scope: "local" }));
+    expect(local.status).toBe(303);
+    expect(local.headers.get("location")).toBe("/login");
+  });
+
+  it("the header must say exactly 'fetch'; anything else is a form post (303)", async () => {
+    slot.client = freshClient();
+    const res = await route.POST(post({ origin: APP_ORIGIN, "x-clinicos-signout": "1" }, { scope: "local" }));
+    expect(res.status).toBe(303);
   });
 });
 

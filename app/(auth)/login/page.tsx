@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogIn } from "lucide-react";
@@ -15,6 +15,13 @@ import { Field } from "@/components/ui/field";
 import { useHydrated } from "@/lib/hooks/use-hydrated";
 import { safeNextPath } from "@/lib/auth/safe-next";
 import { publicEnv } from "@/lib/env";
+import { afterSignIn, hasSessionCookie, onLoginArrival } from "@/lib/pwa/session-arrival";
+import { PARTIAL_SIGN_OUT_NOTICE } from "@/lib/auth/hard-sign-out";
+
+/** 06-09a (M-EVERYWHERE): `?signout=partial` (from hardSignOut or the no-JS form) shows PARTIAL_SIGN_OUT_NOTICE. */
+const noSubscription = () => () => undefined;
+const partialSignOut = () => new URLSearchParams(window.location.search).get("signout") === "partial";
+const notOnServer = () => false;
 
 /** Where to go after sign-in: the `next` the proxy set if it is a same-origin path (03-12c, T-03-04), else `/`. */
 function afterSignInPath(): string {
@@ -31,6 +38,13 @@ export default function LoginPage() {
   // 03-12c (C43): Turnstile on sign-in when a site key is configured; Supabase verifies the token.
   const siteKey = publicEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const turnstile = useRef<TurnstileFieldHandle>(null);
+  const partial = useSyncExternalStore(noSubscription, partialSignOut, notOnServer);
+
+  // 06-09a (IND L-6): a session the server ended (proxy revocation, reset sign-out) reaches this page without
+  // hardSignOut(): purge the device and send the other tabs away when no session cookie is left.
+  useEffect(() => {
+    void onLoginArrival();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,6 +53,7 @@ export default function LoginPage() {
     setLoading(true);
 
     const captchaToken = siteKey ? ((await turnstile.current?.token()) ?? null) : null;
+    const replacingSession = hasSessionCookie(document.cookie);
     const result = await signIn(createClient(), { email, password }, { required: Boolean(siteKey), token: captchaToken });
     // Turnstile tokens are single-use: every attempt that used one needs a new one.
     if (captchaToken) turnstile.current?.reset();
@@ -50,6 +65,9 @@ export default function LoginPage() {
       return;
     }
 
+    // 06-09a: signing in over a live session replaced the previous user's cookies; their other tabs leave and the
+    // device is purged before the new user's pages load.
+    void afterSignIn(replacingSession);
     // `/` lets the dashboard layout pick the role's page (membership checks); a safe `next` goes back where the
     // proxy sent the user from.
     router.replace(afterSignInPath());
@@ -72,6 +90,7 @@ export default function LoginPage() {
             <p className="text-sm text-gray-500 mt-1.5">Use your clinic email and password.</p>
           </div>
 
+          <FormMessage id="login-signout" tone="error" message={partial ? PARTIAL_SIGN_OUT_NOTICE : null} />
           <FormMessage id="login-error" tone="error" message={error} />
 
           <form method="post" onSubmit={handleSubmit} className="space-y-4" noValidate aria-describedby="login-error">
