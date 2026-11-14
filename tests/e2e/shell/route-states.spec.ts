@@ -37,10 +37,10 @@ test("an unmatched URL renders the root not-found outside the shell with HTTP 40
 });
 
 test("a slow client navigation shows the loading skeleton inside the shell, then the page", async ({ page }) => {
+  const nav = await holdNavigation(page, "/visits", 1_500);
   await page.goto("/");
   await expect(page.getByRole("main")).toBeVisible();
-  const nav = await holdNavigation(page, "/visits", 1_500);
-  await clickNavLink(page, "Visits", "/visits");
+  await clickNavLink(page, "Visits", nav);
   await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
   await expect(page.getByRole("banner")).toBeVisible();
   await page.waitForURL((url) => url.pathname === "/visits");

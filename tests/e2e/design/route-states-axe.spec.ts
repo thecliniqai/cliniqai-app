@@ -80,10 +80,10 @@ for (const size of DESIGN_WIDTHS) {
     });
 
     test(`dashboard loading at ${size.width}px`, async ({ page }) => {
+      const nav = await holdNavigation(page, "/visits");
       await page.goto("/");
       await expect(page.getByRole("main")).toBeVisible();
-      const nav = await holdNavigation(page, "/visits");
-      await clickNavLink(page, "Visits", "/visits");
+      await clickNavLink(page, "Visits", nav);
       await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
       // Below lg the navigation is a drawer that closes on navigation: capture the skeleton after its slide-out.
       if (size.width < 1024) await expect(page.locator("aside")).not.toBeInViewport();
