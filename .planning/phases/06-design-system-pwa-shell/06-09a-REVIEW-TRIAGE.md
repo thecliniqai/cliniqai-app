@@ -42,3 +42,15 @@ deviation in the 06-04a record).
 | A Info: static cache keeps route chunks across users | Code only, no PHI; reveals which screens exist, not data | — (accepted) |
 | C Info: Lighthouse reports embed screenshots of `/patients` and `/consultation` | Synthetic data only; artefacts stay local or are uploaded only after the scrub check | — (accepted) |
 | C Info: secret list misses tokens decoded from the session cookie | Cheap: added to the scrub list in 06-09a if it is a one-line change; otherwise V2-14 | 06-09a / V2-14 |
+
+## Re-verification outcome (reviews/v206a-review-reverify.md, at 4a4c796) — CTO, 2026-11-14
+
+H-WEBKIT, M-EVERYWHERE, M-ERRCAP, M-OFFLINE (Chromium), M-GUARD CLOSED; M-TABS PARTIAL via N-1. Decisions (plan 06-09b):
+
+| ID | Decision | Owner |
+|---|---|---|
+| N-1 (Medium, pre-existing) | 06-09b: document view links (lab, referral signed URLs) expire in 5 minutes; inline PDF routes are `private, no-store`. In-app document viewer under the dashboard (so sign-out reaches it) | 06-09b now; viewer V2-09c |
+| N-2 (Low) | 06-09b: hide the page immediately after the cleanups, before the server call | 06-09b |
+| N-3 (Low) | Accepted: the guard is a lint aid against mistakes, not a boundary against deliberate obfuscation by our own code; V2-14 code review covers intent | V2-14 |
+| N-4…N-7 (Info) | N-7: correct the keyspace figure in the 06-09a record; others recorded | 06-09b |
+| M-OFFLINE / M-TABS on real iOS | Manual device check (06-P) | PO device check |
