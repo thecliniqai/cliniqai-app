@@ -1,0 +1,18 @@
+06-09a M-ERRCAP: adversarial review C's reproductions (scratchpad advC/probe.ts, probe2.ts) before and after.
+Before = lib/observability/{client-render-event,error-event,scrub}.ts at 0892105; after = working tree. tsx, pure functions, synthetic strings.
+
+== before (0892105)
+{"error_name":"client.Ravi_Kumar_ph_98765-43210","route_path":"/patients/[Ravi_Kumar_98765_43210]"}
+{"error_name":"client.Asha.Rao.diabetes.HIV","route_path":"/"}
+{"error_name":"client.aadhaar-1234-5678-9012","route_path":"/[x4f3a9c2e8b7d6a5f4e3d2c1b0a9f8e7d]"}
+{"error_name":"client.Pat.ravi.example.com","route_path":"/"}
+{"error_name":"client.Asha.Rao.F.52.HbA1c-9.8","route_path":"/patients/asha-rao/hiv-positive"}
+distinct fingerprints reaching the sink across 10 instance lifetimes: 500
+
+== after (06-09a)
+{"error_name":"client.Error","route_path":"/"}
+{"error_name":"client.Error","route_path":"/"}
+{"error_name":"client.Error","route_path":"/"}
+{"error_name":"client.Error","route_path":"/"}
+{"error_name":"client.Error","route_path":"/"}
+distinct fingerprints reaching the sink across 10 instance lifetimes: 1

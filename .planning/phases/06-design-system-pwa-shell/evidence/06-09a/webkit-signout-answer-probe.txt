@@ -1,0 +1,37 @@
+06-09a H-WEBKIT root cause probe (2026-11-14). Standalone loopback server on 127.0.0.1:3199 (no app, no data):
+POST /auth/signout answered 303 (Location /login), 204 or 200 JSON, each with and without
+Clear-Site-Data: "cache"; fetched from a page with redirect "manual" and "follow"; 4 s race timer.
+Script: scratchpad 09a/probe/csd-probe.mjs (Playwright webkit + chromium from node_modules).
+
+webkit {
+ "303 csd=0 manual": "opaqueredirect 0",
+ "303 csd=0 follow": "basic 200",
+ "303 csd=1 manual": "HUNG>4s",
+ "303 csd=1 follow": "basic 200",
+ "204 csd=0 manual": "basic 204",
+ "204 csd=0 follow": "basic 204",
+ "204 csd=1 manual": "basic 204",
+ "204 csd=1 follow": "basic 204",
+ "200 csd=0 manual": "basic 200",
+ "200 csd=0 follow": "basic 200",
+ "200 csd=1 manual": "basic 200",
+ "200 csd=1 follow": "basic 200"
+}
+chromium {
+ "303 csd=0 manual": "opaqueredirect 0",
+ "303 csd=0 follow": "basic 200",
+ "303 csd=1 manual": "opaqueredirect 0",
+ "303 csd=1 follow": "basic 200",
+ "204 csd=0 manual": "basic 204",
+ "204 csd=0 follow": "basic 204",
+ "204 csd=1 manual": "basic 204",
+ "204 csd=1 follow": "basic 204",
+ "200 csd=0 manual": "basic 200",
+ "200 csd=0 follow": "basic 200",
+ "200 csd=1 manual": "basic 200",
+ "200 csd=1 follow": "basic 200"
+}
+
+Conclusion: WebKit never settles a redirect:"manual" fetch whose answer is a 303 carrying Clear-Site-Data
+(exactly what 06-05's route sent hardSignOut). Without Clear-Site-Data the 303 settles; a non-redirect answer
+with Clear-Site-Data settles. Fix: fetch callers get 200/502 JSON (Clear-Site-Data kept); form posts keep the 303.

@@ -1,0 +1,54 @@
+06-09a Vitest (repo config, local stack, shared worktree at 97afcc6 + partner tree). Command:
+npx vitest run tests/auth/signout-route.spec.ts tests/observability/client-error-action-db.spec.ts tests/security/guard-actions.spec.ts tests/observability tests/pwa tests/ci/ui-policy-signout-guard.spec.ts tests/ci/lhci-config.spec.ts tests/auth/public-paths.spec.ts
+
+ ✓ tests/security/guard-actions.spec.ts (630 tests) 39099ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > every inventoried export is a runtime function of its module  393ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/ai/actions.ts#getFrequentPrescriptionsAction  734ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/ai/actions.ts#getPatientCatchUpSummaryAction  482ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#completeAndBillConsultation  650ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/billing/actions.ts#sendConsolidatedConsultationWhatsApp  775ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/clinics/actions.ts#createClinic  437ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/notifications/actions.ts#getInAppNotifications  389ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/settings/actions.ts#updateStatutorySettings  428ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/terminology/actions.ts#searchDiagnoses  381ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/visits/actions.ts#getClinicVisitsRegister  544ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3: tenant B's ids, least-privileged role holding the permission > features/visits/actions.ts#recordVisitVitals  423ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/ai/actions.ts#getFrequentPrescriptionsAction  506ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/ai/actions.ts#getPatientCatchUpSummaryAction  390ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/billing/actions.ts#completeAndBillConsultation  430ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/billing/actions.ts#sendConsolidatedConsultationWhatsApp  612ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/notifications/actions.ts#getInAppNotifications  375ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/settings/actions.ts#updateStatutorySettings  373ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/terminology/actions.ts#searchDiagnoses  367ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/visits/actions.ts#getClinicVisitsRegister  552ms
+   ✓ P0-13: every server action is in the guard manifest and guarded > seeded legs > leg 3b: a member of A and B acting in A with A's role (AR-M2b) > features/visits/actions.ts#recordVisitVitals  410ms
+ ✓ tests/observability/error-sink-scrub-db.spec.ts (79 tests) 2736ms
+ ✓ tests/auth/signout-route.spec.ts (25 tests) 1295ms
+ ✓ tests/ci/ui-policy-signout-guard.spec.ts (4 tests) 1092ms
+   ✓ signout-guard (enforced) > the repository has 0 findings (the user menu goes through hardSignOut)  615ms
+ ✓ tests/observability/error-sink-db.spec.ts (27 tests) 1088ms
+ ✓ tests/observability/client-error-action-db.spec.ts (16 tests) 2817ms
+   ✓ reportClientRenderError → ops.error_events > C L-2: the first report over the instance's daily key cap writes one counter line; later ones write nothing  912ms
+ ✓ tests/observability/on-request-error.spec.ts (5 tests) 266ms
+ ✓ tests/pwa/proxy-no-store-db.spec.ts (8 tests) 154ms
+ ✓ tests/pwa/hard-sign-out.spec.ts (33 tests) 166ms
+ ✓ tests/pwa/auth-broadcast.spec.ts (14 tests) 124ms
+ ✓ tests/pwa/sw-allowlist.spec.ts (35 tests) 45ms
+ ✓ tests/observability/client-routes.spec.ts (4 tests) 24ms
+ ✓ tests/observability/logger.spec.ts (26 tests) 24ms
+ ✓ tests/pwa/online.spec.ts (3 tests) 15ms
+ ✓ tests/pwa/icons.spec.ts (11 tests) 17ms
+ ✓ tests/observability/sink-flood.spec.ts (3 tests) 13ms
+ ✓ tests/observability/scrub.spec.ts (146 tests) 11ms
+ ✓ tests/observability/request-id.spec.ts (12 tests) 8ms
+ ✓ tests/observability/diag-route.spec.ts (5 tests) 6ms
+ ✓ tests/observability/no-raw-error-logging.spec.ts (4 tests) 6ms
+ ✓ tests/observability/console-scrub.spec.ts (6 tests) 5ms
+ ✓ tests/auth/public-paths.spec.ts (65 tests) 5ms
+ ✓ tests/observability/client-render-event.spec.ts (34 tests) 3ms
+ ✓ tests/ci/lhci-config.spec.ts (13 tests) 4ms
+ ✓ tests/pwa/purge.spec.ts (24 tests) 4ms
+ ✓ tests/pwa/device-prefs.spec.ts (11 tests) 2ms
+ Test Files  26 passed (26)
+      Tests  1243 passed (1243)
+VITEST: waited 601s; exit 0

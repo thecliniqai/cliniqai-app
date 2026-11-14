@@ -1,0 +1,95 @@
+06-09a final targeted Vitest (repo config, local stack, shared worktree at 41517f2 + partner tree):
+npx vitest run tests/auth tests/observability tests/pwa tests/ci tests/security/guard-actions.spec.ts tests/errors
+
+ ❯ tests/ci/hosted-dump-diff.spec.ts (3 tests | 2 failed) 16434ms
+ ✓ tests/security/guard-actions.spec.ts (630 tests) 43766ms
+ ✓ tests/auth/send-email-hook.spec.ts (28 tests) 3678ms
+ ✓ tests/ci/ai-l1-greps.spec.ts (22 tests) 3418ms
+ ✓ tests/ci/migration-immutability.spec.ts (20 tests) 3557ms
+ ✓ tests/auth/send-email-hook-resend.spec.ts (6 tests) 3033ms
+ ✓ tests/observability/client-error-action-db.spec.ts (16 tests) 3236ms
+ ✓ tests/observability/error-sink-scrub-db.spec.ts (79 tests) 2810ms
+ ✓ tests/ci/ui-policy.spec.ts (13 tests) 2052ms
+ ✓ tests/auth/session-age-token-hook-db.spec.ts (53 tests) 2088ms
+ ✓ tests/ci/inventory-gate.spec.ts (3 tests) 1590ms
+ ✓ tests/ci/staging-scripts.spec.ts (67 tests) 1448ms
+ ✓ tests/auth/invite.spec.ts (8 tests) 1323ms
+ ✓ tests/auth/signout-route.spec.ts (25 tests) 1303ms
+ ✓ tests/ci/ui-policy-signout-guard.spec.ts (4 tests) 1063ms
+ ✓ tests/observability/error-sink-db.spec.ts (27 tests) 1048ms
+ ✓ tests/ci/auth00-recheck-cli.spec.ts (17 tests) 1080ms
+ ✓ tests/ci/inventory-guards.spec.ts (11 tests) 946ms
+ ✓ tests/ci/workflow-policy.spec.ts (72 tests) 870ms
+ ✓ tests/authz/active-tenant-carrier.spec.ts (7 tests) 854ms
+ ✓ tests/ci/auth-policy.spec.ts (14 tests) 660ms
+ ✓ tests/ci/recheck-args.spec.ts (12 tests) 617ms
+ ✓ tests/ci/tests-typecheck.spec.ts (3 tests) 506ms
+ ✓ tests/ci/diagnostics-script.spec.ts (15 tests) 431ms
+ ✓ tests/ci/schema-snapshot.spec.ts (15 tests) 521ms
+ ✓ tests/auth/resend-sender.spec.ts (24 tests) 453ms
+ ✓ tests/ci/env-example.spec.ts (3 tests) 377ms
+ ✓ tests/ci/ci-scripts.spec.ts (7 tests) 324ms
+ ✓ tests/auth/page-revoked-session.spec.ts (13 tests) 225ms
+ ✓ tests/ci/route-js.spec.ts (10 tests) 192ms
+ ✓ tests/observability/on-request-error.spec.ts (5 tests) 312ms
+ ✓ tests/ci/pgtap-report.spec.ts (11 tests) 253ms
+ ❯ tests/ci/doc-grep-gate.spec.ts (7 tests | 1 failed) 188ms
+ ✓ tests/ci/vitest-report-gate.spec.ts (9 tests) 186ms
+ ✓ tests/pwa/proxy-no-store-db.spec.ts (8 tests) 184ms
+ ✓ tests/pwa/hard-sign-out.spec.ts (34 tests) 166ms
+ ✓ tests/ci/local-drift.spec.ts (8 tests) 154ms
+ ✓ tests/ci/env-files-gate.spec.ts (5 tests) 147ms
+ ✓ tests/ci/audit-gate.spec.ts (7 tests) 160ms
+ ✓ tests/pwa/auth-broadcast.spec.ts (14 tests) 118ms
+ ✓ tests/auth/ses-sender.spec.ts (7 tests) 115ms
+ ✓ tests/auth/pwned.spec.ts (13 tests) 91ms
+ ✓ tests/ci/playwright-summary.spec.ts (3 tests) 68ms
+ ✓ tests/ci/auth-config-hosted.spec.ts (11 tests) 30ms
+ ✓ tests/pwa/sw-allowlist.spec.ts (35 tests) 45ms
+ ✓ tests/observability/logger.spec.ts (26 tests) 26ms
+ ✓ tests/observability/client-routes.spec.ts (4 tests) 26ms
+ ✓ tests/pwa/icons.spec.ts (11 tests) 17ms
+ ✓ tests/pwa/online.spec.ts (3 tests) 9ms
+ ✓ tests/observability/sink-flood.spec.ts (3 tests) 13ms
+ ✓ tests/authz/table-matrix.spec.ts (21 tests) 12ms
+ ✓ tests/observability/scrub.spec.ts (146 tests) 11ms
+ ✓ tests/observability/request-id.spec.ts (12 tests) 8ms
+ ✓ tests/auth/password-service.spec.ts (23 tests) 8ms
+ ✓ tests/authz/generator-drift.spec.ts (4 tests) 10ms
+ ✓ tests/observability/diag-route.spec.ts (5 tests) 6ms
+ ✓ tests/observability/no-raw-error-logging.spec.ts (4 tests) 6ms
+ ✓ tests/auth/password-schemas-and-errors.spec.ts (48 tests) 6ms
+ ✓ tests/observability/console-scrub.spec.ts (6 tests) 6ms
+ ✓ tests/auth/public-paths.spec.ts (65 tests) 6ms
+ ✓ tests/ci/lhci-config.spec.ts (13 tests) 4ms
+ ✓ tests/ci/test-pgtap-script.spec.ts (10 tests) 4ms
+ ✓ tests/auth/password-flows-captcha.spec.ts (14 tests) 4ms
+ ✓ tests/pwa/purge.spec.ts (24 tests) 3ms
+ ✓ tests/ci/visit-integrity-inline.spec.ts (11 tests) 3ms
+ ✓ tests/observability/client-render-event.spec.ts (34 tests) 3ms
+ ✓ tests/auth/safe-next.spec.ts (85 tests) 3ms
+ ✓ tests/auth/session-age.spec.ts (39 tests) 3ms
+ ✓ tests/ci/pgtap-legacy-inline.spec.ts (3 tests) 2ms
+ ✓ tests/pwa/device-prefs.spec.ts (11 tests) 2ms
+ ✓ tests/auth/rbac.spec.ts (7 tests) 2ms
+ ✓ tests/errors/client-error-kind.spec.ts (10 tests) 2ms
+ ✓ tests/ci/clinical-notes-backfill-inline.spec.ts (3 tests) 1ms
+ ✓ tests/ci/fk-edge-cases-inline.spec.ts (1 test) 1ms
+ ✓ tests/ci/known-bug-match.spec.ts (3 tests) 1ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ci/doc-grep-gate.spec.ts > doc-grep test gate > passes on this repository's tests/
+ ❯ tests/ci/doc-grep-gate.spec.ts:51:22
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > reports no drift for a schema-only dump of the local database
+ ❯ tests/ci/hosted-dump-diff.spec.ts:57:24
+ FAIL  tests/ci/hosted-dump-diff.spec.ts > hosted dump drift tool > names a column the dump has and the migrations do not
+ ❯ tests/ci/hosted-dump-diff.spec.ts:76:31
+ Test Files  2 failed | 73 passed (75)
+      Tests  3 failed | 2050 passed (2053)
+VITEST: waited 425s; exit 1
+
+After 2a567df: doc-grep gate fix (fixture path renamed), re-run of the two affected files:
+ ✓ tests/ci/doc-grep-gate.spec.ts (7 tests) 180ms
+ ✓ tests/observability/client-routes.spec.ts (4 tests) 23ms
+      Tests  11 passed (11)
+
+tests/ci/hosted-dump-diff.spec.ts (2): the same two cases the 06-05 record lists as failing on its plan base on this shared stack (the stack carries V2-05 migrations ahead of this branch; recorded, not changed); 06-09a touches no file they use.
