@@ -1,0 +1,28 @@
+# static checks at 6f1e624, 2026-11-14T08:05:02Z
+## npm run typecheck
+> clinicos@0.1.0 typecheck
+> tsc --noEmit && tsc --noEmit -p tsconfig.tests.json
+
+exit=0
+## npx eslint .
+✖ 386 problems (0 errors, 386 warnings)
+  0 errors and 24 warnings potentially fixable with the `--fix` option.
+
+exit=0
+## npm run inventory (summary line)
+inventory: 25 "use server" modules, 112 exports; 14/15 D1 non-action modules present; 28 route modules, 50 methods; 0 flagged, 6 noted
+exit=0
+## schema snapshot --local --check
+schema-snapshot: PASS (local: 2197 lines equal the committed snapshot)
+exit=0
+## npm run db:drift:local
+
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+exit=0
+## npm run authz:gen -- --check
+> tsx scripts/gen-authz-pgtap.ts --check
+
+exit=0
+## npm run db:types (git diff --stat types/database.ts after)
+exit=0
+(empty = no diff)

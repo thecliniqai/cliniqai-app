@@ -1,0 +1,146 @@
+# db version: 000076 (000077 NOT applied)
+# test file: supabase/tests/database/amendment_snapshot.test.sql as committed in 2a7b1b9, run in one rolled-back transaction
+1..60
+not ok 1 - NF-1 route A repro: a doctor cannot write an amendment row on an unsigned visit
+# Failed test 1: "NF-1 route A repro: a doctor cannot write an amendment row on an unsigned visit"
+#         have: 1
+#         want: denied:AMENDMENT_VISIT_NOT_SIGNED
+ok 2 - the doctor writes the final note
+ok 3 - and signs the visit
+not ok 4 - NF-1 route A repro: a row taken before the signature does not reopen the signed visit
+# Failed test 4: "NF-1 route A repro: a row taken before the signature does not reopen the signed visit"
+#         have: cur=3
+#         want: denied:VISIT_REOPEN_NEEDS_AMENDMENT
+not ok 5 - so the signed note cannot be replaced
+# Failed test 5: "so the signed note cannot be replaced"
+#         have: ok
+#         want: denied:CLINICAL_NOTES_VISIT_SIGNED
+not ok 6 - nor the signed Rx item deleted
+# Failed test 6: "nor the signed Rx item deleted"
+#         have: ok
+#         want: denied:PRESCRIPTION_ITEM_VISIT_SIGNED
+not ok 7 - the signed note is intact
+# Failed test 7: "the signed note is intact"
+#         have: Synthetic REPLACED note
+#         want: Synthetic FINAL signed note V4
+not ok 8 - a row written now, after the signature, is admitted
+# Failed test 8: "a row written now, after the signature, is admitted"
+#         have: 3
+#         want: 2
+not ok 9 - and it is a snapshot of the signed note
+# Failed test 9: "and it is a snapshot of the signed note"
+#         have: 0
+#         want: 1
+ok 10 - that row reopens the visit
+ok 11 - route B: the doctor writes an amendment row on his signed visit
+ok 12 - and reopens it
+not ok 13 - NF-1 route B repro: another doctor cannot write a row while the amendment is open
+# Failed test 13: "NF-1 route B repro: another doctor cannot write a row while the amendment is open"
+#         have: 2
+#         want: denied:AMENDMENT_VISIT_NOT_SIGNED
+ok 14 - the doctor makes his final edit
+ok 15 - and finalizes
+not ok 16 - NF-1 route B repro: a row taken while the visit was open does not reopen the re-signed version
+# Failed test 16: "NF-1 route B repro: a row taken while the visit was open does not reopen the re-signed version"
+#         have: cur=4
+#         want: denied:VISIT_REOPEN_NEEDS_AMENDMENT
+ok 17 - no snapshot of the re-signed version exists yet
+not ok 18 - the other doctor writes a row of the re-signed version
+# Failed test 18: "the other doctor writes a row of the re-signed version"
+#         have: 4
+#         want: 3
+ok 19 - which snapshots the re-signed note
+ok 20 - and only then reopens it (current_revision moves past every row)
+ok 21 - the other doctor finalizes
+not ok 22 - two doctors each write a row of the same signature
+# Failed test 22: "two doctors each write a row of the same signature"
+#         have: 5/6
+#         want: 4/5
+ok 23 - the first row does not block the other doctor's reopen (either row is a faithful snapshot)
+ok 24 - finalized again
+not ok 25 - the unused row of the earlier signature is spent
+# Failed test 25: "the unused row of the earlier signature is spent"
+#         have: cur=7
+#         want: denied:VISIT_REOPEN_NEEDS_AMENDMENT
+not ok 26 - a legacy row with a malformed snapshot reopens nothing (no 22007 either)
+# Failed test 26: "a legacy row with a malformed snapshot reopens nothing (no 22007 either)"
+#         have: cur=7
+#         want: denied:VISIT_REOPEN_NEEDS_AMENDMENT
+not ok 27 - NF-2 route C repro: no new prescription header on a signed visit
+# Failed test 27: "NF-2 route C repro: no new prescription header on a signed visit"
+#         have: ok
+#         want: denied:PRESCRIPTION_VISIT_SIGNED
+ok 28 - route C: the other doctor writes an amendment row
+not ok 29 - NF-2: the snapshot holds every prescription of the visit
+# Failed test 29: "NF-2: the snapshot holds every prescription of the visit"
+#         have: NULL
+#         want: 2
+not ok 30 - NF-2 route C repro: including the signed medicines under the decoy
+# Failed test 30: "NF-2 route C repro: including the signed medicines under the decoy"
+#         have: NULL
+#         want: Synthetic Doxycycline
+ok 31 - the amendment reopens the visit
+ok 32 - the signed medicine is removed during the amendment
+not ok 33 - NF-2 route C repro: a snapshot still holds the signed medicine
+# Failed test 33: "NF-2 route C repro: a snapshot still holds the signed medicine"
+#         have: 0
+#         want: 1
+ok 34 - a header can be added while the visit is reopened for amendment
+ok 35 - and on an open visit (control)
+not ok 36 - NF-3 repro: a signed visit's follow-up cannot be moved to another patient
+# Failed test 36: "NF-3 repro: a signed visit's follow-up cannot be moved to another patient"
+#         have: ok
+#         want: denied:FOLLOW_UP_KEY_IMMUTABLE
+not ok 37 - NF-3 repro: nor rescheduled while the visit is signed
+# Failed test 37: "NF-3 repro: nor rescheduled while the visit is signed"
+#         have: ok
+#         want: denied:FOLLOW_UP_VISIT_SIGNED
+not ok 38 - NF-3: nor deleted
+# Failed test 38: "NF-3: nor deleted"
+#         have: ok
+#         want: denied:FOLLOW_UP_VISIT_SIGNED
+ok 39 - a follow-up is added while a visit is reopened for amendment (V6)
+ok 40 - and on V4 while reopened
+not ok 41 - NF-3: but not on a signed visit
+# Failed test 41: "NF-3: but not on a signed visit"
+#         have: ok
+#         want: denied:FOLLOW_UP_VISIT_SIGNED
+not ok 42 - NF-3: a follow-up names its visit's own patient
+# Failed test 42: "NF-3: a follow-up names its visit's own patient"
+#         have: ok
+#         want: denied:FOLLOW_UP_PATIENT_MISMATCH
+not ok 43 - NF-3: a follow-up's patient never changes, on a system path either
+# Failed test 43: "NF-3: a follow-up's patient never changes, on a system path either"
+#       caught: no exception
+#       wanted: 42501
+ok 44 - the doctor schedules a follow-up on an open visit (recordFollowUp)
+ok 45 - and changes it while the visit is open
+ok 46 - the front desk reschedules a follow-up of an open visit
+ok 47 - and books a follow-up with no visit
+ok 48 - the doctor clears an open visit's follow-up (the "None" choice)
+ok 49 - the doctor writes the first amendment row
+not ok 50 - its snapshot holds every signed Rx item
+# Failed test 50: "its snapshot holds every signed Rx item"
+#         have: []
+#         want: ["Synthetic Amoxicillin", "Synthetic Paracetamol"]
+not ok 51 - and the signed note and follow-up
+# Failed test 51: "and the signed note and follow-up"
+#         have: NULL
+#         want: Synthetic signed note V1/2030-01-10
+ok 52 - the doctor reopens the visit
+not ok 53 - and amends the note, an Rx item and the follow-up, and bumps the Rx version (finalizeVisitAmendment)
+# Failed test 53: "and amends the note, an Rx item and the follow-up, and bumps the Rx version (finalizeVisitAmendment)"
+#         have: 3
+#         want: 4
+ok 54 - the first amendment is finalized
+ok 55 - the second amendment row
+not ok 56 - holds the first amended, re-signed version
+# Failed test 56: "holds the first amended, re-signed version"
+#         have: NULL
+#         want: Synthetic amended note V1/["1-1-1", "0-0-1"]/2/2030-01-12
+ok 57 - the second reopen
+ok 58 - the second amendment is finalized
+ok 59 - the first snapshot still holds the original signed note
+ok 60 - the app's latest-version read still finds the amended prescription
+# Looks like you failed 27 tests of 60
+# summary (grep): ok=33 not_ok=27

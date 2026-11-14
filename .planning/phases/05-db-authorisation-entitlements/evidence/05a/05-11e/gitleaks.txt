@@ -1,0 +1,16 @@
+# gitleaks v8.30.1 (docker zricethezav/gitleaks, repo config .gitleaks.toml), 2026-11-14T08:15:12Z
+## git --log-opts=903df53..6f1e624 (the three code/artefact commits)
+8:15AM INF 3 commits scanned.
+8:15AM INF scanned ~61569 bytes (61.57 KB) in 223ms
+8:15AM INF no leaks found
+exit=0
+## dir: the 05-11e record, wave notes and evidence directory (the docs commit's content)
+8:15AM INF scanned ~16702 bytes (16.70 KB) in 34.8ms
+8:15AM INF no leaks found
+exit=0
+8:15AM INF scanned ~50967 bytes (50.97 KB) in 52.1ms
+8:15AM INF no leaks found
+exit=0
+8:15AM INF scanned ~630925 bytes (630.92 KB) in 126ms
+8:15AM INF no leaks found
+exit=0
