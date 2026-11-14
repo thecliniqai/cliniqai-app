@@ -173,6 +173,7 @@ insert into c2c_definer values
   ('public.resolve_share_token', 'exempt', 'anon, share-link token'),
   ('public.readiness_probe', 'exempt', 'anon readiness probe: booleans only'),
   ('public.ops_ingest_error', 'exempt', 'error ingest: ingest key, no tenant data returned'),
+  ('public.is_platform_admin', 'exempt', 'platform admin: own platform_admins row + aal2, not a clinic role (000085, 05-09b)'),
   -- service_role only (system paths; no session)
   ('public.claim_jobs', 'system', 'job runner'), ('public.complete_job', 'system', 'job runner'),
   ('public.defer_job', 'system', 'job runner'), ('public.fail_job', 'system', 'job runner'),
@@ -240,7 +241,7 @@ select set_eq(
     'public.consume_reschedule_token:anon,authenticated,service_role',
     'public.get_reschedule_context:anon,authenticated,service_role',
     'public.resolve_share_token:anon,authenticated,service_role', 'public.readiness_probe:anon',
-    'public.ops_ingest_error:anon,authenticated',
+    'public.ops_ingest_error:anon,authenticated', 'public.is_platform_admin:authenticated',
     'public.claim_jobs:service_role', 'public.complete_job:service_role', 'public.defer_job:service_role',
     'public.fail_job:service_role', 'public.release_job:service_role', 'public.start_job:service_role',
     'public.jobs_runner_begin:service_role', 'public.jobs_runner_end:service_role',

@@ -1729,6 +1729,59 @@ export type Database = {
           },
         ];
       };
+      platform_admins: {
+        Row: {
+          granted_at: string;
+          granted_by: string | null;
+          revoked_at: string | null;
+          user_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          granted_at?: string;
+          granted_by?: string | null;
+          revoked_at?: string | null;
+          user_id: string;
+        };
+        Update: {
+          granted_at?: string;
+          granted_by?: string | null;
+          revoked_at?: string | null;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      platform_audit_log: {
+        Row: {
+          action: string;
+          actor_id: string | null;
+          channel: string;
+          id: string;
+          occurred_at: string;
+          payload: NonNullable<Json>;
+          target_tenant_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          action: string;
+          actor_id?: string | null;
+          channel: string;
+          id?: string;
+          occurred_at?: string;
+          payload?: NonNullable<Json>;
+          target_tenant_id?: string | null;
+        };
+        Update: {
+          action?: string;
+          actor_id?: string | null;
+          channel?: string;
+          id?: string;
+          occurred_at?: string;
+          payload?: NonNullable<Json>;
+          target_tenant_id?: string | null;
+        };
+        Relationships: [];
+      };
       platform_settings: {
         Row: {
           ai_features: NonNullable<Json>;
@@ -3184,6 +3237,7 @@ export type Database = {
         Args: { p_dedupe_key: string; p_outcome: string; p_provider: string };
         Returns: undefined;
       };
+      is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_safe_storage_key: { Args: { p_path: string }; Returns: boolean };
       is_valid_weekly_schedule: {
         Args: { p_schedule: Json };

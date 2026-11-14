@@ -169,6 +169,8 @@ const FINAL_DELETE: Record<string, string> = {
   "public.tenant_subscriptions": "rpc_only",
   "public.subscription_events": "rpc_only",
   "public.platform_settings": "rpc_only",
+  "public.platform_admins": "rpc_only",
+  "public.platform_audit_log": "rpc_only",
   "public.cdci_brands": "rpc_only",
   "public.cdci_drug_forms": "rpc_only",
   "public.cdci_generics": "rpc_only",
@@ -427,6 +429,9 @@ const TARGET_05_09A: Record<string, [string, string, string, string]> = {
   "public.tenant_subscriptions": ["billing", "rpc_only", "rpc_only", "rpc_only"],
   "public.subscription_events": ["billing", "rpc_only", "rpc_only", "rpc_only"],
   "public.platform_settings": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+  // 05-09b (000085): the platform admin list and its audit trail; written only in SQL / by the platform.* RPCs.
+  "public.platform_admins": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+  "public.platform_audit_log": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
 };
 
 describe("the subscription tables (SUB-01, since 05-09a)", () => {
@@ -466,8 +471,13 @@ describe("the subscription tables (SUB-01, since 05-09a)", () => {
     }
   });
 
-  it("gives no principal any access to overrides or platform settings", () => {
-    for (const target of ["public.tenant_entitlement_overrides", "public.platform_settings"]) {
+  it("gives no principal any access to overrides, platform settings, platform admins or the platform audit trail", () => {
+    for (const target of [
+      "public.tenant_entitlement_overrides",
+      "public.platform_settings",
+      "public.platform_admins",
+      "public.platform_audit_log",
+    ]) {
       for (const op of OPS) {
         for (const p of PRINCIPALS) expect(outcome(target, op, p.id), `${target} ${op} ${p.id}`).toBe("denied");
       }

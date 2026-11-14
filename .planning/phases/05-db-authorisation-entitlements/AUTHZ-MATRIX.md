@@ -204,6 +204,14 @@ Principals:
 | `public.platform_settings` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.platform_settings` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.platform_settings` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_admins` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_admins` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_admins` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_admins` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_audit_log` | S | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_audit_log` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_audit_log` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
+| `public.platform_audit_log` | D | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.cdci_brands` | S | catalogue | Y | Y | Y | Y | Y | Y | Y | X | Y | Y | Y |
 | `public.cdci_brands` | I | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
 | `public.cdci_brands` | U | rpc_only | X | X | X | X | X | X | X | X | X | X | X |
@@ -316,6 +324,8 @@ Notes:
 - `public.tenant_subscriptions`: one row per clinic, created `incomplete` by the tenants trigger (R-24; fixture clinics A and B set `trialing`); SELECT: owner/admin of the active clinic (authz.billing_tenant_ids, R-26); written only by transition RPCs
 - `public.subscription_events`: append-only by grants (Pitfall 5): SELECT for owner/admin of the active clinic; no API role writes
 - `public.platform_settings`: the single settings row (seeded by 000084): no tenant access
+- `public.platform_admins`: platform admins (SUB §9.2, 05-09b): not a tenant role; no API-role access (granted and revoked in SQL, audited by trigger); read through is_platform_admin()
+- `public.platform_audit_log`: platform audit trail (SUB §9.2, 05-09b): append-only by grants, written only by the platform.* RPCs and the platform_admins trigger; no API-role access
 - `public.cdci_brands`: global reference data: SELECT for every signed-in user
 - `public.cdci_drug_forms`: global reference data: SELECT for every signed-in user
 - `public.cdci_generics`: global reference data: SELECT for every signed-in user

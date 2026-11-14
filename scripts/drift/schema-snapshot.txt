@@ -457,6 +457,17 @@ column public.plans.trial_days integer not_null=f default=- identity=- generated
 column public.plans.trial_plan_id uuid not_null=f default=- identity=- generated=-
 column public.plans.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.plans.visibility text not_null=t default='hidden'::text identity=- generated=-
+column public.platform_admins.granted_at timestamp with time zone not_null=t default=now() identity=- generated=-
+column public.platform_admins.granted_by uuid not_null=f default=- identity=- generated=-
+column public.platform_admins.revoked_at timestamp with time zone not_null=f default=- identity=- generated=-
+column public.platform_admins.user_id uuid not_null=t default=- identity=- generated=-
+column public.platform_audit_log.action text not_null=t default=- identity=- generated=-
+column public.platform_audit_log.actor_id uuid not_null=f default=- identity=- generated=-
+column public.platform_audit_log.channel text not_null=t default=- identity=- generated=-
+column public.platform_audit_log.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
+column public.platform_audit_log.occurred_at timestamp with time zone not_null=t default=now() identity=- generated=-
+column public.platform_audit_log.payload jsonb not_null=t default='{}'::jsonb identity=- generated=-
+column public.platform_audit_log.target_tenant_id uuid not_null=f default=- identity=- generated=-
 column public.platform_settings.ai_features jsonb not_null=t default='{}'::jsonb identity=- generated=-
 column public.platform_settings.gst_retention_months integer not_null=t default=72 identity=- generated=-
 column public.platform_settings.id boolean not_null=t default=true identity=- generated=-
@@ -987,6 +998,15 @@ constraint public.plans.plans_trial_not_purchasable CHECK ((NOT ((kind = 'trial'
 constraint public.plans.plans_trial_plan_id_fkey FOREIGN KEY (trial_plan_id) REFERENCES plans(id) ON DELETE RESTRICT
 constraint public.plans.plans_trial_plan_not_self CHECK (((trial_plan_id IS NULL) OR (trial_plan_id <> id)))
 constraint public.plans.plans_visibility_check CHECK ((visibility = ANY (ARRAY['public'::text, 'coming_soon'::text, 'hidden'::text])))
+constraint public.platform_admins.platform_admins_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES auth.users(id) ON DELETE SET NULL
+constraint public.platform_admins.platform_admins_pkey PRIMARY KEY (user_id)
+constraint public.platform_admins.platform_admins_revoked_after_grant CHECK (((revoked_at IS NULL) OR (revoked_at >= granted_at)))
+constraint public.platform_admins.platform_admins_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE RESTRICT
+constraint public.platform_audit_log.platform_audit_log_action_check CHECK ((action ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,3}$'::text))
+constraint public.platform_audit_log.platform_audit_log_actor_known CHECK (((actor_id IS NOT NULL) OR (action ~~ 'platform\_admin.%'::text)))
+constraint public.platform_audit_log.platform_audit_log_channel_check CHECK ((channel = ANY (ARRAY['sql'::text, 'ui'::text])))
+constraint public.platform_audit_log.platform_audit_log_payload_check CHECK (((jsonb_typeof(payload) = 'object'::text) AND (pg_column_size(payload) <= 8192)))
+constraint public.platform_audit_log.platform_audit_log_pkey PRIMARY KEY (id)
 constraint public.platform_settings.platform_settings_ai_features_check CHECK ((jsonb_typeof(ai_features) = 'object'::text))
 constraint public.platform_settings.platform_settings_gst_retention_months_check CHECK (((gst_retention_months >= 0) AND (gst_retention_months <= 240)))
 constraint public.platform_settings.platform_settings_lock_window_days_check CHECK (((lock_window_days >= 0) AND (lock_window_days <= 365)))
@@ -1222,6 +1242,11 @@ function ops.scrub_text(p_text text) returns text lang=plpgsql security_definer=
 function ops.utc_text(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=42079a21f3de41233494ff11a2fa1e07
 function ops.webhook_delivery_enqueue_job() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=38101db227044c6de5ea0b4884431409
 function ops.webhook_job_dead() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9adac804d193ddd2cf90f715841f6c52
+function platform.create_plan_price(p_plan_code text, p_billing_model text, p_base_amount_paise bigint, p_tax_rate_bp integer, p_tax_inclusive boolean, p_provider_plan_id text, p_active_from timestamp with time zone, p_actor uuid) returns plan_prices lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=2314301414275bd3ecfc582ee5227980
+function platform.extend_trial(p_tenant uuid, p_by interval, p_reason text, p_actor uuid) returns tenant_subscriptions lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9f5a3280f718b5ee5a20a87a014c729e
+function platform.grant_override(p_tenant uuid, p_key text, p_enabled boolean, p_limit bigint, p_expires_at timestamp with time zone, p_reason text, p_actor uuid) returns tenant_entitlement_overrides lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9a7d278977e52502b4904695154aff9a
+function platform.set_comp(p_tenant uuid, p_until timestamp with time zone, p_reason text, p_actor uuid) returns tenant_subscriptions lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4912ff61a711e97c83664da2cccc8e1e
+function platform.set_product_availability(p_plan_code text, p_purchasable boolean, p_visibility text, p_actor uuid) returns plans lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=cd03dda95db549066d39d1ed1199c005
 function private.api_keys_scope_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=634bd80665ad8b47dbb4e2fa0a1aa78c
 function private.audit_client_actions() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=2c69915afc23affb99140f6accfb152f
 function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=398fea5d583e2a0c02e276e519b2be57
@@ -1242,6 +1267,9 @@ function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang
 function private.patient_documents_fill_report_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=7e2b1e557d54c545d6796e572df71ba8
 function private.patients_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9137400efeb88466beca8d4531b92f6e
 function private.payments_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9d07a669cf91ce75b6839f73f1d5c6b0
+function private.platform_actor(p_actor uuid, OUT actor uuid, OUT channel text) returns record lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=23d311260ffb7245c79afa6d04631443
+function private.platform_admins_audit() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f98d06dcb2289673d69b37c8d69732b3
+function private.platform_reason(p_reason text) returns text lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=189c8b86c8a70940e97fad38ee2c02a6
 function private.prescription_items_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=e794336ea9b12c5dea79c77db4782de8
 function private.prescriptions_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f35d1f0a0a736bfac4750cf4b40ed6f5
 function private.queue_tokens_fill_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=8ea5b43572ff835d2a842c29c4954ef9
@@ -1287,6 +1315,7 @@ function public.get_tenant_table_rls_policies() returns TABLE(table_name text, r
 function public.has_permission(p_tenant uuid, p_perm text) returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=ae413fcc266ead95670d107f176ce0b3
 function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=d9eb45e242d8aa1a81b281a32b433a6e
 function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6e09b6c645bd991920f556c59af2d9bd
+function public.is_platform_admin() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=af70fe3e8a794856bb34c32b19b5d4d6
 function public.is_safe_storage_key(p_path text) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=7a398bad0569219987cdf11d3c9b2487
 function public.is_valid_weekly_schedule(p_schedule jsonb) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=70d8e5967b9f88ca8cc3926225d8527f
 function public.issue_queue_token(p_visit_id uuid, p_priority text) returns TABLE(queue_token_id uuid, token_number integer, token_date date, reused boolean) lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=5e1b2dbc44c11a84615a1397761fd0e9
@@ -1377,6 +1406,16 @@ grant function billing_internal.has_entitlement(p_tenant uuid, p_key text, p_now
 grant function billing_internal.resolve_entitlement(p_tenant uuid, p_key text, p_now timestamp with time zone, OUT enabled boolean, OUT limit_value bigint) EXECUTE to service_role
 grant function billing_internal.start_trial(p_tenant uuid, p_plan_price_id uuid, p_now timestamp with time zone) EXECUTE to service_role
 grant function billing_internal.tenant_access_level(p_tenant uuid, p_now timestamp with time zone) EXECUTE to service_role
+grant function platform.create_plan_price(p_plan_code text, p_billing_model text, p_base_amount_paise bigint, p_tax_rate_bp integer, p_tax_inclusive boolean, p_provider_plan_id text, p_active_from timestamp with time zone, p_actor uuid) EXECUTE to authenticated
+grant function platform.create_plan_price(p_plan_code text, p_billing_model text, p_base_amount_paise bigint, p_tax_rate_bp integer, p_tax_inclusive boolean, p_provider_plan_id text, p_active_from timestamp with time zone, p_actor uuid) EXECUTE to service_role
+grant function platform.extend_trial(p_tenant uuid, p_by interval, p_reason text, p_actor uuid) EXECUTE to authenticated
+grant function platform.extend_trial(p_tenant uuid, p_by interval, p_reason text, p_actor uuid) EXECUTE to service_role
+grant function platform.grant_override(p_tenant uuid, p_key text, p_enabled boolean, p_limit bigint, p_expires_at timestamp with time zone, p_reason text, p_actor uuid) EXECUTE to authenticated
+grant function platform.grant_override(p_tenant uuid, p_key text, p_enabled boolean, p_limit bigint, p_expires_at timestamp with time zone, p_reason text, p_actor uuid) EXECUTE to service_role
+grant function platform.set_comp(p_tenant uuid, p_until timestamp with time zone, p_reason text, p_actor uuid) EXECUTE to authenticated
+grant function platform.set_comp(p_tenant uuid, p_until timestamp with time zone, p_reason text, p_actor uuid) EXECUTE to service_role
+grant function platform.set_product_availability(p_plan_code text, p_purchasable boolean, p_visibility text, p_actor uuid) EXECUTE to authenticated
+grant function platform.set_product_availability(p_plan_code text, p_purchasable boolean, p_visibility text, p_actor uuid) EXECUTE to service_role
 grant function private.log_system_audit(p_tenant uuid, p_system_actor text, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) EXECUTE to service_role
 grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to authenticated
 grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to service_role
@@ -1421,6 +1460,7 @@ grant function public.has_permission(p_tenant uuid, p_perm text) EXECUTE to auth
 grant function public.has_permission(p_tenant uuid, p_perm text) EXECUTE to service_role
 grant function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) EXECUTE to service_role
 grant function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) EXECUTE to service_role
+grant function public.is_platform_admin() EXECUTE to authenticated
 grant function public.is_safe_storage_key(p_path text) EXECUTE to authenticated
 grant function public.is_safe_storage_key(p_path text) EXECUTE to service_role
 grant function public.is_valid_weekly_schedule(p_schedule jsonb) EXECUTE to PUBLIC
@@ -1837,6 +1877,8 @@ grant table public.plans SELECT to service_role
 grant table public.plans TRIGGER to service_role
 grant table public.plans TRUNCATE to service_role
 grant table public.plans UPDATE to service_role
+grant table public.platform_admins SELECT to service_role
+grant table public.platform_audit_log SELECT to service_role
 grant table public.platform_settings DELETE to service_role
 grant table public.platform_settings INSERT to service_role
 grant table public.platform_settings MAINTAIN to service_role
@@ -2156,6 +2198,9 @@ index public.idx_payments_tenant_recorded CREATE INDEX idx_payments_tenant_recor
 index public.idx_plan_entitlements_key CREATE INDEX idx_plan_entitlements_key ON public.plan_entitlements USING btree (key)
 index public.idx_plan_prices_plan_id CREATE INDEX idx_plan_prices_plan_id ON public.plan_prices USING btree (plan_id, active_from)
 index public.idx_plans_trial_plan_id CREATE INDEX idx_plans_trial_plan_id ON public.plans USING btree (trial_plan_id)
+index public.idx_platform_admins_granted_by CREATE INDEX idx_platform_admins_granted_by ON public.platform_admins USING btree (granted_by)
+index public.idx_platform_audit_log_actor CREATE INDEX idx_platform_audit_log_actor ON public.platform_audit_log USING btree (actor_id, occurred_at)
+index public.idx_platform_audit_log_target CREATE INDEX idx_platform_audit_log_target ON public.platform_audit_log USING btree (target_tenant_id, occurred_at)
 index public.idx_prescription_items_prescription_sort CREATE INDEX idx_prescription_items_prescription_sort ON public.prescription_items USING btree (prescription_id, sort_order)
 index public.idx_prescription_items_tenant_prescription CREATE INDEX idx_prescription_items_tenant_prescription ON public.prescription_items USING btree (tenant_id, prescription_id)
 index public.idx_prescriptions_doctor_id CREATE INDEX idx_prescriptions_doctor_id ON public.prescriptions USING btree (doctor_id)
@@ -2231,6 +2276,8 @@ index public.plan_prices_pkey CREATE UNIQUE INDEX plan_prices_pkey ON public.pla
 index public.plan_prices_provider_plan_key CREATE UNIQUE INDEX plan_prices_provider_plan_key ON public.plan_prices USING btree (provider, provider_plan_id)
 index public.plans_code_key CREATE UNIQUE INDEX plans_code_key ON public.plans USING btree (code)
 index public.plans_pkey CREATE UNIQUE INDEX plans_pkey ON public.plans USING btree (id)
+index public.platform_admins_pkey CREATE UNIQUE INDEX platform_admins_pkey ON public.platform_admins USING btree (user_id)
+index public.platform_audit_log_pkey CREATE UNIQUE INDEX platform_audit_log_pkey ON public.platform_audit_log USING btree (id)
 index public.platform_settings_pkey CREATE UNIQUE INDEX platform_settings_pkey ON public.platform_settings USING btree (id)
 index public.prescription_items_pkey CREATE UNIQUE INDEX prescription_items_pkey ON public.prescription_items USING btree (id)
 index public.prescriptions_pkey CREATE UNIQUE INDEX prescriptions_pkey ON public.prescriptions USING btree (id)
@@ -2447,6 +2494,8 @@ relation public.payments kind=r rls=t force_rls=f
 relation public.plan_entitlements kind=r rls=t force_rls=f
 relation public.plan_prices kind=r rls=t force_rls=f
 relation public.plans kind=r rls=t force_rls=f
+relation public.platform_admins kind=r rls=t force_rls=f
+relation public.platform_audit_log kind=r rls=t force_rls=f
 relation public.platform_settings kind=r rls=t force_rls=f
 relation public.prescription_items kind=r rls=t force_rls=f
 relation public.prescriptions kind=r rls=t force_rls=f
@@ -2485,6 +2534,7 @@ trigger public.patient_documents.patient_documents_fill_report_date CREATE TRIGG
 trigger public.patients.patients_actor_guard CREATE TRIGGER patients_actor_guard BEFORE INSERT OR UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_actor_guard()
 trigger public.patients.patients_clinical_fields_guard CREATE TRIGGER patients_clinical_fields_guard BEFORE UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION patients_clinical_fields_guard()
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
+trigger public.platform_admins.platform_admins_audit CREATE TRIGGER platform_admins_audit AFTER INSERT OR DELETE OR UPDATE ON public.platform_admins FOR EACH ROW EXECUTE FUNCTION private.platform_admins_audit()
 trigger public.prescription_items.prescription_items_fill_tenant CREATE TRIGGER prescription_items_fill_tenant BEFORE INSERT ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION prescription_items_fill_tenant()
 trigger public.prescription_items.prescription_items_integrity_guard CREATE TRIGGER prescription_items_integrity_guard BEFORE INSERT OR DELETE OR UPDATE ON public.prescription_items FOR EACH ROW EXECUTE FUNCTION private.prescription_items_integrity_guard()
 trigger public.prescriptions.prescriptions_actor_guard CREATE TRIGGER prescriptions_actor_guard BEFORE INSERT OR UPDATE ON public.prescriptions FOR EACH ROW EXECUTE FUNCTION private.prescriptions_actor_guard()

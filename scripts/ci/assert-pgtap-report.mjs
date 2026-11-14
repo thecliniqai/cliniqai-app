@@ -36,6 +36,8 @@
  *   3850 — V2-05 05b 05-09a (000080-000084 SUB-01): 3355 + authz_matrix 352 (2376 → 2728: 8 new tables x 4 ops x 11
  *          principals) + billing_access 45 + billing_entitlements 30 + billing_catalogue 30 + billing_grants 24
  *          + subscription_invariant 14 = 3850 (37 files).
+ *   4018 — V2-05 05b 05-09b (000085 platform_admin_rpcs): 3850 + authz_matrix 88 (2728 → 2816: platform_admins and
+ *          platform_audit_log x 4 ops x 11 principals) + platform_rpcs 80 = 4018 (38 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -47,7 +49,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 3850;
+export const FLOOR = 4018;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -105,6 +107,7 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/billing_catalogue.test.sql",
   "supabase/tests/database/billing_grants.test.sql",
   "supabase/tests/database/subscription_invariant.test.sql",
+  "supabase/tests/database/platform_rpcs.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

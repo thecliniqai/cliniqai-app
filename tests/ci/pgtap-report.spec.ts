@@ -28,7 +28,7 @@ describe("pgTAP report gate", () => {
     expect(r.stdout).toContain("pgtap-report-gate: PASS");
   });
 
-  it("the shipped gate refuses a report without the 05a and 05b files: every file so far is required (floor 3850 at 05-09a)", () => {
+  it("the shipped gate refuses a report without the 05a and 05b files: every file so far is required (floor 4018 at 05-09b)", () => {
     const r = gate("clean");
     expect(r.status).toBe(1);
     expect(r.stdout).toContain(`files=2 tests=13 passed=13 failed=0 skipped/todo=0 floor=${FLOOR} required=${REQUIRED_FILES.length}`);
@@ -49,6 +49,7 @@ describe("pgTAP report gate", () => {
       "billing_access",
       "billing_grants",
       "subscription_invariant",
+      "platform_rpcs",
     ]) {
       expect(r.stderr).toContain(`FAIL required pgTAP file missing: supabase/tests/database/${f}.test.sql`);
     }
@@ -56,9 +57,9 @@ describe("pgTAP report gate", () => {
     expect(missing).toHaveLength(REQUIRED_FILES.length - LEGACY_FILES.length);
   });
 
-  it("pins the floor (05-09a: 3850) and names only files that exist, each once", () => {
-    expect(FLOOR).toBeGreaterThanOrEqual(3850);
-    expect(REQUIRED_FILES.length).toBeGreaterThanOrEqual(37);
+  it("pins the floor (05-09b: 4018) and names only files that exist, each once", () => {
+    expect(FLOOR).toBeGreaterThanOrEqual(4018);
+    expect(REQUIRED_FILES.length).toBeGreaterThanOrEqual(38);
     expect(new Set(REQUIRED_FILES).size).toBe(REQUIRED_FILES.length);
     expect(REQUIRED_FILES.filter((f) => !existsSync(f))).toEqual([]);
   });
