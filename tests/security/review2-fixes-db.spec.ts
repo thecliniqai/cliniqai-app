@@ -19,6 +19,7 @@ import { completeAndBillConsultation, SIGN_AND_BILL_ALREADY_DONE_MESSAGE } from 
 import { updateStaffMember, CREDENTIALS_SELF_OR_OWNER_MESSAGE } from "@/features/settings/service";
 import { createApiKeySecret } from "@/lib/api/auth";
 import { PATCH as patchV1Visit } from "@/app/api/v1/visits/[id]/route";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 // V2-01 plan 01-09 (review round 2; reviews/review2-adversarial.md = AR2), migration 000022. Local stack, real clients;
 // the admin client only seeds rows and reads results. Each case fails on the 000021 schema.
@@ -81,7 +82,7 @@ async function seedClinic(label: string): Promise<Clinic> {
     doctor_id: doctor.userId,
     origin_type: "scheduled",
     status: "booked",
-    scheduled_at: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+    scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
     created_by: owner.userId,
   });
   const prescriptionId = await insertRow("prescriptions", {
@@ -312,7 +313,7 @@ describe("01-09 review round 2 fixes (000022)", () => {
       doctor_id: c.doctor.userId,
       origin_type: "scheduled",
       status,
-      scheduled_at: new Date(Date.now() + 5 * 86_400_000).toISOString(),
+      scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
       created_by: c.owner.userId,
       ...extra,
     });

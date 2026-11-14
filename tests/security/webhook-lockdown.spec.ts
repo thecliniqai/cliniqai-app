@@ -10,6 +10,7 @@ import { getAdminClient } from "../helpers/supabase-admin";
 import { seedTenantWithOwner } from "../helpers/tenants";
 import { plantLegacyRow, psql } from "../helpers/sql";
 import { syntheticMobile } from "../jobs/message-helpers";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 const usedPhones = new Set<string>();
 
@@ -135,7 +136,7 @@ describe("P0-03 messaging webhook lockdown (SEC-04, SEC-19, SEC-15, D9)", () => 
         patient_id: patient.id,
         doctor_id: owner.userId,
         origin_type: "scheduled",
-        scheduled_at: new Date(Date.now() + 3 * 86400000).toISOString(),
+        scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
         status: "booked",
         created_by: owner.userId,
       })

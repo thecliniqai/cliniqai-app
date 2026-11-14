@@ -13,6 +13,7 @@ import * as enqueueModule from "@/lib/jobs/enqueue";
 import { shareTokenHash } from "../helpers/share-tokens";
 import { jsonObject } from "../helpers/db";
 import { plantLegacyRow } from "../helpers/sql";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 // V2-01 plan 01-04 (P0-04; SEC-05, ARC-05, F7(a)); SECURITY_VERIFICATION_PLAN TC-TOK-01..06. Local stack, real
 // clients; the admin client only seeds rows (including deliberately mis-bound tokens) and reads results.
@@ -61,7 +62,7 @@ async function seedClinic(label: string): Promise<ClinicResources> {
     doctor_id: owner.userId,
     origin_type: "scheduled",
     status: "booked",
-    scheduled_at: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+    scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
     created_by: owner.userId,
   });
   const documentPath = `tenants/${t}/patients/${patientId}/labs/synthetic_${randomUUID().slice(0, 8)}.pdf`;
@@ -583,7 +584,7 @@ describe("P0-04 share tokens: token-scoped RPCs bound to tenant and resource_typ
         doctor_id: B.owner.userId,
         origin_type: "scheduled",
         status: "booked",
-        scheduled_at: new Date(Date.now() + 86_400_000).toISOString(),
+        scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
         created_by: B.owner.userId,
       });
       const url = await generateRescheduleToken({ db: admin, reason: "messaging_webhook" }, visitId);

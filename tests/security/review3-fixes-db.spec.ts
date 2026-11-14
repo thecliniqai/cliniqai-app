@@ -13,6 +13,7 @@ import { shareLabReportViaWhatsApp } from "@/features/labs/service";
 import { saveConsultationDraft, completeAndSignConsultation } from "@/features/consultation/service";
 import { completeAndBillConsultation, createVisitInvoice } from "@/features/billing/service";
 import { signAndBillReceiptState } from "@/features/billing/sign-and-bill-outcome";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 // V2-01 plan 01-10 (review round 3; reviews/review3-adversarial.md = AR3), migration 000024. Local stack, real
 // clients; the admin (service-role) client only seeds rows and reads results. Each case fails on the 000023 schema.
@@ -383,7 +384,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
         doctor_id: A.owner.userId,
         origin_type: "scheduled",
         status: "in_consultation",
-        scheduled_at: new Date(Date.now() + 5 * 86_400_000).toISOString(),
+        scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
         created_by: A.owner.userId,
       });
       const saved = await saveConsultationDraft(

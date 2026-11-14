@@ -23,6 +23,7 @@ import { shareTokenHash } from "../helpers/share-tokens";
 import { jsonObject } from "../helpers/db";
 import { listInReferralDirectory } from "../helpers/referral-directory";
 import { hasPerm } from "@/lib/permissions";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 // V2-01 plan 01-08 (review fixes, migration 000021). Local stack, real clients; the admin client only seeds rows and
 // reads results. Each case fails on the 000020 schema.
@@ -96,7 +97,7 @@ async function seedClinic(label: string): Promise<Clinic> {
     doctor_id: owner.userId,
     origin_type: "scheduled",
     status: "booked",
-    scheduled_at: new Date(Date.now() + 3 * 86_400_000).toISOString(),
+    scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
     created_by: owner.userId,
   });
   const prescriptionId = await insertRow("prescriptions", {

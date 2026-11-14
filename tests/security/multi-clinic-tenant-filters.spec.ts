@@ -26,6 +26,7 @@ import { addMemberToTenant, seedTenantWithOwner, type SeededTenant } from "../he
 import { insertReturningId, rowById, type IdTable } from "../helpers/db";
 import { listInReferralDirectory } from "../helpers/referral-directory";
 import type { Tables, TablesInsert } from "@/types/database";
+import { seedSlotIso } from "../helpers/seed-slots";
 
 const admin = getAdminClient();
 
@@ -57,7 +58,7 @@ async function seedClinic(owner: SeededTenant, label: string): Promise<ClinicRow
       doctor_id: owner.userId,
       origin_type: "scheduled",
       status: "booked",
-      scheduled_at: new Date(Date.now() + 2 * 86_400_000 + Math.floor(Math.random() * 600) * 60_000).toISOString(),
+      scheduled_at: seedSlotIso(), // 05-08: a slot of its own (no overlapping seeds)
       created_by: owner.userId,
     });
   const visit = await newVisit();
@@ -146,7 +147,9 @@ describe("AR-M2b: a member of clinics A and C, acting in A, cannot reach C's row
       doctor_id: ownerA.userId,
       origin_type: "scheduled",
       status: "booked",
-      scheduled_at: new Date(Date.now() + 4 * 86_400_000).toISOString(),
+      // Clear of the seeded visits (2-4 days ahead, 05-08: no overlapping seeds) and of the waitlist's target day
+      // (3 days ahead): cancelling it below must not auto-promote A's waitlist entry, which a later case promotes.
+      scheduled_at: new Date(Date.now() + 8 * 86_400_000).toISOString(),
       created_by: ownerA.userId,
     });
     expect((await updateVisitStatus(ctxA, control, "booked")).success).toBe(true);
