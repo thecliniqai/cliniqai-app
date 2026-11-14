@@ -216,7 +216,8 @@ const TARGET_SIU_05_02B: Record<string, [string, string, string]> = {
   "public.patients": ["perm(patients:view)", "perm(patients:edit)", "perm(patients:edit)"],
   "public.consent_records": ["perm(patients:view)", "perm(patients:edit)", "rpc_only"],
   "public.visits": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
-  "public.queue_tokens": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
+  // 05-11a M-TOKEN: token rows are written only by issue_queue_token (SECURITY DEFINER).
+  "public.queue_tokens": ["perm(appointments:view)", "rpc_only", "perm(appointments:edit)"],
   "public.waitlist_entries": ["perm(appointments:view)", "perm(appointments:edit)", "perm(appointments:edit)"],
   "public.schedule_blocks": [
     "perm(appointments:view)",

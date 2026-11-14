@@ -71,31 +71,29 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
     expect(v1?.status).toBe("booked");
     visitA1Id = v1!.id;
 
-    // 2. Atomically generate token number via RPC
-    const today = new Date().toISOString().split("T")[0];
-    const { data: tokenNum, error: rpcErr } = await tenantA.client.rpc("generate_daily_queue_token", {
-      p_tenant_id: tenantA.tenantId,
-      p_date: today,
-    });
+    // 2. Check in through the token RPC (V2-05 05-11a, M-TOKEN): it issues the clinic day's next number and writes the
+    // queue_tokens row itself; a member holds no INSERT privilege on queue_tokens.
+    const { data: issued, error: rpcErr } = await tenantA.client.rpc("issue_queue_token", { p_visit_id: visitA1Id });
 
     expect(rpcErr).toBeNull();
-    expect(tokenNum).toBe(1);
+    expect(issued?.[0]).toMatchObject({ token_number: 1, reused: false });
 
-    // 3. Insert queue token row
-    const { data: tokenRow, error: tokenErr } = await tenantA.client
+    // 3. The token row exists; a member cannot write one directly (a forged number once stopped the day's check-ins).
+    const { data: tokenRow } = await tenantA.client
       .from("queue_tokens")
-      .insert({
-        tenant_id: tenantA.tenantId,
-        visit_id: visitA1Id,
-        date: today,
-        token_number: tokenNum!,
-        priority: "normal",
-      })
-      .select("id, token_number, priority")
+      .select("id, token_number, priority, date")
+      .eq("visit_id", visitA1Id)
       .single();
+    expect(tokenRow).toMatchObject({ token_number: 1, priority: "normal", date: issued?.[0]?.token_date });
 
-    expect(tokenErr).toBeNull();
-    expect(tokenRow?.token_number).toBe(1);
+    const { error: forgedErr } = await tenantA.client.from("queue_tokens").insert({
+      tenant_id: tenantA.tenantId,
+      visit_id: visitA1Id,
+      date: issued![0].token_date,
+      token_number: 2147483647,
+      priority: "normal",
+    });
+    expect(forgedErr?.code).toBe("42501");
 
     // 4. Update visit status to waiting
     const { error: updateErr } = await tenantA.client
@@ -136,30 +134,20 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
     expect(v2).not.toBeNull();
     visitA2Id = v2!.id;
 
-    // 2. Generate daily token via RPC
-    const today = new Date().toISOString().split("T")[0];
-    const { data: tokenNum, error: rpcErr } = await tenantA.client.rpc("generate_daily_queue_token", {
-      p_tenant_id: tenantA.tenantId,
-      p_date: today,
+    // 2. Check in through the token RPC with priority "urgent" (05-11a)
+    const { data: issued, error: rpcErr } = await tenantA.client.rpc("issue_queue_token", {
+      p_visit_id: visitA2Id,
+      p_priority: "urgent",
     });
 
     expect(rpcErr).toBeNull();
-    expect(tokenNum).toBe(2);
+    expect(issued?.[0]).toMatchObject({ token_number: 2, reused: false });
 
-    // 3. Insert queue token #2
-    const { data: tokenRow, error: tokenErr } = await tenantA.client
+    const { data: tokenRow } = await tenantA.client
       .from("queue_tokens")
-      .insert({
-        tenant_id: tenantA.tenantId,
-        visit_id: visitA2Id,
-        date: today,
-        token_number: tokenNum!,
-        priority: "urgent",
-      })
       .select("id, token_number, priority")
+      .eq("visit_id", visitA2Id)
       .single();
-
-    expect(tokenErr).toBeNull();
     expect(tokenRow?.token_number).toBe(2);
     expect(tokenRow?.priority).toBe("urgent");
   });
@@ -246,7 +234,9 @@ describe("Visits & Queue Data Layer (REQ-patient-records, REQ-appointment-bookin
   });
 
   it("6. Proves database unique constraint (tenant_id, date, token_number) rejects duplicate tokens", async () => {
-    const today = new Date().toISOString().split("T")[0];
+    // The clinic-local day token #1 was issued on (SQL's tenant_local_date, not the UTC date).
+    const { data: first } = await admin.from("queue_tokens").select("date").eq("visit_id", visitA1Id).single();
+    const today = first!.date as string;
 
     // Create a 3rd visit for Tenant A
     const { data: v3 } = await tenantA.client
