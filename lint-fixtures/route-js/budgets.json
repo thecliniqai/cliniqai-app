@@ -1,0 +1,6 @@
+{
+  "$comment": "Fixture budgets for tests/ci/route-js.spec.ts (kB = 1024 bytes, gzip -9): /login (6771 B) is over 6 kB, / (6091 B) is under it, /consultation/[id] (6657 B) is under its 7 kB override.",
+  "defaultKb": 6,
+  "routes": { "/consultation/[id]": 7 },
+  "exclude": ["/_not-found", "/_global-error"]
+}

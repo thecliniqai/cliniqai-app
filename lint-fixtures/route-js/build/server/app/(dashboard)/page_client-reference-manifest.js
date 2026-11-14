@@ -1,0 +1,2 @@
+globalThis.__RSC_MANIFEST = globalThis.__RSC_MANIFEST || {};
+globalThis.__RSC_MANIFEST["/(dashboard)/page"] = {"moduleLoading":{"prefix":""},"clientModules":{},"entryCSSFiles":{"[project]/app/layout":[{"path":"static/css/root.css","inlined":false}]},"entryJSFiles":{"[project]/app/layout":["static/chunks/root-runtime.js","static/chunks/layout.js"],"[project]/app/(dashboard)/layout":["static/chunks/layout.js","static/chunks/shared.js"],"[project]/app/(dashboard)/page":["static/chunks/shared.js","static/chunks/today.js"]}};
