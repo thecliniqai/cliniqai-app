@@ -27,6 +27,14 @@ const REFERRAL_INSERT_MESSAGES = {
 } as const;
 
 /**
+ * Answer when the referral's DPDP consent record could not be written (V2-05 05a review IND L7, plan 05-11c): the
+ * referral is withdrawn (history cleared, cancelled) and the action fails, so the history is never shared without a
+ * consent record.
+ */
+export const REFERRAL_CONSENT_WRITE_FAILED =
+  "The patient's consent could not be recorded, so the referral was not sent. Try again.";
+
+/**
  * Creates a clinical referral (either out-of-network specialist or in-network partner clinic).
  * If in-network and patient consents to history sharing:
  * - Compiles snapshot of past encounters
@@ -187,10 +195,13 @@ export async function createReferral(
     }
 
     // 5b. Record the DPDP consent only once the referral exists (before 05-06 it was written first, so a refused
-    // referral left a consent record behind).
+    // referral left a consent record behind). The write is checked (05-11c, IND L7): if it fails, the referral is
+    // withdrawn (history cleared, cancelled; the referring clinic cannot delete it) and the action fails, so the target
+    // clinic never holds the history without a consent record. One transaction for both writes is the V2-11 referral
+    // command (RPC).
     if (consentedSnapshot) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from("consent_records") as any).insert({
+      const { error: consentErr } = await (supabase.from("consent_records") as any).insert({
         tenant_id: session.tenantId,
         patient_id: input.patient_id,
         consent_type: "referral_history_sharing",
@@ -198,6 +209,20 @@ export async function createReferral(
         recorded_by: session.userId,
         note: `DPDP consent granted for referral to clinic ${input.target_tenant_id}`,
       });
+      if (consentErr) {
+        log.error({ event: "referrals.consent_insert.failed", code: errorTag(consentErr), requestId: await getRequestId(), tenantId: ctx.tenantId });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: withdrawn, error: withdrawErr } = await (supabase.from("referrals") as any)
+          .update({ consented_history_snapshot: null, status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("id", referral.id)
+          .eq("tenant_id", session.tenantId)
+          .select("id");
+        if (withdrawErr || !Array.isArray(withdrawn) || withdrawn.length !== 1) {
+          // The history stays with the target clinic without a consent record: alert-worthy.
+          log.error({ event: "referrals.consent_withdraw.failed", code: withdrawErr ? errorTag(withdrawErr) : "ROW_NOT_AFFECTED", requestId: await getRequestId(), tenantId: ctx.tenantId });
+        }
+        return { success: false, error: REFERRAL_CONSENT_WRITE_FAILED };
+      }
 
       await recordAudit(ctx, {
         action: "patient.consent.granted",
