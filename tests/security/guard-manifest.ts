@@ -119,6 +119,8 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
     { member: "Every member marks their own notifications read." },
   "features/notifications/actions.ts#markNotificationRead":
     { member: "Every member marks one of their own notifications read." },
+  "features/observability/actions.ts#reportClientRenderError":
+    { member: "client render error report (06-04a, R-3): class name and route pattern only, no tenant data." },
   "features/patients/actions.ts#createPatient": "patients:edit",
   "features/patients/actions.ts#getPatient": "patients:view",
   "features/patients/actions.ts#getPatients": "patients:view",

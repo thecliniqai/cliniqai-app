@@ -144,6 +144,10 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
     ],
   },
   "features/notifications/actions.ts#markAllNotificationsRead": { args: () => ["system"] },
+  // 06-04a: membership-only; the acting fields are forged one at a time and must be ignored (the schema strips them).
+  "features/observability/actions.ts#reportClientRenderError": {
+    args: (a) => [{ name: "GuardSpecRenderError", route: "/queue", ...acting(a) }],
+  },
   "features/patients/actions.ts#createPatient": { args: (a) => [{ ...patientInput(), ...acting(a) }] },
   "features/patients/actions.ts#updatePatient": { args: (a) => [a.patient, { ...patientInput(), ...acting(a) }] },
   "features/patients/dedup.ts#findPotentialDuplicates": { args: () => [{ phone: syntheticPhone(), fullName: "Synthetic Guard" }] },
