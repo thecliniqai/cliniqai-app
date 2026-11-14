@@ -1,0 +1,11 @@
+├ ƒ /reports/view
+├ ƒ /reschedule/[token]
+├ ƒ /settings/billing
+├ ƒ /settings/clinic
+├ ƒ /settings/developer
+├ ƒ /staff
+└ ƒ /visits
+ƒ Proxy (Middleware)
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+[e2e:build] output scan clean (1321 files); stamp written for build QUDBXhKxOTcEd04RBb7qM
