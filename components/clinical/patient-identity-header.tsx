@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils";
  * - `inline` (pickers, rows): name 500 · age/sex · masked phone on one line that may wrap.
  *
  * The name is never ellipsized (at least 24 characters always show): it wraps, between words only, to at most two
- * lines. The meta line may ellipsize (its full text stays in the accessibility tree). Numbers are tabular. The avatar
- * is initials on `surface-muted`, never colour-coded. Server or Client Component; synthetic data only in fixtures.
+ * lines. The meta line wraps in `full` and may ellipsize in `compact` (its full text stays in the accessibility
+ * tree). Numbers are tabular. The avatar is initials on `surface-muted`, never colour-coded. Server or Client Component; synthetic data only in fixtures.
  */
 export type PatientSex = "M" | "F" | "O";
 
@@ -204,7 +204,7 @@ export function PatientIdentityHeader({
           <Heading className={cn("font-display text-title-2 text-fg", NAME_WRAP)} data-patient-name="">
             {patient.name}
           </Heading>
-          <p className="truncate text-body-sm text-fg-muted">{joinParts(metaParts(patient, false))}</p>
+          <p className="text-body-sm text-fg-muted">{joinParts(metaParts(patient, false))}</p>
         </div>
         {context && <div className="flex flex-wrap items-center gap-2">{context}</div>}
         {actions && <div className="flex items-center gap-2">{actions}</div>}

@@ -57,11 +57,25 @@ const WAIT_SPOKEN: Record<WaitLevel, string> = { normal: "", long: ", long wait"
 
 export function WaitTime({ minutes }: { minutes: number }) {
   const level = waitLevel(minutes);
+  // "1 h 05 min" breaks only between its hour and minute parts, and the clock goes above the time when the 44 px
+  // token column is too narrow for both on one line.
+  const parts = formatWait(minutes).split(/(?<=h) /);
   return (
-    <span data-wait={level} className={cn("inline-flex items-center gap-0.5 text-caption leading-none tabular-nums whitespace-nowrap", WAIT_TONE[level])}>
+    <span
+      data-wait={level}
+      className={cn(
+        "flex max-w-full flex-wrap items-center justify-center gap-x-0.5 text-center text-caption leading-tight tabular-nums",
+        WAIT_TONE[level],
+      )}
+    >
       {level !== "normal" && <Clock aria-hidden="true" strokeWidth={2.25} className="size-3 shrink-0" />}
       <span className="sr-only">Waiting </span>
-      {formatWait(minutes)}
+      {parts.map((part, i) => (
+        <span key={i} className="whitespace-nowrap">
+          {i > 0 ? " " : ""}
+          {part}
+        </span>
+      ))}
       <span className="sr-only">{WAIT_SPOKEN[level]}</span>
     </span>
   );
