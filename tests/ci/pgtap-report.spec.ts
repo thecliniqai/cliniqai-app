@@ -5,18 +5,58 @@
  * Reports are fixtures in lint-fixtures/pgtap-report/ (clean.tap is a real `npm run test:pgtap` report with the
  * checkout path replaced by /repo; no-plan.tap is the pre-05-01a `supabase test db --local` output).
  */
+import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { FLOOR, REQUIRED_FILES } from "../../scripts/ci/assert-pgtap-report.mjs";
 import { runNodeChecker } from "./run-checker";
 
 const gate = (fixture: string, ...extra: string[]) =>
   runNodeChecker("assert-pgtap-report.mjs", [`lint-fixtures/pgtap-report/${fixture}.tap`, ...extra]);
 
+/** The fixtures are 05-01a reports of the two legacy files: check them against the 05-01a floor and file list. */
+const LEGACY_FILES = [
+  "supabase/tests/database/memberships_bounds_cleanup.test.sql",
+  "supabase/tests/database/search_medicines_extension_schema.test.sql",
+];
+const LEGACY = ["--min-total", "13", "--require-files", LEGACY_FILES.join(",")];
+
 describe("pgTAP report gate", () => {
   it("passes a clean report at the floor with both required files", () => {
-    const r = gate("clean");
+    const r = gate("clean", ...LEGACY);
     expect(r.status).toBe(0);
     expect(r.stdout).toContain("files=2 tests=13 passed=13 failed=0 skipped/todo=0 floor=13 required=2");
     expect(r.stdout).toContain("pgtap-report-gate: PASS");
+  });
+
+  it("the shipped gate (05a close) refuses a report without the 05a files: every 05a file is required, floor 3343", () => {
+    const r = gate("clean");
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain(`files=2 tests=13 passed=13 failed=0 skipped/todo=0 floor=${FLOOR} required=${REQUIRED_FILES.length}`);
+    expect(r.stderr).toContain(`FAIL total 13 is below the floor ${FLOOR} (suite shrank?)`);
+    for (const f of [
+      "authz_matrix",
+      "authz_completeness",
+      "visit_integrity",
+      "migration_edge_cases_visit_integrity",
+      "invitation_binding",
+      "billing_rpc_only",
+      "api_keys_notices_columns",
+      "actor_bindings_audit",
+      "reverify_integrity",
+      "amendment_snapshot",
+      "signed_visit_fields",
+    ]) {
+      expect(r.stderr).toContain(`FAIL required pgTAP file missing: supabase/tests/database/${f}.test.sql`);
+    }
+    const missing = r.stderr.split("\n").filter((l) => l.startsWith("FAIL required pgTAP file missing:"));
+    expect(missing).toHaveLength(REQUIRED_FILES.length - LEGACY_FILES.length);
+  });
+
+  it("pins the 05a floor and names only files that exist, each once", () => {
+    expect(FLOOR).toBeGreaterThanOrEqual(3343);
+    expect(REQUIRED_FILES.length).toBeGreaterThanOrEqual(31);
+    expect(new Set(REQUIRED_FILES).size).toBe(REQUIRED_FILES.length);
+    expect(REQUIRED_FILES.filter((f) => !existsSync(f))).toEqual([]);
   });
 
   it("fails on one `not ok`, naming the file and the test", () => {

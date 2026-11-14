@@ -18,7 +18,20 @@
  * arithmetic in the same commit).
  * FLOOR history:
  *   13 — V2-05 05-01a: the two converted legacy files (memberships_bounds_cleanup 7, search_medicines_extension_schema 6).
- * REQUIRED_FILES: the converted legacy files (05-01a); later plans append theirs at each part close.
+ *   3343 — V2-05 05a gate close (000078): the full lane at the close had 31 files / 3343 tests, all required:
+ *          legacy 13 (memberships_bounds_cleanup 7, search_medicines_extension_schema 6)
+ *          + 05-01b authz_helpers 77, authz_matrix 2376, authz_completeness 6
+ *          + 05-03 composite_fks 105, migration_edge_cases_fk 21 + 05-04 delete_rules 35
+ *          + 05-02a clinical_notes 53, clinical_notes_backfill 9 + 05-02b domain_policies 42
+ *          + 05-02c admin_policies 32, storage_policies 46, grants 15, audit_v2 24, definer_functions 40
+ *          + 05-06 referrals_rules 48 + 05-08 scheduling_exclusion 26, migration_edge_cases_overlap 9, queue_tokens 34,
+ *            tenant_local_dates 20, fk_indexes 4
+ *          + 05-11a visit_integrity 45, migration_edge_cases_visit_integrity 17
+ *          + 05-11b invitation_binding 14, billing_rpc_only 25, api_keys_notices_columns 26, actor_bindings_audit 34
+ *          + 05-11d reverify_integrity 61 + 05-11e amendment_snapshot 60 + 05a close signed_visit_fields 26
+ *          = 3343. The floor is the measured total (not 95 %): one dropped test, or one dropped file, fails the gate.
+ * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); 05b appends its files at
+ * the 05b close.
  *
  * Usage: node scripts/ci/assert-pgtap-report.mjs <report.tap> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -28,11 +41,55 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 13;
+export const FLOOR = 3343;
 
 export const REQUIRED_FILES = [
+  // 05-01a: the converted legacy files.
   "supabase/tests/database/memberships_bounds_cleanup.test.sql",
   "supabase/tests/database/search_medicines_extension_schema.test.sql",
+  // V2-05 05a (gate close): every 05a file, by plan.
+  // 05-01b
+  "supabase/tests/database/authz_helpers.test.sql",
+  "supabase/tests/database/authz_matrix.test.sql",
+  "supabase/tests/database/authz_completeness.test.sql",
+  // 05-03
+  "supabase/tests/database/composite_fks.test.sql",
+  "supabase/tests/database/migration_edge_cases_fk.test.sql",
+  // 05-04
+  "supabase/tests/database/delete_rules.test.sql",
+  // 05-02a
+  "supabase/tests/database/clinical_notes.test.sql",
+  "supabase/tests/database/clinical_notes_backfill.test.sql",
+  // 05-02b
+  "supabase/tests/database/domain_policies.test.sql",
+  // 05-02c
+  "supabase/tests/database/admin_policies.test.sql",
+  "supabase/tests/database/storage_policies.test.sql",
+  "supabase/tests/database/grants.test.sql",
+  "supabase/tests/database/audit_v2.test.sql",
+  "supabase/tests/database/definer_functions.test.sql",
+  // 05-06
+  "supabase/tests/database/referrals_rules.test.sql",
+  // 05-08
+  "supabase/tests/database/scheduling_exclusion.test.sql",
+  "supabase/tests/database/migration_edge_cases_overlap.test.sql",
+  "supabase/tests/database/queue_tokens.test.sql",
+  "supabase/tests/database/tenant_local_dates.test.sql",
+  "supabase/tests/database/fk_indexes.test.sql",
+  // 05-11a
+  "supabase/tests/database/visit_integrity.test.sql",
+  "supabase/tests/database/migration_edge_cases_visit_integrity.test.sql",
+  // 05-11b
+  "supabase/tests/database/invitation_binding.test.sql",
+  "supabase/tests/database/billing_rpc_only.test.sql",
+  "supabase/tests/database/api_keys_notices_columns.test.sql",
+  "supabase/tests/database/actor_bindings_audit.test.sql",
+  // 05-11d
+  "supabase/tests/database/reverify_integrity.test.sql",
+  // 05-11e
+  "supabase/tests/database/amendment_snapshot.test.sql",
+  // 05a gate close (000078)
+  "supabase/tests/database/signed_visit_fields.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */
