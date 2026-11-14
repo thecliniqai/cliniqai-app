@@ -6,6 +6,8 @@
  *   popover open (after its motion settles);
  * - the page has no horizontal scroll; the open calendar fits the viewport;
  * - the table is shown from 1024 px and the two-line list below it (one of them, never both);
+ * - below 1024 px (touch) every text field and select in the two sections renders its text at ≥ 16 px (no iOS focus
+ *   zoom, PWA-07), and the numeric fields (date, age, mobile) bring up the numeric keypad with an Enter-key hint;
  * - below 1024 px (touch, CD-03) every control in the two sections and every calendar day is at least 44 × 44 px; on a
  *   fine pointer ≥ 1024 px at least 24 × 24 (WCAG 2.5.8). Inline text links are exempt (WCAG 2.5.8 "inline"); a
  *   checkbox inside its label row and an input inside an adorned box are measured by the row / box (the target).
@@ -96,6 +98,20 @@ for (const { width, height } of DESIGN_WIDTHS) {
     const sections = await blockingViolations(page, ["[data-gallery-section=data]", "[data-gallery-section=dates]"]);
     const scrolls = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     const small = [...(await undersized(data, touch ? 44 : 24)), ...(await undersized(dates, touch ? 44 : 24))];
+    const fields = await page
+      .locator("[data-gallery-section=data], [data-gallery-section=dates]")
+      .locator("input:not([type=hidden]), select")
+      .evaluateAll((els) =>
+        els
+          .filter((el) => el.getBoundingClientRect().height > 0)
+          .map((el) => ({
+            name: el.getAttribute("aria-label") || el.id,
+            fontSize: parseFloat(getComputedStyle(el).fontSize),
+            inputMode: el.getAttribute("inputmode"),
+            enterKeyHint: el.getAttribute("enterkeyhint"),
+            numericLike: el.matches("[data-date-field] input, [data-age-or-dob] input, [data-control-box] input"),
+          })),
+      );
 
     fs.mkdirSync(OUT, { recursive: true });
     await data.screenshot({ path: path.join(OUT, `gallery-data-${width}.png`) });
@@ -144,6 +160,16 @@ for (const { width, height } of DESIGN_WIDTHS) {
     expect(scrolls, `horizontal scroll at ${width}px`).toBe(false);
     expect(scrollsOpen, `horizontal scroll with the calendar open at ${width}px`).toBe(false);
     expect(small, `controls under ${touch ? 44 : 24}px at ${width}px`).toEqual([]);
+    expect(fields.length).toBeGreaterThan(5);
+    if (touch) {
+      expect(fields.filter((f) => f.fontSize < 16).map((f) => `${f.name} ${f.fontSize}px`), `text under 16 px at ${width}px`).toEqual([]);
+    }
+    const numeric = fields.filter((f) => f.numericLike);
+    expect(numeric.length).toBeGreaterThanOrEqual(4);
+    for (const f of numeric) {
+      expect(f.inputMode, `${f.name}: inputmode`).toBe("numeric");
+      expect(f.enterKeyHint, `${f.name}: enterkeyhint`).toBeTruthy();
+    }
     expect(smallInPopover, `calendar controls under ${touch ? 44 : 24}px at ${width}px`).toEqual([]);
     expect(smallestDay).toBeGreaterThanOrEqual(touch ? 43.5 : 35.5);
     expect(box!.x).toBeGreaterThanOrEqual(0);
