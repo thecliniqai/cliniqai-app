@@ -212,3 +212,39 @@ export const CHIP_DISABLED = "cursor-not-allowed border-border bg-surface-muted 
 export const TILE_GHOST = "border-dashed text-fg-secondary";
 export const TILE_ABNORMAL =
   "data-[state=on]:border-finding-abnormal-border data-[state=on]:bg-finding-abnormal-bg data-[state=on]:text-finding-abnormal-fg data-[state=on]:hover:border-finding-abnormal-border data-[state=on]:hover:bg-finding-abnormal-bg";
+
+/*
+ * Overlays, menus and tabs (V2-06 06-02b; 06-UI-SPEC "06-02b Overlays", §8 Motion, "Radii and elevation").
+ * Levels: menus, popovers, listboxes and tooltips are level 2 (`shadow-popover`); dialogs, sheets, drawers, the palette
+ * and toasts are level 3 (`shadow-overlay` over the `scrim`, never a blur). Enter motion uses `@starting-style`
+ * (`starting:`), so nothing needs keyframes and reduced motion simply drops the transition.
+ */
+
+/** The modal backdrop: Midnight at 36 %, no blur, 200 ms fade. */
+export const SCRIM =
+  "fixed inset-0 z-50 bg-scrim motion-safe:transition-opacity motion-safe:duration-(--duration-base) motion-safe:ease-out motion-safe:starting:opacity-0";
+
+/** Popover / menu / listbox enter: 200 ms fade and 4 px rise. */
+export const POP_IN =
+  "motion-safe:transition-[opacity,translate] motion-safe:duration-(--duration-base) motion-safe:ease-out motion-safe:starting:translate-y-1 motion-safe:starting:opacity-0";
+
+/** Level 2 surface: white, hairline, radius-lg, `shadow-popover`. */
+export const POPOVER_SURFACE = "z-50 rounded-lg border border-border bg-surface text-fg shadow-popover";
+
+/** Level 3 surface: white, `shadow-overlay`. Radius per component (dialog xl, sheet none, drawer top xl). */
+export const OVERLAY_SURFACE = "z-50 flex flex-col bg-surface text-fg shadow-overlay";
+
+/**
+ * A row in a menu or listbox: 32 px (44 on touch), padding 0 10, radius-sm, body-sm, icon 16, gap 8; highlighted =
+ * surface-muted. Full-bleed inside a clipping list, so the inset ring (CD-12).
+ */
+export const MENU_ITEM =
+  "relative flex min-h-control-compact w-full cursor-pointer items-center gap-2 rounded-sm px-2.5 text-left text-body-sm text-fg select-none touch:min-h-control focus-visible:focus-ring-inset data-highlighted:bg-surface-muted data-disabled:cursor-not-allowed data-disabled:text-fg-disabled [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-fg-icon";
+
+/** Destructive menu rows: last, after a separator, danger-fg text and icon. */
+export const MENU_ITEM_DANGER = "text-danger-fg [&_svg]:text-danger-fg";
+
+/** Tabs: 36 px (44 touch), padding 0 10, body-sm 500 fg-secondary; selected fg with a 2 px accent underline inset 8 px. */
+export const TAB_LIST = "flex max-w-full items-stretch gap-1 overflow-x-auto border-b border-border";
+export const TAB_ITEM =
+  "relative inline-flex min-h-control-dense shrink-0 cursor-pointer items-center justify-center gap-1.5 px-2.5 text-body-sm font-medium whitespace-nowrap text-fg-secondary select-none hover:text-fg touch:min-h-control focus-visible:focus-ring-inset after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-pill after:bg-transparent data-[state=active]:text-fg data-[state=active]:after:bg-accent aria-[current=page]:text-fg aria-[current=page]:after:bg-accent data-disabled:cursor-not-allowed data-disabled:text-fg-disabled";

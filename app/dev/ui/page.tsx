@@ -12,6 +12,7 @@ import { galleryEnabled } from "@/lib/dev/gallery";
 import { serverEnv } from "@/lib/env-server";
 import { AiSection } from "./sections/ai";
 import { FormsSection } from "./sections/forms";
+import { OverlaysSection } from "./sections/overlays";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export default function GalleryPage() {
       </header>
       <main id="main" className="mx-auto flex max-w-6xl flex-col gap-12 px-gutter py-8 lg:px-gutter-lg">
         <FormsSection />
+        <OverlaysSection />
         <AiSection />
       </main>
     </div>

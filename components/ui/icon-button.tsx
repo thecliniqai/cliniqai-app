@@ -2,6 +2,7 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
+import { Tooltip } from "./tooltip";
 import {
   BUTTON_BASE,
   FOCUS_RING,
@@ -15,8 +16,11 @@ import {
 
 /**
  * IconButton (V2-06 06-02a; 06-UI-SPEC IconButton): 36×36 ghost (radius-md), `sm` 28×28 (radius-sm), `bordered`;
- * 44×44 on touch. The accessible name is required by the type (`label` → `aria-label`); the desktop Tooltip with the
- * label and shortcut arrives with 06-02b. `loading` draws a spinner in place of the icon (`aria-busy`).
+ * 44×44 on touch. The accessible name is required by the type (`label` → `aria-label`). `loading` draws a spinner in
+ * place of the icon (`aria-busy`).
+ *
+ * 06-02b: a Tooltip repeats the label (plus `shortcut`) on pointer hover and keyboard focus, never on touch (CD-10).
+ * `tooltip={false}` turns it off where it would only get in the way (an overlay's Close button, which takes focus).
  */
 export interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "children"> {
   /** The accessible name ("Remove Paracetamol 650 mg", "Account menu"). */
@@ -25,14 +29,30 @@ export interface IconButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLBut
   variant?: IconButtonVariant;
   size?: IconButtonSize;
   loading?: boolean;
+  /** Show the label (and `shortcut`) in a Tooltip. Default true. */
+  tooltip?: boolean;
+  /** A shortcut hint for the Tooltip ("Ctrl K"). */
+  shortcut?: string;
 }
 
 export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { label, icon, variant = "ghost", size = "md", loading = false, disabled, type = "button", className, ...props },
+  {
+    label,
+    icon,
+    variant = "ghost",
+    size = "md",
+    loading = false,
+    tooltip = true,
+    shortcut,
+    disabled,
+    type = "button",
+    className,
+    ...props
+  },
   ref,
 ) {
   const inert = Boolean(disabled) || loading;
-  return (
+  const button = (
     <button
       ref={ref}
       type={type}
@@ -64,6 +84,13 @@ export const IconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(f
         </span>
       )}
     </button>
+  );
+  // Same tree whether or not the button is busy, so focus survives a loading round trip.
+  if (!tooltip) return button;
+  return (
+    <Tooltip content={label} shortcut={shortcut}>
+      {button}
+    </Tooltip>
   );
 });
 

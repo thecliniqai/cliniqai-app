@@ -1,9 +1,21 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { cn } from "@/lib/utils";
-import { X } from "lucide-react";
+import React, { useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, type DialogSize } from "./dialog";
 
+/**
+ * Modal: the v1 API (`isOpen`, `onClose`, `title`, `description`, `maxWidth`) over the V2 Dialog (V2-06 06-02b,
+ * 06-PLAN "Modal and Dropdown adapters"). The ten v1 call sites compile and read unchanged, and now get what the v1
+ * modal lacked: focus moves in and is trapped (Tab / Shift+Tab cycle), Escape and the Close button close, focus returns
+ * to the opener, scroll lock is reference-counted, the page behind is hidden from assistive technology, and the dialog
+ * is named by its title.
+ *
+ * - `maxWidth` maps onto the approved widths (CD-08): `sm` / `md` → 440, `lg` / `xl` → 640.
+ * - A modal without `title` is named by the first heading inside it (v1 call sites put their own heading in the body),
+ *   and shows no header, as before; such call sites close through their own buttons, Escape or the scrim.
+ * - `onClose` is called for every dismissal; a call site that must stay open (a request in flight) passes a no-op, as
+ *   v1 allowed.
+ */
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -13,86 +25,42 @@ export interface ModalProps {
   children: React.ReactNode;
 }
 
-export function Modal({
-  isOpen,
-  onClose,
-  title,
-  description,
-  maxWidth = "md",
-  children,
-}: ModalProps) {
-  useEffect(() => {
-    if (!isOpen) return;
+const SIZE: Record<NonNullable<ModalProps["maxWidth"]>, DialogSize> = { sm: "md", md: "md", lg: "lg", xl: "lg" };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
+/** Names a title-less dialog by its first heading (gives the heading an id when it has none). */
+function useHeadingLabel(enabled: boolean) {
+  return useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!enabled || !node) return;
+      const heading = node.querySelector<HTMLElement>("h1, h2, h3, h4, h5, h6");
+      if (!heading) return;
+      if (!heading.id) heading.id = `${node.id || "modal"}-heading`;
+      node.setAttribute("aria-labelledby", heading.id);
+    },
+    [enabled],
+  );
+}
 
-    document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const maxWidthClasses = {
-    sm: "max-w-sm",
-    md: "max-w-md",
-    lg: "max-w-lg",
-    xl: "max-w-xl",
-  }[maxWidth];
-
+export function Modal({ isOpen, onClose, title, description, maxWidth = "md", children }: ModalProps) {
+  const headingLabel = useHeadingLabel(!title);
+  const hasHeader = Boolean(title || description);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-gray-900/50 backdrop-blur-xs transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Modal Dialog Card */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? "modal-title" : undefined}
-        className={cn(
-          "relative w-full rounded-2xl bg-white shadow-theme-lg border border-gray-200 z-10 overflow-hidden transform transition-all",
-          maxWidthClasses
-        )}
+    <Dialog open={isOpen} onOpenChange={(open) => (open ? undefined : onClose())}>
+      <DialogContent
+        ref={headingLabel}
+        size={SIZE[maxWidth]}
+        showClose={hasHeader}
+        closeLabel="Close dialog"
+        data-modal-adapter=""
       >
-        {/* Header */}
-        {(title || description) && (
-          <div className="px-6 py-5 border-b border-gray-100 flex items-start justify-between gap-4">
-            <div>
-              {title && (
-                <h3 id="modal-title" className="text-base font-semibold text-gray-900">
-                  {title}
-                </h3>
-              )}
-              {description && (
-                <p className="text-xs sm:text-sm text-gray-500 mt-1">{description}</p>
-              )}
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1 rounded-lg text-fg-subtle hover:text-gray-600 hover:bg-gray-100 transition-colors cursor-pointer"
-              aria-label="Close dialog"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+        {hasHeader && (
+          <DialogHeader>
+            {title && <DialogTitle>{title}</DialogTitle>}
+            {description && <DialogDescription>{description}</DialogDescription>}
+          </DialogHeader>
         )}
-
-        {/* Content Body */}
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
+        <div className="min-w-0">{children}</div>
+      </DialogContent>
+    </Dialog>
   );
 }
