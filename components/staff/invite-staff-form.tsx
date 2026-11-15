@@ -6,27 +6,8 @@ import { Mail, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { inviteStaff, type InviteStaffOutcome } from "@/features/staff/actions";
-
-const ROLE_LABELS: Record<string, string> = {
-  owner: "owner",
-  admin: "admin",
-  doctor: "doctor",
-  receptionist: "receptionist",
-  nurse: "nurse",
-};
-
-/** What the owner is told (V2-05 05-12, M-REINVITE): a new invitation, a replaced one, or one already pending. */
-function inviteNotice(email: string, role: string, outcome: InviteStaffOutcome, previousRole?: string): string {
-  const asRole = ROLE_LABELS[role] ?? role;
-  if (outcome === "replaced") {
-    return `The pending ${ROLE_LABELS[previousRole ?? ""] ?? "earlier"} invitation for ${email} was cancelled. A new ${asRole} invitation was sent.`;
-  }
-  if (outcome === "already_pending") {
-    return `An invitation for ${email} as ${asRole} is already pending. No new email was sent; resend it from the list if needed.`;
-  }
-  return `Invitation created for ${email}.`;
-}
+import { inviteStaff } from "@/features/staff/actions";
+import { inviteNotice } from "./invite-notice";
 
 /** `canInviteAdmin`: only owners may invite an admin (P0-02); the server and the database enforce it too. */
 export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: boolean }) {
@@ -49,7 +30,7 @@ export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: b
     startTransition(async () => {
       const res = await inviteStaff(formData);
       if (res.success) {
-        setNotice(inviteNotice(email.trim(), role, res.outcome, res.previousRole));
+        setNotice(inviteNotice(email.trim(), res));
         setEmail("");
         router.refresh();
       } else {
