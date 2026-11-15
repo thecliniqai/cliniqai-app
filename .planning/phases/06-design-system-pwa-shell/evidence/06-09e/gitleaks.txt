@@ -1,0 +1,18 @@
+gitleaks ghcr.io/gitleaks/gitleaks:v8.30.1, git mode, --config .gitleaks.toml --redact, local clone of the branch, 2026-11-15T12:04:20Z
+range --log-opts=bab829e..d86b332 (every 06-09e commit before this one):
+12:03PM INF 9 commits scanned.
+12:03PM INF scanned ~104822 bytes (104.82 KB) in 238ms
+12:03PM INF no leaks found
+exit 0
+per commit (--log-opts=<c>^..<c>):
+  2fc51b3: 1 commits scanned no leaks found 
+  ef5d548: 1 commits scanned no leaks found 
+  2e59639: 1 commits scanned no leaks found 
+  dee4341: 1 commits scanned no leaks found 
+  24491c0: 1 commits scanned no leaks found 
+  f3d0e94: 1 commits scanned no leaks found 
+  933f291: 1 commits scanned no leaks found 
+  2a23550: 1 commits scanned no leaks found 
+  4e4c89b: 0 commits scanned no leaks found 
+  d86b332: 1 commits scanned no leaks found 
+4e4c89b changes only PNG files (115 binary files, 0 text lines), so gitleaks has no text to scan there (0 commits scanned).
