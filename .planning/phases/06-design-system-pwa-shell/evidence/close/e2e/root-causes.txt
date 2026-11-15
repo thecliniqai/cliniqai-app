@@ -1,0 +1,16 @@
+e2e PR lane run 1 (9cf851d, --retries=0): 5 failed runs, all in tests/e2e/pwa/09-outage-and-removal.spec.ts "M-REMOVED:
+removed from the active clinic with another clinic left" (both cases on desktop-chrome and pixel-7, the @golden case on
+iphone-15). Each failed in the `dualMember` setup: `page.waitForResponse(… /api/session-status … 200)` timed out
+(30 s), before the case's own steps.
+
+Root cause (harness, from the code and the gate-close change): the setup planted `clinic_active_tenant` = clinic A in
+the browser context while signed out, then signed in through `/login`. Since the gate close's L-N4 fix
+(`5197b1a`, `proxy.ts` `forgetActiveClinic`) the proxy expires the pin on every request it finds definitively signed
+out, the `/login` page load included. The dual member (A and B) therefore had no pinned clinic once signed in, so
+`getActiveMembership` threw `MultipleClinicsSelectionRequiredError` (the clinic-selection state, no shell, no status
+poll) and no 200 status answer came. That is the designed L-N4 outcome (a pin left from a signed-out state must not
+select a clinic for the next session); the harness modelled the V2-11 switcher wrongly.
+
+Fix (`f21a4b6`): the pin is set after the sign-in, as the V2-11 switcher will set it, then `/` is loaded and the
+first 200 status answer awaited. Targeted re-run of the spec on desktop-chrome, pixel-7 and iphone-15
+(`--retries=0`): 16 passed (8 setup + 8 cases). No test was retried; run 2 is the full lane on f21a4b6.

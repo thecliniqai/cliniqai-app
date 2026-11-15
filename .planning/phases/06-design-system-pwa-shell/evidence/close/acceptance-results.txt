@@ -1,0 +1,117 @@
+Per-criterion counts for the V2-06 acceptance rows at f21a4b6 (2026-11-15T10:44:38Z). Inputs: the PR-lane JSON report of run 2 (f21a4b6, --retries=0; kept outside the repo: it carries server log output) and evidence/full-run-{1,2}.json. Source: close/acceptance-extract.mjs.txt.
+Playwright report: playwright-report/results.json (run 2)
+whole PR lane: 786 test runs; desktop-chrome:expected=391, desktop-chrome:skipped=5, iphone-15:expected=38, pixel-7:expected=146, pixel-7:skipped=191, pwa-ipados:expected=7, setup:expected=8; retried=0
+  unexpected (failed) = 0; flaky = 0; expected failures (test.fail, known bugs) = 8
+
+# Row 1: axe 0 serious/critical on the gallery
+  tests/e2e/design/*-axe.spec.ts: 82 test runs; desktop-chrome:expected=41, pixel-7:skipped=41; retried=0
+  tests/e2e/design/gallery-axe.spec.ts: 10 test runs; desktop-chrome:expected=5, pixel-7:skipped=5; retried=0
+
+# Row 4: v1 screens still work (M0 characterisation)
+  tests/e2e/m0/*.spec.ts (not baseline): 22 test runs; desktop-chrome:expected=10, iphone-15:expected=2, pixel-7:expected=10; retried=0
+
+# Row 5: Chrome reports the app installable
+  tests/e2e/pwa/02-installable.spec.ts: 2 test runs; desktop-chrome:expected=1, pixel-7:expected=1; retried=0
+    desktop-chrome expected: Chrome reports the signed-in app installable (Page.getInstallabilityErrors is empty)
+    pixel-7 expected: Chrome reports the signed-in app installable (Page.getInstallabilityErrors is empty)
+
+# Rows 6 and 7: cache audit (browse) and every sign-out path
+  tests/e2e/pwa/05-cache-audit.spec.ts: 23 test runs; desktop-chrome:expected=8, iphone-15:expected=7, pixel-7:expected=8; retried=0
+    desktop-chrome expected: Today, a patient, a consult, billing and a receipt: nothing authenticated is cached or stored
+    pixel-7 expected: Today, a patient, a consult, billing and a receipt: nothing authenticated is cached or stored
+    desktop-chrome expected: Sign out: purged, no auth cookie, Back shows no patient data @golden
+    desktop-chrome expected: Sign out of all devices: purged here, the second device loses its session @golden
+    desktop-chrome expected: Switch user: purged, plain login page with nothing prefilled @golden
+    desktop-chrome expected: Expired: revoked from another device; on resume the poll answers 401, purged, /login @golden
+    desktop-chrome expected: Removed: the owner removes the member (remove_member); on resume purged, /login @golden
+    desktop-chrome expected: Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie @golden
+    pixel-7 expected: Sign out: purged, no auth cookie, Back shows no patient data @golden
+    pixel-7 expected: Sign out of all devices: purged here, the second device loses its session @golden
+    pixel-7 expected: Switch user: purged, plain login page with nothing prefilled @golden
+    pixel-7 expected: Expired: revoked from another device; on resume the poll answers 401, purged, /login @golden
+    pixel-7 expected: Removed: the owner removes the member (remove_member); on resume purged, /login @golden
+    pixel-7 expected: Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie @golden
+    iphone-15 expected: Sign out: purged, no auth cookie, Back shows no patient data @golden
+    iphone-15 expected: Sign out of all devices: purged here, the second device loses its session @golden
+    iphone-15 expected: Switch user: purged, plain login page with nothing prefilled @golden
+    iphone-15 expected: Expired: revoked from another device; on resume the poll answers 401, purged, /login @golden
+    iphone-15 expected: Removed: the owner removes the member (remove_member); on resume purged, /login @golden
+    iphone-15 expected: Offline sign-out: signed out locally, purged, lands on /offline; back online no auth cookie @golden
+    desktop-chrome expected: Sign out with the server call held open: the patient screen is hidden and inert before the answer @golden
+    pixel-7 expected: Sign out with the server call held open: the patient screen is hidden and inert before the answer @golden
+    iphone-15 expected: Sign out with the server call held open: the patient screen is hidden and inert before the answer @golden
+
+# Sign-out / session specs (06-05, 06-06, 06-09*)
+  tests/e2e/pwa/06-tabs-and-devices.spec.ts: 12 test runs; desktop-chrome:expected=4, iphone-15:expected=4, pixel-7:expected=4; retried=0
+  tests/e2e/pwa/09-outage-and-removal.spec.ts: 8 test runs; desktop-chrome:expected=3, iphone-15:expected=2, pixel-7:expected=3; retried=0
+  tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts: 8 test runs; desktop-chrome:expected=3, iphone-15:expected=2, pixel-7:expected=3; retried=0
+  tests/e2e/pwa/12-forgot-password-refresh.spec.ts: 4 test runs; desktop-chrome:expected=2, pixel-7:expected=2; retried=0
+  tests/e2e/pwa/03-sw.spec.ts: 6 test runs; desktop-chrome:expected=3, pixel-7:expected=3; retried=0
+  tests/e2e/pwa/04-offline.spec.ts: 4 test runs; desktop-chrome:expected=2, pixel-7:expected=2; retried=0
+  tests/e2e/pwa/01-manifest.spec.ts: 14 test runs; desktop-chrome:expected=6, iphone-15:expected=2, pixel-7:expected=6; retried=0
+  tests/e2e/pwa/10-ipados.spec.ts: 7 test runs; pwa-ipados:expected=7; retried=0
+
+# Roadmap tests: keyboard/focus specs per primitive (real browser, R-14), PWA specs 1-6, 8, 10, shell
+  tests/e2e/design/keyboard/*.spec.ts: 132 test runs; desktop-chrome:expected=66, pixel-7:skipped=66; retried=0
+  tests/e2e/pwa/06-update.spec.ts: 17 test runs; desktop-chrome:expected=6, iphone-15:expected=5, pixel-7:expected=6; retried=0
+  tests/e2e/pwa/07-titles.spec.ts: 8 test runs; desktop-chrome:expected=4, pixel-7:skipped=4; retried=0
+  tests/e2e/pwa/08-layout.spec.ts: 12 test runs; desktop-chrome:expected=1, desktop-chrome:skipped=5, pixel-7:expected=5, pixel-7:skipped=1; retried=0
+  tests/e2e/pwa/ui-checks.spec.ts: 24 test runs; desktop-chrome:expected=12, pixel-7:skipped=12; retried=0
+  tests/e2e/pwa/ui-checks-06-06.spec.ts: 28 test runs; desktop-chrome:expected=14, pixel-7:skipped=14; retried=0
+  tests/e2e/design/fonts.spec.ts: 8 test runs; desktop-chrome:expected=4, pixel-7:skipped=4; retried=0
+  tests/e2e/design/input-modes.spec.ts: 2 test runs; desktop-chrome:expected=1, pixel-7:expected=1; retried=0
+  tests/e2e/shell/*.spec.ts: 108 test runs; desktop-chrome:expected=54, pixel-7:expected=15, pixel-7:skipped=39; retried=0
+
+# Vitest run 1 (full-run-1.json): acceptance-related specs
+  tests/design/approved-tokens.spec.ts 248/248
+  tests/design/contrast.spec.ts 247/247
+  tests/design/tokens.spec.ts 8/8
+  tests/design/gallery.spec.ts 2/2
+  tests/design/input-kind.spec.ts 7/7
+  tests/design/age.spec.ts 22/22
+  tests/clinical/visit-status.spec.ts 11/11
+  tests/clinical/vitals.spec.ts 81/81
+  tests/clinical/rx.spec.ts 6/6
+  tests/ci/ui-policy.spec.ts 14/14
+  tests/ci/ui-policy-signout-guard.spec.ts 4/4
+  tests/ci/react-compiler-waivers.spec.ts 17/17
+  tests/pwa/sw-allowlist.spec.ts 35/35
+  tests/pwa/hard-sign-out.spec.ts 36/36
+  tests/pwa/purge.spec.ts 24/24
+  tests/pwa/proxy-no-store-db.spec.ts 8/8
+  tests/api/session-status-db.spec.ts 10/10
+  tests/pwa/session-status.spec.ts 28/28
+  tests/auth/auth-outage-db.spec.ts 16/16
+  tests/auth/active-clinic-removed-db.spec.ts 8/8
+  tests/auth/auth-failure.spec.ts 11/11
+  tests/auth/session-auth-reverify-db.spec.ts 57/57
+  tests/auth/session-auth-close-db.spec.ts 9/9
+  tests/patients/palette-search-db.spec.ts 6/6
+  tests/nav/nav-for-role.spec.ts 30/30
+
+# Vitest run 2 (full-run-2.json): acceptance-related specs
+  tests/design/approved-tokens.spec.ts 248/248
+  tests/design/contrast.spec.ts 247/247
+  tests/design/tokens.spec.ts 8/8
+  tests/design/gallery.spec.ts 2/2
+  tests/design/input-kind.spec.ts 7/7
+  tests/design/age.spec.ts 22/22
+  tests/clinical/visit-status.spec.ts 11/11
+  tests/clinical/vitals.spec.ts 81/81
+  tests/clinical/rx.spec.ts 6/6
+  tests/ci/ui-policy.spec.ts 14/14
+  tests/ci/ui-policy-signout-guard.spec.ts 4/4
+  tests/ci/react-compiler-waivers.spec.ts 17/17
+  tests/pwa/sw-allowlist.spec.ts 35/35
+  tests/pwa/hard-sign-out.spec.ts 36/36
+  tests/pwa/purge.spec.ts 24/24
+  tests/pwa/proxy-no-store-db.spec.ts 8/8
+  tests/api/session-status-db.spec.ts 10/10
+  tests/pwa/session-status.spec.ts 28/28
+  tests/auth/auth-outage-db.spec.ts 16/16
+  tests/auth/active-clinic-removed-db.spec.ts 8/8
+  tests/auth/auth-failure.spec.ts 11/11
+  tests/auth/session-auth-reverify-db.spec.ts 57/57
+  tests/auth/session-auth-close-db.spec.ts 9/9
+  tests/patients/palette-search-db.spec.ts 6/6
+  tests/nav/nav-for-role.spec.ts 30/30

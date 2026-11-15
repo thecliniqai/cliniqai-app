@@ -1,0 +1,9 @@
+pgTAP report gate on both phase-evidence runs at f21a4b6 (2026-11-15T10:44:29Z); per-file lines omitted, summary and exit code shown:
+## run 1: node scripts/ci/assert-pgtap-report.mjs evidence/pgtap-run-1.tap
+pgtap-report-gate: files=47 tests=7892 passed=7892 failed=0 skipped/todo=0 floor=7892 required=47
+pgtap-report-gate: PASS
+exit=0
+## run 2: node scripts/ci/assert-pgtap-report.mjs evidence/pgtap-run-2.tap
+pgtap-report-gate: files=47 tests=7892 passed=7892 failed=0 skipped/todo=0 floor=7892 required=47
+pgtap-report-gate: PASS
+exit=0

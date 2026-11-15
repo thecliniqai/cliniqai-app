@@ -1,0 +1,75 @@
+#!/usr/bin/env node
+// V2-06 gate close: per-criterion counts for the roadmap V2-06 acceptance rows, read from the tool reports only:
+// the Playwright PR-lane JSON report (playwright-report/results.json of `npm run e2e:pr -- --retries=0`) and the two
+// phase-evidence Vitest runs (full-run-{1,2}.json). Counts and test titles only (no data). Kept as .txt: the repo
+// lints .planning/ as code. Usage (repo root): node <copy>.mjs <results.json> <full-run-1.json> <full-run-2.json>
+import { readFileSync } from "node:fs";
+
+const [pwFile, ...vitestFiles] = process.argv.slice(2);
+const pw = JSON.parse(readFileSync(pwFile, "utf8"));
+
+// Flatten Playwright suites → one row per (spec file, test title, project) with its final status and retry count.
+const rows = [];
+const walk = (suite, file) => {
+  const f = suite.file ?? file;
+  for (const spec of suite.specs ?? []) {
+    for (const t of spec.tests ?? []) {
+      const last = t.results?.[t.results.length - 1];
+      rows.push({ file: f, title: spec.title, project: t.projectName, status: t.status, expected: t.expectedStatus, retries: Math.max(0, (t.results?.length ?? 1) - 1), outcome: last?.status });
+    }
+  }
+  for (const s of suite.suites ?? []) walk(s, f);
+};
+for (const s of pw.suites ?? []) walk(s, s.file);
+
+const pwCount = (label, match) => {
+  const sel = rows.filter((r) => match(r));
+  const by = {};
+  for (const r of sel) {
+    const k = `${r.project}:${r.status}`;
+    by[k] = (by[k] ?? 0) + 1;
+  }
+  const retried = sel.filter((r) => r.retries > 0).length;
+  console.log(`${label}: ${sel.length} test runs; ${Object.entries(by).sort().map(([k, v]) => `${k}=${v}`).join(", ")}; retried=${retried}`);
+  return sel;
+};
+
+console.log(`Playwright report: ${pwFile}`);
+const all = pwCount("whole PR lane", () => true);
+console.log(`  unexpected (failed) = ${all.filter((r) => r.status === "unexpected").length}; flaky = ${all.filter((r) => r.status === "flaky").length}; expected failures (test.fail, known bugs) = ${all.filter((r) => r.expected === "failed" && r.status === "expected").length}`);
+console.log("\n# Row 1: axe 0 serious/critical on the gallery");
+pwCount("  tests/e2e/design/*-axe.spec.ts", (r) => /^design\/.*-axe\.spec\.ts$/.test(r.file));
+pwCount("  tests/e2e/design/gallery-axe.spec.ts", (r) => r.file === "design/gallery-axe.spec.ts");
+console.log("\n# Row 4: v1 screens still work (M0 characterisation)");
+pwCount("  tests/e2e/m0/*.spec.ts (not baseline)", (r) => /^m0\/[^/]+\.spec\.ts$/.test(r.file));
+console.log("\n# Row 5: Chrome reports the app installable");
+for (const r of pwCount("  tests/e2e/pwa/02-installable.spec.ts", (r) => r.file === "pwa/02-installable.spec.ts")) console.log(`    ${r.project} ${r.status}: ${r.title}`);
+console.log("\n# Rows 6 and 7: cache audit (browse) and every sign-out path");
+for (const r of pwCount("  tests/e2e/pwa/05-cache-audit.spec.ts", (r) => r.file === "pwa/05-cache-audit.spec.ts")) console.log(`    ${r.project} ${r.status}: ${r.title}`);
+console.log("\n# Sign-out / session specs (06-05, 06-06, 06-09*)");
+for (const f of ["pwa/06-tabs-and-devices.spec.ts", "pwa/09-outage-and-removal.spec.ts", "pwa/11-refresh-outage-and-pin.spec.ts", "pwa/12-forgot-password-refresh.spec.ts", "pwa/03-sw.spec.ts", "pwa/04-offline.spec.ts", "pwa/01-manifest.spec.ts", "pwa/10-ipados.spec.ts"]) pwCount(`  tests/e2e/${f}`, (r) => r.file === f);
+console.log("\n# Roadmap tests: keyboard/focus specs per primitive (real browser, R-14), PWA specs 1-6, 8, 10, shell");
+pwCount("  tests/e2e/design/keyboard/*.spec.ts", (r) => /^design\/keyboard\//.test(r.file));
+for (const f of ["pwa/06-update.spec.ts", "pwa/07-titles.spec.ts", "pwa/08-layout.spec.ts", "pwa/ui-checks.spec.ts", "pwa/ui-checks-06-06.spec.ts", "design/fonts.spec.ts", "design/input-modes.spec.ts"]) pwCount(`  tests/e2e/${f}`, (r) => r.file === f);
+pwCount("  tests/e2e/shell/*.spec.ts", (r) => /^shell\//.test(r.file));
+
+for (const [i, file] of vitestFiles.entries()) {
+  const v = JSON.parse(readFileSync(file, "utf8"));
+  const per = (suffix) => {
+    const f = v.testResults.find((x) => x.name.endsWith(`/${suffix}`));
+    if (!f) return `${suffix}: MISSING`;
+    const n = f.assertionResults.length;
+    const p = f.assertionResults.filter((a) => a.status === "passed").length;
+    return `${suffix} ${p}/${n}`;
+  };
+  console.log(`\n# Vitest run ${i + 1} (${file.split("/").pop()}): acceptance-related specs`);
+  for (const s of [
+    "tests/design/approved-tokens.spec.ts", "tests/design/contrast.spec.ts", "tests/design/tokens.spec.ts", "tests/design/gallery.spec.ts", "tests/design/input-kind.spec.ts", "tests/design/age.spec.ts", "tests/clinical/visit-status.spec.ts", "tests/clinical/vitals.spec.ts", "tests/clinical/rx.spec.ts",
+    "tests/ci/ui-policy.spec.ts", "tests/ci/ui-policy-signout-guard.spec.ts", "tests/ci/react-compiler-waivers.spec.ts",
+    "tests/pwa/sw-allowlist.spec.ts", "tests/pwa/hard-sign-out.spec.ts", "tests/pwa/purge.spec.ts", "tests/pwa/proxy-no-store-db.spec.ts",
+    "tests/api/session-status-db.spec.ts", "tests/pwa/session-status.spec.ts",
+    "tests/auth/auth-outage-db.spec.ts", "tests/auth/active-clinic-removed-db.spec.ts", "tests/auth/auth-failure.spec.ts",
+    "tests/auth/session-auth-reverify-db.spec.ts", "tests/auth/session-auth-close-db.spec.ts",
+    "tests/patients/palette-search-db.spec.ts", "tests/nav/nav-for-role.spec.ts",
+  ]) console.log(`  ${per(s)}`);
+}
