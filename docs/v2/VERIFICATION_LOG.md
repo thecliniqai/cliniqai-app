@@ -859,3 +859,14 @@ depth parts of the 2026-11-14 speed ruling from V2-07 onward.
 | Parallelism | One phase at a time (or separate local stacks per track) |
 | Building | Vertical slices: each screen with the components it uses |
 | Unchanged | Flaky tests are root-caused, never retried to green; CI-only evidence; PO approves every gate |
+
+### PO decision: API v1 for a third-party AI voice bot (2026-11-15) — updates PO-16
+
+PO: "I was thinking of using third party for now for stable launch and once we get traction we build our own."
+
+| Item | Decision |
+|---|---|
+| PO-16 | Updated: an external API consumer exists (a third-party AI voice bot for appointments). P1-37 becomes **P1** in V2-12, no longer P2 |
+| V2-12 scope added | An appointments-scoped API: free slots, book, reschedule, cancel, patient lookup by mobile; per-key least-privilege scopes (a voice-bot key holds appointment scopes only, never clinical); clinical resources (prescriptions, referrals, lab orders, clinical notes) refused for such keys; rate limits; idempotency keys; fixed error texts; per-key audit; OpenAPI contract; change webhook; full-access clinics only (05b) |
+| Own voice bot | Stays v2.1 (AI Voice Receptionist), after traction |
+| Vendor | Third-party vendor is a sub-processor (patient names and phone numbers): DPA and India data residency check before go-live (PO action, alongside MSG91 / Vertex) |
