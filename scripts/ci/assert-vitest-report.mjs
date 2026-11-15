@@ -52,6 +52,11 @@
  *   5974 — V2-06 06-09d (re-verification fixes): the full suite at the 06-09d tree (c68851a, stack 000094) had 6288
  *          tests in 305 files, 0 skipped (evidence/06-09d/vitest-full-summary.txt); 6288 × 0.95 = 5973.6 → 5974.
  *          REQUIRED_FILES + the two new 06-09d specs (auth-failure, session-auth-reverify-db; 218 in total).
+ *   5985 — V2-06 gate close: the full suite at the gate-close tree (5197b1a + this commit's REQUIRED_FILES line, stack
+ *          000094) had 6300 tests in 306 files, 0 skipped (evidence/close/vitest-full-measure.txt); 6300 × 0.95 = 5985.
+ *          REQUIRED_FILES + tests/auth/session-auth-close-db.spec.ts (219 in total). tests/ci/vitest-report-gate.spec.ts
+ *          follows the default (it still named 5909: b11e398 raised the FLOOR without it, so that spec failed from
+ *          b11e398 on; fixed here).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -60,7 +65,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 5974;
+const FLOOR = 5985;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -341,6 +346,9 @@ const REQUIRED_FILES = [
   // deletes cookies (H-AUTHOUT-R1, L-R1..L-R3); the device is pinned to its clinic (M-REMOVED-R1, L-R4).
   "tests/auth/auth-failure.spec.ts",
   "tests/auth/session-auth-reverify-db.spec.ts",
+  // V2-06 gate close (the re-check's Lows L-N1, L-N2, L-N4: the Auth budget covers only session calls, the proxy's
+  // 5.5 s budget, the pin expired on a definitive sign-out).
+  "tests/auth/session-auth-close-db.spec.ts",
 ];
 
 const file = process.argv[2];
