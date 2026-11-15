@@ -116,7 +116,7 @@ timing.
 | Fails without (735e558) | Vitest 31 failed / 168 passed; e2e 16 failed / 32 passed | `fails-without-{vitest,e2e}.txt` |
 | typecheck, eslint, inventory, ui-policy, ai-l1, React Compiler waivers, contrast | exit 0; eslint 0 errors, 440 warnings (in app, components, lib, features, scripts and proxy.ts: 276, the same count as at `735e558`); inventory exit 0; ui-policy PASS (every delta 0); ai-l1 PASS; waivers PASS (11 entries, 20 sites); contrast spec 247 passed | `static-checks.txt` |
 | G3 set (`npm run e2e:g3`) | 138 passed, 129 captures, index 0 problems; every JSON (axe in scope, horizontal scroll) and the README unchanged; gallery clinical-b, dates and forms changed size (the 06-09c specimens); the other PNGs differ only by run-specific text | `g3-regenerated.txt`, `evidence/06-08/screens/` |
-| gitleaks | see `gitleaks.txt` | `gitleaks.txt` |
+| gitleaks (every 06-09c commit, `--redact`) | no leaks found (gitleaks counts 9 commits: the G3 commit `38b614c` has PNGs only) | `gitleaks.txt` |
 
 UI at 360, 820/1180 and 1280 px: the G3 set's gallery captures (clinical-b, dates, forms) at the four widths, axe 0
 serious/critical in scope and no horizontal scroll (unchanged JSON). `MembershipEnded` is not captured (deviation 2).
