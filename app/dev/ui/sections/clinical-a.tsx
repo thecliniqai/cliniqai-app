@@ -84,9 +84,7 @@ function QueueRowsDemo() {
   };
   return (
     <div className="flex w-full max-w-md flex-col gap-3">
-      {/* Phones show one lane full bleed, without the lane border or radius (06-UI-SPEC §7 Today at 360), so the
-          specimen spans the screen there as the rows will on Today (06-09e, design review M2). */}
-      <div className="overflow-hidden rounded-lg border border-border max-sm:-mx-4 max-sm:rounded-none max-sm:border-x-0">
+      <div className="overflow-hidden rounded-lg border border-border">
         <div className="flex h-9 items-center gap-2 border-b border-border px-3">
           <h4 className="text-body-sm font-semibold text-fg">Waiting</h4>
           <span className="text-label text-fg-muted tabular-nums">5</span>
