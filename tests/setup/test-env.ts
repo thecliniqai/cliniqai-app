@@ -97,8 +97,16 @@ export const TURNSTILE_PASS_SECRET_KEY = TURNSTILE_TEST_SECRET_KEYS[0];
 export const E2E_TURNSTILE_VERIFY_PORT = 3102;
 export const E2E_TURNSTILE_VERIFY_URL = `http://127.0.0.1:${E2E_TURNSTILE_VERIFY_PORT}/turnstile/v0/siteverify`;
 
+/**
+ * V2-06 06-06 (R-21): the e2e lane's deployment id, set for `e2e:build` and the e2e server alike, so the page's
+ * `data-dpl-id` and `/api/session-status`'s `deploymentId` agree (the update spec changes the latter with `page.route`).
+ */
+export const E2E_DEPLOYMENT_ID = "e2e-local-deployment";
+
 /** Variables that may be unset or must hold one of these values. */
 const PINNED_IF_SET: Record<string, string[]> = {
+  // V2-06 06-06: only the lane's own deployment id (a hosted deployment's id never reaches a test lane).
+  NEXT_DEPLOYMENT_ID: [E2E_DEPLOYMENT_ID],
   STORAGE_PROVIDER: ["supabase"],
   AI_EVAL_LIVE: ["false", "0"],
   NODE_ENV: ["test"],
@@ -167,6 +175,8 @@ export const FORBIDDEN_VARS = [
   // public name for it.
   "RESEND_API_KEY",
   "NEXT_PUBLIC_RESEND_API_KEY",
+  // V2-06 06-06 (R-21): Vercel sets it on a deployment; a test lane uses only E2E_DEPLOYMENT_ID (NEXT_DEPLOYMENT_ID).
+  "VERCEL_DEPLOYMENT_ID",
 ] as const;
 
 /** Variables whose value is a URL that must be loopback. */

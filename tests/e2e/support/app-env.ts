@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import {
   E2E_APP_ENV,
+  E2E_DEPLOYMENT_ID,
   E2E_PWNED_API_BASE_URL,
   E2E_TURNSTILE_SITE_KEY,
   E2E_TURNSTILE_VERIFY_URL,
@@ -130,6 +131,9 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // test secret (built at run time).
     TURNSTILE_SECRET_KEY: TURNSTILE_PASS_SECRET_KEY,
     TURNSTILE_VERIFY_URL: E2E_TURNSTILE_VERIFY_URL,
+    // V2-06 06-06 (R-21): a fixed deployment id for build and serve: Next writes it as `data-dpl-id` and
+    // `/api/session-status` reports it, so they agree; tests/e2e/pwa/06-update.spec.ts changes the answer with page.route.
+    NEXT_DEPLOYMENT_ID: E2E_DEPLOYMENT_ID,
     NODE_OPTIONS: `--require "${SERVER_NET_GUARD}"`,
   } satisfies EnvMap);
   assertLocalAppServerEnv(env);

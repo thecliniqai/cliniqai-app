@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  deploymentIdFrom,
   EnvConfigError,
   isLoopbackHost,
   parseEnv,
@@ -17,7 +18,12 @@ import {
   type EnvSource,
 } from "@/lib/env";
 import { buildAppServerEnv } from "../e2e/support/app-env";
-import { E2E_TURNSTILE_VERIFY_URL, LOCAL_SEND_EMAIL_HOOK_SECRET, TURNSTILE_PASS_SECRET_KEY } from "../setup/test-env";
+import {
+  E2E_DEPLOYMENT_ID,
+  E2E_TURNSTILE_VERIFY_URL,
+  LOCAL_SEND_EMAIL_HOOK_SECRET,
+  TURNSTILE_PASS_SECRET_KEY,
+} from "../setup/test-env";
 
 /** Unsigned JWT with the given payload (the schema reads `iss`; it never verifies signatures). */
 function fakeJwt(payload: Record<string, unknown>): string {
@@ -1115,5 +1121,57 @@ describe("env schema: Turnstile secret and siteverify URL (05-07b, R-46)", () =>
     const parsed = parseEnv(env);
     expect(parsed.TURNSTILE_SECRET_KEY).toBe(TURNSTILE_PASS_SECRET_KEY);
     expect(parsed.TURNSTILE_VERIFY_URL).toBe(E2E_TURNSTILE_VERIFY_URL);
+  });
+});
+
+/**
+ * V2-06 06-06 (PWA_STRATEGY §3.7, R-21): NEXT_DEPLOYMENT_ID and VERCEL_DEPLOYMENT_ID are optional in every tier; a set
+ * value must be 1-64 characters of [A-Za-z0-9_-] (it becomes `data-dpl-id`, `?dpl=` asset URLs and the session-status
+ * `deploymentId`), and a refusal names the key, never the value. Before 06-06 neither name was read.
+ */
+describe("env schema: deployment id (06-06, R-21)", () => {
+  const local: EnvSource = { NODE_ENV: "test", NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: LOCAL_ANON };
+  const RULE = "must be 1 to 64 characters of A-Z, a-z, 0-9, _ or -";
+  const tiers: Array<[string, EnvSource]> = [
+    ["test", local],
+    ["development", { ...local, NODE_ENV: "development" }],
+    ["ci", CI_BUILD],
+    ["staging", STAGING],
+    ["production", PRODUCTION],
+  ];
+
+  it.each(tiers)("%s: both names are optional", (_tier, profile) => {
+    const env = parseEnv(profile);
+    expect(env.NEXT_DEPLOYMENT_ID).toBeUndefined();
+    expect(env.VERCEL_DEPLOYMENT_ID).toBeUndefined();
+    expect(parseEnv({ ...profile, NEXT_DEPLOYMENT_ID: "dpl_Synthetic-01" }).NEXT_DEPLOYMENT_ID).toBe("dpl_Synthetic-01");
+    expect(parseEnv({ ...profile, VERCEL_DEPLOYMENT_ID: "dpl_SyntheticVercel" }).VERCEL_DEPLOYMENT_ID).toBe("dpl_SyntheticVercel");
+  });
+
+  it.each(tiers)("%s: an id with spaces, other characters or 65 characters is refused, by name only", (_tier, profile) => {
+    for (const name of ["NEXT_DEPLOYMENT_ID", "VERCEL_DEPLOYMENT_ID"]) {
+      for (const bad of ["LEAK deploy id", "LEAK/deploy", `LEAK${"x".repeat(61)}`, "LEAK\"><script>"]) {
+        const issues = issuesOf({ ...profile, [name]: bad });
+        expect(issues).toContain(`${name}: ${RULE}`);
+        expect(issues.join("\n")).not.toContain("LEAK");
+      }
+      // 64 characters is the longest accepted id.
+      expect(issuesOf({ ...profile, [name]: "d".repeat(64) })).toEqual([]);
+    }
+  });
+
+  it("deploymentIdFrom: NEXT_DEPLOYMENT_ID wins, VERCEL_DEPLOYMENT_ID is the fallback, an ill-shaped value is no id", () => {
+    expect(deploymentIdFrom({})).toBeNull();
+    expect(deploymentIdFrom({ VERCEL_DEPLOYMENT_ID: "dpl_vercel" })).toBe("dpl_vercel");
+    expect(deploymentIdFrom({ NEXT_DEPLOYMENT_ID: "next-id", VERCEL_DEPLOYMENT_ID: "dpl_vercel" })).toBe("next-id");
+    expect(deploymentIdFrom({ NEXT_DEPLOYMENT_ID: "  ", VERCEL_DEPLOYMENT_ID: "dpl_vercel" })).toBe("dpl_vercel");
+    expect(deploymentIdFrom({ NEXT_DEPLOYMENT_ID: "bad id" })).toBeNull();
+  });
+
+  it("the e2e app server's environment sets the lane's fixed id and passes its tier", () => {
+    const env = buildAppServerEnv({ source: { PATH: "/usr/bin" }, keys: { anonKey: LOCAL_ANON, serviceRoleKey: LOCAL_SERVICE } });
+    expect(env.NEXT_DEPLOYMENT_ID).toBe(E2E_DEPLOYMENT_ID);
+    expect(parseEnv(env).NEXT_DEPLOYMENT_ID).toBe(E2E_DEPLOYMENT_ID);
+    expect(deploymentIdFrom(env)).toBe(E2E_DEPLOYMENT_ID);
   });
 });
