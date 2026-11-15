@@ -1,0 +1,4 @@
+npx vitest run --reporter=json at 2a23550 + REQUIRED_FILES line (stack 000094, test-run lock), 2026-11-15
+files 307 tests 6307 passed 6307 failed 0 skipped 0 todo 0 success True
+floor = ceil(6307 x 0.95) = ceil(5991.65) = 5992
+[teardown] removed run data: 293 tenant(s), 549 auth user(s), 1568 storage object(s); verified none remain

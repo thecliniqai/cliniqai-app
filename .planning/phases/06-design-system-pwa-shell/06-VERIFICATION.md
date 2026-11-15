@@ -1,7 +1,7 @@
 ---
 phase: 06
 roadmap_id: V2-06
-status: awaiting PO gate approval (06-P6, 06-P7); CI run pending (orchestrator)
+status: awaiting PO gate approval (06-P6, 06-P7); CI run pending (orchestrator); G3 design review fixes 06-09e applied
 verified_commit: f21a4b6 (local evidence; evidence/commit.txt = f21a4b6ab23110f0b04f06386570e61d16c3f058)
 ci_run: "pending (placeholder: the orchestrator runs scripts/phase-evidence.mjs --ci-run <id>)"
 ---
@@ -70,7 +70,7 @@ markers fail with their marker, as designed).
 | # | Criterion | Evidence (tool output) | Result |
 |---|---|---|---|
 | 1 | axe shows 0 serious or critical issues on the gallery | `design/gallery-axe.spec.ts` 5/5 and every `design/*-axe.spec.ts` 41/41 on desktop-chrome (the PR-lane project for axe, R-27; skipped on pixel-7 by the project filter), 0 retried; the G3 set's axe column: 129 captures, 0 serious/critical in scope (`evidence/06-08/screens/README.md`, set `38b614c`) | **Met** |
-| 2 | screenshots at 360/820/1180/1280 match the G2-D direction and are approved by the PO | The set: 33 screens, 129 captures, each next to its G2-D reference at `3a78a5d` (`evidence/06-08/screens/README.md`; regenerated in `38b614c`, unchanged since: no G3 screen changed in 06-09d or the gate close) | **Pending PO (06-P6)**; **partial**: the isolated G3 design reviewer's notes (`reviews/v206-review-design.md`) do not exist (owner: orchestrator) |
+| 2 | screenshots at 360/820/1180/1280 match the G2-D direction and are approved by the PO | The set: 33 screens, 129 captures, each next to its G2-D reference at `3a78a5d` (`evidence/06-08/screens/README.md`), **regenerated after the design review fixes in `4e4c89b4cf58ce215a1f0449b62805cb82f095c7`** (`npm run e2e:g3` on the build of `2a23550`: 138 passed, index "129 capture(s) … 0 problems", axe serious/critical 0 in every screen's scope, no horizontal scroll; `evidence/06-09e/g3-run.txt`). The isolated G3 design reviewer's notes: `reviews/v206-review-design.md` (approve with changes; outcome below) | **Pending PO (06-P6)** on set `4e4c89b`; design reviewer **run**, all 5 Mediums fixed (06-09e) |
 | 3 | the grep guards, including the AI-02 "AI" copy grep, are in report mode | `npm run ci:ui-policy`: 6 report rules (counts = baseline, delta 0), 3 enforced rules at 0 (`brand-utility`, `screen-height`, `signout-guard`), PASS (`close/ui-policy.txt`, every finding in `close/ui-policy.json`); `npm run ci:ai-l1` PASS (`close/ai-l1.txt`; the L1 AI grep stays blocking, R-13) | **Met** (L1 stricter than report mode, R-13) |
 | 4 | v1 screens still work (M0 e2e green) | The whole PR lane at `f21a4b6`: 590 passed, 0 failed, 0 flaky, 0 retried (desktop-chrome 391, pixel-7 146, iphone-15 38, pwa-ipados 7, setup 8; 196 skipped by project filters), incl. `m0/*.spec.ts` 22/22 (desktop-chrome 10, pixel-7 10, iphone-15 2) and the 8 KNOWN-BUG markers failing with their markers (`close/e2e/playwright-summary.md`) | **Met locally**; CI pending |
 | 5 | Chrome reports the app installable | `pwa/02-installable.spec.ts` desktop-chrome and pixel-7 passed; `installabilityErrors: []`, `manifestErrors: []` on both (`close/e2e/installability-{desktop-chrome,pixel-7}.json`, checked 2026-11-15 in run 2) | **Met** |
@@ -94,7 +94,7 @@ and run 2): `session-auth-close-db` 9/9, `session-auth-reverify-db` 57/57, `auth
 | Bundle report (P2-02, report-only) | `evidence/06-07/route-js/`, `m0-route-js-before-after.md`; CI `route-js` artifact | Met (report-only; blocking at V2-15) |
 | LHCI report published (PWA-09, report-only) | `evidence/06-07/lhci-summary.json` (local run, 06-07); nightly job after the merge | Met locally; first nightly after merge |
 | Evidence: CI links | Placeholder below | **Pending CI (orchestrator)** |
-| Evidence: design review notes | `reviews/v206-review-design.md` absent | **Not met** (orchestrator) |
+| Evidence: design review notes | `reviews/v206-review-design.md` (committed `2fc51b3`); fixes `06-09e-DESIGN-FIXES.md` | **Met** |
 | Evidence: `/gsd-secure-phase` | not produced (CTO ruling) | **Not run (CTO ruling; PO may ask at 06-P7)** |
 
 ## Reviews (CLAUDE.md DoD 6) — reports in `reviews/`
@@ -108,7 +108,7 @@ and run 2): `session-auth-close-db` 9/9, `session-auth-reverify-db` 57/57, `auth
 | Wave B, `136cd04` | Adversarial B (session status, palette, nav) | 1/1/2/5 | H-AUTHOUT, M-REMOVED, L-1 fixed in 06-09c; L-2 → V2-12 |
 | `de553cd` | Re-verification (adversarial) | H-AUTHOUT PARTIAL → H-AUTHOUT-R1 (H); M-REMOVED PARTIAL → M-REMOVED-R1 (M); L-R1…L-R4 | All fixed in 06-09d |
 | `f9298e0` | Second re-verification (adversarial) | H-AUTHOUT-R1 CLOSED, M-REMOVED-R1 CLOSED, 0 new H/M; L-N1…L-N4; 1 Info | L-N1…L-N4 fixed at the gate close (`5197b1a`), no further round (PO speed ruling) |
-| — | Isolated G3 design reviewer (`v206-review-design.md`) | — | **Not run** (see "Not met") |
+| G3 set `38b614c` | Isolated G3 design reviewer (`v206-review-design.md`) | 0/5/12/8 (H/M/L/Polish) | **Approve with changes.** M1-M5 fixed in 06-09e with browser tests; 17 Lows/Polish fixed, checked or ruled, 4 deferred (below); one independent check by the orchestrator (UI, speed ruling) |
 
 **All Highs and Mediums are closed:** H-WEBKIT and H-AUTHOUT (→ H-AUTHOUT-R1, closed after two re-verification
 rounds), M-EVERYWHERE, M-TABS (→ N-1), M-ERRCAP, M-OFFLINE, M-GUARD, M-REMOVED (→ M-REMOVED-R1), M-VITALS, M-RXKEYS,
@@ -133,17 +133,11 @@ budget). The PO confirms or overturns them at 06-P7.
 
 ## Not yet verifiable or not met (owner)
 - **06-P6 (PO): the G3 screenshot set** (`evidence/06-08/screens/README.md`, set commit
-  `38b614cf3cb68ee7ffc7e34cbeb00db93c41c6ea`; unchanged at the gate commit, `git diff --quiet 38b614c HEAD --
-  evidence/06-08/screens` exit 0). Pending approval.
-- **The isolated G3 design reviewer has not run.** The plan's acceptance row 2 lists "isolated design reviewer's notes
-  (`reviews/v206-review-design.md`)", and phase close step 4(b) asks for it: the screenshot set against the
-  brand-theme evidence at `3a78a5d`, the contrast report, gallery axe, DESIGN_SYSTEM §6–§8 and the brand-kit rules for
-  the mark. No such report exists in `reviews/`. Owner: **orchestrator**, before or with 06-P6. This executor has no
-  way to start an isolated reviewer.
+  `4e4c89b4cf58ce215a1f0449b62805cb82f095c7`, regenerated after the design review fixes; the set the reviewer read was
+  `38b614c`). Pending approval.
 - **06-P7 (PO):** doc errata E-1…E-13 (`06-08-CLOSE-OUT.md`) and the CTO rulings; proposed CLAUDE.md Commands update
   (phase close step 6).
-- **06-P5 (PO, merge blocker in the plan): the Wave B packages and font/icon files.** Not in this close's PO list; it
-  stays as the plan states unless the orchestrator records a CTO ruling, as for 06-P4.
+- ~~06-P5~~ **accepted by CTO ruling (2026-11-15, PO delegation)**: see "CTO ruling: 06-P5" below.
 - **`/gsd-secure-phase` over T-06-01…T-06-21 and T-06-SC (`reviews/v206-secure-phase.md`) — not run.** CTO ruling
   (2026-11-15), as at V2-05a and 05b: the review set (two independent reviews, three adversarial reviews and three
   adversarial re-verification rounds, `reviews/v206*-*.md`) covers the security-sensitive rows (service worker, public
@@ -156,6 +150,51 @@ budget). The PO confirms or overturns them at 06-P7.
   nightly `design`/`sw-update`/LHCI first runs.
 - **Merge order:** #6 → #8 → #10 → #9, each retargeted to `feature/v2` as the one below merges, merge commits only
   (`06-SUMMARY.md` § Merge order).
+
+## G3 design review outcome (06-09e)
+`reviews/v206-review-design.md` (isolated reviewer; read the set at `38b614c` against `3a78a5d` and `06-UI-SPEC.md`):
+**approve with changes**, High 0 · Medium 5 · Low 12 · Polish 8. Record: `06-09e-DESIGN-FIXES.md` (per-finding table,
+before = set `38b614c`, after = set `4e4c89b`).
+- **Fixed (all Mediums):** M1 one Back control (the v1 in-page arrows on the consult and the record removed); M2 queue
+  rows keep their actions in a right-hand column below 1280 px (~80 px rows, 44 px targets); M3 one-line BottomBar
+  captions with aligned icons (visible "Cabin", "Queue", "Calendar"; the v1 names stay the accessible names); M4 no
+  monospace on product screens or login (`tabular-nums` Inter; new enforced UI-policy rule `mono-font`, Developer
+  settings excepted); M5 install card, `/offline` and route-state headings in the Manrope hierarchy, `/offline` with
+  the WifiOff glyph and Retry's RefreshCw.
+- **Fixed (Lows/Polish):** L1 (product name line removed), L3, L4, L6, L7 (v1 With-doctor pills teal), L8, L10, L11,
+  P1, P3, P4, P5, P6, P7, P8. **Checked:** L12 (one h1 per shell route, tested). **Ruled:** L5 (artefact of the e2e-only
+  diagnostic route), L9 (the Rx "M" hint arrives with the shortcut in V2-09, CD-18; noted in the UI-SPEC).
+- **Deferred:** L1 place line and L2 display name → V2-11; P2 typographic apostrophes (one sweep of copy and specs) →
+  V2-11; v1 status labels onto StatusChip → V2-08/V2-11.
+- **Tests (tool outputs, `evidence/06-09e/`):** `tests/e2e/shell/design-review-09e.spec.ts` 35 passed (desktop-chrome 33,
+  pixel-7 2) and the whole PR lane `npm run e2e:pr -- --retries=0` on the build of `2a23550`: **625 passed, 0 failed,
+  0 flaky, 0 retried**, 229 skipped by project filters (desktop-chrome 424, pixel-7 148, iphone-15 38, pwa-ipados 7,
+  setup 8; the 8 KNOWN-BUG markers fail with their markers; `e2e/playwright-summary.txt`). Static: typecheck, `eslint .
+  --quiet`, inventory, `ci:ai-l1`, contrast (242 pairs, 0 fail), `ci:ui-policy` (mono-font enforced, 0) all exit 0
+  (`static.txt`). Full Vitest: 307 files / 6307 tests passed, 0 failed, 0 skipped (`vitest-full-summary.txt`); report
+  gate PASS with FLOOR 5992 (6307 × 0.95) and 220 required files (+ `tests/design/design-review-09e.spec.ts`;
+  `vitest-report-gate.txt`). pgTAP not re-run (no SQL in 06-09e).
+- **CI run 43705726084 at `bab829e` (2 failures, `loading-states.spec.ts`, Live Queue and Calendar):** root cause and
+  fix in `06-09e-DESIGN-FIXES.md`: `clickNavLink` matched Today's own links once Today had streamed in, which CI's fresh
+  stack did before the click and the busy local stack did not (a race, not data). Locators scoped to the navigation;
+  the spec now waits for the source page to finish, so the condition is deterministic; fails without the scope fix
+  (`evidence/06-09e/loading-states-fails-without.txt`), passes in the PR lane above (desktop-chrome 10/10, the
+  project the spec runs on).
+
+## CTO ruling: 06-P5 (2026-11-15, PO delegation)
+The CTO, acting under the PO's delegation (PO ruling "delivery speed", 2026-11-14), accepts **06-P5**, the plan's merge
+blocker for the Wave B packages and the font and icon files (`06-PLAN.md` "New dependencies and pinned artefacts";
+`evidence/package-legitimacy.json`):
+- **npm packages, exact pins:** `radix-ui` 1.8.1 (06-02a), `cmdk` 1.1.1 and `sonner` 2.0.8 (06-02b), `react-day-picker`
+  10.0.2 (06-02c), each with the reason and the research audit recorded in the plan (no install scripts; `cmdk`'s
+  dialog dependency dedupes under `radix-ui`; `react-day-picker`'s `date-fns` / `@date-fns/tz` ranges satisfied by the
+  existing pins).
+- **Fonts, local files:** Inter (variable woff2, Latin + Latin Extended) and Manrope (variable woff2, Latin + Latin
+  Extended), both under the SIL Open Font License 1.1 (`app/fonts/Inter-OFL.txt`, rsms/inter's own licence;
+  `app/fonts/Manrope-OFL.txt`), SHA-256 and provenance in `app/fonts/PROVENANCE.md`.
+- **Brand kit:** the CliniQ AI icon masters (`icon.svg`, `icon-maskable.svg`) and the favicon and PNG icons rendered from
+  them (R-24), from the PO's CliniQ AI brand kit v1.0, applied verbatim (V2-DX `d2e399f`, copied at `3a78a5d`).
+The PO may overturn this at 06-P7.
 
 ## CI run
 <!-- CI-RUN-PLACEHOLDER: the orchestrator runs

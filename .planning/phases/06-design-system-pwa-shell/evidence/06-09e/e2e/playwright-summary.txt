@@ -1,0 +1,13 @@
+stats: {'expected': 625, 'unexpected': 0, 'flaky': 0, 'skipped': 229} duration_s 813
+('desktop-chrome', 'expected') 424
+('desktop-chrome', 'skipped') 6
+('iphone-15', 'expected') 38
+('pixel-7', 'expected') 148
+('pixel-7', 'skipped') 223
+('pwa-ipados', 'expected') 7
+('setup', 'expected') 8
+tests with more than one result (retried): 0
+test.fail KNOWN-BUG markers (expected failed): 8
+('design-review-09e.spec.ts', 'desktop-chrome', 'expected') 33
+('design-review-09e.spec.ts', 'pixel-7', 'expected') 2
+('loading-states.spec.ts', 'desktop-chrome', 'expected') 10

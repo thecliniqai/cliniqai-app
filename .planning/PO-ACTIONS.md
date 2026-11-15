@@ -116,8 +116,9 @@ C-1 (private repo) is deferred to go-live; SES (03-E5/E6) is replaced by Resend 
 - [ ] **06-P6 · G3: approve the V2-06 screenshot set** — gate (blocks the V2-06 merge)
   - *Do / where:* open `.planning/phases/06-design-system-pwa-shell/evidence/06-08/screens/README.md` (33 screens at
     360/820/1180/1280, each next to its G2-D reference at `3a78a5d`, with the axe and scroll columns). The set was
-    last regenerated in commit `38b614cf3cb68ee7ffc7e34cbeb00db93c41c6ea` and is unchanged at the gate commit
-    (no G3 screen changed since). Approve, or list the screens to change.
+    last regenerated in commit `4e4c89b4cf58ce215a1f0449b62805cb82f095c7`, after the isolated design reviewer's
+    fixes (`reviews/v206-review-design.md`, approve with changes; all 5 Mediums fixed, record
+    `06-09e-DESIGN-FIXES.md`). Approve, or list the screens to change.
   - *Why:* roadmap V2-06 acceptance 2 and G3.
   - *Verify (Claude):* your approval, verbatim, in the V2-06 gate entry of `docs/v2/VERIFICATION_LOG.md` with that SHA.
 

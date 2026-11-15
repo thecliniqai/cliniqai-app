@@ -37,6 +37,7 @@ copied from a tool output under `evidence/` or from a plan record that cites one
 | 06-04b shell, navigation, palette | App shell (Sidebar ≥ 1280, Rail 768–1279, BottomBar < 768), `navForRole`, command palette with a server-side four-field patient projection, toasts, More sheet, Back and keyboard-aware bars; v1 shell removed (`06-04b-SHELL-NAV-PALETTE.md`) |
 | 06-08 close-out | React Compiler rules back to `error` (13 sites fixed, 20 waived with owner and expiry), UI policy report and baseline, the G3 screenshot set (33 screens, 129 captures), report gate (`06-08-CLOSE-OUT.md`) |
 | 06-09c / 06-09d Wave B fixes | H-AUTHOUT, M-REMOVED, M-VITALS, M-RXKEYS, M-PICKER, M-DATE, M-INFANTAGE and cheap Lows; then the re-verification's H-AUTHOUT-R1 (the Auth transport: only a definitive GoTrue answer signs out), M-REMOVED-R1 (the device is pinned to its clinic) and L-R1…L-R4 (`06-09c-REVIEW-FIXES.md`, `06-09d-REVERIFY-FIXES.md`) |
+| 06-09e G3 design review fixes | The isolated design reviewer's 5 Mediums (one Back control, queue-row actions in a right-hand column, one-line BottomBar captions, no monospace, the Manrope hierarchy on the install card, `/offline` and route states) and the cheap Lows/Polish, each with a browser test; enforced UI-policy rule `mono-font`; the CI `loading-states` strict-mode failure root-caused and fixed; G3 set regenerated (`06-09e-DESIGN-FIXES.md`) |
 | Gate close (this document) | The re-check's four Lows L-N1…L-N4 (`5197b1a`), each with a test that fails without it; report gate + 1 spec, FLOOR 5985 (`9cf851d`); e2e harness fix (`f21a4b6`); evidence (`evidence/`, `evidence/close/`) |
 
 No migration in V2-06 (R-33). No new runtime dependency outside the plan's list (`radix-ui`, `cmdk`, `sonner`,
@@ -57,8 +58,8 @@ No migration in V2-06 (R-33). No new runtime dependency outside the plan's list 
 - **Review set (R-37):** the planned `v206-review-independent.md` / `…-shell-palette.md` are
   `reviews/v206b-review-independent.md` and `reviews/v206b-review-adversarial-session-palette.md`. Wave A got its own
   three reviews before Wave B (`reviews/v206a-*`). Fix plans 06-09a…06-09d replace the single planned 06-09b.
-- **The isolated G3 design reviewer (`reviews/v206-review-design.md`) has not run** (see "Not met" in
-  `06-VERIFICATION.md`).
+- **The isolated G3 design reviewer ran after the gate close** (`reviews/v206-review-design.md`, approve with changes);
+  its fixes are plan 06-09e (`06-09e-DESIGN-FIXES.md`), outcome below.
 - **Gate close, two defects found by the gate's own runs (Rule 1, fixed with the close):** `tests/ci/vitest-report-gate.spec.ts`
   still pinned the old default floor 5909 after 06-09d's `b11e398` raised it to 5974, so it failed from `b11e398` on
   (floor-measurement run, `close/vitest-full-measure.txt`; fixed in `9cf851d`); and the `09-outage-and-removal` e2e
@@ -82,6 +83,19 @@ Severity counts are copied from each report (`reviews/`).
 | Wave B re-verification (`v206c-review-reverify.md`) | `de553cd` | H-AUTHOUT **PARTIAL** → **H-AUTHOUT-R1** | M-REMOVED **PARTIAL** → **M-REMOVED-R1** | 4 (L-R1…L-R4) | — | All fixed in 06-09d |
 | Wave B second re-verification (`v206d-review-recheck.md`) | `f9298e0` | H-AUTHOUT-R1 **CLOSED**; 0 new | M-REMOVED-R1 **CLOSED**; 0 new | L-N1…L-N4 | 1 | L-N1…L-N4 fixed at the gate close (above), no further round (PO speed ruling) |
 
+| G3 design review (`v206-review-design.md`) | set `38b614c` | 0 | 5 | 12 | 8 (Polish) | **Approve with changes.** M1-M5 fixed in 06-09e with browser tests; Lows/Polish fixed, checked or ruled; L1 place line, L2 display name, P2 apostrophes → V2-11; v1 status labels → V2-08/V2-11 |
+
+**G3 design review outcome (06-09e).** Verdict approve with changes (High 0 · Medium 5 · Low 12 · Polish 8). Fixed:
+M1 one Back control (the v1 in-page arrows removed), M2 queue-row actions in a right-hand column below 1280 px (~80 px
+rows), M3 one-line BottomBar captions with aligned icons ("Cabin", "Queue", "Calendar" shown; the v1 names stay the
+accessible names), M4 no monospace on product screens and login (`tabular-nums` Inter; enforced rule `mono-font`), M5
+the Manrope hierarchy on the install card, `/offline` (WifiOff glyph, Retry icon) and the route states; Lows L1 (partly),
+L3, L4, L6, L7, L8, L10, L11 and Polish P1, P3-P8; L12 checked (one h1 per route); L5 and L9 ruled. Deferred: L1 place
+line, L2 display name, P2 typographic apostrophes → V2-11; v1 status labels onto StatusChip → V2-08/V2-11. The G3 set
+was regenerated in `4e4c89b` (129 captures, axe 0 in scope, no horizontal scroll). The same plan root-caused CI run
+43705726084's `loading-states` failures (a locator that matched Today's own links once Today had streamed in; a race
+the busy local stack lost the other way) and fixed them.
+
 **All Highs and Mediums are closed:** H-WEBKIT (closed at `4a4c796`), H-AUTHOUT → H-AUTHOUT-R1 (closed at
 `f9298e0`, after two re-verification rounds), M-EVERYWHERE, M-ERRCAP, M-OFFLINE, M-GUARD (closed at `4a4c796`), M-TABS
 (→ N-1, fixed in 06-09b, residual assigned by CTO ruling), M-REMOVED → M-REMOVED-R1 (closed at `f9298e0`), M-VITALS,
@@ -102,6 +116,7 @@ R-37). Every fix has a test that fails without it (each record's "fails without"
 | A forged clinic cookie signs out only the forger | A forged or foreign `clinic_active_tenant` (or shell header) answers 403 for that device alone; it never reads another clinic (`getActiveMembership` and `authz.active_tenant_id()` match only the caller's active memberships); the pin is HttpOnly | `06-09d-REVERIFY-FIXES.md`; `reviews/v206d-review-recheck.md` (D3, D4) |
 | Auth outage ≠ sign-out | Only GoTrue's definitive codes sign out; 429/408/5xx/network/uncoded 4xx keep the session (H-AUTHOUT-R1) | `06-09c-REVIEW-TRIAGE.md`; `lib/auth/auth-failure.ts` |
 | Proxy Auth budget 5.5 s (L-N2) | Chosen so proxy (5.75 s hard stop) + route (3.5 s) stay under the client's 10 s; a page's own `/user` keeps 3.5 s | this gate close; `lib/supabase/auth-transport.ts` |
+| 06-P5 accepted (2026-11-15) | The Wave B packages (`radix-ui` 1.8.1, `cmdk` 1.1.1, `sonner` 2.0.8, `react-day-picker` 10.0.2), the Inter and Manrope local fonts (SIL OFL 1.1, `app/fonts/PROVENANCE.md`) and the brand-kit icons and favicon (PO brand kit v1.0) are accepted under the PO's delegation | `06-VERIFICATION.md` "CTO ruling: 06-P5" |
 | `/gsd-secure-phase` (2026-11-15) | Not run for V2-06. The review set (two independent reviews, three adversarial reviews and three adversarial re-verification rounds over the security-sensitive rows T-06-01…T-06-21 and T-06-SC) stands in its place under the PO speed ruling, as for V2-05a and 05b | `06-VERIFICATION.md` |
 
 ## Accepted or assigned, with owner
@@ -153,12 +168,14 @@ default branch).
 - UI policy at the close: raw-palette 3346, px-font 266, link-wraps-button 31, window-dialog 27, arbitrary-color 2,
   ai-sdk-import 0; enforced brand-utility, screen-height, signout-guard 0 (`close/ui-policy.txt`).
 - G3 set: 33 screens, 129 captures, axe 0 serious/critical in scope, no horizontal scroll (`evidence/06-08/screens/`,
-  set commit `38b614c`).
+  set commit `4e4c89b`, regenerated by 06-09e; the reviewed set was `38b614c`).
+- 06-09e: PR lane on the build of `2a23550`, `--retries=0`: 625 passed, 0 failed, 0 flaky, 0 retried
+  (`evidence/06-09e/e2e/`).
 - Gate-close Lows without → with: 10 of 20 Vitest cases fail at `e7d99ce` → 77/77 with the fix; L-N3 e2e fails on
   desktop-chrome and pixel-7 with the old page → 4/4 (`close/fails-without-*.txt`, `close/with-fix-vitest.txt`).
 
 ## Pending PO (ids in `.planning/PO-ACTIONS.md` § "V2-06 Design system & PWA shell")
 - **Gate:** 06-P6 (approve the G3 screenshot set: `evidence/06-08/screens/README.md`, set commit
-  `38b614cf3cb68ee7ffc7e34cbeb00db93c41c6ea`, unchanged at the gate commit), 06-P7 (doc errata E-1…E-13 and the
+  `4e4c89b4cf58ce215a1f0449b62805cb82f095c7`, regenerated after the design review fixes), 06-P7 (doc errata E-1…E-13 and the
   rulings above).
 - **When staging is live:** 06-P8 (one real-iPhone offline sign-out check).
