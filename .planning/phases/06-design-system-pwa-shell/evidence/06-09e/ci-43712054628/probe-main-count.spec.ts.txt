@@ -1,0 +1,27 @@
+/** TEMPORARY debugging probe (ci-43712054628): how many role=main elements the consult and the record expose over
+ * time after page.goto. Never committed. */
+import { test } from "./fixtures";
+import { readRunData, storageStatePath } from "./support/run-data";
+
+test.use({ storageState: storageStatePath("owner") });
+
+for (const width of [360, 820, 1280]) {
+  test(`main count at ${width}`, async ({ page }) => {
+    const { tenantA } = readRunData();
+    await page.setViewportSize({ width, height: 900 });
+    const rows: string[] = [];
+    for (const url of [`/consultation/${tenantA.visitId}`, `/patients/${tenantA.patientId}`]) {
+      await page.goto(url);
+      const t0 = Date.now();
+      for (const wait of [0, 250, 1000, 3000]) {
+        if (wait) await page.waitForTimeout(wait);
+        const n = await page.getByRole("main").count();
+        const all = await page.locator("main").evaluateAll((els) =>
+          els.map((e) => `${e.id || "-"}:${e.closest("[aria-hidden=true],[inert],[hidden]") ? "hidden-anc" : "shown"}:${getComputedStyle(e).display}`),
+        );
+        rows.push(`${width} ${url.split("/")[1]} +${Date.now() - t0}ms role=main ${n} dom=${JSON.stringify(all)}`);
+      }
+    }
+    console.log(`MAIN-PROBE\n${rows.join("\n")}`);
+  });
+}

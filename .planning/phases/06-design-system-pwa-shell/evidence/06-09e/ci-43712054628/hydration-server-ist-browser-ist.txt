@@ -1,0 +1,39 @@
+[WebServer] ▲ Next.js 16.4.6
+[WebServer] - Local:         http://127.0.0.1:3100
+[WebServer] - Network:       http://127.0.0.1:3100
+[WebServer] ✓ Ready in 78ms
+[WebServer] ✓ Running next.config.ts took 26ms
+
+Running 11 tests using 1 worker
+
+  ✓   1 [setup] › tests/e2e/auth.setup.ts:21:8 › owner signs in through the login UI (626ms)
+  ✓   2 [setup] › tests/e2e/auth.setup.ts:21:8 › admin signs in through the login UI (491ms)
+  ✓   3 [setup] › tests/e2e/auth.setup.ts:21:8 › doctor signs in through the login UI (608ms)
+  ✓   4 [setup] › tests/e2e/auth.setup.ts:21:8 › nurse signs in through the login UI (429ms)
+  ✓   5 [setup] › tests/e2e/auth.setup.ts:21:8 › receptionist signs in through the login UI (417ms)
+  ✓   6 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-owner signs in through the login UI and lands on /billing/locked (460ms)
+  ✓   7 [setup] › tests/e2e/auth.setup.ts:38:8 › locked-receptionist signs in through the login UI and lands on /billing/locked/staff (425ms)
+  ✓   8 [setup] › tests/e2e/auth.setup.ts:38:8 › onboarding-owner signs in through the login UI and lands on /onboarding/billing (408ms)
+  ✓   9 [desktop-chrome] › tests/e2e/0-hydration-probe.spec.ts:12:7 › probe at 360 (7.1s)
+  ✓  10 [desktop-chrome] › tests/e2e/0-hydration-probe.spec.ts:12:7 › probe at 820 (7.2s)
+HYDRATION-PROBE [
+ "local/- 360 /: clean",
+ "local/- 360 /patients/<id>: clean",
+ "local/- 360 /consultation/<id>: clean",
+ "local/- 360 /settings/clinic: clean",
+ "local/- 360 /calendar (seeded visit): clean",
+ "local/- 820 /: clean",
+ "local/- 820 /patients/<id>: clean",
+ "local/- 820 /consultation/<id>: clean",
+ "local/- 820 /settings/clinic: clean",
+ "local/- 820 /calendar (seeded visit): clean",
+ "local/- 1280 /: clean",
+ "local/- 1280 /patients/<id>: clean",
+ "local/- 1280 /consultation/<id>: clean",
+ "local/- 1280 /settings/clinic: clean",
+ "local/- 1280 /calendar (seeded visit): clean"
+]
+  ✓  11 [desktop-chrome] › tests/e2e/0-hydration-probe.spec.ts:12:7 › probe at 1280 (7.1s)
+[e2e teardown] removed run data: 4 tenant(s), 9 auth user(s), 0 storage object(s); verified none remain
+
+  11 passed (29.8s)
