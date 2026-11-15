@@ -97,6 +97,19 @@ async function navigate(page: Page, name: string, pathname: string): Promise<voi
 
 const toast = (page: Page) => page.locator("[data-update-toast]");
 
+/**
+ * The edit-patient modal's `updatePatient(patientId, { full_name, … })` Server Action, read from its request body (the
+ * arguments as JSON). The modal sends the name trimmed.
+ */
+function isEditSubmit(body: string | null, patientId: string, fullName: string): boolean {
+  try {
+    const args = JSON.parse(body ?? "") as unknown;
+    return Array.isArray(args) && args[0] === patientId && (args[1] as { full_name?: unknown } | null)?.full_name === fullName;
+  } catch {
+    return false;
+  }
+}
+
 test.describe("update toast and safe point (owner)", () => {
   test.use({ storageState: storageStatePath("owner") });
 
@@ -169,13 +182,17 @@ test.describe("update toast and safe point (owner)", () => {
     const typed = await fullName.inputValue();
     await setMarker(page);
 
-    let intercepted = 0;
+    // Every Server Action is unknown to the "new" deployment (404), but only the edit's submit is counted: the shell's
+    // own actions can leave in this window too. CI 43728153203: the notification bell's first list call, queued by
+    // Next's action queue (one action at a time) behind its slow unread-count call, left after this route went in.
+    const submits: string[] = [];
     await page.route(
       (url) => url.pathname === `/patients/${patientId}`,
       async (route) => {
         const request = route.request();
-        if (request.method() !== "POST" || !request.headers()["next-action"]) return route.continue();
-        intercepted += 1;
+        const actionId = request.headers()["next-action"];
+        if (request.method() !== "POST" || !actionId) return route.continue();
+        if (isEditSubmit(request.postData(), patientId, typed.trim())) submits.push(actionId);
         await route.fulfill({
           status: 404,
           headers: { "x-nextjs-action-not-found": "1", "content-type": "text/plain" },
@@ -188,7 +205,7 @@ test.describe("update toast and safe point (owner)", () => {
     await fullName.press("Enter");
 
     await expect(toast(page).getByText(SKEW)).toBeVisible();
-    expect(intercepted).toBe(1);
+    expect(submits, "the edit is submitted exactly once").toHaveLength(1);
     await expect(fullName).toHaveValue(typed);
     await page.waitForTimeout(1500);
     expect(await hasMarker(page), "the skew notice never reloads by itself").toBe(true);
