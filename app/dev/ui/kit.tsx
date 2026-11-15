@@ -10,15 +10,26 @@ export function GallerySection({
   id,
   title,
   intro,
+  bleed = false,
   children,
 }: {
   id: string;
   title: string;
   intro?: ReactNode;
+  /**
+   * Phones: the section box spans the screen (its content keeps the 16 px gutter), so a specimen that is full bleed on
+   * a phone screen (a Today lane, 06-UI-SPEC §7) can span it too and stays inside the section's capture (06-09e).
+   */
+  bleed?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section id={id} aria-labelledby={`${id}-title`} data-gallery-section={id} className="flex flex-col gap-6">
+    <section
+      id={id}
+      aria-labelledby={`${id}-title`}
+      data-gallery-section={id}
+      className={cn("flex flex-col gap-6", bleed && "max-sm:-mx-4 max-sm:px-4")}
+    >
       <div className="flex max-w-3xl flex-col gap-1.5 border-b border-border pb-3">
         <h2 id={`${id}-title`} className="font-display text-title-2 text-fg">
           {title}

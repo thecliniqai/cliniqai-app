@@ -172,9 +172,8 @@ test.describe("M2: queue rows keep their actions in a right-hand column below 12
         }
         if (width < 1024) expect(row.minButton, `${row.name} 44 px targets at ${width}px`).toBeGreaterThanOrEqual(44);
       }
-      // Where the content column fits a two-word name on one line (the gallery's 448 px lane from 820 px; on a phone
-      // the specimen sits in a 328 px column, so the name takes two lines there), a row is about 80 px.
-      if (width >= 820 && width < 1280) {
+      // A row whose name fits one line is about 80 px (the phone lane is full bleed, as on Today).
+      if (width < 1280) {
         const plain = measured.find((r) => r.name === "Synthetic Patient 02")!;
         expect(plain.height, `a one-line row at ${width}px`).toBeGreaterThanOrEqual(64);
         expect(plain.height, `a one-line row at ${width}px`).toBeLessThanOrEqual(92);
