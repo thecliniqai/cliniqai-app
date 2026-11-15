@@ -1,8 +1,15 @@
 import "server-only";
 
-import type { ReactNode } from "react";
+import { createElement, type ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { assertTenantAccess, getActiveMembership, TenantLockedError, UnauthenticatedError } from "@/lib/auth/tenant";
+import {
+  ActiveClinicMembershipEndedError,
+  assertTenantAccess,
+  getActiveMembership,
+  TenantLockedError,
+  UnauthenticatedError,
+} from "@/lib/auth/tenant";
+import { MembershipEnded } from "@/components/shell/membership-ended";
 import { accessRedirect, LOCKED_STAFF_PATH } from "@/lib/auth/access-redirect";
 import type { UserRole } from "@/lib/db/types";
 
@@ -82,8 +89,10 @@ async function assertPageClinicFull(): Promise<void> {
 /**
  * Wraps a dashboard page (an async server component): a missing or revoked session anywhere in its loader becomes a
  * redirect to /login; a clinic that is not `full` (05-10b; checked before the loader runs since 05-12) a redirect to
- * the member's locked or onboarding page; every other error (and Next's own redirect/notFound) passes through
- * unchanged.
+ * the member's locked or onboarding page; 06-09c (M-REMOVED) the active clinic no longer being one of the user's
+ * clinics renders `MembershipEnded` (sign-out and purge; on a client navigation the layout does not run again, and on a
+ * full load the page's output is discarded by the layout's own `MembershipEnded`, without a false request error);
+ * every other error (and Next's own redirect/notFound) passes through unchanged.
  */
 export function withPageAuth<P>(page: (props: P) => Promise<ReactNode>): (props: P) => Promise<ReactNode> {
   return async function AuthenticatedPage(props: P): Promise<ReactNode> {
@@ -93,6 +102,7 @@ export function withPageAuth<P>(page: (props: P) => Promise<ReactNode>): (props:
     } catch (err) {
       redirectIfUnauthenticated(err);
       await redirectIfTenantLocked(err);
+      if (err instanceof ActiveClinicMembershipEndedError) return createElement(MembershipEnded);
       throw err;
     }
   };

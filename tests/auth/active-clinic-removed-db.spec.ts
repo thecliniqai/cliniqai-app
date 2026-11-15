@@ -49,6 +49,8 @@ vi.mock("next/headers", async (importOriginal) => {
 import { GET } from "@/app/api/session-status/route";
 import { POST as signOut } from "@/app/auth/signout/route";
 import DashboardLayout from "@/app/(dashboard)/layout";
+import PatientsPage from "@/app/(dashboard)/patients/(list)/page";
+import { resolveServiceContext } from "@/lib/auth/context";
 import { MembershipEnded } from "@/components/shell/membership-ended";
 import { ActiveClinicMembershipEndedError, getActiveMembership } from "@/lib/auth/tenant";
 import { ACTIVE_TENANT_COOKIE } from "@/lib/supabase/server";
@@ -107,6 +109,15 @@ describe("removed from the active clinic, one clinic left (local stack)", () => 
     const out = await DashboardLayout({ children: null });
     expect(isValidElement(out)).toBe(true);
     expect((out as { type: unknown }).type).toBe(MembershipEnded);
+  });
+
+  it("a wrapped page (a client navigation) and a server action refuse too: the sign-out screen, a fixed refusal", async () => {
+    await setMembershipStatus(dual.userId, a, "removed");
+    const out = await (PatientsPage as (p: unknown) => Promise<unknown>)({ searchParams: Promise.resolve({}) });
+    expect(isValidElement(out)).toBe(true);
+    expect((out as { type: unknown }).type).toBe(MembershipEnded);
+    const ctx = await resolveServiceContext("patients:view");
+    expect(ctx).toMatchObject({ ok: false, reason: "no_membership" });
   });
 
   it("no cookie (nothing picked): the remaining clinic answers", async () => {

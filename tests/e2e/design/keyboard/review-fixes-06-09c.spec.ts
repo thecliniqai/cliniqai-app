@@ -180,16 +180,17 @@ test("M-PICKER: Enter while a newer search runs does nothing; the answer to what
   const options = picker.getByRole("listbox", { name: "Patients" }).getByRole("option");
   await search.scrollIntoViewIfNeeded();
   await search.click();
-  await page.keyboard.type("900000000");
+  await page.keyboard.type("9000000");
   await expect(options).toHaveCount(5);
-  // "…0002" is typed and Enter pressed at once: the five rows of "900000000" are not what the field holds any more.
-  await page.keyboard.type("2");
+  await expect(options.first()).toContainText("Synthetic Patient 01");
+  // "3" is typed and Enter pressed at once: the five rows of "9000000" are not what the field holds any more.
+  await page.keyboard.type("3");
   await page.keyboard.press("Enter");
   await expect(options).toHaveCount(1);
-  await expect(options.first()).toContainText("Synthetic Patient 02");
+  await expect(options.first()).toContainText("Synthetic Patient 03");
   await expect(result).toHaveText("No patient picked");
   await page.keyboard.press("Enter");
-  await expect(result).toHaveText("Added Synthetic Patient 02 to the queue");
+  await expect(result).toHaveText("Added Synthetic Patient 03 to the queue");
 });
 
 test("M-PICKER: a failed search ends the loading row and says so; Enter does nothing", async ({ page }, testInfo) => {
@@ -286,7 +287,8 @@ test("IND L-5: a Button with no type inside a form is a submit button: offline i
   await context.setOffline(true);
   try {
     await expect(button).toHaveAttribute("aria-disabled", "true");
-    await button.click();
+    // Playwright waits for an aria-disabled control to be enabled; a person can still click it.
+    await button.click({ force: true });
     await form.getByRole("textbox", { name: "Note" }).press("Enter");
     await page.waitForTimeout(200);
     await expect(saved).toHaveText("Not saved yet");

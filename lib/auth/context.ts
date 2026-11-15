@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, UserRole } from "@/lib/db/types";
 import { createClient } from "@/lib/supabase/server";
 import {
+  ActiveClinicMembershipEndedError,
   assertTenantAccess,
   getActiveMembership,
   MultipleClinicsSelectionRequiredError,
@@ -82,7 +83,13 @@ export async function resolveServiceContext(permission?: Permission, access: Req
     }
     // Only the fixed messages of the known membership errors reach the caller (IR-L1); anything else (a database or
     // network failure) is logged by name and answered with a fixed string.
-    if (err instanceof NoClinicMembershipError || err instanceof MultipleClinicsSelectionRequiredError) {
+    // 06-09c (M-REMOVED): the active clinic is no longer one of the user's clinics (its fixed message, no log line:
+    // the session-status poll signs the device out).
+    if (
+      err instanceof NoClinicMembershipError ||
+      err instanceof MultipleClinicsSelectionRequiredError ||
+      err instanceof ActiveClinicMembershipEndedError
+    ) {
       return { ok: false, error: err.message, reason: "no_membership" };
     }
     log.error({ event: "auth.context_resolve.failed", code: errorTag(err), requestId: await getRequestId() });
