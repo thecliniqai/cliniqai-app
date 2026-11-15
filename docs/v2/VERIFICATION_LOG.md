@@ -879,3 +879,22 @@ PO: "I was thinking of using third party for now for stable launch and once we g
 | Inventory & stock (medicines, equipment, consumables) | v2.1. Self-contained module; Schedule H dispensing record rules scoped when planned |
 | Voice Rx / voice consult (speech-to-text → LLM) | v2.1, first AI item. V2-12 designs the AI gateway so audio input can be added without rework; needs India-hosted STT, recording consent, audio retention/deletion and cost limits |
 | v2.0 scope | Unchanged otherwise (risk R12 scope creep) |
+
+### PO decision: branch pricing and the two-mode Razorpay billing strategy (2026-11-15)
+
+Context: Razorpay Subscriptions authorised by UPI AutoPay or e-mandate cannot be updated (quantity included); only card
+subscriptions can. A clinic that starts with one branch and grows needs a different path.
+
+| Item | Decision |
+|---|---|
+| Price | First branch ₹1,499 + GST; each extra branch **₹749 + GST** per month (configurable in `plan_prices`, no release needed) |
+| Billing unit | One owner, one debit, one GST invoice per cycle listing every branch |
+| Two billing modes | **Single-branch clinics: Razorpay Subscriptions** (fixed ₹1,768.82 mandate, nothing to explain). **Multi-branch clinics: Razorpay Recurring Payments** (one variable "as presented" mandate up to a stated maximum; CliniQ computes each cycle's amount) |
+| Onboarding | Owner is asked up front: "Do you have, or plan to open, other branches?" with a short note on why and how billing works for each answer; the answer picks the mode |
+| Adding a branch later (single → multi) | From the billing screen (owner/admin). The branch works immediately. The owner approves a recurring mandate; only after it is active is the subscription set to cancel at the end of its paid period (no gap, no double charge). The first recurring debit, on the old renewal date, includes the base, extra branches and the pro-rated amount |
+| Mid-cycle branch add (recurring mode) | Pro-rated for the remaining days and added to the **next** bill; no extra debit, no new mandate |
+| Recurring mandate maximum | CTO default (PO may change): enough for the declared/planned branches plus one, minimum ₹5,000, maximum ₹15,000 (or the limit Razorpay allows for our category), shown clearly before approval; exceeding it asks the owner for one re-approval |
+| Closing a branch | Stops counting from the next bill; no refund for the current period. Switching back to the fixed subscription is v2.1 |
+| Trial | Branches added during the trial are free until it ends |
+| To confirm with Razorpay (PO, during KYC) | Variable "as presented" debits on UPI AutoPay and e-mandate; the mandate maximum for our category; pre-debit notices; switching flow without double debits |
+| Owner phase | V2-13B (scope grows; estimate +20–30 %); branch data hook in V2-07/V2-08; branch screens v2.1 |
