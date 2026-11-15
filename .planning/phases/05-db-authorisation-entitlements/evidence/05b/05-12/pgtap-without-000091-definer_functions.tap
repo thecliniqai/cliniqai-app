@@ -1,0 +1,28 @@
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql .. 
+# Failed test 1: "every SECURITY DEFINER function in public and private is classified here, and nothing else"
+#     Missing records:
+#         (private.patients_ai_objection_audit)
+#         (private.tenants_timezone_audit)
+# Failed test 2: "every definer function has exactly its expected EXECUTE grantees (anon only for the token, probe and ingest paths)"
+#     Extra records:
+#         (public.ai_commit:authenticated)
+#         (public.ai_release:authenticated)
+#     Missing records:
+#         (private.tenants_timezone_audit:)
+#         ("public.ai_release:authenticated,service_role")
+#         (private.patients_ai_objection_audit:)
+#         ("public.ai_commit:authenticated,service_role")
+# Failed test 57: "locked B: its OWNER may still remove staff (05-12, IND L-5; any other role is refused, review_fixes_05b)"
+#         have: error:P0002:MEMBER_NOT_FOUND
+#         want: 1
+# Looks like you failed 3 tests of 71
+Failed 3/71 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/definer_functions.test.sql (Wstat: 0 Tests: 71 Failed: 3)
+  Failed tests:  1-2, 57
+Files=1, Tests=71,  0 wallclock secs ( 0.01 usr +  0.01 sys =  0.02 CPU)
+Result: FAIL
+error running container: exit 1

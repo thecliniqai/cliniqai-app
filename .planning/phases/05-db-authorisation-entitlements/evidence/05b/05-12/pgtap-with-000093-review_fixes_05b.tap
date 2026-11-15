@@ -1,0 +1,7 @@
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/review_fixes_05b.test.sql .. ok
+All tests successful.
+Files=1, Tests=42,  1 wallclock secs ( 0.01 usr +  0.02 sys =  0.03 CPU)
+Result: PASS
+A new version of Supabase CLI is available: v3.1.0 (currently installed v2.120.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

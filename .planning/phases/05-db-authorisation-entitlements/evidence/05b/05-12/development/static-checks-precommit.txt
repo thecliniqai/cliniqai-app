@@ -1,0 +1,21 @@
+== typecheck
+exit 0
+== eslint --quiet
+exit 0
+== inventory
+}
+== ai-l1
+ai-l1: PASS
+== env-example --check
+env-example: .env.example matches lib/env.ts
+== schema-snapshot --check
+schema-snapshot: PASS (local: 2650 lines equal the committed snapshot)
+== db:drift:local
+
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+== authz:gen --check
+
+== migration immutability
+migration-immutability: PASS (base 1612ff6 @ 1612ff6 [--base]; 91 applied unchanged; 2 new above 91)
+== no-doc-grep-tests
+doc-grep: PASS (351 test files scanned; none reads docs/)
