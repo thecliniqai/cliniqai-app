@@ -39,7 +39,7 @@ export default async function LockedOwnerPage() {
   return (
     <AccessPageShell testId="billing-locked" title={t.title}>
       <p>{t.intro}</p>
-      <dl className="divide-y divide-gray-100" data-testid="billing-locked-facts">
+      <dl className="divide-y divide-border" data-testid="billing-locked-facts">
         <AccessFact label={t.clinic}>{tenant?.name ?? t.unknown}</AccessFact>
         <AccessFact label={t.status}>
           {subscription ? en.subscription.status[subscription.status] : t.unknown}
@@ -52,7 +52,7 @@ export default async function LockedOwnerPage() {
           )}
         </AccessFact>
       </dl>
-      <p className="rounded-lg bg-gray-50 px-3 py-2" role="note">
+      <p className="rounded-lg bg-sunken px-3 py-2" role="note">
         {t.data_safe}
       </p>
       <p>{t.renewal}</p>

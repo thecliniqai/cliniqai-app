@@ -10,11 +10,16 @@
  * 06-01b: the manifest carries the CliniQ AI brand (name and short name "CliniQ AI", theme and background `#FFFFFF`,
  * the approved token values) and `/offline` names the product (before: "ClinicQ" and the Wave A colours).
  *
- * The same requests as a locked tenant's owner and receptionist (V2-05 05-10b fixtures) are written and run with 06-06
- * after the 05b merge-in (plan revision 2026-11-14).
+ * 06-06 (plan revision 2026-11-14, the 05-10b handover): the same requests with a LOCKED clinic's owner and
+ * receptionist sessions (05-10b's storage states, `accessStatePath`; never signed out here, they are shared by every
+ * device project) answer 200 with no redirect too: the lock redirect lives only in the `(dashboard)` layout and the
+ * locked pages, never in the proxy or on an asset path, so a locked device can still load the manifest, update its
+ * worker and show `/offline`. Fails if the access redirect moves into the proxy (or any layout above the assets):
+ * a 307 to `/billing/locked` or `/billing/locked/staff`.
  */
 import type { APIRequestContext } from "@playwright/test";
 import { expect, test } from "../fixtures";
+import { accessStatePath } from "../support/run-data";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -105,3 +110,35 @@ test("the root document links the manifest, the icons and the PWA viewport (no p
   expect(viewport).toContain("interactive-widget=resizes-content");
   expect(viewport).not.toMatch(/maximum-scale|user-scalable/);
 });
+
+for (const user of ["locked-owner", "locked-receptionist"] as const) {
+  test.describe(`${user} (V2-05 05-10b locked clinic)`, () => {
+    test.use({ storageState: accessStatePath(user) });
+
+    test(`@golden ${user}: every PWA asset answers 200 with no redirect`, async ({ request }) => {
+      const manifestRes = await getNoRedirect(request, "/manifest.webmanifest");
+      expect(manifestRes.headers()["content-type"]).toMatch(/^application\/manifest\+json/);
+      const manifest = (await manifestRes.json()) as { icons: ManifestIcon[] };
+      expect(manifest.icons.length).toBeGreaterThanOrEqual(3);
+      for (const icon of manifest.icons) {
+        const res = await getNoRedirect(request, icon.src);
+        expect(res.headers()["content-type"], icon.src).toBe("image/png");
+      }
+      const sw = await getNoRedirect(request, "/sw.js");
+      expect(sw.headers()["content-type"]).toBe("application/javascript; charset=utf-8");
+      const offline = await getNoRedirect(request, "/offline");
+      expect(offline.headers()["content-type"]).toMatch(/^text\/html/);
+      expect(await offline.text()).toContain("Patient data isn");
+      const svg = await getNoRedirect(request, "/icon.svg");
+      expect(svg.headers()["content-type"]).toMatch(/^image\/svg\+xml/);
+      const apple = await getNoRedirect(request, "/apple-icon.png");
+      expect(apple.headers()["content-type"]).toBe("image/png");
+
+      // The session is live and locked (not a signed-out request that happens to pass): a dashboard page still
+      // lands on the user's locked page.
+      const home = await request.get("/", { maxRedirects: 0 });
+      expect(home.status(), "/ for a locked user").toBe(307);
+      expect(new URL(home.headers()["location"] ?? "", "http://127.0.0.1").pathname).toMatch(/^\/billing\/locked(\/staff)?$/);
+    });
+  });
+}

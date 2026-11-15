@@ -9,8 +9,11 @@
  *   `/billing/locked/staff`; an onboarding owner on `/onboarding/billing`. No such page load writes a
  *   `request.error` line (the page loaders answer the lock with the same redirect, `withPageAuth`).
  * - For a locked user, `/api/health`, the locked pages themselves and the PWA asset paths answer without a redirect
- *   (no loop; the redirect lives only in the `(dashboard)` layout — V2-06 06-05 turns the asset paths into 200s).
- * - The page's "Sign out" (`POST /auth/signout`) ends a locked user's session and lands on `/login`.
+ *   (no loop; the redirect lives only in the `(dashboard)` layout). V2-06 06-06: the asset paths answer 200 (was "not
+ *   3xx" while they did not exist), as the 05-10b handover asked.
+ * - The page's "Sign out" ends a locked user's session and lands on `/login`. V2-06 06-06: it runs `hardSignOut()`
+ *   (server revocation, the device purge, `/login`), so the session cookie is gone and a planted non-preference
+ *   `localStorage` key is purged.
  * - axe 0 serious/critical (WCAG 2.0/2.1/2.2 A+AA) on the three pages at 360/820/1280, no horizontal scroll at 360,
  *   screenshots attached.
  *
@@ -141,7 +144,7 @@ for (const user of ["locked-owner", "locked-receptionist", "onboarding-owner"] a
       for (const path of PWA_ASSET_PATHS) {
         const res = await page.request.get(path, { maxRedirects: 0 });
         const location = res.headers()["location"] ?? "";
-        expect(res.status() >= 300 && res.status() < 400, `${path} answered ${res.status()} → ${location}`).toBe(false);
+        expect(res.status(), `${path} answered ${res.status()} → ${location}`).toBe(200);
       }
     });
 
@@ -177,9 +180,18 @@ test.describe("sign-out from a locked page", () => {
     await page.getByLabel(/^Password/).fill(runPassword());
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForURL((url) => url.pathname === "/billing/locked/staff", { timeout: 30_000 });
+    // V2-06 06-06: hardSignOut() purges the device (D-5); a planted non-preference key must not survive.
+    await page.evaluate(() => {
+      localStorage.setItem("recentPatient", "synthetic");
+      localStorage.setItem("clinicos.pref.density", "compact");
+    });
 
     await page.getByRole("button", { name: "Sign out" }).click();
     await page.waitForURL((url) => url.pathname === "/login");
+    const keys = await page.evaluate(() => Object.keys(localStorage).sort());
+    expect(keys, "purged except the device preferences").not.toContain("recentPatient");
+    expect(keys).toContain("clinicos.pref.density");
+    expect((await page.context().cookies()).filter((c) => /^sb-.*-auth-token/.test(c.name)), "no auth cookie").toEqual([]);
     // The session is gone: a dashboard page now asks for sign-in again.
     await page.goto("/queue");
     await expect(page).toHaveURL((url) => url.pathname === "/login");
