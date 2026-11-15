@@ -5,8 +5,9 @@ import { PRODUCT_NAME } from "@/lib/design/brand";
 /**
  * `/offline` (PWA_STRATEGY §3.6; V2-06 06-05 step 5, branded by 06-01b step 4). The page the service worker serves when
  * a navigation fails for lack of network. Static (built once, no request data), outside every route group, public
- * (`PUBLIC_PAGE_PREFIXES`), and precached by `public/sw.js` with `credentials: "omit"`. It names no user, clinic or
- * session, and holds no patient data (PWA §4).
+ * (`PUBLIC_PAGE_PREFIXES`), and precached with `credentials: "omit"` by the service worker that `/sw.js` serves
+ * (`app/sw.js/route.ts` → `lib/pwa/service-worker-source.ts`, 06-09a). It names no user, clinic or session, and holds
+ * no patient data (PWA §4).
  *
  * The brand mark is decorative (the product name is written next to it). The tab reads "Offline · CliniQ AI" (root
  * title template). "Retry" is a plain link (a full navigation that works without JavaScript): online it loads the app,
