@@ -69,7 +69,15 @@ test.describe("H-AUTHOUT: no answer from the status route is never a sign-out", 
     await page.goto("/patients/new");
     const name = page.getByLabel(/^Patient Full Name/);
     await expect(name).toBeVisible();
-    await name.fill("Synthetic Unsaved Name");
+    // On WebKit the load event can come before the form hydrates, and hydration drops text typed into the server HTML
+    // (iPhone 15, first PR-lane run: the field read "" before any status answer). Type once the page is idle and the
+    // text stays, so a later loss can only come from a status reaction.
+    await page.waitForLoadState("networkidle");
+    await expect(async () => {
+      await name.fill("Synthetic Unsaved Name");
+      await page.waitForTimeout(500);
+      await expect(name).toHaveValue("Synthetic Unsaved Name", { timeout: 100 });
+    }).toPass({ timeout: 15_000 });
     const offset = logOffset(SERVER_STDOUT_LOG);
 
     let answered = 0;
@@ -108,7 +116,8 @@ test.describe("M-REMOVED: removed from the active clinic with another clinic lef
     // The clinic this device has open: A (the multi-clinic switcher's cookie).
     await context.addCookies([{ name: ACTIVE_TENANT_COOKIE, value: a.tenantId, url: E2E_BASE_URL }]);
     await uiSignIn(page, { email: dual.userEmail, password: seededUserPassword() });
-    await expect(page.getByText(a.tenantName).first()).toBeVisible();
+    // The clinic name is in the shell (in the sidebar at desktop widths, out of view on phones).
+    await expect(page.getByText(a.tenantName).first()).toBeAttached();
     const remove = async () => {
       const { error } = await getAdminClient()
         .from("memberships")
@@ -144,7 +153,7 @@ test.describe("M-REMOVED: removed from the active clinic with another clinic lef
 
     // No loop: the next sign-in resolves the remaining clinic.
     await uiSignIn(page, { email: dual.userEmail, password: seededUserPassword() });
-    await expect(page.getByText(b.tenantName).first()).toBeVisible();
+    await expect(page.getByText(b.tenantName).first()).toBeAttached();
   });
 
   test("a full page load after the removal signs out too and never shows the other clinic's shell", async ({ page, context }) => {
