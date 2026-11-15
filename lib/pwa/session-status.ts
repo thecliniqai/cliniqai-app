@@ -147,12 +147,21 @@ export function reactToStatus(outcome: StatusOutcome, pageDeploymentId: string |
 // App-wide check requests (the error boundary, the unhandledrejection handler, lock.ts)
 // ---------------------------------------------------------------------------------------------------------------------
 
-export type CheckTrigger = "start" | "visible" | "online" | "interval" | "error" | "lock";
-const requestListeners = new Set<(trigger: CheckTrigger) => void>();
+export type CheckTrigger = "start" | "visible" | "online" | "interval" | "error" | "lock" | "manual";
+const requestListeners = new Set<(trigger: CheckTrigger) => Promise<Reaction | "skipped">>();
 
 /** Asks the running watch (if any) to check now. Safe to call from anywhere, any number of times. */
-export function requestSessionCheck(trigger: Extract<CheckTrigger, "error" | "lock"> = "error"): void {
-  for (const listener of [...requestListeners]) listener(trigger);
+export function requestSessionCheck(trigger: Extract<CheckTrigger, "error" | "lock" | "manual"> = "error"): void {
+  for (const listener of [...requestListeners]) void listener(trigger);
+}
+
+/**
+ * V2-06 06-04b ("Check for updates" in the More sheet): checks now and resolves with the reaction (`"update"` when
+ * another deployment answered), or `"skipped"` when no watch runs. Not throttled; a running check is joined.
+ */
+export async function checkSessionNow(): Promise<Reaction | "skipped"> {
+  const [listener] = [...requestListeners];
+  return listener ? listener("manual") : "skipped";
 }
 
 export interface WatchDeps {
@@ -200,7 +209,7 @@ export function startSessionStatusWatch(deps: WatchDeps): SessionStatusWatch {
     return inFlight;
   };
 
-  const onRequest = (trigger: CheckTrigger) => void check(trigger);
+  const onRequest = (trigger: CheckTrigger) => check(trigger);
   requestListeners.add(onRequest);
   const unlisten = deps.listen(
     () => void check("visible"),
