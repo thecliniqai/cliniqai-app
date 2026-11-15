@@ -17,6 +17,7 @@ import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { readRunData, storageStatePath } from "../support/run-data";
 import { settleAnimations } from "../support/settle";
+import { PRODUCT_NAME } from "@/lib/design/brand";
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"];
 const BLOCKING_IMPACTS = new Set(["serious", "critical"]);
@@ -50,7 +51,7 @@ const AUTH_PAGES: Array<{ name: string; path: string; ready: (page: Page) => Pro
   {
     name: "login",
     path: "/login",
-    ready: (page) => expect(page.getByRole("heading", { name: "Sign in to ClinicOS" })).toBeVisible(),
+    ready: (page) => expect(page.getByRole("heading", { name: `Sign in to ${PRODUCT_NAME}` })).toBeVisible(),
   },
   {
     name: "forgot-password",

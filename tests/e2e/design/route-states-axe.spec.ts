@@ -85,8 +85,8 @@ for (const size of DESIGN_WIDTHS) {
       await expect(page.getByRole("main")).toBeVisible();
       await clickNavLink(page, "Visits", nav);
       await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
-      // Below lg the navigation is a drawer that closes on navigation: capture the skeleton after its slide-out.
-      if (size.width < 1024) await expect(page.locator("aside")).not.toBeInViewport();
+      // Below 768 px "Visits" is in the More sheet, which closes on navigation: capture the skeleton after it has gone.
+      if (size.width < 768) await expect(page.locator("[data-more-sheet]")).toHaveCount(0);
       await check(page, "dashboard-loading", size.width, "main");
       nav.release();
       await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0, { timeout: 15_000 });

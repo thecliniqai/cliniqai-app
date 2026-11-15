@@ -81,10 +81,10 @@ async function hasMarker(page: Page): Promise<boolean> {
   return page.evaluate(() => (window as unknown as { __noReload?: number }).__noReload === 1);
 }
 
-/** A client navigation through the shell's nav (the mobile menu first when the sidebar is off-canvas). */
+/** A client navigation through the shell's nav (06-04b: the More sheet first when the BottomBar has no cell for it). */
 async function navigate(page: Page, name: string, pathname: string): Promise<void> {
-  const menu = page.getByRole("button", { name: "Open mobile navigation menu" });
-  if (await menu.isVisible()) await menu.click();
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  if (!(await nav.getByRole("link", { name, exact: true }).isVisible())) await nav.getByRole("button", { name: "More" }).click();
   await page.getByRole("link", { name, exact: true }).first().click();
   await page.waitForURL((url) => url.pathname === pathname);
 }

@@ -60,12 +60,13 @@ export async function holdNavigation(page: Page, pathname: string, holdMs?: numb
 }
 
 /**
- * Clicks the shell's nav link `name`, opening the mobile navigation first when the sidebar is off-canvas, once the
- * link's route has been prefetched up to its loading boundary (`nav` from {@link holdNavigation}).
+ * Clicks the shell's nav link `name` once the link's route has been prefetched up to its loading boundary (`nav` from
+ * {@link holdNavigation}). 06-04b: below 768 px a destination without a BottomBar cell is in the More sheet, so the
+ * sheet is opened first (it closes on the click); the sidebar/rail links are visible from 768 px.
  */
 export async function clickNavLink(page: Page, name: string, nav: HeldNavigation): Promise<void> {
-  const menu = page.getByRole("button", { name: "Open mobile navigation menu" });
-  if (await menu.isVisible()) await menu.click();
+  const primary = page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name, exact: true });
+  if (!(await primary.isVisible())) await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "More" }).click();
   const link = page.getByRole("link", { name, exact: true });
   await expect(link).toBeVisible();
   await expect

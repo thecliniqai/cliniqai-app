@@ -13,6 +13,7 @@ import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "../fixtures";
 import { TURNSTILE_ALWAYS_FAIL_SITE_KEY } from "../../setup/test-env";
 import { settleAnimations } from "../support/settle";
+import { PRODUCT_NAME } from "@/lib/design/brand";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -25,7 +26,7 @@ const WIDTHS = [
 ];
 
 const PAGES = [
-  { name: "login", path: "/login", heading: "Sign in to ClinicOS", widget: "#login-turnstile" },
+  { name: "login", path: "/login", heading: `Sign in to ${PRODUCT_NAME}`, widget: "#login-turnstile" },
   { name: "forgot-password", path: "/forgot-password", heading: "Reset your password", widget: "#reset-request-turnstile" },
 ];
 
