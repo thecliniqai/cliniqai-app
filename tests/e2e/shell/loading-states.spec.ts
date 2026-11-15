@@ -89,8 +89,10 @@ test.describe("the skeleton shows during a slow client navigation", () => {
     await page.setViewportSize({ width: 1280, height: 800 });
     const nav = await holdNavigation(page, path);
     await page.goto("/patients");
+    // Next prefetches a link once it is in the viewport; in a long directory (other specs add patients) it may not be.
     const link = page.getByRole("main").locator(`a[href="${path}"]`).first();
-    await expect(link).toBeVisible();
+    await link.scrollIntoViewIfNeeded();
+    await expect(link).toBeInViewport();
     await expect.poll(nav.prefetched, { timeout: 15_000 }).toBeGreaterThan(0);
     await link.click();
     await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();

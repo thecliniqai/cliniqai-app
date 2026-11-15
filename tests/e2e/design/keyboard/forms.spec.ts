@@ -93,7 +93,7 @@ test("Input and Field: the label names the control, hint and error describe it, 
 
   // Tab order: search, fee (adorned), weight (adorned), age (error), read-only id; the disabled input is skipped.
   await page.keyboard.press("Tab");
-  await expect(page.getByLabel("Search", { exact: true })).toBeFocused();
+  await expect(page.locator("#forms").getByLabel("Search", { exact: true })).toBeFocused();
   await page.keyboard.press("Tab");
   const fee = page.getByLabel(/^Consultation fee/);
   await expect(fee).toBeFocused();

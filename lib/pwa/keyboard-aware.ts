@@ -11,7 +11,9 @@ import { useSyncExternalStore } from "react";
  * - `visualViewport` then tells us whether the keyboard is really up (Safari ignores `interactive-widget`, so this is
  *   the fallback the strategy requires): once the visual viewport has shrunk and grows back while the field still has
  *   focus (the user closed the keyboard with the system Back or the "done" key), the bars come back.
- * - Leaving the field shows them again.
+ * - Leaving the field shows them again, after {@link SHOW_DELAY_MS}: a tap on a button below a field moves focus on
+ *   `pointerdown`, and a bar appearing at once would slide under the finger before `click` (the tap would land on the
+ *   bar). Focus returning to a text field within the delay keeps the bars hidden.
  *
  * Only below 768 px (the BottomBar's widths); the decision itself is {@link barsHidden}, pure and unit-tested.
  */
@@ -59,8 +61,26 @@ export interface KeyboardWatchTarget {
   visualViewport: Pick<VisualViewport, "height" | "addEventListener" | "removeEventListener"> | null;
 }
 
+/** How long the bars wait before coming back after a text field loses focus. */
+export const SHOW_DELAY_MS = 350;
+
+export interface KeyboardWatchOptions {
+  showDelayMs?: number;
+  /** Runs `fn` after `ms`; returns the cancel function (injectable for tests). */
+  schedule?: (fn: () => void, ms: number) => () => void;
+}
+
+const browserSchedule = (fn: () => void, ms: number) => {
+  const id = setTimeout(fn, ms);
+  return () => clearTimeout(id);
+};
+
 /** Watches focus and the visual viewport; calls `onChange` with each new state. Returns the unsubscribe. */
-export function watchKeyboard(target: KeyboardWatchTarget, onChange: (state: KeyboardState) => void): () => void {
+export function watchKeyboard(
+  target: KeyboardWatchTarget,
+  onChange: (state: KeyboardState) => void,
+  { showDelayMs = SHOW_DELAY_MS, schedule = browserSchedule }: KeyboardWatchOptions = {},
+): () => void {
   let state: KeyboardState = { textFocused: isTextEntry(target.document.activeElement), viewportShrunk: null };
   let resting = target.visualViewport?.height ?? 0;
   const set = (next: KeyboardState) => {
@@ -68,12 +88,25 @@ export function watchKeyboard(target: KeyboardWatchTarget, onChange: (state: Key
     state = next;
     onChange(state);
   };
-  const onFocusIn = (event: Event) => set({ textFocused: isTextEntry(event.target as Element | null), viewportShrunk: null });
-  // `focusout` fires before the next `focusin`: read the element that keeps focus once the event has settled.
-  const onFocusOut = () =>
-    queueMicrotask(() => {
+  let cancelShow: (() => void) | null = null;
+  const onFocusIn = (event: Event) => {
+    const text = isTextEntry(event.target as Element | null);
+    if (text) {
+      cancelShow?.();
+      cancelShow = null;
+      set({ textFocused: true, viewportShrunk: null });
+    }
+  };
+  // Leaving a text field (to a button, the page, another app): show the bars after the delay, unless a text field has
+  // focus again by then.
+  const onFocusOut = () => {
+    if (!state.textFocused) return;
+    cancelShow?.();
+    cancelShow = schedule(() => {
+      cancelShow = null;
       if (!isTextEntry(target.document.activeElement)) set({ textFocused: false, viewportShrunk: null });
-    });
+    }, showDelayMs);
+  };
   const onResize = () => {
     const vv = target.visualViewport;
     if (!vv) return;
@@ -88,6 +121,7 @@ export function watchKeyboard(target: KeyboardWatchTarget, onChange: (state: Key
   target.visualViewport?.addEventListener("resize", onResize);
   onChange(state);
   return () => {
+    cancelShow?.();
     target.document.removeEventListener("focusin", onFocusIn);
     target.document.removeEventListener("focusout", onFocusOut);
     target.visualViewport?.removeEventListener("resize", onResize);

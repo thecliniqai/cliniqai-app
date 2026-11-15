@@ -151,7 +151,9 @@ export function AppShell({
           className={cn(
             "w-full flex-1 outline-none",
             focusMode ? "flex flex-col p-0" : "mx-auto max-w-7xl p-4 sm:p-6 lg:p-8",
-            bottomBarShown && "max-md:pb-[calc(var(--spacing-bottom-bar)+env(safe-area-inset-bottom,0px)+1rem)]",
+            // Constant (not tied to the keyboard state): a page that changes height while a field gains or loses
+            // focus would move the control being tapped.
+            !focusMode && "max-md:pb-[calc(var(--spacing-bottom-bar)+env(safe-area-inset-bottom,0px)+1rem)]",
           )}
         >
           {children}

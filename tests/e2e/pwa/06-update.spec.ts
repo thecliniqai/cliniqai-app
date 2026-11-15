@@ -81,9 +81,15 @@ async function hasMarker(page: Page): Promise<boolean> {
   return page.evaluate(() => (window as unknown as { __noReload?: number }).__noReload === 1);
 }
 
-/** A client navigation through the shell's nav (06-04b: the More sheet first when the BottomBar has no cell for it). */
+/**
+ * A client navigation through the shell's nav (06-04b: the More sheet first when the BottomBar has no cell for it).
+ * On a phone the BottomBar steps aside while a text field has focus (the keyboard is up), so the field is left first,
+ * as a person closes the keyboard before tapping the bar.
+ */
 async function navigate(page: Page, name: string, pathname: string): Promise<void> {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const nav = page.getByRole("navigation", { name: "Primary" });
+  await expect(nav).toBeVisible();
   if (!(await nav.getByRole("link", { name, exact: true }).isVisible())) await nav.getByRole("button", { name: "More" }).click();
   await page.getByRole("link", { name, exact: true }).first().click();
   await page.waitForURL((url) => url.pathname === pathname);
@@ -152,9 +158,13 @@ test.describe("update toast and safe point (owner)", () => {
   test("@golden skew: an unknown Server Action shows the notice, keeps the typed text and never reloads by itself", async ({ page }) => {
     const { patientId } = readRunData().tenantA;
     await page.goto(`/patients/${patientId}`);
-    await page.getByRole("button", { name: "Edit Details" }).first().click();
     const fullName = page.getByLabel(/^Full Name/);
-    await expect(fullName).toBeVisible();
+    // 06-04b: the record now streams in behind its loading boundary, so on WebKit the load event can come before the
+    // record's buttons hydrate; a click before that does nothing. Click until the modal opens.
+    await expect(async () => {
+      await page.getByRole("button", { name: "Edit Details" }).first().click();
+      await expect(fullName).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
     await fullName.pressSequentially(" Typed");
     const typed = await fullName.inputValue();
     await setMarker(page);

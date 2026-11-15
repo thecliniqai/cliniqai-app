@@ -4,7 +4,14 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import { isLiveView, RESUME_COALESCE_MS, startResumeRefresh, type ResumeDeps } from "@/lib/pwa/resume";
-import { barsHidden, isTextEntry, nextViewportState, watchKeyboard, type KeyboardState } from "@/lib/pwa/keyboard-aware";
+import {
+  barsHidden,
+  isTextEntry,
+  nextViewportState,
+  SHOW_DELAY_MS,
+  watchKeyboard,
+  type KeyboardState,
+} from "@/lib/pwa/keyboard-aware";
 import { canGoBackInApp, visit } from "@/lib/nav/back-stack";
 
 function resumeHarness(path = "/") {
@@ -126,7 +133,7 @@ describe("keyboard-aware bars", () => {
     expect(nextViewportState({ textFocused: false, viewportShrunk: null }, 300, 800).viewportShrunk).toBeNull();
   });
 
-  it("watchKeyboard follows focusin/focusout and visualViewport resizes", async () => {
+  it("watchKeyboard follows focusin/focusout and visualViewport resizes; the bars come back only after a delay", () => {
     const handlers: Record<string, (e: Event) => void> = {};
     const vvHandlers: Record<string, () => void> = {};
     const doc = {
@@ -140,10 +147,21 @@ describe("keyboard-aware bars", () => {
       removeEventListener: (t: string) => delete vvHandlers[t],
     };
     const states: KeyboardState[] = [];
+    const pending: Array<{ fn: () => void; ms: number; cancelled: boolean }> = [];
     const stop = watchKeyboard(
       { document: doc as unknown as Document, visualViewport: vv as unknown as VisualViewport },
       (s) => states.push(s),
+      {
+        schedule: (fn, ms) => {
+          const job = { fn, ms, cancelled: false };
+          pending.push(job);
+          return () => (job.cancelled = true);
+        },
+      },
     );
+    const flush = () => {
+      for (const job of pending.splice(0)) if (!job.cancelled) job.fn();
+    };
     const input = el("INPUT", { type: "tel" });
     doc.activeElement = input;
     handlers.focusin({ target: input } as unknown as Event);
@@ -154,10 +172,24 @@ describe("keyboard-aware bars", () => {
     vv.height = 800;
     vvHandlers.resize();
     expect(states.at(-1)?.viewportShrunk).toBe(false);
-    doc.activeElement = el("BODY");
+    // A tap on a button moves focus away: the bars wait (SHOW_DELAY_MS), so the tap lands on the button.
+    doc.activeElement = el("BUTTON");
     handlers.focusout({ target: input } as unknown as Event);
-    await Promise.resolve();
+    handlers.focusin({ target: doc.activeElement } as unknown as Event);
+    expect(states.at(-1)?.textFocused).toBe(true);
+    expect(pending.map((j) => j.ms)).toEqual([SHOW_DELAY_MS]);
+    flush();
     expect(states.at(-1)).toEqual({ textFocused: false, viewportShrunk: null });
+
+    // Focus back in a text field within the delay: the scheduled show is cancelled.
+    doc.activeElement = input;
+    handlers.focusin({ target: input } as unknown as Event);
+    handlers.focusout({ target: input } as unknown as Event);
+    const second = el("TEXTAREA");
+    doc.activeElement = second;
+    handlers.focusin({ target: second } as unknown as Event);
+    flush();
+    expect(states.at(-1)?.textFocused).toBe(true);
     stop();
     expect(Object.keys(handlers)).toEqual([]);
     expect(Object.keys(vvHandlers)).toEqual([]);

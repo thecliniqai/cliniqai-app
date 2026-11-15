@@ -19,7 +19,8 @@ const CELL = cn(
  * safe area. Up to four primary destinations from `navForRole` (the model's `bottom`), then "More" in the last cell,
  * which opens the More sheet with everything else. Icon 18 over an 11/500 label, always both; the active cell takes the
  * nav-active colour and a heavier stroke. No "+" in V2-06 (CD-21). The shell hides it while a text field has focus on
- * a phone (`lib/pwa/keyboard-aware.ts`) and in focus mode.
+ * a phone (`lib/pwa/keyboard-aware.ts`) and in focus mode. `z-30`, the top bar's tier: the v1 drawers (`z-40`) and every
+ * overlay cover it, as they covered v1's sticky header.
  */
 export function BottomBar({
   model,
@@ -43,7 +44,7 @@ export function BottomBar({
       aria-label={navLabel}
       data-shell-nav="bottom-bar"
       className={cn(
-        "fixed inset-x-0 bottom-0 z-40 grid h-[calc(var(--spacing-bottom-bar)+env(safe-area-inset-bottom,0px))] auto-cols-fr grid-flow-col items-stretch border-t border-border bg-surface px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))]",
+        "fixed inset-x-0 bottom-0 z-30 grid h-[calc(var(--spacing-bottom-bar)+env(safe-area-inset-bottom,0px))] auto-cols-fr grid-flow-col items-stretch border-t border-border bg-surface px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom,0px))]",
         className,
       )}
     >
