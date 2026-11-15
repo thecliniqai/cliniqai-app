@@ -12,6 +12,7 @@ export type Database = {
       ai_quota_reservations: {
         Row: {
           created_at: string;
+          created_by: string | null;
           expires_at: string;
           feature: string;
           id: string;
@@ -21,6 +22,7 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           created_at?: string;
+          created_by?: string | null;
           expires_at: string;
           feature: string;
           id?: string;
@@ -29,6 +31,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          created_by?: string | null;
           expires_at?: string;
           feature?: string;
           id?: string;
@@ -947,6 +950,7 @@ export type Database = {
           key: string;
           kind: string;
           owner_doc: string;
+          quota_key: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -955,6 +959,7 @@ export type Database = {
           key: string;
           kind: string;
           owner_doc: string;
+          quota_key?: string | null;
         };
         Update: {
           created_at?: string;
@@ -962,8 +967,17 @@ export type Database = {
           key?: string;
           kind?: string;
           owner_doc?: string;
+          quota_key?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "entitlement_keys_quota_key_fkey";
+            columns: ["quota_key"];
+            isOneToOne: false;
+            referencedRelation: "entitlement_keys";
+            referencedColumns: ["key"];
+          },
+        ];
       };
       follow_ups: {
         Row: {

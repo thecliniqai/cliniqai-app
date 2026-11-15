@@ -181,14 +181,14 @@ insert into c2c_definer values
   ('public.record_payment', 'bound', 'p_tenant_id = active clinic with billing:collect; system path = service role + closed actor (000072, 05-11b)'),
   ('public.has_permission', 'bound', 'authz.tenant_ids_with: the active clinic (000046)'),
   ('public.referral_directory_search', 'bound', 'consultations:edit in the active clinic; never the active clinic itself (000062, 05-06)'),
-  ('public.remove_member', 'bound', 'target membership''s clinic = active clinic; staff:invite, owner-only for owner/admin targets (000087, 05-05)'),
+  ('public.remove_member', 'bound', 'target membership''s clinic = active clinic; staff:invite, owner-only for owner/admin targets (000087, 05-05); a locked/onboarding clinic only by its owner (000092, 05-12)'),
   ('public.invite_staff', 'bound', 'p_tenant in tenant_ids_with(staff:invite): the active clinic; owner/admin invitations by owners (000088, 05-07a)'),
   ('public.resend_invitation', 'bound', 'invitation''s clinic = active clinic with staff:invite (000088, 05-07a)'),
   ('public.revoke_invitation', 'bound', 'invitation''s clinic = active clinic with staff:invite (000088, 05-07a)'),
   ('public.ai_preflight', 'bound', 'visit''s clinic = active clinic, consultations:edit there; the AI gate (000091, 05-10c)'),
   ('public.ai_reserve', 'bound', 'visit''s clinic = active clinic, consultations:edit there; the AI gate + quota lock (000091, 05-10c)'),
-  ('public.ai_commit', 'bound', 'reservation of the active clinic, consultations:edit there (000091, 05-10c)'),
-  ('public.ai_release', 'bound', 'reservation of the active clinic, consultations:edit there (000091, 05-10c)'),
+  ('public.ai_commit', 'bound', 'the caller''s own reservation in the active clinic, consultations:edit there (000091, 05-10c); system path = service-role session (000092, 05-12)'),
+  ('public.ai_release', 'bound', 'the caller''s own reservation in the active clinic, consultations:edit there (000091, 05-10c); system path = service-role session (000092, 05-12)'),
   ('public.set_ai_opt_in', 'bound', 'owner of the active, full clinic (000091, 05-10c, R-33)'),
   -- the member helper
   ('public.current_user_tenant_ids', 'member', 'every clinic of the caller (switcher); no policy or function uses it'),
@@ -244,7 +244,9 @@ insert into c2c_definer values
   ('private.invoice_items_sync_invoice', 'internal', 'trigger: invoice totals and status follow its items (000072, 05-11b); never promotes to paid (000075, 05-11d)'),
   ('private.invoice_items_integrity_guard', 'internal', 'trigger: computed line total, keys, paid/collected locks (000075, 05-11d)'),
   ('private.visit_revisions_actor_guard', 'internal', 'trigger: amendment author, database snapshot and number (000068/000075, 05-11a/05-11d)'),
-  ('private.tenants_create_subscription', 'internal', 'trigger: every new clinic gets one incomplete tenant_subscriptions row (000082, 05-09a, R-24)');
+  ('private.tenants_create_subscription', 'internal', 'trigger: every new clinic gets one incomplete tenant_subscriptions row (000082, 05-09a, R-24)'),
+  ('private.tenants_timezone_audit', 'internal', 'trigger: every tenants.timezone change is audited (000092, 05-12, H-AITZ)'),
+  ('private.patients_ai_objection_audit', 'internal', 'trigger: the AI objection is audited; cleared only by doctor/receptionist (000092, 05-12, AI L-3)');
 
 -- 1. ------------------------------------------------------------------------------------------------------------------
 select set_eq(
@@ -280,8 +282,8 @@ select set_eq(
     'public.remove_member:authenticated', 'public.session_is_live:authenticated',
     'public.invite_staff:authenticated', 'public.resend_invitation:authenticated',
     'public.revoke_invitation:authenticated', 'public.peek_invitation:anon,authenticated',
-    'public.ai_preflight:authenticated', 'public.ai_reserve:authenticated', 'public.ai_commit:authenticated',
-    'public.ai_release:authenticated', 'public.set_ai_opt_in:authenticated',
+    'public.ai_preflight:authenticated', 'public.ai_reserve:authenticated', 'public.ai_commit:authenticated,service_role',
+    'public.ai_release:authenticated,service_role', 'public.set_ai_opt_in:authenticated',
     'public.invitation_issue_token:service_role', 'public.consume_invitation_for:service_role',
     'public.invitation_accept_context:service_role',
     'private.invitation_audit:',
@@ -304,7 +306,7 @@ select set_eq(
     'public.referral_directory_search:authenticated', 'private.referrals_directory_consent_guard:',
     'public.record_payment:authenticated,service_role', 'private.invoice_items_sync_invoice:',
     'private.invoice_items_integrity_guard:', 'private.visit_revisions_actor_guard:',
-    'private.tenants_create_subscription:'
+    'private.tenants_create_subscription:', 'private.tenants_timezone_audit:', 'private.patients_ai_objection_audit:'
   ]::text[],
   'every definer function has exactly its expected EXECUTE grantees (anon only for the token, probe and ingest paths)'
 );
@@ -440,7 +442,9 @@ insert into c2c_access values
   ('public.enqueue_message', 'refuses'), ('public.enqueue_webhook_event', 'refuses'), ('private.outbox_payment_recorded', 'refuses'),
   ('public.referral_source_clinics', 'refuses'), ('public.issue_queue_token', 'refuses'), ('public.generate_tenant_invoice_number', 'refuses'),
   ('public.search_medicines', 'refuses'), ('public.record_payment', 'refuses'), ('public.has_permission', 'refuses'),
-  ('public.referral_directory_search', 'refuses'), ('public.remove_member', 'refuses'), ('public.invite_staff', 'refuses'),
+  ('public.referral_directory_search', 'refuses'), ('public.invite_staff', 'refuses'),
+  -- 05-12 (IND L-5): the owner of a locked/onboarding clinic may still remove staff; everyone else is refused.
+  ('public.remove_member', 'owner_only'),
   ('public.resend_invitation', 'refuses'), ('public.revoke_invitation', 'refuses'),
   ('public.ai_preflight', 'refuses'), ('public.ai_reserve', 'refuses'), ('public.set_ai_opt_in', 'refuses'),
   -- 05-10c: a call reserved before a lock is still metered or released (no tenant data is read).
@@ -529,9 +533,9 @@ select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0
   'false', 'locked B: has_permission is false');
 select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000a', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.referral_directory_search('Synthetic 05-02c Clinic')$$),
   'denied:forbidden', 'locked A: referral_directory_search is refused (acting in A, A locked)');
-select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
   format('select public.remove_member(%L, %L)', (select id from public.memberships where user_id = 'c2c00000-0000-4000-8000-000000000202' and tenant_id = 'c2c00000-0000-4000-8000-00000000000b'), 'Synthetic reason')),
-  'error:P0002:MEMBER_NOT_FOUND%', 'locked B: remove_member is refused');
+  '1', 'locked B: its OWNER may still remove staff (05-12, IND L-5; any other role is refused, review_fixes_05b)');
 select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
   $$select public.invite_staff('c2c00000-0000-4000-8000-00000000000b', 'c2c-invitee-b@example.test', 'admin')$$),
   'denied:STAFF_INVITE_FORBIDDEN', 'locked B: invite_staff is refused');

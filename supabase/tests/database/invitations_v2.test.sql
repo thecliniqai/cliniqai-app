@@ -204,10 +204,10 @@ select is((select jsonb_build_object('kind', j.kind, 'tenant', j.tenant_id, 'pay
      from c507 where k = 'inv1'),
   'exactly one email.invite job in the same transaction: payload {invitation_id, token_version}, no token, key invite:<id>:v1');
 select is(pg_temp.u('c5070000-0000-4000-8000-000000000102', null,
-  $$ select (public.invite_staff('c5070000-0000-4000-8000-00000000000a', 'c507-invitee@example.test', 'nurse') ->> 'id')
-            || '/' || (public.invite_staff('c5070000-0000-4000-8000-00000000000a', 'c507-invitee@example.test', 'nurse') ->> 'deduped') $$),
+  $$ select (public.invite_staff('c5070000-0000-4000-8000-00000000000a', 'c507-invitee@example.test', 'doctor') ->> 'id')
+            || '/' || (public.invite_staff('c5070000-0000-4000-8000-00000000000a', 'c507-invitee@example.test', 'doctor') ->> 'deduped') $$),
   (select (v::jsonb ->> 'id') || '/true' from c507 where k = 'inv1'),
-  'a duplicate pending invite (any case, by another inviter) returns the same id with deduped = true');
+  'a duplicate pending invite for the same role (any case, by another inviter) returns the same id with deduped = true (05-12: another role replaces it, review_fixes_05b)');
 insert into c507 values ('inv1dup', pg_temp.uk('c5070000-0000-4000-8000-000000000101', null,
   $$ select public.invite_staff('c5070000-0000-4000-8000-00000000000a', 'c507-invitee@example.test', 'doctor')::text $$));
 select is((select count(*)::int from ops.jobs j, c507 c where c.k = 'inv1' and j.payload ->> 'invitation_id' = c.v::jsonb ->> 'id'),
