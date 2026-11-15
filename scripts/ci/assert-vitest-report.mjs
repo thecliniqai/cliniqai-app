@@ -46,6 +46,9 @@
  *   5872 — V2-06 06-08 (phase close step 1): the full suite at the 06-08 tree (000094, branch and stack matching) had
  *          6181 tests in 300 files, 0 skipped (evidence/06-08/vitest-full-summary.txt); 6181 × 0.95 = 5871.95 → 5872.
  *          REQUIRED_FILES gains every spec V2-06 added outside tests/e2e (40 files; 213 in total).
+ *   5909 — V2-06 06-09c (Wave B review fixes): the full suite at the 06-09c tree (000094) had 6219 tests in 303 files,
+ *          0 skipped (evidence/06-09c/vitest-full-summary.txt); 6219 × 0.95 = 5908.05 → 5909. REQUIRED_FILES + the three
+ *          new 06-09c specs (auth-outage-db, active-clinic-removed-db, record-layouts-db; 216 in total).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -54,7 +57,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 5872;
+const FLOOR = 5909;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -326,6 +329,11 @@ const REQUIRED_FILES = [
   "tests/pwa/shell-runtime.spec.ts",
   // 06-08 React Compiler rules at error and their waiver register (R-30).
   "tests/ci/react-compiler-waivers.spec.ts",
+  // 06-09c Wave B review fixes: an Auth outage is never a sign-out (H-AUTHOUT), removal from the active clinic
+  // (M-REMOVED), record layouts tell a failed lookup from "not found" (IND L-2).
+  "tests/auth/auth-outage-db.spec.ts",
+  "tests/auth/active-clinic-removed-db.spec.ts",
+  "tests/nav/record-layouts-db.spec.ts",
 ];
 
 const file = process.argv[2];
