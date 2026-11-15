@@ -4,7 +4,7 @@ import React, { useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useClinicToday } from "@/lib/datetime/client";
 import { formatMonthShortYear } from "@/lib/datetime/format";
-import { dobFromAge, formatAge, parseAgeAmount, type AgeUnit } from "@/lib/ui/age";
+import { ageEntryFor, dobFromAge, formatAge, parseAgeAmount, type AgeUnit } from "@/lib/ui/age";
 import { DateField } from "./date-field";
 import { Input } from "./input";
 import { Label } from "./label";
@@ -17,7 +17,12 @@ import { SegmentedControl } from "./segmented-control";
  * - Age: a numeric Input and its unit (a NativeSelect "Age unit": years by default, months below 2 years; a control
  *   of its own, so it keeps the 44 px touch target instead of sitting inside the input's box); the derived
  *   date of birth is shown as a hint ("Born about 1984", "Born about Mar 2026") and reported as approximate
- *   (`lib/ui/age.ts` `dobFromAge`: 1 Jan of the birth year, the server's convention).
+ *   (`lib/ui/age.ts` `dobFromAge`: 1 Jan of the birth year from 2 years, the server's convention).
+ *   06-09c (M-INFANTAGE, IND M-5): "0" in years switches the unit to months and asks for the infant's age in months
+ *   (no date of birth until then); "1 year" is 12 months. So the date of birth reads back as what was typed on every
+ *   later screen ("12 m", never "22 m").
+ * - 06-09c (IND L-7): a value set from outside (editing a patient, a reset) fills the age box ("42" years, "8"
+ *   months), as DateField shows an outside value.
  * - Date of birth: a DateField (max = the clinic's today); the derived age is the hint ("42 y", "8 m", "12 d").
  * Everything is counted from the clinic's date in its zone (`useClinicToday`), never the browser's.
  *
@@ -45,6 +50,8 @@ export interface AgeOrDobInputProps {
   className?: string;
 }
 
+export const INFANT_MONTHS_NOTICE = "Below 1 year, enter the age in months";
+
 const RANGE_ERROR: Record<AgeUnit, string> = {
   y: "Enter an age from 0 to 130 years",
   m: "Enter an age from 0 to 23 months",
@@ -60,34 +67,65 @@ export function AgeOrDobInput({
 }: AgeOrDobInputProps) {
   const id = useId();
   const today = useClinicToday();
-  const [ageText, setAgeText] = useState("");
-  const [unit, setUnit] = useState<AgeUnit>("y");
+  const initial = value.mode === "age" && value.dob ? ageEntryFor(value.dob, today) : null;
+  const [ageText, setAgeText] = useState(initial?.text ?? "");
+  const [unit, setUnit] = useState<AgeUnit>(initial?.unit ?? "y");
   const [rangeError, setRangeError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  // The last value this control reported (or was given): a different one came from outside (L-7).
+  const [known, setKnown] = useState<{ mode: AgeOrDobMode; dob: string | null }>({ mode: value.mode, dob: value.dob });
+  if (value.mode !== known.mode || value.dob !== known.dob) {
+    setKnown({ mode: value.mode, dob: value.dob });
+    if (value.mode === "age") {
+      const entry = value.dob ? ageEntryFor(value.dob, today) : null;
+      setAgeText(entry?.text ?? "");
+      if (entry) setUnit(entry.unit);
+      setRangeError(null);
+      setNotice(null);
+    }
+  }
+
+  const report = (next: AgeOrDobValue) => {
+    setKnown({ mode: next.mode, dob: next.dob });
+    onValueChange(next);
+  };
 
   const shownError = error ?? rangeError ?? undefined;
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
 
   const fromAge = (text: string, nextUnit: AgeUnit) => {
+    setNotice(null);
     if (text.trim() === "") {
       setRangeError(null);
-      onValueChange({ mode: "age", dob: null, approximate: true });
+      report({ mode: "age", dob: null, approximate: true });
       return;
     }
     const amount = parseAgeAmount(text, nextUnit);
     if (amount === null) {
       setRangeError(RANGE_ERROR[nextUnit]);
-      onValueChange({ mode: "age", dob: null, approximate: true });
+      report({ mode: "age", dob: null, approximate: true });
       return;
     }
     setRangeError(null);
-    onValueChange({ mode: "age", dob: dobFromAge(amount, nextUnit, today), approximate: true });
+    if (nextUnit === "y" && amount === 0) {
+      // An infant: the age is entered in months (06-09c M-INFANTAGE).
+      setUnit("m");
+      setAgeText("");
+      setNotice(INFANT_MONTHS_NOTICE);
+      report({ mode: "age", dob: null, approximate: true });
+      return;
+    }
+    report({ mode: "age", dob: dobFromAge(amount, nextUnit, today), approximate: true });
   };
 
-  let hint: string | null = null;
+  let hint: string | null = value.mode === "age" ? notice : null;
   if (value.dob) {
     if (value.mode === "age") {
-      hint = unit === "m" ? `Born about ${formatMonthShortYear(value.dob)}` : `Born about ${value.dob.slice(0, 4)}`;
+      // Month precision below 2 years ("1 year" is 12 months), the year above.
+      const shownAge = formatAge(value.dob, today);
+      const monthsOrDays = shownAge !== null && !shownAge.endsWith(" y");
+      hint = monthsOrDays ? `Born about ${formatMonthShortYear(value.dob)}` : `Born about ${value.dob.slice(0, 4)}`;
     } else {
       const age = formatAge(value.dob, today);
       hint = age;
@@ -105,8 +143,9 @@ export function AgeOrDobInput({
         disabled={disabled}
         onValueChange={(next) => {
           setRangeError(null);
+          setNotice(null);
           setAgeText("");
-          onValueChange({ mode: next as AgeOrDobMode, dob: null, approximate: next === "age" });
+          report({ mode: next as AgeOrDobMode, dob: null, approximate: next === "age" });
         }}
         options={[
           { value: "age", label: "Age" },
@@ -164,7 +203,7 @@ export function AgeOrDobInput({
             disabled={disabled}
             invalid={Boolean(error)}
             aria-describedby={[hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined}
-            onValueChange={(dob) => onValueChange({ mode: "dob", dob, approximate: false })}
+            onValueChange={(dob) => report({ mode: "dob", dob, approximate: false })}
           />
         </div>
       )}

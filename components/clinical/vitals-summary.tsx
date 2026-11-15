@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, TriangleAlert } from "lucide-react";
+import { Activity, OctagonAlert, TriangleAlert } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { FOCUS_RING } from "@/lib/ui/variants";
@@ -12,6 +12,10 @@ import { flagWord, isCritical, summarizeVitals, type SummaryItem, type VitalsRea
  * first, a flagged value in danger-fg 600 with the word "high" or "low" (never colour alone). When more were recorded
  * the line is a button that opens the full list in a Popover. Nothing recorded: the "Vitals pending" outline chip
  * (white, warning-fg text and border).
+ *
+ * 06-09c (M-VITALS, IND M-1): a critical reading is ranked first and always shown inline (never only in the
+ * popover), and it is distinct from "high"/"low" three ways: the OctagonAlert icon (as in VitalsForm), the words
+ * "· critical" ("SpO₂ 84% low · critical") and a danger-bg tint behind it.
  */
 export interface VitalsSummaryProps {
   vitals: VitalsReading | null | undefined;
@@ -21,6 +25,18 @@ export interface VitalsSummaryProps {
 function Item({ item }: { item: SummaryItem }) {
   const word = flagWord(item.flag);
   if (!word) return <span>{item.text}</span>;
+  if (isCritical(item.flag)) {
+    return (
+      <span
+        className="inline-flex items-center gap-0.5 rounded-sm bg-danger-bg px-1 font-semibold text-danger-fg"
+        data-vital-flag={item.flag}
+        data-vital-critical=""
+      >
+        <OctagonAlert aria-hidden="true" strokeWidth={2.25} className="size-3 shrink-0" />
+        {item.text} {word.toLowerCase()} · critical
+      </span>
+    );
+  }
   return (
     <span className="font-semibold text-danger-fg" data-vital-flag={item.flag}>
       {item.text} {word.toLowerCase()}

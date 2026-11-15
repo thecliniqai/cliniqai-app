@@ -22,7 +22,9 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "./popove
  * - Typing: digits only, the slashes are added as you type ("12112026" → "12/11/2026"); "1/2/2026" works too. The
  *   date is read on blur (and as soon as the year has four digits): a real date inside `min`..`max` becomes the value;
  *   anything else keeps the text and shows what to do ("Enter the date as dd/mm/yyyy", "Enter a date on or before
- *   15 Nov 2026"). Clearing the text clears the value.
+ *   15 Nov 2026"). Clearing the text clears the value. 06-09c (M-DATE, IND M-4): the value is never a date the field
+ *   no longer shows — as soon as the text stops being the picked date (an edit, a partial date, an invalid one) the
+ *   value is cleared (`onValueChange(null)`), so a form cannot submit the old date behind an error.
  * - Under the field the picked date reads `Thu, 12 Nov 2026` (formatted through `lib/datetime/format`), and it is part
  *   of the input's description.
  * - "Choose date" opens the Calendar on the picked day (else today); Enter picks, Escape closes; either way focus goes
@@ -123,10 +125,18 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(func
     else if (ref) ref.current = node;
   };
 
+  /** The text no longer shows the picked date: the value goes (06-09c M-DATE). */
+  const dropValue = () => {
+    if (value === null) return;
+    setShown(null);
+    onValueChange(null);
+  };
+
   const commit = (nextText: string) => {
     const reading = readText(nextText, min, max);
     if (reading.kind === "error") {
       setError(reading.message);
+      dropValue();
       return;
     }
     setError(null);
@@ -173,8 +183,10 @@ export const DateField = React.forwardRef<HTMLInputElement, DateFieldProps>(func
                 const next = normaliseDmyText(event.target.value);
                 setText(next);
                 if (error) setError(null);
-                // A full date (four-digit year) is read at once; a partial one waits for blur.
+                // A full date (four-digit year) is read at once; a partial one waits for blur, but the old value
+                // goes now (the field no longer shows it).
                 if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(next) || next === "") commit(next);
+                else if (value !== null && next !== formatDmy(value)) dropValue();
               }}
               onBlur={() => commit(text)}
               onKeyDown={(event) => {

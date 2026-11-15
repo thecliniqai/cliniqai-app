@@ -201,12 +201,16 @@ export function vitalsItems(v: VitalsReading): SummaryItem[] {
 }
 
 /**
- * The inline summary: at most three items. Flagged items come first (a high BP is never hidden behind a normal pulse),
- * then the display order.
+ * The inline summary: at most `max` items, ranked by severity, then the display order: critical readings first, then
+ * the other flagged ones (a high BP is never hidden behind a normal pulse), then normal ones. 06-09c (M-VITALS, IND
+ * M-1): a critical reading is never left to the overflow popover — every critical reading is shown, even when there
+ * are more than `max` of them (before, "flagged first" ranked a critical SpO₂ 84 % behind three merely-high values and
+ * hid it).
  */
 export function summarizeVitals(v: VitalsReading, max = 3): { shown: SummaryItem[]; all: SummaryItem[] } {
   const all = vitalsItems(v);
-  const flagged = all.filter((i) => i.flag !== "normal");
+  const critical = all.filter((i) => isCritical(i.flag));
+  const flagged = all.filter((i) => i.flag !== "normal" && !isCritical(i.flag));
   const normal = all.filter((i) => i.flag === "normal");
-  return { shown: [...flagged, ...normal].slice(0, max), all };
+  return { shown: [...critical, ...flagged, ...normal].slice(0, Math.max(max, critical.length)), all };
 }

@@ -21,7 +21,12 @@ import type { PatientSex } from "./patient-identity-header";
  * and offline through Button's submit rule). A ten-digit number that matches a patient shows an info Alert ("Same
  * mobile · last visit 3 Aug") with "Use this patient". The form posts nothing itself: `onSubmit` is the caller's (the
  * gallery's is a no-op; V2-08 wires the existing registration action).
+ *
+ * 06-09c (IND L-6): the age field counts as visited only when focus leaves the whole age group (not when it moves
+ * from the Age/DOB toggle into the age box, nor into the calendar popover); a failing `onSubmit` (it rejects or throws)
+ * shows "Couldn't register the patient. Try again." and keeps everything typed.
  */
+export const REGISTER_FAILED_TEXT = "Couldn't register the patient. Try again.";
 export interface QuickRegisterValues {
   /** Ten digits. */
   phone: string;
@@ -66,6 +71,7 @@ export function QuickRegisterForm({ onSubmit, findDuplicate, onUseExisting, clas
   const [summary, setSummary] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   const invalid: Record<FieldName, boolean> = {
     phone: !/^\d{10}$/.test(phone),
@@ -88,10 +94,14 @@ export function QuickRegisterForm({ onSubmit, findDuplicate, onUseExisting, clas
       return;
     }
     setSummary(null);
+    setFailed(false);
     setSubmitting(true);
     try {
       await onSubmit({ phone, name: name.trim().replace(/\s+/g, " "), dob: age.dob!, dobApproximate: age.approximate, sex: sex as PatientSex });
       setDone(true);
+    } catch {
+      // The caller reports its own failure (a server action returns its error); here the user is told, nothing is lost.
+      setFailed(true);
     } finally {
       setSubmitting(false);
     }
@@ -103,6 +113,7 @@ export function QuickRegisterForm({ onSubmit, findDuplicate, onUseExisting, clas
         New patient
       </h4>
       {summary && <Alert tone="danger">{summary}</Alert>}
+      {failed && <Alert tone="danger">{REGISTER_FAILED_TEXT}</Alert>}
       <div data-register-field="phone" className="flex flex-col gap-2">
         <Field label="Mobile number" error={errorOf("phone")}>
           <PhoneInput
@@ -142,7 +153,16 @@ export function QuickRegisterForm({ onSubmit, findDuplicate, onUseExisting, clas
           />
         </Field>
       </div>
-      <div data-register-field="age" onBlur={() => check("age")}>
+      <div
+        data-register-field="age"
+        onBlur={(event) => {
+          // Only when focus leaves the age group (its toggle, box, unit and the date picker's popover stay inside).
+          const next = event.relatedTarget;
+          if (next instanceof Node && event.currentTarget.contains(next)) return;
+          if (next instanceof Element && next.closest("[data-radix-popper-content-wrapper]")) return;
+          check("age");
+        }}
+      >
         <AgeOrDobInput value={age} onValueChange={setAge} error={errorOf("age")} />
       </div>
       <div data-register-field="sex" role="group" aria-labelledby={`${id}-sex`} className="grid gap-1.5">

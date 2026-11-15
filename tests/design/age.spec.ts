@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { ageInYears, todayInTz } from "@/lib/datetime";
 import { calculateAgeFromDob, calculateDobFromAge } from "@/features/patients/schema";
-import { ageParts, dobFromAge, formatAge, formatAgeToday, parseAgeAmount } from "@/lib/ui/age";
+import { ageEntryFor, ageParts, dobFromAge, formatAge, formatAgeToday, parseAgeAmount } from "@/lib/ui/age";
 
 const IST = "Asia/Kolkata";
 
@@ -99,9 +99,41 @@ describe("dobFromAge", () => {
   it("years → 1 Jan of the birth year, the server's convention, and back to the same age", () => {
     expect(dobFromAge(42, "y", "2026-11-15")).toBe("1984-01-01");
     expect(calculateDobFromAge(42, "2026-11-15")).toBe(dobFromAge(42, "y", "2026-11-15"));
-    for (const years of [0, 1, 2, 42, 99, 130]) {
+    for (const years of [1, 2, 42, 99, 130]) {
       const dob = dobFromAge(years, "y", "2026-11-15")!;
       expect(calculateAgeFromDob(dob, "2026-11-15")).toBe(years);
+    }
+  });
+
+  // 06-09c (M-INFANTAGE, IND M-5): the reviewer's probe gave dobFromAge(0, "y") = 2026-01-01 (shown "10 m") and
+  // dobFromAge(1, "y") = 2025-01-01 (shown "22 m") on 15 Nov 2026.
+  it("0 years has no date of birth (an infant's age is in months); 1 year is 12 months, shown '12 m'", () => {
+    expect(dobFromAge(0, "y", "2026-11-15")).toBeNull();
+    expect(dobFromAge(1, "y", "2026-11-15")).toBe("2025-11-15");
+    expect(formatAge(dobFromAge(1, "y", "2026-11-15")!, "2026-11-15")).toBe("12 m");
+  });
+
+  it("round trip: every age entry reads back as entered on that day (years from 2, months below), any day of the year", () => {
+    const days: string[] = [];
+    for (let d = new Date(Date.UTC(2024, 0, 1)); d < new Date(Date.UTC(2025, 0, 1)); d = new Date(d.getTime() + 86_400_000)) {
+      days.push(d.toISOString().slice(0, 10));
+    }
+    days.push("2026-11-15", "2026-01-01", "2026-12-31", "2025-02-28", "2025-03-01");
+    for (const today of days) {
+      for (let years = 1; years <= 130; years++) {
+        const shown = formatAge(dobFromAge(years, "y", today)!, today);
+        expect(shown, `${years} y on ${today}`).toBe(years === 1 ? "12 m" : `${years} y`);
+        expect(ageEntryFor(dobFromAge(years, "y", today)!, today), `${years} y back to the age box`).toEqual(
+          years === 1 ? { text: "12", unit: "m" } : { text: String(years), unit: "y" },
+        );
+      }
+      for (let months = 0; months <= 23; months++) {
+        const dob = dobFromAge(months, "m", today)!;
+        const shown = formatAge(dob, today);
+        if (months === 0) expect(shown, `0 m on ${today}`).toBe("0 d");
+        else expect(shown, `${months} m on ${today}`).toBe(`${months} m`);
+        expect(ageEntryFor(dob, today), `${months} m back to the age box`).toEqual({ text: String(months), unit: "m" });
+      }
     }
   });
 

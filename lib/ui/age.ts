@@ -7,9 +7,12 @@
  * Display (DESIGN_SYSTEM §5): `42 y`; months below 2 years (`8 m`, `23 m`); days below 1 month (`12 d`).
  * Birthdays use the same rule as `lib/datetime` `ageInYears`: a 29 Feb birthday is reached on 1 Mar in other years.
  *
- * Age → DOB uses the convention of `features/patients/schema.ts` `calculateDobFromAge` (1 Jan of the birth year), so
- * an age entered here and the stored, approximate date of birth agree with the server and round-trip to the same age.
- * Below 2 years an age is entered in months, and the approximate DOB is the same day that many months ago.
+ * Age → DOB uses the convention of `features/patients/schema.ts` `calculateDobFromAge` (1 Jan of the birth year) from
+ * 2 years up, so an age entered here and the stored, approximate date of birth agree with the server and round-trip
+ * to the same age. Below 2 years an age is entered in months, and the approximate DOB is the same day that many months
+ * ago. 06-09c (M-INFANTAGE, IND M-5): the display shows months below 2 years, so 1 Jan would make "1 year" read
+ * "22 m" and "0 years" read "10 m" on every later screen. So "1 year" is 12 months (the same day a year ago, shown
+ * "12 m"), and "0 years" has no date of birth: an infant's age is entered in months ({@link dobFromAge}).
  */
 import { isYmd, todayInTz } from "@/lib/datetime";
 
@@ -85,15 +88,19 @@ export function formatAgeToday(dobYmd: string, tz: string, now: Date | number = 
 }
 
 /**
- * The approximate date of birth for an age entered on clinic date `todayYmd`: `n` years → 1 Jan of the birth year
- * (the server's convention); `n` months → the same day `n` months ago (clamped to the month's last day). `null` when
- * the age is not a whole number in range (0-130 years, 0-23 months).
+ * The approximate date of birth for an age entered on clinic date `todayYmd`: `n` ≥ 2 years → 1 Jan of the birth year
+ * (the server's convention); 1 year → 12 months; `n` months → the same day `n` months ago (clamped to the month's last
+ * day). `null` when the age is not a whole number in range (2-130 years or 1 year, 0-23 months), and for 0 years (an
+ * infant's age is entered in months: "0 years" would say nothing about how old the baby is). So
+ * `formatAge(dobFromAge(n, u, today), today)` always reads back what was entered: `n y` from 2 years, `12 m` for 1
+ * year, `n m` for months (`d` under one month).
  */
 export function dobFromAge(amount: number, unit: AgeUnit, todayYmd: string): string | null {
   if (!isYmd(todayYmd) || !Number.isInteger(amount) || amount < 0) return null;
   const [ty, tm, td] = parts(todayYmd);
   if (unit === "y") {
-    if (amount > MAX_AGE_YEARS) return null;
+    if (amount > MAX_AGE_YEARS || amount === 0) return null;
+    if (amount === 1) return dobFromAge(12, "m", todayYmd);
     return toYmd(ty - amount, 1, 1);
   }
   if (amount > 23) return null;
@@ -110,4 +117,14 @@ export function parseAgeAmount(text: string, unit: AgeUnit): number | null {
   if (unit === "y" && n > MAX_AGE_YEARS) return null;
   if (unit === "m" && n > 23) return null;
   return n;
+}
+
+/**
+ * 06-09c (IND L-7): the age box for a date of birth set from outside (editing a patient): whole years from 2 years
+ * up, else whole months (the same rule as the display). `null` for an unusable date of birth.
+ */
+export function ageEntryFor(dobYmd: string, todayYmd: string): { text: string; unit: AgeUnit } | null {
+  const age = ageParts(dobYmd, todayYmd);
+  if (!age) return null;
+  return age.years >= 2 ? { text: String(age.years), unit: "y" } : { text: String(age.totalMonths), unit: "m" };
 }

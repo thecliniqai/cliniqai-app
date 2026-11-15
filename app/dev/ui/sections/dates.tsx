@@ -14,6 +14,8 @@ import { DayStrip } from "@/components/ui/day-strip";
 import { SlotPicker, type Slot } from "@/components/ui/slot-picker";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { AgeOrDobInput, type AgeOrDobValue } from "@/components/ui/age-or-dob-input";
+import { Button } from "@/components/ui/button";
+import { dobFromAge } from "@/lib/ui/age";
 import { Skeleton, SkeletonRegion } from "@/components/ui/skeleton";
 import { useClinicToday } from "@/lib/datetime/client";
 import { GalleryGroup, GallerySection, Specimen } from "../kit";
@@ -90,6 +92,8 @@ function DatesSpecimens() {
   const [slot, setSlot] = useState<string | null>(null);
   const [phone, setPhone] = useState({ digits: "", e164: "" });
   const [age, setAge] = useState<AgeOrDobValue>({ mode: "age", dob: null, approximate: true });
+  // 06-09c (IND L-7): a value set from outside (editing a patient), then replaced by "Load another patient".
+  const [edited, setEdited] = useState<AgeOrDobValue>({ mode: "age", dob: "1984-01-01", approximate: true });
 
   return (
     <>
@@ -191,6 +195,17 @@ function DatesSpecimens() {
           <Value id="age-value">
             {age.dob ? `${age.dob}${age.approximate ? " (approximate)" : ""}` : "none"}
           </Value>
+        </Specimen>
+        <Specimen label="Editing a patient" state="filled" className="w-full max-w-xs">
+          <AgeOrDobInput label="Patient age (editing)" value={edited} onValueChange={setEdited} />
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setEdited({ mode: "age", dob: dobFromAge(8, "m", today), approximate: true })}
+          >
+            Load another patient
+          </Button>
+          <Value id="age-edit-value">{edited.dob ?? "none"}</Value>
         </Specimen>
       </GalleryGroup>
     </>

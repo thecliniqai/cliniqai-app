@@ -195,14 +195,24 @@ test.describe("DateField typing", () => {
     await expect(review.input).toHaveValue("1/2/2026");
     await expect(page.getByTestId("date-review-value")).toHaveText("2026-02-01");
 
-    // Never mm/dd: 31/02 is not a date (31 Feb). Typing over the old text keeps the old value until it is fixed.
+    // Never mm/dd: 31/02 is not a date (31 Feb). 06-09c (M-DATE, IND M-4): typing over the old date clears the value
+    // at once — the field no longer shows it, so a form can never submit it behind the error (before: the old
+    // 2026-02-01 stayed the value while the field showed 31/02/2026 and its error).
     await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("31022026");
     await expect(review.input).toHaveValue("31/02/2026");
     await page.keyboard.press("Tab");
     await expect(review.input).toHaveAttribute("aria-invalid", "true");
     await expect(review.input).toHaveAccessibleDescription(/Enter the date as dd\/mm\/yyyy/);
-    await expect(page.getByTestId("date-review-value")).toHaveText("2026-02-01");
+    await expect(page.getByTestId("date-review-value")).toHaveText("none");
+    // A partial edit of a good date (a digit deleted) clears it before blur, and the error follows on blur.
+    await review.input.fill("12/11/2026");
+    await expect(page.getByTestId("date-review-value")).toHaveText("2026-11-12");
+    await review.input.press("Backspace");
+    await expect(review.input).toHaveValue("12/11/202");
+    await expect(page.getByTestId("date-review-value")).toHaveText("none");
+    await review.input.press("Tab");
+    await expect(review.input).toHaveAttribute("aria-invalid", "true");
 
     await review.input.fill("");
     await expect(page.getByTestId("date-review-value")).toHaveText("none");

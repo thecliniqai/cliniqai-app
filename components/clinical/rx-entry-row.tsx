@@ -37,9 +37,15 @@ import {
  * the search for the next medicine. So after typing the name a line costs five keystrokes: Enter, 2, 5, d, Enter.
  * Everything is also tap-first: the presets are tiles, the duration has a stepper, Tab walks into the builder.
  *
- * Typing any other character while the builder is open searches again (the pending line is dropped). Escape closes
- * the builder (or the list) and keeps focus in the field. The list opens only while there is a query, never on page
- * load, and it scrolls itself, never the page (the `Command` wrapper confines cmdk's `scrollIntoView`).
+ * 06-09c (M-RXKEYS, IND M-2) keyboard rules, so a line is never saved with a frequency or duration the doctor did not
+ * see: each frequency tile shows its key (1 = 1-0-1, 2 = 1-0-0, 3 = 0-0-1, 4 = 1-1-1, 5 = SOS; `RX_KEY_HELP` is the
+ * same mapping for screen readers); a lone digit followed by a unit is a duration ("3d" = 3 days, the frequency
+ * stays); Enter right after a lone frequency digit, or with digits that have no unit yet, adds nothing and says why;
+ * a tap on a duration tile or the stepper always wins over unfinished typed digits; once dose keys were typed, any
+ * other character is refused with a hint instead of silently dropping the line. Before any dose key, typing searches
+ * again (the pending line is dropped). Escape closes the builder (or the list) and keeps focus in the field. The list
+ * opens only while there is a query, never on page load, and it scrolls itself, never the page (the `Command` wrapper
+ * confines cmdk's `scrollIntoView`).
  */
 export interface RxEntryRowProps {
   /** The searchable list (the gallery passes a synthetic in-memory list; V2-09 wires the doctor's formulary). */
@@ -70,12 +76,28 @@ function customMedicine(name: string): Medicine {
   return { id: `custom:${clean.toLowerCase()}`, name: clean, form: "Custom", generic: clean };
 }
 
+/** The inline help, built from the presets so the keys it names are exactly the keys the field reads (06-09c). */
+export const RX_KEY_HELP = `Keys 1 to 5 pick the frequency: ${FREQUENCY_PRESETS.map((f, i) => `${i + 1} for ${f}`).join(", ")}. Then type the duration with its unit, such as 5d, 2w or 1m. Enter adds the medicine.`;
+
+const UNIT_KEY = /^[dwm]$/i;
+
+function rangeError(): string {
+  return `Enter a duration from ${MIN_DAYS} to ${MAX_DAYS} days`;
+}
+
+/** A lone frequency digit is waiting for its duration (06-09c M-RXKEYS): what it picked and what it replaced. */
+interface FrequencyKey {
+  digit: string;
+  before: string;
+}
+
 export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: RxEntryRowProps) {
   const [query, setQuery] = useState("");
   const [pending, setPending] = useState<DoseDraft | null>(null);
-  // Keys typed into the field while the builder is open: whether the frequency digit has been typed, and the digits
-  // of a duration waiting for its unit.
+  // Keys typed into the field while the builder is open: whether the frequency digit has been typed, the lone
+  // frequency digit still waiting for what follows it, and the digits of a duration waiting for its unit.
   const [freqTyped, setFreqTyped] = useState(false);
+  const [freqKey, setFreqKey] = useState<FrequencyKey | null>(null);
   const [durBuffer, setDurBuffer] = useState("");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -86,49 +108,76 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
   const exact = results.some((m) => m.name.toLowerCase() === trimmed.toLowerCase());
   const listOpen = trimmed !== "" && pending === null;
 
+  function resetTyping() {
+    setFreqTyped(false);
+    setFreqKey(null);
+    setDurBuffer("");
+    setError(null);
+  }
+
   function openBuilder(medicine: Medicine) {
     setPending(pendingFor(medicine));
     setQuery(medicine.name);
-    setFreqTyped(false);
-    setDurBuffer("");
-    setError(null);
+    resetTyping();
     inputRef.current?.focus();
   }
 
   function closeBuilder() {
     setPending(null);
     setQuery("");
-    setFreqTyped(false);
-    setDurBuffer("");
-    setError(null);
+    resetTyping();
     inputRef.current?.focus();
   }
 
-  function commit(next: DoseDraft | null = pending) {
-    if (!next) return;
-    let days = next.days;
+  /**
+   * Adds the line exactly as the builder shows it. 06-09c (M-RXKEYS): never with an unfinished typed duration ("1…"
+   * has no unit yet: the doctor is told to add one), and from the keyboard never right after a lone frequency digit
+   * ("5" then Enter meant "5 days" as often as "SOS": the doctor is told what the digit picked and asked for the
+   * duration). A tap on "Add to prescription" adds what the tiles show.
+   */
+  function commit(source: "key" | "tap") {
+    if (!pending) return;
     if (durBuffer) {
-      // Digits without a unit are days ("5" then Enter = 5 days).
-      days = Number(durBuffer);
+      setError(`Add the unit to ${durBuffer}: d, w or m (for example ${durBuffer}d)`);
+      return;
     }
-    if (!(days >= MIN_DAYS && days <= MAX_DAYS)) {
-      setError(`Enter a duration from ${MIN_DAYS} to ${MAX_DAYS} days`);
-      setDurBuffer("");
+    if (source === "key" && freqKey) {
+      setError(`${freqKey.digit} picked ${pending.frequency}. Type the duration, such as 5d, or choose “Add to prescription”.`);
+      return;
+    }
+    if (!(pending.days >= MIN_DAYS && pending.days <= MAX_DAYS)) {
+      setError(rangeError());
       return;
     }
     onAdd({
-      medicine: next.medicine,
-      frequency: next.frequency,
-      timing: next.timing,
-      days,
-      instruction: next.instruction.trim() || undefined,
+      medicine: pending.medicine,
+      frequency: pending.frequency,
+      timing: pending.timing,
+      days: pending.days,
+      instruction: pending.instruction.trim() || undefined,
     });
     closeBuilder();
   }
 
-  function update(patch: Partial<DoseDraft>) {
-    setPending((p) => (p ? { ...p, ...patch } : p));
+  function patch(next: Partial<DoseDraft>) {
+    setPending((p) => (p ? { ...p, ...next } : p));
     setError(null);
+  }
+
+  /**
+   * A change made in the builder itself (a tile, the stepper, the instruction). 06-09c (M-RXKEYS): it always wins over
+   * anything half-typed in the search field — an unfinished duration ("1…") is dropped, so a tap on "7 days" saves 7
+   * days, never the typed 1.
+   */
+  function fromBuilder(next: Partial<DoseDraft>) {
+    patch(next);
+    setDurBuffer("");
+    setFreqKey(null);
+  }
+
+  function refuse(event: React.KeyboardEvent<HTMLInputElement>, message: string) {
+    event.preventDefault();
+    setError(message);
   }
 
   function onFieldKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -146,7 +195,7 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (key === "Enter") {
       event.preventDefault();
-      commit();
+      commit("key");
       return;
     }
     if (key === "ArrowDown" || key === "ArrowUp" || key === "Home" || key === "End") {
@@ -156,25 +205,58 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
     if (/^\d$/.test(key)) {
       event.preventDefault();
       if (!freqTyped && durBuffer === "" && DIGIT_PRESET.test(key)) {
-        update({ frequency: FREQUENCY_PRESETS[Number(key) - 1] });
+        // The first digit picks the frequency preset shown on its tile (1 = 1-0-1 … 5 = SOS, RX_KEY_HELP).
+        setFreqKey({ digit: key, before: pending.frequency });
+        patch({ frequency: FREQUENCY_PRESETS[Number(key) - 1] });
         setFreqTyped(true);
       } else if (durBuffer.length < 3) {
         setFreqTyped(true);
+        setFreqKey(null);
         setDurBuffer((b) => b + key);
+        setError(null);
       }
       return;
     }
-    if (/^[dwm]$/i.test(key) && durBuffer !== "") {
-      event.preventDefault();
-      const days = parseDuration(durBuffer + key);
-      setDurBuffer("");
-      if (days === null || days > MAX_DAYS) setError(`Enter a duration from ${MIN_DAYS} to ${MAX_DAYS} days`);
-      else update({ days });
-      return;
+    if (UNIT_KEY.test(key)) {
+      if (durBuffer !== "") {
+        event.preventDefault();
+        const days = parseDuration(durBuffer + key);
+        setDurBuffer("");
+        if (days === null || days > MAX_DAYS) setError(rangeError());
+        else patch({ days });
+        return;
+      }
+      if (freqKey) {
+        // "3d": the lone digit was a duration, not a frequency. The frequency goes back to what it was.
+        event.preventDefault();
+        const days = parseDuration(freqKey.digit + key);
+        patch({ frequency: freqKey.before });
+        setFreqKey(null);
+        setFreqTyped(false);
+        if (days === null || days > MAX_DAYS) setError(rangeError());
+        else patch({ days });
+        return;
+      }
     }
-    if (key === "Backspace" && durBuffer !== "") {
-      event.preventDefault();
-      setDurBuffer((b) => b.slice(0, -1));
+    if (key === "Backspace") {
+      if (durBuffer !== "") {
+        event.preventDefault();
+        setDurBuffer((b) => b.slice(0, -1));
+        return;
+      }
+      if (freqKey) {
+        // Undo the lone frequency digit.
+        event.preventDefault();
+        patch({ frequency: freqKey.before });
+        setFreqKey(null);
+        setFreqTyped(false);
+        return;
+      }
+    }
+    // Any other character after dose keys were typed would search again and silently drop the line being built:
+    // refuse it and say which keys work (Escape searches again).
+    if (key.length === 1 && (freqTyped || durBuffer !== "" || freqKey)) {
+      refuse(event, "Type a duration such as 5d, 2w or 1m, or press Escape to search again");
     }
   }
 
@@ -209,9 +291,7 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
               setQuery(next);
               if (pending) {
                 setPending(null);
-                setFreqTyped(false);
-                setDurBuffer("");
-                setError(null);
+                resetTyping();
               }
             }}
             onKeyDown={onFieldKeyDown}
@@ -255,16 +335,17 @@ export function RxEntryRow({ medicines, onAdd, label = "Medicine", className }: 
         </CommandList>
       </Command>
       <p id={hintId} className="sr-only">
-        Keys 1 to 5 pick the frequency, then a duration such as 5d, 2w or 1m. Enter adds the medicine.
+        {RX_KEY_HELP}
       </p>
       {pending && (
         <DoseBuilder
           value={pending}
-          onChange={update}
-          onAdd={() => commit()}
+          onChange={fromBuilder}
+          onAdd={() => commit("tap")}
           onCancel={closeBuilder}
           durationShown={durationShown}
           error={error}
+          keyHints
         />
       )}
     </div>
@@ -283,6 +364,8 @@ export interface DoseBuilderProps {
   submitLabel?: string;
   /** Show the head's Close button (off inside a sheet that has its own). */
   closable?: boolean;
+  /** Show each frequency tile's key (1–5) on ≥ lg screens: only where the search field reads those keys (06-09c). */
+  keyHints?: boolean;
 }
 
 /**
@@ -299,6 +382,7 @@ export function DoseBuilder({
   error,
   submitLabel = "Add to prescription",
   closable = true,
+  keyHints = false,
 }: DoseBuilderProps) {
   const headingId = useId();
   const presetDays = (DURATION_PRESETS as readonly number[]).includes(value.days) ? String(value.days) : "";
@@ -330,14 +414,28 @@ export function DoseBuilder({
         </h4>
         {closable && <IconButton size="sm" label="Close dose builder" icon={<X />} tooltip={false} onClick={onCancel} />}
       </div>
-      <DoseRow label="Frequency" hint={<span className="hidden gap-0.5 lg:inline-flex">{FREQUENCY_PRESETS.map((_, i) => <Kbd key={i}>{i + 1}</Kbd>)}</span>}>
+      <DoseRow label="Frequency">
         <ChipGroup
           type="single"
           variant="tile"
           aria-label="Frequency"
           value={value.frequency}
           onValueChange={(frequency) => onChange({ frequency })}
-          items={FREQUENCY_PRESETS.map((f) => ({ value: f, label: <span className="min-w-10 text-center tracking-[0.04em]">{f}</span>, "aria-label": `${f}, ${frequencyWords(f)}` }))}
+          items={FREQUENCY_PRESETS.map((f, i) => ({
+            value: f,
+            label: (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="min-w-10 text-center tracking-[0.04em]">{f}</span>
+                {/* 06-09c (M-RXKEYS): the key next to the frequency it picks, not a 1–5 row beside the label. */}
+                {keyHints && (
+                  <Kbd className="hidden lg:inline-flex" data-frequency-key={i + 1}>
+                    {i + 1}
+                  </Kbd>
+                )}
+              </span>
+            ),
+            "aria-label": `${f}, ${frequencyWords(f)}`,
+          }))}
         />
       </DoseRow>
       <DoseRow label="Timing">

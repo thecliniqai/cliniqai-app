@@ -206,6 +206,28 @@ describe("summary", () => {
     ]);
   });
 
+  // 06-09c (M-VITALS, IND M-1): the reviewer's probe. Before, "flagged first" treated high and critical alike, so
+  // shown = [BP high, P high, 100.8°F high] and the critical SpO₂ 84 % was only in the popover.
+  it("a critical reading is never hidden behind merely-high ones: criticals rank first", () => {
+    const { shown, all } = summarizeVitals({ systolic: 150, diastolic: 95, pulse: 110, temperatureF: 100.8, spo2: 84 });
+    expect(shown.map((i) => [i.text, i.flag])).toEqual([
+      ["SpO₂ 84%", "critical-low"],
+      ["BP 150/95", "high"],
+      ["P 110", "high"],
+    ]);
+    expect(all).toHaveLength(4);
+  });
+
+  it("every critical reading is shown, even more than three of them; then flagged, then normal", () => {
+    const reading = { systolic: 200, diastolic: 125, pulse: 160, temperatureF: 106, spo2: 80, respRate: 40, weight: 70 };
+    const { shown, all } = summarizeVitals(reading);
+    const criticals = all.filter((i) => i.flag.startsWith("critical"));
+    expect(criticals.length).toBeGreaterThan(3);
+    expect(shown.map((i) => i.text)).toEqual(criticals.map((i) => i.text));
+    const mixed = summarizeVitals({ systolic: 128, diastolic: 84, pulse: 110, spo2: 84 }, 3).shown;
+    expect(mixed.map((i) => i.flag)).toEqual(["critical-low", "high", "normal"]);
+  });
+
   it("BP takes the worse of its two numbers; spoken forms name the vital", () => {
     const [bp] = vitalsItems({ systolic: 150, diastolic: 95 });
     expect(bp).toEqual({ text: "BP 150/95", spoken: "blood pressure 150 over 95", flag: "high" });

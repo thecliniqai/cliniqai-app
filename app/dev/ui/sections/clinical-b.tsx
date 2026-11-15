@@ -52,9 +52,15 @@ const PATIENTS: readonly PickerPatient[] = [
   { id: "p05", name: "Synthetic Patient 05", age: "12 d", sex: "M", phone: "9000000505", lastVisit: "Last visit 11 Nov" },
 ];
 
+/** The query that makes the gallery's search fail (06-09c M-PICKER: the failed-search state). */
+export const FAILING_PATIENT_QUERY = "zz-fail";
+
 /** In-memory search with a short delay, so the loading row shows (synthetic list only). */
 function searchPatients(query: string): Promise<readonly PickerPatient[]> {
   const q = query.trim().toLowerCase();
+  if (q === FAILING_PATIENT_QUERY) {
+    return new Promise((_, reject) => setTimeout(() => reject(new Error("synthetic search failure")), 250));
+  }
   const digits = q.replace(/\D/g, "");
   const found = PATIENTS.filter((p) =>
     digits.length >= 3 ? (p.phone ?? "").includes(digits) : p.name.toLowerCase().split(/\s+/).some((w) => w.startsWith(q)) || p.name.toLowerCase().startsWith(q),
@@ -189,6 +195,8 @@ function RegisterDemo() {
         onUseExisting={(m) => setResult(`Using ${m.name}`)}
         onSubmit={async (values) => {
           await noop();
+          // 06-09c (IND L-6): a name with "Fail" simulates a failed save.
+          if (values.name.includes("Fail")) throw new Error("synthetic save failure");
           setResult(JSON.stringify(values));
         }}
       />
@@ -229,6 +237,9 @@ export function ClinicalBSection() {
         <Specimen label="Flagged" state="flagged">
           <VitalsSummary vitals={{ systolic: 150, diastolic: 95, pulse: 88, temperatureF: 98.6 }} />
         </Specimen>
+        <Specimen label="Critical behind three high" state="critical">
+          <VitalsSummary vitals={{ systolic: 150, diastolic: 95, pulse: 110, temperatureF: 100.8, spo2: 84 }} />
+        </Specimen>
         <Specimen label="More than three" state="popover">
           <VitalsSummary vitals={{ systolic: 128, diastolic: 84, pulse: 88, temperatureF: 98.6, spo2: 89, respRate: 18, weight: 78 }} />
         </Specimen>
@@ -241,11 +252,11 @@ export function ClinicalBSection() {
         <VitalsDemo />
       </GalleryGroup>
 
-      <GalleryGroup id="clinical-picker" title="Patient picker" note="Search by name or at least three digits of the mobile number; Enter adds the active patient to the queue.">
+      <GalleryGroup id="clinical-picker" title="Patient picker" note="Search by name or at least three digits of the mobile number; Enter adds the active patient to the queue. “zz-fail” shows a failed search.">
         <PickerDemo />
       </GalleryGroup>
 
-      <GalleryGroup id="clinical-register" title="Quick registration" note="9000000001 is a registered synthetic number (duplicate hint). The submit is a no-op.">
+      <GalleryGroup id="clinical-register" title="Quick registration" note="9000000001 is a registered synthetic number (duplicate hint). The submit is a no-op; a name with “Fail” shows a failed save.">
         <RegisterDemo />
       </GalleryGroup>
     </GallerySection>
