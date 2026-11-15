@@ -43,6 +43,9 @@
  *          (tests/helpers/subscription.spec.ts, the rewritten tests/integration/subscription.spec.ts, auth/invite,
  *          cross-tenant, share-path-encoding, invite-token-lockout, msg91-webhook) and the two gate-close specs
  *          (ai-commit-expiry-race, invite-dedupe-role): 173 in total.
+ *   5872 — V2-06 06-08 (phase close step 1): the full suite at the 06-08 tree (000094, branch and stack matching) had
+ *          6181 tests in 300 files, 0 skipped (evidence/06-08/vitest-full-summary.txt); 6181 × 0.95 = 5871.95 → 5872.
+ *          REQUIRED_FILES gains every spec V2-06 added outside tests/e2e (40 files; 213 in total).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -51,7 +54,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 4826;
+const FLOOR = 5872;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -274,6 +277,55 @@ const REQUIRED_FILES = [
   "tests/messaging/msg91-webhook.spec.ts",
   "tests/ai/ai-commit-expiry-race.spec.ts",
   "tests/staff/invite-dedupe-role.spec.ts",
+  // V2-06 (06-PLAN.md "Phase close" step 1, executed by 06-08): every spec V2-06 added outside tests/e2e.
+  // 06-01a tokens, codemod, UI policy; 06-01b approved tokens, contrast, brand mark, AI labels; 06-02a… primitives.
+  "tests/design/tokens.spec.ts",
+  "tests/design/codemod.spec.ts",
+  "tests/design/png-diff.spec.ts",
+  "tests/design/approved-tokens.spec.ts",
+  "tests/design/contrast.spec.ts",
+  "tests/design/brand-mark.spec.ts",
+  "tests/design/ai-labels.spec.ts",
+  "tests/design/input-kind.spec.ts",
+  "tests/design/gallery.spec.ts",
+  "tests/design/age.spec.ts",
+  "tests/ui/cn.spec.ts",
+  "tests/utils/datetime-format.spec.ts",
+  "tests/ci/ui-policy.spec.ts",
+  "tests/ci/ui-policy-signout-guard.spec.ts",
+  // 06-07 route-JS report and Lighthouse CI config (cookie scrub).
+  "tests/ci/route-js.spec.ts",
+  "tests/ci/lhci-config.spec.ts",
+  // 06-04a client error capture (PHI); 06-09a client render events and route patterns.
+  "tests/errors/client-error-kind.spec.ts",
+  "tests/observability/client-error-action-db.spec.ts",
+  "tests/observability/client-render-event.spec.ts",
+  "tests/observability/client-routes.spec.ts",
+  // 06-05 / 06-09a service worker allowlist, hard sign-out and purge, no-store, icons, device prefs.
+  "tests/pwa/sw-allowlist.spec.ts",
+  "tests/pwa/hard-sign-out.spec.ts",
+  "tests/pwa/purge.spec.ts",
+  "tests/pwa/auth-broadcast.spec.ts",
+  "tests/pwa/proxy-no-store-db.spec.ts",
+  "tests/pwa/device-prefs.spec.ts",
+  "tests/pwa/online.spec.ts",
+  "tests/pwa/icons.spec.ts",
+  // 06-06 session status, lock, update, install.
+  "tests/api/session-status-db.spec.ts",
+  "tests/pwa/session-status.spec.ts",
+  "tests/pwa/update.spec.ts",
+  "tests/pwa/dirty-guard.spec.ts",
+  "tests/pwa/platform.spec.ts",
+  // 06-03a/b clinical status, vitals and Rx vocabulary.
+  "tests/clinical/visit-status.spec.ts",
+  "tests/clinical/vitals.spec.ts",
+  "tests/clinical/rx.spec.ts",
+  // 06-04b navigation by role, palette patient search (PHI projection), shell runtime.
+  "tests/nav/nav-for-role.spec.ts",
+  "tests/patients/palette-search-db.spec.ts",
+  "tests/pwa/shell-runtime.spec.ts",
+  // 06-08 React Compiler rules at error and their waiver register (R-30).
+  "tests/ci/react-compiler-waivers.spec.ts",
 ];
 
 const file = process.argv[2];
