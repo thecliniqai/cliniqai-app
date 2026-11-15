@@ -15,8 +15,8 @@ import type { TenantAccessLevel } from "@/lib/auth/tenant";
  * - 401 → `expired` (`hardSignOut("expired")`); 403 → `removed` (`hardSignOut("removed")`). After either, checking stops.
  * - 200 with a `redirect` → `locked(redirect)` (D-8: cleanups, then `location.replace`; the session is kept). Only one
  *   of 05-10b's three destinations is ever followed, never another URL from the answer.
- * - 200 with a `deploymentId` that differs from the page's `data-dpl-id` → `updateAvailable` (a page without
- *   `data-dpl-id`, e.g. `next dev`, never reports an update: no loop).
+ * - 200 with a `deploymentId` that differs from the page's ({@link currentPageDeploymentId}) → `updateAvailable` (a
+ *   page without one, e.g. `next dev`, never reports an update: no loop).
  * - Anything else (offline, 409 clinic selection, 5xx, a redirect, an unreadable body) → nothing; the next trigger
  *   checks again. A transient failure never signs anyone out.
  */
@@ -91,7 +91,23 @@ export async function readSessionStatus(fetchImpl: typeof fetch, timeoutMs: numb
   }
 }
 
-/** True only when both ids are known and differ (a page without `data-dpl-id` never asks for an update). */
+/**
+ * The deployment id this page was served by. Next writes it as `data-dpl-id` on `<html>` in the server HTML, then its
+ * client runtime reads the attribute, REMOVES it (before hydration) and keeps the value as
+ * `globalThis.NEXT_DEPLOYMENT_ID` (`next/dist/shared/lib/deployment-id.js`, `client/register-deployment-id-global.js`).
+ * So the global first, the attribute only as a fallback; null without a deployment id (local `next dev`).
+ */
+export function currentPageDeploymentId(
+  global: { NEXT_DEPLOYMENT_ID?: unknown } = globalThis as { NEXT_DEPLOYMENT_ID?: unknown },
+  doc: { documentElement: { dataset: { dplId?: string } } } | undefined = typeof document === "undefined" ? undefined : document,
+): string | null {
+  const fromGlobal = global.NEXT_DEPLOYMENT_ID;
+  if (typeof fromGlobal === "string" && DEPLOYMENT_ID.test(fromGlobal)) return fromGlobal;
+  const fromAttribute = doc?.documentElement.dataset.dplId;
+  return fromAttribute && DEPLOYMENT_ID.test(fromAttribute) ? fromAttribute : null;
+}
+
+/** True only when both ids are known and differ (a page without a deployment id never asks for an update). */
 export function isDeploymentMismatch(serverId: string | null, pageId: string | null | undefined): boolean {
   return Boolean(serverId) && Boolean(pageId) && serverId !== pageId;
 }
@@ -141,7 +157,7 @@ export function requestSessionCheck(trigger: Extract<CheckTrigger, "error" | "lo
 
 export interface WatchDeps {
   fetch: typeof fetch;
-  /** The page's deployment id (`document.documentElement.dataset.dplId`), read at each answer. */
+  /** The page's deployment id ({@link currentPageDeploymentId}), read at each answer. */
   pageDeploymentId: () => string | null | undefined;
   isVisible: () => boolean;
   /** Subscribes to `visibilitychange` and `online`; returns the unsubscribe. */

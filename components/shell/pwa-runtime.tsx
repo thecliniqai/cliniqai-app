@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { registerServiceWorker } from "@/lib/pwa/register-sw";
 import { onSignOutElsewhere } from "@/lib/pwa/auth-broadcast";
 import { concealDocument, followSignOutElsewhere, hardSignOut } from "@/lib/auth/hard-sign-out";
-import { startSessionStatusWatch } from "@/lib/pwa/session-status";
+import { currentPageDeploymentId, startSessionStatusWatch } from "@/lib/pwa/session-status";
 import { onLocked } from "@/lib/pwa/lock";
 import {
   applyUpdate,
@@ -104,7 +104,7 @@ export function PwaRuntime({ swEnabled }: { swEnabled: boolean }) {
     countSignedInSession();
     const watch = startSessionStatusWatch({
       fetch: (input, init) => window.fetch(input, init),
-      pageDeploymentId: () => document.documentElement.dataset.dplId ?? null,
+      pageDeploymentId: () => currentPageDeploymentId(),
       isVisible: () => document.visibilityState === "visible",
       listen: (onVisible, onOnline) => {
         const visible = () => {

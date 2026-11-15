@@ -15,6 +15,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UnrecognizedActionError } from "next/dist/client/components/unrecognized-action-error";
 import {
+  currentPageDeploymentId,
   ERROR_CHECK_MIN_GAP_MS,
   isDeploymentMismatch,
   parseSessionStatus,
@@ -137,6 +138,18 @@ describe("reactToStatus", () => {
     expect(isDeploymentMismatch(null, "dpl_a")).toBe(false);
     expect(isDeploymentMismatch("dpl_a", "dpl_a")).toBe(false);
     expect(isDeploymentMismatch("dpl_b", "dpl_a")).toBe(true);
+  });
+});
+
+describe("currentPageDeploymentId", () => {
+  it("reads Next's global first (Next removes data-dpl-id before hydration), the attribute as a fallback", () => {
+    const doc = (dplId?: string) => ({ documentElement: { dataset: { dplId } } });
+    expect(currentPageDeploymentId({ NEXT_DEPLOYMENT_ID: "e2e-local-deployment" }, doc(undefined))).toBe("e2e-local-deployment");
+    expect(currentPageDeploymentId({}, doc("dpl_attr"))).toBe("dpl_attr");
+    expect(currentPageDeploymentId({ NEXT_DEPLOYMENT_ID: "dpl_global" }, doc("dpl_attr"))).toBe("dpl_global");
+    expect(currentPageDeploymentId({}, doc(undefined))).toBeNull();
+    expect(currentPageDeploymentId({ NEXT_DEPLOYMENT_ID: false }, doc(""))).toBeNull();
+    expect(currentPageDeploymentId({ NEXT_DEPLOYMENT_ID: "bad id" }, doc(undefined))).toBeNull();
   });
 });
 
