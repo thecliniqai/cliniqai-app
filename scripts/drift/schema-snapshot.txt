@@ -1314,7 +1314,7 @@ function private.message_subject(p_patient_id uuid, p_visit_id uuid, OUT visit_t
 function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=29638eca9aa442b931281faa2bc30a63
 function private.patient_documents_fill_report_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=7e2b1e557d54c545d6796e572df71ba8
 function private.patients_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9137400efeb88466beca8d4531b92f6e
-function private.patients_ai_objection_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=3112c2e0840ff0daf2e28d4ba298fcc6
+function private.patients_ai_objection_audit() returns trigger lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4ed3a98541304fda8a6ce40d6e165a79
 function private.patients_ai_objection_stamp() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=3dd8d3fb67f0ab62bec30e9ce3dbf9f5
 function private.payments_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9d07a669cf91ce75b6839f73f1d5c6b0
 function private.platform_actor(p_actor uuid, OUT actor uuid, OUT channel text) returns record lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=23d311260ffb7245c79afa6d04631443
@@ -1336,7 +1336,7 @@ function private.visits_create_clinical_notes() returns trigger lang=plpgsql sec
 function private.visits_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=92bf0cdfd32dc8e73de1889e1d875d73
 function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=3f9364431c0bfd99577d1cf49f87bf8e
 function private.webhook_iso(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cf107b0b69f25a02f89ee3381aca5f4f
-function public.ai_commit(p_reservation uuid) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=51953e356a05b45c4d6d5536cd60867f
+function public.ai_commit(p_reservation uuid) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=85196dc29136273b2163ed253f8a8ea4
 function public.ai_preflight(p_feature text, p_visit_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=733216a51eb88c1b8c39ba7a0b47af28
 function public.ai_release(p_reservation uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=199e81dc685bba11e2f1b67e94851ac7
 function public.ai_reserve(p_feature text, p_visit_id uuid, p_timeout_s integer) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=e2c219dfea379facf0f1091dceef692e
@@ -1373,7 +1373,7 @@ function public.inbound_webhook_begin(p_provider text, p_dedupe_key text) return
 function public.inbound_webhook_finish(p_provider text, p_dedupe_key text, p_outcome text) returns void lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=6e09b6c645bd991920f556c59af2d9bd
 function public.invitation_accept_context(p_token_hash text) returns jsonb lang=plpgsql security_definer=t volatility=s config=search_path="" body_md5=6dc072c1db3d1aae564e620d94a1693d
 function public.invitation_issue_token(p_invitation_id uuid, p_token_version integer) returns text lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=2f4be3c0b9b9dc42244f7a1b17c156c8
-function public.invite_staff(p_tenant uuid, p_email text, p_role text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=0948f230058935301f1d68551da0b58e
+function public.invite_staff(p_tenant uuid, p_email text, p_role text) returns jsonb lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=35bc0e1eee69d2616b96f16eece1bb63
 function public.is_platform_admin() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=af70fe3e8a794856bb34c32b19b5d4d6
 function public.is_safe_storage_key(p_path text) returns boolean lang=sql security_definer=f volatility=i config=search_path="" body_md5=7a398bad0569219987cdf11d3c9b2487
 function public.is_valid_weekly_schedule(p_schedule jsonb) returns boolean lang=plpgsql security_definer=f volatility=i config=search_path="" body_md5=70d8e5967b9f88ca8cc3926225d8527f

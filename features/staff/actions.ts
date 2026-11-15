@@ -27,12 +27,15 @@ const inviteStaffSchema = z.object({
  *   - `sent`: a new invitation, emailed;
  *   - `replaced`: a pending invitation to the same address for another role (`previousRole`) was revoked and a new
  *     one, for the role asked, was emailed;
- *   - `already_pending`: an invitation for the same address and role is still pending; nothing new was sent.
+ *   - `already_pending`: an invitation for the same address is still pending; nothing new was sent.
+ * `role` is the role the invitation in the database carries (000094, re-verification N-2), never the role requested: when
+ * two invitations to one address race, the pending one may carry another role, and the owner is told that role. It is
+ * absent only when the database did not name it (a database older than 000094); the notice then names no role.
  */
 export type InviteStaffOutcome = "sent" | "replaced" | "already_pending";
 
 export type InviteStaffResult =
-  | { success: true; inviteId: string; outcome: InviteStaffOutcome; previousRole?: UserRole }
+  | { success: true; inviteId: string; outcome: InviteStaffOutcome; role?: UserRole; previousRole?: UserRole }
   | { success: false; error: string };
 
 const STAFF_ROLES: readonly UserRole[] = ["owner", "admin", "doctor", "receptionist", "nurse"];
@@ -99,17 +102,20 @@ export async function inviteStaff(
       return { success: false, error: mapped.message };
     }
 
-    const row = (data ?? {}) as { id?: unknown; deduped?: unknown; replaced_role?: unknown };
+    const row = (data ?? {}) as { id?: unknown; deduped?: unknown; role?: unknown; replaced_role?: unknown };
     const inviteId = row.id;
     if (typeof inviteId !== "string" || typeof row.deduped !== "boolean") {
       log.error({ event: "staff.invite_insert.failed", code: "result_shape", requestId: await getRequestId() });
       return { success: false, error: INVITE_STAFF_MESSAGES.INTERNAL as string };
     }
-    if (row.deduped) return { success: true, inviteId, outcome: "already_pending" };
+    // N-2 (000094): the stored role, as the database answered it; never the requested `role`.
+    const stored = typeof row.role === "string" && STAFF_ROLES.includes(row.role as UserRole) ? (row.role as UserRole) : undefined;
+    const withRole = stored ? { role: stored } : {};
+    if (row.deduped) return { success: true, inviteId, outcome: "already_pending", ...withRole };
     if (typeof row.replaced_role === "string" && STAFF_ROLES.includes(row.replaced_role as UserRole)) {
-      return { success: true, inviteId, outcome: "replaced", previousRole: row.replaced_role as UserRole };
+      return { success: true, inviteId, outcome: "replaced", ...withRole, previousRole: row.replaced_role as UserRole };
     }
-    return { success: true, inviteId, outcome: "sent" };
+    return { success: true, inviteId, outcome: "sent", ...withRole };
   } catch (err: unknown) {
     // Session and permission refusals keep their fixed text; anything else gets a fixed message (IR-L2).
     const known =

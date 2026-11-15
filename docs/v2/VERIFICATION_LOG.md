@@ -829,3 +829,19 @@ note of 2026-11-14. Typography: Manrope display + Inter body. CTO rulings on the
 | "ClinicOS"/"ClinicQ" strings outside V2-06 | Renamed by their owner phases: WhatsApp templates in V2-12 (templates are re-registered there anyway); `X-ClinicQ-Signature` decided with API v1 hardening (P1-37) — no external consumer exists yet (PO-16); other UI copy by the phase that owns the screen |
 | Inter licence file | Vendor rsms/inter's own `OFL.txt` (correct copyright line) |
 | Doc errata (DESIGN_SYSTEM, PWA_STRATEGY, PO-19) | Proposed at phase close, as planned |
+
+### V2-05b CTO rulings applied to approved docs (2026-11-15)
+
+Made by the agent as CTO under the PO's delegation of the V2-05 rulings (05-P1, delegated 2026-11-13: "for the rest, I
+trust your judgement"). Applied at the V2-05b gate close with a dated erratum note in each document; the PO may
+overturn any of them at the 05b gate (05-P6). Source: `.planning/phases/05-db-authorisation-entitlements/`
+(`05-PLAN.md` § Rulings, `05b-REVIEW-TRIAGE.md`, `05b-SUMMARY.md`).
+
+| Ruling | Document changed | What changed and why | Evidence |
+|---|---|---|---|
+| R-44 | `docs/adr/0005-confine-service-role-client.md` (new "Amendment A4") | `features/auth/invite-flows.ts` may import `features/auth/system.ts` to call one function, `redeemInvitationWithPassword`, only after the token-hash, server-side Turnstile and FT-05 checks. AUTH §3.2's invite flow needs the Auth admin API from a public, token-gated action, which Decision 2's importer list did not allow (A1/A3 are the precedents). Text = the accepted proposal `05-ADR0005-A4-PROPOSAL.md` | ESLint zone `A4_AUTH_ONLY` with pass/fail fixtures (`tests/security/p1-34-lint-gates.spec.ts`), `accept-invite.spec.ts`, `invitation_accept_context.test.sql`; reviewed in `reviews/v205b-review-adversarial-access.md` (no finding on the A4 path) |
+| R-38 (SUB part) | `docs/v2/SUBSCRIPTIONS_AND_PLANS.md` §8.1 (erratum under the actor block) | The `platform.*` actor rule reads the session role (`coalesce(nullif(current_setting('role', true), 'none'), session_user)`), not `current_user`: inside a SECURITY DEFINER function `current_user` is the owner, so the verbatim block let any signed-in user act as any platform admin | `platform_rpcs.test.sql` (the actor-rule loop over every RPC; the verbatim block fails cases 14–17, `05-09b-PLATFORM-RPCS.md` mutant 1); `private.platform_actor` in 000085 |
+| Objection clear (2026-11-15) | none (AI_STRATEGY §4.6 is read with this ruling) | An owner who holds the doctor permissions (today every owner: the owner role holds every doctor permission) may also clear a patient's AI objection, audited; admins and nurses may not. Typical single-doctor clinics have no separate doctor login | Migration 000094 (`private.patients_ai_objection_audit`); `gate_close_05b.test.sql` 9–12, `review_fixes_05b.test.sql` 40 |
+
+R-38's other proposed errata (roadmap V2-05/DB-08, SVP §6.1, AUTH §3.2/§9, BACKEND C6/§3, SUB §7.1/§7.2) are not
+applied here; they stay listed in `05-PLAN.md` § Rulings for the V2-05 phase close.

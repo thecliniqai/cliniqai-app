@@ -187,7 +187,7 @@ select is(pg_temp.leaked_grant_probe(), 'denied:SYSTEM_ONLY|denied:SYSTEM_ONLY',
 -- 2. invite_staff -------------------------------------------------------------------------------------------------------
 insert into c507 values ('inv1', pg_temp.uk('c5070000-0000-4000-8000-000000000101', null,
   $$ select public.invite_staff('c5070000-0000-4000-8000-00000000000a', '  C507-Invitee@Example.TEST ', 'doctor')::text $$));
-select is((select (v::jsonb) - 'id' - 'expires_at' from c507 where k = 'inv1'), '{"deduped": false}'::jsonb,
+select is((select (v::jsonb) - 'id' - 'expires_at' from c507 where k = 'inv1'), '{"role": "doctor", "deduped": false}'::jsonb,
   'the owner invites a doctor: a new invitation, not deduped');
 select ok((select i.invited_address = 'c507-invitee@example.test' and i.token_hash is null and i.token_version = 1
                   and i.send_count = 0 and i.created_by = 'c5070000-0000-4000-8000-000000000101' and i.role = 'doctor'

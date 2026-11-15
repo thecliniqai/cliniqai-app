@@ -1,0 +1,65 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/staff/invite-dedupe-role.spec.ts (2 tests | 2 failed) 2533ms
+   × a deduped invitation names the stored role (re-verification N-2) > owner 1 invites as admin (open transaction) while owner 2 invites as receptionist: owner 2 is told admin 2156ms
+     → expected { success: true, …(2) } to deeply equal { success: true, …(3) }
+   × a deduped invitation names the stored role (re-verification N-2) > every answer carries the stored role: sent, already pending and replaced (sequential) 34ms
+     → expected { success: true, …(2) } to match object { Object (success, outcome, ...) }
+(1 matching property omitted from actual)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/staff/invite-dedupe-role.spec.ts > a deduped invitation names the stored role (re-verification N-2) > owner 1 invites as admin (open transaction) while owner 2 invites as receptionist: owner 2 is told admin
+AssertionError: expected { success: true, …(2) } to deeply equal { success: true, …(3) }
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[2m    "inviteId": "6d2928b4-72ab-4487-9540-1b9dece110e8",[22m
+[2m    "outcome": "already_pending",[22m
+[32m-   "role": "admin",[39m
+[2m    "success": true,[22m
+[2m  }[22m
+
+ ❯ tests/staff/invite-dedupe-role.spec.ts:86:20
+     84|     expect(firstId).toMatch(UUID);
+     85| 
+     86|     expect(second).toEqual({ success: true, inviteId: firstId, outcome…
+       |                    ^
+     87|     if (!second.success) return;
+     88|     // What the staff form shows: the stored role, not the one owner 2…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/staff/invite-dedupe-role.spec.ts > a deduped invitation names the stored role (re-verification N-2) > every answer carries the stored role: sent, already pending and replaced (sequential)
+AssertionError: expected { success: true, …(2) } to match object { Object (success, outcome, ...) }
+(1 matching property omitted from actual)
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[2m    "outcome": "sent",[22m
+[32m-   "role": "nurse",[39m
+[2m    "success": true,[22m
+[2m  }[22m
+
+ ❯ tests/staff/invite-dedupe-role.spec.ts:105:57
+    103|   it("every answer carries the stored role: sent, already pending and …
+    104|     const email = address(`n2-seq-${randomUUID().slice(0, 8)}@example.…
+    105|     expect(await inviteStaff({ email, role: "nurse" })).toMatchObject(…
+       |                                                         ^
+    106|     const again = await inviteStaff({ email, role: "nurse" });
+    107|     expect(again).toMatchObject({ success: true, outcome: "already_pen…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  08:41:31
+   Duration  3.03s (transform 132ms, setup 9ms, collect 114ms, tests 2.53s, environment 0ms, prepare 23ms)
+
+[teardown] removed run data: 1 tenant(s), 2 auth user(s), 0 storage object(s); verified none remain

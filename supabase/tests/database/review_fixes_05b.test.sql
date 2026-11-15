@@ -12,7 +12,8 @@
 --      IND L-5: the owner of a locked clinic may still remove staff; an admin may not.
 --   7. IND L-7: a referral cannot name a removed doctor of the target clinic.
 --   8. IND L-4: an expired clinic's prescription link answers only the SUB-D6 verification metadata.
---   9. AI L-3: clearing a patient's AI objection is audited and limited to doctor or receptionist.
+--   9. AI L-3: clearing a patient's AI objection is audited and limited to doctor or receptionist (and, since 000094,
+--      an owner who holds the doctor permissions: CTO ruling 2026-11-15; gate_close_05b.test.sql).
 -- Synthetic data only; every probe and the file roll back.
 begin;
 select plan(42);
@@ -329,7 +330,7 @@ select is(pg_temp.seq(
                                 from public.invitations where tenant_id = 'c5120000-0000-4000-8000-00000000000c' and invited_address = 'c512-reinvite@example.test') || '|'
                           || (select count(*) from ops.jobs j join public.invitations i on j.payload ->> 'invitation_id' = i.id::text
                                where i.invited_address = 'c512-reinvite@example.test' and j.kind = 'email.invite')::text $$),
-  '{"deduped": false, "replaced_role": "admin"}|admin:true,receptionist:false|2',
+  '{"role": "receptionist", "deduped": false, "replaced_role": "admin"}|admin:true,receptionist:false|2',
   'M-REINVITE: re-inviting as receptionist replaces the pending admin invitation (revoked), a new one is created and emailed');
 select is(pg_temp.seq(
     'c5120000-0000-4000-8000-000000000301', $$ select set_config('c512.first', public.invite_staff('c5120000-0000-4000-8000-00000000000c', 'c512-same@example.test', 'nurse') ->> 'id', true) $$,
@@ -417,7 +418,7 @@ select is(pg_temp.seq('postgres', pg_temp.objected(), 'c5120000-0000-4000-8000-0
   'denied:AI_OBJECTION_CLEAR_FORBIDDEN', 'AI L-3: a nurse cannot clear a patient''s AI objection');
 select is(pg_temp.seq('postgres', pg_temp.objected(), 'c5120000-0000-4000-8000-000000000101', pg_temp.clear())
           || '/' || pg_temp.seq('postgres', pg_temp.objected(), 'c5120000-0000-4000-8000-000000000102', pg_temp.clear()),
-  'denied:AI_OBJECTION_CLEAR_FORBIDDEN/denied:AI_OBJECTION_CLEAR_FORBIDDEN', 'AI L-3: nor can the owner or an admin (AI §4.6: doctor or receptionist)');
+  '1/denied:AI_OBJECTION_CLEAR_FORBIDDEN', 'AI L-3: nor can an admin; the owner can since 000094 (CTO ruling 2026-11-15: an owner holding the doctor permissions)');
 select is(pg_temp.seq(
     'postgres', pg_temp.objected(),
     'c5120000-0000-4000-8000-000000000106', pg_temp.clear(),
