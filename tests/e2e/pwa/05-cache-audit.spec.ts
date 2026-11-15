@@ -312,6 +312,13 @@ test.describe("exit paths (fresh nurse each)", () => {
     if (browserName !== "webkit") await expectBackShowsNoPatient(page);
     await context.setOffline(false);
     expect(await authCookies(context)).toEqual([]);
+    if (browserName === "webkit") {
+      // 06-09c (PR-lane run 2, root cause from the trace): the WebKit page stayed (above), so its runtime is still there;
+      // back online its `online` status check answers 401 and it leaves for /login by itself (a second, now reachable
+      // POST /auth/signout). A `page.goto` started meanwhile is "interrupted by another navigation": wait for that
+      // departure first, so the goto below never races the app's own navigation.
+      await page.waitForURL((url) => url.pathname === "/login", { timeout: 15_000 });
+    }
     await page.goto("/patients");
     await expect(page).toHaveURL((url) => url.pathname === "/login");
     await expect(page.getByText(readRunData().tenantA.patientName)).toHaveCount(0);
