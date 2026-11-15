@@ -1,0 +1,17 @@
+# e2e PR lane run 1 (build of the shell commits' sources, --retries=0): stats {"startTime": "2026-11-15T03:51:02.015Z", "duration": 846447.5970000001, "expected": 543, "skipped": 185, "unexpected": 12, "flaky": 0}
+# unexpected failures (expected = known-bug test.fail cases and network-block's own expected failure):
+
+- pixel-7 | auth/j-a5-change-password.spec.ts | J-A5: change password refuses a breached password, accepts a clear one and signs | Error: expect(locator).toBeVisible() failed
+- desktop-chrome | design/keyboard/forms.spec.ts | Input and Field: the label names the control, hint and error describe it, invali | Error: expect(locator).toBeFocused() failed
+- pixel-7 | m0/book-appointment.spec.ts | overbook path with a new patient creates exactly one patient (known v1 bug F-04) | 
+- pixel-7 | m0/book-appointment.spec.ts | book a free slot → booked visit at that time, visible on the calendar | Test timeout of 30000ms exceeded.
+- pixel-7 | m0/book-appointment.spec.ts | overbook path: a taken slot asks for confirmation; confirming books it flagged o | Test timeout of 30000ms exceeded.
+- pixel-7 | m0/cancel-appointment.spec.ts | cancel a booked visit → cancelled, slot free again for a booking without overrid | Test timeout of 30000ms exceeded.
+- pixel-7 | m0/register-patient.spec.ts | owner registers a patient → one patients row (E.164 phone) in tenant A, visible  | Error: expect(page).toHaveURL(expected) failed
+- iphone-15 | m0/register-patient.spec.ts | owner registers a patient → one patients row (E.164 phone) in tenant A, visible  | Error: expect(page).toHaveURL(expected) failed
+- pixel-7 | m0/register-patient.spec.ts | receptionist registers a patient → one patients row (E.164 phone) in tenant A (P | Error: expect(page).toHaveURL(expected) failed
+- pixel-7 | pwa/06-update.spec.ts | typed input: a client navigation does not reload; the next navigation (nothing t | Test timeout of 30000ms exceeded.
+- iphone-15 | pwa/06-update.spec.ts | @golden skew: an unknown Server Action shows the notice, keeps the typed text an | Error: expect(locator).toBeVisible() failed
+- desktop-chrome | shell/loading-states.spec.ts | a patient record opened from Patients | Error: expect(received).toBeGreaterThan(expected)
+
+Root causes and fixes: 06-04b record, deviation 10 (commit 0e95669).

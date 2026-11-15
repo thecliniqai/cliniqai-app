@@ -1,0 +1,103 @@
+[
+  {
+    "mutant": "receptionist gets Billing & Reports (holds billing:view; IA says hidden)",
+    "file": "lib/nav/nav-for-role.ts",
+    "spec": "tests/nav/nav-for-role.spec.ts",
+    "caught": true,
+    "failing": [
+      "receptionist: primary and secondary destinations, v1 names and URLs, in order"
+    ]
+  },
+  {
+    "mutant": "permission not checked",
+    "file": "lib/nav/nav-for-role.ts",
+    "spec": "tests/nav/nav-for-role.spec.ts",
+    "caught": true,
+    "failing": [
+      "the permission set filters: a role without a permission loses every destination that needs it"
+    ]
+  },
+  {
+    "mutant": "doctor gets the front-desk Dashboard (holds appointments:view; redirected by the page)",
+    "file": "lib/nav/nav-for-role.ts",
+    "spec": "tests/nav/nav-for-role.spec.ts",
+    "caught": true,
+    "failing": [
+      "doctor: primary and secondary destinations, v1 names and URLs, in order",
+      "Back without history goes to the nav parent, else the role's home"
+    ]
+  },
+  {
+    "mutant": "palette search keeps deleted patients",
+    "file": "features/patients/service.ts",
+    "spec": "tests/patients/palette-search-db.spec.ts",
+    "caught": true,
+    "failing": [
+      "patients: stored age when there is no date of birth; name search; only the caller's clinic",
+      "patients: deleted patients are left out"
+    ]
+  },
+  {
+    "mutant": "palette projection selects every column",
+    "file": "features/patients/service.ts",
+    "spec": "tests/patients/palette-search-db.spec.ts",
+    "caught": true,
+    "failing": [
+      "patients: exactly four fields, the last four digits only, age from the date of birth in the clinic's zone",
+      "patients: stored age when there is no date of birth; name search; only the caller's clinic"
+    ]
+  },
+  {
+    "mutant": "palette search ignores the tenant",
+    "file": "features/patients/service.ts",
+    "spec": "tests/patients/palette-search-db.spec.ts",
+    "caught": false,
+    "failing": []
+  },
+  {
+    "mutant": "queue search keeps cancelled visits",
+    "file": "features/queue/service.ts",
+    "spec": "tests/patients/palette-search-db.spec.ts",
+    "caught": true,
+    "failing": [
+      "queue: token, name or mobile number; exactly four fields; cancelled visits and other clinics left out"
+    ]
+  },
+  {
+    "mutant": "resume refresh not coalesced",
+    "file": "lib/pwa/resume.ts",
+    "spec": "tests/pwa/shell-runtime.spec.ts",
+    "caught": true,
+    "failing": [
+      "online and visible together refresh once (coalesced)"
+    ]
+  },
+  {
+    "mutant": "resume refreshes every screen",
+    "file": "lib/pwa/resume.ts",
+    "spec": "tests/pwa/shell-runtime.spec.ts",
+    "caught": true,
+    "failing": [
+      "never refreshes a form or the consult underneath the user, nor while hidden"
+    ]
+  },
+  {
+    "mutant": "bars never come back after the keyboard closes",
+    "file": "lib/pwa/keyboard-aware.ts",
+    "spec": "tests/pwa/shell-runtime.spec.ts",
+    "caught": true,
+    "failing": [
+      "hidden on phones while a text field has focus; shown again when the keyboard closes or focus leaves"
+    ]
+  },
+  {
+    "mutant": "Back always uses browser history",
+    "file": "lib/nav/back-stack.ts",
+    "spec": "tests/pwa/shell-runtime.spec.ts",
+    "caught": true,
+    "failing": [
+      "a fresh launch has no in-app history: Back goes to the nav parent",
+      "pushes forward navigations, pops a step back, ignores a repeat"
+    ]
+  }
+]

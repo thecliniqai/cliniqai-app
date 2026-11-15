@@ -1,0 +1,4 @@
+# e2e PR lane run 2 (final): HEAD 0e95669, build of 0e95669's sources, npm run e2e:pr projects (desktop-chrome, pixel-7, iphone-15, pwa-ipados), --retries=0
+stats: expected 555, skipped 185, unexpected 0, flaky 0, duration 11.5 min
+per project: desktop-chrome 370 passed / 5 skipped; pixel-7 136 / 180; iphone-15 34 (@golden); pwa-ipados 7; setup 8
+retried tests: 0. 'expected' includes the known-bug test.fail cases (P1-07, F-04, P1-03) and network-block's self-check, as on the plan base.
