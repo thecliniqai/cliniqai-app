@@ -26,14 +26,16 @@ export function AmendmentModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset form state on open
-  useEffect(() => {
+  // Reset form state on open, during render rather than in an effect (same trigger; React Compiler `set-state-in-effect`, V2-06 06-08).
+  const [resetFor, setResetFor] = useState<boolean | null>(null);
+  if (resetFor !== isOpen) {
+    setResetFor(isOpen);
     if (isOpen) {
       setReason("");
       setError(null);
       setSubmitting(false);
     }
-  }, [isOpen]);
+  }
 
   // Keyboard navigation: Escape key closes modal
   useEffect(() => {

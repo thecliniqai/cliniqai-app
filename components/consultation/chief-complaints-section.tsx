@@ -37,6 +37,12 @@ const DURATION_PRESETS = [
   { val: 1, unit: "months" as const, label: "1m" },
 ];
 
+// Module level (V2-06 06-08, R-30): React Compiler's `purity` rule reports a clock or random read inside a component,
+// even in an event handler; the value and when it is read are unchanged.
+function newComplaintId(): string {
+  return Math.random().toString(36).substring(2, 9);
+}
+
 export function ChiefComplaintsSection({
   complaints,
   clinicalNotes,
@@ -54,7 +60,7 @@ export function ChiefComplaintsSection({
     }
 
     const newItem: ChiefComplaintItem = {
-      id: Math.random().toString(36).substring(2, 9),
+      id: newComplaintId(),
       symptom: symptom.trim(),
       duration_val: 3,
       duration_unit: "days",

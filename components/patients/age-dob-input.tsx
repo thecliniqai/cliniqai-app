@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { calculateAgeFromDob, calculateDobFromAge } from "@/features/patients/schema";
 import { useClinicToday } from "@/lib/datetime/client";
@@ -29,18 +29,17 @@ export function AgeDobInput({
     ageValue !== null && ageValue !== undefined ? String(ageValue) : ""
   );
 
-  // Sync when external props change
-  useEffect(() => {
-    if (dobValue !== undefined) {
-      setInternalDob(dobValue || "");
-    }
-  }, [dobValue]);
-
-  useEffect(() => {
-    if (ageValue !== undefined) {
-      setInternalAge(ageValue !== null ? String(ageValue) : "");
-    }
-  }, [ageValue]);
+  // Sync when external props change, during render rather than in effects (same triggers; React Compiler `set-state-in-effect`, V2-06 06-08).
+  const [dobSeen, setDobSeen] = useState(dobValue);
+  if (dobSeen !== dobValue) {
+    setDobSeen(dobValue);
+    if (dobValue !== undefined) setInternalDob(dobValue || "");
+  }
+  const [ageSeen, setAgeSeen] = useState(ageValue);
+  if (ageSeen !== ageValue) {
+    setAgeSeen(ageValue);
+    if (ageValue !== undefined) setInternalAge(ageValue !== null ? String(ageValue) : "");
+  }
 
   const handleDobChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newDob = e.target.value;

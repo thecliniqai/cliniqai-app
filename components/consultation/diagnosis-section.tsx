@@ -71,6 +71,12 @@ const SPECIALTY_QUICK_DIAGNOSES: Record<
   ],
 };
 
+// Module level (V2-06 06-08, R-30): React Compiler's `purity` rule reports a clock or random read inside a component,
+// even in an event handler; the value and when it is read are unchanged.
+function optimisticDiagnosisId(): string {
+  return `temp-${Date.now()}`;
+}
+
 export function DiagnosisSection({
   visitId,
   patientId,
@@ -154,7 +160,7 @@ export function DiagnosisSection({
     setErrorMsg(null);
 
     // Optimistic UI update
-    const tempId = `temp-${Date.now()}`;
+    const tempId = optimisticDiagnosisId();
     const newDiagnosis: ConsultationDiagnosisItem = {
       id: tempId,
       visit_id: visitId,

@@ -3,6 +3,7 @@ import {
   DEFAULT_CLINIC_TZ,
   addDaysYmd,
   ageInYears,
+  daysBetweenYmd,
   dayWindowUtc,
   isValidTimeZone,
   isIanaZoneName,
@@ -121,6 +122,17 @@ describe("lib/datetime: calendar arithmetic", () => {
     expect(addDaysYmd("2026-02-28", 1)).toBe("2026-03-01");
     expect(addDaysYmd("2026-11-13", 14)).toBe("2026-11-27");
     expect(addDaysYmd("2026-03-01", -6)).toBe("2026-02-23");
+  });
+
+  it("daysBetweenYmd counts calendar days across months, years and leap days; null for a non-date (06-08)", () => {
+    expect(daysBetweenYmd("2026-11-13", "2026-11-13")).toBe(0);
+    expect(daysBetweenYmd("2026-11-12", "2026-11-13")).toBe(1);
+    expect(daysBetweenYmd("2026-12-31", "2027-01-01")).toBe(1);
+    expect(daysBetweenYmd("2028-02-28", "2028-03-01")).toBe(2);
+    expect(daysBetweenYmd("2026-11-13", "2026-11-01")).toBe(-12);
+    expect(daysBetweenYmd("2024-11-13", "2026-11-13")).toBe(730);
+    expect(daysBetweenYmd("2026-11-13T10:00:00Z", "2026-11-13")).toBeNull();
+    expect(daysBetweenYmd("not a date", "2026-11-13")).toBeNull();
   });
 
   it("nextNDays lists the clinic dates after today, tomorrow first", () => {

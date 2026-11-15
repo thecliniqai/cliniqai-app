@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { completeAndBillConsultation, shareReceiptViaWhatsApp } from "@/features/billing/actions";
 import { sharePrescriptionViaWhatsApp } from "@/features/prescriptions/actions";
@@ -86,7 +86,11 @@ export function SignAndBillModal({
   const [invWaStatus, setInvWaStatus] = useState<"idle" | "success" | "error">("idle");
   const [invWaError, setInvWaError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Reset on open (and when `canCollect` changes while open), during render rather than in an effect: the same
+  // triggers as before, without a committed frame of stale state (React Compiler `set-state-in-effect`, V2-06 06-08).
+  const [resetFor, setResetFor] = useState<{ isOpen: boolean; canCollect: boolean } | null>(null);
+  if (resetFor === null || resetFor.isOpen !== isOpen || resetFor.canCollect !== canCollect) {
+    setResetFor({ isOpen, canCollect });
     if (isOpen) {
       setPaymentCollected(canCollect);
       setCompletedResult(null);
@@ -96,7 +100,7 @@ export function SignAndBillModal({
       setInvWaStatus("idle");
       setInvWaError(null);
     }
-  }, [isOpen, canCollect]);
+  }
 
   const handleSendPrescriptionWhatsApp = async () => {
     if (!completedResult?.visitId || isSendingRxWa) return;

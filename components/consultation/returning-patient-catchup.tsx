@@ -5,11 +5,19 @@ import { Sparkles, ChevronDown, ChevronUp, Clock, Copy, Check, AlertCircle, Load
 import { getPatientCatchUpSummaryAction } from "@/features/ai/actions";
 import { CatchUpSummary } from "@/lib/ai/types";
 import type { PastVisitEncounter } from "@/features/consultation/actions";
+import { daysBetweenYmd, todayInTz, ymdOf } from "@/lib/datetime";
+import { useClinicTimeZone } from "@/lib/datetime/client";
 
 export interface ReturningPatientCatchupProps {
   patientId: string;
   pastEncounters: PastVisitEncounter[];
   onAppendNotes?: (notes: string) => void;
+}
+
+function lastSeenDaysAgo(date: string | null | undefined, timeZone: string): number | null {
+  if (!date || Number.isNaN(Date.parse(date))) return null;
+  const days = daysBetweenYmd(ymdOf(date, timeZone), todayInTz(timeZone));
+  return days === null ? null : Math.max(0, days);
 }
 
 export function ReturningPatientCatchup({
@@ -22,6 +30,7 @@ export function ReturningPatientCatchup({
   const [summary, setSummary] = useState<CatchUpSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const timeZone = useClinicTimeZone();
 
   // If patient has zero prior visits recorded, do not render banner
   if (!pastEncounters || pastEncounters.length === 0) {
@@ -34,15 +43,9 @@ export function ReturningPatientCatchup({
       ? latestEncounter.diagnoses.map((d) => d.diagnosis_name).join(", ")
       : "General Consultation";
 
-  const daysAgo = latestEncounter.date
-    ? Math.max(
-        0,
-        Math.floor(
-          (Date.now() - new Date(latestEncounter.date).getTime()) /
-            (1000 * 60 * 60 * 24)
-        )
-      )
-    : null;
+  // Clinic calendar days since the last encounter ("today" = the same clinic date), not 24-hour periods of a
+  // render-time `Date.now()` (React Compiler `purity`, V2-06 06-08). An unreadable date shows no count.
+  const daysAgo = lastSeenDaysAgo(latestEncounter.date, timeZone);
 
   const handleFetchCatchUp = async () => {
     if (summary) {

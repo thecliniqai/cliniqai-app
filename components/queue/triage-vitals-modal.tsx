@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useTransition } from "react";
+import React, { useState, useMemo, useTransition } from "react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,11 @@ export function TriageVitalsModal({
     bmi: null,
   });
 
-  useEffect(() => {
+  // Load the form on open (and when the recorded vitals change while open), during render rather than in an effect:
+  // the same triggers as before (React Compiler `set-state-in-effect`, V2-06 06-08).
+  const [resetFor, setResetFor] = useState<{ isOpen: boolean; existingVitals: typeof existingVitals } | null>(null);
+  if (resetFor === null || resetFor.isOpen !== isOpen || resetFor.existingVitals !== existingVitals) {
+    setResetFor({ isOpen, existingVitals });
     if (isOpen) {
       setError(null);
       if (existingVitals) {
@@ -73,7 +77,7 @@ export function TriageVitalsModal({
         });
       }
     }
-  }, [isOpen, existingVitals]);
+  }
 
   // Auto-calculated BMI: Weight (kg) / [Height (m)]^2
   const bmiInfo = useMemo(() => {

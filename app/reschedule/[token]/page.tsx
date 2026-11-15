@@ -40,13 +40,6 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [confirmedNewTime, setConfirmedNewTime] = useState<string | null>(null);
 
-  useEffect(() => {
-    params.then((p) => {
-      setToken(p.token);
-      loadSlots(p.token);
-    });
-  }, [params]);
-
   const loadSlots = async (tok: string, date?: string) => {
     try {
       setLoading(true);
@@ -69,6 +62,15 @@ export default function PublicReschedulePage({ params }: ReschedulePageProps) {
       setLoading(false);
     }
   };
+
+  // After `loadSlots` is declared: reading it from an effect above its declaration is a use-before-define that React
+  // Compiler's `immutability` rule reports (V2-06 06-08, R-30). Behaviour unchanged.
+  useEffect(() => {
+    params.then((p) => {
+      setToken(p.token);
+      loadSlots(p.token);
+    });
+  }, [params]);
 
   const handleDateChange = (dateStr: string) => {
     setSelectedSlot(null);

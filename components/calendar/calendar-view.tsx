@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useMemo, useEffect } from "react";
+import React, { useState, useTransition, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DoctorTimeline, TimelineVisit, TimelineDoctor, SlotStatus } from "./doctor-timeline";
 import { BookingDrawer } from "./booking-drawer";
@@ -204,9 +204,12 @@ export function CalendarView({
 
   const [localVisits, setLocalVisits] = useState<TimelineVisit[]>(visits);
 
-  useEffect(() => {
+  // Follow new server data, during render rather than in an effect (same trigger; React Compiler `set-state-in-effect`, V2-06 06-08).
+  const [visitsSeen, setVisitsSeen] = useState(visits);
+  if (visitsSeen !== visits) {
+    setVisitsSeen(visits);
     setLocalVisits(visits);
-  }, [visits]);
+  }
 
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 

@@ -55,7 +55,7 @@ import { getReferralSignedUrl } from "@/features/referrals/actions";
 import type { Referral } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
 import { reportClientError } from "@/lib/log/client";
-import { addDaysYmd, todayInTz } from "@/lib/datetime";
+import { addDaysYmd, daysBetweenYmd, todayInTz } from "@/lib/datetime";
 import { useClinicTimeZone } from "@/lib/datetime/client";
 
 export interface ConsultationWorkspaceProps {
@@ -267,18 +267,16 @@ export function ConsultationWorkspace({
   // Active section for jump navigation
   const [activeSection, setActiveSection] = useState<string>("vitals");
 
-  // Track patient age in months for pediatrics
-  const patientAgeMonths = patient.date_of_birth
-    ? Math.max(
-        0,
-        Math.floor(
-          (Date.now() - new Date(patient.date_of_birth).getTime()) /
-            (1000 * 60 * 60 * 24 * 30.4375)
-        )
-      )
-    : patient.age
-    ? patient.age * 12
-    : 24;
+  // Track patient age in months for pediatrics. Counted in clinic calendar days to the clinic's today (read once above),
+  // not from a render-time `Date.now()` (React Compiler `purity`, V2-06 06-08); a date of birth that is not a calendar
+  // date falls through to the recorded age, as before for a missing one.
+  const dobDays = patient.date_of_birth ? daysBetweenYmd(patient.date_of_birth, clinicToday) : null;
+  const patientAgeMonths =
+    dobDays !== null
+      ? Math.max(0, Math.floor(dobDays / 30.4375))
+      : patient.age
+      ? patient.age * 12
+      : 24;
 
   // Mark form as dirty when inputs change
   const markDirty = () => {

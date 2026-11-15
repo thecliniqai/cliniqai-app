@@ -21,6 +21,15 @@ const ACCESS_LABEL: Record<AccessLevel, string> = {
   none: "No access",
 };
 
+/**
+ * Whether a complimentary period is still running at request time. A module-level helper, not inline in the page:
+ * this is a server component rendered once per request, so reading the clock is correct here, but React Compiler's
+ * `purity` rule cannot tell a server component from a client one (V2-06 06-08, R-30).
+ */
+function compPeriodActive(compUntil: string | null | undefined, now: number = Date.now()): boolean {
+  return compUntil ? new Date(compUntil).getTime() > now : false;
+}
+
 // SUB §10.3: subscription times are shown in IST.
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("en-IN", {
@@ -69,7 +78,7 @@ async function BillingSettingsPage() {
   }
 
   const { subscription, accessLevel } = overview;
-  const compActive = subscription?.compUntil ? new Date(subscription.compUntil).getTime() > Date.now() : false;
+  const compActive = compPeriodActive(subscription?.compUntil);
 
   return (
     <div className="space-y-6 max-w-3xl" data-testid="billing-settings">

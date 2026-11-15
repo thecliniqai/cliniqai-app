@@ -1,6 +1,7 @@
 // eslint-config-next 16 ships native flat configs (V2-03 03-06); the FlatCompat / @eslint/eslintrc bridge is gone.
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
+import { readFileSync } from "node:fs";
 
 /**
  * AUTH-01 gates (AUTH_REDESIGN §11, 01-06): no code path may create users through OTP or sign in by a mailbox
@@ -550,6 +551,33 @@ const TOOLING_FILES = [
 const BOUNDARY_DIRECTIVE = /^\s*(eslint-disable(?:-next-line|-line)?|eslint-enable|eslint)(?:\s+([\s\S]*?))?(?:\s+--[\s\S]*)?\s*$/;
 const boundaryDirectivePlugin = {
   rules: {
+    // V2-06 06-08: React Compiler rules are waived only through scripts/ci/react-compiler-waivers.json (time-boxed,
+    // counted), never by an inline directive.
+    "no-compiler-rule-directive": {
+      meta: { type: "problem", schema: [], docs: { description: "No inline directive may disable a React Compiler rule." } },
+      create(context) {
+        return {
+          Program() {
+            for (const comment of context.sourceCode.getAllComments()) {
+              const match = BOUNDARY_DIRECTIVE.exec(comment.value);
+              if (!match) continue;
+              const [, kind, rest = ""] = match;
+              if (kind === "eslint-enable") continue;
+              if (kind === "eslint" && comment.type !== "Block") continue;
+              const names = kind === "eslint"
+                ? [...rest.matchAll(/([@\w/-]+)\s*:/g)].map((m) => m[1])
+                : rest.split(",").map((n) => n.trim()).filter(Boolean);
+              if (names.some((n) => REACT_COMPILER_RULE_IDS.includes(n))) {
+                context.report({
+                  loc: comment.loc,
+                  message: `R-30: an inline eslint directive may not disable or reconfigure the React Compiler rules (${REACT_COMPILER_RULE_IDS.join(", ")}); fix the code or add a time-boxed entry to scripts/ci/react-compiler-waivers.json.`,
+                });
+              }
+            }
+          },
+        };
+      },
+    },
     "no-boundary-directive": {
       meta: { type: "problem", schema: [], docs: { description: "No inline directive may disable a P1-34 boundary gate." } },
       create(context) {
@@ -579,6 +607,34 @@ const boundaryDirectivePlugin = {
     },
   },
 };
+
+/**
+ * V2-06 06-08 (R-30, 03-06 carry-over): React Compiler rules of eslint-plugin-react-hooks 7 are back at "error". The
+ * v1 sites that remain are time-boxed per-file waivers in scripts/ci/react-compiler-waivers.json (file, rule, exact
+ * site count, owner phase, ≤ 90 days), each applied below as a per-file "warn" override; an expired entry is no
+ * longer applied, so the file fails lint again. Inline directives cannot switch these rules off
+ * (`clinicos/no-compiler-rule-directive`). tests/ci/react-compiler-waivers.spec.ts proves all of it.
+ */
+export const REACT_COMPILER_RULES = ["set-state-in-effect", "purity", "immutability"];
+const REACT_COMPILER_RULE_IDS = REACT_COMPILER_RULES.map((rule) => `react-hooks/${rule}`);
+export const REACT_COMPILER_WAIVERS = (() => {
+  const { waivers } = JSON.parse(readFileSync(new URL("./scripts/ci/react-compiler-waivers.json", import.meta.url), "utf8"));
+  if (!Array.isArray(waivers)) throw new Error("react-compiler-waivers.json: `waivers` must be an array");
+  for (const w of waivers) {
+    if (typeof w?.file !== "string" || !REACT_COMPILER_RULES.includes(w?.rule) || !/^\d{4}-\d{2}-\d{2}$/.test(w?.expires ?? "")) {
+      throw new Error(`react-compiler-waivers.json: malformed entry ${JSON.stringify(w)}`);
+    }
+  }
+  return waivers;
+})();
+/** Today's UTC date: an entry applies through its `expires` day. */
+const TODAY_UTC = new Date().toISOString().slice(0, 10);
+/** A literal path as a flat-config glob (app routes contain `(group)` and `[param]`). */
+const literalGlob = (file) => file.replace(/[()[\]{}*?!+@]/g, "\\$&");
+const REACT_COMPILER_WAIVER_CONFIGS = REACT_COMPILER_WAIVERS.filter((w) => w.expires >= TODAY_UTC).map((w) => ({
+  files: [literalGlob(w.file)],
+  rules: { [`react-hooks/${w.rule}`]: "warn" },
+}));
 
 /**
  * V2-06 06-01a (DESIGN_SYSTEM §8, §10; report mode): every rule of eslint-plugin-jsx-a11y's `recommended` set at
@@ -636,15 +692,14 @@ const eslintConfig = [
     files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     rules: {
       // eslint-plugin-react-hooks 7 (pulled in by eslint-config-next 16, V2-03 03-06) adds React Compiler rules whose
-      // recommended level is "error". They flag 35 pre-existing v1 sites (set-state-in-effect 30, purity 4,
-      // immutability 1); the client components are rebuilt on the V2-06 frontend foundation (P1-28), which owns
-      // raising these back to "error". Recorded in .planning/phases/03-platform-hygiene/03-06-NEXT16.md.
-      "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/purity": "warn",
-      "react-hooks/immutability": "warn",
+      // recommended level is "error". V2-03 set them to "warn" for 35 v1 sites (03-06-NEXT16.md); V2-06 06-08 raises
+      // them back to "error" (R-30): 13 sites fixed, the rest waived per file below until their owner phase.
+      ...Object.fromEntries(REACT_COMPILER_RULE_IDS.map((id) => [id, "error"])),
+      "clinicos/no-compiler-rule-directive": "error",
       ...JSX_A11Y_REPORT_RULES,
     },
   },
+  ...REACT_COMPILER_WAIVER_CONFIGS,
   {
     files: ["features/**/schema.ts"],
     rules: {

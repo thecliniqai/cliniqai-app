@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -54,8 +54,11 @@ export function EditPatientModal({
   const [emergencyPhone, setEmergencyPhone] = useState(ec.phone || "");
   const [emergencyRelation, setEmergencyRelation] = useState(ec.relation || "");
 
-  // Reset form when patient changes
-  useEffect(() => {
+  // Reset the form when the patient record changes, during render rather than in an effect (same trigger; React
+  // Compiler `set-state-in-effect`, V2-06 06-08).
+  const [resetFor, setResetFor] = useState<typeof patient | null>(null);
+  if (resetFor !== patient) {
+    setResetFor(patient);
     if (patient) {
       setFullName(patient.full_name || "");
       setPhone(patient.phone || "");
@@ -79,7 +82,7 @@ export function EditPatientModal({
       setEmergencyRelation(e.relation || "");
       setError(null);
     }
-  }, [patient]);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
