@@ -6,6 +6,7 @@ import { LogOut, Building, Shield, User, MonitorSmartphone, Users } from "lucide
 import { hardSignOut } from "@/lib/auth/hard-sign-out";
 import { cn } from "@/lib/utils";
 import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
+import { InstallMenuItem } from "@/components/shell/install-entry";
 
 export interface UserDropdownProps {
   userEmail: string;
@@ -106,6 +107,9 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
           Clinic Profile
         </DropdownLink>
       )}
+
+      {/* V2-06 06-06 (PWA §6.1-§6.3): "Install app" / "Open in Chrome" / "Open in Safari" when an install path exists. */}
+      <InstallMenuItem />
 
       <DropdownSeparator />
 

@@ -11,6 +11,8 @@
  *   `reportClientRenderError` with its class name and the route pattern, nothing else. A digest means the server
  *   already recorded it (`onRequestError`). Public and auth boundaries never report: there is no session.
  * - `standalone` renders its own `<main>` (boundaries outside the dashboard shell, whose page owned the landmark).
+ * - 06-06: each caught error is handed to the skew guard (`noteAppError`: a session-status check, and the shell's
+ *   update notice for a skew error).
  */
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
@@ -19,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { reportClientRenderError } from "@/features/observability/actions";
 import { clientErrorKind } from "@/lib/errors/client-error-kind";
 import { routePatternOf } from "@/lib/errors/client-route";
+import { noteAppError } from "@/lib/pwa/skew";
 
 const DIGEST = /^[A-Za-z0-9_-]{1,64}$/;
 const NAME_LIMIT = 80;
@@ -67,6 +70,12 @@ export function RouteError({ error, retry, report = false, home, standalone = fa
 
   useEffect(() => {
     heading.current?.focus();
+  }, [error]);
+
+  // V2-06 06-06: every caught error asks the PWA runtime for a session-status check (any error may be a lock or a
+  // revoked session), and a skew error also shows the shell's "This app was updated" notice. No-op outside the shell.
+  useEffect(() => {
+    noteAppError(error);
   }, [error]);
 
   useEffect(() => {

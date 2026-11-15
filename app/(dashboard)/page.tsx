@@ -20,6 +20,7 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { withPageAuth } from "@/lib/auth/page";
+import { InstallCard } from "@/components/shell/install-card";
 
 async function DashboardPage() {
   const supabase = await createClient();
@@ -108,6 +109,9 @@ async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* V2-06 06-06 (PWA §6.1): the install card, on Today only (from the second signed-in session; 30-day dismiss). */}
+      <InstallCard />
 
       {/* Metrics Row (TailAdmin Metric Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
