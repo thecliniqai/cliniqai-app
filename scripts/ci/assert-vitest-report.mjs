@@ -49,6 +49,9 @@
  *   5909 — V2-06 06-09c (Wave B review fixes): the full suite at the 06-09c tree (000094) had 6219 tests in 303 files,
  *          0 skipped (evidence/06-09c/vitest-full-summary.txt); 6219 × 0.95 = 5908.05 → 5909. REQUIRED_FILES + the three
  *          new 06-09c specs (auth-outage-db, active-clinic-removed-db, record-layouts-db; 216 in total).
+ *   5974 — V2-06 06-09d (re-verification fixes): the full suite at the 06-09d tree (c68851a, stack 000094) had 6288
+ *          tests in 305 files, 0 skipped (evidence/06-09d/vitest-full-summary.txt); 6288 × 0.95 = 5973.6 → 5974.
+ *          REQUIRED_FILES + the two new 06-09d specs (auth-failure, session-auth-reverify-db; 218 in total).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -57,7 +60,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 5909;
+const FLOOR = 5974;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -334,6 +337,10 @@ const REQUIRED_FILES = [
   "tests/auth/auth-outage-db.spec.ts",
   "tests/auth/active-clinic-removed-db.spec.ts",
   "tests/nav/record-layouts-db.spec.ts",
+  // 06-09d re-verification fixes: a refresh/`/user` failure that is not a definitive GoTrue answer never signs out or
+  // deletes cookies (H-AUTHOUT-R1, L-R1..L-R3); the device is pinned to its clinic (M-REMOVED-R1, L-R4).
+  "tests/auth/auth-failure.spec.ts",
+  "tests/auth/session-auth-reverify-db.spec.ts",
 ];
 
 const file = process.argv[2];
