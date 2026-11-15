@@ -1,0 +1,7 @@
+Mutation: lib/auth/tenant.ts without the 06-09d L-R4 branch (empty memberships + a pinned clinic → ActiveClinicMembershipEndedError), on the 06-09d tree, 2026-11-15T08:45:59Z
+RV R6 last clinic removed (pinned) -> layout NEXT_REDIRECT;replace;/clinic/new;307;; route 403
+   × L-R4: removed from the last clinic > with the clinic pinned: the layout renders MembershipEnded (sign-out, purge), the route 403 806ms
+   ✓ L-R4: removed from the last clinic > a new account without a clinic (no pinned clinic) still goes to /clinic/new 233ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected false to be true // Object.is equality
+      Tests  1 failed | 1 passed | 55 skipped (57)

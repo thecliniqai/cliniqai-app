@@ -1,0 +1,55 @@
+06-09d after: the same command on the 06-09d tree (default 20 s test timeout), 2026-11-15T08:17:36Z
+RV route token=network -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (6038 ms for two polls)
+RV route token=abort -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (6026 ms for two polls)
+RV route token=503 -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (6028 ms for two polls)
+RV route token=500 -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (6039 ms for two polls)
+RV route token=520 -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (6030 ms for two polls)
+RV route token=429 -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (5 ms for two polls)
+RV route token=408 -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (3 ms for two polls)
+RV route token=400gw -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (2 ms for two polls)
+RV route token=404kong -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (3 ms for two polls)
+RV route token=401kong -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (3 ms for two polls)
+RV route token=403html -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (4 ms for two polls)
+RV route token=401noauth -> first 503 cookieKept=true; next poll 503 {"error":"unavailable"} (3 ms for two polls)
+RV proxy token=network -> 200 next authCookieDeletions=0 mark=unavailable (3013 ms)
+RV proxy token=abort -> 200 next authCookieDeletions=0 mark=unavailable (3013 ms)
+RV proxy token=503 -> 200 next authCookieDeletions=0 mark=unavailable (3016 ms)
+RV proxy token=500 -> 200 next authCookieDeletions=0 mark=unavailable (3013 ms)
+RV proxy token=520 -> 200 next authCookieDeletions=0 mark=unavailable (3013 ms)
+RV proxy token=429 -> 200 next authCookieDeletions=0 mark=unavailable (2 ms)
+RV proxy token=408 -> 200 next authCookieDeletions=0 mark=unavailable (2 ms)
+RV proxy token=400gw -> 200 next authCookieDeletions=0 mark=unavailable (1 ms)
+RV proxy token=404kong -> 200 next authCookieDeletions=0 mark=unavailable (1 ms)
+RV proxy token=401kong -> 200 next authCookieDeletions=0 mark=unavailable (1 ms)
+RV proxy token=403html -> 200 next authCookieDeletions=0 mark=unavailable (1 ms)
+RV proxy token=401noauth -> 200 next authCookieDeletions=0 mark=unavailable (1 ms)
+RV action token=429 -> {"reason":"unavailable"} authCookieDeletions=0
+RV timing token=hang -> proxy 3506 ms (200), route 3507 ms (503)
+RV timing token=network -> proxy 3014 ms (200), route 3012 ms (503)
+RV timing token=503 -> proxy 3015 ms (200), route 3015 ms (503)
+RV marked request -> route 503; layout AuthUnavailableError ; today AuthUnavailableError ; refreshes sent=0
+RV definitive token=400rtnf -> route 401 jarCookie=false; proxy 307 http://localhost/login?next=%2Fpatients deletions=1
+RV revoked -> unexpired route 401; expired route 401 jarCookie=false; proxy 307 deletions=1
+RV user=ok -> 200 {"deploymentId":null,"accessLevel":"full","redirect":null} sessionCookieKept=true
+RV user=network -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=abort -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=503 -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=500 -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=520 -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=429 -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=408 -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=400gw -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=404kong -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=401kong -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=403html -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV user=401noauth -> 503 {"error":"unavailable"} sessionCookieKept=true
+RV signout logout=404kong -> 200 authCookieLeft=false
+RV signout logout=401kong -> 200 authCookieLeft=false
+RV signout logout=503 -> 502 authCookieLeft=false
+RV signout logout=429 -> 502 authCookieLeft=false
+RV R3 A-only 200 pin=set; +B 200 {"deploymentId":null,"accessLevel":"full","redirect":null}; -A 403 {"error":"no_membership"}; action no_membership
+RV R1/R2 removed -> 403
+RV R1/R2 suspended -> 403
+RV R6 last clinic removed (pinned) -> layout MembershipEnded; route 403
+ Test Files  4 passed (4)
+      Tests  109 passed (109)

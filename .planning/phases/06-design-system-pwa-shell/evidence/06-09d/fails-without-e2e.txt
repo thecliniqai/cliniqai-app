@@ -1,0 +1,55 @@
+06-09d fails-without proof, e2e: tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts (with the e2e fault hook and app-env) copied into the detached worktree at 78e2fa2 (code before 06-09d), npm ci (same lockfile), npm run e2e:build (build KL69bPpfeF08OHAw-ELCJ), run there on 127.0.0.1:3100 under the lane lock, 2026-11-15T08:32:02Z.
+Command: npx playwright test tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts --project=desktop-chrome --project=pixel-7 --project=iphone-15 --retries=0
+Server stderr: 3 '[e2e-auth-faults] refresh answered 429' lines (the fault fired).
+
+  ✘   9 [desktop-chrome] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:104:7 › H-AUTHOUT-R1: a rate-limited token refresh is never a sign-out › @golden 429 on the server's refresh: poll 503 twice, page and typed text kept, cookies untouched, no purge, no /login (7.0s)
+  ✘  10 [desktop-chrome] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:207:7 › M-REMOVED-R1 / L-R4: the device is pinned to the clinic it opened › @golden never had the cookie, added to B, removed from A: the next resume signs out and purges; signing in again opens B (5.8s)
+  ✘  11 [desktop-chrome] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:227:7 › M-REMOVED-R1 / L-R4: the device is pinned to the clinic it opened › removed from the last clinic: a full page load signs out and purges (never /clinic/new) (5.7s)
+  ✘  12 [pixel-7] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:104:7 › H-AUTHOUT-R1: a rate-limited token refresh is never a sign-out › @golden 429 on the server's refresh: poll 503 twice, page and typed text kept, cookies untouched, no purge, no /login (6.9s)
+  ✘  13 [pixel-7] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:207:7 › M-REMOVED-R1 / L-R4: the device is pinned to the clinic it opened › @golden never had the cookie, added to B, removed from A: the next resume signs out and purges; signing in again opens B (5.8s)
+  ✘  14 [pixel-7] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:227:7 › M-REMOVED-R1 / L-R4: the device is pinned to the clinic it opened › removed from the last clinic: a full page load signs out and purges (never /clinic/new) (5.7s)
+  ✘  15 [iphone-15] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:104:7 › H-AUTHOUT-R1: a rate-limited token refresh is never a sign-out › @golden 429 on the server's refresh: poll 503 twice, page and typed text kept, cookies untouched, no purge, no /login (3.1s)
+  ✘  16 [iphone-15] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:207:7 › M-REMOVED-R1 / L-R4: the device is pinned to the clinic it opened › @golden never had the cookie, added to B, removed from A: the next resume signs out and purges; signing in again opens B (6.0s)
+
+[WebServer] AuthApiError: synthetic
+[WebServer] AuthApiError: synthetic
+[WebServer] AuthApiError: synthetic
+[WebServer] AuthApiError: synthetic
+[WebServer] AuthApiError: synthetic
+[WebServer] AuthApiError: synthetic
+  1) [desktop-chrome] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:104:7 › H-AUTHOUT-R1: a rate-limited token refresh is never a sign-out › @golden 429 on the server's refresh: poll 503 twice, page and typed text kept, cookies untouched, no purge, no /login 
+    Error: poll 1 during the rate limit
+    Expected: 503
+    Received: 401
+  2) [desktop-chrome] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:207:7 › M-REMOVED-R1 / L-R4: the device is pinned to the clinic it opened › @golden never had the cookie, added to B, removed from A: the next resume signs out and purges; signing in again opens B 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "5a007b50-adae-47f6-ba08-200b736248c5"
+    Received: null
+  3) [desktop-chrome] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:227:7 › M-REMOVED-R1 / L-R4: the device is pinned to the clinic it opened › removed from the last clinic: a full page load signs out and purges (never /clinic/new) 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "13ef85cb-d7fe-44ff-9e06-e59bbb523b79"
+    Received: null
+  4) [pixel-7] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:104:7 › H-AUTHOUT-R1: a rate-limited token refresh is never a sign-out › @golden 429 on the server's refresh: poll 503 twice, page and typed text kept, cookies untouched, no purge, no /login 
+    Error: poll 1 during the rate limit
+    Expected: 503
+    Received: 401
+  5) [pixel-7] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:207:7 › M-REMOVED-R1 / L-R4: the device is pinned to the clinic it opened › @golden never had the cookie, added to B, removed from A: the next resume signs out and purges; signing in again opens B 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "3e8d8a3a-851b-4caa-8287-ee4dd45bd294"
+    Received: null
+  6) [pixel-7] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:227:7 › M-REMOVED-R1 / L-R4: the device is pinned to the clinic it opened › removed from the last clinic: a full page load signs out and purges (never /clinic/new) 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "2adf3f57-bebd-410b-ad28-83f7a107ae0e"
+    Received: null
+  7) [iphone-15] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:104:7 › H-AUTHOUT-R1: a rate-limited token refresh is never a sign-out › @golden 429 on the server's refresh: poll 503 twice, page and typed text kept, cookies untouched, no purge, no /login 
+    Error: poll 1 during the rate limit
+    Expected: 503
+    Received: 401
+  8) [iphone-15] › tests/e2e/pwa/11-refresh-outage-and-pin.spec.ts:207:7 › M-REMOVED-R1 / L-R4: the device is pinned to the clinic it opened › @golden never had the cookie, added to B, removed from A: the next resume signs out and purges; signing in again opens B 
+    Error: expect(received).toBe(expected) // Object.is equality
+    Expected: "b7cb0d22-fa93-484c-b26b-63a6cb25c998"
+    Received: null
+
+  8 failed
+  8 passed (57.1s)
+(the 8 passed are the setup project's sign-ins)
