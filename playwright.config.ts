@@ -29,6 +29,14 @@ const DESIGN_PR_ONLY = /\/design\/(keyboard\/|.*axe)/;
 const PERF = /\/perf\//;
 /** V2-06 06-09a: the two-build service-worker update spec has its own config (`npm run e2e:sw-update`). */
 const SW_UPDATE = /\/pwa-update\//;
+/**
+ * V2-06 06-06 (PWA_STRATEGY §6.2, §9.1 spec 10): iPadOS Safari reports a Mac user agent; only `Macintosh` +
+ * `maxTouchPoints > 1` tells it apart (Playwright's iPad descriptors send an `iPad` UA, E16), so spec 10 has its own
+ * WebKit project. It runs only there; the other projects ignore it.
+ */
+const IPADOS = /\/pwa\/10-ipados\.spec\.ts$/;
+const IPADOS_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
 
 /** Custom Android tablet (PWA_STRATEGY §9.1): Chromium, Pixel 7 user agent, 800×1280, touch. */
 const androidTablet800 = {
@@ -46,13 +54,21 @@ const ipadMini744 = {
 // PR lane (RL-20): desktop-chrome runs everything; pixel-7 everything except the viewport-owning a11y specs (v1
 // layout failures only as annotated test.fail()); iphone-15 the @golden paths only.
 const prLane: Project[] = [
-  { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] }, testIgnore: [BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE], ...setup },
-  { name: "pixel-7", use: { ...devices["Pixel 7"] }, testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE], ...setup },
+  { name: "desktop-chrome", use: { ...devices["Desktop Chrome"] }, testIgnore: [BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE, IPADOS], ...setup },
+  { name: "pixel-7", use: { ...devices["Pixel 7"] }, testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE, IPADOS], ...setup },
   {
     name: "iphone-15",
     use: { ...devices["iPhone 15"] },
     grep: GOLDEN,
-    testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE],
+    testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE, IPADOS],
+    ...setup,
+  },
+  // V2-06 06-06 spec 10: WebKit with an iPadOS (Mac) user agent and touch; maxTouchPoints is set by the spec's init
+  // script (WebKit reports 0 for a desktop context). Part of `npm run e2e:pr`.
+  {
+    name: "pwa-ipados",
+    use: { ...devices["Desktop Safari"], userAgent: IPADOS_UA, viewport: { width: 820, height: 1180 }, hasTouch: true },
+    testMatch: IPADOS,
     ...setup,
   },
 ];
@@ -62,7 +78,7 @@ const nightly = (name: string, use: Project["use"]): Project => ({
   name,
   use,
   grep: GOLDEN,
-  testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE],
+  testIgnore: [A11Y, BASELINE, DESIGN_CAPTURE, PERF, SW_UPDATE, IPADOS],
   ...setup,
 });
 const nightlyLane: Project[] = [

@@ -28,7 +28,7 @@
     "test:ai": "vitest run tests/ai tests/security/ai-rbac.spec.ts tests/security/pii-scrubber.spec.ts",
     "test:e2e": "npm run e2e:pr",
     "e2e:build": "tsx tests/e2e/support/build.ts",
-    "e2e:pr": "playwright test --project=desktop-chrome --project=pixel-7 --project=iphone-15",
+    "e2e:pr": "playwright test --project=desktop-chrome --project=pixel-7 --project=iphone-15 --project=pwa-ipados",
     "e2e:nightly": "playwright test --project=iphone-se-3 --project=galaxy-tab-s4 --project=galaxy-tab-s4-landscape --project=android-tablet-800 --project=ipad-gen7 --project=ipad-gen7-landscape --project=ipad-mini-744",
     "e2e:design": "playwright test --project=design-360 --project=design-820 --project=design-1180 --project=design-1280",
     "e2e:sw-update": "playwright test -c tests/e2e/pwa-update/sw-update.config.ts",

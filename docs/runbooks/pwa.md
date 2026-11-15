@@ -95,6 +95,52 @@ live session does the same before the new user's pages load.
 `localStorage` may hold only the `clinicos.pref.*` keys listed in `lib/pwa/device-prefs.ts` (D-3): no identifiers, no
 patient data. Adding a key means adding it there, with a reason.
 
+## Session status, lock, update and skew (06-06)
+
+`PwaRuntime` (dashboard shell) asks `GET /api/session-status` on load, on resume (`visibilitychange` → visible), on
+`online`, every 5 minutes while visible, and after any client error (route error boundary, `unhandledrejection`), at
+most once per 10 s for error triggers and one request at a time (`lib/pwa/session-status.ts`). The route reads the
+session with `auth.getUser()` (a session revoked elsewhere fails even while its token is unexpired) and answers:
+
+| Answer | Meaning | Client reaction |
+|---|---|---|
+| 401 `{ error: "unauthenticated" }` | no session, or revoked (sign-out elsewhere, `remove_member`, password reset) | `hardSignOut("expired")`: purge, `/login` |
+| 403 `{ error: "no_membership" }` | signed in, no active membership in the active clinic | `hardSignOut("removed")` |
+| 409 `{ error: "clinic_selection_required" }` | several clinics, none chosen | nothing |
+| 503 `{ error: "unavailable" }` | a lookup failed | nothing (checked again later; the database stop is the control) |
+| 200 `{ deploymentId, accessLevel, redirect }` | the active clinic's level (05-10a) and destination (05-10b `accessRedirect`) | `redirect` set → D-8 lock; other `deploymentId` than the page's `data-dpl-id` → update toast |
+
+**Lock (D-8, `lib/pwa/lock.ts`).** Not a sign-out: the page is hidden, the `lock` cleanups run, then
+`location.replace(<destination>)`; the session is kept so the owner can renew or export. Only `/billing/locked`,
+`/billing/locked/staff` and `/onboarding/billing` are followed. Code reading a typed result calls
+`onAppErrorCode(code)`: `SUBSCRIPTION_LOCKED` → a fresh status check, `UNAUTHENTICATED` → `hardSignOut("expired")`.
+
+**Deployment id (R-21).** `NEXT_DEPLOYMENT_ID` (else Vercel's `VERCEL_DEPLOYMENT_ID`) is Next's `deploymentId`
+(`data-dpl-id` on `<html>`, `?dpl=` on static assets) and the route's `deploymentId`. Unset (local `next dev`): no
+comparison, no toast. Staging (Vercel Hobby) has no Skew Protection: this check is its only skew control.
+
+**Update toast and safe point (`lib/pwa/update.ts`, `lib/pwa/dirty-guard.ts`).** "A new version is ready · Reload"
+shows when the deployment id differs or a new worker is waiting; `registration.update()` runs on resume and every 30
+min. The app applies it by itself only on a route change with no form holding typed input (a form is dirty from its
+first `input`/`change` until its `submit`/`reset`, and stays so for the navigation that removes it), no command in
+flight (`registerBusy()`), and no skew notice shown. Applying = `SKIP_WAITING` to the waiting worker, then
+`location.reload()`. A field inside `[data-dirty-guard="ignore"]` never counts.
+
+**Skew guard (`lib/pwa/skew.ts`).** An unhandled rejection or boundary error classified `skew` (an unknown Server
+Action, `ChunkLoadError`) shows "This app was updated. Reload to continue." and never reloads by itself: typed input
+stays on screen until the user reloads.
+
+**Install (`lib/pwa/{platform,install}.ts`).** User menu "Install app": the browser prompt (captured
+`beforeinstallprompt`), or on iPhone/iPad (`Macintosh` + `maxTouchPoints > 1`) the three-step sheet. In WhatsApp,
+Gmail, Instagram, Facebook or an Android WebView the entry is "Open in Chrome" (`intent://` from host and path only) or
+"Open in Safari" guidance. The Today card shows from the device's second signed-in browser session
+(`clinicos.pref.signedInSessions`), "Not now" hides it for 30 days (`clinicos.pref.installDismissedUntil`); never when
+installed or standalone.
+
+**Checking by hand.** DevTools → Network: `session-status` answers `private, no-store` with three keys. Lock a staging
+clinic (V2-13b) and resume the tab: it lands on the locked page and stays signed in. Revoke the session from another
+device ("Sign out of all devices") and resume: purge, `/login`.
+
 ## Checking a device by hand
 
 Chrome DevTools → Application: **Service workers** shows `/sw.js` activated; **Cache storage** shows only one

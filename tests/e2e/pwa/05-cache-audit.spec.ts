@@ -10,11 +10,14 @@
  * Exit paths (each with a fresh synthetic nurse, so the shared seeded sessions are never ended): sign out, sign out of
  * all devices (a second device loses its session), switch user, and offline sign-out (the server call fails, the
  * browser signs out locally, the purge runs and the navigation lands on the precached /offline; back online no auth
- * cookie is left). Before each exit the device is dirtied the way a careless library would: a session key, an unknown
+ * cookie is left); 06-06: expired (the session revoked from a second device) and removed (the owner removes the member
+ * with V2-05's `remove_member`, which deletes the member's sessions): on the next resume the session-status poll answers
+ * 401 and `hardSignOut` purges and lands on `/login`. Before each exit the device is dirtied the way a careless library would: a session key, an unknown
  * local key, a non-allowlisted cache entry, a stray cache and an IndexedDB database, plus a preference key that must
  * survive. After each exit: caches hold only allowlisted URLs, sessionStorage is empty, only the `clinicos.pref.*` key
  * remains, IndexedDB is empty, no Supabase auth cookie remains, and Back shows no patient data. Before 06-05 (plain form
- * POST): caches, storage and Back were untouched. Expired and removed sessions: 06-06; idle: V2-11.
+ * POST): caches, storage and Back were untouched. Before 06-06 an expired or removed session left the open page, its
+ * caches and storage as they were until the user navigated. Idle: V2-11.
  *
  * 06-09a (H-WEBKIT): the exit paths are `@golden`, so they also run on the WebKit `iphone-15` project in the PR lane.
  * Before 06-09a, on WebKit, `hardSignOut()`'s fetch of the route's 303 + Clear-Site-Data never settled: the page stayed
@@ -22,10 +25,13 @@
  */
 import type { Page } from "@playwright/test";
 import { allowlisted, authCookies, deviceState, expect, PREF_KEYS, SHELL_CACHE, SHELL_URLS, test, waitForServiceWorker } from "./fixtures";
-import { readRunData, storageStatePath } from "../support/run-data";
+import { readRunData, runPassword, storageStatePath } from "../support/run-data";
 import { freshMember, otherDevice, uiSignIn, expectSignedOut } from "../support/password-journeys";
 import { run, seedPatient, seedVisit, testTag } from "../support/m0-data";
 import { getAdminClient } from "../../helpers/supabase-admin";
+import { addMemberToTenant, seededUserPassword } from "../../helpers/tenants";
+import { createClient } from "@supabase/supabase-js";
+import { publicEnv } from "@/lib/env";
 import { logOffset, readLogFrom, SERVER_STDOUT_LOG } from "../support/server-log";
 
 const NO_STORE = /^(?=.*\bprivate\b)(?=.*\bno-store\b)/;
@@ -216,6 +222,54 @@ test.describe("exit paths (fresh nurse each)", () => {
     await expect.poll(() => serverSignOuts(offset)).toEqual(["local"]);
     await expect(page.getByLabel(/^Email/)).toHaveValue("");
     await expect(page.getByLabel(/^Password/)).toHaveValue("");
+    await expectPurged(page);
+    expect(await authCookies(context)).toEqual([]);
+    await expectBackShowsNoPatient(page);
+  });
+
+  test("Expired: revoked from another device; on resume the poll answers 401, purged, /login @golden", async ({ page, context, browser }) => {
+    const user = await signInFresh(page);
+    const device2 = await otherDevice(browser, user);
+    await (await menuItem(device2.page, "Sign out of all devices")).click();
+    await device2.page.waitForURL((url) => url.pathname === "/login");
+    expect(device2.blocked).toEqual([]);
+    await device2.context.close();
+
+    // This device has not been told (another browser): only the session-status poll can notice.
+    await expect(page.getByText(readRunData().tenantA.patientName).first()).toBeVisible();
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await page.waitForURL((url) => url.pathname === "/login");
+    await expectPurged(page);
+    expect(await authCookies(context)).toEqual([]);
+    await expectBackShowsNoPatient(page);
+  });
+
+  test("Removed: the owner removes the member (remove_member); on resume purged, /login @golden", async ({ page, context }) => {
+    const run = readRunData();
+    const member = await addMemberToTenant(run.tenantA.id, "nurse");
+    await uiSignIn(page, { email: member.userEmail, password: seededUserPassword() });
+    await waitForServiceWorker(page);
+    await openPatient(page);
+    await dirtyDevice(page);
+
+    const owner = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const signIn = await owner.auth.signInWithPassword({ email: run.tenantA.users.owner.email, password: runPassword() });
+    expect(signIn.error).toBeNull();
+    const { data: membership, error: lookupError } = await getAdminClient()
+      .from("memberships")
+      .select("id")
+      .eq("tenant_id", run.tenantA.id)
+      .eq("user_id", member.userId)
+      .single();
+    expect(lookupError).toBeNull();
+    const removal = await owner.rpc("remove_member", { p_membership_id: membership!.id, p_reason: "synthetic e2e removal" });
+    expect(removal.error).toBeNull();
+    await owner.auth.signOut({ scope: "local" });
+
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await page.waitForURL((url) => url.pathname === "/login");
     await expectPurged(page);
     expect(await authCookies(context)).toEqual([]);
     await expectBackShowsNoPatient(page);

@@ -252,8 +252,8 @@ jobs:
           retention-days: 14
 
   # Playwright PR lane (02-03a; RL-16, RL-20): desktop-chrome (all specs), pixel-7 (all but the viewport-owning a11y
-  # specs), iphone-15 (@golden). The checkout has no .env by construction; the app server is built and served only
-  # through the guarded `e2e:build` / `serve.ts` path on 127.0.0.1:3100.
+  # specs), iphone-15 (@golden), pwa-ipados (V2-06 06-06 spec 10 only). The checkout has no .env by construction; the
+  # app server is built and served only through the guarded `e2e:build` / `serve.ts` path on 127.0.0.1:3100.
   e2e:
     name: e2e
     runs-on: ubuntu-24.04
@@ -275,7 +275,7 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium-webkit
-      # Only the engines the PR lane uses (Chromium for desktop-chrome/pixel-7, WebKit for iphone-15). OS packages are
+      # Only the engines the PR lane uses (Chromium for desktop-chrome/pixel-7, WebKit for iphone-15/pwa-ipados). OS packages are
       # not cached, so `install-deps` always runs; the browser download is skipped on a cache hit.
       - name: Install browsers
         if: steps.pw-cache.outputs.cache-hit != 'true'
