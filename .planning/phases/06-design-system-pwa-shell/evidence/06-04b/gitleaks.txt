@@ -1,0 +1,4 @@
+gitleaks zricethezav/gitleaks:v8.30.1, git mode, --config .gitleaks.toml --redact, --log-opts=b2380b9..6c18342 (every 06-04b commit: 3d779c9, d610d9d, d2def21, a7b64c5, b9f8a36, 0e95669, 6c18342), local clone of the branch, 2026-11-15T04:36:13Z
+4:36AM INF 7 commits scanned.
+4:36AM INF scanned ~220999 bytes (221 KB) in 284ms
+4:36AM INF no leaks found
