@@ -144,6 +144,11 @@ test.beforeEach(({}, testInfo) => {
 
 for (const { width, height } of DESIGN_WIDTHS) {
   test(`overlays at ${width}px: axe clean, fitted, placed per width, touch targets, Escape closes`, async ({ page }) => {
+    // Ten whole-page axe scans of the largest page in the app (nine overlays and the toasts) plus ten captures: 18-19 s
+    // on a developer machine, 28.8-29.6 s on a normal CI runner (43705726084) and past the 30 s default on a slower one
+    // (43697405140, 43712054628: every width timed out, three attempts each). Three times the default (90 s) keeps the
+    // budget honest; a real hang still fails.
+    test.slow();
     await page.setViewportSize({ width, height });
     await page.goto("/dev/ui");
     await expect(page.getByRole("heading", { level: 1, name: "Component gallery" })).toBeVisible();
