@@ -46,3 +46,9 @@ a fresh re-verification; Lows only when cheap). Fix plan: **05-12** (migrations 
 | AI I-1, I-6, I-7; ACC Info items; IND I-3 (suspended unused), I-4 (platform actor ids visible to owners) | Recorded; no current exposure of PHI or cross-tenant data | V2-13c / V2-14 |
 | IND I-1: new clinics land on `/onboarding/billing` until V2-13b; un-comped clinics lock when 000090 applies | Planned (R-24/R-25); stays in the deploy runbook | 05b gate / runbook |
 | IND I-2: 000079 drops columns without an explicit emptiness assert | Applied migration; safe by construction (000053 moved content, checked) | — (accepted) |
+
+## CTO ruling (2026-11-15): who may clear a patient's AI objection
+
+05-12 limited clearing to doctor or receptionist (AI §4.6). Ruling: an **owner who practises** (holds the doctor
+permissions, typical in single-doctor clinics) may also clear it; admins and nurses may not. The clear stays audited.
+Implemented with the 05b gate close.
