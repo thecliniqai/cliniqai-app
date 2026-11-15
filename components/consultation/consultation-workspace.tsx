@@ -267,9 +267,9 @@ export function ConsultationWorkspace({
   // Active section for jump navigation
   const [activeSection, setActiveSection] = useState<string>("vitals");
 
-  // Track patient age in months for pediatrics. Counted in clinic calendar days to the clinic's today (read once above),
-  // not from a render-time `Date.now()` (React Compiler `purity`, V2-06 06-08); a date of birth that is not a calendar
-  // date falls through to the recorded age, as before for a missing one.
+  // Track patient age in months for pediatrics. Counted in clinic calendar days up to the clinic's today (read once
+  // above), not from a render-time `Date.now()` (React Compiler `purity`, V2-06 06-08); a date of birth that is not a
+  // calendar date falls through to the recorded age, as before for a missing one.
   const dobDays = patient.date_of_birth ? daysBetweenYmd(patient.date_of_birth, clinicToday) : null;
   const patientAgeMonths =
     dobDays !== null

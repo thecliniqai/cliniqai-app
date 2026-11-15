@@ -29,7 +29,8 @@ export function AgeDobInput({
     ageValue !== null && ageValue !== undefined ? String(ageValue) : ""
   );
 
-  // Sync when external props change, during render rather than in effects (same triggers; React Compiler `set-state-in-effect`, V2-06 06-08).
+  // Sync when external props change, during render rather than in effects (same triggers; React Compiler
+  // `set-state-in-effect`, V2-06 06-08).
   const [dobSeen, setDobSeen] = useState(dobValue);
   if (dobSeen !== dobValue) {
     setDobSeen(dobValue);

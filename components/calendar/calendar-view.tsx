@@ -204,7 +204,8 @@ export function CalendarView({
 
   const [localVisits, setLocalVisits] = useState<TimelineVisit[]>(visits);
 
-  // Follow new server data, during render rather than in an effect (same trigger; React Compiler `set-state-in-effect`, V2-06 06-08).
+  // Follow new server data, during render rather than in an effect (same trigger; React Compiler
+  // `set-state-in-effect`, V2-06 06-08).
   const [visitsSeen, setVisitsSeen] = useState(visits);
   if (visitsSeen !== visits) {
     setVisitsSeen(visits);
