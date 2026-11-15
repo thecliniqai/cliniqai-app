@@ -17,13 +17,17 @@ import type { TenantAccessLevel } from "@/lib/auth/tenant";
  *   of 05-10b's three destinations is ever followed, never another URL from the answer.
  * - 200 with a `deploymentId` that differs from the page's ({@link currentPageDeploymentId}) → `updateAvailable` (a
  *   page without one, e.g. `next dev`, never reports an update: no loop).
- * - Anything else (offline, 409 clinic selection, 5xx, a redirect, an unreadable body) → nothing; the next trigger
- *   checks again. A transient failure never signs anyone out.
+ * - Anything else (offline, a timeout, 409 clinic selection, 5xx — incl. the route's 503 when Supabase Auth cannot
+ *   answer, 06-09c H-AUTHOUT —, a redirect, an unreadable body) → `failed`: nothing happens to the page, and the
+ *   watch checks again after {@link RETRY_DELAYS_MS} (15 s, 30 s, 1 min, 2 min, then every 5 min while it keeps
+ *   failing; reset by the first answer), besides the usual triggers. A transient failure never signs anyone out.
  */
 export const SESSION_STATUS_URL = "/api/session-status";
 export const STATUS_INTERVAL_MS = 5 * 60_000;
 export const ERROR_CHECK_MIN_GAP_MS = 10_000;
 export const STATUS_TIMEOUT_MS = 10_000;
+/** 06-09c (H-AUTHOUT): the retry back-off after a check that got no usable answer (the last value repeats). */
+export const RETRY_DELAYS_MS = [15_000, 30_000, 60_000, 120_000, STATUS_INTERVAL_MS] as const;
 
 const ACCESS_LEVELS: readonly TenantAccessLevel[] = ["full", "locked", "onboarding", "none"];
 const DEPLOYMENT_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -119,7 +123,8 @@ export interface StatusReactions {
   updateAvailable: () => void;
 }
 
-export type Reaction = "expired" | "removed" | "locked" | "update" | "none";
+/** `failed`: no usable answer (offline, timeout, 5xx/503, 409, odd body) — 06-09c IND L-1, so "Check for updates" can say so. */
+export type Reaction = "expired" | "removed" | "locked" | "update" | "none" | "failed";
 
 /** Applies one outcome; returns what it did. `expired`, `removed` and `locked` end the watch (the page is leaving). */
 export function reactToStatus(outcome: StatusOutcome, pageDeploymentId: string | null | undefined, on: StatusReactions): Reaction {
@@ -131,7 +136,7 @@ export function reactToStatus(outcome: StatusOutcome, pageDeploymentId: string |
     on.removed();
     return "removed";
   }
-  if (outcome.kind !== "ok") return "none";
+  if (outcome.kind !== "ok") return "failed";
   if (outcome.status.redirect) {
     on.locked(outcome.status.redirect);
     return "locked";
@@ -147,7 +152,7 @@ export function reactToStatus(outcome: StatusOutcome, pageDeploymentId: string |
 // App-wide check requests (the error boundary, the unhandledrejection handler, lock.ts)
 // ---------------------------------------------------------------------------------------------------------------------
 
-export type CheckTrigger = "start" | "visible" | "online" | "interval" | "error" | "lock" | "manual";
+export type CheckTrigger = "start" | "visible" | "online" | "interval" | "error" | "lock" | "manual" | "retry";
 const requestListeners = new Set<(trigger: CheckTrigger) => Promise<Reaction | "skipped">>();
 
 /** Asks the running watch (if any) to check now. Safe to call from anywhere, any number of times. */
@@ -173,6 +178,9 @@ export interface WatchDeps {
   listen: (onVisible: () => void, onOnline: () => void) => () => void;
   setInterval: (fn: () => void, ms: number) => unknown;
   clearInterval: (handle: unknown) => void;
+  /** The retry back-off timer (06-09c). */
+  setTimeout: (fn: () => void, ms: number) => unknown;
+  clearTimeout: (handle: unknown) => void;
   now: () => number;
   reactions: StatusReactions;
 }
@@ -188,6 +196,13 @@ export function startSessionStatusWatch(deps: WatchDeps): SessionStatusWatch {
   let stopped = false;
   let inFlight: Promise<Reaction | "skipped"> | null = null;
   let lastStart = Number.NEGATIVE_INFINITY;
+  let failures = 0;
+  let retryTimer: unknown = null;
+
+  const cancelRetry = () => {
+    if (retryTimer !== null) deps.clearTimeout(retryTimer);
+    retryTimer = null;
+  };
 
   const check = (trigger: CheckTrigger): Promise<Reaction | "skipped"> => {
     if (stopped) return Promise.resolve("skipped");
@@ -195,13 +210,24 @@ export function startSessionStatusWatch(deps: WatchDeps): SessionStatusWatch {
     if ((trigger === "error" || trigger === "lock") && deps.now() - lastStart < ERROR_CHECK_MIN_GAP_MS) {
       return Promise.resolve("skipped");
     }
-    if (trigger === "interval" && !deps.isVisible()) return Promise.resolve("skipped");
+    if ((trigger === "interval" || trigger === "retry") && !deps.isVisible()) return Promise.resolve("skipped");
     lastStart = deps.now();
+    cancelRetry();
     inFlight = (async () => {
       const outcome = await readSessionStatus(deps.fetch);
       if (stopped) return "skipped" as const;
       const reaction = reactToStatus(outcome, deps.pageDeploymentId(), deps.reactions);
       if (reaction === "expired" || reaction === "removed" || reaction === "locked") stop();
+      else if (reaction === "failed") {
+        // No answer: never a reaction on the page; check again soon, backing off while it keeps failing.
+        const delay = RETRY_DELAYS_MS[Math.min(failures, RETRY_DELAYS_MS.length - 1)];
+        failures += 1;
+        cancelRetry();
+        retryTimer = deps.setTimeout(() => {
+          retryTimer = null;
+          void check("retry");
+        }, delay);
+      } else failures = 0;
       return reaction;
     })().finally(() => {
       inFlight = null;
@@ -223,6 +249,7 @@ export function startSessionStatusWatch(deps: WatchDeps): SessionStatusWatch {
     requestListeners.delete(onRequest);
     unlisten();
     deps.clearInterval(interval);
+    cancelRetry();
   }
 
   void check("start");

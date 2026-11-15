@@ -4,7 +4,8 @@
  * is tests/e2e/pwa/06-update.spec.ts (update, skew, lock) and 05-cache-audit.spec.ts (expired, removed).
  *
  * Each rule here has a case that fails without it:
- * - 401 → expired, 403 → removed; a 5xx, 409, redirect, timeout or network error → nothing (no sign-out on a blip);
+ * - 401 → expired, 403 → removed; a 5xx, 409, redirect, timeout or network error → nothing (no sign-out on a blip),
+ *   reported as `failed` and retried with a back-off (06-09c H-AUTHOUT, IND L-1);
  * - only 05-10b's three destinations are ever followed (an answer naming another URL is ignored);
  * - an update needs both ids, and different ones (a page without `data-dpl-id` never loops);
  * - one request at a time; error-triggered checks at most once per 10 s; the interval skips hidden pages; a leaving
@@ -16,12 +17,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UnrecognizedActionError } from "next/dist/client/components/unrecognized-action-error";
 import {
   currentPageDeploymentId,
+  checkSessionNow,
   ERROR_CHECK_MIN_GAP_MS,
   isDeploymentMismatch,
   parseSessionStatus,
   reactToStatus,
   readSessionStatus,
   requestSessionCheck,
+  RETRY_DELAYS_MS,
   SESSION_STATUS_URL,
   startSessionStatusWatch,
   STATUS_INTERVAL_MS,
@@ -122,7 +125,8 @@ describe("reactToStatus", () => {
     expect(reactToStatus({ kind: "ok", status: { deploymentId: "dpl_a", accessLevel: "locked", redirect: "/billing/locked/staff" } }, "dpl_a", r)).toBe("locked");
     expect(reactToStatus({ kind: "ok", status: { ...FULL, deploymentId: "dpl_b" } as never }, "dpl_a", r)).toBe("update");
     expect(reactToStatus({ kind: "ok", status: FULL as never }, "dpl_a", r)).toBe("none");
-    expect(reactToStatus({ kind: "unknown" }, "dpl_a", r)).toBe("none");
+    // 06-09c (IND L-1): no answer is "failed", not "none" (the More sheet must not say "latest version"); no reaction.
+    expect(reactToStatus({ kind: "unknown" }, "dpl_a", r)).toBe("failed");
     expect(r.calls).toEqual(["expired", "removed", "locked /billing/locked/staff", "update"]);
   });
 
@@ -159,6 +163,7 @@ describe("startSessionStatusWatch", () => {
   let onVisible: () => void = () => undefined;
   let onOnline: () => void = () => undefined;
   let tick: () => void = () => undefined;
+  let timers: Array<{ fn: () => void; ms: number; live: boolean }> = [];
 
   function deps(fetchImpl: typeof fetch, reactions: StatusReactions, page = "dpl_a"): WatchDeps {
     return {
@@ -181,14 +186,33 @@ describe("startSessionStatusWatch", () => {
       clearInterval: () => {
         tick = () => undefined;
       },
+      setTimeout: (fn, ms) => {
+        const t = { fn, ms, live: true };
+        timers.push(t);
+        return t;
+      },
+      clearTimeout: (handle) => {
+        (handle as { live: boolean }).live = false;
+      },
       now: () => clock,
       reactions,
     };
   }
 
+  /** The pending retry timers (06-09c). */
+  const liveTimers = () => timers.filter((t) => t.live);
+  /** Fires the one pending retry. */
+  function fireRetry() {
+    const [t] = liveTimers();
+    expect(t, "a retry is scheduled").toBeDefined();
+    t.live = false;
+    t.fn();
+  }
+
   beforeEach(() => {
     clock = 1_000_000;
     visible = true;
+    timers = [];
   });
 
   it("checks on start, on visible, on online and on the interval while visible", async () => {
@@ -275,6 +299,96 @@ describe("startSessionStatusWatch", () => {
     expect(r.calls).toEqual([]);
     watch.stop();
   });
+  // 06-09c (H-AUTHOUT, IND H-1 / adversarial B H-1): the route answers 503 when Supabase Auth cannot answer. The client
+  // never signs out on it, nor on a network error or a timeout, and checks again with a back-off; a real 401 still
+  // signs out. Before 06-09c a failed check scheduled nothing (no retry until the next trigger, up to 5 min).
+  it("503, 429, a network error and a timeout never sign out; the watch retries with a back-off; a later 401 still signs out", async () => {
+    const r = recorder();
+    const answers: Array<() => Promise<Response>> = [
+      async () => json(503, { error: "unavailable" }),
+      async () => json(429, {}),
+      async () => {
+        throw new TypeError("Failed to fetch");
+      },
+      async () => json(502, {}),
+      async () => json(503, { error: "unavailable" }),
+      async () => json(503, { error: "unavailable" }),
+      async () => json(200, FULL),
+      async () => json(401, { error: "unauthenticated" }),
+    ];
+    const fetchImpl = vi.fn(async () => answers[fetchImpl.mock.calls.length - 1]());
+    const watch = startSessionStatusWatch(deps(fetchImpl as unknown as typeof fetch, r));
+    const delays: number[] = [];
+    for (let i = 1; i <= 6; i++) {
+      await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(i));
+      await settle();
+      await vi.waitFor(() => expect(liveTimers()).toHaveLength(1));
+      expect(r.calls, `no reaction after failure ${i}`).toEqual([]);
+      delays.push(liveTimers()[0].ms);
+      fireRetry();
+    }
+    expect(delays).toEqual([...RETRY_DELAYS_MS, RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1]]);
+    // The 7th answer is 200: no retry is left; the next trigger (a 401) signs out.
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(7));
+    await settle();
+    expect(liveTimers()).toHaveLength(0);
+    onVisible();
+    await vi.waitFor(() => expect(r.calls).toEqual(["expired"]));
+    watch.stop();
+  });
+
+  it("a timed-out check (no answer within the limit) is a failure, not a sign-out", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const r = recorder();
+      const fetchImpl = vi.fn(() => new Promise<Response>(() => undefined));
+      const watch = startSessionStatusWatch(deps(fetchImpl as unknown as typeof fetch, r));
+      const result = watch.check("manual");
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await result).toBe("failed");
+      expect(r.calls).toEqual([]);
+      expect(liveTimers()).toHaveLength(1);
+      watch.stop();
+      expect(liveTimers(), "stop() cancels the retry").toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a retry on a hidden page is skipped (the visible trigger checks); a success resets the back-off", async () => {
+    const r = recorder();
+    let status = 503;
+    const fetchImpl = vi.fn(async () => (status === 200 ? json(200, FULL) : json(status, {})));
+    const watch = startSessionStatusWatch(deps(fetchImpl as unknown as typeof fetch, r));
+    await vi.waitFor(() => expect(liveTimers()).toHaveLength(1));
+    visible = false;
+    fireRetry();
+    await settle();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    visible = true;
+    status = 200;
+    onVisible();
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2));
+    await settle();
+    status = 503;
+    onOnline();
+    await vi.waitFor(() => expect(liveTimers()).toHaveLength(1));
+    expect(liveTimers()[0].ms, "back-off starts again from the first delay").toBe(RETRY_DELAYS_MS[0]);
+    expect(r.calls).toEqual([]);
+    watch.stop();
+  });
+
+  it("IND L-1: 'Check for updates' resolves 'failed' (not 'none') when the check got no answer", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    });
+    const watch = startSessionStatusWatch(deps(fetchImpl as unknown as typeof fetch, recorder()));
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    await settle();
+    expect(await checkSessionNow()).toBe("failed");
+    watch.stop();
+    expect(await checkSessionNow()).toBe("skipped");
+  });
 });
 
 describe("onLocked (D-8: the session is kept)", () => {
@@ -329,6 +443,8 @@ describe("skew guard", () => {
       listen: () => () => undefined,
       setInterval: () => 0,
       clearInterval: () => undefined,
+      setTimeout: () => 0,
+      clearTimeout: () => undefined,
       now: (() => {
         let t = 0;
         return () => (t += ERROR_CHECK_MIN_GAP_MS);

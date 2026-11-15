@@ -55,7 +55,8 @@ export function MoreSheet({
       onOpenChange(false);
       if (outcome === "update") return; // the update toast is showing
       if (outcome === "none") notify.info(LATEST_TEXT);
-      else if (outcome === "skipped") notify.info(CHECK_FAILED_TEXT);
+      // 06-09c (IND L-1): a check that got no answer (offline, timeout, 5xx) is not "latest".
+      else if (outcome === "skipped" || outcome === "failed") notify.info(CHECK_FAILED_TEXT);
     } finally {
       setChecking(false);
     }

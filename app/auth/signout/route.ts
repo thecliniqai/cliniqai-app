@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { ACTIVE_TENANT_COOKIE, createClient } from "@/lib/supabase/server";
 import { serverEnv } from "@/lib/env-server";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -104,11 +104,14 @@ export async function POST(request: NextRequest): Promise<Response> {
   const status = fetchCaller ? (failed ? 502 : 200) : 303;
   // `status` 502 = this device signed out, GoTrue's revocation failed (the `auth.signout.failed` line above has why).
   log.info({ event: "auth.signout.done", requestId, module: MODULE, reason: scope, status });
-  if (fetchCaller) {
-    return NextResponse.json({ scope, revoked: !failed }, { status, headers: SIGNED_OUT_HEADERS });
-  }
-  return new NextResponse(null, {
-    status,
-    headers: { location: failed && scope === "global" ? "/login?signout=partial" : "/login", ...SIGNED_OUT_HEADERS },
-  });
+  const response = fetchCaller
+    ? NextResponse.json({ scope, revoked: !failed }, { status, headers: SIGNED_OUT_HEADERS })
+    : new NextResponse(null, {
+        status,
+        headers: { location: failed && scope === "global" ? "/login?signout=partial" : "/login", ...SIGNED_OUT_HEADERS },
+      });
+  // 06-09c (M-REMOVED): the clinic this device had open is forgotten on every sign-out, so the next sign-in (the same
+  // user after a removal, or another user of this device) never resolves a clinic picked in the ended session.
+  if (request.cookies.has(ACTIVE_TENANT_COOKIE)) response.cookies.delete(ACTIVE_TENANT_COOKIE);
+  return response;
 }

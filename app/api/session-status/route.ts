@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import {
+  ActiveClinicMembershipEndedError,
+  AuthUnavailableError,
   getActiveMembership,
   getTenantAccessLevel,
   MultipleClinicsSelectionRequiredError,
@@ -18,9 +20,12 @@ import { getRequestId } from "@/lib/log/request-id";
  *
  * - The session is read with `auth.getUser()` (inside `getActiveMembership`), so a session revoked elsewhere fails
  *   here even while its access token is unexpired: 401 `{ error: "unauthenticated" }` → the client signs out
- *   (`hardSignOut("expired")`).
- * - No active membership (never had one, removed, or the active-clinic cookie names a clinic the user left): 403
- *   `{ error: "no_membership" }` → `hardSignOut("removed")`.
+ *   (`hardSignOut("expired")`). Only a definitive answer is a 401 (no session, or GoTrue refused this session with a
+ *   4xx other than 408/429). 06-09c (H-AUTHOUT): when Auth cannot answer (network failure, timeout, 5xx, 429, an
+ *   unreadable answer: `AuthUnavailableError`) the answer is 503 `{ error: "unavailable" }`, never a sign-out.
+ * - No active membership (never had one, removed, or the active-clinic cookie names a clinic that is not an active
+ *   membership — 06-09c M-REMOVED: whatever the number of clinics left): 403 `{ error: "no_membership" }` →
+ *   `hardSignOut("removed")`.
  * - Several clinics and none chosen: 409 `{ error: "clinic_selection_required" }` (not a sign-out; the client ignores it).
  * - A lookup failure: 503 `{ error: "unavailable" }` (never a sign-out: the client ignores it and checks again later;
  *   the database stop, not this answer, is the access control).
@@ -44,7 +49,9 @@ export async function GET() {
   try {
     membership = await getActiveMembership();
   } catch (err) {
+    if (err instanceof AuthUnavailableError) return refuse(503, "unavailable", "auth_unavailable");
     if (err instanceof UnauthenticatedError) return refuse(401, "unauthenticated", "unauthenticated");
+    if (err instanceof ActiveClinicMembershipEndedError) return refuse(403, "no_membership", "not_member_of_active");
     if (err instanceof NoClinicMembershipError) return refuse(403, "no_membership", "no_membership");
     if (err instanceof MultipleClinicsSelectionRequiredError) {
       return refuse(409, "clinic_selection_required", "clinic_selection_required");

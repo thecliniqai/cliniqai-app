@@ -129,6 +129,8 @@ export function PwaRuntime({ swEnabled }: { swEnabled: boolean }) {
       },
       setInterval: (fn, ms) => window.setInterval(fn, ms),
       clearInterval: (handle) => window.clearInterval(handle as number),
+      setTimeout: (fn, ms) => window.setTimeout(fn, ms),
+      clearTimeout: (handle) => window.clearTimeout(handle as number),
       now: () => Date.now(),
       reactions: {
         expired: () => void hardSignOut("expired"),

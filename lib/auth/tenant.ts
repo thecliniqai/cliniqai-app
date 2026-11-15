@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { ACTIVE_TENANT_COOKIE, createClient } from "@/lib/supabase/server";
 import { UserRole } from "@/lib/db/types";
 import { DEFAULT_APP_ERROR_MESSAGES } from "@/lib/errors/app-error";
 import { errorTag, log } from "@/lib/log";
@@ -23,6 +23,54 @@ export class UnauthenticatedError extends Error {
     this.name = "UnauthenticatedError";
   }
 }
+
+/**
+ * V2-06 06-09c (H-AUTHOUT): Supabase Auth could not say whether the session is valid: a network failure, a timeout,
+ * a 5xx, a 429 or an answer it could not read. This is NOT a missing session: `/api/session-status` answers it 503
+ * (never 401, so no device signs itself out during an Auth incident), page loaders show the error boundary (Retry)
+ * instead of sending the user to sign-in, and server actions answer their generic failure (never `UNAUTHENTICATED`,
+ * which signs the client out). The message never matches "Unauthenticated".
+ */
+export class AuthUnavailableError extends Error {
+  constructor() {
+    super("Authentication is temporarily unavailable");
+    this.name = "AuthUnavailableError";
+  }
+}
+
+/**
+ * Whether an error from `auth.getUser()` is a definitive "no valid session" (401) rather than a failure to check.
+ * Definitive: no session at all (`AuthSessionMissingError`), or GoTrue answered 4xx for this session (revoked
+ * `session_not_found`, `bad_jwt`, user gone, refresh token not found or already used) — except 408 and 429, which are
+ * "try later". Everything else (`AuthRetryableFetchError`: network, timeout, 502/503/504; any other 5xx; an
+ * `AuthUnknownError` with no status; a non-auth error) is retryable.
+ */
+export function isDefinitiveAuthRejection(error: unknown): boolean {
+  // auth-js marks its errors with `__isAuthError` and names them (its own `isAuthError` / `isAuth…Error` guards read
+  // the same fields; a value import from the Supabase packages is not allowed here, P1-34).
+  if (typeof error !== "object" || error === null || !("__isAuthError" in error)) return false;
+  const { name, status } = error as { name?: unknown; status?: unknown };
+  if (name === "AuthSessionMissingError") return true;
+  if (name === "AuthRetryableFetchError") return false;
+  const code = typeof status === "number" ? status : 0;
+  return code >= 400 && code < 500 && code !== 408 && code !== 429;
+}
+
+/**
+ * V2-06 06-09c (M-REMOVED, adversarial B M-1): the active-clinic cookie names a clinic that is not one of the user's
+ * active memberships (removed or suspended there, or never a member). This is the removal of the active clinic,
+ * whatever the number of clinics left: never a silent switch to another clinic. `/api/session-status` answers 403
+ * (`hardSignOut("removed")`: conceal, purge, sign-in); the dashboard layout signs the device out on a full load. The
+ * message is the one callers already match.
+ */
+export class ActiveClinicMembershipEndedError extends Error {
+  constructor() {
+    super("Unauthorized: user is not a member of the requested tenant");
+    this.name = "ActiveClinicMembershipEndedError";
+  }
+}
+
+const TENANT_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class MultipleClinicsSelectionRequiredError extends Error {
   constructor(message = "Multiple clinics found. Please select an active clinic.") {
@@ -107,6 +155,11 @@ export async function getActiveMembership(explicitTenantId?: string): Promise<Ac
     error: authError,
   } = await supabase.auth.getUser();
 
+  // 06-09c (H-AUTHOUT): only a definitive answer is "unauthenticated"; a failure to check is retryable.
+  if (authError && !isDefinitiveAuthRejection(authError)) {
+    log.warn({ event: "auth.get_user.unavailable", code: errorTag(authError), requestId: await getRequestId() });
+    throw new AuthUnavailableError();
+  }
   if (authError || !user) {
     throw new UnauthenticatedError();
   }
@@ -129,6 +182,29 @@ export async function getActiveMembership(explicitTenantId?: string): Promise<Ac
     throw new NoClinicMembershipError();
   }
 
+  // The clinic the user picked (multi-clinic switcher): an explicit id, else the active-clinic cookie. A value that is
+  // not a UUID is ignored (as `activeTenantHeaders` ignores it).
+  let targetTenantId = explicitTenantId;
+  if (!targetTenantId) {
+    try {
+      const cookieStore = await cookies();
+      targetTenantId = cookieStore.get(ACTIVE_TENANT_COOKIE)?.value;
+    } catch {
+      // In tests or outside Next.js request context
+    }
+  }
+  if (targetTenantId && !TENANT_ID_SHAPE.test(targetTenantId)) targetTenantId = undefined;
+
+  if (targetTenantId) {
+    // 06-09c (M-REMOVED): a picked clinic that is no longer an active membership is a removal, however many clinics
+    // remain; never fall back to the remaining one (stale screen of the old clinic, wrong-clinic writes).
+    const match = memberships.find((m) => m.tenant_id.toLowerCase() === targetTenantId!.toLowerCase());
+    if (!match) {
+      throw new ActiveClinicMembershipEndedError();
+    }
+    return { tenantId: match.tenant_id, role: match.role, userId: user.id };
+  }
+
   if (memberships.length === 1) {
     return {
       tenantId: memberships[0].tenant_id,
@@ -138,29 +214,5 @@ export async function getActiveMembership(explicitTenantId?: string): Promise<Ac
   }
 
   // Multiple memberships: require explicit tenant selection rather than guessing (Plan 02 / Plan 05)
-  let targetTenantId = explicitTenantId;
-  if (!targetTenantId) {
-    try {
-      const cookieStore = await cookies();
-      targetTenantId = cookieStore.get("clinic_active_tenant")?.value;
-    } catch {
-      // In tests or outside Next.js request context
-    }
-  }
-
-  if (!targetTenantId) {
-    throw new MultipleClinicsSelectionRequiredError();
-  }
-
-  const match = memberships.find((m) => m.tenant_id === targetTenantId);
-  if (!match) {
-    throw new Error("Unauthorized: user is not a member of the requested tenant");
-  }
-
-  return {
-    tenantId: match.tenant_id,
-    role: match.role,
-    userId: user.id,
-  };
+  throw new MultipleClinicsSelectionRequiredError();
 }
-

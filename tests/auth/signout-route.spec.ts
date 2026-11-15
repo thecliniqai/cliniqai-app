@@ -263,6 +263,25 @@ describe("06-09a fetch callers and a failed global revocation", () => {
     }
   });
 
+  it("06-09c (M-REMOVED): every sign-out (fetch or form, revoked or not) expires the active-clinic cookie", async () => {
+    const cookie = "clinic_active_tenant=00000000-0000-4000-8000-000000000000; theme=light";
+    for (const client of [failingGoTrue(), { auth: { signOut: async () => ({ error: null }) } }]) {
+      for (const headers of [{ origin: APP_ORIGIN, ...FETCH, cookie }, { origin: APP_ORIGIN, cookie }]) {
+        slot.client = client;
+        const res = await route.POST(post(headers, { scope: "local" }));
+        expect([200, 303, 502]).toContain(res.status);
+        const set = res.headers.getSetCookie();
+        expect(set.filter((c) => c.startsWith("clinic_active_tenant=")), "the active clinic is expired").toHaveLength(1);
+        expect(set.find((c) => c.startsWith("clinic_active_tenant="))).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);
+        expect(set.some((c) => c.startsWith("theme="))).toBe(false);
+      }
+    }
+    // No active-clinic cookie: nothing to expire.
+    slot.client = { auth: { signOut: async () => ({ error: null }) } };
+    const plain = await route.POST(post({ origin: APP_ORIGIN, ...FETCH }, { scope: "local" }));
+    expect(plain.headers.getSetCookie().filter((c) => c.startsWith("clinic_active_tenant="))).toEqual([]);
+  });
+
   it("a form post whose GLOBAL revocation failed lands on /login?signout=partial; a failed local one on /login", async () => {
     slot.client = failingGoTrue();
     const global = await route.POST(post({ origin: APP_ORIGIN }, { scope: "global" }));

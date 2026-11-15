@@ -5,7 +5,8 @@
  *   shell mounts (`section[aria-live]` "Notifications"), as a `role="status"` toast with "Reload"; at 360 px it sits
  *   above the BottomBar.
  * - "Check for updates" in the More sheet with no new version toasts "You're on the latest version" (the Toaster
- *   is mounted for every app toast, not only the update toast).
+ *   is mounted for every app toast, not only the update toast); a failed check (offline, 503) toasts "Couldn't check
+ *   for updates" (06-09c IND L-1).
  */
 import type { Page } from "@playwright/test";
 import { expect, test } from "../fixtures";
@@ -79,3 +80,22 @@ test("Check for updates (More sheet, 360 px) with no new version: 'You're on the
   await expect(toast).toBeVisible();
   await expect(region(page).locator("[data-update-toast]")).toHaveCount(0);
 });
+
+// 06-09c (IND L-1): before, a check that got no answer resolved like a successful one and the toast said "You're on
+// the latest version" while offline or during a server error.
+for (const [label, fail] of [
+  ["a network error", (route: import("@playwright/test").Route) => route.abort("internetdisconnected")],
+  ["a 503", (route: import("@playwright/test").Route) => route.fulfill({ status: 503, json: { error: "unavailable" } })],
+] as const) {
+  test(`Check for updates when the check fails (${label}): 'Couldn't check for updates', never 'latest version'`, async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await openAndSettle(page, "/");
+    await page.route("**/api/session-status", fail);
+    await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "More" }).click();
+    const sheet = page.getByRole("dialog", { name: "More" });
+    await sheet.getByRole("button", { name: /Check for updates/ }).click();
+    await expect(region(page).getByRole("status").filter({ hasText: "Couldn't check for updates. Try again when you're online." })).toBeVisible();
+    await expect(region(page).getByText("You're on the latest version")).toHaveCount(0);
+    expect(new URL(page.url()).pathname, "no sign-out on a failed check").toBe("/");
+  });
+}

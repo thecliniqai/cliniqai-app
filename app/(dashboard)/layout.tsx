@@ -1,8 +1,16 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveMembership, getTenantAccessLevel, NoClinicMembershipError } from "@/lib/auth/tenant";
+import {
+  ActiveClinicMembershipEndedError,
+  AuthUnavailableError,
+  getActiveMembership,
+  getTenantAccessLevel,
+  isDefinitiveAuthRejection,
+  NoClinicMembershipError,
+} from "@/lib/auth/tenant";
 import { accessRedirect } from "@/lib/auth/access-redirect";
 import { AppShell } from "@/components/shell/app-shell";
+import { MembershipEnded } from "@/components/shell/membership-ended";
 import { navForRole } from "@/lib/nav/nav-for-role";
 import { resolveTimeZone } from "@/lib/datetime";
 import { ClinicTimeZoneProvider } from "@/lib/datetime/client";
@@ -29,8 +37,14 @@ export default async function DashboardLayout({
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
+  // V2-06 06-09c (H-AUTHOUT): Auth could not answer (network, timeout, 5xx, 429). That is not a missing session: the
+  // error boundary offers Retry; the user is not sent to sign-in.
+  if (authError && !isDefinitiveAuthRejection(authError)) {
+    throw new AuthUnavailableError();
+  }
   if (!user) {
     redirect("/login");
   }
@@ -41,6 +55,11 @@ export default async function DashboardLayout({
   } catch (error) {
     if (error instanceof NoClinicMembershipError) {
       redirect("/clinic/new");
+    }
+    // 06-09c (M-REMOVED): the clinic this device had open is no longer one of the user's clinics. On a full load the
+    // shell (and its session-status watch) never renders, so the device is signed out and purged from here.
+    if (error instanceof ActiveClinicMembershipEndedError) {
+      return <MembershipEnded />;
     }
     throw error;
   }

@@ -59,6 +59,9 @@ export const PURGE_TIMEOUT_MS = 3000;
 /** `@supabase/ssr` auth cookie names (whole or chunked) and the PKCE verifier; same shape as `app/auth/signout/route.ts`. */
 export const SUPABASE_AUTH_COOKIE = /^sb-[a-z0-9-]+-auth-token(?:-code-verifier)?(?:\.\d+)?$/;
 
+/** Same value as `lib/supabase/server.ts` `ACTIVE_TENANT_COOKIE` (restated: that module is server-only). */
+export const ACTIVE_TENANT_COOKIE_NAME = "clinic_active_tenant";
+
 export type SignOutScope = "local" | "global";
 /** `revoked`: GoTrue ended the session(s); `here-only`: this device is signed out, the revocation failed; `failed`: no answer. */
 export type ServerOutcome = "revoked" | "here-only" | "failed";
@@ -97,7 +100,10 @@ function browserDeps(): HardSignOutDeps {
     expireAuthCookies: () => {
       for (const pair of document.cookie.split(";")) {
         const name = pair.split("=")[0]?.trim();
-        if (name && SUPABASE_AUTH_COOKIE.test(name)) document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
+        // 06-09c (M-REMOVED): the active-clinic cookie goes with the session (the route deletes it as well).
+        if (name && (SUPABASE_AUTH_COOKIE.test(name) || name === ACTIVE_TENANT_COOKIE_NAME)) {
+          document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
+        }
       }
     },
     conceal: () => concealDocument(),
