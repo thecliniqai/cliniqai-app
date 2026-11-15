@@ -59,6 +59,15 @@ export function isValidTimeZone(tz: unknown): tz is string {
   }
 }
 
+/**
+ * V2-05 05-12 (H-AITZ): what a clinic may store in `tenants.timezone`: an IANA zone NAME the runtime knows (any case),
+ * not a UTC offset ("+05:30") or a blank. The database enforces the same rule (CHECK `tenants_timezone_iana` against
+ * pg_timezone_names); this lets the settings forms answer with a clear message first.
+ */
+export function isIanaZoneName(tz: unknown): tz is string {
+  return isValidTimeZone(tz) && /^[A-Za-z][A-Za-z0-9_+/-]*$/.test(tz);
+}
+
 /** The tenant's zone if it is usable, otherwise {@link DEFAULT_CLINIC_TZ}. */
 export function resolveTimeZone(tz: string | null | undefined): string {
   return isValidTimeZone(tz) ? tz : DEFAULT_CLINIC_TZ;

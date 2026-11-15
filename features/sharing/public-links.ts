@@ -45,17 +45,27 @@ export interface ResolvedShareDocument {
   patient_name: string;
   expires_at: string;
   clinic: PublicClinic;
-  /**
-   * V2-05 05-10a (SUB-D6): an `expired` clinic's prescription resolves to its metadata only: no file is signed or
-   * served, the page says the clinic's online services are unavailable.
-   */
-  restricted?: boolean;
-  /** The clinic's access level (`full`, or `locked` for a restricted document). */
+  /** The clinic's access level (`full` for every resolved document). */
   access?: string;
+}
+
+/**
+ * V2-05 05-10a / 05-12 (SUB-D6, SUB §7.2; IND L-4): what an `expired` clinic's prescription link shows a pharmacy:
+ * exactly the clinic name, the doctor's name and registration number, the issue date (the clinic's date) and whether
+ * the prescription is valid. No patient name, no document title or file, no download.
+ */
+export interface PrescriptionVerification {
+  clinicName: string | null;
+  doctorName: string | null;
+  doctorRegistrationNumber: string | null;
+  issuedOn: string | null;
+  valid: boolean;
 }
 
 export type ShareTokenResolution =
   | { status: "ok"; document: ResolvedShareDocument }
+  /** SUB-D6: verification metadata only (an expired clinic's prescription); nothing is signed or served. */
+  | { status: "restricted"; verification: PrescriptionVerification }
   | { status: "revoked" | "expired"; clinic: PublicClinic | null }
   /** V2-05 05-10a (SUB-02): the clinic's access level is not `full`; nothing about the document is returned. */
   | { status: "clinic_unavailable" }
@@ -82,6 +92,21 @@ export async function resolveShareToken(
   }
 
   const res = data as Record<string, unknown>;
+  if (res.status === "ok" && res.restricted === true) {
+    const v = (res.verification ?? {}) as Record<string, unknown>;
+    const c = (res.clinic ?? {}) as Record<string, unknown>;
+    const str = (x: unknown) => (typeof x === "string" && x.length > 0 ? x : null);
+    return {
+      status: "restricted",
+      verification: {
+        clinicName: str(c.name),
+        doctorName: str(v.doctor_name),
+        doctorRegistrationNumber: str(v.doctor_registration_number),
+        issuedOn: str(v.issued_on),
+        valid: v.valid === true,
+      },
+    };
+  }
   if (res.status === "ok") {
     const { status: _status, ...doc } = res;
     void _status;

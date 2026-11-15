@@ -196,6 +196,22 @@ async function resolveAppointmentByReply(supabase: any, replyMsgId: string | und
 }
 
 /**
+ * V2-05 05-12 (ACC L-3): the clinic's access level through the system lookup (fail closed: an error reads as not full,
+ * so the reply is treated as unmatched and changes nothing).
+ */
+async function clinicIsFull(supabase: SystemDb, tenantId: string): Promise<boolean> {
+  const { data, error } = await (supabase as unknown as {
+    rpc: (n: "tenant_access_for_system", a: { p_tenant: string }) => Promise<{ data: unknown; error: unknown }>;
+  }).rpc("tenant_access_for_system", { p_tenant: tenantId });
+  if (error) {
+    log.error({ event: "messaging.inbound_access_lookup.failed", code: errorTag(error), requestId: await getRequestId() });
+    return false;
+  }
+  if (data !== "full") log.info({ event: "messaging.inbound.clinic_unavailable", tenantId });
+  return data === "full";
+}
+
+/**
  * True when the inbound sender and the stored recipient are the same Indian mobile in full E.164 (+91 and [6-9] + 9
  * digits). AR2-L3: country code included, so a foreign number ending in the same 10 digits (`+1 917 123 4567` vs
  * `9171234567`) never matches. AR3-N3: the sender must carry the country code itself; a bare 10-digit sender is
@@ -308,7 +324,10 @@ async function handleInboundAction(
   const sys: AppointmentSystemContext = { db: supabase, reason: "messaging_webhook" };
 
   // 1. Resolve the appointment strictly via replyMsgId message correlation, from the number it was sent to (AR-L1)
-  const resolved = await resolveAppointmentByReply(supabase, replyMsgId, from);
+  const matched = await resolveAppointmentByReply(supabase, replyMsgId, from);
+  // V2-05 05-12 (ACC L-3, SUB-02): a clinic whose access level is not `full` takes no patient action: the reply is
+  // answered like an unmatched one (the tenant-less "not found" reply) and no visit, note or audit row changes.
+  const resolved = matched && (await clinicIsFull(supabase, matched.visit.tenant_id)) ? matched : null;
 
   // A retry of this very callback after its cancel succeeded (a later step failed): carry on to the acknowledgement.
   const ownCancelRetry =

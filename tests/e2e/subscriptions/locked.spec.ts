@@ -126,7 +126,7 @@ for (const user of ["locked-owner", "locked-receptionist", "onboarding-owner"] a
       if (user === "locked-owner") {
         await expect(page.getByText("Expired", { exact: true })).toBeVisible();
         await expect(page.getByText("Your clinic's data is safe. Nothing has been deleted.")).toBeVisible();
-        await expect(page.getByText("Renewal and export open with billing (V2-13b/V2-13c).")).toBeVisible();
+        await expect(page.getByText("Renewal and data export will open on this page soon.")).toBeVisible();
       }
       if (user === "locked-receptionist") {
         await expect(page.getByText("Your clinic's subscription is inactive; contact the owner.")).toBeVisible();

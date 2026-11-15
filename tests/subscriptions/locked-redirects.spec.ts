@@ -6,9 +6,10 @@
  * - `(dashboard)/layout.tsx`: owner/admin of a locked clinic → `/billing/locked`; nurse/receptionist/doctor →
  *   `/billing/locked/staff`; any member of an onboarding (`incomplete`) clinic → `/onboarding/billing`; a `full`
  *   clinic renders.
- * - Every wrapped dashboard page loaded by a locked member either renders without throwing (its reads return nothing:
- *   the database stop, 05-10a) or redirects to the member's locked page (`withPageAuth`, for client navigations where
- *   the layout does not run); none throws `TenantLockedError` as a server error.
+ * - Every wrapped dashboard page loaded by a locked member redirects to the member's locked page (`withPageAuth`, for
+ *   client navigations where the layout does not run). Since 05-12 (ACC L-4, IND I-7) the wrapper checks the access
+ *   level before the loader runs, so no page renders an empty shell any more (before: `/`, `/patients`, `/visits`,
+ *   `/consultation/[id]` and `/staff` rendered with empty reads); none throws `TenantLockedError` as a server error.
  * - The three destination pages render only for their own members and redirect everyone else to the right page
  *   (a `full` clinic → `/`), so the rule never loops.
  *
@@ -18,6 +19,7 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import type { UserRole } from "@/lib/db/types";
+import { en } from "@/messages/en";
 
 const mockState = vi.hoisted(() => ({ client: null as unknown }));
 
@@ -42,6 +44,7 @@ import BillingSettingsPage from "@/app/(dashboard)/settings/billing/page";
 import DeveloperSettingsPage from "@/app/(dashboard)/settings/developer/page";
 import BillingReportsPage from "@/app/(dashboard)/billing/reports/page";
 import ConsultationPage from "@/app/(dashboard)/consultation/[id]/page";
+import NewPatientLayout from "@/app/(dashboard)/patients/new/layout";
 import LockedOwnerPage from "@/app/billing/locked/page";
 import LockedStaffPage from "@/app/billing/locked/staff/page";
 import OnboardingBillingPage from "@/app/(onboarding)/onboarding/billing/page";
@@ -108,6 +111,18 @@ describe("accessRedirect: role × access level → destination (05-10b contract)
     expect(accessRedirect("owner", "locked")).toBe(LOCKED_OWNER_PATH);
     expect(accessRedirect("receptionist", "locked")).toBe(LOCKED_STAFF_PATH);
     expect(accessRedirect("receptionist", "onboarding")).toBe(ONBOARDING_BILLING_PATH);
+  });
+
+  // V2-05 05-12 (CTO, 2026-11-15): the copy members read names no internal phase, requirement or ruling id.
+  it("no text of the locked and onboarding pages names an internal id (V2-…, AUTH-…, SUB-…, PO-…, R-…)", () => {
+    const texts: string[] = [];
+    const walk = (v: unknown) => {
+      if (typeof v === "string") texts.push(v);
+      else if (v && typeof v === "object") Object.values(v).forEach(walk);
+    };
+    walk(en.subscription);
+    expect(texts.length).toBeGreaterThan(10);
+    expect(texts.filter((t) => /\b(V2-\d|AUTH-\d|SUB-\d|PO-\d|R-\d)/.test(t))).toEqual([]);
   });
 });
 
@@ -203,6 +218,7 @@ describe("locked and onboarding clinics: layout redirects, page loaders, destina
         ["/settings/developer", () => DeveloperSettingsPage(none as never)],
         ["/billing/reports", () => BillingReportsPage(none as never)],
         ["/consultation/[id]", () => ConsultationPage(idProps(lockedVisitId) as never)],
+        ["/patients/new (layout)", () => NewPatientLayout({ children: null } as never)],
       ];
     };
 
@@ -211,21 +227,12 @@ describe("locked and onboarding clinics: layout redirects, page loaders, destina
       ["lockedReceptionist", LOCKED_STAFF_PATH],
       ["lockedDoctor", LOCKED_STAFF_PATH],
     ] as const) {
-      it(`${who}: every page renders empty, 404s, or redirects to ${destination}; none throws a server error`, async () => {
+      it(`${who}: every page redirects to ${destination} before its loader runs; none renders or throws`, async () => {
         as(who);
         const outcomes: Record<string, Outcome> = {};
         for (const [route, page] of pages()) outcomes[route] = await run(page);
-        // Other redirects allowed, both for the doctor and both ending on the layout's redirect: "/" sends a doctor to
-        // the cabin, and /billing/reports refuses the doctor's ROLE (no billing:view) before the access check, to "/".
-        const allowed = (route: string, to: string) =>
-          who === "lockedDoctor" && ((route === "/" && to === "/cabin") || (route === "/billing/reports" && to === "/"));
-        const bad = Object.entries(outcomes).filter(
-          ([route, o]) => o.kind === "error" || (o.kind === "redirect" && o.to !== destination && !allowed(route, o.to)),
-        );
-        expect(bad, JSON.stringify(outcomes)).toEqual([]);
-        // The guard-backed loaders (TenantLockedError) are the ones withPageAuth turns into the locked redirect.
-        const redirected = Object.entries(outcomes).filter(([, o]) => o.kind === "redirect" && o.to === destination);
-        expect(redirected.length, JSON.stringify(outcomes)).toBeGreaterThan(0);
+        const notRedirected = Object.entries(outcomes).filter(([, o]) => !(o.kind === "redirect" && o.to === destination));
+        expect(notRedirected, JSON.stringify(outcomes)).toEqual([]);
       });
     }
   });
@@ -259,7 +266,7 @@ describe("locked and onboarding clinics: layout redirects, page loaders, destina
       expect(ownerTree).toContain("Synthetic Locked Clinic");
       expect(ownerTree).toContain("Expired");
       expect(ownerTree).toContain("Your clinic's data is safe. Nothing has been deleted.");
-      expect(ownerTree).toContain("Renewal and export open with billing (V2-13b/V2-13c).");
+      expect(ownerTree).toContain("Renewal and data export will open on this page soon.");
       expect(ownerTree).not.toContain("Not available"); // the end date is known (access ended 30 days ago)
 
       as("lockedReceptionist");

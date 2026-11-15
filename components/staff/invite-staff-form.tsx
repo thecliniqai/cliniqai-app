@@ -6,7 +6,27 @@ import { Mail, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
-import { inviteStaff } from "@/features/staff/actions";
+import { inviteStaff, type InviteStaffOutcome } from "@/features/staff/actions";
+
+const ROLE_LABELS: Record<string, string> = {
+  owner: "owner",
+  admin: "admin",
+  doctor: "doctor",
+  receptionist: "receptionist",
+  nurse: "nurse",
+};
+
+/** What the owner is told (V2-05 05-12, M-REINVITE): a new invitation, a replaced one, or one already pending. */
+function inviteNotice(email: string, role: string, outcome: InviteStaffOutcome, previousRole?: string): string {
+  const asRole = ROLE_LABELS[role] ?? role;
+  if (outcome === "replaced") {
+    return `The pending ${ROLE_LABELS[previousRole ?? ""] ?? "earlier"} invitation for ${email} was cancelled. A new ${asRole} invitation was sent.`;
+  }
+  if (outcome === "already_pending") {
+    return `An invitation for ${email} as ${asRole} is already pending. No new email was sent; resend it from the list if needed.`;
+  }
+  return `Invitation created for ${email}.`;
+}
 
 /** `canInviteAdmin`: only owners may invite an admin (P0-02); the server and the database enforce it too. */
 export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: boolean }) {
@@ -15,12 +35,12 @@ export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: b
   const [role, setRole] = useState("doctor");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [lastInvitedEmail, setLastInvitedEmail] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLastInvitedEmail(null);
+    setNotice(null);
 
     const formData = new FormData();
     formData.append("email", email);
@@ -29,7 +49,7 @@ export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: b
     startTransition(async () => {
       const res = await inviteStaff(formData);
       if (res.success) {
-        setLastInvitedEmail(email.trim());
+        setNotice(inviteNotice(email.trim(), role, res.outcome, res.previousRole));
         setEmail("");
         router.refresh();
       } else {
@@ -97,10 +117,13 @@ export function InviteStaffForm({ canInviteAdmin = false }: { canInviteAdmin?: b
       </form>
 
       <div aria-live="polite">
-        {lastInvitedEmail && (
-          <div className="flex items-start gap-2 p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800">
+        {notice && (
+          <div
+            className="flex items-start gap-2 p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800"
+            data-testid="invite-staff-notice"
+          >
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
-            <span>Invitation created for {lastInvitedEmail}.</span>
+            <span>{notice}</span>
           </div>
         )}
       </div>

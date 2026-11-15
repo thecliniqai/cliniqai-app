@@ -4,8 +4,10 @@ import {
   DOCUMENT_LINK_KINDS,
   isPlausibleToken,
   resolveShareToken,
+  type PrescriptionVerification,
 } from "@/features/sharing/public-links";
 import { signSharedObject } from "@/features/sharing/system";
+import { isYmd, zonedDateTimeToUtcIso } from "@/lib/datetime";
 import {
   FileText,
   Download,
@@ -37,6 +39,54 @@ function ClinicUnavailable() {
   );
 }
 
+/**
+ * V2-05 05-12 (SUB-D6, IND L-4): an expired clinic's prescription link shows the verification metadata only (clinic
+ * name, doctor name and registration number, issue date, valid or not). No patient name, no document, no download.
+ */
+function PrescriptionVerificationCard({ verification: v }: { verification: PrescriptionVerification }) {
+  // The clinic's date (YYYY-MM-DD) shown as-is: noon of that date in UTC lies in the same calendar day everywhere.
+  const issued =
+    v.issuedOn && isYmd(v.issuedOn)
+      ? new Date(zonedDateTimeToUtcIso(v.issuedOn, "12:00", "UTC")).toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC",
+        })
+      : null;
+  return (
+    <div className="min-h-app bg-canvas flex items-center justify-center p-4">
+      <main className="max-w-[480px] w-full bg-white rounded-xl border border-border p-6 shadow-xs space-y-4" data-testid="share-restricted">
+        <div className="flex items-center gap-2">
+          <Building2 className="w-5 h-5 text-accent" aria-hidden="true" />
+          <h1 className="text-lg font-bold text-fg">{v.clinicName ?? "Clinic"}</h1>
+        </div>
+        <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-fg" data-testid="share-verification-status">
+          <ShieldCheck className={`w-4 h-4 ${v.valid ? "text-success-fg" : "text-danger-fg"}`} aria-hidden="true" />
+          {v.valid ? "Valid prescription" : "This prescription is no longer valid"}
+        </p>
+        <dl className="divide-y divide-border-subtle text-sm">
+          <div className="flex justify-between gap-4 py-2">
+            <dt className="text-fg-secondary">Doctor</dt>
+            <dd className="font-medium text-fg text-right">{v.doctorName ?? "Not available"}</dd>
+          </div>
+          <div className="flex justify-between gap-4 py-2">
+            <dt className="text-fg-secondary">Registration number</dt>
+            <dd className="font-medium text-fg text-right break-all">{v.doctorRegistrationNumber ?? "Not available"}</dd>
+          </div>
+          <div className="flex justify-between gap-4 py-2">
+            <dt className="text-fg-secondary">Issued on</dt>
+            <dd className="font-medium text-fg text-right tabular-nums">{issued ?? "Not available"}</dd>
+          </div>
+        </dl>
+        <p className="rounded-lg border border-border bg-gray-50 p-4 text-sm text-fg-secondary">
+          {CLINIC_UNAVAILABLE_MESSAGE} The document cannot be viewed or downloaded here; please contact the clinic.
+        </p>
+      </main>
+    </div>
+  );
+}
+
 export default async function PublicDocumentViewerPage({ params }: PublicDocumentPageProps) {
   const { token } = await params;
 
@@ -60,6 +110,7 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
   const resolved = await resolveShareToken(token, DOCUMENT_LINK_KINDS);
   const isRevoked = resolved.status === "revoked";
   if (resolved.status === "clinic_unavailable") return <ClinicUnavailable />;
+  if (resolved.status === "restricted") return <PrescriptionVerificationCard verification={resolved.verification} />;
 
   if (resolved.status !== "ok") {
     const clinicPhone = resolved.status === "revoked" || resolved.status === "expired" ? resolved.clinic?.phone : null;
@@ -103,10 +154,8 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
     ? new Date(doc.report_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
     : "";
 
-  // V2-05 05-10a (SUB-D6): an expired clinic's prescription shows its metadata only; no file is signed or served.
-  const restricted = doc.restricted === true;
   // Short-lived signed URL for the object behind this token (tenant-prefix checked); else the download route.
-  const signed = restricted ? null : await signSharedObject(token, DOCUMENT_LINK_KINDS);
+  const signed = await signSharedObject(token, DOCUMENT_LINK_KINDS);
   const signedUrl = signed?.signedUrl ?? `/api/r/${token}?download=true`;
 
   const clinic = {
@@ -166,12 +215,6 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
             </div>
           </div>
 
-          {restricted ? (
-            <p className="rounded-lg border border-border bg-gray-50 p-4 text-sm text-fg-secondary" data-testid="share-restricted">
-              {CLINIC_UNAVAILABLE_MESSAGE} The document cannot be viewed or downloaded here; please contact the clinic.
-            </p>
-          ) : (
-          <>
           {/* Embedded Viewer Preview */}
           <div className="rounded-lg border border-border bg-gray-50 overflow-hidden min-h-[220px] flex items-center justify-center">
             {isImage ? (
@@ -205,8 +248,6 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
             <Download className="w-4 h-4" />
             Download Official PDF
           </a>
-          </>
-          )}
         </div>
       </main>
 

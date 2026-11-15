@@ -8,7 +8,9 @@
  * at run time (gitleaks rule).
  */
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { verifyTurnstile } from "@/lib/auth/turnstile";
+import { TURNSTILE_ACTIONS, verifyTurnstile } from "@/lib/auth/turnstile";
+import { acceptInviteWithPassword } from "@/features/auth/invite-flows";
+import { en } from "@/messages/en";
 import { startTurnstileVerifyServer, type TurnstileVerifyServer } from "../e2e/support/turnstile-verify-server";
 import { TURNSTILE_PASS_SECRET_KEY } from "../setup/test-env";
 
@@ -16,6 +18,22 @@ import { TURNSTILE_PASS_SECRET_KEY } from "../setup/test-env";
 const REAL_SHAPED_SECRET = ["0x", "4AAA", "SyntheticSecretForTests", "0000"].join("");
 const HOST = "app.synthetic-clinic.example.org";
 const TOKEN = ["XXXX", "DUMMY", "TOKEN", "pass", "0123456789"].join(".");
+
+// The invite-flow leg (05-12) runs the real check against the fake with a real-shaped secret; the env schema allows
+// only Cloudflare's test secrets in the test tier (and those skip the hostname/action checks), so while `inject` is
+// set the flow's call gets the fake's URL, secret and hostname merged under its own options (which it records).
+const tsState = vi.hoisted(() => ({ inject: null as null | Record<string, unknown>, seen: [] as unknown[] }));
+vi.mock("@/lib/auth/turnstile", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth/turnstile")>();
+  return {
+    ...actual,
+    verifyTurnstile: (token: string | null | undefined, options: Parameters<typeof actual.verifyTurnstile>[1] = {}) => {
+      if (!tsState.inject) return actual.verifyTurnstile(token, options);
+      tsState.seen.push(options);
+      return actual.verifyTurnstile(token, { ...tsState.inject, ...options });
+    },
+  };
+});
 
 let server: TurnstileVerifyServer;
 let out: MockInstance;
@@ -33,6 +51,7 @@ beforeEach(() => {
   err = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
 });
 afterEach(() => {
+  tsState.inject = null;
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
@@ -67,6 +86,34 @@ describe("verifyTurnstile (fake siteverify)", () => {
     const token = `wronghost.${TOKEN}`;
     expect(await verify(token)).toEqual({ ok: false, reason: "hostname_mismatch" });
     expectNothingSecretLogged(token, REAL_SHAPED_SECRET);
+  });
+
+  // V2-05 05-12 (IND I-6): the widget's declared action is part of the check when the flow names one.
+  it("a token from another form's widget fails closed (action mismatch); the expected action passes", async () => {
+    const token = `wrongaction.${TOKEN}`;
+    const opts = { secret: REAL_SHAPED_SECRET, verifyUrl: server.url, expectedHostname: HOST, expectedAction: TURNSTILE_ACTIONS.inviteAccept };
+    expect(await verifyTurnstile(token, opts)).toEqual({ ok: false, reason: "action_mismatch" });
+    expect(await verifyTurnstile(TOKEN, opts)).toEqual({ ok: true });
+    expectNothingSecretLogged(token, REAL_SHAPED_SECRET);
+  });
+
+  it("invite acceptance names its action: a token from another widget is refused before any account change", async () => {
+    tsState.inject = { secret: REAL_SHAPED_SECRET, verifyUrl: server.url, expectedHostname: HOST };
+    tsState.seen = [];
+    const checkPwned = vi.fn(async () => "clear" as const);
+    const redeem = vi.fn(async () => ({ ok: true as const, tenantId: "unused", created: true }));
+    const input = { token: "a".repeat(64), password: ["Synthetic", "Passphrase", "For", "Tests", "0512"].join("-") };
+    expect(await acceptInviteWithPassword({ ...input, turnstileToken: `wrongaction.${TOKEN}` }, { checkPwned, redeem })).toEqual({
+      ok: false,
+      message: en.auth.captcha.failed,
+    });
+    expect(checkPwned).not.toHaveBeenCalled();
+    expect(redeem).not.toHaveBeenCalled();
+    // Control: the same flow with the invite widget's token reaches the password and redemption steps.
+    expect(await acceptInviteWithPassword({ ...input, turnstileToken: TOKEN }, { checkPwned, redeem })).toEqual({ ok: true });
+    expect(redeem).toHaveBeenCalledTimes(1);
+    expect(tsState.seen).toEqual([{ expectedAction: "invite-accept" }, { expectedAction: "invite-accept" }]);
+    tsState.inject = null;
   });
 
   it("a timeout fails closed: the fake answers after the bound, the check does not wait for it", async () => {

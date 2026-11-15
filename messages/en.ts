@@ -89,7 +89,7 @@ export const en = {
       access_ended: "Access ended",
       unknown: "Not available",
       data_safe: "Your clinic's data is safe. Nothing has been deleted.",
-      renewal: "Renewal and export open with billing (V2-13b/V2-13c).",
+      renewal: "Renewal and data export will open on this page soon.",
     },
     locked_staff: {
       title: "Your clinic's subscription is inactive",
@@ -99,7 +99,7 @@ export const en = {
     onboarding: {
       title: "Finish setting up your clinic",
       clinic: "Clinic",
-      owner_body: "Your clinic has been created. Billing setup opens with AUTH-07/SUB-03 in V2-13b; your clinic's pages open once it is done.",
+      owner_body: "Your clinic has been created. Billing setup will open on this page soon; your clinic's pages open once it is done.",
       staff_body: "Your clinic is still being set up. Contact the owner.",
     },
     sign_out: "Sign out",

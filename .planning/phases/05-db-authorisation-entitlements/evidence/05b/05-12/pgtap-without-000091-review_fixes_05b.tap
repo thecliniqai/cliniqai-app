@@ -1,0 +1,116 @@
+Connecting to local database...
+/Users/sid/Code/clinicOS/supabase/tests/database/review_fixes_05b.test.sql .. 
+# Failed test 1: "H-AITZ: 1,500 trial drafts used; the OWNER moves the clinic to UTC−12 mid-trial: still over_quota (no new pool)"
+#         have: ok
+#         want: over_quota
+# Failed test 2: "H-AITZ: the ADMIN moves the zone mid-trial: ai_reserve still raises AI_OVER_QUOTA"
+#         have: ef2b9d5c-fde5-4c6b-9562-ffdf81a2de76
+#         want: error:P0001:AI_OVER_QUOTA
+# Failed test 3: "H-AITZ: after a zone change the reservation is booked to the IST date of the stored trial start"
+#         have: trial:2026-11-13
+#         want: trial:2026-11-14
+# Failed test 4: "H-AITZ: at 20:00 UTC on 30 Nov (1 Dec IST) a UTC−12 clinic is metered in the IST month 2026-12"
+#         have: error:42883:function private.ai_period(unknown, unknown) does not exist
+#         want: 2026-12
+# Failed test 5: "H-AITZ: at 17:00 UTC on 30 Nov (still 30 Nov IST) a UTC+14 clinic is metered in the IST month 2026-11"
+#         have: error:42883:function private.ai_period(unknown, unknown) does not exist
+#         want: 2026-11
+# Failed test 7: "H-AITZ: the trial period is trial:<IST date of the stored trial_start>"
+#         have: error:42883:function private.ai_period(unknown, timestamp with time zone) does not exist
+#         want: trial:2026-11-14
+# Failed test 8: "H-AITZ: an unknown zone name is refused (CHECK tenants_timezone_iana)"
+#         have: 1
+#         want: error:23514:new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+# Failed test 9: "H-AITZ: an offset, an abbreviation that is not a zone name, and a blank are refused"
+#         have: 1/1/1
+#         want: error:23514:new row for relation "tenants" violates check constraint "tenants_timezone_iana"/error:23514:new row for relation "tenants" violates check constraint "tenants_timezone_iana"/error:23514:new row for relation "tenants" violates check constraint "tenants_timezone_iana"
+# Failed test 11: "H-AITZ: the zone change is audited (actor, role, old and new zone)"
+#         have: NULL
+#         want: clinic.timezone_changed|c5120000-0000-4000-8000-000000000101|owner|user|Asia/Kolkata|Etc/GMT+12
+# Failed test 12: "H-AITZ: the CHECK is validated (000093): every existing clinic holds an IANA zone"
+#     (test result was NULL)
+# Failed test 13: "M-AIEXP: committing a reservation that has expired raises AI_RESERVATION_EXPIRED"
+#         have: 4
+#         want: error:P0001:AI_RESERVATION_EXPIRED
+# Failed test 14: "M-AIEXP (reviewer P2): 1,499 used + a reservation that expired; a new one commits (1,500), the expired one is refused (before: 1,501)"
+#         have: 1501
+#         want: error:P0001:AI_RESERVATION_EXPIRED
+# Failed test 16: "IND L-6: ai_reserve records the reserving user"
+#         have: error:42703:column "created_by" does not exist
+#         want: c5120000-0000-4000-8000-000000000103
+# Failed test 17: "IND L-6: another doctor of the clinic cannot commit the reservation"
+#         have: 1
+#         want: error:P0002:AI_RESERVATION_NOT_FOUND
+# Failed test 18: "IND L-6: another doctor of the clinic cannot release it either (it stays)"
+#         have: 0
+#         want: 1
+# Failed test 19: "IND L-6: the system path (service_role session) commits any reservation"
+#         have: denied:permission denied for function ai_commit
+#         want: 8
+# Failed test 20: "IND L-2: an AI feature without a quota key is refused as not configured (not a silent over_quota)"
+#         have: not_entitled
+#         want: error:P0001:AI_QUOTA_NOT_CONFIGURED
+# Failed test 21: "IND L-2: a feature metered by another limit key (voice minutes) reads its own limit: ok, not over_quota"
+#         have: over_quota
+#         want: ok
+# Failed test 22: "IND L-2: the quota keys of the catalogue"
+#         have: error:42703:column "quota_key" does not exist
+#         want: ai.scribe>ai.scribe.monthly_drafts,ai.voice_receptionist>ai.voice_receptionist.monthly_minutes
+# Failed test 23: "M-CANCEL: a reminder enqueued through enqueue_message, then the clinic locks: the job is cancelled and the queue row closed and scrubbed"
+#         have: cancelled|tenant_not_full|pending|-|https://example.test/r/synthetic
+#         want: cancelled|tenant_not_full|cancelled|job_cancelled:tenant_not_full|[redacted]
+# Failed test 24: "M-CANCEL: after cleanup and a renewal, backfill_delivery_jobs does not recreate the closed reminder"
+#         have: 1|pending
+#         want: 0|cancelled
+# Failed test 25: "M-CANCEL: a cancelled webhook delivery is closed (failed) and not recreated by the backfill"
+#         have: pending|-|1
+#         want: failed|job_cancelled:tenant_not_full|0
+# Failed test 27: "M-REINVITE: re-inviting as receptionist replaces the pending admin invitation (revoked), a new one is created and emailed"
+#         have: {"deduped": true}|admin:false|1
+#         want: {"deduped": false, "replaced_role": "admin"}|admin:true,receptionist:false|2
+# Failed test 29: "M-REINVITE: an admin cannot replace a pending admin invitation (revoking it is owner-only)"
+#         have: {"id": "f958a7fa-08a3-480b-8a60-162c5606127d", "deduped": true, "expires_at": "2026-11-18T02:22:53.398267+00:00"}
+#         want: denied:OWNER_REQUIRED
+# Failed test 30: "M-REINVITE: the replacement is audited (revocation names the new role, the new invitation the replaced one)"
+#         have: staff.invited:-
+#         want: staff.invited:-,staff.invite_revoked:nurse,staff.invited:doctor
+# Failed test 31: "IND L-3: removing the admin disables their webhook subscription, rotates its secret, and audits the count"
+#         have: NULL
+#         want: 1|false|true|true
+# Failed test 32: "IND L-5: the owner of a LOCKED clinic removes a nurse (same rules, audited)"
+#         have: error:P0002:MEMBER_NOT_FOUND
+#         want: removed|owner
+# Failed test 34: "IND L-7: a referral to a REMOVED doctor of the target clinic is refused"
+#         have: 1
+#         want: error:P0001:REFERRAL_TARGET_DOCTOR_INVALID
+# Failed test 36: "IND L-4: the expired clinic's prescription answers only status, restricted, access, type, clinic and verification"
+#         have: access,clinic,document_type,expires_at,mime_type,original_filename,patient_name,report_date,resource_type,restricted,status,title
+#         want: access,clinic,resource_type,restricted,status,verification
+# Failed test 37: "IND L-4: verification = valid, doctor name, registration number, issue date; clinic = name only"
+#         have: NULL
+#         want: {"valid": true, "doctor_name": "Synthetic Doctor E", "doctor_registration_number": "SYN-REG-512"}|{"name": "Synthetic 05-12 Clinic E"}|true
+# Failed test 38: "IND L-4: no patient name, title or file name in the restricted answer"
+#         have: false
+#         want: true
+# Failed test 39: "AI L-3: a nurse cannot clear a patient's AI objection"
+#         have: 1
+#         want: denied:AI_OBJECTION_CLEAR_FORBIDDEN
+# Failed test 40: "AI L-3: nor can the owner or an admin (AI §4.6: doctor or receptionist)"
+#         have: 1/1
+#         want: denied:AI_OBJECTION_CLEAR_FORBIDDEN/denied:AI_OBJECTION_CLEAR_FORBIDDEN
+# Failed test 41: "AI L-3: a receptionist clears it; setting and clearing are both audited (actor, no PHI)"
+#         have: NULL
+#         want: patient.ai_objection.set|-|system|{},patient.ai_objection.cleared|c5120000-0000-4000-8000-000000000106|receptionist|{}
+# Failed test 42: "AI L-3: the doctor sets and clears it, audited"
+#         have: NULL
+#         want: patient.ai_objection.set|doctor,patient.ai_objection.cleared|doctor
+# Looks like you failed 35 tests of 42
+Failed 35/42 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/review_fixes_05b.test.sql (Wstat: 0 Tests: 42 Failed: 35)
+  Failed tests:  1-5, 7-9, 11-14, 16-25, 27, 29-32, 34, 36-42
+Files=1, Tests=42,  0 wallclock secs ( 0.01 usr  0.01 sys +  0.01 cusr  0.00 csys =  0.03 CPU)
+Result: FAIL
+error running container: exit 1

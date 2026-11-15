@@ -2,7 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { isPwnedPassword, type PwnedResult } from "@/lib/auth/pwned";
-import { verifyTurnstile, type TurnstileResult } from "@/lib/auth/turnstile";
+import { TURNSTILE_ACTIONS, verifyTurnstile, type TurnstileResult } from "@/lib/auth/turnstile";
 import { log } from "@/lib/log";
 import { en } from "@/messages/en";
 import { inviteTokenHash } from "@/features/staff/invite";
@@ -60,7 +60,7 @@ export async function acceptInviteWithPassword(
   const tokenHash = inviteTokenHash(record.token);
   if (tokenHash === null) return { ok: false, message: M.not_found };
 
-  const verified = await (deps.verify ?? ((t: string) => verifyTurnstile(t)))(
+  const verified = await (deps.verify ?? ((t: string) => verifyTurnstile(t, { expectedAction: TURNSTILE_ACTIONS.inviteAccept })))(
     typeof record.turnstileToken === "string" ? record.turnstileToken : "",
   );
   if (!verified.ok) {

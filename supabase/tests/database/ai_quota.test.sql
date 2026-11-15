@@ -1,7 +1,7 @@
 -- ai_quota.test.sql — V2-05 plan 05-10c (AI-03 database part; AI_STRATEGY §4.6 quota, opt-in, objection, write
 -- protection; R-33; threats T-05-37, T-05-38).
 --   reservations: an expired reservation does not count, a live one does; the trial period key ('trial:<IST date of
---   trial_start>') is used while trialing and the IST month afterwards; the timeout is clamped to 10…300 s (+30 s);
+--   trial_start>') is used while trialing and the IST month afterwards, whatever the clinic's zone (05-12); the timeout is clamped to 10…300 s (+30 s);
 --   reserve raises AI_<CODE> for every refusal; commit adds exactly one unit, release none; another clinic's
 --   reservation is not found; a role without consultations:edit cannot commit or release;
 --   opt-in: only the owner of the active, full clinic; enabling records terms version, who and when, and audits;
@@ -92,13 +92,14 @@ create function pg_temp.used(p_units int) returns text language sql stable as $f
   select 'insert into public.ai_usage_monthly (tenant_id, period, feature, units) values (''a1d00000-0000-4000-8000-00000000000a'', '
       || quote_literal(pg_temp.trial_period()) || ', ''ai.scribe'', ' || p_units || '); '
 $f$;
--- A reservation of clinic A in the trial period that expired an hour ago (or is live for p_live).
+-- A reservation of clinic A in the trial period that expired an hour ago (or is live for p_live), made by the doctor of
+-- clinic A (05-12, IND L-6: only the reserving user commits or releases it).
 create function pg_temp.reservation(p_id text, p_live boolean, p_tenant text default 'a1d00000-0000-4000-8000-00000000000a') returns text
 language sql stable as $f$
-  select 'insert into public.ai_quota_reservations (id, tenant_id, feature, period, created_at, expires_at) values ('
+  select 'insert into public.ai_quota_reservations (id, tenant_id, feature, period, created_at, expires_at, created_by) values ('
       || quote_literal(p_id) || ', ' || quote_literal(p_tenant) || ', ''ai.scribe'', ' || quote_literal(pg_temp.trial_period()) || ', '
       || case when p_live then 'now(), now() + interval ''60 seconds''' else 'now() - interval ''2 hours'', now() - interval ''1 hour''' end
-      || '); '
+      || ', ''a1d00000-0000-4000-8000-000000000103''); '
 $f$;
 create function pg_temp.active_month_sql() returns text language sql stable as $f$
   select 'update public.tenant_subscriptions set status = ''active'', trial_start = null, trial_end = null, '
@@ -139,9 +140,9 @@ select is(pg_temp.val_as('a1d00000-0000-4000-8000-000000000103',
   $$ select public.ai_reserve('ai.scribe', 'a1d00000-0000-4000-8000-000000001002', 60)::text $$,
   'update public.tenants set timezone = ''Pacific/Kiritimati'' where id = ''a1d00000-0000-4000-8000-00000000000a''; '
   || pg_temp.active_month_sql(),
-  $$ select (period = to_char(now() at time zone 'Pacific/Kiritimati', 'YYYY-MM'))::text from public.ai_quota_reservations
+  $$ select (period = to_char(now() at time zone 'Asia/Kolkata', 'YYYY-MM'))::text from public.ai_quota_reservations
       where tenant_id = 'a1d00000-0000-4000-8000-00000000000a' $$),
-  'true', 'the month is the clinic''s own (tenant_local_date, 05-08), not the server''s');
+  'true', 'the month is the IST month whatever the clinic''s zone (05-12, H-AITZ: AI §4.6 "IST calendar month"; was the clinic''s own)');
 select is(pg_temp.val_as('a1d00000-0000-4000-8000-000000000103',
   $$ select public.ai_reserve('ai.scribe', 'a1d00000-0000-4000-8000-000000001002', 1)::text $$, null,
   $$ select extract(epoch from (expires_at - now()))::int::text from public.ai_quota_reservations where tenant_id = 'a1d00000-0000-4000-8000-00000000000a' $$),

@@ -7,6 +7,7 @@
  *   - a widget token starting `fail` → `{ success: false, "error-codes": ["invalid-input-response"] }`;
  *   - a token starting `slow` → the answer is delayed by `slowMs` (default 5 s, past the 3 s client timeout);
  *   - a token starting `wronghost` → success with the hostname `evil.example.test`;
+ *   - a token starting `wrongaction` → success with the action `login` (a widget of another form, V2-05 05-12);
  *   - a token starting `http500` → HTTP 500;
  *   - no secret or no token → `{ success: false, "error-codes": ["missing-input-secret" | "missing-input-response"] }`;
  *   - anything else → `{ success: true, hostname: <hostname option, default "localhost">, ... }`.
@@ -64,7 +65,7 @@ export async function startTurnstileVerifyServer(
         challenge_ts: new Date().toISOString(),
         hostname: token.startsWith("wronghost") ? "evil.example.test" : (options.hostname ?? "localhost"),
         "error-codes": [],
-        action: "invite-accept",
+        action: token.startsWith("wrongaction") ? "login" : "invite-accept",
       };
       if (token.startsWith("slow")) {
         const t = setTimeout(() => {

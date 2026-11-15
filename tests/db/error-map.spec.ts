@@ -109,6 +109,15 @@ describe("mapDbError: SQLSTATE table", () => {
     expect(Object.keys(mapped).sort()).toEqual(["code", "message"]);
   });
 
+  it("05-12 reasons: an expired AI reservation is a CONFLICT, an unmetered AI feature a PRECONDITION_FAILED", () => {
+    expect(mapDbError({ code: "P0001", message: "AI_RESERVATION_EXPIRED" })).toMatchObject({ code: "CONFLICT", reason: "AI_RESERVATION_EXPIRED" });
+    expect(mapDbError({ code: "P0001", message: "AI_QUOTA_NOT_CONFIGURED" })).toMatchObject({
+      code: "PRECONDITION_FAILED",
+      reason: "AI_QUOTA_NOT_CONFIGURED",
+    });
+    expect(mapDbError({ code: "42501", message: "AI_OBJECTION_CLEAR_FORBIDDEN" })).toMatchObject({ code: "FORBIDDEN" });
+  });
+
   it("every registered RPC reason maps to its registered code", () => {
     for (const [reason, code] of Object.entries(RPC_REASON_CODES)) {
       expect(mapDbError({ code: "P0001", message: reason })).toMatchObject({ code, reason });

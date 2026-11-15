@@ -1,0 +1,14 @@
+Connecting to local database...
+psql:/Users/sid/Code/clinicOS/supabase/tests/database/tenant_local_dates.test.sql:20: ERROR:  constraint "tenants_timezone_iana" of relation "tenants" does not exist
+/Users/sid/Code/clinicOS/supabase/tests/database/tenant_local_dates.test.sql .. 
+Dubious, test returned 3 (wstat 768, 0x300)
+Failed 20/20 subtests 
+
+Test Summary Report
+-------------------
+/Users/sid/Code/clinicOS/supabase/tests/database/tenant_local_dates.test.sql (Wstat: 768 (exited 3) Tests: 0 Failed: 0)
+  Non-zero exit status: 3
+  Parse errors: Bad plan.  You planned 20 tests but ran 0.
+Files=1, Tests=0,  0 wallclock secs ( 0.00 usr +  0.01 sys =  0.01 CPU)
+Result: FAIL
+error running container: exit 1

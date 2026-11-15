@@ -1,0 +1,1042 @@
+{
+ "numTotalTests": 5076,
+ "numPassedTests": 5076,
+ "numFailedTests": 0,
+ "numPendingTests": 0,
+ "numTodoTests": 0,
+ "files": 258,
+ "perFile": {
+  "tests/ai/ai-gateway.spec.ts": {
+   "passed": 20,
+   "failed": 0
+  },
+  "tests/ai/ai-reserve-concurrency.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/ai/gateway-tools.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/ai/prescription-suggestions.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/api/api-v1-switch.spec.ts": {
+   "passed": 57,
+   "failed": 0
+  },
+  "tests/api/export-scope.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/api/health-probes.spec.ts": {
+   "passed": 15,
+   "failed": 0
+  },
+  "tests/api/openapi.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/api/proxy-matcher.spec.ts": {
+   "passed": 24,
+   "failed": 0
+  },
+  "tests/api/proxy-session.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/api/rate-limiting.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/api/readiness-probe-db.spec.ts": {
+   "passed": 8,
+   "failed": 0
+  },
+  "tests/api/v1-auth.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/api/v1-crud.spec.ts": {
+   "passed": 17,
+   "failed": 0
+  },
+  "tests/api/v1-doctor-guard.spec.ts": {
+   "passed": 34,
+   "failed": 0
+  },
+  "tests/api/v1-error-texts.spec.ts": {
+   "passed": 149,
+   "failed": 0
+  },
+  "tests/api/v1-patients-no-clinical.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/api/v1-performance.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/api/v1-slot-conflict.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/api/v1-system-client-order.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/api/v1-visits-no-clinical.spec.ts": {
+   "passed": 13,
+   "failed": 0
+  },
+  "tests/api/webhook-dispatch-hardening.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/api/webhook-ssrf.spec.ts": {
+   "passed": 61,
+   "failed": 0
+  },
+  "tests/api/webhooks-outbox.spec.ts": {
+   "passed": 24,
+   "failed": 0
+  },
+  "tests/audit/audit-actor.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/audit/audit-logging.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/audit/log-audit-allowlist.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/auth/invite.spec.ts": {
+   "passed": 8,
+   "failed": 0
+  },
+  "tests/auth/page-revoked-session.spec.ts": {
+   "passed": 13,
+   "failed": 0
+  },
+  "tests/auth/password-flows-captcha.spec.ts": {
+   "passed": 14,
+   "failed": 0
+  },
+  "tests/auth/password-schemas-and-errors.spec.ts": {
+   "passed": 48,
+   "failed": 0
+  },
+  "tests/auth/password-service.spec.ts": {
+   "passed": 23,
+   "failed": 0
+  },
+  "tests/auth/public-paths.spec.ts": {
+   "passed": 61,
+   "failed": 0
+  },
+  "tests/auth/pwned.spec.ts": {
+   "passed": 13,
+   "failed": 0
+  },
+  "tests/auth/rbac.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/auth/resend-sender.spec.ts": {
+   "passed": 24,
+   "failed": 0
+  },
+  "tests/auth/safe-next.spec.ts": {
+   "passed": 85,
+   "failed": 0
+  },
+  "tests/auth/send-email-hook-resend.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/auth/send-email-hook.spec.ts": {
+   "passed": 28,
+   "failed": 0
+  },
+  "tests/auth/ses-sender.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/auth/session-age-token-hook-db.spec.ts": {
+   "passed": 53,
+   "failed": 0
+  },
+  "tests/auth/session-age.spec.ts": {
+   "passed": 39,
+   "failed": 0
+  },
+  "tests/auth/signout-route.spec.ts": {
+   "passed": 21,
+   "failed": 0
+  },
+  "tests/auth/turnstile-verify.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/ci/ai-l1-greps.spec.ts": {
+   "passed": 18,
+   "failed": 0
+  },
+  "tests/ci/audit-gate.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/ci/auth-config-hosted.spec.ts": {
+   "passed": 11,
+   "failed": 0
+  },
+  "tests/ci/auth-policy.spec.ts": {
+   "passed": 14,
+   "failed": 0
+  },
+  "tests/ci/auth00-recheck-cli.spec.ts": {
+   "passed": 17,
+   "failed": 0
+  },
+  "tests/ci/ci-scripts.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/ci/clinical-notes-backfill-inline.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/ci/diagnostics-script.spec.ts": {
+   "passed": 15,
+   "failed": 0
+  },
+  "tests/ci/doc-grep-gate.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/ci/env-example.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/ci/env-files-gate.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/ci/fk-edge-cases-inline.spec.ts": {
+   "passed": 1,
+   "failed": 0
+  },
+  "tests/ci/hosted-dump-diff.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/ci/inventory-gate.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/ci/inventory-guards.spec.ts": {
+   "passed": 11,
+   "failed": 0
+  },
+  "tests/ci/known-bug-match.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/ci/local-drift.spec.ts": {
+   "passed": 8,
+   "failed": 0
+  },
+  "tests/ci/migration-immutability.spec.ts": {
+   "passed": 20,
+   "failed": 0
+  },
+  "tests/ci/pgtap-legacy-inline.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/ci/pgtap-report.spec.ts": {
+   "passed": 13,
+   "failed": 0
+  },
+  "tests/ci/playwright-summary.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/ci/recheck-args.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/ci/schema-snapshot.spec.ts": {
+   "passed": 15,
+   "failed": 0
+  },
+  "tests/ci/staging-scripts.spec.ts": {
+   "passed": 67,
+   "failed": 0
+  },
+  "tests/ci/test-pgtap-script.spec.ts": {
+   "passed": 10,
+   "failed": 0
+  },
+  "tests/ci/tests-typecheck.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/ci/visit-integrity-inline.spec.ts": {
+   "passed": 11,
+   "failed": 0
+  },
+  "tests/ci/vitest-report-gate.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/ci/workflow-policy.spec.ts": {
+   "passed": 72,
+   "failed": 0
+  },
+  "tests/compliance/consent.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/compliance/dpdp-rights.spec.ts": {
+   "passed": 16,
+   "failed": 0
+  },
+  "tests/components/doctor-availability.spec.ts": {
+   "passed": 11,
+   "failed": 0
+  },
+  "tests/components/phone-input.spec.ts": {
+   "passed": 16,
+   "failed": 0
+  },
+  "tests/config/env-boot.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/config/env-schema.spec.ts": {
+   "passed": 263,
+   "failed": 0
+  },
+  "tests/consultation/schemas.spec.ts": {
+   "passed": 11,
+   "failed": 0
+  },
+  "tests/authz/active-tenant-carrier.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/authz/generator-drift.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/authz/table-matrix.spec.ts": {
+   "passed": 32,
+   "failed": 0
+  },
+  "tests/db/error-map.spec.ts": {
+   "passed": 60,
+   "failed": 0
+  },
+  "tests/db/retry.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/dental/odontogram.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/billing/billing-error-messages.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/billing/collect-permission.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/billing/invoice-totals-db.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/billing/payment-actor-guards.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/billing/record-payment-rpc.spec.ts": {
+   "passed": 36,
+   "failed": 0
+  },
+  "tests/billing/schemas.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/billing/sign-and-bill-outcome.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/dpdp/export-dto.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/dpdp/export-fail-closed.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/dpdp/export-routes-audit.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/helpers/subscription.spec.ts": {
+   "passed": 10,
+   "failed": 0
+  },
+  "tests/labs/lab-documents.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/labs/lab-storage-key.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/labs/tokenized-sharing.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/notifications/in-app-notifications.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/messaging/inbound-dedupe-db.spec.ts": {
+   "passed": 21,
+   "failed": 0
+  },
+  "tests/messaging/inbound-retry-db.spec.ts": {
+   "passed": 13,
+   "failed": 0
+  },
+  "tests/messaging/messaging-provider.spec.ts": {
+   "passed": 11,
+   "failed": 0
+  },
+  "tests/messaging/msg91-contract.spec.ts": {
+   "passed": 24,
+   "failed": 0
+  },
+  "tests/messaging/msg91-provider.spec.ts": {
+   "passed": 26,
+   "failed": 0
+  },
+  "tests/messaging/msg91-sync-templates.spec.ts": {
+   "passed": 14,
+   "failed": 0
+  },
+  "tests/messaging/msg91-webhook.spec.ts": {
+   "passed": 22,
+   "failed": 0
+  },
+  "tests/messaging/outbox-queue.spec.ts": {
+   "passed": 10,
+   "failed": 0
+  },
+  "tests/messaging/provider-selection.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/messaging/provider-timeouts-and-synthetic.spec.ts": {
+   "passed": 24,
+   "failed": 0
+  },
+  "tests/messaging/sink-provider.spec.ts": {
+   "passed": 2,
+   "failed": 0
+  },
+  "tests/messaging/sms-recipient-exploit-db.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/messaging/tokenized-sharing.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/messaging/two-way-bot.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/jobs/alert-drill-db.spec.ts": {
+   "passed": 1,
+   "failed": 0
+  },
+  "tests/jobs/alert-email.spec.ts": {
+   "passed": 50,
+   "failed": 0
+  },
+  "tests/jobs/alert-notify-db.spec.ts": {
+   "passed": 10,
+   "failed": 0
+  },
+  "tests/jobs/alert-review-fixes-db.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/jobs/alerts-db.spec.ts": {
+   "passed": 35,
+   "failed": 0
+  },
+  "tests/jobs/backfill-db.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/jobs/claim-grants-db.spec.ts": {
+   "passed": 11,
+   "failed": 0
+  },
+  "tests/jobs/delivery-reap-db.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/jobs/email-invite-handler.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/jobs/enqueue-message-rpc-db.spec.ts": {
+   "passed": 24,
+   "failed": 0
+  },
+  "tests/jobs/enqueue-webhook-rpc-db.spec.ts": {
+   "passed": 23,
+   "failed": 0
+  },
+  "tests/jobs/message-send-handler-db.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/jobs/parallel-dispatch-db.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/jobs/queue-grants-db.spec.ts": {
+   "passed": 10,
+   "failed": 0
+  },
+  "tests/jobs/reaper-db.spec.ts": {
+   "passed": 11,
+   "failed": 0
+  },
+  "tests/jobs/replay-job-db.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/jobs/run-route.spec.ts": {
+   "passed": 29,
+   "failed": 0
+  },
+  "tests/jobs/runner-auth.spec.ts": {
+   "passed": 31,
+   "failed": 0
+  },
+  "tests/jobs/runner-review-fixes-db.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/jobs/runner.spec.ts": {
+   "passed": 21,
+   "failed": 0
+  },
+  "tests/jobs/scheduler-migration-db.spec.ts": {
+   "passed": 29,
+   "failed": 0
+  },
+  "tests/jobs/webhook-deliver-handler-db.spec.ts": {
+   "passed": 15,
+   "failed": 0
+  },
+  "tests/integration/cabin-consultation-launch.spec.ts": {
+   "passed": 2,
+   "failed": 0
+  },
+  "tests/integration/calendar-scheduling-ux.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/integration/cdci-search.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/integration/consultation-flow.spec.ts": {
+   "passed": 10,
+   "failed": 0
+  },
+  "tests/integration/consultation-service-guards.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/integration/delete-paths.spec.ts": {
+   "passed": 8,
+   "failed": 0
+  },
+  "tests/integration/demo-clinic-seed.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/integration/ist-boundaries.spec.ts": {
+   "passed": 21,
+   "failed": 0
+  },
+  "tests/integration/multi-tenancy.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/integration/per-visit-billing.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/integration/prescription-versioning.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/integration/queue-flow.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/integration/queue-token-concurrency.spec.ts": {
+   "passed": 2,
+   "failed": 0
+  },
+  "tests/integration/receipt-reports.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/integration/subscription.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/integration/visits.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/observability/console-scrub.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/observability/diag-route.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/observability/error-sink-db.spec.ts": {
+   "passed": 27,
+   "failed": 0
+  },
+  "tests/observability/error-sink-scrub-db.spec.ts": {
+   "passed": 79,
+   "failed": 0
+  },
+  "tests/observability/logger.spec.ts": {
+   "passed": 26,
+   "failed": 0
+  },
+  "tests/observability/no-raw-error-logging.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/observability/on-request-error.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/observability/request-id.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/observability/scrub.spec.ts": {
+   "passed": 146,
+   "failed": 0
+  },
+  "tests/observability/sink-flood.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/patients/dedup.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/patients/phone-search.spec.ts": {
+   "passed": 11,
+   "failed": 0
+  },
+  "tests/patients/receptionist-registration.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/patients/schema.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/patients/visit-history.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/permissions/has-permission-parity.spec.ts": {
+   "passed": 8,
+   "failed": 0
+  },
+  "tests/pediatrics/who-growth.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/ops/backup-evidence.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/ops/backup-roundtrip-db.spec.ts": {
+   "passed": 2,
+   "failed": 0
+  },
+  "tests/ops/backup-runs-db.spec.ts": {
+   "passed": 15,
+   "failed": 0
+  },
+  "tests/ops/backup-script-guards.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/ops/check-ops-report.spec.ts": {
+   "passed": 36,
+   "failed": 0
+  },
+  "tests/ops/drill-evidence-and-workflows.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/ops/drill-lib-db.spec.ts": {
+   "passed": 8,
+   "failed": 0
+  },
+  "tests/ops/ensure-schedules-db.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/ops/heartbeat-quota-db.spec.ts": {
+   "passed": 14,
+   "failed": 0
+  },
+  "tests/ops/manifest-compare.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/ops/manifest-guard.spec.ts": {
+   "passed": 22,
+   "failed": 0
+  },
+  "tests/ops/ops-cleanup-db.spec.ts": {
+   "passed": 10,
+   "failed": 0
+  },
+  "tests/ops/ops-report-db.spec.ts": {
+   "passed": 16,
+   "failed": 0
+  },
+  "tests/ops/quota-alert-email.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/ops/quota-level-db.spec.ts": {
+   "passed": 18,
+   "failed": 0
+  },
+  "tests/ops/restore-drill-checks-db.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/ops/restore-guards.spec.ts": {
+   "passed": 55,
+   "failed": 0
+  },
+  "tests/ops/restore-psql-restricted-db.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/prescriptions/dosage.spec.ts": {
+   "passed": 13,
+   "failed": 0
+  },
+  "tests/referrals/referral-consent-write.spec.ts": {
+   "passed": 3,
+   "failed": 0
+  },
+  "tests/referrals/referral-source-clinics.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/referrals/referrals-flow.spec.ts": {
+   "passed": 14,
+   "failed": 0
+  },
+  "tests/settings/profile-and-credentials.spec.ts": {
+   "passed": 8,
+   "failed": 0
+  },
+  "tests/settings/settings-service-guards.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/scheduling/availability-blocks.spec.ts": {
+   "passed": 24,
+   "failed": 0
+  },
+  "tests/scheduling/calendar-waitlist.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/scheduling/no-double-booking.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/scheduling/schedule-block-guards.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/scheduling/slot-deadlock-retry.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/setup/e2e-app-env.spec.ts": {
+   "passed": 14,
+   "failed": 0
+  },
+  "tests/setup/msw-loopback.spec.ts": {
+   "passed": 1,
+   "failed": 0
+  },
+  "tests/setup/next-env-flag.spec.ts": {
+   "passed": 2,
+   "failed": 0
+  },
+  "tests/setup/teardown.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/setup/test-env-guard.spec.ts": {
+   "passed": 84,
+   "failed": 0
+  },
+  "tests/staff/reinvite-role.spec.ts": {
+   "passed": 2,
+   "failed": 0
+  },
+  "tests/security/ai-containment.spec.ts": {
+   "passed": 18,
+   "failed": 0
+  },
+  "tests/security/auth-lint-gates.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/security/cross-tenant-refs.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/security/cross-tenant.spec.ts": {
+   "passed": 21,
+   "failed": 0
+  },
+  "tests/security/dpdp-export-route.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/security/guard-actions.spec.ts": {
+   "passed": 646,
+   "failed": 0
+  },
+  "tests/security/guard-canary.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/security/guard-routes.spec.ts": {
+   "passed": 56,
+   "failed": 0
+  },
+  "tests/security/invite-token-lockout.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/security/membership-guard.spec.ts": {
+   "passed": 26,
+   "failed": 0
+  },
+  "tests/security/multi-clinic-tenant-filters.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/security/no-raw-error-responses.spec.ts": {
+   "passed": 24,
+   "failed": 0
+  },
+  "tests/security/override-lint-gates.spec.ts": {
+   "passed": 19,
+   "failed": 0
+  },
+  "tests/security/p0-01-action-sweep.spec.ts": {
+   "passed": 118,
+   "failed": 0
+  },
+  "tests/security/p0-01-forged-overrides.spec.ts": {
+   "passed": 14,
+   "failed": 0
+  },
+  "tests/security/p0-12-lint-gates.spec.ts": {
+   "passed": 53,
+   "failed": 0
+  },
+  "tests/security/p0-13-lint-gates.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/security/p1-34-lint-gates.spec.ts": {
+   "passed": 156,
+   "failed": 0
+  },
+  "tests/security/pdf-route-guards.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/security/pii-scrubber.spec.ts": {
+   "passed": 8,
+   "failed": 0
+  },
+  "tests/security/review-fixes-app.spec.ts": {
+   "passed": 14,
+   "failed": 0
+  },
+  "tests/security/review-fixes-db.spec.ts": {
+   "passed": 19,
+   "failed": 0
+  },
+  "tests/security/review2-fixes-db.spec.ts": {
+   "passed": 21,
+   "failed": 0
+  },
+  "tests/security/review3-fixes-db.spec.ts": {
+   "passed": 16,
+   "failed": 0
+  },
+  "tests/security/role-rls.spec.ts": {
+   "passed": 15,
+   "failed": 0
+  },
+  "tests/security/share-path-encoding.spec.ts": {
+   "passed": 22,
+   "failed": 0
+  },
+  "tests/security/share-tokens.spec.ts": {
+   "passed": 22,
+   "failed": 0
+  },
+  "tests/security/system-db.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/security/webhook-lockdown.spec.ts": {
+   "passed": 47,
+   "failed": 0
+  },
+  "tests/storage/no-service-role-fallback.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/storage/storage-policies-jwt.spec.ts": {
+   "passed": 8,
+   "failed": 0
+  },
+  "tests/storage/storage-provider.spec.ts": {
+   "passed": 14,
+   "failed": 0
+  },
+  "tests/subscriptions/lock-enforcement.spec.ts": {
+   "passed": 13,
+   "failed": 0
+  },
+  "tests/subscriptions/locked-redirects.spec.ts": {
+   "passed": 48,
+   "failed": 0
+  },
+  "tests/visits/clinic-visits-register.spec.ts": {
+   "passed": 8,
+   "failed": 0
+  },
+  "tests/visits/create-visit-slot-race.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/visits/duration-bounds.spec.ts": {
+   "passed": 18,
+   "failed": 0
+  },
+  "tests/visits/signed-visit-integrity.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  },
+  "tests/visits/visit-service-guards.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/utils/datetime.spec.ts": {
+   "passed": 18,
+   "failed": 0
+  },
+  "tests/utils/phone.spec.ts": {
+   "passed": 28,
+   "failed": 0
+  },
+  "tests/utils/synthetic-phones.spec.ts": {
+   "passed": 2,
+   "failed": 0
+  },
+  "tests/integration/auth/accept-invite.spec.ts": {
+   "passed": 9,
+   "failed": 0
+  },
+  "tests/integration/auth/auth-config-applied.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/integration/auth/auth00-recheck-kit.spec.ts": {
+   "passed": 14,
+   "failed": 0
+  },
+  "tests/integration/auth/change-password.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/integration/auth/invite-delivery.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/integration/auth/mailpit-sender.spec.ts": {
+   "passed": 7,
+   "failed": 0
+  },
+  "tests/integration/auth/password-auth.spec.ts": {
+   "passed": 12,
+   "failed": 0
+  },
+  "tests/integration/auth/remove-member.spec.ts": {
+   "passed": 15,
+   "failed": 0
+  },
+  "tests/integration/auth/reset-completion.spec.ts": {
+   "passed": 5,
+   "failed": 0
+  },
+  "tests/integration/auth/send-email-hook-dedupe-db.spec.ts": {
+   "passed": 6,
+   "failed": 0
+  },
+  "tests/integration/auth/session-age-token-hook.spec.ts": {
+   "passed": 4,
+   "failed": 0
+  }
+ }
+}

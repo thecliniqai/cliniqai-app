@@ -234,8 +234,8 @@ insert into c505_out values ('removal', pg_temp.exec_as('c5050000-0000-4000-8000
   $$ select public.remove_member('c5050000-0000-4000-8000-00000000a302', '  Synthetic removal reason  ')::text $$));
 
 select is((select v::jsonb from c505_out where k = 'removal'),
-  '{"user_id": "c5050000-0000-4000-8000-000000000302", "keys_revoked": 2, "invites_revoked": 1, "sessions_revoked": 2}'::jsonb,
-  'remove_member returns the user and the counts (2 keys, 1 invitation, 2 sessions)');
+  '{"user_id": "c5050000-0000-4000-8000-000000000302", "keys_revoked": 2, "invites_revoked": 1, "webhooks_disabled": 0, "sessions_revoked": 2}'::jsonb,
+  'remove_member returns the user and the counts (2 keys, 1 invitation, no webhook subscription (05-12), 2 sessions)');
 select ok((select status = 'removed' and removed_at is not null and removed_by = 'c5050000-0000-4000-8000-000000000103'
              from public.memberships where id = 'c5050000-0000-4000-8000-00000000a302'),
   'the membership is removed, with removed_at and removed_by = the caller');
@@ -273,7 +273,7 @@ select is(
                      'role', 'admin', 'type', 'membership', 'entity', 'c5050000-0000-4000-8000-00000000a302',
                      'metadata', jsonb_build_object('target_user_id', 'c5050000-0000-4000-8000-000000000302', 'role', 'doctor',
                                                     'reason', 'Synthetic removal reason', 'keys_revoked', 2,
-                                                    'invites_revoked', 1, 'sessions_revoked', 2)),
+                                                    'invites_revoked', 1, 'webhooks_disabled', 0, 'sessions_revoked', 2)),
   'one audit row staff.removed: actor = the caller, counts only (no key, invitation or session ids), the trimmed reason');
 select is(pg_temp.try_as('c5050000-0000-4000-8000-000000000103', null,
   $$ select public.remove_member('c5050000-0000-4000-8000-00000000a302', 'Synthetic reason')::text $$),
@@ -314,7 +314,7 @@ end;
 $f$;
 insert into c505_out values ('failsoft', pg_temp.failsoft_probe());
 select is(split_part((select v from c505_out where k = 'failsoft'), '|', 1)::jsonb,
-  '{"user_id": "c5050000-0000-4000-8000-000000000109", "keys_revoked": 0, "invites_revoked": 0, "sessions_revoked": null}'::jsonb,
+  '{"user_id": "c5050000-0000-4000-8000-000000000109", "keys_revoked": 0, "invites_revoked": 0, "webhooks_disabled": 0, "sessions_revoked": null}'::jsonb,
   'with the session delete refused, remove_member still succeeds and reports sessions_revoked = null');
 select is(split_part((select v from c505_out where k = 'failsoft'), '|', 2), 'removed',
   'the refusal never undoes the removal: the membership is removed');

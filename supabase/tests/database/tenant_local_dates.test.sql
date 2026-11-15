@@ -14,6 +14,10 @@ select plan(20);
 insert into auth.users (id, email) values
   ('c0830000-0000-4000-8000-000000000101', 'c083-owner@example.test'),
   ('c0830000-0000-4000-8000-000000000102', 'c083-receptionist@example.test');
+-- V2-05 05-12 (H-AITZ): `tenants.timezone` must now be an IANA zone name (CHECK tenants_timezone_iana, validated by
+-- 000093; refusals proven in review_fixes_05b.test.sql). `tenant_local_date` still tolerates the legacy values an older
+-- row could hold; to keep proving that, this file drops the CHECK inside its own transaction (rolled back) first.
+alter table public.tenants drop constraint tenants_timezone_iana;
 insert into public.tenants (id, name, timezone) values
   ('c0830000-0000-4000-8000-00000000000a', 'Synthetic 05-08 Date Clinic', 'Asia/Kolkata'),
   ('c0830000-0000-4000-8000-0000000000b1', 'Synthetic Zone Unknown', 'Not/AZone'),

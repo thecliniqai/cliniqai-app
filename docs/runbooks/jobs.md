@@ -338,6 +338,14 @@ enqueue RPCs, the triggers and the runner do); the migration checks this against
 privilege is back. `ops.backfill_delivery_jobs()` (postgres only) gives every open delivery row its job; it ran once in
 the migration and can be run again safely (it returns the number of jobs it created).
 
+**Cancelled jobs (V2-05 05-12, 000092).** `claim_jobs` cancels the due jobs of a clinic whose access level is not
+`full` (`last_error = 'tenant_not_full'`). Cancelling a `message.send` or `webhook.deliver` job closes its delivery row
+in the same statement (trigger `jobs_delivery_cancelled`): the `communication_queue` row becomes `cancelled`
+(`error_message = 'job_cancelled:tenant_not_full'`, links and tokens scrubbed as on the dead path) and the
+`webhook_delivery_queue` row `failed`. A closed row is not open, so the backfill never re-sends a reminder of a clinic
+that lapsed, not even after a renewal. A cancelled `email.invite` leaves the invitation pending: the owner resends it
+after renewal (Staff page, Resend).
+
 
 ## 12. Alerts (V2-04 04-04)
 

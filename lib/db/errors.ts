@@ -97,6 +97,11 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   AI_PATIENT_OBJECTED: "PRECONDITION_FAILED",
   AI_OVER_QUOTA: "PRECONDITION_FAILED",
   AI_TERMS_VERSION_INVALID: "VALIDATION_FAILED",
+  // V2-05 05-12 (migration 000092): committing a reservation that expired (M-AIEXP; the gateway discards that draft);
+  // an AI feature with no quota key in the catalogue (IND L-2, a configuration error). AI_OBJECTION_CLEAR_FORBIDDEN
+  // is 42501 (→ FORBIDDEN by SQLSTATE).
+  AI_RESERVATION_EXPIRED: "CONFLICT",
+  AI_QUOTA_NOT_CONFIGURED: "PRECONDITION_FAILED",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */
