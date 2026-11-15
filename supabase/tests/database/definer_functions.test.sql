@@ -14,7 +14,7 @@
 --      one that reads tenant data refuses clinic B once B is locked, while the level-neutral ones keep working.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(65);
+select plan(71);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -185,6 +185,11 @@ insert into c2c_definer values
   ('public.invite_staff', 'bound', 'p_tenant in tenant_ids_with(staff:invite): the active clinic; owner/admin invitations by owners (000088, 05-07a)'),
   ('public.resend_invitation', 'bound', 'invitation''s clinic = active clinic with staff:invite (000088, 05-07a)'),
   ('public.revoke_invitation', 'bound', 'invitation''s clinic = active clinic with staff:invite (000088, 05-07a)'),
+  ('public.ai_preflight', 'bound', 'visit''s clinic = active clinic, consultations:edit there; the AI gate (000091, 05-10c)'),
+  ('public.ai_reserve', 'bound', 'visit''s clinic = active clinic, consultations:edit there; the AI gate + quota lock (000091, 05-10c)'),
+  ('public.ai_commit', 'bound', 'reservation of the active clinic, consultations:edit there (000091, 05-10c)'),
+  ('public.ai_release', 'bound', 'reservation of the active clinic, consultations:edit there (000091, 05-10c)'),
+  ('public.set_ai_opt_in', 'bound', 'owner of the active, full clinic (000091, 05-10c, R-33)'),
   -- the member helper
   ('public.current_user_tenant_ids', 'member', 'every clinic of the caller (switcher); no policy or function uses it'),
   ('public.my_tenant_access', 'member', 'SUB §6.2 wrapper: the access level of one of the caller''s own clinics, else null (000083, 05-09a)'),
@@ -275,6 +280,8 @@ select set_eq(
     'public.remove_member:authenticated', 'public.session_is_live:authenticated',
     'public.invite_staff:authenticated', 'public.resend_invitation:authenticated',
     'public.revoke_invitation:authenticated', 'public.peek_invitation:anon,authenticated',
+    'public.ai_preflight:authenticated', 'public.ai_reserve:authenticated', 'public.ai_commit:authenticated',
+    'public.ai_release:authenticated', 'public.set_ai_opt_in:authenticated',
     'public.invitation_issue_token:service_role', 'public.consume_invitation_for:service_role',
     'public.invitation_accept_context:service_role',
     'private.invitation_audit:',
@@ -414,6 +421,10 @@ select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0
   'error:P0002:INVITATION_NOT_FOUND%', 'revoke_invitation: acting in A on B''s invitation is not found (05-07a)');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', null, $$select count(*)::text from public.current_user_tenant_ids()$$),
   '2', 'current_user_tenant_ids stays the member helper: every clinic of the caller (the switcher)');
+select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000a', $$select public.ai_preflight('ai.scribe', 'c2c00000-0000-4000-8000-000000002002')$$),
+  'forbidden', 'ai_preflight: acting in A on clinic B''s visit is forbidden (05-10c)');
+select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.ai_preflight('ai.scribe', 'c2c00000-0000-4000-8000-000000002002')$$),
+  'not_opted_in', 'ai_preflight: acting in B the gate passes the clinic, access, role, kill-switch and entitlement checks (B has not opted in)');
 
 -- 6. Access level (05-10a, SUB-02) ---------------------------------------------------------------------------------
 -- How every non-internal definer function treats a clinic that is not `full`:
@@ -431,6 +442,9 @@ insert into c2c_access values
   ('public.search_medicines', 'refuses'), ('public.record_payment', 'refuses'), ('public.has_permission', 'refuses'),
   ('public.referral_directory_search', 'refuses'), ('public.remove_member', 'refuses'), ('public.invite_staff', 'refuses'),
   ('public.resend_invitation', 'refuses'), ('public.revoke_invitation', 'refuses'),
+  ('public.ai_preflight', 'refuses'), ('public.ai_reserve', 'refuses'), ('public.set_ai_opt_in', 'refuses'),
+  -- 05-10c: a call reserved before a lock is still metered or released (no tenant data is read).
+  ('public.ai_commit', 'neutral'), ('public.ai_release', 'neutral'),
   ('public.log_audit', 'neutral'), ('public.current_user_tenant_ids', 'neutral'), ('public.my_tenant_access', 'neutral'),
   ('public.my_entitlements', 'neutral'), ('public.consume_invitation', 'neutral'), ('public.peek_invitation', 'neutral'),
   ('public.create_clinic_with_owner', 'neutral'), ('public.readiness_probe', 'neutral'), ('public.ops_ingest_error', 'neutral'),
@@ -527,6 +541,18 @@ select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000
 select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
   $$select public.revoke_invitation('c2c00000-0000-4000-8000-000000004101')$$),
   'error:P0002:INVITATION_NOT_FOUND%', 'locked B: revoke_invitation is refused');
+select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select public.ai_preflight('ai.scribe', 'c2c00000-0000-4000-8000-000000002002')$$),
+  'locked', 'locked B: ai_preflight answers locked (05-10c)');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select public.ai_reserve('ai.scribe', 'c2c00000-0000-4000-8000-000000002002', 60)$$),
+  'error:P0001:AI_LOCKED', 'locked B: ai_reserve is refused (05-10c)');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000201', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select public.set_ai_opt_in('c2c00000-0000-4000-8000-00000000000b', true, '2026-11')$$),
+  'denied:AI_OPT_IN_OWNER_ONLY', 'locked B: set_ai_opt_in is refused to B''s owner (05-10c)');
+select is(pg_temp.as_user('c2c00000-0000-4000-8000-000000000201', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select public.set_ai_opt_in('c2c00000-0000-4000-8000-00000000000b', true, '2026-11')$$),
+  '1', 'full B: set_ai_opt_in by B''s owner is allowed (05-10c control)');
 -- Token paths (anon) and the share-object lookup (service role).
 select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', null, null,
   $$select (public.get_reschedule_context('c2c-synthetic-reschedule-token-for-clinic-b-0001', now(), now() + interval '1 day') ->> 'status')$$),

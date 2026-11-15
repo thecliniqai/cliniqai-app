@@ -194,6 +194,9 @@ const FINAL_DELETE: Record<string, string> = {
   "public.platform_settings": "rpc_only",
   "public.platform_admins": "rpc_only",
   "public.platform_audit_log": "rpc_only",
+  "public.tenant_ai_settings": "rpc_only",
+  "public.ai_usage_monthly": "rpc_only",
+  "public.ai_quota_reservations": "rpc_only",
   "public.cdci_brands": "rpc_only",
   "public.cdci_drug_forms": "rpc_only",
   "public.cdci_generics": "rpc_only",
@@ -542,3 +545,51 @@ describe("the subscription tables (SUB-01, since 05-09a)", () => {
     expect(cellSql(t, "select").sql).toContain("public.tenant_subscriptions");
   });
 });
+
+/**
+ * AI-03 database part (05-10c, migration 000091; AI_STRATEGY.md §4.6 "write protection of gating tables", R-33): the
+ * owner's opt-in is readable by every role of the active, full clinic (clinic:view) and written by no API role (only
+ * the owner-only RPC); usage and reservations have no tenant access at all (only the definer RPCs write them).
+ */
+const TARGET_05_10C: Record<string, [string, string, string, string]> = {
+  "public.tenant_ai_settings": ["perm(clinic:view)", "rpc_only", "rpc_only", "rpc_only"],
+  "public.ai_usage_monthly": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+  "public.ai_quota_reservations": ["rpc_only", "rpc_only", "rpc_only", "rpc_only"],
+};
+
+describe("the AI gating tables (AI-03, since 05-10c)", () => {
+  const byName = new Map(TARGETS.map((t) => [targetName(t), t]));
+  const outcome = (target: string, op: "select" | "insert" | "update" | "delete", principalId: string) => {
+    const t = byName.get(target);
+    if (!t) throw new Error(`no target ${target}`);
+    return expectedOutcome(t, op, principal(principalId));
+  };
+
+  it("gives each its planned rule for every operation", () => {
+    const actual = Object.fromEntries(
+      Object.keys(TARGET_05_10C).map((name) => {
+        const t = byName.get(name);
+        if (!t) throw new Error(`no target ${name}`);
+        return [name, OPS.map((op) => ruleText(t.rules[op]))];
+      }),
+    );
+    expect(actual).toEqual(TARGET_05_10C);
+  });
+
+  it("lets no principal (anon or any role, at any access level) insert, update or delete any of them", () => {
+    for (const target of Object.keys(TARGET_05_10C)) {
+      for (const op of ["insert", "update", "delete"] as const) {
+        for (const p of PRINCIPALS) expect(outcome(target, op, p.id), `${target} ${op} ${p.id}`).toBe("denied");
+      }
+    }
+  });
+
+  it("lets no principal read usage or reservations, and only members acting in a full clinic A read A's opt-in (a dual member without a header reads nothing, R-42)", () => {
+    for (const target of ["public.ai_usage_monthly", "public.ai_quota_reservations"]) {
+      for (const p of PRINCIPALS) expect(outcome(target, "select", p.id), `${target} ${p.id}`).toBe("denied");
+    }
+    const readers = PRINCIPALS.filter((p) => outcome("public.tenant_ai_settings", "select", p.id) === "1").map((p) => p.id);
+    expect(readers).toEqual(["owner_a", "admin_a", "doctor_a", "doctor2_a", "nurse_a", "receptionist_a", "dual_hdr_a"]);
+  });
+});
+

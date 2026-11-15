@@ -9,6 +9,75 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_quota_reservations: {
+        Row: {
+          created_at: string;
+          expires_at: string;
+          feature: string;
+          id: string;
+          period: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          expires_at: string;
+          feature: string;
+          id?: string;
+          period: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          expires_at?: string;
+          feature?: string;
+          id?: string;
+          period?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_quota_reservations_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ai_usage_monthly: {
+        Row: {
+          feature: string;
+          period: string;
+          tenant_id: string;
+          units: number;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          feature: string;
+          period: string;
+          tenant_id: string;
+          units?: number;
+          updated_at?: string;
+        };
+        Update: {
+          feature?: string;
+          period?: string;
+          tenant_id?: string;
+          units?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_monthly_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       api_key_usage_daily: {
         Row: {
           api_key_id: string;
@@ -1387,6 +1456,7 @@ export type Database = {
           abha_id: string | null;
           address: Json | null;
           age: number | null;
+          ai_processing_objected: boolean;
           allergies: string[] | null;
           chronic_conditions: string[] | null;
           created_at: string;
@@ -1403,6 +1473,8 @@ export type Database = {
           id: string;
           is_deleted: boolean;
           national_health_id: string | null;
+          objected_at: string | null;
+          objection_recorded_by: string | null;
           phone: string;
           preferred_language: string;
           sex: string | null;
@@ -1416,6 +1488,7 @@ export type Database = {
           abha_id?: string | null;
           address?: Json | null;
           age?: number | null;
+          ai_processing_objected?: boolean;
           allergies?: string[] | null;
           chronic_conditions?: string[] | null;
           created_at?: string;
@@ -1432,6 +1505,8 @@ export type Database = {
           id?: string;
           is_deleted?: boolean;
           national_health_id?: string | null;
+          objected_at?: string | null;
+          objection_recorded_by?: string | null;
           phone: string;
           preferred_language?: string;
           sex?: string | null;
@@ -1444,6 +1519,7 @@ export type Database = {
           abha_id?: string | null;
           address?: Json | null;
           age?: number | null;
+          ai_processing_objected?: boolean;
           allergies?: string[] | null;
           chronic_conditions?: string[] | null;
           created_at?: string;
@@ -1460,6 +1536,8 @@ export type Database = {
           id?: string;
           is_deleted?: boolean;
           national_health_id?: string | null;
+          objected_at?: string | null;
+          objection_recorded_by?: string | null;
           phone?: string;
           preferred_language?: string;
           sex?: string | null;
@@ -2279,6 +2357,42 @@ export type Database = {
           },
         ];
       };
+      tenant_ai_settings: {
+        Row: {
+          accepted_at: string | null;
+          accepted_by: string | null;
+          accepted_terms_version: string | null;
+          enabled: boolean;
+          tenant_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          accepted_terms_version?: string | null;
+          enabled?: boolean;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          accepted_terms_version?: string | null;
+          enabled?: boolean;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_ai_settings_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: true;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tenant_entitlement_overrides: {
         Row: {
           created_at: string;
@@ -2940,6 +3054,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      ai_commit: { Args: { p_reservation: string }; Returns: number };
+      ai_preflight: {
+        Args: { p_feature: string; p_visit_id: string };
+        Returns: string;
+      };
+      ai_release: { Args: { p_reservation: string }; Returns: boolean };
+      ai_reserve: {
+        Args: { p_feature: string; p_timeout_s: number; p_visit_id: string };
+        Returns: string;
+      };
       change_member_role: {
         Args: { p_membership_id: string; p_role: string };
         Returns: {
@@ -3342,6 +3466,23 @@ export type Database = {
         }[];
       };
       session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };
+      set_ai_opt_in: {
+        Args: { p_enabled: boolean; p_tenant: string; p_terms_version: string };
+        Returns: {
+          accepted_at: string | null;
+          accepted_by: string | null;
+          accepted_terms_version: string | null;
+          enabled: boolean;
+          tenant_id: string;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "tenant_ai_settings";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       share_object_path: {
         Args: {
           p_owner_id: string;

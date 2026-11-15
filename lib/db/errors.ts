@@ -85,6 +85,18 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   INVITATION_ACCOUNT_AMBIGUOUS: "CONFLICT",
   // V2-05 05-10a (SUB-02): the clinic's access level is not `full`.
   SUBSCRIPTION_LOCKED: "SUBSCRIPTION_LOCKED",
+  // V2-05 05-10c (migration 000091, AI-03): ai_reserve raises AI_<preflight code> (AI-06 L2 contract); an unknown
+  // feature key; enabling the opt-in without a terms version. AI_RESERVATION_NOT_FOUND is P0002 (→ NOT_FOUND);
+  // AI_OPT_IN_OWNER_ONLY is 42501 (→ FORBIDDEN by SQLSTATE).
+  AI_FEATURE_UNKNOWN: "VALIDATION_FAILED",
+  AI_FORBIDDEN: "FORBIDDEN",
+  AI_LOCKED: "SUBSCRIPTION_LOCKED",
+  AI_KILLED: "PRECONDITION_FAILED",
+  AI_NOT_ENTITLED: "PRECONDITION_FAILED",
+  AI_NOT_OPTED_IN: "PRECONDITION_FAILED",
+  AI_PATIENT_OBJECTED: "PRECONDITION_FAILED",
+  AI_OVER_QUOTA: "PRECONDITION_FAILED",
+  AI_TERMS_VERSION_INVALID: "VALIDATION_FAILED",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

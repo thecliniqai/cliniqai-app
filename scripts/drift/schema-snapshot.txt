@@ -123,6 +123,17 @@ column ops.quota_snapshots.plan text not_null=t default=- identity=- generated=-
 column ops.quota_snapshots.storage_bytes bigint not_null=t default=- identity=- generated=-
 column ops.settings.key text not_null=t default=- identity=- generated=-
 column ops.settings.value text not_null=t default=- identity=- generated=-
+column public.ai_quota_reservations.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
+column public.ai_quota_reservations.expires_at timestamp with time zone not_null=t default=- identity=- generated=-
+column public.ai_quota_reservations.feature text not_null=t default=- identity=- generated=-
+column public.ai_quota_reservations.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
+column public.ai_quota_reservations.period text not_null=t default=- identity=- generated=-
+column public.ai_quota_reservations.tenant_id uuid not_null=t default=- identity=- generated=-
+column public.ai_usage_monthly.feature text not_null=t default=- identity=- generated=-
+column public.ai_usage_monthly.period text not_null=t default=- identity=- generated=-
+column public.ai_usage_monthly.tenant_id uuid not_null=t default=- identity=- generated=-
+column public.ai_usage_monthly.units integer not_null=t default=0 identity=- generated=-
+column public.ai_usage_monthly.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.api_key_usage_daily.api_key_id uuid not_null=t default=- identity=- generated=-
 column public.api_key_usage_daily.date date not_null=t default=- identity=- generated=-
 column public.api_key_usage_daily.error_count integer not_null=t default=0 identity=- generated=-
@@ -385,6 +396,7 @@ column public.patient_documents.visit_id uuid not_null=f default=- identity=- ge
 column public.patients.abha_id text not_null=f default=- identity=- generated=-
 column public.patients.address jsonb not_null=f default=- identity=- generated=-
 column public.patients.age integer not_null=f default=- identity=- generated=-
+column public.patients.ai_processing_objected boolean not_null=t default=false identity=- generated=-
 column public.patients.allergies text[] not_null=f default='{}'::text[] identity=- generated=-
 column public.patients.chronic_conditions text[] not_null=f default='{}'::text[] identity=- generated=-
 column public.patients.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
@@ -401,6 +413,8 @@ column public.patients.hfr_facility_id text not_null=f default=- identity=- gene
 column public.patients.id uuid not_null=t default=gen_random_uuid() identity=- generated=-
 column public.patients.is_deleted boolean not_null=t default=false identity=- generated=-
 column public.patients.national_health_id text not_null=f default=- identity=- generated=-
+column public.patients.objected_at timestamp with time zone not_null=f default=- identity=- generated=-
+column public.patients.objection_recorded_by uuid not_null=f default=- identity=- generated=-
 column public.patients.phone text not_null=t default=- identity=- generated=-
 column public.patients.preferred_language text not_null=t default='en'::text identity=- generated=-
 column public.patients.sex text not_null=f default=- identity=- generated=-
@@ -571,6 +585,12 @@ column public.subscription_events.subject text not_null=t default='base'::text i
 column public.subscription_events.tenant_id uuid not_null=t default=- identity=- generated=-
 column public.subscription_events.to_status text not_null=f default=- identity=- generated=-
 column public.subscription_events.type text not_null=t default=- identity=- generated=-
+column public.tenant_ai_settings.accepted_at timestamp with time zone not_null=f default=- identity=- generated=-
+column public.tenant_ai_settings.accepted_by uuid not_null=f default=- identity=- generated=-
+column public.tenant_ai_settings.accepted_terms_version text not_null=f default=- identity=- generated=-
+column public.tenant_ai_settings.enabled boolean not_null=t default=false identity=- generated=-
+column public.tenant_ai_settings.tenant_id uuid not_null=t default=- identity=- generated=-
+column public.tenant_ai_settings.updated_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.tenant_entitlement_overrides.created_at timestamp with time zone not_null=t default=now() identity=- generated=-
 column public.tenant_entitlement_overrides.enabled boolean not_null=t default=- identity=- generated=-
 column public.tenant_entitlement_overrides.expires_at timestamp with time zone not_null=f default=- identity=- generated=-
@@ -814,6 +834,16 @@ constraint ops.quota_snapshots.quota_snapshots_storage_bytes_check CHECK ((stora
 constraint ops.settings.settings_key_check CHECK ((key ~ '^[a-z][a-z0-9_]{0,62}$'::text))
 constraint ops.settings.settings_pkey PRIMARY KEY (key)
 constraint ops.settings.settings_value_check CHECK (((char_length(value) >= 1) AND (char_length(value) <= 200)))
+constraint public.ai_quota_reservations.ai_quota_reservations_expiry CHECK ((expires_at > created_at))
+constraint public.ai_quota_reservations.ai_quota_reservations_feature_check CHECK ((feature ~ '^ai\.[a-z0-9_.]{1,60}$'::text))
+constraint public.ai_quota_reservations.ai_quota_reservations_period_check CHECK ((period ~ '^(trial:[0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{4}-[0-9]{2})$'::text))
+constraint public.ai_quota_reservations.ai_quota_reservations_pkey PRIMARY KEY (id)
+constraint public.ai_quota_reservations.ai_quota_reservations_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.ai_usage_monthly.ai_usage_monthly_feature_check CHECK ((feature ~ '^ai\.[a-z0-9_.]{1,60}$'::text))
+constraint public.ai_usage_monthly.ai_usage_monthly_period_check CHECK ((period ~ '^(trial:[0-9]{4}-[0-9]{2}-[0-9]{2}|[0-9]{4}-[0-9]{2})$'::text))
+constraint public.ai_usage_monthly.ai_usage_monthly_pkey PRIMARY KEY (tenant_id, period, feature)
+constraint public.ai_usage_monthly.ai_usage_monthly_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+constraint public.ai_usage_monthly.ai_usage_monthly_units_check CHECK ((units >= 0))
 constraint public.api_key_usage_daily.api_key_usage_daily_pkey PRIMARY KEY (api_key_id, date)
 constraint public.api_key_usage_daily.api_key_usage_daily_tenant_api_key_fkey FOREIGN KEY (tenant_id, api_key_id) REFERENCES api_keys(tenant_id, id) ON DELETE CASCADE
 constraint public.api_key_usage_daily.api_key_usage_daily_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
@@ -943,7 +973,9 @@ constraint public.patient_documents.patient_documents_tenant_id_id_key UNIQUE (t
 constraint public.patient_documents.patient_documents_tenant_patient_fkey FOREIGN KEY (tenant_id, patient_id) REFERENCES patients(tenant_id, id) ON DELETE RESTRICT
 constraint public.patient_documents.patient_documents_tenant_visit_fkey FOREIGN KEY (tenant_id, visit_id) REFERENCES visits(tenant_id, id) ON DELETE SET NULL (visit_id)
 constraint public.patient_documents.patient_documents_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES auth.users(id)
+constraint public.patients.patients_ai_objection_stamped CHECK ((ai_processing_objected = (objected_at IS NOT NULL)))
 constraint public.patients.patients_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+constraint public.patients.patients_objection_recorded_by_fkey FOREIGN KEY (objection_recorded_by) REFERENCES auth.users(id)
 constraint public.patients.patients_pkey PRIMARY KEY (id)
 constraint public.patients.patients_preferred_language_check CHECK ((preferred_language = ANY (ARRAY['en'::text, 'mr'::text])))
 constraint public.patients.patients_sex_check CHECK ((sex = ANY (ARRAY['male'::text, 'female'::text, 'other'::text])))
@@ -1070,6 +1102,11 @@ constraint public.subscription_events.subscription_events_subject_check CHECK ((
 constraint public.subscription_events.subscription_events_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.subscription_events.subscription_events_to_status_check CHECK (((to_status IS NULL) OR (to_status = ANY (ARRAY['incomplete'::text, 'trialing'::text, 'active'::text, 'past_due'::text, 'expired'::text, 'archived'::text, 'purged'::text]))))
 constraint public.subscription_events.subscription_events_type_check CHECK ((type ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){0,3}$'::text))
+constraint public.tenant_ai_settings.tenant_ai_settings_accepted_by_fkey FOREIGN KEY (accepted_by) REFERENCES auth.users(id)
+constraint public.tenant_ai_settings.tenant_ai_settings_accepted_terms_version_check CHECK (((accepted_terms_version IS NULL) OR (accepted_terms_version ~ '^[A-Za-z0-9._-]{1,40}$'::text)))
+constraint public.tenant_ai_settings.tenant_ai_settings_enabled_needs_acceptance CHECK (((NOT enabled) OR ((accepted_terms_version IS NOT NULL) AND (accepted_by IS NOT NULL) AND (accepted_at IS NOT NULL))))
+constraint public.tenant_ai_settings.tenant_ai_settings_pkey PRIMARY KEY (tenant_id)
+constraint public.tenant_ai_settings.tenant_ai_settings_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
 constraint public.tenant_entitlement_overrides.tenant_entitlement_overrides_granted_by_fkey FOREIGN KEY (granted_by) REFERENCES auth.users(id) ON DELETE SET NULL
 constraint public.tenant_entitlement_overrides.tenant_entitlement_overrides_key_fkey FOREIGN KEY (key) REFERENCES entitlement_keys(key) ON DELETE RESTRICT
 constraint public.tenant_entitlement_overrides.tenant_entitlement_overrides_limit_value_check CHECK (((limit_value IS NULL) OR (limit_value >= 0)))
@@ -1240,6 +1277,8 @@ function platform.extend_trial(p_tenant uuid, p_by interval, p_reason text, p_ac
 function platform.grant_override(p_tenant uuid, p_key text, p_enabled boolean, p_limit bigint, p_expires_at timestamp with time zone, p_reason text, p_actor uuid) returns tenant_entitlement_overrides lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=9a7d278977e52502b4904695154aff9a
 function platform.set_comp(p_tenant uuid, p_until timestamp with time zone, p_reason text, p_actor uuid) returns tenant_subscriptions lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=4912ff61a711e97c83664da2cccc8e1e
 function platform.set_product_availability(p_plan_code text, p_purchasable boolean, p_visibility text, p_actor uuid) returns plans lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=cd03dda95db549066d39d1ed1199c005
+function private.ai_gate(p_feature text, p_visit_id uuid, OUT r_code text, OUT r_tenant uuid, OUT r_period text, OUT r_limit bigint) returns record lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f50f3f3aa9213dabdc736724c0856139
+function private.ai_reservation_tenant() returns uuid lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=effc06c6cd28ba36c16b89336fcdc518
 function private.api_keys_scope_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=634bd80665ad8b47dbb4e2fa0a1aa78c
 function private.audit_client_actions() returns text[] lang=sql security_definer=f volatility=i config=search_path="" body_md5=2c69915afc23affb99140f6accfb152f
 function private.audit_logs_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=398fea5d583e2a0c02e276e519b2be57
@@ -1265,6 +1304,7 @@ function private.message_subject(p_patient_id uuid, p_visit_id uuid, OUT visit_t
 function private.outbox_payment_recorded(p_payment_id uuid) returns integer lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=29638eca9aa442b931281faa2bc30a63
 function private.patient_documents_fill_report_date() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=7e2b1e557d54c545d6796e572df71ba8
 function private.patients_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9137400efeb88466beca8d4531b92f6e
+function private.patients_ai_objection_stamp() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=3dd8d3fb67f0ab62bec30e9ce3dbf9f5
 function private.payments_actor_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=9d07a669cf91ce75b6839f73f1d5c6b0
 function private.platform_actor(p_actor uuid, OUT actor uuid, OUT channel text) returns record lang=plpgsql security_definer=f volatility=s config=search_path="" body_md5=23d311260ffb7245c79afa6d04631443
 function private.platform_admins_audit() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=f98d06dcb2289673d69b37c8d69732b3
@@ -1284,6 +1324,10 @@ function private.visits_create_clinical_notes() returns trigger lang=plpgsql sec
 function private.visits_integrity_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=92bf0cdfd32dc8e73de1889e1d875d73
 function private.webhook_event_subject(p_event_type text, p_subject_id uuid, OUT o_tenant uuid, OUT o_data jsonb, OUT o_event_key text, OUT o_state_ok boolean) returns record lang=plpgsql security_definer=t volatility=v config=TimeZone=UTC,search_path="" body_md5=3f9364431c0bfd99577d1cf49f87bf8e
 function private.webhook_iso(p_at timestamp with time zone) returns text lang=sql security_definer=f volatility=s config=search_path="" body_md5=cf107b0b69f25a02f89ee3381aca5f4f
+function public.ai_commit(p_reservation uuid) returns integer lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=e2dd234265264eea2a0c730e17f01737
+function public.ai_preflight(p_feature text, p_visit_id uuid) returns text lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=733216a51eb88c1b8c39ba7a0b47af28
+function public.ai_release(p_reservation uuid) returns boolean lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=b61a801562cd783c2344f2a11d0f0e51
+function public.ai_reserve(p_feature text, p_visit_id uuid, p_timeout_s integer) returns uuid lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=9988bca8944c258b04df118d1f5359fa
 function public.change_member_role(p_membership_id uuid, p_role text) returns memberships lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=56513894c378b055578a75ff0c5cf811
 function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) returns TABLE(id uuid, kind text, tenant_id uuid, payload jsonb, attempts integer, max_attempts integer, lease_token uuid, run_at timestamp with time zone, claim_order integer) lang=plpgsql security_definer=t volatility=v config=lock_timeout=2s,search_path="" body_md5=a989ea795a0a4f28ec1b54a5850537b9
 function public.clinical_notes_guard() returns trigger lang=plpgsql security_definer=f volatility=v config=search_path="" body_md5=e1b92d76263ceb26ffd585604fb44bbb
@@ -1350,6 +1394,7 @@ function public.revoke_invitation(p_invitation_id uuid) returns jsonb lang=plpgs
 function public.revoke_share_token(p_token_id uuid) returns timestamp with time zone lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=ca7ce0b4227190877841fdaf065edb2b
 function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) returns TABLE(id text, medicine_name text, generic_name text, dose_form text, default_dosage text, default_timing text, default_duration text, is_custom boolean, is_favorite boolean) lang=plpgsql security_definer=t volatility=v config=search_path="" body_md5=bfcbb14840d1397ca3971ef34e80eb0b
 function public.session_is_live() returns boolean lang=sql security_definer=t volatility=s config=search_path="" body_md5=093c2711c41fa48f9b09290978b4f826
+function public.set_ai_opt_in(p_tenant uuid, p_enabled boolean, p_terms_version text) returns tenant_ai_settings lang=plpgsql security_definer=t volatility=v config=lock_timeout=5s,search_path="" body_md5=7c009b0d799d21424ac6d1ab43007484
 function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=87eb41555cfe9a23c14a3355ab1eea35
 function public.share_resource_tenant(p_type text, p_id uuid) returns uuid lang=sql security_definer=t volatility=s config=search_path="" body_md5=f202d708281179487dd5ca6d6cf9edb4
 function public.share_token_hash(p_token text) returns text lang=sql security_definer=f volatility=i config=search_path="" body_md5=46b48a816bdde078e25dc7a687214bc5
@@ -1432,6 +1477,10 @@ grant function platform.set_product_availability(p_plan_code text, p_purchasable
 grant function private.log_system_audit(p_tenant uuid, p_system_actor text, p_action text, p_entity_type text, p_entity_id uuid, p_metadata jsonb) EXECUTE to service_role
 grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to authenticated
 grant function private.outbox_payment_recorded(p_payment_id uuid) EXECUTE to service_role
+grant function public.ai_commit(p_reservation uuid) EXECUTE to authenticated
+grant function public.ai_preflight(p_feature text, p_visit_id uuid) EXECUTE to authenticated
+grant function public.ai_release(p_reservation uuid) EXECUTE to authenticated
+grant function public.ai_reserve(p_feature text, p_visit_id uuid, p_timeout_s integer) EXECUTE to authenticated
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to authenticated
 grant function public.change_member_role(p_membership_id uuid, p_role text) EXECUTE to service_role
 grant function public.claim_jobs(p_kinds text[], p_batch integer, p_lease_seconds integer, p_worker text, p_per_tenant integer) EXECUTE to service_role
@@ -1523,6 +1572,7 @@ grant function public.revoke_share_token(p_token_id uuid) EXECUTE to service_rol
 grant function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) EXECUTE to authenticated
 grant function public.search_medicines(p_query text, p_doctor_id uuid, p_tenant_id uuid, p_limit integer) EXECUTE to service_role
 grant function public.session_is_live() EXECUTE to authenticated
+grant function public.set_ai_opt_in(p_tenant uuid, p_enabled boolean, p_terms_version text) EXECUTE to authenticated
 grant function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) EXECUTE to authenticated
 grant function public.share_object_path(p_type text, p_tenant_id uuid, p_owner_id uuid, p_path text) EXECUTE to service_role
 grant function public.share_resource_tenant(p_type text, p_id uuid) EXECUTE to service_role
@@ -1552,6 +1602,22 @@ grant schema public USAGE to service_role
 grant sequence public.audit_logs_id_seq SELECT to service_role
 grant sequence public.audit_logs_id_seq UPDATE to service_role
 grant sequence public.audit_logs_id_seq USAGE to service_role
+grant table public.ai_quota_reservations DELETE to service_role
+grant table public.ai_quota_reservations INSERT to service_role
+grant table public.ai_quota_reservations MAINTAIN to service_role
+grant table public.ai_quota_reservations REFERENCES to service_role
+grant table public.ai_quota_reservations SELECT to service_role
+grant table public.ai_quota_reservations TRIGGER to service_role
+grant table public.ai_quota_reservations TRUNCATE to service_role
+grant table public.ai_quota_reservations UPDATE to service_role
+grant table public.ai_usage_monthly DELETE to service_role
+grant table public.ai_usage_monthly INSERT to service_role
+grant table public.ai_usage_monthly MAINTAIN to service_role
+grant table public.ai_usage_monthly REFERENCES to service_role
+grant table public.ai_usage_monthly SELECT to service_role
+grant table public.ai_usage_monthly TRIGGER to service_role
+grant table public.ai_usage_monthly TRUNCATE to service_role
+grant table public.ai_usage_monthly UPDATE to service_role
 grant table public.api_key_usage_daily DELETE to authenticated
 grant table public.api_key_usage_daily DELETE to service_role
 grant table public.api_key_usage_daily INSERT to authenticated
@@ -1968,6 +2034,15 @@ grant table public.subscription_events REFERENCES to service_role
 grant table public.subscription_events SELECT to authenticated
 grant table public.subscription_events SELECT to service_role
 grant table public.subscription_events TRIGGER to service_role
+grant table public.tenant_ai_settings DELETE to service_role
+grant table public.tenant_ai_settings INSERT to service_role
+grant table public.tenant_ai_settings MAINTAIN to service_role
+grant table public.tenant_ai_settings REFERENCES to service_role
+grant table public.tenant_ai_settings SELECT to authenticated
+grant table public.tenant_ai_settings SELECT to service_role
+grant table public.tenant_ai_settings TRIGGER to service_role
+grant table public.tenant_ai_settings TRUNCATE to service_role
+grant table public.tenant_ai_settings UPDATE to service_role
 grant table public.tenant_entitlement_overrides DELETE to service_role
 grant table public.tenant_entitlement_overrides INSERT to service_role
 grant table public.tenant_entitlement_overrides MAINTAIN to service_role
@@ -2097,6 +2172,8 @@ index ops.quota_limits_pkey CREATE UNIQUE INDEX quota_limits_pkey ON ops.quota_l
 index ops.quota_snapshots_at CREATE INDEX quota_snapshots_at ON ops.quota_snapshots USING btree (at)
 index ops.quota_snapshots_pkey CREATE UNIQUE INDEX quota_snapshots_pkey ON ops.quota_snapshots USING btree (id)
 index ops.settings_pkey CREATE UNIQUE INDEX settings_pkey ON ops.settings USING btree (key)
+index public.ai_quota_reservations_pkey CREATE UNIQUE INDEX ai_quota_reservations_pkey ON public.ai_quota_reservations USING btree (id)
+index public.ai_usage_monthly_pkey CREATE UNIQUE INDEX ai_usage_monthly_pkey ON public.ai_usage_monthly USING btree (tenant_id, period, feature)
 index public.api_key_usage_daily_pkey CREATE UNIQUE INDEX api_key_usage_daily_pkey ON public.api_key_usage_daily USING btree (api_key_id, date)
 index public.api_keys_key_hash_key CREATE UNIQUE INDEX api_keys_key_hash_key ON public.api_keys USING btree (key_hash)
 index public.api_keys_pkey CREATE UNIQUE INDEX api_keys_pkey ON public.api_keys USING btree (id)
@@ -2124,6 +2201,7 @@ index public.document_share_tokens_pkey CREATE UNIQUE INDEX document_share_token
 index public.document_share_tokens_token_hash_key CREATE UNIQUE INDEX document_share_tokens_token_hash_key ON public.document_share_tokens USING btree (token_hash)
 index public.entitlement_keys_pkey CREATE UNIQUE INDEX entitlement_keys_pkey ON public.entitlement_keys USING btree (key)
 index public.follow_ups_pkey CREATE UNIQUE INDEX follow_ups_pkey ON public.follow_ups USING btree (id)
+index public.idx_ai_quota_reservations_live CREATE INDEX idx_ai_quota_reservations_live ON public.ai_quota_reservations USING btree (tenant_id, feature, period, expires_at)
 index public.idx_api_key_usage_daily_tenant_api_key CREATE INDEX idx_api_key_usage_daily_tenant_api_key ON public.api_key_usage_daily USING btree (tenant_id, api_key_id)
 index public.idx_api_key_usage_tenant CREATE INDEX idx_api_key_usage_tenant ON public.api_key_usage_daily USING btree (tenant_id, date)
 index public.idx_api_keys_created_by CREATE INDEX idx_api_keys_created_by ON public.api_keys USING btree (created_by)
@@ -2191,6 +2269,7 @@ index public.idx_patient_documents_tenant_visit CREATE INDEX idx_patient_documen
 index public.idx_patient_documents_uploaded_by CREATE INDEX idx_patient_documents_uploaded_by ON public.patient_documents USING btree (uploaded_by)
 index public.idx_patient_documents_visit CREATE INDEX idx_patient_documents_visit ON public.patient_documents USING btree (visit_id)
 index public.idx_patients_created_by CREATE INDEX idx_patients_created_by ON public.patients USING btree (created_by)
+index public.idx_patients_objection_recorded_by CREATE INDEX idx_patients_objection_recorded_by ON public.patients USING btree (objection_recorded_by)
 index public.idx_patients_tenant_active CREATE INDEX idx_patients_tenant_active ON public.patients USING btree (tenant_id, is_deleted)
 index public.idx_patients_tenant_created_at CREATE INDEX idx_patients_tenant_created_at ON public.patients USING btree (tenant_id, created_at)
 index public.idx_patients_tenant_id CREATE INDEX idx_patients_tenant_id ON public.patients USING btree (tenant_id)
@@ -2229,6 +2308,7 @@ index public.idx_schedule_blocks_doctor_id CREATE INDEX idx_schedule_blocks_doct
 index public.idx_schedule_blocks_tenant_doctor_time CREATE INDEX idx_schedule_blocks_tenant_doctor_time ON public.schedule_blocks USING btree (tenant_id, doctor_id, start_time, end_time)
 index public.idx_schedule_blocks_tenant_time CREATE INDEX idx_schedule_blocks_tenant_time ON public.schedule_blocks USING btree (tenant_id, start_time, end_time)
 index public.idx_subscription_events_tenant CREATE INDEX idx_subscription_events_tenant ON public.subscription_events USING btree (tenant_id, occurred_at)
+index public.idx_tenant_ai_settings_accepted_by CREATE INDEX idx_tenant_ai_settings_accepted_by ON public.tenant_ai_settings USING btree (accepted_by)
 index public.idx_tenant_entitlement_overrides_granted_by CREATE INDEX idx_tenant_entitlement_overrides_granted_by ON public.tenant_entitlement_overrides USING btree (granted_by)
 index public.idx_tenant_entitlement_overrides_key CREATE INDEX idx_tenant_entitlement_overrides_key ON public.tenant_entitlement_overrides USING btree (key)
 index public.idx_tenant_subscriptions_plan_price_id CREATE INDEX idx_tenant_subscriptions_plan_price_id ON public.tenant_subscriptions USING btree (plan_price_id)
@@ -2292,6 +2372,7 @@ index public.referrals_pkey CREATE UNIQUE INDEX referrals_pkey ON public.referra
 index public.referrals_tenant_id_id_key CREATE UNIQUE INDEX referrals_tenant_id_id_key ON public.referrals USING btree (tenant_id, id)
 index public.schedule_blocks_pkey CREATE UNIQUE INDEX schedule_blocks_pkey ON public.schedule_blocks USING btree (id)
 index public.subscription_events_pkey CREATE UNIQUE INDEX subscription_events_pkey ON public.subscription_events USING btree (id)
+index public.tenant_ai_settings_pkey CREATE UNIQUE INDEX tenant_ai_settings_pkey ON public.tenant_ai_settings USING btree (tenant_id)
 index public.tenant_entitlement_overrides_pkey CREATE UNIQUE INDEX tenant_entitlement_overrides_pkey ON public.tenant_entitlement_overrides USING btree (id)
 index public.tenant_entitlement_overrides_tenant_key CREATE UNIQUE INDEX tenant_entitlement_overrides_tenant_key ON public.tenant_entitlement_overrides USING btree (tenant_id, key)
 index public.tenant_messaging_config_pkey CREATE UNIQUE INDEX tenant_messaging_config_pkey ON public.tenant_messaging_config USING btree (id)
@@ -2404,6 +2485,7 @@ policy public.schedule_blocks.schedule_blocks_insert cmd=a permissive=t roles=au
 policy public.schedule_blocks.schedule_blocks_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('appointments:view'::text) AS tenant_ids_with)) check=-
 policy public.schedule_blocks.schedule_blocks_update cmd=w permissive=t roles=authenticated using=(((doctor_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))) check=(((doctor_id = ( SELECT auth.uid() AS uid)) AND (tenant_id IN ( SELECT authz.tenant_ids_with('appointments:edit'::text) AS tenant_ids_with))) OR (tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)))
 policy public.subscription_events.subscription_events_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.billing_tenant_ids() AS billing_tenant_ids)) check=-
+policy public.tenant_ai_settings.tenant_ai_settings_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:view'::text) AS tenant_ids_with)) check=-
 policy public.tenant_messaging_config.tenant_messaging_config_insert cmd=a permissive=t roles=authenticated using=- check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
 policy public.tenant_messaging_config.tenant_messaging_config_select cmd=r permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:view'::text) AS tenant_ids_with)) check=-
 policy public.tenant_messaging_config.tenant_messaging_config_update cmd=w permissive=t roles=authenticated using=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with)) check=(tenant_id IN ( SELECT authz.tenant_ids_with('clinic:manage'::text) AS tenant_ids_with))
@@ -2456,6 +2538,8 @@ relation ops.quota_limits kind=r rls=t force_rls=f
 relation ops.quota_snapshots kind=r rls=t force_rls=f
 relation ops.quota_snapshots_id_seq kind=S rls=f force_rls=f
 relation ops.settings kind=r rls=t force_rls=f
+relation public.ai_quota_reservations kind=r rls=t force_rls=f
+relation public.ai_usage_monthly kind=r rls=t force_rls=f
 relation public.api_key_usage_daily kind=r rls=t force_rls=f
 relation public.api_keys kind=r rls=t force_rls=f
 relation public.audit_logs kind=r rls=t force_rls=f
@@ -2501,6 +2585,7 @@ relation public.queue_tokens kind=r rls=t force_rls=f
 relation public.referrals kind=r rls=t force_rls=f
 relation public.schedule_blocks kind=r rls=t force_rls=f
 relation public.subscription_events kind=r rls=t force_rls=f
+relation public.tenant_ai_settings kind=r rls=t force_rls=f
 relation public.tenant_entitlement_overrides kind=r rls=t force_rls=f
 relation public.tenant_messaging_config kind=r rls=t force_rls=f
 relation public.tenant_subscriptions kind=r rls=t force_rls=f
@@ -2528,6 +2613,7 @@ trigger public.invoices.invoices_insert_guard CREATE TRIGGER invoices_insert_gua
 trigger public.memberships.memberships_profile_update_guard CREATE TRIGGER memberships_profile_update_guard BEFORE UPDATE ON public.memberships FOR EACH ROW EXECUTE FUNCTION memberships_profile_update_guard()
 trigger public.patient_documents.patient_documents_fill_report_date CREATE TRIGGER patient_documents_fill_report_date BEFORE INSERT ON public.patient_documents FOR EACH ROW EXECUTE FUNCTION private.patient_documents_fill_report_date()
 trigger public.patients.patients_actor_guard CREATE TRIGGER patients_actor_guard BEFORE INSERT OR UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_actor_guard()
+trigger public.patients.patients_ai_objection_stamp CREATE TRIGGER patients_ai_objection_stamp BEFORE INSERT OR UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION private.patients_ai_objection_stamp()
 trigger public.patients.patients_clinical_fields_guard CREATE TRIGGER patients_clinical_fields_guard BEFORE UPDATE ON public.patients FOR EACH ROW EXECUTE FUNCTION patients_clinical_fields_guard()
 trigger public.payments.payments_actor_guard CREATE TRIGGER payments_actor_guard BEFORE INSERT ON public.payments FOR EACH ROW EXECUTE FUNCTION private.payments_actor_guard()
 trigger public.platform_admins.platform_admins_audit CREATE TRIGGER platform_admins_audit AFTER INSERT OR DELETE OR UPDATE ON public.platform_admins FOR EACH ROW EXECUTE FUNCTION private.platform_admins_audit()
