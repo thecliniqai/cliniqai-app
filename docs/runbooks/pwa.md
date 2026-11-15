@@ -115,12 +115,18 @@ session with `auth.getUser()` (a session revoked elsewhere fails even while its 
 out. A 429 on the token refresh, a 5xx, a timeout, a network error, a gateway's uncoded 4xx (Kong's "Invalid API key"
 on a key rotation, its 404) keep the cookies: the proxy forwards the request marked `x-clinicos-auth-state:
 unavailable` (log `auth.proxy.unavailable`), the route answers 503, a page shows the error state with Reload, an action
-its generic failure, the PDF/export routes 503. Server-side Auth calls are bounded to 3.5 s per client
-(`AUTH_REQUEST_BUDGET_MS`). A burst of `auth.proxy.unavailable` lines is an Auth incident, not a wave of sign-outs.
+its generic failure, the PDF/export routes 503. Server-side session calls (`GET /user`, the token refresh, the JWKS
+fetch) are bounded per client: 5.5 s in the proxy (`PROXY_AUTH_REQUEST_BUDGET_MS`, hard stop 5.75 s), 3.5 s in a
+route, page or action (`AUTH_REQUEST_BUDGET_MS`), so proxy + route stay inside the client's 10 s. Other Auth calls are
+outside that budget (06-09d close): a password change's `PUT /user` is never cut, a sign-out has its own 3.5 s. A burst
+of `auth.proxy.unavailable` lines is an Auth incident, not a wave of sign-outs.
 
 **Pinned clinic (06-09d).** The first status answer that resolves a clinic sets the HttpOnly `clinic_active_tenant`
 cookie to it (when none is set), so removal from that clinic, even with another clinic left or added later, is a 403
-on every device, and removal from the last clinic signs the next page load out. Only `POST /auth/signout` clears it.
+on every device, and removal from the last clinic signs the next page load out. `POST /auth/signout` clears it, and so
+does the proxy on any request it finds definitively signed out (no session, or GoTrue refused it: a revoked or expired
+refresh token, a deleted or banned user; 06-09d close), so the next sign-in on the device never resolves the old pin.
+An Auth outage keeps it with the session.
 
 **Lock (D-8, `lib/pwa/lock.ts`).** Not a sign-out: the page is hidden, the `lock` cleanups run, then
 `location.replace(<destination>)`; the session is kept so the owner can renew or export. Only `/billing/locked`,

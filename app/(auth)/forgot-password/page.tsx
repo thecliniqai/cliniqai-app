@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, KeyRound } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createAuthPageClient } from "@/lib/supabase/client";
 import { abandonReset, completeReset, requestReset, type SetPasswordResult } from "@/features/auth/password-flows";
 import { setNewPasswordAction } from "@/features/auth/actions";
 import { PASSWORDS_DO_NOT_MATCH_MESSAGE, RECOVERY_CODE_LENGTH, completeResetFormSchema } from "@/features/auth/schemas";
@@ -38,7 +38,11 @@ type Step = "request" | "reset" | "done";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
+  // 06-09d close (re-check L-N3): created at the first submit, never on mount, and it never sees the device's session
+  // cookies (`createAuthPageClient`), so it never refreshes them. A signed-in user who opened this page while Auth
+  // rate-limited the token refresh was otherwise signed out by the browser client (auth-js deleted the cookies on the 429).
+  const client = useRef<ReturnType<typeof createAuthPageClient> | null>(null);
+  const supabase = () => (client.current ??= createAuthPageClient());
 
   const [step, setStep] = useState<Step>("request");
   const [email, setEmail] = useState("");
@@ -81,7 +85,7 @@ export default function ForgotPasswordPage() {
     setNotice(null);
     setLoading(true);
     const captchaToken = siteKey ? ((await turnstile.current?.token()) ?? null) : null;
-    const result = await requestReset(supabase, { email }, { required: Boolean(siteKey), token: captchaToken });
+    const result = await requestReset(supabase(), { email }, { required: Boolean(siteKey), token: captchaToken });
     // Turnstile tokens are single-use: every attempt that used one needs a new one.
     if (captchaToken) turnstile.current?.reset();
     setLoading(false);
@@ -137,7 +141,7 @@ export default function ForgotPasswordPage() {
     }
 
     setLoading(true);
-    const result = await completeReset(supabase, parsed.data, saveNewPassword);
+    const result = await completeReset(supabase(), parsed.data, saveNewPassword);
     setLoading(false);
     if (!result.ok) {
       if (result.stage === "update" && result.code === "reauth_required") {

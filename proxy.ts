@@ -8,12 +8,35 @@ import { isSupabaseAuthCookie, sessionMustEnd } from "@/lib/auth/session-age";
 import { isDefinitiveAuthRejection } from "@/lib/auth/auth-failure";
 import { log } from "@/lib/log";
 import {
-  AUTH_REQUEST_BUDGET_MS,
   AUTH_STATE_HEADER,
   AUTH_STATE_UNAVAILABLE,
   createAuthTransport,
   keepSessionCookies,
+  PROXY_AUTH_DEADLINE_MS,
+  PROXY_AUTH_REQUEST_BUDGET_MS,
 } from "@/lib/supabase/auth-transport";
+
+/**
+ * The active-clinic pin `/api/session-status` sets (same value as `lib/supabase/server.ts` `ACTIVE_TENANT_COOKIE`,
+ * restated so the proxy does not load the request client; tests/auth/session-auth-close-db.spec.ts asserts they match).
+ */
+export const PROXY_ACTIVE_TENANT_COOKIE = "clinic_active_tenant";
+
+/**
+ * V2-06 06-09d close (re-check L-N4): a request the proxy found definitively signed out (no session, or GoTrue refused
+ * it: a revoked or expired refresh token, a deleted or banned user, an emailed-code session past its 10 minutes) also
+ * forgets the clinic the ended session had pinned. Otherwise the next sign-in on this device (the same user after a
+ * removal, or another user of a shared front-desk device) would resolve the old pin: one spurious "You no longer have
+ * access to this clinic" sign-out, or a new account sent there instead of to `/clinic/new`. HttpOnly cookie, so only a
+ * server answer can expire it (`/auth/signout` does on an explicit sign-out). Not on "Auth unavailable": that keeps
+ * the session, and so the pin.
+ */
+function forgetActiveClinic(request: NextRequest, response: NextResponse): NextResponse {
+  if (request.cookies.has(PROXY_ACTIVE_TENANT_COOKIE)) {
+    response.cookies.set(PROXY_ACTIVE_TENANT_COOKIE, "", { path: "/", maxAge: 0, httpOnly: true, sameSite: "lax" });
+  }
+  return response;
+}
 
 /**
  * V2-03 03-09a (BACKEND H2, T-03-07): continue to the handler with `x-request-id` forced to this request's id (any
@@ -111,7 +134,7 @@ export async function proxy(request: NextRequest) {
   // (`applyCookieWrites`), and never after an Auth answer that was not definitive: auth-js deletes the session for a
   // 429 or an uncoded 4xx on the token refresh, and that deletion must not reach the browser or this request.
   let response = continueWithRequestId(request, requestId);
-  const transport = createAuthTransport({ supabaseUrl: publicEnv.NEXT_PUBLIC_SUPABASE_URL });
+  const transport = createAuthTransport({ supabaseUrl: publicEnv.NEXT_PUBLIC_SUPABASE_URL, budgetMs: PROXY_AUTH_REQUEST_BUDGET_MS });
   type CookieWrites = { cookies: { name: string; value: string; options: Parameters<typeof response.cookies.set>[2] }[]; headers: Record<string, string> };
   let pending: CookieWrites[] = [];
   const applyCookieWrites = () => {
@@ -147,7 +170,8 @@ export async function proxy(request: NextRequest) {
   // 06-09d: three outcomes. Signed in; signed out (no session, or a definitive GoTrue refusal: the refresh token is
   // gone, the session revoked, the user deleted or banned, a token that fails verification); or Auth unavailable (a
   // network error, a timeout, 5xx, 429, 408, an uncoded or non-GoTrue answer, or no answer within the budget). The
-  // call is bounded: `AUTH_REQUEST_BUDGET_MS` (the transport also ends auth-js's own refresh back-off by then).
+  // call is bounded: `PROXY_AUTH_REQUEST_BUDGET_MS` (5.5 s; the transport also ends auth-js's own refresh back-off by
+  // then), hard-stopped at `PROXY_AUTH_DEADLINE_MS`, so proxy + route handler stay inside the client's 10 s.
   let signedIn = false;
   let authUnavailable = false;
   let amr: unknown;
@@ -157,7 +181,7 @@ export async function proxy(request: NextRequest) {
     const result = await Promise.race([
       supabase.auth.getClaims(),
       new Promise<null>((resolve) => {
-        deadline = setTimeout(() => resolve(null), AUTH_REQUEST_BUDGET_MS + 250);
+        deadline = setTimeout(() => resolve(null), PROXY_AUTH_DEADLINE_MS);
       }),
     ]);
     if (result === null) {
@@ -216,8 +240,10 @@ export async function proxy(request: NextRequest) {
   // methods on a page path are Server Action calls, which authenticate themselves (P0-13 guard manifest), and `/api`
   // handlers authenticate themselves.
   if (!signedIn && (request.method === "GET" || request.method === "HEAD") && pageNeedsSession(pathname)) {
-    return redirectToLogin(request, requestId, response);
+    return forgetActiveClinic(request, redirectToLogin(request, requestId, response));
   }
+  // L-N4: every other definitively signed-out request (a public page such as /login, an `/api` call, a Server Action).
+  if (!signedIn) forgetActiveClinic(request, response);
 
   // V2-06 06-05 (PWA_STRATEGY §4 D-4, ruling R-20): a signed-in page or RSC response (GET/HEAD outside /api) is
   // `private, no-store`, set here rather than relying on Next's default for dynamic pages, so neither the browser's

@@ -17,13 +17,19 @@ import { isSupabaseAuthCookie } from "@/lib/auth/session-age";
  * - Records the outcome of every `/auth/v1/*` answer (`classifyAuthAnswer`: only GoTrue's definitive codes are
  *   `definitive`; a network error, a timeout, 5xx, 429, 408, an uncoded or non-GoTrue 4xx are `unavailable`).
  *   {@link keepSessionCookies} drops the auth-cookie deletions auth-js asks for after an `unavailable` answer.
- * - Bounds the Auth calls of one client to {@link AUTH_REQUEST_BUDGET_MS} from its first Auth call: a call still
- *   running at the deadline is aborted, and every Auth call after it is answered at once with a synthetic 408 (never
- *   sent). auth-js does not retry a 408 (it is an `AuthApiError`), so its back-off loop ends there; the outcome is
- *   `unavailable` (no deletion). A refresh attempt that failed in a way auth-js would retry (a network error, or one of
- *   its "network" statuses 500–504, 520–530) is also answered with the 408 when auth-js's next back-off sleep
- *   (200 ms × 2^attempt, `_refreshAccessToken`) would end past the deadline, so the loop never sleeps beyond it.
- *   Proxy + route handler therefore answer within 2 × the budget, inside the client's 10 s.
+ * - Bounds the session calls of one client (`GET /user`, the refresh-token grant, the JWKS fetch inside `getClaims`)
+ *   to the client's budget ({@link AUTH_REQUEST_BUDGET_MS}; the proxy's is {@link PROXY_AUTH_REQUEST_BUDGET_MS}) from
+ *   the first such call: a session call still running at the deadline is aborted, and every session call after it is
+ *   answered at once with a synthetic 408 (never sent). auth-js does not retry a 408 (it is an `AuthApiError`), so its
+ *   back-off loop ends there; the outcome is `unavailable` (no deletion). A refresh attempt that failed in a way auth-js
+ *   would retry (a network error, or one of its "network" statuses 500–504, 520–530) is also answered with the 408 when
+ *   auth-js's next back-off sleep (200 ms × 2^attempt, `_refreshAccessToken`) would end past the deadline, so the loop
+ *   never sleeps beyond it. Proxy (5.5 s) + route handler (3.5 s) therefore answer inside the client's 10 s.
+ * - 06-09d close (re-check L-N1): every other Auth call is outside that budget. `POST /logout` gets its own bound of
+ *   {@link AUTH_REQUEST_BUDGET_MS} (idempotent; every caller deletes this device's cookies whatever it answered), and
+ *   the rest (`PUT /user` for a password change or the profile sync, sign-in, OTP verification) is never aborted and
+ *   never refused by a spent session budget: GoTrue may already have applied a non-idempotent `PUT /user`, so cutting
+ *   its answer would report a password change as failed after it happened.
  * - `unavailable: true` (the proxy found Auth unavailable for this request, {@link AUTH_STATE_HEADER}): the
  *   session-bearing calls (`GET /user`, the refresh-token grant) are answered with the synthetic 408 without a request,
  *   so a page or handler never refreshes the session a second time (a refresh in a Server Component could not even store
@@ -32,8 +38,18 @@ import { isSupabaseAuthCookie } from "@/lib/auth/session-age";
  * Non-Auth requests (PostgREST, Storage) pass through untouched. `globalThis.fetch` is read at call time.
  */
 
-/** The Auth budget of one client (ms): a refresh's retries, or one `/user` call, end within it. */
+/** The session-call budget of one request client (ms): a refresh's retries, or one `/user` call, end within it. */
 export const AUTH_REQUEST_BUDGET_MS = 3500;
+
+/**
+ * 06-09d close (re-check L-N2): the proxy's session-call budget (ms). The proxy is the only refresh point, so a slow
+ * but working GoTrue (a refresh answered after 4 to 5 s) refreshes there instead of making the request "unavailable".
+ * Sized so the proxy's hard stop ({@link PROXY_AUTH_DEADLINE_MS}) plus the route handler's own budget stays under the
+ * client's 10 s status timeout (`STATUS_TIMEOUT_MS`): 5.75 s + 3.5 s = 9.25 s.
+ */
+export const PROXY_AUTH_REQUEST_BUDGET_MS = 5500;
+/** The proxy's hard stop for `getClaims()` (the budget plus scheduling slack). */
+export const PROXY_AUTH_DEADLINE_MS = PROXY_AUTH_REQUEST_BUDGET_MS + 250;
 
 /**
  * Set by `proxy.ts` on the forwarded request (and removed from every inbound request) when Supabase Auth could not
@@ -55,7 +71,7 @@ export interface AuthTransport {
   fetch: typeof fetch;
   /** The outcome of the last Auth answer through this transport (`none` before the first). */
   outcome: () => AuthAnswerOutcome | "none";
-  /** Starts a new budget (a second, separate Auth operation on the same client, e.g. the proxy's sign-out). */
+  /** Starts a new session-call budget (a second, separate Auth operation on the same client, e.g. the proxy's sign-out). */
   restartBudget: () => void;
 }
 
@@ -63,6 +79,7 @@ export interface AuthTransportOptions {
   supabaseUrl: string;
   /** The proxy found Auth unavailable for this request: answer session-bearing calls at once. */
   unavailable?: boolean;
+  /** The session-call budget (default {@link AUTH_REQUEST_BUDGET_MS}; the proxy passes {@link PROXY_AUTH_REQUEST_BUDGET_MS}). */
   budgetMs?: number;
   now?: () => number;
 }
@@ -98,22 +115,18 @@ export function createAuthTransport(options: AuthTransportOptions): AuthTranspor
   const carriesSession = (url: URL, method: string) =>
     (url.pathname === `${authPrefix}user` && method === "GET") ||
     (url.pathname === `${authPrefix}token` && url.searchParams.get("grant_type") === "refresh_token");
+  /** The calls that read or renew the session (the budget's scope): `GET /user`, the refresh grant, the JWKS fetch. */
+  const isSessionCall = (url: URL, method: string) => carriesSession(url, method) || url.pathname === `${authPrefix}.well-known/jwks.json`;
 
-  const transportFetch: typeof fetch = async (input, init) => {
-    const url = urlOf(input);
-    if (!isAuthCall(url)) return globalThis.fetch(input, init);
-    const method = (init?.method ?? (typeof input === "object" && "method" in input ? input.method : "GET")).toUpperCase();
-    const isRefresh = url!.pathname === `${authPrefix}token` && url!.searchParams.get("grant_type") === "refresh_token";
-    if (options.unavailable && carriesSession(url!, method)) {
-      outcome = "unavailable";
-      return unavailableAnswer();
-    }
-    deadline ??= now() + budgetMs;
-    const remaining = deadline - now();
-    if (remaining <= 0) {
-      outcome = "unavailable";
-      return unavailableAnswer();
-    }
+  /** Records the outcome of one Auth answer (GoTrue's code decides; see `classifyAuthAnswer`). */
+  const record = async (answer: Response) => {
+    outcome = answer.ok
+      ? "ok"
+      : classifyAuthAnswer(answer.status, await answer.clone().json().catch(() => null), answer.headers.get("x-supabase-api-version"));
+  };
+
+  /** Sends one Auth call, aborted at `ms`: `null` when it did not answer in time. */
+  const sendBounded = async (input: RequestInfo | URL, init: RequestInit | undefined, ms: number): Promise<Response | null> => {
     const controller = new AbortController();
     const callerSignal = init?.signal ?? null;
     const onCallerAbort = () => controller.abort(callerSignal?.reason);
@@ -124,17 +137,58 @@ export function createAuthTransport(options: AuthTransportOptions): AuthTranspor
       const answer = await Promise.race([
         globalThis.fetch(input, { ...init, signal: controller.signal }),
         new Promise<null>((resolve) => {
-          timer = setTimeout(() => resolve(null), remaining);
+          timer = setTimeout(() => resolve(null), ms);
         }),
       ]);
+      if (answer === null) controller.abort();
+      return answer;
+    } finally {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener("abort", onCallerAbort);
+    }
+  };
+
+  const transportFetch: typeof fetch = async (input, init) => {
+    const url = urlOf(input);
+    if (!isAuthCall(url)) return globalThis.fetch(input, init);
+    const method = (init?.method ?? (typeof input === "object" && "method" in input ? input.method : "GET")).toUpperCase();
+    const isRefresh = url!.pathname === `${authPrefix}token` && url!.searchParams.get("grant_type") === "refresh_token";
+    if (options.unavailable && carriesSession(url!, method)) {
+      outcome = "unavailable";
+      return unavailableAnswer();
+    }
+
+    // L-N1: only session calls share the client's budget. A sign-out has its own bound; every other Auth call (a
+    // non-idempotent `PUT /user` above all) is sent and awaited in full, whatever the session calls used.
+    if (!isSessionCall(url!, method)) {
+      try {
+        const answer =
+          url!.pathname === `${authPrefix}logout` ? await sendBounded(input, init, AUTH_REQUEST_BUDGET_MS) : await globalThis.fetch(input, init);
+        if (answer === null) {
+          outcome = "unavailable";
+          return unavailableAnswer();
+        }
+        await record(answer);
+        return answer;
+      } catch (err) {
+        outcome = "unavailable";
+        throw err;
+      }
+    }
+
+    deadline ??= now() + budgetMs;
+    const remaining = deadline - now();
+    if (remaining <= 0) {
+      outcome = "unavailable";
+      return unavailableAnswer();
+    }
+    try {
+      const answer = await sendBounded(input, init, remaining);
       if (answer === null) {
-        controller.abort();
         outcome = "unavailable";
         return unavailableAnswer();
       }
-      outcome = answer.ok
-        ? "ok"
-        : classifyAuthAnswer(answer.status, await answer.clone().json().catch(() => null), answer.headers.get("x-supabase-api-version"));
+      await record(answer);
       if (isRefresh && AUTH_JS_RETRYABLE_STATUSES.has(answer.status)) {
         refreshFailures += 1;
         if (nextRetryMissesDeadline()) return unavailableAnswer();
@@ -147,9 +201,6 @@ export function createAuthTransport(options: AuthTransportOptions): AuthTranspor
         if (nextRetryMissesDeadline()) return unavailableAnswer();
       }
       throw err;
-    } finally {
-      clearTimeout(timer);
-      callerSignal?.removeEventListener("abort", onCallerAbort);
     }
   };
 

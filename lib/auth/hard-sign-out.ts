@@ -100,7 +100,11 @@ function browserDeps(): HardSignOutDeps {
     expireAuthCookies: () => {
       for (const pair of document.cookie.split(";")) {
         const name = pair.split("=")[0]?.trim();
-        // 06-09c (M-REMOVED): the active-clinic cookie goes with the session (the route deletes it as well).
+        // Only cookies this page can see: the Supabase auth cookies. The active-clinic pin (`clinic_active_tenant`) is
+        // HttpOnly since 06-09d, so `document.cookie` neither lists nor expires it; a server answer does: `/auth/signout`
+        // on every sign-out it handles, and the proxy on the first request it finds signed out (06-09d close, L-N4),
+        // i.e. the next request this device sends once it is online again. The name stays in the test as a
+        // safeguard only: no build has ever written a JS-readable pin, so today it never matches.
         if (name && (SUPABASE_AUTH_COOKIE.test(name) || name === ACTIVE_TENANT_COOKIE_NAME)) {
           document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
         }

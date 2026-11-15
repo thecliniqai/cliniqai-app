@@ -75,6 +75,11 @@ const MARK = "x-clinicos-auth-state";
 const SHELL = "x-clinicos-shell-clinic";
 /** The server's Auth budget (3.5 s, `AUTH_REQUEST_BUDGET_MS`) plus scheduling slack. Literal: the spec also runs at the base commit. */
 const SERVER_BOUND_MS = 5000;
+/**
+ * The proxy's bound: 06-09d close (re-check L-N2) raised its budget to 5.5 s (hard stop 5.75 s,
+ * `PROXY_AUTH_DEADLINE_MS`) plus scheduling slack; proxy + route must still stay under the client's 10 s.
+ */
+const PROXY_BOUND_MS = 6500;
 const NO_STORE = "private, no-cache, no-store, must-revalidate, max-age=0";
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -317,7 +322,7 @@ describe("H-AUTHOUT-R1: expired access token, the refresh fails without a defini
       rv(`timing token=${mode} -> proxy ${p.ms} ms (${p.res.status}), route ${routeMs} ms (${r.status})`);
       expect(p.res.status).toBe(200);
       expect(r.status).toBe(503);
-      expect(p.ms).toBeLessThan(SERVER_BOUND_MS);
+      expect(p.ms).toBeLessThan(PROXY_BOUND_MS);
       expect(routeMs).toBeLessThan(SERVER_BOUND_MS);
       expect(p.ms + routeMs).toBeLessThan(STATUS_TIMEOUT_MS);
     }

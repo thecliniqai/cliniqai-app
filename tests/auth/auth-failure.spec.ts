@@ -170,4 +170,78 @@ describe("createAuthTransport", () => {
     await t.fetch(`${BASE}/rest/v1/memberships?select=*`);
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
+
+  it("06-09d close L-N1: a spent session budget never refuses or cuts a non-session call (PUT /user is sent and awaited)", async () => {
+    vi.useFakeTimers();
+    const hang = (_input: RequestInfo | URL, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))));
+    const fetchImpl = vi.fn(hang);
+    globalThis.fetch = fetchImpl as unknown as typeof fetch;
+    const t = createAuthTransport({ supabaseUrl: BASE });
+    const user = t.fetch(USER);
+    await vi.advanceTimersByTimeAsync(AUTH_REQUEST_BUDGET_MS);
+    expect((await user).status, "the session budget is spent").toBe(408);
+
+    // A password change after it: sent, and its answer (2 × the budget later) is the caller's, not a synthetic 408.
+    let putAborted = false;
+    fetchImpl.mockImplementationOnce(
+      (_input, init) =>
+        new Promise<Response>((resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => {
+            putAborted = true;
+            reject(new DOMException("aborted", "AbortError"));
+          });
+          setTimeout(() => resolve(new Response(JSON.stringify({ id: "u" }), { status: 200 })), 2 * AUTH_REQUEST_BUDGET_MS);
+        }),
+    );
+    const put = t.fetch(USER, { method: "PUT", body: "{}" });
+    await vi.advanceTimersByTimeAsync(2 * AUTH_REQUEST_BUDGET_MS);
+    const answer = await put;
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(putAborted).toBe(false);
+    expect(answer.status).toBe(200);
+    expect(t.outcome()).toBe("ok");
+  });
+
+  it("06-09d close L-N1: a sign-out is sent after the session budget is spent and has its own bound", async () => {
+    vi.useFakeTimers();
+    let logoutAborted = false;
+    const fetchImpl = vi.fn(
+      (input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) =>
+          init?.signal?.addEventListener("abort", () => {
+            if (String(input).includes("/logout")) logoutAborted = true;
+            reject(new DOMException("aborted", "AbortError"));
+          }),
+        ),
+    );
+    globalThis.fetch = fetchImpl as unknown as typeof fetch;
+    const t = createAuthTransport({ supabaseUrl: BASE });
+    const user = t.fetch(USER);
+    await vi.advanceTimersByTimeAsync(AUTH_REQUEST_BUDGET_MS);
+    await user;
+    const logout = t.fetch(`${BASE}/auth/v1/logout?scope=local`, { method: "POST" });
+    await vi.advanceTimersByTimeAsync(AUTH_REQUEST_BUDGET_MS - 1);
+    expect(logoutAborted, "still running inside its own bound").toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect((await logout).status).toBe(408);
+    expect(logoutAborted).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(t.outcome()).toBe("unavailable");
+  });
+
+  it("06-09d close L-N1: the JWKS fetch inside getClaims is a session call (bounded, refused once the budget is spent)", async () => {
+    vi.useFakeTimers();
+    const fetchImpl = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")))),
+    );
+    globalThis.fetch = fetchImpl as unknown as typeof fetch;
+    const t = createAuthTransport({ supabaseUrl: BASE });
+    const jwks = t.fetch(`${BASE}/auth/v1/.well-known/jwks.json`);
+    await vi.advanceTimersByTimeAsync(AUTH_REQUEST_BUDGET_MS);
+    expect((await jwks).status).toBe(408);
+    expect((await t.fetch(USER)).status).toBe(408);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });
