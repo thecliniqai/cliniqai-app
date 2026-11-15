@@ -1,0 +1,5 @@
+gitleaks ghcr.io/gitleaks/gitleaks:v8.30.1, git mode, --config .gitleaks.toml --redact, --log-opts=78e2fa2..4eadcbe (every 06-09d commit: 6d79ef5, c68851a, b11e398, b904d8f, 4eadcbe), local clone of the branch, 2026-11-15T09:03:08Z
+9:03AM INF 5 commits scanned.
+9:03AM INF scanned ~167635 bytes (167.63 KB) in 376ms
+9:03AM INF no leaks found
+exit 0
