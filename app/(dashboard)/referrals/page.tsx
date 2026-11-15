@@ -22,7 +22,7 @@ async function ReferralsPage() {
   ]);
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto">
       <ReferralsRegister
         initialOutbound={outboundRes.referrals || []}
         initialInbound={inboundRes.referrals || []}

@@ -29,6 +29,16 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton, SkeletonRegion } from "@/components/ui/skeleton";
 import { formatClinicDate } from "@/lib/datetime/format";
 import { GalleryGroup, GallerySection, Specimen } from "../kit";
+import { StatusChip } from "@/components/clinical/status-chip";
+
+/** The specimen rows' status labels as visit statuses (`lib/visit-status.ts`). */
+const SPECIMEN_STATUS: Record<string, { status: string; balanceDue?: number }> = {
+  Waiting: { status: "waiting" },
+  "With doctor": { status: "in_consultation" },
+  Done: { status: "completed" },
+  "To bill": { status: "completed", balanceDue: 700 },
+  Booked: { status: "booked" },
+};
 
 interface PatientRow {
   id: string;
@@ -88,7 +98,8 @@ const COLUMNS: DataColumn<PatientRow>[] = [
     ),
     className: "min-w-56",
   },
-  { id: "status", header: "Status", list: "status", cell: (row) => <span className="text-fg-secondary">{row.status}</span> },
+  // 06-09e (P8): the real table look, a StatusChip per row (the row's label maps onto its visit status).
+  { id: "status", header: "Status", list: "status", cell: (row) => <StatusChip {...SPECIMEN_STATUS[row.status]} /> },
   { id: "age", header: "Age", cell: (row) => row.age },
   { id: "mobile", header: "Mobile", cell: (row) => row.mobile },
   { id: "lastVisit", header: "Last visit", sortable: true, cell: (row) => formatClinicDate(row.lastVisit) },

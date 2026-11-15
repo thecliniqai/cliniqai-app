@@ -58,7 +58,7 @@ export function QueueCard({ item, onRefresh, onCheckout, onRecordVitals }: Queue
         );
       case "in_consultation":
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-subtle text-accent border border-accent-border">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-status-with-doctor-bg text-status-with-doctor-fg border border-status-with-doctor-border">
             In Consultation
           </span>
         );

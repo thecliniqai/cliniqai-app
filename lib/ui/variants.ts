@@ -207,7 +207,13 @@ export const CHIP_INTERACTIVE: Record<ChipVariant, string> = {
   option: "cursor-pointer hover:bg-surface-muted hover:text-fg data-[state=on]:hover:bg-fg data-[state=on]:hover:text-surface",
 };
 
-export const CHIP_DISABLED = "cursor-not-allowed border-border bg-surface-muted text-fg-disabled";
+/**
+ * Disabled items, selected ones included: a selected item in a disabled group keeps a selected cue (the accent-disabled
+ * border, the check glyph) but loses the accent fill and text, so it no longer reads as enabled (06-09e, design
+ * review L10).
+ */
+export const CHIP_DISABLED =
+  "cursor-not-allowed border-border bg-surface-muted text-fg-disabled data-[state=on]:border-accent-disabled data-[state=on]:bg-surface-muted data-[state=on]:text-fg-muted";
 
 /** Tile sub-variants: dashed "Other…" tile, and the abnormal finding (selected = finding-abnormal-*). */
 export const TILE_GHOST = "border-dashed text-fg-secondary";

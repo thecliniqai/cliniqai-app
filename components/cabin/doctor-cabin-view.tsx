@@ -261,8 +261,8 @@ export function DoctorCabinView({
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold tracking-wide uppercase flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span className="px-2 py-0.5 rounded-full bg-status-with-doctor-bg text-status-with-doctor-fg text-[11px] font-bold tracking-wide uppercase flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-status-with-doctor-border animate-ping" />
                     In Consultation Now
                   </span>
                   <span className="text-xs font-bold text-accent bg-white px-2 py-0.5 rounded-md border border-accent-border">

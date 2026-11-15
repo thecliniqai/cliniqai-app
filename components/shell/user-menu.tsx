@@ -32,6 +32,8 @@ export interface UserMenuProps {
  *
  * V2-06 06-04b: re-homed as the top bar's account menu (06-UI-SPEC §6 TopBar): an avatar button (28 px initials in a
  * 36 px target, 44 on touch) named "Account menu", the v1 items and names, "Sign out" items last after a separator.
+ * 06-09e (design review L4): "Switch user" sits with the v1 items, before the separator; signing out is not destructive,
+ * so "Sign out" is neutral and only "Sign out of all devices" (it ends every other session) takes the danger colour.
  * No tooltip on the trigger: Escape returns focus to it, and a tooltip opening then would only repeat its name (the
  * 06-02b open item, decided here for every menu trigger in the shell).
  */
@@ -51,7 +53,7 @@ function SignOutForm({
   return (
     <form method="post" action="/auth/signout" role="none" onClick={(e) => e.stopPropagation()} onSubmit={onSubmit}>
       <input type="hidden" name="scope" value={scope} />
-      <DropdownItem type="submit" icon={icon} danger aria-disabled={pending || undefined}>
+      <DropdownItem type="submit" icon={icon} danger={scope === "global"} aria-disabled={pending || undefined}>
         {children}
       </DropdownItem>
     </form>
@@ -113,8 +115,6 @@ export function UserMenu({ userEmail, role, tenantName }: UserMenuProps) {
       {/* V2-06 06-06 (PWA §6.1-§6.3): "Install app" / "Open in Chrome" / "Open in Safari" when an install path exists. */}
       <InstallMenuItem />
 
-      <DropdownSeparator />
-
       <DropdownItem
         type="button"
         icon={<Users aria-hidden="true" />}
@@ -126,6 +126,9 @@ export function UserMenu({ userEmail, role, tenantName }: UserMenuProps) {
       >
         {signingOut === "switch" ? "Switching user…" : "Switch user"}
       </DropdownItem>
+
+      <DropdownSeparator />
+
       <SignOutForm
         scope="local"
         pending={signingOut !== null}

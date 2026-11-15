@@ -45,7 +45,9 @@ async function BillingReportsPage() {
       };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+    // 06-09e (design review L11): the shell's <main> already pads the page (16 / 24 / 32 px); a second padding here
+    // started the content 32 px in on phones.
+    <div className="max-w-7xl mx-auto">
       <CollectionReportsView initialData={initialData} />
     </div>
   );

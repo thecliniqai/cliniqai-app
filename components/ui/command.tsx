@@ -243,7 +243,8 @@ export const CommandItem = React.forwardRef<React.ElementRef<typeof CommandPrimi
           </span>
         )}
         <span className={cn("min-w-0 flex-1", multiline ? "py-1.5" : "truncate")}>{children}</span>
-        {hint && <span className="shrink-0 text-caption text-fg-muted">{hint}</span>}
+        {/* The Enter hint means nothing on touch: hidden below 1024 px and on coarse pointers, as Kbd is (CD-33; P4). */}
+        {hint && <span className="shrink-0 text-caption text-fg-muted touch:hidden">{hint}</span>}
       </CommandPrimitive.Item>
     );
   },
@@ -255,8 +256,17 @@ export const CommandItem = React.forwardRef<React.ElementRef<typeof CommandPrimi
  */
 export function CommandLoading({ label = "Searching…" }: { label?: string }) {
   return (
-    <CommandPrimitive.Loading label={label} className="flex items-center gap-2 px-3 py-3 text-body-sm text-fg-muted">
-      <span aria-hidden="true" className="size-3.5 rounded-pill border-2 border-border-strong border-t-accent motion-safe:animate-spin" />
+    // cmdk wraps the children in its own `<div aria-hidden>`, so the row's flex layout goes on that wrapper; before
+    // 06-09e (design review P3) the spinner was an inline span there, which ignores its size and drew as a thin bar.
+    <CommandPrimitive.Loading
+      label={label}
+      className="px-3 py-3 text-body-sm text-fg-muted [&>div]:flex [&>div]:items-center [&>div]:gap-2"
+    >
+      <span
+        aria-hidden="true"
+        data-command-spinner=""
+        className="block size-3.5 shrink-0 rounded-pill border-2 border-border-strong border-t-accent motion-safe:animate-spin"
+      />
       {label}
     </CommandPrimitive.Loading>
   );

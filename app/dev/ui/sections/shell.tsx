@@ -7,6 +7,7 @@
  * each surface is laid out in place (not fixed or sticky) and its landmark carries a specimen name, so the gallery
  * page has no "Primary" navigation of its own. Synthetic data only.
  */
+import { useShortcutLabel } from "@/lib/ui/shortcut-label";
 import { ArrowLeft, Search } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
 import { Kbd } from "@/components/ui/kbd";
@@ -29,6 +30,7 @@ const PALETTE_FIELD = cn(
 );
 
 export function ShellSection() {
+  const shortcut = useShortcutLabel();
   return (
     <GallerySection
       id="shell"
@@ -73,7 +75,7 @@ export function ShellSection() {
           <button type="button" aria-haspopup="dialog" className={PALETTE_FIELD}>
             <Search aria-hidden="true" className="size-4 shrink-0 text-fg-icon" />
             <span className="min-w-0 flex-1 truncate">{PALETTE_PLACEHOLDER}</span>
-            <Kbd className="hidden lg:inline-flex">Ctrl K</Kbd>
+            <Kbd className="hidden lg:inline-flex">{shortcut}</Kbd>
           </button>
         </Specimen>
         <Specimen label="Search (phones)">

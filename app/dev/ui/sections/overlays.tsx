@@ -7,6 +7,7 @@
  * The static previews draw each surface in its open state in page flow, so a capture of the closed page still shows
  * the look; they are `inert` and hidden from assistive technology.
  */
+import { useShortcutLabel } from "@/lib/ui/shortcut-label";
 import { useState, type ReactNode } from "react";
 import { CalendarClock, Ellipsis, FileText, Printer, Search, SlidersHorizontal, UserRound, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -381,6 +382,7 @@ function SheetGroup() {
 }
 
 function PopoverTooltipGroup() {
+  const shortcut = useShortcutLabel();
   const [applied, setApplied] = useState("");
   const [waiting, setWaiting] = useState(true);
   const [withDoctor, setWithDoctor] = useState(false);
@@ -422,7 +424,7 @@ function PopoverTooltipGroup() {
         <span className="flex items-center gap-2">
           <IconButton
             label="Search patients"
-            shortcut="Ctrl K"
+            shortcut={shortcut}
             icon={<Search />}
             variant="bordered"
             data-testid="tooltip-trigger"
@@ -443,7 +445,7 @@ function PopoverTooltipGroup() {
         <Preview>
           <span className={TOOLTIP_SURFACE}>
             Search patients
-            <Kbd className="ml-1.5">Ctrl K</Kbd>
+            <Kbd className="ml-1.5">{shortcut}</Kbd>
           </span>
         </Preview>
       </Specimen>
@@ -603,10 +605,11 @@ function ToastGroup() {
         <Preview className="bg-surface-muted">
           <div className="flex w-full max-w-100 items-center gap-3 rounded-lg bg-fg py-2 pr-2 pl-3.5 text-body-sm text-surface shadow-overlay">
             <p className="flex-1">Visit cancelled</p>
-            <span className="inline-flex min-h-7.5 items-center rounded-md border border-surface/50 px-2.5 font-medium">
+            {/* 06-09e (L8): the static specimen draws the live toast's touch size (44 px) too. */}
+            <span className="inline-flex min-h-7.5 items-center rounded-md border border-surface/50 px-2.5 font-medium touch:min-h-control">
               Undo
             </span>
-            <span className="inline-flex size-7.5 items-center justify-center">
+            <span className="inline-flex size-7.5 items-center justify-center touch:size-control">
               <X aria-hidden="true" className="size-4" />
             </span>
           </div>
@@ -643,6 +646,7 @@ function CommandRows({ query, onPick }: { query: string; onPick: (value: string)
 }
 
 function CommandGroupSection() {
+  const shortcut = useShortcutLabel();
   const [picked, setPicked] = useState("");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -676,7 +680,7 @@ function CommandGroupSection() {
         <Button
           variant="secondary"
           startIcon={<Search aria-hidden="true" />}
-          kbd={<Kbd>Ctrl K</Kbd>}
+          kbd={<Kbd>{shortcut}</Kbd>}
           onClick={() => setOpen(true)}
           data-testid="command-dialog-open"
         >

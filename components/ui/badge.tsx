@@ -70,7 +70,13 @@ export function StatusBadge({ status }: { status: string }) {
     case "in_consultation":
     case "in-consultation":
     case "with_doctor":
-      return <Badge color="info" size="sm">In Consultation</Badge>;
+      // 06-09e (design review L7): With doctor is Care Teal everywhere, never the info/primary blue (06-UI-SPEC status
+      // table, `lib/visit-status.ts`); the v1 label stays until V2-08/V2-11 move these screens onto StatusChip.
+      return (
+        <Badge color="gray" size="sm" className="bg-status-with-doctor-bg text-status-with-doctor-fg border border-status-with-doctor-border">
+          In Consultation
+        </Badge>
+      );
     case "completed":
       return <Badge color="success" size="sm">Completed</Badge>;
     case "cancelled":

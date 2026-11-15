@@ -1,6 +1,5 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { Search } from "lucide-react";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { IconButton } from "@/components/ui/icon-button";
@@ -8,6 +7,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import type { BackStack } from "@/lib/nav/back-stack";
 import { cn } from "@/lib/utils";
+import { useShortcutLabel } from "@/lib/ui/shortcut-label";
 import { CONTROL_STATE, FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import { BackButton } from "./back-button";
 import { UserMenu } from "./user-menu";
@@ -15,15 +15,6 @@ import type { ShellUser } from "./shell-user";
 
 export const PALETTE_PLACEHOLDER = "Search patients, queue and actions";
 
-const noop = () => () => {};
-/** "⌘K" on Apple platforms, "Ctrl K" elsewhere (decided after hydration; the server renders "Ctrl K"). */
-function useShortcutLabel(): string {
-  return useSyncExternalStore(
-    noop,
-    () => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K"),
-    () => "Ctrl K",
-  );
-}
 
 /**
  * TopBar (06-UI-SPEC §6): sticky, white, bottom hairline, 52 px (`--spacing-bar`) plus the top safe area, `<header>`.

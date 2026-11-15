@@ -49,12 +49,19 @@ export interface PatientIdentityHeaderProps {
 
 const SEX_WORD: Record<PatientSex, string> = { M: "male", F: "female", O: "other" };
 
-/** `RK` from "Ramesh Kumar"; one letter for a one-word name. */
+/**
+ * `RK` from "Ramesh Kumar"; one letter for a one-word name. Letters only: the first letter of the first and of the last
+ * word that has one, so "Synthetic Patient 03" gives "SP", never "S0" (06-09e, design review P1).
+ */
 export function initialsOf(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
+  const words = name
+    .trim()
+    .split(/\s+/)
+    .map((word) => /\p{L}/u.exec(word)?.[0] ?? "")
+    .filter(Boolean);
   if (words.length === 0) return "";
-  const first = words[0][0] ?? "";
-  const last = words.length > 1 ? (words[words.length - 1][0] ?? "") : "";
+  const first = words[0];
+  const last = words.length > 1 ? words[words.length - 1] : "";
   return (first + last).toUpperCase();
 }
 

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand/brand-mark";
-import { PRODUCT_NAME } from "@/lib/design/brand";
 import type { NavDestination, NavModel } from "@/lib/nav/nav-for-role";
 import { cn } from "@/lib/utils";
 import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
@@ -28,7 +27,7 @@ function Item({ d, active }: { d: NavDestination; active: boolean }) {
 
 /**
  * Sidebar (≥ 1280 px; 06-UI-SPEC §6, `shared/proto.js` `shell()` at 3a78a5d): white, right hairline, 216 px, sticky
- * and full height. Clinic block (BrandMark 36, decorative beside the product name; the clinic name), the primary
+ * and full height. Clinic block (BrandMark 36, named; the clinic name), the primary
  * destinations, a hairline, the secondary destinations, then the user block. No "+ New" in V2-06 (CD-21).
  */
 export function Sidebar({
@@ -57,12 +56,14 @@ export function Sidebar({
       )}
     >
       <div className="flex items-center gap-2.5 px-1.5 pt-0.5 pb-4">
-        <BrandMark size={36} decorative />
+        {/* 06-09e (design review L1): the line under the clinic is its place (UI-SPEC §6). No place is stored before
+            V2-11's clinic profile, so nothing is shown rather than repeating the product name; the mark is named
+            "CliniQ AI" because the name is no longer written beside it (CD-35). */}
+        <BrandMark size={36} />
         <div className="min-w-0">
           <p className="truncate text-body-md font-semibold tracking-title text-fg" title={clinicName}>
             {clinicName}
           </p>
-          <p className="truncate text-label text-fg-muted">{PRODUCT_NAME}</p>
         </div>
       </div>
       {model.primary.map((d) => (
