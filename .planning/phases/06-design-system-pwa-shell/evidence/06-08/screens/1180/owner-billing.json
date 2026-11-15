@@ -1,0 +1,30 @@
+{
+  "id": "owner-billing",
+  "width": 1180,
+  "path": "/billing/reports",
+  "capture": "viewport",
+  "axe": {
+    "scope": "page without #main",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "wholePageForReference": [
+    {
+      "id": "color-contrast",
+      "impact": "serious",
+      "nodes": 1
+    },
+    {
+      "id": "label",
+      "impact": "critical",
+      "nodes": 2
+    },
+    {
+      "id": "select-name",
+      "impact": "critical",
+      "nodes": 1
+    }
+  ],
+  "horizontalScroll": false
+}

@@ -1,0 +1,13 @@
+{
+  "id": "offline",
+  "width": 1180,
+  "path": "/offline",
+  "capture": "viewport",
+  "axe": {
+    "scope": "page",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "horizontalScroll": false
+}

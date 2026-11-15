@@ -1,0 +1,14 @@
+{
+  "id": "owner-queue",
+  "width": 1180,
+  "path": "/queue",
+  "capture": "viewport",
+  "axe": {
+    "scope": "page without #main",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "wholePageForReference": [],
+  "horizontalScroll": false
+}

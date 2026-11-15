@@ -1,0 +1,13 @@
+{
+  "id": "gallery-data",
+  "width": 1180,
+  "path": "/dev/ui",
+  "capture": "element #data",
+  "axe": {
+    "scope": "#data",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "horizontalScroll": false
+}

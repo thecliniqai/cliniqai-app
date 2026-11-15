@@ -1,0 +1,20 @@
+{
+  "id": "doctor-consult",
+  "width": 1180,
+  "path": "/consultation/<id>",
+  "capture": "viewport",
+  "axe": {
+    "scope": "page without #main",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "wholePageForReference": [
+    {
+      "id": "select-name",
+      "impact": "critical",
+      "nodes": 1
+    }
+  ],
+  "horizontalScroll": false
+}

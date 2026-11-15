@@ -1,0 +1,13 @@
+{
+  "id": "update-toast",
+  "width": 1280,
+  "path": "/",
+  "capture": "viewport",
+  "axe": {
+    "scope": "[data-update-toast]",
+    "gate": true,
+    "violations": [],
+    "seriousOrCritical": 0
+  },
+  "horizontalScroll": false
+}
