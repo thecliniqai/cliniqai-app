@@ -1,0 +1,11 @@
+# 05-10a static checks (tree = 5fbf707; exit codes from the tools)
+typecheck exit=0
+eslint --quiet exit=0
+inventory exit=0 (inventory: 25 "use server" modules, 116 exports; 14/15 D1 non-action modules present; 28 route modules, 50 methods; 0 flagged, 6 noted)
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+schema-snapshot: PASS (local: 2543 lines equal the committed snapshot)
+authz:gen --check exit=0
+migration-immutability: migration-immutability: PASS (base 6037598 @ 6037598 [--base]; 89 applied unchanged; 1 new above 89)
+env-example: .env.example matches lib/env.ts
+seed:local after the 000090 reset: [seed:local] access summary: full=1 locked=0 onboarding=0
+explain-rls: PASS (.planning/phases/05-db-authorisation-entitlements/evidence/05b/explain-rls.txt)

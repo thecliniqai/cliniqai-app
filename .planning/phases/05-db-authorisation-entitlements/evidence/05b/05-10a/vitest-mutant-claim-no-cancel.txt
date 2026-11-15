@@ -1,0 +1,6 @@
+   × jobs of a clinic that is not full are cancelled at claim time (R-27) > a due message.send job of a locked clinic is cancelled and never handled; a full clinic's job runs 282ms
+     → expected [ …(2) ] to deeply equal [ Array(1) ]
+ FAIL  tests/subscriptions/lock-enforcement.spec.ts > jobs of a clinic that is not full are cancelled at claim time (R-27) > a due message.send job of a locked clinic is cancelled and never handled; a full clinic's job runs
+AssertionError: expected [ …(2) ] to deeply equal [ Array(1) ]
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)

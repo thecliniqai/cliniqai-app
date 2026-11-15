@@ -1,0 +1,60 @@
+# Failed test 3: "owner of A with A locked: only memberships, subscription_events, tenant_subscriptions, tenants; no storage object"
+#         have: api_key_usage_daily,api_keys,audit_logs,clinical_notes,communication_queue,consent_records,consultation_diagnoses,consultations,doctor_custom_diagnoses,doctor_custom_medicines,doctor_prescription_templates,document_share_tokens,follow_ups,invitations,invoice_items,invoices,memberships,patient_documents,patients,payments,prescription_items,prescriptions,queue_tokens,referrals,schedule_blocks,subscription_events,tenant_messaging_config,tenant_subscriptions,tenants,visit_revisions,visits,waitlist_entries,webhook_delivery_queue,webhook_subscriptions|storage:4
+#         want: memberships,subscription_events,tenant_subscriptions,tenants|storage:0
+# Failed test 4: "owner of A with A onboarding: only memberships, subscription_events, tenant_subscriptions, tenants; no storage object"
+#         have: api_key_usage_daily,api_keys,audit_logs,clinical_notes,communication_queue,consent_records,consultation_diagnoses,consultations,doctor_custom_diagnoses,doctor_custom_medicines,doctor_prescription_templates,document_share_tokens,follow_ups,invitations,invoice_items,invoices,memberships,patient_documents,patients,payments,prescription_items,prescriptions,queue_tokens,referrals,schedule_blocks,subscription_events,tenant_messaging_config,tenant_subscriptions,tenants,visit_revisions,visits,waitlist_entries,webhook_delivery_queue,webhook_subscriptions|storage:4
+#         want: memberships,subscription_events,tenant_subscriptions,tenants|storage:0
+# Failed test 5: "owner of A with A locked: every storage class refuses an upload (5 classes)"
+#         have: ok,ok,ok,ok,denied
+#         want: denied,denied,denied,denied,denied
+# Failed test 6: "owner of A with A onboarding: every storage class refuses an upload (5 classes)"
+#         have: ok,ok,ok,ok,denied
+#         want: denied,denied,denied,denied,denied
+# Failed test 8: "admin of A with A locked: only memberships, subscription_events, tenant_subscriptions, tenants; no storage object"
+#         have: api_key_usage_daily,api_keys,audit_logs,communication_queue,consent_records,follow_ups,invitations,invoice_items,invoices,memberships,patients,payments,queue_tokens,schedule_blocks,subscription_events,tenant_messaging_config,tenant_subscriptions,tenants,visits,waitlist_entries,webhook_delivery_queue,webhook_subscriptions|storage:1
+#         want: memberships,subscription_events,tenant_subscriptions,tenants|storage:0
+# Failed test 9: "admin of A with A onboarding: only memberships, subscription_events, tenant_subscriptions, tenants; no storage object"
+#         have: api_key_usage_daily,api_keys,audit_logs,communication_queue,consent_records,follow_ups,invitations,invoice_items,invoices,memberships,patients,payments,queue_tokens,schedule_blocks,subscription_events,tenant_messaging_config,tenant_subscriptions,tenants,visits,waitlist_entries,webhook_delivery_queue,webhook_subscriptions|storage:1
+#         want: memberships,subscription_events,tenant_subscriptions,tenants|storage:0
+# Failed test 10: "admin of A with A locked: every storage class refuses an upload (5 classes)"
+#         have: denied,ok,denied,denied,denied
+#         want: denied,denied,denied,denied,denied
+# Failed test 11: "admin of A with A onboarding: every storage class refuses an upload (5 classes)"
+#         have: denied,ok,denied,denied,denied
+#         want: denied,denied,denied,denied,denied
+# Failed test 13: "doctor of A with A locked: only memberships, tenants; no storage object"
+#         have: clinical_notes,communication_queue,consent_records,consultation_diagnoses,consultations,doctor_custom_diagnoses,doctor_custom_medicines,doctor_prescription_templates,document_share_tokens,follow_ups,in_app_notifications,invoice_items,invoices,memberships,patient_documents,patients,payments,prescription_items,prescriptions,queue_tokens,referrals,schedule_blocks,tenant_messaging_config,tenants,visit_revisions,visits,waitlist_entries|storage:4
+#         want: memberships,tenants|storage:0
+# Failed test 14: "doctor of A with A onboarding: only memberships, tenants; no storage object"
+#         have: clinical_notes,communication_queue,consent_records,consultation_diagnoses,consultations,doctor_custom_diagnoses,doctor_custom_medicines,doctor_prescription_templates,document_share_tokens,follow_ups,in_app_notifications,invoice_items,invoices,memberships,patient_documents,patients,payments,prescription_items,prescriptions,queue_tokens,referrals,schedule_blocks,tenant_messaging_config,tenants,visit_revisions,visits,waitlist_entries|storage:4
+#         want: memberships,tenants|storage:0
+# Failed test 15: "doctor of A with A locked: every storage class refuses an upload (5 classes)"
+#         have: ok,denied,ok,ok,denied
+#         want: denied,denied,denied,denied,denied
+# Failed test 16: "doctor of A with A onboarding: every storage class refuses an upload (5 classes)"
+#         have: ok,denied,ok,ok,denied
+#         want: denied,denied,denied,denied,denied
+# Failed test 18: "nurse of A with A locked: only memberships, tenants; no storage object"
+#         have: clinical_notes,communication_queue,consent_records,consultation_diagnoses,consultations,doctor_custom_diagnoses,doctor_custom_medicines,doctor_prescription_templates,document_share_tokens,follow_ups,memberships,patient_documents,patients,queue_tokens,referrals,schedule_blocks,tenant_messaging_config,tenants,visit_revisions,visits,waitlist_entries|storage:2
+#         want: memberships,tenants|storage:0
+# Failed test 19: "nurse of A with A onboarding: only memberships, tenants; no storage object"
+#         have: clinical_notes,communication_queue,consent_records,consultation_diagnoses,consultations,doctor_custom_diagnoses,doctor_custom_medicines,doctor_prescription_templates,document_share_tokens,follow_ups,memberships,patient_documents,patients,queue_tokens,referrals,schedule_blocks,tenant_messaging_config,tenants,visit_revisions,visits,waitlist_entries|storage:2
+#         want: memberships,tenants|storage:0
+# Failed test 20: "nurse of A with A locked: every storage class refuses an upload (5 classes)"
+#         have: denied,denied,ok,denied,denied
+#         want: denied,denied,denied,denied,denied
+# Failed test 21: "nurse of A with A onboarding: every storage class refuses an upload (5 classes)"
+#         have: denied,denied,ok,denied,denied
+#         want: denied,denied,denied,denied,denied
+# Failed test 23: "receptionist of A with A locked: only memberships, tenants; no storage object"
+#         have: communication_queue,consent_records,follow_ups,invoice_items,invoices,memberships,patients,payments,queue_tokens,schedule_blocks,tenant_messaging_config,tenants,visits,waitlist_entries|storage:1
+#         want: memberships,tenants|storage:0
+# Failed test 24: "receptionist of A with A onboarding: only memberships, tenants; no storage object"
+#         have: communication_queue,consent_records,follow_ups,invoice_items,invoices,memberships,patients,payments,queue_tokens,schedule_blocks,tenant_messaging_config,tenants,visits,waitlist_entries|storage:1
+#         want: memberships,tenants|storage:0
+# Failed test 25: "receptionist of A with A locked: every storage class refuses an upload (5 classes)"
+#         have: denied,ok,denied,denied,denied
+#         want: denied,denied,denied,denied,denied
+# Failed test 26: "receptionist of A with A onboarding: every storage class refuses an upload (5 classes)"
+#         have: denied,ok,denied,denied,denied
+#         want: denied,denied,denied,denied,denied

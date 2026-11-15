@@ -1,0 +1,6 @@
+   × signed-URL lifetimes (R-29) > getSignedUrl and the Supabase provider never sign for longer than the cap 3ms
+     → expected [ 3600, 3600 ] to deeply equal [ 300, 900 ]
+ FAIL  tests/subscriptions/lock-enforcement.spec.ts > signed-URL lifetimes (R-29) > getSignedUrl and the Supabase provider never sign for longer than the cap
+AssertionError: expected [ 3600, 3600 ] to deeply equal [ 300, 900 ]
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)

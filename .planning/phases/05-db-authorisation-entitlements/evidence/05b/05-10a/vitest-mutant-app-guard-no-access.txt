@@ -1,0 +1,6 @@
+   × server actions of a locked clinic (assertTenantAccess) > full: the actions answer; locked: SUBSCRIPTION_LOCKED on both guard paths; the billing overview still answers 117ms
+     → expected { success: false, …(1) } to deeply equal { success: false, …(1) }
+ FAIL  tests/subscriptions/lock-enforcement.spec.ts > server actions of a locked clinic (assertTenantAccess) > full: the actions answer; locked: SUBSCRIPTION_LOCKED on both guard paths; the billing overview still answers
+AssertionError: expected { success: false, …(1) } to deeply equal { success: false, …(1) }
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
