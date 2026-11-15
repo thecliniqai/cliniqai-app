@@ -870,3 +870,12 @@ PO: "I was thinking of using third party for now for stable launch and once we g
 | V2-12 scope added | An appointments-scoped API: free slots, book, reschedule, cancel, patient lookup by mobile; per-key least-privilege scopes (a voice-bot key holds appointment scopes only, never clinical); clinical resources (prescriptions, referrals, lab orders, clinical notes) refused for such keys; rate limits; idempotency keys; fixed error texts; per-key audit; OpenAPI contract; change webhook; full-access clinics only (05b) |
 | Own voice bot | Stays v2.1 (AI Voice Receptionist), after traction |
 | Vendor | Third-party vendor is a sub-processor (patient names and phone numbers): DPA and India data residency check before go-live (PO action, alongside MSG91 / Vertex) |
+
+### PO decisions: post-v2.0 features and the branch model (2026-11-15)
+
+| Item | Decision |
+|---|---|
+| Clinic branches | **Option B: one clinic, many locations.** Patients and clinical history are shared across branches; visits, appointments, queue, staff assignment and invoice numbering are per location. **v2.0:** add the data-model hook only (a `clinic_locations` table, one default location per clinic, `location_id` on visits/appointments/queue/invoices) in V2-07/V2-08, so no live-data migration is needed later. **v2.1:** branch screens, per-branch reports, branch switcher |
+| Inventory & stock (medicines, equipment, consumables) | v2.1. Self-contained module; Schedule H dispensing record rules scoped when planned |
+| Voice Rx / voice consult (speech-to-text → LLM) | v2.1, first AI item. V2-12 designs the AI gateway so audio input can be added without rework; needs India-hosted STT, recording consent, audio retention/deletion and cost limits |
+| v2.0 scope | Unchanged otherwise (risk R12 scope creep) |
