@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useClinicTimeZone } from "@/lib/datetime/client";
 import Link from "next/link";
 import {
   Calendar,
@@ -41,6 +42,9 @@ export function PatientVisitHistory({
   userRole = "doctor",
   patientId,
 }: PatientVisitHistoryProps) {
+  // Dates and times in the clinic's zone (ADR-016, P1-21): the server render and hydration then agree whatever zones
+  // they run in (CI 43712054628: without it a UTC server and an IST browser differed, React error #418).
+  const timeZone = useClinicTimeZone();
   // Store expanded state per visit ID. By default expand the most recent visit.
   const [expandedVisits, setExpandedVisits] = useState<Record<string, boolean>>(() => {
     if (visits.length > 0) {
@@ -156,10 +160,12 @@ export function PatientVisitHistory({
             day: "numeric",
             month: "short",
             year: "numeric",
+            timeZone,
           });
           const formattedTime = visitDate.toLocaleTimeString("en-IN", {
             hour: "2-digit",
             minute: "2-digit",
+            timeZone,
           });
 
           const hasRx = !!visit.prescription && (visit.prescription.items?.length || 0) > 0;

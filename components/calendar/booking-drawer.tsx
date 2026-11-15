@@ -12,7 +12,8 @@ import { OverbookDialog } from "./overbook-dialog";
 import { X, Search, UserPlus, UserCheck, Calendar, Clock } from "lucide-react";
 import { Patient, Visit } from "@/lib/db/types";
 import { reportClientError } from "@/lib/log/client";
-import { useClinicToday } from "@/lib/datetime/client";
+import { zonedDateTimeToUtcIso } from "@/lib/datetime";
+import { useClinicTimeZone, useClinicToday } from "@/lib/datetime/client";
 
 export interface BookingDrawerDoctor {
   id: string;
@@ -55,6 +56,7 @@ export function BookingDrawer({
   // Form Fields
   const [doctorId, setDoctorId] = useState(defaultDoctorId || doctors[0]?.id || "");
   const clinicToday = useClinicToday();
+  const timeZone = useClinicTimeZone();
   const [date, setDate] = useState(defaultDate || clinicToday);
   const [time, setTime] = useState(defaultTime);
   const [duration, setDuration] = useState(15);
@@ -181,8 +183,9 @@ export function BookingDrawer({
         return;
       }
 
-      // 2. Compute ISO datetime
-      const scheduledIso = new Date(`${date}T${time}:00`).toISOString();
+      // 2. The instant of the picked clinic date and time in the clinic's zone (ADR-016, P1-21), as the timeline shows it
+      // and the server checks it; never the browser's zone (CI 43712054628).
+      const scheduledIso = zonedDateTimeToUtcIso(date, time, timeZone);
 
       // 3. Book appointment
       const result = await bookAppointment({

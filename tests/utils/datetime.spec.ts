@@ -3,6 +3,7 @@ import {
   DEFAULT_CLINIC_TZ,
   addDaysYmd,
   ageInYears,
+  clockOf,
   daysBetweenYmd,
   dayWindowUtc,
   isValidTimeZone,
@@ -65,6 +66,17 @@ describe("lib/datetime: clinic today across the IST midnight (00:00-05:30 IST)",
     expect(ymdOf("2026-11-13T00:00:00+05:30", IST)).toBe("2026-11-13");
     expect(ymdOf("2026-11-12T20:30:00Z", "UTC")).toBe("2026-11-12");
     expect(() => ymdOf("not a date", IST)).toThrow(RangeError);
+  });
+
+  // CI 43712054628: the calendar placed visits with Date#getHours() (the process's or the browser's zone), so the server
+  // render (UTC) and hydration (IST) disagreed. clockOf reads the clinic's zone whatever the process zone is.
+  it("clockOf gives a visit's wall-clock hour and minute in the clinic zone", () => {
+    expect(clockOf("2026-11-17T05:30:00.000Z", IST)).toEqual({ hour: 11, minute: 0 });
+    expect(clockOf("2026-11-17T05:30:00+00:00", "UTC")).toEqual({ hour: 5, minute: 30 });
+    expect(clockOf("2026-11-12T18:30:00.000Z", IST)).toEqual({ hour: 0, minute: 0 });
+    expect(clockOf("2026-11-12T18:29:00.000Z", IST)).toEqual({ hour: 23, minute: 59 });
+    expect(clockOf("2026-11-17T15:00:00.000Z", "America/New_York")).toEqual({ hour: 10, minute: 0 });
+    expect(() => clockOf("not a date", IST)).toThrow(RangeError);
   });
 });
 

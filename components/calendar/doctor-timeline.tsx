@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { Visit, Patient, DoctorWeeklySchedule, ScheduleBlock, DayOfWeek } from "@/lib/db/types";
-import { isYmd, weekdayOfYmd, ymdOf } from "@/lib/datetime";
+import { clockOf, isYmd, weekdayOfYmd, ymdOf, zonedDateTimeToUtcIso } from "@/lib/datetime";
 import { useClinicTimeZone } from "@/lib/datetime/client";
 import { Clock, Plus, AlertCircle, XCircle, Stethoscope, Ban, Coffee, Check, CheckCircle2, Loader2 } from "lucide-react";
 
@@ -36,6 +36,20 @@ export interface DoctorTimelineProps {
   confirmingId?: string | null;
 }
 
+/**
+ * A visit's wall-clock time in the clinic's zone (ADR-016, P1-21), so the server render and hydration place it in the
+ * same slot whatever zones the server and the browser run in (CI 43712054628: `Date#getHours()` read each runtime's
+ * own zone, the renders differed and React threw the server HTML away, error #418). null for an unreadable timestamp
+ * (skipped, as the NaN check did before).
+ */
+function clinicClockOf(iso: string, timeZone: string): { hour: number; minute: number } | null {
+  try {
+    return clockOf(iso, timeZone);
+  } catch {
+    return null;
+  }
+}
+
 export function DoctorTimeline({
   doctors,
   visits,
@@ -47,6 +61,7 @@ export function DoctorTimeline({
   confirmingId,
 }: DoctorTimelineProps) {
   const timeZone = useClinicTimeZone();
+  const clinicClock = (iso: string) => clinicClockOf(iso, timeZone);
 
   // Day of week for currentDate
   const dayKey = useMemo<DayOfWeek>(
@@ -82,18 +97,18 @@ export function DoctorTimeline({
     // Also expand hours if any visits are scheduled outside shift hours (e.g. emergency override)
     for (const v of visits) {
       if (!v.scheduled_at || v.status === "cancelled") continue;
-      const vDate = new Date(v.scheduled_at);
-      const vH = vDate.getHours();
-      if (!isNaN(vH)) {
+      const clock = clinicClockOf(v.scheduled_at, timeZone);
+      if (clock) {
+        const vH = clock.hour;
         if (vH < earliestHour) earliestHour = Math.max(0, vH);
         const dur = v.estimated_duration_minutes || 15;
-        const endH = Math.ceil((vH * 60 + vDate.getMinutes() + dur) / 60);
+        const endH = Math.ceil((vH * 60 + clock.minute + dur) / 60);
         if (endH > latestHour) latestHour = Math.min(24, endH);
       }
     }
 
     return { startHour: earliestHour, endHour: latestHour };
-  }, [doctors, dayKey, visits]);
+  }, [doctors, dayKey, visits, timeZone]);
 
   // Generate 15-minute time slots between dynamic startHour and endHour
   const timeSlots = useMemo(() => {
@@ -122,10 +137,9 @@ export function DoctorTimeline({
       if (v.doctor_id !== doctorId) return false;
       if (v.status === "cancelled") return false;
 
-      const vTime = new Date(v.scheduled_at);
-      const vH = vTime.getHours().toString().padStart(2, "0");
-      const vM = vTime.getMinutes().toString().padStart(2, "0");
-      const vSlot = `${vH}:${vM}`;
+      const clock = clinicClock(v.scheduled_at);
+      if (!clock) return false;
+      const vSlot = `${String(clock.hour).padStart(2, "0")}:${String(clock.minute).padStart(2, "0")}`;
       return vSlot === timeStr;
     });
   };
@@ -137,10 +151,9 @@ export function DoctorTimeline({
 
     return visits.find((v) => {
       if (!v.scheduled_at || v.doctor_id !== doctorId || v.status === "cancelled") return false;
-      const vDate = new Date(v.scheduled_at);
-      const vH = vDate.getHours();
-      const vM = vDate.getMinutes();
-      const vStartMins = vH * 60 + vM;
+      const clock = clinicClock(v.scheduled_at);
+      if (!clock) return false;
+      const vStartMins = clock.hour * 60 + clock.minute;
       const vDuration = v.estimated_duration_minutes || 15;
       const vEndMins = vStartMins + vDuration;
 
@@ -153,8 +166,8 @@ export function DoctorTimeline({
     const [h, m] = timeStr.split(":").map(Number);
     const slotMins = h * 60 + m;
 
-    // 1. Check schedule blocks (doctor specific or clinic-wide)
-    const slotStartTs = new Date(`${currentDate}T${timeStr}:00`).getTime();
+    // 1. Check schedule blocks (doctor specific or clinic-wide). The slot is a clinic wall-clock time on a clinic date.
+    const slotStartTs = isYmd(currentDate) ? Date.parse(zonedDateTimeToUtcIso(currentDate, timeStr, timeZone)) : NaN;
     const slotEndTs = slotStartTs + 15 * 60000;
 
     for (const block of scheduleBlocks) {

@@ -37,6 +37,7 @@ import { isViewLinkFresh } from "@/lib/storage/view-link";
 import { ConsentSection } from "@/app/(dashboard)/patients/[id]/consent-section";
 import { DpdpExportActions } from "./dpdp-export-actions";
 import { cn } from "@/lib/utils";
+import { useClinicTimeZone } from "@/lib/datetime/client";
 
 interface PatientDetailViewProps {
   patient: Patient;
@@ -53,6 +54,9 @@ export function PatientDetailView({
   treatmentConsent,
   dataSharingConsent,
 }: PatientDetailViewProps) {
+  // Dates and times in the clinic's zone (ADR-016, P1-21): the server render and hydration then agree whatever zones
+  // they run in (CI 43712054628: without it a UTC server and an IST browser differed, React error #418).
+  const timeZone = useClinicTimeZone();
   const [patient, setPatient] = useState<Patient>(initialPatient);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
@@ -121,7 +125,7 @@ export function PatientDetailView({
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
                   <span className="tabular-nums text-fg-subtle">ID: {patient.id.slice(0, 13)}...</span>
                   <span>•</span>
-                  <span>Registered: {new Date(patient.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                  <span>Registered: {new Date(patient.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone })}</span>
                 </div>
               </div>
             </div>
@@ -585,8 +589,8 @@ export function PatientDetailView({
               <div className="p-3 rounded-xl bg-gray-50 space-y-1 text-gray-700 tabular-nums text-[11px] border border-gray-100">
                 <div>Patient Record ID: {patient.id}</div>
                 <div>Tenant ID: {patient.tenant_id}</div>
-                <div>Created At: {new Date(patient.created_at).toLocaleString("en-IN")}</div>
-                <div>Last Modified: {new Date(patient.updated_at || patient.created_at).toLocaleString("en-IN")}</div>
+                <div>Created At: {new Date(patient.created_at).toLocaleString("en-IN", { timeZone })}</div>
+                <div>Last Modified: {new Date(patient.updated_at || patient.created_at).toLocaleString("en-IN", { timeZone })}</div>
                 <div>Status: Active Verified Clinic Record</div>
               </div>
             </CardContent>

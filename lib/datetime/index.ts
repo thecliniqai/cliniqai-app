@@ -85,6 +85,16 @@ export function ymdOf(instant: Date | string | number, tz: string): string {
   return formatYmd(zoned.getFullYear(), zoned.getMonth() + 1, zoned.getDate());
 }
 
+/**
+ * The wall-clock hour (0-23) and minute of `instant` in zone `tz`: where a visit sits on the clinic's timeline. Never
+ * `Date#getHours()`, which reads the zone of the process (server render) or the browser (hydration), so the two
+ * renders disagree whenever those zones differ (CI 43712054628: React error #418 on the calendar).
+ */
+export function clockOf(instant: Date | string | number, tz: string): { hour: number; minute: number } {
+  const zoned = new TZDate(toInstant(instant), tz);
+  return { hour: zoned.getHours(), minute: zoned.getMinutes() };
+}
+
 /** The clinic's current date in zone `tz`. `now` is injectable for tests; it defaults to the current instant. */
 export function todayInTz(tz: string, now: Date | number = Date.now()): string {
   return ymdOf(now, tz);
