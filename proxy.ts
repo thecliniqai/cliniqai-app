@@ -5,16 +5,28 @@ import { REQUEST_ID_HEADER, newRequestId } from "@/lib/log/request-id";
 import { publicEnv } from "@/lib/env";
 import { isApiPath, loginNextValue, pageNeedsSession } from "@/lib/auth/public-paths";
 import { isSupabaseAuthCookie, sessionMustEnd } from "@/lib/auth/session-age";
+import { isDefinitiveAuthRejection } from "@/lib/auth/auth-failure";
+import { log } from "@/lib/log";
+import {
+  AUTH_REQUEST_BUDGET_MS,
+  AUTH_STATE_HEADER,
+  AUTH_STATE_UNAVAILABLE,
+  createAuthTransport,
+  keepSessionCookies,
+} from "@/lib/supabase/auth-transport";
 
 /**
  * V2-03 03-09a (BACKEND H2, T-03-07): continue to the handler with `x-request-id` forced to this request's id (any
  * inbound value is overwritten, so a caller cannot pick the id its errors are filed under) and echo it on the response.
  * The request headers are cloned each time, so cookies a `setAll` wrote onto `request` before the call are forwarded.
- * `x-vercel-id` is left alone.
+ * `x-vercel-id` is left alone. V2-06 06-09d: the auth-state header is the proxy's alone: an inbound one is always
+ * removed, and it is set only when this proxy found Supabase Auth unavailable (`authUnavailable`).
  */
-function continueWithRequestId(request: NextRequest, requestId: string): NextResponse {
+function continueWithRequestId(request: NextRequest, requestId: string, authUnavailable = false): NextResponse {
   const headers = new Headers(request.headers);
   headers.set(REQUEST_ID_HEADER, requestId);
+  headers.delete(AUTH_STATE_HEADER);
+  if (authUnavailable) headers.set(AUTH_STATE_HEADER, AUTH_STATE_UNAVAILABLE);
   const response = NextResponse.next({ request: { headers } });
   response.headers.set(REQUEST_ID_HEADER, requestId);
   return response;
@@ -95,22 +107,36 @@ export async function proxy(request: NextRequest) {
   // @supabase/ssr 0.12 (AUTH_REDESIGN §4.2): `setAll` rebuilds the response with the refreshed cookies and the
   // no-store cache headers it is handed; the proxy returns exactly that response, never a fresh `NextResponse.next()`
   // built after the cookies were set (the cookies would be lost and the next request would refresh again).
+  // V2-06 06-09d (H-AUTHOUT-R1): `setAll` only records the writes; they are applied once the outcome is known
+  // (`applyCookieWrites`), and never after an Auth answer that was not definitive: auth-js deletes the session for a
+  // 429 or an uncoded 4xx on the token refresh, and that deletion must not reach the browser or this request.
   let response = continueWithRequestId(request, requestId);
+  const transport = createAuthTransport({ supabaseUrl: publicEnv.NEXT_PUBLIC_SUPABASE_URL });
+  type CookieWrites = { cookies: { name: string; value: string; options: Parameters<typeof response.cookies.set>[2] }[]; headers: Record<string, string> };
+  let pending: CookieWrites[] = [];
+  const applyCookieWrites = () => {
+    for (const { cookies: cookiesToSet, headers } of pending) {
+      cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+      response = continueWithRequestId(request, requestId);
+      cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      // Cache-Control/Expires/Pragma: a response carrying auth cookies must never be cached and served to another user.
+      Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+    }
+    pending = [];
+  };
 
   const supabase = createServerClient(
     publicEnv.NEXT_PUBLIC_SUPABASE_URL,
     publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
+      global: { fetch: transport.fetch },
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet, headers) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = continueWithRequestId(request, requestId);
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-          // Cache-Control/Expires/Pragma: a response carrying auth cookies must never be cached and served to another user.
-          Object.entries(headers).forEach(([key, value]) => response.headers.set(key, value));
+          const kept = keepSessionCookies(transport, cookiesToSet);
+          if (kept.length > 0) pending.push({ cookies: kept, headers });
         },
       },
     }
@@ -118,15 +144,53 @@ export async function proxy(request: NextRequest) {
 
   // Refresh the session (the only refresh point; refreshing in two places risks refresh-token reuse sign-outs).
   // getClaims() verifies the JWT and refreshes an expired session through the same cookie path.
+  // 06-09d: three outcomes. Signed in; signed out (no session, or a definitive GoTrue refusal: the refresh token is
+  // gone, the session revoked, the user deleted or banned, a token that fails verification); or Auth unavailable (a
+  // network error, a timeout, 5xx, 429, 408, an uncoded or non-GoTrue answer, or no answer within the budget). The
+  // call is bounded: `AUTH_REQUEST_BUDGET_MS` (the transport also ends auth-js's own refresh back-off by then).
   let signedIn = false;
+  let authUnavailable = false;
   let amr: unknown;
+  let failure = "none";
+  let deadline: ReturnType<typeof setTimeout> | undefined;
   try {
-    const { data } = await supabase.auth.getClaims();
-    signedIn = Boolean(data?.claims?.sub);
-    amr = data?.claims?.amr;
-  } catch {
-    // Treated as signed out: a protected page goes to the login page, a public one renders as it would anyway.
+    const result = await Promise.race([
+      supabase.auth.getClaims(),
+      new Promise<null>((resolve) => {
+        deadline = setTimeout(() => resolve(null), AUTH_REQUEST_BUDGET_MS + 250);
+      }),
+    ]);
+    if (result === null) {
+      authUnavailable = true;
+      failure = "deadline";
+    } else if (result.data?.claims?.sub) {
+      signedIn = true;
+      amr = result.data.claims.amr;
+    } else if (result.error && !isDefinitiveAuthRejection(result.error)) {
+      authUnavailable = true;
+      failure = result.error.name;
+    }
+  } catch (err) {
+    // Not an answer from Auth (auth-js rethrows only non-auth errors): unavailable, never a sign-out.
+    authUnavailable = true;
+    failure = err instanceof Error ? err.name : "unknown";
+  } finally {
+    clearTimeout(deadline);
   }
+
+  if (authUnavailable) {
+    // The session cookies stay as they are (no write of this request reaches the browser), the request continues
+    // marked so that no page, action or handler refreshes again, and no page is sent to /login: pages show their
+    // unavailable state, `/api/session-status` answers 503, actions their generic failure.
+    pending = [];
+    log.warn({ event: "auth.proxy.unavailable", code: failure, requestId });
+    response = continueWithRequestId(request, requestId, true);
+    if (request.method === "GET" || request.method === "HEAD") {
+      for (const [key, value] of Object.entries(NO_STORE_HEADERS)) response.headers.set(key, value);
+    }
+    return response;
+  }
+  applyCookieWrites();
 
   // H-AUTH (03-13a; A00-5, ruling R-35): a session established with an emailed code (recovery, invite, OTP, signup,
   // magic link; any `amr` method not known to be a password or MFA factor counts as one, and an unreadable `amr`
@@ -136,11 +200,13 @@ export async function proxy(request: NextRequest) {
   // revoked at GoTrue (`signOut({ scope: "local" })` ends this session and its refresh token) and the request goes on
   // signed out, before any page, Server Action or route handler runs.
   if (signedIn && sessionMustEnd(amr)) {
+    transport.restartBudget();
     try {
       await supabase.auth.signOut({ scope: "local" });
     } catch {
       // Fail closed: the cookies are deleted below whatever GoTrue answered.
     }
+    applyCookieWrites();
     response = continueSignedOut(request, requestId, response);
     signedIn = false;
   }

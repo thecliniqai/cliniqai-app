@@ -24,14 +24,10 @@ import { InstallCard } from "@/components/shell/install-card";
 
 async function DashboardPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
-  }
-
+  // The session is read (and classified) by getActiveMembership: no session → /login (withPageAuth); 06-09d (L-R2):
+  // Auth unavailable → the error boundary, never /login (this page used to read the user itself and redirect on any
+  // failure, outage included).
   let membership;
   try {
     membership = await getActiveMembership();

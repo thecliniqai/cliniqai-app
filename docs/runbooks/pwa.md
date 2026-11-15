@@ -105,10 +105,22 @@ session with `auth.getUser()` (a session revoked elsewhere fails even while its 
 | Answer | Meaning | Client reaction |
 |---|---|---|
 | 401 `{ error: "unauthenticated" }` | no session, or revoked (sign-out elsewhere, `remove_member`, password reset) | `hardSignOut("expired")`: purge, `/login` |
-| 403 `{ error: "no_membership" }` | signed in, no active membership in the active clinic | `hardSignOut("removed")` |
+| 403 `{ error: "no_membership" }` | signed in, no active membership in the active clinic (the pinned one, 06-09d) | `hardSignOut("removed")` |
 | 409 `{ error: "clinic_selection_required" }` | several clinics, none chosen | nothing |
-| 503 `{ error: "unavailable" }` | a lookup failed | nothing (checked again later; the database stop is the control) |
+| 503 `{ error: "unavailable" }` | a lookup failed, or Supabase Auth gave no definitive answer (06-09c/06-09d) | nothing (checked again after 15 s, 30 s, 1, 2, then 5 min, each stretched by a random 0–50 %) |
 | 200 `{ deploymentId, accessLevel, redirect }` | the active clinic's level (05-10a) and destination (05-10b `accessRedirect`) | `redirect` set → D-8 lock; other `deploymentId` than the page's `data-dpl-id` → update toast |
+
+**Auth incidents are not sign-outs (06-09c, 06-09d).** Only GoTrue's own codes for a dead session (`session_not_found`,
+`refresh_token_not_found`, `refresh_token_already_used`, `bad_jwt`, … in `lib/auth/auth-failure.ts`) sign a device
+out. A 429 on the token refresh, a 5xx, a timeout, a network error, a gateway's uncoded 4xx (Kong's "Invalid API key"
+on a key rotation, its 404) keep the cookies: the proxy forwards the request marked `x-clinicos-auth-state:
+unavailable` (log `auth.proxy.unavailable`), the route answers 503, a page shows the error state with Reload, an action
+its generic failure, the PDF/export routes 503. Server-side Auth calls are bounded to 3.5 s per client
+(`AUTH_REQUEST_BUDGET_MS`). A burst of `auth.proxy.unavailable` lines is an Auth incident, not a wave of sign-outs.
+
+**Pinned clinic (06-09d).** The first status answer that resolves a clinic sets the HttpOnly `clinic_active_tenant`
+cookie to it (when none is set), so removal from that clinic, even with another clinic left or added later, is a 403
+on every device, and removal from the last clinic signs the next page load out. Only `POST /auth/signout` clears it.
 
 **Lock (D-8, `lib/pwa/lock.ts`).** Not a sign-out: the page is hidden, the `lock` cleanups run, then
 `location.replace(<destination>)`; the session is kept so the owner can renew or export. Only `/billing/locked`,

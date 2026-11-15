@@ -72,10 +72,17 @@ function browserApplyDeps(): ApplyDeps {
  *   unsaved input or a running command, never after a skew notice). The skew guard (`unhandledrejection` and uncaught
  *   errors), the dirty guard, the install capture (`beforeinstallprompt`), the browser-session count for the Today
  *   install card, the update toast and the install sheet host.
+ * - 06-09d (M-REMOVED-R1): `shellClinic` (the clinic the layout resolved while the device had none pinned) goes with
+ *   every status request, so the route pins the clinic on screen.
  */
-export function PwaRuntime({ swEnabled }: { swEnabled: boolean }) {
+export function PwaRuntime({ swEnabled, shellClinic = null }: { swEnabled: boolean; shellClinic?: string | null }) {
   const pathname = usePathname();
   const previousPath = useRef<string | null>(null);
+  // 06-09d (M-REMOVED-R1): the clinic the layout resolved while none was pinned; the status route pins it.
+  const shellClinicRef = useRef(shellClinic);
+  useEffect(() => {
+    shellClinicRef.current = shellClinic;
+  }, [shellClinic]);
 
   useEffect(() => {
     if (!swEnabled) return;
@@ -132,6 +139,7 @@ export function PwaRuntime({ swEnabled }: { swEnabled: boolean }) {
       setTimeout: (fn, ms) => window.setTimeout(fn, ms),
       clearTimeout: (handle) => window.clearTimeout(handle as number),
       now: () => Date.now(),
+      shellClinic: () => shellClinicRef.current,
       reactions: {
         expired: () => void hardSignOut("expired"),
         removed: () => void hardSignOut("removed"),

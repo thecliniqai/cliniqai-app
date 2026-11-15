@@ -103,6 +103,7 @@ describe("Supabase Auth unavailable (local stack, real session, failing /auth/v1
     blip.setMode(mode);
     const a = await ask();
     blip.setMode("ok");
+    await blip.restoreSession();
     expect(a.status).toBe(401);
     expect(a.body).toEqual({ error: "unauthenticated" });
   });
@@ -115,6 +116,7 @@ describe("Supabase Auth unavailable (local stack, real session, failing /auth/v1
     blip.setMode("403");
     await expect(getActiveMembership()).rejects.toBeInstanceOf(UnauthenticatedError);
     blip.setMode("ok");
+    await blip.restoreSession();
     await expect(getActiveMembership()).resolves.toMatchObject({ tenantId: owner.tenantId, role: "owner" });
   });
 
@@ -132,6 +134,7 @@ describe("Supabase Auth unavailable (local stack, real session, failing /auth/v1
     const refused = await resolveServiceContext("patients:view");
     expect(refused).toMatchObject({ ok: false, reason: "unauthenticated" });
     blip.setMode("ok");
+    await blip.restoreSession();
   });
 
   it("the dashboard layout and a wrapped page show the error boundary on an outage, not a redirect to sign-in", async () => {

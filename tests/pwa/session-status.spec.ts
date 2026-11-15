@@ -12,6 +12,8 @@
  *   reaction stops the watch;
  * - a lock conceals, runs the "lock" cleanups, then replaces (session kept: no sign-out call);
  * - a skew error marks the skew notice and asks for a check; another error only asks for a check.
+ * - 06-09d (L-R3): each retry delay is stretched by a random 0–50 % (`retryDelayMs`, injected `random`); (M-REMOVED-R1)
+ *   the clinic the shell resolved goes with every check as `x-clinicos-shell-clinic` (clinic ids only).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UnrecognizedActionError } from "next/dist/client/components/unrecognized-action-error";
@@ -25,7 +27,10 @@ import {
   readSessionStatus,
   requestSessionCheck,
   RETRY_DELAYS_MS,
+  RETRY_JITTER,
+  retryDelayMs,
   SESSION_STATUS_URL,
+  SHELL_CLINIC_HEADER,
   startSessionStatusWatch,
   STATUS_INTERVAL_MS,
   type StatusReactions,
@@ -164,9 +169,12 @@ describe("startSessionStatusWatch", () => {
   let onOnline: () => void = () => undefined;
   let tick: () => void = () => undefined;
   let timers: Array<{ fn: () => void; ms: number; live: boolean }> = [];
+  /** 06-09d: the jitter draw (0 = the plain back-off step). */
+  let jitter = 0;
 
   function deps(fetchImpl: typeof fetch, reactions: StatusReactions, page = "dpl_a"): WatchDeps {
     return {
+      random: () => jitter,
       fetch: fetchImpl,
       pageDeploymentId: () => page,
       isVisible: () => visible,
@@ -213,6 +221,7 @@ describe("startSessionStatusWatch", () => {
     clock = 1_000_000;
     visible = true;
     timers = [];
+    jitter = 0;
   });
 
   it("checks on start, on visible, on online and on the interval while visible", async () => {
@@ -378,6 +387,44 @@ describe("startSessionStatusWatch", () => {
     watch.stop();
   });
 
+  // 06-09d (L-R3): after an Auth incident every device of the fleet failed its check at about the same moment; with
+  // the plain steps they all polled again in the same second. Before 06-09d the delay ignored any random source.
+  it("06-09d: the retry delay is the back-off step stretched by the random draw (0–50 %)", async () => {
+    const r = recorder();
+    const fetchImpl = vi.fn(async () => json(503, { error: "unavailable" }));
+    jitter = 1;
+    const watch = startSessionStatusWatch(deps(fetchImpl as unknown as typeof fetch, r));
+    await vi.waitFor(() => expect(liveTimers()).toHaveLength(1));
+    expect(liveTimers()[0].ms).toBe(RETRY_DELAYS_MS[0] * (1 + RETRY_JITTER));
+    jitter = 0.5;
+    fireRetry();
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(liveTimers()).toHaveLength(1));
+    expect(liveTimers()[0].ms).toBe(RETRY_DELAYS_MS[1] * (1 + RETRY_JITTER / 2));
+    expect(r.calls).toEqual([]);
+    watch.stop();
+  });
+
+  it("06-09d: every check carries the clinic the shell resolved (a clinic id only)", async () => {
+    const clinic = "0b9f1c1e-2a5d-4c1b-9d7e-1f2a3b4c5d6e";
+    let shell: string | null = clinic;
+    const fetchImpl = vi.fn<(url: string, init: RequestInit) => Promise<Response>>(async () => json(200, FULL));
+    const watch = startSessionStatusWatch({ ...deps(fetchImpl as unknown as typeof fetch, recorder()), shellClinic: () => shell });
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(1));
+    await settle();
+    expect(new Headers(fetchImpl.mock.calls[0][1].headers).get(SHELL_CLINIC_HEADER)).toBe(clinic);
+    shell = "not-a-clinic";
+    onVisible();
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(2));
+    await settle();
+    expect(new Headers(fetchImpl.mock.calls[1][1].headers).has(SHELL_CLINIC_HEADER)).toBe(false);
+    shell = null;
+    onOnline();
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledTimes(3));
+    expect(new Headers(fetchImpl.mock.calls[2][1].headers).has(SHELL_CLINIC_HEADER)).toBe(false);
+    watch.stop();
+  });
+
   it("IND L-1: 'Check for updates' resolves 'failed' (not 'none') when the check got no answer", async () => {
     const fetchImpl = vi.fn(async () => {
       throw new TypeError("Failed to fetch");
@@ -388,6 +435,24 @@ describe("startSessionStatusWatch", () => {
     expect(await checkSessionNow()).toBe("failed");
     watch.stop();
     expect(await checkSessionNow()).toBe("skipped");
+  });
+});
+
+describe("retryDelayMs (06-09d L-R3)", () => {
+  it("is the step at random 0, 1.5 × the step at random 1, in between otherwise; an odd draw is the plain step", () => {
+    RETRY_DELAYS_MS.forEach((step, i) => {
+      expect(retryDelayMs(i, () => 0)).toBe(step);
+      expect(retryDelayMs(i, () => 1)).toBe(step * 1.5);
+      expect(retryDelayMs(i, () => 0.5)).toBe(step * 1.25);
+    });
+    expect(retryDelayMs(99, () => 0)).toBe(RETRY_DELAYS_MS[RETRY_DELAYS_MS.length - 1]);
+    expect(retryDelayMs(0, () => Number.NaN)).toBe(RETRY_DELAYS_MS[0]);
+    expect(retryDelayMs(0, () => 7)).toBe(RETRY_DELAYS_MS[0] * 1.5);
+    for (let i = 0; i < 200; i++) {
+      const d = retryDelayMs(0);
+      expect(d).toBeGreaterThanOrEqual(RETRY_DELAYS_MS[0]);
+      expect(d).toBeLessThanOrEqual(RETRY_DELAYS_MS[0] * 1.5);
+    }
   });
 });
 

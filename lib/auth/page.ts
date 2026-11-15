@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   ActiveClinicMembershipEndedError,
   assertTenantAccess,
+  AuthUnavailableError,
   getActiveMembership,
   TenantLockedError,
   UnauthenticatedError,
@@ -81,6 +82,9 @@ async function assertPageClinicFull(): Promise<void> {
     membership = await getActiveMembership();
   } catch (err) {
     redirectIfUnauthenticated(err);
+    // 06-09d (L-R2): Auth could not answer. Never left to the page, whose own session read would take the failure for
+    // "signed out" and redirect to /login: the route error boundary shows the unavailable state (Retry) instead.
+    if (err instanceof AuthUnavailableError) throw err;
     return;
   }
   await assertTenantAccess(membership, "full");

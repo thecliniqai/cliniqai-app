@@ -1,14 +1,18 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import {
   ActiveClinicMembershipEndedError,
   AuthUnavailableError,
   getActiveMembership,
   getTenantAccessLevel,
+  isClinicId,
   MultipleClinicsSelectionRequiredError,
   NoClinicMembershipError,
+  readActiveClinicCookie,
   UnauthenticatedError,
 } from "@/lib/auth/tenant";
 import { accessRedirect } from "@/lib/auth/access-redirect";
+import { ACTIVE_TENANT_COOKIE, ACTIVE_TENANT_COOKIE_MAX_AGE_SECONDS } from "@/lib/supabase/server";
+import { SHELL_CLINIC_HEADER } from "@/lib/pwa/session-status";
 import { deploymentInfo } from "@/lib/env-server";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
@@ -27,12 +31,19 @@ import { getRequestId } from "@/lib/log/request-id";
  *   membership — 06-09c M-REMOVED: whatever the number of clinics left): 403 `{ error: "no_membership" }` →
  *   `hardSignOut("removed")`.
  * - Several clinics and none chosen: 409 `{ error: "clinic_selection_required" }` (not a sign-out; the client ignores it).
+ * - 06-09d (M-REMOVED-R1): the device is pinned to the clinic it shows. With no active-clinic cookie, the answer that
+ *   resolves a clinic sets `clinic_active_tenant` to it (HttpOnly, SameSite=Lax, path /), so a later removal from that
+ *   clinic answers 403 on every device, never a silent switch to a clinic the user was added to meanwhile. The shell
+ *   sends the clinic its layout resolved ({@link SHELL_CLINIC_HEADER}, read only while no cookie is set): it is
+ *   resolved like the cookie (a clinic that is not an active membership answers 403), so it can only confirm the
+ *   clinic on screen or end the session, never select a clinic the user does not belong to. The sign-out route
+ *   expires the cookie.
  * - A lookup failure: 503 `{ error: "unavailable" }` (never a sign-out: the client ignores it and checks again later;
  *   the database stop, not this answer, is the access control).
  * - Otherwise 200 with exactly `deploymentId` (this build's, `deploymentInfo()`), `accessLevel` (05-10a's level of the
  *   session's active clinic) and `redirect` (`accessRedirect`, 05-10b: `null` for `full`).
  *
- * The tenant comes from the session only (no input is read: a `?tenant=` is ignored). `Cache-Control: private,
+ * The tenant comes from the session (a `?tenant=` is ignored), narrowed only by the device's pinned clinic. `Cache-Control: private,
  * no-store` on every answer. No PHI: no ids, names or addresses. One `log.info` per non-200 with its code only.
  */
 export const dynamic = "force-dynamic";
@@ -44,10 +55,12 @@ async function refuse(status: 401 | 403 | 409 | 503, error: string, code: string
   return NextResponse.json({ error }, { status, headers: NO_STORE });
 }
 
-export async function GET() {
+export async function GET(request?: NextRequest) {
+  const pinned = isClinicId(await readActiveClinicCookie());
+  const shellClinic = pinned ? null : (request?.headers.get(SHELL_CLINIC_HEADER) ?? null);
   let membership;
   try {
-    membership = await getActiveMembership();
+    membership = await getActiveMembership(isClinicId(shellClinic) ? shellClinic : undefined);
   } catch (err) {
     if (err instanceof AuthUnavailableError) return refuse(503, "unavailable", "auth_unavailable");
     if (err instanceof UnauthenticatedError) return refuse(401, "unauthenticated", "unauthenticated");
@@ -69,7 +82,7 @@ export async function GET() {
     return refuse(503, "unavailable", errorTag(err));
   }
 
-  return NextResponse.json(
+  const response = NextResponse.json(
     {
       deploymentId: deploymentInfo().deploymentId,
       accessLevel,
@@ -77,4 +90,14 @@ export async function GET() {
     },
     { status: 200, headers: NO_STORE },
   );
+  if (!pinned) {
+    response.cookies.set(ACTIVE_TENANT_COOKIE, membership.tenantId, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      secure: request?.nextUrl.protocol === "https:",
+      maxAge: ACTIVE_TENANT_COOKIE_MAX_AGE_SECONDS,
+    });
+  }
+  return response;
 }

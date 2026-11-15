@@ -52,12 +52,15 @@ export function AppShell({
   clinicName,
   user,
   swEnabled,
+  shellClinic = null,
   children,
 }: {
   model: NavModel;
   clinicName: string;
   user: ShellUser;
   swEnabled: boolean;
+  /** 06-09d: the clinic the layout resolved while the device had none pinned (for the status route to pin). */
+  shellClinic?: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname() || "/";
@@ -170,7 +173,7 @@ export function AppShell({
       )}
       <MoreSheet open={moreOpen} onOpenChange={setMoreOpen} destinations={moreDestinations} activeId={active?.id ?? null} />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} model={model} />
-      <PwaRuntime swEnabled={swEnabled} />
+      <PwaRuntime swEnabled={swEnabled} shellClinic={shellClinic} />
       <ShellToaster aboveBottomBar={bottomBarShown} />
     </div>
   );

@@ -21,6 +21,12 @@ import type { TenantAccessLevel } from "@/lib/auth/tenant";
  *   answer, 06-09c H-AUTHOUT —, a redirect, an unreadable body) → `failed`: nothing happens to the page, and the
  *   watch checks again after {@link RETRY_DELAYS_MS} (15 s, 30 s, 1 min, 2 min, then every 5 min while it keeps
  *   failing; reset by the first answer), besides the usual triggers. A transient failure never signs anyone out.
+ *   06-09d (L-R3): each retry delay is stretched by a random 0–50 % ({@link retryDelayMs}), so the devices of a clinic
+ *   (and of every clinic) that lost their answer in the same Auth incident do not all poll again in the same second.
+ *
+ * 06-09d (M-REMOVED-R1): each request carries the clinic the shell's layout resolved ({@link SHELL_CLINIC_HEADER}),
+ * when the layout passed one (the device had no pinned clinic yet); the route pins it, so a later removal from that
+ * clinic is a 403 and never a silent switch to another.
  */
 export const SESSION_STATUS_URL = "/api/session-status";
 export const STATUS_INTERVAL_MS = 5 * 60_000;
@@ -28,6 +34,19 @@ export const ERROR_CHECK_MIN_GAP_MS = 10_000;
 export const STATUS_TIMEOUT_MS = 10_000;
 /** 06-09c (H-AUTHOUT): the retry back-off after a check that got no usable answer (the last value repeats). */
 export const RETRY_DELAYS_MS = [15_000, 30_000, 60_000, 120_000, STATUS_INTERVAL_MS] as const;
+/** 06-09d (L-R3): the largest random stretch of a retry delay (a fraction of it). */
+export const RETRY_JITTER = 0.5;
+/** 06-09d (M-REMOVED-R1): the request header that carries the clinic the shell shows (a clinic id), see the route. */
+export const SHELL_CLINIC_HEADER = "x-clinicos-shell-clinic";
+const CLINIC_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The delay before retry number `failures` (0-based): the back-off step, stretched by `random()` × {@link RETRY_JITTER}. */
+export function retryDelayMs(failures: number, random: () => number = Math.random): number {
+  const base = RETRY_DELAYS_MS[Math.min(Math.max(failures, 0), RETRY_DELAYS_MS.length - 1)];
+  const r = random();
+  const stretch = Number.isFinite(r) ? Math.min(Math.max(r, 0), 1) : 0;
+  return Math.round(base * (1 + RETRY_JITTER * stretch));
+}
 
 const ACCESS_LEVELS: readonly TenantAccessLevel[] = ["full", "locked", "onboarding", "none"];
 const DEPLOYMENT_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -62,7 +81,11 @@ export function parseSessionStatus(body: unknown): SessionStatus | null {
 }
 
 /** One request to the status route. Never throws; a network error, a timeout or an odd answer is `unknown`. */
-export async function readSessionStatus(fetchImpl: typeof fetch, timeoutMs: number = STATUS_TIMEOUT_MS): Promise<StatusOutcome> {
+export async function readSessionStatus(
+  fetchImpl: typeof fetch,
+  timeoutMs: number = STATUS_TIMEOUT_MS,
+  shellClinic: string | null = null,
+): Promise<StatusOutcome> {
   const controller = typeof AbortController === "function" ? new AbortController() : null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -72,7 +95,9 @@ export async function readSessionStatus(fetchImpl: typeof fetch, timeoutMs: numb
         credentials: "same-origin",
         cache: "no-store",
         redirect: "manual",
-        headers: { accept: "application/json" },
+        headers: shellClinic && CLINIC_ID.test(shellClinic)
+          ? { accept: "application/json", [SHELL_CLINIC_HEADER]: shellClinic }
+          : { accept: "application/json" },
         signal: controller?.signal,
       }),
       new Promise<null>((resolve) => {
@@ -183,6 +208,10 @@ export interface WatchDeps {
   clearTimeout: (handle: unknown) => void;
   now: () => number;
   reactions: StatusReactions;
+  /** 06-09d: the clinic the shell's layout resolved while the device had none pinned (else null or absent). */
+  shellClinic?: () => string | null;
+  /** 06-09d: the jitter source of the retry delay (default `Math.random`). */
+  random?: () => number;
 }
 
 export interface SessionStatusWatch {
@@ -214,13 +243,13 @@ export function startSessionStatusWatch(deps: WatchDeps): SessionStatusWatch {
     lastStart = deps.now();
     cancelRetry();
     inFlight = (async () => {
-      const outcome = await readSessionStatus(deps.fetch);
+      const outcome = await readSessionStatus(deps.fetch, STATUS_TIMEOUT_MS, deps.shellClinic?.() ?? null);
       if (stopped) return "skipped" as const;
       const reaction = reactToStatus(outcome, deps.pageDeploymentId(), deps.reactions);
       if (reaction === "expired" || reaction === "removed" || reaction === "locked") stop();
       else if (reaction === "failed") {
         // No answer: never a reaction on the page; check again soon, backing off while it keeps failing.
-        const delay = RETRY_DELAYS_MS[Math.min(failures, RETRY_DELAYS_MS.length - 1)];
+        const delay = retryDelayMs(failures, deps.random);
         failures += 1;
         cancelRetry();
         retryTimer = deps.setTimeout(() => {

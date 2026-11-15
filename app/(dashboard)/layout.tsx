@@ -5,8 +5,10 @@ import {
   AuthUnavailableError,
   getActiveMembership,
   getTenantAccessLevel,
+  isClinicId,
   isDefinitiveAuthRejection,
   NoClinicMembershipError,
+  readActiveClinicCookie,
 } from "@/lib/auth/tenant";
 import { accessRedirect } from "@/lib/auth/access-redirect";
 import { AppShell } from "@/components/shell/app-shell";
@@ -57,7 +59,8 @@ export default async function DashboardLayout({
       redirect("/clinic/new");
     }
     // 06-09c (M-REMOVED): the clinic this device had open is no longer one of the user's clinics. On a full load the
-    // shell (and its session-status watch) never renders, so the device is signed out and purged from here.
+    // shell (and its session-status watch) never renders, so the device is signed out and purged from here. 06-09d
+    // (L-R4): also when it was the user's last clinic (the device's pinned clinic tells a removal from a new account).
     if (error instanceof ActiveClinicMembershipEndedError) {
       return <MembershipEnded />;
     }
@@ -84,6 +87,9 @@ export default async function DashboardLayout({
       .single() as unknown) as Promise<{ data: { name: string; timezone: string | null } | null; error: unknown }>
   );
 
+  // 06-09d (M-REMOVED-R1): no clinic pinned on this device yet: the shell's first status check pins this one.
+  const shellClinic = isClinicId(await readActiveClinicCookie()) ? null : membership.tenantId;
+
   // Every client component below reads the clinic's zone from here (V2-03 03-05); the browser zone is never used.
   // V2-06 06-05: the PWA runtime (service worker, offline banner) runs only in the signed-in shell; `next dev` never
   // registers the worker (its chunks are not content-hashed, so caching them would serve stale code).
@@ -96,6 +102,7 @@ export default async function DashboardLayout({
         clinicName={tenant?.name || "Clinic"}
         user={{ email: user.email || "", role: membership.role }}
         swEnabled={serviceWorkerEnabled()}
+        shellClinic={shellClinic}
       >
         {children}
       </AppShell>

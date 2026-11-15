@@ -58,9 +58,15 @@ async function readScope(request: NextRequest): Promise<Scope | null> {
   return SCOPES.find((s) => s === value) ?? null;
 }
 
-/** Deletes every Supabase auth cookie on this request (used only when GoTrue could not be reached). */
+/** Deletes every Supabase auth cookie on this request (every sign-out, whatever GoTrue answered). */
 async function dropAuthCookies(): Promise<void> {
-  const store = await cookies();
+  let store: Awaited<ReturnType<typeof cookies>>;
+  try {
+    store = await cookies();
+  } catch {
+    // Outside a request scope (route-level test harnesses) there is no cookie store, so no cookie to delete.
+    return;
+  }
   for (const { name } of store.getAll()) {
     if (/^sb-[a-z0-9-]+-auth-token(?:-code-verifier)?(?:\.\d+)?$/.test(name)) store.delete(name);
   }
@@ -97,8 +103,10 @@ export async function POST(request: NextRequest): Promise<Response> {
     log.warn({ event: "auth.signout.failed", requestId, module: MODULE, code: errorTag(err) });
   }
   // supabase-js keeps the local session when GoTrue answers with anything but 401/403/404 (or cannot be reached);
-  // this device is signed out regardless.
-  if (failed) await dropAuthCookies();
+  // this device is signed out regardless. 06-09d: always, not only on a failure: the cookie client keeps the session
+  // cookies after an Auth answer that is not definitive (`keepSessionCookies`), and a gateway's 404/401 to `/logout`
+  // is such an answer although supabase-js reports the sign-out as done.
+  await dropAuthCookies();
 
   const fetchCaller = request.headers.get(FETCH_HEADER) === FETCH_VALUE;
   const status = fetchCaller ? (failed ? 502 : 200) : 303;

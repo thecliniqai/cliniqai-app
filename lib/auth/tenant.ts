@@ -3,6 +3,7 @@ import { UserRole } from "@/lib/db/types";
 import { DEFAULT_APP_ERROR_MESSAGES } from "@/lib/errors/app-error";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
+import { isDefinitiveAuthRejection } from "@/lib/auth/auth-failure";
 
 export class NoClinicMembershipError extends Error {
   constructor(message = "Your account is not linked to a clinic yet") {
@@ -40,21 +41,9 @@ export class AuthUnavailableError extends Error {
 
 /**
  * Whether an error from `auth.getUser()` is a definitive "no valid session" (401) rather than a failure to check.
- * Definitive: no session at all (`AuthSessionMissingError`), or GoTrue answered 4xx for this session (revoked
- * `session_not_found`, `bad_jwt`, user gone, refresh token not found or already used) — except 408 and 429, which are
- * "try later". Everything else (`AuthRetryableFetchError`: network, timeout, 502/503/504; any other 5xx; an
- * `AuthUnknownError` with no status; a non-auth error) is retryable.
+ * 06-09d (L-R1): classified by GoTrue's error codes, never by an HTTP 4xx alone (`lib/auth/auth-failure.ts`).
  */
-export function isDefinitiveAuthRejection(error: unknown): boolean {
-  // auth-js marks its errors with `__isAuthError` and names them (its own `isAuthError` / `isAuth…Error` guards read
-  // the same fields; a value import from the Supabase packages is not allowed here, P1-34).
-  if (typeof error !== "object" || error === null || !("__isAuthError" in error)) return false;
-  const { name, status } = error as { name?: unknown; status?: unknown };
-  if (name === "AuthSessionMissingError") return true;
-  if (name === "AuthRetryableFetchError") return false;
-  const code = typeof status === "number" ? status : 0;
-  return code >= 400 && code < 500 && code !== 408 && code !== 429;
-}
+export { isDefinitiveAuthRejection };
 
 /**
  * V2-06 06-09c (M-REMOVED, adversarial B M-1): the active-clinic cookie names a clinic that is not one of the user's
@@ -144,6 +133,21 @@ export async function getTenantAccessLevel(tenantId: string): Promise<TenantAcce
 
 import { cookies } from "next/headers";
 
+/** The active-clinic cookie as sent, or null (absent, or outside a request scope). */
+export async function readActiveClinicCookie(): Promise<string | null> {
+  try {
+    return (await cookies()).get(ACTIVE_TENANT_COOKIE)?.value ?? null;
+  } catch {
+    // In tests or outside Next.js request context
+    return null;
+  }
+}
+
+/** Whether `value` is a clinic id (UUID shape), as the active-clinic cookie must hold. */
+export function isClinicId(value: string | null | undefined): value is string {
+  return typeof value === "string" && TENANT_ID_SHAPE.test(value);
+}
+
 /**
  * Derives the active tenant membership strictly on the server from session and database.
  * Never trust browser-supplied tenant IDs (AGENTS.md §7).
@@ -178,22 +182,18 @@ export async function getActiveMembership(explicitTenantId?: string): Promise<Ac
     throw new Error("Failed to resolve clinic membership.");
   }
 
+  // The clinic the user picked (multi-clinic switcher), or the one this device was pinned to (06-09d): an explicit id,
+  // else the active-clinic cookie. A value that is not a UUID is ignored (as `activeTenantHeaders` ignores it).
+  let targetTenantId = explicitTenantId;
+  if (!targetTenantId) targetTenantId = (await readActiveClinicCookie()) ?? undefined;
+  if (targetTenantId && !TENANT_ID_SHAPE.test(targetTenantId)) targetTenantId = undefined;
+
   if (!memberships || memberships.length === 0) {
+    // 06-09d (L-R4): this device had a clinic (pinned or picked) and the user is no longer a member of any clinic:
+    // that is a removal (sign-out and purge), not a new account without a clinic (`/clinic/new`).
+    if (targetTenantId) throw new ActiveClinicMembershipEndedError();
     throw new NoClinicMembershipError();
   }
-
-  // The clinic the user picked (multi-clinic switcher): an explicit id, else the active-clinic cookie. A value that is
-  // not a UUID is ignored (as `activeTenantHeaders` ignores it).
-  let targetTenantId = explicitTenantId;
-  if (!targetTenantId) {
-    try {
-      const cookieStore = await cookies();
-      targetTenantId = cookieStore.get(ACTIVE_TENANT_COOKIE)?.value;
-    } catch {
-      // In tests or outside Next.js request context
-    }
-  }
-  if (targetTenantId && !TENANT_ID_SHAPE.test(targetTenantId)) targetTenantId = undefined;
 
   if (targetTenantId) {
     // 06-09c (M-REMOVED): a picked clinic that is no longer an active membership is a removal, however many clinics

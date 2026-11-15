@@ -28,6 +28,22 @@ export interface BlipClient {
   setMode: (mode: BlipMode) => void;
   /** Requests answered by the blip (path names only). */
   blipped: string[];
+  /**
+   * 06-09d: puts the signed-in session back. A blipped GoTrue `session_not_found` (403) makes auth-js drop the session
+   * from the client, as the real answer does; the real session on the stack is untouched, so it can be restored.
+   */
+  restoreSession: () => Promise<void>;
+}
+
+/**
+ * 06-09d: GoTrue's own answers carry `X-Supabase-Api-Version: 2024-01-01` and a string `code` (checked against the local
+ * GoTrue); auth-js reads the code only with that header, so an imitation without it is an uncoded answer.
+ */
+function goTrueAnswer(status: number, body: Record<string, unknown>): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json", "x-supabase-api-version": "2024-01-01", "x-sb-error-code": String(body.code) },
+  });
 }
 
 function answer(mode: Exclude<BlipMode, "ok">): Response {
@@ -39,15 +55,15 @@ function answer(mode: Exclude<BlipMode, "ok">): Response {
     case "502":
       return new Response("<html><body>Bad Gateway</body></html>", { status: 502, headers: { "content-type": "text/html" } });
     case "500":
-      return jsonAnswer(500, { code: "unexpected_failure", message: "Unexpected failure" });
+      return goTrueAnswer(500, { code: "unexpected_failure", message: "Unexpected failure" });
     case "429":
-      return jsonAnswer(429, { code: "over_request_rate_limit", message: "Request rate limit reached" });
+      return goTrueAnswer(429, { code: "over_request_rate_limit", message: "Request rate limit reached" });
     case "408":
       return jsonAnswer(408, { message: "Request Timeout" });
     case "401":
-      return jsonAnswer(401, { code: "bad_jwt", message: "invalid JWT" });
+      return goTrueAnswer(401, { code: "bad_jwt", message: "invalid JWT" });
     case "403":
-      return jsonAnswer(403, { code: "session_not_found", message: "Session from session_id claim in JWT does not exist" });
+      return goTrueAnswer(403, { code: "session_not_found", message: "Session from session_id claim in JWT does not exist" });
     case "unreadable":
       return new Response("<html><body>upstream</body></html>", { status: 200, headers: { "content-type": "text/html" } });
     case "network":
@@ -75,7 +91,12 @@ export async function blipClient(email: string, paths: readonly string[]): Promi
       },
     },
   });
-  const { error } = await client.auth.signInWithPassword({ email, password: seededUserPassword() });
-  if (error) throw new Error(`blip client sign-in failed: ${error.status}`);
-  return { client: client as unknown as TestDb, setMode: (m) => (mode = m), blipped };
+  const { data, error } = await client.auth.signInWithPassword({ email, password: seededUserPassword() });
+  if (error || !data.session) throw new Error(`blip client sign-in failed: ${error?.status ?? "no session"}`);
+  const signedIn = data.session;
+  const restoreSession = async () => {
+    const restored = await client.auth.setSession({ access_token: signedIn.access_token, refresh_token: signedIn.refresh_token });
+    if (restored.error) throw new Error(`blip client restore failed: ${restored.error.status}`);
+  };
+  return { client: client as unknown as TestDb, setMode: (m) => (mode = m), blipped, restoreSession };
 }
