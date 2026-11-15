@@ -4,7 +4,8 @@
  * - Re-checks the local-only guard and takes the same run lock as Vitest (`startRun`), so an e2e run and a Vitest
  *   run never share the local stack at once (each one's teardown deletes everything created during its run).
  * - Seeds tenant A (owner, admin, doctor, nurse, receptionist; one patient with an in-consultation visit) and tenant
- *   B (owner; one patient and visit) with synthetic data and a per-run random password; writes ids/emails/names to
+ *   B (owner; one patient and visit) with synthetic data and a per-run random password; (V2-05 05-10b) plus a locked
+ *   clinic (owner, receptionist) and an onboarding clinic (owner) with no patient data; writes ids/emails/names to
  *   `playwright/.auth/run.json` and the password to `E2E_RUN_PASSWORD` (inherited by workers, never on disk).
  * - (03-12a, FT-05) Starts the loopback fake Pwned Passwords range API on 127.0.0.1:3101, which the e2e app server's
  *   `PWNED_API_BASE_URL` names (tests/e2e/support/app-env.ts); it lists `BREACHED_FIXTURE_PASSWORDS` as breached.
@@ -20,7 +21,13 @@ import { E2E_PWNED_RANGE_PORT, E2E_TURNSTILE_VERIFY_PORT, assertLocalTestEnv } f
 import { ensureLocalErrorIngestKey } from "../setup/error-sink-key";
 import { pauseCronJobs, resumeCronJobs } from "../setup/cron-pause";
 import { releaseRunLock, startRun, teardownRun, type RunMarker } from "../setup/teardown";
-import { addMemberToTenant, seededUserPassword, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
+import {
+  addMemberToTenant,
+  seedAccessFixtureClinic,
+  seededUserPassword,
+  seedTenantWithOwner,
+  type SeededTenant,
+} from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ROOT } from "./support/app-env";
 import { startPwnedRangeServer, type PwnedRangeServer } from "./support/pwned-range-server";
@@ -94,6 +101,11 @@ async function seed(runTag: string): Promise<RunData> {
     .single();
   if (invErr || !invoiceB) throw new Error(`e2e seed: invoice insert failed: ${invErr?.message}`);
 
+  // V2-05 05-10b (SUB-02): a locked clinic (owner + receptionist) and an onboarding clinic (owner), no patient data.
+  const locked = await seedAccessFixtureClinic("locked", `E2E Synthetic Locked Clinic ${runTag}`, ["owner", "receptionist"]);
+  const onboarding = await seedAccessFixtureClinic("onboarding", `E2E Synthetic Onboarding Clinic ${runTag}`, ["owner"]);
+  const fixtureUser = (u: { userId: string; email: string }) => ({ id: u.userId, email: u.email });
+
   const user = (s: SeededTenant) => ({ id: s.userId, email: s.userEmail });
   return {
     runTag,
@@ -102,6 +114,15 @@ async function seed(runTag: string): Promise<RunData> {
       users: { owner: user(ownerA), admin: user(admin), doctor: user(doctor), nurse: user(nurse), receptionist: user(receptionist) },
     },
     tenantB: { ...tenantB, owner: user(ownerB), invoiceId: (invoiceB as { id: string }).id },
+    access: {
+      locked: {
+        id: locked.tenantId,
+        name: locked.tenantName,
+        owner: fixtureUser(locked.users[0]),
+        receptionist: fixtureUser(locked.users[1]),
+      },
+      onboarding: { id: onboarding.tenantId, name: onboarding.tenantName, owner: fixtureUser(onboarding.users[0]) },
+    },
   };
 }
 

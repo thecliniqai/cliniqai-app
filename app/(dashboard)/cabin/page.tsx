@@ -10,7 +10,7 @@ import { getRequestId } from "@/lib/log/request-id";
 import { dayWindowUtc, isYmd, todayInTz } from "@/lib/datetime";
 import { getTenantTimeZone } from "@/lib/datetime/server";
 import { clinicalNotesEmbed, embeddedClinicalNotes } from "@/lib/db/clinical-notes";
-import { withPageAuth } from "@/lib/auth/page";
+import { redirectIfTenantLocked, withPageAuth } from "@/lib/auth/page";
 
 interface CabinPageProps {
   searchParams: Promise<{
@@ -26,7 +26,9 @@ async function DoctorCabinPage(props: CabinPageProps) {
   let membership;
   try {
     membership = await requireServiceContext();
-  } catch {
+  } catch (err) {
+    // 05-10b: a clinic that is not `full` goes to its locked/onboarding page, not to sign-in.
+    await redirectIfTenantLocked(err);
     redirect("/login");
   }
 

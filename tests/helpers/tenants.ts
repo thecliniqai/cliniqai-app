@@ -640,3 +640,72 @@ export function trialingSubscriptionSql(tenantId: string): string {
     `trial_consumed = true, updated_at = now() where tenant_id = '${tenantId}'`
   );
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Locked and onboarding clinics (V2-05 05-10b; SUB-02 UX fixtures, also used by V2-06 06-05/06-06 through the e2e run)
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** The access levels a fixture clinic can be seeded at (a `full` clinic is `seedTenantWithOwner`). */
+export type AccessFixtureLevel = "locked" | "onboarding";
+
+export interface AccessFixtureUser {
+  userId: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface AccessFixtureClinic {
+  tenantId: string;
+  tenantName: string;
+  level: AccessFixtureLevel;
+  /** One user per requested role, in the order given; each signs in with {@link seededUserPassword}. */
+  users: AccessFixtureUser[];
+}
+
+/**
+ * A synthetic clinic whose access level is `locked` (subscription `expired`, access ended 30 days ago) or `onboarding`
+ * (the `incomplete` row the tenants trigger creates, R-24), with one member per role. Users are created with the
+ * admin API only (no sign-in here: e2e signs them in through the login UI once per run, Vitest through
+ * {@link signInSeededUser}). The level is read back with `tenant_access_for_system` and checked, so a fixture that
+ * drifted from the access function fails at seed time instead of passing a redirect test vacuously.
+ */
+export async function seedAccessFixtureClinic(
+  level: AccessFixtureLevel,
+  tenantName: string,
+  roles: readonly UserRole[] = ["owner"],
+): Promise<AccessFixtureClinic> {
+  const admin = getAdminClient();
+  const { data: tenant, error: tenantError } = await admin.from("tenants").insert({ name: tenantName }).select("id").single();
+  if (tenantError || !tenant) throw new Error(`Failed to create the ${level} fixture clinic: ${tenantError?.message}`);
+
+  const users: AccessFixtureUser[] = [];
+  for (const role of roles) {
+    const email = `access-${level}-${role}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@example.com`;
+    const { data: created, error: userError } = await admin.auth.admin.createUser({
+      email,
+      password: TEST_PASSWORD,
+      email_confirm: true,
+    });
+    if (userError || !created.user) throw new Error(`Failed to create a ${level} fixture user: ${userError?.message}`);
+    const { error: memError } = await admin.from("memberships").insert({ user_id: created.user.id, tenant_id: tenant.id, role });
+    if (memError) throw new Error(`Failed to add a ${level} fixture member: ${memError.message}`);
+    users.push({ userId: created.user.id, email, role });
+  }
+
+  if (level === "locked") await seedTenantSubscription(tenant.id, { status: "expired" });
+
+  const { data: actual, error: levelError } = await admin.rpc("tenant_access_for_system", { p_tenant: tenant.id });
+  if (levelError) throw new Error(`Failed to read the ${level} fixture clinic's access level: ${levelError.message}`);
+  if (actual !== level) throw new Error(`The ${level} fixture clinic reads as '${String(actual)}'`);
+
+  return { tenantId: tenant.id, tenantName, level, users };
+}
+
+/** A signed-in anon-key client (the browser's session) for a user seeded with {@link seededUserPassword}. */
+export async function signInSeededUser(email: string): Promise<TestDb> {
+  const client = createClient(publicEnv.NEXT_PUBLIC_SUPABASE_URL, publicEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  await signInWithRetry(client, email, TEST_PASSWORD);
+  return client;
+}

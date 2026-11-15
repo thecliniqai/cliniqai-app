@@ -6,7 +6,7 @@ import { getDailyCollectionReport } from "@/features/billing/reports-actions";
 import { CollectionReportsView } from "@/components/billing/collection-reports-view";
 import { createClient } from "@/lib/supabase/server";
 import { getTenantToday } from "@/lib/datetime/server";
-import { withPageAuth } from "@/lib/auth/page";
+import { redirectIfTenantLocked, withPageAuth } from "@/lib/auth/page";
 
 export const metadata: Metadata = {
   title: "Billing & Financial Reports | ClinicOS",
@@ -17,7 +17,9 @@ async function BillingReportsPage() {
   let session;
   try {
     session = await requirePermission("billing:view");
-  } catch {
+  } catch (err) {
+    // 05-10b: a clinic that is not `full` goes to its locked/onboarding page.
+    await redirectIfTenantLocked(err);
     redirect("/");
   }
 

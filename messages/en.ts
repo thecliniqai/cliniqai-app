@@ -69,4 +69,39 @@ export const en = {
       accept_failed: "We couldn't accept this invitation. Try again.",
     },
   },
+  // V2-05 05-10b (SUB-02, SUB §7.2 item 3): the functional locked and onboarding pages (styled in V2-13b, SUB-08).
+  // Fixed texts only. Times are shown in IST (SUB §10.3).
+  subscription: {
+    status: {
+      incomplete: "Setup incomplete",
+      trialing: "Free trial",
+      active: "Active",
+      past_due: "Payment due",
+      expired: "Expired",
+      archived: "Archived",
+      purged: "Closed",
+    },
+    locked: {
+      title: "Your clinic's access is paused",
+      intro: "The subscription for this clinic is not active, so the clinic's records can't be opened right now.",
+      clinic: "Clinic",
+      status: "Subscription status",
+      access_ended: "Access ended",
+      unknown: "Not available",
+      data_safe: "Your clinic's data is safe. Nothing has been deleted.",
+      renewal: "Renewal and export open with billing (V2-13b/V2-13c).",
+    },
+    locked_staff: {
+      title: "Your clinic's subscription is inactive",
+      body: "Your clinic's subscription is inactive; contact the owner.",
+      clinic: "Clinic",
+    },
+    onboarding: {
+      title: "Finish setting up your clinic",
+      clinic: "Clinic",
+      owner_body: "Your clinic has been created. Billing setup opens with AUTH-07/SUB-03 in V2-13b; your clinic's pages open once it is done.",
+      staff_body: "Your clinic is still being set up. Contact the owner.",
+    },
+    sign_out: "Sign out",
+  },
 } as const;
