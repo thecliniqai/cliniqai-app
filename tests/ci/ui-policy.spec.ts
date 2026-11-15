@@ -52,6 +52,26 @@ describe("UI policy", () => {
     expect(r.stdout).toContain("ui-policy: raw-palette [report] 2 finding(s) in 1 file(s)");
   });
 
+  it("reports the approved raw CliniQ AI names everywhere, primitives included, and not their semantic look-alikes (06-08)", () => {
+    const r = findings("raw-approved");
+    const raw = r.findings.filter((f) => f.rule === "raw-palette").map((f) => `${f.file}:${f.line} ${f.detail}`);
+    expect(raw.sort()).toEqual(
+      [
+        "components/approved.tsx:4 bg-mineral-50",
+        "components/approved.tsx:4 text-primary-600",
+        "components/approved.tsx:4 hover:bg-primary-700/90",
+        "components/approved.tsx:5 border-teal-550",
+        "components/approved.tsx:5 text-brass-700",
+        "components/approved.tsx:6 bg-success-50",
+        "components/approved.tsx:6 text-danger-600",
+        "components/approved.tsx:6 ring-focus",
+        "components/approved.tsx:6 outline-focus-halo",
+        "components/ui/primitive.tsx:3 bg-primary-600",
+      ].sort(),
+    );
+    expect(r.status).toBe(0);
+  });
+
   it("a brand-* class fails the enforced brand-utility rule (exit 1, file:line)", () => {
     const r = run("brand");
     expect(r.status).toBe(1);

@@ -2,12 +2,13 @@
   "$comment": "Per-rule finding counts; regenerate with `node scripts/ci/ui-policy.mjs --write-baseline`.",
   "counts": {
     "ai-sdk-import": 0,
-    "arbitrary-color": 4,
+    "arbitrary-color": 2,
     "brand-utility": 0,
     "link-wraps-button": 31,
-    "px-font": 282,
-    "raw-palette": 3530,
+    "px-font": 266,
+    "raw-palette": 3346,
     "screen-height": 0,
+    "signout-guard": 0,
     "window-dialog": 27
   }
 }

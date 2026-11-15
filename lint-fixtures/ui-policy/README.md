@@ -5,6 +5,8 @@ on purpose; ESLint ignores `lint-fixtures/**`.
 
 - `violations/` one finding per report-mode rule, plus code that must NOT be flagged (comments, imports, primitives).
 - `brand/` a `brand-*` class (the enforced rule).
+- `raw-approved/` the approved CliniQ AI raw colour names (`raw-palette`, everywhere, primitives included) next to the
+  semantic names that share their prefixes (06-08).
 - `screen-height/` 100vh height classes (enforced since 06-04a) next to the `min-h-app`/`h-app` utilities that pass.
 - `extra-rules/` a rule directory with one extra rule file: proves rules are discovered without a central list.
 - `codemod/` input of the colour codemod (`scripts/design/codemod-colors.mjs`), copied to a temp dir by the test.
