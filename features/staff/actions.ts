@@ -22,9 +22,20 @@ const inviteStaffSchema = z.object({
   }),
 });
 
+/**
+ * What the invitation call did (V2-05 05-12, M-REINVITE), so the owner is told which happened:
+ *   - `sent`: a new invitation, emailed;
+ *   - `replaced`: a pending invitation to the same address for another role (`previousRole`) was revoked and a new
+ *     one, for the role asked, was emailed;
+ *   - `already_pending`: an invitation for the same address and role is still pending; nothing new was sent.
+ */
+export type InviteStaffOutcome = "sent" | "replaced" | "already_pending";
+
 export type InviteStaffResult =
-  | { success: true; inviteId: string }
+  | { success: true; inviteId: string; outcome: InviteStaffOutcome; previousRole?: UserRole }
   | { success: false; error: string };
+
+const STAFF_ROLES: readonly UserRole[] = ["owner", "admin", "doctor", "receptionist", "nurse"];
 
 /** Fixed texts for the `invite_staff` refusals (V2-05 05-07a); never database text. */
 const INVITE_STAFF_MESSAGES: DbErrorMessages = {
@@ -78,7 +89,8 @@ export async function inviteStaff(
 
     if (error) {
       if (error.code === "42501" && error.message === "OWNER_REQUIRED") {
-        return { success: false, error: "Only a clinic owner can invite an admin." };
+        // Inviting an admin, or (05-12) replacing a pending admin invitation with another role: both are owner-only.
+        return { success: false, error: "Only a clinic owner can invite an admin or change a pending admin invitation." };
       }
       const mapped = mapDbError(error, INVITE_STAFF_MESSAGES);
       if (mapped.code === "INTERNAL") {
@@ -87,12 +99,17 @@ export async function inviteStaff(
       return { success: false, error: mapped.message };
     }
 
-    const inviteId = (data as { id?: unknown } | null)?.id;
-    if (typeof inviteId !== "string") {
+    const row = (data ?? {}) as { id?: unknown; deduped?: unknown; replaced_role?: unknown };
+    const inviteId = row.id;
+    if (typeof inviteId !== "string" || typeof row.deduped !== "boolean") {
       log.error({ event: "staff.invite_insert.failed", code: "result_shape", requestId: await getRequestId() });
       return { success: false, error: INVITE_STAFF_MESSAGES.INTERNAL as string };
     }
-    return { success: true, inviteId };
+    if (row.deduped) return { success: true, inviteId, outcome: "already_pending" };
+    if (typeof row.replaced_role === "string" && STAFF_ROLES.includes(row.replaced_role as UserRole)) {
+      return { success: true, inviteId, outcome: "replaced", previousRole: row.replaced_role as UserRole };
+    }
+    return { success: true, inviteId, outcome: "sent" };
   } catch (err: unknown) {
     // Session and permission refusals keep their fixed text; anything else gets a fixed message (IR-L2).
     const known =
@@ -211,7 +228,13 @@ export type RemoveStaffActionResult = { success: true; result: RemoveStaffResult
  * target row and binds it to the active clinic). Backend only: the staff UI and journey J-A6 are V2-11's (R-31).
  */
 export async function removeStaff(input: { membershipId: string; reason: string }): Promise<RemoveStaffActionResult> {
-  const resolved = await resolveServiceContext("staff:invite");
+  let resolved = await resolveServiceContext("staff:invite");
+  if (!resolved.ok && resolved.reason === "locked") {
+    // V2-05 05-12 (IND L-5): the OWNER of a locked or onboarding clinic may still remove staff, so a dismissed member
+    // does not regain access on renewal. `remove_member` enforces the same rule (owner only, same checks, audited).
+    const billing = await resolveServiceContext("staff:invite", "billing");
+    if (billing.ok && billing.ctx.role === "owner") resolved = billing;
+  }
   if (!resolved.ok) return { success: false, error: resolved.error };
 
   const parsed = removeStaffSchema.safeParse(input);

@@ -10,12 +10,13 @@ import { ALLOWED_SPECIALTIES } from "./constants";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 import { clientErrorMessage } from "@/lib/errors/client-message";
+import { isIanaZoneName } from "@/lib/datetime";
 
 const updateProfileSchema = z.object({
   name: z.string().min(2, "Clinic name must be at least 2 characters."),
   address: z.string().optional().nullable(),
   specialties: z.array(z.string()).default([]),
-  timezone: z.string().default("Asia/Kolkata"),
+  timezone: z.string().default("Asia/Kolkata").refine(isIanaZoneName, "Enter a time zone name such as Asia/Kolkata."),
   working_hours: z.record(
     z.object({
       open: z.string(),

@@ -16,8 +16,13 @@ import { getRequestId } from "@/lib/log/request-id";
  */
 export interface EntitlementValue {
   enabled: boolean;
-  /** The plan's or override's limit (null = unlimited / not metered). */
-  limit: number | null;
+  /**
+   * The plan's or override's limit for a `limit` key (V2-05 05-12, IND I-5). `resolve_entitlement` never returns NULL:
+   * an absent or NULL limit reads as 0, and a `boolean` key always reports 0. So 0 means "nothing allowed / not a
+   * limit key", never "unlimited": there is no unlimited value. A boolean AI feature's quota is the limit of its
+   * `entitlement_keys.quota_key` (e.g. `ai.scribe.monthly_drafts`), which the database gate reads itself.
+   */
+  limit: number;
 }
 
 /** Every entitlement of the active clinic, by key (only what `my_entitlements` returns). */
@@ -32,7 +37,8 @@ export async function activeEntitlements(): Promise<Map<string, EntitlementValue
   }
   const out = new Map<string, EntitlementValue>();
   for (const row of (data ?? []) as Array<{ key: string; enabled: boolean; limit_value: number | null }>) {
-    out.set(row.key, { enabled: row.enabled === true, limit: typeof row.limit_value === "number" ? row.limit_value : null });
+    const limit = typeof row.limit_value === "number" && Number.isFinite(row.limit_value) && row.limit_value > 0 ? row.limit_value : 0;
+    out.set(row.key, { enabled: row.enabled === true, limit });
   }
   return out;
 }

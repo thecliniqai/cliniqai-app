@@ -56,13 +56,13 @@ describe("inviteStaff never exposes the invitation token", () => {
   });
 
   it.each(["production", "development", "test"])(
-    "returns only the invitation id when NODE_ENV=%s",
+    "returns only the invitation id and the outcome (05-12) when NODE_ENV=%s",
     async (nodeEnv) => {
       (process.env as Record<string, string | undefined>).NODE_ENV = nodeEnv;
 
       const result = await inviteStaffMemberAction({ email: "colleague@example.com", role: "doctor" });
 
-      expect(result).toEqual({ success: true, inviteId: "inv-mock-uuid-456" });
+      expect(result).toEqual({ success: true, inviteId: "inv-mock-uuid-456", outcome: "sent" });
       // One invite_staff call with the session clinic, the address and the role; no token, hash or link is sent, and
       // nothing is inserted directly (the INSERT privilege is revoked, 000088).
       expect(calls).toEqual([
@@ -83,7 +83,7 @@ describe("inviteStaff never exposes the invitation token", () => {
 
     const result = await inviteStaffMemberAction(formData);
 
-    expect(result).toEqual({ success: true, inviteId: "inv-mock-uuid-456" });
+    expect(result).toEqual({ success: true, inviteId: "inv-mock-uuid-456", outcome: "sent" });
     for (const spy of spies) expect(spy.mock.calls).toHaveLength(0);
   });
 });

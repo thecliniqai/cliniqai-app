@@ -2,7 +2,7 @@ import "server-only";
 
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { getActiveMembership, TenantLockedError, UnauthenticatedError } from "@/lib/auth/tenant";
+import { assertTenantAccess, getActiveMembership, TenantLockedError, UnauthenticatedError } from "@/lib/auth/tenant";
 import { accessRedirect, LOCKED_STAFF_PATH } from "@/lib/auth/access-redirect";
 import type { UserRole } from "@/lib/db/types";
 
@@ -48,13 +48,33 @@ export async function redirectIfTenantLocked(err: unknown): Promise<void> {
 }
 
 /**
+ * V2-05 05-12 (ACC L-4, IND I-7): the access check every wrapped page runs BEFORE its loader. Loaders that read through
+ * `getActiveMembership()` and RLS (not a guard) would otherwise render an empty page for a locked clinic on a client
+ * navigation (the layout's redirect runs only on a full load). A membership that cannot be resolved is left to the
+ * page's own handling (no clinic, several clinics); only a resolved clinic whose level is not `full` throws
+ * `TenantLockedError`, which the wrapper turns into the member's locked or onboarding page.
+ */
+async function assertPageClinicFull(): Promise<void> {
+  let membership: Awaited<ReturnType<typeof getActiveMembership>>;
+  try {
+    membership = await getActiveMembership();
+  } catch (err) {
+    redirectIfUnauthenticated(err);
+    return;
+  }
+  await assertTenantAccess(membership, "full");
+}
+
+/**
  * Wraps a dashboard page (an async server component): a missing or revoked session anywhere in its loader becomes a
- * redirect to /login; a clinic that is not `full` (05-10b) a redirect to the member's locked or onboarding page;
- * every other error (and Next's own redirect/notFound) passes through unchanged.
+ * redirect to /login; a clinic that is not `full` (05-10b; checked before the loader runs since 05-12) a redirect to
+ * the member's locked or onboarding page; every other error (and Next's own redirect/notFound) passes through
+ * unchanged.
  */
 export function withPageAuth<P>(page: (props: P) => Promise<ReactNode>): (props: P) => Promise<ReactNode> {
   return async function AuthenticatedPage(props: P): Promise<ReactNode> {
     try {
+      await assertPageClinicFull();
       return await page(props);
     } catch (err) {
       redirectIfUnauthenticated(err);

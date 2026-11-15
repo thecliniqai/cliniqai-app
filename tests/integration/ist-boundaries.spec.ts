@@ -183,6 +183,10 @@ describe("clinic date parity: SQL tenant_local_date = app getTenantToday", () =>
   // 18:30 and 19:00 UTC are 00:00 and 00:30 IST on the next day; 23:59:59 UTC is 05:29:59 IST; 03:00 UTC is still the
   // previous evening west of UTC.
   const INSTANTS = ["2026-11-13T18:30:00.000Z", "2026-11-13T19:00:00.000Z", "2026-11-13T23:59:59.000Z", "2026-11-14T03:00:00.000Z"];
+  // V2-05 05-12 (H-AITZ): a clinic row may hold only an IANA zone name (any case; CHECK tenants_timezone_iana). The
+  // other values a pre-000093 row could hold (offsets, "IST", unknown names, a blank) are refused below; their SQL-side
+  // fallback is still proven in supabase/tests/database/tenant_local_dates.test.sql and the app side in
+  // tests/utils/datetime.spec.ts.
   const ZONES = [
     "Asia/Kolkata",
     "America/New_York",
@@ -192,15 +196,9 @@ describe("clinic date parity: SQL tenant_local_date = app getTenantToday", () =>
     "UTC",
     "Etc/GMT+5",
     "Pacific/Kiritimati",
-    "+05:30",
-    "-05:00",
-    "-0500",
-    "+05",
     "EST",
-    "IST",
-    "Not/AZone",
-    "",
   ];
+  const REFUSED_ZONES = ["+05:30", "-05:00", "-0500", "+05", "IST", "Not/AZone", ""];
 
   beforeAll(async () => {
     clinic = await seedTenantWithOwner("Synthetic Date Parity Clinic");
@@ -213,6 +211,13 @@ describe("clinic date parity: SQL tenant_local_date = app getTenantToday", () =>
       expect({ at, sql: sqlTenantDate(clinic.tenantId, at) }).toEqual({ at, sql: app.today });
       expect(app.today).toBe("2026-11-14");
     }
+  });
+
+  it.each(REFUSED_ZONES)("zone %j is not an IANA zone name: the update is refused (23514) and the zone is unchanged", async (zone) => {
+    const before = (await getAdminClient().from("tenants").select("timezone").eq("id", clinic.tenantId).single()).data?.timezone;
+    const { error } = await getAdminClient().from("tenants").update({ timezone: zone }).eq("id", clinic.tenantId);
+    expect(error?.code).toBe("23514");
+    expect((await getAdminClient().from("tenants").select("timezone").eq("id", clinic.tenantId).single()).data?.timezone).toBe(before);
   });
 
   it.each(ZONES)("zone %j: SQL and the app give the same clinic date at every instant", async (zone) => {

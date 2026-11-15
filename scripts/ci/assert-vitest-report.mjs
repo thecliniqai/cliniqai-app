@@ -35,6 +35,8 @@
  *          in total).
  *   4810 — V2-05 05-10c (05b wave 10): the full suite at the 05-10c tree had 5063 tests in 257 files, 0 skipped;
  *          5063 × 0.95 = 4809.85 → 4810. REQUIRED_FILES + tests/ai/ai-reserve-concurrency.spec.ts (163 in total).
+ *   4823 — V2-05 05-12 (05b review fixes): the full suite at the 05-12 tree had 5076 tests in 258 files, 0 skipped;
+ *          5076 × 0.95 = 4822.2 → 4823. REQUIRED_FILES + tests/staff/reinvite-role.spec.ts (164 in total).
  *
  * Usage: node scripts/ci/assert-vitest-report.mjs <report.json> [--min-total <n>] [--require-files <a,b,…|none>]
  *   --require-files replaces REQUIRED_FILES (repo-relative paths); `none` disables the check (gate fixtures only).
@@ -43,7 +45,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-const FLOOR = 4810;
+const FLOOR = 4823;
 
 /** Security and acceptance specs that must be present with at least one passed test (IR-F5; V2-03 and V2-04 phase close). */
 const REQUIRED_FILES = [
@@ -252,6 +254,8 @@ const REQUIRED_FILES = [
   "tests/subscriptions/locked-redirects.spec.ts",
   // 05-10c AI-03 database part: the ai_reserve concurrency test (roadmap V2-05).
   "tests/ai/ai-reserve-concurrency.spec.ts",
+  // 05-12 (M-REINVITE: a re-invite with another role yields the new role)
+  "tests/staff/reinvite-role.spec.ts",
 ];
 
 const file = process.argv[2];

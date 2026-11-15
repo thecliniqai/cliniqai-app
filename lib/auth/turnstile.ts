@@ -16,12 +16,25 @@ import { log, logWord } from "@/lib/log";
  *   - `rejected`: `success` is not true;
  *   - `hostname_mismatch`: the token was solved on another site (skipped only with a Cloudflare test secret, whose
  *     dummy answers carry no real hostname; the env schema allows test secrets in local tiers only);
+ *   - `action_mismatch` (V2-05 05-12, IND I-6): the widget that produced the token declared another `action` than the
+ *     flow expects (`expectedAction`), e.g. a token solved on the sign-in form replayed at invite acceptance (skipped
+ *     with a test secret, like the hostname);
  *   - `unavailable` / `timeout`: network error, non-200 answer, unreadable body, or no answer within 3 s.
  * Logs carry the reason and Cloudflare's error codes only when they are machine words: never the secret, the widget
  * token or the remote IP. Nothing is returned but `{ ok }` and the reason.
  */
 
-export type TurnstileFailure = "unconfigured" | "missing_token" | "rejected" | "hostname_mismatch" | "unavailable" | "timeout";
+export type TurnstileFailure =
+  | "unconfigured"
+  | "missing_token"
+  | "rejected"
+  | "hostname_mismatch"
+  | "action_mismatch"
+  | "unavailable"
+  | "timeout";
+
+/** The widget `action` of each server-verified flow (the client widget declares the same value). */
+export const TURNSTILE_ACTIONS = { inviteAccept: "invite-accept" } as const;
 export type TurnstileResult = { ok: true } | { ok: false; reason: TurnstileFailure };
 
 /** The subset of `fetch` the check uses; tests pass a mock. */
@@ -38,6 +51,8 @@ export interface TurnstileVerifyOptions {
   verifyUrl?: string;
   /** Default: the host of `NEXT_PUBLIC_APP_URL`. */
   expectedHostname?: string;
+  /** The widget `action` the flow declares (`TURNSTILE_ACTIONS`); when set, any other action fails closed. */
+  expectedAction?: string;
   fetcher?: TurnstileFetcher;
   timeoutMs?: number;
 }
@@ -103,11 +118,12 @@ export async function verifyTurnstile(token: string | null | undefined, options:
     call.catch(() => undefined); // settled after the deadline: nothing to report twice
     const { status, json } = await Promise.race([call, deadline]);
     if (status !== 200 || json === null || typeof json !== "object") return fail("unavailable");
-    const answer = json as { success?: unknown; hostname?: unknown; "error-codes"?: unknown };
+    const answer = json as { success?: unknown; hostname?: unknown; action?: unknown; "error-codes"?: unknown };
     if (answer.success !== true) return fail("rejected", answer["error-codes"]);
     if (!isTurnstileTestSecret(secret)) {
       const host = typeof answer.hostname === "string" ? answer.hostname.toLowerCase() : null;
       if (expectedHostname === null || host !== expectedHostname) return fail("hostname_mismatch");
+      if (options.expectedAction !== undefined && answer.action !== options.expectedAction) return fail("action_mismatch");
     }
     return { ok: true };
   } catch {

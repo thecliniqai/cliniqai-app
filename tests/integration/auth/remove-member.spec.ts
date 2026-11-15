@@ -17,7 +17,8 @@ import { authenticateApiKey, createApiKeySecret } from "@/lib/api/auth";
 import { memberOfTenant } from "@/lib/auth/tenant-refs";
 import { resolveServiceContext } from "@/lib/auth/context";
 import { getTenantDoctorDirectory, getTenantDoctorMap } from "@/features/staff/service";
-import { addMemberToTenant, seedTenantWithOwner, seededUserPassword, type SeededTenant } from "../../helpers/tenants";
+import { addMemberToTenant, seedTenantSubscription, seedTenantWithOwner, seededUserPassword, type SeededTenant } from "../../helpers/tenants";
+import { DEFAULT_APP_ERROR_MESSAGES } from "@/lib/errors/app-error";
 import { getAdminClient } from "../../helpers/supabase-admin";
 import { ctxFor } from "../../helpers/context";
 import { enableApiV1ForFile } from "../../helpers/api-v1";
@@ -183,7 +184,8 @@ describe("AUTH-05: a removed member is cut off at once (acceptance 4, R-43)", ()
       metadata: { target_user_id: target.userId, role: "admin", keys_revoked: 1, invites_revoked: 1 },
     });
     expect(Object.keys(data![0].metadata as object).sort()).toEqual(
-      ["invites_revoked", "keys_revoked", "reason", "role", "sessions_revoked", "target_user_id"].sort(),
+      // 05-12 (IND L-3): plus the count of the member's webhook subscriptions disabled.
+      ["invites_revoked", "keys_revoked", "reason", "role", "sessions_revoked", "target_user_id", "webhooks_disabled"].sort(),
     );
   });
 
@@ -270,5 +272,43 @@ describe("removeStaff refusals (fixed texts, nothing removed)", () => {
     const out = await removeStaff({ membershipId: await membershipIdOf(other.tenantId, other.userId), reason: "Synthetic" });
     expect(out).toEqual({ success: false, error: "Staff member not found." });
     expect((await admin.from("memberships").select("status").eq("tenant_id", other.tenantId).single()).data?.status).toBe("active");
+  });
+});
+
+// V2-05 05-12 (IND L-5): a dismissed member must not regain access when a lapsed clinic renews, so the OWNER of a
+// locked clinic can still remove staff (same database rules, audited); every other role gets the locked text.
+describe("removeStaff in a locked clinic (owner only)", () => {
+  let owner: SeededTenant;
+  let adminMember: SeededTenant;
+  let nurse: SeededTenant;
+
+  beforeAll(async () => {
+    owner = await seedTenantWithOwner(`Removal Locked Clinic ${randomUUID().slice(0, 8)}`);
+    adminMember = await addMemberToTenant(owner.tenantId, "admin");
+    nurse = await addMemberToTenant(owner.tenantId, "nurse");
+    await seedTenantSubscription(owner.tenantId, { status: "expired" });
+  });
+
+  const statusOf = async (userId: string) =>
+    (await admin.from("memberships").select("status").eq("tenant_id", owner.tenantId).eq("user_id", userId).single()).data?.status;
+
+  it("an admin of the locked clinic gets the locked text and nothing is removed", async () => {
+    state.client = adminMember.client;
+    const out = await removeStaff({ membershipId: await membershipIdOf(owner.tenantId, nurse.userId), reason: "Synthetic dismissal" });
+    expect(out).toEqual({ success: false, error: DEFAULT_APP_ERROR_MESSAGES.SUBSCRIPTION_LOCKED });
+    expect(await statusOf(nurse.userId)).toBe("active");
+  });
+
+  it("the owner removes the nurse; the removal is audited by the owner", async () => {
+    state.client = owner.client;
+    const out = await removeStaff({ membershipId: await membershipIdOf(owner.tenantId, nurse.userId), reason: "Synthetic dismissal" });
+    expect(out).toMatchObject({ success: true, result: { userId: nurse.userId } });
+    expect(await statusOf(nurse.userId)).toBe("removed");
+    const { data } = await admin
+      .from("audit_logs")
+      .select("actor_id, actor_role")
+      .eq("tenant_id", owner.tenantId)
+      .eq("action", "staff.removed");
+    expect(data).toEqual([{ actor_id: owner.userId, actor_role: "owner" }]);
   });
 });

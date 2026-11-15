@@ -56,6 +56,8 @@ export function createApiKeySecret(): {
  * 2. Only then calls `acquireDb` (the register route's `() => getSystemDb("api_v1")`), hashes the token via SHA-256
  *    and retrieves the key record where revoked_at IS NULL
  * 3. Compares digests in constant time via crypto.timingSafeEqual
+ * 3a. Requires the key's creator to be an active owner or admin of the key's clinic (V2-05 05-12, ACC L-2), and the
+ *    clinic to be at access level `full` (402 otherwise, 05-10a)
  * 4. Records last_used_at and increments daily usage counter
  * 5. Returns AuthenticatedApiKeySession with tenant context and creator userId, plus the acquired client
  */
@@ -120,6 +122,27 @@ export async function authenticateApiKey(
     providedBuf.length !== storedBuf.length ||
     !crypto.timingSafeEqual(providedBuf, storedBuf)
   ) {
+    return {
+      success: false,
+      response: await apiError("UNAUTHORIZED", "Invalid or revoked API key", 401),
+    };
+  }
+
+  // V2-05 05-12 (ACC L-2): a key acts with its creator's authority, so the creator must still be an ACTIVE owner or
+  // admin of the key's clinic. A demoted, suspended or removed creator (or one whose account is gone) leaves the key
+  // unusable, exactly like a revoked key (same 401 text; no detail about why).
+  const { data: creator, error: creatorError } = keyRecord.created_by
+    ? await (supabase.from("memberships") as any)
+        .select("role")
+        .eq("tenant_id", keyRecord.tenant_id)
+        .eq("user_id", keyRecord.created_by)
+        .eq("status", "active")
+        .maybeSingle()
+    : { data: null, error: null };
+  if (creatorError || !creator || (creator.role !== "owner" && creator.role !== "admin")) {
+    if (creatorError) {
+      log.error({ event: "api.key_creator_lookup.failed", code: errorTag(creatorError), requestId: await getRequestId() });
+    }
     return {
       success: false,
       response: await apiError("UNAUTHORIZED", "Invalid or revoked API key", 401),
