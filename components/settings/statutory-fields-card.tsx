@@ -103,7 +103,7 @@ export function StatutoryFieldsCard({ initialTenant, onSaved }: StatutoryFieldsC
                 value={ceaRegNo}
                 onChange={(e) => setCeaRegNo(e.target.value)}
                 placeholder="e.g. CEA-MH-2022-8491"
-                className="uppercase font-mono text-xs"
+                className="uppercase tabular-nums text-xs"
               />
             </Field>
 
@@ -119,7 +119,7 @@ export function StatutoryFieldsCard({ initialTenant, onSaved }: StatutoryFieldsC
                 value={smcRegNo}
                 onChange={(e) => setSmcRegNo(e.target.value)}
                 placeholder="e.g. KMC/CLINIC/2021/049"
-                className="uppercase font-mono text-xs"
+                className="uppercase tabular-nums text-xs"
               />
             </Field>
 
@@ -136,7 +136,7 @@ export function StatutoryFieldsCard({ initialTenant, onSaved }: StatutoryFieldsC
                 value={gstin}
                 onChange={(e) => setGstin(e.target.value.toUpperCase())}
                 placeholder="e.g. 27AAPCU5050M1ZV"
-                className="uppercase font-mono text-xs"
+                className="uppercase tabular-nums text-xs"
               />
             </Field>
 
@@ -152,7 +152,7 @@ export function StatutoryFieldsCard({ initialTenant, onSaved }: StatutoryFieldsC
                 value={drugLicenseNo}
                 onChange={(e) => setDrugLicenseNo(e.target.value)}
                 placeholder="e.g. DL-20B-184920"
-                className="uppercase font-mono text-xs"
+                className="uppercase tabular-nums text-xs"
               />
             </Field>
           </div>

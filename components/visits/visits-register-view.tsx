@@ -469,12 +469,12 @@ export function VisitsRegisterView({
                           <span className="font-semibold text-gray-900 block">
                             {formattedDate}
                           </span>
-                          <span className="text-[11px] text-gray-500 font-mono block">
+                          <span className="text-[11px] text-gray-500 tabular-nums block">
                             {formattedTime}
                           </span>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {visit.token_number && (
-                              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-accent font-mono font-bold text-[10px]">
+                              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-accent tabular-nums font-bold text-[10px]">
                                 #{visit.token_number}
                               </span>
                             )}
@@ -497,7 +497,7 @@ export function VisitsRegisterView({
                             {visit.patient.age !== null && `, ${visit.patient.age}y`}
                           </p>
                           {visit.patient.phone && (
-                            <p className="text-[11px] text-gray-600 font-mono">
+                            <p className="text-[11px] text-gray-600 tabular-nums">
                               {formatTenDigitsDisplay(visit.patient.phone)}
                             </p>
                           )}

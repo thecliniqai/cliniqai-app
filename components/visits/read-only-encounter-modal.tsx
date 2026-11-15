@@ -72,7 +72,7 @@ export function ReadOnlyEncounterModal({
               {visit.patient.phone && ` • ${visit.patient.phone}`}
             </p>
             {visit.patient.abha_id && (
-              <p className="text-[11px] font-mono text-emerald-700 flex items-center gap-1">
+              <p className="text-[11px] tabular-nums text-emerald-700 flex items-center gap-1">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
                 ABHA: {visit.patient.abha_id}
               </p>
@@ -110,7 +110,7 @@ export function ReadOnlyEncounterModal({
               {renderVitals(visit.vitals).map((vital, i) => (
                 <div key={i} className="p-2.5 rounded-lg bg-gray-50 border border-gray-100">
                   <span className="text-[10px] text-gray-500 block uppercase">{vital.label}</span>
-                  <span className="font-semibold text-gray-900 font-mono text-xs">{vital.value}</span>
+                  <span className="font-semibold text-gray-900 tabular-nums text-xs">{vital.value}</span>
                 </div>
               ))}
             </div>
@@ -160,7 +160,7 @@ export function ReadOnlyEncounterModal({
                 >
                   <span>{diag.diagnosis_name}</span>
                   {diag.icd11_code && (
-                    <span className="text-[10px] font-mono bg-white/80 px-1 py-0.5 rounded border border-emerald-300">
+                    <span className="text-[10px] tabular-nums bg-white/80 px-1 py-0.5 rounded border border-emerald-300">
                       {diag.icd11_code}
                     </span>
                   )}
@@ -212,9 +212,9 @@ export function ReadOnlyEncounterModal({
                             <span>{item.medicine_name}</span>
                           </div>
                         </td>
-                        <td className="px-3.5 py-2.5 text-gray-700 font-mono">{item.dosage}</td>
+                        <td className="px-3.5 py-2.5 text-gray-700">{item.dosage}</td>
                         <td className="px-3.5 py-2.5 text-gray-700">{item.timing || "—"}</td>
-                        <td className="px-3.5 py-2.5 text-gray-700 font-mono">{item.duration}</td>
+                        <td className="px-3.5 py-2.5 text-gray-700 tabular-nums">{item.duration}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -256,7 +256,7 @@ export function ReadOnlyEncounterModal({
               <span className="font-semibold text-gray-900">
                 Invoice #{visit.invoice.invoice_number}
               </span>
-              <span className="font-mono text-gray-700 font-medium">
+              <span className="tabular-nums text-gray-700 font-medium">
                 ₹{visit.invoice.total_amount.toFixed(2)}
               </span>
             </div>

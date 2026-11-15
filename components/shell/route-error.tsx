@@ -13,11 +13,16 @@
  * - `standalone` renders its own `<main>` (boundaries outside the dashboard shell, whose page owned the landmark).
  * - 06-06: each caught error is handed to the skew guard (`noteAppError`: a session-status check, and the shell's
  *   update notice for a skew error).
+ * - 06-09e (design review M5, P6): the heading is the content title-1 (Manrope 800), and both ways forward are 44 px
+ *   (`lg`), the same size as the not-found state's button.
  */
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { useEffect, useId, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { ROUTE_STATE_HEADING } from "@/components/shell/route-not-found";
+import { cn } from "@/lib/utils";
+import { BUTTON_BASE, BUTTON_INTERACTIVE, BUTTON_SIZE, BUTTON_VARIANT, FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import { reportClientRenderError } from "@/features/observability/actions";
 import { clientErrorKind } from "@/lib/errors/client-error-kind";
 import { routePatternOf } from "@/lib/errors/client-route";
@@ -91,19 +96,19 @@ export function RouteError({ error, retry, report = false, home, standalone = fa
 
   const content = (
     <section aria-labelledby={headingId} className="mx-auto flex w-full max-w-md flex-col items-start gap-4 py-12">
-      <h1 id={headingId} ref={heading} tabIndex={-1} className="text-xl font-semibold text-fg focus:outline-none">
+      <h1 id={headingId} ref={heading} tabIndex={-1} className={cn(ROUTE_STATE_HEADING, "focus:outline-none")}>
         {copy.title}
       </h1>
-      <p className="text-sm text-fg-secondary">{copy.body}</p>
-      {digest && <p className="text-xs text-fg-muted">Reference: {digest}</p>}
+      <p className="text-body text-fg-secondary">{copy.body}</p>
+      {digest && <p className="text-label text-fg-muted">Reference: {digest}</p>}
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" onClick={onAction}>
+        <Button type="button" size="lg" onClick={onAction}>
           {copy.action}
         </Button>
         {home && (
           <Link
             href={home.href}
-            className="inline-flex min-h-[44px] items-center rounded-lg px-4 text-sm font-medium text-accent-fg hover:bg-accent-tint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className={cn(BUTTON_BASE, TRANSITION, FOCUS_RING, BUTTON_SIZE.lg, BUTTON_VARIANT.secondary, BUTTON_INTERACTIVE.secondary)}
           >
             {home.label}
           </Link>

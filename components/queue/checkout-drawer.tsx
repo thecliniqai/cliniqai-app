@@ -539,7 +539,7 @@ export function CheckoutDrawer({
                                 {p.payment_method} Payment
                               </span>
                               {p.reference_number && (
-                                <span className="text-[10px] text-fg-subtle block font-mono">
+                                <span className="text-[10px] text-fg-subtle block tabular-nums">
                                   Ref: {p.reference_number}
                                 </span>
                               )}

@@ -239,12 +239,12 @@ export function PatientDirectoryTable({
                         <span>{p.full_name}</span>
                         <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 text-accent transition-opacity" />
                       </Link>
-                      <span className="text-xs text-fg-subtle font-mono">
+                      <span className="text-xs text-fg-subtle tabular-nums">
                         ID: {p.id.slice(0, 8)}
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm font-medium text-gray-700 tabular-nums font-mono">
+                      <span className="text-sm font-medium text-gray-700 tabular-nums">
                         {formatTenDigitsDisplay(p.phone) || p.phone}
                       </span>
                     </TableCell>

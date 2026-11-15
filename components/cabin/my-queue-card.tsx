@@ -170,7 +170,7 @@ export function MyQueueCard({ visit, isActive = false }: MyQueueCardProps) {
             {patient.full_name}
           </h3>
           {patient.uhid && (
-            <span className="text-[11px] font-mono text-fg-subtle uppercase">
+            <span className="text-[11px] tabular-nums text-fg-subtle uppercase">
               {patient.uhid}
             </span>
           )}

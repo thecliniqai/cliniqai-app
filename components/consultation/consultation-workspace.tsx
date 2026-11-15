@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
 import {
   Vitals,
   ChiefComplaintItem,
@@ -30,7 +29,6 @@ import { DentalOdontogram } from "./specialty/dental-odontogram";
 import { PediatricsTools } from "./specialty/pediatrics-tools";
 import { SignAndBillModal } from "./sign-and-bill-modal";
 import {
-  ArrowLeft,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -459,16 +457,10 @@ export function ConsultationWorkspace({
       {/* 1. STICKY TOP WORKSPACE HEADER (z-30) */}
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-2xs">
         <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          {/* Left: Back & Patient Demographics */}
+          {/* Left: Patient Demographics */}
           <div className="flex items-center gap-3 min-w-0">
-            <Link
-              href="/cabin"
-              className="h-10 w-10 shrink-0 inline-flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-              aria-label="Back to Cabin"
-              title="Back to Cabin"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
+            {/* V2-06 06-09e (design review M1): no in-page back arrow. The consult is a focus-mode screen, so the
+                shell's top bar always carries Back (in-app history, else the nav parent /cabin): one Back control. */}
 
             {/* Patient Initials Avatar */}
             <div className="hidden sm:flex h-10 w-10 shrink-0 rounded-full bg-accent-subtle border border-accent-border text-accent-fg font-bold text-xs items-center justify-center">
@@ -509,8 +501,8 @@ export function ConsultationWorkspace({
                 )}
 
                 {/* Status Badge */}
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 mr-1.5 animate-pulse" />
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-status-with-doctor-bg text-status-with-doctor-fg border border-status-with-doctor-border whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-status-with-doctor-border mr-1.5 animate-pulse" />
                   {visit.status === "in_consultation" ? "In Consultation" : visit.status}
                 </span>
 

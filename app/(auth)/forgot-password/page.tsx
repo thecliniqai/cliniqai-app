@@ -285,7 +285,7 @@ export default function ForgotPasswordPage() {
                   required
                   autoFocus
                   disabled={codeAccepted}
-                  className="h-11 text-center text-lg font-mono tracking-[0.3em]"
+                  className="h-11 text-center text-lg tabular-nums tracking-[0.3em]"
                 />
               </Field>
 

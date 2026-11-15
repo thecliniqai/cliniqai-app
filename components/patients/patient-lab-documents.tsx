@@ -623,7 +623,7 @@ export function PatientLabDocuments({ patientId, userRole = "doctor" }: PatientL
               {!isGeneratingShare && shareResult?.success && shareResult.token && (
                 <div className="space-y-3">
                   <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between gap-2">
-                    <span className="text-xs text-gray-700 truncate font-mono">
+                    <span className="text-xs text-gray-700 truncate tabular-nums">
                       {window.location.origin}/reports/view?token={shareResult.token.slice(0, 16)}...
                     </span>
                     <Button

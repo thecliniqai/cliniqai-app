@@ -323,7 +323,7 @@ export function DiagnosisSection({
                 )}
                 <span>{item.name}</span>
                 {item.icd11 && (
-                  <span className="text-[10px] text-fg-subtle font-mono">[{item.icd11}]</span>
+                  <span className="text-[10px] text-fg-subtle tabular-nums">[{item.icd11}]</span>
                 )}
               </button>
             );
@@ -403,12 +403,12 @@ export function DiagnosisSection({
 
                 <div className="flex items-center gap-1.5 shrink-0">
                   {item.icd11_code && (
-                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono text-[10px]">
+                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 tabular-nums text-[10px]">
                       ICD: {item.icd11_code}
                     </span>
                   )}
                   {item.snomed_concept_id && (
-                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-mono text-[10px]">
+                    <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 tabular-nums text-[10px]">
                       SNOMED: {item.snomed_concept_id}
                     </span>
                   )}
@@ -459,12 +459,12 @@ export function DiagnosisSection({
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-xs font-bold text-gray-900">{item.diagnosis_name}</span>
                       {item.icd11_code && (
-                        <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono text-[10px]">
+                        <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 tabular-nums text-[10px]">
                           ICD-11: {item.icd11_code}
                         </span>
                       )}
                       {item.snomed_concept_id && (
-                        <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 font-mono text-[10px]">
+                        <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 tabular-nums text-[10px]">
                           SNOMED: {item.snomed_concept_id}
                         </span>
                       )}

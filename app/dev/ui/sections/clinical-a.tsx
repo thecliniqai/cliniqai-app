@@ -84,7 +84,9 @@ function QueueRowsDemo() {
   };
   return (
     <div className="flex w-full max-w-md flex-col gap-3">
-      <div className="overflow-hidden rounded-lg border border-border">
+      {/* Phones show one lane full bleed, without the lane border or radius (06-UI-SPEC §7 Today at 360), so the
+          specimen spans the screen there as the rows will on Today (06-09e, design review M2). */}
+      <div className="overflow-hidden rounded-lg border border-border max-sm:-mx-4 max-sm:rounded-none max-sm:border-x-0">
         <div className="flex h-9 items-center gap-2 border-b border-border px-3">
           <h4 className="text-body-sm font-semibold text-fg">Waiting</h4>
           <span className="text-label text-fg-muted tabular-nums">5</span>
@@ -162,6 +164,11 @@ function QueueRowsDemo() {
       </div>
     </div>
   );
+}
+
+/** 06-09e (P5): under 768 px the saving and saved states draw nothing, so their specimens say why they look empty. */
+function PhoneOnlyCaption() {
+  return <p className="text-label text-fg-muted md:hidden">(announced only on phones)</p>;
 }
 
 function SaveStatusDemo() {
@@ -295,9 +302,11 @@ export function ClinicalASection() {
       <GalleryGroup id="clinical-save" title="Save status" note="Below 768 px only the offline and error states are drawn; saving and saved are still announced.">
         <Specimen label="Saving" state="saving">
           <SaveStatus state="saving" />
+          <PhoneOnlyCaption />
         </Specimen>
         <Specimen label="Saved" state="saved">
           <SaveStatus state="saved" savedAt="10:42" />
+          <PhoneOnlyCaption />
         </Specimen>
         <Specimen label="Offline" state="offline">
           <SaveStatus state="offline" />

@@ -89,7 +89,7 @@ export function ClinicShowcasePanel() {
           {/* Current Called Token Bar */}
           <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="px-2.5 py-1 bg-accent text-white text-xs font-bold rounded-lg shadow-2xs font-mono">
+              <span className="px-2.5 py-1 bg-accent text-white text-xs font-bold rounded-lg shadow-2xs tabular-nums">
                 Token #18
               </span>
               <div>
@@ -114,7 +114,7 @@ export function ClinicShowcasePanel() {
                 <Users className="w-3 h-3 text-amber-500" />
                 <span>Waiting</span>
               </div>
-              <div className="text-sm font-bold text-gray-900 mt-0.5 font-mono">
+              <div className="text-sm font-bold text-gray-900 mt-0.5 tabular-nums">
                 3 Patients
               </div>
             </div>
@@ -124,7 +124,7 @@ export function ClinicShowcasePanel() {
                 <CheckCircle2 className="w-3 h-3 text-emerald-500" />
                 <span>Completed</span>
               </div>
-              <div className="text-sm font-bold text-gray-900 mt-0.5 font-mono">
+              <div className="text-sm font-bold text-gray-900 mt-0.5 tabular-nums">
                 14 Today
               </div>
             </div>
@@ -134,7 +134,7 @@ export function ClinicShowcasePanel() {
                 <Clock className="w-3 h-3 text-blue-500" />
                 <span>Avg Wait</span>
               </div>
-              <div className="text-sm font-bold text-gray-900 mt-0.5 font-mono">
+              <div className="text-sm font-bold text-gray-900 mt-0.5 tabular-nums">
                 6.5 mins
               </div>
             </div>

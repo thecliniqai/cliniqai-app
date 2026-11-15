@@ -483,7 +483,7 @@ export function CreateReferralModal({
                   placeholder="Paste destination clinic UUID..."
                   value={targetTenantId}
                   onChange={(e) => setTargetTenantId(e.target.value)}
-                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white font-mono focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
+                  className="w-full min-h-[44px] px-3 rounded-xl border border-gray-300 text-xs text-gray-900 bg-white tabular-nums focus:outline-none focus:border-accent focus:ring-1 focus:ring-ring"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
                   The target partner clinic will securely receive this referral in their Inbound Referrals register.

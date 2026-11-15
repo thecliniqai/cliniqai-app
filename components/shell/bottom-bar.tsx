@@ -7,17 +7,36 @@ import { cn } from "@/lib/utils";
 import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import { NavIcon } from "./nav-icon";
 
+/**
+ * The BottomBar's caption for a destination whose v1 name does not fit one line of a 72 px cell at 360 px (06-09e,
+ * design review M3). Only the visible caption is shortened: the link keeps the v1 name as its accessible name (R-8,
+ * CD-30), and each caption is a word of that name, so the visible label stays inside the accessible name (WCAG 2.5.3).
+ * Every other destination shows its v1 name.
+ */
+export const BOTTOM_BAR_CAPTION: Readonly<Record<string, string>> = {
+  "Doctor's Cabin": "Cabin",
+  "Live Queue": "Queue",
+  "My Calendar": "Calendar",
+};
+
+export function bottomBarCaption(label: string): string {
+  return BOTTOM_BAR_CAPTION[label] ?? label;
+}
+
 const CELL = cn(
   "flex h-full min-h-control min-w-0 flex-col items-center justify-center gap-0.5 rounded-md px-1 text-caption font-medium text-(--nav-fg)",
   "aria-[current=page]:text-(--nav-active-fg)",
   TRANSITION,
   FOCUS_RING,
 );
+/** One line, never wrapped (a wrapped caption pushed its icon out of line with its neighbours; M3). */
+const CAPTION = "block max-w-full truncate text-center whitespace-nowrap";
 
 /**
  * BottomBar (< 768 px; 06-UI-SPEC §6, PWA_STRATEGY §3.3): fixed to the bottom, white, top hairline, 60 px plus the
  * safe area. Up to four primary destinations from `navForRole` (the model's `bottom`), then "More" in the last cell,
- * which opens the More sheet with everything else. Icon 18 over an 11/500 label, always both; the active cell takes the
+ * which opens the More sheet with everything else. Icon 18 over an 11/500 caption on one line (a long v1 name shows a
+ * shorter caption, {@link BOTTOM_BAR_CAPTION}), always both; the active cell takes the
  * nav-active colour and a heavier stroke. No "+" in V2-06 (CD-21). The shell hides it while a text field has focus on
  * a phone (`lib/pwa/keyboard-aware.ts`) and in focus mode. `z-30`, the top bar's tier: the v1 drawers (`z-40`) and every
  * overlay cover it, as they covered v1's sticky header.
@@ -51,9 +70,18 @@ export function BottomBar({
       {items.map((d) => {
         const active = d.id === activeId;
         return (
-          <Link key={d.id} href={d.href} aria-current={active ? "page" : undefined} className={CELL} data-nav-id={d.id}>
+          <Link
+            key={d.id}
+            href={d.href}
+            aria-current={active ? "page" : undefined}
+            aria-label={bottomBarCaption(d.label) === d.label ? undefined : d.label}
+            className={CELL}
+            data-nav-id={d.id}
+          >
             <NavIcon icon={d.icon} className="size-[18px] shrink-0" strokeWidth={active ? 2.25 : 1.75} />
-            <span className="line-clamp-2 max-w-full text-center leading-tight">{d.label}</span>
+            <span data-bar-caption="" className={CAPTION}>
+              {bottomBarCaption(d.label)}
+            </span>
           </Link>
         );
       })}
@@ -66,7 +94,9 @@ export function BottomBar({
         data-nav-id="more"
       >
         <Menu aria-hidden="true" className="size-[18px] shrink-0" strokeWidth={moreActive ? 2.25 : 1.75} />
-        <span>More</span>
+        <span data-bar-caption="" className={CAPTION}>
+          More
+        </span>
       </button>
     </nav>
   );

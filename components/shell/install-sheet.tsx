@@ -5,18 +5,21 @@ import { Share, SquarePlus, ToggleRight } from "lucide-react";
 import {
   ResponsiveSheet,
   ResponsiveSheetBody,
+  ResponsiveSheetClose,
   ResponsiveSheetContent,
+  ResponsiveSheetFooter,
   ResponsiveSheetHeader,
 } from "@/components/ui/responsive-sheet";
+import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { PRODUCT_NAME } from "@/lib/design/brand";
 
 /**
  * The install instructions sheet (V2-06 06-06; PWA_STRATEGY §6.2, §6.3; 06-UI-SPEC install surface, BrandMark 44 px).
  *
- * - `ios`: iOS and iPadOS Safari cannot be prompted; three steps: "Tap Share", "Choose Add to Home Screen", "Keep 'Open
- *   as Web App' on and tap Add", plus "You'll need to sign in once inside the app" (the Home Screen app has its own
- *   cookie jar, E10).
+ * - `ios`: iOS and iPadOS Safari cannot be prompted; three steps: "Tap **Share**", "Choose **Add to Home Screen**",
+ *   "Keep **Open as Web App** on and tap **Add**", plus "You'll need to sign in once inside the app" (the Home Screen
+ *   app has its own cookie jar, E10). A full-width "Done" closes the sheet (`install_360` at 3a78a5d; 06-09e L6).
  * - `safari`: an iOS in-app browser (WhatsApp, Gmail…) cannot install; how to open the page in Safari instead.
  *
  * Opened from the user menu's entry and the Today card (`openInstallSheet`); one host is mounted by `PwaRuntime`.
@@ -42,11 +45,18 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
+/**
+ * The three steps; each names what to tap in bold (`install_360` at 3a78a5d), so no quotes are needed around
+ * "Open as Web App" (06-09e, design review L6).
+ */
 export const IOS_STEPS = [
-  { icon: Share, text: "Tap Share" },
-  { icon: SquarePlus, text: "Choose Add to Home Screen" },
-  { icon: ToggleRight, text: "Keep 'Open as Web App' on and tap Add" },
+  { icon: Share, parts: ["Tap ", { b: "Share" }] },
+  { icon: SquarePlus, parts: ["Choose ", { b: "Add to Home Screen" }] },
+  { icon: ToggleRight, parts: ["Keep ", { b: "Open as Web App" }, " on and tap ", { b: "Add" }] },
 ] as const;
+
+type StepPart = string | { readonly b: string };
+const stepKey = (parts: readonly StepPart[]) => parts.map((p) => (typeof p === "string" ? p : p.b)).join("");
 
 export function InstallSheetHost() {
   const kind = useSyncExternalStore(subscribe, () => openKind, () => null);
@@ -70,7 +80,7 @@ export function InstallSheetHost() {
               <>
                 <ol className="flex flex-col gap-3" aria-label="Steps">
                   {IOS_STEPS.map((step, index) => (
-                    <li key={step.text} className="flex items-center gap-3 text-body-md text-fg">
+                    <li key={stepKey(step.parts)} className="flex items-center gap-3 text-body-md text-fg">
                       <span
                         aria-hidden="true"
                         className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-label font-semibold text-accent-fg"
@@ -78,7 +88,17 @@ export function InstallSheetHost() {
                         {index + 1}
                       </span>
                       <step.icon className="size-5 shrink-0 text-fg-muted" aria-hidden="true" />
-                      <span>{step.text}</span>
+                      <span>
+                        {step.parts.map((part, i) =>
+                          typeof part === "string" ? (
+                            part
+                          ) : (
+                            <b key={i} className="font-semibold">
+                              {part.b}
+                            </b>
+                          ),
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ol>
@@ -94,6 +114,13 @@ export function InstallSheetHost() {
               </ol>
             )}
           </ResponsiveSheetBody>
+          <ResponsiveSheetFooter>
+            <ResponsiveSheetClose asChild>
+              <Button type="button" variant="secondary" size="lg" className="w-full" data-install-sheet-done="">
+                Done
+              </Button>
+            </ResponsiveSheetClose>
+          </ResponsiveSheetFooter>
         </ResponsiveSheetContent>
       )}
     </ResponsiveSheet>

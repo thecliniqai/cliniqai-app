@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import {
-  ArrowLeft,
   Calendar,
   Clock,
   Pencil,
@@ -95,17 +94,8 @@ export function PatientDetailView({
         {/* Header Action Bar & Avatar */}
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-gray-100">
           <div className="flex items-start sm:items-center gap-4">
-            <Link href="/patients">
-              <Button
-                variant="ghost"
-                size="sm"
-                startIcon={<ArrowLeft className="w-4 h-4" />}
-                className="h-9 px-2.5 text-gray-600 hover:text-gray-900"
-              >
-                Patients
-              </Button>
-            </Link>
-
+            {/* V2-06 06-09e (design review M1): no in-page back link. The shell's top-bar Back (below 1280 px) and the
+                Sidebar's Patients item (1280 px and up) are the only ways back, so the record has one Back control. */}
             <div className="flex items-center gap-3.5">
               <div className="w-14 h-14 rounded-2xl bg-accent-subtle text-accent flex items-center justify-center font-bold text-lg shadow-theme-xs shrink-0 border border-accent/15">
                 {initials || "PT"}
@@ -129,7 +119,7 @@ export function PatientDetailView({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
-                  <span className="font-mono text-fg-subtle">ID: {patient.id.slice(0, 13)}...</span>
+                  <span className="tabular-nums text-fg-subtle">ID: {patient.id.slice(0, 13)}...</span>
                   <span>•</span>
                   <span>Registered: {new Date(patient.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
                 </div>
@@ -193,7 +183,7 @@ export function PatientDetailView({
               <Phone className="w-3.5 h-3.5 text-fg-subtle" />
               Phone Number
             </span>
-            <p className="font-semibold text-gray-900 font-mono text-sm pt-0.5">
+            <p className="font-semibold text-gray-900 tabular-nums text-sm pt-0.5">
               {patient.phone || "Not recorded"}
             </p>
           </div>
@@ -441,7 +431,7 @@ export function PatientDetailView({
 
                   <div className="p-3.5 rounded-xl bg-gray-50/70 border border-gray-100">
                     <span className="text-[11px] text-gray-500 block">Phone Number</span>
-                    <p className="font-semibold text-gray-900 text-sm mt-0.5 font-mono">{patient.phone}</p>
+                    <p className="font-semibold text-gray-900 text-sm mt-0.5 tabular-nums">{patient.phone}</p>
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-gray-50/70 border border-gray-100">
@@ -472,13 +462,13 @@ export function PatientDetailView({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div className="p-3.5 rounded-xl bg-gray-50/70 border border-gray-100">
                     <span className="text-[11px] text-gray-500 block">ABHA Number / Address</span>
-                    <p className="font-semibold text-emerald-800 text-sm mt-0.5 font-mono">
+                    <p className="font-semibold text-emerald-800 text-sm mt-0.5 tabular-nums">
                       {patient.abha_id ? patient.abha_id : "Not linked to ABHA"}
                     </p>
                   </div>
                   <div className="p-3.5 rounded-xl bg-gray-50/70 border border-gray-100">
                     <span className="text-[11px] text-gray-500 block">Internal Record ID (UHID)</span>
-                    <p className="font-mono text-gray-700 text-xs mt-0.5">{patient.id}</p>
+                    <p className="tabular-nums text-gray-700 text-xs mt-0.5">{patient.id}</p>
                   </div>
                 </div>
               </div>
@@ -557,7 +547,7 @@ export function PatientDetailView({
                         <span className="text-gray-500">({emergencyObj.relation})</span>
                       )}
                       {emergencyObj.phone && (
-                        <span className="font-mono text-gray-700 ml-2">• {emergencyObj.phone}</span>
+                        <span className="tabular-nums text-gray-700 ml-2">• {emergencyObj.phone}</span>
                       )}
                     </p>
                   ) : (
@@ -592,7 +582,7 @@ export function PatientDetailView({
                 PostgreSQL Row Level Security (RLS). Every access, edit, and prescription generation is
                 logged into the immutable compliance audit log.
               </p>
-              <div className="p-3 rounded-xl bg-gray-50 space-y-1 text-gray-700 font-mono text-[11px] border border-gray-100">
+              <div className="p-3 rounded-xl bg-gray-50 space-y-1 text-gray-700 tabular-nums text-[11px] border border-gray-100">
                 <div>Patient Record ID: {patient.id}</div>
                 <div>Tenant ID: {patient.tenant_id}</div>
                 <div>Created At: {new Date(patient.created_at).toLocaleString("en-IN")}</div>

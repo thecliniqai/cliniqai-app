@@ -11,9 +11,12 @@ import { TokenChip } from "./token-chip";
  *
  * Grid: a token column (44 px; 48 on touch) with the TokenChip and the wait under it · the content: the name (body-md
  * 500, the row's link or button, its hit area stretched over the whole row), a meta line (12 px fg-muted: age/sex,
- * doctor, origin as text "Walk-in" / "Appt 10:15"), a flags line (vitals summary, allergy chip, "Vitals pending") and
- * the actions. Actions are always visible (never on hover only) and sit above the stretched name: `sm` 28 px buttons
- * plus a ⋯ IconButton, 44 px on touch. Hairline separators between rows.
+ * doctor, origin as text "Walk-in" / "Appt 10:15"), a flags line (vitals summary, allergy chip, "Vitals pending") ·
+ * the actions. Below 1280 px (phones, tablets, the two-pane Today) the actions sit in a right-hand column beside the
+ * content, vertically centred (`today_360`/`today_820` at 3a78a5d: rows of about 80 px); at 1280 px and up (the lane
+ * board) they go on a line under the content with the ⋯ at the far right (06-09e, design review M2). Actions are
+ * always visible (never on hover only) and sit above the stretched name: `sm` 28 px buttons plus a ⋯ IconButton,
+ * 44 px on touch. Hairline separators between rows.
  *
  * States: `selected` (`row-selected-bg`, a 3 px indicator bar and `aria-current="true"`); `next` (the patient called
  * next: `row-next-bg`, the bar and a visible "Next" caption, so the state never rests on the tint, CD-15); a change
@@ -140,25 +143,30 @@ export function QueueRow({
         <TokenChip token={token} time={time} status={status} balanceDue={balanceDue} />
         {waitMinutes != null && <WaitTime minutes={waitMinutes} />}
       </div>
-      <div className="flex min-w-0 flex-col">
-        {next && (
-          <span className="text-caption font-semibold tracking-caps text-status-with-doctor-fg uppercase">Next</span>
-        )}
-        <Heading className="text-body-md font-medium">
-          {href ? (
-            <Link href={href} className={nameClass} data-patient-name="">
-              {name}
-            </Link>
-          ) : (
-            <button type="button" onClick={onOpen} className={nameClass} data-patient-name="">
-              {name}
-            </button>
+      <div className="flex min-w-0 max-xl:flex-row max-xl:items-center max-xl:gap-2 xl:flex-col">
+        <div data-row-content="" className="flex min-w-0 flex-1 flex-col">
+          {next && (
+            <span className="text-caption font-semibold tracking-caps text-status-with-doctor-fg uppercase">Next</span>
           )}
-        </Heading>
-        {meta && <p className="mt-0.5 truncate text-label text-fg-muted">{meta}</p>}
-        {flags && <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-label">{flags}</div>}
+          <Heading className="text-body-md font-medium">
+            {href ? (
+              <Link href={href} className={nameClass} data-patient-name="">
+                {name}
+              </Link>
+            ) : (
+              <button type="button" onClick={onOpen} className={nameClass} data-patient-name="">
+                {name}
+              </button>
+            )}
+          </Heading>
+          {meta && <p className="mt-0.5 truncate text-label text-fg-muted">{meta}</p>}
+          {flags && <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-label">{flags}</div>}
+        </div>
         {actions && (
-          <div data-row-actions="" className="relative z-10 mt-2 flex items-center gap-2 [&>:last-child:not(:first-child)]:ml-auto">
+          <div
+            data-row-actions=""
+            className="relative z-10 flex shrink-0 items-center gap-2 xl:mt-2 xl:[&>:last-child:not(:first-child)]:ml-auto"
+          >
             {actions}
           </div>
         )}
