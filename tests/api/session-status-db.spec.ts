@@ -178,6 +178,16 @@ describe("GET /api/session-status (local stack)", () => {
     const none = await ask(client, null);
     expect(none.status).toBe(409);
     expect(none.body).toEqual({ error: "clinic_selection_required" });
+    // The route takes no input: a forged ?tenant= naming the user's other (full) clinic changes nothing.
+    state.client = client;
+    state.activeTenant = locked.tenantId;
+    const forgedRes = await (GET as unknown as (req: Request) => Promise<Response>)(
+      new Request(`http://localhost/api/session-status?tenant=${second.tenantId}&tenantId=${second.tenantId}`),
+    );
+    state.client = null;
+    state.activeTenant = null;
+    expect(forgedRes.status).toBe(200);
+    expect(await forgedRes.json()).toMatchObject({ accessLevel: "locked", redirect: "/billing/locked/staff" });
     // A cookie naming a clinic the user is not a member of is refused, never answered for that clinic.
     const foreign = await ask(client, fullTenant);
     expect(foreign.status).toBe(403);
