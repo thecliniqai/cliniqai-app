@@ -78,6 +78,12 @@ export type RouteGuard =
    * tenant B; a signed-in member gets the byte-identical body (nothing personalised) with no data access either.
    */
   | { kind: "public-asset"; contentType: string }
+  /**
+   * V2-06 06-06 (PWA §3.7, §6.6; R-16, R-21): the PWA's session and access poll. No session 401, no membership 403,
+   * both with no data access beyond the membership lookup; a member 200 whose JSON keys are a subset of `keys`;
+   * `no-store` on every answer; a forged `?tenant=` (tenant B's id) changes nothing and nothing of B comes back.
+   */
+  | { kind: "session-status"; keys: readonly string[] }
   /** Allow-listed probe: no session; the JSON body's keys are a subset of `keys` (no tenant data). */
   | {
       kind: "public-health";
@@ -268,6 +274,8 @@ export const ROUTE_GUARDS: Record<string, RouteGuard> = {
   // V2-06 06-09a (M-OFFLINE): the stamped service worker script, public (`PUBLIC_PAGE_PREFIXES`) and PHI-free; the
   // browser fetches it with no session on the login page and on every update check.
   "app/sw.js/route.ts#GET": { kind: "public-asset", contentType: "application/javascript" },
+  // V2-06 06-06 (R-16, R-21): the installed app's session/access/version poll; the tenant comes from the session only.
+  "app/api/session-status/route.ts#GET": { kind: "session-status", keys: ["deploymentId", "accessLevel", "redirect"] },
   // V2-04 04-02 (RL-23, R-18, T-04-01): pg_cron → pg_net → the runner, authenticated by its own constant-time bearer.
   "app/api/jobs/run/route.ts#POST": { kind: "runner-secret", post: true },
   "app/api/jobs/run/route.ts#GET": RUNNER_OTHER_METHOD,
