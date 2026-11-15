@@ -40,3 +40,16 @@ guard covers default-submit buttons); IND L-6 (quick-register age error timing a
 | IND I-2 / B Info: doctor's palette searches the whole clinic queue | Same data the doctor can already open; no new exposure | V2-08 (scope by doctor if wanted) |
 | IND I-3: DOB calendar pages month by month | Typing the date is the fast path | V2-08 |
 | B Info: deployment id exposure, suspended = removed, `/SW.JS` header quirk | Recorded | V2-14 |
+
+## Re-verification outcome (reviews/v206c-review-reverify.md, at de553cd) — CTO, 2026-11-15
+
+H-AUTHOUT and M-REMOVED PARTIAL: original reproductions closed, new routes found. Fix plan **06-09d**:
+
+| ID | Severity | Decision |
+|---|---|---|
+| H-AUTHOUT-R1 | High | Token-refresh errors that are not definitive (429, 408, 5xx, network, uncoded 400, gateway 404, non-GoTrue answers) never delete auth cookies in `proxy.ts` or `lib/supabase/server.ts`; the request is answered as "auth unavailable" (503 for APIs/actions, error page for navigations, never a `/login` redirect). Only GoTrue's definitive codes (e.g. refresh token revoked/not found/invalid) sign out |
+| L (classify) | Low | Classify `/user` and refresh failures by GoTrue error codes, not by HTTP 4xx; a Kong "Invalid API key" 401 is "unavailable", not "signed out" |
+| L (outage nav) | Low | During an outage, page navigations and `withPageAuth` (Today) show the unavailable state, not `/login` |
+| L (retry) | Low | Bound server-side refresh retries to fit inside the client's timeout; add jitter to the client back-off |
+| M-REMOVED-R1 | Medium | `/api/session-status` (and the layout) pin the active-clinic cookie to the resolved clinic when none is set, so a later removal answers 403 on every device; a member of only one clinic gets it pinned on first poll |
+| L (last clinic) | Low | Removal from the last clinic on a full page load signs out and purges (no `/clinic/new` redirect for a removed member) |
