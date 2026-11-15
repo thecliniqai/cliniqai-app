@@ -254,10 +254,13 @@ jobs:
   # Playwright PR lane (02-03a; RL-16, RL-20): desktop-chrome (all specs), pixel-7 (all but the viewport-owning a11y
   # specs), iphone-15 (@golden), pwa-ipados (V2-06 06-06 spec 10 only). The checkout has no .env by construction; the
   # app server is built and served only through the guarded `e2e:build` / `serve.ts` path on 127.0.0.1:3100.
+  # V2-06 (CI 43712054628): 45 minutes, was 30. The lane takes about 20 minutes on a normal runner; one runner was 1.5x
+  # slower on every test (median per-test ratio 1.50 against 43705726084), which puts even a green lane at the old limit
+  # and a lane with failures (three attempts each, TEST_STRATEGY §8) cancelled with no report or traces uploaded.
   e2e:
     name: e2e
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -296,8 +299,11 @@ jobs:
           -- npx supabase start -x studio,edge-runtime,logflare,vector,imgproxy,supavisor
       - name: e2e build (guarded env, output marker scan, build stamp)
         run: npm run e2e:build
+      # The lane stops itself before the job limit (40 of the 45 minutes, after about 3 of setup), so the run summary
+      # and the playwright-pr artifact are produced even then (a cancelled job runs no `!cancelled()` step). Retries
+      # stay as configured: 2 on CI, reported, never a pass (TEST_STRATEGY §8).
       - name: Playwright PR lane
-        run: npm run e2e:pr
+        run: npm run e2e:pr -- --global-timeout=2400000
       - name: Run summary (retried and failed tests; report only)
         if: ${{ !cancelled() }}
         run: node scripts/ci/playwright-summary.mjs playwright-report/results.json
