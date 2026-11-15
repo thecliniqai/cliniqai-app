@@ -79,6 +79,16 @@ describe("UI policy", () => {
     expect(r.stdout).toContain("ui-policy: FAIL (1 enforced finding(s))");
   });
 
+  it("a font-mono class on a product screen fails the enforced mono-font rule; tabular-nums and Developer settings pass (06-09e)", () => {
+    const r = run("mono-font");
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("FAIL mono-font components/ids.tsx:2 font-mono");
+    expect(r.stderr).toContain("FAIL mono-font components/ids.tsx:3 md:font-mono");
+    expect(r.stderr).not.toContain("ids.tsx:4");
+    expect(r.stderr).not.toContain("settings/developer/key.tsx");
+    expect(r.stdout).toContain("ui-policy: FAIL (2 enforced finding(s))");
+  });
+
   it("a 100vh height class fails the enforced screen-height rule (exit 1, file:line); min-h-app/h-app pass (06-04a)", () => {
     const r = run("screen-height");
     expect(r.status).toBe(1);
