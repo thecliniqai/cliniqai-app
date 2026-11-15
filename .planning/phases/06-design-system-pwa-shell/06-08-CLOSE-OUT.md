@@ -45,7 +45,7 @@ in `evidence/06-08/` or the command named in the row. The phase gate evidence (`
 | Full Vitest (`npx vitest run`, stack 000094 = branch) | 300 files, 6181 tests passed, 0 failed, 0 skipped (465 s) | `vitest-full-summary.txt` |
 | Report gate on that report (new FLOOR and REQUIRED_FILES) | `files=300 tests=6181 passed=6181 failed=0 skipped/todo=0 floor=5872 required=213`, PASS | `vitest-gate.txt` |
 | e2e PR lane (`npm run e2e:pr`: desktop-chrome, pixel-7, iphone-15, pwa-ipados) on the e2e build of `9858ec7` | 555 passed, **0 retried**, 0 unexpected, 185 skipped (project filters), 8 expected failures (the known-bug markers P1-07, F-04, P1-03 and the network-block self-test, each failing with its marker); 11.4 min. The server log's `ECONNRESET: aborted` lines are client-aborted requests (held navigations), not failures | `e2e-pr-summary.txt` (`playwright-summary.mjs`) |
-| gitleaks | TBD-GITLEAKS | `gitleaks.txt` |
+| gitleaks v8.30.1 (`--redact`, `.gitleaks.toml`), the 9 commits `136cd04..868de25`, local clone of the branch | 9 commits scanned, no leaks found | `gitleaks.txt` |
 
 ## Tests that fail without the change
 
