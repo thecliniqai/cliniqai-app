@@ -253,3 +253,37 @@ describe("boot: instrumentation.ts register() (every server instance)", () => {
     await expect(register()).resolves.toBeUndefined();
   });
 });
+
+/**
+ * V2-06 06-06 (R-21): `next.config.ts` hands NEXT_DEPLOYMENT_ID (else VERCEL_DEPLOYMENT_ID) to Next as `deploymentId`,
+ * and keeps a random BUILD_ID per build (`generateBuildId` → null; with a deploymentId Next would otherwise use one
+ * constant id for every build, which defeats the e2e stale-build guard). An ill-shaped id stops the boot by name.
+ */
+describe("boot: next.config.ts deployment id (06-06)", () => {
+  const READ =
+    "import('./next.config.ts').then(async (m) => { const c = m.default?.default ?? m.default; " +
+    "console.log(JSON.stringify({ dpl: c.deploymentId ?? null, buildId: c.generateBuildId ? await c.generateBuildId() : 'unset' })); }, " +
+    "(e) => { console.error(e.message); process.exit(1); })";
+  function read(env: Record<string, string | undefined>) {
+    const clean: Record<string, string> = { PATH: process.env.PATH ?? "" };
+    for (const [k, v] of Object.entries(env)) if (v !== undefined) clean[k] = v;
+    const res = spawnSync(TSX, ["-e", READ], { cwd: ROOT, env: clean as NodeJS.ProcessEnv, encoding: "utf8", timeout: 60_000 });
+    return { status: res.status, stderr: res.stderr, out: res.status === 0 ? (JSON.parse(res.stdout.trim().split("\n").pop()!) as { dpl: string | null; buildId: unknown }) : null };
+  }
+
+  it("NEXT_DEPLOYMENT_ID wins, VERCEL_DEPLOYMENT_ID is the fallback, none → no deploymentId; BUILD_ID stays per build", () => {
+    expect(read(CI_BUILD).out).toEqual({ dpl: null, buildId: null });
+    expect(read({ ...CI_BUILD, VERCEL_DEPLOYMENT_ID: "dpl_SyntheticBoot01" }).out).toEqual({ dpl: "dpl_SyntheticBoot01", buildId: null });
+    expect(read({ ...CI_BUILD, NEXT_DEPLOYMENT_ID: "e2e-local-deployment", VERCEL_DEPLOYMENT_ID: "dpl_SyntheticBoot01" }).out).toEqual({
+      dpl: "e2e-local-deployment",
+      buildId: null,
+    });
+  });
+
+  it("an ill-shaped deployment id stops the boot, naming the key and not the value", () => {
+    const res = read({ ...CI_BUILD, NEXT_DEPLOYMENT_ID: "LEAK deployment/id" });
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("NEXT_DEPLOYMENT_ID: must be 1 to 64 characters of A-Z, a-z, 0-9, _ or -");
+    expect(res.stderr).not.toContain("LEAK");
+  });
+});

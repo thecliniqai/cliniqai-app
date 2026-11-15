@@ -22,6 +22,9 @@ const DEPLOYMENT_ID = deploymentIdFrom(process.env) ?? undefined;
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@react-pdf/renderer"],
   deploymentId: DEPLOYMENT_ID,
+  // With a deploymentId Next uses one constant BUILD_ID for every build; null keeps Next's random id per build, which
+  // the e2e lane's stale-build guard compares (`.next/BUILD_ID` vs `e2e-build-stamp.json`, RL-16).
+  generateBuildId: async () => null,
   env: { CLINICOS_BUILD_STAMP: BUILD_STAMP },
   // V2-06 06-05 (PWA_STRATEGY §3.7, §5; T-06-05): the service worker script is never cached by the browser or a proxy,
   // so a fixed or kill-switch worker reaches every device on its next check, and it may only run same-origin script.
