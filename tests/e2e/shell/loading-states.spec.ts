@@ -75,6 +75,11 @@ test.describe("the skeleton shows during a slow client navigation", () => {
       const nav = await holdNavigation(page, path);
       await page.goto(from);
       await expect(page.getByRole("main")).toBeVisible();
+      // 06-09e: wait for the page we start from to finish streaming (its own loading skeleton gone), so its content,
+      // which can hold a link of the same name (Today's "Live Queue" and "Calendar" buttons), is always on screen when
+      // the nav link is clicked. Before, the click raced Today's render: locally (a busy shared stack) Today was still
+      // its skeleton, on CI it had rendered, and the unscoped locator then matched two links (strict mode).
+      await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0, { timeout: 15_000 });
       await clickNavLink(page, name, nav);
       await expect(page.getByRole("status", { name: "Loading" })).toBeVisible();
       nav.release();

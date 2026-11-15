@@ -65,9 +65,16 @@ export async function holdNavigation(page: Page, pathname: string, holdMs?: numb
  * sheet is opened first (it closes on the click); the sidebar/rail links are visible from 768 px.
  */
 export async function clickNavLink(page: Page, name: string, nav: HeldNavigation): Promise<void> {
-  const primary = page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name, exact: true });
-  if (!(await primary.isVisible())) await page.getByRole("navigation", { name: "Primary" }).getByRole("button", { name: "More" }).click();
-  const link = page.getByRole("link", { name, exact: true });
+  // 06-09e: every locator is scoped to the shell's navigation (the visible Primary nav, or the More sheet). A page's own
+  // content can hold a link of the same name (Today's "Live Queue" and "Calendar" buttons), so an unscoped
+  // `getByRole("link", { name })` matched two links whenever that content had rendered (CI run 43705726084).
+  const primaryNav = page.getByRole("navigation", { name: "Primary" });
+  const primary = primaryNav.getByRole("link", { name, exact: true });
+  let link = primary;
+  if (!(await primary.isVisible())) {
+    await primaryNav.getByRole("button", { name: "More" }).click();
+    link = page.locator("[data-more-sheet]").getByRole("link", { name, exact: true });
+  }
   await expect(link).toBeVisible();
   await expect
     .poll(nav.prefetched, { message: `${name}: loading-boundary prefetch settled`, timeout: 15_000 })
