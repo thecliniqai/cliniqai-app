@@ -1,8 +1,9 @@
 /**
  * PWA spec 6 (PWA_STRATEGY §3.7, §6.6, §9.1; V2-06 06-06; R-16, R-21, R-28, R-29) on the built app.
  *
- * - The page carries the e2e deployment id (`data-dpl-id`) and `/api/session-status` reports the same one, so nothing
- *   happens on load. When the status route reports another deployment (rewritten with `page.route`), a
+ * - The page carries the e2e deployment id (`data-dpl-id` in the server HTML; Next's client moves it to
+ *   `globalThis.NEXT_DEPLOYMENT_ID` and removes the attribute before hydration) and `/api/session-status` reports the
+ *   same one, so nothing happens on load. When the status route reports another deployment (rewritten with `page.route`), a
  *   `visibilitychange` shows "A new version is ready · Reload"; "Reload" reloads (a `window` marker is gone).
  * - Safe point: with text typed into a form, a client navigation does NOT reload (the marker survives, the toast
  *   stays); with nothing typed, the next client navigation reloads by itself.
@@ -34,14 +35,40 @@ const SKEW = "This app was updated. Reload to continue.";
 /** Answers `/api/session-status` with the real body but another deployment id. */
 async function reportNewDeployment(page: Page): Promise<void> {
   await page.route("**/api/session-status", async (route) => {
-    const response = await route.fetch();
-    const body = (await response.json()) as Record<string, unknown>;
-    await route.fulfill({ response, json: { ...body, deploymentId: NEXT_DEPLOYMENT } });
+    try {
+      const response = await route.fetch();
+      const body = (await response.json()) as Record<string, unknown>;
+      await route.fulfill({ status: response.status(), headers: response.headers(), json: { ...body, deploymentId: NEXT_DEPLOYMENT } });
+    } catch {
+      // The page navigated away while the call was held (Playwright disposes the fetched response): nothing to answer.
+      await route.abort().catch(() => undefined);
+    }
   });
+}
+
+/** The page's deployment id as the runtime reads it (Next removes `data-dpl-id` from `<html>` before hydration). */
+async function pageDeploymentId(page: Page): Promise<unknown> {
+  return page.evaluate(() => (globalThis as { NEXT_DEPLOYMENT_ID?: unknown }).NEXT_DEPLOYMENT_ID);
 }
 
 async function resume(page: Page): Promise<void> {
   await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+}
+
+/** Opens `path` and waits for the runtime's first status check to finish (a resume during it shares that check). */
+async function openAndSettle(page: Page, path: string): Promise<void> {
+  const first = page.waitForResponse((res) => new URL(res.url()).pathname === "/api/session-status");
+  await page.goto(path);
+  await first;
+  await page.waitForTimeout(100);
+}
+
+/** Resumes until the update toast shows (a resume that lands on a still-running check is coalesced into it). */
+async function resumeUntilToast(page: Page, text: string): Promise<void> {
+  await expect(async () => {
+    await resume(page);
+    await expect(page.locator("[data-update-toast]").getByText(text)).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
 }
 
 async function setMarker(page: Page): Promise<void> {
@@ -69,7 +96,9 @@ test.describe("update toast and safe point (owner)", () => {
 
   test("@golden the page and the status route carry the same deployment id: no toast on load", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator("html")).toHaveAttribute("data-dpl-id", E2E_DEPLOYMENT_ID);
+    expect(await pageDeploymentId(page)).toBe(E2E_DEPLOYMENT_ID);
+    const html = await (await page.request.get("/", { maxRedirects: 0 })).text();
+    expect(html).toMatch(new RegExp(`<html[^>]* data-dpl-id="${E2E_DEPLOYMENT_ID}"`));
     const status = await page.request.get("/api/session-status", { maxRedirects: 0 });
     expect(status.status()).toBe(200);
     expect(status.headers()["cache-control"]).toMatch(/no-store/);
@@ -80,24 +109,23 @@ test.describe("update toast and safe point (owner)", () => {
   });
 
   test("@golden another deployment → the toast after a resume; Reload reloads", async ({ page }) => {
-    await page.goto("/");
-    await expect(page.locator("html")).toHaveAttribute("data-dpl-id", E2E_DEPLOYMENT_ID);
+    await openAndSettle(page, "/");
+    expect(await pageDeploymentId(page)).toBe(E2E_DEPLOYMENT_ID);
+    await expect(toast(page).getByText(READY)).toHaveCount(0);
     await reportNewDeployment(page);
     await setMarker(page);
-    await resume(page);
-    await expect(toast(page).getByText(READY)).toBeVisible();
+    await resumeUntilToast(page, READY);
     await toast(page).getByRole("button", { name: "Reload" }).click();
     await expect.poll(() => hasMarker(page).catch(() => false)).toBe(false);
     await expect(page).toHaveURL((url) => url.pathname === "/");
   });
 
   test("typed input: a client navigation does not reload; the next navigation (nothing typed) does", async ({ page }) => {
-    await page.goto("/settings/clinic");
+    await openAndSettle(page, "/settings/clinic");
     const name = page.getByLabel(/^Clinic Name/);
     await expect(name).toBeVisible();
     await reportNewDeployment(page);
-    await resume(page);
-    await expect(toast(page).getByText(READY)).toBeVisible();
+    await resumeUntilToast(page, READY);
     await setMarker(page);
     await name.pressSequentially(" draft");
 
@@ -112,10 +140,9 @@ test.describe("update toast and safe point (owner)", () => {
   });
 
   test("@golden nothing typed: the next client navigation applies the update (reload)", async ({ page }) => {
-    await page.goto("/");
+    await openAndSettle(page, "/");
     await reportNewDeployment(page);
-    await resume(page);
-    await expect(toast(page).getByText(READY)).toBeVisible();
+    await resumeUntilToast(page, READY);
     await setMarker(page);
     await navigate(page, "Patients", "/patients");
     await expect.poll(() => hasMarker(page).catch(() => false)).toBe(false);
@@ -146,7 +173,9 @@ test.describe("update toast and safe point (owner)", () => {
         });
       },
     );
-    await page.getByRole("button", { name: "Save Changes" }).click();
+    // Implicit submission (Enter in the field) rather than a click: on Pixel 7 the v1 modal overflows the viewport
+    // and its footer never settles for a click (a v1 layout defect outside 06-06).
+    await fullName.press("Enter");
 
     await expect(toast(page).getByText(SKEW)).toBeVisible();
     expect(intercepted).toBe(1);
@@ -163,13 +192,15 @@ test.describe("lock (D-8: the session is kept)", () => {
   test("@golden the subscription expires while Today is open → the real /billing/locked on resume, still signed in", async ({ page, context }) => {
     const owner = await seedTenantWithOwner(`PWA Lock ${readRunData().runTag} ${Date.now()}`);
     await uiSignIn(page, { email: owner.userEmail, password: seededUserPassword() });
-    await expect(page.locator("html")).toHaveAttribute("data-dpl-id", E2E_DEPLOYMENT_ID);
+    expect(await pageDeploymentId(page)).toBe(E2E_DEPLOYMENT_ID);
     const offset = logOffset(SERVER_STDOUT_LOG);
 
     await seedTenantSubscription(owner.tenantId, { status: "expired" });
-    await resume(page);
-
-    await page.waitForURL((url) => url.pathname === "/billing/locked");
+    // A resume that lands on the page's first check (still running) is coalesced into it: resume until the page leaves.
+    await expect(async () => {
+      if (new URL(page.url()).pathname !== "/billing/locked") await resume(page).catch(() => undefined);
+      await page.waitForURL((url) => url.pathname === "/billing/locked", { timeout: 1500 });
+    }).toPass({ timeout: 15_000 });
     await expect(page.getByRole("heading", { level: 1, name: "Your clinic's access is paused" })).toBeVisible();
     const authCookies = (await context.cookies()).filter((c) => /^sb-.*-auth-token/.test(c.name));
     expect(authCookies.length, "the session is kept (D-8)").toBeGreaterThan(0);

@@ -154,8 +154,9 @@ test("IND L-6: a session ended without hardSignOut purges the device on arrival 
   // Wait for the purges (this tab's on arrival, the other tab's before it leaves) WITHOUT touching Cache Storage: a read
   // racing them re-created, empty, the `rogue-cache` a purge had just deleted (deviceState's caches.open), and CI's read
   // in that window failed with WebKit's "TypeError: Internal error". The purge empties Cache Storage before storage.
+  // Device preferences only (D-3); from 06-06 the install card's session count is one of them.
   await expect
-    .poll(async () => (await storageKeys(page)).localKeys)
+    .poll(async () => (await storageKeys(page)).localKeys.filter((k) => k !== "clinicos.pref.signedInSessions"))
     .toEqual(["clinicos.pref.density"]);
   await expect(tab2).toHaveURL((url) => url.pathname === "/login", {
     timeout: 2_000,

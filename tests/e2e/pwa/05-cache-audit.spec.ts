@@ -140,7 +140,9 @@ async function expectPurged(page: Page) {
   expectAllowlistedOnly(state.cacheUrls);
   expect(state.cacheNames.filter((n) => n !== "static-v1" && !SHELL_CACHE.test(n))).toEqual([]);
   expect(state.sessionKeys).toEqual([]);
-  expect(state.localKeys).toEqual(["clinicos.pref.density"]);
+  // Only device preferences survive (D-3): the planted density, and from 06-06 the install card's session count.
+  expect(state.localKeys.filter((k) => !PREF_KEYS.includes(k))).toEqual([]);
+  expect(state.localKeys).toContain("clinicos.pref.density");
   expect(state.indexedDbNames).toEqual([]);
 }
 
@@ -167,6 +169,19 @@ async function menuItem(page: Page, name: string) {
   await page.getByRole("button", { name: /^Account menu/ }).click();
   await expect(page.getByRole("menu")).toBeVisible();
   return page.getByRole("menuitem", { name, exact: true });
+}
+
+/**
+ * 06-06: brings the tab back to the foreground (`visibilitychange`) until the session-status poll has signed it out. A
+ * resume that lands on a check already running is coalesced into it, so it is repeated until the page leaves.
+ */
+async function resumeUntilLogin(page: Page) {
+  await expect(async () => {
+    if (new URL(page.url()).pathname !== "/login") {
+      await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange"))).catch(() => undefined);
+    }
+    await page.waitForURL((url) => url.pathname === "/login", { timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
 }
 
 async function expectBackShowsNoPatient(page: Page) {
@@ -237,8 +252,7 @@ test.describe("exit paths (fresh nurse each)", () => {
 
     // This device has not been told (another browser): only the session-status poll can notice.
     await expect(page.getByText(readRunData().tenantA.patientName).first()).toBeVisible();
-    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    await page.waitForURL((url) => url.pathname === "/login");
+    await resumeUntilLogin(page);
     await expectPurged(page);
     expect(await authCookies(context)).toEqual([]);
     await expectBackShowsNoPatient(page);
@@ -268,8 +282,7 @@ test.describe("exit paths (fresh nurse each)", () => {
     expect(removal.error).toBeNull();
     await owner.auth.signOut({ scope: "local" });
 
-    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    await page.waitForURL((url) => url.pathname === "/login");
+    await resumeUntilLogin(page);
     await expectPurged(page);
     expect(await authCookies(context)).toEqual([]);
     await expectBackShowsNoPatient(page);

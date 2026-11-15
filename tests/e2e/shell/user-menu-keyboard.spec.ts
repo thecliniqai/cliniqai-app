@@ -51,7 +51,8 @@ async function dirtyDevice(page: Page) {
   const dirty = await deviceState(page);
   expect(dirty.cacheNames).toContain("rogue-cache");
   expect(dirty.indexedDbNames).toContain("rogue-db");
-  expect(dirty.sessionKeys).toEqual(["draftNote"]);
+  // 06-06: the shell also keeps the install card's per-session marker (a D-3 preference name) in sessionStorage.
+  expect(dirty.sessionKeys.filter((k) => !k.startsWith("clinicos.pref."))).toEqual(["draftNote"]);
 }
 
 test("account menu: Enter opens it, arrows move through the items, Escape returns focus; Sign out by keyboard signs out and purges", async ({
@@ -101,7 +102,8 @@ test("account menu: Enter opens it, arrows move through the items, Escape return
   await expect(page.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
   const after = await deviceState(page);
   expect(after.sessionKeys).toEqual([]);
-  expect(after.localKeys).toEqual(["clinicos.pref.density"]);
+  // Device preferences only (D-3): the planted density and, from 06-06, the install card's session count.
+  expect(after.localKeys.filter((k) => k !== "clinicos.pref.signedInSessions")).toEqual(["clinicos.pref.density"]);
   expect(after.cacheNames).not.toContain("rogue-cache");
   expect(after.indexedDbNames).toEqual([]);
   expect(await authCookies(context)).toEqual([]);
