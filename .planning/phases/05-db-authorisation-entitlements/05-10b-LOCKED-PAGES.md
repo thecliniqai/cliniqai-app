@@ -106,3 +106,12 @@ e2e lane lock (`scratchpad/e2e-lane.lock`, owner file) after port 3100 was free.
 - **V2-06 06-05/06-06:** `hardSignOut()` should replace the plain sign-out form of `AccessPageShell`; 06-06's
   `/api/session-status` returns `accessRedirect(...)`; client `SUBSCRIPTION_LOCKED` hard navigation.
 - **V2-13b (SUB-08):** styled locked pages with renewal and export; the onboarding billing profile and trial checkout.
+
+## Addendum (after 05-10c's first full Vitest run)
+
+`tests/ci/vitest-report-gate.spec.ts` pinned the old default floor (4633) in its expected message; 05-10b's floor
+change was measured before that spec could see it, and 05-10c's first full run reported 1 failure (5062/5063,
+`evidence/05b/05-10c/vitest-first-run-gate-spec-failure.json`). Fixed in `a7a0dae`; 05-10c then raised the floor to
+4810 and the final full run is 5063/5063.
+
+gitleaks (`v8.30.1`, repo config) over `5a1cc2b..cf819cb` (5 commits, 05-10b and 05-10c): **no leaks found**.
