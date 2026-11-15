@@ -192,7 +192,31 @@ test.describe("sign-out from a locked page", () => {
     expect(keys, "purged except the device preferences").not.toContain("recentPatient");
     expect(keys).toContain("clinicos.pref.density");
     expect((await page.context().cookies()).filter((c) => /^sb-.*-auth-token/.test(c.name)), "no auth cookie").toEqual([]);
+    // The session is gone: a dashboard page now asks for sign-in again (checked below).
     // The session is gone: a dashboard page now asks for sign-in again.
+    await page.goto("/queue");
+    await expect(page).toHaveURL((url) => url.pathname === "/login");
+  });
+
+  // V2-06 06-06: the locked page's sign-out is hardSignOut(), so it ends the session on this device even offline (the
+  // server call fails, the browser client and the cookie expiry sign this device out). The plain form POST it replaced
+  // cannot leave an offline page at all: the auth cookie stayed. Chromium only (Playwright's WebKit cannot navigate
+  // offline at all, 06-09a).
+  test("offline, the locked page's sign-out still signs this device out (hardSignOut's local path)", async ({ page, context, browserName }) => {
+    test.skip(browserName !== "chromium", "Playwright WebKit cannot navigate while emulating offline (06-09a)");
+    const user = accessRunUser(readRunData(), "locked-receptionist");
+    await page.goto("/login");
+    await page.getByLabel(/^Email/).fill(user.email);
+    await page.getByLabel(/^Password/).fill(runPassword());
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.waitForURL((url) => url.pathname === "/billing/locked/staff", { timeout: 30_000 });
+    const authCookies = async () => (await context.cookies()).filter((c) => /^sb-.*-auth-token/.test(c.name));
+    expect((await authCookies()).length).toBeGreaterThan(0);
+
+    await context.setOffline(true);
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect.poll(authCookies, { message: "no auth cookie after an offline sign-out", timeout: 15_000 }).toEqual([]);
+    await context.setOffline(false);
     await page.goto("/queue");
     await expect(page).toHaveURL((url) => url.pathname === "/login");
   });
