@@ -272,7 +272,7 @@ export function QueueView({
             </Button>
           </div>
         ) : (
-          <div className="grid gap-3">
+          <div className="grid grid-cols-1 gap-3">
             {filteredItems.map((item) => (
               <QueueCard
                 key={item.visit.id}

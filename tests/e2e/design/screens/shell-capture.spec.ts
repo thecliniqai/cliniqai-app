@@ -16,6 +16,11 @@ import { settle } from "../../m0/baseline/baseline-routes";
 
 const OUT = path.join(ROOT, "design-captures/06-04b");
 
+// V2-06 06-08: without the operator's label file the captures skip (the design lane runs everywhere, nightly included).
+test.beforeEach(() => {
+  test.skip(!fs.existsSync(path.join(OUT, "label.json")), "design-captures/06-04b/label.json is absent: not a 06-04b capture run");
+});
+
 function label(): string {
   const file = path.join(OUT, "label.json");
   const { label: value } = JSON.parse(fs.readFileSync(file, "utf8")) as { label?: unknown };

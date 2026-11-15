@@ -25,6 +25,12 @@ import { BASELINE_ROUTES, FLOW_SCREENS, settle } from "../../m0/baseline/baselin
 const NEUTRAL_DIR = path.join(ROOT, "design-captures/neutral");
 const LABEL_FILE = path.join(NEUTRAL_DIR, "label.json");
 
+// V2-06 06-08: outside an operator's capture run (no label file) the specs skip instead of failing, so the whole design
+// lane (`npm run e2e:design`, the nightly design job) runs everywhere; `neutral-diff.mjs capture` always writes the label.
+test.beforeEach(() => {
+  test.skip(!fs.existsSync(LABEL_FILE), `${path.relative(ROOT, LABEL_FILE)} is absent: not a neutral-diff capture run`);
+});
+
 function captureLabel(): string {
   if (!fs.existsSync(LABEL_FILE)) {
     throw new Error(`${path.relative(ROOT, LABEL_FILE)} is missing: run \`node scripts/design/neutral-diff.mjs capture --label <label>\``);

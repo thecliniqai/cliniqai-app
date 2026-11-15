@@ -203,7 +203,7 @@ export function QueueCard({ item, onRefresh, onCheckout, onRecordVitals }: Queue
       </div>
 
       {/* Actions */}
-      <div className="shrink-0 flex items-center justify-end gap-2">
+      <div className="shrink-0 flex flex-wrap items-center justify-end gap-2">
         <button
           type="button"
           onClick={() => onRecordVitals?.(item)}

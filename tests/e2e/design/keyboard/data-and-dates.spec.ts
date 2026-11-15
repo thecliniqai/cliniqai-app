@@ -12,6 +12,7 @@ import type { Locator, Page } from "@playwright/test";
 import { expect, test } from "../../fixtures";
 import { storageStatePath } from "../../support/run-data";
 import { expectFocusRing } from "../support/focus";
+import { freezeClock } from "../../support/clock";
 
 test.use({ storageState: storageStatePath("owner") });
 
@@ -19,30 +20,6 @@ test.use({ storageState: storageStatePath("owner") });
 const IST_2330_12_NOV = new Date("2026-11-12T18:00:00Z");
 /** 00:30 IST on Fri 13 Nov 2026 (19:00 UTC on 12 Nov). */
 const IST_0030_13_NOV = new Date("2026-11-12T19:00:00Z");
-
-/**
- * Freezes the page's clock at `at` without breaking `Date` subclasses. `TZDate` (@date-fns/tz, used by lib/datetime and
- * react-day-picker for the clinic zone) extends `Date` and proxies the methods it finds on `Date.prototype`. Playwright's
- * `page.clock` swaps in a `Date` whose constructor returns a plain native Date (the subclass prototype is lost), and a
- * `class extends Date` stand-in has a prototype with no own methods to proxy: both made
- * `new TZDate(18:00Z, "Asia/Kolkata").getDate()` read 13 (the browser's UTC+14 day) instead of 12
- * (evidence/06-02c/clock-probe.txt). This stand-in builds every date with `Reflect.construct(NativeDate, args,
- * new.target)` and shares the native prototype, so only `Date.now()` and `new Date()` change.
- */
-async function freezeClock(page: Page, at: Date) {
-  await page.addInitScript((ms: number) => {
-    const Native = Date;
-    function FrozenDate(this: unknown, ...args: unknown[]) {
-      if (!new.target) return Native();
-      return Reflect.construct(Native, args.length === 0 ? [ms] : args, new.target);
-    }
-    FrozenDate.prototype = Native.prototype;
-    FrozenDate.now = () => ms;
-    FrozenDate.parse = Native.parse;
-    FrozenDate.UTC = Native.UTC;
-    globalThis.Date = FrozenDate as unknown as DateConstructor;
-  }, at.getTime());
-}
 
 async function openGallery(page: Page, testInfo: { project: { name: string } }, clock?: Date) {
   test.skip(testInfo.project.name !== "desktop-chrome", "keyboard specs run once, on desktop Chromium");
