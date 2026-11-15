@@ -726,10 +726,11 @@ export function ConsultationWorkspace({
         </div>
       </nav>
 
-      {/* 3. MAIN WORKSPACE CONTAINER */}
+      {/* 3. MAIN WORKSPACE CONTAINER. A div, not <main>: the shell's <main id="main"> is the page's one main landmark
+          (CI 43712054628: a second <main> here made the consult expose two). */}
       <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="flex flex-col lg:flex-row gap-6 items-start">
-          <main
+          <div
             className="space-y-6 w-full transition-all duration-200"
           >
             {/* Returning Patient Catch-Up Summary */}
@@ -1264,7 +1265,7 @@ export function ConsultationWorkspace({
             </div>
           </div>
         </section>
-      </main>
+      </div>
     </div>
   </div>
 

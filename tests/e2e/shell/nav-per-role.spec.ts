@@ -119,4 +119,14 @@ test.describe("landmarks and skip link", () => {
       await expect(page.locator("#main")).toBeFocused();
     });
   }
+
+  // CI 43712054628: the v1 consult workspace wrapped its sections in a second `<main>`. It streams in about 250 ms
+  // after `page.goto`, so a spec that asked for `getByRole("main")` at once passed or hit a strict-mode violation by
+  // timing (a slow runner lost the race). Asserted after the workspace has rendered, so the count is final.
+  test("the consult (focus mode): one main landmark, the shell's, once the workspace has rendered", async ({ page }) => {
+    await page.goto(`/consultation/${readRunData().tenantA.visitId}`);
+    await expect(page.locator("section#vitals")).toBeVisible();
+    await expect(page.locator("main")).toHaveCount(1);
+    await expect(page.getByRole("main")).toHaveAttribute("id", "main");
+  });
 });
