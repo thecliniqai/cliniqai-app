@@ -5,7 +5,7 @@
  *   - every Inter and Manrope face the page declares has exactly the approved `unicode-range` of its `@font-face` in
  *     the V2-DX files at `3a78a5d` (evidence copies), so each subset downloads only for its characters;
  *   - a "₹" drawn in body text loads the Inter face whose range covers U+20B9 (Latin Extended), so ₹ is Inter's;
- *   - `/offline`: the product name renders in Manrope from a loaded face.
+ *   - `/offline`: the heading renders in Manrope 800 from a loaded face (06-09e: no product name beside the mark).
  * Before 06-01b: no `@font-face` existed and the system font rendered.
  *
  * Runs in the PR lane on desktop-chrome only (font loading does not depend on the device).
@@ -121,12 +121,17 @@ test("₹ in body text loads Inter's Latin Extended face, so the rupee sign is d
   expect(await page.evaluate(() => document.fonts.check('16px "Inter"', "₹"))).toBe(true);
 });
 
-test("/offline renders the product name in Manrope from a loaded face", async ({ page }) => {
+test("/offline renders its heading in Manrope 800 from a loaded face", async ({ page }) => {
   await page.goto("/offline");
   await page.evaluate(() => document.fonts.ready);
-  const name = page.getByText("CliniQ AI", { exact: true });
-  await expect(name).toBeVisible();
-  expect(await name.evaluate((el) => getComputedStyle(el).fontFamily)).toMatch(/^"?Manrope"?,/);
+  // 06-09e (design review M5): the approved page (`offline_360` at 3a78a5d) has the named mark and a Manrope 800
+  // title-1 heading; no product name is written beside the mark.
+  await expect(page.getByRole("img", { name: "CliniQ AI" })).toBeVisible();
+  const heading = page.getByRole("heading", { level: 1, name: "You're offline" });
+  await expect(heading).toBeVisible();
+  const style = await heading.evaluate((el) => ({ family: getComputedStyle(el).fontFamily, weight: getComputedStyle(el).fontWeight }));
+  expect(style.family).toMatch(/^"?Manrope"?,/);
+  expect(style.weight).toBe("800");
   const all = await faces(page);
   expect(all.some((f) => f.family === "Manrope" && f.status === "loaded"), JSON.stringify(all)).toBe(true);
 });

@@ -329,7 +329,9 @@ test("Tooltip: keyboard focus shows it and describes the control; Escape hides i
   await expect(trigger).toHaveAccessibleDescription("Search patients");
   // The visible bubble: Midnight fill, white text, with the shortcut hint.
   const bubble = page.locator('[data-overlay="tooltip"]');
-  await expect(bubble).toContainText("Ctrl K");
+  // 06-09e (L3): the hint follows the platform, as the top bar's does ("⌘K" on Apple platforms, else "Ctrl K").
+  const platform = await page.evaluate(() => navigator.platform);
+  await expect(bubble).toContainText(/Mac|iPhone|iPad/.test(platform) ? "⌘K" : "Ctrl K");
   const look = await bubble.evaluate((el) => ({ bg: getComputedStyle(el).backgroundColor, fg: getComputedStyle(el).color }));
   expect(look).toEqual({ bg: tokenColor("--color-fg"), fg: tokenColor("--color-surface") });
 

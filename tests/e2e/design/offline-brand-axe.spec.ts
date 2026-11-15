@@ -1,8 +1,8 @@
 /**
  * V2-06 06-01b UI checks (CLAUDE.md DoD 3; plan "UI checks"): the branded `/offline` page at the four design widths
  * (360/820/1180/1280), signed out. Each: 0 serious or critical axe violations (wcag2a, wcag2aa, wcag21aa, wcag22aa: the
- * M0 tags) on the whole page, no horizontal scroll, the brand mark drawn at 56 px (full geometry, decorative next to the
- * visible name "CliniQ AI"), and a full-page screenshot plus the axe result written to `design-captures/06-01b/`
+ * M0 tags) on the whole page, no horizontal scroll, the brand mark drawn at 56 px (full geometry, named "CliniQ AI":
+ * since 06-09e no product name is written beside it), and a full-page screenshot plus the axe result written to `design-captures/06-01b/`
  * (git-ignored; the summary JSON becomes the plan's evidence).
  *
  * PR lane, desktop-chrome only (an `*axe*` spec under design/ sets its own viewport; playwright.config.ts).
@@ -31,9 +31,11 @@ for (const { width, height } of DESIGN_WIDTHS) {
 
     const mark = page.locator('svg[data-mark="full"]');
     await expect(mark).toHaveCount(1);
-    await expect(mark).toHaveAttribute("aria-hidden", "true");
+    // 06-09e (design review M5): as the approved page (`offline_360` at 3a78a5d), no product name is written beside the
+    // mark, so the mark itself is named "CliniQ AI" (CD-35).
+    await expect(mark).toHaveAttribute("role", "img");
+    await expect(mark).toHaveAccessibleName("CliniQ AI");
     expect(await mark.boundingBox()).toMatchObject({ width: 56, height: 56 });
-    await expect(page.getByText("CliniQ AI", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "You're offline" })).toBeVisible();
     await expect(page).toHaveTitle("Offline · CliniQ AI");
 

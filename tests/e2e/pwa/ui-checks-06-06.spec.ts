@@ -108,7 +108,8 @@ test.describe("install surfaces (iOS path)", () => {
       await card.getByRole("button", { name: "Install app" }).click();
       const sheet = page.getByRole("dialog", { name: "Install CliniQ AI on this device" });
       await expect(sheet).toBeVisible();
-      await expect(sheet.getByText("Keep 'Open as Web App' on and tap Add")).toBeInViewport();
+      await expect(sheet.getByText("Keep Open as Web App on and tap Add")).toBeInViewport();
+      await expect(sheet.getByRole("button", { name: "Done" })).toBeInViewport();
       expect(await axeBlocking(page, testInfo, `install-sheet-${w.width}`, "[data-install-sheet]")).toEqual([]);
       await page.screenshot({ path: path.join(OUT, `install-sheet-${w.width}.png`) });
     });

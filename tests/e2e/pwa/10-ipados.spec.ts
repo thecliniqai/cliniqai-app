@@ -4,8 +4,8 @@
  * base fixture keeps the browser on loopback (`routeLoopbackOnly`).
  *
  * - iPadOS (Mac UA + touch): the user menu's "Install app" opens the iOS three-step sheet ("Tap Share", "Choose Add to
- *   Home Screen", "Keep 'Open as Web App' on and tap Add" + "You'll need to sign in once inside the app"), never an
- *   Android prompt. Without the touch points (a real Mac) there is no entry at all.
+ *   Home Screen", "Keep Open as Web App on and tap Add", the terms in bold, + "You'll need to sign in once inside the app"
+ *   and a Done button), never an Android prompt. Without the touch points (a real Mac) there is no entry at all.
  * - An `iPhone` UA does the same.
  * - A WhatsApp in-app browser UA gets "Open in Safari" guidance instead of the install steps.
  * - The Today card shows from the second signed-in browser session; "Not now" hides it (30 days, survives a reload);
@@ -46,7 +46,10 @@ async function expectIosSheet(page: Page): Promise<void> {
   await expect(sheet).toBeVisible();
   await expect(sheet).toHaveAttribute("data-install-sheet", "ios");
   const steps = sheet.getByRole("list", { name: "Steps" }).getByRole("listitem");
-  await expect(steps).toHaveText(["1Tap Share", "2Choose Add to Home Screen", "3Keep 'Open as Web App' on and tap Add"]);
+  await expect(steps).toHaveText(["1Tap Share", "2Choose Add to Home Screen", "3Keep Open as Web App on and tap Add"]);
+  // 06-09e (L6): the terms to tap are bold (no quotes), and a full-width Done closes the sheet.
+  await expect(steps.locator("b")).toHaveText(["Share", "Add to Home Screen", "Open as Web App", "Add"]);
+  await expect(sheet.getByRole("button", { name: "Done" })).toBeVisible();
   await expect(sheet.getByText("You'll need to sign in once inside the app.")).toBeVisible();
 }
 
@@ -80,7 +83,7 @@ test.describe("iPadOS (Mac user agent, touch)", () => {
     await page.goto("/");
     const card = page.locator("[data-install-card]");
     await expect(card).toBeVisible();
-    await expect(card.getByRole("heading", { name: "Add CliniQ AI to your Home Screen" })).toBeVisible();
+    await expect(card.getByRole("heading", { name: "Install CliniQ AI on this device" })).toBeVisible();
 
     const { visitId } = readRunData().tenantA;
     for (const path of ["/clinic/new", `/consultation/${visitId}`, "/queue", "/patients"]) {
