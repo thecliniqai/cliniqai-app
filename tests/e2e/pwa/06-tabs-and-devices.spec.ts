@@ -149,7 +149,13 @@ test("IND L-6: a session ended without hardSignOut purges the device on arrival 
 
   // The server ended the session (proxy revocation, reset sign-out): the cookies are gone, no hardSignOut ran.
   await context.clearCookies();
-  await page.goto("/patients");
+  // CI run 43724590429 (iphone-15, slow runner): with the cookies gone, the page's own session-status check (06-06; on
+  // resume/focus when tab2 opened) answered 401 and sent this tab to /login while the goto below was starting, so
+  // Playwright reported "interrupted by another navigation". Either route ends on /login, which is what this case
+  // tests; only that specific interruption is tolerated, and the URL is still asserted.
+  await page.goto("/patients").catch((error: unknown) => {
+    if (!String(error).includes("is interrupted by another navigation")) throw error;
+  });
   await expect(page).toHaveURL((url) => url.pathname === "/login");
   // Wait for the purges (this tab's on arrival, the other tab's before it leaves) WITHOUT touching Cache Storage: a read
   // racing them re-created, empty, the `rogue-cache` a purge had just deleted (deviceState's caches.open), and CI's read
