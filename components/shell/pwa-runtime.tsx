@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { registerServiceWorker } from "@/lib/pwa/register-sw";
 import { onSignOutElsewhere } from "@/lib/pwa/auth-broadcast";
 import { concealDocument, followSignOutElsewhere, hardSignOut } from "@/lib/auth/hard-sign-out";
-import { currentPageDeploymentId, startSessionStatusWatch } from "@/lib/pwa/session-status";
+import { checkSessionNow, currentPageDeploymentId, startSessionStatusWatch, type Reaction } from "@/lib/pwa/session-status";
 import { onLocked } from "@/lib/pwa/lock";
 import {
   applyUpdate,
@@ -28,6 +28,15 @@ const CONTROLLER_CHANGE_CAP_MS = 3000;
 
 let registrationRef: ServiceWorkerRegistration | null = null;
 
+/**
+ * "Check for updates" (06-04b, More sheet; PWA §3.7): asks the waiting-worker check and the deployment check now.
+ * Resolves `"update"` when another deployment answered (the update toast is then showing), else what the check did.
+ */
+export async function checkForUpdatesNow(): Promise<Reaction | "skipped"> {
+  checkForWorkerUpdate(registrationRef);
+  return checkSessionNow();
+}
+
 function browserApplyDeps(): ApplyDeps {
   return {
     waitingWorker: () => registrationRef?.waiting ?? null,
@@ -49,7 +58,8 @@ function browserApplyDeps(): ApplyDeps {
 
 /**
  * The PWA runtime of the authenticated shell (V2-06 06-05, 06-06; PWA_STRATEGY §3.6, §3.7, §5, §6), mounted once by
- * `app/(dashboard)/layout.tsx`; 06-04b re-homes it in the new shell.
+ * the app shell (`components/shell/app-shell.tsx`, 06-04b), inside its root so the offline banner can sit above the
+ * BottomBar. The update toast is a `sonner` toast since 06-04b (the shell mounts the Toaster).
  *
  * - 06-05: registers the service worker (only when the server layout passes `swEnabled`: `APP_ENV` is not
  *   `development`) and shows the offline banner.

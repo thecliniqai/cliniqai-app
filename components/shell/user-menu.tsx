@@ -7,8 +7,9 @@ import { hardSignOut } from "@/lib/auth/hard-sign-out";
 import { cn } from "@/lib/utils";
 import { FOCUS_RING, TRANSITION } from "@/lib/ui/variants";
 import { InstallMenuItem } from "@/components/shell/install-entry";
+import { initialsOf } from "@/components/shell/shell-user";
 
-export interface UserDropdownProps {
+export interface UserMenuProps {
   userEmail: string;
   role: string;
   tenantName: string;
@@ -28,6 +29,11 @@ export interface UserDropdownProps {
  * V2-06 06-02b (03-12b carry-over): the menu is the DropdownMenu adapter, so the account button announces
  * `aria-expanded`, the arrows move through the items (wrapping), Escape closes and focus returns to the button, and a
  * submit item keeps the menu (and its form) mounted while the form submits. The links are menu items themselves.
+ *
+ * V2-06 06-04b: re-homed as the top bar's account menu (06-UI-SPEC §6 TopBar): an avatar button (28 px initials in a
+ * 36 px target, 44 on touch) named "Account menu", the v1 items and names, "Sign out" items last after a separator.
+ * No tooltip on the trigger: Escape returns focus to it, and a tooltip opening then would only repeat its name (the
+ * 06-02b open item, decided here for every menu trigger in the shell).
  */
 function SignOutForm({
   scope,
@@ -52,7 +58,7 @@ function SignOutForm({
   );
 }
 
-export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps) {
+export function UserMenu({ userEmail, role, tenantName }: UserMenuProps) {
   const [signingOut, setSigningOut] = useState<"local" | "global" | "switch" | null>(null);
 
   const signOut = (event: React.FormEvent<HTMLFormElement> | null, kind: "local" | "global" | "switch") => {
@@ -62,28 +68,24 @@ export function UserDropdown({ userEmail, role, tenantName }: UserDropdownProps)
     void hardSignOut(kind === "global" ? "everywhere" : kind === "switch" ? "switch" : "user");
   };
 
-  const initials = userEmail
-    ? userEmail.slice(0, 2).toUpperCase()
-    : "US";
-
   // A real button, so the menu (and sign-out) is reachable from the keyboard; the click bubbles to the Dropdown toggle.
   const trigger = (
     <button
       type="button"
       aria-haspopup="menu"
-      aria-label={`Account menu (${userEmail})`}
+      aria-label="Account menu"
+      data-account-menu=""
       className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-lg p-1 hover:bg-surface-muted data-[state=open]:bg-surface-muted",
+        "flex size-control-dense shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-surface-muted data-[state=open]:bg-surface-muted touch:size-control",
         TRANSITION,
         FOCUS_RING,
       )}
     >
-      <span className="flex size-9 items-center justify-center rounded-full bg-accent text-label font-semibold text-fg-on-accent">
-        {initials}
-      </span>
-      <span className="hidden text-start text-label sm:block">
-        <span className="block max-w-[120px] truncate font-medium text-fg">{userEmail}</span>
-        <span className="block text-fg-secondary capitalize">{role}</span>
+      <span
+        aria-hidden="true"
+        className="flex size-7 items-center justify-center rounded-pill bg-surface-muted text-caption font-semibold text-fg"
+      >
+        {initialsOf(userEmail)}
       </span>
     </button>
   );

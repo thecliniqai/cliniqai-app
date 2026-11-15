@@ -149,6 +149,8 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/patients/actions.ts#getPatients": "patients:view",
   "features/patients/actions.ts#getPatientVisitHistory": "patients:view",
   "features/patients/actions.ts#searchPatients": "patients:view",
+  // V2-06 06-04b (T-06-17): the command palette's patient search; four fields per patient, nothing stored.
+  "features/patients/actions.ts#searchPatientsForPalette": "patients:view",
   "features/patients/actions.ts#updatePatient": "patients:edit",
   "features/patients/consent.ts#getCurrentConsent": "patients:view",
   "features/patients/consent.ts#grantConsent": "patients:edit",
@@ -166,6 +168,8 @@ export const ACTION_GUARDS: Record<string, ActionGuard> = {
   "features/prescriptions/actions.ts#sharePrescriptionViaWhatsApp": "prescriptions:view",
   "features/queue/actions.ts#checkInVisit": "appointments:edit",
   "features/queue/actions.ts#getQueueForDate": "appointments:view",
+  // V2-06 06-04b: the command palette's "Today queue" group; four fields per match.
+  "features/queue/actions.ts#searchTodayQueueForPalette": "appointments:view",
   "features/queue/actions.ts#transitionQueueState": "appointments:edit",
   "features/referrals/actions.ts#acknowledgeReferral": "consultations:edit",
   "features/referrals/actions.ts#closeReferralLoop": "consultations:edit",

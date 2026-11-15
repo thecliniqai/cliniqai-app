@@ -2,10 +2,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveMembership, getTenantAccessLevel, NoClinicMembershipError } from "@/lib/auth/tenant";
 import { accessRedirect } from "@/lib/auth/access-redirect";
-import { AppLayoutShell } from "@/components/layout/app-layout-shell";
+import { AppShell } from "@/components/shell/app-shell";
+import { navForRole } from "@/lib/nav/nav-for-role";
 import { resolveTimeZone } from "@/lib/datetime";
 import { ClinicTimeZoneProvider } from "@/lib/datetime/client";
-import { PwaRuntime } from "@/components/shell/pwa-runtime";
 import { serverEnv } from "@/lib/env-server";
 
 /**
@@ -68,16 +68,18 @@ export default async function DashboardLayout({
   // Every client component below reads the clinic's zone from here (V2-03 03-05); the browser zone is never used.
   // V2-06 06-05: the PWA runtime (service worker, offline banner) runs only in the signed-in shell; `next dev` never
   // registers the worker (its chunks are not content-hashed, so caching them would serve stale code).
+  // V2-06 06-04b: the app shell. The navigation model is resolved HERE, from the session's role and the permission
+  // matrix (`navForRole`, T-06-16); the client only renders it. The pages keep their own guards.
   return (
     <ClinicTimeZoneProvider timeZone={resolveTimeZone(tenant?.timezone)}>
-      <PwaRuntime swEnabled={serviceWorkerEnabled()} />
-      <AppLayoutShell
-        tenantName={tenant?.name || "Clinic"}
-        role={membership.role}
-        userEmail={user.email || "staff@clinic.com"}
+      <AppShell
+        model={navForRole(membership.role)}
+        clinicName={tenant?.name || "Clinic"}
+        user={{ email: user.email || "", role: membership.role }}
+        swEnabled={serviceWorkerEnabled()}
       >
         {children}
-      </AppLayoutShell>
+      </AppShell>
     </ClinicTimeZoneProvider>
   );
 }

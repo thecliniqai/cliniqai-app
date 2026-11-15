@@ -8,7 +8,7 @@ import { dismissInstallCard, useInstallCardVisible, useInstallMode } from "@/lib
 
 /**
  * The Today install card (V2-06 06-06; PWA_STRATEGY §6.1): "Add CliniQ AI to your Home Screen". Rendered only by
- * Today (`app/(dashboard)/page.tsx`), never on login, onboarding, a consult or checkout. It shows from the device's
+ * Today (`app/(dashboard)/(today)/page.tsx`), never on login, onboarding, a consult or checkout. It shows from the device's
  * second signed-in browser session on, while an install path exists (`useInstallMode`), and "Not now" hides it for
  * 30 days. Installed or standalone: never. Device preferences only (D-3), read after hydration
  * (`useSyncExternalStore`, so the server render and hydration show nothing).

@@ -17,6 +17,7 @@ import { DataSection } from "./sections/data";
 import { DatesSection } from "./sections/dates";
 import { FormsSection } from "./sections/forms";
 import { OverlaysSection } from "./sections/overlays";
+import { ShellSection } from "./sections/shell";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export default function GalleryPage() {
         <ClinicalASection />
         <ClinicalBSection />
         <AiSection />
+        <ShellSection />
       </main>
     </div>
   );
