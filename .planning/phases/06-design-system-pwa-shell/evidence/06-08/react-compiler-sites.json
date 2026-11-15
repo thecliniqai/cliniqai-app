@@ -1,0 +1,344 @@
+{
+  "generatedBy": "eslint (npx eslint . -f json) at 136cd04 (before, rules at warn) and at the 06-08 tree (after, rules at error + waivers)",
+  "before": {
+    "rulesAt": "warn",
+    "total": 33,
+    "byRule": {
+      "set-state-in-effect": 27,
+      "purity": 5,
+      "immutability": 1
+    },
+    "sites": [
+      {
+        "file": "app/(dashboard)/patients/new/page.tsx",
+        "line": 57,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "app/(dashboard)/settings/billing/page.tsx",
+        "line": 72,
+        "rule": "purity",
+        "severity": "warn"
+      },
+      {
+        "file": "app/reschedule/[token]/page.tsx",
+        "line": 46,
+        "rule": "immutability",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/booking-drawer.tsx",
+        "line": 98,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/booking-drawer.tsx",
+        "line": 103,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/booking-drawer.tsx",
+        "line": 114,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/booking-drawer.tsx",
+        "line": 123,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/calendar-view.tsx",
+        "line": 208,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/waitlist-drawer.tsx",
+        "line": 55,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/waitlist-drawer.tsx",
+        "line": 62,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/amendment-modal.tsx",
+        "line": 32,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/chief-complaints-section.tsx",
+        "line": 57,
+        "rule": "purity",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/consultation-workspace.tsx",
+        "line": 275,
+        "rule": "purity",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/diagnosis-section.tsx",
+        "line": 96,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/diagnosis-section.tsx",
+        "line": 118,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/diagnosis-section.tsx",
+        "line": 157,
+        "rule": "purity",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/frequent-rx-chips.tsx",
+        "line": 29,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/prescription-builder.tsx",
+        "line": 100,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/prescription-builder.tsx",
+        "line": 122,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/returning-patient-catchup.tsx",
+        "line": 41,
+        "rule": "purity",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/sign-and-bill-modal.tsx",
+        "line": 91,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/notifications/use-notifications.ts",
+        "line": 55,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/patients/age-dob-input.tsx",
+        "line": 35,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/patients/age-dob-input.tsx",
+        "line": 41,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/patients/edit-patient-modal.tsx",
+        "line": 60,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/patients/patient-directory-table.tsx",
+        "line": 56,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/patients/patient-lab-documents.tsx",
+        "line": 117,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/checkout-drawer.tsx",
+        "line": 115,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/checkout-drawer.tsx",
+        "line": 161,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/triage-vitals-modal.tsx",
+        "line": 49,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/walk-in-drawer.tsx",
+        "line": 72,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/walk-in-drawer.tsx",
+        "line": 79,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/walk-in-drawer.tsx",
+        "line": 86,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      }
+    ]
+  },
+  "after": {
+    "rulesAt": "error; waived files warn",
+    "eslintErrors": 0,
+    "total": 20,
+    "byRule": {
+      "set-state-in-effect": 20
+    },
+    "allWaived": true,
+    "sites": [
+      {
+        "file": "app/(dashboard)/patients/new/page.tsx",
+        "line": 57,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/booking-drawer.tsx",
+        "line": 98,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/booking-drawer.tsx",
+        "line": 103,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/booking-drawer.tsx",
+        "line": 114,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/booking-drawer.tsx",
+        "line": 123,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/waitlist-drawer.tsx",
+        "line": 55,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/calendar/waitlist-drawer.tsx",
+        "line": 62,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/diagnosis-section.tsx",
+        "line": 102,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/diagnosis-section.tsx",
+        "line": 124,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/frequent-rx-chips.tsx",
+        "line": 29,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/prescription-builder.tsx",
+        "line": 100,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/consultation/prescription-builder.tsx",
+        "line": 122,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/notifications/use-notifications.ts",
+        "line": 55,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/patients/patient-directory-table.tsx",
+        "line": 56,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/patients/patient-lab-documents.tsx",
+        "line": 117,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/checkout-drawer.tsx",
+        "line": 115,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/checkout-drawer.tsx",
+        "line": 161,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/walk-in-drawer.tsx",
+        "line": 72,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/walk-in-drawer.tsx",
+        "line": 79,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      },
+      {
+        "file": "components/queue/walk-in-drawer.tsx",
+        "line": 86,
+        "rule": "set-state-in-effect",
+        "severity": "warn"
+      }
+    ]
+  },
+  "fixed": 13
+}

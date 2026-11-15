@@ -1,0 +1,2 @@
+react-compiler-waivers: 11 entr(ies) in 11 file(s), 20 waived site(s)
+react-compiler-waivers: PASS
