@@ -1,0 +1,25 @@
+$ node vitest-gate-negatives.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05b/full-run-1.json   (source: close/vitest-gate-negatives.mjs.txt; variants DERIVED from the real run-1 report; gate = the repo's scripts/ci/assert-vitest-report.mjs)
+
+### baseline (the real report, unchanged): exit 0
+vitest-report-gate: files=260 tests=5080 passed=5080 failed=0 skipped/todo=0 floor=4826 required=173
+vitest-report-gate: PASS
+
+### required file removed (tests/staff/invite-dedupe-role.spec.ts): exit 1
+vitest-report-gate: files=259 tests=5078 passed=5078 failed=0 skipped/todo=0 floor=4826 required=173
+FAIL required spec file missing: tests/staff/invite-dedupe-role.spec.ts
+
+### one test dropped by it.skip (tests/ai/ai-commit-expiry-race.spec.ts, first test): exit 1
+vitest-report-gate: files=260 tests=5080 passed=5079 failed=0 skipped/todo=1 floor=4826 required=173
+FAIL test skipped (0 skipped allowed): tests/ai/ai-commit-expiry-race.spec.ts > ai_commit after the usage-row lock, at the wall clock (re-verification N-1) a commit that arrives while the reservation is live but gets the usage row only after expiry is refused; the period ends at exactly 1,500
+
+### every test of a required file dropped (tests/ai/ai-commit-expiry-race.spec.ts): exit 1
+vitest-report-gate: files=260 tests=5078 passed=5078 failed=0 skipped/todo=0 floor=4826 required=173
+FAIL required spec file has no passed test: tests/ai/ai-commit-expiry-race.spec.ts
+
+### suite shrinks to one test below the floor (tests removed from many files, each file keeps one): exit 1
+vitest-report-gate: files=260 tests=4825 passed=4825 failed=0 skipped/todo=0 floor=4826 required=173
+FAIL total 4825 is below the floor 4826 (suite shrank?)
+
+### one passing test removed from a required file that keeps others (95 % rule: not a gate failure by design): exit 0
+vitest-report-gate: files=260 tests=5079 passed=5079 failed=0 skipped/todo=0 floor=4826 required=173
+vitest-report-gate: PASS

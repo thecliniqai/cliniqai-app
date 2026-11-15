@@ -1,0 +1,126 @@
+#!/usr/bin/env node
+// 05b gate: per-criterion tool output. Reads the phase-evidence outputs in <evidence-dir> (full-run-<n>.json from the
+// Vitest JSON reporter, pgtap-run-<n>.tap from `npm run test:pgtap`) and prints, for every 05b acceptance criterion,
+// each named spec / pgTAP file with its passed/total counts per run. Prints counts only (no test data).
+// Usage (copy to a .mjs file outside .planning; the repo lints .planning as app code): node acceptance-extract.mjs <evidence-dir> [runs=2]
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+// Run from the repository root: the gate parser is the repo's own scripts/ci/assert-pgtap-report.mjs.
+const { checkPgTapReport } = await import(pathToFileURL(resolve("scripts/ci/assert-pgtap-report.mjs")).href);
+
+const dir = resolve(process.argv[2] ?? ".");
+const runs = Number(process.argv[3] ?? 2);
+
+const CRITERIA = [
+  ["A1 pgTAP matrix covers 100% of tenant tables and passes (05b: status x access levels; roles x full in 05a)", {
+    pgtap: ["authz_completeness", "authz_matrix", "authz_helpers", "definer_functions", "access_lock_rls", "remove_member", "grants"],
+    vitest: ["tests/authz/table-matrix.spec.ts", "tests/authz/generator-drift.spec.ts", "tests/ci/pgtap-report.spec.ts"],
+  }],
+  ["A4 a removed member reads 0 rows with a still-valid JWT", {
+    pgtap: ["remove_member", "authz_matrix"],
+    vitest: ["tests/integration/auth/remove-member.spec.ts", "tests/security/membership-guard.spec.ts"],
+  }],
+  ["A8 p_now past access_ends_at -> 0 rows from every clinical table and storage bucket", {
+    pgtap: ["billing_access", "access_lock_rls", "authz_matrix", "definer_functions"],
+    vitest: ["tests/subscriptions/lock-enforcement.spec.ts", "tests/subscriptions/locked-redirects.spec.ts"],
+  }],
+  ["A9 authenticated cannot execute any billing_internal.* function", {
+    pgtap: ["billing_grants"],
+    vitest: [],
+  }],
+  ["A10 one invite sends exactly one email under retry", {
+    pgtap: ["invitations_v2", "invitation_accept_context", "invitation_binding"],
+    vitest: ["tests/integration/auth/invite-delivery.spec.ts", "tests/jobs/email-invite-handler.spec.ts", "tests/integration/auth/accept-invite.spec.ts", "tests/auth/turnstile-verify.spec.ts", "tests/auth/invite.spec.ts", "tests/security/invite-token-lockout.spec.ts", "tests/staff/reinvite-role.spec.ts", "tests/staff/invite-dedupe-role.spec.ts"],
+  }],
+  ["A11 after 05-10 every existing DB suite stays green; test tenants trialing or comped (whole-suite counts below)", {
+    pgtap: ["subscription_invariant", "drop_v1_subscriptions"],
+    vitest: ["tests/helpers/subscription.spec.ts", "tests/integration/subscription.spec.ts", "tests/integration/demo-clinic-seed.spec.ts", "tests/security/cross-tenant.spec.ts"],
+  }],
+  ["A12 seeded Standard price: base 149900 at 1800 bp -> 176882 paise", {
+    pgtap: ["billing_catalogue"],
+    vitest: [],
+  }],
+  ["A13 only Standard purchasable; set_product_availability refuses without an active provider price; trialing has ai.scribe 1,500, active Standard none", {
+    pgtap: ["billing_catalogue", "platform_rpcs", "billing_entitlements", "ai_gating_l2"],
+    vitest: [],
+  }],
+  ["Note: create_clinic_with_owner creates incomplete tenants; seeds set a subscription row", {
+    pgtap: ["subscription_invariant"],
+    vitest: ["tests/helpers/subscription.spec.ts"],
+  }],
+  ["Roadmap test: generated matrix roles x access levels; has_permission parity", {
+    pgtap: ["authz_matrix", "authz_helpers"],
+    vitest: ["tests/permissions/has-permission-parity.spec.ts"],
+  }],
+  ["Roadmap test: time-travel pgTAP for trial, grace, expiry and archive", {
+    pgtap: ["billing_access"],
+    vitest: [],
+  }],
+  ["Roadmap test: concurrency for ai_reserve (and ai_commit, N-1)", {
+    pgtap: ["ai_quota", "gate_close_05b"],
+    vitest: ["tests/ai/ai-reserve-concurrency.spec.ts", "tests/ai/ai-commit-expiry-race.spec.ts"],
+  }],
+  ["Roadmap test: invite pgTAP cases", {
+    pgtap: ["invitations_v2", "invitation_accept_context"],
+    vitest: [],
+  }],
+  ["05-b0 contract of 05a (clinical columns, legacy helpers, link_url VALIDATE) + v1 subscription tables dropped (05-09c)", {
+    pgtap: ["contract_05a", "drop_v1_subscriptions", "clinical_notes"],
+    vitest: ["tests/security/role-rls.spec.ts"],
+  }],
+  ["05b review fixes (05-12: H-AITZ, M-AIEXP, M-CANCEL, M-REINVITE, Lows) and gate close (000094: N-1, N-2, objection ruling)", {
+    pgtap: ["review_fixes_05b", "gate_close_05b", "tenant_local_dates"],
+    vitest: ["tests/staff/reinvite-role.spec.ts", "tests/messaging/msg91-webhook.spec.ts", "tests/integration/ist-boundaries.spec.ts", "tests/utils/datetime.spec.ts", "tests/ai/ai-commit-expiry-race.spec.ts", "tests/staff/invite-dedupe-role.spec.ts", "tests/security/share-path-encoding.spec.ts"],
+  }],
+];
+
+const vitestRuns = [];
+const pgtapRuns = [];
+for (let n = 1; n <= runs; n++) {
+  const vf = join(dir, `full-run-${n}.json`);
+  const pf = join(dir, `pgtap-run-${n}.tap`);
+  vitestRuns.push(existsSync(vf) ? JSON.parse(readFileSync(vf, "utf8")) : null);
+  pgtapRuns.push(existsSync(pf) ? checkPgTapReport(readFileSync(pf, "utf8")) : null);
+}
+
+const vitestCounts = (report, spec) => {
+  if (!report) return "no report";
+  const file = report.testResults.find((t) => t.name.endsWith(`/${spec}`));
+  if (!file) return "MISSING";
+  const total = file.assertionResults.length;
+  const passed = file.assertionResults.filter((a) => a.status === "passed").length;
+  return `${passed}/${total}${passed === total && total > 0 ? "" : " NOT ALL PASSED"}`;
+};
+const pgtapCounts = (report, name) => {
+  if (!report) return "no report";
+  const f = report.files.find((x) => x.name.endsWith(`/${name}.test.sql`));
+  if (!f) return "MISSING";
+  return `${f.passed}/${f.planned}${f.passed === f.planned && f.ran === f.planned ? "" : " NOT ALL PASSED"}`;
+};
+
+let bad = 0;
+for (const [title, { pgtap, vitest }] of CRITERIA) {
+  console.log(`\n${title}`);
+  for (const p of pgtap) {
+    const c = pgtapRuns.map((r) => pgtapCounts(r, p));
+    if (c.some((x) => /MISSING|NOT|no report/.test(x))) bad++;
+    console.log(`  pgTAP  ${p}.test.sql  ${c.map((x, i) => `run${i + 1}=${x}`).join("  ")}`);
+  }
+  for (const v of vitest) {
+    const c = vitestRuns.map((r) => vitestCounts(r, v));
+    if (c.some((x) => /MISSING|NOT|no report/.test(x))) bad++;
+    console.log(`  vitest ${v}  ${c.map((x, i) => `run${i + 1}=${x}`).join("  ")}`);
+  }
+}
+for (let n = 0; n < runs; n++) {
+  const v = vitestRuns[n];
+  const p = pgtapRuns[n];
+  console.log(
+    `\nrun${n + 1}: vitest ${v ? `files=${v.numTotalTestSuites ?? "?"} tests=${v.numTotalTests} passed=${v.numPassedTests} failed=${v.numFailedTests} pending=${v.numPendingTests} todo=${v.numTodoTests} success=${v.success}` : "no report"}` +
+      `; pgTAP ${p ? `files=${p.counts.files} tests=${p.counts.total} passed=${p.counts.passed} gate=${p.problems.length ? "FAIL" : "PASS"}` : "no report"}`,
+  );
+}
+console.log(`\nacceptance-extract: ${bad === 0 ? "every named spec and pgTAP file passed in every run" : `${bad} item(s) missing or not all passed`}`);
+process.exit(bad === 0 ? 0 : 1);

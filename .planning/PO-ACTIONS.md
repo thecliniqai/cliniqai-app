@@ -32,6 +32,9 @@ The PO asked for only the items that need a decision or money; Claude handles th
 - **D-1 · Design sign-off (G2-D).** **Done on 2026-11-13: theme A + Inter.**
 - **05-P6 · Approve the V2-05a gate** (2026-11-14): `05a-VERIFICATION.md` and `05a-SUMMARY.md` in
   `.planning/phases/05-db-authorisation-entitlements/`. Decision only; nothing to pay or configure.
+- **05-P6 · Approve the V2-05b gate** (2026-11-15): `05b-VERIFICATION.md` and `05b-SUMMARY.md` (same folder). Decision
+  only. It includes the CTO rulings you may overturn (ADR-0005 A4, the SUB §8.1 actor erratum, owners may clear a
+  patient's AI objection, `/gsd-secure-phase` replaced by the review set).
 
 **Clicks only, after B-1…B-4 (exact steps are in each item below):**
 03-E1a dump the v1 schema → 03-E2 staging Supabase project (Mumbai) → 03-E6R Resend domain auth.thecliniqai.com →
@@ -559,7 +562,7 @@ local backup self-test and drill, the template and its policy checks, the workfl
 
 ## V2-05 Database authorisation & entitlements
 
-Source: `.planning/phases/05-db-authorisation-entitlements/05-PLAN.md` §PO actions (verbatim, revised 2026-11-13 post V2-03). **05a code-complete (2026-11-14): gate awaits your approval (05-P6), see `05a-VERIFICATION.md`.** 05b not started.
+Source: `.planning/phases/05-db-authorisation-entitlements/05-PLAN.md` §PO actions (verbatim, revised 2026-11-13 post V2-03). **05a code-complete (2026-11-14): gate awaits your approval (05-P6), see `05a-VERIFICATION.md`.** **05b code-complete (2026-11-15): gate awaits your approval (05-P6), see `05b-VERIFICATION.md`.** After the 05b merge you approve two staging runs (05-P3) and set one secret (05-P7); everything else below is delegated or optional.
 
 The orchestrator copies these into `.planning/PO-ACTIONS.md` under "V2-05 Database authorisation, integrity &
 entitlements". No secret value appears here. Nothing below blocks local work; 05-P1 blocks the merges; 05-P2…05-P5
@@ -644,6 +647,13 @@ staging is not live yet, 05-P2/05-P3 are moot until it is (the first bring-up ap
   and checked by the drift `auth-config` job (`supabase/auth-policy.json` row `email_confirmations`). Since 05a it is
   also a security dependency: invitation redemption binds to the caller's **confirmed** email (H-INVITE). Do not turn it
   off; if a drift run reports it, that is a blocker.
+
+- [d] **05-P10 · Staging migrate of 05b: diagnostics and order (no decision, no cost)** — delegated to the CTO (05b
+  close, 2026-11-15). Claude runs the counts-only diagnostics through the PO-approved staging workflow before 05-P3:
+  D12z (clinics whose time zone is not an IANA name: 000093 stops on any) and D12c (delivery rows left open by cancelled
+  jobs) before 000092/000093, and follows the order in `05b-SUMMARY.md` § Deploy notes (05a merged and 05-P2 done
+  first, R-37). Staging holds synthetic clinics only, so its clinics lock when 000090 applies until the 05-P3 re-seed
+  right after the migrate. A non-zero blocking count is raised to you before the migrate.
 
 - [ ] **05-P7 · Turnstile secret for the app on staging (05-07b, R-46)**
   - *Do / where:* Vercel → `clinicos-staging` → Settings → Environment Variables (Production scope only, as 03-E4):

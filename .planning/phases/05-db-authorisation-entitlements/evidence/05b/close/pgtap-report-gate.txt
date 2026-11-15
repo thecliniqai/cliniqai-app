@@ -1,0 +1,8 @@
+$ node scripts/ci/assert-pgtap-report.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05b/pgtap-run-1.tap
+pgtap-report-gate: files=47 tests=7892 passed=7892 failed=0 skipped/todo=0 floor=7892 required=47
+pgtap-report-gate: PASS
+exit 0
+$ node scripts/ci/assert-pgtap-report.mjs .planning/phases/05-db-authorisation-entitlements/evidence/05b/pgtap-run-2.tap
+pgtap-report-gate: files=47 tests=7892 passed=7892 failed=0 skipped/todo=0 floor=7892 required=47
+pgtap-report-gate: PASS
+exit 0
