@@ -24,6 +24,20 @@ export function redirectIfUnauthenticated(err: unknown): void {
   if (isUnauthenticated(err)) redirect("/login");
 }
 
+/** A record id as the record layouts accept it (a UUID); anything else is "not found" without a lookup (06-09c). */
+export const RECORD_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * V2-06 06-09c (IND L-2): a record layout's lookup failed (database or network error). Not "not found": the route
+ * error boundary handles it. Carries no database text (IR-L1).
+ */
+export class RecordLookupError extends Error {
+  constructor() {
+    super("The record could not be loaded.");
+    this.name = "RecordLookupError";
+  }
+}
+
 export function isTenantLocked(err: unknown): err is TenantLockedError {
   return err instanceof TenantLockedError || (err instanceof Error && err.name === "TenantLockedError");
 }

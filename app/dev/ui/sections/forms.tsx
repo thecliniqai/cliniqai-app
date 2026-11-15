@@ -671,9 +671,14 @@ function ChoiceGroups() {
 
 function OfflineGroup() {
   const [saved, setSaved] = useState(0);
+  const [notes, setNotes] = useState(0);
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSaved((n) => n + 1);
+  };
+  const submitNote = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setNotes((n) => n + 1);
   };
   return (
     <GalleryGroup
@@ -706,6 +711,20 @@ function OfflineGroup() {
             {saved === 0
               ? "Not saved yet"
               : `Saved ${saved} ${saved === 1 ? "time" : "times"}`}
+          </span>
+        </div>
+      </form>
+      {/* 06-09c (IND L-5): a Button with no `type` inside a form is a submit button too (HTML's default). */}
+      <form onSubmit={submitNote} className="flex w-full flex-col gap-3 sm:w-80" data-testid="offline-form-implicit">
+        <Field label="Note">
+          <Input kind="name" defaultValue="Review in a week" />
+        </Field>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" data-testid="offline-submit-implicit">
+            Save note
+          </Button>
+          <span role="status" data-testid="offline-saved-implicit" className="text-label text-fg-muted">
+            {notes === 0 ? "Not saved yet" : `Saved ${notes} ${notes === 1 ? "time" : "times"}`}
           </span>
         </div>
       </form>

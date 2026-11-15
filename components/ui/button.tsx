@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId } from "react";
+import React, { useCallback, useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useOnlineStatus } from "@/lib/pwa/online";
 import { joinIds } from "@/lib/ui/ids";
@@ -28,7 +28,8 @@ import {
  *   only), `danger-quiet`, `link`. Sizes 28 / 36 / 44 px on a fine pointer; every size is 44 px on touch.
  * - `loading`: the label is hidden visually (width and accessible name kept), a spinner is drawn, `aria-busy="true"`,
  *   and the button does not act.
- * - `requiresNetwork` (PWA §3.6, R-32): defaults to true for `type="submit"`. Offline, the button is `aria-disabled`
+ * - `requiresNetwork` (PWA §3.6, R-32): defaults to true for a submit button: `type="submit"`, or (06-09c IND L-5) no
+ *   `type` inside a form, which HTML makes a submit button too. Offline, the button is `aria-disabled`
  *   (still focusable, so keyboard and screen-reader users reach it), described by the reason "You're offline. Changes
  *   are disabled until you reconnect.", and a click or an implicit form submission does nothing.
  * - `kbd`: an optional trailing shortcut hint (shown ≥ 1024 px on fine pointers only, CD-33).
@@ -43,7 +44,7 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   endIcon?: React.ReactNode;
   /** A `Kbd` hint after the label (≥ lg screens, fine pointer). */
   kbd?: React.ReactNode;
-  /** Disable while offline. Default: true for `type="submit"`, false otherwise. */
+  /** Disable while offline. Default: true for a submit button (`type="submit"`, or no `type` inside a form). */
   requiresNetwork?: boolean;
 }
 
@@ -83,12 +84,25 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   const v = resolveButtonVariant(variant);
   const online = useOnlineStatus();
   const reasonId = useId();
-  const offline = (requiresNetwork ?? type === "submit") && !online;
+  // 06-09c (IND L-5): a <button> without `type` inside a form is a submit button (HTML's default); known once mounted.
+  const [implicitSubmit, setImplicitSubmit] = useState(false);
+  const setRefs = useCallback(
+    (node: HTMLButtonElement | null) => {
+      if (typeof ref === "function") ref(node);
+      else if (ref) ref.current = node;
+      if (node) setImplicitSubmit(type === undefined && node.form !== null);
+    },
+    [ref, type],
+  );
+  const isSubmit = type === "submit" || (type === undefined && implicitSubmit);
+  const offline = (requiresNetwork ?? isSubmit) && !online;
   const nativeDisabled = Boolean(disabled) || loading;
   const inert = nativeDisabled || offline;
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (offline) {
+    // At click time as well: the button's real type and form owner decide (an implicit submission clicks it too).
+    const submitsForm = event.currentTarget.type === "submit" && event.currentTarget.form !== null;
+    if (offline || (requiresNetwork === undefined && submitsForm && !online)) {
       // An aria-disabled button stays focusable; cancelling the click also cancels an implicit form submission.
       event.preventDefault();
       event.stopPropagation();
@@ -100,7 +114,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   return (
     <>
       <button
-        ref={ref}
+        ref={setRefs}
         type={type}
         disabled={nativeDisabled}
         aria-disabled={offline && !nativeDisabled ? true : undefined}
