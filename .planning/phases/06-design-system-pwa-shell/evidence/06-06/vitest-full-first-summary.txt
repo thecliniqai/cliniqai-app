@@ -1,0 +1,5 @@
+ Test Files  293 passed (293)
+      Tests  6084 passed (6084)
+   Duration  455.87s (transform 2.52s, setup 1.51s, collect 21.20s, tests 407.47s, environment 15ms, prepare 6.04s)
+vitest-report-gate: files=293 tests=6084 passed=6084 failed=0 skipped/todo=0 floor=4810 required=163
+vitest-report-gate: PASS
