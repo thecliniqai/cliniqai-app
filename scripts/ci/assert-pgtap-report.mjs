@@ -55,6 +55,9 @@
  *          + ai_gating_l2 115 + ai_quota 41 = 7838 (45 files).
  *   7880 — V2-05 05b 05-12 (000092 review fixes, 000093 time-zone contract): 7838 + review_fixes_05b 42 = 7880 (46 files;
  *          ai_quota, definer_functions, invitations_v2, remove_member and tenant_local_dates keep their counts).
+ *   7892 — V2-05 05b gate close (000094 gate_close_05b): 7880 + gate_close_05b 12 = 7892 (47 files, every one required;
+ *          review_fixes_05b and invitations_v2 keep their counts: two expectations follow the answer's new `role` key and
+ *          the objection ruling). The floor is the measured total: one dropped test, or one dropped file, fails the gate.
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -66,7 +69,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 7880;
+export const FLOOR = 7892;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -139,6 +142,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/ai_quota.test.sql",
   // 05-12
   "supabase/tests/database/review_fixes_05b.test.sql",
+  // 05b gate close (000094: re-verification N-1, N-2; objection ruling)
+  "supabase/tests/database/gate_close_05b.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */
