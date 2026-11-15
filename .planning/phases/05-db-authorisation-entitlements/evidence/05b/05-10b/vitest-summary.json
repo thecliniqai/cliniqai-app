@@ -1,0 +1,34 @@
+{
+  "numTotalTestSuites": 982,
+  "numPassedTestSuites": 982,
+  "numFailedTestSuites": 0,
+  "numTotalTests": 5056,
+  "numPassedTests": 5056,
+  "numFailedTests": 0,
+  "numPendingTests": 0,
+  "numTodoTests": 0,
+  "success": true,
+  "files": 256,
+  "changed_or_new_files": {
+    "tests/auth/page-revoked-session.spec.ts": {
+      "status": "passed",
+      "tests": 13,
+      "passed": 13
+    },
+    "tests/auth/public-paths.spec.ts": {
+      "status": "passed",
+      "tests": 61,
+      "passed": 61
+    },
+    "tests/subscriptions/lock-enforcement.spec.ts": {
+      "status": "passed",
+      "tests": 10,
+      "passed": 10
+    },
+    "tests/subscriptions/locked-redirects.spec.ts": {
+      "status": "passed",
+      "tests": 47,
+      "passed": 47
+    }
+  }
+}
