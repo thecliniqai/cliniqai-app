@@ -109,6 +109,17 @@ describe("palette projections", () => {
     expect(await searchPatientsForPalette(ctxFor(a), "   ")).toEqual([]);
   });
 
+  // 06-09c (IND L-4, adversarial B L-1): before, "%%", "__" and "**" passed the 2-character minimum as LIKE wildcards
+  // and listed the clinic's newest patients.
+  it("patients: wildcards are not a query: %%, __, ** and the like return nothing; a wildcard inside a name matches nothing extra", async () => {
+    for (const q of ["%%", "__", "**", "%_", "_%_", "\\%", "% %", "*_"]) {
+      expect(await searchPatientsForPalette(ctxFor(a), q), q).toEqual([]);
+    }
+    expect(await searchPatientsForPalette(ctxFor(a), "Me%na")).toEqual([]);
+    expect(await searchPatientsForPalette(ctxFor(a), "M_ena")).toEqual([]);
+    expect((await searchPatientsForPalette(ctxFor(a), "Meena")).map((p) => p.name)).toEqual(["Meena Pawar Palette"]);
+  });
+
   it("queue: token, name or mobile number; exactly four fields; cancelled visits and other clinics left out", async () => {
     for (const q of ["14", "#14", "T14", "token 14", "Meena", "9812340001"]) {
       const found = await searchTodayQueueForPalette(ctxFor(a), q);

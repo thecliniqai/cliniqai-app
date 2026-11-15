@@ -239,8 +239,10 @@ export function buildPatientSearchFilter(query: string): string {
   const clean = query.trim();
   if (!clean) return "";
 
-  // Sanitize query to avoid PostgREST filter syntax breaks
-  const sanitized = clean.replace(/[,()]/g, " ").trim();
+  // Sanitize query to avoid PostgREST filter syntax breaks. 06-09c (IND L-4, adversarial B L-1): the LIKE wildcards
+  // `%` and `_`, PostgREST's `*` alias for `%`, and the escape character `\` are removed as well, so they match
+  // nothing special: "%%" or "__" is not a query, and `_` is no per-digit phone oracle.
+  const sanitized = clean.replace(/[,()%_*\\]/g, " ").replace(/\s+/g, " ").trim();
   if (!sanitized) return "";
 
   // Search across full_name, phone, or abha_id
@@ -322,7 +324,8 @@ const SEX_LETTER: Record<string, "M" | "F" | "O"> = { male: "M", female: "F", ot
 export async function searchPatientsForPalette(ctx: ServiceContext, query: string): Promise<PalettePatient[]> {
   assertPerm(ctx.role, "patients:view");
   const q = typeof query === "string" ? query.trim().slice(0, PALETTE_MAX_QUERY) : "";
-  if (q.length < PALETTE_MIN_QUERY) return [];
+  // 06-09c (IND L-4): only letters and digits count toward the minimum ("%%", "__", "**" return nothing).
+  if (q.replace(/[^\p{L}\p{N}]/gu, "").length < PALETTE_MIN_QUERY) return [];
   const filterString = buildPatientSearchFilter(q);
   if (!filterString) return [];
 

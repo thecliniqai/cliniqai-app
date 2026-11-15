@@ -153,6 +153,39 @@ test.describe("owner", () => {
     await page.waitForURL((url) => url.pathname === "/queue");
   });
 
+  // 06-09c (IND L-3): before, "re" + Enter typed fast (meant for a patient called Rekha) opened "Register patient": the
+  // first matching action was the default selection while the patient search ran.
+  test("Enter before the answer to what is typed opens nothing; after the answer it acts", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await expect(page.getByRole("main")).toBeVisible();
+    // Hold the search's Server Action answer, so the search is still running when Enter is pressed.
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route(
+      (url) => url.origin === new URL(page.url()).origin,
+      async (route) => {
+        const req = route.request();
+        if (req.method() !== "POST" || !req.headers()["next-action"]) return route.fallback();
+        await held;
+        await route.fallback();
+      },
+    );
+    await openWithShortcut(page);
+    await input(page).pressSequentially("re");
+    await expect(dialog(page).getByRole("progressbar")).toBeVisible();
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(300);
+    expect(new URL(page.url()).pathname).toBe("/");
+    await expect(dialog(page)).toBeVisible();
+    release();
+    await expect(dialog(page).getByRole("progressbar")).toHaveCount(0);
+    await expect(dialog(page).getByRole("option", { selected: true })).toHaveCount(1);
+    await page.keyboard.press("Enter");
+    await expect(dialog(page)).toBeHidden();
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+
   test("below 768 px the palette is full screen with a Close button (opened from the Search button)", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 360, height: 780 });
     await page.goto("/");

@@ -26,6 +26,8 @@ import { PALETTE_PLACEHOLDER } from "./top-bar";
 export const PALETTE_DEBOUNCE_MS = 200;
 /** Shortest query sent to the patient search (the server refuses shorter ones anyway). */
 const MIN_PATIENT_QUERY = 2;
+/** Letters and digits only count toward the minimum (06-09c IND L-4: "%%" is not a query); same rule as the server. */
+const searchableLength = (q: string) => q.replace(/[^\p{L}\p{N}]/gu, "").length;
 
 const ACTION_ICON: Record<string, React.ReactNode> = {
   register: <UserPlus />,
@@ -119,7 +121,7 @@ export function CommandPalette({
     timer.current = setTimeout(async () => {
       try {
         const [p, m] = await Promise.all([
-          canSearchPatients && q.length >= MIN_PATIENT_QUERY ? searchPatientsForPalette(q) : null,
+          canSearchPatients && searchableLength(q) >= MIN_PATIENT_QUERY ? searchPatientsForPalette(q) : null,
           queueHref ? searchTodayQueueForPalette(q) : null,
         ]);
         if (n !== seq.current) return;
@@ -155,6 +157,12 @@ export function CommandPalette({
         value={value}
         onValueChange={setActive}
         onKeyDown={(event) => {
+          // 06-09c (IND L-3): Enter before the answer to what is typed opens nothing (a fast "re" + Enter meant for
+          // a patient called Rekha must not open "Register patient").
+          if (event.key === "Enter" && trimmed && !settled) {
+            event.preventDefault();
+            return;
+          }
           if (["ArrowDown", "ArrowUp", "Home", "End", "PageDown", "PageUp"].includes(event.key)) setUserPicked(true);
         }}
         onPointerMove={() => setUserPicked(true)}
