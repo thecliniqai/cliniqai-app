@@ -1,0 +1,6 @@
+   × /api/v1 (R-28) > a key of a locked clinic answers 402 SUBSCRIPTION_LOCKED; a full clinic's key authenticates 200ms
+     → expected true to be false // Object.is equality
+ FAIL  tests/subscriptions/lock-enforcement.spec.ts > /api/v1 (R-28) > a key of a locked clinic answers 402 SUBSCRIPTION_LOCKED; a full clinic's key authenticates
+AssertionError: expected true to be false // Object.is equality
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)

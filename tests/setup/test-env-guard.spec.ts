@@ -6,7 +6,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { TURNSTILE_TEST_SITE_KEYS as SCHEMA_TURNSTILE_TEST_SITE_KEYS } from "@/lib/env";
+import { TURNSTILE_TEST_SITE_KEYS as SCHEMA_TURNSTILE_TEST_SITE_KEYS, turnstileTestSecretKeys } from "@/lib/env";
 import {
   FORBIDDEN_VARS,
   findTestEnvProblems,
@@ -14,6 +14,7 @@ import {
   LOCAL_JOBS_RUNNER_SECRET,
   LOCAL_OPS_ALERT_EMAIL,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
+  TURNSTILE_TEST_SECRET_KEYS,
   TURNSTILE_TEST_SITE_KEYS,
   loadLocalStackKeys,
   parseEnvFile,
@@ -310,6 +311,24 @@ describe("test-env guard rules", () => {
     expect(findTestEnvProblems(safeEnv({ NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAAsyntheticRealKey" }))[0]).toMatch(
       /^NEXT_PUBLIC_TURNSTILE_SITE_KEY must be unset or 1x00000000000000000000AA/,
     );
+  });
+
+  it("allows only Cloudflare's Turnstile test secrets and a loopback siteverify in a test lane (05-07b, R-46)", () => {
+    expect([...TURNSTILE_TEST_SECRET_KEYS]).toEqual([...turnstileTestSecretKeys()]);
+    for (const key of TURNSTILE_TEST_SECRET_KEYS) {
+      expect(findTestEnvProblems(safeEnv({ TURNSTILE_SECRET_KEY: key }))).toEqual([]);
+    }
+    // A real-shaped secret (built at run time) is refused by name, and never echoed.
+    const real = `0x${"4A".repeat(4)}${"synthetic".toUpperCase()}${"9".repeat(14)}`;
+    const problems = findTestEnvProblems(safeEnv({ TURNSTILE_SECRET_KEY: real }));
+    expect(problems).toEqual([
+      "TURNSTILE_SECRET_KEY must be unset or one of Cloudflare's test secrets (TURNSTILE_TEST_SECRET_KEYS) in the test lane",
+    ]);
+    expect(problems.join("\n")).not.toContain(real);
+    expect(findTestEnvProblems(safeEnv({ TURNSTILE_VERIFY_URL: "http://127.0.0.1:3102/turnstile/v0/siteverify" }))).toEqual([]);
+    expect(
+      findTestEnvProblems(safeEnv({ TURNSTILE_VERIFY_URL: "https://challenges.cloudflare.com/turnstile/v0/siteverify" })),
+    ).toContain('TURNSTILE_VERIFY_URL points at non-local host "challenges.cloudflare.com"');
   });
 
   it("never echoes secret values in its messages", () => {

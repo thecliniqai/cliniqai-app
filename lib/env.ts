@@ -67,6 +67,24 @@ export const TURNSTILE_TEST_SITE_KEYS = [
 export const TURNSTILE_SITE_KEY_PATTERN = /^[0-9]x[A-Za-z0-9_-]{16,64}$/;
 /** Tiers where only a Cloudflare test site key may be set (no real Cloudflare widget from a local or test lane). */
 export const TURNSTILE_TEST_KEY_TIERS: readonly AppEnv[] = ["development", "test", "e2e", "ci"];
+/**
+ * V2-05 05-07b (R-46): the server-side Turnstile check of invite acceptance (`lib/auth/turnstile.ts`). The verify URL
+ * is fixed; test and e2e may point it at a loopback fake (`TURNSTILE_VERIFY_URL`, the PWNED_API_BASE_URL pattern).
+ */
+export const TURNSTILE_VERIFY_PUBLIC_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+export const TURNSTILE_VERIFY_OVERRIDE_TIERS: readonly AppEnv[] = ["test", "e2e"];
+/** A Turnstile secret key: `<digit>x<16-80 characters>` (Cloudflare's format; the test keys are the same shape). */
+export const TURNSTILE_SECRET_KEY_PATTERN = /^[0-9]x[A-Za-z0-9_-]{16,80}$/;
+/**
+ * Cloudflare's documented Turnstile test SECRET keys (always passes, always fails, "token already spent"). Built at run
+ * time, never written out as literals (gitleaks rule); only local tiers may set one, staging and production never.
+ */
+export function turnstileTestSecretKeys(): readonly string[] {
+  return ["1", "2", "3"].map((d) => `${d}x${"0".repeat(31)}AA`);
+}
+export function isTurnstileTestSecret(value: string | undefined): boolean {
+  return value !== undefined && turnstileTestSecretKeys().includes(value);
+}
 
 /** PO-A3: SES runs in Mumbai only. A constant, not an env name: Vercel reserves `AWS_REGION` (and sets it per function). */
 export const SES_REGION = "ap-south-1";
@@ -186,6 +204,8 @@ const shapeSchema = z.object({
   PWNED_CHECK: z.enum(PWNED_CHECK_VALUES).optional(),
   PWNED_API_BASE_URL: text.url().optional(),
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: text.optional(),
+  TURNSTILE_SECRET_KEY: text.optional(),
+  TURNSTILE_VERIFY_URL: text.url().optional(),
   VERCEL_REGION: text.optional(),
   VERCEL_GIT_COMMIT_SHA: text.optional(),
   VERCEL_ENV: text.optional(),
@@ -270,6 +290,10 @@ export interface Env {
   PWNED_API_BASE_URL: string;
   /** Unset = no widget (local default). Required, and not a test key, in production (03-12c). */
   NEXT_PUBLIC_TURNSTILE_SITE_KEY?: string;
+  /** 05-07b (R-46): server only. Required in production; optional in staging (unset: invite acceptance refuses). */
+  TURNSTILE_SECRET_KEY?: string;
+  /** Defaults to Cloudflare's siteverify; another value only in test/e2e, and only a loopback URL. */
+  TURNSTILE_VERIFY_URL: string;
   VERCEL_REGION?: string;
   VERCEL_GIT_COMMIT_SHA?: string;
   /** Set by Vercel (production | preview | development); a deploy tier requires `production` when it is set. */
@@ -613,6 +637,27 @@ function tierIssues(raw: EnvSource, tier: AppEnv): string[] {
     add("NEXT_PUBLIC_TURNSTILE_SITE_KEY", `must be one of Cloudflare's test site keys in ${tier}`);
   }
 
+  // 05-07b (R-46): the server-side Turnstile check of invite acceptance (the Auth admin API skips GoTrue's CAPTCHA).
+  // Production needs a real secret; staging may run without one (invite acceptance then refuses, never skips the check);
+  // local tiers only Cloudflare's test secrets. The verify URL is fixed except for a loopback fake in test/e2e.
+  const turnstileSecret = raw.TURNSTILE_SECRET_KEY;
+  const isTestTurnstileSecret = present(turnstileSecret) && isTurnstileTestSecret(turnstileSecret);
+  if (present(turnstileSecret) && !TURNSTILE_SECRET_KEY_PATTERN.test(turnstileSecret)) {
+    add("TURNSTILE_SECRET_KEY", "must be a Cloudflare Turnstile secret key (<digit>x<16-80 characters>)");
+  }
+  if (tier === "production" && !present(turnstileSecret)) add("TURNSTILE_SECRET_KEY", "required in production (R-46)");
+  if (deploy && isTestTurnstileSecret) add("TURNSTILE_SECRET_KEY", `must not be a Cloudflare test secret in ${tier}`);
+  if (TURNSTILE_TEST_KEY_TIERS.includes(tier) && present(turnstileSecret) && !isTestTurnstileSecret) {
+    add("TURNSTILE_SECRET_KEY", `must be one of Cloudflare's test secrets in ${tier}`);
+  }
+  if (present(raw.TURNSTILE_VERIFY_URL)) {
+    if (!TURNSTILE_VERIFY_OVERRIDE_TIERS.includes(tier)) {
+      add("TURNSTILE_VERIFY_URL", `must not be set in ${tier} (Cloudflare's siteverify is fixed)`);
+    } else if (!isLoopbackUrl(raw.TURNSTILE_VERIFY_URL)) {
+      add("TURNSTILE_VERIFY_URL", `must be a loopback URL in ${tier}`);
+    }
+  }
+
   // 03-13 H-ENV: the publishable key is inlined into every page's JavaScript; a secret key there hands RLS-bypassing
   // access to anyone who opens the site. The secret key slot must not hold a publishable key either (system paths
   // would silently run without their privileges). Checked in every tier, by prefix and by decoded JWT role.
@@ -734,6 +779,7 @@ export function parseEnv(source: EnvSource): Env {
     EMAIL_PROVIDER: s.EMAIL_PROVIDER ?? "disabled",
     PWNED_CHECK: s.PWNED_CHECK ?? "off",
     PWNED_API_BASE_URL: s.PWNED_API_BASE_URL ?? PWNED_API_PUBLIC_BASE_URL,
+    TURNSTILE_VERIFY_URL: s.TURNSTILE_VERIFY_URL ?? TURNSTILE_VERIFY_PUBLIC_URL,
   };
 }
 
@@ -1068,7 +1114,24 @@ export const ENV_DOCS: Record<
       "Cloudflare Turnstile site key (public) for sign-in and the reset request (C43, 03-12c). Unset = no widget.",
       "Required in production (a real key; test keys refused). Staging: optional until PO action E7. development,",
       "test, e2e, ci: only Cloudflare's test site keys (1x00000000000000000000AA always passes).",
-      "The secret key is set in Supabase Auth -> Bot and Abuse Protection, never in the app.",
+      "The sign-in/reset secret is set in Supabase Auth -> Bot and Abuse Protection; invite acceptance uses TURNSTILE_SECRET_KEY.",
+    ],
+    example: "",
+  },
+  TURNSTILE_SECRET_KEY: {
+    group: "Bot protection",
+    notes: [
+      "Cloudflare Turnstile secret key (server only) for the server-side check of invite acceptance (05-07b, R-46).",
+      "Required in production; staging optional (PO action 05-P7; unset = invite acceptance refuses, never skips the check).",
+      "development, test, e2e, ci: only Cloudflare's documented test secrets; staging/production: never a test secret.",
+    ],
+    example: SET_IN_VERCEL,
+  },
+  TURNSTILE_VERIFY_URL: {
+    group: "Bot protection",
+    notes: [
+      `Siteverify URL; default ${TURNSTILE_VERIFY_PUBLIC_URL}. Settable only in test and e2e, and only as a loopback URL`,
+      "(the e2e lane's fake siteverify). Leave unset everywhere else.",
     ],
     example: "",
   },

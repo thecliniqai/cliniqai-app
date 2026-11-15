@@ -1,0 +1,45 @@
+# Failed test 3: "owner of A with A locked: only memberships, subscription_events, tenant_subscriptions, tenants; no storage object"
+#         have: memberships,tenants|storage:0
+#         want: memberships,subscription_events,tenant_subscriptions,tenants|storage:0
+# Failed test 4: "owner of A with A onboarding: only memberships, subscription_events, tenant_subscriptions, tenants; no storage object"
+#         have: memberships,tenants|storage:0
+#         want: memberships,subscription_events,tenant_subscriptions,tenants|storage:0
+# Failed test 8: "admin of A with A locked: only memberships, subscription_events, tenant_subscriptions, tenants; no storage object"
+#         have: memberships,tenants|storage:0
+#         want: memberships,subscription_events,tenant_subscriptions,tenants|storage:0
+# Failed test 9: "admin of A with A onboarding: only memberships, subscription_events, tenant_subscriptions, tenants; no storage object"
+#         have: memberships,tenants|storage:0
+#         want: memberships,subscription_events,tenant_subscriptions,tenants|storage:0
+# Looks like you failed 4 tests of 26
+Failed 4/26 subtests 
+# Failed test 3758: "public.tenant_subscriptions select: owner of A, A locked (access ended before the transaction)"
+#         have: 0
+#         want: 1
+# Failed test 3759: "public.tenant_subscriptions select: admin of A, A locked (access ended before the transaction)"
+#         have: 0
+#         want: 1
+# Failed test 3763: "public.tenant_subscriptions select: owner of A, A onboarding (incomplete)"
+#         have: 0
+#         want: 1
+# Failed test 3764: "public.tenant_subscriptions select: admin of A, A onboarding (incomplete)"
+#         have: 0
+#         want: 1
+# Failed test 3854: "public.subscription_events select: owner of A, A locked (access ended before the transaction)"
+#         have: 0
+#         want: 1
+# Failed test 3855: "public.subscription_events select: admin of A, A locked (access ended before the transaction)"
+#         have: 0
+#         want: 1
+# Failed test 3859: "public.subscription_events select: owner of A, A onboarding (incomplete)"
+#         have: 0
+#         want: 1
+# Failed test 3860: "public.subscription_events select: admin of A, A onboarding (incomplete)"
+#         have: 0
+#         want: 1
+# Looks like you failed 8 tests of 5952
+Failed 8/5952 subtests 
+/Users/sid/Code/clinicOS/supabase/tests/database/access_lock_rls.test.sql (Wstat: 0 Tests: 26 Failed: 4)
+  Failed tests:  3-4, 8-9
+/Users/sid/Code/clinicOS/supabase/tests/database/authz_matrix.test.sql   (Wstat: 0 Tests: 5952 Failed: 8)
+  Failed tests:  3758-3759, 3763-3764, 3854-3855, 3859-3860
+Result: FAIL

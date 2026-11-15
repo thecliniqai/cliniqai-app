@@ -1,5 +1,10 @@
 import React from "react";
-import { isPlausibleToken, REPORT_LINK_KINDS, resolveShareToken } from "@/features/sharing/public-links";
+import {
+  CLINIC_UNAVAILABLE_MESSAGE,
+  isPlausibleToken,
+  REPORT_LINK_KINDS,
+  resolveShareToken,
+} from "@/features/sharing/public-links";
 import { signSharedObject } from "@/features/sharing/system";
 import { ShieldCheck, Download, AlertCircle, FileText, Calendar, User, HardDrive } from "lucide-react";
 
@@ -38,6 +43,18 @@ export default async function PublicReportViewerPage({ searchParams }: ReportVie
   const resolved = await resolveShareToken(token, REPORT_LINK_KINDS);
   const signed = resolved.status === "ok" ? await signSharedObject(token, REPORT_LINK_KINDS) : null;
   const clinicPhone = resolved.status === "revoked" || resolved.status === "expired" ? resolved.clinic?.phone : null;
+
+  // V2-05 05-10a (SUB-02): a clinic whose access level is not `full` shows the neutral page.
+  if (resolved.status === "clinic_unavailable") {
+    return (
+      <div className="min-h-app bg-sunken flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-xl border border-border p-8 text-center shadow-sm">
+          <h1 className="text-xl font-bold text-fg mb-2">{CLINIC_UNAVAILABLE_MESSAGE}</h1>
+          <p className="text-sm text-fg-secondary">Please contact the clinic directly.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (resolved.status !== "ok" || !signed) {
     return (

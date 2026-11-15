@@ -8,7 +8,7 @@ import { CalendarView } from "@/components/calendar/calendar-view";
 import { TimelineVisit } from "@/components/calendar/doctor-timeline";
 import { isYmd } from "@/lib/datetime";
 import { getTenantToday } from "@/lib/datetime/server";
-import { withPageAuth } from "@/lib/auth/page";
+import { redirectIfTenantLocked, withPageAuth } from "@/lib/auth/page";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,9 @@ async function CalendarPage(props: CalendarPageProps) {
   let membership;
   try {
     membership = await requireServiceContext();
-  } catch {
+  } catch (err) {
+    // 05-10b: a clinic that is not `full` goes to its locked/onboarding page, not to sign-in.
+    await redirectIfTenantLocked(err);
     redirect("/login");
   }
 

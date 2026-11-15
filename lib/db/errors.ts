@@ -69,6 +69,34 @@ export const RPC_REASON_CODES: Readonly<Record<string, AppErrorCode>> = {
   ENTITLEMENT_KEY_UNKNOWN: "VALIDATION_FAILED",
   PRODUCT_PRICE_REQUIRED: "PRECONDITION_FAILED",
   PRODUCT_STATE_INVALID: "CONFLICT",
+  // V2-05 05-05 (migration 000087): remove_member. The clinic's only active owner; removing oneself; a member already
+  // removed; a revoked invitation (consume_invitation). MEMBER_NOT_FOUND is P0002 (→ NOT_FOUND); STAFF_REMOVE_FORBIDDEN
+  // and OWNER_REQUIRED are 42501 (→ FORBIDDEN by SQLSTATE).
+  LAST_OWNER: "CONFLICT",
+  SELF_REMOVAL: "VALIDATION_FAILED",
+  MEMBER_NOT_ACTIVE: "CONFLICT",
+  INVITATION_REVOKED: "CONFLICT",
+  // V2-05 05-07a (migration 000088): invitations v2. An address that is already a member; resend/revoke of an invitation
+  // that is no longer pending. INVITATION_NOT_FOUND is P0002 (→ NOT_FOUND); STAFF_INVITE_FORBIDDEN and SYSTEM_ONLY are
+  // 42501 (→ FORBIDDEN by SQLSTATE).
+  ALREADY_MEMBER: "CONFLICT",
+  INVITATION_NOT_PENDING: "CONFLICT",
+  // V2-05 05-07b (migration 000089): invitation_accept_context found two live accounts for the invited address.
+  INVITATION_ACCOUNT_AMBIGUOUS: "CONFLICT",
+  // V2-05 05-10a (SUB-02): the clinic's access level is not `full`.
+  SUBSCRIPTION_LOCKED: "SUBSCRIPTION_LOCKED",
+  // V2-05 05-10c (migration 000091, AI-03): ai_reserve raises AI_<preflight code> (AI-06 L2 contract); an unknown
+  // feature key; enabling the opt-in without a terms version. AI_RESERVATION_NOT_FOUND is P0002 (→ NOT_FOUND);
+  // AI_OPT_IN_OWNER_ONLY is 42501 (→ FORBIDDEN by SQLSTATE).
+  AI_FEATURE_UNKNOWN: "VALIDATION_FAILED",
+  AI_FORBIDDEN: "FORBIDDEN",
+  AI_LOCKED: "SUBSCRIPTION_LOCKED",
+  AI_KILLED: "PRECONDITION_FAILED",
+  AI_NOT_ENTITLED: "PRECONDITION_FAILED",
+  AI_NOT_OPTED_IN: "PRECONDITION_FAILED",
+  AI_PATIENT_OBJECTED: "PRECONDITION_FAILED",
+  AI_OVER_QUOTA: "PRECONDITION_FAILED",
+  AI_TERMS_VERSION_INVALID: "VALIDATION_FAILED",
 };
 
 /** Reason of a deadlock victim (40P01) or serialization failure (40001): a concurrent write won; retrying is safe. */

@@ -9,8 +9,27 @@ export interface StorageUploadOptions {
 export interface StorageSignedUrlOptions {
   path: string;
   bucket?: string;
+  /** Clamped by `clampSignedUrlTtl` (R-29): at most 300 s for a view, 900 s for an export. */
   expiresInSeconds?: number;
   downloadFilename?: string;
+  /** V2-05 05-10a (R-29, SUB §7.2): `view` (default: every in-app and share view) or `export`. */
+  purpose?: SignedUrlPurpose;
+}
+
+export type SignedUrlPurpose = "view" | "export";
+
+/**
+ * R-29 (SUB §7.2): signed-URL lifetimes are short, so a lock (or a revoked share) takes effect within minutes. The single
+ * source of truth for every signed-URL lifetime: `view` is also `VIEW_LINK_TTL_SECONDS` (`./view-link`, V2-06 06-09b N-1),
+ * which the link holders use to decide when to re-sign. Client-safe (no imports).
+ */
+export const SIGNED_URL_MAX_TTL_SECONDS: Readonly<Record<SignedUrlPurpose, number>> = { view: 300, export: 900 };
+
+/** The lifetime actually signed: the requested one, never above the purpose's cap, at least 1 s; unset = the cap. */
+export function clampSignedUrlTtl(expiresInSeconds: number | undefined, purpose: SignedUrlPurpose = "view"): number {
+  const cap = SIGNED_URL_MAX_TTL_SECONDS[purpose] ?? SIGNED_URL_MAX_TTL_SECONDS.view;
+  const asked = typeof expiresInSeconds === "number" && Number.isFinite(expiresInSeconds) ? Math.trunc(expiresInSeconds) : cap;
+  return Math.min(Math.max(asked, 1), cap);
 }
 
 export interface StorageDeleteOptions {

@@ -154,6 +154,10 @@ export const FX = {
     doctor2A: id(0x104),
     nurseA: id(0x105),
     receptionistA: id(0x106),
+    /** 05-05: an owner of A whose membership is `removed` (still holding a valid JWT). */
+    removedA: id(0x107),
+    /** 05-05: a doctor of A whose membership is `suspended`. */
+    suspendedA: id(0x108),
     ownerB: id(0x201),
     dual: id(0x301),
   },
@@ -183,6 +187,8 @@ export const TENANT_IDS: Record<TenantKey, string> = { A: FX.tenantA, B: FX.tena
 
 export type DbRole = "authenticated" | "anon";
 export type MemberRole = "owner" | "admin" | "doctor" | "nurse" | "receptionist";
+/** `memberships.status` (05-05, AUTH-05): only `active` counts in the authz helpers. */
+export type MemberStatus = "active" | "suspended" | "removed";
 
 export interface Principal {
   id: string;
@@ -190,8 +196,44 @@ export interface Principal {
   dbRole: DbRole;
   userId: string | null;
   memberships: Partial<Record<TenantKey, MemberRole>>;
+  /** Membership status per clinic (05-05); a clinic not listed is `active`. */
+  statuses?: Partial<Record<TenantKey, Exclude<MemberStatus, "active">>>;
   /** The `x-clinicos-tenant` header (R-42); null = no header (the sole-membership fallback applies). */
   header: TenantKey | null;
+  /**
+   * 05-10a (SUB-02): the clinic's access level while the cell runs; a clinic not listed is `full` (the fixture clinics
+   * are `trialing`). The cell sets it as `postgres` inside its own rolled-back subtransaction (ACCESS_SQL).
+   */
+  access?: Partial<Record<TenantKey, Exclude<AccessLevel, "full">>>;
+}
+
+/** `billing_internal.tenant_access_level` (05-09a): what the RLS helpers read from 05-10a on. */
+export type AccessLevel = "full" | "locked" | "onboarding";
+
+/** The principal's view of a clinic's access level (05-10a). */
+export function accessOf(p: Principal, tenant: TenantKey): AccessLevel {
+  return p.access?.[tenant] ?? "full";
+}
+
+/**
+ * 05-10a: the statement (run as `postgres` in the cell's subtransaction, before the principal's statement) that puts a
+ * fixture clinic in a level. `locked`: the trial's access ended before the transaction started (now() is frozen per
+ * transaction, Pitfall 10), i.e. "p_now past access_ends_at"; `onboarding`: an `incomplete` subscription, no comp.
+ */
+export function accessSql(tenant: TenantKey, level: Exclude<AccessLevel, "full">): Sql {
+  const id = q(TENANT_IDS[tenant]);
+  return level === "locked"
+    ? `update public.tenant_subscriptions set access_ends_at = now() - interval '1 day' where tenant_id = ${id}`
+    : `update public.tenant_subscriptions set status = 'incomplete', comp_until = null where tenant_id = ${id}`;
+}
+
+/** The principal's ACTIVE memberships: what the helpers see (05-05). A removed or suspended row counts as none. */
+export function activeMemberships(p: Principal): Partial<Record<TenantKey, MemberRole>> {
+  const out: Partial<Record<TenantKey, MemberRole>> = {};
+  for (const [tenant, role] of Object.entries(p.memberships) as [TenantKey, MemberRole][]) {
+    if (!p.statuses?.[tenant]) out[tenant] = role;
+  }
+  return out;
 }
 
 export const PRINCIPALS: readonly Principal[] = [
@@ -207,6 +249,24 @@ export const PRINCIPALS: readonly Principal[] = [
     userId: FX.users.receptionistA,
     memberships: { A: "receptionist" },
     header: null,
+  },
+  {
+    id: "removed_a",
+    label: "removed member of A (owner role, status removed, valid JWT)",
+    dbRole: "authenticated",
+    userId: FX.users.removedA,
+    memberships: { A: "owner" },
+    statuses: { A: "removed" },
+    header: null,
+  },
+  {
+    id: "suspended_a",
+    label: "suspended member of A (doctor role, status suspended, header A)",
+    dbRole: "authenticated",
+    userId: FX.users.suspendedA,
+    memberships: { A: "doctor" },
+    statuses: { A: "suspended" },
+    header: "A",
   },
   { id: "owner_b", label: "owner of B", dbRole: "authenticated", userId: FX.users.ownerB, memberships: { B: "owner" }, header: null },
   { id: "anon", label: "anon", dbRole: "anon", userId: null, memberships: {}, header: null },
@@ -233,6 +293,36 @@ export const PRINCIPALS: readonly Principal[] = [
     userId: FX.users.dual,
     memberships: { A: "doctor", B: "receptionist" },
     header: null,
+  },
+  // 05-10a (SUB-02, acceptance 8): every role of A with A locked, and with A onboarding; the dual member acting in a
+  // locked A. Only the access level differs from the full principals above (same users and memberships).
+  ...(["locked", "onboarding"] as const).flatMap((level): Principal[] => [
+    ...(
+      [
+        ["owner", FX.users.ownerA],
+        ["admin", FX.users.adminA],
+        ["doctor", FX.users.doctorA],
+        ["nurse", FX.users.nurseA],
+        ["receptionist", FX.users.receptionistA],
+      ] as const
+    ).map(([role, userId]): Principal => ({
+      id: `${role}_a_${level}`,
+      label: `${role} of A, A ${level === "locked" ? "locked (access ended before the transaction)" : "onboarding (incomplete)"}`,
+      dbRole: "authenticated",
+      userId,
+      memberships: { A: role },
+      header: null,
+      access: { A: level },
+    })),
+  ]),
+  {
+    id: "dual_hdr_a_locked",
+    label: "dual member, header A, A locked",
+    dbRole: "authenticated",
+    userId: FX.users.dual,
+    memberships: { A: "doctor", B: "receptionist" },
+    header: "A",
+    access: { A: "locked" },
   },
 ];
 
@@ -340,13 +430,13 @@ export const TARGETS: readonly Target[] = [
     update: "invited_address",
     rules: {
       select: perm("staff:invite"),
-      insert: all(self("created_by"), perm("staff:invite")),
+      insert: rpcOnly,
       update: rpcOnly,
       delete: rpcOnly,
     },
     note:
-      "INSERT: staff:invite, created_by = caller; owner/admin roles only by an owner (admin_policies.test.sql; RPC " +
-      "only after 05-07a)",
+      "SELECT staff:invite (token_hash not readable, 000071); INSERT only through invite_staff (05-07a, 000088: " +
+      "staff:invite in the active clinic, owner/admin invitations by owners only, one pending per address)",
   },
   {
     kind: "table",
@@ -1019,6 +1109,40 @@ export const TARGETS: readonly Target[] = [
     update: "sac",
     rules: opsRules,
     note: "the single settings row (seeded by 000084): no tenant access",
+  },
+  // V2-05 05-10c (AI-03 database part, AI §4.6 "write protection of gating tables"; R-33).
+  {
+    kind: "table",
+    schema: "public",
+    table: "tenant_ai_settings",
+    key: ["tenant_id"],
+    fixture: { tenant_id: A, enabled: "false" },
+    insert: { tenant_id: q(FX.tenantB), enabled: "false" },
+    update: "enabled",
+    rules: selectOnly(perm("clinic:view")),
+    note: "the owner's AI opt-in (05-10c): SELECT clinic:view of the active clinic; written only by set_ai_opt_in (owner of the active, full clinic, R-33)",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "ai_usage_monthly",
+    key: ["tenant_id", "period", "feature"],
+    fixture: { tenant_id: A, period: "'2030-01'", feature: "'ai.scribe'", units: "1" },
+    insert: { tenant_id: A, period: "'2030-02'", feature: "'ai.scribe'", units: "1" },
+    update: "units",
+    rules: opsRules,
+    note: "AI units per clinic, period and feature (05-10c): no tenant access; written only by ai_reserve/ai_commit (definer)",
+  },
+  {
+    kind: "table",
+    schema: "public",
+    table: "ai_quota_reservations",
+    key: ["id"],
+    fixture: { id: q(FX.row(73)), tenant_id: A, feature: "'ai.scribe'", period: "'2030-01'", expires_at: "now() + interval '1 minute'" },
+    insert: { id: q(FX.row(74)), tenant_id: A, feature: "'ai.scribe'", period: "'2030-01'", expires_at: "now() + interval '1 minute'" },
+    update: "expires_at",
+    rules: opsRules,
+    note: "in-flight AI calls (05-10c): no tenant access; written only by ai_reserve/ai_commit/ai_release (definer)",
   },
   {
     kind: "table",

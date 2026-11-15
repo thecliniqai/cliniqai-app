@@ -28,6 +28,9 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { hasPerm } from "@/lib/permissions";
 import {
+  accessOf,
+  accessSql,
+  activeMemberships,
   OPS,
   PRINCIPALS,
   TARGETS,
@@ -48,6 +51,8 @@ export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url
 export const MATRIX_SQL = "supabase/tests/database/authz_matrix.test.sql";
 export const COMPLETENESS_SQL = "supabase/tests/database/authz_completeness.test.sql";
 export const MATRIX_MD = ".planning/phases/05-db-authorisation-entitlements/AUTHZ-MATRIX.md";
+/** 05-10a (SUB-02, acceptance 8, RLS and storage half): the locked/onboarding sweep over the live catalogue. */
+export const ACCESS_LOCK_SQL = "supabase/tests/database/access_lock_rls.test.sql";
 
 export type Outcome = "1" | "0" | "ok" | "denied";
 
@@ -57,10 +62,14 @@ const OP_LETTER: Record<Op, string> = { select: "S", insert: "I", update: "U", d
 // Expected outcomes
 // ---------------------------------------------------------------------------------------------------------------------
 
-/** Mirror of `authz.active_tenant_id()`: the header's clinic if a membership, else the sole membership, else none. */
+/**
+ * Mirror of `authz.active_tenant_id()`: the header's clinic if an ACTIVE membership, else the sole active membership,
+ * else none (05-05: removed and suspended memberships count as none).
+ */
 export function activeTenant(p: Principal): TenantKey | null {
-  if (p.header && p.memberships[p.header]) return p.header;
-  const keys = Object.keys(p.memberships) as TenantKey[];
+  const live = activeMemberships(p);
+  if (p.header && live[p.header]) return p.header;
+  const keys = Object.keys(live) as TenantKey[];
   return keys.length === 1 ? keys[0] : null;
 }
 
@@ -105,21 +114,25 @@ export function admits(rule: Rule, p: Principal, t: Target, row: Row): boolean {
       return p.userId !== null && visitDoctorOf(row, rule.via) === q(p.userId);
     case "member": {
       const tenant = rowTenant(t, row, rule.tenantColumn);
-      return tenant !== null && p.memberships[tenant] !== undefined;
+      return tenant !== null && activeMemberships(p)[tenant] !== undefined;
     }
     case "billing": {
+      // 05-10a: authz.billing_tenant_ids admits a full, locked or onboarding clinic (every level the matrix uses).
       const tenant = rowTenant(t, row, rule.tenantColumn);
-      const role = tenant ? p.memberships[tenant] : undefined;
+      const role = tenant ? activeMemberships(p)[tenant] : undefined;
       return tenant !== null && activeTenant(p) === tenant && (role === "owner" || role === "admin");
     }
     case "full": {
+      // 05-10a: authz.full_tenant_ids admits the active clinic only while its access level is `full`.
       const tenant = rowTenant(t, row, rule.tenantColumn);
-      return tenant !== null && p.memberships[tenant] !== undefined && activeTenant(p) === tenant;
+      return tenant !== null && activeMemberships(p)[tenant] !== undefined && activeTenant(p) === tenant && accessOf(p, tenant) === "full";
     }
     case "perm": {
       const tenant = rowTenant(t, row, rule.tenantColumn);
-      const role = tenant ? p.memberships[tenant] : undefined;
-      return tenant !== null && role !== undefined && activeTenant(p) === tenant && hasPerm(role, rule.perm);
+      const role = tenant ? activeMemberships(p)[tenant] : undefined;
+      return (
+        tenant !== null && role !== undefined && activeTenant(p) === tenant && accessOf(p, tenant) === "full" && hasPerm(role, rule.perm)
+      );
     }
   }
 }
@@ -205,6 +218,14 @@ export function cellSql(t: Target, op: Op): { setup: string | null; sql: string 
   }
 }
 
+/** 05-10a: the access-level statement of a principal (null when every clinic is `full`). */
+export function principalAccessSql(p: Principal): string | null {
+  const entries = Object.entries(p.access ?? {}) as [TenantKey, "locked" | "onboarding"][];
+  if (entries.length === 0) return null;
+  if (entries.length > 1) throw new Error(`${p.id}: one non-full clinic per principal`);
+  return accessSql(entries[0][0], entries[0][1]);
+}
+
 function claimsOf(p: Principal): string {
   return p.userId ? JSON.stringify({ sub: p.userId, role: "authenticated" }) : "";
 }
@@ -254,13 +275,18 @@ function baseFixtures(): string[] {
         .join(",\n") +
       ";",
   );
+  // 05-05: every membership carries its status; a removed one also its removal time (CHECK memberships_removed_at_status).
   const memberships = new Map<string, string>();
   for (const p of PRINCIPALS) {
     for (const [tenant, role] of Object.entries(p.memberships) as [TenantKey, string][]) {
-      memberships.set(`${p.userId}/${tenant}`, `  ('${p.userId}', '${TENANT_IDS[tenant]}', '${role}')`);
+      const status = p.statuses?.[tenant] ?? "active";
+      const removedAt = status === "removed" ? "now()" : "null";
+      memberships.set(`${p.userId}/${tenant}`, `  ('${p.userId}', '${TENANT_IDS[tenant]}', '${role}', '${status}', ${removedAt})`);
     }
   }
-  lines.push("insert into public.memberships (user_id, tenant_id, role) values\n" + [...memberships.values()].join(",\n") + ";");
+  lines.push(
+    "insert into public.memberships (user_id, tenant_id, role, status, removed_at) values\n" + [...memberships.values()].join(",\n") + ";",
+  );
   return lines;
 }
 
@@ -321,6 +347,27 @@ begin
     end;
     return v_out;
 end;
+$fn$;
+
+-- 05-10a (SUB-02): the same cell with a clinic's access level changed first (as postgres); the change is rolled back
+-- with this function's own subtransaction, so every other cell still sees the fixture clinics at full.
+create function pg_temp.authz_cell_at(p_access text, p_role text, p_claims text, p_headers text, p_setup text, p_sql text, p_op text)
+returns text
+language plpgsql
+as $fn$
+declare
+    v_out text;
+begin
+    begin
+        execute p_access;
+        v_out := pg_temp.authz_cell(p_role, p_claims, p_headers, p_setup, p_sql, p_op);
+        raise exception 'authz access sentinel' using errcode = 'AZ998';
+    exception
+        when sqlstate 'AZ998' then
+            null;
+    end;
+    return v_out;
+end;
 $fn$;`;
 
 export function matrixSql(): string {
@@ -330,7 +377,9 @@ export function matrixSql(): string {
   out.push("begin;");
   out.push(`select plan(${all.length});`);
   out.push("");
-  out.push("-- Base fixtures: principals, clinics A and B, memberships (the dual member is a doctor in A, a receptionist in B).");
+  out.push("-- Base fixtures: principals, clinics A and B, memberships (the dual member is a doctor in A, a receptionist in B;");
+  out.push("-- 05-05: a removed owner and a suspended doctor of A, both with a valid JWT; 05-10a: the access-level principals");
+  out.push("-- reuse these users and memberships, and set clinic A locked or onboarding inside their own cells).");
   out.push(...baseFixtures());
   out.push("");
   out.push("-- One tenant-A row per target (inserted as postgres; RLS does not apply).");
@@ -346,9 +395,11 @@ export function matrixSql(): string {
       current = name;
     }
     const { setup, sql } = cellSql(c.target, c.op);
-    const call = `pg_temp.authz_cell(${lit(c.principal.dbRole)}, ${lit(claimsOf(c.principal))}, ${lit(headersOf(c.principal))}, ${
+    const access = principalAccessSql(c.principal);
+    const args = `${lit(c.principal.dbRole)}, ${lit(claimsOf(c.principal))}, ${lit(headersOf(c.principal))}, ${
       setup === null ? "null" : dollar(setup)
-    }, ${dollar(sql)}, ${lit(c.op)})`;
+    }, ${dollar(sql)}, ${lit(c.op)}`;
+    const call = access === null ? `pg_temp.authz_cell(${args})` : `pg_temp.authz_cell_at(${dollar(access)}, ${args})`;
     out.push(`select is(${call}, ${lit(c.expected)}, ${lit(`${name} ${c.op}: ${c.principal.label}`)});`);
   }
   out.push("");
@@ -474,7 +525,10 @@ export function matrixMd(): string {
   lines.push("Every table and storage class is on its target rule (05-02b clinical/front-desk/financial, 05-02c admin/system,");
   lines.push("storage and grants, 05-04 DELETE); no rule is a legacy \"any membership\" rule. `rpc_only`: the privilege is not");
   lines.push("granted to `anon`/`authenticated` (05-02c grants hardening). `ownVisit`: the row's visit (or its invoice's visit) has");
-  lines.push("the caller as doctor (Sign & Bill, R-7).");
+  lines.push("the caller as doctor (Sign & Bill, R-7). Membership status (05-05, AUTH-05): only an `active` membership counts in");
+  lines.push("the helpers, so a removed or suspended member is refused every cell with a still-valid JWT (acceptance 4).");
+  lines.push("Access level (05-10a, SUB-02, acceptance 8): the `*_locked` and `*_onboarding` principals see clinic A locked or");
+  lines.push("onboarding; only `member` (tenants, own memberships) and `billing` (owner/admin: subscriptions) rules still admit them.");
   lines.push("");
   lines.push("Principals:");
   lines.push("");
@@ -495,8 +549,206 @@ export function matrixMd(): string {
   return lines.join("\n") + "\n";
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// access_lock_rls.test.sql (05-10a)
+// ---------------------------------------------------------------------------------------------------------------------
+
+/** The tenant-A roles of the lock sweep, as their full-access principals. */
+const LOCK_ROLES = ["owner_a", "admin_a", "doctor_a", "nurse_a", "receptionist_a"] as const;
+
+function principalById(id: string): Principal {
+  const p = PRINCIPALS.find((x) => x.id === id);
+  if (!p) throw new Error(`no principal ${id}`);
+  return p;
+}
+
+function withAccess(p: Principal, level: "full" | "locked" | "onboarding"): Principal {
+  return level === "full" ? p : { ...p, id: `${p.id}_${level}`, access: { A: level } };
+}
+
+/** Public tables with a `tenant_id` (plus `tenants` by id) whose tenant-A fixture rows the principal sees (the matrix's rules). */
+export function visibleTables(p: Principal): string[] {
+  const out: string[] = [];
+  for (const t of TARGETS) {
+    if (t.kind !== "table" || t.schema !== "public") continue;
+    const rows = [t.fixture, ...(t.extraRows ?? [])];
+    // The base fixtures hold every principal's own membership row too (the DB sweep counts it).
+    if (t.table === "memberships" && p.userId && p.memberships.A) rows.push({ user_id: q(p.userId), tenant_id: q(TENANT_IDS.A) });
+    const isTenants = t.table === "tenants";
+    const ofA = rows.filter((r) => (isTenants ? r.id === q(TENANT_IDS.A) : r.tenant_id === q(TENANT_IDS.A)));
+    if (ofA.length === 0) continue;
+    if (!holdsPrivilege(t, "select", p)) continue;
+    if (ofA.some((r) => admits(t.rules.select, p, t, r))) out.push(t.table);
+  }
+  return out.sort();
+}
+
+/** Storage objects of tenant A (fixture objects) the principal sees. */
+export function visibleObjects(p: Principal): number {
+  return TARGETS.filter(
+    (t) => t.kind === "storage" && t.object.includes(TENANT_IDS.A) && expectedOutcome(t, "select", p) === "1",
+  ).length;
+}
+
+export function accessLockSql(): string {
+  const A = TENANT_IDS.A;
+  const levels = ["full", "locked", "onboarding"] as const;
+  const storageTargets = TARGETS.filter(
+    (t): t is Extract<Target, { kind: "storage" }> => t.kind === "storage" && t.insertObject.includes(A),
+  );
+  const tests: string[] = [];
+  const allowedLocked = (id: string) =>
+    ["owner_a", "admin_a"].includes(id)
+      ? "memberships,subscription_events,tenant_subscriptions,tenants"
+      : "memberships,tenants";
+  for (const id of LOCK_ROLES) {
+    const base = principalById(id);
+    for (const level of levels) {
+      const p = withAccess(base, level);
+      const expected = visibleTables(p).join(",") + `|storage:${visibleObjects(p)}`;
+      if (level !== "full" && expected !== `${allowedLocked(id)}|storage:0`) {
+        throw new Error(`access_lock_rls: ${p.id} expected ${expected}, the lock rule says ${allowedLocked(id)}|storage:0`);
+      }
+      const what =
+        level === "full"
+          ? `control: ${base.label} with A full sees its tenant-A rows`
+          : `${base.label} with A ${level}: only ${allowedLocked(id).replace(/,/g, ", ")}; no storage object`;
+      tests.push(`select is(pg_temp.lock_view(${lit(level)}, '${base.userId}'), ${lit(expected)}, ${lit(what)});`);
+    }
+    for (const level of ["locked", "onboarding"] as const) {
+      const outcomes = storageTargets.map(() => "denied").join(",");
+      tests.push(
+        `select is(pg_temp.lock_uploads(${lit(level)}, '${base.userId}'), ${lit(outcomes)}, ${lit(
+          `${base.label} with A ${level}: every storage class refuses an upload (${storageTargets.length} classes)`,
+        )});`,
+      );
+    }
+  }
+  const tenantTables = TARGETS.filter(
+    (t): t is TableTarget => t.kind === "table" && t.schema === "public" && t.table !== "tenants" && "tenant_id" in t.fixture,
+  ).length;
+  const levelSql = (level: "locked" | "onboarding") => accessSql("A", level).replace(/'/g, "''");
+  const uploads = storageTargets.map((t) => `('${t.bucket}', '${t.insertObject}')`).join(", ");
+  const out: string[] = [];
+  out.push(
+    HEADER(
+      `Acceptance 8 (RLS and storage half, 05-10a): with clinic A locked (trialing, access_ends_at before the transaction\n` +
+        `-- started) or onboarding, every role reads only tenants and memberships (owner/admin also the subscription and its\n` +
+        `-- events) and no storage object, over EVERY public table with a tenant_id in the live catalogue; uploads are refused.`,
+    ),
+  );
+  out.push("begin;");
+  out.push(`select plan(${tests.length + 1});`);
+  out.push("");
+  out.push(...baseFixtures());
+  out.push("");
+  out.push(...targetFixtures());
+  out.push("");
+  out.push(`-- What a user sees of clinic A, by table, after setting A's level (as postgres) in a rolled-back subtransaction:
+-- "<tables with at least one visible tenant-A row, sorted>|storage:<visible tenant-A objects>". The table list comes
+-- from the live catalogue (every public table with a tenant_id, plus tenants by id), so a new table is covered.
+create function pg_temp.lock_view(p_level text, p_user uuid) returns text
+language plpgsql
+as $fn$
+declare
+    v_seen text[] := '{}';
+    v_rel record;
+    v_n bigint;
+    v_out text;
+begin
+    begin
+        if p_level = 'locked' then
+            execute '${levelSql("locked")}';
+        elsif p_level = 'onboarding' then
+            execute '${levelSql("onboarding")}';
+        end if;
+        perform set_config('request.jwt.claim.sub', '', true);
+        perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated')::text, true);
+        perform set_config('request.headers', '', true);
+        set local role authenticated;
+        for v_rel in
+            select c.relname::text as name
+              from pg_class c join pg_namespace n on n.oid = c.relnamespace
+             where n.nspname = 'public' and c.relkind in ('r', 'p')
+               and exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'tenant_id' and not a.attisdropped)
+             order by 1
+        loop
+            begin
+                execute format('select count(*) from public.%I where tenant_id = %L', v_rel.name, '${A}') into v_n;
+            exception
+                when insufficient_privilege then
+                    v_n := 0;
+            end;
+            if v_n > 0 then
+                v_seen := v_seen || v_rel.name;
+            end if;
+        end loop;
+        select count(*) into v_n from public.tenants where id = '${A}';
+        if v_n > 0 then
+            v_seen := v_seen || 'tenants'::text;
+        end if;
+        select count(*) into v_n from storage.objects where name like '%${A}%';
+        v_out := coalesce((select string_agg(x, ',' order by x) from unnest(v_seen) x), '') || '|storage:' || v_n;
+        raise exception 'lock view sentinel' using errcode = 'AZ997';
+    exception
+        when sqlstate 'AZ997' then
+            null;
+    end;
+    return v_out;
+end;
+$fn$;
+
+-- One upload per storage class of clinic A as the user, A at p_level: 'ok' or 'denied' (42501), in class order.
+create function pg_temp.lock_uploads(p_level text, p_user uuid) returns text
+language plpgsql
+as $fn$
+declare
+    v_obj record;
+    v_res text[] := '{}';
+begin
+    for v_obj in select * from (values ${uploads}) o(bucket, name) loop
+        begin
+            if p_level = 'locked' then
+                execute '${levelSql("locked")}';
+            else
+                execute '${levelSql("onboarding")}';
+            end if;
+            perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated')::text, true);
+            perform set_config('request.headers', '', true);
+            set local role authenticated;
+            insert into storage.objects (bucket_id, name) values (v_obj.bucket, v_obj.name);
+            v_res := v_res || 'ok'::text;
+            raise exception 'upload sentinel' using errcode = 'AZ996';
+        exception
+            when sqlstate 'AZ996' then
+                null;
+            when insufficient_privilege then
+                v_res := v_res || 'denied'::text;
+        end;
+    end loop;
+    return array_to_string(v_res, ',');
+end;
+$fn$;
+`);
+  out.push(
+    `select is((select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind in ('r', 'p') and exists (select 1 from pg_attribute a where a.attrelid = c.oid and a.attname = 'tenant_id' and not a.attisdropped)), ${tenantTables}, ${lit(
+      `the sweep covers every public table with a tenant_id (${tenantTables}, the matrix's tenant tables)`,
+    )});`,
+  );
+  out.push(...tests);
+  out.push("");
+  out.push("select * from finish();");
+  out.push("rollback;");
+  return out.join("\n") + "\n";
+}
+
 export function generateAll(): Record<string, string> {
-  return { [MATRIX_SQL]: matrixSql(), [COMPLETENESS_SQL]: completenessSql(), [MATRIX_MD]: matrixMd() };
+  return {
+    [MATRIX_SQL]: matrixSql(),
+    [COMPLETENESS_SQL]: completenessSql(),
+    [MATRIX_MD]: matrixMd(),
+    [ACCESS_LOCK_SQL]: accessLockSql(),
+  };
 }
 
 function main(argv: string[]): number {

@@ -126,6 +126,18 @@ export async function authenticateApiKey(
     };
   }
 
+  // V2-05 05-10a (SUB-02, R-28): a key of a clinic whose access level is not `full` answers 402 SUBSCRIPTION_LOCKED,
+  // after the key is authenticated and before anything is counted or read (fail closed on a lookup error).
+  const { data: access, error: accessError } = await (supabase as any).rpc("tenant_access_for_system", {
+    p_tenant: keyRecord.tenant_id,
+  });
+  if (accessError || access !== "full") {
+    return {
+      success: false,
+      response: await apiError("SUBSCRIPTION_LOCKED", "This clinic's subscription is not active.", 402),
+    };
+  }
+
   const now = new Date().toISOString();
 
   // Update last_used_at and daily usage counter, bucketed by the clinic date in the tenant's zone (V2-03 03-05)

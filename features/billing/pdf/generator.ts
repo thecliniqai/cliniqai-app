@@ -114,7 +114,7 @@ async function renderAndArchiveReceipt(
     const signedResult = await getSignedUrl(
       {
         path: storagePath,
-        expiresInSeconds: VIEW_LINK_TTL_SECONDS,
+        expiresInSeconds: VIEW_LINK_TTL_SECONDS, // R-29 (05-10a): a view, the 300 s cap
         bucket: "prescriptions",
       },
       storageProvider

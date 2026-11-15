@@ -50,5 +50,58 @@ export const en = {
       success: "Password changed. Other devices were signed out.",
       successOthersRemain: "Password changed, but we could not sign out your other devices.",
     },
+    // V2-05 05-07b (AUTH-06): the /join page and invite acceptance. Fixed texts only; never database or provider text.
+    invite: {
+      title: "Join your clinic",
+      intro: "Accept your invitation to the clinic team on ClinicOS.",
+      incomplete: "This invitation link is incomplete. Ask your clinic to send it again.",
+      not_found: "This invitation link is not valid. Ask your clinic to send a new one.",
+      expired: "This invitation has expired. Ask your clinic to send a new one.",
+      revoked: "This invitation has been withdrawn. Ask your clinic for a new invite.",
+      used: "This invitation has already been used. Sign in to continue.",
+      sign_in_to_accept: "Already have a ClinicOS account? Sign in, then open this link again to accept.",
+      set_password_intro: "New to ClinicOS? Choose a password to create your account and join the clinic.",
+      account_exists: "An account already exists for this address. Sign in, then open this link again to accept.",
+      email_mismatch: "This invitation was sent to a different email address. Sign in with that address to accept it.",
+      already_member: "You are already a member of this clinic.",
+      captcha_unconfigured: "Invitation sign-up is not available right now. Ask your clinic to contact support.",
+      accepted: "Your account is ready. Sign in with your new password.",
+      accept_failed: "We couldn't accept this invitation. Try again.",
+    },
+  },
+  // V2-05 05-10b (SUB-02, SUB §7.2 item 3): the functional locked and onboarding pages (styled in V2-13b, SUB-08).
+  // Fixed texts only. Times are shown in IST (SUB §10.3).
+  subscription: {
+    status: {
+      incomplete: "Setup incomplete",
+      trialing: "Free trial",
+      active: "Active",
+      past_due: "Payment due",
+      expired: "Expired",
+      archived: "Archived",
+      purged: "Closed",
+    },
+    locked: {
+      title: "Your clinic's access is paused",
+      intro: "The subscription for this clinic is not active, so the clinic's records can't be opened right now.",
+      clinic: "Clinic",
+      status: "Subscription status",
+      access_ended: "Access ended",
+      unknown: "Not available",
+      data_safe: "Your clinic's data is safe. Nothing has been deleted.",
+      renewal: "Renewal and export open with billing (V2-13b/V2-13c).",
+    },
+    locked_staff: {
+      title: "Your clinic's subscription is inactive",
+      body: "Your clinic's subscription is inactive; contact the owner.",
+      clinic: "Clinic",
+    },
+    onboarding: {
+      title: "Finish setting up your clinic",
+      clinic: "Clinic",
+      owner_body: "Your clinic has been created. Billing setup opens with AUTH-07/SUB-03 in V2-13b; your clinic's pages open once it is done.",
+      staff_body: "Your clinic is still being set up. Contact the owner.",
+    },
+    sign_out: "Sign out",
   },
 } as const;

@@ -1,0 +1,38 @@
+
+ RUN  v3.2.7 /Users/sid/Code/clinicOS
+
+ ❯ tests/ai/ai-reserve-concurrency.spec.ts (4 tests | 1 failed) 1412ms
+   ✓ ai_reserve under concurrency (05-10c) > precondition: the trialing clinic's doctor gets ok from ai_preflight (opt-in, entitlement, kill switch) 41ms
+   × ai_reserve under concurrency (05-10c) > at limit − 1, two parallel reservations give exactly one id and one AI_OVER_QUOTA (8 rounds) 355ms
+     → round 0: reservation ids: expected [ …(2) ] to have a length of 1 but got 2
+   ✓ ai_reserve under concurrency (05-10c) > the reservation commits to exactly one unit; the quota is then full  400ms
+   ✓ ai_reserve under concurrency (05-10c) > a locked clinic's reservation is refused with AI_LOCKED, which the app reads as SUBSCRIPTION_LOCKED 142ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  06:25:25
+   Duration  1.84s (transform 53ms, setup 8ms, collect 44ms, tests 1.41s, environment 0ms, prepare 26ms)
+
+[teardown] removed run data: 1 tenant(s), 2 auth user(s), 0 storage object(s); verified none remain
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ai/ai-reserve-concurrency.spec.ts > ai_reserve under concurrency (05-10c) > at limit − 1, two parallel reservations give exactly one id and one AI_OVER_QUOTA (8 rounds)
+AssertionError: round 0: reservation ids: expected [ …(2) ] to have a length of 1 but got 2
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 2[39m
+
+ ❯ tests/ai/ai-reserve-concurrency.spec.ts:101:54
+     99|       const ids = results.filter((r) => r.error === null).map((r) => r…
+    100|       const refusals = results.filter((r) => r.error !== null).map((r)…
+    101|       expect(ids, `round ${round}: reservation ids`).toHaveLength(1);
+       |                                                      ^
+    102|       expect(ids[0]).toMatch(/^[0-9a-f-]{36}$/);
+    103|       expect(refusals, `round ${round}: refusals`).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

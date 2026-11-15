@@ -33,6 +33,12 @@ import { psql } from "../helpers/sql";
 export const NO_ACTION_USER_REFS: ReadonlyArray<readonly [table: string, column: string]> = [
   ["invitations", "created_by"],
   ["invitations", "consumed_by"],
+  // V2-05 05-05: who removed a member / revoked an invitation (NO ACTION: the record outlives nothing but its clinic).
+  ["invitations", "revoked_by"],
+  ["memberships", "removed_by"],
+  // V2-05 05-10c: who accepted the AI terms for the clinic / who recorded a patient's AI objection.
+  ["tenant_ai_settings", "accepted_by"],
+  ["patients", "objection_recorded_by"],
   ["patients", "created_by"],
   ["audit_logs", "actor_id"],
   ["consent_records", "recorded_by"],

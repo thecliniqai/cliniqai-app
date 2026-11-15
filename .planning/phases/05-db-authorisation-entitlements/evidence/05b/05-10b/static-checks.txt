@@ -1,0 +1,7 @@
+# 05-10b static checks (exit codes from the tools; 05-10b tree, before its commit)
+typecheck exit=0
+eslint --quiet exit=0
+inventory exit=0
+ai-l1: PASS
+authz:gen --check exit=0
+schema-snapshot: PASS (local: 2543 lines equal the committed snapshot)

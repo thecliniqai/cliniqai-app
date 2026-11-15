@@ -84,11 +84,11 @@ export async function generateAndArchiveReferralPdf(
     throw new Error("Failed to upload referral letter PDF to storage.", { cause: uploadErr });
   }
 
-  // 4. Generate a short-lived view link (5 minutes)
+  // 4. Generate a short-lived view link (5 minutes; R-29, 05-10a)
   const { signedUrl } = await getSignedUrl(
     {
       path: storagePath,
-      expiresInSeconds: VIEW_LINK_TTL_SECONDS,
+      expiresInSeconds: VIEW_LINK_TTL_SECONDS, // R-29 (05-10a): a view, the 300 s cap
       bucket: "clinic-records",
     },
     storageProvider

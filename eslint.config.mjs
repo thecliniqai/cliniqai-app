@@ -340,7 +340,7 @@ const BOUNDARY_IMPORT_PATTERNS = {
   },
   featureSystem: {
     regex: String.raw`^@\/features\/[^/]+\/${SYSTEM_TAIL}`,
-    message: `${P134} a features/<domain>/system module runs on the service role and is importable only from ${SYSTEM_ALLOWED_WHERE}; features/sharing/system also from the five ADR-0005 A1 share routes, features/auth/system also from the Send Email hook route (proposed A3).`,
+    message: `${P134} a features/<domain>/system module runs on the service role and is importable only from ${SYSTEM_ALLOWED_WHERE}; features/sharing/system also from the five ADR-0005 A1 share routes, features/auth/system also from the Send Email hook route (proposed A3) and invite acceptance (proposed A4).`,
   },
   // Relative, absolute or traversing spellings of a system module (`./system`, `../../lib/supabase/system`, …).
   otherSystem: {
@@ -420,6 +420,13 @@ const A3_AUTH_ONLY = {
   regex: String.raw`^@\/features\/(?!auth\/${SYSTEM_TAIL})[^/]+\/${SYSTEM_TAIL}`,
   message: `${P134} the Send Email hook route (proposed ADR-0005 A3) may import features/auth/system only.`,
 };
+// Proposed ADR-0005 A4 (V2-05 05-07b, R-44): invite acceptance (features/auth/invite-flows.ts) may import
+// features/auth/system, and no other features/*/system (nor the factory itself). Owner: AUTH-06 (V2-05); review the
+// allowance when invite acceptance moves off the Auth admin API.
+const A4_AUTH_ONLY = {
+  regex: String.raw`^@\/features\/(?!auth\/${SYSTEM_TAIL})[^/]+\/${SYSTEM_TAIL}`,
+  message: `${P134} invite acceptance (proposed ADR-0005 A4) may import features/auth/system only.`,
+};
 const appImports = (allow = [], extraPatterns = [], extraPaths = []) => [
   "error",
   {
@@ -493,6 +500,13 @@ const BOUNDARY_IMPORT_ZONES = [
     files: ["app/api/auth/send-email/route.ts"],
     allow: ["featureSystem"],
     extraPatterns: [A3_AUTH_ONLY],
+  },
+  // Proposed ADR-0005 A4 (V2-05 05-07b, R-44): invite acceptance creates or completes the invitee's account through the
+  // Auth admin API (features/auth/system) after its token, Turnstile and password checks; that module only.
+  {
+    files: ["features/auth/invite-flows.ts"],
+    allow: ["featureSystem"],
+    extraPatterns: [A4_AUTH_ONLY],
   },
   // ADR-0005 A1: the five public share routes (minimatch escapes the brackets of the dynamic segment).
   {

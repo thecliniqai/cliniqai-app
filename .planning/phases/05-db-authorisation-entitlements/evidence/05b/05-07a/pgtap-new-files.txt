@@ -1,0 +1,6 @@
+supabase/tests/database/invitations_v2.test.sql planned=75 ok=75 not_ok=0
+supabase/tests/database/definer_functions.test.sql planned=40 ok=40 not_ok=0
+supabase/tests/database/admin_policies.test.sql planned=32 ok=32 not_ok=0
+supabase/tests/database/invitation_binding.test.sql planned=14 ok=14 not_ok=0
+supabase/tests/database/authz_matrix.test.sql planned=3224 ok=3224 not_ok=0
+supabase/tests/database/authz_completeness.test.sql planned=6 ok=6 not_ok=0

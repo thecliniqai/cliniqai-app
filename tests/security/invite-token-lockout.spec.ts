@@ -1,25 +1,28 @@
 /**
  * Invitation token lockout (SEC-14, 01-06 ruling R3; moved from the retired dev-logger-lockout spec).
  * `inviteStaff` never returns the raw token or a join link, in any environment, and never logs or writes it.
+ * V2-05 05-07a (R-30): inviteStaff calls the invite_staff RPC with the session clinic, the address and the role only;
+ * no token exists at invite time (the email handler mints it at send time), so none can be sent, returned or logged.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import { inviteStaffMemberAction } from "@/features/staff/actions";
 
-const inserted: Array<Record<string, unknown>> = [];
+const calls: Array<{ name: string; args: Record<string, unknown> }> = [];
+const inserted: unknown[] = [];
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn().mockResolvedValue({
-    from: vi.fn().mockReturnValue({
-      insert: vi.fn().mockImplementation((row: Record<string, unknown>) => {
-        inserted.push(row);
-        return {
-          select: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: { id: "inv-mock-uuid-456" }, error: null }),
-          }),
-        };
-      }),
+    rpc: vi.fn().mockImplementation(async (name: string, args: Record<string, unknown>) => {
+      calls.push({ name, args });
+      return { data: { id: "inv-mock-uuid-456", expires_at: "2026-11-18T00:00:00Z", deduped: false }, error: null };
     }),
+    from: vi.fn().mockImplementation(() => ({
+      insert: vi.fn().mockImplementation((row: unknown) => {
+        inserted.push(row);
+        return { select: () => ({ single: async () => ({ data: null, error: { code: "42501" } }) }) };
+      }),
+    })),
   }),
 }));
 
@@ -36,6 +39,7 @@ describe("inviteStaff never exposes the invitation token", () => {
   let spies: Array<{ mockRestore: () => void; mock: { calls: unknown[][] } }> = [];
 
   beforeEach(() => {
+    calls.length = 0;
     inserted.length = 0;
     spies = [
       vi.spyOn(console, "log").mockImplementation(() => {}),
@@ -59,10 +63,15 @@ describe("inviteStaff never exposes the invitation token", () => {
       const result = await inviteStaffMemberAction({ email: "colleague@example.com", role: "doctor" });
 
       expect(result).toEqual({ success: true, inviteId: "inv-mock-uuid-456" });
-      // The row stores only a hash of the token.
-      expect(inserted).toHaveLength(1);
-      expect(inserted[0].token_hash).toMatch(/^[0-9a-f]{64}$/);
-      expect(Object.keys(inserted[0])).not.toContain("token");
+      // One invite_staff call with the session clinic, the address and the role; no token, hash or link is sent, and
+      // nothing is inserted directly (the INSERT privilege is revoked, 000088).
+      expect(calls).toEqual([
+        {
+          name: "invite_staff",
+          args: { p_tenant: "00000000-0000-0000-0000-000000000001", p_email: "colleague@example.com", p_role: "doctor" },
+        },
+      ]);
+      expect(inserted).toHaveLength(0);
       for (const spy of spies) expect(spy.mock.calls).toHaveLength(0);
     },
   );

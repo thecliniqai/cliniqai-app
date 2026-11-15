@@ -46,13 +46,17 @@ export async function visitInTenant(ctx: ServiceContext, visitId: string, patien
   return patientId === undefined || (data as { patient_id: string }).patient_id === patientId;
 }
 
-/** True when `userId` holds a membership in the caller's clinic (a doctor or staff reference). */
+/**
+ * True when `userId` holds an ACTIVE membership in the caller's clinic (a doctor or staff reference). A removed or
+ * suspended member (V2-05 05-05) cannot be given new work: the composite FKs only prove the row exists.
+ */
 export async function memberOfTenant(ctx: ServiceContext, userId: string): Promise<boolean> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (ctx.db.from("memberships") as any)
     .select("user_id")
     .eq("tenant_id", ctx.tenantId)
     .eq("user_id", userId)
+    .eq("status", "active")
     .maybeSingle();
   return !error && !!data;
 }

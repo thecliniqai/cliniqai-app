@@ -16,11 +16,13 @@ import {
   E2E_APP_ENV,
   E2E_PWNED_API_BASE_URL,
   E2E_TURNSTILE_SITE_KEY,
+  E2E_TURNSTILE_VERIFY_URL,
   LOCAL_ERROR_INGEST_KEY,
   LOCAL_JOBS_RUNNER_SECRET,
   LOCAL_MAILPIT_API_URL,
   LOCAL_OPS_ALERT_EMAIL,
   LOCAL_SEND_EMAIL_HOOK_SECRET,
+  TURNSTILE_PASS_SECRET_KEY,
   assertLocalAppServerEnv,
   loadLocalStackKeys,
   type EnvMap,
@@ -123,6 +125,11 @@ export function buildAppServerEnv(options: AppServerEnvOptions = {}): EnvMap {
     // test key. The browser never reaches Cloudflare: tests/e2e/fixtures.ts fulfils the widget script with
     // tests/e2e/support/turnstile-stub.js, and local GoTrue has CAPTCHA off, so the lane proves the token wiring.
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: E2E_TURNSTILE_SITE_KEY,
+    // V2-05 05-07b (R-46): invite acceptance verifies the widget token server-side against the loopback fake
+    // siteverify global setup starts (tests/e2e/support/turnstile-verify-server.ts), with Cloudflare's always-pass
+    // test secret (built at run time).
+    TURNSTILE_SECRET_KEY: TURNSTILE_PASS_SECRET_KEY,
+    TURNSTILE_VERIFY_URL: E2E_TURNSTILE_VERIFY_URL,
     NODE_OPTIONS: `--require "${SERVER_NET_GUARD}"`,
   } satisfies EnvMap);
   assertLocalAppServerEnv(env);

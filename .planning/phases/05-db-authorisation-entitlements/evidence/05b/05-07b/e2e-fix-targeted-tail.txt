@@ -1,0 +1,6 @@
+[WebServer] {"ts":"2026-11-14T23:38:13.020Z","level":"info","event":"db.system_acquired","module":"features/auth/system","reason":"auth.invite_accept"}
+[WebServer] {"ts":"2026-11-14T23:38:13.119Z","level":"info","event":"auth.invite_accept.done","tenantId":"64e6167f-4961-4049-b1d2-86424418e22b","action":"invite_accept"}
+  ✓  33 [pixel-7] › tests/e2e/auth/join-invite.spec.ts:118:7 › /join (invitation) › a new invitee sets a password: server-side Turnstile, FT-05, account created, invitation redeemed (447ms)
+[e2e teardown] removed run data: 6 tenant(s), 8 auth user(s), 0 storage object(s); verified none remain
+
+  33 passed (24.4s)

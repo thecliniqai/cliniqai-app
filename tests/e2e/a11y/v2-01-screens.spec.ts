@@ -63,9 +63,11 @@ const AUTH_PAGES: Array<{ name: string; path: string; ready: (page: Page) => Pro
     ready: (page) => expect(page.getByText("This invitation link is incomplete.")).toBeVisible(),
   },
   {
-    name: "join (signed out)",
+    // V2-05 05-07b: /join renders from peek_invitation, so a token that is not a minted one reads as not valid (the
+    // pending invitation and its set-password form are covered by tests/e2e/auth/join-invite.spec.ts).
+    name: "join (unknown link)",
     path: "/join?token=e2e-synthetic-token",
-    ready: (page) => expect(page.getByRole("link", { name: "Sign in" })).toBeVisible(),
+    ready: (page) => expect(page.getByText("This invitation link is not valid. Ask your clinic to send a new one.")).toBeVisible(),
   },
 ];
 

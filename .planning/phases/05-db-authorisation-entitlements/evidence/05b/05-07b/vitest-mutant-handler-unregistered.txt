@@ -1,0 +1,12 @@
+   × acceptance 10: one invite sends exactly one email under retry > (ii) 5 parallel runner passes → exactly one message in Mailpit; the job is done after one attempt 80ms
+     → expected [] to have a length of 1 but got +0
+   × acceptance 10: one invite sends exactly one email under retry > (iv) resendInvite → exactly one more message; the first link is dead, the second redeems 33ms
+     → expected [] to have a length of 1 but got +0
+   × acceptance 10: one invite sends exactly one email under retry > each message is link-only: the clinic, the role, the /join link and the expiry; no other address 37ms
+ FAIL  tests/integration/auth/invite-delivery.spec.ts > acceptance 10: one invite sends exactly one email under retry > (ii) 5 parallel runner passes → exactly one message in Mailpit; the job is done after one attempt
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  tests/integration/auth/invite-delivery.spec.ts > acceptance 10: one invite sends exactly one email under retry > (iv) resendInvite → exactly one more message; the first link is dead, the second redeems
+AssertionError: expected [] to have a length of 1 but got +0
+ FAIL  tests/integration/auth/invite-delivery.spec.ts > acceptance 10: one invite sends exactly one email under retry > each message is link-only: the clinic, the role, the /join link and the expiry; no other address
+ Test Files  1 failed (1)
+      Tests  3 failed | 2 passed (5)

@@ -1,0 +1,11 @@
+{
+  "numTotalTests": 5006,
+  "numFailedTests": 67,
+  "failed_files": {
+    "tests/authz/table-matrix.spec.ts": 1,
+    "tests/storage/storage-provider.spec.ts": 1,
+    "tests/security/guard-actions.spec.ts": 62,
+    "tests/security/guard-routes.spec.ts": 2,
+    "tests/security/share-path-encoding.spec.ts": 1
+  }
+}

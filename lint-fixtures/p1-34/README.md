@@ -18,9 +18,9 @@ Rule ids: **imports** = `@typescript-eslint/no-restricted-imports`; **syntax** =
 | `factory-import.ts` | `features/patients/service.ts`, `app/api/r/[token]/route.ts`, `lib/supabase/server.ts`, `lib/jobs/x.ts` (03-13c: the enqueue surface is not the allow-list), `lib/jobs/enqueue.ts`, `lib/jobs/auth.ts` (04-02) (imports, P1-34) | `app/api/webhooks/x/route.ts`, `app/api/jobs/run/route.ts`, `lib/jobs/internal/runner.ts`, `features/x/system.ts`; register: `app/api/v1/x/route.ts`, `lib/api/x.ts` (V2-04 04-03c: `app/api/cron/x/route.ts`, `lib/messaging/dispatcher.ts`, `lib/webhooks/x.ts` and `app/api/auth/send-email/route.ts` now fail); `tests/fixture/x.spec.ts` |
 | `traversal-factory-import.ts` | `features/patients/service.ts` (imports, P1-34) | |
 | `reexport-factory.ts` | `lib/db/system-reexport.ts` (imports, P1-34) | |
-| `sharing-system-import.ts` | `features/patients/service.ts`, `app/api/patients/route.ts`, `app/(dashboard)/patients/page.tsx` (imports, P1-34) | the 5 ADR-0005 A1 routes |
-| `other-feature-system-import.ts` | `app/api/reports/view/route.ts` (A1 route, other domain), `app/api/auth/send-email/route.ts` (A3 route, other domain) (imports, P1-34) | `features/sharing/system.ts`, `app/api/webhooks/messaging/x/route.ts` |
-| `auth-system-import.ts` (V2-04 04-03c, proposed ADR-0005 A3) | `app/api/auth/other/route.ts`, `features/patients/service.ts` (imports, P1-34) | `app/api/auth/send-email/route.ts` |
+| `sharing-system-import.ts` | `features/patients/service.ts`, `app/api/patients/route.ts`, `app/(dashboard)/patients/page.tsx`, `features/auth/invite-flows.ts` (A4) (imports, P1-34) | the 5 ADR-0005 A1 routes |
+| `other-feature-system-import.ts` | `app/api/reports/view/route.ts` (A1 route, other domain), `app/api/auth/send-email/route.ts` (A3 route, other domain), `features/auth/invite-flows.ts` (A4 module, other domain) (imports, P1-34) | `features/sharing/system.ts`, `app/api/webhooks/messaging/x/route.ts` |
+| `auth-system-import.ts` (V2-04 04-03c, proposed ADR-0005 A3; V2-05 05-07b, proposed A4) | `app/api/auth/other/route.ts`, `features/patients/service.ts`, `features/staff/actions.ts`, `features/auth/actions.ts` (imports, P1-34) | `app/api/auth/send-email/route.ts`, `features/auth/invite-flows.ts` |
 | `relative-system-import.ts` | `features/billing/actions.ts` (imports, P1-34) | |
 | `dynamic-import-factory.ts` | `features/patients/service.ts`, `app/api/webhooks/x/route.ts` (syntax, P1-34) | nowhere |
 | `require-factory.ts` | `features/patients/service.ts`, `features/x/system.ts` (syntax, P1-34) | nowhere |

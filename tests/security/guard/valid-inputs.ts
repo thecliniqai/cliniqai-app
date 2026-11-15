@@ -214,6 +214,9 @@ export const VALID_INPUTS: Record<string, ValidInput> = {
   "features/staff/actions.ts#inviteStaffMemberAction": {
     args: (a) => [formData({ email: syntheticEmail(), role: "doctor", tenant_id: a.tenant, created_by: a.ownerUser })],
   },
+  "features/staff/actions.ts#removeStaff": {
+    args: (a) => [{ membershipId: a.membership, reason: "Synthetic guard removal" }],
+  },
   "features/terminology/actions.ts#addConsultationDiagnosis": {
     args: (a) => [{
       visit_id: a.visit,

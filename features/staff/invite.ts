@@ -30,6 +30,18 @@ export function hashInviteToken(rawToken: string): string {
   return crypto.createHash("sha256").update(rawToken).digest("hex");
 }
 
+const RAW_INVITE_TOKEN = /^[0-9a-f]{64}$/;
+
+/**
+ * V2-05 05-07b: the SHA-256 of a well-formed raw invitation token (64 hex characters, as `invitation_issue_token`
+ * mints them), else null. Every caller hashes through this, so a malformed token never reaches the database.
+ */
+export function inviteTokenHash(rawToken: unknown): string | null {
+  if (typeof rawToken !== "string") return null;
+  const token = rawToken.trim();
+  return RAW_INVITE_TOKEN.test(token) ? hashInviteToken(token) : null;
+}
+
 export function buildJoinUrl(baseUrl: string, rawToken: string, email: string): string {
   const url = new URL("/join", baseUrl);
   url.searchParams.set("token", rawToken);

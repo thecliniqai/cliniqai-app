@@ -40,6 +40,19 @@
  *          platform_audit_log x 4 ops x 11 principals) + platform_rpcs 80 = 4018 (38 files).
  *   3934 — V2-05 05b 05-09c (000086 drop_v1_subscription_tables): 4018 − authz_matrix 88 (2816 → 2728: the dropped
  *          subscriptions and payment_records x 4 ops x 11 principals) + drop_v1_subscriptions 4 = 3934 (39 files).
+ *   4513 — V2-05 05b 05-05 (000087 membership_status): 3934 + authz_matrix 496 (2728 → 3224: 62 targets x 4 ops x 2 new
+ *          principals, removed and suspended) + definer_functions 2 (34 → 36: remove_member legs) + remove_member 81
+ *          = 4513 (40 files).
+ *   4592 — V2-05 05b 05-07a (000088 invitations_v2): 4513 + definer_functions 4 (36 → 40: invite_staff, resend and
+ *          revoke legs) + invitations_v2 75 = 4592 (41 files; the matrix keeps 3224 cells, invitations INSERT → rpc_only).
+ *   4609 — V2-05 05b 05-07b (000089 invitation_accept_context): 4592 + invitation_accept_context 17 = 4609 (42 files;
+ *          definer_functions keeps 40 cases, its classification and grant lists gain the new service-role function).
+ *   7388 — V2-05 05b 05-10a (000090 access_enforcement): 4609 + authz_matrix 2728 (3224 → 5952: 62 targets x 4 ops x 11
+ *          access-level principals, every A role locked and onboarding plus the dual member acting in a locked A)
+ *          + definer_functions 25 (40 → 65: the access classification and its legs) + access_lock_rls 26 = 7388 (43 files).
+ *   7838 — V2-05 05b 05-10c (000091 ai_gating): 7388 + authz_matrix 288 (5952 → 6240: 3 new targets x 4 ops x 24
+ *          principals) + definer_functions 6 (65 → 71: 2 dual-member and 4 access-level legs for the AI RPCs)
+ *          + ai_gating_l2 115 + ai_quota 41 = 7838 (45 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -51,7 +64,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 3934;
+export const FLOOR = 7838;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -111,6 +124,17 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/subscription_invariant.test.sql",
   "supabase/tests/database/platform_rpcs.test.sql",
   "supabase/tests/database/drop_v1_subscriptions.test.sql",
+  // 05-05
+  "supabase/tests/database/remove_member.test.sql",
+  // 05-07a
+  "supabase/tests/database/invitations_v2.test.sql",
+  // 05-07b
+  "supabase/tests/database/invitation_accept_context.test.sql",
+  // 05-10a
+  "supabase/tests/database/access_lock_rls.test.sql",
+  // 05-10c
+  "supabase/tests/database/ai_gating_l2.test.sql",
+  "supabase/tests/database/ai_quota.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

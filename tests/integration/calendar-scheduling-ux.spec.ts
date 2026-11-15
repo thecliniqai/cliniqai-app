@@ -35,24 +35,21 @@ function createMockSupabase(overrides?: {
     rpc: async () => ({ data: 1, error: null }),
     from: (table: string) => {
       if (table === "memberships") {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                maybeSingle: async () => ({
-                  data: {
-                    id: "mem-doc-1",
-                    user_id: "22222222-2222-4222-8222-222222222222",
-                    tenant_id: "tenant-100",
-                    role: "doctor",
-                    default_slot_duration_minutes: 45,
-                    availability_schedule: mockSchedule,
-                  },
-                }),
-              }),
-            }),
-          }),
+        // Any chain of eq filters (tenant, user and, since V2-05 05-05, status = 'active') ends in maybeSingle.
+        const member = {
+          id: "mem-doc-1",
+          user_id: "22222222-2222-4222-8222-222222222222",
+          tenant_id: "tenant-100",
+          role: "doctor",
+          status: "active",
+          default_slot_duration_minutes: 45,
+          availability_schedule: mockSchedule,
         };
+        const chain: { eq: () => typeof chain; maybeSingle: () => Promise<{ data: typeof member }> } = {
+          eq: () => chain,
+          maybeSingle: async () => ({ data: member }),
+        };
+        return { select: () => chain };
       }
       if (table === "patients") {
         // createVisit checks the patient is an active patient of the caller's clinic (P0-13, lib/auth/tenant-refs.ts):

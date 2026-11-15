@@ -7,8 +7,8 @@ import {
   StorageProvider,
   StorageSignedUrlOptions,
   StorageUploadOptions,
+  clampSignedUrlTtl,
 } from "./types";
-import { VIEW_LINK_TTL_SECONDS } from "./view-link";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<Database, any, any>;
@@ -66,8 +66,9 @@ export class SupabaseStorageProvider implements StorageProvider {
 
   async createSignedUrl(options: StorageSignedUrlOptions): Promise<{ signedUrl: string }> {
     const bucket = options.bucket || this.defaultBucket;
-    // 06-09b (N-1): a caller that names no lifetime gets the view-link one, never an hour.
-    const expiresIn = options.expiresInSeconds ?? VIEW_LINK_TTL_SECONDS;
+    // R-29 (05-10a): clamped here too, so a direct provider call cannot sign a longer-lived URL. A caller that names no
+    // lifetime gets the purpose's cap: a view link lives VIEW_LINK_TTL_SECONDS (06-09b N-1), never an hour.
+    const expiresIn = clampSignedUrlTtl(options.expiresInSeconds, options.purpose);
     const client = await this.getClient();
 
     const { data, error } = await client.storage

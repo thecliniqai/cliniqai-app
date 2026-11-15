@@ -1,0 +1,12 @@
+  ✓  230 [iphone-15] › tests/e2e/journeys/journey-01-password-login.spec.ts:22:5 › a wrong password is refused: fixed error, still on /login, no session @golden (1.0s)
+  ✓  231 [iphone-15] › tests/e2e/m0/register-patient.spec.ts:33:9 › M0 flow: register patient › owner › owner registers a patient → one patients row (E.164 phone) in tenant A, visible in the list @golden (967ms)
+  ✓  232 [iphone-15] › tests/e2e/m0/walk-in-token.spec.ts:18:5 › walk-in for an existing patient → waiting visit + next queue token, visible in the queue @golden (1.7s)
+  ✓  233 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › owner session › owner opens the app on its landing page @golden (286ms)
+  ✓  234 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › admin session › admin opens the app on its landing page @golden (280ms)
+  ✓  235 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › doctor session › doctor opens the app on its landing page @golden (341ms)
+  ✓  236 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › nurse session › nurse opens the app on its landing page @golden (306ms)
+  ✓  237 [iphone-15] › tests/e2e/smoke.spec.ts:13:9 › receptionist session › receptionist opens the app on its landing page @golden (325ms)
+[e2e teardown] removed run data: 6 tenant(s), 25 auth user(s), 6 storage object(s); verified none remain
+
+  9 skipped
+  228 passed (2.4m)

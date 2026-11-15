@@ -1,6 +1,7 @@
 import { PermissionDeniedError } from "@/lib/permissions";
 import { log, type LogFields } from "@/lib/log";
 import { errorTag } from "./error-tag";
+import { DEFAULT_APP_ERROR_MESSAGES } from "./app-error";
 
 export { errorTag };
 
@@ -22,6 +23,8 @@ const SESSION_REFUSALS: ReadonlyArray<{ matches: (err: Error) => boolean; text: 
     matches: (err) => err.name === "MultipleClinicsSelectionRequiredError",
     text: "Multiple clinics found. Please select an active clinic.",
   },
+  // V2-05 05-10a (SUB-02): the active clinic is locked or onboarding (TenantLockedError, SUBSCRIPTION_LOCKED).
+  { matches: (err) => err.name === "TenantLockedError", text: DEFAULT_APP_ERROR_MESSAGES.SUBSCRIPTION_LOCKED },
 ];
 
 export function clientErrorMessage(err: unknown, fallback: string, logEvent?: LogFields["event"]): string {

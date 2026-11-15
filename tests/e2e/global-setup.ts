@@ -4,7 +4,8 @@
  * - Re-checks the local-only guard and takes the same run lock as Vitest (`startRun`), so an e2e run and a Vitest
  *   run never share the local stack at once (each one's teardown deletes everything created during its run).
  * - Seeds tenant A (owner, admin, doctor, nurse, receptionist; one patient with an in-consultation visit) and tenant
- *   B (owner; one patient and visit) with synthetic data and a per-run random password; writes ids/emails/names to
+ *   B (owner; one patient and visit) with synthetic data and a per-run random password; (V2-05 05-10b) plus a locked
+ *   clinic (owner, receptionist) and an onboarding clinic (owner) with no patient data; writes ids/emails/names to
  *   `playwright/.auth/run.json` and the password to `E2E_RUN_PASSWORD` (inherited by workers, never on disk).
  * - (03-12a, FT-05) Starts the loopback fake Pwned Passwords range API on 127.0.0.1:3101, which the e2e app server's
  *   `PWNED_API_BASE_URL` names (tests/e2e/support/app-env.ts); it lists `BREACHED_FIXTURE_PASSWORDS` as breached.
@@ -16,14 +17,21 @@
  */
 import fs from "node:fs";
 import { randomInt, randomUUID } from "node:crypto";
-import { E2E_PWNED_RANGE_PORT, assertLocalTestEnv } from "../setup/test-env";
+import { E2E_PWNED_RANGE_PORT, E2E_TURNSTILE_VERIFY_PORT, assertLocalTestEnv } from "../setup/test-env";
 import { ensureLocalErrorIngestKey } from "../setup/error-sink-key";
 import { pauseCronJobs, resumeCronJobs } from "../setup/cron-pause";
 import { releaseRunLock, startRun, teardownRun, type RunMarker } from "../setup/teardown";
-import { addMemberToTenant, seededUserPassword, seedTenantWithOwner, type SeededTenant } from "../helpers/tenants";
+import {
+  addMemberToTenant,
+  seedAccessFixtureClinic,
+  seededUserPassword,
+  seedTenantWithOwner,
+  type SeededTenant,
+} from "../helpers/tenants";
 import { getAdminClient } from "../helpers/supabase-admin";
 import { ROOT } from "./support/app-env";
 import { startPwnedRangeServer, type PwnedRangeServer } from "./support/pwned-range-server";
+import { startTurnstileVerifyServer, type TurnstileVerifyServer } from "./support/turnstile-verify-server";
 import { AUTH_DIR, RUN_FILE, RUN_PASSWORD_VAR, type RunData, type RunTenant } from "./support/run-data";
 
 /**
@@ -93,6 +101,11 @@ async function seed(runTag: string): Promise<RunData> {
     .single();
   if (invErr || !invoiceB) throw new Error(`e2e seed: invoice insert failed: ${invErr?.message}`);
 
+  // V2-05 05-10b (SUB-02): a locked clinic (owner + receptionist) and an onboarding clinic (owner), no patient data.
+  const locked = await seedAccessFixtureClinic("locked", `E2E Synthetic Locked Clinic ${runTag}`, ["owner", "receptionist"]);
+  const onboarding = await seedAccessFixtureClinic("onboarding", `E2E Synthetic Onboarding Clinic ${runTag}`, ["owner"]);
+  const fixtureUser = (u: { userId: string; email: string }) => ({ id: u.userId, email: u.email });
+
   const user = (s: SeededTenant) => ({ id: s.userId, email: s.userEmail });
   return {
     runTag,
@@ -101,6 +114,15 @@ async function seed(runTag: string): Promise<RunData> {
       users: { owner: user(ownerA), admin: user(admin), doctor: user(doctor), nurse: user(nurse), receptionist: user(receptionist) },
     },
     tenantB: { ...tenantB, owner: user(ownerB), invoiceId: (invoiceB as { id: string }).id },
+    access: {
+      locked: {
+        id: locked.tenantId,
+        name: locked.tenantName,
+        owner: fixtureUser(locked.users[0]),
+        receptionist: fixtureUser(locked.users[1]),
+      },
+      onboarding: { id: onboarding.tenantId, name: onboarding.tenantName, owner: fixtureUser(onboarding.users[0]) },
+    },
   };
 }
 
@@ -131,11 +153,13 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   ensureLocalErrorIngestKey(ROOT);
   const marker = await startRun(ROOT);
   let range: PwnedRangeServer | null = null;
+  let siteverify: TurnstileVerifyServer | null = null;
   const stop = async () => {
     try {
       await finish(marker);
     } finally {
       await range?.close();
+      await siteverify?.close();
     }
   };
   try {
@@ -143,6 +167,8 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
     pauseCronJobs(ROOT);
     // V2-03 03-12a (FT-05): the e2e server's range API (PWNED_API_BASE_URL); fixed port, loopback only.
     range = await startPwnedRangeServer({ port: E2E_PWNED_RANGE_PORT });
+    // V2-05 05-07b (R-46): the e2e server's Turnstile siteverify for invite acceptance (TURNSTILE_VERIFY_URL).
+    siteverify = await startTurnstileVerifyServer({ port: E2E_TURNSTILE_VERIFY_PORT, hostname: "127.0.0.1" });
     const run = await seed(randomUUID().slice(0, 8));
     fs.mkdirSync(AUTH_DIR, { recursive: true });
     fs.writeFileSync(RUN_FILE, `${JSON.stringify(run, null, 2)}\n`);

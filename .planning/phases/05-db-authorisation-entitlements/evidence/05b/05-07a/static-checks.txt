@@ -1,0 +1,9 @@
+# 05-07a static checks (tree = bb9de1d; exit codes from the tools)
+typecheck exit=0
+eslint --quiet exit=0
+inventory exit=0
+local-drift: PASS (0 statement(s), 0 allowlisted: none)
+schema-snapshot: PASS (local: 2541 lines equal the committed snapshot)
+authz:gen --check exit=0
+migration-immutability: migration-immutability: PASS (base 2cc4b8e @ 2cc4b8e [--base]; 87 applied unchanged; 1 new above 87)
+seed:local after the 000088 reset: [seed:local] access summary: full=1 locked=0 onboarding=0

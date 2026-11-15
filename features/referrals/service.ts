@@ -550,7 +550,7 @@ export async function getReferralSignedUrl(
     const { signedUrl } = await getSignedUrl(
       {
         path: referralLetterPath(referral.tenant_id, referral.id),
-        expiresInSeconds: VIEW_LINK_TTL_SECONDS,
+        expiresInSeconds: VIEW_LINK_TTL_SECONDS, // R-29 (05-10a): a view, the 300 s cap
         bucket: "clinic-records",
       },
       storageProvider

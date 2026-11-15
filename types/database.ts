@@ -9,6 +9,75 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_quota_reservations: {
+        Row: {
+          created_at: string;
+          expires_at: string;
+          feature: string;
+          id: string;
+          period: string;
+          tenant_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          expires_at: string;
+          feature: string;
+          id?: string;
+          period: string;
+          tenant_id: string;
+        };
+        Update: {
+          created_at?: string;
+          expires_at?: string;
+          feature?: string;
+          id?: string;
+          period?: string;
+          tenant_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_quota_reservations_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      ai_usage_monthly: {
+        Row: {
+          feature: string;
+          period: string;
+          tenant_id: string;
+          units: number;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          feature: string;
+          period: string;
+          tenant_id: string;
+          units?: number;
+          updated_at?: string;
+        };
+        Update: {
+          feature?: string;
+          period?: string;
+          tenant_id?: string;
+          units?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_monthly_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: false;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       api_key_usage_daily: {
         Row: {
           api_key_id: string;
@@ -1028,9 +1097,14 @@ export type Database = {
           expires_at: string;
           id: string;
           invited_address: string;
+          last_sent_at: string | null;
+          revoked_at: string | null;
+          revoked_by: string | null;
           role: string;
+          send_count: number;
           tenant_id: string;
-          token_hash: string;
+          token_hash: string | null;
+          token_version: number;
         };
         ComputedFields: never;
         Insert: {
@@ -1041,9 +1115,14 @@ export type Database = {
           expires_at: string;
           id?: string;
           invited_address: string;
+          last_sent_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
           role: string;
+          send_count?: number;
           tenant_id: string;
-          token_hash: string;
+          token_hash?: string | null;
+          token_version?: number;
         };
         Update: {
           consumed_at?: string | null;
@@ -1053,9 +1132,14 @@ export type Database = {
           expires_at?: string;
           id?: string;
           invited_address?: string;
+          last_sent_at?: string | null;
+          revoked_at?: string | null;
+          revoked_by?: string | null;
           role?: string;
+          send_count?: number;
           tenant_id?: string;
-          token_hash?: string;
+          token_hash?: string | null;
+          token_version?: number;
         };
         Relationships: [
           {
@@ -1198,8 +1282,11 @@ export type Database = {
           medical_council_reg_no: string | null;
           phone: string | null;
           qualifications: string | null;
+          removed_at: string | null;
+          removed_by: string | null;
           role: string;
           signature_url: string | null;
+          status: string;
           tenant_id: string;
           user_id: string;
         };
@@ -1214,8 +1301,11 @@ export type Database = {
           medical_council_reg_no?: string | null;
           phone?: string | null;
           qualifications?: string | null;
+          removed_at?: string | null;
+          removed_by?: string | null;
           role: string;
           signature_url?: string | null;
+          status?: string;
           tenant_id: string;
           user_id: string;
         };
@@ -1229,8 +1319,11 @@ export type Database = {
           medical_council_reg_no?: string | null;
           phone?: string | null;
           qualifications?: string | null;
+          removed_at?: string | null;
+          removed_by?: string | null;
           role?: string;
           signature_url?: string | null;
+          status?: string;
           tenant_id?: string;
           user_id?: string;
         };
@@ -1363,6 +1456,7 @@ export type Database = {
           abha_id: string | null;
           address: Json | null;
           age: number | null;
+          ai_processing_objected: boolean;
           allergies: string[] | null;
           chronic_conditions: string[] | null;
           created_at: string;
@@ -1379,6 +1473,8 @@ export type Database = {
           id: string;
           is_deleted: boolean;
           national_health_id: string | null;
+          objected_at: string | null;
+          objection_recorded_by: string | null;
           phone: string;
           preferred_language: string;
           sex: string | null;
@@ -1392,6 +1488,7 @@ export type Database = {
           abha_id?: string | null;
           address?: Json | null;
           age?: number | null;
+          ai_processing_objected?: boolean;
           allergies?: string[] | null;
           chronic_conditions?: string[] | null;
           created_at?: string;
@@ -1408,6 +1505,8 @@ export type Database = {
           id?: string;
           is_deleted?: boolean;
           national_health_id?: string | null;
+          objected_at?: string | null;
+          objection_recorded_by?: string | null;
           phone: string;
           preferred_language?: string;
           sex?: string | null;
@@ -1420,6 +1519,7 @@ export type Database = {
           abha_id?: string | null;
           address?: Json | null;
           age?: number | null;
+          ai_processing_objected?: boolean;
           allergies?: string[] | null;
           chronic_conditions?: string[] | null;
           created_at?: string;
@@ -1436,6 +1536,8 @@ export type Database = {
           id?: string;
           is_deleted?: boolean;
           national_health_id?: string | null;
+          objected_at?: string | null;
+          objection_recorded_by?: string | null;
           phone?: string;
           preferred_language?: string;
           sex?: string | null;
@@ -2255,6 +2357,42 @@ export type Database = {
           },
         ];
       };
+      tenant_ai_settings: {
+        Row: {
+          accepted_at: string | null;
+          accepted_by: string | null;
+          accepted_terms_version: string | null;
+          enabled: boolean;
+          tenant_id: string;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          accepted_terms_version?: string | null;
+          enabled?: boolean;
+          tenant_id: string;
+          updated_at?: string;
+        };
+        Update: {
+          accepted_at?: string | null;
+          accepted_by?: string | null;
+          accepted_terms_version?: string | null;
+          enabled?: boolean;
+          tenant_id?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "tenant_ai_settings_tenant_id_fkey";
+            columns: ["tenant_id"];
+            isOneToOne: true;
+            referencedRelation: "tenants";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       tenant_entitlement_overrides: {
         Row: {
           created_at: string;
@@ -2916,6 +3054,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      ai_commit: { Args: { p_reservation: string }; Returns: number };
+      ai_preflight: {
+        Args: { p_feature: string; p_visit_id: string };
+        Returns: string;
+      };
+      ai_release: { Args: { p_reservation: string }; Returns: boolean };
+      ai_reserve: {
+        Args: { p_feature: string; p_timeout_s: number; p_visit_id: string };
+        Returns: string;
+      };
       change_member_role: {
         Args: { p_membership_id: string; p_role: string };
         Returns: {
@@ -2928,8 +3076,11 @@ export type Database = {
           medical_council_reg_no: string | null;
           phone: string | null;
           qualifications: string | null;
+          removed_at: string | null;
+          removed_by: string | null;
           role: string;
           signature_url: string | null;
+          status: string;
           tenant_id: string;
           user_id: string;
         };
@@ -3025,6 +3176,10 @@ export type Database = {
         Returns: boolean;
       };
       consume_invitation: { Args: { p_token_hash: string }; Returns: string };
+      consume_invitation_for: {
+        Args: { p_token_hash: string; p_user_id: string };
+        Returns: string;
+      };
       consume_reschedule_token: {
         Args: { p_new_at: string; p_token: string };
         Returns: Json;
@@ -3156,6 +3311,18 @@ export type Database = {
         Args: { p_dedupe_key: string; p_outcome: string; p_provider: string };
         Returns: undefined;
       };
+      invitation_accept_context: {
+        Args: { p_token_hash: string };
+        Returns: Json;
+      };
+      invitation_issue_token: {
+        Args: { p_invitation_id: string; p_token_version: number };
+        Returns: string;
+      };
+      invite_staff: {
+        Args: { p_email: string; p_role: string; p_tenant: string };
+        Returns: Json;
+      };
       is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       is_safe_storage_key: { Args: { p_path: string }; Returns: boolean };
       is_valid_weekly_schedule: {
@@ -3223,6 +3390,7 @@ export type Database = {
         Args: { p_event: Json; p_ingest_key: string };
         Returns: undefined;
       };
+      peek_invitation: { Args: { p_token_hash: string }; Returns: Json };
       permission_matrix: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -3266,11 +3434,17 @@ export type Database = {
         Args: { p_id: string; p_lease_token: string };
         Returns: boolean;
       };
+      remove_member: {
+        Args: { p_membership_id: string; p_reason: string };
+        Returns: Json;
+      };
       reschedule_token_visit: { Args: { p_token: string }; Returns: Json };
+      resend_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       resolve_share_token: {
         Args: { p_kinds: string[]; p_token: string };
         Returns: Json;
       };
+      revoke_invitation: { Args: { p_invitation_id: string }; Returns: Json };
       revoke_share_token: { Args: { p_token_id: string }; Returns: string };
       search_medicines: {
         Args: {
@@ -3290,6 +3464,24 @@ export type Database = {
           is_favorite: boolean;
           medicine_name: string;
         }[];
+      };
+      session_is_live: { Args: Record<PropertyKey, never>; Returns: boolean };
+      set_ai_opt_in: {
+        Args: { p_enabled: boolean; p_tenant: string; p_terms_version: string };
+        Returns: {
+          accepted_at: string | null;
+          accepted_by: string | null;
+          accepted_terms_version: string | null;
+          enabled: boolean;
+          tenant_id: string;
+          updated_at: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "tenant_ai_settings";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
       };
       share_object_path: {
         Args: {

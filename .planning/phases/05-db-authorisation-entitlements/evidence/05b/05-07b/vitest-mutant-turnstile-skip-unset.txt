@@ -1,0 +1,10 @@
+   × verifyTurnstile (fake siteverify) > an unset secret refuses, never skips: no request is made (staging without 05-P7) 7ms
+     → expected { ok: true } to deeply equal { ok: false, reason: 'unconfigured' }
+   × acceptInviteWithPasswordAction (new invitee, public, token-gated) > TURNSTILE_SECRET_KEY unset (staging before 05-P7): refused, never skipped, no siteverify request 74ms
+     → expected { ok: true } to deeply equal { ok: false, …(1) }
+ FAIL  tests/auth/turnstile-verify.spec.ts > verifyTurnstile (fake siteverify) > an unset secret refuses, never skips: no request is made (staging without 05-P7)
+AssertionError: expected { ok: true } to deeply equal { ok: false, reason: 'unconfigured' }
+ FAIL  tests/integration/auth/accept-invite.spec.ts > acceptInviteWithPasswordAction (new invitee, public, token-gated) > TURNSTILE_SECRET_KEY unset (staging before 05-P7): refused, never skipped, no siteverify request
+AssertionError: expected { ok: true } to deeply equal { ok: false, …(1) }
+ Test Files  2 failed (2)
+      Tests  2 failed | 17 passed (19)

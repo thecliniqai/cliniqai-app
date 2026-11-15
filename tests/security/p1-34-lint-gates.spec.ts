@@ -105,6 +105,12 @@ const FAILING: Array<[string, string, string, Expected]> = [
   ["the factory itself in the Send Email hook route", "factory-import.ts", "app/api/auth/send-email/route.ts", [imp(1)]],
   ["another domain's system module in the Send Email hook route", "other-feature-system-import.ts", "app/api/auth/send-email/route.ts", [imp(1)]],
   ["features/sharing/system in the Send Email hook route", "sharing-system-import.ts", "app/api/auth/send-email/route.ts", [imp(1)]],
+  // Proposed ADR-0005 A4 (V2-05 05-07b, R-44): features/auth/system from invite acceptance only; nothing else there.
+  ["features/auth/system from a server action (not the A4 module)", "auth-system-import.ts", "features/staff/actions.ts", [imp(1)]],
+  ["features/auth/system from the auth actions module", "auth-system-import.ts", "features/auth/actions.ts", [imp(1)]],
+  ["the factory itself in the A4 module", "factory-import.ts", "features/auth/invite-flows.ts", [imp(1)]],
+  ["another domain's system module in the A4 module", "other-feature-system-import.ts", "features/auth/invite-flows.ts", [imp(1)]],
+  ["features/sharing/system in the A4 module", "sharing-system-import.ts", "features/auth/invite-flows.ts", [imp(1)]],
   ["a relative path to the factory", "traversal-factory-import.ts", "features/patients/service.ts", [imp(1)]],
   ["a re-export of the factory", "reexport-factory.ts", "lib/db/system-reexport.ts", [imp(1)]],
   // features/*/system and ADR-0005 A1.
@@ -173,6 +179,8 @@ const PASSING: Array<[string, string]> = [
   ["factory-import.ts", "lib/api/x.ts"],
   // Proposed ADR-0005 A3 (V2-04 04-03c, R-43).
   ["auth-system-import.ts", "app/api/auth/send-email/route.ts"],
+  // Proposed ADR-0005 A4 (V2-05 05-07b, R-44).
+  ["auth-system-import.ts", "features/auth/invite-flows.ts"],
   ["other-feature-system-import.ts", "features/sharing/system.ts"],
   ["other-feature-system-import.ts", "app/api/webhooks/messaging/x/route.ts"],
   ["second-factory.ts", "lib/supabase/system.ts"],
@@ -347,6 +355,8 @@ const ALLOWED_IMPORTER = [
 ];
 // Proposed ADR-0005 A3 (V2-04 04-03c): a feature_system importer only (never the factory).
 const A3_ROUTE = "app/api/auth/send-email/route.ts";
+// Proposed ADR-0005 A4 (V2-05 05-07b, R-44): invite acceptance, a feature_system importer only (never the factory).
+const A4_MODULE = "features/auth/invite-flows.ts";
 // The V2-03 register (03-02/03-04): the P1-37 entry plus three V2-04 entries, five globs. 04-03c deleted the V2-04 ones.
 const V2_03_REGISTER = ["app/api/v1/**", "lib/api/**", "app/api/cron/**", "lib/messaging/dispatcher.ts", "lib/webhooks/**"];
 
@@ -363,9 +373,12 @@ describe("P1-34 acceptance counters (scripts/ci/p1-34-counters.mjs, static-check
     expect(c.system_module_importers.factory.filter((f) => !ALLOWED_IMPORTER.some((re) => re.test(f)))).toEqual([]);
     expect(
       c.system_module_importers.feature_system.filter(
-        (f) => !A1_ROUTES.includes(f) && f !== A3_ROUTE && !ALLOWED_IMPORTER.some((re) => re.test(f)),
+        (f) => !A1_ROUTES.includes(f) && f !== A3_ROUTE && f !== A4_MODULE && !ALLOWED_IMPORTER.some((re) => re.test(f)),
       ),
     ).toEqual([]);
+    // A4 is used, and only as a feature_system importer.
+    expect(c.system_module_importers.feature_system).toContain(A4_MODULE);
+    expect(c.system_module_importers.factory).not.toContain(A4_MODULE);
     expect(c.system_module_importers.non_canonical).toEqual([]);
     expect(c.system_module_importers.factory).not.toContain(A3_ROUTE);
     // No importer is left on a deleted register path (the files are gone or moved to the job runner).
