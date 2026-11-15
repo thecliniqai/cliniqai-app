@@ -2,12 +2,13 @@
 
 import React from "react";
 import {
-  Stethoscope,
   Activity,
   Clock,
   Users,
   CheckCircle2,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand/brand-mark";
+import { PRODUCT_NAME } from "@/lib/design/brand";
 
 export function ClinicShowcasePanel() {
   return (
@@ -35,12 +36,10 @@ export function ClinicShowcasePanel() {
       {/* Top Header: Brand */}
       <div className="relative z-10 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-accent text-white flex items-center justify-center shadow-theme-xs">
-            <Stethoscope className="w-5 h-5" />
-          </div>
+          <BrandMark size={44} decorative />
           <div>
-            <span className="text-lg font-bold tracking-tight text-gray-900 block leading-tight">
-              ClinicOS
+            <span className="font-display text-title-1 text-gray-900 block leading-tight">
+              {PRODUCT_NAME}
             </span>
             <span className="text-[11px] font-medium text-gray-500 tracking-wide">
               Healthcare Operating System

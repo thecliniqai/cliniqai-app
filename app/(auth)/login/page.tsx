@@ -17,6 +17,7 @@ import { safeNextPath } from "@/lib/auth/safe-next";
 import { publicEnv } from "@/lib/env";
 import { afterSignIn, hasSessionCookie, onLoginArrival } from "@/lib/pwa/session-arrival";
 import { PARTIAL_SIGN_OUT_NOTICE } from "@/lib/auth/hard-sign-out";
+import { PRODUCT_NAME } from "@/lib/design/brand";
 
 /** 06-09a (M-EVERYWHERE): `?signout=partial` (from hardSignOut or the no-JS form) shows PARTIAL_SIGN_OUT_NOTICE. */
 const noSubscription = () => () => undefined;
@@ -86,7 +87,7 @@ export default function LoginPage() {
             <div className="w-11 h-11 rounded-2xl bg-blue-50 border border-blue-100 text-accent flex items-center justify-center mb-4 shadow-2xs">
               <LogIn className="w-5 h-5" aria-hidden="true" />
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Sign in to ClinicOS</h1>
+            <h1 className="font-display text-title-1 sm:text-display text-gray-900">Sign in to {PRODUCT_NAME}</h1>
             <p className="text-sm text-gray-500 mt-1.5">Use your clinic email and password.</p>
           </div>
 

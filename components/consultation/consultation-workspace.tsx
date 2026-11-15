@@ -460,7 +460,7 @@ export function ConsultationWorkspace({
     <div className="min-h-app bg-canvas pb-24 text-gray-900 w-full">
       {/* 1. STICKY TOP WORKSPACE HEADER (z-30) */}
       <header className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-2xs">
-        <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+        <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           {/* Left: Back & Patient Demographics */}
           <div className="flex items-center gap-3 min-w-0">
             <Link
@@ -582,7 +582,7 @@ export function ConsultationWorkspace({
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-2.5 min-w-0 ml-auto">
             {/* Mobile / Tablet specialty switcher */}
             <div className="flex xl:hidden items-center">
               <select

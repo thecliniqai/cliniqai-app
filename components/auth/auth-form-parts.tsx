@@ -1,17 +1,20 @@
 "use client";
 
 import React, { useState } from "react";
-import { Eye, EyeOff, Stethoscope } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "@/components/brand/brand-mark";
+import { PRODUCT_NAME } from "@/lib/design/brand";
 
-/** Mobile-only brand header shown above the auth forms (the showcase panel covers desktop). */
+/**
+ * Mobile-only brand header shown above the auth forms (the showcase panel covers desktop). V2-06 06-04b: the CliniQ
+ * AI mark (decorative beside the name) and the product name from `PRODUCT_NAME` in the display face.
+ */
 export function AuthMobileBrand() {
   return (
-    <div className="lg:hidden flex items-center gap-2.5 pb-2 border-b border-gray-100">
-      <div className="w-9 h-9 rounded-xl bg-accent text-white flex items-center justify-center shadow-theme-xs">
-        <Stethoscope className="w-5 h-5" aria-hidden="true" />
-      </div>
-      <span className="text-base font-bold text-gray-900">ClinicOS</span>
+    <div className="lg:hidden flex items-center gap-2.5 pb-2 border-b border-border">
+      <BrandMark size={36} decorative />
+      <span className="font-display text-title-2 text-fg">{PRODUCT_NAME}</span>
     </div>
   );
 }

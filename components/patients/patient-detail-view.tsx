@@ -138,7 +138,7 @@ export function PatientDetailView({
           </div>
 
           {/* Action Buttons: Edit Details, Book Slot, Add to Queue */}
-          <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
+          <div className="flex flex-wrap items-center gap-2.5 self-start max-w-full lg:self-center">
             {/* DPDP full-record export: exports:create only (owner today; ruling 01-09). No dead button for others. */}
             {hasPerm(userRole as UserRole, "exports:create") && <DpdpExportActions patientId={patient.id} />}
 
@@ -300,7 +300,7 @@ export function PatientDetailView({
       )}
 
       {/* Main Tabbed Navigation Bar */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 overflow-x-auto">
         <nav className="flex space-x-6" aria-label="Patient Tabs">
           <button
             type="button"
