@@ -1,0 +1,4 @@
+Full Vitest at c493d40 + the gate change (shared local stack 000094), 2026-11-15T06:50:24Z: npx vitest run --reporter=json
+files=303 tests=6219 passed=6219 failed=0 skipped/todo=0
+vitest exit 0
+[teardown] removed run data: 262 tenant(s), 508 auth user(s), 1568 storage object(s); verified none remain
