@@ -845,3 +845,17 @@ overturn any of them at the 05b gate (05-P6). Source: `.planning/phases/05-db-au
 
 R-38's other proposed errata (roadmap V2-05/DB-08, SVP §6.1, AUTH §3.2/§9, BACKEND C6/§3, SUB §7.1/§7.2) are not
 applied here; they stay listed in `05-PLAN.md` § Rulings for the V2-05 phase close.
+
+### PO ruling: lean delivery process from V2-07 (2026-11-15)
+
+PO: "adopt a lean process" (after V2-05/V2-06 used ~75 % of a week's usage quota in ~48 h). Supersedes the review/test
+depth parts of the 2026-11-14 speed ruling from V2-07 onward.
+
+| Item | Ruling |
+|---|---|
+| Reviews | One review round + one fix round per phase; re-check only Highs; Mediums found in a re-check go to the backlog with an owner, except real cross-tenant/PHI leaks; V2-14 is the sweep |
+| Tests in agents | Affected tests only + one full browser lane at the end of a plan; CI runs everything; one evidence run + CI; one "fails without" proof per High; no mutant runs |
+| Models | Sonnet for build work, Haiku for docs/evidence/merges, Opus for security review and hard debugging |
+| Parallelism | One phase at a time (or separate local stacks per track) |
+| Building | Vertical slices: each screen with the components it uses |
+| Unchanged | Flaky tests are root-caused, never retried to green; CI-only evidence; PO approves every gate |
