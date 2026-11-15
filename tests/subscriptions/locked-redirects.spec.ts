@@ -29,8 +29,8 @@ vi.mock("@/lib/supabase/server", async (importOriginal) => {
 });
 
 import DashboardLayout from "@/app/(dashboard)/layout";
-import DashboardPage from "@/app/(dashboard)/page";
-import PatientsPage from "@/app/(dashboard)/patients/page";
+import DashboardPage from "@/app/(dashboard)/(today)/page";
+import PatientsPage from "@/app/(dashboard)/patients/(list)/page";
 import PatientDetailPage from "@/app/(dashboard)/patients/[id]/page";
 import CalendarPage from "@/app/(dashboard)/calendar/page";
 import VisitsPage from "@/app/(dashboard)/visits/page";
