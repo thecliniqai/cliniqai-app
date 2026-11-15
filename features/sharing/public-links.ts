@@ -45,12 +45,24 @@ export interface ResolvedShareDocument {
   patient_name: string;
   expires_at: string;
   clinic: PublicClinic;
+  /**
+   * V2-05 05-10a (SUB-D6): an `expired` clinic's prescription resolves to its metadata only: no file is signed or
+   * served, the page says the clinic's online services are unavailable.
+   */
+  restricted?: boolean;
+  /** The clinic's access level (`full`, or `locked` for a restricted document). */
+  access?: string;
 }
 
 export type ShareTokenResolution =
   | { status: "ok"; document: ResolvedShareDocument }
   | { status: "revoked" | "expired"; clinic: PublicClinic | null }
+  /** V2-05 05-10a (SUB-02): the clinic's access level is not `full`; nothing about the document is returned. */
+  | { status: "clinic_unavailable" }
   | { status: "not_found" };
+
+/** V2-05 05-10a (SUB-02): the neutral text of every public page of a clinic that is not `full`. */
+export const CLINIC_UNAVAILABLE_MESSAGE = "This clinic's online services are unavailable.";
 
 /** Token shape accepted before any database call (64-hex today; a little slack, never unbounded). */
 export function isPlausibleToken(token: unknown): token is string {
@@ -78,6 +90,7 @@ export async function resolveShareToken(
   if (res.status === "revoked" || res.status === "expired") {
     return { status: res.status, clinic: (res.clinic as PublicClinic | null) ?? null };
   }
+  if (res.status === "clinic_unavailable") return { status: "clinic_unavailable" };
   return { status: "not_found" };
 }
 
@@ -96,7 +109,7 @@ export interface RescheduleContext {
 export type RescheduleContextResult =
   | { status: "ok"; context: RescheduleContext }
   | { status: "closed"; visitStatus: string }
-  | { status: "revoked" | "expired" | "not_found" | "unavailable" };
+  | { status: "revoked" | "expired" | "not_found" | "unavailable" | "clinic_unavailable" };
 
 export async function getRescheduleContext(token: string, fromIso: string, toIso: string): Promise<RescheduleContextResult> {
   if (!isPlausibleToken(token)) return { status: "not_found" };
@@ -128,6 +141,7 @@ export async function getRescheduleContext(token: string, fromIso: string, toIso
     case "revoked":
     case "expired":
     case "unavailable":
+    case "clinic_unavailable":
       return { status: res.status };
     default:
       return { status: "not_found" };
@@ -137,7 +151,9 @@ export async function getRescheduleContext(token: string, fromIso: string, toIso
 export type ConsumeRescheduleResult =
   | { status: "ok"; newScheduledAt: string }
   | { status: "closed"; visitStatus: string }
-  | { status: "revoked" | "expired" | "not_found" | "invalid_time" | "too_far" | "slot_taken" | "unavailable" };
+  | {
+      status: "revoked" | "expired" | "not_found" | "invalid_time" | "too_far" | "slot_taken" | "unavailable" | "clinic_unavailable";
+    };
 
 /**
  * Single use: the token is revoked in the same transaction as the visit update (000020). The new time must be within
@@ -177,6 +193,7 @@ export async function consumeRescheduleToken(token: string, newScheduledAt: stri
     case "too_far":
     case "slot_taken":
     case "unavailable":
+    case "clinic_unavailable":
       return { status: res.status };
     default:
       return { status: "not_found" };

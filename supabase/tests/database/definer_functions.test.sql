@@ -8,10 +8,13 @@
 --   4. no definer function calls a legacy "any membership" helper (05-b0 dropped `current_user_has_role`,
 --      `current_user_is_admin_or_owner` and `generate_daily_queue_token`, with their rows and legs here; 000079);
 --   5. dual-member legs: a user who belongs to clinics A and B, acting in A (x-clinicos-tenant header) on a clinic-B
---      subject, is refused; the same call acting in B is allowed. 05-10a adds the access-level leg to this file.
+--      subject, is refused; the same call acting in B is allowed;
+--   6. access-level legs (05-10a, SUB-02, research Pitfall 9): every user-reachable and service-role definer function is
+--      classified by how it treats a clinic whose access level is not `full` (the list equals the catalogue), and each
+--      one that reads tenant data refuses clinic B once B is locked, while the level-neutral ones keep working.
 -- Synthetic data only; every probe and the file roll back.
 begin;
-select plan(40);
+select plan(65);
 
 -- Fixtures (synthetic, inlined: pg_prove mounts only the test directory) -----------------------------------------
 -- Clinic A: owner, admin, doctor, second doctor, nurse, receptionist. Clinic B: owner, doctor.
@@ -153,6 +156,13 @@ insert into public.invitations (id, tenant_id, role, invited_address, expires_at
   ('c2c00000-0000-4000-8000-000000004101', 'c2c00000-0000-4000-8000-00000000000b', 'nurse', 'c2c-pending-b@example.test', now() + interval '1 day', 'c2c00000-0000-4000-8000-000000000201');
 insert into public.payments (id, tenant_id, invoice_id, amount, payment_method, recorded_by) values
   ('c2c00000-0000-4000-8000-000000009999', 'c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000002005', 100, 'cash', 'c2c00000-0000-4000-8000-000000000201');
+
+-- 05-10a: a reschedule (appointment) token of clinic B with a known raw value, for the access-level legs.
+insert into public.document_share_tokens (id, tenant_id, resource_type, resource_id, token_hash, created_by) values
+  ('c2c00000-0000-4000-8000-000000004002', 'c2c00000-0000-4000-8000-00000000000b', 'appointment', 'c2c00000-0000-4000-8000-000000002002',
+   public.share_token_hash('c2c-synthetic-reschedule-token-for-clinic-b-0001'), 'c2c00000-0000-4000-8000-000000000201'),
+  ('c2c00000-0000-4000-8000-000000004003', 'c2c00000-0000-4000-8000-00000000000b', 'invoice', 'c2c00000-0000-4000-8000-000000002005',
+   public.share_token_hash('c2c-synthetic-invoice-token-for-clinic-b-00001'), 'c2c00000-0000-4000-8000-000000000201');
 
 create temp table c2c_definer(fn text primary key, class text not null, reason text not null) on commit drop;
 insert into c2c_definer values
@@ -404,6 +414,156 @@ select alike(pg_temp.as_user('c2c00000-0000-4000-8000-000000000303', 'c2c00000-0
   'error:P0002:INVITATION_NOT_FOUND%', 'revoke_invitation: acting in A on B''s invitation is not found (05-07a)');
 select is(pg_temp.val_as('c2c00000-0000-4000-8000-000000000302', null, $$select count(*)::text from public.current_user_tenant_ids()$$),
   '2', 'current_user_tenant_ids stays the member helper: every clinic of the caller (the switcher)');
+
+-- 6. Access level (05-10a, SUB-02) ---------------------------------------------------------------------------------
+-- How every non-internal definer function treats a clinic that is not `full`:
+--   refuses  reads or writes tenant data: the caller's clinic must be full (bound helpers or the substituted check of
+--            000090); a leg below proves it on clinic B, locked;
+--   token    an anon token path: answers `clinic_unavailable` (000090); a leg below;
+--   neutral  no tenant data (or only the caller's own access/entitlements/audit row): works at any level;
+--   claim    job-runner and system paths: their jobs are cancelled at claim time for a non-full clinic (R-27) or the
+--            route checks `tenant_access_for_system` first (R-28).
+create temp table c2c_access(fn text primary key, handling text not null) on commit drop;
+insert into c2c_access values
+  ('public.change_member_role', 'refuses'), ('public.create_share_token', 'refuses'), ('public.revoke_share_token', 'refuses'),
+  ('public.enqueue_message', 'refuses'), ('public.enqueue_webhook_event', 'refuses'), ('private.outbox_payment_recorded', 'refuses'),
+  ('public.referral_source_clinics', 'refuses'), ('public.issue_queue_token', 'refuses'), ('public.generate_tenant_invoice_number', 'refuses'),
+  ('public.search_medicines', 'refuses'), ('public.record_payment', 'refuses'), ('public.has_permission', 'refuses'),
+  ('public.referral_directory_search', 'refuses'), ('public.remove_member', 'refuses'), ('public.invite_staff', 'refuses'),
+  ('public.resend_invitation', 'refuses'), ('public.revoke_invitation', 'refuses'),
+  ('public.log_audit', 'neutral'), ('public.current_user_tenant_ids', 'neutral'), ('public.my_tenant_access', 'neutral'),
+  ('public.my_entitlements', 'neutral'), ('public.consume_invitation', 'neutral'), ('public.peek_invitation', 'neutral'),
+  ('public.create_clinic_with_owner', 'neutral'), ('public.readiness_probe', 'neutral'), ('public.ops_ingest_error', 'neutral'),
+  ('public.is_platform_admin', 'neutral'), ('public.session_is_live', 'neutral'),
+  ('public.consume_reschedule_token', 'token'), ('public.get_reschedule_context', 'token'), ('public.resolve_share_token', 'token'),
+  ('public.share_token_object', 'token'),
+  ('public.claim_jobs', 'claim'), ('public.complete_job', 'claim'), ('public.defer_job', 'claim'), ('public.fail_job', 'claim'),
+  ('public.release_job', 'claim'), ('public.start_job', 'claim'), ('public.jobs_runner_begin', 'claim'), ('public.jobs_runner_end', 'claim'),
+  ('public.communication_queue_apply_dlr', 'claim'), ('public.communication_queue_claim', 'refuses'),
+  ('public.communication_queue_dead_letter', 'claim'), ('public.communication_queue_finish', 'refuses'),
+  ('public.communication_queue_scrub_payload', 'claim'), ('public.create_reschedule_token', 'claim'),
+  ('public.reschedule_token_visit', 'claim'), ('public.enqueue_message_system', 'claim'), ('public.enqueue_unmatched_reply_system', 'claim'),
+  ('public.enqueue_webhook_event_system', 'claim'), ('public.get_tenant_table_rls_policies', 'neutral'),
+  ('public.inbound_webhook_begin', 'neutral'), ('public.inbound_webhook_finish', 'neutral'), ('public.ops_alert_notified', 'neutral'),
+  ('public.ops_alert_payload', 'neutral'), ('public.share_resource_tenant', 'claim'), ('public.share_token_resource', 'claim'),
+  ('public.webhook_delivery_claim', 'claim'), ('public.webhook_delivery_finish', 'claim'), ('private.log_system_audit', 'neutral'),
+  ('public.invitation_issue_token', 'claim'), ('public.consume_invitation_for', 'neutral'), ('public.invitation_accept_context', 'neutral');
+select set_eq(
+  $$ select fn from c2c_definer where class <> 'internal' $$,
+  $$ select fn from c2c_access $$,
+  'every non-internal definer function is classified by how it treats a clinic that is not full (05-10a), and nothing else'
+);
+
+-- Run as the user acting in p_header, with clinic p_lock's access ended before the transaction (locked); rolled back.
+create function pg_temp.locked_as(p_lock uuid, p_user uuid, p_header uuid, p_sql text) returns text language plpgsql as $f$
+declare
+  v_out text;
+begin
+  begin
+    update public.tenant_subscriptions set access_ends_at = now() - interval '1 day' where tenant_id = p_lock;
+    v_out := pg_temp.as_user(p_user, p_header, p_sql);
+    raise exception 'c2c lock sentinel' using errcode = 'P0S04';
+  exception
+    when sqlstate 'P0S04' then null;
+  end;
+  return v_out;
+end;
+$f$;
+create function pg_temp.locked_val(p_lock uuid, p_user uuid, p_header uuid, p_sql text) returns text language plpgsql as $f$
+declare
+  v_out text;
+begin
+  begin
+    update public.tenant_subscriptions set access_ends_at = now() - interval '1 day' where tenant_id = p_lock;
+    v_out := pg_temp.val_as(p_user, p_header, p_sql);
+    raise exception 'c2c lock sentinel' using errcode = 'P0S04';
+  exception
+    when sqlstate 'P0S04' then null;
+  end;
+  return v_out;
+end;
+$f$;
+
+-- Each call is the "acting in B is allowed" call of section 5 (or its token equivalent), now with B locked.
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  format('select public.change_member_role(%L, %L)', (select id from public.memberships where user_id = 'c2c00000-0000-4000-8000-000000000202' and tenant_id = 'c2c00000-0000-4000-8000-00000000000b'), 'nurse')),
+  'error:P0002:not_found%', 'locked B: change_member_role is refused');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.create_share_token('invoice', 'c2c00000-0000-4000-8000-000000002005')$$),
+  'error:P0002:not_found%', 'locked B: create_share_token is refused');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.revoke_share_token('c2c00000-0000-4000-8000-000000004001')$$),
+  'error:P0002:not_found%', 'locked B: revoke_share_token is refused');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select public.enqueue_message('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000002001', null, 'whatsapp', 'appointment_booked', 'appointment_booked',
+      '{"patient_name": "Synthetic"}'::jsonb, '+919000000702', null, null)$$),
+  'error:P0002:SUBJECT_MISMATCH%', 'locked B: enqueue_message is refused (no patient message from a locked clinic)');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b', $$select public.enqueue_webhook_event('c2c00000-0000-4000-8000-00000000000b', 'ping', 'c2c00000-0000-4000-8000-000000002008', 'c2c00000-0000-4000-8000-000000002008')$$),
+  'error:P0002:SUBJECT_MISMATCH%', 'locked B: enqueue_webhook_event is refused');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select set_config('clinicos.record_payment_id', 'c2c00000-0000-4000-8000-000000009999', true), private.outbox_payment_recorded('c2c00000-0000-4000-8000-000000009999')$$),
+  'error:P0001:OUTBOX_SUBJECT_INVALID%', 'locked B: outbox_payment_recorded is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.referral_source_clinics(array['c2c00000-0000-4000-8000-00000000000a']::uuid[])$$),
+  '0', 'locked B: referral_source_clinics lists nothing');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select token_number from public.issue_queue_token('c2c00000-0000-4000-8000-000000002002')$$),
+  'denied:forbidden', 'locked B: issue_queue_token is refused');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select * from public.search_medicines('para', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', 1)$$),
+  'denied:forbidden', 'locked B: search_medicines is refused');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.generate_tenant_invoice_number('c2c00000-0000-4000-8000-00000000000b')$$),
+  'denied:%', 'locked B: generate_tenant_invoice_number is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000b', $$select public.record_payment('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000002005', 1, 'cash', '', null)$$),
+  'error:P0002:INVOICE_NOT_FOUND', 'locked B: record_payment is refused');
+select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000302', 'c2c00000-0000-4000-8000-00000000000b', $$select public.has_permission('c2c00000-0000-4000-8000-00000000000b', 'patients:view')::text$$),
+  'false', 'locked B: has_permission is false');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000a', 'c2c00000-0000-4000-8000-000000000301', 'c2c00000-0000-4000-8000-00000000000a', $$select * from public.referral_directory_search('Synthetic 05-02c Clinic')$$),
+  'denied:forbidden', 'locked A: referral_directory_search is refused (acting in A, A locked)');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  format('select public.remove_member(%L, %L)', (select id from public.memberships where user_id = 'c2c00000-0000-4000-8000-000000000202' and tenant_id = 'c2c00000-0000-4000-8000-00000000000b'), 'Synthetic reason')),
+  'error:P0002:MEMBER_NOT_FOUND%', 'locked B: remove_member is refused');
+select is(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select public.invite_staff('c2c00000-0000-4000-8000-00000000000b', 'c2c-invitee-b@example.test', 'admin')$$),
+  'denied:STAFF_INVITE_FORBIDDEN', 'locked B: invite_staff is refused');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select public.resend_invitation('c2c00000-0000-4000-8000-000000004101')$$),
+  'error:P0002:INVITATION_NOT_FOUND%', 'locked B: resend_invitation is refused');
+select alike(pg_temp.locked_as('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000303', 'c2c00000-0000-4000-8000-00000000000b',
+  $$select public.revoke_invitation('c2c00000-0000-4000-8000-000000004101')$$),
+  'error:P0002:INVITATION_NOT_FOUND%', 'locked B: revoke_invitation is refused');
+-- Token paths (anon) and the share-object lookup (service role).
+select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', null, null,
+  $$select (public.get_reschedule_context('c2c-synthetic-reschedule-token-for-clinic-b-0001', now(), now() + interval '1 day') ->> 'status')$$),
+  'clinic_unavailable', 'locked B: get_reschedule_context answers clinic_unavailable (control below: ok when full)');
+select is(pg_temp.val_as(null, null,
+  $$select (public.get_reschedule_context('c2c-synthetic-reschedule-token-for-clinic-b-0001', now(), now() + interval '1 day') ->> 'status')$$),
+  'ok', 'full B: get_reschedule_context answers ok');
+select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', null, null,
+  $$select (public.consume_reschedule_token('c2c-synthetic-reschedule-token-for-clinic-b-0001', now() + interval '2 days') ->> 'status')$$),
+  'clinic_unavailable', 'locked B: consume_reschedule_token answers clinic_unavailable and moves nothing');
+select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', null, null,
+  $$select (public.resolve_share_token('c2c-synthetic-invoice-token-for-clinic-b-00001', array['invoice']) ->> 'status')$$),
+  'clinic_unavailable', 'locked B: resolve_share_token of a receipt answers clinic_unavailable');
+select is(pg_temp.val_as(null, null,
+  $$select (public.resolve_share_token('c2c-synthetic-invoice-token-for-clinic-b-00001', array['invoice']) ->> 'access')$$),
+  'full', 'full B: resolve_share_token resolves and reports the access level');
+create function pg_temp.locked_service(p_lock uuid, p_sql text) returns text language plpgsql as $f$
+declare
+  v_out text;
+begin
+  begin
+    update public.tenant_subscriptions set access_ends_at = now() - interval '1 day' where tenant_id = p_lock;
+    set local role service_role;
+    execute p_sql into v_out;
+    raise exception 'c2c lock sentinel' using errcode = 'P0S04';
+  exception
+    when sqlstate 'P0S04' then null;
+  end;
+  return v_out;
+end;
+$f$;
+select is(pg_temp.locked_service('c2c00000-0000-4000-8000-00000000000b',
+  $$select coalesce(public.share_token_object('c2c-synthetic-invoice-token-for-clinic-b-00001', array['invoice'])::text, 'null')$$),
+  'null', 'locked B: share_token_object returns nothing to sign (service role)');
+-- Level-neutral control: the caller still learns its own clinic's level, and still writes its own audit row.
+select is(pg_temp.locked_val('c2c00000-0000-4000-8000-00000000000b', 'c2c00000-0000-4000-8000-000000000201', null, $$select public.my_tenant_access('c2c00000-0000-4000-8000-00000000000b')$$),
+  'locked', 'locked B: my_tenant_access tells its owner the clinic is locked (the billing page needs it)');
 
 select * from finish();
 rollback;

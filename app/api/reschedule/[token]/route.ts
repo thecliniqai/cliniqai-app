@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  CLINIC_UNAVAILABLE_MESSAGE,
   consumeRescheduleToken,
   getRescheduleContext,
   isPlausibleToken,
@@ -81,6 +82,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ tok
     }
     if (res.status === "unavailable") {
       return NextResponse.json({ error: UNAVAILABLE_MESSAGE }, { status: 409 });
+    }
+    // V2-05 05-10a (SUB-02): the clinic's access level is not `full`: the neutral text, nothing about the visit.
+    if (res.status === "clinic_unavailable") {
+      return NextResponse.json({ error: CLINIC_UNAVAILABLE_MESSAGE }, { status: 409 });
     }
     if (res.status !== "ok") {
       return NextResponse.json({ error: NOT_FOUND_MESSAGE }, { status: 404 });
@@ -179,6 +184,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ to
         return NextResponse.json({ error: closedMessage(res.visitStatus) }, { status: 400 });
       case "unavailable":
         return NextResponse.json({ error: UNAVAILABLE_MESSAGE }, { status: 409 });
+      case "clinic_unavailable":
+        return NextResponse.json({ error: CLINIC_UNAVAILABLE_MESSAGE }, { status: 409 });
       case "revoked":
       case "expired":
         return NextResponse.json({ error: GONE_MESSAGE }, { status: 410 });

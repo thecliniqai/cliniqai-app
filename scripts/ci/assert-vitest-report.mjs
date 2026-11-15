@@ -241,6 +241,8 @@ const REQUIRED_FILES = [
   "tests/integration/auth/accept-invite.spec.ts",
   "tests/jobs/email-invite-handler.spec.ts",
   "tests/auth/turnstile-verify.spec.ts",
+  // 05-10a SUB-02 enforcement (acceptance 8 app half).
+  "tests/subscriptions/lock-enforcement.spec.ts",
 ];
 
 const file = process.argv[2];

@@ -47,6 +47,9 @@
  *          revoke legs) + invitations_v2 75 = 4592 (41 files; the matrix keeps 3224 cells, invitations INSERT → rpc_only).
  *   4609 — V2-05 05b 05-07b (000089 invitation_accept_context): 4592 + invitation_accept_context 17 = 4609 (42 files;
  *          definer_functions keeps 40 cases, its classification and grant lists gain the new service-role function).
+ *   7388 — V2-05 05b 05-10a (000090 access_enforcement): 4609 + authz_matrix 2728 (3224 → 5952: 62 targets x 4 ops x 11
+ *          access-level principals, every A role locked and onboarding plus the dual member acting in a locked A)
+ *          + definer_functions 25 (40 → 65: the access classification and its legs) + access_lock_rls 26 = 7388 (43 files).
  * REQUIRED_FILES: the converted legacy files (05-01a) and every 05a file (05a gate close); each 05b plan appends its
  * files and raises the floor in the same commit (05b execution rule).
  *
@@ -58,7 +61,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const FLOOR = 4609;
+export const FLOOR = 7388;
 
 export const REQUIRED_FILES = [
   // 05-01a: the converted legacy files.
@@ -124,6 +127,8 @@ export const REQUIRED_FILES = [
   "supabase/tests/database/invitations_v2.test.sql",
   // 05-07b
   "supabase/tests/database/invitation_accept_context.test.sql",
+  // 05-10a
+  "supabase/tests/database/access_lock_rls.test.sql",
 ];
 
 /** `/abs/path/supabase/tests/database/x.test.sql ..` (pg_prove prints the dots as one run, then a space). */

@@ -43,7 +43,8 @@ const LEVELS = new Set<string>(["full", "locked", "onboarding", "none"]);
  */
 export async function getSubscriptionOverview(): Promise<SubscriptionOverview> {
   const supabase = await createClient();
-  const session = await requirePermission(supabase, "clinic:manage");
+  // SUB §6.2 (05-10a): the owner of a locked or onboarding clinic must still see the subscription.
+  const session = await requirePermission(supabase, "clinic:manage", "billing");
 
   const { data: row, error: rowError } = await supabase
     .from("tenant_subscriptions")

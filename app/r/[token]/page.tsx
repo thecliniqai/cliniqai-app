@@ -1,5 +1,10 @@
 import React from "react";
-import { DOCUMENT_LINK_KINDS, isPlausibleToken, resolveShareToken } from "@/features/sharing/public-links";
+import {
+  CLINIC_UNAVAILABLE_MESSAGE,
+  DOCUMENT_LINK_KINDS,
+  isPlausibleToken,
+  resolveShareToken,
+} from "@/features/sharing/public-links";
 import { signSharedObject } from "@/features/sharing/system";
 import {
   FileText,
@@ -15,6 +20,21 @@ import {
 
 interface PublicDocumentPageProps {
   params: Promise<{ token: string }>;
+}
+
+/** V2-05 05-10a (SUB-02): the neutral page of a clinic whose access level is not `full`. */
+function ClinicUnavailable() {
+  return (
+    <div className="min-h-screen bg-[#F7F6F3] flex items-center justify-center p-4">
+      <div className="max-w-[480px] w-full bg-white rounded-xl border border-[#E5E7EB] p-6 text-center shadow-xs">
+        <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center mx-auto mb-4">
+          <Building2 className="w-6 h-6" aria-hidden="true" />
+        </div>
+        <h1 className="text-lg font-semibold text-[#111827] mb-2">{CLINIC_UNAVAILABLE_MESSAGE}</h1>
+        <p className="text-sm text-[#4B5563] leading-relaxed">Please contact the clinic directly.</p>
+      </div>
+    </div>
+  );
 }
 
 export default async function PublicDocumentViewerPage({ params }: PublicDocumentPageProps) {
@@ -39,6 +59,7 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
   // Token-scoped resolution (P0-04, ADR-0005 D3): bound to the token's tenant and to document kinds only.
   const resolved = await resolveShareToken(token, DOCUMENT_LINK_KINDS);
   const isRevoked = resolved.status === "revoked";
+  if (resolved.status === "clinic_unavailable") return <ClinicUnavailable />;
 
   if (resolved.status !== "ok") {
     const clinicPhone = resolved.status === "revoked" || resolved.status === "expired" ? resolved.clinic?.phone : null;
@@ -82,8 +103,10 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
     ? new Date(doc.report_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
     : "";
 
+  // V2-05 05-10a (SUB-D6): an expired clinic's prescription shows its metadata only; no file is signed or served.
+  const restricted = doc.restricted === true;
   // Short-lived signed URL for the object behind this token (tenant-prefix checked); else the download route.
-  const signed = await signSharedObject(token, DOCUMENT_LINK_KINDS);
+  const signed = restricted ? null : await signSharedObject(token, DOCUMENT_LINK_KINDS);
   const signedUrl = signed?.signedUrl ?? `/api/r/${token}?download=true`;
 
   const clinic = {
@@ -143,6 +166,12 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
             </div>
           </div>
 
+          {restricted ? (
+            <p className="rounded-lg border border-[#E5E7EB] bg-gray-50 p-4 text-sm text-[#374151]" data-testid="share-restricted">
+              {CLINIC_UNAVAILABLE_MESSAGE} The document cannot be viewed or downloaded here; please contact the clinic.
+            </p>
+          ) : (
+          <>
           {/* Embedded Viewer Preview */}
           <div className="rounded-lg border border-[#E5E7EB] bg-gray-50 overflow-hidden min-h-[220px] flex items-center justify-center">
             {isImage ? (
@@ -176,6 +205,8 @@ export default async function PublicDocumentViewerPage({ params }: PublicDocumen
             <Download className="w-4 h-4" />
             Download Official PDF
           </a>
+          </>
+          )}
         </div>
       </main>
 

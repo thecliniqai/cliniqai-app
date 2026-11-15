@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { UserRole } from "@/lib/db/types";
+import { DEFAULT_APP_ERROR_MESSAGES } from "@/lib/errors/app-error";
 import { errorTag, log } from "@/lib/log";
 import { getRequestId } from "@/lib/log/request-id";
 
@@ -30,10 +31,67 @@ export class MultipleClinicsSelectionRequiredError extends Error {
   }
 }
 
+/**
+ * V2-05 05-10a (SUB-02, SUB §6.2): the active clinic's access level, as `my_tenant_access` reports it
+ * (`billing_internal.tenant_access_level` at `now()`): `full` (trialing, active, past_due in grace, comp), `locked`
+ * (expired, archived, or a status past `access_ends_at`), `onboarding` (incomplete, not comped), `none` (purged).
+ * Anything unreadable is treated as `none` (fail closed).
+ */
+export type TenantAccessLevel = "full" | "locked" | "onboarding" | "none";
+const ACCESS_LEVELS: readonly TenantAccessLevel[] = ["full", "locked", "onboarding", "none"];
+
 export interface ActiveMembership {
   tenantId: string;
   role: UserRole;
   userId: string;
+}
+
+/**
+ * The active clinic is not `full` (SUB-02): the typed refusal of `assertTenantAccess`. Server actions answer it with
+ * the fixed `SUBSCRIPTION_LOCKED` text (`clientErrorMessage`, `resolveServiceContext`); the PWA client reacts to it
+ * (V2-06 D-8). Carries no tenant data.
+ */
+export class TenantLockedError extends Error {
+  readonly code = "SUBSCRIPTION_LOCKED" as const;
+  readonly accessLevel: TenantAccessLevel;
+  constructor(accessLevel: TenantAccessLevel) {
+    super(DEFAULT_APP_ERROR_MESSAGES.SUBSCRIPTION_LOCKED);
+    this.name = "TenantLockedError";
+    this.accessLevel = accessLevel;
+  }
+}
+
+/** What a path needs: `full` (every clinical and operational path), or `billing` (full, locked or onboarding). */
+export type RequiredAccess = "full" | "billing";
+
+/** Whether a level gives the access a path needs. */
+export function accessAllows(level: TenantAccessLevel, required: RequiredAccess): boolean {
+  return required === "full" ? level === "full" : level === "full" || level === "locked" || level === "onboarding";
+}
+
+/**
+ * Throws {@link TenantLockedError} unless the membership's clinic has the access the path needs (SUB §7.2). Called by
+ * the guards AFTER the membership and the role check, so a refused role never reaches this lookup (the guard suite's
+ * "no data access before the refusal"). The database enforces the same stop (RLS, storage, definer RPCs; 000090).
+ */
+export async function assertTenantAccess(
+  membership: Pick<ActiveMembership, "tenantId">,
+  required: RequiredAccess = "full",
+): Promise<TenantAccessLevel> {
+  const level = await getTenantAccessLevel(membership.tenantId);
+  if (!accessAllows(level, required)) throw new TenantLockedError(level);
+  return level;
+}
+
+/** The active clinic's access level through `my_tenant_access` (the caller's own clinic only); fail closed. */
+export async function getTenantAccessLevel(tenantId: string): Promise<TenantAccessLevel> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_tenant_access", { p_tenant: tenantId });
+  if (error) {
+    log.error({ event: "auth.access_level_lookup.failed", code: errorTag(error), requestId: await getRequestId() });
+    throw new Error("Failed to resolve clinic access.");
+  }
+  return (ACCESS_LEVELS as readonly string[]).includes(data as string) ? (data as TenantAccessLevel) : "none";
 }
 
 import { cookies } from "next/headers";

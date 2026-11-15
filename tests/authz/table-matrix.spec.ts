@@ -475,11 +475,39 @@ describe("the subscription tables (SUB-01, since 05-09a)", () => {
     expect(actual).toEqual(TARGET_05_09A);
   });
 
-  it("lets only the owner and admin of the active clinic read its subscription and events", () => {
+  it("lets only the owner and admin of the active clinic read its subscription and events, at every access level", () => {
+    // 05-10a (Pitfall 7): a locked or onboarding owner/admin still reads the subscription (authz.billing_tenant_ids).
     for (const target of ["public.tenant_subscriptions", "public.subscription_events"]) {
       const readers = PRINCIPALS.filter((p) => outcome(target, "select", p.id) === "1").map((p) => p.id);
-      expect(readers, target).toEqual(["owner_a", "admin_a"]);
+      expect(readers, target).toEqual(["owner_a", "admin_a", "owner_a_locked", "admin_a_locked", "owner_a_onboarding", "admin_a_onboarding"]);
     }
+  });
+
+  it("05-10a: with clinic A locked or onboarding, no role of A reads or writes any tenant target (only member/billing rules admit)", () => {
+    const levelPrincipals = PRINCIPALS.filter((p) => p.access?.A);
+    expect(levelPrincipals.map((p) => p.id)).toEqual([
+      "owner_a_locked", "admin_a_locked", "doctor_a_locked", "nurse_a_locked", "receptionist_a_locked",
+      "owner_a_onboarding", "admin_a_onboarding", "doctor_a_onboarding", "nurse_a_onboarding", "receptionist_a_onboarding",
+      "dual_hdr_a_locked",
+    ]);
+    const admitted = new Set<string>();
+    for (const t of TARGETS) {
+      for (const op of OPS) {
+        // Global reference data (catalogue rule: every signed-in user) is not tenant data.
+        if (t.rules[op].kind === "catalogue") continue;
+        for (const p of levelPrincipals) {
+          const o = outcome(targetName(t), op, p.id);
+          if (o === "1" || o === "ok") admitted.add(`${targetName(t)}:${op}`);
+        }
+      }
+    }
+    // memberships: the fixture row is another member's, which only staff:view (full) reveals; the caller's OWN row stays
+    // visible at every level (member helper), proven over the live catalogue by access_lock_rls.test.sql.
+    expect([...admitted].sort()).toEqual([
+      "public.subscription_events:select",
+      "public.tenant_subscriptions:select",
+      "public.tenants:select",
+    ]);
   });
 
   it("lets every signed-in user, and no anon caller, read the visible catalogue; nobody writes it", () => {

@@ -6,8 +6,7 @@ import {
   StorageDownloadOptions,
   StorageProvider,
   StorageSignedUrlOptions,
-  StorageUploadOptions,
-} from "./types";
+  StorageUploadOptions, clampSignedUrlTtl } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<Database, any, any>;
@@ -65,7 +64,8 @@ export class SupabaseStorageProvider implements StorageProvider {
 
   async createSignedUrl(options: StorageSignedUrlOptions): Promise<{ signedUrl: string }> {
     const bucket = options.bucket || this.defaultBucket;
-    const expiresIn = options.expiresInSeconds || 3600;
+    // R-29 (05-10a): clamped here too, so a direct provider call cannot sign a longer-lived URL.
+    const expiresIn = clampSignedUrlTtl(options.expiresInSeconds, options.purpose);
     const client = await this.getClient();
 
     const { data, error } = await client.storage

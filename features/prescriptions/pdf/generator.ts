@@ -119,11 +119,11 @@ export async function generateAndArchivePrescriptionPdf(
       .eq("tenant_id", payload.tenant_id);
   }
 
-  // 5. Generate secure, time-limited signed URL (3600s TTL)
+  // 5. Generate secure, time-limited signed URL (R-29, 05-10a: 300 s)
   const { signedUrl } = await getSignedUrl(
     {
       path: storagePath,
-      expiresInSeconds: 3600,
+      expiresInSeconds: 300,
       bucket: "prescriptions",
     },
     storageProvider

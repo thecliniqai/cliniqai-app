@@ -32,10 +32,12 @@ const VARIANTS = [
   `tenants/${TENANT_A}/patients/${PATIENT_P}/a b.pdf`,
 ];
 
-function fakeAdmin(storagePath: string) {
+function fakeAdmin(storagePath: string, access = "full") {
   const createSignedUrl = vi.fn(async () => ({ data: { signedUrl: "http://127.0.0.1:9/signed?token=syn" }, error: null }));
   const client = {
     rpc: vi.fn(async (name: string) => {
+      // V2-05 05-10a (R-28): the sharing module checks the clinic's access level before signing.
+      if (name === "tenant_access_for_system") return { data: access, error: null };
       if (name !== "share_token_object") return { data: null, error: null };
       return {
         data: {
@@ -65,6 +67,15 @@ describe("AR2-H1: encoded dot segments never reach the storage signer", () => {
     const res = await signSharedObject(TOKEN, ["patient_document"]);
     expect(res?.signedUrl).toContain("signed");
     expect(createSignedUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("05-10a: a well-formed key of a clinic that is not full is not signed (R-28)", async () => {
+    for (const level of ["locked", "onboarding", "none"]) {
+      const { client, createSignedUrl } = fakeAdmin(`tenants/${TENANT_A}/patients/${PATIENT_P}/labs/report_2026-10-22.pdf`, level);
+      vi.spyOn(systemDb, "getSystemDb").mockReturnValue(client as never);
+      expect(await signSharedObject(TOKEN, ["patient_document"]), level).toBeNull();
+      expect(createSignedUrl).not.toHaveBeenCalled();
+    }
   });
 
   it.each(VARIANTS)("signSharedObject refuses %s without calling storage", async (path) => {

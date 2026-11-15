@@ -200,6 +200,31 @@ export interface Principal {
   statuses?: Partial<Record<TenantKey, Exclude<MemberStatus, "active">>>;
   /** The `x-clinicos-tenant` header (R-42); null = no header (the sole-membership fallback applies). */
   header: TenantKey | null;
+  /**
+   * 05-10a (SUB-02): the clinic's access level while the cell runs; a clinic not listed is `full` (the fixture clinics
+   * are `trialing`). The cell sets it as `postgres` inside its own rolled-back subtransaction (ACCESS_SQL).
+   */
+  access?: Partial<Record<TenantKey, Exclude<AccessLevel, "full">>>;
+}
+
+/** `billing_internal.tenant_access_level` (05-09a): what the RLS helpers read from 05-10a on. */
+export type AccessLevel = "full" | "locked" | "onboarding";
+
+/** The principal's view of a clinic's access level (05-10a). */
+export function accessOf(p: Principal, tenant: TenantKey): AccessLevel {
+  return p.access?.[tenant] ?? "full";
+}
+
+/**
+ * 05-10a: the statement (run as `postgres` in the cell's subtransaction, before the principal's statement) that puts a
+ * fixture clinic in a level. `locked`: the trial's access ended before the transaction started (now() is frozen per
+ * transaction, Pitfall 10), i.e. "p_now past access_ends_at"; `onboarding`: an `incomplete` subscription, no comp.
+ */
+export function accessSql(tenant: TenantKey, level: Exclude<AccessLevel, "full">): Sql {
+  const id = q(TENANT_IDS[tenant]);
+  return level === "locked"
+    ? `update public.tenant_subscriptions set access_ends_at = now() - interval '1 day' where tenant_id = ${id}`
+    : `update public.tenant_subscriptions set status = 'incomplete', comp_until = null where tenant_id = ${id}`;
 }
 
 /** The principal's ACTIVE memberships: what the helpers see (05-05). A removed or suspended row counts as none. */
@@ -268,6 +293,36 @@ export const PRINCIPALS: readonly Principal[] = [
     userId: FX.users.dual,
     memberships: { A: "doctor", B: "receptionist" },
     header: null,
+  },
+  // 05-10a (SUB-02, acceptance 8): every role of A with A locked, and with A onboarding; the dual member acting in a
+  // locked A. Only the access level differs from the full principals above (same users and memberships).
+  ...(["locked", "onboarding"] as const).flatMap((level): Principal[] => [
+    ...(
+      [
+        ["owner", FX.users.ownerA],
+        ["admin", FX.users.adminA],
+        ["doctor", FX.users.doctorA],
+        ["nurse", FX.users.nurseA],
+        ["receptionist", FX.users.receptionistA],
+      ] as const
+    ).map(([role, userId]): Principal => ({
+      id: `${role}_a_${level}`,
+      label: `${role} of A, A ${level === "locked" ? "locked (access ended before the transaction)" : "onboarding (incomplete)"}`,
+      dbRole: "authenticated",
+      userId,
+      memberships: { A: role },
+      header: null,
+      access: { A: level },
+    })),
+  ]),
+  {
+    id: "dual_hdr_a_locked",
+    label: "dual member, header A, A locked",
+    dbRole: "authenticated",
+    userId: FX.users.dual,
+    memberships: { A: "doctor", B: "receptionist" },
+    header: "A",
+    access: { A: "locked" },
   },
 ];
 
