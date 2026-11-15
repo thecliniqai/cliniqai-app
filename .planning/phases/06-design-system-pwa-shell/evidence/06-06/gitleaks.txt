@@ -1,0 +1,5 @@
+gitleaks ghcr.io/gitleaks/gitleaks:v8.30.1, git mode, --config .gitleaks.toml --redact, --log-opts=f555819..adaa0f6 (the 05b waves 5-10 merge 7136686 with the 05b commits it brings, and every 06-06 commit), local clone of the branch, 2026-11-15T02:58:57Z
+    ░    gitleaks
+2:58AM INF 28 commits scanned.
+2:58AM INF scanned ~11824353 bytes (11.82 MB) in 1.53s
+2:58AM INF no leaks found
