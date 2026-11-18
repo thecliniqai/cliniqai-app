@@ -358,6 +358,9 @@ const REQUIRED_FILES = [
   // V2-07 07-00 (command_claim/command_complete, the client command runner). The FLOOR is re-measured at the V2-07 gate.
   "tests/commands/command-results.spec.ts",
   "tests/commands/use-command.spec.ts",
+  // V2-07 07-02 (create_invoice, collect_payment).
+  "tests/billing/create-invoice-rpc.spec.ts",
+  "tests/billing/collect-payment-rpc.spec.ts",
 ];
 
 const file = process.argv[2];

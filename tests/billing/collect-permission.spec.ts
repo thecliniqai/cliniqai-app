@@ -232,6 +232,7 @@ describe("billing:collect (05-02b, PO-3)", () => {
         items: [{ item_type: "consultation" as const, description: "Synthetic fee", unit_price: 200, quantity: 1 }],
         discount: 0,
         tax: 0,
+        client_request_id: randomUUID(),
       };
       expect(await createVisitInvoice(ctxFor(doctor), input)).toEqual({ success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE });
       expect(await createVisitInvoice(ctxFor(nurse), input)).toEqual({ success: false, error: BILLING_COLLECT_FORBIDDEN_MESSAGE });

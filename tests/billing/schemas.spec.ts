@@ -4,6 +4,7 @@ import {
   createInvoiceSchema,
   recordPaymentSchema,
   completeAndBillSchema,
+  collectPaymentSchema,
 } from "@/features/billing/schema";
 
 describe("Billing Zod Validation Schemas (REQ-billing-invoicing)", () => {
@@ -43,9 +44,14 @@ describe("Billing Zod Validation Schemas (REQ-billing-invoicing)", () => {
       ],
       discount: 50,
       tax: 0,
+      client_request_id: "44444444-4444-4444-8444-444444444444",
     };
 
     expect(createInvoiceSchema.safeParse(valid).success).toBe(true);
+
+    // V2-07 PWA-06a: the request id is required and a uuid
+    expect(createInvoiceSchema.safeParse({ ...valid, client_request_id: undefined }).success).toBe(false);
+    expect(createInvoiceSchema.safeParse({ ...valid, client_request_id: "nope" }).success).toBe(false);
 
     // Empty items array rejected
     expect(createInvoiceSchema.safeParse({ ...valid, items: [] }).success).toBe(false);
@@ -55,6 +61,23 @@ describe("Billing Zod Validation Schemas (REQ-billing-invoicing)", () => {
 
     // Negative discount rejected
     expect(createInvoiceSchema.safeParse({ ...valid, discount: -20 }).success).toBe(false);
+  });
+
+  it("validates collectPaymentSchema: a positive amount, a closed method, a request id; items may be empty", () => {
+    const valid = {
+      visit_id: "11111111-1111-1111-1111-111111111111",
+      patient_id: "22222222-2222-2222-2222-222222222222",
+      amount: 650,
+      payment_method: "upi",
+      client_request_id: "44444444-4444-4444-8444-444444444444",
+    };
+    const parsed = collectPaymentSchema.safeParse(valid);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data).toMatchObject({ items: [], discount: 0, tax: 0 });
+    expect(collectPaymentSchema.safeParse({ ...valid, amount: 0 }).success).toBe(false);
+    expect(collectPaymentSchema.safeParse({ ...valid, payment_method: "bitcoin" }).success).toBe(false);
+    expect(collectPaymentSchema.safeParse({ ...valid, client_request_id: undefined }).success).toBe(false);
+    expect(collectPaymentSchema.safeParse({ ...valid, items: Array.from({ length: 51 }, () => ({ description: "x", unit_price: 1 })) }).success).toBe(false);
   });
 
   it("validates recordPaymentSchema with cash, upi, card and positive amount", () => {

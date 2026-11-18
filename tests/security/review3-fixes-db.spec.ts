@@ -427,6 +427,7 @@ describe("01-10 review round 3 fixes (000024)", () => {
       items: [{ item_type: "consultation" as const, description: "OPD Consultation Fee", unit_price: 300, quantity: 1 }],
       discount: 0,
       tax: 0,
+      client_request_id: randomUUID(),
     });
 
     it("the database refuses a second live invoice for the same visit", async () => {
