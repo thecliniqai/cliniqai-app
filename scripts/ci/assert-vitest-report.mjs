@@ -355,6 +355,9 @@ const REQUIRED_FILES = [
   "tests/auth/session-auth-close-db.spec.ts",
   // 06-09e (G3 design review): the BottomBar caption, palette shortcut label and initials mappings.
   "tests/design/design-review-09e.spec.ts",
+  // V2-07 07-00 (command_claim/command_complete, the client command runner). The FLOOR is re-measured at the V2-07 gate.
+  "tests/commands/command-results.spec.ts",
+  "tests/commands/use-command.spec.ts",
 ];
 
 const file = process.argv[2];

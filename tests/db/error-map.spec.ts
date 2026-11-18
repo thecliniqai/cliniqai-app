@@ -67,6 +67,9 @@ describe("mapDbError: SQLSTATE table", () => {
     ["P0001 INVITATION_ACCOUNT_AMBIGUOUS (05-07b)", { code: "P0001", message: "INVITATION_ACCOUNT_AMBIGUOUS" }, "CONFLICT", "INVITATION_ACCOUNT_AMBIGUOUS"],
     ["P0002 INVITATION_NOT_FOUND (05-07a)", { code: "P0002", message: "INVITATION_NOT_FOUND" }, "NOT_FOUND", "INVITATION_NOT_FOUND"],
     ["42501 SYSTEM_ONLY (05-07a)", { code: "42501", message: "SYSTEM_ONLY" }, "FORBIDDEN", undefined],
+    // V2-07 07-00 (000095): the idempotent command helpers.
+    ["P0001 CLIENT_REQUEST_ID_REQUIRED (07-00)", { code: "P0001", message: "CLIENT_REQUEST_ID_REQUIRED" }, "VALIDATION_FAILED", "CLIENT_REQUEST_ID_REQUIRED"],
+    ["P0001 COMMAND_NOT_CLAIMED (07-00, a programming fault)", { code: "P0001", message: "COMMAND_NOT_CLAIMED" }, "INTERNAL", "COMMAND_NOT_CLAIMED"],
     ["P0001 unregistered reason", { code: "P0001", message: "SLOT_TAKEN" }, "CONFLICT", "SLOT_TAKEN"],
     ["P0001 free text (an older RAISE)", { code: "P0001", message: "visit 1b2c has 2 live invoices for Synthetic Patient" }, "CONFLICT", undefined],
     ["XX000 internal", { code: "XX000", message: "SPIKE_FAULT" }, "INTERNAL", undefined],
