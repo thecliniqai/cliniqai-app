@@ -3188,6 +3188,21 @@ export type Database = {
           tenant_id: string;
         }[];
       };
+      collect_payment: {
+        Args: {
+          p_amount: number;
+          p_client_request_id: string;
+          p_discount?: number;
+          p_items: Json;
+          p_method: string;
+          p_notes: string;
+          p_reference: string;
+          p_tax?: number;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       communication_metadata_strip_tokens: { Args: { p: Json }; Returns: Json };
       communication_payload_redact: { Args: { p: Json }; Returns: Json };
       communication_queue_apply_dlr: {
@@ -3262,6 +3277,17 @@ export type Database = {
         Returns: Json;
       };
       create_clinic_with_owner: { Args: { p_name: string }; Returns: string };
+      create_invoice: {
+        Args: {
+          p_client_request_id: string;
+          p_discount?: number;
+          p_items: Json;
+          p_tax?: number;
+          p_tenant_id: string;
+          p_visit_id: string;
+        };
+        Returns: Json;
+      };
       create_reschedule_token: {
         Args: { p_visit_id: string };
         Returns: string;
